@@ -1,13 +1,63 @@
 import { useEffect, useRef } from 'react';
 import * as monaco from 'monaco-editor';
 
+// Formatting function
+function formatCode(code: string): string {
+  let formatted = code;
+
+  // 1. Normalize line endings
+  formatted = formatted.replace(/\r\n/g, '\n');
+
+  // 2. Add newlines after opening braces
+  formatted = formatted.replace(/\{\s*/g, '{\n');
+
+  // 3. Add newlines before closing braces
+  formatted = formatted.replace(/\s*\}/g, '\n}');
+
+  // 4. Indent blocks (simple 2-space indentation)
+  const lines = formatted.split('\n');
+  let indentLevel = 0;
+  const indentedLines = lines.map(line => {
+    const trimmed = line.trim();
+    
+    // Decrease indent for closing braces
+    if (trimmed.startsWith('}')) {
+      indentLevel = Math.max(0, indentLevel - 1);
+    }
+
+    const indented = '  '.repeat(indentLevel) + trimmed;
+
+    // Increase indent after opening braces
+    if (trimmed.endsWith('{')) {
+      indentLevel++;
+    }
+
+    return indented;
+  });
+
+  formatted = indentedLines.join('\n');
+
+  // 5. Remove multiple consecutive blank lines
+  formatted = formatted.replace(/\n{3,}/g, '\n\n');
+
+  // 6. Ensure newline at end of file
+  if (!formatted.endsWith('\n')) {
+    formatted += '\n';
+  }
+
+  return formatted;
+}
+
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
+  onCompileAndRun?: () => void;
+  onFormat?: () => void;
   readOnly?: boolean;
+  editorRef?: React.RefObject<{ getValue: () => string }>;
 }
 
-export function CodeEditor({ value, onChange, readOnly = false }: CodeEditorProps) {
+export function CodeEditor({ value, onChange, onCompileAndRun, onFormat, readOnly = false, editorRef: externalEditorRef }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -84,9 +134,51 @@ export function CodeEditor({ value, onChange, readOnly = false }: CodeEditorProp
 
     editorRef.current = editor;
 
+    // Expose getValue method to external ref if provided
+    if (externalEditorRef) {
+      externalEditorRef.current = {
+        getValue: () => editor.getValue()
+      };
+    }
+
     // Set up change listener
     const changeDisposable = editor.onDidChangeModelContent(() => {
       onChange(editor.getValue());
+    });
+
+    // NEW: Add keyboard shortcut for formatting (Ctrl+Shift+F / Cmd+Shift+F)
+    // Use onKeyDown instead of addCommand to avoid accidental deletion
+    const keydownDisposable = editor.onKeyDown((e) => {
+      // Check if Ctrl/Cmd + Shift + F (Format)
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isFormatKey = (isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.code === 'KeyF';
+      
+      if (isFormatKey) {
+        e.preventDefault();
+        
+        // Format code directly in the editor with proper undo support
+        const currentCode = editor.getValue();
+        const formatted = formatCode(currentCode);
+        
+        if (formatted !== currentCode) {
+          // Use executeEdits to maintain undo history
+          editor.executeEdits('format', [{
+            range: editor.getModel()!.getFullModelRange(),
+            text: formatted,
+          }]);
+        }
+      }
+
+      // Check if Ctrl/Cmd + Shift + R (Compile&Run)
+      const isCompileAndRunKey = (isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.code === 'KeyR';
+      
+      if (isCompileAndRunKey) {
+        e.preventDefault();
+        if (onCompileAndRun) {
+          // Call without parameters - parent handles getting code from ref
+          onCompileAndRun();
+        }
+      }
     });
 
     // NEW: Custom paste handler to handle large pastes
@@ -136,6 +228,7 @@ export function CodeEditor({ value, onChange, readOnly = false }: CodeEditorProp
     return () => {
       changeDisposable.dispose();
       pasteDisposable.dispose();
+      keydownDisposable.dispose();
       if (domNode) {
         domNode.removeEventListener('paste', handlePaste);
       }

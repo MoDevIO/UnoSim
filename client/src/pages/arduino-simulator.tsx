@@ -1,6 +1,6 @@
 //arduino-simulator.tsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Cpu, Play, Square, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -28,6 +28,7 @@ export default function ArduinoSimulator() {
   const [currentSketch, setCurrentSketch] = useState<Sketch | null>(null);
   const [code, setCode] = useState('');
   const [cliOutput, setCliOutput] = useState('');
+  const editorRef = useRef<{ getValue: () => string } | null>(null);
   // CHANGED: Store OutputLine objects instead of plain strings
   const [serialOutput, setSerialOutput] = useState<OutputLine[]>([]);
   const [compilationStatus, setCompilationStatus] = useState<'ready' | 'compiling' | 'success' | 'error'>('ready');
@@ -141,6 +142,81 @@ export default function ArduinoSimulator() {
     }
   }, [sketches, currentSketch]);
 
+  // NEW: Keyboard shortcuts (only for non-editor actions)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F5: Compile only (Verify)
+      if (e.key === 'F5') {
+        e.preventDefault();
+        if (!compileMutation.isPending) {
+          handleCompile();
+        }
+      }
+
+      // Escape: Stop simulation
+      if (e.key === 'Escape' && simulationStatus === 'running') {
+        e.preventDefault();
+        handleStop();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [compileMutation.isPending, startMutation.isPending, simulationStatus]);
+
+  // NEW: Auto format function
+  const formatCode = () => {
+    let formatted = code;
+
+    // Basic C++ formatting rules
+    // 1. Normalize line endings
+    formatted = formatted.replace(/\r\n/g, '\n');
+
+    // 2. Add newlines after opening braces
+    formatted = formatted.replace(/\{\s*/g, '{\n');
+
+    // 3. Add newlines before closing braces
+    formatted = formatted.replace(/\s*\}/g, '\n}');
+
+    // 4. Indent blocks (simple 2-space indentation)
+    const lines = formatted.split('\n');
+    let indentLevel = 0;
+    const indentedLines = lines.map(line => {
+      const trimmed = line.trim();
+      
+      // Decrease indent for closing braces
+      if (trimmed.startsWith('}')) {
+        indentLevel = Math.max(0, indentLevel - 1);
+      }
+
+      const indented = '  '.repeat(indentLevel) + trimmed;
+
+      // Increase indent after opening braces
+      if (trimmed.endsWith('{')) {
+        indentLevel++;
+      }
+
+      return indented;
+    });
+
+    formatted = indentedLines.join('\n');
+
+    // 5. Remove multiple consecutive blank lines
+    formatted = formatted.replace(/\n{3,}/g, '\n\n');
+
+    // 6. Ensure newline at end of file
+    if (!formatted.endsWith('\n')) {
+      formatted += '\n';
+    }
+
+    setCode(formatted);
+    
+    toast({
+      title: "Code formatiert",
+      description: "Der Code wurde automatisch formatiert",
+    });
+  };
+
   // Handle WebSocket messages
   useEffect(() => {
     if (!lastMessage) return;
@@ -217,11 +293,13 @@ export default function ArduinoSimulator() {
   };
 
   const handleCompileAndStart = () => {
+    // Get code from editor ref (always use the latest from editor)
+    const codeToCompile = editorRef.current?.getValue() || code;
     setCliOutput('');
     setSerialOutput([]);
     setCompilationStatus('compiling');
 
-    compileMutation.mutate(code, {
+    compileMutation.mutate(codeToCompile, {
       onSuccess: (data) => {
         // Simulation nur starten, wenn Compilation Erfolgsmeldung (je nach API-Response prüfen)
         if (data?.success) {
@@ -422,6 +500,9 @@ export default function ArduinoSimulator() {
                 <CodeEditor
                   value={code}
                   onChange={handleCodeChange}
+                  onCompileAndRun={handleCompileAndStart}
+                  onFormat={formatCode}
+                  editorRef={editorRef}
                 />
               </div>
             </div>
