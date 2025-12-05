@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/features/code-editor';
 import { SerialMonitor } from '@/components/features/serial-monitor';
 import { CompilationOutput } from '@/components/features/compilation-output';
+import { SketchTabs } from '@/components/features/sketch-tabs';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -29,6 +30,11 @@ export default function ArduinoSimulator() {
   const [code, setCode] = useState('');
   const [cliOutput, setCliOutput] = useState('');
   const editorRef = useRef<{ getValue: () => string } | null>(null);
+  
+  // Tab management
+  const [tabs, setTabs] = useState<Array<{ id: string; name: string; content: string }>>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  
   // CHANGED: Store OutputLine objects instead of plain strings
   const [serialOutput, setSerialOutput] = useState<OutputLine[]>([]);
   const [compilationStatus, setCompilationStatus] = useState<'ready' | 'compiling' | 'success' | 'error'>('ready');
@@ -139,6 +145,15 @@ export default function ArduinoSimulator() {
       const defaultSketch = sketches[0];
       setCurrentSketch(defaultSketch);
       setCode(defaultSketch.content);
+      
+      // Initialize tabs with the default sketch
+      const defaultTabId = 'default-sketch';
+      setTabs([{
+        id: defaultTabId,
+        name: 'sketch.ino',
+        content: defaultSketch.content,
+      }]);
+      setActiveTabId(defaultTabId);
     }
   }, [sketches, currentSketch]);
 
@@ -276,6 +291,69 @@ export default function ArduinoSimulator() {
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
     setIsModified(true);
+    
+    // Update the active tab content
+    if (activeTabId) {
+      setTabs(tabs.map(tab => 
+        tab.id === activeTabId ? { ...tab, content: newCode } : tab
+      ));
+    }
+  };
+
+  // Tab management handlers
+  const handleTabClick = (tabId: string) => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab) {
+      setActiveTabId(tabId);
+      setCode(tab.content);
+      setIsModified(false);
+    }
+  };
+
+  const handleTabAdd = () => {
+    const newTabId = Math.random().toString(36).substr(2, 9);
+    const newTab = {
+      id: newTabId,
+      name: `header_${tabs.length}.h`,
+      content: '',
+    };
+    setTabs([...tabs, newTab]);
+    setActiveTabId(newTabId);
+    setCode('');
+    setIsModified(false);
+  };
+
+  const handleTabClose = (tabId: string) => {
+    // Prevent closing the first tab (the .ino file)
+    if (tabId === tabs[0]?.id) {
+      toast({
+        title: "Cannot Delete",
+        description: "The main sketch file cannot be deleted",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newTabs = tabs.filter(t => t.id !== tabId);
+    setTabs(newTabs);
+
+    if (activeTabId === tabId) {
+      // Switch to the previous or next tab
+      if (newTabs.length > 0) {
+        const newActiveTab = newTabs[newTabs.length - 1];
+        setActiveTabId(newActiveTab.id);
+        setCode(newActiveTab.content);
+      } else {
+        setActiveTabId(null);
+        setCode('');
+      }
+    }
+  };
+
+  const handleTabRename = (tabId: string, newName: string) => {
+    setTabs(tabs.map(tab => 
+      tab.id === tabId ? { ...tab, name: newName } : tab
+    ));
   };
 
   const handleCompile = () => {
@@ -484,17 +562,17 @@ export default function ArduinoSimulator() {
           {/* Code Editor Panel */}
           <ResizablePanel defaultSize={50} minSize={20} id="code-panel">
             <div className="h-full flex flex-col">
-              <div className="bg-muted px-4 py-2 border-b border-border">
-                <div className="flex items-center space-x-2">
-                  <i className="fas fa-file-code text-accent text-sm"></i>
-                  <span className="text-sm font-medium" data-testid="sketch-name">
-                    {currentSketch?.name || 'sketch.ino'}
-                  </span>
-                  {isModified && (
-                    <span className="text-xs text-muted-foreground">• Modified</span>
-                  )}
-                </div>
-              </div>
+              {/* Sketch Tabs */}
+              <SketchTabs
+                tabs={tabs}
+                activeTabId={activeTabId}
+                modifiedTabId={activeTabId && isModified ? activeTabId : null}
+                onTabClick={handleTabClick}
+                onTabClose={handleTabClose}
+                onTabRename={handleTabRename}
+                onTabAdd={handleTabAdd}
+                onFormatCode={formatCode}
+              />
 
               <div className="flex-1">
                 <CodeEditor
