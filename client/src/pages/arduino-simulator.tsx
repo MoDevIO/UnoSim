@@ -56,8 +56,8 @@ export default function ArduinoSimulator() {
 
   // Compilation mutation
   const compileMutation = useMutation({
-    mutationFn: async (code: string) => {
-      const response = await apiRequest('POST', '/api/compile', { code });
+    mutationFn: async (payload: { code: string; headers?: Array<{ name: string; content: string }> }) => {
+      const response = await apiRequest('POST', '/api/compile', payload);
       return response.json();
     },
     onSuccess: (data) => {
@@ -156,6 +156,17 @@ export default function ArduinoSimulator() {
       setActiveTabId(defaultTabId);
     }
   }, [sketches, currentSketch]);
+
+  // Persist code changes to the active tab
+  useEffect(() => {
+    if (activeTabId && tabs.length > 0) {
+      setTabs(prevTabs => 
+        prevTabs.map(tab => 
+          tab.id === activeTabId ? { ...tab, content: code } : tab
+        )
+      );
+    }
+  }, [code, activeTabId]);
 
   // NEW: Keyboard shortcuts (only for non-editor actions)
   useEffect(() => {
@@ -359,7 +370,25 @@ export default function ArduinoSimulator() {
   const handleCompile = () => {
     setCliOutput('');
     setSerialOutput([]);
-    compileMutation.mutate(code);
+    
+    // Get the actual main sketch code - use editor ref if available,
+    // otherwise use state
+    let mainSketchCode: string;
+    if (activeTabId === tabs[0]?.id && editorRef.current) {
+      // If the main tab is active, get the latest code from the editor
+      mainSketchCode = editorRef.current.getValue();
+    } else {
+      // Otherwise use the stored content
+      mainSketchCode = tabs[0]?.content || code;
+    }
+    
+    // Prepare header files (all tabs except the first)
+    const headers = tabs.slice(1).map(tab => ({
+      name: tab.name,
+      content: tab.content
+    }));
+    console.log('[CLIENT] Compiling with', headers.length, 'headers');
+    compileMutation.mutate({ code: mainSketchCode, headers });
   };
 
   const handleStop = () => {
@@ -371,13 +400,30 @@ export default function ArduinoSimulator() {
   };
 
   const handleCompileAndStart = () => {
-    // Get code from editor ref (always use the latest from editor)
-    const codeToCompile = editorRef.current?.getValue() || code;
+    // Get the actual main sketch code - use editor ref if available for main tab,
+    // otherwise use state
+    let mainSketchCode: string;
+    
+    if (activeTabId === tabs[0]?.id && editorRef.current) {
+      // If the main tab is active, get the latest code from the editor
+      mainSketchCode = editorRef.current.getValue();
+    } else {
+      // Otherwise use the stored content
+      mainSketchCode = tabs[0]?.content || code;
+    }
+    
+    // Prepare header files (all tabs except the first)
+    const headers = tabs.slice(1).map(tab => ({
+      name: tab.name,
+      content: tab.content
+    }));
+    console.log('[CLIENT] Compile & Start with', headers.length, 'headers');
+    
     setCliOutput('');
     setSerialOutput([]);
     setCompilationStatus('compiling');
 
-    compileMutation.mutate(codeToCompile, {
+    compileMutation.mutate({ code: mainSketchCode, headers }, {
       onSuccess: (data) => {
         // Simulation nur starten, wenn Compilation Erfolgsmeldung (je nach API-Response prüfen)
         if (data?.success) {

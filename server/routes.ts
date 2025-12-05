@@ -86,15 +86,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // --- COMPILATION ---
   app.post('/api/compile', async (req, res) => {
     try {
-      const { code } = req.body;
+      const { code, headers } = req.body;
       if (!code || typeof code !== 'string') {
         return res.status(400).json({ error: 'Code is required' });
       }
 
-      const result: CompilationResult = await compiler.compile(code);
+      console.log('[COMPILE] Received headers:', headers ? `${headers.length} files` : 'none');
+      const result: CompilationResult = await compiler.compile(code, headers);
 
       if (result.success) {
-        lastCompiledCode = code;
+        // Store the processed code (with embedded headers) for simulation
+        lastCompiledCode = result.processedCode || code;
       }
 
       // WebSocket: Nur Status senden (KEIN output/errors)

@@ -15,6 +15,7 @@ export interface CompilationResult {
   binary?: Buffer;
   arduinoCliStatus: 'idle' | 'compiling' | 'success' | 'error';
   gccStatus: 'idle' | 'compiling' | 'success' | 'error';
+  processedCode?: string; // NEW: The code with embedded headers
 }
 
 export class ArduinoCompiler {
@@ -39,7 +40,7 @@ export class ArduinoCompiler {
     }
   }
 
-  async compile(code: string): Promise<CompilationResult> {
+  async compile(code: string, headers?: Array<{ name: string; content: string }>): Promise<CompilationResult> {
     const sketchId = randomUUID();
     const sketchDir = join(this.tempDir, sketchId);
     const sketchFile = join(sketchDir, `${sketchId}.ino`);
@@ -93,7 +94,53 @@ export class ArduinoCompiler {
 
       // Dateien erstellen
       await mkdir(sketchDir, { recursive: true });
-      await writeFile(sketchFile, code);
+      
+      // Process code: replace #include statements with actual header content
+      let processedCode = code;
+      if (headers && headers.length > 0) {
+        console.log(`[COMPILER] Processing ${headers.length} header includes`);
+        for (const header of headers) {
+          // Try to find includes with both the full name (header_1.h) and without extension (header_1)
+          const headerWithoutExt = header.name.replace(/\.[^/.]+$/, ''); // Remove extension
+          
+          // Search for both variants: #include "header_1.h" and #include "header_1"
+          const includeVariants = [
+            `#include "${header.name}"`,
+            `#include "${headerWithoutExt}"`,
+          ];
+          
+          let found = false;
+          for (const includeStatement of includeVariants) {
+            if (processedCode.includes(includeStatement)) {
+              console.log(`[COMPILER] Found include for: ${header.name} (pattern: ${includeStatement})`);
+              // Replace the #include with the actual header content
+              processedCode = processedCode.replace(
+                new RegExp(`#include\\s*"${includeStatement.split('"')[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g'),
+                `// --- Start of ${header.name} ---\n${header.content}\n// --- End of ${header.name} ---`
+              );
+              found = true;
+              console.log(`[COMPILER] Replaced include for: ${header.name}`);
+              break;
+            }
+          }
+          
+          if (!found) {
+            console.log(`[COMPILER] Include not found for: ${header.name} (tried: ${includeVariants.join(', ')})`);
+          }
+        }
+      }
+      
+      await writeFile(sketchFile, processedCode);
+
+      // Write header files to disk as separate files
+      if (headers && headers.length > 0) {
+        console.log(`[COMPILER] Writing ${headers.length} header files to ${sketchDir}`);
+        for (const header of headers) {
+          const headerPath = join(sketchDir, header.name);
+          console.log(`[COMPILER] Writing header: ${headerPath}`);
+          await writeFile(headerPath, header.content);
+        }
+      }
 
       // 1. Arduino CLI
       arduinoCliStatus = 'compiling';
@@ -117,7 +164,7 @@ export class ArduinoCompiler {
 
       // 2. GCC Syntax-Check
       gccStatus = 'compiling';
-      const gccResult = await this.compileWithGcc(code, sketchDir);
+      const gccResult = await this.compileWithGcc(code, sketchDir, headers);
       gccStatus = gccResult.success ? 'success' : 'error';
 
       // Kombinierte Ausgabe
@@ -151,6 +198,7 @@ export class ArduinoCompiler {
         errors: combinedErrors || undefined,
         arduinoCliStatus,
         gccStatus,
+        processedCode, // Include the processed code with embedded headers
       };
 
     } catch (error) {
@@ -160,6 +208,7 @@ export class ArduinoCompiler {
         errors: `Compilation failed: ${error instanceof Error ? error.message : String(error)}`,
         arduinoCliStatus: arduinoCliStatus === 'compiling' ? 'error' : arduinoCliStatus,
         gccStatus: gccStatus === 'compiling' ? 'error' : gccStatus,
+        processedCode: code, // Return original code on error
       };
     } finally {
       try {
@@ -172,11 +221,14 @@ export class ArduinoCompiler {
 
   private async compileWithArduinoCli(sketchFile: string): Promise<{ success: boolean; output: string; errors?: string } | null> {
     return new Promise((resolve) => {
+      // Arduino CLI expects the sketch DIRECTORY, not the file
+      const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf('/'));
+      
       const arduino = spawn("arduino-cli", [
         "compile",
         "--fqbn", "arduino:avr:uno",
         "--verbose",
-        sketchFile
+        sketchDir
       ]);
 
       let output = "";
@@ -233,7 +285,7 @@ export class ArduinoCompiler {
     });
   }
 
-  private async compileWithGcc(code: string, workDir: string): Promise<{ success: boolean; output: string; errors?: string }> {
+  private async compileWithGcc(code: string, workDir: string, headers?: Array<{ name: string; content: string }>): Promise<{ success: boolean; output: string; errors?: string }> {
     const tempSketchFile = join(workDir, "combined_sketch.cpp");
     const mockCodeLineOffset = ARDUINO_MOCK_LINES;
     // Remove Arduino.h include to avoid compilation errors in GCC
@@ -242,13 +294,16 @@ export class ArduinoCompiler {
     await writeFile(tempSketchFile, combinedCode);
 
     return new Promise((resolve) => {
-      const gcc = spawn("g++", [
+      const gccArgs = [
         "-fsyntax-only",
         "-Wall",
         "-Wextra",
+        "-I", workDir,  // Add workDir to include search paths so GCC can find .h files
         //"-w",  // ← keine Warnungen ausgeben
         tempSketchFile
-      ]);
+      ];
+
+      const gcc = spawn("g++", gccArgs);
 
       let errors = "";
       gcc.stderr?.on("data", (data) => {
