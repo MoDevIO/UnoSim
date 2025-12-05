@@ -72,7 +72,9 @@ int main() {
         try {
             await mkdir(sketchDir, { recursive: true });
 
-            const combined = `${ARDUINO_MOCK_CODE}\n// --- User code follows ---\n${code}\n\n// --- Footer ---\n${footer}`;
+            // Remove Arduino.h include to avoid compilation errors in GCC
+            const cleanedCode = code.replace(/#include\s*[<"]Arduino\.h[>"]/g, '');
+            const combined = `${ARDUINO_MOCK_CODE}\n// --- User code follows ---\n${cleanedCode}\n\n// --- Footer ---\n${footer}`;
             await writeFile(sketchFile, combined);
 
             await new Promise<void>((resolve, reject) => {

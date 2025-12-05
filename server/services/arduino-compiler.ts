@@ -236,7 +236,9 @@ export class ArduinoCompiler {
   private async compileWithGcc(code: string, workDir: string): Promise<{ success: boolean; output: string; errors?: string }> {
     const tempSketchFile = join(workDir, "combined_sketch.cpp");
     const mockCodeLineOffset = ARDUINO_MOCK_LINES;
-    const combinedCode = `${ARDUINO_MOCK_CODE}\n// User code\n${code}`;
+    // Remove Arduino.h include to avoid compilation errors in GCC
+    const cleanedCode = code.replace(/#include\s*[<"]Arduino\.h[>"]/g, '');
+    const combinedCode = `${ARDUINO_MOCK_CODE}\n// User code\n${cleanedCode}`;
     await writeFile(tempSketchFile, combinedCode);
 
     return new Promise((resolve) => {
