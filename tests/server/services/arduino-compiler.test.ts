@@ -53,12 +53,6 @@ describe('ArduinoCompiler - Full Coverage', () => {
           on: (event: string, cb: Function) => {
             if (event === 'close') cb(0);
           }
-        }))
-        .mockImplementationOnce(() => ({
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
         }));
 
       const result = await compiler.compile(code);
@@ -85,12 +79,6 @@ describe('ArduinoCompiler - Full Coverage', () => {
               if (event === 'data') cb(Buffer.from('Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n'));
             }
           },
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }))
-        .mockImplementationOnce(() => ({
           stderr: { on: jest.fn() },
           on: (event: string, cb: Function) => {
             if (event === 'close') cb(0);
@@ -123,12 +111,6 @@ describe('ArduinoCompiler - Full Coverage', () => {
           on: (event: string, cb: Function) => {
             if (event === 'close') cb(0);
           }
-        }))
-        .mockImplementationOnce(() => ({
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
         }));
 
       const result = await compiler.compile(code);
@@ -152,12 +134,6 @@ describe('ArduinoCompiler - Full Coverage', () => {
               if (event === 'data') cb(Buffer.from('Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n'));
             }
           },
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }))
-        .mockImplementationOnce(() => ({
           stderr: { on: jest.fn() },
           on: (event: string, cb: Function) => {
             if (event === 'close') cb(0);
@@ -190,12 +166,6 @@ describe('ArduinoCompiler - Full Coverage', () => {
           on: (event: string, cb: Function) => {
             if (event === 'close') cb(0);
           }
-        }))
-        .mockImplementationOnce(() => ({
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
         }));
 
       const result = await compiler.compile(code);
@@ -222,12 +192,6 @@ describe('ArduinoCompiler - Full Coverage', () => {
           on: (event: string, cb: Function) => {
             if (event === 'close') cb(0);
           }
-        }))
-        .mockImplementationOnce(() => ({
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
         }));
 
       const result = await compiler.compile(code);
@@ -249,12 +213,6 @@ describe('ArduinoCompiler - Full Coverage', () => {
               if (event === 'data') cb(Buffer.from('Success, no memory info.\n'));
             }
           },
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }))
-        .mockImplementationOnce(() => ({
           stderr: { on: jest.fn() },
           on: (event: string, cb: Function) => {
             if (event === 'close') cb(0);
@@ -314,12 +272,6 @@ describe('ArduinoCompiler - Full Coverage', () => {
           on: (event: string, cb: Function) => {
             if (event === 'close') cb(0);
           }
-        }))
-        .mockImplementationOnce(() => ({
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
         }));
 
       mockRm.mockRejectedValueOnce(new Error('Cleanup failure'));
@@ -354,12 +306,6 @@ describe('ArduinoCompiler - Full Coverage', () => {
               if (event === 'data') cb(Buffer.from('Success\n'));
             }
           },
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }))
-        .mockImplementationOnce(() => ({
           stderr: { on: jest.fn() },
           on: (event: string, cb: Function) => {
             if (event === 'close') cb(0);
@@ -433,72 +379,7 @@ describe('ArduinoCompiler - Full Coverage', () => {
       expect(result.errors).toEqual(expect.stringContaining('expected semicolon'));
     });
 
-    // CRITICAL: Test für Zeilen 271-273
-    it('should return default GCC failure message if no stderr data', async () => {
-      const code = `void setup() {} void loop() {}`;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Sketch uses 1024 bytes.\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }))
-        .mockImplementationOnce(() => {
-          const mock = {
-            stderr: { 
-              on: (event: string, cb: Function) => {
-                // Register callback but never call it - no stderr data
-              }
-            },
-            on: (event: string, cb: Function) => {
-              if (event === 'close') {
-                // Call close with error code, without any stderr - triggers lines 271-273
-                process.nextTick(() => cb(1));
-              }
-            }
-          };
-          return mock;
-        });
-
-      const result = await compiler.compile(code);
-      expect(result.success).toBe(false);
-      expect(result.gccStatus).toBe('error');
-      // The errors string should contain the default message from lines 271-273
-      expect(result.errors).toMatch(/GCC Compilation fehlgeschlagen/);
-    });
-
-    it('should handle gcc spawn error', async () => {
-      const code = `void setup() {} void loop() {}`;
-
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Success\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }))
-        .mockImplementationOnce(() => ({
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'error') cb(new Error('gcc not found'));
-          }
-        }));
-
-      const result = await compiler.compile(code);
-      expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('GCC nicht verfügbar'));
-    });
   });
 
   describe('Constructor and Factory', () => {
@@ -516,76 +397,5 @@ describe('ArduinoCompiler - Full Coverage', () => {
     });
   });
 
-  describe('Error Path Coverage', () => {
-    it('should set gccStatus to error if exception during gcc compilation', async () => {
-      const code = `
-        void setup() { Serial.begin(115200); }
-        void loop() {}
-      `;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Success\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
-
-      mockWriteFile
-        .mockResolvedValueOnce(undefined)
-        .mockRejectedValueOnce(new Error('GCC Write Error'));
-
-      const result = await compiler.compile(code);
-
-      expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('GCC Write Error'));
-      expect(result.gccStatus).toBe('error');
-    });
-
-    it('should clean error messages from arduino-cli', async () => {
-      const code = `void setup() { int x = } void loop() {}`;
-
-      // Erstelle einen spezifischen Pfad, der durch die Regex ersetzt wird
-      const uuid = 'abc-123-def';
-      const errorPath = `/some/path/temp/${uuid}/${uuid}.ino`;
-      
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: { on: jest.fn() },
-          stderr: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') {
-                // Die Regex in Zeile 211-215 ersetzt diesen Pfad durch 'sketch.ino'
-                cb(Buffer.from(`${errorPath}:1:20: error: expected semicolon\nError during build: exit status 1\n`));
-              }
-            }
-          },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(1);
-          }
-        }))
-        .mockImplementationOnce(() => ({
-          stderr: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('sketch:1:20: error: expected semicolon\n'));
-            }
-          },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(1);
-          }
-        }));
-
-      const result = await compiler.compile(code);
-      expect(result.success).toBe(false);
-      // Nach der Bereinigung sollte "sketch.ino" im Error stehen
-      expect(result.errors).toEqual(expect.stringContaining('sketch.ino'));
-      // "Error during build" sollte entfernt worden sein
-      expect(result.errors).not.toEqual(expect.stringContaining('Error during build'));
-    });
-  });
 });

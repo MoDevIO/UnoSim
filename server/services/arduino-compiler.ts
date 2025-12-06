@@ -162,42 +162,24 @@ export class ArduinoCompiler {
         cliErrors = cliResult.errors || "";
       }
 
-      // 2. GCC Syntax-Check
-      gccStatus = 'compiling';
-      const gccResult = await this.compileWithGcc(code, sketchDir, headers);
-      gccStatus = gccResult.success ? 'success' : 'error';
-
       // Kombinierte Ausgabe
-      let combinedOutput = "";
+      let combinedOutput = cliOutput;
 
-      if (cliOutput && gccResult.success) {
-        combinedOutput = cliOutput;
-      } else {
-        combinedOutput = gccResult.output + '\n\n' + cliOutput;
-      }
-
-      // NEW: Add warnings to output
+      // Add warnings to output
       if (warnings.length > 0) {
         const warningText = '\n\n' + warnings.join('\n');
         combinedOutput = combinedOutput ? combinedOutput + warningText : warningText.trim();
       }
 
-      let combinedErrors = "";
-      if (cliErrors && gccResult.errors) {
-        combinedErrors = `Arduino CLI:\n${cliErrors}`;
-      } else {
-        combinedErrors = cliErrors || gccResult.errors || "";
-      }
-
-      // Erfolg = beide erfolgreich (warnings don't block success)
-      const success = (cliResult?.success ?? false) && gccResult.success;
+      // Erfolg = arduino-cli erfolgreich (g++ Syntax-Check entfernt - wird in Runner gemacht)
+      const success = cliResult?.success ?? false;
 
       return {
         success,
         output: combinedOutput,
-        errors: combinedErrors || undefined,
+        errors: cliErrors || undefined,
         arduinoCliStatus,
-        gccStatus,
+        gccStatus: 'idle', // Nicht mehr verwendet in Compiler
         processedCode, // Include the processed code with embedded headers
       };
 
@@ -207,7 +189,7 @@ export class ArduinoCompiler {
         output: "",
         errors: `Compilation failed: ${error instanceof Error ? error.message : String(error)}`,
         arduinoCliStatus: arduinoCliStatus === 'compiling' ? 'error' : arduinoCliStatus,
-        gccStatus: gccStatus === 'compiling' ? 'error' : gccStatus,
+        gccStatus: 'idle',
         processedCode: code, // Return original code on error
       };
     } finally {
@@ -281,67 +263,6 @@ export class ArduinoCompiler {
 
       arduino.on("error", () => {
         resolve(null);
-      });
-    });
-  }
-
-  private async compileWithGcc(code: string, workDir: string, headers?: Array<{ name: string; content: string }>): Promise<{ success: boolean; output: string; errors?: string }> {
-    const tempSketchFile = join(workDir, "combined_sketch.cpp");
-    const mockCodeLineOffset = ARDUINO_MOCK_LINES;
-    // Remove Arduino.h include to avoid compilation errors in GCC
-    const cleanedCode = code.replace(/#include\s*[<"]Arduino\.h[>"]/g, '');
-    const combinedCode = `${ARDUINO_MOCK_CODE}\n// User code\n${cleanedCode}`;
-    await writeFile(tempSketchFile, combinedCode);
-
-    return new Promise((resolve) => {
-      const gccArgs = [
-        "-fsyntax-only",
-        "-Wall",
-        "-Wextra",
-        "-I", workDir,  // Add workDir to include search paths so GCC can find .h files
-        //"-w",  // ← keine Warnungen ausgeben
-        tempSketchFile
-      ];
-
-      const gcc = spawn("g++", gccArgs);
-
-      let errors = "";
-      gcc.stderr?.on("data", (data) => {
-        errors += data.toString();
-      });
-
-      gcc.on("close", (code) => {
-        if (code === 0) {
-          resolve({
-            success: true,
-            output: `Syntax erfolgreich geprüft`,
-          });
-        } else {
-          const correctedErrors = errors
-            .replace(new RegExp(`^${workDir.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}/combined_sketch\\.cpp:`, 'gm'), "sketch:")
-            .replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/combined_sketch\.cpp:/g, 'sketch:')
-            .replace(/sketch:(\d+):/g, (match, lineNum) => {
-              const originalLineNum = parseInt(lineNum);
-              const correctedLine = Math.max(1, originalLineNum - mockCodeLineOffset);
-              return `line ${correctedLine}:`;
-            })
-            .replace(/^.*\s\|\s/gm, "")
-            .trim();
-
-          resolve({
-            success: false,
-            output: "",
-            errors: correctedErrors || "GCC Compilation fehlgeschlagen",
-          });
-        }
-      });
-
-      gcc.on("error", () => {
-        resolve({
-          success: false,
-          output: "",
-          errors: "GCC nicht verfügbar",
-        });
       });
     });
   }

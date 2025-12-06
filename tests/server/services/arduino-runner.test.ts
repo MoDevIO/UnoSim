@@ -316,13 +316,15 @@ describe("ArduinoRunner", () => {
     it("should handle compilation failure", async () => {
       const runner = new ArduinoRunner();
       const errors: string[] = [];
+      const compileErrors: string[] = [];
       let exitCode: number | null = null;
 
       runner.runSketch(
         "void setup() { invalid }",
         jest.fn(),
         (line) => errors.push(line),
-        (code) => (exitCode = code)
+        (code) => (exitCode = code),
+        (err) => compileErrors.push(err)
       );
 
       await wait();
@@ -342,20 +344,22 @@ describe("ArduinoRunner", () => {
       // Wait for catch block to execute
       await wait();
 
-      expect(errors.some(e => e.includes("expected semicolon"))).toBe(true);
+      expect(compileErrors.some(e => e.includes("expected semicolon"))).toBe(true);
       expect(exitCode).toBe(-1);
     });
 
     it("should handle compiler spawn error", async () => {
       const runner = new ArduinoRunner();
       const errors: string[] = [];
+      const compileErrors: string[] = [];
       let exitCode: number | null = null;
 
       runner.runSketch(
         "void setup(){}",
         jest.fn(),
         (line) => errors.push(line),
-        (code) => (exitCode = code)
+        (code) => (exitCode = code),
+        (err) => compileErrors.push(err)
       );
 
       await wait();
@@ -370,20 +374,22 @@ describe("ArduinoRunner", () => {
       // Wait for catch block to execute
       await wait();
 
-      expect(errors.some(e => e.includes("g++ not found"))).toBe(true);
+      expect(compileErrors.some(e => e.includes("g++ not found"))).toBe(true);
       expect(exitCode).toBe(-1);
     });
 
     it("should timeout compilation after 10 seconds", async () => {
       const runner = new ArduinoRunner();
       const errors: string[] = [];
+      const compileErrors: string[] = [];
       let exitCode: number | null = null;
 
       runner.runSketch(
         "void setup(){}",
         jest.fn(),
         (line) => errors.push(line),
-        (code) => (exitCode = code)
+        (code) => (exitCode = code),
+        (err) => compileErrors.push(err)
       );
 
       await wait();
@@ -406,7 +412,7 @@ describe("ArduinoRunner", () => {
       await wait();
 
       expect(compileProc.kill).toHaveBeenCalledWith('SIGKILL');
-      expect(errors.some(e => e.includes("timeout"))).toBe(true);
+      expect(compileErrors.some(e => e.includes("timeout"))).toBe(true);
       expect(exitCode).toBe(-1);
     });
   });

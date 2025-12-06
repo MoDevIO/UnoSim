@@ -163,10 +163,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               clientState.runner = new ArduinoRunner();
               clientState.isRunning = true;
 
-              // Update status
+              // Update simulation status
               sendMessageToClient(ws, {
                 type: 'simulation_status',
                 status: 'running',
+              });
+
+              // Indicate that g++ is starting (for GCC status label)
+              sendMessageToClient(ws, {
+                type: 'compilation_status',
+                gccStatus: 'compiling',
               });
 
               // Start genuine C++ execution with isComplete support!
@@ -206,8 +212,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       logger.error(`Fehler beim Senden der Stop-Nachricht: ${err instanceof Error ? err.message : String(err)}`);
                     }
                   }, 100);
+                },
+                (compileErr: string) => {
+                  // Send compile error to compilation output window
+                  sendMessageToClient(ws, {
+                    type: 'compilation_error',
+                    data: compileErr
+                  });
+                  // Mark GCC compilation as failed
+                  sendMessageToClient(ws, {
+                    type: 'compilation_status',
+                    gccStatus: 'error',
+                  });
+                  logger.error(`[Client Compile Error]: ${compileErr}`);
                 }
               );
+              
+              // After runSketch starts successfully (no error), mark GCC as success
+              // This happens after the compile promise resolves
+              setTimeout(() => {
+                sendMessageToClient(ws, {
+                  type: 'compilation_status',
+                  gccStatus: 'success',
+                });
+              }, 100);
             }
             break;
 

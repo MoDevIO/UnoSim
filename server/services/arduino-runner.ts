@@ -28,7 +28,8 @@ export class ArduinoRunner {
         code: string,
         onOutput: (line: string, isComplete?: boolean) => void,
         onError: (line: string) => void,
-        onExit: (code: number | null) => void
+        onExit: (code: number | null) => void,
+        onCompileError?: (error: string) => void
     ) {
 
 
@@ -37,6 +38,7 @@ export class ArduinoRunner {
         this.outputBuffer = "";
         this.errorBuffer = "";
         this.pendingIncomplete = false;
+        let compilationFailed = false;
 
         const sketchId = randomUUID();
         const sketchDir = join(this.tempDir, sketchId);
@@ -89,12 +91,21 @@ int main() {
                         resolve();
                     } else {
                         this.logger.error(`Compiler Fehler (Code ${code}): ${errorOutput}`);
+                        compilationFailed = true;
+                        // Call compile error callback if provided
+                        if (onCompileError) {
+                          onCompileError(errorOutput);
+                        }
                         reject(new Error(errorOutput));
                     }
                 });
                 compile.on("error", err => {
                     completed = true;
                     this.logger.error(`Compilerprozess Fehler: ${err.message}`);
+                    compilationFailed = true;
+                    if (onCompileError) {
+                      onCompileError(`Compilerprozess Fehler: ${err.message}`);
+                    }
                     reject(err);
                 });
 
@@ -102,6 +113,10 @@ int main() {
                     if (!completed) {
                         compile.kill('SIGKILL');
                         this.logger.error("g++ Timeout nach 10s");
+                        compilationFailed = true;
+                        if (onCompileError) {
+                          onCompileError("g++ timeout after 10s");
+                        }
                         reject(new Error("g++ timeout after 10s"));
                     }
                 }, 10000);
@@ -205,7 +220,11 @@ int main() {
             });
         } catch (err) {
             this.logger.error(`Kompilierfehler oder Timeout: ${err instanceof Error ? err.message : String(err)}`);
-            onError(err instanceof Error ? err.message : String(err));
+            // Nur onError aufrufen wenn es NICHT ein Kompilierungsfehler war
+            // Kompilierungsfehler sind bereits über onCompileError gesendet worden
+            if (!compilationFailed) {
+                onError(err instanceof Error ? err.message : String(err));
+            }
             onExit(-1);
             this.process = null;
         }

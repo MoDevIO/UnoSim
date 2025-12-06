@@ -33,7 +33,11 @@ export default defineConfig({
     port: 3001, // Vite devserver Port
     proxy: {
       // Leitet API-Aufrufe an Backend auf Port 3000 weiter
-      '/api': 'http://localhost:3000',
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (path) => path, // Don't rewrite the path
+      },
       // Proxy für WebSocket Pfad, wichtig für WS-Verbindungen (backend WS läuft auf 3000)
       '/ws': {
         target: 'ws://localhost:3000',

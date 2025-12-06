@@ -52,6 +52,8 @@ export default function ArduinoSimulator() {
   // Fetch default sketch
   const { data: sketches } = useQuery<Sketch[]>({
     queryKey: ['/api/sketches'],
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   // Compilation mutation
@@ -122,7 +124,8 @@ export default function ArduinoSimulator() {
   });
 
   useEffect(() => {
-    // Nur runtersetzen, falls Status aktuell nicht 'idle' sind, um unnötige Rerenders zu vermeiden
+    // Nur zurücksetzen wenn Code WIRKLICH verändert wurde
+    // Beide Labels auf IDLE zurücksetzen wenn Code sich ändert
     if (arduinoCliStatus !== 'idle') setArduinoCliStatus('idle');
     if (gccStatus !== 'idle') setGccStatus('idle');
     if (compilationStatus !== 'ready') setCompilationStatus('ready');
@@ -155,7 +158,7 @@ export default function ArduinoSimulator() {
       }]);
       setActiveTabId(defaultTabId);
     }
-  }, [sketches, currentSketch]);
+  }, [sketches]);
 
   // Persist code changes to the active tab
   useEffect(() => {
@@ -287,11 +290,20 @@ export default function ArduinoSimulator() {
         break;
       }
       case 'compilation_status':
-        setArduinoCliStatus(lastMessage.arduinoCliStatus ?? 'idle');
-        setGccStatus(lastMessage.gccStatus ?? 'idle');
+        if (lastMessage.arduinoCliStatus !== undefined) {
+          setArduinoCliStatus(lastMessage.arduinoCliStatus);
+        }
+        if (lastMessage.gccStatus !== undefined) {
+          setGccStatus(lastMessage.gccStatus);
+        }
         if (lastMessage.message) {
           setCliOutput(lastMessage.message);
         }
+        break;
+      case 'compilation_error':
+        setCliOutput(prev => prev + (prev ? '\n' : '') + lastMessage.data);
+        setCompilationStatus('error');
+        setSimulationStatus('stopped');
         break;
       case 'simulation_status':
         setSimulationStatus(lastMessage.status);
@@ -436,16 +448,32 @@ export default function ArduinoSimulator() {
   };
 
   const handleCompileAndStart = () => {
-    // Get the actual main sketch code - use editor ref if available for main tab,
-    // otherwise use state
-    let mainSketchCode: string;
+    // Get the actual main sketch code - prioritize editor, then tabs, then state
+    let mainSketchCode: string = '';
     
-    if (activeTabId === tabs[0]?.id && editorRef.current) {
-      // If the main tab is active, get the latest code from the editor
+    // Try editor first (most up-to-date)
+    if (editorRef.current) {
       mainSketchCode = editorRef.current.getValue();
-    } else {
-      // Otherwise use the stored content
-      mainSketchCode = tabs[0]?.content || code;
+    }
+    
+    // Fallback to tabs
+    if (!mainSketchCode && tabs[0]?.content) {
+      mainSketchCode = tabs[0].content;
+    }
+    
+    // Last fallback to state
+    if (!mainSketchCode && code) {
+      mainSketchCode = code;
+    }
+    
+    // Validate we have code
+    if (!mainSketchCode || mainSketchCode.trim().length === 0) {
+      toast({
+        title: "No Code",
+        description: "Please write some code before compiling",
+        variant: "destructive",
+      });
+      return;
     }
     
     // Prepare header files (all tabs except the first)
