@@ -104,21 +104,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastCompiledCode = result.processedCode || code;
       }
 
-      // WebSocket: Nur Status senden (KEIN output/errors)
+      // IMPORTANT: Message routing for compilation status:
+      // TODO: CLI-> do not broadccast!!! This here is wrong:
+      // - arduinoCliStatus: Broadcast to all clients (shared compilation feedback)
+      // - gccStatus: NOT broadcast (each client has independent GCC status)
       broadcastMessage({
         type: 'compilation_status',
         arduinoCliStatus: result.arduinoCliStatus,
-        gccStatus: result.gccStatus,
+        // Intentionally NOT including gccStatus here - only in WebSocket unicast
       });
 
       // HTTP Response: Komplettes Ergebnis
       res.json(result);
 
     } catch (error) {
+      // Broadcast CLI error to all clients (TODO: reconsider broadcasting)
       broadcastMessage({
         type: 'compilation_status',
         arduinoCliStatus: 'error',
-        gccStatus: 'error',
+        // No gccStatus - that's per-client only
       });
       res.status(500).json({ error: 'Compilation failed' });
     }
