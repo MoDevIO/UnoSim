@@ -245,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         status: 'stopped'
                       });
                     } catch (err) {
-                      logger.error(`Fehler beim Senden der Stop-Nachricht: ${err instanceof Error ? err.message : String(err)}`);
+                      logger.error(`Error sending stop message: ${err instanceof Error ? err.message : String(err)}`);
                     }
                   }, 100);
                 },

@@ -58,7 +58,7 @@ describe('ArduinoCompiler - Full Coverage', () => {
       const result = await compiler.compile(code);
 
       expect(result.success).toBe(true);
-      expect(result.output).toEqual(expect.stringContaining('Serial.begin(9600) verwendet falsche Baudrate'));
+      expect(result.output).toEqual(expect.stringContaining('Serial.begin(9600) uses wrong baud rate'));
     });
 
     it('should succeed with Serial.begin(115200) in block comment but active code', async () => {

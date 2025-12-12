@@ -124,13 +124,13 @@ export default function ArduinoSimulator() {
   });
 
   useEffect(() => {
-    // Nur zurücksetzen wenn Code WIRKLICH verändert wurde
-    // Beide Labels auf IDLE zurücksetzen wenn Code sich ändert
+    // Reset status when code actually changes
+    // Reset both labels to idle when code changes
     if (arduinoCliStatus !== 'idle') setArduinoCliStatus('idle');
     if (gccStatus !== 'idle') setGccStatus('idle');
     if (compilationStatus !== 'ready') setCompilationStatus('ready');
 
-    // Simulation stoppen, wenn Code geändert wird
+    // Stop simulation when code changes
     if (simulationStatus === 'running') {
       stopMutation.mutate();
     }
@@ -241,8 +241,8 @@ export default function ArduinoSimulator() {
     setCode(formatted);
     
     toast({
-      title: "Code formatiert",
-      description: "Der Code wurde automatisch formatiert",
+      title: "Code Formatted",
+      description: "Code has been automatically formatted",
     });
   };
 

@@ -1,9 +1,9 @@
 /**
- * Gemeinsamer Arduino Mock-Code für Compiler und Runner
- * * Unterschiede zwischen Compiler und Runner:
- * - Compiler: Benötigt nur Typdefinitionen für Syntax-Check (keine Implementierung nötig)
- * - Runner: Benötigt funktionierende Implementierungen für echte Ausführung
- * * Diese Datei enthält die vollständige Runner-Version, die auch für Compiler funktioniert.
+ * Shared Arduino Mock code for Compiler and Runner
+ * * Differences between Compiler and Runner:
+ * - Compiler: Only needs type definitions for syntax check (no implementation needed)
+ * - Runner: Needs working implementations for real execution
+ * * This file contains the complete Runner version that also works for Compiler.
  * * --- UPDATES ---
  * 1. String class: Added concat(char c) and a constructor for char to support char appending.
  * 2. SerialClass: Added explicit operator bool() to fix 'while (!Serial)' error.

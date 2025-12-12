@@ -194,7 +194,7 @@ export function SketchTabs({
             resolve(e.target?.result as string);
           };
           reader.onerror = () => {
-            reject(new Error(`Fehler beim Lesen von ${file.name}`));
+            reject(new Error(`Error reading ${file.name}`));
           };
           reader.readAsText(file);
         });
@@ -227,13 +227,13 @@ export function SketchTabs({
 
         toast({
           title: "Header-Dateien geladen",
-          description: `${loadedFiles.length} Header-Datei(en) hinzugefügt`,
+          description: `${loadedFiles.length} header file(s) added`,
         });
       }
     } catch (error) {
       toast({
-        title: "Fehler beim Laden",
-        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+        title: "Error Loading",
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     }

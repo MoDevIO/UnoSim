@@ -74,25 +74,25 @@ export class ArduinoCompiler {
         const serialBeginExists = /Serial\.begin\s*\(\s*\d+\s*\)/.test(code);
 
         if (!serialBeginExists) {
-          warnings.push('⚠️ Serial.begin(115200) fehlt in setup()\n   Serial output funktioniert möglicherweise nicht korrekt.');
+          warnings.push('⚠️ Serial.begin(115200) is missing in setup()\n   Serial output may not work correctly.');
         } else {
           const uncommentedCode = code
             .replace(/\/\*[\s\S]*?\*\//g, '')
             .replace(/\/\/.*$/gm, '');
 
           if (!/Serial\.begin\s*\(\s*\d+\s*\)/.test(uncommentedCode)) {
-            warnings.push('⚠️ Serial.begin() ist auskommentiert!\n   Serial output funktioniert möglicherweise nicht korrekt.');
+            warnings.push('⚠️ Serial.begin() is commented out!\n   Serial output may not work correctly.');
           } else {
             // Check if baud rate is 115200
             const baudRateMatch = uncommentedCode.match(/Serial\.begin\s*\(\s*(\d+)\s*\)/);
             if (baudRateMatch && baudRateMatch[1] !== '115200') {
-              warnings.push(`⚠️ Serial.begin(${baudRateMatch[1]}) verwendet falsche Baudrate\n   Dieser Simulator erwartet Serial.begin(115200).`);
+              warnings.push(`⚠️ Serial.begin(${baudRateMatch[1]}) uses wrong baud rate\n   This simulator expects Serial.begin(115200).`);
             }
           }
         }
       }
 
-      // Dateien erstellen
+      // Create files
       await mkdir(sketchDir, { recursive: true });
       
       // Process code: replace #include statements with actual header content
