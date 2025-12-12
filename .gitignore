@@ -44,7 +44,8 @@ Thumbs.db
 # Ignoriert den finalen Build-Output (den "fertigen" Code für die Produktion).
 /dist/
 /build/
-/temp/
+/temp/*
+!/temp/.gitkeep
 
 # Build-Caches
 # Ignoriert Vite- oder andere Build-Caches.
