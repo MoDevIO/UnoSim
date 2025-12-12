@@ -60,6 +60,9 @@ interface CodeEditorProps {
 export function CodeEditor({ value, onChange, onCompileAndRun, onFormat, readOnly = false, editorRef: externalEditorRef }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Store callback refs to avoid closure issues with keyboard shortcuts
+  const onCompileAndRunRef = useRef(onCompileAndRun);
+  const onFormatRef = useRef(onFormat);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -174,9 +177,9 @@ export function CodeEditor({ value, onChange, onCompileAndRun, onFormat, readOnl
       
       if (isCompileAndRunKey) {
         e.preventDefault();
-        if (onCompileAndRun) {
-          // Call without parameters - parent handles getting code from ref
-          onCompileAndRun();
+        // Use ref to get the latest callback (avoids stale closure)
+        if (onCompileAndRunRef.current) {
+          onCompileAndRunRef.current();
         }
       }
     });
@@ -241,6 +244,15 @@ export function CodeEditor({ value, onChange, onCompileAndRun, onFormat, readOnl
       editorRef.current.setValue(value);
     }
   }, [value]);
+
+  // Update callback refs whenever they change
+  useEffect(() => {
+    onCompileAndRunRef.current = onCompileAndRun;
+  }, [onCompileAndRun]);
+
+  useEffect(() => {
+    onFormatRef.current = onFormat;
+  }, [onFormat]);
 
   return (
     <div 

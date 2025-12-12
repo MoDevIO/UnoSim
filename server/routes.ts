@@ -121,10 +121,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastCompiledCode = result.processedCode || code;
           }
 
-          broadcastMessage({
-            type: 'compilation_status',
-            arduinoCliStatus: result.arduinoCliStatus,
-          });
+          // ❌ DO NOT BROADCAST - This is an HTTP endpoint
+          // Each client manages their own compilation status locally
+          // Only WebSocket messages update other clients' states
 
           return res.json({ ...result, cached: true });
         } else {
@@ -146,25 +145,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastCompiledCode = result.processedCode || code;
       }
 
-      // IMPORTANT: Message routing for compilation status:
-      // - arduinoCliStatus: Broadcast to all clients (shared compilation feedback)
-      // - gccStatus: NOT broadcast (each client has independent GCC status)
-      broadcastMessage({
-        type: 'compilation_status',
-        arduinoCliStatus: result.arduinoCliStatus,
-        // Intentionally NOT including gccStatus here - only in WebSocket unicast
-      });
+      // ❌ DO NOT BROADCAST - This is an HTTP endpoint
+      // Each client manages their own compilation status locally
+      // Only WebSocket messages update other clients' states
+      // Rationale: CLI compilation is per-client (different code, different headers)
 
       // HTTP Response: Komplettes Ergebnis
       res.json(result);
 
     } catch (error) {
-      // Broadcast CLI error to all clients (TODO: reconsider broadcasting)
-      broadcastMessage({
-        type: 'compilation_status',
-        arduinoCliStatus: 'error',
-        // No gccStatus - that's per-client only
-      });
+      // ❌ DO NOT BROADCAST errors from HTTP compile endpoint
+      // Each client handles their own compilation errors
       res.status(500).json({ error: 'Compilation failed' });
     }
   });

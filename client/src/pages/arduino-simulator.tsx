@@ -453,11 +453,16 @@ export default function ArduinoSimulator() {
     
     // Try editor first (most up-to-date)
     if (editorRef.current) {
-      mainSketchCode = editorRef.current.getValue();
+      try {
+        mainSketchCode = editorRef.current.getValue();
+      } catch (error) {
+        console.error('[CLIENT] Error getting code from editor:', error);
+        // Fall through to fallbacks
+      }
     }
     
-    // Fallback to tabs
-    if (!mainSketchCode && tabs[0]?.content) {
+    // Fallback to tabs (for header scenario)
+    if (!mainSketchCode && tabs.length > 0 && tabs[0]?.content) {
       mainSketchCode = tabs[0].content;
     }
     
@@ -482,19 +487,31 @@ export default function ArduinoSimulator() {
       content: tab.content
     }));
     console.log('[CLIENT] Compile & Start with', headers.length, 'headers');
+    console.log('[CLIENT] Code length:', mainSketchCode.length, 'bytes');
+    console.log('[CLIENT] Main code from:', editorRef.current ? 'editor' : (tabs[0]?.content ? 'tabs' : 'state'));
+    console.log('[CLIENT] Tabs:', tabs.map(t => `${t.name}(${t.content.length}b)`).join(', '));
     
     setCliOutput('');
     setSerialOutput([]);
     setCompilationStatus('compiling');
+    setArduinoCliStatus('compiling'); // Track HTTP compile request
 
     compileMutation.mutate({ code: mainSketchCode, headers }, {
       onSuccess: (data) => {
+        // Update arduinoCliStatus based on compile result
+        setArduinoCliStatus(data.success ? 'success' : 'error');
+        
         // Simulation nur starten, wenn Compilation Erfolgsmeldung (je nach API-Response prüfen)
         if (data?.success) {
           startMutation.mutate();
           setCompilationStatus('success');
           setHasCompiledOnce(true);
           setIsModified(false);
+          
+          // Reset CLI status to idle after a short delay
+          setTimeout(() => {
+            setArduinoCliStatus('idle');
+          }, 2000);
         } else {
           // Optional Fehlerhandling, falls API nicht klar success meldet
           setCompilationStatus('error');
@@ -503,15 +520,26 @@ export default function ArduinoSimulator() {
             description: "Simulation will not start due to compilation errors.",
             variant: "destructive",
           });
+          
+          // Reset CLI status to idle after a short delay
+          setTimeout(() => {
+            setArduinoCliStatus('idle');
+          }, 2000);
         }
       },
       onError: () => {
         setCompilationStatus('error');
+        setArduinoCliStatus('error');
         toast({
           title: "Compilation Failed",
           description: "Simulation will not start due to compilation errors.",
           variant: "destructive",
         });
+        
+        // Reset CLI status to idle after a short delay
+        setTimeout(() => {
+          setArduinoCliStatus('idle');
+        }, 2000);
       },
     });
   };
