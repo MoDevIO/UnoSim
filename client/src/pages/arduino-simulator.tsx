@@ -9,6 +9,7 @@ import { CodeEditor } from '@/components/features/code-editor';
 import { SerialMonitor } from '@/components/features/serial-monitor';
 import { CompilationOutput } from '@/components/features/compilation-output';
 import { SketchTabs } from '@/components/features/sketch-tabs';
+import { ExamplesMenu } from '@/components/features/examples-menu';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -382,6 +383,30 @@ export default function ArduinoSimulator() {
     }
   };
 
+  const handleLoadExample = (filename: string, content: string) => {
+    // Create a new sketch from the example, using the filename as the tab name
+    const newTab = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: filename,
+      content: content,
+    };
+
+    setTabs([newTab]);
+    setActiveTabId(newTab.id);
+    setCode(content);
+    setIsModified(false);
+    
+    // Clear previous outputs
+    setCliOutput('');
+    setSerialOutput([]);
+    setCompilationStatus('ready');
+    setArduinoCliStatus('idle');
+    setGccStatus('idle');
+    setSimulationStatus('stopped');
+    setHasCompiledOnce(false);
+  };
+
+
   const handleTabClose = (tabId: string) => {
     // Prevent closing the first tab (the .ino file)
     if (tabId === tabs[0]?.id) {
@@ -711,6 +736,7 @@ export default function ArduinoSimulator() {
                 onTabAdd={handleTabAdd}
                 onFilesLoaded={handleFilesLoaded}
                 onFormatCode={formatCode}
+                examplesMenu={<ExamplesMenu onLoadExample={handleLoadExample} />}
               />
 
               <div className="flex-1 min-h-0">

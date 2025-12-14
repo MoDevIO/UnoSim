@@ -3,19 +3,19 @@
 class Map {
   private:
     int width, height;
-    char **map; // 2D-Array für die Karte
+    char **map; // 2D-array for the map
 
-    // Hilfsmethode zum Platzieren von Blöcken von vier zusammenhängenden Hindernissen
+    // Helper method to place blocks of four connected obstacles
     void placeObstacleBlocks() {
       bool placed = false;
 
       while (!placed) {
         int startX = random(0, width - 1);
         int startY = random(0, height - 1);
-        int orientation = random(0, 4); // 0: horizontal, 1: vertikal, 2: diagonal-rechts, 3: diagonal-links
+        int orientation = random(0, 4); // 0: horizontal, 1: vertical, 2: diagonal-right, 3: diagonal-left
 
         bool canPlace = true;
-        // Überprüfen, ob der Bereich frei ist und Platz für den Block vorhanden ist
+        // Check if the area is free and there is space for the block
         switch (orientation) {
           case 0: // Horizontal
             if (startX + 3 < width) {
@@ -30,7 +30,7 @@ class Map {
             }
             break;
 
-          case 1: // Vertikal
+          case 1: // Vertical
             if (startY + 3 < height) {
               for (int i = 0; i < 4; ++i) {
                 if (map[startY + i][startX] != ' ') {
@@ -43,7 +43,7 @@ class Map {
             }
             break;
 
-          case 2: // Diagonal-rechts
+          case 2: // Diagonal-right
             if (startX + 3 < width && startY + 3 < height) {
               for (int i = 0; i < 4; ++i) {
                 if (map[startY + i][startX + i] != ' ') {
@@ -56,7 +56,7 @@ class Map {
             }
             break;
 
-          case 3: // Diagonal-links
+          case 3: // Diagonal-left
             if (startX - 3 >= 0 && startY + 3 < height) {
               for (int i = 0; i < 4; ++i) {
                 if (map[startY + i][startX - i] != ' ') {
@@ -71,7 +71,7 @@ class Map {
         }
 
         if (canPlace) {
-          // Platzieren der vier Hindernisse
+          // Place the four obstacles
           switch (orientation) {
             case 0: // Horizontal
               for (int i = 0; i < 4; ++i) {
@@ -79,19 +79,19 @@ class Map {
               }
               break;
 
-            case 1: // Vertikal
+            case 1: // Vertical
               for (int i = 0; i < 4; ++i) {
                 map[startY + i][startX] = '#';
               }
               break;
 
-            case 2: // Diagonal-rechts
+            case 2: // Diagonal-right
               for (int i = 0; i < 4; ++i) {
                 map[startY + i][startX + i] = '#';
               }
               break;
 
-            case 3: // Diagonal-links
+            case 3: // Diagonal-left
               for (int i = 0; i < 4; ++i) {
                 map[startY + i][startX - i] = '#';
               }
@@ -102,22 +102,22 @@ class Map {
       }
     }
 
-    // Hilfsmethode zum Überprüfen, ob ein Feld gültig ist
+    // Helper method to check if a field is valid
     bool isValid(int x, int y) {
       return (x >= 0 && x < width && y >= 0 && y < height && (map[y][x] == ' ' || map[y][x] == 'G'));
     }
 
-    // Eigene Implementierung einer simplen Queue für den Flood-Fill-Algorithmus
+    // Custom implementation of a simple queue for the flood-fill algorithm
     struct Queue {
       int front, rear;
       int queueSize;
-      int (*data)[2]; // Array von 2D-Paaren (x, y)
+      int (*data)[2]; // Array of 2D pairs (x, y)
 
-      // Konstruktor zum Initialisieren der Queue
+      // Constructor to initialize the queue
       Queue(int maxSize) {
         queueSize = maxSize;
         front = rear = 0;
-        data = new int[maxSize][2]; // 2D-Array zur Speicherung der Koordinaten
+        data = new int[maxSize][2]; // 2D-array to store the coordinates
       }
 
       ~Queue() {
@@ -142,22 +142,22 @@ class Map {
     };
 
   public:
-    // Konstruktor zum Initialisieren der Karte mit Dimensionen
+    // Constructor to initialize the map with dimensions
     Map(int w, int h) {
       width = w;
       height = h;
 
-      // Speicher für die Karte allozieren
+      // Allocate memory for the map
       map = new char*[height];
       for (int i = 0; i < height; ++i) {
         map[i] = new char[width];
       }
 
-      // Karte initialisieren
+      // Initialize map
       initializeMap();
     }
 
-    // Destruktor zum Freigeben des Speichers
+    // Destructor to free memory
     ~Map() {
       for (int i = 0; i < height; ++i) {
         delete[] map[i];
@@ -165,58 +165,58 @@ class Map {
       delete[] map;
     }
 
-    // Methode zum Initialisieren der Karte
+    // Method to initialize the map
     void initializeMap() {
       for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
-          map[i][j] = ' '; // Alles als offenen Knoten initialisieren
+          map[i][j] = ' '; // Initialize everything as open node
         }
       }
     }
 
-    // Methode zum Erzeugen einer zufälligen Karte
+    // Method to generate a random map
     void generateRandomMap(byte obstacleCount = 4) {
       initializeMap();
 
-      // Mehrere Block von vier zusammenhängenden Hindernissen platzieren
+      // Place multiple blocks of four connected obstacles
       for (int i = 0; i < obstacleCount; ++i) {
         placeObstacleBlocks();
       }
 
-      // Zufällige Start- und Zielpositionen setzen
+      // Set random start and goal positions
       map[random(0, height)][random(0, width)] = 'S'; // Start
-      map[random(0, height)][random(0, width)] = 'G'; // Ziel
+      map[random(0, height)][random(0, width)] = 'G'; // Goal
     }
 
-    // Methode zum Ausgeben der Karte auf der seriellen Konsole
+    // Method to print the map to the serial console
     void printMap() {
-      // Rand oben
+      // Top border
       Serial.print('+');
       for (int j = 0; j < width; ++j) {
-        Serial.print("-"); // Ein Zeichen pro Spalte
+        Serial.print("-"); // One character per column
       }
       Serial.println('+');
 
-      // Karteninhalt
+      // Map content
       for (int i = 0; i < height; ++i) {
         Serial.print('|');
         for (int j = 0; j < width; ++j) {
-          Serial.print(map[i][j]); // Keine Leerzeichen zwischen den Zeichen
+          Serial.print(map[i][j]); // No spaces between characters
         }
         Serial.println('|');
       }
 
-      // Rand unten
+      // Bottom border
       Serial.print('+');
       for (int j = 0; j < width; ++j) {
-        Serial.print("-"); // Ein Zeichen pro Spalte
+        Serial.print("-"); // One character per column
       }
       Serial.println('+');
     }
 
-    // Methode zum Füllen der Karte mit Zahlen ausgehend vom Startpunkt 'S'
+    // Method to fill the map with numbers starting from the 'S' position
     void fillWithNumbers() {
-      // Finde die Startposition 'S'
+      // Find the start position 'S'
       int startX = -1, startY = -1;
       for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
@@ -226,21 +226,21 @@ class Map {
             break;
           }
         }
-        if (startX != -1) break; // Wenn der Startpunkt gefunden wurde
+        if (startX != -1) break; // If start point is found
       }
 
-      if (startX == -1 || startY == -1) return; // Kein Startpunkt gefunden
+      if (startX == -1 || startY == -1) return; // No start point found
 
-      // Erstelle eine eigene Queue mit einer maximalen Größe (z.B. Breite * Höhe)
+      // Create a custom queue with maximum size (e.g. width * height)
       Queue q(width * height);
       q.enqueue(startX, startY);
       int distance = 1;
 
-      // Bewegungsrichtungen (rechts, links, oben, unten)
+      // Movement directions (right, left, up, down)
       int dx[] = {1, -1, 0, 0};
       int dy[] = {0, 0, 1, -1};
 
-      // Während die Queue nicht leer ist
+      // While the queue is not empty
       bool goalReached = false;
       while (!q.isEmpty() && !goalReached) {
         int size = (q.rear - q.front + width * height) % (width * height);
@@ -248,47 +248,47 @@ class Map {
           int x, y;
           q.dequeue(x, y);
 
-          // Gehe zu allen angrenzenden Feldern
+          // Go to all adjacent fields
           for (int d = 0; d < 4; ++d) {
             int newX = x + dx[d];
             int newY = y + dy[d];
 
-            // Überprüfe, ob das neue Feld gültig ist
+            // Check if the new field is valid
             if (isValid(newX, newY)) {
               if (map[newY][newX] == 'G') {
                 goalReached = true;
-                break; // Beende die Suche, wenn das Ziel erreicht ist
+                break; // End search when goal is reached
               }
 
-              map[newY][newX] = '0' + distance; // Wandle die Zahl in ein Zeichen um
+              map[newY][newX] = '0' + distance; // Convert number to character
               q.enqueue(newX, newY);
             }
           }
 
-          if (goalReached) break; // Schleife beenden, wenn das Ziel gefunden wurde
+          if (goalReached) break; // Exit loop when goal is found
         }
         distance++;
       }
     }
 };
 
-// Globale Map-Instanz
+// Global map instance
 Map myMap(30, 10);
 
 void setup() {
   Serial.begin(9600);
   for (byte i = 0; i < 5; i++)
   {
-    // Zufällige Karte generieren
+    // Generate random map
     myMap.generateRandomMap();
     myMap.printMap();
 
-    // Fülle die Karte mit Zahlen ausgehend von 'S'
+    // Fill the map with numbers starting from 'S'
     myMap.fillWithNumbers();
     myMap.printMap();
   }
 }
 
 void loop() {
-  // Kein Code in der Endlosschleife benötigt
+  // No code needed in the endless loop
 }

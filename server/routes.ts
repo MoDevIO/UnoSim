@@ -8,6 +8,8 @@ import { storage } from "./storage";
 import { compiler } from "./services/arduino-compiler";
 import { ArduinoRunner } from "./services/arduino-runner";
 import { insertSketchSchema, wsMessageSchema, type WSMessage } from "@shared/schema";
+import fs from "fs";
+import path from "path";
 
 import { Logger } from "@shared/logger"; // Pfad ggf. anpassen
 
@@ -47,6 +49,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ws.send(JSON.stringify(message));
     }
   }
+
+  // --- Examples API endpoint ---
+  app.get('/api/examples', (_req, res) => {
+    try {
+      const examplesDir = path.resolve(import.meta.dirname, '..', 'examples');
+      const exampleFiles: string[] = [];
+      
+      // Recursively read all .ino and .h files from examples and subdirectories
+      function readExamplesRecursive(dir: string, basePath: string = ''): void {
+        const files = fs.readdirSync(dir);
+        
+        for (const file of files) {
+          const fullPath = path.join(dir, file);
+          const stat = fs.statSync(fullPath);
+          const relativePath = basePath ? `${basePath}/${file}` : file;
+          
+          if (stat.isDirectory()) {
+            // Recursively read subdirectories
+            readExamplesRecursive(fullPath, relativePath);
+          } else if (file.endsWith('.ino') || file.endsWith('.h')) {
+            exampleFiles.push(relativePath);
+          }
+        }
+      }
+      
+      readExamplesRecursive(examplesDir);
+      exampleFiles.sort();
+      
+      res.json(exampleFiles);
+    } catch (error) {
+      logger.error(`Failed to read examples directory: ${error}`);
+      res.status(500).json({ error: 'Failed to fetch examples' });
+    }
+  });
 
   // --- Sketch CRUD routes (leicht gekürzt) ---
   app.get('/api/sketches', async (_req, res) => {

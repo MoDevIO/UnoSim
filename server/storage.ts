@@ -22,21 +22,11 @@ export class MemStorage implements IStorage {
       name: "sketch.ino",
       content: `
 void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(115200);
-  Serial.print("Hello, ");
-  delay(500);
-  Serial.print("UNOWEBSIM");
-  delay(500);
-  Serial.println("!");
-  delay(500);
-  Serial.println(" warte ");
+  // put your setup code here, to run once
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  delay(1000);
-  Serial.print(".");
+  // put your main code here, to run repeatedly
 }`,
       createdAt: new Date(),
       updatedAt: new Date(),

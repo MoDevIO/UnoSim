@@ -11,7 +11,7 @@
  * 4. SerialClass: Added print/println overloads with decimals parameter for float/double.
  */
 
-export const ARDUINO_MOCK_LINES = 222; // Updated line count
+export const ARDUINO_MOCK_LINES = 257; // Updated line count
 
 export const ARDUINO_MOCK_CODE = `
 // Simulated Arduino environment
@@ -264,6 +264,41 @@ public:
     void println() { 
         std::cout << std::endl << std::flush; 
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
+    // parseInt() - Liest die nächste Zahl aus dem Serial Input
+    int parseInt() {
+        int result = 0;
+        int c;
+        
+        // Skip non-digit characters
+        while ((c = read()) != -1) {
+            if ((c >= '0' && c <= '9') || c == '-') {
+                break;
+            }
+        }
+        
+        // If no digit found, return 0
+        if (c == -1) {
+            return 0;
+        }
+        
+        // Handle negative sign
+        boolean negative = (c == '-');
+        if (!negative && c >= '0' && c <= '9') {
+            result = c - '0';
+        }
+        
+        // Read remaining digits
+        while ((c = read()) != -1) {
+            if (c >= '0' && c <= '9') {
+                result = result * 10 + (c - '0');
+            } else {
+                break;
+            }
+        }
+        
+        return negative ? -result : result;
     }
 
     void write(uint8_t b) { std::cout << (char)b << std::flush; }

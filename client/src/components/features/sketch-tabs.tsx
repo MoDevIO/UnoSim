@@ -45,6 +45,7 @@ interface SketchTabsProps {
   onTabAdd: () => void;
   onFilesLoaded?: (files: Array<{ name: string; content: string }>, replaceAll: boolean) => void;
   onFormatCode?: () => void;
+  examplesMenu?: React.ReactNode;
 }
 
 export function SketchTabs({
@@ -57,6 +58,7 @@ export function SketchTabs({
   onTabAdd,
   onFilesLoaded,
   onFormatCode,
+  examplesMenu,
 }: SketchTabsProps) {
   const { toast } = useToast();
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
@@ -176,8 +178,8 @@ export function SketchTabs({
         // Only allow .ino and .h files
         if (extension !== '.ino' && extension !== '.h') {
           toast({
-            title: "Ungültige Datei",
-            description: `"${file.name}" wird nicht unterstützt. Bitte nur .ino und .h Dateien laden.`,
+            title: "Unsupported File Type",
+            description: `"${file.name}" is not supported. Please only upload .ino and .h files.`,
             variant: "destructive",
           });
           return;
@@ -460,6 +462,11 @@ export function SketchTabs({
           onChange={handleFileUpload}
           style={{ display: 'none' }}
         />
+
+        {/* Examples Menu - Right-aligned */}
+        <div className="ml-auto flex items-center px-2 flex-shrink-0">
+          {examplesMenu}
+        </div>
       </div>
 
       {/* Scroll right button */}
