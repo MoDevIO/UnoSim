@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm ci --include=dev && npm run build",
   "outputDirectory": "dist",
   "env": {
     "NODE_ENV": "production"

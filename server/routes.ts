@@ -10,8 +10,11 @@ import { ArduinoRunner } from "./services/arduino-runner";
 import { insertSketchSchema, wsMessageSchema, type WSMessage } from "@shared/schema";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 import { Logger } from "@shared/logger"; // Pfad ggf. anpassen
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -53,7 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // --- Examples API endpoint ---
   app.get('/api/examples', (_req, res) => {
     try {
-      const examplesDir = path.resolve(import.meta.dirname, '..', 'public', 'examples');
+      const examplesDir = path.resolve(__dirname, '..', 'public', 'examples');
       const exampleFiles: string[] = [];
       
       // Recursively read all .ino and .h files from examples and subdirectories

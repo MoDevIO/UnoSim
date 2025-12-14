@@ -2,13 +2,16 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Serve example files
-app.use('/examples', express.static(path.resolve(import.meta.dirname, '..', 'examples')));
+app.use('/examples', express.static(path.resolve(__dirname, '..', 'public', 'examples')));
 
 app.use((req, res, next) => {
   const start = Date.now();
