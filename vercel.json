@@ -1,17 +1,31 @@
 {
-  "buildCommand": "npm ci --include=dev && npm run build",
+  "version": 2,
+  "buildCommand": "npm ci --include=dev && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
   "outputDirectory": "dist",
   "env": {
     "NODE_ENV": "production"
   },
-  "rewrites": [
+  "functions": {
+    "dist/index.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "routes": [
     {
-      "source": "/api/:path*",
-      "destination": "/index.js"
+      "src": "/api/(.*)",
+      "dest": "/index.js"
     },
     {
-      "source": "/ws",
-      "destination": "/index.js"
+      "src": "/ws",
+      "dest": "/index.js"
+    },
+    {
+      "src": "/examples/(.*)",
+      "dest": "/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
     }
   ]
 }
