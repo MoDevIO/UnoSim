@@ -5,11 +5,6 @@
   "env": {
     "NODE_ENV": "production"
   },
-  "functions": {
-    "dist/index.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "routes": [
     {
       "src": "/api/(.*)",
@@ -20,8 +15,12 @@
       "dest": "/index.js"
     },
     {
-      "src": "/(.*)",
+      "src": "/public/(.*)",
       "dest": "/public/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.js"
     }
   ]
 }
