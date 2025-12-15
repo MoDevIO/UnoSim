@@ -110,3 +110,5 @@ tem/
 # Jest (Test-Framework)
 # Ignoriert den Ordner mit Test-Coverage-Berichten.
 /coverage/
+.vercel
+.env*.local

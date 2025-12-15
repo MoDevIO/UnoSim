@@ -1,7 +1,11 @@
 {
   "version": 2,
   "buildCommand": "npm ci --include=dev && npm run build",
-  "outputDirectory": "dist",
+  "outputDirectory": "dist/public",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
   "env": {
     "NODE_ENV": "production"
   }
