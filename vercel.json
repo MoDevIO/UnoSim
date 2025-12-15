@@ -1,28 +1,15 @@
 {
   "version": 2,
-  "buildCommand": "npx vite build client/ --config vite.config.ts --base ./ && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js",
+  "buildCommand": "npx vite build client/ --config vite.config.ts --base ./ && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server.js",
   "outputDirectory": "dist/public",
-  "functions": {
-    "dist/index.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/dist/index.js"
+      "source": "/api/(.*)",
+      "destination": "/api/server.js"
     },
     {
-      "src": "/ws",
-      "dest": "/dist/index.js"
-    },
-    {
-      "src": "/examples/(.*)",
-      "dest": "/dist/index.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/ws",
+      "destination": "/api/server.js"
     }
   ]
 }
