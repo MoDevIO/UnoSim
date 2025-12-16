@@ -142,7 +142,7 @@ describe('ArduinoCompiler - Full Coverage', () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
-      expect(result.output).toEqual(expect.stringContaining('auskommentiert'));
+      expect(result.output).toEqual(expect.stringContaining('commented out'));
     });
   });
 

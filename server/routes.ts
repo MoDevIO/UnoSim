@@ -6,7 +6,7 @@ import { createHash } from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { compiler } from "./services/arduino-compiler";
-import { ArduinoRunner } from "./services/arduino-runner";
+import { SandboxRunner } from "./services/sandbox-runner";
 import { insertSketchSchema, wsMessageSchema, type WSMessage } from "@shared/schema";
 import fs from "fs";
 import path from "path";
@@ -37,7 +37,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Map to store per-client runner processes
-  const clientRunners = new Map<WebSocket, { runner: ArduinoRunner | null; isRunning: boolean }>();
+  const clientRunners = new Map<WebSocket, { runner: SandboxRunner | null; isRunning: boolean }>();
 
   function broadcastMessage(message: WSMessage) {
     wss.clients.forEach((client) => {
@@ -235,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (clientState.runner) clientState.runner.stop();
 
               // Create a NEW runner instance for this client (not reusing global one)
-              clientState.runner = new ArduinoRunner();
+              clientState.runner = new SandboxRunner();
               clientState.isRunning = true;
 
               // Update simulation status

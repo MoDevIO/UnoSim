@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import http from 'http';
+import { describeIfServer, SERVER_AVAILABLE } from '../utils/integration-helpers';
 
 /**
  * Load Test: 50 Concurrent Clients (Data-Driven)
  * 
- * WICHTIG: Server muss bereits laufen!
+ * Diese Tests werden automatisch übersprungen wenn der Server nicht läuft.
  * Starten Sie in einem separaten Terminal: npm run dev
- * 
- * Alle Daten werden gesammelt und am Ende als formatierte Tabellen ausgegeben.
  */
 
 // Helper function for HTTP requests
@@ -41,7 +40,7 @@ function fetchHttp(url: string, options?: { method?: string; headers?: Record<st
   });
 }
 
-describe('Load Test: 50 Concurrent Clients', () => {
+describeIfServer('Load Test: 50 Concurrent Clients', () => {
   const API_BASE = 'http://localhost:3000';
   const NUM_CLIENTS = 50;
   const TEST_CODE = `

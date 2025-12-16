@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import http from 'http';
+import { describeIfServer } from '../utils/integration-helpers';
 
 /**
  * Cache Optimization Test
@@ -8,8 +9,7 @@ import http from 'http';
  * - First compilation: Full compile time (~9 seconds)
  * - Subsequent compilations with same code: Cache hit (~50ms)
  * 
- * WICHTIG: Server muss bereits laufen!
- * Starten Sie in einem separaten Terminal: npm run dev
+ * Diese Tests werden automatisch übersprungen wenn der Server nicht läuft.
  */
 
 function fetchHttp(url: string, options?: { method?: string; headers?: Record<string, string>; body?: string }): Promise<{ ok: boolean; status: number; json: () => Promise<any>; text: () => Promise<string> }> {
@@ -42,7 +42,7 @@ function fetchHttp(url: string, options?: { method?: string; headers?: Record<st
   });
 }
 
-describe('Compilation Cache Optimization', () => {
+describeIfServer('Compilation Cache Optimization', () => {
   const API_BASE = 'http://localhost:3000';
   const TEST_CODE = `
 void setup() {

@@ -1,4 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
@@ -7,8 +9,39 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+
+// Security: Helmet adds various HTTP headers for protection
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Monaco Editor needs these
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      fontSrc: ["'self'", "data:"],
+      workerSrc: ["'self'", "blob:"],
+    },
+  },
+}));
+
+// Security: Rate limiting to prevent DoS attacks
+// In test/development mode, use higher limits
+const isTestMode = process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true';
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 Minuten
+  max: isTestMode ? 10000 : 100, // 10000 in Test-Modus, 100 in Produktion
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => isTestMode, // Komplett überspringen im Test-Modus
+});
+
+// Apply rate limiting to API routes
+app.use('/api/', apiLimiter);
+
+app.use(express.json({ limit: '1mb' })); // Limit payload size
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // Serve example files
 app.use('/examples', express.static(path.resolve(__dirname, '..', 'public', 'examples')));
@@ -56,10 +89,19 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    // In Production: keine Details leaken
+    const message = isProduction && status === 500 
+      ? "Internal Server Error" 
+      : (err.message || "Internal Server Error");
+
+    // Logging für Debugging (Server-seitig)
+    if (status >= 500) {
+      console.error(`[ERROR] ${status}: ${err.message}`, isProduction ? '' : err.stack);
+    }
 
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after

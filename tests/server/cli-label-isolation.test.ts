@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeAll } from '@jest/globals';
 import http from 'http';
+import { describeIfServer } from '../utils/integration-helpers';
 
 /**
  * CLI Label Isolation Test
  * 
  * Verifies that CLI status labels don't change across session boundaries
  * 
- * WICHTIG: Server muss bereits laufen!
- * Starten Sie in einem separaten Terminal: npm run dev
+ * Diese Tests werden automatisch übersprungen wenn der Server nicht läuft.
  */
 
 function fetchHttp(url: string, options?: { method?: string; headers?: Record<string, string>; body?: string }): Promise<{ ok: boolean; status: number; json: () => Promise<any> }> {
@@ -39,7 +39,7 @@ function fetchHttp(url: string, options?: { method?: string; headers?: Record<st
   });
 }
 
-describe('CLI Label Session Isolation', () => {
+describeIfServer('CLI Label Session Isolation', () => {
   const API_BASE = 'http://localhost:3000';
 
   beforeAll(async () => {
@@ -135,9 +135,12 @@ void loop() {
   }, 60000);
 
   it('should allow same code to be cached across different sessions', async () => {
+    // Use unique code to ensure fresh compile (not from previous test runs)
+    const uniqueId = Date.now();
     const sharedCode = `
 void setup() {
   Serial.begin(115200);
+  Serial.println("CacheTest-${uniqueId}");
 }
 
 void loop() {
@@ -147,7 +150,7 @@ void loop() {
 
     console.log('\n📊 CACHE SHARING ACROSS SESSIONS TEST\n');
     
-    console.log('🔵 SESSION 1: Compile shared code (first time)...');
+    console.log('🔵 SESSION 1: Compile unique code (first time - cache miss expected)...');
     const start1 = Date.now();
     const response1 = await fetchHttp(`${API_BASE}/api/compile`, {
       method: 'POST',
@@ -158,7 +161,7 @@ void loop() {
     const result1 = await response1.json();
     
     console.log(`   Time: ${time1}ms`);
-    console.log(`   Cached: ${result1.cached ? 'YES (from previous run)' : 'NO'}`);
+    console.log(`   Cached: ${result1.cached ? 'YES (unexpected!)' : 'NO (expected)'}`);
 
     console.log('\n🟢 SESSION 2: Compile SAME code (cache hit expected)...');
     const start2 = Date.now();
@@ -177,7 +180,11 @@ void loop() {
     console.log(`   ✓ Cache is shared across sessions (when code matches)`);
     console.log(`   ✓ Session 2 benefited from cache: ${time2}ms vs ${time1}ms (${((time1-time2)/time1*100).toFixed(0)}% faster)\n`);
 
+    // First compile should NOT be cached (fresh unique code)
+    expect(result1.cached).toBeFalsy(); // undefined or false
+    // Second compile SHOULD be cached
     expect(result2.cached).toBe(true);
-    expect(time2).toBeLessThan(time1 / 10); // Cache should be 10x+ faster
+    // Cache hit should be significantly faster (at least 10x)
+    expect(time2).toBeLessThan(time1 / 10);
   }, 60000);
 });

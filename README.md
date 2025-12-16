@@ -88,7 +88,7 @@ npm start
 
 - Run tests:
   ```bash
-  npm test
+  npm test 
   ```
 
 - Run tests in watch mode:
