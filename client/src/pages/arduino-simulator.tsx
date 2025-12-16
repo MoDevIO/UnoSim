@@ -578,6 +578,29 @@ export default function ArduinoSimulator() {
     startMutation.mutate();
   };
 
+  // Reset simulation (stop, recompile, and restart - like pressing the physical reset button)
+  const handleReset = () => {
+    // Stop if running
+    if (simulationStatus === 'running') {
+      sendMessage({ type: 'stop_simulation' });
+      setSimulationStatus('stopped');
+    }
+    // Clear serial output on reset
+    setSerialOutput([]);
+    // Reset pin states
+    setPinStates([]);
+    
+    toast({
+      title: "Resetting...",
+      description: "Recompiling and restarting simulation",
+    });
+    
+    // Small delay then recompile and start
+    setTimeout(() => {
+      handleCompileAndStart();
+    }, 100);
+  };
+
   const handleCompileAndStart = () => {
     // Get the actual main sketch code - prioritize editor, then tabs, then state
     let mainSketchCode: string = '';
@@ -966,6 +989,7 @@ export default function ArduinoSimulator() {
                   isSimulationRunning={simulationStatus === 'running'}
                   txActive={txActivity}
                   rxActive={rxActivity}
+                  onReset={handleReset}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>

@@ -13,6 +13,7 @@ interface ArduinoBoardProps {
   isSimulationRunning?: boolean;
   txActive?: number; // TX activity counter (changes trigger blink)
   rxActive?: number; // RX activity counter (changes trigger blink)
+  onReset?: () => void; // Callback when reset button is clicked
 }
 
 // Digital pin positions in the SVG (x coordinates, y=19 for all)
@@ -39,6 +40,7 @@ export function ArduinoBoard({
   isSimulationRunning = false,
   txActive = 0,
   rxActive = 0,
+  onReset,
 }: ArduinoBoardProps) {
   const [svgContent, setSvgContent] = useState<string>('');
   const [txBlink, setTxBlink] = useState(false);
@@ -73,6 +75,36 @@ export function ArduinoBoard({
       })
       .catch(err => console.error('Failed to load Arduino SVG:', err));
   }, []);
+
+  // Reference to the container div for attaching event listeners
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Use event delegation for reset button click - this survives DOM updates from dangerouslySetInnerHTML
+  useEffect(() => {
+    if (!containerRef.current || !onReset) return;
+
+    const handleContainerClick = (e: MouseEvent) => {
+      // Check if clicked element or any of its parents is part of the reset button group
+      let target = e.target as Element | null;
+      while (target && target !== containerRef.current) {
+        const id = target.id || '';
+        // Check for reset button elements - the smd_157sw group is the reset button
+        // Also check for IDs containing the reset button pattern
+        if (id.includes('smd_157sw') || id.includes('_x30_.1.15')) {
+          e.stopPropagation();
+          onReset();
+          return;
+        }
+        target = target.parentElement;
+      }
+    };
+
+    containerRef.current.addEventListener('click', handleContainerClick);
+    
+    return () => {
+      containerRef.current?.removeEventListener('click', handleContainerClick);
+    };
+  }, [onReset]);
 
   // PWM-capable pins on Arduino UNO
   const PWM_PINS = [3, 5, 6, 9, 10, 11];
@@ -135,9 +167,14 @@ export function ArduinoBoard({
     modified = modified.replace(/<\?xml[^?]*\?>/g, '');
     
     // Add width/height to SVG if not present and ensure it scales properly
+    // Also inject CSS for reset button cursor
     modified = modified.replace(
       /<svg([^>]*)>/,
-      '<svg$1 style="width: 100%; height: 100%; max-width: 600px;">'
+      `<svg$1 style="width: 100%; height: 100%; max-width: 600px;">
+        <style>
+          #smd_157sw, #smd_157sw * { cursor: pointer; }
+          [id*="_x30_.1.15"] { cursor: pointer; }
+        </style>`
     );
     
     if (isSimulationRunning) {
@@ -230,6 +267,7 @@ export function ArduinoBoard({
       <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-900 min-h-0">
         {svgContent ? (
           <div
+            ref={containerRef}
             className="w-full h-full flex items-center justify-center"
             style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4))' }}
             dangerouslySetInnerHTML={{ __html: getModifiedSvg() }}
