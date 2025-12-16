@@ -81,7 +81,8 @@ export class SandboxRunner {
         onOutput: (line: string, isComplete?: boolean) => void,
         onError: (line: string) => void,
         onExit: (code: number | null) => void,
-        onCompileError?: (error: string) => void
+        onCompileError?: (error: string) => void,
+        onCompileSuccess?: () => void
     ) {
         this.isRunning = true;
         this.outputBuffer = "";
@@ -135,10 +136,14 @@ int main() {
             
             if (this.dockerAvailable && this.dockerImageBuilt) {
                 // Single container: compile AND run (more efficient)
-                this.compileAndRunInDocker(sketchDir, onOutput, onError, onExit, onCompileError);
+                this.compileAndRunInDocker(sketchDir, onOutput, onError, onExit, onCompileError, onCompileSuccess);
             } else {
                 // Local fallback: compile then run
                 await this.compileLocal(sketchFile, exeFile, onCompileError);
+                // Compilation succeeded - notify caller
+                if (onCompileSuccess) {
+                    onCompileSuccess();
+                }
                 await this.runLocalWithLimits(exeFile, onOutput, onError, onExit);
             }
             
@@ -171,7 +176,8 @@ int main() {
         onOutput: (line: string, isComplete?: boolean) => void,
         onError: (line: string) => void,
         onExit: (code: number | null) => void,
-        onCompileError?: (error: string) => void
+        onCompileError?: (error: string) => void,
+        onCompileSuccess?: () => void
     ): void {
         // Single container: compile then run using shell
         // Uses sh -c to chain compile && run in one container
@@ -196,6 +202,7 @@ int main() {
         
         let compileErrorBuffer = "";
         let isCompilePhase = true;
+        let compileSuccessSent = false;
         
         // Custom handler for combined compile+run
         const timeout = setTimeout(() => {
@@ -210,7 +217,14 @@ int main() {
             const str = data.toString();
             
             // After successful compile, we get program output
-            isCompilePhase = false;
+            if (isCompilePhase) {
+                isCompilePhase = false;
+                // First output means compilation was successful
+                if (!compileSuccessSent && onCompileSuccess) {
+                    compileSuccessSent = true;
+                    onCompileSuccess();
+                }
+            }
             
             // Check output size limit
             this.totalOutputBytes += str.length;
@@ -281,6 +295,11 @@ int main() {
             } else {
                 if (code === 0) {
                     this.logger.info("✅ Docker: Compile + Run erfolgreich");
+                    // For programs without output, signal compile success on exit
+                    if (!compileSuccessSent && onCompileSuccess) {
+                        compileSuccessSent = true;
+                        onCompileSuccess();
+                    }
                 }
             }
 

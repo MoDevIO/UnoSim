@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { wsMessageSchema, type WSMessage } from '@shared/schema';
 
 export function useWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<WSMessage | null>(null);
+  const [messageQueue, setMessageQueue] = useState<WSMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
@@ -24,10 +25,14 @@ export function useWebSocket() {
 
       ws.onmessage = (event) => {
         try {
-          const data = wsMessageSchema.parse(JSON.parse(event.data));
+          const rawData = JSON.parse(event.data);
+          console.log('[WS HOOK] Raw message received:', rawData.type, rawData);
+          const data = wsMessageSchema.parse(rawData);
+          // Add to queue instead of replacing
+          setMessageQueue(prev => [...prev, data]);
           setLastMessage(data);
         } catch (error) {
-          console.error('Invalid WebSocket message:', error);
+          console.error('[WS HOOK] Invalid WebSocket message:', error, 'Raw:', event.data);
         }
       };
 
@@ -83,9 +88,18 @@ export function useWebSocket() {
     }
   };
 
+  // Function to consume and clear the message queue
+  const consumeMessages = useCallback(() => {
+    const messages = [...messageQueue];
+    setMessageQueue([]);
+    return messages;
+  }, [messageQueue]);
+
   return {
     isConnected,
     lastMessage,
+    messageQueue,
+    consumeMessages,
     sendMessage,
   };
 }

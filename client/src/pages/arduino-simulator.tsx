@@ -48,7 +48,7 @@ export default function ArduinoSimulator() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isConnected, lastMessage, sendMessage } = useWebSocket();
+  const { isConnected, lastMessage, messageQueue, consumeMessages, sendMessage } = useWebSocket();
 
   // Fetch default sketch
   const { data: sketches } = useQuery<Sketch[]>({
@@ -60,23 +60,29 @@ export default function ArduinoSimulator() {
   // Compilation mutation
   const compileMutation = useMutation({
     mutationFn: async (payload: { code: string; headers?: Array<{ name: string; content: string }> }) => {
+      setArduinoCliStatus('compiling');
       const response = await apiRequest('POST', '/api/compile', payload);
       return response.json();
     },
     onSuccess: (data) => {
       if (data.success) {
-        setCliOutput((prev) => prev + (data.output || '✓ GCC-Compilation succeeded without output.') + '\n');
+        setArduinoCliStatus('success');
+        // REPLACE output, don't append
+        setCliOutput(data.output || '✓ Arduino-CLI Compilation succeeded.');
       } else {
-        setCliOutput((prev) => prev + (data.errors || '✗ GCC-Compilation failed without error message.') + '\n');
+        setArduinoCliStatus('error');
+        // REPLACE output, don't append
+        setCliOutput(data.errors || '✗ Arduino-CLI Compilation failed.');
       }
 
       toast({
-        title: data.success ? "GCC-Compilation succeeded" : "GCC-Compilation failed",
+        title: data.success ? "Arduino-CLI Compilation succeeded" : "Arduino-CLI Compilation failed",
         description: data.success ? "Your sketch has been compiled successfully" : "There were errors in your sketch",
         variant: data.success ? undefined : "destructive",
       });
     },
     onError: () => {
+      setArduinoCliStatus('error');
       toast({
         title: "Compilation with Arduino-CLI Failed",
         description: "There were errors in your sketch",
@@ -247,70 +253,79 @@ export default function ArduinoSimulator() {
     });
   };
 
-  // Handle WebSocket messages
+  // Handle WebSocket messages - process ALL messages in the queue
   useEffect(() => {
-    if (!lastMessage) return;
+    if (messageQueue.length === 0) return;
 
-    switch (lastMessage.type) {
-      case 'serial_output': {
-        // NEW: Handle isComplete flag for Serial.print() vs Serial.println()
-        const text = lastMessage.data;
-        const isComplete = lastMessage.isComplete ?? true; // Default to true for backwards compatibility
+    // Consume all messages from the queue
+    const messages = consumeMessages();
+    
+    for (const message of messages) {
+      switch (message.type) {
+        case 'serial_output': {
+          // NEW: Handle isComplete flag for Serial.print() vs Serial.println()
+          const text = message.data;
+          const isComplete = message.isComplete ?? true; // Default to true for backwards compatibility
 
-        setSerialOutput(prev => {
-          const newLines = [...prev];
+          setSerialOutput(prev => {
+            const newLines = [...prev];
 
-          if (isComplete) {
-            // Check if last line is incomplete - if so, complete it
-            if (newLines.length > 0 && !newLines[newLines.length - 1].complete) {
-              // Complete the existing incomplete line
-              newLines[newLines.length - 1] = {
-                text: newLines[newLines.length - 1].text + text,
-                complete: true
-              };
+            if (isComplete) {
+              // Check if last line is incomplete - if so, complete it
+              if (newLines.length > 0 && !newLines[newLines.length - 1].complete) {
+                // Complete the existing incomplete line
+                newLines[newLines.length - 1] = {
+                  text: newLines[newLines.length - 1].text + text,
+                  complete: true
+                };
+              } else {
+                // Complete line without pending incomplete - add as new line
+                newLines.push({ text, complete: true });
+              }
             } else {
-              // Complete line without pending incomplete - add as new line
-              newLines.push({ text, complete: true });
+              // Incomplete line (from Serial.print) - append to last line or create new
+              if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
+                // Last line is complete or no lines exist - start new incomplete line
+                newLines.push({ text, complete: false });
+              } else {
+                // Last line is incomplete - append to it WITHOUT changing complete status
+                newLines[newLines.length - 1] = {
+                  text: newLines[newLines.length - 1].text + text,
+                  complete: false // Keep it incomplete
+                };
+              }
             }
-          } else {
-            // Incomplete line (from Serial.print) - append to last line or create new
-            if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
-              // Last line is complete or no lines exist - start new incomplete line
-              newLines.push({ text, complete: false });
-            } else {
-              // Last line is incomplete - append to it WITHOUT changing complete status
-              newLines[newLines.length - 1] = {
-                text: newLines[newLines.length - 1].text + text,
-                complete: false // Keep it incomplete
-              };
-            }
+
+            return newLines;
+          });
+          break;
+        }
+        case 'compilation_status':
+          if (message.arduinoCliStatus !== undefined) {
+            setArduinoCliStatus(message.arduinoCliStatus);
           }
-
-          return newLines;
-        });
-        break;
+          if (message.gccStatus !== undefined) {
+            setGccStatus(message.gccStatus);
+          }
+          if (message.message) {
+            setCliOutput(message.message);
+          }
+          break;
+        case 'compilation_error':
+          // Bei GCC-Fehler: Vorherigen Output ERSETZEN, nicht anhängen
+          // Der Arduino-CLI Output war "success", aber GCC ist fehlgeschlagen
+          console.log('[WS] GCC Compilation Error detected:', message.data);
+          setCliOutput('❌ GCC Compilation Error:\n\n' + message.data);
+          setGccStatus('error');
+          setCompilationStatus('error');
+          setSimulationStatus('stopped');
+          break;
+        case 'simulation_status':
+          setSimulationStatus(message.status);
+          break;
       }
-      case 'compilation_status':
-        if (lastMessage.arduinoCliStatus !== undefined) {
-          setArduinoCliStatus(lastMessage.arduinoCliStatus);
-        }
-        if (lastMessage.gccStatus !== undefined) {
-          setGccStatus(lastMessage.gccStatus);
-        }
-        if (lastMessage.message) {
-          setCliOutput(lastMessage.message);
-        }
-        break;
-      case 'compilation_error':
-        setCliOutput(prev => prev + (prev ? '\n' : '') + lastMessage.data);
-        setCompilationStatus('error');
-        setSimulationStatus('stopped');
-        break;
-      case 'simulation_status':
-        setSimulationStatus(lastMessage.status);
-        break;
     }
-  }, [lastMessage]);
+  }, [messageQueue, consumeMessages]);
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
@@ -523,8 +538,20 @@ export default function ArduinoSimulator() {
 
     compileMutation.mutate({ code: mainSketchCode, headers }, {
       onSuccess: (data) => {
+        console.log('[CLIENT] Compile response:', JSON.stringify(data, null, 2));
+        
         // Update arduinoCliStatus based on compile result
         setArduinoCliStatus(data.success ? 'success' : 'error');
+        // Don't set gccStatus here - it will be set by WebSocket when g++ runs
+        
+        // Display compilation output or errors (REPLACE, don't append)
+        if (data.success) {
+          console.log('[CLIENT] Compile SUCCESS, output:', data.output);
+          setCliOutput(data.output || '✓ Arduino-CLI Compilation succeeded.');
+        } else {
+          console.log('[CLIENT] Compile FAILED, errors:', data.errors);
+          setCliOutput(data.errors || '✗ Arduino-CLI Compilation failed.');
+        }
         
         // Simulation nur starten, wenn Compilation Erfolgsmeldung (je nach API-Response prüfen)
         if (data?.success) {

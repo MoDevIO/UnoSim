@@ -299,18 +299,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     type: 'compilation_status',
                     gccStatus: 'error',
                   });
+                  // Stop simulation status
+                  sendMessageToClient(ws, {
+                    type: 'simulation_status',
+                    status: 'stopped',
+                  });
+                  const clientState = clientRunners.get(ws);
+                  if (clientState) {
+                    clientState.isRunning = false;
+                  }
                   logger.error(`[Client Compile Error]: ${compileErr}`);
+                },
+                () => {
+                  // onCompileSuccess: GCC compilation succeeded
+                  sendMessageToClient(ws, {
+                    type: 'compilation_status',
+                    gccStatus: 'success',
+                  });
                 }
               );
-              
-              // After runSketch starts successfully (no error), mark GCC as success
-              // This happens after the compile promise resolves
-              setTimeout(() => {
-                sendMessageToClient(ws, {
-                  type: 'compilation_status',
-                  gccStatus: 'success',
-                });
-              }, 100);
             }
             break;
 

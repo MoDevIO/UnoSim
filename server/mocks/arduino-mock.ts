@@ -13,7 +13,7 @@
  * 6. SerialClass: Added print/println with format (DEC, HEX, OCT, BIN)
  */
 
-export const ARDUINO_MOCK_LINES = 340; // Updated line count
+export const ARDUINO_MOCK_LINES = 353; // Updated line count
 
 export const ARDUINO_MOCK_CODE = `
 // Simulated Arduino environment
@@ -294,6 +294,10 @@ public:
         std::cout << v << std::flush; 
     }
     
+    // Spezielle Überladung für byte/uint8_t (wird sonst als char ausgegeben)
+    // Note: byte = uint8_t = unsigned char, daher nur EINE Überladung nötig
+    void print(byte v) { std::cout << (int)v << std::flush; }
+    
     // print with base format (DEC, HEX, OCT, BIN)
     void print(int v, int base) { printNumber(v, base); }
     void print(long v, int base) { printNumber(v, base); }
@@ -314,6 +318,13 @@ public:
 
     template<typename T> void println(T v) { 
         std::cout << v << std::endl << std::flush; 
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    
+    // Spezielle Überladung für byte/uint8_t (wird sonst als char ausgegeben)
+    // Note: byte = uint8_t = unsigned char, daher nur EINE Überladung nötig
+    void println(byte v) { 
+        std::cout << (int)v << std::endl << std::flush;
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     
