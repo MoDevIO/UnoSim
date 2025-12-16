@@ -82,6 +82,7 @@ export class SandboxRunner {
         onError: (line: string) => void,
         onExit: (code: number | null) => void,
         onCompileError?: (error: string) => void,
+        onCompileSuccess?: () => void,
         onPinState?: (pin: number, type: 'mode' | 'value' | 'pwm', value: number) => void
     ) {
         this.isRunning = true;
@@ -136,10 +137,14 @@ int main() {
             
             if (this.dockerAvailable && this.dockerImageBuilt) {
                 // Single container: compile AND run (more efficient)
-                this.compileAndRunInDocker(sketchDir, onOutput, onError, onExit, onCompileError, undefined, onPinState);
+                this.compileAndRunInDocker(sketchDir, onOutput, onError, onExit, onCompileError, onCompileSuccess, onPinState);
             } else {
                 // Local fallback: compile then run
                 await this.compileLocal(sketchFile, exeFile, onCompileError);
+                // If we get here, compilation was successful
+                if (onCompileSuccess) {
+                    onCompileSuccess();
+                }
                 await this.runLocalWithLimits(exeFile, onOutput, onError, onExit, onPinState);
             }
             

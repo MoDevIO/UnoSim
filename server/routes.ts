@@ -250,10 +250,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 gccStatus: 'compiling',
               });
 
+              // Track if we've sent compile success
+              let gccSuccessSent = false;
+
               // Start genuine C++ execution with isComplete support!
               clientState.runner.runSketch(
                 lastCompiledCode,
                 (line: string, isComplete?: boolean) => {
+                  // First output means compilation succeeded
+                  if (!gccSuccessSent) {
+                    gccSuccessSent = true;
+                    sendMessageToClient(ws, {
+                      type: 'compilation_status',
+                      gccStatus: 'success',
+                    });
+                  }
                   sendMessageToClient(ws, {
                     type: 'serial_output',
                     data: line,
@@ -267,12 +278,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     data: '[ERR] ' + err
                   });
                 },
-                (_code: number | null) => {
+                (exitCode: number | null) => {
                   setTimeout(() => {
                     try {
                       const clientState = clientRunners.get(ws);
                       if (clientState) {
                         clientState.isRunning = false;
+                      }
+                      // If we exit with code 0 and haven't sent success yet, send it now
+                      if (exitCode === 0 && !gccSuccessSent) {
+                        gccSuccessSent = true;
+                        sendMessageToClient(ws, {
+                          type: 'compilation_status',
+                          gccStatus: 'success',
+                        });
                       }
                       sendMessageToClient(ws, {
                         type: 'serial_output',
@@ -309,6 +328,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     clientState.isRunning = false;
                   }
                   logger.error(`[Client Compile Error]: ${compileErr}`);
+                },
+                () => {
+                  // onCompileSuccess callback - compilation succeeded, sketch is running
+                  if (!gccSuccessSent) {
+                    gccSuccessSent = true;
+                    sendMessageToClient(ws, {
+                      type: 'compilation_status',
+                      gccStatus: 'success',
+                    });
+                  }
                 },
                 (pin: number, type: 'mode' | 'value' | 'pwm', value: number) => {
                   // Send pin state update to client

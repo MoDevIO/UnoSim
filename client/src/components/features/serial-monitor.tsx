@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Trash2, Zap } from 'lucide-react';
+import { Trash2, Zap, ChevronsDown } from 'lucide-react';
 
 interface OutputLine {
   text: string;
@@ -45,9 +45,18 @@ export function SerialMonitor({
 }: SerialMonitorProps) {
   const [inputValue, setInputValue] = useState('');
   const outputRef = useRef<HTMLDivElement>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
-  const [userHasScrolled, setUserHasScrolled] = useState(false);
+  const shouldAutoScrollRef = useRef(true);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [terminalLines, setTerminalLines] = useState<Array<{text: string, incomplete: boolean}>>([]);
+  const lastScrollTopRef = useRef(0);
+
+  // Reset auto-scroll when output is cleared
+  useEffect(() => {
+    if (output.length === 0) {
+      shouldAutoScrollRef.current = true;
+      setAutoScrollEnabled(true);
+    }
+  }, [output.length]);
 
   // Process output with ANSI interpretation
   useEffect(() => {
@@ -122,21 +131,46 @@ export function SerialMonitor({
 
   // Auto-scroll to bottom when new output arrives
   useEffect(() => {
-    if (outputRef.current && autoScroll && !userHasScrolled) {
-      requestAnimationFrame(() => {
-        if (outputRef.current) {
-          outputRef.current.scrollTop = outputRef.current.scrollHeight;
-        }
-      });
+    const el = outputRef.current;
+    if (!el) return;
+    
+    if (shouldAutoScrollRef.current) {
+      el.scrollTop = el.scrollHeight;
+      lastScrollTopRef.current = el.scrollTop;
     }
-  }, [terminalLines, autoScroll, userHasScrolled]);
+  }, [terminalLines]);
 
   const handleScroll = () => {
-    if (outputRef.current) {
-      const element = outputRef.current;
-      const isAtBottom = element.scrollHeight - element.clientHeight <= element.scrollTop + 5;
-      setUserHasScrolled(!isAtBottom);
-      setAutoScroll(isAtBottom);
+    const el = outputRef.current;
+    if (!el) return;
+    
+    const currentScrollTop = el.scrollTop;
+    const maxScrollTop = el.scrollHeight - el.clientHeight;
+    
+    // User scrolled up manually
+    if (currentScrollTop < lastScrollTopRef.current - 5) {
+      shouldAutoScrollRef.current = false;
+      setAutoScrollEnabled(false);
+    }
+    
+    // User scrolled to bottom (within 20px tolerance)
+    if (maxScrollTop - currentScrollTop < 20) {
+      shouldAutoScrollRef.current = true;
+      setAutoScrollEnabled(true);
+    }
+    
+    lastScrollTopRef.current = currentScrollTop;
+  };
+
+  const toggleAutoScroll = () => {
+    const newValue = !autoScrollEnabled;
+    setAutoScrollEnabled(newValue);
+    shouldAutoScrollRef.current = newValue;
+    
+    // If enabling, scroll to bottom immediately
+    if (newValue && outputRef.current) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight;
+      lastScrollTopRef.current = outputRef.current.scrollTop;
     }
   };
 
@@ -168,6 +202,16 @@ export function SerialMonitor({
           </div>
 
           <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleAutoScroll}
+              className={autoScrollEnabled ? 'text-green-500' : 'text-muted-foreground'}
+              title={autoScrollEnabled ? 'Auto-Scroll aktiv' : 'Auto-Scroll deaktiviert'}
+              data-testid="button-toggle-autoscroll"
+            >
+              <ChevronsDown className="h-3 w-3" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"
