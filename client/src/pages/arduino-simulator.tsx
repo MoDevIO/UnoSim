@@ -70,6 +70,9 @@ export default function ArduinoSimulator() {
   
   // Ref to track if backend was ever unreachable (for recovery toast)
   const wasBackendUnreachableRef = useRef(false);
+  
+  // Ref to track previous backend reachable state for detecting transitions
+  const prevBackendReachableRef = useRef(true);
 
 
   const { toast } = useToast();
@@ -170,7 +173,23 @@ export default function ArduinoSimulator() {
     queryKey: ['/api/sketches'],
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    enabled: backendReachable, // Only query if backend is reachable
   });
+
+  // Refetch sketches when backend becomes reachable again (false -> true transition)
+  useEffect(() => {
+    const wasUnreachable = !prevBackendReachableRef.current;
+    const isNowReachable = backendReachable;
+    
+    // Update the ref for next check
+    prevBackendReachableRef.current = backendReachable;
+    
+    if (wasUnreachable && isNowReachable) {
+      // Backend just transitioned from unreachable to reachable
+      console.log('[Backend] Recovered, refetching queries...');
+      queryClient.refetchQueries({ queryKey: ['/api/sketches'] });
+    }
+  }, [backendReachable, queryClient]);
 
   // Compilation mutation
   const compileMutation = useMutation({
@@ -1047,7 +1066,7 @@ export default function ArduinoSimulator() {
                 onTabAdd={handleTabAdd}
                 onFilesLoaded={handleFilesLoaded}
                 onFormatCode={formatCode}
-                examplesMenu={<ExamplesMenu onLoadExample={handleLoadExample} />}
+                examplesMenu={<ExamplesMenu onLoadExample={handleLoadExample} backendReachable={backendReachable} />}
               />
 
               <div className="flex-1 min-h-0">

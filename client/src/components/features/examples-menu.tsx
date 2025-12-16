@@ -16,9 +16,10 @@ interface Example {
 
 interface ExamplesMenuProps {
   onLoadExample: (filename: string, content: string) => void;
+  backendReachable?: boolean;
 }
 
-export function ExamplesMenu({ onLoadExample }: ExamplesMenuProps) {
+export function ExamplesMenu({ onLoadExample, backendReachable = true }: ExamplesMenuProps) {
   const [examples, setExamples] = useState<Example[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -75,8 +76,15 @@ export function ExamplesMenu({ onLoadExample }: ExamplesMenuProps) {
       }
     };
 
-    loadExamples();
-  }, [toast]);
+    // Only load if backend is reachable
+    if (backendReachable) {
+      loadExamples();
+    } else {
+      // Clear examples if backend is unreachable
+      setExamples([]);
+      setIsLoading(false);
+    }
+  }, [backendReachable, toast]);
 
   const handleLoadExample = (example: Example) => {
     onLoadExample(example.filename, example.content);
