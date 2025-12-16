@@ -11,6 +11,8 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 - **Serial Monitor**: Real-time output display from simulated Arduino execution
 - **Web-based**: No installation required, run entirely in the browser
 - **Modern UI**: Built with React and TailwindCSS for a responsive, professional interface
+- **🔒 Docker Sandbox**: Secure code execution in isolated containers
+- **🛡️ Security Hardened**: Helmet CSP, Rate Limiting, sanitized error messages
 
 ## Screenshots
 
@@ -24,6 +26,8 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 - **Editor**: Monaco Editor
 - **Testing**: Jest with React Testing Library
 - **Build Tools**: esbuild, Vite
+- **Security**: Helmet, express-rate-limit, Docker sandbox
+- **Containerization**: Docker (Alpine-based sandbox)
 
 ## Installation
 
@@ -129,15 +133,20 @@ unowebsim/
 │   └── index.html                   # HTML entry point
 │
 ├── server/                          # Backend Express server
-│   ├── index.ts                     # Server entry point
+│   ├── index.ts                     # Server entry point (Helmet, Rate Limiting)
 │   ├── routes.ts                    # API routes definition
 │   ├── storage.ts                   # In-memory storage layer
 │   ├── vite.ts                      # Vite SSR/client serving
 │   ├── services/
 │   │   ├── arduino-compiler.ts      # Arduino code compilation logic
-│   │   └── arduino-runner.ts        # Arduino code execution/simulation
+│   │   ├── arduino-runner.ts        # Arduino code execution/simulation
+│   │   └── sandbox-runner.ts        # 🔒 Docker sandbox runner (secure)
 │   └── mocks/
 │       └── arduino-mock.ts          # Mock Arduino runtime
+│
+├── docker/                          # Docker configuration
+│   └── sandbox/
+│       └── Dockerfile               # Alpine-based sandbox container
 │
 ├── shared/                          # Shared code (client + server)
 │   ├── logger.ts                    # Logging utilities
@@ -180,6 +189,25 @@ Monaco-based code editor for writing Arduino sketches with syntax highlighting a
 
 ### Compilation Service
 Handles compilation of Arduino code with support for standard Arduino libraries and error reporting.
+
+### Docker Sandbox (Security)
+User code runs in isolated Docker containers with strict resource limits:
+- **Memory**: 128MB max
+- **CPU**: 50% of one core
+- **Timeout**: 60 seconds
+- **Network**: Disabled
+- **Filesystem**: Read-only, isolated temp directory
+
+To enable the Docker sandbox:
+```bash
+# Build the sandbox image
+npm run build:sandbox
+
+# Start Docker daemon, then run the server
+npm run dev
+```
+
+Without Docker, the system falls back to local g++ compilation (less secure).
 
 ### Serial Monitor
 Displays real-time output from the simulated Arduino execution, mimicking the Arduino IDE's serial monitor.
@@ -246,19 +274,25 @@ Displays real-time output from the simulated Arduino execution, mimicking the Ar
    - Frontend bundle in `dist/`
    - Backend bundle in `dist/index.js`
 
-2. **Set environment variables**:
+2. **Build the Docker sandbox** (recommended for security):
+   ```bash
+   npm run build:sandbox
+   ```
+
+3. **Set environment variables**:
    ```bash
    export NODE_ENV=production
    export PORT=3000
-   # Add other required env vars as needed
+   # Optional: Disable rate limiting for testing
+   # export DISABLE_RATE_LIMIT=true
    ```
 
-3. **Start the production server**:
+4. **Start the production server**:
    ```bash
    npm start
    ```
 
-4. **(Optional) Using a process manager** (e.g., PM2):
+5. **(Optional) Using a process manager** (e.g., PM2):
    ```bash
    npm install -g pm2
    pm2 start "npm start" --name "unowebsim"
@@ -266,7 +300,7 @@ Displays real-time output from the simulated Arduino execution, mimicking the Ar
    pm2 startup
    ```
 
-5. **Set up reverse proxy** (e.g., Nginx):
+6. **Set up reverse proxy** (e.g., Nginx):
    ```nginx
    server {
        listen 80;
@@ -282,6 +316,24 @@ Displays real-time output from the simulated Arduino execution, mimicking the Ar
        }
    }
    ```
+
+## Security
+
+### Implemented Measures
+
+- **Helmet**: Content Security Policy, X-Frame-Options, and other security headers
+- **Rate Limiting**: 100 requests per 15 minutes per IP (configurable)
+- **Docker Sandbox**: User code runs in isolated containers
+- **Error Sanitization**: Internal errors don't leak sensitive information
+- **Input Validation**: Zod schema validation for all API inputs
+
+### Security Configuration
+
+| Feature | Environment Variable | Default |
+|---------|---------------------|--------|
+| Rate Limiting | `DISABLE_RATE_LIMIT` | Enabled |
+| Docker Sandbox | Docker daemon running | Fallback to local |
+| Test Mode | `NODE_ENV=test` | Rate limit disabled |
 
 ## Known Issues & Limitations
 
@@ -302,6 +354,8 @@ Displays real-time output from the simulated Arduino execution, mimicking the Ar
 
 ### Planned Improvements
 
+- [x] Docker Sandbox for secure code execution
+- [x] Security hardening (Helmet, Rate Limiting)
 - [ ] Extended library support
 - [ ] Basic Arduino I/O Simulation
 
