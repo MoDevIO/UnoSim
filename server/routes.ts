@@ -44,14 +44,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Map to store per-client runner processes
   const clientRunners = new Map<WebSocket, { runner: SandboxRunner | null; isRunning: boolean }>();
 
-  function broadcastMessage(message: WSMessage) {
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(message));
-      }
-    });
-  }
-
   function sendMessageToClient(ws: WebSocket, message: WSMessage) {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message));
