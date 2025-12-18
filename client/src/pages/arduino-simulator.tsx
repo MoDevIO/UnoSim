@@ -546,11 +546,26 @@ export default function ArduinoSimulator() {
 
   // Tab management handlers
   const handleTabClick = (tabId: string) => {
+    // Stop simulation if running
+    if (simulationStatus === 'running') {
+      sendMessage({ type: 'stop_simulation' });
+    }
+    
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       setActiveTabId(tabId);
       setCode(tab.content);
       setIsModified(false);
+      
+      // Stop simulation when switching tabs
+      setCliOutput('');
+      setSerialOutput([]);
+      setPinStates([]);
+      setCompilationStatus('ready');
+      setArduinoCliStatus('idle');
+      setGccStatus('idle');
+      setSimulationStatus('stopped');
+      setHasCompiledOnce(false);
     }
   };
 
@@ -569,6 +584,11 @@ export default function ArduinoSimulator() {
 
   const handleFilesLoaded = (files: Array<{ name: string; content: string }>, replaceAll: boolean) => {
     if (replaceAll) {
+      // Stop simulation if running
+      if (simulationStatus === 'running') {
+        sendMessage({ type: 'stop_simulation' });
+      }
+      
       // Replace all tabs with new files
       const inoFiles = files.filter(f => f.name.endsWith('.ino'));
       const hFiles = files.filter(f => f.name.endsWith('.h'));
@@ -591,6 +611,16 @@ export default function ArduinoSimulator() {
         setCode(inoTab.content);
         setIsModified(false);
       }
+      
+      // Clear previous outputs and stop simulation
+      setCliOutput('');
+      setSerialOutput([]);
+      setPinStates([]);
+      setCompilationStatus('ready');
+      setArduinoCliStatus('idle');
+      setGccStatus('idle');
+      setSimulationStatus('stopped');
+      setHasCompiledOnce(false);
     } else {
       // Add only .h files to existing tabs
       const newHeaderFiles = files.map((file) => ({
@@ -604,6 +634,11 @@ export default function ArduinoSimulator() {
   };
 
   const handleLoadExample = (filename: string, content: string) => {
+    // Stop simulation if running
+    if (simulationStatus === 'running') {
+      sendMessage({ type: 'stop_simulation' });
+    }
+    
     // Create a new sketch from the example, using the filename as the tab name
     const newTab = {
       id: Math.random().toString(36).substr(2, 9),
