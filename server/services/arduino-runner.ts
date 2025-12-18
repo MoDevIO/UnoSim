@@ -1,11 +1,11 @@
 //arduino-runner.ts
 
 import { spawn } from "child_process";
-import { writeFile, mkdir, rm } from "fs/promises";
+import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
-import { ARDUINO_MOCK_CODE, ARDUINO_MOCK_LINES } from '../mocks/arduino-mock';
+import { ARDUINO_MOCK_CODE } from '../mocks/arduino-mock';
 
 
 export class ArduinoRunner {
@@ -30,7 +30,8 @@ export class ArduinoRunner {
         onError: (line: string) => void,
         onExit: (code: number | null) => void,
         onCompileError?: (error: string) => void,
-        onPinState?: (pin: number, type: 'mode' | 'value' | 'pwm', value: number) => void
+        onPinState?: (pin: number, type: 'mode' | 'value' | 'pwm', value: number) => void,
+        timeoutMs: number = 180000
     ) {
 
 
@@ -129,10 +130,10 @@ int main() {
             const timeout = setTimeout(() => {
                 if (this.process) {
                     this.process.kill('SIGKILL');
-                    onOutput("--- Simulation timeout (180s) ---", true);
-                    this.logger.info("Sketch timeout after 180s");
+                    onOutput(`--- Simulation timeout (${timeoutMs / 1000}s) ---`, true);
+                    this.logger.info(`Sketch timeout after ${timeoutMs / 1000}s`);
                 }
-            }, 180000);
+            }, timeoutMs);
 
             // IMPROVED: Output buffering with auto-flush
             this.process.stdout?.on("data", (data) => {

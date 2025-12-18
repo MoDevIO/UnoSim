@@ -420,11 +420,12 @@ describe("ArduinoRunner", () => {
   describe("Execution Timeouts", () => {
     it("should timeout sketch execution after 180 seconds", async () => {
       const runner = new ArduinoRunner();
+      const outputs: string[] = [];
       const errors: string[] = [];
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
+        (line) => outputs.push(line),
         (line) => errors.push(line),
         jest.fn()
       );
@@ -455,7 +456,7 @@ describe("ArduinoRunner", () => {
       }
 
       expect(runProc.kill).toHaveBeenCalledWith('SIGKILL');
-      expect(errors).toContain("Sketch runtime timeout");
+      expect(outputs).toContain("--- Simulation timeout (180s) ---");
     });
   });
 
