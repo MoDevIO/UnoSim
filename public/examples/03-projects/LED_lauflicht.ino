@@ -45,7 +45,7 @@ void setup() {
     digitalWrite(PINS[i], LOW); // Sicherer als analogWrite für initialen Aus-Zustand
   }
   
-  Serial.println(F("LED Sinus-Fade gestartet")); // F() spart RAM
+  Serial.println("LED Sinus-Fade gestartet"); // F() spart RAM
 }
 
 void loop() {

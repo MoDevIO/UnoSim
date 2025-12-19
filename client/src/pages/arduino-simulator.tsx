@@ -273,10 +273,7 @@ export default function ArduinoSimulator() {
     if (gccStatus !== 'idle') setGccStatus('idle');
     if (compilationStatus !== 'ready') setCompilationStatus('ready');
 
-    // Stop simulation when code changes
-    if (simulationStatus === 'running') {
-      stopMutation.mutate();
-    }
+    // Note: Simulation stopping on code change is now handled in handleCodeChange
   }, [code]);
 
   useEffect(() => {
@@ -536,6 +533,11 @@ export default function ArduinoSimulator() {
     setCode(newCode);
     setIsModified(true);
     
+    // Stop simulation when user edits the code
+    if (simulationStatus === 'running') {
+      stopMutation.mutate();
+    }
+    
     // Update the active tab content
     if (activeTabId) {
       setTabs(tabs.map(tab => 
@@ -546,26 +548,22 @@ export default function ArduinoSimulator() {
 
   // Tab management handlers
   const handleTabClick = (tabId: string) => {
-    // Stop simulation if running
-    if (simulationStatus === 'running') {
-      sendMessage({ type: 'stop_simulation' });
-    }
-    
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       setActiveTabId(tabId);
       setCode(tab.content);
       setIsModified(false);
       
-      // Stop simulation when switching tabs
-      setCliOutput('');
-      setSerialOutput([]);
-      setPinStates([]);
-      setCompilationStatus('ready');
-      setArduinoCliStatus('idle');
-      setGccStatus('idle');
-      setSimulationStatus('stopped');
-      setHasCompiledOnce(false);
+      // Note: Simulation continues running when switching tabs
+      // Clear previous outputs only if needed, but keep simulation running
+      // setCliOutput(''); // Commented out to preserve outputs
+      // setSerialOutput([]); // Commented out to preserve outputs
+      // setPinStates([]); // Commented out to preserve pin states
+      // setCompilationStatus('ready'); // Commented out
+      // setArduinoCliStatus('idle'); // Commented out
+      // setGccStatus('idle'); // Commented out
+      // setSimulationStatus('stopped'); // Commented out
+      // setHasCompiledOnce(false); // Commented out
     }
   };
 
