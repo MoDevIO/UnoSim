@@ -43,6 +43,8 @@ export function SerialMonitor({
   onSendMessage,
   onClear
 }: SerialMonitorProps) {
+  // mark possibly-unused prop as intentionally read to satisfy TS noUnusedLocals
+  void isConnected;
   const [inputValue, setInputValue] = useState('');
   const outputRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);

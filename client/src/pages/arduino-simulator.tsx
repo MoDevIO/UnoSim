@@ -20,6 +20,8 @@ import type { Sketch } from '@shared/schema';
 // Logger import
 import { Logger } from '@shared/logger';
 const logger = new Logger("ArduinoSimulator");
+// Intentionally reference to satisfy no-unused-locals during type check
+void logger;
 
 // NEW: Interface for output lines to track completion status
 interface OutputLine {
@@ -78,6 +80,9 @@ export default function ArduinoSimulator() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isConnected, connectionError, hasEverConnected, lastMessage, messageQueue, consumeMessages, sendMessage } = useWebSocket();
+  // Mark some hook values as intentionally read to avoid TS unused-local errors
+  void isConnected;
+  void lastMessage;
 
   // Backend / websocket reachability notifications
   useEffect(() => {
@@ -731,6 +736,8 @@ export default function ArduinoSimulator() {
     if (!ensureBackendConnected('Simulation starten')) return;
     startMutation.mutate();
   };
+  // mark as intentionally present
+  void handleStart;
 
   // Reset simulation (stop, recompile, and restart - like pressing the physical reset button)
   const handleReset = () => {
@@ -936,12 +943,16 @@ export default function ArduinoSimulator() {
   }
 
   const statusInfo = getStatusInfo();
+  void getStatusClass;
+  void statusInfo;
   const simulateDisabled = (simulationStatus !== 'running' && (!backendReachable || !isConnected))
     || compileMutation.isPending
     || startMutation.isPending
     || stopMutation.isPending;
   const stopDisabled = simulationStatus !== 'running' || stopMutation.isPending;
   const buttonsClassName = "hover:bg-green-600 hover:text-white transition-colors";
+  void stopDisabled;
+  void buttonsClassName;
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground">

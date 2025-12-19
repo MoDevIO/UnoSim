@@ -279,6 +279,9 @@ export function SketchTabs({
     setPendingFilesToLoad(null);
   };
 
+  // mark handler as intentionally present to satisfy TS noUnusedLocals
+  void handleReplaceConfirmNo;
+
   const downloadAllTabs = async () => {
     try {
       // Download each file individually

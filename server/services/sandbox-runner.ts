@@ -34,8 +34,6 @@ export class SandboxRunner {
     private logger = new Logger("SandboxRunner");
     private outputBuffer = "";
     private errorBuffer = "";
-    private lineBuffer = "";
-    private lineQueue: string[] = [];
     private totalOutputBytes = 0;
     private dockerAvailable = false;
     private dockerImageBuilt = false;
@@ -581,7 +579,7 @@ int main() {
 
         // Calculate delay for next character
         const charDelayMs = Math.max(1, (10 * 1000) / this.baudrate);
-        this.logger.debug(`Sending char '${char}', delay: ${charDelayMs}ms, buffer length: ${this.outputBuffer.length}`);
+        //this.logger.debug(`Sending char '${char}', delay: ${charDelayMs}ms, buffer length: ${this.outputBuffer.length}`);
 
         setTimeout(() => this.sendOutputWithDelay(onOutput), charDelayMs);
     }

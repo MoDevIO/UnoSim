@@ -5,7 +5,7 @@ import { writeFile, mkdir, rm } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
-import { ARDUINO_MOCK_CODE, ARDUINO_MOCK_LINES } from '../mocks/arduino-mock';
+// Removed unused mock imports to satisfy TypeScript
 
 
 export interface CompilationResult {
@@ -46,7 +46,6 @@ export class ArduinoCompiler {
     const sketchFile = join(sketchDir, `${sketchId}.ino`);
 
     let arduinoCliStatus: 'idle' | 'compiling' | 'success' | 'error' = 'idle';
-    let gccStatus: 'idle' | 'compiling' | 'success' | 'error' = 'idle';
     let warnings: string[] = []; // NEW: Collect warnings
 
     try {

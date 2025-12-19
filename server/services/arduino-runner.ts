@@ -8,16 +8,28 @@ import { Logger } from "@shared/logger";
 import { ARDUINO_MOCK_CODE } from '../mocks/arduino-mock';
 
 
+// Simulation config
+const MAX_SIMULATED_BAUD = 10000;
+const MIN_SEND_INTERVAL_MS = 16; // ~60 updates/sec
+
+function getCharDelayMs(baudrate: number): number {
+    if (baudrate <= 300) return 33;
+    if (baudrate <= 1200) return 8;
+    if (baudrate <= 2400) return 4;
+    if (baudrate <= 4800) return 2;
+    return 1;
+}
+
 export class ArduinoRunner {
     isRunning = false;
     tempDir = join(process.cwd(), "temp");
     process: ReturnType<typeof spawn> | null = null;
     processKilled = false;
     private logger = new Logger("ArduinoRunner");
-    private outputBuffer = ""; // Buffer für ausstehende Ausgabe
+    private outputChunks: string[] = []; // raw stdout chunks queued
+    private outputChunksBytes = 0;
+    private outputBuffer = "";
     private errorBuffer = "";  // Buffer für error output
-    private lineBuffer = "";    // Buffer für aktuelle line chars
-    private lineQueue: string[] = []; // Queue für lines to send
     private baudrate = 9600; // Default baudrate
     private isSendingOutput = false; // Flag to prevent overlapping sends
 
@@ -142,26 +154,14 @@ int main() {
                 }
             }, timeoutMs);
 
-            // IMPROVED: Output buffering with baudrate simulation
+            // IMPROVED: queue raw stdout chunks and send as blocks
             this.process.stdout?.on("data", (data) => {
                 const str = data.toString();
-                this.outputBuffer += str;
+                if (str.length === 0) return;
+                this.outputChunks.push(str);
+                this.outputChunksBytes += str.length;
 
-                // Process complete lines
-                const lines = this.outputBuffer.split(/\r?\n/);
-                this.outputBuffer = lines.pop() || "";
-
-                // Queue complete lines (ignore empty lines)
-                lines.forEach(line => {
-                    if (line.length > 0) {
-                        this.lineQueue.push(line);
-                    }
-                });
-
-                // Start sending if not already sending
-                if (!this.isSendingOutput && this.lineQueue.length > 0) {
-                    this.sendNextLine(onOutput);
-                }
+                if (!this.isSendingOutput) this.sendNextChunk(onOutput);
             });
 
             this.process.stderr?.on("data", (data) => {
@@ -203,10 +203,17 @@ int main() {
             this.process.on("close", (code) => {
                 clearTimeout(timeout);
 
-                // Send any remaining buffered output immediately
-                if (this.outputBuffer.trim()) {
-                    onOutput(this.outputBuffer.trim(), true);
-                }
+                // Send any remaining buffered chunks immediately
+                    while (this.outputChunks.length > 0) {
+                        const chunk = this.outputChunks.shift()!;
+                        const clean = chunk.replace(/\r?\n$/, '');
+                        const isComplete = /\r?\n$/.test(chunk);
+                        if (clean.length > 0) onOutput(clean, isComplete);
+                    }
+                    // Also flush any legacy outputBuffer if present
+                    if (this.outputBuffer && this.outputBuffer.trim()) {
+                        onOutput(this.outputBuffer.trim(), true);
+                    }
                 if (this.errorBuffer.trim()) {
                     this.logger.warn(`[STDERR final]: ${JSON.stringify(this.errorBuffer)}`);
                     onError(this.errorBuffer.trim());
@@ -237,42 +244,64 @@ int main() {
         }
     }
 
-    // Send output character by character with baudrate delay
-    private sendNextLine(onOutput: (line: string, isComplete?: boolean) => void) {
-        if (this.lineQueue.length === 0 || !this.isRunning) return;
-
-        const line = this.lineQueue.shift()!;
-        this.sendLineWithDelay(line, onOutput);
-    }
-
-    private sendLineWithDelay(line: string, onOutput: (line: string, isComplete?: boolean) => void) {
-        if (line.length === 0 || !this.isRunning) {
-            this.sendNextLine(onOutput);
-            return;
-        }
-
-        this.lineBuffer = line;
-        this.sendCharWithDelay(onOutput);
-    }
-
-    private sendCharWithDelay(onOutput: (line: string, isComplete?: boolean) => void) {
-        if (this.lineBuffer.length === 0 || !this.isRunning) {
+    // Send next queued chunk (preserve original write boundaries)
+    private sendNextChunk(onOutput: (line: string, isComplete?: boolean) => void) {
+        if (!this.isRunning || this.outputChunks.length === 0) {
             this.isSendingOutput = false;
-            this.sendNextLine(onOutput);
             return;
         }
 
         this.isSendingOutput = true;
-        const char = this.lineBuffer[0];
-        this.lineBuffer = this.lineBuffer.slice(1);
+        // Pop next chunk and decrement byte counter
+        const chunk = this.outputChunks.shift()!;
+        this.outputChunksBytes = Math.max(0, this.outputChunksBytes - chunk.length);
 
-        // Send the character
-        onOutput(char, false);
+        // Coalesce small successive chunks without newlines to reduce frequency
+        let coalesced = chunk;
+        while (this.outputChunks.length > 0 && coalesced.length < 256) {
+            // If we've already gathered a newline, stop coalescing further
+            if (/\r?\n/.test(coalesced)) break;
+            const peek = this.outputChunks.shift()!;
+            this.outputChunksBytes = Math.max(0, this.outputChunksBytes - peek.length);
+            coalesced += peek;
+        }
+        // If coalesced does not contain any newline, buffer it and wait
+        if (!/\r?\n/.test(coalesced)) {
+            // Put it back at the front of the queue and stop sending
+            this.outputChunks.unshift(coalesced);
+            this.outputChunksBytes += coalesced.length;
+            this.isSendingOutput = false;
+            return;
+        }
 
-        // Calculate delay for next character
-        const charDelayMs = Math.max(1, (10 * 1000) / this.baudrate);
+        // coalesced contains at least one newline -> send up to the first newline
+        const parts = coalesced.split(/(\r?\n)/);
+        let toSend = coalesced;
+        let isComplete = false;
 
-        setTimeout(() => this.sendCharWithDelay(onOutput), charDelayMs);
+        if (parts.length > 1 && (parts[1] === '\n' || parts[1] === '\r\n')) {
+            toSend = parts[0];
+            isComplete = true;
+            const remainder = parts.slice(2).join('');
+            if (remainder) {
+                this.outputChunks.unshift(remainder);
+                this.outputChunksBytes += remainder.length;
+            }
+        } else {
+            isComplete = /\r?\n$/.test(coalesced);
+            if (isComplete) toSend = coalesced.replace(/\r?\n$/, '');
+        }
+
+        if (toSend.length > 0) onOutput(toSend, isComplete);
+
+        const effectiveBaud = Math.min(this.baudrate, MAX_SIMULATED_BAUD);
+        const charDelayMs = getCharDelayMs(effectiveBaud);
+        const totalDelay = Math.max(MIN_SEND_INTERVAL_MS, Math.ceil(charDelayMs * Math.max(1, toSend.length)));
+
+        setTimeout(() => {
+            this.isSendingOutput = false;
+            if (this.outputChunks.length > 0) this.sendNextChunk(onOutput);
+        }, totalDelay);
     }
 
     stop() {
@@ -287,8 +316,8 @@ int main() {
         // Clear buffers
         this.outputBuffer = "";
         this.errorBuffer = "";
-        this.lineBuffer = "";
-        this.lineQueue = [];
+        this.outputChunks = [];
+        this.outputChunksBytes = 0;
         this.isSendingOutput = false;
     }
 }
