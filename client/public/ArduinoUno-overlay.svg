@@ -194,20 +194,20 @@
   <!-- ==================== LEDs ==================== -->
   
   <!-- L LED (Pin 13 indicator) - rect23416 at x=127.2, y=50.3 -->
-  <!-- Initial state: OFF (black) -->
-  <rect id="led-l" x="127.2" y="50.3" width="6.8" height="4.7" fill="#000000" fill-opacity="0.8"/>
+  <!-- Initial state: OFF (transparent). Rounded corners added for nicer on-state appearance. -->
+  <rect id="led-l" x="127.2" y="50.3" width="6.8" height="4.7" rx="1.8" ry="1.8" fill="transparent" fill-opacity="0"/>
   
   <!-- ON LED (Power indicator, green) - rect23418 at x=239, y=67.2 -->
-  <!-- Initial state: OFF (black) -->
-  <rect id="led-on" x="239" y="67.2" width="6.8" height="4.9" fill="#000000" fill-opacity="0.8"/>
+  <!-- Initial state: OFF (transparent). Rounded corners added for nicer on-state appearance. -->
+  <rect id="led-on" x="239" y="67.2" width="6.8" height="4.9" rx="2" ry="2" fill="transparent" fill-opacity="0"/>
   
   <!-- TX LED - from original SVG at x=126.1, y=75 (led-06032) -->
-  <!-- Initial state: OFF (black) -->
-  <rect id="led-tx" x="127.2" y="75" width="6.8" height="4.7" fill="#000000" fill-opacity="0.8"/>
+  <!-- Initial state: OFF (transparent). Rounded corners added for nicer on-state appearance. -->
+  <rect id="led-tx" x="127.2" y="75" width="6.8" height="4.7" rx="1.8" ry="1.8" fill="transparent" fill-opacity="0"/>
   
   <!-- RX LED - from original SVG at x=126.1, y=66.9 (led-06033) -->
-  <!-- Initial state: OFF (black) -->
-  <rect id="led-rx" x="127.2" y="66.9" width="6.8" height="4.7" fill="#000000" fill-opacity="0.8"/>
+  <!-- Initial state: OFF (transparent). Rounded corners added for nicer on-state appearance. -->
+  <rect id="led-rx" x="127.2" y="66.9" width="6.8" height="4.7" rx="1.8" ry="1.8" fill="transparent" fill-opacity="0"/>
 
   <!-- ==================== RESET BUTTON ==================== -->
   <!-- Reset button hit area - from original smd_157sw at cx~53.4, cy~22.9 -->

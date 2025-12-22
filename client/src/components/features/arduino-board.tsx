@@ -106,6 +106,19 @@ export function ArduinoBoard({
       const svgEl = overlay.querySelector('svg');
       if (!svgEl) return;
 
+      // Ensure LEDs transition smoothly when toggling (15ms)
+      try {
+        const ledIds = ['led-on', 'led-l', 'led-tx', 'led-rx'];
+        for (const id of ledIds) {
+          const el = svgEl.querySelector<SVGElement>(`#${id}`);
+          if (el && (el as any).style) {
+            // Remove any transition so LED toggles are instantaneous
+            (el as any).style.transition = '';
+          }
+        }
+      } catch (err) {
+        // Non-fatal: if SVG doesn't match expected structure, continue
+      }
       // Update digital pins 0-13
       for (let pin = 0; pin <= 13; pin++) {
         const frame = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-frame`);
@@ -192,8 +205,9 @@ export function ArduinoBoard({
           ledOn.setAttribute('fill-opacity', '1');
           ledOn.style.filter = 'url(#glow-green)';
         } else {
-          ledOn.setAttribute('fill', '#000000');
-          ledOn.setAttribute('fill-opacity', '0.8');
+          // Make off-state transparent
+          ledOn.setAttribute('fill', 'transparent');
+          ledOn.setAttribute('fill-opacity', '0');
           ledOn.style.filter = 'none';
         }
       }
@@ -207,8 +221,9 @@ export function ArduinoBoard({
           ledL.setAttribute('fill-opacity', '1');
           ledL.style.filter = 'url(#glow-yellow)';
         } else {
-          ledL.setAttribute('fill', '#000000');
-          ledL.setAttribute('fill-opacity', '0.8');
+          // Make off-state transparent
+          ledL.setAttribute('fill', 'transparent');
+          ledL.setAttribute('fill-opacity', '0');
           ledL.style.filter = 'none';
         }
       }
@@ -220,8 +235,9 @@ export function ArduinoBoard({
           ledTx.setAttribute('fill-opacity', '1');
           ledTx.style.filter = 'url(#glow-yellow)';
         } else {
-          ledTx.setAttribute('fill', '#000000');
-          ledTx.setAttribute('fill-opacity', '0.8');
+          // Transparent when off
+          ledTx.setAttribute('fill', 'transparent');
+          ledTx.setAttribute('fill-opacity', '0');
           ledTx.style.filter = 'none';
         }
       }
@@ -233,8 +249,9 @@ export function ArduinoBoard({
           ledRx.setAttribute('fill-opacity', '1');
           ledRx.style.filter = 'url(#glow-yellow)';
         } else {
-          ledRx.setAttribute('fill', '#000000');
-          ledRx.setAttribute('fill-opacity', '0.8');
+          // Transparent when off
+          ledRx.setAttribute('fill', 'transparent');
+          ledRx.setAttribute('fill-opacity', '0');
           ledRx.style.filter = 'none';
         }
       }
