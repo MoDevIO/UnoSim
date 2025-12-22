@@ -3731,6 +3731,6 @@
       </g>
     </g>
   </g>
-  <rect id="rect23416" class="st34" x="127.2" y="50.3" width="6.8" height="4.7"/>
-  <rect id="rect23418" class="st33" x="239" y="67.2" width="6.8" height="4.9"/>
+  <rect id="rect23416" class="st34" x="127.2" y="50.3" width="6.8" height="4.7" style="display: none;"/>
+  <rect id="rect23418" class="st33" x="239" y="67.2" width="6.8" height="4.9" style="display: none;"/>
 </svg>

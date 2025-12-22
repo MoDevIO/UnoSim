@@ -1,10 +1,12 @@
 void setup()
 {
     Serial.begin(115200);
-    pinMode(8, INPUT_PULLUP);
-    pinMode(7, INPUT);
-    pinMode(6, OUTPUT);
-    pinMode(5, OUTPUT);
+    for (byte i=0; i<7; i++) {
+        pinMode(i, INPUT);
+    }
+    for (byte i=7; i<14; i++) {
+        pinMode(i, INPUT_PULLUP);
+    }
 }
 
 void loop()

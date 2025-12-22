@@ -292,6 +292,7 @@ int main() {
                     const pinPwmMatch = line.match(/\[\[PIN_PWM:(\d+):(\d+)\]\]/);
                     const dreadMatch = line.match(/\[\[DREAD:(\d+):(\d+)\]\]/);
                     const pinSetMatch = line.match(/\[\[PIN_SET:(\d+):(\d+)\]\]/);
+                    const stdinRecvMatch = line.match(/\[\[STDIN_RECV:(.+)\]\]/);
                     
                     if (pinModeMatch && onPinState) {
                         const pin = parseInt(pinModeMatch[1]);
@@ -305,10 +306,11 @@ int main() {
                         const pin = parseInt(pinPwmMatch[1]);
                         const value = parseInt(pinPwmMatch[2]);
                         onPinState(pin, 'pwm', value);
-                    } else if (dreadMatch) {
-                        // digitalRead debug - don't send to client
-                    } else if (pinSetMatch) {
-                        // pin set confirmed - don't send to client
+                    } else if (dreadMatch || pinSetMatch) {
+                        // debug - don't send to client
+                    } else if (stdinRecvMatch) {
+                        // stdin received confirmation - log to server
+                        this.logger.info(`[C++ STDIN RECV] ${stdinRecvMatch[1]}`);
                     } else {
                         // Only log and send actual errors, not protocol messages
                         this.logger.warn(`[STDERR]: ${line}`);
@@ -563,9 +565,25 @@ int main() {
 
     setPinValue(pin: number, value: number) {
         if (this.isRunning && this.process && this.process.stdin && !this.process.killed) {
-            // Send special command to set pin value
             const command = `[[SET_PIN:${pin}:${value}]]\n`;
-            this.process.stdin.write(command);
+            const stdin = this.process.stdin;
+            
+            // Write with callback to ensure it's flushed
+            const success = stdin.write(command, 'utf8', (err) => {
+                if (err) {
+                    this.logger.error(`Failed to write pin command: ${err.message}`);
+                }
+            });
+            
+            // If write returned false, the buffer is full - drain it
+            if (!success) {
+                this.logger.warn(`stdin buffer full, waiting for drain`);
+                stdin.once('drain', () => {
+                    this.logger.info(`stdin drained`);
+                });
+            }
+            
+            this.logger.info(`[SET_PIN] pin=${pin} value=${value} writeOk=${success}`);
         } else {
             this.logger.warn("setPinValue: Simulator läuft nicht - pin value ignored");
         }
@@ -629,6 +647,7 @@ int main() {
                     const pinPwmMatch = line.match(/\[\[PIN_PWM:(\d+):(\d+)\]\]/);
                     const dreadMatch = line.match(/\[\[DREAD:(\d+):(\d+)\]\]/);
                     const pinSetMatch = line.match(/\[\[PIN_SET:(\d+):(\d+)\]\]/);
+                    const stdinRecvMatch = line.match(/\[\[STDIN_RECV:(.+)\]\]/);
                     
                     if (pinModeMatch && onPinState) {
                         const pin = parseInt(pinModeMatch[1]);
@@ -642,7 +661,7 @@ int main() {
                         const pin = parseInt(pinPwmMatch[1]);
                         const value = parseInt(pinPwmMatch[2]);
                         onPinState(pin, 'pwm', value);
-                    } else if (dreadMatch || pinSetMatch) {
+                    } else if (dreadMatch || pinSetMatch || stdinRecvMatch) {
                         // Debug output - don't send to client
                     } else {
                         onError(line);

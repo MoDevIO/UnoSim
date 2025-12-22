@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Arduino UNO Overlay SVG
+  Extracted from ArduinoUno.svg - contains only interactive/dynamic elements
+  ViewBox matches original: 0 0 285.2 209
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 285.2 209">
+  <defs>
+    <style>
+      /* Pin connector stroke style from original */
+      .pin-stroke { fill: none; stroke: #9a916c; stroke-miterlimit: 5; stroke-width: 1px; }
+      /* LED colors */
+      .led-yellow-on { fill: #ff0; fill-opacity: 1; }
+      .led-yellow-off { fill: #ff0; fill-opacity: 0.4; }
+      .led-green-on { fill: lime; fill-opacity: 1; }
+      .led-green-off { fill: lime; fill-opacity: 0.4; }
+      /* Click areas */
+      .click-area { fill: transparent; cursor: pointer; }
+      /* State overlays */
+      .state-circle { fill-opacity: 0.8; }
+      .input-frame { fill: none; stroke: #ffff00; stroke-width: 1; }
+    </style>
+    <!-- Glow filters -->
+    <filter id="glow-yellow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-green" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Board outline for visual check (from original path _x30_.1.0.0) -->
+  <g id="board-outline" opacity="0.3">
+    <path fill="none" stroke="#0f7391" stroke-width="1" d="M260.8,10l5.4,5.4v40.5l9,9v116.1l-9,9v5.4c0,2-1.6,3.5-3.5,3.5H35.8c-2,0-3.5-1.6-3.5-3.5h0V13.5c0-2,1.6-3.5,3.5-3.5h225.1"/>
+    <!-- Mounting holes -->
+    <circle cx="266.2" cy="73" r="5.7" fill="none" stroke="#0f7391"/>
+    <circle cx="266.2" cy="172" r="5.7" fill="none" stroke="#0f7391"/>
+    <circle cx="86.2" cy="19" r="5.7" fill="none" stroke="#0f7391"/>
+    <circle cx="81.7" cy="190" r="5.7" fill="none" stroke="#0f7391"/>
+  </g>
+
+  <!-- ==================== DIGITAL PINS 0-13 ==================== -->
+  <!-- Pin layout: Row at y=19, Pins 8-13 left side, gap, Pins 0-7 right side -->
+  
+  <!-- Pin 13 (connector56pin) cx=134.8 -->
+  <g id="pin-13" data-pin="13">
+    <rect id="pin-13-frame" class="input-frame" x="131.3" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-13-state" cx="134.8" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-13-click" class="click-area" x="130.8" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 12 (connector55pin) cx=143.8 -->
+  <g id="pin-12" data-pin="12">
+    <rect id="pin-12-frame" class="input-frame" x="140.3" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-12-state" cx="143.8" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-12-click" class="click-area" x="139.8" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 11 (connector54pin) cx=152.8 -->
+  <g id="pin-11" data-pin="11">
+    <rect id="pin-11-frame" class="input-frame" x="149.3" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-11-state" cx="152.8" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-11-click" class="click-area" x="148.8" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 10 (connector53pin) cx=161.8 -->
+  <g id="pin-10" data-pin="10">
+    <rect id="pin-10-frame" class="input-frame" x="158.3" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-10-state" cx="161.8" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-10-click" class="click-area" x="157.8" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 9 (connector52pin) cx=170.8 -->
+  <g id="pin-9" data-pin="9">
+    <rect id="pin-9-frame" class="input-frame" x="167.3" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-9-state" cx="170.8" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-9-click" class="click-area" x="166.8" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 8 (connector51pin) cx=179.8 -->
+  <g id="pin-8" data-pin="8">
+    <rect id="pin-8-frame" class="input-frame" x="176.3" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-8-state" cx="179.8" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-8-click" class="click-area" x="175.8" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 7 (connector68pin) cx=194.2 -->
+  <g id="pin-7" data-pin="7">
+    <rect id="pin-7-frame" class="input-frame" x="190.7" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-7-state" cx="194.2" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-7-click" class="click-area" x="190.2" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 6 (connector67pin) cx=203.2 -->
+  <g id="pin-6" data-pin="6">
+    <rect id="pin-6-frame" class="input-frame" x="199.7" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-6-state" cx="203.2" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-6-click" class="click-area" x="199.2" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 5 (connector66pin) cx=212.2 -->
+  <g id="pin-5" data-pin="5">
+    <rect id="pin-5-frame" class="input-frame" x="208.7" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-5-state" cx="212.2" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-5-click" class="click-area" x="208.2" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 4 (connector65pin) cx=221.2 -->
+  <g id="pin-4" data-pin="4">
+    <rect id="pin-4-frame" class="input-frame" x="217.7" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-4-state" cx="221.2" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-4-click" class="click-area" x="217.2" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 3 (connector64pin) cx=230.2 -->
+  <g id="pin-3" data-pin="3">
+    <rect id="pin-3-frame" class="input-frame" x="226.7" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-3-state" cx="230.2" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-3-click" class="click-area" x="226.2" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 2 (connector63pin) cx=239.2 -->
+  <g id="pin-2" data-pin="2">
+    <rect id="pin-2-frame" class="input-frame" x="235.7" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-2-state" cx="239.2" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-2-click" class="click-area" x="235.2" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 1 / TX (connector62pin) cx=248.2 -->
+  <g id="pin-1" data-pin="1">
+    <rect id="pin-1-frame" class="input-frame" x="244.7" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-1-state" cx="248.2" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-1-click" class="click-area" x="244.2" y="14" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin 0 / RX (connector61pin) cx=257.2 -->
+  <g id="pin-0" data-pin="0">
+    <rect id="pin-0-frame" class="input-frame" x="253.7" y="15.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-0-state" cx="257.2" cy="19" r="2.5" fill="#000000"/>
+    <rect id="pin-0-click" class="click-area" x="253.2" y="14" width="8" height="10"/>
+  </g>
+
+  <!-- ==================== ANALOG PINS A0-A5 ==================== -->
+  <!-- Analog pin layout: Row at y=190, from right to left A0-A5 -->
+  
+  <!-- Pin A0 (connector0pin) cx=212.2 -->
+  <g id="pin-A0" data-pin="A0">
+    <rect id="pin-A0-frame" class="input-frame" x="208.7" y="186.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-A0-state" cx="212.2" cy="190" r="2.5" fill="#000000"/>
+    <rect id="pin-A0-click" class="click-area" x="208.2" y="185" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin A1 (connector1pin) cx=221.2 -->
+  <g id="pin-A1" data-pin="A1">
+    <rect id="pin-A1-frame" class="input-frame" x="217.7" y="186.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-A1-state" cx="221.2" cy="190" r="2.5" fill="#000000"/>
+    <rect id="pin-A1-click" class="click-area" x="217.2" y="185" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin A2 (connector2pin) cx=230.2 -->
+  <g id="pin-A2" data-pin="A2">
+    <rect id="pin-A2-frame" class="input-frame" x="226.7" y="186.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-A2-state" cx="230.2" cy="190" r="2.5" fill="#000000"/>
+    <rect id="pin-A2-click" class="click-area" x="226.2" y="185" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin A3 (connector3pin) cx=239.2 -->
+  <g id="pin-A3" data-pin="A3">
+    <rect id="pin-A3-frame" class="input-frame" x="235.7" y="186.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-A3-state" cx="239.2" cy="190" r="2.5" fill="#000000"/>
+    <rect id="pin-A3-click" class="click-area" x="235.2" y="185" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin A4 (connector4pin) cx=248.2 -->
+  <g id="pin-A4" data-pin="A4">
+    <rect id="pin-A4-frame" class="input-frame" x="244.7" y="186.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-A4-state" cx="248.2" cy="190" r="2.5" fill="#000000"/>
+    <rect id="pin-A4-click" class="click-area" x="244.2" y="185" width="8" height="10"/>
+  </g>
+  
+  <!-- Pin A5 (connector5pin) cx=257.2 -->
+  <g id="pin-A5" data-pin="A5">
+    <rect id="pin-A5-frame" class="input-frame" x="253.7" y="186.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-A5-state" cx="257.2" cy="190" r="2.5" fill="#000000"/>
+    <rect id="pin-A5-click" class="click-area" x="253.2" y="185" width="8" height="10"/>
+  </g>
+
+  <!-- ==================== LEDs ==================== -->
+  
+  <!-- L LED (Pin 13 indicator) - rect23416 at x=127.2, y=50.3 -->
+  <!-- Initial state: OFF (black) -->
+  <rect id="led-l" x="127.2" y="50.3" width="6.8" height="4.7" fill="#000000" fill-opacity="0.8"/>
+  
+  <!-- ON LED (Power indicator, green) - rect23418 at x=239, y=67.2 -->
+  <!-- Initial state: OFF (black) -->
+  <rect id="led-on" x="239" y="67.2" width="6.8" height="4.9" fill="#000000" fill-opacity="0.8"/>
+  
+  <!-- TX LED - from original SVG at x=126.1, y=75 (led-06032) -->
+  <!-- Initial state: OFF (black) -->
+  <rect id="led-tx" x="127.2" y="75" width="6.8" height="4.7" fill="#000000" fill-opacity="0.8"/>
+  
+  <!-- RX LED - from original SVG at x=126.1, y=66.9 (led-06033) -->
+  <!-- Initial state: OFF (black) -->
+  <rect id="led-rx" x="127.2" y="66.9" width="6.8" height="4.7" fill="#000000" fill-opacity="0.8"/>
+
+  <!-- ==================== RESET BUTTON ==================== -->
+  <!-- Reset button hit area - from original smd_157sw at cx~53.4, cy~22.9 -->
+  <g id="reset-button">
+    <circle id="reset-click" class="click-area" cx="53.4" cy="22.9" r="8"/>
+  </g>
+
+</svg>

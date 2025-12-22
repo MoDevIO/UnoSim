@@ -84,6 +84,9 @@ static std::mt19937 rng(std::time(nullptr));
 
 std::atomic<bool> keepReading(true);
 
+// Forward declaration
+void checkStdinForPinCommands();
+
 // Arduino String class
 class String {
 private:
@@ -158,9 +161,12 @@ void pinMode(int pin, int mode) {
 
 void digitalWrite(int pin, int value) {
     if (pin >= 0 && pin < 20) {
-        pinValues[pin].store(value);
-        // Send pin state update via stderr (special protocol)
-        std::cerr << "[[PIN_VALUE:" << pin << ":" << value << "]]" << std::endl;
+        int oldValue = pinValues[pin].load(std::memory_order_seq_cst);
+        pinValues[pin].store(value, std::memory_order_seq_cst);
+        // Only send update if value actually changed (avoid stderr flooding)
+        if (oldValue != value) {
+            std::cerr << "[[PIN_VALUE:" << pin << ":" << value << "]]" << std::endl;
+        }
     }
 }
 
@@ -174,17 +180,27 @@ int digitalRead(int pin) {
 
 void analogWrite(int pin, int value) {
     if (pin >= 0 && pin < 20) {
-        pinValues[pin].store(value);
-        // Send PWM value update via stderr
-        std::cerr << "[[PIN_PWM:" << pin << ":" << value << "]]" << std::endl;
+        int oldValue = pinValues[pin].load(std::memory_order_seq_cst);
+        pinValues[pin].store(value, std::memory_order_seq_cst);
+        // Only send update if value actually changed
+        if (oldValue != value) {
+            std::cerr << "[[PIN_PWM:" << pin << ":" << value << "]]" << std::endl;
+        }
     }
 }
 
 int analogRead(int pin) { return 0; }
 
-// Timing Functions
+// Timing Functions - now with stdin polling for responsiveness
 void delay(unsigned long ms) { 
-    std::this_thread::sleep_for(std::chrono::milliseconds(ms)); 
+    // Split delay into small chunks to check stdin frequently
+    unsigned long remaining = ms;
+    while (remaining > 0) {
+        unsigned long chunk = (remaining > 10) ? 10 : remaining;
+        std::this_thread::sleep_for(std::chrono::milliseconds(chunk));
+        remaining -= chunk;
+        checkStdinForPinCommands(); // Check for pin commands during delay
+    }
 }
 void delayMicroseconds(unsigned int us) { 
     std::this_thread::sleep_for(std::chrono::microseconds(us)); 
@@ -227,12 +243,17 @@ private:
     
     // Simulate serial transmission delay for n characters
     // 10 bits per char: start + 8 data + stop
+    // Also checks stdin during the delay for responsiveness
     void txDelay(size_t numChars) {
         if (_baudrate > 0 && numChars > 0) {
-            // Microseconds total = (10 bits * numChars * 1000000) / baudrate
-            long totalUs = (10L * numChars * 1000000L) / _baudrate;
-            if (totalUs > 100) { // Only delay if significant (> 0.1ms)
-                std::this_thread::sleep_for(std::chrono::microseconds(totalUs));
+            // Milliseconds total = (10 bits * numChars * 1000) / baudrate
+            long totalMs = (10L * numChars * 1000L) / _baudrate;
+            // Split into small chunks and check stdin
+            while (totalMs > 0) {
+                long chunk = (totalMs > 10) ? 10 : totalMs;
+                std::this_thread::sleep_for(std::chrono::milliseconds(chunk));
+                totalMs -= chunk;
+                checkStdinForPinCommands();
             }
         }
     }
@@ -558,7 +579,11 @@ public:
 
 SerialClass Serial;
 
-// Helper function to set pin value from external input (called from serialInputReader thread)
+// Global buffer for stdin reading (used by checkStdinForPinCommands)
+static char stdinBuffer[256];
+static size_t stdinBufPos = 0;
+
+// Helper function to set pin value from external input
 void setExternalPinValue(int pin, int value) {
     if (pin >= 0 && pin < 20) {
         pinValues[pin].store(value, std::memory_order_seq_cst);
@@ -567,50 +592,59 @@ void setExternalPinValue(int pin, int value) {
     }
 }
 
-void serialInputReader() {
-    constexpr size_t bufferSize = 256;
-    char buffer[bufferSize];
-    
-    // Use select() for non-blocking check on POSIX systems
+// Non-blocking check for stdin pin commands - called from delay() and txDelay()
+void checkStdinForPinCommands() {
     fd_set readfds;
     struct timeval tv;
-
-    while (keepReading.load()) {
-        // Check if data is available on stdin (non-blocking)
-        FD_ZERO(&readfds);
-        FD_SET(STDIN_FILENO, &readfds);
-        tv.tv_sec = 0;
-        tv.tv_usec = 50000; // 50ms timeout
+    
+    // Check if data is available on stdin (non-blocking, zero timeout)
+    FD_ZERO(&readfds);
+    FD_SET(STDIN_FILENO, &readfds);
+    tv.tv_sec = 0;
+    tv.tv_usec = 0; // Zero timeout = immediate return
+    
+    int selectResult = select(STDIN_FILENO + 1, &readfds, NULL, NULL, &tv);
+    
+    while (selectResult > 0 && FD_ISSET(STDIN_FILENO, &readfds)) {
+        // Read one byte
+        char c;
+        ssize_t n = read(STDIN_FILENO, &c, 1);
+        if (n <= 0) break;
         
-        int ready = select(STDIN_FILENO + 1, &readfds, NULL, NULL, &tv);
-        
-        if (ready > 0 && FD_ISSET(STDIN_FILENO, &readfds)) {
-            if (fgets(buffer, bufferSize, stdin) != nullptr) {
-                size_t len = strlen(buffer);
-                
-                // Remove trailing newline if present
-                if (len > 0 && (buffer[len-1] == 10 || buffer[len-1] == 13)) {
-                    buffer[len-1] = 0;
-                    len--;
-                }
-                if (len > 0 && (buffer[len-1] == 10 || buffer[len-1] == 13)) {
-                    buffer[len-1] = 0;
-                    len--;
-                }
+        if (c == '\\n' || c == '\\r') {
+            // End of line - process buffer
+            if (stdinBufPos > 0) {
+                stdinBuffer[stdinBufPos] = '\\0';
                 
                 // Check for special pin value command: [[SET_PIN:X:Y]]
                 int pin, value;
-                if (sscanf(buffer, "[[SET_PIN:%d:%d]]", &pin, &value) == 2) {
+                if (sscanf(stdinBuffer, "[[SET_PIN:%d:%d]]", &pin, &value) == 2) {
                     setExternalPinValue(pin, value);
-                } else if (len > 0) {
+                } else {
                     // Normal serial input (add newline back for serial input)
-                    Serial.mockInput(buffer, len);
+                    Serial.mockInput(stdinBuffer, stdinBufPos);
                     char newline = 10;
                     Serial.mockInput(&newline, 1);
                 }
+                stdinBufPos = 0;
             }
+        } else if (stdinBufPos < sizeof(stdinBuffer) - 1) {
+            stdinBuffer[stdinBufPos++] = c;
         }
-        // No sleep needed - select() handles the waiting
+        
+        // Reset for next select check
+        FD_ZERO(&readfds);
+        FD_SET(STDIN_FILENO, &readfds);
+        tv.tv_sec = 0;
+        tv.tv_usec = 0;
+    }
+}
+
+// Thread-based reader for when main thread is not in delay/serial (legacy, still useful)
+void serialInputReader() {
+    while (keepReading.load()) {
+        checkStdinForPinCommands();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 }
 `;
