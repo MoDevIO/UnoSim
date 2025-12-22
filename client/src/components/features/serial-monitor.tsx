@@ -212,7 +212,7 @@ export function SerialMonitor({
               variant="ghost"
               size="sm"
               onClick={toggleAutoScroll}
-              className={autoScrollEnabled ? 'text-green-500' : 'text-muted-foreground'}
+              className={autoScrollEnabled ? 'text-green-500 hover:text-green-500' : 'text-muted-foreground'}
               title={autoScrollEnabled ? 'Auto-Scroll aktiv' : 'Auto-Scroll deaktiviert'}
               data-testid="button-toggle-autoscroll"
             >
