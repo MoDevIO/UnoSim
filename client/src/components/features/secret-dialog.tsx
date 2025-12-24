@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 
 const STORAGE_KEY = "unoBoardColor";
 const DEFAULT_COLOR = "#0f7391";
+const GLITCH_KEY = "enableErrorGlitch";
 
 export default function SecretDialog({
   open,
@@ -28,6 +29,15 @@ export default function SecretDialog({
     }
   });
 
+  const [glitchEnabled, setGlitchEnabled] = React.useState<boolean>(() => {
+    try {
+      const v = window.localStorage.getItem(GLITCH_KEY);
+      return v === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   React.useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, color);
@@ -36,6 +46,24 @@ export default function SecretDialog({
     const ev = new CustomEvent("arduinoColorChange", { detail: { color } });
     document.dispatchEvent(ev);
   }, [color]);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(GLITCH_KEY, glitchEnabled ? 'true' : 'false');
+    } catch {}
+  }, [glitchEnabled]);
+
+  // Prevent the hex input from automatically receiving focus when the dialog opens
+  React.useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => {
+      try {
+        const el = document.querySelector('input[aria-label="hex color"]') as HTMLElement | null;
+        el?.blur();
+      } catch {}
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,8 +150,25 @@ export default function SecretDialog({
 
           {/* Placeholder for future secret features */}
           <div className="rounded border p-3 bg-muted">
-            <div className="font-medium">More features coming...</div>
-            <div className="text-xs text-muted-foreground">Add more hidden tweaks here.</div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">Compile Error Glitch</div>
+                <div className="text-xs text-muted-foreground">When enabled, a short red glitch effect flashes on compile errors.</div>
+              </div>
+              <div>
+                <label className="inline-flex items-center cursor-pointer" aria-label="Enable Compile Error Glitch">
+                  <input
+                    type="checkbox"
+                    checked={glitchEnabled}
+                    onChange={(e) => setGlitchEnabled(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <span className={`relative inline-block w-11 h-6 transition-colors rounded-full ${glitchEnabled ? 'bg-red-500' : 'bg-gray-300'}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-transform ${glitchEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -78,6 +78,21 @@ export default function ArduinoSimulator() {
 
 
   const { toast } = useToast();
+  // transient screen glitch on compile error
+  const [showErrorGlitch, setShowErrorGlitch] = useState(false);
+  const triggerErrorGlitch = (duration = 600) => {
+    try {
+      // Respect user's preference in Secret Features (default: enabled)
+      try {
+        const enabled = window.localStorage.getItem('enableErrorGlitch');
+        // Only trigger if explicitly enabled by the user via Secret Features
+        if (enabled !== 'true') return;
+      } catch {}
+
+      setShowErrorGlitch(true);
+      window.setTimeout(() => setShowErrorGlitch(false), duration);
+    } catch {}
+  };
   const queryClient = useQueryClient();
   const { isConnected, connectionError, hasEverConnected, lastMessage, messageQueue, consumeMessages, sendMessage } = useWebSocket();
   // Mark some hook values as intentionally read to avoid TS unused-local errors
@@ -210,6 +225,8 @@ export default function ArduinoSimulator() {
         setCliOutput(data.output || '✓ Arduino-CLI Compilation succeeded.');
       } else {
         setArduinoCliStatus('error');
+        // trigger global red glitch to indicate compile error
+        triggerErrorGlitch();
         // REPLACE output, don't append
         setCliOutput(data.errors || '✗ Arduino-CLI Compilation failed.');
       }
@@ -222,6 +239,8 @@ export default function ArduinoSimulator() {
     },
     onError: (error) => {
       setArduinoCliStatus('error');
+      // network/backend or unexpected compile error — show glitch as well
+      triggerErrorGlitch();
       const backendDown = isBackendUnreachableError(error);
       toast({
         title: backendDown ? "Backend unreachable" : "Compilation with Arduino-CLI Failed",
@@ -991,7 +1010,35 @@ export default function ArduinoSimulator() {
   void buttonsClassName;
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground">
+    <div className={`h-screen flex flex-col bg-background text-foreground relative ${showErrorGlitch ? 'overflow-hidden' : ''}`}>
+      {/* Glitch overlay when compilation fails */}
+      {showErrorGlitch && (
+        <div className="pointer-events-none absolute inset-0 z-50">
+          <div className="absolute inset-0 bg-red-600/20 animate-glitch-fade"></div>
+          <div className="absolute inset-0 mix-blend-screen opacity-60 animate-glitch-jitter" style={{backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,0,0,0.06) 0 2px, transparent 2px 4px)'}} />
+          <div className="absolute inset-0" style={{background: 'linear-gradient(90deg, rgba(255,0,0,0.02), rgba(255,0,0,0.06) 40%, rgba(255,0,0,0.02))', mixBlendMode: 'screen', opacity: 0.6}} />
+          <style>{`
+            @keyframes glitch-jitter {
+              0% { transform: translateX(0); clip-path: inset(0 0 0 0); }
+              10% { transform: translateX(-6px); clip-path: inset(10% 0 70% 0); }
+              20% { transform: translateX(4px); clip-path: inset(30% 0 40% 0); }
+              30% { transform: translateX(-2px); clip-path: inset(50% 0 10% 0); }
+              40% { transform: translateX(6px); clip-path: inset(20% 0 60% 0); }
+              60% { transform: translateX(-4px); clip-path: inset(40% 0 30% 0); }
+              80% { transform: translateX(2px); clip-path: inset(0 0 0 0); }
+              100% { transform: translateX(0); clip-path: inset(0 0 0 0); }
+            }
+            @keyframes glitch-fade {
+              0% { opacity: 0.0; }
+              10% { opacity: 1; }
+              90% { opacity: 0.8; }
+              100% { opacity: 0; }
+            }
+            .animate-glitch-jitter { animation: glitch-jitter 0.55s linear both; }
+            .animate-glitch-fade { animation: glitch-fade 0.6s ease-out both; }
+          `}</style>
+        </div>
+      )}
       {/* Header/Toolbar */}
       <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-4">
