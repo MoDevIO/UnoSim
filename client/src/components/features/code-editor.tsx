@@ -181,16 +181,8 @@ export function CodeEditor({ value, onChange, onCompileAndRun, onFormat, readOnl
         }
       }
 
-      // Check if Ctrl/Cmd + Shift + R (Compile&Run)
-      const isCompileAndRunKey = (isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.code === 'KeyR';
-      
-      if (isCompileAndRunKey) {
-        e.preventDefault();
-        // Use ref to get the latest callback (avoids stale closure)
-        if (onCompileAndRunRef.current) {
-          onCompileAndRunRef.current();
-        }
-      }
+      // Note: Cmd+U (Compile&Run) is handled by a global document listener
+      // to work even when the editor is not focused
     });
 
     // NEW: Custom paste handler to handle large pastes
@@ -267,6 +259,30 @@ export function CodeEditor({ value, onChange, onCompileAndRun, onFormat, readOnl
   useEffect(() => {
     onFormatRef.current = onFormat;
   }, [onFormat]);
+
+  // Global keyboard shortcut for Cmd+U (Compile & Run) - works even when editor is not focused
+  useEffect(() => {
+    const isMac = navigator.platform.toUpperCase().includes('MAC');
+    
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const isCompileKey = (isMac ? e.metaKey : e.ctrlKey) && e.code === 'KeyU';
+      
+      if (isCompileKey) {
+        e.preventDefault(); // Prevent browser default (View Source in Firefox)
+        e.stopPropagation();
+        if (onCompileAndRunRef.current) {
+          onCompileAndRunRef.current();
+        }
+      }
+    };
+
+    // Add listener with capture phase to intercept before browser handles it
+    document.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
+    
+    return () => {
+      document.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
+    };
+  }, []);
 
   return (
     <div 
