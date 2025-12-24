@@ -120,6 +120,15 @@ export function CodeEditor({ value, onChange, onCompileAndRun, onFormat, readOnl
       theme: 'arduino-dark',
       readOnly,
       minimap: { enabled: false },
+      // Hide native Monaco scrollbars — we prefer no visible scrollbars
+      scrollbar: {
+        vertical: 'hidden',
+        horizontal: 'hidden',
+        useShadows: false,
+        verticalScrollbarSize: 0,
+        horizontalScrollbarSize: 0,
+        handleMouseWheel: false,
+      },
       fontSize: 14,
       lineHeight: 20,
       fontFamily: 'JetBrains Mono, Consolas, Monaco, monospace',

@@ -317,7 +317,7 @@ export function SketchTabs({
   };
 
   return (
-    <div className="flex items-center bg-muted border-b border-border h-10">
+    <div className="flex items-center bg-muted border-b border-border h-10 px-2">
       {/* Scroll left button */}
       {canScrollLeft && (
         <Button
@@ -340,9 +340,9 @@ export function SketchTabs({
           <div
             key={tab.id}
             className={clsx(
-              'flex items-center space-x-2 px-3 py-2 border-r border-border cursor-pointer transition-colors flex-shrink-0 group',
+              'flex items-center space-x-2 px-4 py-1.5 mr-2 cursor-pointer transition-colors flex-shrink-0 group rounded-md',
               activeTabId === tab.id
-                ? 'bg-background text-foreground'
+                ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
                 : 'hover:bg-muted/80 text-muted-foreground'
             )}
             onClick={() => {

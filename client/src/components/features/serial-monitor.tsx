@@ -46,6 +46,7 @@ export function SerialMonitor({
   // mark possibly-unused prop as intentionally read to satisfy TS noUnusedLocals
   void isConnected;
   const [inputValue, setInputValue] = useState('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
@@ -180,6 +181,8 @@ export function SerialMonitor({
     if (inputValue.trim()) {
       onSendMessage(inputValue);
       setInputValue('');
+      // keep the input focused after sending
+      try { inputRef.current?.focus(); } catch {}
     }
   };
 
@@ -264,6 +267,7 @@ export function SerialMonitor({
           <Input
             type="text"
             placeholder="Send to Arduino..."
+            ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -272,6 +276,7 @@ export function SerialMonitor({
           />
 
           <Button
+            type="button"
             onClick={handleSend}
             size="sm"
             disabled={!inputValue.trim() || !isSimulationRunning}
