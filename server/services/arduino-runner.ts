@@ -12,7 +12,7 @@ import { ARDUINO_MOCK_CODE } from '../mocks/arduino-mock';
 const MAX_SIMULATED_BAUD = 10000;
 const MIN_SEND_INTERVAL_MS = 16; // ~60 updates/sec
 
-function getCharDelayMs(baudrate: number): number {
+export function getCharDelayMs(baudrate: number): number {
     if (baudrate <= 300) return 33;
     if (baudrate <= 1200) return 8;
     if (baudrate <= 2400) return 4;
