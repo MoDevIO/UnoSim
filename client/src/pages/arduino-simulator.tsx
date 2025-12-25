@@ -60,6 +60,9 @@ export default function ArduinoSimulator() {
   const [pinStates, setPinStates] = useState<PinState[]>([]);
   // Analog pins detected in the code that need sliders (internal pin numbers 14..19)
   const [analogPinsUsed, setAnalogPinsUsed] = useState<number[]>([]);
+  // Detected explicit pinMode(...) declarations found during parsing.
+  // We store modes for pins so that we can apply them when the simulation starts.
+  const [detectedPinModes, setDetectedPinModes] = useState<Record<number, 'INPUT' | 'OUTPUT' | 'INPUT_PULLUP'>>({});
   // Pins that have a detected pinMode(...) declaration which conflicts with analogRead usage
   const [pendingPinConflicts, setPendingPinConflicts] = useState<number[]>([]);
   
@@ -694,17 +697,10 @@ export default function ArduinoSimulator() {
     const arr = Array.from(pins).sort((a, b) => a - b);
     setAnalogPinsUsed(arr);
 
-    // Ensure detected analog pins are present in pinStates as INPUT so they appear clickable
-    setPinStates(prev => {
-      const newStates = [...prev];
-      for (const pin of arr) {
-        const exists = newStates.find(p => p.pin === pin);
-        if (!exists) {
-          newStates.push({ pin, mode: 'INPUT', value: 0, type: 'analog' });
-        }
-      }
-      return newStates;
-    });
+    // Do NOT prepopulate `pinStates` for detected analog pins here —
+    // showing analog-only frames should only happen when the simulation
+    // is actually running. Populate `pinStates` for analog pins when
+    // `simulationStatus` becomes 'running' (see separate effect below).
 
     // Detect explicit pinMode calls in code so pins become clickable even before runtime updates
     // Examples: pinMode(A0, INPUT); pinMode(14, INPUT_PULLUP);
@@ -720,34 +716,33 @@ export default function ArduinoSimulator() {
         if (idx >= 0 && idx <= 5) p = 14 + idx;
       } else if (/^\d+$/.test(token)) {
         // Treat numeric literals in pinMode(...) as literal Arduino pin numbers.
-        // This ensures digital pins 0-13 are correctly detected instead of being
-        // misinterpreted as analog channels 0-5.
         const idx = Number(token);
-        if (idx >= 0 && idx <= 255) p = idx; // accept typical pin range
+        if (idx >= 0 && idx <= 255) p = idx;
       }
       if (p !== undefined) {
         digitalPinsFromPinMode.add(p);
-        // Ensure pin is present in pinStates with detected mode
         const mode = modeToken === 'INPUT_PULLUP' ? 'INPUT_PULLUP' : (modeToken === 'OUTPUT' ? 'OUTPUT' : 'INPUT');
-        setPinStates(prev => {
-          const newStates = [...prev];
-          const exists = newStates.find(x => x.pin === p);
-          if (!exists) {
-            newStates.push({ pin: p, mode: mode as any, value: 0, type: (p >= 14 && p <= 19) ? 'analog' : 'digital' });
-          } else {
-            // update mode if present
-            exists.mode = mode as any;
-            // if an explicit pinMode() sets a digital mode on an analog-numbered pin
-            // prefer treating it as digital (solid frame) — keep value/type consistent
-            if (p < 14 || p > 19) {
-              exists.type = 'digital';
+
+        // For analog-numbered pins (14..19), do NOT immediately insert into
+        // `pinStates`. We want analog pins (even when used via pinMode(Ax,...))
+        // to become visible only when the simulation starts. Record the detected
+        // mode in `detectedPinModes` so it can be applied on simulation start.
+        if (p >= 14 && p <= 19) {
+          setDetectedPinModes(prev => ({ ...prev, [p]: mode }));
+        } else {
+          // Non-analog pins: make them clickable immediately
+          setPinStates(prev => {
+            const newStates = [...prev];
+            const exists = newStates.find(x => x.pin === p);
+            if (!exists) {
+              newStates.push({ pin: p, mode: mode as any, value: 0, type: 'digital' });
             } else {
-              // if A0-A5 were pinMode()'d, keep their analog type but mark as INPUT/OUTPUT
-              // The runtime 'pin_state' messages may override type appropriately.
+              exists.mode = mode as any;
+              exists.type = 'digital';
             }
-          }
-          return newStates;
-        });
+            return newStates;
+          });
+        }
       }
     }
 
@@ -763,6 +758,41 @@ export default function ArduinoSimulator() {
       }
     } catch {}
   }, [code, tabs, activeTabId]);
+
+  // When the simulation starts, apply recorded pinMode declarations and
+  // populate any detected analog pins so they become clickable and show
+  // their frames only while the simulation is running.
+  useEffect(() => {
+    if (simulationStatus !== 'running') return;
+
+    setPinStates(prev => {
+      const newStates = [...prev];
+
+      // Apply recorded pinMode(...) declarations (including analog-numbered pins)
+      for (const [pinStr, mode] of Object.entries(detectedPinModes)) {
+        const pin = Number(pinStr);
+        if (Number.isNaN(pin)) continue;
+        const exists = newStates.find(p => p.pin === pin);
+        if (!exists) {
+          newStates.push({ pin, mode: mode as any, value: 0, type: (pin >= 14 && pin <= 19) ? 'digital' : 'digital' });
+        } else {
+          exists.mode = mode as any;
+          if (pin >= 14 && pin <= 19) exists.type = 'digital';
+        }
+      }
+
+      // Ensure detected analog pins are present (as analog) if not already
+      for (const pin of analogPinsUsed) {
+        if (pin < 14 || pin > 19) continue;
+        const exists = newStates.find(p => p.pin === pin);
+        if (!exists) {
+          newStates.push({ pin, mode: 'INPUT', value: 0, type: 'analog' });
+        }
+      }
+
+      return newStates;
+    });
+  }, [simulationStatus, analogPinsUsed, detectedPinModes]);
 
   // Tab management handlers
   const handleTabClick = (tabId: string) => {
