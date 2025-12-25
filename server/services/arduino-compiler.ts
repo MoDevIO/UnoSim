@@ -67,26 +67,25 @@ export class ArduinoCompiler {
         };
       }
 
-      // NEW: Validierung: Serial.begin(115200) - now as WARNING not ERROR
-      const hasSerialOutput = /Serial\.(print|println)/.test(code);
-      if (hasSerialOutput) {
-        const serialBeginExists = /Serial\.begin\s*\(\s*\d+\s*\)/.test(code);
+      // NEW: Validierung: Serial.begin(115200) - now always warn if missing/incorrect
+      // We check for Serial.begin presence and baudrate regardless of whether
+      // Serial.print/println is used so the user sees relevant warnings early.
+      const serialBeginExists = /Serial\.begin\s*\(\s*\d+\s*\)/.test(code);
 
-        if (!serialBeginExists) {
-          warnings.push('⚠️ Serial.begin(115200) is missing in setup()\n   Serial output may not work correctly.');
+      if (!serialBeginExists) {
+        warnings.push('⚠️ Serial.begin(115200) is missing in setup()\n   Serial output may not work correctly.');
+      } else {
+        const uncommentedCode = code
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/\/\/.*$/gm, '');
+
+        if (!/Serial\.begin\s*\(\s*\d+\s*\)/.test(uncommentedCode)) {
+          warnings.push('⚠️ Serial.begin() is commented out!\n   Serial output may not work correctly.');
         } else {
-          const uncommentedCode = code
-            .replace(/\/\*[\s\S]*?\*\//g, '')
-            .replace(/\/\/.*$/gm, '');
-
-          if (!/Serial\.begin\s*\(\s*\d+\s*\)/.test(uncommentedCode)) {
-            warnings.push('⚠️ Serial.begin() is commented out!\n   Serial output may not work correctly.');
-          } else {
-            // Check if baud rate is 115200
-            const baudRateMatch = uncommentedCode.match(/Serial\.begin\s*\(\s*(\d+)\s*\)/);
-            if (baudRateMatch && baudRateMatch[1] !== '115200') {
-              warnings.push(`⚠️ Serial.begin(${baudRateMatch[1]}) uses wrong baud rate\n   This simulator expects Serial.begin(115200).`);
-            }
+          // Check if baud rate is 115200
+          const baudRateMatch = uncommentedCode.match(/Serial\.begin\s*\(\s*(\d+)\s*\)/);
+          if (baudRateMatch && baudRateMatch[1] !== '115200') {
+            warnings.push(`⚠️ Serial.begin(${baudRateMatch[1]}) uses wrong baud rate\n   This simulator expects Serial.begin(115200).`);
           }
         }
       }

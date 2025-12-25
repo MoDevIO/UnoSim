@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Cpu, Eye, EyeOff } from 'lucide-react';
 
 interface PinState {
   pin: number;
   mode: 'INPUT' | 'OUTPUT' | 'INPUT_PULLUP';
-  value: number; // 0-255 for analog, 0 or 1 for digital
+  value: number; // analog: 0-1023, pwm: 0-255, digital: 0 or 1
   type: 'digital' | 'analog' | 'pwm';
 }
 
@@ -15,6 +16,8 @@ interface ArduinoBoardProps {
   rxActive?: number; // RX activity counter (changes trigger blink)
   onReset?: () => void; // Callback when reset button is clicked
   onPinToggle?: (pin: number, newValue: number) => void; // Callback when an INPUT pin is clicked
+  analogPins?: number[]; // array of internal pin numbers for analog pins (14..19)
+  onAnalogChange?: (pin: number, value: number) => void;
 }
 
 // SVG viewBox dimensions (from ArduinoUno.svg)
@@ -32,6 +35,8 @@ export function ArduinoBoard({
   rxActive = 0,
   onReset,
   onPinToggle,
+  analogPins = [],
+  onAnalogChange,
 }: ArduinoBoardProps) {
   const [svgContent, setSvgContent] = useState<string>('');
   const [boardColor, setBoardColor] = useState<string>(() => {
@@ -50,6 +55,11 @@ export function ArduinoBoard({
   const [scale, setScale] = useState<number>(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const innerWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Slider positions in percent of viewBox (left%, top%)
+  const [sliderPositions, setSliderPositions] = useState<Array<{ pin: number; leftPct: number; topPct: number; value: number; sliderLen: number; placement: 'above' | 'below' }>>([]);
+  const [analogDialog, setAnalogDialog] = useState<null | { open: true; pin: number; value: number; leftPct: number; topPct: number; placement: 'above' | 'below' }>(null);
 
   // Handle TX blink (stays on for 100ms after activity)
   useEffect(() => {
@@ -104,8 +114,20 @@ export function ArduinoBoard({
     
     if (state.type === 'pwm' && PWM_PINS.includes(pin)) {
       const intensity = Math.round((state.value / 255) * 255);
+      if (intensity <= 0) return 'transparent';
       return `rgb(${intensity}, 0, 0)`;
-    } else if (state.value > 0) {
+    }
+
+    if (state.type === 'analog') {
+      // analog values expected 0..1023 -> map to 0..255 red intensity
+      const v = Math.max(0, Math.min(1023, state.value));
+      const intensity = Math.round((v / 1023) * 255);
+      if (intensity <= 0) return 'transparent';
+      return `rgb(${intensity}, 0, 0)`;
+    }
+
+    // digital
+    if (state.value > 0) {
       return '#ff0000';
     } else {
       return '#000000';
@@ -154,6 +176,12 @@ export function ArduinoBoard({
         if (frame) {
           frame.style.display = isInput ? 'block' : 'none';
           frame.style.filter = isInput ? 'drop-shadow(0 0 2px #ffff00)' : 'none';
+          // Ensure digital frames use solid stroke
+          if (isInput) {
+            (frame as any).style.strokeDasharray = '';
+          } else {
+            (frame as any).style.strokeDasharray = '';
+          }
         }
         
         // State circle fill color
@@ -186,12 +214,30 @@ export function ArduinoBoard({
         const click = svgEl.querySelector<SVGRectElement>(`#pin-${pinId}-click`);
         
         const isInput = isPinInput(pinNumber);
+        const usedAsAnalog = analogPins.includes(pinNumber);
         const color = getPinColor(pinNumber);
         
         // Yellow frame for INPUT pins (show/hide via display)
         if (frame) {
-          frame.style.display = isInput ? 'block' : 'none';
-          frame.style.filter = isInput ? 'drop-shadow(0 0 2px #ffff00)' : 'none';
+          // Show frame either if runtime set pinMode as INPUT or if code uses analogRead on this pin
+          // When the simulation is stopped, do not show frames for pins that are
+          // only detected via code (usedAsAnalog). This keeps analog-only frames
+          // consistent with digital frames after simulation ends.
+          const show = isInput || (usedAsAnalog && isSimulationRunning);
+          frame.style.display = show ? 'block' : 'none';
+          frame.style.filter = show ? 'drop-shadow(0 0 2px #ffff00)' : 'none';
+          // Determine dashed vs solid: dashed when only used via analogRead (type 'analog'),
+          // solid when explicitly set as digital via pinMode (type 'digital').
+          const state = pinStates.find(p => p.pin === pinNumber);
+          if (show) {
+            if (usedAsAnalog && (!state || state.type === 'analog')) {
+              (frame as any).style.strokeDasharray = '3,2';
+            } else {
+              (frame as any).style.strokeDasharray = '';
+            }
+          } else {
+            (frame as any).style.strokeDasharray = '';
+          }
         }
         
         // State circle fill color
@@ -207,10 +253,11 @@ export function ArduinoBoard({
           }
         }
         
-        // Click area only for INPUT pins
+        // Click area only for INPUT pins or pins used by analogRead
         if (click) {
-          click.style.pointerEvents = isInput ? 'auto' : 'none';
-          click.style.cursor = isInput ? 'pointer' : 'default';
+          const clickable = isInput || usedAsAnalog;
+          click.style.pointerEvents = clickable ? 'auto' : 'none';
+          click.style.cursor = clickable ? 'pointer' : 'default';
         }
       }
 
@@ -280,7 +327,58 @@ export function ArduinoBoard({
     });
     
     return () => cancelAnimationFrame(rafId);
-  }, [pinStates, isSimulationRunning, txBlink, rxBlink, isPinInput, getPinColor, overlaySvgContent]);
+    }, [pinStates, isSimulationRunning, txBlink, rxBlink, isPinInput, getPinColor, overlaySvgContent]);
+
+  // Compute slider positions for analog pins using SVG bbox (percent of viewBox)
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    const inner = innerWrapperRef.current;
+    if (!overlay || !overlaySvgContent || !inner) {
+      setSliderPositions([]);
+      return;
+    }
+
+    const svgEl = overlay.querySelector<SVGSVGElement>('svg');
+    if (!svgEl) {
+      setSliderPositions([]);
+      return;
+    }
+
+    const positions: Array<{ pin: number; leftPct: number; topPct: number; value: number; sliderLen: number; placement: 'above' | 'below' }> = [];
+    for (const pin of analogPins) {
+      if (pin < 14 || pin > 19) continue;
+      const idx = pin - 14;
+      // Try several candidate element ids to find the pin position
+      const candidates = [`pin-A${idx}-state`, `pin-A${idx}-frame`, `pin-A${idx}-click`, `pin-${pin}-state`, `pin-${pin}-frame`, `pin-${pin}-click`];
+      let found: SVGGraphicsElement | null = null;
+      for (const id of candidates) {
+        const el = svgEl.querySelector<SVGGraphicsElement>(`#${id}`);
+        if (el) {
+          found = el;
+          break;
+        }
+      }
+      if (!found) continue;
+
+      try {
+        const bbox = (found as any).getBBox();
+        const cx = bbox.x + bbox.width / 2;
+        const cy = bbox.y + bbox.height / 2;
+        const leftPct = (cx / VIEWBOX_WIDTH) * 100;
+        const topPct = (cy / VIEWBOX_HEIGHT) * 100;
+        const value = pinStates.find(p => p.pin === pin)?.value ?? 0;
+        // Compute slider visual length (in viewBox pixels) and clamp to reasonable size
+        const rawLen = Math.max(16, Math.min(80, bbox.width * 3));
+        // Placement: if pin is in upper half, place slider below; otherwise above
+        const placement: 'above' | 'below' = cy < VIEWBOX_HEIGHT / 2 ? 'below' : 'above';
+        positions.push({ pin, leftPct, topPct, value, sliderLen: rawLen, placement });
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    setSliderPositions(positions);
+  }, [overlaySvgContent, analogPins, pinStates]);
 
   // Handle clicks on the overlay SVG
   const handleOverlayClick = useCallback((e: React.MouseEvent) => {
@@ -288,6 +386,7 @@ export function ArduinoBoard({
     
     // Check for pin click
     const pinClick = target.closest('[id^="pin-"][id$="-click"]');
+    // debug logs removed
     if (pinClick && onPinToggle) {
       // Match both digital pins (0-13) and analog pins (A0-A5)
       const digitalMatch = pinClick.id.match(/pin-(\d+)-click/);
@@ -303,7 +402,20 @@ export function ArduinoBoard({
       
       if (pin !== undefined) {
         const state = pinStates.find(p => p.pin === pin);
-        if (state && (state.mode === 'INPUT' || state.mode === 'INPUT_PULLUP')) {
+        // debug logs removed
+        // Determine if this analog pin was detected from code (analogRead)
+        const usedAsAnalog = analogPins.includes(pin);
+        // Only open the analog dialog when this pin was actually used by analogRead
+        if (pin >= 14 && pin <= 19 && onAnalogChange && usedAsAnalog) {
+          // Find slider position info if available
+          const info = sliderPositions.find(s => s.pin === pin);
+          const val = state ? state.value : 0;
+          const leftPct = info ? info.leftPct : 50;
+          const topPct = info ? info.topPct : 50;
+          const placement = info ? info.placement : (topPct < 50 ? 'below' : 'above');
+          // Open dialog
+          setAnalogDialog({ open: true, pin, value: val, leftPct, topPct, placement });
+        } else if (state && (state.mode === 'INPUT' || state.mode === 'INPUT_PULLUP')) {
           const newValue = state.value > 0 ? 0 : 1;
           console.log(`[ArduinoBoard] Pin ${pin} clicked, toggling to ${newValue}`);
           onPinToggle(pin, newValue);
@@ -318,7 +430,7 @@ export function ArduinoBoard({
       console.log('[ArduinoBoard] Reset button clicked');
       onReset();
     }
-  }, [onPinToggle, onReset, pinStates]);
+  }, [onPinToggle, onReset, pinStates, sliderPositions, onAnalogChange, analogPins]);
 
   // Compute scale to fit both width and height
   useEffect(() => {
@@ -415,6 +527,7 @@ export function ArduinoBoard({
           >
             {/* Scaled inner wrapper to fit both width and height */}
             <div
+              ref={innerWrapperRef}
               style={{
                 position: 'relative',
                 width: `${VIEWBOX_WIDTH}px`,
@@ -435,11 +548,79 @@ export function ArduinoBoard({
                 onClick={handleOverlayClick}
                 dangerouslySetInnerHTML={{ __html: getOverlaySvg() }} 
               />
+              {/* analog dialog is rendered as a portal to avoid affecting layout */}
+              <AnalogDialogPortal
+                dialog={analogDialog}
+                overlayRef={overlayRef}
+                onClose={() => setAnalogDialog(null)}
+                onConfirm={(pin: number, value: number) => {
+                  try {
+                    if (onAnalogChange) onAnalogChange(pin, value);
+                  } finally {
+                    setAnalogDialog(null);
+                  }
+                }}
+              />
             </div>
           </div>
         ) : (
           <div className="text-gray-500">Loading Arduino Board...</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Portal render function placed after component to keep JSX smaller
+function AnalogDialogPortal(props: {
+  dialog: { open: true; pin: number; value: number; leftPct: number; topPct: number; placement: 'above' | 'below' } | null,
+  overlayRef: React.RefObject<HTMLDivElement> | null,
+  onClose: () => void,
+  onConfirm: (pin: number, value: number) => void
+}) {
+  const { dialog, overlayRef, onClose, onConfirm } = props;
+  if (!dialog || !overlayRef || !overlayRef.current) return null;
+
+  try {
+    const svgEl = overlayRef.current.querySelector('svg');
+    if (!svgEl) return null;
+    const idx = dialog.pin - 14;
+    const el = svgEl.querySelector<SVGGraphicsElement>(`#pin-A${idx}-state`) || svgEl.querySelector<SVGGraphicsElement>(`#pin-${dialog.pin}-state`);
+    if (!el) return null;
+    const rect = (el as Element).getBoundingClientRect();
+    const dialogWidth = 220;
+    const dialogHeight = 84;
+    let left = rect.left + rect.width / 2 - dialogWidth / 2;
+    let top = dialog.placement === 'below' ? rect.bottom + 6 : rect.top - dialogHeight - 6;
+    // clamp to viewport
+    left = Math.max(8, Math.min(window.innerWidth - dialogWidth - 8, left));
+    top = Math.max(8, Math.min(window.innerHeight - dialogHeight - 8, top));
+
+    return createPortal(
+      <div style={{ position: 'fixed', left, top, width: dialogWidth, background: 'rgba(20,20,20,0.95)', color: '#eee', padding: 8, borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.6)', zIndex: 10000 }}>
+        <div style={{ fontSize: 12, marginBottom: 6 }}>{dialog.pin >= 14 && dialog.pin <= 19 ? `A${dialog.pin - 14}` : dialog.pin}</div>
+        <DialogInner dialog={dialog} onClose={onClose} onConfirm={onConfirm} />
+      </div>,
+      document.body
+    );
+  } catch (err) {
+    return null;
+  }
+}
+
+function DialogInner(props: { dialog: { open: true; pin: number; value: number }, onClose: () => void, onConfirm: (pin: number, value: number) => void }) {
+  const { dialog, onClose, onConfirm } = props;
+  const [val, setVal] = useState<number>(dialog.value);
+  useEffect(() => setVal(dialog.value), [dialog.value]);
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input type="range" min={0} max={1023} step={1} value={val} onChange={(e) => setVal(Number((e.target as HTMLInputElement).value))} style={{ flex: 1 }} />
+        <input type="number" min={0} max={1023} value={val} onChange={(e) => setVal(Math.max(0, Math.min(1023, Number(e.target.value || 0))))} style={{ width: 64, background: 'transparent', color: '#eee', border: '1px solid rgba(255,255,255,0.08)', padding: '4px', borderRadius: 4 }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+        <button onClick={onClose} style={{ background: 'transparent', color: '#ccc', border: 'none', padding: '6px 8px', borderRadius: 4 }}>Abbrechen</button>
+        <button onClick={() => onConfirm(dialog.pin, val)} style={{ background: '#1f6feb', color: '#fff', border: 'none', padding: '6px 8px', borderRadius: 4 }}>OK</button>
       </div>
     </div>
   );

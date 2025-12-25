@@ -58,6 +58,10 @@ export default function ArduinoSimulator() {
   
   // Pin states for Arduino board visualization
   const [pinStates, setPinStates] = useState<PinState[]>([]);
+  // Analog pins detected in the code that need sliders (internal pin numbers 14..19)
+  const [analogPinsUsed, setAnalogPinsUsed] = useState<number[]>([]);
+  // Pins that have a detected pinMode(...) declaration which conflicts with analogRead usage
+  const [pendingPinConflicts, setPendingPinConflicts] = useState<number[]>([]);
   
   // Simulation timeout setting (in seconds)
   const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
@@ -82,13 +86,6 @@ export default function ArduinoSimulator() {
   const [showErrorGlitch, setShowErrorGlitch] = useState(false);
   const triggerErrorGlitch = (duration = 600) => {
     try {
-      // Respect user's preference in Secret Features (default: enabled)
-      try {
-        const enabled = window.localStorage.getItem('enableErrorGlitch');
-        // Only trigger if explicitly enabled by the user via Secret Features
-        if (enabled !== 'true') return;
-      } catch {}
-
       setShowErrorGlitch(true);
       window.setTimeout(() => setShowErrorGlitch(false), duration);
     } catch {}
@@ -264,7 +261,6 @@ export default function ArduinoSimulator() {
   // Start simulation mutation
   const startMutation = useMutation({
     mutationFn: async () => {
-      console.log('[Simulation] Starting with timeout:', simulationTimeout);
       sendMessage({ type: 'start_simulation', timeout: simulationTimeout });
       return { success: true };
     },
@@ -274,6 +270,17 @@ export default function ArduinoSimulator() {
         title: "Simulation Started",
         description: "Arduino simulation is now running",
       });
+      // If there are any pending pin conflicts detected during parsing,
+      // append a warning to the compilation output so the user sees it in
+      // the Compiler panel after starting the simulation.
+      try {
+        if (pendingPinConflicts && pendingPinConflicts.length > 0) {
+          const names = pendingPinConflicts.map(p => (p >= 14 && p <= 19) ? `A${p - 14}` : `${p}`).join(', ');
+          setCliOutput(prev => (prev ? prev + "\n\n" : "") + `⚠️ Pin usage conflict: Pins used as digital via pinMode(...) and also read with analogRead(): ${names}. This may be unintended.`);
+          // Clear pending after showing once
+          setPendingPinConflicts([]);
+        }
+      } catch {}
     },
     onError: (error: any) => {
       toast({
@@ -521,15 +528,23 @@ export default function ArduinoSimulator() {
                   1: 'OUTPUT', 
                   2: 'INPUT_PULLUP'
                 };
+                // If a mode update comes from the runtime (pinMode call), consider this an explicit
+                // digital usage — convert an auto-detected 'analog' type to 'digital' so the UI
+                // shows a solid frame instead of dashed.
                 newStates[existingIndex] = {
                   ...newStates[existingIndex],
-                  mode: modeMap[value] || 'INPUT'
+                  mode: modeMap[value] || 'INPUT',
+                  type: newStates[existingIndex].type === 'analog' ? 'digital' : newStates[existingIndex].type
                 };
               } else if (stateType === 'value') {
+                // Update value only. Do NOT change the pin `type` based on incoming
+                // value updates — `pinMode` (runtime or parsed) controls whether a
+                // pin is considered digital. For analog pins that were never
+                // explicitly `pinMode`-ed, new entries (below) will be created
+                // with type 'analog'. Here we preserve existing.type.
                 newStates[existingIndex] = {
                   ...newStates[existingIndex],
-                  value,
-                  type: 'digital'
+                  value
                 };
               } else if (stateType === 'pwm') {
                 newStates[existingIndex] = {
@@ -549,7 +564,9 @@ export default function ArduinoSimulator() {
                 pin,
                 mode: stateType === 'mode' ? (modeMap[value] || 'INPUT') : 'OUTPUT',
                 value: stateType === 'value' || stateType === 'pwm' ? value : 0,
-                type: stateType === 'pwm' ? 'pwm' : 'digital'
+                // New pins on 14..19 are analog by default when a value arrives
+                // and we haven't seen an explicit pinMode yet.
+                type: stateType === 'pwm' ? 'pwm' : (pin >= 14 && pin <= 19 ? 'analog' : 'digital')
               });
             }
             
@@ -562,12 +579,10 @@ export default function ArduinoSimulator() {
   }, [messageQueue, consumeMessages]);
 
   const handleCodeChange = (newCode: string) => {
-    console.log('handleCodeChange called, simulationStatus:', simulationStatus);
     setCode(newCode);
     setIsModified(true);
     
     // Stop simulation when user edits the code
-    console.log('Sending code_changed message');
     sendMessage({ type: 'code_changed' });
     if (simulationStatus === 'running') {
       setSimulationStatus('stopped');
@@ -580,6 +595,174 @@ export default function ArduinoSimulator() {
       ));
     }
   };
+
+  // Parse the current code to detect which analog pins are used by name or channel
+  useEffect(() => {
+    let mainCode = code;
+    if (!mainCode && tabs.length > 0) mainCode = tabs[0].content || '';
+
+    const pins = new Set<number>();
+    const varMap = new Map<string, number>();
+
+    // Detect #define VAR A0 or #define VAR 0
+    const defineRe = /#define\s+(\w+)\s+(A\d|\d+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = defineRe.exec(mainCode))) {
+      const name = m[1];
+      const token = m[2];
+      let p: number | undefined;
+      const aMatch = token.match(/^A(\d+)$/i);
+      if (aMatch) {
+        const idx = Number(aMatch[1]);
+        if (idx >= 0 && idx <= 5) p = 14 + idx;
+      } else if (/^\d+$/.test(token)) {
+        const idx = Number(token);
+        if (idx >= 0 && idx <= 5) p = 14 + idx;
+        else if (idx >= 14 && idx <= 19) p = idx;
+      }
+      if (p !== undefined) varMap.set(name, p);
+    }
+
+    // Detect simple variable assignments like: int sensorPin = A0; or const int s = 0;
+    const assignRe = /(?:int|const\s+int|uint8_t|byte)\s+(\w+)\s*=\s*(A\d|\d+)\s*;/g;
+    while ((m = assignRe.exec(mainCode))) {
+      const name = m[1];
+      const token = m[2];
+      let p: number | undefined;
+      const aMatch = token.match(/^A(\d+)$/i);
+      if (aMatch) {
+        const idx = Number(aMatch[1]);
+        if (idx >= 0 && idx <= 5) p = 14 + idx;
+      } else if (/^\d+$/.test(token)) {
+        const idx = Number(token);
+        if (idx >= 0 && idx <= 5) p = 14 + idx;
+        else if (idx >= 14 && idx <= 19) p = idx;
+      }
+      if (p !== undefined) varMap.set(name, p);
+    }
+
+    // Find all analogRead(...) occurrences
+    const areadRe = /analogRead\s*\(\s*([^\)]+)\s*\)/g;
+    while ((m = areadRe.exec(mainCode))) {
+      const token = m[1].trim();
+      // strip possible casts or expressions (very simple handling)
+      const simple = token.match(/^(A\d+|\d+|\w+)$/i);
+      if (!simple) continue;
+      const tok = simple[1];
+      // If token is A<n>
+      const aMatch = tok.match(/^A(\d+)$/i);
+      if (aMatch) {
+        const idx = Number(aMatch[1]);
+        if (idx >= 0 && idx <= 5) pins.add(14 + idx);
+        continue;
+      }
+      // If numeric literal
+      if (/^\d+$/.test(tok)) {
+        const idx = Number(tok);
+        if (idx >= 0 && idx <= 5) pins.add(14 + idx);
+        else if (idx >= 14 && idx <= 19) pins.add(idx);
+        continue;
+      }
+      // Otherwise assume variable name - resolve from varMap
+      if (varMap.has(tok)) {
+        pins.add(varMap.get(tok)!);
+      }
+    }
+
+      // Detect for-loops like: for (byte i=16; i<20; i++) { ... analogRead(i) ... }
+      const forLoopRe = /for\s*\(\s*(?:byte|int|unsigned|uint8_t)?\s*(\w+)\s*=\s*(\d+)\s*;\s*\1\s*(<|<=)\s*(\d+)\s*;[^\)]*\)\s*\{([\s\S]*?)\}/g;
+      let fm: RegExpExecArray | null;
+      while ((fm = forLoopRe.exec(mainCode))) {
+        const varName = fm[1];
+        const start = Number(fm[2]);
+        const cmp = fm[3];
+        const end = Number(fm[4]);
+        const body = fm[5];
+        const useRe = new RegExp('analogRead\\s*\\(\\s*' + varName + '\\s*\\)', 'g');
+        if (useRe.test(body)) {
+          const inclusive = cmp === '<=';
+          const last = inclusive ? end : end - 1;
+          for (let pin = start; pin <= last; pin++) {
+            // If the loop iterates over analog channel numbers (0..5) or internal pins (14..19 or 16..19), handle mapping
+            if (pin >= 0 && pin <= 5) pins.add(14 + pin);
+            else if (pin >= 14 && pin <= 19) pins.add(pin);
+            else if (pin >= 16 && pin <= 19) pins.add(pin);
+          }
+        }
+      }
+
+    const arr = Array.from(pins).sort((a, b) => a - b);
+    setAnalogPinsUsed(arr);
+
+    // Ensure detected analog pins are present in pinStates as INPUT so they appear clickable
+    setPinStates(prev => {
+      const newStates = [...prev];
+      for (const pin of arr) {
+        const exists = newStates.find(p => p.pin === pin);
+        if (!exists) {
+          newStates.push({ pin, mode: 'INPUT', value: 0, type: 'analog' });
+        }
+      }
+      return newStates;
+    });
+
+    // Detect explicit pinMode calls in code so pins become clickable even before runtime updates
+    // Examples: pinMode(A0, INPUT); pinMode(14, INPUT_PULLUP);
+    const pinModeRe = /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
+    const digitalPinsFromPinMode = new Set<number>();
+    while ((m = pinModeRe.exec(mainCode))) {
+      const token = m[1];
+      const modeToken = m[2];
+      let p: number | undefined;
+      const aMatch = token.match(/^A(\d+)$/i);
+      if (aMatch) {
+        const idx = Number(aMatch[1]);
+        if (idx >= 0 && idx <= 5) p = 14 + idx;
+      } else if (/^\d+$/.test(token)) {
+        // Treat numeric literals in pinMode(...) as literal Arduino pin numbers.
+        // This ensures digital pins 0-13 are correctly detected instead of being
+        // misinterpreted as analog channels 0-5.
+        const idx = Number(token);
+        if (idx >= 0 && idx <= 255) p = idx; // accept typical pin range
+      }
+      if (p !== undefined) {
+        digitalPinsFromPinMode.add(p);
+        // Ensure pin is present in pinStates with detected mode
+        const mode = modeToken === 'INPUT_PULLUP' ? 'INPUT_PULLUP' : (modeToken === 'OUTPUT' ? 'OUTPUT' : 'INPUT');
+        setPinStates(prev => {
+          const newStates = [...prev];
+          const exists = newStates.find(x => x.pin === p);
+          if (!exists) {
+            newStates.push({ pin: p, mode: mode as any, value: 0, type: (p >= 14 && p <= 19) ? 'analog' : 'digital' });
+          } else {
+            // update mode if present
+            exists.mode = mode as any;
+            // if an explicit pinMode() sets a digital mode on an analog-numbered pin
+            // prefer treating it as digital (solid frame) — keep value/type consistent
+            if (p < 14 || p > 19) {
+              exists.type = 'digital';
+            } else {
+              // if A0-A5 were pinMode()'d, keep their analog type but mark as INPUT/OUTPUT
+              // The runtime 'pin_state' messages may override type appropriately.
+            }
+          }
+          return newStates;
+        });
+      }
+    }
+
+    // If any pin is both declared via pinMode(...) and used with analogRead(...), warn the user
+    try {
+      const overlap = Array.from(pins).filter(p => digitalPinsFromPinMode.has(p));
+      if (overlap.length > 0) {
+        // Store conflicts and show them when simulation starts
+        setPendingPinConflicts(overlap);
+        console.warn('[arduino-simulator] Pin usage conflict for pins:', overlap.map(p => (p >= 14 && p <= 19) ? `A${p - 14}` : `${p}`).join(', '));
+      } else {
+        setPendingPinConflicts([]);
+      }
+    } catch {}
+  }, [code, tabs, activeTabId]);
 
   // Tab management handlers
   const handleTabClick = (tabId: string) => {
@@ -818,6 +1001,36 @@ export default function ArduinoSimulator() {
     });
   };
 
+  // Handle analog slider changes (0..1023)
+  const handleAnalogChange = (pin: number, newValue: number) => {
+    if (simulationStatus !== 'running') {
+      toast({
+        title: "Simulation nicht aktiv",
+        description: "Starte die Simulation, um Pin-Werte zu ändern.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    sendMessage({ type: 'set_pin_value', pin, value: newValue });
+
+    // Update local pin state immediately for responsive UI
+    setPinStates(prev => {
+      const newStates = [...prev];
+      const existingIndex = newStates.findIndex(p => p.pin === pin);
+      if (existingIndex >= 0) {
+        newStates[existingIndex] = {
+          ...newStates[existingIndex],
+          value: newValue,
+          type: 'analog'
+        };
+      } else {
+        newStates.push({ pin, mode: 'INPUT', value: newValue, type: 'analog' });
+      }
+      return newStates;
+    });
+  };
+
   const handleCompileAndStart = () => {
     if (!ensureBackendConnected('Simulation starten')) return;
     // Get the actual main sketch code - prioritize editor, then tabs, then state
@@ -1014,28 +1227,42 @@ export default function ArduinoSimulator() {
       {/* Glitch overlay when compilation fails */}
       {showErrorGlitch && (
         <div className="pointer-events-none absolute inset-0 z-50">
-          <div className="absolute inset-0 bg-red-600/20 animate-glitch-fade"></div>
-          <div className="absolute inset-0 mix-blend-screen opacity-60 animate-glitch-jitter" style={{backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,0,0,0.06) 0 2px, transparent 2px 4px)'}} />
-          <div className="absolute inset-0" style={{background: 'linear-gradient(90deg, rgba(255,0,0,0.02), rgba(255,0,0,0.06) 40%, rgba(255,0,0,0.02))', mixBlendMode: 'screen', opacity: 0.6}} />
+          {/* Single red border flash */}
+          <div className="absolute inset-0 flex items-stretch justify-stretch">
+            <div className="absolute inset-0">
+              <div className="absolute inset-0 border-0 pointer-events-none">
+                <div className="absolute inset-0 rounded-none border-4 border-red-500 opacity-0 animate-border-flash" />
+              </div>
+            </div>
+          </div>
           <style>{`
-            @keyframes glitch-jitter {
-              0% { transform: translateX(0); clip-path: inset(0 0 0 0); }
-              10% { transform: translateX(-6px); clip-path: inset(10% 0 70% 0); }
-              20% { transform: translateX(4px); clip-path: inset(30% 0 40% 0); }
-              30% { transform: translateX(-2px); clip-path: inset(50% 0 10% 0); }
-              40% { transform: translateX(6px); clip-path: inset(20% 0 60% 0); }
-              60% { transform: translateX(-4px); clip-path: inset(40% 0 30% 0); }
-              80% { transform: translateX(2px); clip-path: inset(0 0 0 0); }
-              100% { transform: translateX(0); clip-path: inset(0 0 0 0); }
-            }
-            @keyframes glitch-fade {
-              0% { opacity: 0.0; }
+            @keyframes border-flash {
+              0% { opacity: 0; transform: scale(1); }
               10% { opacity: 1; }
-              90% { opacity: 0.8; }
+              60% { opacity: 0.7; }
               100% { opacity: 0; }
             }
-            .animate-glitch-jitter { animation: glitch-jitter 0.55s linear both; }
-            .animate-glitch-fade { animation: glitch-fade 0.6s ease-out both; }
+            .animate-border-flash { animation: border-flash 0.6s ease-out both; }
+          `}</style>
+        </div>
+      )}
+      {/* Blue breathing border when backend is unreachable */}
+      {!backendReachable && (
+        <div className="pointer-events-none absolute inset-0 z-40">
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 border-0 pointer-events-none">
+              <div className="absolute inset-0 rounded-none border-2 border-blue-400 opacity-80 animate-breathe-blue" />
+            </div>
+          </div>
+          <style>{`
+            @keyframes breathe-blue {
+              0% { box-shadow: 0 0 0 0 rgba(37,99,235,0.06); opacity: 0.6; }
+              25% { box-shadow: 0 0 18px 6px rgba(37,99,235,0.10); opacity: 0.85; }
+              50% { box-shadow: 0 0 36px 12px rgba(37,99,235,0.16); opacity: 1; }
+              75% { box-shadow: 0 0 18px 6px rgba(37,99,235,0.10); opacity: 0.85; }
+              100% { box-shadow: 0 0 0 0 rgba(37,99,235,0.06); opacity: 0.6; }
+            }
+            .animate-breathe-blue { animation: breathe-blue 6s ease-in-out infinite; }
           `}</style>
         </div>
       )}
@@ -1252,6 +1479,8 @@ export default function ArduinoSimulator() {
                   rxActive={rxActivity}
                   onReset={handleReset}
                   onPinToggle={handlePinToggle}
+                  analogPins={analogPinsUsed}
+                  onAnalogChange={handleAnalogChange}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>

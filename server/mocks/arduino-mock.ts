@@ -189,7 +189,16 @@ void analogWrite(int pin, int value) {
     }
 }
 
-int analogRead(int pin) { return 0; }
+int analogRead(int pin) {
+    // Support both analog channel numbers 0..5 and A0..A5 (14..19)
+    int p = pin;
+    if (pin >= 0 && pin <= 5) p = 14 + pin; // map channel 0..5 to A0..A5
+    if (p >= 0 && p < 20) {
+        // Return the externally-set pin value (0..1023 expected for analog inputs)
+        return pinValues[p].load(std::memory_order_seq_cst);
+    }
+    return 0;
+}
 
 // Timing Functions - now with stdin polling for responsiveness
 void delay(unsigned long ms) { 
