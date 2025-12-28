@@ -194,8 +194,8 @@ export function SerialMonitor({
 
   return (
     <div className="h-full flex flex-col" data-testid="serial-monitor">
-      <div className="bg-muted px-4 border-b border-border flex items-center h-10">
-        <div className="flex items-center w-full">
+      <div className="bg-muted px-4 border-b border-border flex items-center h-10 overflow-hidden">
+        <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
           <div className="flex items-center space-x-2 flex-shrink-0">
             <div
               className={`w-2 h-2 rounded-full ${isSimulationRunning ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}
@@ -206,10 +206,10 @@ export function SerialMonitor({
               data-testid="connection-indicator"
             />
             <i className="fas fa-comments text-accent text-sm"></i>
-            <span className="text-sm font-medium">Serial Monitor</span>
-            <span className="text-xs text-muted-foreground">115200 baud</span>
+            <span className="text-sm font-medium truncate">Serial Monitor</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">115200 baud</span>
           </div>
-          <div className="flex-1" />
+          <div className="flex-1 min-w-0" />
           <div className="flex items-center space-x-2 flex-shrink-0">
             <Button
               variant="ghost"

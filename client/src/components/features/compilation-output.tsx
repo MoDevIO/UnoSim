@@ -9,13 +9,13 @@ interface CompilationOutputProps {
 export function CompilationOutput({ output, onClear }: CompilationOutputProps) {
   return (
     <div className="h-full flex flex-col border-b border-border" data-testid="compilation-output">
-      <div className="bg-muted px-4 border-b border-border flex items-center h-10">
-        <div className="flex items-center w-full">
+      <div className="bg-muted px-4 border-b border-border flex items-center h-10 overflow-hidden">
+        <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
           <div className="flex items-center space-x-2 flex-shrink-0">
             <Terminal className="text-accent h-4 w-4" />
-            <span className="text-sm font-medium">Compilation Output</span>
+            <span className="text-sm font-medium truncate">Compilation Output</span>
           </div>
-          <div className="flex-1" />
+          <div className="flex-1 min-w-0" />
           <Button
             variant="ghost"
             size="sm"

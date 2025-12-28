@@ -1,6 +1,7 @@
 //arduino-simulator.tsx
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Cpu, Play, Square, Loader2, Terminal, Wrench } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -78,6 +79,105 @@ export default function ArduinoSimulator() {
   const lastSerialEventAtRef = useRef<number>(0);
   // Queue for incoming serial_events to be processed in order
   const [serialEventQueue, setSerialEventQueue] = useState<Array<{payload: any, receivedAt: number}>>([]);
+
+  // Mobile UI: detect small screens and provide a floating tab full-screen view
+  const isClient = typeof window !== 'undefined';
+  const mqQuery = '(max-width: 768px)';
+  const initialIsMobile = isClient ? window.matchMedia(mqQuery).matches : false;
+  const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile);
+  // Initialize mobilePanel immediately on mount when on mobile to avoid flicker/delay
+  const [mobilePanel, setMobilePanel] = useState<'code' | 'compile' | 'serial' | 'board' | null>(initialIsMobile ? 'code' : null);
+
+  useEffect(() => {
+    if (!isClient) return;
+    const mq = window.matchMedia(mqQuery);
+    const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      const matches = 'matches' in e ? e.matches : mq.matches;
+      setIsMobile(matches);
+      // If switching into mobile mode, open code panel immediately
+      if (matches && !mobilePanel) setMobilePanel('code');
+      // If switching out of mobile, close any mobile panel
+      if (!matches) setMobilePanel(null);
+    };
+    // Modern browsers: addEventListener; fallback to addListener
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange as any);
+    else mq.addListener(onChange as any);
+    return () => {
+      if (typeof mq.removeEventListener === 'function') mq.removeEventListener('change', onChange as any);
+      else mq.removeListener(onChange as any);
+    };
+  }, [isClient, mobilePanel]);
+
+  // Prevent body scroll when mobile panel is open
+  useEffect(() => {
+    if (!isClient) return;
+    const prev = document.body.style.overflow;
+    if (mobilePanel) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = prev || '';
+    }
+    return () => { document.body.style.overflow = prev || ''; };
+  }, [mobilePanel, isClient]);
+
+  // Compute header height so mobile overlay can sit below it (preserve normal header)
+  const [headerHeight, setHeaderHeight] = useState<number>(56);
+  const [overlayZ, setOverlayZ] = useState<number>(30);
+  useEffect(() => {
+    if (!isClient) return;
+    const measure = () => {
+      // First try to find our mobile header by data attribute
+      let hdr: Element | null = document.querySelector('[data-mobile-header]');
+      // Fallback to <header> tag
+      if (!hdr) hdr = document.querySelector('header');
+      if (!hdr) {
+        const all = Array.from(document.body.querySelectorAll('*')) as HTMLElement[];
+        hdr = all.find(el => {
+          if (!el) return false;
+          // ignore html/body
+          if (el === document.body || el === document.documentElement) return false;
+          const style = getComputedStyle(el);
+          if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+          const r = el.getBoundingClientRect();
+          // must be near the top and reasonably small (not full-page)
+          if (r.top < -5 || r.top > 48) return false;
+          if (r.height < 24 || r.height > window.innerHeight / 2) return false;
+          return true;
+        }) || null;
+      }
+
+      if (hdr === document.body || hdr === document.documentElement) hdr = null;
+
+      let h = 56;
+      if (hdr) {
+        const rect = (hdr as HTMLElement).getBoundingClientRect();
+        if (rect.height > 0 && rect.height < window.innerHeight / 2) h = Math.ceil(rect.height);
+      }
+      setHeaderHeight(h);
+
+      let z = 0;
+      if (hdr) {
+        const zStr = getComputedStyle(hdr as HTMLElement).zIndex;
+        const zNum = parseInt(zStr || '', 10);
+        z = Number.isFinite(zNum) ? zNum : 0;
+      }
+      const chosenZ = z > 0 ? Math.max(z - 1, 5) : 30;
+      setOverlayZ(chosenZ);
+      console.debug('[mobile overlay] header detect:', hdr, 'headerHeight=', h, 'overlayZ=', chosenZ);
+    };
+
+    measure();
+    window.addEventListener('resize', measure);
+    const hdr = document.querySelector('header');
+    if (hdr) {
+      const obs = new MutationObserver(measure);
+      obs.observe(hdr, { attributes: true, childList: true, subtree: true });
+      return () => {
+        window.removeEventListener('resize', measure);
+        obs.disconnect();
+      };
+    }
+  }, [isClient]);
 
   // Backend availability tracking
   const [backendReachable, setBackendReachable] = useState(true);
@@ -1407,155 +1507,189 @@ export default function ArduinoSimulator() {
         </div>
       )}
       {/* Header/Toolbar */}
-      <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Cpu 
-              className="h-5 w-5" 
-              style={{
-                color: simulationStatus === 'running' ? '#22c55e' : '#6b7280',
-                filter: simulationStatus === 'running' ? 'drop-shadow(0 0 6px #22c55e)' : 'none',
-                transition: 'color 200ms ease-in-out, filter 200ms ease-in-out'
-              }}
-            />
-            <h1 className="text-lg font-semibold">Arduino UNO Simulator</h1>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <span className="bg-muted px-2 py-1 rounded text-xs">Board: Arduino UNO</span>
-            <span className="bg-muted px-2 py-1 rounded text-xs">Baud: 115200</span>
-            <div className="bg-muted px-2 py-1 rounded text-xs flex items-center cursor-pointer hover:bg-muted/80 transition-colors relative">
-              <span className="pointer-events-none">Timeout:</span>
-              <select
-                value={simulationTimeout}
-                onChange={(e) => {
-                  const newTimeout = Number(e.target.value);
-                  console.log('[Timeout] Changed to:', newTimeout);
-                  setSimulationTimeout(newTimeout);
+      {!isMobile ? (
+        <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between flex-nowrap overflow-x-hidden whitespace-nowrap w-screen">
+        <div className="flex items-center space-x-4 min-w-0 whitespace-nowrap">
+          <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
+              <Cpu 
+                className="h-5 w-5" 
+                style={{
+                  color: simulationStatus === 'running' ? '#22c55e' : '#6b7280',
+                  filter: simulationStatus === 'running' ? 'drop-shadow(0 0 6px #22c55e)' : 'none',
+                  transition: 'color 200ms ease-in-out, filter 200ms ease-in-out'
                 }}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full"
-              >
-                <option value={5}>5s</option>
-                <option value={10}>10s</option>
-                <option value={30}>30s</option>
-                <option value={60}>60s</option>
-                <option value={120}>2min</option>
-                <option value={300}>5min</option>
-                <option value={600}>10min</option>
-                <option value={0}>∞</option>
-              </select>
-              <span className="ml-1 pointer-events-none">
-                {simulationTimeout === 0 ? '∞' : 
-                 simulationTimeout >= 60 ? `${simulationTimeout / 60}min` : `${simulationTimeout}s`}
-              </span>
-              <svg className="w-3 h-3 ml-1 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              />
+              <h1 className="text-lg font-semibold truncate">Arduino UNO Simulator</h1>
             </div>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 text-sm">
-            <div 
-              className="w-6 h-6 rounded-full"
-              style={{
-                backgroundColor: compilationStatus === 'compiling' ? '#eab308' :
-                  compilationStatus === 'success' ? '#22c55e' :
-                  compilationStatus === 'error' ? '#ef4444' :
-                  compilationStatus === 'ready' ? '#6b7280' : '#3b82f6',
-                boxShadow: compilationStatus === 'success' ? '0 0 12px 3px rgba(34,197,94,0.6)' : 
-                  compilationStatus === 'error' ? '0 0 12px 3px rgba(239,68,68,0.6)' : 'none',
-                transition: 'background-color 500ms ease-in-out, box-shadow 500ms ease-in-out',
-                animation: (compilationStatus === 'compiling' || compilationStatus === 'success') 
-                  ? 'gentle-pulse 3s ease-in-out infinite' 
-                  : compilationStatus === 'error' 
-                  ? 'error-blink 0.3s ease-in-out 5' 
-                  : 'none'
-              }}
-            />
-            <style>{`
-              @keyframes gentle-pulse {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.7; }
-              }
-              @keyframes error-blink {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.6; }
-              }
-            `}</style>
-
-          </div>
-
-          <div className="flex flex-col space-y-1 text-xs w-32 max-w-full ml-8">
-            <div 
-              className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
-              style={{
-                backgroundColor: arduinoCliStatus === 'compiling' ? 'rgba(234, 179, 8, 0.10)' :
-                  arduinoCliStatus === 'success' ? 'rgba(34, 197, 94, 0.10)' :
-                  arduinoCliStatus === 'error' ? 'rgba(239, 68, 68, 0.10)' :
-                  'rgba(107, 114, 128, 0.10)'
-              }}
-            >
-              <Terminal className="h-3 w-3 mr-1 flex-shrink-0" />
-              <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`CLI: ${compilationStatusLabel(arduinoCliStatus)}`}</span>
-            </div>
-            <div 
-              className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
-              style={{
-                backgroundColor: gccStatus === 'compiling' ? 'rgba(234, 179, 8, 0.10)' :
-                  gccStatus === 'success' ? 'rgba(34, 197, 94, 0.10)' :
-                  gccStatus === 'error' ? 'rgba(239, 68, 68, 0.10)' :
-                  'rgba(107, 114, 128, 0.10)'
-              }}
-            >
-              <Wrench className="h-3 w-3 mr-1 flex-shrink-0" />
-              <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`GCC: ${compilationStatusLabel(gccStatus)}`}</span>
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <span className="bg-muted px-2 py-1 rounded text-xs">Board: Arduino UNO</span>
+              <span className="bg-muted px-2 py-1 rounded text-xs">Baud: 115200</span>
+              <div className="bg-muted px-2 py-1 rounded text-xs flex items-center cursor-pointer hover:bg-muted/80 transition-colors relative">
+                <span className="pointer-events-none">Timeout:</span>
+                <select
+                  value={simulationTimeout}
+                  onChange={(e) => {
+                    const newTimeout = Number(e.target.value);
+                    console.log('[Timeout] Changed to:', newTimeout);
+                    setSimulationTimeout(newTimeout);
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                >
+                  <option value={5}>5s</option>
+                  <option value={10}>10s</option>
+                  <option value={30}>30s</option>
+                  <option value={60}>60s</option>
+                  <option value={120}>2min</option>
+                  <option value={300}>5min</option>
+                  <option value={600}>10min</option>
+                  <option value={0}>∞</option>
+                </select>
+                <span className="ml-1 pointer-events-none">
+                  {simulationTimeout === 0 ? '∞' : 
+                   simulationTimeout >= 60 ? `${simulationTimeout / 60}min` : `${simulationTimeout}s`}
+                </span>
+                <svg className="w-3 h-3 ml-1 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <Button
-              onClick={simulationStatus === 'running' ? handleStop : handleCompileAndStart}
-              disabled={simulateDisabled}
-              className={clsx(
-                'w-64',
-                '!text-white',
-                'transition-colors',
-                {
-                  // Classes for the 'running' state (orange for Stop)
-                  '!bg-orange-600 hover:!bg-orange-700': simulationStatus === 'running' && !simulateDisabled,
-
-                  // Classes for the 'stopped' state (green for Start)
-                  '!bg-green-600 hover:!bg-green-700': simulationStatus !== 'running' && !simulateDisabled,
-
-                  // Classes for the disabled state (regardless of simulationStatus)
-                  'opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500': simulateDisabled,
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="flex items-center space-x-2 text-sm">
+              <div 
+                className="w-6 h-6 rounded-full"
+                style={{
+                  backgroundColor: compilationStatus === 'compiling' ? '#eab308' :
+                    compilationStatus === 'success' ? '#22c55e' :
+                    compilationStatus === 'error' ? '#ef4444' :
+                    compilationStatus === 'ready' ? '#6b7280' : '#3b82f6',
+                  boxShadow: compilationStatus === 'success' ? '0 0 12px 3px rgba(34,197,94,0.6)' : 
+                    compilationStatus === 'error' ? '0 0 12px 3px rgba(239,68,68,0.6)' : 'none',
+                  transition: 'background-color 500ms ease-in-out, box-shadow 500ms ease-in-out',
+                  animation: (compilationStatus === 'compiling' || compilationStatus === 'success') 
+                    ? 'gentle-pulse 3s ease-in-out infinite' 
+                    : compilationStatus === 'error' 
+                    ? 'error-blink 0.3s ease-in-out 5' 
+                    : 'none'
+                }}
+              />
+              <style>{`
+                @keyframes gentle-pulse {
+                  0%, 100% { opacity: 1; }
+                  50% { opacity: 0.7; }
                 }
-              )}
-              data-testid="button-simulate-toggle"
-            >
-              {(compileMutation.isPending || startMutation.isPending || stopMutation.isPending) ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : simulationStatus === 'running' ? (
-                <>
-                  <Square className="h-4 w-4 mr-2" />
-                  Stop Simulation
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Start Simulation
-                </>
-              )}
-            </Button>
+                @keyframes error-blink {
+                  0%, 100% { opacity: 1; }
+                  50% { opacity: 0.6; }
+                }
+              `}</style>
 
+            </div>
+
+            <div className="flex flex-col space-y-1 text-xs w-32 max-w-full ml-8">
+              <div 
+                className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
+                style={{
+                  backgroundColor: arduinoCliStatus === 'compiling' ? 'rgba(234, 179, 8, 0.10)' :
+                    arduinoCliStatus === 'success' ? 'rgba(34, 197, 94, 0.10)' :
+                    arduinoCliStatus === 'error' ? 'rgba(239, 68, 68, 0.10)' :
+                    'rgba(107, 114, 128, 0.10)'
+                }}
+              >
+                <Terminal className="h-3 w-3 mr-1 flex-shrink-0" />
+                <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`CLI: ${compilationStatusLabel(arduinoCliStatus)}`}</span>
+              </div>
+              <div 
+                className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
+                style={{
+                  backgroundColor: gccStatus === 'compiling' ? 'rgba(234, 179, 8, 0.10)' :
+                    gccStatus === 'success' ? 'rgba(34, 197, 94, 0.10)' :
+                    gccStatus === 'error' ? 'rgba(239, 68, 68, 0.10)' :
+                    'rgba(107, 114, 128, 0.10)'
+                }}
+              >
+                <Wrench className="h-3 w-3 mr-1 flex-shrink-0" />
+                <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`GCC: ${compilationStatusLabel(gccStatus)}`}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <Button
+                onClick={simulationStatus === 'running' ? handleStop : handleCompileAndStart}
+                disabled={simulateDisabled}
+                className={clsx(
+                  'md:w-64 w-auto',
+                  '!text-white',
+                  'transition-colors',
+                  {
+                    // Classes for the 'running' state (orange for Stop)
+                    '!bg-orange-600 hover:!bg-orange-700': simulationStatus === 'running' && !simulateDisabled,
+
+                    // Classes for the 'stopped' state (green for Start)
+                    '!bg-green-600 hover:!bg-green-700': simulationStatus !== 'running' && !simulateDisabled,
+
+                    // Classes for the disabled state (regardless of simulationStatus)
+                    'opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500': simulateDisabled,
+                  }
+                )}
+                data-testid="button-simulate-toggle"
+              >
+                {(compileMutation.isPending || startMutation.isPending || stopMutation.isPending) ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : simulationStatus === 'running' ? (
+                  <>
+                    <Square className="h-4 w-4 mr-2" />
+                    Stop Simulation
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Start Simulation
+                  </>
+                )}
+              </Button>
+
+            </div>
           </div>
         </div>
-      </div>
-
+      ) : (
+        <div data-mobile-header className="bg-card border-b border-border px-4 py-3 flex items-center justify-center flex-nowrap overflow-hidden w-full relative z-10">
+          <Button
+            onClick={simulationStatus === 'running' ? handleStop : handleCompileAndStart}
+            disabled={simulateDisabled}
+            className={clsx(
+              'w-64',
+              '!text-white',
+              'transition-colors',
+              {
+                '!bg-orange-600 hover:!bg-orange-700': simulationStatus === 'running' && !simulateDisabled,
+                '!bg-green-600 hover:!bg-green-700': simulationStatus !== 'running' && !simulateDisabled,
+                'opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500': simulateDisabled,
+              }
+            )}
+            data-testid="button-simulate-toggle-mobile"
+          >
+            {(compileMutation.isPending || startMutation.isPending || stopMutation.isPending) ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : simulationStatus === 'running' ? (
+              <>
+                <Square className="h-4 w-4 mr-2" />
+                Stop Simulation
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-2" />
+                Start Simulation
+              </>
+            )}
+          </Button>
+        </div>
+      )}
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal" className="h-full" id="main-layout">
+      <div className="flex-1 overflow-hidden relative z-0">
+        {!isMobile ? (
+          <ResizablePanelGroup direction="horizontal" className="h-full" id="main-layout">
           {/* Code Editor Panel */}
           <ResizablePanel defaultSize={50} minSize={20} id="code-panel">
             <div className="h-full flex flex-col">
@@ -1625,7 +1759,110 @@ export default function ArduinoSimulator() {
               </ResizablePanel>
             </ResizablePanelGroup>
           </ResizablePanel>
-        </ResizablePanelGroup>
+          </ResizablePanelGroup>
+        ) : (
+          <div className="h-full relative">
+            {/* Render tab bar in a portal so it's fixed to the viewport regardless of ancestor transforms */}
+            {isClient && createPortal(
+              <div className="fixed inset-0 pointer-events-none" style={{ zIndex: overlayZ }}>
+                <div className="absolute inset-0 flex items-end justify-end p-8" style={{ paddingBottom: 'env(safe-area-inset-bottom, 32px)', paddingRight: 'env(safe-area-inset-right, 32px)' }}>
+                    <div className="pointer-events-auto sticky mr-4 mb-4" style={{ alignSelf: 'flex-end' }}>
+                      <div className="bg-black/95 rounded-full shadow-lg p-1 flex flex-col items-center space-y-2">
+                  <button
+                    aria-label="Code Editor"
+                    onClick={() => setMobilePanel(mobilePanel === 'code' ? null : 'code')}
+                    className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'code' ? 'bg-blue-600 text-white' : 'bg-transparent text-muted-foreground')}
+                  >
+                    <Cpu className="w-5 h-5" />
+                  </button>
+                  <button
+                    aria-label="Compilation Output"
+                    onClick={() => setMobilePanel(mobilePanel === 'compile' ? null : 'compile')}
+                    className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'compile' ? 'bg-green-600 text-white' : 'bg-transparent text-muted-foreground')}
+                  >
+                    <Wrench className="w-5 h-5" />
+                  </button>
+                  <button
+                    aria-label="Serial Monitor"
+                    onClick={() => setMobilePanel(mobilePanel === 'serial' ? null : 'serial')}
+                    className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'serial' ? 'bg-amber-600 text-white' : 'bg-transparent text-muted-foreground')}
+                  >
+                    <Terminal className="w-5 h-5" />
+                  </button>
+                  <button
+                    aria-label="Arduino Board"
+                    onClick={() => setMobilePanel(mobilePanel === 'board' ? null : 'board')}
+                    className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'board' ? 'bg-sky-600 text-white' : 'bg-transparent text-muted-foreground')}
+                  >
+                    <Square className="w-5 h-5" />
+                  </button>
+                    </div>
+                  </div>
+                </div>
+              </div>, document.body)
+
+            }
+
+            {mobilePanel && (
+              <div className="fixed left-0 right-0 bottom-0 bg-card p-0 flex flex-col w-screen" style={{ top: `${headerHeight}px`, height: `calc(100vh - ${headerHeight}px)`, zIndex: overlayZ }}>
+                <div className="flex-1 overflow-auto w-screen h-full">
+                  {mobilePanel === 'code' && (
+                    <div className="h-full flex flex-col w-full">
+                      <SketchTabs
+                        tabs={tabs}
+                        activeTabId={activeTabId}
+                        modifiedTabId={null}
+                        onTabClick={handleTabClick}
+                        onTabClose={handleTabClose}
+                        onTabRename={handleTabRename}
+                        onTabAdd={handleTabAdd}
+                        onFilesLoaded={handleFilesLoaded}
+                        onFormatCode={formatCode}
+                        examplesMenu={<ExamplesMenu onLoadExample={handleLoadExample} backendReachable={backendReachable} />}
+                      />
+                      <div className="flex-1 min-h-0 w-full">
+                        <CodeEditor value={code} onChange={handleCodeChange} onCompileAndRun={handleCompileAndStart} onFormat={formatCode} editorRef={editorRef} />
+                      </div>
+                    </div>
+                  )}
+                  {mobilePanel === 'compile' && (
+                    <div className="h-full w-full">
+                      <CompilationOutput
+                        output={cliOutput}
+                        onClear={handleClearCompilationOutput}
+                      />
+                    </div>
+                  )}
+                  {mobilePanel === 'serial' && (
+                    <div className="h-full w-full">
+                      <SerialMonitor
+                        output={serialOutput}
+                        isConnected={isConnected}
+                        isSimulationRunning={simulationStatus === 'running'}
+                        onSendMessage={handleSerialSend}
+                        onClear={handleClearSerialOutput}
+                      />
+                    </div>
+                  )}
+                  {mobilePanel === 'board' && (
+                    <div className="h-full w-full">
+                      <ArduinoBoard
+                        pinStates={pinStates}
+                        isSimulationRunning={simulationStatus === 'running'}
+                        txActive={txActivity}
+                        rxActive={rxActivity}
+                        onReset={handleReset}
+                        onPinToggle={handlePinToggle}
+                        analogPins={analogPinsUsed}
+                        onAnalogChange={handleAnalogChange}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

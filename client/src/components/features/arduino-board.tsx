@@ -491,8 +491,8 @@ export function ArduinoBoard({
   return (
     <div className="h-full flex flex-col bg-card border-t border-border">
       {/* Header */}
-      <div className="flex items-center justify-between bg-muted px-3 py-2 border-b border-border">
-        <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between bg-muted px-3 py-2 border-b border-border overflow-hidden">
+        <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
           <Cpu 
             className="h-4 w-4" 
             style={{
@@ -501,7 +501,7 @@ export function ArduinoBoard({
               transition: 'color 200ms ease-in-out, filter 200ms ease-in-out'
             }}
           />
-          <span className="text-sm font-medium">Arduino UNO Board</span>
+          <span className="text-sm font-medium truncate">Arduino UNO Board</span>
         </div>
         <button
           onClick={() => setShowPWMValues(!showPWMValues)}
