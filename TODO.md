@@ -1,4 +1,4 @@
-# Under Construction
+# Not Completed
 
 ## Features
 - Serial Plotter
@@ -13,7 +13,7 @@
 - Multiple selections in example menu
 - Toggle visibility PWM button
 
-## Completed
+# Completed
 
 ## Features
 [NONE]
