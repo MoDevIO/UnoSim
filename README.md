@@ -3,7 +3,7 @@
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/modevio/UnoSim?color=lightgreen&logo=git)
 <br>
 ![Tests](https://img.shields.io/github/actions/workflow/status/MoDevIO/UnoSim/test-coverage.yml?label=Tests)
-![Test Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMoDevIO%2FUnoSim%2Frefs%2Fheads%2Fgh-pages%2Fcoverage-summary.json&query=%24.functions.percent&suffix=%25&label=Test%20Coverage&color=purple)
+![Test Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMoDevIO%2FUnoSim%2Frefs%2Fheads%2Fgh-pages%2Fcoverage-summary.json&query=%24.statements.percent&suffix=%25&label=Test%20Coverage&color=purple)
 <br>
 ![Issues](https://img.shields.io/github/issues-raw/MoDevIO/UnoSim?color=orange)
 ![Pull Requests](https://img.shields.io/github/issues-pr-raw/MoDevIO/UnoSim?color=cyan)
