@@ -1,12 +1,12 @@
-# UnoWebSim
+# UnoSim
 ![Supported OS](https://img.shields.io/badge/Supported%20OS-Linux%20%26%20macOS-blue?logo=refinedgithub&logoColor=white)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/w/modevio/unowebsim?color=lightgreen&logo=git)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/w/modevio/UnoSim?color=lightgreen&logo=git)
 <br>
-![Tests](https://img.shields.io/github/actions/workflow/status/MoDevIO/UNOWEBSIM/test-coverage.yml?label=Tests)
-![Test Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMoDevIO%2FUNOWEBSIM%2Frefs%2Fheads%2Fgh-pages%2Fcoverage-summary.json&query=%24.functions.percent&suffix=%25&label=Test%20Coverage&color=purple)
+![Tests](https://img.shields.io/github/actions/workflow/status/MoDevIO/UnoSim/test-coverage.yml?label=Tests)
+![Test Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMoDevIO%2FUnoSim%2Frefs%2Fheads%2Fgh-pages%2Fcoverage-summary.json&query=%24.functions.percent&suffix=%25&label=Test%20Coverage&color=purple)
 <br>
-![Issues](https://img.shields.io/github/issues-raw/MoDevIO/UNOWEBSIM?color=orange)
-![Pull Requests](https://img.shields.io/github/issues-pr-raw/MoDevIO/UNOWEBSIM?color=cyan)
+![Issues](https://img.shields.io/github/issues-raw/MoDevIO/UnoSim?color=orange)
+![Pull Requests](https://img.shields.io/github/issues-pr-raw/MoDevIO/UnoSim?color=cyan)
 
 
 A web-based Arduino simulator that provides an interactive code editor, compilation and Arduino Preview for Arduino sketches directly in the browser.
@@ -15,11 +15,11 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 
 ## Preview
 <p align="center">
-   <img src="./screenshots/screenshot.png" alt="UnoWebSim Interface" width="48%" style="display:inline-block; margin-right:2%;" />
-   <img src="./screenshots/screenshot_iotest.png" alt="UnoWebSim with Example loaded" width="48%" style="display:inline-block;" />
+   <img src="./screenshots/screenshot.png" alt="UnoSim Interface" width="48%" style="display:inline-block; margin-right:2%;" />
+   <img src="./screenshots/screenshot_iotest.png" alt="UnoSim with Example loaded" width="48%" style="display:inline-block;" />
 </p>
 <p align="center">
-   <img src="./screenshots/screenshot_addition.png" alt="alternative UnoWebSim Interface picture" width="48%" style="display:inline-block; margin-right:2%;" />
+   <img src="./screenshots/screenshot_addition.png" alt="alternative UnoSim Interface picture" width="48%" style="display:inline-block; margin-right:2%;" />
 </p>
 
 
@@ -49,8 +49,8 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/MoDevIO/UNOWEBSIM.git
-cd unowebsim
+git clone https://github.com/MoDevIO/UnoSim.git
+cd UnoSim
 ```
 
 2. Install dependencies:
@@ -73,8 +73,8 @@ MIT License - See [LICENSE](LICENSE) for details
 ## Contact & Support
 
 ### Getting Help
-- **Issues & Bugs**: Use the [GitHub Issues](https://github.com/modevio/unowebsim/issues) tracker
-- **Feature Requests**: Create an [Pull Request](https://github.com/modevio/unowebsim/pulls)
+- **Issues & Bugs**: Use the [GitHub Issues](https://github.com/modevio/UnoSim/issues) tracker
+- **Feature Requests**: Create an [Pull Request](https://github.com/modevio/UnoSim/pulls)
 - **Questions**: Open a discussion or check existing issues
 
 ### Project Maintainers
