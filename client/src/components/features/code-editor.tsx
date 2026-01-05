@@ -148,7 +148,7 @@ export function CodeEditor({
         useShadows: false,
         verticalScrollbarSize: 0,
         horizontalScrollbarSize: 0,
-        handleMouseWheel: false,
+        handleMouseWheel: true,
       },
       fontSize: 14,
       lineHeight: 20,
