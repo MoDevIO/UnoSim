@@ -3,292 +3,181 @@
 class Map {
   private:
     int width, height;
-    char **map; // 2D-array for the map
+    char **map;
+    int **dist; 
 
-    // Helper method to place blocks of four connected obstacles
     void placeObstacleBlocks() {
       bool placed = false;
-
       while (!placed) {
         int startX = random(0, width - 1);
         int startY = random(0, height - 1);
-        int orientation = random(0, 4); // 0: horizontal, 1: vertical, 2: diagonal-right, 3: diagonal-left
-
+        int orientation = random(0, 4);
         bool canPlace = true;
-        // Check if the area is free and there is space for the block
-        switch (orientation) {
-          case 0: // Horizontal
-            if (startX + 3 < width) {
-              for (int i = 0; i < 4; ++i) {
-                if (map[startY][startX + i] != ' ') {
-                  canPlace = false;
-                  break;
-                }
-              }
-            } else {
-              canPlace = false;
-            }
-            break;
 
-          case 1: // Vertical
-            if (startY + 3 < height) {
-              for (int i = 0; i < 4; ++i) {
-                if (map[startY + i][startX] != ' ') {
-                  canPlace = false;
-                  break;
-                }
-              }
-            } else {
-              canPlace = false;
-            }
-            break;
-
-          case 2: // Diagonal-right
-            if (startX + 3 < width && startY + 3 < height) {
-              for (int i = 0; i < 4; ++i) {
-                if (map[startY + i][startX + i] != ' ') {
-                  canPlace = false;
-                  break;
-                }
-              }
-            } else {
-              canPlace = false;
-            }
-            break;
-
-          case 3: // Diagonal-left
-            if (startX - 3 >= 0 && startY + 3 < height) {
-              for (int i = 0; i < 4; ++i) {
-                if (map[startY + i][startX - i] != ' ') {
-                  canPlace = false;
-                  break;
-                }
-              }
-            } else {
-              canPlace = false;
-            }
-            break;
-        }
+        if (orientation == 0 && startX + 3 < width) {
+            for (int i = 0; i < 4; ++i) if (map[startY][startX + i] != ' ') canPlace = false;
+        } else if (orientation == 1 && startY + 3 < height) {
+            for (int i = 0; i < 4; ++i) if (map[startY + i][startX] != ' ') canPlace = false;
+        } else if (orientation == 2 && startX + 3 < width && startY + 3 < height) {
+            for (int i = 0; i < 4; ++i) if (map[startY + i][startX + i] != ' ') canPlace = false;
+        } else if (orientation == 3 && startX - 3 >= 0 && startY + 3 < height) {
+            for (int i = 0; i < 4; ++i) if (map[startY + i][startX - i] != ' ') canPlace = false;
+        } else { canPlace = false; }
 
         if (canPlace) {
-          // Place the four obstacles
-          switch (orientation) {
-            case 0: // Horizontal
-              for (int i = 0; i < 4; ++i) {
-                map[startY][startX + i] = '#';
-              }
-              break;
-
-            case 1: // Vertical
-              for (int i = 0; i < 4; ++i) {
-                map[startY + i][startX] = '#';
-              }
-              break;
-
-            case 2: // Diagonal-right
-              for (int i = 0; i < 4; ++i) {
-                map[startY + i][startX + i] = '#';
-              }
-              break;
-
-            case 3: // Diagonal-left
-              for (int i = 0; i < 4; ++i) {
-                map[startY + i][startX - i] = '#';
-              }
-              break;
+          for (int i = 0; i < 4; ++i) {
+            if (orientation == 0) map[startY][startX + i] = '#';
+            else if (orientation == 1) map[startY + i][startX] = '#';
+            else if (orientation == 2) map[startY + i][startX + i] = '#';
+            else if (orientation == 3) map[startY + i][startX - i] = '#';
           }
           placed = true;
         }
       }
     }
 
-    // Helper method to check if a field is valid
-    bool isValid(int x, int y) {
-      return (x >= 0 && x < width && y >= 0 && y < height && (map[y][x] == ' ' || map[y][x] == 'G'));
-    }
-
-    // Custom implementation of a simple queue for the flood-fill algorithm
     struct Queue {
-      int front, rear;
-      int queueSize;
-      int (*data)[2]; // Array of 2D pairs (x, y)
-
-      // Constructor to initialize the queue
+      int front, rear, queueSize;
+      int (*data)[2];
       Queue(int maxSize) {
         queueSize = maxSize;
         front = rear = 0;
-        data = new int[maxSize][2]; // 2D-array to store the coordinates
+        data = new int[maxSize][2];
       }
-
-      ~Queue() {
-        delete[] data;
-      }
-
-      bool isEmpty() {
-        return front == rear;
-      }
-
-      void enqueue(int x, int y) {
-        data[rear][0] = x;
-        data[rear][1] = y;
-        rear = (rear + 1) % queueSize;
-      }
-
-      void dequeue(int &x, int &y) {
-        x = data[front][0];
-        y = data[front][1];
-        front = (front + 1) % queueSize;
-      }
+      ~Queue() { delete[] data; }
+      bool isEmpty() { return front == rear; }
+      void enqueue(int x, int y) { data[rear][0] = x; data[rear][1] = y; rear = (rear + 1) % queueSize; }
+      void dequeue(int &x, int &y) { x = data[front][0]; y = data[front][1]; front = (front + 1) % queueSize; }
     };
 
-  public:
-    // Constructor to initialize the map with dimensions
-    Map(int w, int h) {
-      width = w;
-      height = h;
+    // Die 8 Bewegungsrichtungen (Horizontal, Vertikal, Diagonal)
+    const int dx[8] = {1, -1, 0, 0, 1, 1, -1, -1};
+    const int dy[8] = {0, 0, 1, -1, 1, -1, 1, -1};
 
-      // Allocate memory for the map
+  public:
+    Map(int w, int h) : width(w), height(h) {
       map = new char*[height];
+      dist = new int*[height];
       for (int i = 0; i < height; ++i) {
         map[i] = new char[width];
+        dist[i] = new int[width];
       }
-
-      // Initialize map
       initializeMap();
     }
 
-    // Destructor to free memory
     ~Map() {
       for (int i = 0; i < height; ++i) {
-        delete[] map[i];
+        delete[] map[i]; delete[] dist[i];
       }
-      delete[] map;
+      delete[] map; delete[] dist;
     }
 
-    // Method to initialize the map
     void initializeMap() {
       for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
-          map[i][j] = ' '; // Initialize everything as open node
+          map[i][j] = ' ';
+          dist[i][j] = -1;
         }
       }
     }
 
-    // Method to generate a random map
     void generateRandomMap(byte obstacleCount = 4) {
       initializeMap();
-
-      // Place multiple blocks of four connected obstacles
-      for (int i = 0; i < obstacleCount; ++i) {
-        placeObstacleBlocks();
-      }
-
-      // Set random start and goal positions
-      map[random(0, height)][random(0, width)] = 'S'; // Start
-      map[random(0, height)][random(0, width)] = 'G'; // Goal
+      for (int i = 0; i < obstacleCount; ++i) placeObstacleBlocks();
+      map[random(0, height)][random(0, width)] = 'S';
+      int gx, gy;
+      do { gx = random(0, width); gy = random(0, height); } while (map[gy][gx] != ' ');
+      map[gy][gx] = 'G';
     }
 
-    // Method to print the map to the serial console
     void printMap() {
-      // Top border
       Serial.print('+');
-      for (int j = 0; j < width; ++j) {
-        Serial.print("-"); // One character per column
-      }
+      for (int j = 0; j < width; ++j) Serial.print("-");
       Serial.println('+');
-
-      // Map content
       for (int i = 0; i < height; ++i) {
         Serial.print('|');
-        for (int j = 0; j < width; ++j) {
-          Serial.print(map[i][j]); // No spaces between characters
-        }
+        for (int j = 0; j < width; ++j) Serial.print(map[i][j]);
         Serial.println('|');
       }
-
-      // Bottom border
       Serial.print('+');
-      for (int j = 0; j < width; ++j) {
-        Serial.print("-"); // One character per column
-      }
+      for (int j = 0; j < width; ++j) Serial.print("-");
       Serial.println('+');
     }
 
-    // Method to fill the map with numbers starting from the 'S' position
     void fillWithNumbers() {
-      // Find the start position 'S'
       int startX = -1, startY = -1;
       for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
-          if (map[i][j] == 'S') {
-            startX = j;
-            startY = i;
+          dist[i][j] = -1;
+          if (map[i][j] == 'S') { startX = j; startY = i; }
+        }
+      }
+      if (startX == -1) return;
+
+      Queue q(width * height);
+      q.enqueue(startX, startY);
+      dist[startY][startX] = 0;
+
+      while (!q.isEmpty()) {
+        int x, y;
+        q.dequeue(x, y);
+        for (int d = 0; d < 8; d++) { // Jetzt 8 Richtungen
+          int nx = x + dx[d], ny = y + dy[d];
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height && dist[ny][nx] == -1) {
+            if (map[ny][nx] == ' ' || map[ny][nx] == 'G') {
+              dist[ny][nx] = dist[y][x] + 1;
+              if (map[ny][nx] == ' ') map[ny][nx] = (dist[ny][nx] % 10) + '0';
+              q.enqueue(nx, ny);
+            }
+          }
+        }
+      }
+    }
+
+    void findShortestPath() {
+      int gx = -1, gy = -1;
+      for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+          if (map[i][j] == 'G') { gx = j; gy = i; break; }
+        }
+      }
+      if (gx == -1 || dist[gy][gx] == -1) return;
+
+      // Zahlen entfernen
+      for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) if (map[i][j] >= '0' && map[i][j] <= '9') map[i][j] = ' ';
+      }
+
+      int currX = gx, currY = gy;
+      while (dist[currY][currX] != 0) {
+        for (int d = 0; d < 8; d++) { // Jetzt 8 Richtungen zurückverfolgen
+          int nx = currX + dx[d], ny = currY + dy[d];
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height && dist[ny][nx] == dist[currY][currX] - 1) {
+            currX = nx; currY = ny;
+            if (map[currY][currX] != 'S') map[currY][currX] = '.';
             break;
           }
         }
-        if (startX != -1) break; // If start point is found
-      }
-
-      if (startX == -1 || startY == -1) return; // No start point found
-
-      // Create a custom queue with maximum size (e.g. width * height)
-      Queue q(width * height);
-      q.enqueue(startX, startY);
-      int distance = 1;
-
-      // Movement directions (right, left, up, down)
-      int dx[] = {1, -1, 0, 0};
-      int dy[] = {0, 0, 1, -1};
-
-      // While the queue is not empty
-      bool goalReached = false;
-      while (!q.isEmpty() && !goalReached) {
-        int size = (q.rear - q.front + width * height) % (width * height);
-        for (int i = 0; i < size; ++i) {
-          int x, y;
-          q.dequeue(x, y);
-
-          // Go to all adjacent fields
-          for (int d = 0; d < 4; ++d) {
-            int newX = x + dx[d];
-            int newY = y + dy[d];
-
-            // Check if the new field is valid
-            if (isValid(newX, newY)) {
-              if (map[newY][newX] == 'G') {
-                goalReached = true;
-                break; // End search when goal is reached
-              }
-
-              map[newY][newX] = '0' + distance; // Convert number to character
-              q.enqueue(newX, newY);
-            }
-          }
-
-          if (goalReached) break; // Exit loop when goal is found
-        }
-        distance++;
       }
     }
 };
 
-// Global map instance
 Map myMap(30, 10);
 
 void setup() {
   Serial.begin(115200);
-  for (byte i = 0; i < 5; i++)
-  {
-    // Generate random map
-    myMap.generateRandomMap();
+  randomSeed(analogRead(0));
+  
+  for (byte i = 0; i < 3; i++) {
+    Serial.println("\n--- Map mit Diagonalsuche ---");
+    myMap.generateRandomMap(6);
     myMap.printMap();
-
-    // Fill the map with numbers starting from 'S'
     myMap.fillWithNumbers();
     myMap.printMap();
+    myMap.findShortestPath();
+    myMap.printMap();
+    delay(2000);
   }
 }
 
-void loop() {
-  // No code needed in the endless loop
-}
+void loop() {}

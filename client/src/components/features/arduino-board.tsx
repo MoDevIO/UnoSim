@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Cpu, Eye, EyeOff } from 'lucide-react';
 
@@ -140,120 +140,86 @@ export function ArduinoBoard({
     return state !== undefined && (state.mode === 'INPUT' || state.mode === 'INPUT_PULLUP');
   }, [pinStates]);
 
-  // Update overlay SVG elements based on current state
+// Stable reference to ALL current state for polling - updated on every render
+  const stateRef = useRef({ pinStates, isSimulationRunning, txBlink, rxBlink, analogPins });
+  stateRef.current = { pinStates, isSimulationRunning, txBlink, rxBlink, analogPins };
+
+  // Single stable polling loop for ALL SVG updates - runs ONCE, never restarts
   useEffect(() => {
     const overlay = overlayRef.current;
-    if (!overlay || !overlaySvgContent) return;
-    
-    // Wait for next frame to ensure SVG is parsed and in DOM
-    const rafId = requestAnimationFrame(() => {
+    if (!overlay) return;
+
+    const performAllUpdates = () => {
       const svgEl = overlay.querySelector('svg');
       if (!svgEl) return;
 
-      // Ensure LEDs transition smoothly when toggling (15ms)
-      try {
-        const ledIds = ['led-on', 'led-l', 'led-tx', 'led-rx'];
-        for (const id of ledIds) {
-          const el = svgEl.querySelector<SVGElement>(`#${id}`);
-          if (el && (el as any).style) {
-            // Remove any transition so LED toggles are instantaneous
-            (el as any).style.transition = '';
-          }
-        }
-      } catch (err) {
-        // Non-fatal: if SVG doesn't match expected structure, continue
-      }
+      const { pinStates, isSimulationRunning, txBlink, rxBlink, analogPins } = stateRef.current;
+
       // Update digital pins 0-13
       for (let pin = 0; pin <= 13; pin++) {
         const frame = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-frame`);
         const state = svgEl.querySelector<SVGCircleElement>(`#pin-${pin}-state`);
         const click = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-click`);
-        
+
         const isInput = isPinInput(pin);
         const color = getPinColor(pin);
-        
-        // Yellow frame for INPUT pins (show/hide via display)
+
         if (frame) {
           frame.style.display = isInput ? 'block' : 'none';
           frame.style.filter = isInput ? 'drop-shadow(0 0 2px #ffff00)' : 'none';
-          // Ensure digital frames use solid stroke
-          if (isInput) {
-            (frame as any).style.strokeDasharray = '';
-          } else {
-            (frame as any).style.strokeDasharray = '';
-          }
         }
-        
-        // State circle fill color
+
         if (state) {
           if (color === 'transparent' || color === '#000000') {
-            // Default/LOW state: black fill, no glow
             state.setAttribute('fill', '#000000');
             state.style.filter = 'none';
           } else {
-            // Active HIGH state: red fill with glow
             state.setAttribute('fill', color);
             state.style.filter = `drop-shadow(0 0 3px ${color})`;
           }
         }
-        
-        // Click area only for INPUT pins
+
         if (click) {
           click.style.pointerEvents = isInput ? 'auto' : 'none';
           click.style.cursor = isInput ? 'pointer' : 'default';
         }
       }
 
-      // Update analog pins A0-A5 (pins 14-19 internally, or identified as A0-A5)
+      // Update analog pins A0-A5
       for (let i = 0; i <= 5; i++) {
         const pinId = `A${i}`;
-        const pinNumber = 14 + i; // A0=14, A1=15, ..., A5=19
-        
+        const pinNumber = 14 + i;
+
         const frame = svgEl.querySelector<SVGRectElement>(`#pin-${pinId}-frame`);
         const state = svgEl.querySelector<SVGCircleElement>(`#pin-${pinId}-state`);
         const click = svgEl.querySelector<SVGRectElement>(`#pin-${pinId}-click`);
-        
+
         const isInput = isPinInput(pinNumber);
         const usedAsAnalog = analogPins.includes(pinNumber);
         const color = getPinColor(pinNumber);
-        
-        // Yellow frame for INPUT pins (show/hide via display)
+
         if (frame) {
-          // Show frame either if runtime set pinMode as INPUT or if code uses analogRead on this pin
-          // When the simulation is stopped, do not show frames for pins that are
-          // only detected via code (usedAsAnalog). This keeps analog-only frames
-          // consistent with digital frames after simulation ends.
           const show = isInput || (usedAsAnalog && isSimulationRunning);
           frame.style.display = show ? 'block' : 'none';
           frame.style.filter = show ? 'drop-shadow(0 0 2px #ffff00)' : 'none';
-          // Determine dashed vs solid: dashed when only used via analogRead (type 'analog'),
-          // solid when explicitly set as digital via pinMode (type 'digital').
-          const state = pinStates.find(p => p.pin === pinNumber);
-          if (show) {
-            if (usedAsAnalog && (!state || state.type === 'analog')) {
-              (frame as any).style.strokeDasharray = '3,2';
-            } else {
-              (frame as any).style.strokeDasharray = '';
-            }
+          const pinState = pinStates.find(p => p.pin === pinNumber);
+          if (show && usedAsAnalog && (!pinState || pinState.type === 'analog')) {
+            (frame as any).style.strokeDasharray = '3,2';
           } else {
             (frame as any).style.strokeDasharray = '';
           }
         }
-        
-        // State circle fill color
+
         if (state) {
           if (color === 'transparent' || color === '#000000') {
-            // Default/LOW state: black fill, no glow
             state.setAttribute('fill', '#000000');
             state.style.filter = 'none';
           } else {
-            // Active HIGH state: red fill with glow
             state.setAttribute('fill', color);
             state.style.filter = `drop-shadow(0 0 3px ${color})`;
           }
         }
-        
-        // Click area only for INPUT pins or pins used by analogRead
+
         if (click) {
           const clickable = isInput || usedAsAnalog;
           click.style.pointerEvents = clickable ? 'auto' : 'none';
@@ -261,27 +227,24 @@ export function ArduinoBoard({
         }
       }
 
-      // Update LEDs
+      // Update ALL LEDs
       const ledOn = svgEl.querySelector<SVGRectElement>('#led-on');
       const ledL = svgEl.querySelector<SVGRectElement>('#led-l');
       const ledTx = svgEl.querySelector<SVGRectElement>('#led-tx');
       const ledRx = svgEl.querySelector<SVGRectElement>('#led-rx');
-      
-      // ON LED - green when running, black when off
+
       if (ledOn) {
         if (isSimulationRunning) {
           ledOn.setAttribute('fill', '#00ff00');
           ledOn.setAttribute('fill-opacity', '1');
           ledOn.style.filter = 'url(#glow-green)';
         } else {
-          // Make off-state transparent
           ledOn.setAttribute('fill', 'transparent');
           ledOn.setAttribute('fill-opacity', '0');
           ledOn.style.filter = 'none';
         }
       }
-      
-      // L LED - yellow when pin 13 is HIGH, black when LOW
+
       const pin13State = pinStates.find(p => p.pin === 13);
       const pin13On = pin13State && pin13State.value > 0;
       if (ledL) {
@@ -290,44 +253,43 @@ export function ArduinoBoard({
           ledL.setAttribute('fill-opacity', '1');
           ledL.style.filter = 'url(#glow-yellow)';
         } else {
-          // Make off-state transparent
           ledL.setAttribute('fill', 'transparent');
           ledL.setAttribute('fill-opacity', '0');
           ledL.style.filter = 'none';
         }
       }
-      
-      // TX LED - yellow when blinking, black when off
+
       if (ledTx) {
         if (txBlink) {
           ledTx.setAttribute('fill', '#ffff00');
           ledTx.setAttribute('fill-opacity', '1');
           ledTx.style.filter = 'url(#glow-yellow)';
         } else {
-          // Transparent when off
           ledTx.setAttribute('fill', 'transparent');
           ledTx.setAttribute('fill-opacity', '0');
           ledTx.style.filter = 'none';
         }
       }
-      
-      // RX LED - yellow when blinking, black when off
+
       if (ledRx) {
         if (rxBlink) {
           ledRx.setAttribute('fill', '#ffff00');
           ledRx.setAttribute('fill-opacity', '1');
           ledRx.style.filter = 'url(#glow-yellow)';
         } else {
-          // Transparent when off
           ledRx.setAttribute('fill', 'transparent');
           ledRx.setAttribute('fill-opacity', '0');
           ledRx.style.filter = 'none';
         }
       }
-    });
-    
-    return () => cancelAnimationFrame(rafId);
-    }, [pinStates, isSimulationRunning, txBlink, rxBlink, isPinInput, getPinColor, overlaySvgContent]);
+    };
+
+    // Stable 10ms polling - interval NEVER restarts, reads current state from ref
+    const intervalId = setInterval(performAllUpdates, 10);
+    performAllUpdates();
+
+    return () => clearInterval(intervalId);
+  }, [isPinInput, getPinColor]); // Only depends on stable callbacks
 
   // Compute slider positions for analog pins using SVG bbox (percent of viewBox)
   useEffect(() => {

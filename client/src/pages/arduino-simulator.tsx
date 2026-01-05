@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, Play, Square, Loader2, Terminal, Wrench } from 'lucide-react';
+import { Cpu, Play, Square, Loader2, Terminal, Wrench, Zap, Trash2, ChevronsDown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { clsx } from 'clsx';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/features/code-editor';
 import { SerialMonitor } from '@/components/features/serial-monitor';
+import { SerialPlotter } from '@/components/features/serial-plotter';
 import { CompilationOutput } from '@/components/features/compilation-output';
 import { SketchTabs } from '@/components/features/sketch-tabs';
 import { ExamplesMenu } from '@/components/features/examples-menu';
@@ -59,6 +61,20 @@ export default function ArduinoSimulator() {
   
   // Pin states for Arduino board visualization
   const [pinStates, setPinStates] = useState<PinState[]>([]);
+  // Serial view mode (monitor / both / plotter)
+  const [serialViewMode, setSerialViewMode] = useState<'monitor' | 'plotter' | 'both'>('monitor');
+  const showSerialMonitor = serialViewMode !== 'plotter';
+  const showSerialPlotter = serialViewMode !== 'monitor';
+  // Autoscroll toggle for serial monitor
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState<boolean>(true);
+
+  const cycleSerialViewMode = () => {
+    setSerialViewMode((prev) => {
+      if (prev === 'monitor') return 'both';
+      if (prev === 'both') return 'plotter';
+      return 'monitor';
+    });
+  };
   // Analog pins detected in the code that need sliders (internal pin numbers 14..19)
   const [analogPinsUsed, setAnalogPinsUsed] = useState<number[]>([]);
   // Detected explicit pinMode(...) declarations found during parsing.
@@ -81,6 +97,19 @@ export default function ArduinoSimulator() {
   
   // Simulation timeout setting (in seconds)
   const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
+
+  // Serial input box state (always visible at bottom of serial frame)
+  const [serialInputValue, setSerialInputValue] = useState('');
+
+  const handleSerialInputSend = () => {
+    if (!serialInputValue.trim()) return;
+    handleSerialSend(serialInputValue);
+    setSerialInputValue('');
+  };
+
+  const handleSerialInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSerialInputSend();
+  };
   
   // RX/TX LED activity counters (increment on activity for change detection)
   const [txActivity, setTxActivity] = useState(0);
@@ -1756,13 +1785,117 @@ export default function ArduinoSimulator() {
               <ResizableHandle withHandle data-testid="vertical-resizer" />
 
               <ResizablePanel defaultSize={25} minSize={15} id="serial-panel">
-                <SerialMonitor
-                  output={serialOutput}
-                  isConnected={isConnected}
-                  isSimulationRunning={simulationStatus === 'running'}
-                  onSendMessage={handleSerialSend}
-                  onClear={handleClearSerialOutput}
-                />
+                <div className="h-full flex flex-col">
+                  {/* Static Serial Header (always full width) */}
+                  <div className="bg-muted px-4 border-b border-border flex items-center h-10">
+                    <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        <div
+                          className={`w-2 h-2 rounded-full ${simulationStatus === 'running' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}
+                          style={{
+                            boxShadow: simulationStatus === 'running' ? '0 0 8px rgba(34, 197, 94, 0.8)' : 'none',
+                            transition: 'box-shadow 200ms ease-in-out'
+                          }}
+                          data-testid="connection-indicator"
+                        />
+                        <i className="fas fa-comments text-accent text-sm"></i>
+                        <span className="text-sm font-medium truncate">Serial Output</span>
+                        <span className="text-xs text-muted-foreground hidden sm:inline ml-3">115200 baud</span>
+                      </div>
+                      <div className="flex items-center space-x-3 ml-auto">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="min-w-[9rem] text-xs"
+                          onClick={cycleSerialViewMode}
+                          data-testid="button-serial-view-toggle"
+                        >
+                          {serialViewMode === 'monitor'
+                            ? 'Monitor only'
+                            : serialViewMode === 'plotter'
+                              ? 'Plotter only'
+                              : 'Monitor + Plotter'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
+                          disabled={serialViewMode === 'plotter'}
+                          title={autoScrollEnabled ? 'Autoscroll on' : 'Autoscroll off'}
+                          data-testid="button-autoscroll"
+                        >
+                          <ChevronsDown className={`h-4 w-4 ${autoScrollEnabled ? 'text-accent' : 'text-muted-foreground'}`} />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={handleClearSerialOutput} data-testid="button-clear-serial">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-h-0">
+                    {/* Serial area: SerialMonitor renders output area and parent renders static header above */}
+                    {showSerialMonitor && showSerialPlotter ? (
+                      <div className="h-full flex">
+                        <div className="w-1/2 border-r border-border">
+                          <SerialMonitor
+                            output={serialOutput}
+                            isConnected={isConnected}
+                            isSimulationRunning={simulationStatus === 'running'}
+                            onSendMessage={handleSerialSend}
+                            onClear={handleClearSerialOutput}
+                            showMonitor={showSerialMonitor}
+                            autoScrollEnabled={autoScrollEnabled}
+                          />
+                        </div>
+                        <div className="w-1/2">
+                          <SerialPlotter output={serialOutput} />
+                        </div>
+                      </div>
+                    ) : showSerialMonitor ? (
+                      <SerialMonitor
+                        output={serialOutput}
+                        isConnected={isConnected}
+                        isSimulationRunning={simulationStatus === 'running'}
+                        onSendMessage={handleSerialSend}
+                        onClear={handleClearSerialOutput}
+                        showMonitor={showSerialMonitor}
+                        autoScrollEnabled={autoScrollEnabled}
+                      />
+                    ) : (
+                      <div className="h-full">
+                        <SerialPlotter output={serialOutput} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Input area is rendered in the parent so it spans the whole serial frame */}
+                  <div className="p-3 flex-shrink-0 bg-card border-t border-border">
+                    <div className="flex space-x-2 items-center">
+                      <Input
+                        type="text"
+                        placeholder="Send to Arduino..."
+                        value={serialInputValue}
+                        onChange={(e) => setSerialInputValue(e.target.value)}
+                        onKeyDown={handleSerialInputKeyDown}
+                        className="flex-1 bg-input border-border text-foreground placeholder-muted-foreground h-9"
+                        data-testid="input-serial"
+                      />
+
+                      <Button
+                        type="button"
+                        onClick={handleSerialInputSend}
+                        size="sm"
+                        disabled={!serialInputValue.trim() || simulationStatus !== 'running'}
+                        className={`w-40 h-9 ${!serialInputValue.trim() || simulationStatus !== 'running' ? '' : '!bg-green-600 hover:!bg-green-700 !text-white'}`}
+                        data-testid="button-send-serial"
+                      >
+                        <Zap className="h-3 w-3 mr-1" />
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </ResizablePanel>
 
               <ResizableHandle withHandle data-testid="vertical-resizer-board" />
@@ -1805,7 +1938,7 @@ export default function ArduinoSimulator() {
                     <Wrench className="w-5 h-5" />
                   </button>
                   <button
-                    aria-label="Serial Monitor"
+                    aria-label="Serial Output"
                     onClick={() => setMobilePanel(mobilePanel === 'serial' ? null : 'serial')}
                     className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'serial' ? 'bg-amber-600 text-white' : 'bg-transparent text-muted-foreground')}
                   >
@@ -1863,6 +1996,8 @@ export default function ArduinoSimulator() {
                         isSimulationRunning={simulationStatus === 'running'}
                         onSendMessage={handleSerialSend}
                         onClear={handleClearSerialOutput}
+                        showMonitor={showSerialMonitor}
+                        autoScrollEnabled={autoScrollEnabled}
                       />
                     </div>
                   )}

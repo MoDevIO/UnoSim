@@ -166,6 +166,7 @@ void digitalWrite(int pin, int value) {
         // Only send update if value actually changed (avoid stderr flooding)
         if (oldValue != value) {
             std::cerr << "[[PIN_VALUE:" << pin << ":" << value << "]]" << std::endl;
+            std::cerr.flush(); // Force immediate flush for fast updates
         }
     }
 }
