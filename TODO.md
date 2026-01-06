@@ -2,11 +2,11 @@
 
 ## Features
 
-- Serial Plotter
 - Better Analog Input UI
 - Enhanced Parsing
 - Better AUtocomplete/Linting
 - Autosaving
+- Ability to pause the running sketch
 
 ## Bug Fixes
 
@@ -18,6 +18,7 @@
 ## Features
 
 - Soft cursor movement
+- Serial Plotter
 
 ## Bug Fixes
 
