@@ -202,16 +202,6 @@ int analogRead(int pin) {
 }
 
 // Timing Functions - now with stdin polling for responsiveness
-void delay(unsigned long ms) { 
-    // Split delay into small chunks to check stdin frequently
-    unsigned long remaining = ms;
-    while (remaining > 0) {
-        unsigned long chunk = (remaining > 10) ? 10 : remaining;
-        std::this_thread::sleep_for(std::chrono::milliseconds(chunk));
-        remaining -= chunk;
-        checkStdinForPinCommands(); // Check for pin commands during delay
-    }
-}
 void delayMicroseconds(unsigned int us) { 
     std::this_thread::sleep_for(std::chrono::microseconds(us)); 
 }
@@ -409,6 +399,8 @@ public:
     }
 
     void flush() {
+        // Flush the line buffer immediately (for Serial.print without newline)
+        flushLineBuffer();
         std::cout << std::flush;
     }
     
@@ -624,6 +616,20 @@ public:
 };
 
 SerialClass Serial;
+
+// Implementation of delay() after SerialClass is defined
+inline void delay(unsigned long ms) { 
+    // Split delay into small chunks to check stdin frequently
+    unsigned long remaining = ms;
+    while (remaining > 0) {
+        unsigned long chunk = (remaining > 10) ? 10 : remaining;
+        std::this_thread::sleep_for(std::chrono::milliseconds(chunk));
+        remaining -= chunk;
+        checkStdinForPinCommands(); // Check for pin commands during delay
+    }
+    // Auto-flush serial buffer after delay (for Serial.print without newline)
+    Serial.flush();
+}
 
 // Global buffer for stdin reading (used by checkStdinForPinCommands)
 static char stdinBuffer[256];

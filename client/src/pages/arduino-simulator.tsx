@@ -1003,9 +1003,9 @@ export default function ArduinoSimulator() {
     let newLines: OutputLine[] = [...serialOutput];
 
     for (const { payload } of sortedEvents) {
-      // Normalize data: ensure string and strip CR characters
+      // Normalize data: ensure string but PRESERVE \r for carriage return handling in Serial Monitor
       const piece: string = (payload.data || '').toString();
-      buffer += piece.replace(/\r/g, '');
+      buffer += piece;
 
       // Process complete lines
       while (buffer.includes('\n')) {
