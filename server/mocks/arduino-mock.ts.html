@@ -766,7 +766,22 @@
 <a name='L701'></a><a href='#L701'>701</a>
 <a name='L702'></a><a href='#L702'>702</a>
 <a name='L703'></a><a href='#L703'>703</a>
-<a name='L704'></a><a href='#L704'>704</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L704'></a><a href='#L704'>704</a>
+<a name='L705'></a><a href='#L705'>705</a>
+<a name='L706'></a><a href='#L706'>706</a>
+<a name='L707'></a><a href='#L707'>707</a>
+<a name='L708'></a><a href='#L708'>708</a>
+<a name='L709'></a><a href='#L709'>709</a>
+<a name='L710'></a><a href='#L710'>710</a>
+<a name='L711'></a><a href='#L711'>711</a>
+<a name='L712'></a><a href='#L712'>712</a>
+<a name='L713'></a><a href='#L713'>713</a>
+<a name='L714'></a><a href='#L714'>714</a>
+<a name='L715'></a><a href='#L715'>715</a>
+<a name='L716'></a><a href='#L716'>716</a>
+<a name='L717'></a><a href='#L717'>717</a>
+<a name='L718'></a><a href='#L718'>718</a>
+<a name='L719'></a><a href='#L719'>719</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -781,9 +796,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1469,7 +1484,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span></td><td class="text"><pre class="prettyprint lang-js">/**
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * Shared Arduino Mock code for Compiler and Runner
  * * Differences between Compiler and Runner:
  * - Compiler: Only needs type definitions for syntax check (no implementation needed)
@@ -1754,25 +1784,39 @@ private:
         unsigned long ts = millis();
         std::string enc = base64_encode(lineBuffer);
         std::cerr &lt;&lt; "[[SERIAL_EVENT:" &lt;&lt; ts &lt;&lt; ":" &lt;&lt; enc &lt;&lt; "]]" &lt;&lt; std::endl;
+        std::cerr.flush(); // Force immediate output to Node.js
         // Simulate transmit time for the whole buffer
         txDelay(lineBuffer.length());
         lineBuffer.clear();
     }
 &nbsp;
-    // Output string - buffer until newline to prevent interleaving
+    // Output string - buffer until newline; flush BEFORE backspace/carriage return
+    // so that the control char stays with its following content
     void serialWrite(const std::string&amp; s) {
         for (char c : s) {
-            lineBuffer += c;
-            if (c == '\\n') {
+            if (c == '\\b' || c == '\\r') {
+                // Flush pending content BEFORE the control character
                 flushLineBuffer();
+                // Add backspace to buffer - it will be sent with the next char(s)
+                lineBuffer += c;
+            } else if (c == '\\n') {
+                lineBuffer += c;
+                flushLineBuffer();
+            } else {
+                lineBuffer += c;
             }
         }
     }
     
     void serialWrite(char c) {
-        lineBuffer += c;
-        if (c == '\\n') {
+        if (c == '\\b' || c == '\\r') {
             flushLineBuffer();
+            lineBuffer += c;
+        } else if (c == '\\n') {
+            lineBuffer += c;
+            flushLineBuffer();
+        } else {
+            lineBuffer += c;
         }
     }
     
@@ -2090,6 +2134,9 @@ SerialClass Serial;
 &nbsp;
 // Implementation of delay() after SerialClass is defined
 inline void delay(unsigned long ms) { 
+    // Flush serial buffer FIRST so output appears before the delay
+    Serial.flush();
+    
     // Split delay into small chunks to check stdin frequently
     unsigned long remaining = ms;
     while (remaining &gt; 0) {
@@ -2098,8 +2145,6 @@ inline void delay(unsigned long ms) {
         remaining -= chunk;
         checkStdinForPinCommands(); // Check for pin commands during delay
     }
-    // Auto-flush serial buffer after delay (for Serial.print without newline)
-    Serial.flush();
 }
 &nbsp;
 // Global buffer for stdin reading (used by checkStdinForPinCommands)
@@ -2179,7 +2224,7 @@ export const ARDUINO_MOCK_CODE_MINIMAL = ARDUINO_MOCK_CODE;</pre></td></tr></tab
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-06T16:41:32.754Z
+                at 2026-01-08T20:57:38.200Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
