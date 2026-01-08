@@ -103,11 +103,11 @@ describe('Carriage Return Integration Test', () => {
     const simulatorCode = fs.readFileSync(simulatorPath, 'utf8');
     
     // Should NOT strip \r in the serial event processing
-    const problematicLine = /buffer\s*\+=\s*piece\.replace\(\/\\r\/g,\s*['""]['"]\)/;
+    const problematicLine = /piece\.replace\(\/\\r\/g,\s*['""]['"]\)/;
     expect(simulatorCode).not.toMatch(problematicLine);
     
-    // Should preserve the piece as-is
-    expect(simulatorCode).toContain('buffer += piece');
+    // Should process piece data from payload (preserving control chars)
+    expect(simulatorCode).toMatch(/const piece.*payload\.data/);
   });
 
   it('should verify SerialMonitor handles \\r correctly', () => {

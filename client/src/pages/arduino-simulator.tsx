@@ -118,8 +118,10 @@ export default function ArduinoSimulator() {
   const lastSerialDisplayRef = useRef<number>(Date.now());
   // Track wall-clock time when last serial_event was received
   const lastSerialEventAtRef = useRef<number>(0);
-  // Queue for incoming serial_events to be processed in order
-  const [serialEventQueue, setSerialEventQueue] = useState<Array<{payload: any, receivedAt: number}>>([]);
+  // Queue for incoming serial_events - use ref to avoid React batching issues
+  const serialEventQueueRef = useRef<Array<{payload: any, receivedAt: number}>>([]);
+  // Trigger state to force processing
+  const [serialQueueTrigger, setSerialQueueTrigger] = useState(0);
 
   // Mobile UI: detect small screens and provide a floating tab full-screen view
   const isClient = typeof window !== 'undefined';
@@ -406,7 +408,7 @@ export default function ArduinoSimulator() {
     onSuccess: () => {
       setSimulationStatus('stopped');
       // Clear serial event queue to prevent buffered characters from appearing after stop
-      setSerialEventQueue([]);
+      serialEventQueueRef.current = [];
       // Reset UI pin state on stop but preserve detected pinMode declarations
       resetPinUI({ keepDetected: true });
     },
@@ -647,23 +649,12 @@ export default function ArduinoSimulator() {
               // Record arrival time so we can suppress duplicate legacy serial_output messages
               const receivedAt = Date.now();
               lastSerialEventAtRef.current = receivedAt;
-              // Debug: log incoming payloads to console to help diagnose ordering issues
-              // eslint-disable-next-line no-console
-              console.debug('[serial_event recv]', { payload, receivedAt });
-              // Deduplicate: if last queued event has same ts_write and data, skip
-              setSerialEventQueue(prev => {
-                const last = prev.length > 0 ? prev[prev.length - 1] : null;
-                try {
-                  if (last && last.payload && payload && last.payload.ts_write === payload.ts_write && last.payload.data === payload.data) {
-                    // eslint-disable-next-line no-console
-                    console.debug('Dedup serial_event skipped', { ts_write: payload.ts_write });
-                    return prev;
-                  }
-                } catch (e) {
-                  // ignore comparison errors
-                }
-                return [...prev, { payload, receivedAt }];
-              });
+              
+              // Use push() to avoid race conditions when multiple events arrive simultaneously
+              // This mutates the array directly instead of creating a new one
+              serialEventQueueRef.current.push({ payload, receivedAt });
+              // Trigger processing
+              setSerialQueueTrigger(t => t + 1);
             }
             break;
           }
@@ -987,71 +978,107 @@ export default function ArduinoSimulator() {
     });
   }, [simulationStatus, analogPinsUsed, detectedPinModes]);
 
-  // Process queued serial events in order
-  useEffect(() => {
-    if (serialEventQueue.length === 0) return;
+  // Helper to process serial event data and update lines
+  const processSerialEvents = (events: Array<{payload: any, receivedAt: number}>, currentLines: OutputLine[]): OutputLine[] => {
+    if (events.length === 0) return currentLines;
 
     // Sort events by original write timestamp when available (fallback to receivedAt)
-    const sortedEvents = [...serialEventQueue].sort((a, b) => {
+    const sortedEvents = [...events].sort((a, b) => {
       const ta = (a.payload && typeof a.payload.ts_write === 'number') ? a.payload.ts_write : a.receivedAt;
       const tb = (b.payload && typeof b.payload.ts_write === 'number') ? b.payload.ts_write : b.receivedAt;
       return ta - tb;
     });
 
-    // Process events sequentially, building a buffer
-    let buffer = '';
-    let newLines: OutputLine[] = [...serialOutput];
+    let newLines: OutputLine[] = [...currentLines];
 
     for (const { payload } of sortedEvents) {
-      // Normalize data: ensure string but PRESERVE \r for carriage return handling in Serial Monitor
+      // Normalize data: ensure string but PRESERVE control chars for Serial Monitor
       const piece: string = (payload.data || '').toString();
-      buffer += piece;
+      
+      // Handle backspace at the start of this piece - apply to previous line
+      let text = piece;
+      if (text.includes('\b')) {
+        let backspaceCount = 0;
+        let idx = 0;
+        while (idx < text.length && text[idx] === '\b') {
+          backspaceCount++;
+          idx++;
+        }
+        
+        if (backspaceCount > 0 && newLines.length > 0 && !newLines[newLines.length - 1].complete) {
+          // Remove characters from the last incomplete line
+          const lastLine = newLines[newLines.length - 1];
+          lastLine.text = lastLine.text.slice(0, Math.max(0, lastLine.text.length - backspaceCount));
+          text = text.slice(backspaceCount);
+        }
+      }
 
-      // Process complete lines
-      while (buffer.includes('\n')) {
-        const pos = buffer.indexOf('\n');
-        const toProcess = buffer.substring(0, pos + 1);
-        buffer = buffer.substring(pos + 1);
+      // Process remaining text
+      if (!text) continue;
 
-        const lines = toProcess.split('\n');
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          if (i < lines.length - 1) {
-            // Complete lines
-            if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
-              newLines.push({ text: line, complete: true });
-            } else {
-              newLines[newLines.length - 1].text += line;
-              newLines[newLines.length - 1].complete = true;
-            }
-          } else {
-            // Last part, incomplete
-            if (line) {
-              if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
-                newLines.push({ text: line, complete: false });
-              } else {
-                newLines[newLines.length - 1].text += line;
-              }
-            }
-          }
+      // Check for newlines
+      if (text.includes('\n')) {
+        const pos = text.indexOf('\n');
+        const beforeNewline = text.substring(0, pos);
+        const afterNewline = text.substring(pos + 1);
+
+        // Append text before newline to current line and mark complete
+        if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
+          newLines.push({ text: beforeNewline, complete: true });
+        } else {
+          newLines[newLines.length - 1].text += beforeNewline;
+          newLines[newLines.length - 1].complete = true;
+        }
+
+        // Handle text after newline
+        if (afterNewline) {
+          newLines.push({ text: afterNewline, complete: false });
+        }
+      } else {
+        // No newline - append to last incomplete line or create new
+        if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
+          newLines.push({ text: text, complete: false });
+        } else {
+          newLines[newLines.length - 1].text += text;
         }
       }
     }
 
-    // Process remaining buffer as incomplete line
-    if (buffer) {
-      if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
-        newLines.push({ text: buffer, complete: false });
-      } else {
-        newLines[newLines.length - 1].text += buffer;
+    return newLines;
+  };
+
+  // Process queued serial events in order - process immediately without debounce
+  // Each event is processed as it arrives to ensure proper backspace handling
+  useEffect(() => {
+    const queue = serialEventQueueRef.current;
+    if (queue.length === 0) return;
+    
+    // Take all events from the ref queue
+    const eventsToProcess = [...queue];
+    serialEventQueueRef.current = [];
+    
+    // Use functional update to avoid stale closure issues with serialOutput
+    setSerialOutput(prevOutput => {
+      return processSerialEvents(eventsToProcess, prevOutput);
+    });
+  }, [serialQueueTrigger]);
+
+  // When simulation stops, flush any pending incomplete lines to make them visible
+  useEffect(() => {
+    if (simulationStatus === 'stopped' && serialOutput.length > 0) {
+      const lastLine = serialOutput[serialOutput.length - 1];
+      if (lastLine && !lastLine.complete) {
+        // Mark last incomplete line as complete so it displays
+        setSerialOutput(prev => {
+          if (prev.length === 0) return prev;
+          return [
+            ...prev.slice(0, -1),
+            { ...prev[prev.length - 1], complete: true }
+          ];
+        });
       }
     }
-
-    setSerialOutput(newLines);
-
-    // Clear queue after processing
-    setSerialEventQueue([]);
-  }, [serialEventQueue]);
+  }, [simulationStatus]);
 
   // Tab management handlers
   const handleTabClick = (tabId: string) => {

@@ -60,25 +60,14 @@ export class SandboxRunner {
         // Sort by ts_write to ensure chronological order
         const events = this.pendingSerialEvents.slice().sort((a, b) => (a.ts_write || 0) - (b.ts_write || 0));
 
-        // Concatenate data and take earliest ts_write
-        const combinedData = events.map(e => e.data || '').join('');
-        const earliestTs = events.reduce((min, e) => Math.min(min, e.ts_write || Infinity), Infinity);
-        const event = {
-            type: 'serial',
-            ts_write: isFinite(earliestTs) ? earliestTs : Date.now(),
-            data: combinedData,
-            baud: this.baudrate,
-            bits_per_frame: 10,
-            txBufferBefore: this.outputBuffer.length,
-            txBufferCapacity: 1000,
-            blocking: true,
-            atomic: true
-        };
-
-        try {
-            onOutput('[[' + 'SERIAL_EVENT_JSON:' + JSON.stringify(event) + ']]', true);
-        } catch (err) {
-            this.logger.warn(`Failed to flush pending serial events: ${err instanceof Error ? err.message : String(err)}`);
+        // Send each event individually to preserve backspace semantics
+        // (Backspace at start of a chunk should apply to previous output)
+        for (const event of events) {
+            try {
+                onOutput('[[' + 'SERIAL_EVENT_JSON:' + JSON.stringify(event) + ']]', true);
+            } catch (err) {
+                this.logger.warn(`Failed to send serial event: ${err instanceof Error ? err.message : String(err)}`);
+            }
         }
 
         // Clear pending buffer
@@ -156,8 +145,10 @@ int main() {
     readerThread.detach();
 `;
 
-        if (hasSetup) footer += "    setup();\n";
-        if (hasLoop) footer += "    while (1) loop();\n";
+        if (hasSetup) footer += "    setup();\n    Serial.flush(); // Flush after setup\n";
+        // Flush serial buffer at the start of each loop iteration
+        // This ensures all Serial.print() output is sent even without delay() or newline
+        if (hasLoop) footer += "    while (1) { Serial.flush(); loop(); }\n";
 
         footer += `
     keepReading.store(false);
@@ -368,24 +359,15 @@ int main() {
                                     blocking: true,
                                     atomic: true
                                 };
-                                // Coalesce closely timed SERIAL_EVENTs to avoid fragmentation/reordering
-                                // Debug log each raw serial event received
-                                this.logger.debug(`[SERIAL_EVENT RECEIVED] ts=${event.ts_write} len=${(event.data||'').length} txBuf=${event.txBufferBefore}`);
-                                this.pendingSerialEvents.push(event);
-                                if (!this.pendingSerialFlushTimer) {
-                                    // Slightly larger window to gather fragments and reduce reordering artifacts
-                                    const COALESCE_MS = 20;
-                                    this.pendingSerialFlushTimer = setTimeout(() => {
-                                        try {
-                                            this.logger.debug(`[SERIAL_EVENT FLUSH] flushing ${this.pendingSerialEvents.length} pending events`);
-                                            this.flushPendingSerialEvents(onOutput);
-                                        } finally {
-                                            if (this.pendingSerialFlushTimer) {
-                                                clearTimeout(this.pendingSerialFlushTimer);
-                                                this.pendingSerialFlushTimer = null;
-                                            }
-                                        }
-                                    }, COALESCE_MS);
+                                // Send events immediately - no coalescing needed
+                                // The frontend will handle timing based on ts_write
+                                this.logger.debug(`[SERIAL_EVENT RECEIVED] ts=${event.ts_write} len=${(event.data||'').length} data="${event.data?.replace(/[\x00-\x1f]/g, (c: string) => '\\x' + c.charCodeAt(0).toString(16).padStart(2, '0'))}"`);
+                                
+                                // Send immediately without buffering
+                                try {
+                                    onOutput('[[' + 'SERIAL_EVENT_JSON:' + JSON.stringify(event) + ']]', true);
+                                } catch (err) {
+                                    this.logger.warn(`Failed to send serial event: ${err instanceof Error ? err.message : String(err)}`);
                                 }
                             } catch (e) {
                                 this.logger.warn(`Failed to parse SERIAL_EVENT: ${e instanceof Error ? e.message : String(e)}`);
@@ -411,6 +393,13 @@ int main() {
                 clearTimeout(this.flushTimer);
                 this.flushTimer = null;
             }
+
+            // Flush any pending serial events before closing
+            if (this.pendingSerialFlushTimer) {
+                clearTimeout(this.pendingSerialFlushTimer);
+                this.pendingSerialFlushTimer = null;
+            }
+            this.flushPendingSerialEvents(onOutput);
 
             // If we exited with error during compile phase
             if (code !== 0 && isCompilePhase && compileErrorBuffer && onCompileError) {
@@ -629,6 +618,13 @@ int main() {
 
         this.process?.on("close", (code) => {
             if (timeout) clearTimeout(timeout);
+
+            // Flush any pending serial events before closing
+            if (this.pendingSerialFlushTimer) {
+                clearTimeout(this.pendingSerialFlushTimer);
+                this.pendingSerialFlushTimer = null;
+            }
+            this.flushPendingSerialEvents(onOutput);
 
             // Send any remaining buffered output immediately, but only if not killed (natural exit)
             if (!this.processKilled && this.outputBuffer.trim()) {

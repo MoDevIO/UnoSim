@@ -283,25 +283,39 @@ private:
         unsigned long ts = millis();
         std::string enc = base64_encode(lineBuffer);
         std::cerr << "[[SERIAL_EVENT:" << ts << ":" << enc << "]]" << std::endl;
+        std::cerr.flush(); // Force immediate output to Node.js
         // Simulate transmit time for the whole buffer
         txDelay(lineBuffer.length());
         lineBuffer.clear();
     }
 
-    // Output string - buffer until newline to prevent interleaving
+    // Output string - buffer until newline; flush BEFORE backspace/carriage return
+    // so that the control char stays with its following content
     void serialWrite(const std::string& s) {
         for (char c : s) {
-            lineBuffer += c;
-            if (c == '\\n') {
+            if (c == '\\b' || c == '\\r') {
+                // Flush pending content BEFORE the control character
                 flushLineBuffer();
+                // Add backspace to buffer - it will be sent with the next char(s)
+                lineBuffer += c;
+            } else if (c == '\\n') {
+                lineBuffer += c;
+                flushLineBuffer();
+            } else {
+                lineBuffer += c;
             }
         }
     }
     
     void serialWrite(char c) {
-        lineBuffer += c;
-        if (c == '\\n') {
+        if (c == '\\b' || c == '\\r') {
             flushLineBuffer();
+            lineBuffer += c;
+        } else if (c == '\\n') {
+            lineBuffer += c;
+            flushLineBuffer();
+        } else {
+            lineBuffer += c;
         }
     }
     
@@ -619,6 +633,9 @@ SerialClass Serial;
 
 // Implementation of delay() after SerialClass is defined
 inline void delay(unsigned long ms) { 
+    // Flush serial buffer FIRST so output appears before the delay
+    Serial.flush();
+    
     // Split delay into small chunks to check stdin frequently
     unsigned long remaining = ms;
     while (remaining > 0) {
@@ -627,8 +644,6 @@ inline void delay(unsigned long ms) {
         remaining -= chunk;
         checkStdinForPinCommands(); // Check for pin commands during delay
     }
-    // Auto-flush serial buffer after delay (for Serial.print without newline)
-    Serial.flush();
 }
 
 // Global buffer for stdin reading (used by checkStdinForPinCommands)
