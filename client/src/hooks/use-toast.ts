@@ -152,7 +152,7 @@ function toast({ ...props }: Toast) {
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
-  // Allow overriding the default via localStorage (set by SecretDialog)
+  // Allow overriding the default via localStorage (set by Settings dialog)
   let duration = (props as any).duration ?? DEFAULT_TOAST_DURATION
   try {
     if (typeof window !== "undefined") {

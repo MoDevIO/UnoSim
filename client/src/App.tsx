@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import ArduinoSimulator from "@/pages/arduino-simulator";
 import NotFound from "@/pages/not-found";
 import React from "react";
-import SecretDialog from "@/components/features/secret-dialog";
+import SettingsDialog from "@/components/features/settings-dialog";
 
 function Router() {
   return (
@@ -18,17 +18,18 @@ function Router() {
 }
 
 function App() {
-  const [secretOpen, setSecretOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   React.useEffect(() => {
     const isMac = navigator.platform.toUpperCase().includes("MAC");
 
     const onKey = (e: KeyboardEvent) => {
-      const isSecret = (isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.code === "KeyE";
-      if (isSecret) {
+      // Open Settings dialog with Meta/Ctrl + , (comma)
+      const isSettings = (isMac ? e.metaKey : e.ctrlKey) && e.code === "Comma";
+      if (isSettings) {
         e.preventDefault();
         e.stopPropagation();
-        setSecretOpen((s) => !s);
+        setSettingsOpen((s) => !s);
       }
     };
 
@@ -40,7 +41,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <SecretDialog open={secretOpen} onOpenChange={setSecretOpen} />
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>

@@ -93,7 +93,7 @@ export function ArduinoBoard({
       .catch(err => console.error('Failed to load Arduino SVGs:', err));
   }, []);
 
-  // Listen for color changes from secret dialog (custom event)
+  // Listen for color changes from settings dialog (custom event)
   useEffect(() => {
     const onColor = (e: Event) => {
       try {
