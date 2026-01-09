@@ -2309,7 +2309,7 @@ export default function ArduinoSimulator() {
                   </div>
 
                   {/* Input area is rendered in the parent so it spans the whole serial frame */}
-                  <div className="p-3 flex-shrink-0 bg-card border-t border-border">
+                  <div className="p-3 flex-shrink-0">
                     <div className="w-full">
                       <InputGroup
                         type="text"
