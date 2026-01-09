@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Cpu, Play, Square, Loader2, Terminal, Wrench, Trash2, ChevronsDown, BarChart, Monitor, SendHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { InputGroup } from '@/components/ui/input-group';
 import { clsx } from 'clsx';
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/features/code-editor';
@@ -1904,29 +1905,18 @@ export default function ArduinoSimulator() {
 
                   {/* Input area is rendered in the parent so it spans the whole serial frame */}
                   <div className="p-3 flex-shrink-0 bg-card border-t border-border">
-                    <div className="flex space-x-2 items-center">
-                      <Input
+                    <div className="w-full">
+                      <InputGroup
                         type="text"
                         placeholder="Send to Arduino..."
                         value={serialInputValue}
                         onChange={(e) => setSerialInputValue(e.target.value)}
                         onKeyDown={handleSerialInputKeyDown}
-                        className="flex-1 bg-input border-border text-foreground placeholder-muted-foreground h-9"
-                        data-testid="input-serial"
-                      />
-
-                      <Button
-                        type="button"
-                        onClick={handleSerialInputSend}
-                        size="sm"
+                        onSubmit={handleSerialInputSend}
                         disabled={!serialInputValue.trim() || simulationStatus !== 'running'}
-                        className={clsx('h-9 w-9 p-0 flex items-center justify-center', !serialInputValue.trim() || simulationStatus !== 'running' ? '' : '!bg-green-600 hover:!bg-green-700 !text-white')}
-                        data-testid="button-send-serial"
-                        aria-label="Send"
-                        title="Send"
-                      >
-                        <SendHorizontal className="h-4 w-4" />
-                      </Button>
+                        inputTestId="input-serial"
+                        buttonTestId="button-send-serial"
+                      />
                     </div>
                   </div>
                 </div>

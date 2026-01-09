@@ -593,7 +593,7 @@ export function ArduinoBoard({
       </div>
 
       {/* Board Visualization */}
-      <div className="flex-1 overflow-auto p-0 flex items-center justify-center bg-gray-900 min-h-0">
+      <div className="flex-1 overflow-auto p-0 flex items-center justify-center bg-background min-h-0">
         {svgContent && overlaySvgContent ? (
           <div
             ref={containerRef}
