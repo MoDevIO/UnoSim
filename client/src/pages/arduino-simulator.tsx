@@ -71,6 +71,13 @@ export default function ArduinoSimulator() {
   const [compilationStatus, setCompilationStatus] = useState<'ready' | 'compiling' | 'success' | 'error'>('ready');
   const [arduinoCliStatus, setArduinoCliStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
   const [gccStatus, setGccStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
+  const [debugMode, setDebugMode] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('unoDebugMode') === '1';
+    } catch {
+      return false;
+    }
+  });
   const [simulationStatus, setSimulationStatus] = useState<'running' | 'stopped'>('stopped');
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   const [isModified, setIsModified] = useState(false);
@@ -123,6 +130,19 @@ export default function ArduinoSimulator() {
 
   // Hidden file input for File → Load Files
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Listen for debug mode change events from settings dialog
+  useEffect(() => {
+    const handler = (ev: any) => {
+      try {
+        setDebugMode(Boolean(ev?.detail?.value));
+      } catch {
+        // ignore
+      }
+    };
+    document.addEventListener('debugModeChange', handler as EventListener);
+    return () => document.removeEventListener('debugModeChange', handler as EventListener);
+  }, []);
 
   // Helper to download all tabs (used by File -> Download All Files)
   const downloadAllFiles = async () => {
@@ -2016,63 +2036,67 @@ export default function ArduinoSimulator() {
           </div>
 
           <div className="flex items-center space-x-3 min-w-0 no-drag">
-            <div className="flex items-center space-x-2 text-sm">
-              <div 
-                className="w-6 h-6 rounded-full"
-                style={{
-                  backgroundColor: compilationStatus === 'compiling' ? '#eab308' :
-                    compilationStatus === 'success' ? '#22c55e' :
-                    compilationStatus === 'error' ? '#ef4444' :
-                    compilationStatus === 'ready' ? '#6b7280' : '#3b82f6',
-                  boxShadow: compilationStatus === 'success' ? '0 0 12px 3px rgba(34,197,94,0.6)' : 
-                    compilationStatus === 'error' ? '0 0 12px 3px rgba(239,68,68,0.6)' : 'none',
-                  transition: 'background-color 500ms ease-in-out, box-shadow 500ms ease-in-out',
-                  animation: (compilationStatus === 'compiling' || compilationStatus === 'success') 
-                    ? 'gentle-pulse 3s ease-in-out infinite' 
-                    : compilationStatus === 'error' 
-                    ? 'error-blink 0.3s ease-in-out 5' 
-                    : 'none'
-                }}
-              />
-              <style>{`
-                @keyframes gentle-pulse {
-                  0%, 100% { opacity: 1; }
-                  50% { opacity: 0.7; }
-                }
-                @keyframes error-blink {
-                  0%, 100% { opacity: 1; }
-                  50% { opacity: 0.6; }
-                }
-              `}</style>
+            {debugMode && (
+              <>
+                <div className="flex items-center space-x-2 text-sm">
+                  <div 
+                    className="w-6 h-6 rounded-full"
+                    style={{
+                      backgroundColor: compilationStatus === 'compiling' ? '#eab308' :
+                        compilationStatus === 'success' ? '#22c55e' :
+                        compilationStatus === 'error' ? '#ef4444' :
+                        compilationStatus === 'ready' ? '#6b7280' : '#3b82f6',
+                      boxShadow: compilationStatus === 'success' ? '0 0 12px 3px rgba(34,197,94,0.6)' : 
+                        compilationStatus === 'error' ? '0 0 12px 3px rgba(239,68,68,0.6)' : 'none',
+                      transition: 'background-color 500ms ease-in-out, box-shadow 500ms ease-in-out',
+                      animation: (compilationStatus === 'compiling' || compilationStatus === 'success') 
+                        ? 'gentle-pulse 3s ease-in-out infinite' 
+                        : compilationStatus === 'error' 
+                        ? 'error-blink 0.3s ease-in-out 5' 
+                        : 'none'
+                    }}
+                  />
+                  <style>{`
+                    @keyframes gentle-pulse {
+                      0%, 100% { opacity: 1; }
+                      50% { opacity: 0.7; }
+                    }
+                    @keyframes error-blink {
+                      0%, 100% { opacity: 1; }
+                      50% { opacity: 0.6; }
+                    }
+                  `}</style>
 
-            </div>
+                </div>
 
-            <div className="flex flex-col space-y-1 text-xs w-32 max-w-full ml-8">
-              <div 
-                className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
-                style={{
-                  backgroundColor: arduinoCliStatus === 'compiling' ? 'rgba(234, 179, 8, 0.10)' :
-                    arduinoCliStatus === 'success' ? 'rgba(34, 197, 94, 0.10)' :
-                    arduinoCliStatus === 'error' ? 'rgba(239, 68, 68, 0.10)' :
-                    'rgba(107, 114, 128, 0.10)'
-                }}
-              >
-                <Terminal className="h-3 w-3 mr-1 flex-shrink-0" />
-                <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`CLI: ${compilationStatusLabel(arduinoCliStatus)}`}</span>
-              </div>
-              <div 
-                className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
-                style={{
-                  backgroundColor: gccStatus === 'compiling' ? 'rgba(234, 179, 8, 0.10)' :
-                    gccStatus === 'success' ? 'rgba(34, 197, 94, 0.10)' :
-                    gccStatus === 'error' ? 'rgba(239, 68, 68, 0.10)' :
-                    'rgba(107, 114, 128, 0.10)'
-                }}
-              >
-                <Wrench className="h-3 w-3 mr-1 flex-shrink-0" />
-                <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`GCC: ${compilationStatusLabel(gccStatus)}`}</span>
-              </div>
-            </div>
+                <div className="flex flex-col space-y-1 text-xs w-32 max-w-full ml-8">
+                  <div 
+                    className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
+                    style={{
+                      backgroundColor: arduinoCliStatus === 'compiling' ? 'rgba(234, 179, 8, 0.10)' :
+                        arduinoCliStatus === 'success' ? 'rgba(34, 197, 94, 0.10)' :
+                        arduinoCliStatus === 'error' ? 'rgba(239, 68, 68, 0.10)' :
+                        'rgba(107, 114, 128, 0.10)'
+                    }}
+                  >
+                    <Terminal className="h-3 w-3 mr-1 flex-shrink-0" />
+                    <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`CLI: ${compilationStatusLabel(arduinoCliStatus)}`}</span>
+                  </div>
+                  <div 
+                    className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
+                    style={{
+                      backgroundColor: gccStatus === 'compiling' ? 'rgba(234, 179, 8, 0.10)' :
+                        gccStatus === 'success' ? 'rgba(34, 197, 94, 0.10)' :
+                        gccStatus === 'error' ? 'rgba(239, 68, 68, 0.10)' :
+                        'rgba(107, 114, 128, 0.10)'
+                    }}
+                  >
+                    <Wrench className="h-3 w-3 mr-1 flex-shrink-0" />
+                    <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`GCC: ${compilationStatusLabel(gccStatus)}`}</span>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="flex items-center space-x-3">
               <Button

@@ -9,11 +9,13 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const STORAGE_KEY = "unoBoardColor";
 const DEFAULT_COLOR = "#0f7391";
 const TOAST_DURATION_KEY = "unoToastDuration";
 const DEFAULT_TOAST_SECONDS = 1;
+const DEBUG_MODE_KEY = "unoDebugMode";
 
 export default function SettingsDialog({
   open,
@@ -39,6 +41,26 @@ export default function SettingsDialog({
     const ev = new CustomEvent("arduinoColorChange", { detail: { color } });
     document.dispatchEvent(ev);
   }, [color]);
+
+  // Debug mode toggle (experimental)
+  const [debugMode, setDebugMode] = React.useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(DEBUG_MODE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const setStoredDebug = (v: boolean) => {
+    try {
+      window.localStorage.setItem(DEBUG_MODE_KEY, v ? '1' : '0');
+    } catch {}
+    setDebugMode(v);
+    try {
+      const ev = new CustomEvent('debugModeChange', { detail: { value: v } });
+      document.dispatchEvent(ev);
+    } catch {}
+  };
 
 
   // Prevent the hex input from automatically receiving focus when the dialog opens
@@ -141,6 +163,23 @@ export default function SettingsDialog({
             <div className="font-medium">Toast Duration</div>
             <div className="text-xs text-muted-foreground mb-2">Change global toast expiry (0.5s steps). Choose "Infinite" to disable auto-hide.</div>
             <ToastDurationControl />
+          </div>
+
+          {/* Debug mode (hidden by default) */}
+          <div className="rounded border p-3 bg-muted">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">Debug Mode</div>
+                <div className="text-xs text-muted-foreground">Enable debug UI elements (status light and CLI/GCC labels).</div>
+              </div>
+              <div className="flex items-center">
+                <Checkbox
+                  checked={debugMode}
+                  onCheckedChange={(v) => setStoredDebug(Boolean(v))}
+                  aria-label="enable debug mode"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
