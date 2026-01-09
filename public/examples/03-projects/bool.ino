@@ -1,4 +1,3 @@
-bool A, B, C;
 void setup()
 {
   Serial.begin(115200);
@@ -7,7 +6,6 @@ void setup()
       for (byte k = 0; k < 2; k++)
       {
         Serial.println(!(k || j) || !(i || j) || !(k || i));
-        // delay(1);
       }
 }
 

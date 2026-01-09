@@ -586,15 +586,19 @@ export default function ArduinoSimulator() {
       switch (message.type) {
         case 'serial_output': {
           // NEW: Handle isComplete flag for Serial.print() vs Serial.println()
-          let text = message.data;
+          let text = (message.data ?? '').toString();
           const isComplete = message.isComplete ?? true; // Default to true for backwards compatibility
 
           // Trigger TX LED blink (Arduino is transmitting data)
           setTxActivity(prev => prev + 1);
 
+          // System messages (stop/timeout/etc.) must always be shown, even if serial_event traffic was recent
+          const trimmedForSystemCheck = text.trimStart();
+          const isSystemSerialMessage = trimmedForSystemCheck.startsWith('---') || trimmedForSystemCheck.startsWith('Simulation ');
+
           // If we recently received structured `serial_event` messages, ignore legacy `serial_output` to avoid duplicates
           const now = Date.now();
-          if (lastSerialEventAtRef.current && (now - lastSerialEventAtRef.current) < 1000) {
+          if (lastSerialEventAtRef.current && (now - lastSerialEventAtRef.current) < 1000 && !isSystemSerialMessage) {
             // Short-circuit: drop this legacy serial_output
             // eslint-disable-next-line no-console
             console.debug('Dropping legacy serial_output because recent serial_event exists', { text, ageMs: now - lastSerialEventAtRef.current });
@@ -692,6 +696,9 @@ export default function ArduinoSimulator() {
           setSimulationStatus(message.status);
           // Reset pin states and compilation status when simulation stops
           if (message.status === 'stopped') {
+            // Clear any pending serial-event tracking so system messages aren't dropped after stop
+            lastSerialEventAtRef.current = 0;
+            serialEventQueueRef.current = [];
             // Preserve detected pinMode declarations when simulation stops
             resetPinUI({ keepDetected: true });
             setCompilationStatus('ready');

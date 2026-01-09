@@ -410,7 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               sendMessageToClient(ws, {
                 type: 'serial_output',
-                data: 'Simulation stopped\n',
+                data: '--- Simulation stopped ---\n',
               });
             }
             break;
