@@ -589,8 +589,8 @@ export default function ArduinoSimulator() {
           let text = (message.data ?? '').toString();
           const isComplete = message.isComplete ?? true; // Default to true for backwards compatibility
 
-          // Trigger TX LED blink (Arduino is transmitting data)
-          setTxActivity(prev => prev + 1);
+          // Trigger RX LED blink when client receives data
+          setRxActivity(prev => prev + 1);
 
           // System messages (stop/timeout/etc.) must always be shown, even if serial_event traffic was recent
           const trimmedForSystemCheck = text.trimStart();
@@ -652,6 +652,8 @@ export default function ArduinoSimulator() {
               const payload = (message as any).payload || {};
               // Record arrival time so we can suppress duplicate legacy serial_output messages
               const receivedAt = Date.now();
+              // Trigger RX LED blink when client receives structured data
+              setRxActivity(prev => prev + 1);
               lastSerialEventAtRef.current = receivedAt;
               
               // Use push() to avoid race conditions when multiple events arrive simultaneously
@@ -1468,8 +1470,8 @@ export default function ArduinoSimulator() {
 
   const handleSerialSend = (message: string) => {
     if (!ensureBackendConnected('Serial senden')) return;
-    // Trigger RX LED blink (Arduino is receiving data)
-    setRxActivity(prev => prev + 1);
+    // Trigger TX LED blink when client sends data
+    setTxActivity(prev => prev + 1);
     
     sendMessage({
       type: 'serial_input',
