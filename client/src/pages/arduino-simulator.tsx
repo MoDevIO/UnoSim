@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, Play, Square, Loader2, Terminal, Wrench, Zap, Trash2, ChevronsDown } from 'lucide-react';
+import { Cpu, Play, Square, Loader2, Terminal, Wrench, Trash2, ChevronsDown, BarChart, Monitor, SendHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { clsx } from 'clsx';
 import { Button } from '@/components/ui/button';
@@ -114,8 +114,6 @@ export default function ArduinoSimulator() {
   // RX/TX LED activity counters (increment on activity for change detection)
   const [txActivity, setTxActivity] = useState(0);
   const [rxActivity, setRxActivity] = useState(0);
-  // Track the last scheduled display timestamp for serial output (epoch ms)
-  const lastSerialDisplayRef = useRef<number>(Date.now());
   // Track wall-clock time when last serial_event was received
   const lastSerialEventAtRef = useRef<number>(0);
   // Queue for incoming serial_events - use ref to avoid React batching issues
@@ -1598,14 +1596,7 @@ export default function ArduinoSimulator() {
         <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between flex-nowrap overflow-x-hidden whitespace-nowrap w-screen">
         <div className="flex items-center space-x-4 min-w-0 whitespace-nowrap">
           <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
-              <Cpu 
-                className="h-5 w-5" 
-                style={{
-                  color: simulationStatus === 'running' ? '#22c55e' : '#6b7280',
-                  filter: simulationStatus === 'running' ? 'drop-shadow(0 0 6px #22c55e)' : 'none',
-                  transition: 'color 200ms ease-in-out, filter 200ms ease-in-out'
-                }}
-              />
+              <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
               <h1 className="text-lg font-semibold truncate">Arduino UNO Simulator</h1>
             </div>
             <div className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -1779,31 +1770,44 @@ export default function ArduinoSimulator() {
           <ResizablePanelGroup direction="horizontal" className="h-full" id="main-layout">
           {/* Code Editor Panel */}
           <ResizablePanel defaultSize={50} minSize={20} id="code-panel">
-            <div className="h-full flex flex-col">
-              {/* Sketch Tabs */}
-              <SketchTabs
-                tabs={tabs}
-                activeTabId={activeTabId}
-                modifiedTabId={null}
-                onTabClick={handleTabClick}
-                onTabClose={handleTabClose}
-                onTabRename={handleTabRename}
-                onTabAdd={handleTabAdd}
-                onFilesLoaded={handleFilesLoaded}
-                onFormatCode={formatCode}
-                examplesMenu={<ExamplesMenu onLoadExample={handleLoadExample} backendReachable={backendReachable} />}
-              />
+            <ResizablePanelGroup direction="vertical" className="h-full" id="code-layout">
+              <ResizablePanel defaultSize={70} minSize={30} id="editor-panel">
+                <div className="h-full flex flex-col">
+                  {/* Sketch Tabs */}
+                  <SketchTabs
+                    tabs={tabs}
+                    activeTabId={activeTabId}
+                    modifiedTabId={null}
+                    onTabClick={handleTabClick}
+                    onTabClose={handleTabClose}
+                    onTabRename={handleTabRename}
+                    onTabAdd={handleTabAdd}
+                    onFilesLoaded={handleFilesLoaded}
+                    onFormatCode={formatCode}
+                    examplesMenu={<ExamplesMenu onLoadExample={handleLoadExample} backendReachable={backendReachable} />}
+                  />
 
-              <div className="flex-1 min-h-0">
-                <CodeEditor
-                  value={code}
-                  onChange={handleCodeChange}
-                  onCompileAndRun={handleCompileAndStart}
-                  onFormat={formatCode}
-                  editorRef={editorRef}
+                  <div className="flex-1 min-h-0">
+                    <CodeEditor
+                      value={code}
+                      onChange={handleCodeChange}
+                      onCompileAndRun={handleCompileAndStart}
+                      onFormat={formatCode}
+                      editorRef={editorRef}
+                    />
+                  </div>
+                </div>
+              </ResizablePanel>
+
+              <ResizableHandle withHandle data-testid="vertical-resizer-editor-compile" />
+
+              <ResizablePanel defaultSize={30} minSize={10} id="compilation-under-editor">
+                <CompilationOutput
+                  output={cliOutput}
+                  onClear={handleClearCompilationOutput}
                 />
-              </div>
-            </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </ResizablePanel>
 
           <ResizableHandle withHandle data-testid="horizontal-resizer" />
@@ -1811,59 +1815,52 @@ export default function ArduinoSimulator() {
           {/* Right Panel - Output & Serial Monitor */}
           <ResizablePanel defaultSize={50} minSize={20} id="output-panel">
             <ResizablePanelGroup direction="vertical" id="output-layout">
-              <ResizablePanel defaultSize={25} minSize={15} id="compilation-panel">
-                <CompilationOutput
-                  output={cliOutput}
-                  onClear={handleClearCompilationOutput}
-                />
-              </ResizablePanel>
 
-              <ResizableHandle withHandle data-testid="vertical-resizer" />
 
-              <ResizablePanel defaultSize={25} minSize={15} id="serial-panel">
+              <ResizablePanel defaultSize={50} minSize={20} id="serial-panel">
                 <div className="h-full flex flex-col">
                   {/* Static Serial Header (always full width) */}
                   <div className="bg-muted px-4 border-b border-border flex items-center h-10">
                     <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
                       <div className="flex items-center space-x-2 flex-shrink-0">
-                        <div
-                          className={`w-2 h-2 rounded-full ${simulationStatus === 'running' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}
-                          style={{
-                            boxShadow: simulationStatus === 'running' ? '0 0 8px rgba(34, 197, 94, 0.8)' : 'none',
-                            transition: 'box-shadow 200ms ease-in-out'
-                          }}
-                          data-testid="connection-indicator"
-                        />
-                        <i className="fas fa-comments text-accent text-sm"></i>
-                        <span className="text-sm font-medium truncate">Serial Output</span>
-                        <span className="text-xs text-muted-foreground hidden sm:inline ml-3">115200 baud</span>
+                        <Monitor className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} aria-hidden />
+                        <span className="sr-only">Serial Output</span>
                       </div>
                       <div className="flex items-center space-x-3 ml-auto">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="min-w-[9rem] text-xs"
+                          className="h-8 w-8 p-0 flex items-center justify-center"
                           onClick={cycleSerialViewMode}
                           data-testid="button-serial-view-toggle"
+                          aria-label={serialViewMode === 'monitor' ? 'Monitor only' : serialViewMode === 'plotter' ? 'Plotter only' : 'Monitor + Plotter'}
+                          title={serialViewMode === 'monitor' ? 'Monitor only' : serialViewMode === 'plotter' ? 'Plotter only' : 'Monitor + Plotter'}
                         >
-                          {serialViewMode === 'monitor'
-                            ? 'Monitor only'
-                            : serialViewMode === 'plotter'
-                              ? 'Plotter only'
-                              : 'Monitor + Plotter'}
+                          {serialViewMode === 'monitor' ? <Terminal className="h-4 w-4" /> : serialViewMode === 'plotter' ? <BarChart className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
+                          className={clsx('h-8 w-8 p-0 flex items-center justify-center', autoScrollEnabled ? 'bg-background text-white hover:bg-green-600 hover:text-white' : '')}
                           onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
                           disabled={serialViewMode === 'plotter'}
                           title={autoScrollEnabled ? 'Autoscroll on' : 'Autoscroll off'}
+                          aria-label={autoScrollEnabled ? 'Autoscroll on' : 'Autoscroll off'}
+                          aria-pressed={autoScrollEnabled}
                           data-testid="button-autoscroll"
                         >
-                          <ChevronsDown className={`h-4 w-4 ${autoScrollEnabled ? 'text-accent' : 'text-muted-foreground'}`} />
+                          <ChevronsDown className={clsx('h-4 w-4', autoScrollEnabled ? 'text-white' : 'text-gray-400')} />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={handleClearSerialOutput} data-testid="button-clear-serial">
-                          <Trash2 className="h-3 w-3" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0 flex items-center justify-center"
+                          onClick={handleClearSerialOutput}
+                          aria-label="Clear serial output"
+                          title="Clear serial output"
+                          data-testid="button-clear-serial"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -1923,11 +1920,12 @@ export default function ArduinoSimulator() {
                         onClick={handleSerialInputSend}
                         size="sm"
                         disabled={!serialInputValue.trim() || simulationStatus !== 'running'}
-                        className={`w-40 h-9 ${!serialInputValue.trim() || simulationStatus !== 'running' ? '' : '!bg-green-600 hover:!bg-green-700 !text-white'}`}
+                        className={clsx('h-9 w-9 p-0 flex items-center justify-center', !serialInputValue.trim() || simulationStatus !== 'running' ? '' : '!bg-green-600 hover:!bg-green-700 !text-white')}
                         data-testid="button-send-serial"
+                        aria-label="Send"
+                        title="Send"
                       >
-                        <Zap className="h-3 w-3 mr-1" />
-                        Send
+                        <SendHorizontal className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -1936,7 +1934,7 @@ export default function ArduinoSimulator() {
 
               <ResizableHandle withHandle data-testid="vertical-resizer-board" />
 
-              <ResizablePanel defaultSize={50} minSize={15} id="board-panel">
+              <ResizablePanel defaultSize={50} minSize={20} id="board-panel">
                 <ArduinoBoard
                   pinStates={pinStates}
                   isSimulationRunning={simulationStatus === 'running'}
@@ -1971,7 +1969,7 @@ export default function ArduinoSimulator() {
                     onClick={() => setMobilePanel(mobilePanel === 'compile' ? null : 'compile')}
                     className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'compile' ? 'bg-green-600 text-white' : 'bg-transparent text-muted-foreground')}
                   >
-                    <Wrench className="w-5 h-5" />
+                    <Wrench className="w-5 h-5 opacity-80" />
                   </button>
                   <button
                     aria-label="Serial Output"

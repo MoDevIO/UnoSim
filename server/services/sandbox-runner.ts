@@ -45,6 +45,8 @@ export class SandboxRunner {
     // Buffer for coalescing SERIAL_EVENTs emitted by the C++ mock
     private pendingSerialEvents: Array<any> = [];
     private pendingSerialFlushTimer: NodeJS.Timeout | null = null;
+    // Server-side timestamp of when the spawned process was started (ms since epoch)
+    private processStartTime: number | null = null;
 
     constructor() {
         mkdir(this.tempDir, { recursive: true })

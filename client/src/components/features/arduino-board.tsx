@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Cpu, Eye, EyeOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface PinState {
   pin: number;
@@ -572,26 +573,23 @@ export function ArduinoBoard({
   return (
     <div className="h-full flex flex-col bg-card border-t border-border">
       {/* Header */}
-      <div className="flex items-center justify-between bg-muted px-3 py-2 border-b border-border overflow-hidden">
-        <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
-          <Cpu 
-            className="h-4 w-4" 
-            style={{
-              color: isSimulationRunning ? '#22c55e' : '#6b7280',
-              filter: isSimulationRunning ? 'drop-shadow(0 0 4px #22c55e)' : 'none',
-              transition: 'color 200ms ease-in-out, filter 200ms ease-in-out'
-            }}
-          />
-          <span className="text-sm font-medium truncate">Arduino UNO Board</span>
-        </div>
-        <button
-          onClick={() => setShowPWMValues(!showPWMValues)}
-          className="flex items-center space-x-1 px-2 py-1 text-xs bg-background border border-border rounded hover:bg-accent transition-colors"
-          title={showPWMValues ? 'Hide I/O values' : 'Show I/O values'}
-        >
-          {showPWMValues ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-          <span>I/O</span>
-        </button>
+<div className="bg-muted px-4 border-b border-border flex items-center justify-between h-10 overflow-hidden">
+    <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
+      <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
+      <span className="sr-only">Arduino UNO Board</span>
+    </div>
+    <div className="flex items-center ml-4">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 w-8 p-0 flex items-center justify-center"
+        onClick={() => setShowPWMValues(!showPWMValues)}
+        title={showPWMValues ? 'Hide I/O values' : 'Show I/O values'}
+        aria-label={showPWMValues ? 'Hide I/O values' : 'Show I/O values'}
+      >
+        {showPWMValues ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </Button>
+    </div>
       </div>
 
       {/* Board Visualization */}

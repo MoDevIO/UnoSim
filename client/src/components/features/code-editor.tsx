@@ -129,9 +129,9 @@ export function CodeEditor({
         "editor.background": "#121212",
         "editor.foreground": "#fafafa",
         "editorLineNumber.foreground": "#666666",
-        "editorLineNumber.activeForeground": "#888888",
-        "editor.selectionBackground": "#3d3d3d",
-        "editor.lineHighlightBackground": "#1a1a1a",
+        "editorLineNumber.activeForeground": "#ffffff",
+        "editor.selectionBackground": "#262626",
+        "editor.lineHighlightBackground": "#121212",
       },
     });
 

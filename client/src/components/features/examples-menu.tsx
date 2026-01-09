@@ -194,11 +194,12 @@ export function ExamplesMenu({ onLoadExample, backendReachable = true }: Example
         <Button
           variant="outline"
           size="sm"
-          className="gap-2 h-8"
+          className="h-8 w-8 p-0 flex items-center justify-center"
           disabled={isLoading}
+          aria-label="Examples"
+          title="Examples (Cmd/Ctrl+E)"
         >
           <BookOpen className="h-4 w-4" />
-          Examples
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 max-h-96 overflow-y-auto p-0">

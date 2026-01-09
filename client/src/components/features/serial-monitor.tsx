@@ -110,9 +110,9 @@ function hasControlChars(text: string) {
 export function SerialMonitor({
   output,
   isConnected,
-  isSimulationRunning = false,
-  onSendMessage,
-  onClear,
+  isSimulationRunning: _isSimulationRunning = false,
+  onSendMessage: _onSendMessage,
+  onClear: _onClear,
   showMonitor = true,
   autoScrollEnabled = true
 }: SerialMonitorProps) {
