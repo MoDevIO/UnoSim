@@ -173,7 +173,65 @@ export function CodeEditor({
     if (externalEditorRef) {
       externalEditorRef.current = {
         getValue: () => editor.getValue(),
-      };
+        undo: () => { try { editor.focus(); editor.trigger('keyboard', 'undo', {}); } catch {} },
+        redo: () => { try { editor.focus(); editor.trigger('keyboard', 'redo', {}); } catch {} },
+        find: () => { try { editor.focus(); editor.getAction('actions.find').run(); } catch {} },
+        selectAll: () => { try { editor.focus(); const model = editor.getModel(); if (model) { editor.setSelection(model.getFullModelRange()); editor.revealRangeInCenter(model.getFullModelRange()); } } catch {} },
+        copy: () => {
+          try {
+            editor.focus();
+            const model = editor.getModel();
+            const sel = editor.getSelection();
+            if (model && sel && !sel.isEmpty()) {
+              const text = model.getValueInRange(sel);
+              try { navigator.clipboard.writeText(text).catch(() => {}); } catch {}
+            }
+          } catch {}
+        },
+        cut: () => {
+          try {
+            editor.focus();
+            const model = editor.getModel();
+            const sel = editor.getSelection();
+            if (model && sel && !sel.isEmpty()) {
+              const text = model.getValueInRange(sel);
+              // try clipboard write (async) but not await to avoid blocking
+              try { navigator.clipboard.writeText(text).catch(() => {}); } catch {}
+              editor.executeEdits('cut', [{ range: sel, text: '' }]);
+            }
+          } catch {}
+        },
+        paste: () => {
+          try {
+            editor.focus();
+            const model = editor.getModel();
+            const sel = editor.getSelection();
+            (async () => {
+              try {
+                const text = await navigator.clipboard.readText();
+                if (!text) return;
+                const pos = editor.getPosition();
+                if (model && sel && !sel.isEmpty()) {
+                  editor.executeEdits('paste', [{ range: sel, text }]);
+                } else if (pos) {
+                  const r = { startLineNumber: pos.lineNumber, startColumn: pos.column, endLineNumber: pos.lineNumber, endColumn: pos.column };
+                  editor.executeEdits('paste', [{ range: r, text }]);
+                }
+              } catch (err) { /* ignore clipboard read errors */ }
+            })();
+          } catch {}
+        },
+        goToLine: (ln: number) => {
+          try {
+            editor.focus();
+            const model = editor.getModel();
+            if (!model) return;
+            const line = Math.min(Math.max(1, Math.floor(ln)), model.getLineCount());
+            editor.setPosition({ lineNumber: line, column: 1 });
+            editor.revealPositionInCenter({ lineNumber: line, column: 1 });
+          } catch {}
+        },
+      } as any;
     }
 
     // Set up change listener with null check

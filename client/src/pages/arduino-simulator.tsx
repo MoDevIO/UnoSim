@@ -8,6 +8,21 @@ import { Input } from '@/components/ui/input';
 import { InputGroup } from '@/components/ui/input-group';
 import { clsx } from 'clsx';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuGroup,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuShortcut,
+} from '@/components/ui/dropdown-menu';
 import { CodeEditor } from '@/components/features/code-editor';
 import { SerialMonitor } from '@/components/features/serial-monitor';
 import { SerialPlotter } from '@/components/features/serial-plotter';
@@ -99,8 +114,65 @@ export default function ArduinoSimulator() {
   // Simulation timeout setting (in seconds)
   const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
 
+  // Selected board and baud rate (moved to Tools menu)
+  const [board, setBoard] = useState<string>('Arduino UNO');
+  const [baudRate, setBaudRate] = useState<number>(115200);
+
   // Serial input box state (always visible at bottom of serial frame)
   const [serialInputValue, setSerialInputValue] = useState('');
+
+  // Hidden file input for File → Load Files
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Helper to download all tabs (used by File -> Download All Files)
+  const downloadAllFiles = async () => {
+    try {
+      tabs.forEach((tab, index) => {
+        setTimeout(() => {
+          const element = document.createElement('a');
+          element.setAttribute(
+            'href',
+            'data:text/plain;charset=utf-8,' + encodeURIComponent(tab.content)
+          );
+          element.setAttribute('download', tab.name);
+          element.style.display = 'none';
+          document.body.appendChild(element);
+          element.click();
+          document.body.removeChild(element);
+        }, index * 200);
+      });
+
+      setTimeout(() => {
+        toast({ title: 'Download started', description: `${tabs.length} file(s) will be downloaded` });
+      }, tabs.length * 200 + 100);
+    } catch (err) {
+      toast({ title: 'Download failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+    }
+  };
+
+  // Handler for hidden file input change
+  const handleHiddenFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fl = e.target.files;
+    if (!fl || fl.length === 0) return;
+    const files: Array<{ name: string; content: string }> = [];
+    for (const f of Array.from(fl)) {
+      if (!f.name.endsWith('.ino') && !f.name.endsWith('.h')) continue;
+      try {
+        const txt = await f.text();
+        files.push({ name: f.name, content: txt });
+      } catch {}
+    }
+    if (files.length > 0) handleFilesLoaded(files, false);
+    e.target.value = '';
+  };
+
+  // Helper to request the global Settings dialog to open (App listens for this event)
+  const openSettings = () => {
+    try {
+      window.dispatchEvent(new CustomEvent('open-settings'));
+    } catch {}
+  };
+
 
   const handleSerialInputSend = () => {
     if (!serialInputValue.trim()) return;
@@ -124,6 +196,7 @@ export default function ArduinoSimulator() {
 
   // Mobile UI: detect small screens and provide a floating tab full-screen view
   const isClient = typeof window !== 'undefined';
+  const isMac = isClient ? navigator.platform.toUpperCase().includes('MAC') : false;
   const mqQuery = '(max-width: 768px)';
   const initialIsMobile = isClient ? window.matchMedia(mqQuery).matches : false;
   const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile);
@@ -359,12 +432,72 @@ export default function ArduinoSimulator() {
     }
   }, [backendReachable, queryClient]);
 
+  // Upload mutation (used by Compile → Upload)
+  const uploadMutation = useMutation({
+    mutationFn: async (payload: { code: string; headers?: Array<{ name: string; content: string }> }) => {
+      // Attempt to call a backend upload endpoint; backend can implement this to actually flash hardware
+      const response = await apiRequest('POST', '/api/upload', payload);
+      // Be tolerant: some backends may return plain text (204 or HTML). Try to parse JSON, otherwise return text.
+      const ct = (response.headers.get('content-type') || '').toLowerCase();
+      if (ct.includes('application/json')) {
+        try {
+          return await response.json();
+        } catch (err) {
+          // Malformed JSON — return raw text instead
+          const txt = await response.text();
+          return { success: response.ok, raw: txt } as any;
+        }
+      }
+      const txt = await response.text();
+      return { success: response.ok, raw: txt } as any;
+    },
+    onSuccess: (data) => {
+      // data may be an object with shape { success, ... } or { raw: text }
+      if (data && (data as any).success) {
+        toast({ title: 'Upload started', description: 'Upload initiated to connected device.' });
+      } else if (data && typeof (data as any).raw === 'string') {
+        const txt = String((data as any).raw || '').trim();
+        if (txt.length === 0) {
+          // Some backends return 204 No Content or an empty response — treat as success
+          toast({ title: 'Upload started', description: 'Upload initiated to connected device.' });
+        } else {
+          toast({ title: 'Upload response', description: txt.slice(0, 200) });
+        }
+      } else {
+        toast({ title: 'Upload failed', description: (data && (data as any).error) ? (data as any).error : 'Upload did not succeed.' , variant: 'destructive' });
+      }
+    },
+
+    onError: (err) => {
+      const backendDown = isBackendUnreachableError(err);
+      toast({ title: backendDown ? 'Backend unreachable' : 'Upload failed', description: backendDown ? 'API server unreachable. Please check the backend or reload.' : (err as Error)?.message || 'Upload failed', variant: 'destructive' });
+    },
+    onSettled: () => {
+      // Clear the flag after any attempt
+      try { doUploadOnCompileSuccessRef.current = false; lastCompilePayloadRef.current = null; } catch {}
+    }
+  });
+
+  // Ref to request upload after successful compile and to store last compile payload
+  const doUploadOnCompileSuccessRef = useRef(false);
+  const lastCompilePayloadRef = useRef<{ code: string; headers?: Array<{ name: string; content: string }> } | null>(null);
+
   // Compilation mutation
   const compileMutation = useMutation({
     mutationFn: async (payload: { code: string; headers?: Array<{ name: string; content: string }> }) => {
       setArduinoCliStatus('compiling');
       const response = await apiRequest('POST', '/api/compile', payload);
-      return response.json();
+      const ct = (response.headers.get('content-type') || '').toLowerCase();
+      if (ct.includes('application/json')) {
+        try {
+          return await response.json();
+        } catch (err) {
+          const txt = await response.text();
+          return { success: false, errors: txt, raw: txt } as any;
+        }
+      }
+      const txt = await response.text();
+      return { success: false, errors: txt, raw: txt } as any;
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -384,6 +517,26 @@ export default function ArduinoSimulator() {
         description: data.success ? "Your sketch has been compiled successfully" : "There were errors in your sketch",
         variant: data.success ? undefined : "destructive",
       });
+
+      // If the user requested a compile → upload, perform upload after successful compilation
+      try {
+        if (doUploadOnCompileSuccessRef.current) {
+          doUploadOnCompileSuccessRef.current = false;
+          if (data.success) {
+            const payload = lastCompilePayloadRef.current;
+            if (payload) {
+              console.log('[CLIENT] Uploading compiled artifact...', payload);
+              uploadMutation.mutate(payload);
+            } else {
+              toast({ title: 'Upload failed', description: 'No compiled artifact available to upload.', variant: 'destructive' });
+            }
+          } else {
+            toast({ title: 'Upload canceled', description: 'Compilation failed — upload canceled.', variant: 'destructive' });
+          }
+        }
+      } catch (err) {
+        console.error('Error handling post-compile upload', err);
+      }
     },
     onError: (error) => {
       setArduinoCliStatus('error');
@@ -502,6 +655,11 @@ export default function ArduinoSimulator() {
   // NEW: Keyboard shortcuts (only for non-editor actions)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore key events originating from input-like elements
+      const tgt = e.target as HTMLElement | null;
+      const ignoreTarget = tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable);
+      if (ignoreTarget) return;
+
       // F5: Compile only (Verify)
       if (e.key === 'F5') {
         e.preventDefault();
@@ -515,11 +673,19 @@ export default function ArduinoSimulator() {
         e.preventDefault();
         handleStop();
       }
+
+      // Meta/Ctrl + U: Compile & Start (same as Start Simulation)
+      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'u') {
+        e.preventDefault();
+        if (!compileMutation.isPending && !startMutation.isPending) {
+          handleCompileAndStart();
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [compileMutation.isPending, startMutation.isPending, simulationStatus]);
+  }, [compileMutation.isPending, startMutation.isPending, simulationStatus, isMac]);
 
   // NEW: Auto format function
   const formatCode = () => {
@@ -573,6 +739,69 @@ export default function ArduinoSimulator() {
       description: "Code has been automatically formatted",
     });
   };
+
+  // Editor commands helper
+  const runEditorCommand = (cmd: 'undo' | 'redo' | 'find' | 'selectAll') => {
+    const ed = editorRef.current as any;
+    if (!ed) {
+      toast({ title: 'No active editor', description: 'Open the main editor to run this command.' });
+      return;
+    }
+    if (typeof ed[cmd] === 'function') {
+      try { ed[cmd](); } catch (err) { console.error('Editor command failed', err); }
+    } else {
+      toast({ title: 'Command not available', description: `Editor does not support ${cmd}.` });
+    }
+  };
+
+  // Copy handler: copies selected text to clipboard
+  const handleCopy = () => {
+    const ed = editorRef.current as any;
+    if (!ed || typeof ed.copy !== 'function') {
+      toast({ title: 'Command not available', description: 'Copy is not supported by the current editor.' });
+      return;
+    }
+    try { ed.copy(); } catch (err) { console.error('Copy failed', err); }
+  };
+
+  // Cut handler: copies selected text to clipboard and deletes selection
+  const handleCut = () => {
+    const ed = editorRef.current as any;
+    if (!ed || typeof ed.cut !== 'function') {
+      toast({ title: 'Command not available', description: 'Cut is not supported by the current editor.' });
+      return;
+    }
+    try { ed.cut(); } catch (err) { console.error('Cut failed', err); }
+  };
+
+  // Paste handler: read from clipboard and insert at cursor/replace selection
+  const handlePaste = () => {
+    const ed = editorRef.current as any;
+    if (!ed || typeof ed.paste !== 'function') {
+      toast({ title: 'Command not available', description: 'Paste is not supported by the current editor.' });
+      return;
+    }
+    try { ed.paste(); } catch (err) { console.error('Paste failed', err); }
+  };
+
+  // Go to Line: prompt user for a line number and move cursor there
+  const handleGoToLine = () => {
+    const ed = editorRef.current as any;
+    if (!ed || typeof ed.goToLine !== 'function') {
+      toast({ title: 'Command not available', description: 'Go to Line is not supported by the current editor.' });
+      return;
+    }
+    const input = prompt('Go to line number:');
+    if (!input) return;
+    const num = Number(input);
+    if (!Number.isFinite(num) || num <= 0) {
+      toast({ title: 'Invalid line number', description: 'Please enter a positive number.' });
+      return;
+    }
+    try { ed.goToLine(num); } catch (err) { console.error('Go to line failed', err); }
+  };
+
+
 
   // Handle WebSocket messages - process ALL messages in the queue
   useEffect(() => {
@@ -1260,6 +1489,8 @@ export default function ArduinoSimulator() {
       content: tab.content
     }));
     console.log('[CLIENT] Compiling with', headers.length, 'headers');
+    // Store payload so we can upload it after compile if requested
+    lastCompilePayloadRef.current = { code: mainSketchCode, headers };
     compileMutation.mutate({ code: mainSketchCode, headers });
   };
 
@@ -1594,47 +1825,197 @@ export default function ArduinoSimulator() {
       )}
       {/* Header/Toolbar */}
       {!isMobile ? (
-        <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between flex-nowrap overflow-x-hidden whitespace-nowrap w-screen">
+        <div className="app-navbar bg-card px-4 py-2 flex items-center justify-between flex-nowrap overflow-x-hidden whitespace-nowrap w-screen">
         <div className="flex items-center space-x-4 min-w-0 whitespace-nowrap">
           <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
               <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
-              <h1 className="text-lg font-semibold truncate">Arduino UNO Simulator</h1>
+              <h1 className="text-sm font-semibold truncate select-none">Arduino UNO Simulator</h1>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <span className="bg-muted px-2 py-1 rounded text-xs">Board: Arduino UNO</span>
-              <span className="bg-muted px-2 py-1 rounded text-xs">Baud: 115200</span>
-              <div className="bg-muted px-2 py-1 rounded text-xs flex items-center cursor-pointer hover:bg-muted/80 transition-colors relative">
-                <span className="pointer-events-none">Timeout:</span>
-                <select
-                  value={simulationTimeout}
-                  onChange={(e) => {
-                    const newTimeout = Number(e.target.value);
-                    console.log('[Timeout] Changed to:', newTimeout);
-                    setSimulationTimeout(newTimeout);
-                  }}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                >
-                  <option value={5}>5s</option>
-                  <option value={10}>10s</option>
-                  <option value={30}>30s</option>
-                  <option value={60}>60s</option>
-                  <option value={120}>2min</option>
-                  <option value={300}>5min</option>
-                  <option value={600}>10min</option>
-                  <option value={0}>∞</option>
-                </select>
-                <span className="ml-1 pointer-events-none">
-                  {simulationTimeout === 0 ? '∞' : 
-                   simulationTimeout >= 60 ? `${simulationTimeout / 60}min` : `${simulationTimeout}s`}
-                </span>
-                <svg className="w-3 h-3 ml-1 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
+
+          <nav className="app-menu no-drag" role="menubar" aria-label="Application menu">
+            <div className="relative">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button role="menuitem" tabIndex={0} className="menu-item">File</button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuLabel>File</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleTabAdd(); }}>
+                    New File
+                  </DropdownMenuItem>
+
+
+
+                  <DropdownMenuItem onSelect={(e) => {
+                    e.preventDefault();
+                    if (!activeTabId) {
+                      toast({ title: 'No file selected', description: 'Open a file/tab first to rename.' });
+                      return;
+                    }
+                    const current = tabs.find(t => t.id === activeTabId);
+                    const newName = window.prompt('Rename file', current?.name || 'untitled.ino');
+                    if (newName && newName.trim()) {
+                      handleTabRename(activeTabId, newName.trim());
+                    }
+                  }}>
+                    Rename
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); formatCode(); }}>
+                    Format Code
+                    <DropdownMenuShortcut>{isMac ? '⇧⌘F' : 'Ctrl+Shift+F'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); fileInputRef.current?.click(); }}>
+                    Load Files
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); downloadAllFiles(); }}>
+                    Download All Files
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); openSettings(); }}>
+                    Settings
+                    <DropdownMenuShortcut>{navigator.platform.toUpperCase().includes('MAC') ? '⌘,' : 'Ctrl+,'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
+
+            <div className="relative">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button role="menuitem" tabIndex={0} className="menu-item">Edit</button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuLabel>Edit</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); runEditorCommand('undo'); }}>
+                    Undo
+                    <DropdownMenuShortcut>{isMac ? '⌘Z' : 'Ctrl+Z'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); runEditorCommand('redo'); }}>
+                    Redo
+                    <DropdownMenuShortcut>{isMac ? '⇧⌘Z' : 'Ctrl+Y'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleCut(); }}>
+                    Cut
+                    <DropdownMenuShortcut>{isMac ? '⌘X' : 'Ctrl+X'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleCopy(); }}>
+                    Copy
+                    <DropdownMenuShortcut>{isMac ? '⌘C' : 'Ctrl+C'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handlePaste(); }}>
+                    Paste
+                    <DropdownMenuShortcut>{isMac ? '⌘V' : 'Ctrl+V'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); runEditorCommand('selectAll'); }}>
+                    Select All
+                    <DropdownMenuShortcut>{isMac ? '⌘A' : 'Ctrl+A'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleGoToLine(); }}>
+                    Go to Line…
+                    <DropdownMenuShortcut>{isMac ? '⌘G' : 'Ctrl+G'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); runEditorCommand('find'); }}>
+                    Find
+                    <DropdownMenuShortcut>{isMac ? '⌘F' : 'Ctrl+F'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="relative">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button role="menuitem" tabIndex={0} className="menu-item">Sketch</button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); if (!compileMutation.isPending) { handleCompile(); } }}>
+                    Compile
+                    <DropdownMenuShortcut>F5</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleCompileAndStart(); }}>
+                    Compile/Upload
+                    <DropdownMenuShortcut>{isMac ? '⌘U' : 'Ctrl+U'}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            {/* Tools will be a dropdown */}
+            <div className="relative">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button role="menuitem" tabIndex={0} className="menu-item">Tools</button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuLabel>Tools</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem className="cursor-default" onSelect={(e) => e.preventDefault()}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>Board:</span>
+                      <span className="text-xs text-muted-foreground">{board}</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem className="cursor-default" onSelect={(e) => e.preventDefault()}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>Baud Rate:</span>
+                      <span className="text-xs text-muted-foreground">{baudRate}</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="w-full text-left">Timeout</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuRadioGroup value={String(simulationTimeout)} onValueChange={(v) => setSimulationTimeout(Number(v))}>
+                        <DropdownMenuRadioItem value="5">5s</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="10">10s</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="30">30s</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="60">60s</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="120">2min</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="300">5min</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="600">10min</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="0">∞</DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <div className="relative">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button role="menuitem" tabIndex={0} className="menu-item">Help</button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); window.open('https://github.com/MoDevIO/UnoSim', '_blank', 'noopener'); }}>
+                    Github
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </nav>
+
+          {/* Hidden file input used by File → Load Files */}
+          <input ref={fileInputRef} type="file" accept=".ino,.h" multiple onChange={handleHiddenFileInput} className="hidden" />
+
           </div>
 
-          <div className="flex items-center space-x-3 min-w-0">
+          <div className="flex items-center space-x-3 min-w-0 no-drag">
             <div className="flex items-center space-x-2 text-sm">
               <div 
                 className="w-6 h-6 rounded-full"

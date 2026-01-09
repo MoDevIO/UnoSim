@@ -33,8 +33,15 @@ function App() {
       }
     };
 
+    // Also listen to a custom event so other parts of the app can request opening settings
+    const onOpenSettings = () => setSettingsOpen(true);
+
     document.addEventListener("keydown", onKey, { capture: true });
-    return () => document.removeEventListener("keydown", onKey, { capture: true });
+    window.addEventListener('open-settings', onOpenSettings as EventListener);
+    return () => {
+      document.removeEventListener("keydown", onKey, { capture: true });
+      window.removeEventListener('open-settings', onOpenSettings as EventListener);
+    };
   }, []);
 
   return (

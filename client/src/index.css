@@ -116,6 +116,21 @@
   background: hsl(0 0% 35%);
 }
 
+/* Desktop-style app navbar */
+.app-navbar {
+  -webkit-app-region: drag; /* Makes the header draggable in desktop wrapper apps */
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.55);
+}
+.app-navbar .no-drag { -webkit-app-region: no-drag; }
+
+
+/* App menu (desktop) */
+.app-menu { display: flex; gap: 0.5rem; margin-left: 0.5rem; align-items: center; font-size: 13px; user-select: none; }
+.app-menu .menu-item { padding: 6px 10px; border-radius: 4px; color: var(--muted-foreground); }
+.app-menu .menu-item:hover, .app-menu .menu-item:focus { background: rgba(255,255,255,0.03); color: var(--foreground); outline: none; cursor: pointer; }
+.app-menu .menu-item:active { background: rgba(255,255,255,0.04); }
+
 /* Animation for compile button */
 .compile-animation {
   animation: pulse 1s infinite;
