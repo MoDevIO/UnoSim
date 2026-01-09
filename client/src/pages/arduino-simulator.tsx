@@ -1845,7 +1845,7 @@ export default function ArduinoSimulator() {
       )}
       {/* Header/Toolbar */}
       {!isMobile ? (
-        <div className="app-navbar bg-card px-4 py-2 flex items-center justify-between flex-nowrap overflow-x-hidden whitespace-nowrap w-screen">
+        <div className="app-navbar bg-card px-4 py-2 relative flex items-center justify-between flex-nowrap overflow-x-hidden whitespace-nowrap w-screen">
         <div className="flex items-center space-x-4 min-w-0 whitespace-nowrap">
           <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
               <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
@@ -2033,6 +2033,34 @@ export default function ArduinoSimulator() {
           {/* Hidden file input used by File → Load Files */}
           <input ref={fileInputRef} type="file" accept=".ino,.h" multiple onChange={handleHiddenFileInput} className="hidden" />
 
+          {/* Centered simulation button */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 z-10">
+            <Button
+              onClick={simulationStatus === 'running' ? handleStop : handleCompileAndStart}
+              disabled={simulateDisabled}
+              className={clsx(
+                'h-8 w-32 p-0 flex items-center justify-center',
+                '!text-white',
+                'transition-colors',
+                {
+                  '!bg-orange-600 hover:!bg-orange-700': simulationStatus === 'running' && !simulateDisabled,
+                  '!bg-green-600 hover:!bg-green-700': simulationStatus !== 'running' && !simulateDisabled,
+                  'opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500': simulateDisabled,
+                }
+              )}
+              data-testid="button-simulate-toggle"
+              aria-label={simulationStatus === 'running' ? 'Stop Simulation' : 'Start Simulation'}
+            >
+              {(compileMutation.isPending || startMutation.isPending || stopMutation.isPending) ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : simulationStatus === 'running' ? (
+                <Square className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+
           </div>
 
           <div className="flex items-center space-x-3 min-w-0 no-drag">
@@ -2099,76 +2127,37 @@ export default function ArduinoSimulator() {
             )}
 
             <div className="flex items-center space-x-3">
-              <Button
-                onClick={simulationStatus === 'running' ? handleStop : handleCompileAndStart}
-                disabled={simulateDisabled}
-                className={clsx(
-                  'md:w-64 w-auto',
-                  '!text-white',
-                  'transition-colors',
-                  {
-                    // Classes for the 'running' state (orange for Stop)
-                    '!bg-orange-600 hover:!bg-orange-700': simulationStatus === 'running' && !simulateDisabled,
-
-                    // Classes for the 'stopped' state (green for Start)
-                    '!bg-green-600 hover:!bg-green-700': simulationStatus !== 'running' && !simulateDisabled,
-
-                    // Classes for the disabled state (regardless of simulationStatus)
-                    'opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500': simulateDisabled,
-                  }
-                )}
-                data-testid="button-simulate-toggle"
-              >
-                {(compileMutation.isPending || startMutation.isPending || stopMutation.isPending) ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : simulationStatus === 'running' ? (
-                  <>
-                    <Square className="h-4 w-4 mr-2" />
-                    Stop Simulation
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4 mr-2" />
-                    Start Simulation
-                  </>
-                )}
-              </Button>
-
+              {/* simulate button moved to center */}
             </div>
           </div>
         </div>
       ) : (
         <div data-mobile-header className="bg-card border-b border-border px-4 py-3 flex items-center justify-center flex-nowrap overflow-hidden w-full relative z-10">
-          <Button
-            onClick={simulationStatus === 'running' ? handleStop : handleCompileAndStart}
-            disabled={simulateDisabled}
-            className={clsx(
-              'w-64',
-              '!text-white',
-              'transition-colors',
-              {
-                '!bg-orange-600 hover:!bg-orange-700': simulationStatus === 'running' && !simulateDisabled,
-                '!bg-green-600 hover:!bg-green-700': simulationStatus !== 'running' && !simulateDisabled,
-                'opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500': simulateDisabled,
-              }
-            )}
-            data-testid="button-simulate-toggle-mobile"
-          >
-            {(compileMutation.isPending || startMutation.isPending || stopMutation.isPending) ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : simulationStatus === 'running' ? (
-              <>
-                <Square className="h-4 w-4 mr-2" />
-                Stop Simulation
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4 mr-2" />
-                Start Simulation
-              </>
-            )}
-          </Button>
-        </div>
+            <Button
+              onClick={simulationStatus === 'running' ? handleStop : handleCompileAndStart}
+              disabled={simulateDisabled}
+              className={clsx(
+                'absolute left-1/2 transform -translate-x-1/2 h-10 w-40 p-0 flex items-center justify-center',
+                '!text-white',
+                'transition-colors',
+                {
+                  '!bg-orange-600 hover:!bg-orange-700': simulationStatus === 'running' && !simulateDisabled,
+                  '!bg-green-600 hover:!bg-green-700': simulationStatus !== 'running' && !simulateDisabled,
+                  'opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500': simulateDisabled,
+                }
+              )}
+              data-testid="button-simulate-toggle-mobile"
+              aria-label={simulationStatus === 'running' ? 'Stop Simulation' : 'Start Simulation'}
+            >
+              {(compileMutation.isPending || startMutation.isPending || stopMutation.isPending) ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : simulationStatus === 'running' ? (
+                <Square className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
       )}
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative z-0">
