@@ -7,7 +7,7 @@ import type {
 
 const TOAST_LIMIT = 1
 // Default visible duration for toasts (ms)
-const DEFAULT_TOAST_DURATION = 3000
+const DEFAULT_TOAST_DURATION = 1000
 // Delay before actually removing toast from state (allow animations) (ms)
 const TOAST_REMOVE_DELAY = 3500
 

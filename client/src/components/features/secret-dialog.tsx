@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 const STORAGE_KEY = "unoBoardColor";
 const DEFAULT_COLOR = "#0f7391";
 const TOAST_DURATION_KEY = "unoToastDuration"
-const DEFAULT_TOAST_SECONDS = 3
+const DEFAULT_TOAST_SECONDS = 1
 
 export default function SecretDialog({
   open,
