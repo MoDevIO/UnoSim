@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, Play, Square, Loader2, Terminal, Wrench, Trash2, ChevronsDown, BarChart, Monitor, SendHorizontal } from 'lucide-react';
+import { Cpu, Play, Square, Loader2, Terminal, Wrench, Trash2, ChevronsDown, BarChart, Monitor, SendHorizontal, Columns } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { InputGroup } from '@/components/ui/input-group';
 import { clsx } from 'clsx';
@@ -2194,14 +2194,18 @@ export default function ArduinoSimulator() {
                 </div>
               </ResizablePanel>
 
-              <ResizableHandle withHandle data-testid="vertical-resizer-editor-compile" />
+              {simulationStatus === 'running' && (
+                <>
+                  <ResizableHandle withHandle data-testid="vertical-resizer-editor-compile" />
 
-              <ResizablePanel defaultSize={30} minSize={10} id="compilation-under-editor">
-                <CompilationOutput
-                  output={cliOutput}
-                  onClear={handleClearCompilationOutput}
-                />
-              </ResizablePanel>
+                  <ResizablePanel defaultSize={15} minSize={10} id="compilation-under-editor">
+                    <CompilationOutput
+                      output={cliOutput}
+                      onClear={handleClearCompilationOutput}
+                    />
+                  </ResizablePanel>
+                </>
+              )}
             </ResizablePanelGroup>
           </ResizablePanel>
 
@@ -2228,10 +2232,16 @@ export default function ArduinoSimulator() {
                           className="h-8 w-8 p-0 flex items-center justify-center"
                           onClick={cycleSerialViewMode}
                           data-testid="button-serial-view-toggle"
-                          aria-label={serialViewMode === 'monitor' ? 'Monitor only' : serialViewMode === 'plotter' ? 'Plotter only' : 'Monitor + Plotter'}
-                          title={serialViewMode === 'monitor' ? 'Monitor only' : serialViewMode === 'plotter' ? 'Plotter only' : 'Monitor + Plotter'}
+                          aria-label={serialViewMode === 'monitor' ? 'Monitor only' : serialViewMode === 'plotter' ? 'Plotter only' : 'Split view'}
+                          title={serialViewMode === 'monitor' ? 'Monitor only' : serialViewMode === 'plotter' ? 'Plotter only' : 'Split view'}
                         >
-                          {serialViewMode === 'monitor' ? <Terminal className="h-4 w-4" /> : serialViewMode === 'plotter' ? <BarChart className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
+                          {serialViewMode === 'monitor' ? (
+                          <Terminal className="h-4 w-4" />
+                        ) : serialViewMode === 'plotter' ? (
+                          <BarChart className="h-4 w-4" />
+                        ) : (
+                          <Columns className="h-4 w-4" />
+                        )}
                         </Button>
                         <Button
                           variant="outline"
@@ -2264,22 +2274,29 @@ export default function ArduinoSimulator() {
                   <div className="flex-1 min-h-0">
                     {/* Serial area: SerialMonitor renders output area and parent renders static header above */}
                     {showSerialMonitor && showSerialPlotter ? (
-                      <div className="h-full flex">
-                        <div className="w-1/2 border-r border-border">
-                          <SerialMonitor
-                            output={serialOutput}
-                            isConnected={isConnected}
-                            isSimulationRunning={simulationStatus === 'running'}
-                            onSendMessage={handleSerialSend}
-                            onClear={handleClearSerialOutput}
-                            showMonitor={showSerialMonitor}
-                            autoScrollEnabled={autoScrollEnabled}
-                          />
-                        </div>
-                        <div className="w-1/2">
-                          <SerialPlotter output={serialOutput} />
-                        </div>
-                      </div>
+                      <ResizablePanelGroup direction="horizontal" className="h-full" id="serial-split">
+                        <ResizablePanel defaultSize={50} minSize={20} id="serial-monitor-panel">
+                          <div className="h-full">
+                            <SerialMonitor
+                              output={serialOutput}
+                              isConnected={isConnected}
+                              isSimulationRunning={simulationStatus === 'running'}
+                              onSendMessage={handleSerialSend}
+                              onClear={handleClearSerialOutput}
+                              showMonitor={showSerialMonitor}
+                              autoScrollEnabled={autoScrollEnabled}
+                            />
+                          </div>
+                        </ResizablePanel>
+
+                        <ResizableHandle withHandle data-testid="horizontal-resizer-serial" />
+
+                        <ResizablePanel defaultSize={50} minSize={20} id="serial-plot-panel">
+                          <div className="h-full">
+                            <SerialPlotter output={serialOutput} />
+                          </div>
+                        </ResizablePanel>
+                      </ResizablePanelGroup>
                     ) : showSerialMonitor ? (
                       <SerialMonitor
                         output={serialOutput}
