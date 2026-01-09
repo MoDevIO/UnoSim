@@ -2,9 +2,9 @@
 <!--
   Arduino UNO Overlay SVG
   Extracted from ArduinoUno.svg - contains only interactive/dynamic elements
-  ViewBox matches original: 0 0 285.2 209
+  ViewBox expanded by SAFE_MARGIN: -4 -4 293.2 221
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 285.2 209">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 293.2 221">
   <defs>
     <style>
       /* Pin connector stroke style from original */

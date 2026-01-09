@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Cpu, Eye, EyeOff } from 'lucide-react';
 
@@ -141,8 +141,8 @@ export function ArduinoBoard({
   }, [pinStates]);
 
 // Stable reference to ALL current state for polling - updated on every render
-  const stateRef = useRef({ pinStates, isSimulationRunning, txBlink, rxBlink, analogPins });
-  stateRef.current = { pinStates, isSimulationRunning, txBlink, rxBlink, analogPins };
+  const stateRef = useRef({ pinStates, isSimulationRunning, txBlink, rxBlink, analogPins, showPWMValues });
+  stateRef.current = { pinStates, isSimulationRunning, txBlink, rxBlink, analogPins, showPWMValues };
 
   // Single stable polling loop for ALL SVG updates - runs ONCE, never restarts
   useEffect(() => {
@@ -280,6 +280,125 @@ export function ArduinoBoard({
           ledRx.setAttribute('fill', 'transparent');
           ledRx.setAttribute('fill-opacity', '0');
           ledRx.style.filter = 'none';
+        }
+      }
+
+      // Update numeric I/O labels (PWM pins and analog A0-A5)
+      // Only show when requested via the header button
+      const showLabels = !!showPWMValues;
+
+      // Helper to create/update text nodes
+      // rotateLeft: if true, the label will be rotated -90deg around (x,y)
+      // Helper to create/update text nodes
+      // rotateLeft: if true, the label will be rotated -90deg around (translateX, translateY)
+      // translateYOverride: optional - if provided, use this Y for the translate before rotation (useful to place label edge-aligned)
+      // localXOverride: optional - when rotated, this sets the local x coordinate (useful to left-align inside frame)
+      // anchorOverride: optional - sets the text-anchor attribute (e.g. 'start' for left-aligned)
+      const ensureText = (id: string, x: number, y: number, textValue: string, fill = '#ffffff', rotateLeft = false, translateYOverride?: number, localXOverride?: number, anchorOverride?: string) => {
+        let t = svgEl.querySelector<SVGTextElement>(`#${id}`);
+        if (!t) {
+          t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          t.setAttribute('id', id);
+          t.setAttribute('text-anchor', anchorOverride || 'middle');
+          t.setAttribute('font-size', '8');
+          t.setAttribute('fill', fill);
+          t.setAttribute('stroke', '#000000');
+          t.setAttribute('stroke-width', '0.4');
+          t.setAttribute('paint-order', 'stroke');
+          t.setAttribute('dominant-baseline', 'middle');
+          (t as any).style.pointerEvents = 'none';
+          svgEl.appendChild(t);
+        } else {
+          if (anchorOverride) t.setAttribute('text-anchor', anchorOverride);
+        }
+        t.textContent = textValue;
+        if (rotateLeft) {
+          const fontSize = 8; // match actual font-size attribute
+          const half = fontSize / 2;
+          const translateY = typeof translateYOverride === 'number' ? translateYOverride : y;
+          const localX = typeof localXOverride === 'number' ? localXOverride : half;
+          // translate to chosen point then rotate; text local x controls lateral placement, local y is 0
+          t.setAttribute('transform', `translate(${x} ${translateY}) rotate(-90)`);
+          t.setAttribute('x', String(localX));
+          t.setAttribute('y', '0');
+        } else {
+          // no horizontal offset for non-rotated labels by default (callers can adjust x)
+          t.setAttribute('x', String(x));
+          t.setAttribute('y', String(y));
+          t.removeAttribute('transform');
+        }
+        t.style.display = textValue && showLabels ? 'block' : 'none';
+      };
+
+      // Remove/hide any existing label nodes when labels are disabled
+      if (!showLabels) {
+        const existing = svgEl.querySelectorAll('text[id^="pin-"][id$="-val"]');
+        existing.forEach(n => (n as SVGTextElement).style.display = 'none');
+      } else {
+        // PWM pins 3,5,6,9,10,11
+        for (const pin of PWM_PINS) {
+          const stateEl = svgEl.querySelector<SVGCircleElement>(`#pin-${pin}-state`);
+          const frameEl = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-frame`);
+          if (!stateEl && !frameEl) continue;
+          try {
+            // Prefer the frame center (yellow square) if available, otherwise fall back to circle center
+            const bb = (frameEl ?? stateEl as any).getBBox();
+            const cx = bb.x + bb.width / 2;
+            const cy = bb.y + bb.height / 2;
+            const state = pinStates.find(p => p.pin === pin);
+            const valStr = state ? String(state.value) : '';
+            // Place label either above (upper pins) or below (lower pins) the frame, and align inside the frame
+            let translateY: number | undefined = undefined;
+            let localX: number | undefined = undefined;
+            let anchor: string | undefined = undefined;
+            const padding = 2; // px gap to avoid overlap
+            const fontSize = 8;
+            if (cy < VIEWBOX_HEIGHT / 2) {
+              // upper pins: place above and left-align inside frame
+              translateY = cy - bb.height / 2 - (fontSize / 2) - padding;
+              localX = -bb.width / 2 + padding;
+              anchor = 'start';
+            } else {
+              // lower pins: place below and right-align inside frame
+              translateY = cy + bb.height / 2 + (fontSize / 2) + padding;
+              localX = bb.width / 2 - padding;
+              anchor = 'end';
+            }
+            ensureText(`pin-${pin}-val`, cx, cy, valStr, '#ffffff', true, translateY, localX, anchor);
+          } catch (err) {
+            // ignore bbox errors
+          }
+        }
+
+        // Analog pins A0-A5 (pins 14-19)
+        for (let i = 0; i <= 5; i++) {
+          const el = svgEl.querySelector<SVGCircleElement>(`#pin-A${i}-state`);
+          const frameEl = svgEl.querySelector<SVGRectElement>(`#pin-A${i}-frame`);
+          if (!el && !frameEl) continue;
+          try {
+            const bb = (frameEl ?? el as any).getBBox();
+            const cx = bb.x + bb.width / 2;
+            const cy = bb.y + bb.height / 2;
+            const pinNumber = 14 + i;
+            const state = pinStates.find(p => p.pin === pinNumber);
+            const valStr = state ? String(state.value) : '';
+            // Place analog pin label above (upper half) or below (lower half) and align inside the frame
+            let translateYAnal: number | undefined = undefined;
+            let localXAnal: number | undefined = undefined;
+            let anchorAnal: string | undefined = undefined;
+            const paddingAnal = 2;
+            const fontSizeAnal = 8;
+            if (cy < VIEWBOX_HEIGHT / 2) {
+              translateYAnal = cy - bb.height / 2 - (fontSizeAnal / 2) - paddingAnal;
+              localXAnal = -bb.width / 2 + paddingAnal;
+              anchorAnal = 'start';
+            } else {
+              translateYAnal = cy + bb.height / 2 + (fontSizeAnal / 2) + paddingAnal;
+              localXAnal = bb.width / 2 - paddingAnal;
+              anchorAnal = 'end';
+            }
+            ensureText(`pin-A${i}-val`, cx, cy, valStr, '#ffffff', true, translateYAnal, localXAnal, anchorAnal);
+          } catch (err) {}
         }
       }
     };
@@ -468,10 +587,10 @@ export function ArduinoBoard({
         <button
           onClick={() => setShowPWMValues(!showPWMValues)}
           className="flex items-center space-x-1 px-2 py-1 text-xs bg-background border border-border rounded hover:bg-accent transition-colors"
-          title={showPWMValues ? 'Hide PWM Values' : 'Show PWM Values'}
+          title={showPWMValues ? 'Hide I/O values' : 'Show I/O values'}
         >
           {showPWMValues ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-          <span>PWM</span>
+          <span>I/O</span>
         </button>
       </div>
 
