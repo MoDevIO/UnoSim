@@ -5,6 +5,8 @@ import { writeFile, mkdir, rm } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
+import { ParserMessage } from "@shared/schema";
+import { CodeParser } from "@shared/code-parser";
 // Removed unused mock imports to satisfy TypeScript
 
 
@@ -16,6 +18,7 @@ export interface CompilationResult {
   arduinoCliStatus: 'idle' | 'compiling' | 'success' | 'error';
   gccStatus: 'idle' | 'compiling' | 'success' | 'error';
   processedCode?: string; // NEW: The code with embedded headers
+  parserMessages?: ParserMessage[]; // NEW: Parser validation messages
 }
 
 export class ArduinoCompiler {
@@ -47,6 +50,10 @@ export class ArduinoCompiler {
 
     let arduinoCliStatus: 'idle' | 'compiling' | 'success' | 'error' = 'idle';
     let warnings: string[] = []; // NEW: Collect warnings
+    
+    // NEW: Parse code for issues
+    const parser = new CodeParser();
+    const parserMessages = parser.parseAll(code);
 
     try {
       // Validierung: setup() und loop()
@@ -64,6 +71,7 @@ export class ArduinoCompiler {
           errors: `Fehlende Arduino-Funktionen: ${missingFunctions.join(' und ')}\n\nArduino-Programme benötigen:\n- void setup() { }\n- void loop() { }`,
           arduinoCliStatus: 'error',
           gccStatus: 'idle',
+          parserMessages, // Include parser messages even on error
         };
       }
 
@@ -179,6 +187,7 @@ export class ArduinoCompiler {
         arduinoCliStatus,
         gccStatus: 'idle', // Nicht mehr verwendet in Compiler
         processedCode, // Include the processed code with embedded headers
+        parserMessages, // Include parser messages
       };
 
     } catch (error) {
@@ -189,6 +198,7 @@ export class ArduinoCompiler {
         arduinoCliStatus: arduinoCliStatus === 'compiling' ? 'error' : arduinoCliStatus,
         gccStatus: 'idle',
         processedCode: code, // Return original code on error
+        parserMessages, // Include parser messages even on error
       };
     } finally {
       try {

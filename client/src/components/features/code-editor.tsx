@@ -177,6 +177,101 @@ export function CodeEditor({
         redo: () => { try { editor.focus(); editor.trigger('keyboard', 'redo', {}); } catch {} },
         find: () => { try { editor.focus(); editor.getAction('actions.find').run(); } catch {} },
         selectAll: () => { try { editor.focus(); const model = editor.getModel(); if (model) { editor.setSelection(model.getFullModelRange()); editor.revealRangeInCenter(model.getFullModelRange()); } } catch {} },
+        insertTextAtLine: (line: number | undefined, text: string) => {
+          try {
+            editor.focus();
+            const model = editor.getModel();
+            if (!model) return;
+            
+            // If no line specified, insert at current cursor position
+            if (line === undefined) {
+              const pos = editor.getPosition();
+              if (pos) {
+                const endOfLine = model.getLineMaxColumn(pos.lineNumber);
+                const range = { startLineNumber: pos.lineNumber, startColumn: endOfLine, endLineNumber: pos.lineNumber, endColumn: endOfLine };
+                editor.executeEdits('insertSuggestion', [{ range, text: '\n' + text }]);
+                editor.setPosition({ lineNumber: pos.lineNumber + 1, column: text.length + 1 });
+                editor.revealPositionInCenter({ lineNumber: pos.lineNumber + 1, column: 1 });
+              }
+            } else {
+              // Insert at specified line (at the end of that line)
+              const targetLine = Math.min(Math.max(1, Math.floor(line)), model.getLineCount());
+              const endOfLine = model.getLineMaxColumn(targetLine);
+              const range = { startLineNumber: targetLine, startColumn: endOfLine, endLineNumber: targetLine, endColumn: endOfLine };
+              editor.executeEdits('insertSuggestion', [{ range, text: '\n' + text }]);
+              editor.setPosition({ lineNumber: targetLine + 1, column: text.length + 1 });
+              editor.revealPositionInCenter({ lineNumber: targetLine + 1, column: 1 });
+            }
+          } catch (err) {
+            console.error('Insert text at line failed:', err);
+          }
+        },
+        insertSuggestionSmartly: (text: string, errorLine: number | undefined) => {
+          try {
+            editor.focus();
+            const model = editor.getModel();
+            if (!model) return;
+            
+            const fullCode = model.getValue();
+            const lines = fullCode.split('\n');
+            
+            // Determine which function this suggestion belongs to
+            const isSetupSuggestion = 
+              text.includes('Serial.begin') || 
+              text.includes('pinMode') ||
+              text.includes('void setup');
+            
+            let targetFunctionName = isSetupSuggestion ? 'setup' : 'loop';
+            
+            // Find the target function (setup or loop)
+            let functionStartLine = -1;
+            let functionOpenBraceIndex = -1;
+            
+            for (let i = 0; i < lines.length; i++) {
+              if (lines[i].includes(`void ${targetFunctionName}()`)) {
+                functionStartLine = i + 1; // 1-indexed for Monaco
+                // Find the opening brace
+                for (let j = i; j < Math.min(i + 3, lines.length); j++) {
+                  if (lines[j].includes('{')) {
+                    functionOpenBraceIndex = j + 1;
+                    break;
+                  }
+                }
+                break;
+              }
+            }
+            
+            // If function not found, just insert at current position
+            if (functionStartLine === -1) {
+              const pos = editor.getPosition();
+              if (pos) {
+                const endOfLine = model.getLineMaxColumn(pos.lineNumber);
+                const range = { startLineNumber: pos.lineNumber, startColumn: endOfLine, endLineNumber: pos.lineNumber, endColumn: endOfLine };
+                editor.executeEdits('insertSuggestion', [{ range, text: '\n' + text }]);
+                editor.setPosition({ lineNumber: pos.lineNumber + 1, column: 1 });
+                editor.revealPositionInCenter({ lineNumber: pos.lineNumber + 1, column: 1 });
+              }
+              return;
+            }
+            
+            // Insert inside the function body, after the opening brace
+            const insertLine = functionOpenBraceIndex > 0 ? functionOpenBraceIndex : functionStartLine;
+            
+            // Always create a new line after the opening brace
+            const indent = '  '; // 2 spaces
+            const range = { 
+              startLineNumber: insertLine, 
+              startColumn: model.getLineMaxColumn(insertLine), 
+              endLineNumber: insertLine, 
+              endColumn: model.getLineMaxColumn(insertLine) 
+            };
+            editor.executeEdits('insertSuggestion', [{ range, text: '\n' + indent + text }]);
+            editor.setPosition({ lineNumber: insertLine + 1, column: indent.length + text.length + 1 });
+            editor.revealPositionInCenter({ lineNumber: insertLine + 1, column: 1 });
+          } catch (err) {
+            console.error('Insert suggestion smartly failed:', err);
+          }
+        },
         copy: () => {
           try {
             editor.focus();

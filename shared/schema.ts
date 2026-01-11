@@ -80,6 +80,33 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     pin: z.number(),
     value: z.number(),
   }),
+  z.object({
+    type: z.literal("parser_messages"),
+    messages: z.array(z.object({
+      id: z.string(),
+      type: z.enum(['warning', 'error', 'info']),
+      category: z.enum(['serial', 'hardware', 'structure', 'performance', 'library']),
+      severity: z.enum([1, 2, 3] as const),
+      line: z.number().optional(),
+      column: z.number().optional(),
+      message: z.string(),
+      suggestion: z.string().optional(),
+    })),
+  }),
 ]);
 
 export type WSMessage = z.infer<typeof wsMessageSchema>;
+
+// Parser Message Types
+export const parserMessageSchema = z.object({
+  id: z.string(),
+  type: z.enum(['warning', 'error', 'info']),
+  category: z.enum(['serial', 'hardware', 'structure', 'performance', 'library']),
+  severity: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  line: z.number().optional(),
+  column: z.number().optional(),
+  message: z.string(),
+  suggestion: z.string().optional(),
+});
+
+export type ParserMessage = z.infer<typeof parserMessageSchema>;

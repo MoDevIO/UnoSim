@@ -27,6 +27,7 @@ import { CodeEditor } from '@/components/features/code-editor';
 import { SerialMonitor } from '@/components/features/serial-monitor';
 import { SerialPlotter } from '@/components/features/serial-plotter';
 import { CompilationOutput } from '@/components/features/compilation-output';
+import { ParserOutput } from '@/components/features/parser-output';
 import { SketchTabs } from '@/components/features/sketch-tabs';
 import { ExamplesMenu } from '@/components/features/examples-menu';
 import { ArduinoBoard } from '@/components/features/arduino-board';
@@ -34,7 +35,8 @@ import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import type { Sketch } from '@shared/schema';
+import type { Sketch, ParserMessage } from '@shared/schema';
+import { CodeParser } from '@shared/code-parser';
 
 // Logger import
 import { Logger } from '@shared/logger';
@@ -68,6 +70,7 @@ export default function ArduinoSimulator() {
   
   // CHANGED: Store OutputLine objects instead of plain strings
   const [serialOutput, setSerialOutput] = useState<OutputLine[]>([]);
+  const [parserMessages, setParserMessages] = useState<ParserMessage[]>([]);
   const [compilationStatus, setCompilationStatus] = useState<'ready' | 'compiling' | 'success' | 'error'>('ready');
   const [arduinoCliStatus, setArduinoCliStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
   const [gccStatus, setGccStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
@@ -76,6 +79,14 @@ export default function ArduinoSimulator() {
       return window.localStorage.getItem('unoDebugMode') === '1';
     } catch {
       return false;
+    }
+  });
+  const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(() => {
+    try {
+      const stored = window.localStorage.getItem('unoShowCompileOutput');
+      return stored === null ? true : stored === '1';
+    } catch {
+      return true;
     }
   });
   const [simulationStatus, setSimulationStatus] = useState<'running' | 'stopped'>('stopped');
@@ -142,6 +153,18 @@ export default function ArduinoSimulator() {
     };
     document.addEventListener('debugModeChange', handler as EventListener);
     return () => document.removeEventListener('debugModeChange', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const handler = (ev: any) => {
+      try {
+        setShowCompilationOutput(Boolean(ev?.detail?.value));
+      } catch {
+        // ignore
+      }
+    };
+    document.addEventListener('showCompileOutputChange', handler as EventListener);
+    return () => document.removeEventListener('showCompileOutputChange', handler as EventListener);
   }, []);
 
   // Helper to download all tabs (used by File -> Download All Files)
@@ -531,6 +554,8 @@ export default function ArduinoSimulator() {
         // REPLACE output, don't append
         setCliOutput(data.errors || '✗ Arduino-CLI Compilation failed.');
       }
+
+      // Parser messages are now updated on edit, not on compile
 
       toast({
         title: data.success ? "Arduino-CLI Compilation succeeded" : "Arduino-CLI Compilation failed",
@@ -1040,6 +1065,17 @@ export default function ArduinoSimulator() {
     }
   };
 
+  // Run parser on code changes with debouncing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const parser = new CodeParser();
+      const messages = parser.parseAll(code);
+      setParserMessages(messages);
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [code]);
+
   // Parse the current code to detect which analog pins are used by name or channel
   useEffect(() => {
     let mainCode = code;
@@ -1491,6 +1527,7 @@ export default function ArduinoSimulator() {
     setCliOutput('');
     setSerialOutput([]);
     setPinStates([]);
+    setParserMessages([]);
     
     // Get the actual main sketch code - use editor ref if available,
     // otherwise use state
@@ -1731,6 +1768,7 @@ export default function ArduinoSimulator() {
 
   const handleClearCompilationOutput = () => {
     setCliOutput('');
+    setParserMessages([]);
   };
 
   const handleClearSerialOutput = () => {
@@ -2194,9 +2232,37 @@ export default function ArduinoSimulator() {
                 </div>
               </ResizablePanel>
 
-              {simulationStatus === 'running' && (
+              {parserMessages.length > 0 && (
                 <>
-                  <ResizableHandle withHandle data-testid="vertical-resizer-editor-compile" />
+                  <ResizableHandle withHandle data-testid="vertical-resizer-editor-parser" />
+
+                  <ResizablePanel defaultSize={10} minSize={8} id="parser-output-under-editor">
+                    <ParserOutput
+                      messages={parserMessages}
+                      onClear={() => setParserMessages([])}
+                      onGoToLine={(line) => {
+                        // TODO: Implement jumping to line in editor
+                        console.log('Go to line:', line);
+                      }}
+                      onInsertSuggestion={(suggestion, line) => {
+                        if (editorRef.current && typeof (editorRef.current as any).insertSuggestionSmartly === 'function') {
+                          (editorRef.current as any).insertSuggestionSmartly(suggestion, line);
+                          toast({ 
+                            title: 'Suggestion inserted', 
+                            description: 'Code added to the appropriate location' 
+                          });
+                        } else {
+                          console.error('insertSuggestionSmartly method not available on editor');
+                        }
+                      }}
+                    />
+                  </ResizablePanel>
+                </>
+              )}
+
+              {(simulationStatus === 'running' || showCompilationOutput) && (
+                <>
+                  <ResizableHandle withHandle data-testid="vertical-resizer-parser-compile" />
 
                   <ResizablePanel defaultSize={15} minSize={10} id="compilation-under-editor">
                     <CompilationOutput
@@ -2416,11 +2482,24 @@ export default function ArduinoSimulator() {
                     </div>
                   )}
                   {mobilePanel === 'compile' && (
-                    <div className="h-full w-full">
-                      <CompilationOutput
-                        output={cliOutput}
-                        onClear={handleClearCompilationOutput}
-                      />
+                    <div className="h-full w-full flex flex-col">
+                      {parserMessages.length > 0 && (
+                        <div className="flex-1 min-h-0 border-b border-gray-200">
+                          <ParserOutput
+                            messages={parserMessages}
+                            onClear={() => setParserMessages([])}
+                            onGoToLine={(line) => {
+                              console.log('Go to line:', line);
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-h-0 w-full">
+                        <CompilationOutput
+                          output={cliOutput}
+                          onClear={handleClearCompilationOutput}
+                        />
+                      </div>
                     </div>
                   )}
                   {mobilePanel === 'serial' && (

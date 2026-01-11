@@ -16,6 +16,8 @@ const DEFAULT_COLOR = "#0f7391";
 const TOAST_DURATION_KEY = "unoToastDuration";
 const DEFAULT_TOAST_SECONDS = 1;
 const DEBUG_MODE_KEY = "unoDebugMode";
+const SHOW_COMPILE_OUTPUT_KEY = "unoShowCompileOutput";
+const DEFAULT_SHOW_COMPILE_OUTPUT = true;
 
 export default function SettingsDialog({
   open,
@@ -58,6 +60,27 @@ export default function SettingsDialog({
     setDebugMode(v);
     try {
       const ev = new CustomEvent('debugModeChange', { detail: { value: v } });
+      document.dispatchEvent(ev);
+    } catch {}
+  };
+
+  // Show compile output toggle
+  const [showCompileOutput, setShowCompileOutput] = React.useState<boolean>(() => {
+    try {
+      const stored = window.localStorage.getItem(SHOW_COMPILE_OUTPUT_KEY);
+      return stored === null ? DEFAULT_SHOW_COMPILE_OUTPUT : stored === '1';
+    } catch {
+      return DEFAULT_SHOW_COMPILE_OUTPUT;
+    }
+  });
+
+  const setStoredShowCompileOutput = (v: boolean) => {
+    try {
+      window.localStorage.setItem(SHOW_COMPILE_OUTPUT_KEY, v ? '1' : '0');
+    } catch {}
+    setShowCompileOutput(v);
+    try {
+      const ev = new CustomEvent('showCompileOutputChange', { detail: { value: v } });
       document.dispatchEvent(ev);
     } catch {}
   };
@@ -177,6 +200,23 @@ export default function SettingsDialog({
                   checked={debugMode}
                   onCheckedChange={(v) => setStoredDebug(Boolean(v))}
                   aria-label="enable debug mode"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Show compile output option */}
+          <div className="rounded border p-3 bg-muted">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">Show Compilation Output</div>
+                <div className="text-xs text-muted-foreground">Display compilation panel by default. When enabled, the compiler output will always be shown.</div>
+              </div>
+              <div className="flex items-center">
+                <Checkbox
+                  checked={showCompileOutput}
+                  onCheckedChange={(v) => setStoredShowCompileOutput(Boolean(v))}
+                  aria-label="show compilation output"
                 />
               </div>
             </div>
