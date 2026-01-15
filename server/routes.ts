@@ -369,7 +369,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     value
                   });
                 },
-                timeoutValue // Custom timeout in seconds (0 = infinite)
+                timeoutValue, // Custom timeout in seconds (0 = infinite)
+                (registry) => {
+                  logger.debug(`[io_registry callback] Received registry with ${registry.length} pins`);
+                  // Send I/O Registry to client
+                  sendMessageToClient(ws, {
+                    type: 'io_registry',
+                    registry
+                  });
+                  logger.debug(`[io_registry callback] Sent io_registry message to client`);
+                  
+                  // Also save registry to sketch directory for debugging (marked as pending)
+                  try {
+                    const sketchDir = clientState?.runner?.getSketchDir();
+                    if (sketchDir && fs.existsSync(sketchDir)) {
+                      const registryFile = path.join(sketchDir, `io-registry-${Date.now()}.pending.json`);
+                      fs.writeFileSync(registryFile, JSON.stringify(registry, null, 2));
+                      logger.debug(`I/O Registry saved to: ${registryFile}`);
+                      
+                      // Store filename in runner for cleanup marking
+                      clientState.runner.setRegistryFile(registryFile);
+                    }
+                  } catch (err) {
+                    logger.warn(`Failed to save I/O Registry file: ${err instanceof Error ? err.message : String(err)}`);
+                  }
+                }
               );
             }
             break;

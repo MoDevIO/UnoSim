@@ -2,6 +2,14 @@ import type { ParserMessage } from './schema';
 
 type SeverityLevel = 1 | 2 | 3;
 
+interface LoopContext {
+  variable: string;  // e.g., "i"
+  operator: string;  // e.g., "<"
+  limit: number;     // e.g., 6
+  startLine: number;
+  endLine: number;
+}
+
 // Browser-compatible UUID generator
 function generateUUID(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -16,6 +24,77 @@ function generateUUID(): string {
 }
 
 export class CodeParser {
+  private loopContexts: LoopContext[] = [];
+
+  /**
+   * Extract all for-loop contexts from the code
+   * Returns array of LoopContext with line ranges and conditions
+   */
+  private extractLoopContexts(code: string): void {
+    this.loopContexts = [];
+    const lines = code.split('\n');
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Match: for (type variable = start; variable OPERATOR limit; ...)
+      const forMatch = /for\s*\(\s*(?:byte|int|unsigned\s+int)?\s*([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>=!]+)\s*(\d+)\s*;/.exec(line);
+      
+      if (forMatch) {
+        const variable = forMatch[1];
+        const operator = forMatch[3];
+        const limit = parseInt(forMatch[4]);
+        const startLine = i + 1; // 1-indexed
+        
+        // Find the end of this loop by counting braces
+        let braceCount = 0;
+        let endLine = startLine;
+        let foundOpenBrace = false;
+        
+        for (let j = i; j < lines.length; j++) {
+          const currentLine = lines[j];
+          for (const char of currentLine) {
+            if (char === '{') {
+              braceCount++;
+              foundOpenBrace = true;
+            } else if (char === '}') {
+              braceCount--;
+              if (foundOpenBrace && braceCount === 0) {
+                endLine = j + 1;
+                break;
+              }
+            }
+          }
+          if (foundOpenBrace && braceCount === 0) break;
+        }
+        
+        this.loopContexts.push({
+          variable,
+          operator,
+          limit,
+          startLine,
+          endLine,
+        });
+      }
+    }
+  }
+
+  /**
+   * Find which loop context contains a given line number
+   */
+  private findLoopContextForLine(lineNum: number, variable: string): LoopContext | undefined {
+    return this.loopContexts.find(
+      ctx => ctx.variable === variable && lineNum >= ctx.startLine && lineNum <= ctx.endLine
+    );
+  }
+
+  /**
+   * Check if two loop contexts have different ranges for the same variable
+   */
+  private loopContextsDiffer(ctx1: LoopContext, ctx2: LoopContext): boolean {
+    if (ctx1.variable !== ctx2.variable) return false;
+    return ctx1.operator !== ctx2.operator || ctx1.limit !== ctx2.limit;
+  }
   /**
    * Parse Serial configuration issues
    */
@@ -24,6 +103,15 @@ export class CodeParser {
 
     // Remove comments to check active code
     const uncommentedCode = this.removeComments(code);
+
+    // Check if Serial is actually used (print, println, read, write, available, etc.)
+    const serialUsageRegex = /Serial\s*\.\s*(print|println|write|read|available|peek|readString|readBytes|parseInt|parseFloat|find|findUntil)/;
+    const isSerialUsed = serialUsageRegex.test(uncommentedCode);
+
+    // Only check Serial.begin if Serial is actually being used
+    if (!isSerialUsed) {
+      return messages; // No Serial usage, no warnings needed
+    }
 
     // Check if Serial.begin exists at all
     const serialBeginExists = /Serial\s*\.\s*begin\s*\(\s*\d+\s*\)/.test(code);
@@ -182,8 +270,30 @@ export class CodeParser {
   }
 
   /**
-   * Parse hardware compatibility issues
+   * Detect pins configured in loops (e.g., for i=0; i<7 with pinMode(i, ...)
+   * Returns Set of numeric pin numbers that are likely configured by loop
    */
+  private getLoopConfiguredPins(code: string): Set<number> {
+    const configuredPins = new Set<number>();
+    
+    // Find for loops with pinMode calls using loop variable
+    // Pattern: for (type var = start; var < end; ...) { ... pinMode(var, ...) ... }
+    const loopRegex = /for\s*\(\s*(?:byte|int|var)?\s*([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*<\s*(\d+)\s*;[^)]*\)\s*\{[^}]*pinMode\s*\(\s*\1\s*,/gi;
+    let match;
+    
+    while ((match = loopRegex.exec(code)) !== null) {
+      const varName = match[1];
+      const startVal = parseInt(match[2], 10);
+      const endVal = parseInt(match[3], 10);
+      
+      // Add all pins that would be configured by this loop (start to end-1)
+      for (let i = startVal; i < endVal; i++) {
+        configuredPins.add(i);
+      }
+    }
+    
+    return configuredPins;
+  }
   parseHardwareCompatibility(code: string): ParserMessage[] {
     const messages: ParserMessage[] = [];
 
@@ -216,22 +326,79 @@ export class CodeParser {
     while ((match = pinModeRegex.exec(code)) !== null) {
       pinModeSet.add(match[1]);
     }
+    
+    // Also detect pins configured in loops
+    const loopConfiguredPins = this.getLoopConfiguredPins(code);
 
     // Check for digitalRead/digitalWrite without pinMode
-    const digitalReadWriteRegex = /digital(?:Read|Write)\s*\(\s*(\d+|A\d+)/g;
+    const digitalReadWriteRegex = /digital(?:Read|Write)\s*\(\s*(\d+|A\d+|[a-zA-Z_]\w*)/g;
     const warnedPins = new Set<string>();
+    const usedVariables = new Set<string>();
+    
     while ((match = digitalReadWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
-      if (!pinModeSet.has(pinStr) && !warnedPins.has(pinStr)) {
-        warnedPins.add(pinStr);
+      usedVariables.add(pinStr); // Track all variable/pin references
+      
+      if (/^\d+/.test(pinStr) || /^A\d+/.test(pinStr)) {
+        // Literal pin number
+        const pin = this.parsePinNumber(pinStr);
+        // Only warn if not explicitly configured with pinMode AND not in a loop range
+        if (!pinModeSet.has(pinStr) && (pin === undefined || !loopConfiguredPins.has(pin)) && !warnedPins.has(pinStr)) {
+          warnedPins.add(pinStr);
+          messages.push({
+            id: generateUUID(),
+            type: 'warning',
+            category: 'hardware',
+            severity: 2 as SeverityLevel,
+            message: `Pin ${pinStr} used with digitalRead/digitalWrite but pinMode() was not called for this pin.`,
+            suggestion: `pinMode(${pinStr}, INPUT);`,
+            line: this.findLineNumber(code, new RegExp(`digital(?:Read|Write)\\s*\\(\\s*${pinStr}`)),
+          });
+        }
+      }
+    }
+
+    // Check if variable pins are used with pinMode - warn if there's a mismatch
+    const pinModeVarRegex = /pinMode\s*\(\s*([a-zA-Z_]\w*)\s*,/g;
+    const pinModeVariables = new Set<string>();
+    while ((match = pinModeVarRegex.exec(this.removeComments(code))) !== null) {
+      pinModeVariables.add(match[1]);
+    }
+
+    // Warn if digitalRead/digitalWrite uses variables not covered by pinMode
+    for (const usedVar of usedVariables) {
+      if (!/^\d+/.test(usedVar) && !/^A\d+/.test(usedVar)) {
+        // It's a variable
+        if (!pinModeVariables.has(usedVar)) {
+          messages.push({
+            id: generateUUID(),
+            type: 'warning',
+            category: 'hardware',
+            severity: 2 as SeverityLevel,
+            message: `Variable '${usedVar}' used in digitalRead/digitalWrite but no pinMode() call found for this variable.`,
+            suggestion: `pinMode(${usedVar}, INPUT);`,
+            line: this.findLineNumber(code, new RegExp(`digital(?:Read|Write)\\s*\\(\\s*${usedVar}`)),
+          });
+          break; // Only warn once per unique variable
+        }
+      }
+    }
+
+    // Handle dynamic pin usage (e.g., digitalRead(i)) where pin numbers are not literals.
+    // Only warn if NO pinMode calls exist at all. If pinMode is called (even in a loop),
+    // we assume pins are being configured dynamically.
+    const hasPinModeCalls = /pinMode\s*\(\s*[^,)]+\s*,/.test(this.removeComments(code));
+    if (!hasPinModeCalls) {
+      const dynamicDigitalUse = /digital(?:Read|Write)\s*\(\s*[^0-9A\s][^,)]*/;
+      if (dynamicDigitalUse.test(this.removeComments(code))) {
         messages.push({
           id: generateUUID(),
           type: 'warning',
           category: 'hardware',
           severity: 2 as SeverityLevel,
-          message: `Pin ${pinStr} used with digitalRead/digitalWrite but pinMode() was not called for this pin.`,
-          suggestion: `pinMode(${pinStr}, INPUT);`,
-          line: this.findLineNumber(code, new RegExp(`digital(?:Read|Write)\\s*\\(\\s*${pinStr}`)),
+          message: 'digitalRead/digitalWrite uses variable pins without any pinMode() calls. Configure pinMode for the pins being read/written.',
+          suggestion: 'pinMode(<pin>, INPUT);',
+          line: this.findLineNumber(code, /digital(?:Read|Write)\s*\(/),
         });
       }
     }
@@ -352,6 +519,8 @@ export class CodeParser {
 
     return messages;
   }
+
+
 
   /**
    * Parse all categories and combine results

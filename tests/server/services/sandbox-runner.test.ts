@@ -30,10 +30,11 @@ jest.mock("fs/promises", () => ({
   writeFile: jest.fn().mockResolvedValue(undefined),
   rm: jest.fn().mockResolvedValue(undefined),
   chmod: jest.fn().mockResolvedValue(undefined),
+  rename: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { spawn, execSync } from "child_process";
-import { mkdir, writeFile, rm, chmod } from "fs/promises";
+import { mkdir, writeFile, rm, chmod, rename } from "fs/promises";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 
 describe("SandboxRunner", () => {
@@ -45,6 +46,7 @@ describe("SandboxRunner", () => {
     (writeFile as jest.Mock).mockClear();
     (rm as jest.Mock).mockClear();
     (chmod as jest.Mock).mockClear();
+    (rename as jest.Mock).mockClear();
     (spawn as jest.Mock).mockClear();
     (execSync as jest.Mock).mockClear();
     
@@ -434,27 +436,34 @@ describe("SandboxRunner", () => {
     });
 
     it("should cleanup temp directory on stop", async () => {
+      // This test verifies delayed cleanup behavior
+      // When stop() is called, temp directories should be renamed with .cleanup suffix
+      // instead of being immediately deleted
+      
       const runner = new SandboxRunner();
 
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn()
-      );
-
-      await wait();
-
-      const compileProc = spawnInstances[0];
-      compileProc.on.mock.calls.find(([e]: any[]) => e === "close")?.[1](0);
-
-      await wait();
+      // Manually set currentSketchDir to simulate a running sketch
+      (runner as any).currentSketchDir = "/temp/test-dir-uuid";
+      
+      // Mock fs.existsSync to return true (directory exists)
+      const existsSync = jest.spyOn(require('fs'), 'existsSync').mockReturnValue(true);
+      // Mock fs.renameSync to capture the call
+      const renameSync = jest.spyOn(require('fs'), 'renameSync').mockImplementation(() => {});
       
       runner.stop();
 
-      // rm should be called for cleanup
       await wait(50);
-      expect(rm).toHaveBeenCalled();
+      
+      // Verify renameSync was called to mark directory for cleanup
+      expect(renameSync).toHaveBeenCalled();
+      // Verify it was renamed with .cleanup suffix
+      expect(renameSync).toHaveBeenCalledWith(
+        "/temp/test-dir-uuid",
+        "/temp/test-dir-uuid.cleanup"
+      );
+      
+      existsSync.mockRestore();
+      renameSync.mockRestore();
     });
 
     it("should handle serial input", async () => {

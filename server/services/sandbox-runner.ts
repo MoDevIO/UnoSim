@@ -3,10 +3,12 @@
 
 import { spawn, execSync } from "child_process";
 import { writeFile, mkdir, rm, chmod } from "fs/promises";
+import { existsSync, renameSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
 import { ARDUINO_MOCK_CODE } from '../mocks/arduino-mock';
+import type { IOPinRecord } from '@shared/schema';
 
 // Configuration
 const SANDBOX_CONFIG = {
@@ -47,6 +49,11 @@ export class SandboxRunner {
     private pendingSerialFlushTimer: NodeJS.Timeout | null = null;
     // Server-side timestamp of when the spawned process was started (ms since epoch)
     private processStartTime: number | null = null;
+    private ioRegistryCallback: ((registry: IOPinRecord[]) => void) | undefined;
+    // Runtime I/O Registry collected from stderr
+    private ioRegistryData: IOPinRecord[] = [];
+    private collectingRegistry = false;
+    private currentRegistryFile: string | null = null;
 
     constructor() {
         mkdir(this.tempDir, { recursive: true })
@@ -111,13 +118,18 @@ export class SandboxRunner {
         onCompileError?: (error: string) => void,
         onCompileSuccess?: () => void,
         onPinState?: (pin: number, type: 'mode' | 'value' | 'pwm', value: number) => void,
-        timeoutSec?: number // Custom timeout in seconds, 0 = infinite
+        timeoutSec?: number, // Custom timeout in seconds, 0 = infinite
+        onIORegistry?: (registry: IOPinRecord[]) => void
     ) {
+        // Store callback in local var for access in closures below
+        this.ioRegistryCallback = onIORegistry;
         // Use custom timeout or default
         const executionTimeout = timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
         this.logger.info(`🕐 runSketch called with timeoutSec=${timeoutSec}, using executionTimeout=${executionTimeout}s`);
         
         this.isRunning = true;
+        this.ioRegistryData = []; // Reset registry
+        this.collectingRegistry = false;
         this.outputBuffer = "";
         this.errorBuffer = "";
         this.isSendingOutput = false;
@@ -143,17 +155,19 @@ export class SandboxRunner {
 #include <cstring>
 
 int main() {
+    initIORegistry();
     std::thread readerThread(serialInputReader);
     readerThread.detach();
 `;
 
-        if (hasSetup) footer += "    setup();\n    Serial.flush(); // Flush after setup\n";
+        if (hasSetup) footer += "    setup();\n    Serial.flush(); // Flush after setup\n    outputIORegistry(); // Emit registry after setup before entering loop\n";
         // Flush serial buffer at the start of each loop iteration
         // This ensures all Serial.print() output is sent even without delay() or newline
         if (hasLoop) footer += "    while (1) { Serial.flush(); loop(); }\n";
 
         footer += `
     keepReading.store(false);
+    outputIORegistry();
     return 0;
 }
 `;
@@ -176,7 +190,7 @@ int main() {
             
             if (this.dockerAvailable && this.dockerImageBuilt) {
                 // Single container: compile AND run (more efficient)
-                this.compileAndRunInDocker(sketchDir, onOutput, onError, onExit, onCompileError, onCompileSuccess, onPinState, executionTimeout);
+                this.compileAndRunInDocker(sketchDir, onOutput, onError, onExit, onCompileError, onCompileSuccess, onPinState, executionTimeout, onIORegistry);
             } else {
                 // Local fallback: compile then run
                 await this.compileLocal(sketchFile, exeFile, onCompileError);
@@ -184,7 +198,7 @@ int main() {
                 if (onCompileSuccess) {
                     onCompileSuccess();
                 }
-                await this.runLocalWithLimits(exeFile, onOutput, onError, onExit, onPinState, executionTimeout);
+                await this.runLocalWithLimits(exeFile, onOutput, onError, onExit, onPinState, executionTimeout, onIORegistry);
             }
             
             // Note: Don't cleanup here - cleanup happens in close handler
@@ -219,8 +233,10 @@ int main() {
         onCompileError?: (error: string) => void,
         onCompileSuccess?: () => void,
         onPinState?: (pin: number, type: 'mode' | 'value' | 'pwm', value: number) => void,
-        timeoutSec?: number
+        timeoutSec?: number,
+        onIORegistry?: (registry: IOPinRecord[]) => void
     ): void {
+        this.ioRegistryCallback = onIORegistry;
         // Single container: compile then run using shell
         // Uses sh -c to chain compile && run in one container
         this.process = spawn("docker", [
@@ -258,6 +274,12 @@ int main() {
                 this.logger.info(`Docker timeout after ${effectiveTimeout}s`);
             }
         }, effectiveTimeout * 1000) : null;
+
+        // Handle process errors
+        this.process?.on("error", (err) => {
+            this.logger.error(`Docker process error: ${err.message}`);
+            onError(`Docker process failed: ${err.message}`);
+        });
 
         this.process?.stdout?.on("data", (data) => {
             const str = data.toString();
@@ -315,6 +337,62 @@ int main() {
 
             lines.forEach(line => {
                 if (line.length > 0) {
+                    // Check for I/O Registry markers
+                    if (line.includes('[[IO_REGISTRY_START]]')) {
+                        this.logger.debug('[Registry] START marker detected (Docker)');
+                        this.collectingRegistry = true;
+                        this.ioRegistryData = [];
+                        return;
+                    }
+                    if (line.includes('[[IO_REGISTRY_END]]')) {
+                        this.logger.debug(`[Registry] END marker detected, collected ${this.ioRegistryData.length} pins (Docker)`);
+                        this.collectingRegistry = false;
+                        if (this.ioRegistryCallback) {
+                            this.ioRegistryCallback(this.ioRegistryData);
+                        }
+                        return;
+                    }
+                    if (this.collectingRegistry) {
+                        // Parse IO_PIN line: [[IO_PIN:pin:defined:line:pinMode:operations]]
+                        const pinMatch = line.match(/\[\[IO_PIN:([^:]+):([01]):(\d+):(\d+):?(.*)\]\]/);
+                        if (pinMatch) {
+                            this.logger.debug(`[Registry] Parsed pin: ${pinMatch[1]} (Docker)`);
+                            const pin = pinMatch[1];
+                            const defined = pinMatch[2] === '1';
+                            const definedLine = parseInt(pinMatch[3]);
+                            const pinMode = parseInt(pinMatch[4]);
+                            const operationsStr = pinMatch[5];
+                            
+                            const usedAt: Array<{ line: number; operation: string }> = [];
+                            if (operationsStr) {
+                                // Split by ':' to get individual operations (e.g., "pinMode:1@0:digitalWrite@5")
+                                // But we need to handle "pinMode:1" as one unit, so we match operation@line pairs
+                                const opMatches = operationsStr.match(/([^:@]+(?::\d+)?@\d+)/g);
+                                if (opMatches) {
+                                    opMatches.forEach(opMatch => {
+                                        const atIndex = opMatch.lastIndexOf('@');
+                                        if (atIndex > 0) {
+                                            const operation = opMatch.substring(0, atIndex);
+                                            const lineStr = opMatch.substring(atIndex + 1);
+                                            usedAt.push({
+                                                line: parseInt(lineStr) || 0,
+                                                operation
+                                            });
+                                        }
+                                    });
+                                }
+                            }
+                            
+                            this.ioRegistryData.push({
+                                pin,
+                                defined,
+                                definedAt: defined ? { line: definedLine } : undefined,
+                                usedAt
+                            });
+                        }
+                        return;
+                    }
+                    
                     // Check for pin state messages (these are internal protocol, not errors)
                     const pinModeMatch = line.match(/\[\[PIN_MODE:(\d+):(\d+)\]\]/);
                     const pinValueMatch = line.match(/\[\[PIN_VALUE:(\d+):(\d+)\]\]/);
@@ -429,12 +507,8 @@ int main() {
             this.process = null;
             this.isRunning = false;
             
-            // Cleanup temp directory after process finishes
-            if (this.currentSketchDir) {
-                rm(this.currentSketchDir, { recursive: true, force: true })
-                    .catch(() => { /* ignore cleanup errors */ });
-                this.currentSketchDir = null;
-            }
+            // Mark temp directory for delayed cleanup instead of immediate deletion
+            this.markTempDirForCleanup();
         });
     }
 
@@ -491,8 +565,10 @@ int main() {
         onError: (line: string) => void,
         onExit: (code: number | null) => void,
         onPinState?: (pin: number, type: 'mode' | 'value' | 'pwm', value: number) => void,
-        timeoutSec?: number
+        timeoutSec?: number,
+        onIORegistry?: (registry: IOPinRecord[]) => void
     ): Promise<void> {
+        this.ioRegistryCallback = onIORegistry;  // Store for use in async handlers
         const effectiveTimeout = timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
         
         // Make executable
@@ -537,6 +613,12 @@ int main() {
             }
         }, effectiveTimeout * 1000) : null;
 
+        // Handle process errors
+        this.process?.on("error", (err) => {
+            this.logger.error(`Process error: ${err.message}`);
+            onError(`Process failed: ${err.message}`);
+        });
+
         this.process?.stdout?.on("data", (data) => {
             const str = data.toString();
             
@@ -567,6 +649,65 @@ int main() {
 
             lines.forEach(line => {
                 if (line.length > 0) {
+                    // Check for I/O Registry markers
+                    if (line.includes('[[IO_REGISTRY_START]]')) {
+                        this.logger.debug('[Registry] START marker detected (Local)');
+                        this.collectingRegistry = true;
+                        this.ioRegistryData = [];
+                        return;
+                    }
+                    if (line.includes('[[IO_REGISTRY_END]]')) {
+                        this.logger.debug(`[Registry] END marker detected, collected ${this.ioRegistryData.length} pins (Local)`);
+                        this.collectingRegistry = false;
+                        if (this.ioRegistryCallback) {
+                            this.ioRegistryCallback(this.ioRegistryData);
+                        }
+                        return;
+                    }
+                    if (this.collectingRegistry) {
+                        this.logger.debug(`[Registry] Collecting line: ${line.substring(0, 50)}...`);
+                        // Parse IO_PIN line: [[IO_PIN:pin:defined:line:pinMode:operations]]
+                        const pinMatch = line.match(/\[\[IO_PIN:([^:]+):([01]):(\d+):(\d+):?(.*)\]\]/);
+                        if (pinMatch) {
+                            const pin = pinMatch[1];
+                            const defined = pinMatch[2] === '1';
+                            const definedLine = parseInt(pinMatch[3]);
+                            const pinMode = parseInt(pinMatch[4]);
+                            const operationsStr = pinMatch[5];
+                            
+                            const usedAt: Array<{ line: number; operation: string }> = [];
+                            if (operationsStr) {
+                                // Split by ':' to get individual operations (e.g., "pinMode:1@0:digitalWrite@5")
+                                // But we need to handle "pinMode:1" as one unit, so we match operation@line pairs
+                                const opMatches = operationsStr.match(/([^:@]+(?::\d+)?@\d+)/g);
+                                if (opMatches) {
+                                    opMatches.forEach(opMatch => {
+                                        if (opMatch && !opMatch.startsWith('_count')) {  // Skip metadata like _count
+                                            const atIndex = opMatch.lastIndexOf('@');
+                                            if (atIndex > 0) {
+                                                const operation = opMatch.substring(0, atIndex);
+                                                const lineStr = opMatch.substring(atIndex + 1);
+                                                usedAt.push({
+                                                    line: parseInt(lineStr) || 0,
+                                                    operation
+                                                });
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                            
+                            this.ioRegistryData.push({
+                                pin,
+                                defined,
+                                pinMode,
+                                definedAt: defined ? { line: definedLine } : undefined,
+                                usedAt
+                            });
+                        }
+                        return;
+                    }
+                    
                     // Check for pin state messages
                     const pinModeMatch = line.match(/\[\[PIN_MODE:(\d+):(\d+)\]\]/);
                     const pinValueMatch = line.match(/\[\[PIN_VALUE:(\d+):(\d+)\]\]/);
@@ -641,12 +782,11 @@ int main() {
             this.process = null;
             this.isRunning = false;
             
-            // Cleanup temp directory after process finishes
-            if (this.currentSketchDir) {
-                rm(this.currentSketchDir, { recursive: true, force: true })
-                    .catch(() => { /* ignore cleanup errors */ });
-                this.currentSketchDir = null;
-            }
+            // Mark registry file for delayed cleanup
+            this.markRegistryForCleanup();
+            
+            // Mark temp directory for delayed cleanup instead of immediate deletion
+            this.markTempDirForCleanup();
         });
     }
 
@@ -665,6 +805,42 @@ int main() {
             this.logger.debug(`Serial Input an Sketch gesendet: ${input}`);
         } else {
             this.logger.warn("Simulator läuft nicht - serial input ignored");
+        }
+    }
+
+    setRegistryFile(filePath: string) {
+        this.currentRegistryFile = filePath;
+    }
+
+    getSketchDir(): string | null {
+        return this.currentSketchDir;
+    }
+
+    private markRegistryForCleanup() {
+        if (this.currentRegistryFile && existsSync(this.currentRegistryFile)) {
+            try {
+                // Rename .pending.json to .cleanup.json
+                const cleanupFile = this.currentRegistryFile.replace('.pending.json', '.cleanup.json');
+                renameSync(this.currentRegistryFile, cleanupFile);
+                this.logger.debug(`Marked registry for cleanup: ${cleanupFile}`);
+                this.currentRegistryFile = null;
+            } catch (err) {
+                this.logger.warn(`Failed to mark registry for cleanup: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        }
+    }
+
+    private markTempDirForCleanup() {
+        if (this.currentSketchDir && existsSync(this.currentSketchDir)) {
+            try {
+                // Rename directory by appending .cleanup suffix
+                const cleanupDir = this.currentSketchDir + '.cleanup';
+                renameSync(this.currentSketchDir, cleanupDir);
+                this.logger.debug(`Marked temp directory for cleanup: ${cleanupDir}`);
+                this.currentSketchDir = null;
+            } catch (err) {
+                this.logger.warn(`Failed to mark temp directory for cleanup: ${err instanceof Error ? err.message : String(err)}`);
+            }
         }
     }
 
@@ -786,12 +962,11 @@ int main() {
             this.process = null;
         }
 
-        // Cleanup temp directory
-        if (this.currentSketchDir) {
-            rm(this.currentSketchDir, { recursive: true, force: true })
-                .catch(() => { /* ignore cleanup errors */ });
-            this.currentSketchDir = null;
-        }
+        // Also mark registry file for delayed cleanup when stopping manually
+        this.markRegistryForCleanup();
+
+        // Mark temp directory for delayed cleanup instead of immediate deletion
+        this.markTempDirForCleanup();
 
         this.outputBuffer = "";
         this.errorBuffer = "";

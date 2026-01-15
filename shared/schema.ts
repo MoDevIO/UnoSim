@@ -93,6 +93,31 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       suggestion: z.string().optional(),
     })),
   }),
+  z.object({
+    type: z.literal("io_registry"),
+    registry: z.array(z.object({
+      pin: z.string(),
+      defined: z.boolean(),
+      pinMode: z.number().optional(),
+      definedAt: z.object({
+        line: z.number(),
+        loopContext: z.object({
+          variable: z.string(),
+          operator: z.string(),
+          limit: z.number(),
+        }).optional(),
+      }).optional(),
+      usedAt: z.array(z.object({
+        line: z.number(),
+        operation: z.string(),
+        loopContext: z.object({
+          variable: z.string(),
+          operator: z.string(),
+          limit: z.number(),
+        }).optional(),
+      })).optional(),
+    })),
+  }),
 ]);
 
 export type WSMessage = z.infer<typeof wsMessageSchema>;
@@ -110,3 +135,21 @@ export const parserMessageSchema = z.object({
 });
 
 export type ParserMessage = z.infer<typeof parserMessageSchema>;
+
+// Loop Context for I/O Registry
+export interface LoopContext {
+  variable: string;
+  operator: string;
+  limit: number;
+  startLine: number;
+  endLine: number;
+}
+
+// I/O Pin Record for Registry Display
+export interface IOPinRecord {
+  pin: string;
+  defined: boolean;
+  pinMode?: number;  // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
+  definedAt?: { line: number; loopContext?: LoopContext };
+  usedAt?: Array<{ line: number; operation: string; loopContext?: LoopContext }>;
+}

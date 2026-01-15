@@ -58,7 +58,11 @@ describe('ArduinoCompiler - Full Coverage', () => {
       const result = await compiler.compile(code);
 
       expect(result.success).toBe(true);
-      expect(result.output).toEqual(expect.stringContaining('Serial.begin(9600) uses wrong baud rate'));
+      // Serial warnings now appear in parserMessages, not in output
+      const messages = result.parserMessages as any[];
+      const serialMessages = messages.filter(m => m.category === 'serial');
+      expect(serialMessages.length).toBeGreaterThan(0);
+      expect(serialMessages.some(m => m.message.includes('9600') && m.message.includes('wrong'))).toBe(true);
     });
 
     it('should succeed with Serial.begin(115200) in block comment but active code', async () => {
@@ -142,7 +146,11 @@ describe('ArduinoCompiler - Full Coverage', () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
-      expect(result.output).toEqual(expect.stringContaining('commented out'));
+      // Serial warnings now appear in parserMessages, not in output
+      const messages = result.parserMessages as any[];
+      const serialMessages = messages.filter(m => m.category === 'serial');
+      expect(serialMessages.length).toBeGreaterThan(0);
+      expect(serialMessages.some(m => m.message.includes('commented out'))).toBe(true);
     });
   });
 

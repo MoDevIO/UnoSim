@@ -15,6 +15,7 @@ describe('CodeParser', () => {
           pinMode(13, OUTPUT);
         }
         void loop() {
+          Serial.print("test");
           digitalWrite(13, HIGH);
         }
       `;
@@ -69,7 +70,9 @@ describe('CodeParser', () => {
           // Serial.begin(115200);
           pinMode(13, OUTPUT);
         }
-        void loop() {}
+        void loop() {
+          Serial.println("test");
+        }
       `;
 
       const messages = parser.parseSerialConfiguration(code);
@@ -88,7 +91,9 @@ describe('CodeParser', () => {
           /* Serial.begin(115200); */
           pinMode(13, OUTPUT);
         }
-        void loop() {}
+        void loop() {
+          Serial.println("test");
+        }
       `;
 
       const messages = parser.parseSerialConfiguration(code);
@@ -107,7 +112,9 @@ describe('CodeParser', () => {
           Serial.begin(115200);
           while (!Serial) delay(100);  // blocking!
         }
-        void loop() {}
+        void loop() {
+          Serial.println("test");
+        }
       `;
 
       const messages = parser.parseSerialConfiguration(code);
@@ -284,6 +291,67 @@ describe('CodeParser', () => {
       const messages = parser.parseHardwareCompatibility(code);
       const errors = messages.filter((m: ParserMessage) => m.type === 'error');
       expect(errors).toHaveLength(0);
+    });
+
+    it('should warn when digitalRead uses variable pins without any pinMode call', () => {
+      const code = `
+void setup()
+{
+    Serial.begin(115200);
+}
+
+void loop()
+{
+    Serial.print("Digital inputs: ");
+    for (byte i = 0; i < 7; i++)
+    {
+        Serial.print(digitalRead(i));
+        Serial.print(" ");
+    }
+    Serial.println();
+    
+    delay(100);
+}
+`;
+
+      const messages = parser.parseHardwareCompatibility(code);
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: 'warning',
+          category: 'hardware',
+          message: expect.stringMatching(/digitalRead|pinMode|variable/i),
+        })
+      );
+    });
+
+    it('should NOT warn when digitalRead uses variable pins but pinMode is called in setup', () => {
+      const code = `
+void setup()
+{
+  Serial.begin(115200);
+    for (byte i = 0; i < 7; i++)
+  {
+    pinMode(i,INPUT);
+  }
+}
+
+void loop()
+{
+  Serial.print("Digital inputs: ");
+  for (byte i = 0; i < 7; i++)
+  {
+    Serial.print(digitalRead(i));
+    Serial.print(" ");
+  }
+  Serial.println();
+}
+`;
+
+      const messages = parser.parseHardwareCompatibility(code);
+      const pinConfigWarnings = messages.filter(
+        (m: ParserMessage) => m.message.includes('digitalRead') && m.message.includes('pinMode')
+      );
+      expect(pinConfigWarnings).toHaveLength(0);
     });
   });
 
@@ -519,7 +587,9 @@ describe('CodeParser', () => {
         void setup() {
           Serial.begin(9600);
         }
-        void loop() {}
+        void loop() {
+          Serial.print("test");
+        }
       `;
 
       const messages = parser.parseAll(code);
@@ -533,7 +603,9 @@ describe('CodeParser', () => {
         void setup() {
           Serial.begin(9600);
         }
-        void loop() {}
+        void loop() {
+          Serial.print("test");
+        }
       `;
 
       const messages = parser.parseAll(code);

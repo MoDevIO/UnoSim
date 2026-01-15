@@ -35,8 +35,7 @@ import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import type { Sketch, ParserMessage } from '@shared/schema';
-import { CodeParser } from '@shared/code-parser';
+import type { Sketch, ParserMessage, IOPinRecord } from '@shared/schema';
 
 // Logger import
 import { Logger } from '@shared/logger';
@@ -71,6 +70,23 @@ export default function ArduinoSimulator() {
   // CHANGED: Store OutputLine objects instead of plain strings
   const [serialOutput, setSerialOutput] = useState<OutputLine[]>([]);
   const [parserMessages, setParserMessages] = useState<ParserMessage[]>([]);
+  // Track if user manually dismissed the parser panel (reset on new compile with messages)
+  const [parserPanelDismissed, setParserPanelDismissed] = useState(false);
+  
+  // Initialize I/O Registry with all 20 Arduino pins (will be populated at runtime)
+  const [ioRegistry, setIoRegistry] = useState<IOPinRecord[]>(() => {
+    const pins: IOPinRecord[] = [];
+    // Digital pins 0-13
+    for (let i = 0; i <= 13; i++) {
+      pins.push({ pin: String(i), defined: false, usedAt: [] });
+    }
+    // Analog pins A0-A5
+    for (let i = 0; i <= 5; i++) {
+      pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
+    }
+    return pins;
+  });
+  
   const [compilationStatus, setCompilationStatus] = useState<'ready' | 'compiling' | 'success' | 'error'>('ready');
   const [arduinoCliStatus, setArduinoCliStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
   const [gccStatus, setGccStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
@@ -555,7 +571,14 @@ export default function ArduinoSimulator() {
         setCliOutput(data.errors || '✗ Arduino-CLI Compilation failed.');
       }
 
-      // Parser messages are now updated on edit, not on compile
+      // Update parser messages from compile response
+      if (data.parserMessages && Array.isArray(data.parserMessages)) {
+        setParserMessages(data.parserMessages);
+        // Auto-show parser panel if there are new messages (reset dismissed state)
+        if (data.parserMessages.length > 0) {
+          setParserPanelDismissed(false);
+        }
+      }
 
       toast({
         title: data.success ? "Arduino-CLI Compilation succeeded" : "Arduino-CLI Compilation failed",
@@ -1040,6 +1063,31 @@ export default function ArduinoSimulator() {
           });
           break;
         }
+        case 'io_registry': {
+          // Update I/O Registry from runtime execution
+          const { registry } = message;
+          setIoRegistry(registry);
+          
+          // Analyze registry for pinMode inconsistencies and add to parser messages
+          const ioMessages = analyzeIORegistry(registry);
+          if (ioMessages.length > 0) {
+            let hasNewMessages = false;
+            setParserMessages(prev => {
+              // Merge new IO messages with existing messages, avoiding duplicates by message content
+              const existingMessages = new Set(prev.map(m => `${m.category}:${m.message}`));
+              const newMessages = ioMessages.filter(m => !existingMessages.has(`${m.category}:${m.message}`));
+              if (newMessages.length > 0) {
+                hasNewMessages = true;
+              }
+              return [...prev, ...newMessages];
+            });
+            // Reset dismissed state to show the panel with new messages
+            if (hasNewMessages) {
+              setParserPanelDismissed(false);
+            }
+          }
+          break;
+        }
       }
     }
   }, [messageQueue, consumeMessages]);
@@ -1064,17 +1112,6 @@ export default function ArduinoSimulator() {
       ));
     }
   };
-
-  // Run parser on code changes with debouncing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const parser = new CodeParser();
-      const messages = parser.parseAll(code);
-      setParserMessages(messages);
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [code]);
 
   // Parse the current code to detect which analog pins are used by name or channel
   useEffect(() => {
@@ -1487,6 +1524,62 @@ export default function ArduinoSimulator() {
     setGccStatus('idle');
     setSimulationStatus('stopped');
     setHasCompiledOnce(false);
+  };
+
+  /**
+   * Analyze IO Registry for pinMode inconsistencies and generate parser messages
+   */
+  const analyzeIORegistry = (registry: IOPinRecord[]): ParserMessage[] => {
+    const messages: ParserMessage[] = [];
+    
+    for (const record of registry) {
+      const ops = record.usedAt || [];
+      const pinModeOps = ops.filter(u => u.operation.includes('pinMode'));
+      
+      if (pinModeOps.length === 0) continue;
+      
+      // Extract pinMode modes
+      const pinModes = pinModeOps.map(u => {
+        const match = u.operation.match(/pinMode:(\d+)/);
+        const mode = match ? parseInt(match[1]) : -1;
+        return mode === 0 ? 'INPUT' : mode === 1 ? 'OUTPUT' : mode === 2 ? 'INPUT_PULLUP' : 'UNKNOWN';
+      });
+      
+      const uniqueModes = [...new Set(pinModes)];
+      const hasMultipleModes = uniqueModes.length > 1;
+      
+      if (hasMultipleModes) {
+        // Get first line where pinMode was called for this pin
+        const firstPinModeOp = pinModeOps[0];
+        const line = firstPinModeOp.line || undefined;
+        
+        messages.push({
+          id: crypto.randomUUID(),
+          type: 'warning',
+          category: 'pins',
+          severity: 2,
+          message: `Pin ${record.pin} has inconsistent pinMode() configurations: ${uniqueModes.join(', ')}. This may cause unexpected behavior.`,
+          suggestion: `// Use consistent pinMode for pin ${record.pin}`,
+          line,
+        });
+      } else if (pinModeOps.length > 1) {
+        // Multiple calls with same mode - info message
+        const mode = uniqueModes[0];
+        const firstPinModeOp = pinModeOps[0];
+        const line = firstPinModeOp.line || undefined;
+        
+        messages.push({
+          id: crypto.randomUUID(),
+          type: 'info',
+          category: 'pins',
+          severity: 1,
+          message: `Pin ${record.pin} has pinMode(${record.pin}, ${mode}) called ${pinModeOps.length} times. Consider calling it only once in setup().`,
+          line,
+        });
+      }
+    }
+    
+    return messages;
   };
 
 
@@ -2005,6 +2098,10 @@ export default function ArduinoSimulator() {
                     Compile/Upload
                     <DropdownMenuShortcut>{isMac ? '⌘U' : 'Ctrl+U'}</DropdownMenuShortcut>
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setParserPanelDismissed(false); }}>
+                    Show Parser Analysis
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -2203,7 +2300,11 @@ export default function ArduinoSimulator() {
           <ResizablePanelGroup direction="horizontal" className="h-full" id="main-layout">
           {/* Code Editor Panel */}
           <ResizablePanel defaultSize={50} minSize={20} id="code-panel">
-            <ResizablePanelGroup direction="vertical" className="h-full" id="code-layout">
+            <ResizablePanelGroup 
+              direction="vertical" 
+              className="h-full" 
+              id="code-layout"
+            >
               <ResizablePanel defaultSize={70} minSize={30} id="editor-panel">
                 <div className="h-full flex flex-col">
                   {/* Sketch Tabs */}
@@ -2232,46 +2333,102 @@ export default function ArduinoSimulator() {
                 </div>
               </ResizablePanel>
 
-              {parserMessages.length > 0 && (
-                <>
-                  <ResizableHandle withHandle data-testid="vertical-resizer-editor-parser" />
+              {/* Parser Output only visible if there are problems */}
+              {(() => {
+                const hasIOProblems = ioRegistry.some(record => {
+                  const ops = record.usedAt || [];
+                  const digitalReads = ops.filter(u => u.operation.includes('digitalRead'));
+                  const digitalWrites = ops.filter(u => u.operation.includes('digitalWrite'));
+                  const pinModes = ops.filter(u => u.operation.includes('pinMode')).map(u => {
+                    const match = u.operation.match(/pinMode:(\d+)/);
+                    const mode = match ? parseInt(match[1]) : -1;
+                    return mode === 0 ? 'INPUT' : mode === 1 ? 'OUTPUT' : mode === 2 ? 'INPUT_PULLUP' : 'UNKNOWN';
+                  });
+                  const uniqueModes = [...new Set(pinModes)];
+                  const hasMultipleModes = uniqueModes.length > 1;
+                  const hasIOWithoutMode = (digitalReads.length > 0 || digitalWrites.length > 0) && pinModes.length === 0;
+                  return hasIOWithoutMode || hasMultipleModes;
+                });
 
-                  <ResizablePanel defaultSize={10} minSize={8} id="parser-output-under-editor">
-                    <ParserOutput
-                      messages={parserMessages}
-                      onClear={() => setParserMessages([])}
-                      onGoToLine={(line) => {
-                        // TODO: Implement jumping to line in editor
-                        console.log('Go to line:', line);
-                      }}
-                      onInsertSuggestion={(suggestion, line) => {
-                        if (editorRef.current && typeof (editorRef.current as any).insertSuggestionSmartly === 'function') {
-                          (editorRef.current as any).insertSuggestionSmartly(suggestion, line);
-                          toast({ 
-                            title: 'Suggestion inserted', 
-                            description: 'Code added to the appropriate location' 
-                          });
-                        } else {
-                          console.error('insertSuggestionSmartly method not available on editor');
-                        }
-                      }}
-                    />
-                  </ResizablePanel>
-                </>
-              )}
+                // Show parser only if: has messages AND not manually dismissed
+                // User can always show it manually via Sketch menu
+                const shouldShowParser = !parserPanelDismissed && parserMessages.length > 0;
+                
+                // Calculate dynamic panel size based on content
+                let dynamicSize = 18; // default
+                if (hasIOProblems && parserMessages.length === 0) {
+                  const totalPins = ioRegistry.length;
+                  dynamicSize = Math.min(50, Math.max(22, 18 + totalPins * 4));
+                } else if (parserMessages.length > 0) {
+                  dynamicSize = Math.min(45, Math.max(18, 15 + parserMessages.length * 5));
+                } else if (hasIOProblems && parserMessages.length > 0) {
+                  const totalPins = ioRegistry.length;
+                  dynamicSize = Math.min(50, Math.max(25, 20 + parserMessages.length * 4 + totalPins * 2));
+                }
 
-              {(simulationStatus === 'running' || showCompilationOutput) && (
-                <>
-                  <ResizableHandle withHandle data-testid="vertical-resizer-parser-compile" />
+                return (
+                  <>
+                    {shouldShowParser && <ResizableHandle withHandle data-testid="vertical-resizer-editor-parser" />}
+                    
+                    <ResizablePanel 
+                      defaultSize={dynamicSize} 
+                      minSize={15} 
+                      id="parser-output-under-editor"
+                      collapsible
+                    >
+                      {shouldShowParser ? (
+                        <ParserOutput
+                          messages={parserMessages}
+                          ioRegistry={ioRegistry}
+                          onClear={() => setParserPanelDismissed(true)}
+                          onGoToLine={(line) => {
+                            console.log('Go to line:', line);
+                          }}
+                          onInsertSuggestion={(suggestion, line) => {
+                            if (editorRef.current && typeof (editorRef.current as any).insertSuggestionSmartly === 'function') {
+                              (editorRef.current as any).insertSuggestionSmartly(suggestion, line);
+                              toast({ 
+                                title: 'Suggestion inserted', 
+                                description: 'Code added to the appropriate location' 
+                              });
+                            } else {
+                              console.error('insertSuggestionSmartly method not available on editor');
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div />
+                      )}
+                    </ResizablePanel>
+                  </>
+                );
+              })()}
 
-                  <ResizablePanel defaultSize={15} minSize={10} id="compilation-under-editor">
-                    <CompilationOutput
-                      output={cliOutput}
-                      onClear={handleClearCompilationOutput}
-                    />
-                  </ResizablePanel>
-                </>
-              )}
+              {/* Compilation Output */}
+              {(() => {
+                const shouldShowCompilation = simulationStatus === 'running' || showCompilationOutput;
+                return (
+                  <>
+                    {shouldShowCompilation && <ResizableHandle withHandle data-testid="vertical-resizer-parser-compile" />}
+                    
+                    <ResizablePanel 
+                      defaultSize={15} 
+                      minSize={10} 
+                      id="compilation-under-editor"
+                      collapsible
+                    >
+                      {shouldShowCompilation ? (
+                        <CompilationOutput
+                          output={cliOutput}
+                          onClear={handleClearCompilationOutput}
+                        />
+                      ) : (
+                        <div />
+                      )}
+                    </ResizablePanel>
+                  </>
+                );
+              })()}
             </ResizablePanelGroup>
           </ResizablePanel>
 
@@ -2483,11 +2640,12 @@ export default function ArduinoSimulator() {
                   )}
                   {mobilePanel === 'compile' && (
                     <div className="h-full w-full flex flex-col">
-                      {parserMessages.length > 0 && (
+                      {!parserPanelDismissed && parserMessages.length > 0 && (
                         <div className="flex-1 min-h-0 border-b border-gray-200">
                           <ParserOutput
                             messages={parserMessages}
-                            onClear={() => setParserMessages([])}
+                            ioRegistry={ioRegistry}
+                            onClear={() => setParserPanelDismissed(true)}
                             onGoToLine={(line) => {
                               console.log('Go to line:', line);
                             }}

@@ -5,7 +5,7 @@ import { writeFile, mkdir, rm } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
-import { ParserMessage } from "@shared/schema";
+import { ParserMessage, IOPinRecord } from "@shared/schema";
 import { CodeParser } from "@shared/code-parser";
 // Removed unused mock imports to satisfy TypeScript
 
@@ -19,6 +19,7 @@ export interface CompilationResult {
   gccStatus: 'idle' | 'compiling' | 'success' | 'error';
   processedCode?: string; // NEW: The code with embedded headers
   parserMessages?: ParserMessage[]; // NEW: Parser validation messages
+  ioRegistry?: IOPinRecord[]; // NEW: I/O Registry for visualization
 }
 
 export class ArduinoCompiler {
@@ -54,6 +55,9 @@ export class ArduinoCompiler {
     // NEW: Parse code for issues
     const parser = new CodeParser();
     const parserMessages = parser.parseAll(code);
+    
+    // I/O Registry is now populated at runtime, not from static parsing
+    const ioRegistry: any[] = [];
 
     try {
       // Validierung: setup() und loop()
@@ -72,31 +76,13 @@ export class ArduinoCompiler {
           arduinoCliStatus: 'error',
           gccStatus: 'idle',
           parserMessages, // Include parser messages even on error
+          ioRegistry, // Include I/O registry
         };
       }
 
-      // NEW: Validierung: Serial.begin(115200) - now always warn if missing/incorrect
-      // We check for Serial.begin presence and baudrate regardless of whether
-      // Serial.print/println is used so the user sees relevant warnings early.
-      const serialBeginExists = /Serial\.begin\s*\(\s*\d+\s*\)/.test(code);
-
-      if (!serialBeginExists) {
-        warnings.push('⚠️ Serial.begin(115200) is missing in setup()\n   Serial output may not work correctly.');
-      } else {
-        const uncommentedCode = code
-          .replace(/\/\*[\s\S]*?\*\//g, '')
-          .replace(/\/\/.*$/gm, '');
-
-        if (!/Serial\.begin\s*\(\s*\d+\s*\)/.test(uncommentedCode)) {
-          warnings.push('⚠️ Serial.begin() is commented out!\n   Serial output may not work correctly.');
-        } else {
-          // Check if baud rate is 115200
-          const baudRateMatch = uncommentedCode.match(/Serial\.begin\s*\(\s*(\d+)\s*\)/);
-          if (baudRateMatch && baudRateMatch[1] !== '115200') {
-            warnings.push(`⚠️ Serial.begin(${baudRateMatch[1]}) uses wrong baud rate\n   This simulator expects Serial.begin(115200).`);
-          }
-        }
-      }
+      // Serial.begin warnings are now ONLY in parserMessages, not in output
+      // The code-parser.ts handles all Serial configuration warnings
+      // No need to add them to the warnings array anymore
 
       // Create files
       await mkdir(sketchDir, { recursive: true });
@@ -188,6 +174,7 @@ export class ArduinoCompiler {
         gccStatus: 'idle', // Nicht mehr verwendet in Compiler
         processedCode, // Include the processed code with embedded headers
         parserMessages, // Include parser messages
+        ioRegistry, // Include I/O registry
       };
 
     } catch (error) {
@@ -199,6 +186,7 @@ export class ArduinoCompiler {
         gccStatus: 'idle',
         processedCode: code, // Return original code on error
         parserMessages, // Include parser messages even on error
+        ioRegistry, // Include I/O registry
       };
     } finally {
       try {

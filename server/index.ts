@@ -5,8 +5,49 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Cleanup service: Delete old .cleanup.json files and .cleanup directories (> 5 minutes old)
+function startCleanupService() {
+  const CLEANUP_INTERVAL_MS = 60 * 1000; // Check every minute
+  const CLEANUP_AGE_MS = 5 * 60 * 1000; // Delete files/dirs older than 5 minutes
+  
+  setInterval(() => {
+    try {
+      const tempDir = path.join(process.cwd(), 'temp');
+      if (!fs.existsSync(tempDir)) return;
+      
+      const items = fs.readdirSync(tempDir);
+      const now = Date.now();
+      let deletedCount = 0;
+      
+      for (const item of items) {
+        const itemPath = path.join(tempDir, item);
+        const stats = fs.statSync(itemPath);
+        const age = now - stats.mtimeMs;
+        
+        // Delete old .cleanup.json files
+        if (item.endsWith('.cleanup.json') && age > CLEANUP_AGE_MS) {
+          fs.unlinkSync(itemPath);
+          deletedCount++;
+        }
+        // Delete old .cleanup directories
+        else if (item.endsWith('.cleanup') && stats.isDirectory() && age > CLEANUP_AGE_MS) {
+          fs.rmSync(itemPath, { recursive: true, force: true });
+          deletedCount++;
+        }
+      }
+      
+      if (deletedCount > 0) {
+        console.log(`[Cleanup] Deleted ${deletedCount} old temp items`);
+      }
+    } catch (err) {
+      // Silently handle cleanup errors
+    }
+  }, CLEANUP_INTERVAL_MS);
+}
 
 const app = express();
 
@@ -84,6 +125,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Global error handlers to prevent server crashes
+process.on('unhandledRejection', (reason, promise) => {
+  console.error(`[ERROR] Unhandled Promise Rejection at ${promise}:`, reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error(`[ERROR] Uncaught Exception:`, error);
+  // In development, keep running; in production may want to restart
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Shutting down due to uncaught exception');
+    process.exit(1);
+  }
+});
+
 (async () => {
   const server = await registerRoutes(app);
 
@@ -120,6 +175,9 @@ app.use((req, res, next) => {
   const PORT = Number(process.env.PORT) || 3000;
   server.listen(PORT, () => {
     console.log(`[express] Server läuft auf http://localhost:${PORT}`);
+    
+    // Start cleanup service for old temp files
+    startCleanupService();
   });
 
   //const PORT = process.env.PORT || 3000;

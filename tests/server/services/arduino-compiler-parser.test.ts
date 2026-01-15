@@ -17,6 +17,7 @@ describe('ArduinoCompiler - Parser Integration', () => {
         Serial.begin(9600);  // Wrong baudrate
       }
       void loop() {
+        Serial.println("test");
         digitalWrite(13, HIGH);
       }
     `;

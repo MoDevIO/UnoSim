@@ -20,11 +20,11 @@ describe('Backspace E2E Test', () => {
 void setup() {
   Serial.begin(115200);
   Serial.print("Counting: 1");
-  delay(500);
+  delay(5);
   Serial.print("\\b2");
-  delay(500);
+  delay(5);
   Serial.print("\\b3");
-  delay(500);
+  delay(5);
   Serial.print("\\b4");
 }
 
@@ -70,8 +70,8 @@ void loop() {
         },
         // onPinState
         undefined,
-        // timeout
-        10
+        // timeout (further shortened to speed up e2e)
+        2
       );
     });
 
@@ -129,9 +129,9 @@ void loop() {
 void setup() {
   Serial.begin(115200);
   Serial.print("A");
-  delay(50);
+  delay(2);
   Serial.print("B");
-  delay(50);
+  delay(2);
   Serial.print("C");
   // No newline at end!
 }
@@ -166,7 +166,7 @@ void loop() {
         (compileErr) => reject(new Error(compileErr)),
         () => {},
         undefined,
-        10
+        2
       );
     });
 
