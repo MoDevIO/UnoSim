@@ -210,8 +210,8 @@ describe('Parser Messages Frontend Integration', () => {
         />
       );
       
-      // Clear-Button sollte vorhanden sein
-      const clearButton = screen.getByTitle('Clear');
+      // Clear-Button sollte vorhanden sein (im Code hat er title="Close")
+      const clearButton = screen.getByTitle('Close');
       expect(clearButton).toBeInTheDocument();
       
       // Klick auf Clear sollte onClear aufrufen
