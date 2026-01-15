@@ -1,9 +1,10 @@
 # Not Completed
 
+## Optimization
+
 ## Features
 
 - Better Analog Input UI
-- Enhanced Parsing
 - Better AUtocomplete/Linting
 - Autosaving
 - Ability to pause the running sketch
@@ -19,6 +20,7 @@
 
 - Soft cursor movement
 - Serial Plotter
+- Enhanced Parsing
 
 ## Bug Fixes
 
