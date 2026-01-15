@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { SandboxRunner } from '../../server/services/sandbox-runner';
 
 // Increase timeout for compilation and execution
@@ -7,11 +7,11 @@ jest.setTimeout(30000);
 describe('Backspace E2E Test', () => {
   let runner: SandboxRunner;
 
-  beforeAll(() => {
+  beforeEach(() => {
     runner = new SandboxRunner();
   });
 
-  afterAll(() => {
+  afterEach(() => {
     runner.stop();
   });
 

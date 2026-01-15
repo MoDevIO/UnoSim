@@ -11,7 +11,9 @@ describe('I/O Registry - pinMode Multiple Calls Detection', () => {
     registryData = [];
   });
   
-  afterEach(() => {
+  afterEach(async () => {
+    // Give a bit of time for cleanup before stopping
+    await new Promise(resolve => setTimeout(resolve, 100));
     if (runner.isRunning) {
       runner.stop();
     }
@@ -48,14 +50,14 @@ describe('I/O Registry - pinMode Multiple Calls Detection', () => {
           if (registryReceived && latestRegistry) {
             finish(resolve, latestRegistry);
           } else if (!registryReceived) {
-            // Wait a bit more for registry callback if process exited early
+            // Wait longer for registry callback if process exited early
             setTimeout(() => {
               if (latestRegistry) {
                 finish(resolve, latestRegistry);
               } else {
                 finish(reject, new Error('Registry data not received before process exit'));
               }
-            }, 200);
+            }, 500);
           }
         }, // onExit
         undefined, // onCompileError

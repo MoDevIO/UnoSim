@@ -25,7 +25,7 @@ Die Aufgaben sind nach Priorität absteigend sortiert (Kritisch → Hoch → Mit
 
 ---
 
-### TASK-003: Ungenutzter `ArduinoRunner` entfernen
+### ✅ TASK-003: Ungenutzter `ArduinoRunner` entfernen [ERLEDIGT]
 **Datei:** [server/services/arduino-runner.ts](server/services/arduino-runner.ts)
 **Problem:** Klasse wird im Produktionscode NICHT verwendet - nur in Tests. `SandboxRunner` hat die Funktionalität übernommen.
 **Überprüfen:**
@@ -36,6 +36,7 @@ Die Aufgaben sind nach Priorität absteigend sortiert (Kritisch → Hoch → Mit
 2. `arduino-runner.ts` löschen
 3. Export `arduinoRunner` entfernen
 **Geschätzte Zeit:** 1 Stunde
+**Status:** ✅ Erledigt am 15.01.2026 - ArduinoRunner-Klasse und zugehörige Tests entfernt (arduino-runner.ts, arduino-runner.test.ts, arduino-runner.helpers.test.ts gelöscht). Alle Tests laufen erfolgreich (167 passed).
 
 ---
 
