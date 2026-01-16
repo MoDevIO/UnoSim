@@ -512,7 +512,14 @@
 <a name='L447'></a><a href='#L447'>447</a>
 <a name='L448'></a><a href='#L448'>448</a>
 <a name='L449'></a><a href='#L449'>449</a>
-<a name='L450'></a><a href='#L450'>450</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L450'></a><a href='#L450'>450</a>
+<a name='L451'></a><a href='#L451'>451</a>
+<a name='L452'></a><a href='#L452'>452</a>
+<a name='L453'></a><a href='#L453'>453</a>
+<a name='L454'></a><a href='#L454'>454</a>
+<a name='L455'></a><a href='#L455'>455</a>
+<a name='L456'></a><a href='#L456'>456</a>
+<a name='L457'></a><a href='#L457'>457</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -697,6 +704,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -740,6 +751,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1138,77 +1152,84 @@ export function ParserOutput({ messages, ioRegistry = <span class="branch-0 cbra
         &lt;/div&gt;
 &nbsp;
         {/* Messages Tab */}
-        &lt;TabsContent value="messages" className="flex-1 overflow-auto custom-scrollbar m-0"&gt;
+        &lt;TabsContent
+          value="messages"
+          className="flex-1 flex flex-col overflow-hidden m-0 data-[state=inactive]:hidden"
+        &gt;
+          &lt;style&gt;{hideScrollbarStyle}&lt;/style&gt;
           {messages.length === 0 ? (
             &lt;div className="text-muted-foreground p-4 text-center text-xs"&gt;
               No parser messages
             &lt;/div&gt;
           ) : (
-          &lt;div className="p-3 text-xs space-y-2"&gt;
-            {Object.entries(messagesByCategory).map(([category, categoryMessages]) =&gt; (
-              &lt;div key={category} className="space-y-1"&gt;
-                {/* Category Header */}
-                &lt;div className="text-muted-foreground font-semibold uppercase tracking-wide text-[10px] mb-1.5"&gt;
-                  {getCategoryLabel(category)}
-                &lt;/div&gt;
+            &lt;div className="p-3 text-xs space-y-2 overflow-auto no-scrollbar flex-1"&gt;
+              {Object.entries(messagesByCategory).map(([category, categoryMessages]) =&gt; (
+                &lt;div key={category} className="space-y-1"&gt;
+                  {/* Category Header */}
+                  &lt;div className="text-muted-foreground font-semibold uppercase tracking-wide text-[10px] mb-1.5"&gt;
+                    {getCategoryLabel(category)}
+                  &lt;/div&gt;
 &nbsp;
-                {/* Category Messages */}
-                {categoryMessages.map((message) =&gt; (
-                  &lt;div
-                    key={message.id}
-                    className="p-2 bg-muted/50 rounded border-l-2 cursor-pointer hover:bg-muted/70 transition-colors"
-                    style={{
-                      borderLeftColor: 
-                        message.severity === 1 ? <span class="branch-0 cbranch-no" title="branch not covered" >'rgb(96 165 250)' </span>: // blue-400
-                        message.severity === 2 ? 'rgb(250 204 21)' : // yellow-400
-                        'rgb(248 113 113)' // red-400
-                    }}
-                    onClick={<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >message.line !== undefined &amp;&amp; onGoToLine?.(message.line)}</span>
-                  &gt;
-                    &lt;div className="flex items-start gap-2"&gt;
-                      {getSeverityIcon(message.severity)}
-                      &lt;div className="flex-1 min-w-0"&gt;
-                        &lt;div className="text-foreground font-medium mb-1"&gt;
-                          {message.message}
-                        &lt;/div&gt;
-                        &lt;div className="text-muted-foreground text-[10px] space-x-2"&gt;
-                          {message.line !== undefined &amp;&amp; &lt;span&gt;Line {message.line}&lt;/span&gt;}
-                          {message.column !== undefined &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >message.column &gt; 0 </span>&amp;&amp; (
-<span class="branch-2 cbranch-no" title="branch not covered" >                            &lt;span&gt;• Col {message.column}&lt;/span&gt;</span>
-                          )}
-                          &lt;span&gt;• {getSeverityLabel(message.severity)}&lt;/span&gt;
-                        &lt;/div&gt;
-                        {message.suggestion &amp;&amp; (
-                          &lt;div className="mt-1.5 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2"&gt;
-                            &lt;div className="flex-1 text-muted-foreground text-[10px]"&gt;
-                              &lt;span className="font-semibold"&gt;Suggestion:&lt;/span&gt; {message.suggestion}
-                            &lt;/div&gt;
-                            &lt;Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; {
-<span class="cstat-no" title="statement not covered" >                                e.stopPropagation();</span>
-<span class="cstat-no" title="statement not covered" >                                onInsertSuggestion?.(message.suggestion!, message.line);</span>
-                              }}
-                              className="h-5 w-5 p-0 flex items-center justify-center hover:bg-primary/20"
-                              title="Insert suggestion"
-                            &gt;
-                              &lt;Plus className="h-3.5 w-3.5" /&gt;
-                            &lt;/Button&gt;
+                  {/* Category Messages */}
+                  {categoryMessages.map((message) =&gt; (
+                    &lt;div
+                      key={message.id}
+                      className="p-2 bg-muted/50 rounded border-l-2 cursor-pointer hover:bg-muted/70 transition-colors"
+                      style={{
+                        borderLeftColor: 
+                          message.severity === 1 ? <span class="branch-0 cbranch-no" title="branch not covered" >'rgb(96 165 250)' </span>: // blue-400
+                          message.severity === 2 ? 'rgb(250 204 21)' : // yellow-400
+                          'rgb(248 113 113)' // red-400
+                      }}
+                      onClick={<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >message.line !== undefined &amp;&amp; onGoToLine?.(message.line)}</span>
+                    &gt;
+                      &lt;div className="flex items-start gap-2"&gt;
+                        {getSeverityIcon(message.severity)}
+                        &lt;div className="flex-1 min-w-0"&gt;
+                          &lt;div className="text-foreground font-medium mb-1"&gt;
+                            {message.message}
                           &lt;/div&gt;
-                        )}
+                          &lt;div className="text-muted-foreground text-[10px] space-x-2"&gt;
+                            {message.line !== undefined &amp;&amp; &lt;span&gt;Line {message.line}&lt;/span&gt;}
+                            {message.column !== undefined &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >message.column &gt; 0 </span>&amp;&amp; (
+<span class="branch-2 cbranch-no" title="branch not covered" >                              &lt;span&gt;• Col {message.column}&lt;/span&gt;</span>
+                            )}
+                            &lt;span&gt;• {getSeverityLabel(message.severity)}&lt;/span&gt;
+                          &lt;/div&gt;
+                          {message.suggestion &amp;&amp; (
+                            &lt;div className="mt-1.5 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2"&gt;
+                              &lt;div className="flex-1 text-muted-foreground text-[10px]"&gt;
+                                &lt;span className="font-semibold"&gt;Suggestion:&lt;/span&gt; {message.suggestion}
+                              &lt;/div&gt;
+                              &lt;Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; {
+<span class="cstat-no" title="statement not covered" >                                  e.stopPropagation();</span>
+<span class="cstat-no" title="statement not covered" >                                  onInsertSuggestion?.(message.suggestion!, message.line);</span>
+                                }}
+                                className="h-5 w-5 p-0 flex items-center justify-center hover:bg-primary/20"
+                                title="Insert suggestion"
+                              &gt;
+                                &lt;Plus className="h-3.5 w-3.5" /&gt;
+                              &lt;/Button&gt;
+                            &lt;/div&gt;
+                          )}
+                        &lt;/div&gt;
                       &lt;/div&gt;
                     &lt;/div&gt;
-                  &lt;/div&gt;
-                ))}
-              &lt;/div&gt;
-            ))}
-          &lt;/div&gt;
+                  ))}
+                &lt;/div&gt;
+              ))}
+            &lt;/div&gt;
           )}
         &lt;/TabsContent&gt;
 &nbsp;
         {/* I/O Registry Tab */}
-        &lt;TabsContent value="registry" className="flex-1 overflow-auto custom-scrollbar m-0 flex flex-col"&gt;
+        &lt;TabsContent
+          value="registry"
+          className="flex-1 overflow-auto custom-scrollbar m-0 flex flex-col data-[state=inactive]:hidden"
+        &gt;
           {/* Toggle Button for Pin Visibility */}
           &lt;div className="sticky top-0 bg-muted/50 border-b border-muted-foreground/30 px-3 py-2 flex items-center justify-between z-10"&gt;
             &lt;span className="text-xs text-muted-foreground"&gt;
@@ -1417,7 +1438,7 @@ export function ParserOutput({ messages, ioRegistry = <span class="branch-0 cbra
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-15T16:01:28.797Z
+                at 2026-01-16T04:52:56.783Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
