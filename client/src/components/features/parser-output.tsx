@@ -175,77 +175,84 @@ export function ParserOutput({ messages, ioRegistry = [], onClear, onGoToLine, o
         </div>
 
         {/* Messages Tab */}
-        <TabsContent value="messages" className="flex-1 overflow-auto custom-scrollbar m-0">
+        <TabsContent
+          value="messages"
+          className="flex-1 flex flex-col overflow-hidden m-0 data-[state=inactive]:hidden"
+        >
+          <style>{hideScrollbarStyle}</style>
           {messages.length === 0 ? (
             <div className="text-muted-foreground p-4 text-center text-xs">
               No parser messages
             </div>
           ) : (
-          <div className="p-3 text-xs space-y-2">
-            {Object.entries(messagesByCategory).map(([category, categoryMessages]) => (
-              <div key={category} className="space-y-1">
-                {/* Category Header */}
-                <div className="text-muted-foreground font-semibold uppercase tracking-wide text-[10px] mb-1.5">
-                  {getCategoryLabel(category)}
-                </div>
+            <div className="p-3 text-xs space-y-2 overflow-auto no-scrollbar flex-1">
+              {Object.entries(messagesByCategory).map(([category, categoryMessages]) => (
+                <div key={category} className="space-y-1">
+                  {/* Category Header */}
+                  <div className="text-muted-foreground font-semibold uppercase tracking-wide text-[10px] mb-1.5">
+                    {getCategoryLabel(category)}
+                  </div>
 
-                {/* Category Messages */}
-                {categoryMessages.map((message) => (
-                  <div
-                    key={message.id}
-                    className="p-2 bg-muted/50 rounded border-l-2 cursor-pointer hover:bg-muted/70 transition-colors"
-                    style={{
-                      borderLeftColor: 
-                        message.severity === 1 ? 'rgb(96 165 250)' : // blue-400
-                        message.severity === 2 ? 'rgb(250 204 21)' : // yellow-400
-                        'rgb(248 113 113)' // red-400
-                    }}
-                    onClick={() => message.line !== undefined && onGoToLine?.(message.line)}
-                  >
-                    <div className="flex items-start gap-2">
-                      {getSeverityIcon(message.severity)}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-foreground font-medium mb-1">
-                          {message.message}
-                        </div>
-                        <div className="text-muted-foreground text-[10px] space-x-2">
-                          {message.line !== undefined && <span>Line {message.line}</span>}
-                          {message.column !== undefined && message.column > 0 && (
-                            <span>• Col {message.column}</span>
-                          )}
-                          <span>• {getSeverityLabel(message.severity)}</span>
-                        </div>
-                        {message.suggestion && (
-                          <div className="mt-1.5 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2">
-                            <div className="flex-1 text-muted-foreground text-[10px]">
-                              <span className="font-semibold">Suggestion:</span> {message.suggestion}
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onInsertSuggestion?.(message.suggestion!, message.line);
-                              }}
-                              className="h-5 w-5 p-0 flex items-center justify-center hover:bg-primary/20"
-                              title="Insert suggestion"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                            </Button>
+                  {/* Category Messages */}
+                  {categoryMessages.map((message) => (
+                    <div
+                      key={message.id}
+                      className="p-2 bg-muted/50 rounded border-l-2 cursor-pointer hover:bg-muted/70 transition-colors"
+                      style={{
+                        borderLeftColor: 
+                          message.severity === 1 ? 'rgb(96 165 250)' : // blue-400
+                          message.severity === 2 ? 'rgb(250 204 21)' : // yellow-400
+                          'rgb(248 113 113)' // red-400
+                      }}
+                      onClick={() => message.line !== undefined && onGoToLine?.(message.line)}
+                    >
+                      <div className="flex items-start gap-2">
+                        {getSeverityIcon(message.severity)}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-foreground font-medium mb-1">
+                            {message.message}
                           </div>
-                        )}
+                          <div className="text-muted-foreground text-[10px] space-x-2">
+                            {message.line !== undefined && <span>Line {message.line}</span>}
+                            {message.column !== undefined && message.column > 0 && (
+                              <span>• Col {message.column}</span>
+                            )}
+                            <span>• {getSeverityLabel(message.severity)}</span>
+                          </div>
+                          {message.suggestion && (
+                            <div className="mt-1.5 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2">
+                              <div className="flex-1 text-muted-foreground text-[10px]">
+                                <span className="font-semibold">Suggestion:</span> {message.suggestion}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onInsertSuggestion?.(message.suggestion!, message.line);
+                                }}
+                                className="h-5 w-5 p-0 flex items-center justify-center hover:bg-primary/20"
+                                title="Insert suggestion"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           )}
         </TabsContent>
 
         {/* I/O Registry Tab */}
-        <TabsContent value="registry" className="flex-1 overflow-auto custom-scrollbar m-0 flex flex-col">
+        <TabsContent
+          value="registry"
+          className="flex-1 overflow-auto custom-scrollbar m-0 flex flex-col data-[state=inactive]:hidden"
+        >
           {/* Toggle Button for Pin Visibility */}
           <div className="sticky top-0 bg-muted/50 border-b border-muted-foreground/30 px-3 py-2 flex items-center justify-between z-10">
             <span className="text-xs text-muted-foreground">

@@ -51,7 +51,7 @@ Die Aufgaben sind nach Priorität absteigend sortiert (Kritisch → Hoch → Mit
 
 ## 🟠 HOCH (Priorität 2)
 
-### TASK-005: Duplizierung zwischen SandboxRunner und ArduinoRunner beheben
+### ✅ TASK-005: Duplizierung zwischen SandboxRunner und ArduinoRunner beheben [OBSOLET]
 **Dateien:** 
 - [server/services/sandbox-runner.ts](server/services/sandbox-runner.ts)
 - [server/services/arduino-runner.ts](server/services/arduino-runner.ts)
@@ -74,6 +74,7 @@ export function parsePinStateMessage(line: string): PinStateUpdate | null;
 export function processBufferedLines(buffer: string, newData: string): { lines: string[]; remaining: string };
 ```
 **Geschätzte Zeit:** 3-4 Stunden
+**Status:** ✅ Obsolet seit 15.01.2026 - ArduinoRunner wurde in TASK-003 komplett entfernt, da nur SandboxRunner im Produktionscode verwendet wird. Keine Duplizierung mehr vorhanden.
 
 ---
 

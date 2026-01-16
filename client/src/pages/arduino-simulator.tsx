@@ -540,6 +540,8 @@ export default function ArduinoSimulator() {
   // Ref to request upload after successful compile and to store last compile payload
   const doUploadOnCompileSuccessRef = useRef(false);
   const lastCompilePayloadRef = useRef<{ code: string; headers?: Array<{ name: string; content: string }> } | null>(null);
+  // Ref to skip stopping simulation when a suggestion is inserted
+  const skipSimStopRef = useRef(false);
 
   // Compilation mutation
   const compileMutation = useMutation({
@@ -1073,13 +1075,27 @@ export default function ArduinoSimulator() {
           if (ioMessages.length > 0) {
             let hasNewMessages = false;
             setParserMessages(prev => {
+              // Remove older pinMode-duplicate messages for the same pin so we only show one entry per pin
+              const cleanedPrev = prev.filter(existing => {
+                if (existing.category !== 'pins') return true;
+                const pinMatch = existing.message.match(/Pin\s+(\S+)\s+has\s+pinMode/);
+                if (!pinMatch) return true;
+                const pinKey = pinMatch[1];
+                const isReplaced = ioMessages.some(m => {
+                  if (m.category !== 'pins') return false;
+                  const newMatch = m.message.match(/Pin\s+(\S+)\s+has\s+pinMode/);
+                  return newMatch && newMatch[1] === pinKey;
+                });
+                return !isReplaced;
+              });
+
               // Merge new IO messages with existing messages, avoiding duplicates by message content
-              const existingMessages = new Set(prev.map(m => `${m.category}:${m.message}`));
+              const existingMessages = new Set(cleanedPrev.map(m => `${m.category}:${m.message}`));
               const newMessages = ioMessages.filter(m => !existingMessages.has(`${m.category}:${m.message}`));
               if (newMessages.length > 0) {
                 hasNewMessages = true;
               }
-              return [...prev, ...newMessages];
+              return [...cleanedPrev, ...newMessages];
             });
             // Reset dismissed state to show the panel with new messages
             if (hasNewMessages) {
@@ -1096,13 +1112,14 @@ export default function ArduinoSimulator() {
     setCode(newCode);
     setIsModified(true);
     
-    // Stop simulation when user edits the code
+    // Stop simulation when user edits the code (unless inserting a suggestion)
     sendMessage({ type: 'code_changed' });
-    if (simulationStatus === 'running') {
+    if (simulationStatus === 'running' && !skipSimStopRef.current) {
       setSimulationStatus('stopped');
       // Reset all UI pin state when code changes while running
       resetPinUI();
     }
+    skipSimStopRef.current = false;
     // Detected pin modes and pending conflicts are cleared as part of resetPinUI
     
     // Update the active tab content
@@ -2375,30 +2392,29 @@ export default function ArduinoSimulator() {
                       minSize={15} 
                       id="parser-output-under-editor"
                       collapsible
+                      className={shouldShowParser ? '' : 'hidden'}
                     >
-                      {shouldShowParser ? (
-                        <ParserOutput
-                          messages={parserMessages}
-                          ioRegistry={ioRegistry}
-                          onClear={() => setParserPanelDismissed(true)}
-                          onGoToLine={(line) => {
-                            console.log('Go to line:', line);
-                          }}
-                          onInsertSuggestion={(suggestion, line) => {
-                            if (editorRef.current && typeof (editorRef.current as any).insertSuggestionSmartly === 'function') {
-                              (editorRef.current as any).insertSuggestionSmartly(suggestion, line);
-                              toast({ 
-                                title: 'Suggestion inserted', 
-                                description: 'Code added to the appropriate location' 
-                              });
-                            } else {
-                              console.error('insertSuggestionSmartly method not available on editor');
-                            }
-                          }}
-                        />
-                      ) : (
-                        <div />
-                      )}
+                      <ParserOutput
+                        messages={parserMessages}
+                        ioRegistry={ioRegistry}
+                        onClear={() => setParserPanelDismissed(true)}
+                        onGoToLine={(line) => {
+                          console.log('Go to line:', line);
+                        }}
+                        onInsertSuggestion={(suggestion, line) => {
+                          if (editorRef.current && typeof (editorRef.current as any).insertSuggestionSmartly === 'function') {
+                            // Mark that we're inserting a suggestion so handleCodeChange won't stop the simulation
+                            skipSimStopRef.current = true;
+                            (editorRef.current as any).insertSuggestionSmartly(suggestion, line);
+                            toast({ 
+                              title: 'Suggestion inserted', 
+                              description: 'Code added to the appropriate location' 
+                            });
+                          } else {
+                            console.error('insertSuggestionSmartly method not available on editor');
+                          }
+                        }}
+                      />
                     </ResizablePanel>
                   </>
                 );

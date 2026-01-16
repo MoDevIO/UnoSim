@@ -1,6 +1,6 @@
 void setup()
 {
-    Serial.begin(115200);
+    //Serial.begin(115200);
     pinMode(A0, INPUT);
     
     for (byte i=0; i<7; i++) {
