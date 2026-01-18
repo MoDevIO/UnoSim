@@ -1,14 +1,14 @@
 const byte PINS[] = { 11, 10, 9, 6, 5, 3 };
-const byte NUM_LEDS = sizeof(PINS) / sizeof(PINS[0]); // Automatisch berechnet!
+const byte NUM_LEDS = sizeof(PINS) / sizeof(PINS[0]); // Auto-calculated!
 
-// Konfiguration des Welleneffekts
-const byte LED_OFFSET = 5; // Abstand zwischen LEDs im Welleneffekt
-const byte FADE_DURATION = 20; // Dauer des Fade-Effekts
+// Wave effect configuration
+const byte LED_OFFSET = 5; // LED spacing in wave effect
+const byte FADE_DURATION = 20; // Fade effect duration
 
-// Berechnete Werte: Die Pause muss groß genug sein, damit alle LEDs komplett 
-// durch den Fade laufen können (centerOffset berücksichtigen)
-const byte CENTER_OFFSET = LED_OFFSET * (NUM_LEDS - 1) / 2; // = 5 * 5 / 2 = 12 (abgerundet)
-const byte PAUSE_DURATION = CENTER_OFFSET + LED_OFFSET; // Puffer für äußerste LED
+// Calculated values: pause must be large enough for all LEDs to fully 
+// complete the fade (considering centerOffset)
+const byte CENTER_OFFSET = LED_OFFSET * (NUM_LEDS - 1) / 2; // = 5 * 5 / 2 = 12 (rounded down)
+const byte PAUSE_DURATION = CENTER_OFFSET + LED_OFFSET; // Buffer for outermost LED
 const byte FADE_START = PAUSE_DURATION;
 const byte FADE_END = FADE_START + FADE_DURATION;
 const byte ARRAY_SIZE = FADE_END + PAUSE_DURATION;
@@ -19,7 +19,7 @@ const byte sin_fade_values[] = {
   252, 244, 230, 212, 191, 166, 141, 114, 89, 64, 43, 24, 11, 3
 };
 
-// Sicheres Setzen der LED-Helligkeit mit Bereichsprüfung
+// Safe LED brightness setting with range check
 inline void switchLED(byte ledIndex, int arrayIndex) {
   byte value = 0;
   if (arrayIndex >= FADE_START && arrayIndex < FADE_END) {
@@ -39,10 +39,10 @@ void switchLEDs(int position) {
 void setup() {
   Serial.begin(115200);
   
-  // Alle LED-Pins als Ausgänge konfigurieren
+  // Configure all LED pins as outputs
   for (byte i = 0; i < NUM_LEDS; i++) {
     pinMode(PINS[i], OUTPUT);
-    digitalWrite(PINS[i], LOW); // Sicherer als analogWrite für initialen Aus-Zustand
+    digitalWrite(PINS[i], LOW); // Safer than analogWrite for initial off state
   }
   
   Serial.println("LED Sinus-Fade gestartet"); // F() spart RAM

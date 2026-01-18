@@ -1,6 +1,6 @@
 //arduino-simulator.tsx
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Cpu, Play, Square, Loader2, Terminal, Wrench, Trash2, ChevronsDown, BarChart, Monitor, SendHorizontal, Columns } from 'lucide-react';
@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { CodeEditor } from '@/components/features/code-editor';
 import { SerialMonitor } from '@/components/features/serial-monitor';
-import { SerialPlotter } from '@/components/features/serial-plotter';
 import { CompilationOutput } from '@/components/features/compilation-output';
 import { ParserOutput } from '@/components/features/parser-output';
 import { SketchTabs } from '@/components/features/sketch-tabs';
@@ -37,6 +36,16 @@ import { apiRequest } from '@/lib/queryClient';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import type { Sketch, ParserMessage, IOPinRecord } from '@shared/schema';
 import { isMac } from '@/lib/platform';
+
+// Lazy load SerialPlotter to defer recharts (~400KB) until needed
+const SerialPlotter = lazy(() => import('@/components/features/serial-plotter').then(m => ({ default: m.SerialPlotter })));
+
+// Loading placeholder for lazy components
+const LoadingPlaceholder = () => (
+  <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
+    <span className="text-sm">Loading chart...</span>
+  </div>
+);
 
 // Logger import
 import { Logger } from '@shared/logger';
@@ -681,7 +690,7 @@ export default function ArduinoSimulator() {
 
   useEffect(() => {
     if (serialOutput.length === 0) {
-      //logger.debug("serialOutput is empty!");
+      // Serial output is empty
     }
   }, [serialOutput]);
 
@@ -1429,14 +1438,6 @@ export default function ArduinoSimulator() {
       
       // Note: Simulation continues running when switching tabs
       // Clear previous outputs only if needed, but keep simulation running
-      // setCliOutput(''); // Commented out to preserve outputs
-      // setSerialOutput([]); // Commented out to preserve outputs
-      // setPinStates([]); // Commented out to preserve pin states
-      // setCompilationStatus('ready'); // Commented out
-      // setArduinoCliStatus('idle'); // Commented out
-      // setGccStatus('idle'); // Commented out
-      // setSimulationStatus('stopped'); // Commented out
-      // setHasCompiledOnce(false); // Commented out
     }
   };
 
@@ -2524,7 +2525,9 @@ export default function ArduinoSimulator() {
 
                         <ResizablePanel defaultSize={50} minSize={20} id="serial-plot-panel">
                           <div className="h-full">
-                            <SerialPlotter output={serialOutput} />
+                            <Suspense fallback={<LoadingPlaceholder />}>
+                              <SerialPlotter output={serialOutput} />
+                            </Suspense>
                           </div>
                         </ResizablePanel>
                       </ResizablePanelGroup>
@@ -2540,7 +2543,9 @@ export default function ArduinoSimulator() {
                       />
                     ) : (
                       <div className="h-full">
-                        <SerialPlotter output={serialOutput} />
+                        <Suspense fallback={<LoadingPlaceholder />}>
+                          <SerialPlotter output={serialOutput} />
+                        </Suspense>
                       </div>
                     )}
                   </div>

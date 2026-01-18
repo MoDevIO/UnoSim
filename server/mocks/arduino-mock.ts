@@ -81,7 +81,7 @@ typedef bool boolean;
 #define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 #define map(value, fromLow, fromHigh, toLow, toHigh) (toLow + (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow))
 
-// Random number generator (für Runner)
+// Random number generator (for runner)
 static std::mt19937 rng(std::time(nullptr));
 
 std::atomic<bool> keepReading(true);
@@ -594,7 +594,7 @@ public:
         serialWrite(oss.str());
     }
     
-    // Spezielle Überladung für byte/uint8_t (wird sonst als char ausgegeben)
+    // Special overload for byte/uint8_t (otherwise printed as char)
     void print(byte v) { 
         std::ostringstream oss;
         oss << (int)v;
@@ -608,7 +608,7 @@ public:
     void print(unsigned long v, int base) { printNumber(v, base); }
     void print(byte v, int base) { printNumber(v, base); }
     
-    // Überladung für Floating-Point mit Dezimalstellen
+    // Overload for floating-point with decimal places
     void print(float v, int decimals) {
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(decimals) << v;
@@ -627,7 +627,7 @@ public:
         serialWrite(oss.str());
     }
     
-    // Spezielle Überladung für byte/uint8_t (wird sonst als char ausgegeben)
+    // Special overload for byte/uint8_t (otherwise printed as char)
     void println(byte v) { 
         std::ostringstream oss;
         oss << (int)v << "\\n";
@@ -651,7 +651,7 @@ public:
         serialWrite(formatNumber(v, base) + "\\n");
     }
     
-    // Überladung für Floating-Point mit Dezimalstellen
+    // Overload for floating-point with decimal places
     void println(float v, int decimals) {
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(decimals) << v << "\\n";

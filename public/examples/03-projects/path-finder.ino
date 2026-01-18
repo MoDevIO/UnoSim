@@ -150,7 +150,7 @@ class Map {
 
       int currX = gx, currY = gy;
       while (dist[currY][currX] != 0) {
-        for (int d = 0; d < 8; d++) { // Jetzt 8 Richtungen zurückverfolgen
+        for (int d = 0; d < 8; d++) { // Now trace back in 8 directions
           int nx = currX + dx[d], ny = currY + dy[d];
           if (nx >= 0 && nx < width && ny >= 0 && ny < height && dist[ny][nx] == dist[currY][currX] - 1) {
             currX = nx; currY = ny;

@@ -1,4 +1,5 @@
 import type { ParserMessage } from './schema';
+import { randomUUID } from 'crypto';
 
 type SeverityLevel = 1 | 2 | 3;
 
@@ -8,19 +9,6 @@ interface LoopContext {
   limit: number;     // e.g., 6
   startLine: number;
   endLine: number;
-}
-
-// Browser-compatible UUID generator
-function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  // Fallback for environments without crypto.randomUUID
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
 }
 
 export class CodeParser {
@@ -121,7 +109,7 @@ export class CodeParser {
       if (serialBeginExists) {
         // Serial.begin exists but is commented out
         messages.push({
-          id: generateUUID(),
+          id: randomUUID(),
           type: 'warning',
           category: 'serial',
           severity: 2 as SeverityLevel,
@@ -132,7 +120,7 @@ export class CodeParser {
       } else {
         // Serial.begin missing entirely
         messages.push({
-          id: generateUUID(),
+          id: randomUUID(),
           type: 'warning',
           category: 'serial',
           severity: 2 as SeverityLevel,
@@ -145,7 +133,7 @@ export class CodeParser {
       const baudRateMatch = uncommentedCode.match(/Serial\s*\.\s*begin\s*\(\s*(\d+)\s*\)/);
       if (baudRateMatch && baudRateMatch[1] !== '115200') {
         messages.push({
-          id: generateUUID(),
+          id: randomUUID(),
           type: 'warning',
           category: 'serial',
           severity: 2 as SeverityLevel,
@@ -159,7 +147,7 @@ export class CodeParser {
     // Check for while (!Serial) antipattern
     if (/while\s*\(\s*!\s*Serial\s*\)/.test(uncommentedCode)) {
       messages.push({
-        id: generateUUID(),
+        id: randomUUID(),
         type: 'warning',
         category: 'serial',
         severity: 2 as SeverityLevel,
@@ -186,7 +174,7 @@ export class CodeParser {
 
         if (!hasAvailableCheck) {
           messages.push({
-            id: generateUUID(),
+            id: randomUUID(),
             type: 'warning',
             category: 'serial',
             severity: 2 as SeverityLevel,
@@ -218,7 +206,7 @@ export class CodeParser {
     if (!setupMatch && anySetup) {
       // setup() exists but has parameters
       messages.push({
-        id: generateUUID(),
+        id: randomUUID(),
         type: 'warning',
         category: 'structure',
         severity: 2 as SeverityLevel,
@@ -228,7 +216,7 @@ export class CodeParser {
       });
     } else if (!setupMatch) {
       messages.push({
-        id: generateUUID(),
+        id: randomUUID(),
         type: 'error',
         category: 'structure',
         severity: 3 as SeverityLevel,
@@ -247,7 +235,7 @@ export class CodeParser {
     if (!loopMatch && anyLoop) {
       // loop() exists but has parameters
       messages.push({
-        id: generateUUID(),
+        id: randomUUID(),
         type: 'warning',
         category: 'structure',
         severity: 2 as SeverityLevel,
@@ -257,7 +245,7 @@ export class CodeParser {
       });
     } else if (!loopMatch) {
       messages.push({
-        id: generateUUID(),
+        id: randomUUID(),
         type: 'error',
         category: 'structure',
         severity: 3 as SeverityLevel,
@@ -309,7 +297,7 @@ export class CodeParser {
 
       if (pin !== undefined && !PWM_PINS.includes(pin)) {
         messages.push({
-          id: generateUUID(),
+          id: randomUUID(),
           type: 'warning',
           category: 'hardware',
           severity: 2 as SeverityLevel,
@@ -346,7 +334,7 @@ export class CodeParser {
         if (!pinModeSet.has(pinStr) && (pin === undefined || !loopConfiguredPins.has(pin)) && !warnedPins.has(pinStr)) {
           warnedPins.add(pinStr);
           messages.push({
-            id: generateUUID(),
+            id: randomUUID(),
             type: 'warning',
             category: 'hardware',
             severity: 2 as SeverityLevel,
@@ -371,7 +359,7 @@ export class CodeParser {
         // It's a variable
         if (!pinModeVariables.has(usedVar)) {
           messages.push({
-            id: generateUUID(),
+            id: randomUUID(),
             type: 'warning',
             category: 'hardware',
             severity: 2 as SeverityLevel,
@@ -392,7 +380,7 @@ export class CodeParser {
       const dynamicDigitalUse = /digital(?:Read|Write)\s*\(\s*[^0-9A\s][^,)]*/;
       if (dynamicDigitalUse.test(this.removeComments(code))) {
         messages.push({
-          id: generateUUID(),
+          id: randomUUID(),
           type: 'warning',
           category: 'hardware',
           severity: 2 as SeverityLevel,
@@ -440,7 +428,7 @@ export class CodeParser {
       if (analogPins.has(pin)) {
         const pinStr = pin >= 14 ? `A${pin - 14}` : `${pin}`;
         messages.push({
-          id: generateUUID(),
+          id: randomUUID(),
           type: 'warning',
           category: 'hardware',
           severity: 2 as SeverityLevel,
@@ -462,7 +450,7 @@ export class CodeParser {
     // Check for while (true) loops
     if (/while\s*\(\s*true\s*\)/.test(code)) {
       messages.push({
-        id: generateUUID(),
+        id: randomUUID(),
         type: 'warning',
         category: 'performance',
         severity: 2 as SeverityLevel,
@@ -476,7 +464,7 @@ export class CodeParser {
     const forLoopRegex = /for\s*\(\s*[^;]+;\s*;\s*[^)]+\)/;
     if (forLoopRegex.test(code)) {
       messages.push({
-        id: generateUUID(),
+        id: randomUUID(),
         type: 'warning',
         category: 'performance',
         severity: 2 as SeverityLevel,
@@ -493,7 +481,7 @@ export class CodeParser {
       const arraySize = parseInt(arrayMatch[1]);
       if (arraySize > 1000) {
         messages.push({
-          id: generateUUID(),
+          id: randomUUID(),
           type: 'warning',
           category: 'performance',
           severity: 2 as SeverityLevel,
@@ -508,7 +496,7 @@ export class CodeParser {
     const functionRegex = /(\w+)\s*\([^)]*\)\s*{[^}]*\1\s*\(/;
     if (functionRegex.test(code)) {
       messages.push({
-        id: generateUUID(),
+        id: randomUUID(),
         type: 'warning',
         category: 'performance',
         severity: 2 as SeverityLevel,

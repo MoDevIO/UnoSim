@@ -180,8 +180,4 @@ process.on('uncaughtException', (error) => {
     startCleanupService();
   });
 
-  //const PORT = process.env.PORT || 3000;
-  //httpServer.listen(PORT, () => {
-  //  console.log(`Backend listening on port ${PORT}`);
-
 })();
