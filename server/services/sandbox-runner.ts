@@ -92,7 +92,7 @@ export class SandboxRunner {
             execSync('docker info', { stdio: 'pipe', timeout: 5000 });
             
             this.dockerAvailable = true;
-            this.logger.info("✅ Docker Daemon läuft - Sandbox-Modus aktiviert");
+            this.logger.info("✅ Docker daemon running — Sandbox mode enabled");
             
             // Check if our sandbox image exists
             try {
@@ -101,12 +101,12 @@ export class SandboxRunner {
                 this.logger.info("✅ Sandbox Docker Image gefunden");
             } catch {
                 this.dockerImageBuilt = false;
-                this.logger.warn("⚠️ Sandbox Docker Image nicht gefunden - führe 'npm run build:sandbox' aus");
+                this.logger.warn("⚠️ Sandbox Docker image not found — run 'npm run build:sandbox'");
             }
         } catch {
             this.dockerAvailable = false;
             this.dockerImageBuilt = false;
-            this.logger.warn("⚠️ Docker nicht verfügbar oder Daemon nicht gestartet - Fallback auf lokale Ausführung");
+            this.logger.warn("⚠️ Docker not available or daemon not started — falling back to local execution");
         }
     }
 
@@ -216,7 +216,7 @@ int main() {
             try {
                 await rm(sketchDir, { recursive: true, force: true });
             } catch {
-                this.logger.warn(`Konnte temp Verzeichnis nicht löschen: ${sketchDir}`);
+                this.logger.warn(`Could not delete temp directory: ${sketchDir}`);
             }
         }
     }
@@ -804,7 +804,7 @@ int main() {
             this.process.stdin.write(input + "\n");
             this.logger.debug(`Serial Input an Sketch gesendet: ${input}`);
         } else {
-            this.logger.warn("Simulator läuft nicht - serial input ignored");
+            this.logger.warn("Simulator is not running — serial input ignored");
         }
     }
 
@@ -866,7 +866,7 @@ int main() {
             
             this.logger.info(`[SET_PIN] pin=${pin} value=${value} writeOk=${success}`);
         } else {
-            this.logger.warn("setPinValue: Simulator läuft nicht - pin value ignored");
+            this.logger.warn("setPinValue: Simulator is not running — pin value ignored");
         }
     }
 

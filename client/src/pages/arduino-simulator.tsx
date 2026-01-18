@@ -40,8 +40,6 @@ import type { Sketch, ParserMessage, IOPinRecord } from '@shared/schema';
 // Logger import
 import { Logger } from '@shared/logger';
 const logger = new Logger("ArduinoSimulator");
-// Intentionally reference to satisfy no-unused-locals during type check
-void logger;
 
 // NEW: Interface for output lines to track completion status
 interface OutputLine {
@@ -337,7 +335,7 @@ export default function ArduinoSimulator() {
       }
       const chosenZ = z > 0 ? Math.max(z - 1, 5) : 30;
       setOverlayZ(chosenZ);
-      console.debug('[mobile overlay] header detect:', hdr, 'headerHeight=', h, 'overlayZ=', chosenZ);
+      logger.debug('[mobile overlay] header detect:', hdr, 'headerHeight=', h, 'overlayZ=', chosenZ);
     };
 
     measure();
@@ -486,7 +484,7 @@ export default function ArduinoSimulator() {
     
     if (wasUnreachable && isNowReachable) {
       // Backend just transitioned from unreachable to reachable
-      console.log('[Backend] Recovered, refetching queries...');
+      logger.info('[Backend] Recovered, refetching queries...');
       queryClient.refetchQueries({ queryKey: ['/api/sketches'] });
     }
   }, [backendReachable, queryClient]);
@@ -595,7 +593,7 @@ export default function ArduinoSimulator() {
           if (data.success) {
             const payload = lastCompilePayloadRef.current;
             if (payload) {
-              console.log('[CLIENT] Uploading compiled artifact...', payload);
+              logger.info('[CLIENT] Uploading compiled artifact...', payload);
               uploadMutation.mutate(payload);
             } else {
               toast({ title: 'Upload failed', description: 'No compiled artifact available to upload.', variant: 'destructive' });
@@ -899,7 +897,7 @@ export default function ArduinoSimulator() {
           if (lastSerialEventAtRef.current && (now - lastSerialEventAtRef.current) < 1000 && !isSystemSerialMessage) {
             // Short-circuit: drop this legacy serial_output
             // eslint-disable-next-line no-console
-            console.debug('Dropping legacy serial_output because recent serial_event exists', { text, ageMs: now - lastSerialEventAtRef.current });
+            logger.debug('Dropping legacy serial_output because recent serial_event exists', { text, ageMs: now - lastSerialEventAtRef.current });
             break;
           }
 
@@ -982,7 +980,7 @@ export default function ArduinoSimulator() {
         case 'compilation_error':
           // For GCC errors: REPLACE previous output, do not append
           // Arduino-CLI reported success, but GCC failed
-          console.log('[WS] GCC Compilation Error detected:', message.data);
+          logger.info('[WS] GCC Compilation Error detected:', message.data);
           setCliOutput('❌ GCC Compilation Error:\n\n' + message.data);
           setGccStatus('error');
           setCompilationStatus('error');
@@ -1655,7 +1653,7 @@ export default function ArduinoSimulator() {
       name: tab.name,
       content: tab.content
     }));
-    console.log('[CLIENT] Compiling with', headers.length, 'headers');
+    logger.info('[CLIENT] Compiling with', headers.length, 'headers');
     // Store payload so we can upload it after compile if requested
     lastCompilePayloadRef.current = { code: mainSketchCode, headers };
     compileMutation.mutate({ code: mainSketchCode, headers });
@@ -1675,7 +1673,7 @@ export default function ArduinoSimulator() {
 
   // Reset simulation (stop, recompile, and restart - like pressing the physical reset button)
   const handleReset = () => {
-    if (!ensureBackendConnected('Simulation zurücksetzen')) return;
+    if (!ensureBackendConnected('Reset simulation')) return;
     // Stop if running
     if (simulationStatus === 'running') {
       sendMessage({ type: 'stop_simulation' });
@@ -1701,8 +1699,8 @@ export default function ArduinoSimulator() {
   const handlePinToggle = (pin: number, newValue: number) => {
     if (simulationStatus !== 'running') {
       toast({
-        title: "Simulation nicht aktiv",
-        description: "Starte die Simulation, um Pin-Werte zu ändern.",
+        title: "Simulation not active",
+        description: "Start the simulation to change pin values.",
         variant: "destructive",
       });
       return;
@@ -1729,8 +1727,8 @@ export default function ArduinoSimulator() {
   const handleAnalogChange = (pin: number, newValue: number) => {
     if (simulationStatus !== 'running') {
       toast({
-        title: "Simulation nicht aktiv",
-        description: "Starte die Simulation, um Pin-Werte zu ändern.",
+        title: "Simulation not active",
+        description: "Start the simulation to change pin values.",
         variant: "destructive",
       });
       return;
@@ -1795,10 +1793,10 @@ export default function ArduinoSimulator() {
       name: tab.name,
       content: tab.content
     }));
-    console.log('[CLIENT] Compile & Start with', headers.length, 'headers');
-    console.log('[CLIENT] Code length:', mainSketchCode.length, 'bytes');
-    console.log('[CLIENT] Main code from:', editorRef.current ? 'editor' : (tabs[0]?.content ? 'tabs' : 'state'));
-    console.log('[CLIENT] Tabs:', tabs.map(t => `${t.name}(${t.content.length}b)`).join(', '));
+    logger.info('[CLIENT] Compile & Start with', headers.length, 'headers');
+    logger.info('[CLIENT] Code length:', mainSketchCode.length, 'bytes');
+    logger.info('[CLIENT] Main code from:', editorRef.current ? 'editor' : (tabs[0]?.content ? 'tabs' : 'state'));
+    logger.info('[CLIENT] Tabs:', tabs.map(t => `${t.name}(${t.content.length}b)`).join(', '));
     
     setCliOutput('');
     setSerialOutput([]);
@@ -1807,7 +1805,7 @@ export default function ArduinoSimulator() {
 
     compileMutation.mutate({ code: mainSketchCode, headers }, {
       onSuccess: (data) => {
-        console.log('[CLIENT] Compile response:', JSON.stringify(data, null, 2));
+        logger.info('[CLIENT] Compile response:', JSON.stringify(data, null, 2));
         
         // Update arduinoCliStatus based on compile result
         setArduinoCliStatus(data.success ? 'success' : 'error');
@@ -1815,10 +1813,10 @@ export default function ArduinoSimulator() {
         
         // Display compilation output or errors (REPLACE, don't append)
         if (data.success) {
-          console.log('[CLIENT] Compile SUCCESS, output:', data.output);
+          logger.info('[CLIENT] Compile SUCCESS, output:', data.output);
           setCliOutput(data.output || '✓ Arduino-CLI Compilation succeeded.');
         } else {
-          console.log('[CLIENT] Compile FAILED, errors:', data.errors);
+          logger.info('[CLIENT] Compile FAILED, errors:', data.errors);
           setCliOutput(data.errors || '✗ Arduino-CLI Compilation failed.');
         }
         
@@ -2399,7 +2397,7 @@ export default function ArduinoSimulator() {
                         ioRegistry={ioRegistry}
                         onClear={() => setParserPanelDismissed(true)}
                         onGoToLine={(line) => {
-                          console.log('Go to line:', line);
+                            logger.debug('Go to line:', line);
                         }}
                         onInsertSuggestion={(suggestion, line) => {
                           if (editorRef.current && typeof (editorRef.current as any).insertSuggestionSmartly === 'function') {
@@ -2663,7 +2661,7 @@ export default function ArduinoSimulator() {
                             ioRegistry={ioRegistry}
                             onClear={() => setParserPanelDismissed(true)}
                             onGoToLine={(line) => {
-                              console.log('Go to line:', line);
+                              logger.debug('Go to line:', line);
                             }}
                           />
                         </div>

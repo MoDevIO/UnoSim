@@ -72,7 +72,7 @@ export class ArduinoCompiler {
         return {
           success: false,
           output: "",
-          errors: `Fehlende Arduino-Funktionen: ${missingFunctions.join(' und ')}\n\nArduino-Programme benötigen:\n- void setup() { }\n- void loop() { }`,
+          errors: `Missing Arduino functions: ${missingFunctions.join(' and ')}\n\nArduino sketches require:\n- void setup() { }\n- void loop() { }`,
           arduinoCliStatus: 'error',
           gccStatus: 'idle',
           parserMessages, // Include parser messages even on error
@@ -143,11 +143,11 @@ export class ArduinoCompiler {
 
       if (cliResult === null) {
         arduinoCliStatus = 'error';
-        cliErrors = "Arduino CLI nicht verfügbar";
+        cliErrors = "Arduino CLI not available";
       } else if (!cliResult.success) {
         arduinoCliStatus = 'error';
         cliOutput = "";
-        cliErrors = cliResult.errors || "Compilation fehlgeschlagen";
+        cliErrors = cliResult.errors || "Compilation failed";
       } else {
         arduinoCliStatus = 'success';
         cliOutput = cliResult.output || "";
@@ -240,7 +240,7 @@ export class ArduinoCompiler {
             output: parsedOutput,
           });
         } else {
-          // Compilation fehlgeschlagen (Syntaxfehler etc.)
+          // Compilation failed (syntax error etc.)
           // Bereinige Fehlermeldungen von Pfaden
           const escapedPath = sketchFile.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
           const cleanedErrors = errors
@@ -252,7 +252,7 @@ export class ArduinoCompiler {
           resolve({
             success: false,
             output: "",
-            errors: cleanedErrors || "Compilation fehlgeschlagen"
+            errors: cleanedErrors || "Compilation failed"
           });
         }
       });

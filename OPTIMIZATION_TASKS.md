@@ -51,7 +51,7 @@ Die Aufgaben sind nach Priorität absteigend sortiert (Kritisch → Hoch → Mit
 
 ## 🟠 HOCH (Priorität 2)
 
-### ✅ TASK-005: Duplizierung zwischen SandboxRunner und ArduinoRunner beheben [OBSOLET]
+### ✅ TASK-005: Duplizierung zwischen SandboxRunner und ArduinoRunner beheben [ERLEDIGT]
 **Dateien:** 
 - [server/services/sandbox-runner.ts](server/services/sandbox-runner.ts)
 - [server/services/arduino-runner.ts](server/services/arduino-runner.ts)
@@ -74,11 +74,12 @@ export function parsePinStateMessage(line: string): PinStateUpdate | null;
 export function processBufferedLines(buffer: string, newData: string): { lines: string[]; remaining: string };
 ```
 **Geschätzte Zeit:** 3-4 Stunden
-**Status:** ✅ Obsolet seit 15.01.2026 - ArduinoRunner wurde in TASK-003 komplett entfernt, da nur SandboxRunner im Produktionscode verwendet wird. Keine Duplizierung mehr vorhanden.
+**Status:** ✅ Erledigt am 18.01.2026 — Aufgabe geprüft und abgeschlossen. ArduinoRunner wurde in TASK-003 entfernt, wodurch die ursprüngliche Quell-Duplizierung entfiel. Prüfung des Codes ergab keine verbleibenden redundanten Implementierungen zwischen Runnern; ein `runner-utils.ts` Modul ist aktuell nicht erforderlich. Tests laufen weiterhin erfolgreich.
 
 ---
 
-### TASK-006: Deutsche Texte in User-Facing Components übersetzen
+### ✅ TASK-006: Deutsche Texte in User-Facing Components übersetzen [ERLEDIGT]
+**Status:** ✅ Erledigt am 18.01.2026 — Client-facing strings translated in sketch-tabs and arduino-simulator; toasts and dialogs now in English.
 **Dateien mit höchster Priorität:**
 
 #### sketch-tabs.tsx (17 Stellen)
@@ -108,7 +109,8 @@ Zeile 1715-1716: Gleiche Übersetzungen
 
 ---
 
-### TASK-007: Deutsche Texte in Server-Code übersetzen
+### ✅ TASK-007: Deutsche Texte in Server-Code übersetzen [ERLEDIGT]
+**Status:** ✅ Erledigt am 18.01.2026 — Translated server logs/messages in sandbox-runner, arduino-compiler, and server/index; updated tests accordingly.
 **Dateien:**
 
 #### server/services/sandbox-runner.ts
@@ -137,7 +139,8 @@ Zeile 177: "Server läuft auf" → "Server running at"
 
 ---
 
-### TASK-008: console.log/console.debug Statements entfernen
+### ✅ TASK-008: console.log/console.debug Statements entfernen [ERLEDIGT]
+**Status:** ✅ Erledigt am 18.01.2026 — Replaced client console logs with shared logger in arduino-simulator and use-websocket; suppressed DEBUG logs in browser for production via Logger.
 **Dateien:**
 - [client/src/pages/arduino-simulator.tsx](client/src/pages/arduino-simulator.tsx) - 15+ Stellen
 - [client/src/hooks/use-websocket.tsx](client/src/hooks/use-websocket.tsx) - 5 Stellen
@@ -156,7 +159,8 @@ Zeile 340, 489, 596, 900, 983, 1641, 1781-1784, 1793, 1801, 1804, 2385, 2650
 
 ---
 
-### TASK-009: Ungenutzte Logger-Instanz korrigieren
+### ✅ TASK-009: Ungenutzte Logger-Instanz korrigieren [ERLEDIGT]
+**Status:** ✅ Erledigt am 18.01.2026 — Removed void reference and adopted Logger throughout arduino-simulator to replace console logs.
 **Datei:** [client/src/pages/arduino-simulator.tsx](client/src/pages/arduino-simulator.tsx#L41-L44)
 **Problem:**
 ```typescript
@@ -278,7 +282,7 @@ export const isWindows = typeof navigator !== 'undefined' &&
 - [PARSER_UI_IMPLEMENTATION.md](PARSER_UI_IMPLEMENTATION.md) - Komplett Deutsch
 
 **Aktion:** 
-Option A: Ins Englische übersetzen
+Option A: Ins Englische übersetzen (diese umsetzen)
 Option B: Falls nur interne Doku, Dateinamen mit `_DE` suffix versehen
 **Geschätzte Zeit:** 2-3 Stunden
 

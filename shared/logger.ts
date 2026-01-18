@@ -9,9 +9,20 @@ export class Logger {
     this.sender = sender;
   }
 
-  private log(level: LogLevel, message: string) {
+  private log(level: LogLevel, ...args: any[]) {
+    const isBrowser = typeof window !== 'undefined';
+    const nodeEnv = (typeof process !== 'undefined' && process.env?.NODE_ENV) || undefined;
+    const allowDebug = !isBrowser || nodeEnv === 'development' || nodeEnv === 'test';
+
+    // Suppress DEBUG logs in browser when not in development or test
+    if (level === 'DEBUG' && !allowDebug) return;
+
+    const message = args.map(a => {
+      if (typeof a === 'string') return a;
+      try { return JSON.stringify(a); } catch { return String(a); }
+    }).join(' ');
+
     if (level === 'TEST') {
-      // Nur die Message ausgeben
       console.log(message);
     } else {
       const timestamp = new Date().toISOString();

@@ -54,7 +54,7 @@ describe('ArduinoCompiler', () => {
     // should never call compileWithArduinoCli because validation fails early
     expect(compileSpy).not.toHaveBeenCalled();
     expect(result.success).toBe(false);
-    expect(result.errors).toContain('Fehlende Arduino-Funktionen');
+    expect(result.errors).toContain('Missing Arduino functions');
     expect(result.arduinoCliStatus).toBe('error');
   });
 
@@ -67,7 +67,7 @@ describe('ArduinoCompiler', () => {
     const result = await compiler.compile(code);
 
     expect(result.success).toBe(false);
-    expect(result.errors).toContain('Arduino CLI nicht verfügbar');
+    expect(result.errors).toContain('Arduino CLI not available');
     expect(result.arduinoCliStatus).toBe('error');
   });
 });

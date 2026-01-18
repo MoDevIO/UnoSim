@@ -174,7 +174,7 @@ process.on('uncaughtException', (error) => {
   // It is the only port that is not firewalled.
   const PORT = Number(process.env.PORT) || 3000;
   server.listen(PORT, () => {
-    console.log(`[express] Server läuft auf http://localhost:${PORT}`);
+    console.log(`[express] Server running at http://localhost:${PORT}`);
     
     // Start cleanup service for old temp files
     startCleanupService();

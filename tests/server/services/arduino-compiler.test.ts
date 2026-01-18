@@ -332,7 +332,7 @@ describe('ArduinoCompiler - Full Coverage', () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('setup() und loop()'));
+      expect(result.errors).toEqual(expect.stringContaining('setup() and loop()'));
     });
 
     it('should fail when only setup() is missing', async () => {
@@ -364,7 +364,7 @@ describe('ArduinoCompiler - Full Coverage', () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('Arduino CLI nicht verfügbar'));
+      expect(result.errors).toEqual(expect.stringContaining('Arduino CLI not available'));
     });
 
     it('should handle arduino-cli compilation failure', async () => {

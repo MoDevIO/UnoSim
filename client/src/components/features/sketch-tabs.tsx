@@ -210,8 +210,8 @@ export function SketchTabs({
       // Multiple .ino files not allowed
       if (inoCount > 1) {
         toast({
-          title: "Zu viele .ino Dateien",
-          description: "Es darf nur eine .ino Datei geladen werden.",
+          title: "Too many .ino files",
+          description: "Only one .ino file can be loaded.",
           variant: "destructive",
         });
         return;
@@ -228,7 +228,7 @@ export function SketchTabs({
         }
 
         toast({
-          title: "Header-Dateien geladen",
+          title: "Header files loaded",
           description: `${loadedFiles.length} header file(s) added`,
         });
       }
@@ -250,8 +250,8 @@ export function SketchTabs({
     if (pendingFilesToLoad && onFilesLoaded) {
       onFilesLoaded(pendingFilesToLoad, true); // true = replace all
       toast({
-        title: "Sketch ersetzt",
-        description: `${pendingFilesToLoad.length} Datei(en) geladen`,
+        title: "Sketch replaced",
+        description: `${pendingFilesToLoad.length} file(s) loaded`,
       });
     }
     setIsReplaceConfirmOpen(false);
@@ -265,13 +265,13 @@ export function SketchTabs({
       if (hFiles.length > 0) {
         onFilesLoaded(hFiles, false); // false = don't replace all
         toast({
-          title: "Header-Dateien geladen",
-          description: `${hFiles.length} Header-Datei(en) hinzugefügt`,
+          title: "Header files loaded",
+          description: `${hFiles.length} header file(s) added`,
         });
       } else {
         toast({
-          title: "Keine Header-Dateien",
-          description: "Es waren nur .ino Dateien vorhanden.",
+          title: "No header files",
+          description: "Only .ino files were present.",
         });
       }
     }
@@ -303,14 +303,14 @@ export function SketchTabs({
       // Show success toast after all downloads are initiated
       setTimeout(() => {
         toast({
-          title: "Download gestartet",
-          description: `${tabs.length} Datei(en) werden heruntergeladen`,
+          title: "Download started",
+          description: `${tabs.length} file(s) downloading`,
         });
       }, tabs.length * 200 + 100);
     } catch (error) {
       toast({
-        title: "Download fehlgeschlagen",
-        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     }

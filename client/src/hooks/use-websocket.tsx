@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { wsMessageSchema, type WSMessage } from '@shared/schema';
+import { Logger } from '@shared/logger';
+const logger = new Logger('WebSocketHook');
 
 export function useWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
@@ -20,7 +22,7 @@ export function useWebSocket() {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        logger.info('WebSocket connected');
         setIsConnected(true);
         setHasEverConnected(true);
         setConnectionError(null);
@@ -30,18 +32,18 @@ export function useWebSocket() {
       ws.onmessage = (event) => {
         try {
           const rawData = JSON.parse(event.data);
-          console.log('[WS HOOK] Raw message received:', rawData.type, rawData);
+          logger.debug('[WS HOOK] Raw message received:', rawData.type, rawData);
           const data = wsMessageSchema.parse(rawData);
           // Add to queue instead of replacing
           setMessageQueue(prev => [...prev, data]);
           setLastMessage(data);
         } catch (error) {
-          console.error('[WS HOOK] Invalid WebSocket message:', error, 'Raw:', event.data);
+          logger.error('[WS HOOK] Invalid WebSocket message:', error, 'Raw:', event.data);
         }
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        logger.info('WebSocket disconnected');
         setIsConnected(false);
         setConnectionError('WebSocket disconnected. Reconnecting...');
         // Attempt to reconnect
@@ -49,13 +51,13 @@ export function useWebSocket() {
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        logger.error('WebSocket error:', error);
         setIsConnected(false);
         setConnectionError('WebSocket error. Backend may be unreachable.');
         scheduleReconnect();
       };
     } catch (error) {
-      console.error('Failed to create WebSocket:', error);
+      logger.error('Failed to create WebSocket:', error);
       setIsConnected(false);
       setConnectionError('Cannot establish WebSocket. Backend unreachable.');
       scheduleReconnect();
@@ -68,7 +70,7 @@ export function useWebSocket() {
       const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000;
       reconnectAttemptsRef.current += 1;
       
-      console.log(`Scheduling WebSocket reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current})`);
+      logger.info(`Scheduling WebSocket reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current})`);
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
       }, delay);
@@ -92,7 +94,7 @@ export function useWebSocket() {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
     } else {
-      console.warn('WebSocket is not open. Message not sent:', message);
+      logger.warn('WebSocket is not open. Message not sent:', message);
     }
   };
 
