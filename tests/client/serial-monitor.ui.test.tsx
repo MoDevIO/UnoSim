@@ -9,7 +9,7 @@ describe('SerialMonitor UI', () => {
     onClear: jest.fn(),
   };
 
-  it('zeigt den Serial-Frame an und rendert den Platzhalter ohne Output', async () => {
+  it('displays the Serial frame and renders placeholder without output', async () => {
     render(
       <SerialMonitor
         {...baseProps}
@@ -23,7 +23,7 @@ describe('SerialMonitor UI', () => {
     expect(await screen.findByText('Serial output will appear here...')).toBeInTheDocument();
   });
 
-  it('blendet den Serial-Frame aus, wenn showMonitor=false gesetzt ist', () => {
+  it('hides the Serial frame when showMonitor=false is set', () => {
     render(
       <SerialMonitor
         {...baseProps}
@@ -35,7 +35,7 @@ describe('SerialMonitor UI', () => {
     expect(screen.queryByTestId('serial-output')).toBeNull();
   });
 
-  it('zeigt empfangenen Serial-Text im Frame an', async () => {
+  it('displays received Serial text in the frame', async () => {
     render(
       <SerialMonitor
         {...baseProps}

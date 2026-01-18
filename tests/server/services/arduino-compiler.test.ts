@@ -1,10 +1,10 @@
 /**
- * Vollständige Test-Suite für ArduinoCompiler mit 100% Coverage
+ * Complete Test Suite for ArduinoCompiler with 100% Coverage
  * 
- * Diese Tests decken alle verbleibenden Edge-Cases ab:
- * - Zeile 88: rm Fehler im finally Block
- * - Zeile 194: Fallback-Output ohne Memory-Information
- * - Zeilen 271-273: GCC Error ohne stderr
+ * These tests cover all remaining Edge Cases:
+ * - Line 88: rm error in finally block
+ * - Line 194: Fallback output without Memory information
+ * - Lines 271-273: GCC Error without stderr
  */
 
 import { ArduinoCompiler } from '../../../server/services/arduino-compiler';
@@ -207,7 +207,7 @@ describe('ArduinoCompiler - Full Coverage', () => {
       expect(result.output).toEqual(expect.stringContaining('Der Sketch verwendet 1024 Bytes'));
     });
 
-    // CRITICAL: Test für Zeile 194
+    // CRITICAL: Test for line 194
     it('should use (Simulation) output if no memory information is present', async () => {
       const code = `
         void setup() { Serial.begin(115200); }

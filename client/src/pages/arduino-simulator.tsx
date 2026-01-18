@@ -36,16 +36,11 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import type { Sketch, ParserMessage, IOPinRecord } from '@shared/schema';
+import { isMac } from '@/lib/platform';
 
 // Logger import
 import { Logger } from '@shared/logger';
 const logger = new Logger("ArduinoSimulator");
-
-// NEW: Interface for output lines to track completion status
-interface OutputLine {
-  text: string;
-  complete: boolean;
-}
 
 // Pin state interface for Arduino board visualization
 interface PinState {
@@ -253,7 +248,6 @@ export default function ArduinoSimulator() {
 
   // Mobile UI: detect small screens and provide a floating tab full-screen view
   const isClient = typeof window !== 'undefined';
-  const isMac = isClient ? navigator.platform.toUpperCase().includes('MAC') : false;
   const mqQuery = '(max-width: 768px)';
   const initialIsMobile = isClient ? window.matchMedia(mqQuery).matches : false;
   const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile);
@@ -2045,7 +2039,7 @@ export default function ArduinoSimulator() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={(e) => { e.preventDefault(); openSettings(); }}>
                     Settings
-                    <DropdownMenuShortcut>{navigator.platform.toUpperCase().includes('MAC') ? '⌘,' : 'Ctrl+,'}</DropdownMenuShortcut>
+                    <DropdownMenuShortcut>{isMac ? '⌘,' : 'Ctrl+,'}</DropdownMenuShortcut>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -1,10 +1,6 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-
-interface OutputLine {
-  text: string;
-  complete: boolean;
-}
+import type { OutputLine } from '@shared/schema';
 
 interface SerialPlotterProps {
   output: OutputLine[];

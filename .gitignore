@@ -1,56 +1,56 @@
 ############################
-# 1. GENERELLE ARTEFAKTE #
+# 1. GENERAL ARTIFACTS    #
 ############################
 
-# Temporäre Dateien des Betriebssystems
-# Ignoriert macOS-spezifische Dateien
+# Temporary files from the operating system
+# Ignore macOS-specific files
 .DS_Store
-# Ignoriert Windows-spezifische Dateien
+# Ignore Windows-specific files
 Thumbs.db
-# Ignoriert System-Cache-Dateien
+# Ignore system cache files
 *.bak
 *.swp
 *~
 *.log
 
-# Komprimierte Dateien, die in der Regel groß sind und neu erstellt werden können
+# Compressed files that are usually large and can be recreated
 *.tar.gz
 *.zip
 
 ##################################
-# 2. ABHÄNGIGKEITEN & MODULE     #
+# 2. DEPENDENCIES & MODULES      #
 ##################################
 
 # Node.js / JavaScript
-# Ignoriert den Ordner, der alle heruntergeladenen Projekt-Abhängigkeiten enthält.
-# Dieser Ordner ist zu groß und wird von 'npm install' neu erstellt.
+# Ignore the folder containing all downloaded project dependencies.
+# This folder is too large and will be recreated by 'npm install'.
 /node_modules/
 
 # PHP / Composer
-# Ignoriert den Composer-Abhängigkeitsordner.
+# Ignore the Composer dependency folder.
 /vendor/
 
 # Python
-# Ignoriert virtuelle Umgebungen (Virtual Environments).
+# Ignore virtual environments.
 .venv/
 /env/
 /venv/
 
 ##################################
-# 3. BUILD- & KOMPILIERUNGSZIELE #
+# 3. BUILD & COMPILATION TARGETS #
 ##################################
 
 # Frontend (Vite, Webpack, etc.)
-# Ignoriert den finalen Build-Output (den "fertigen" Code für die Produktion).
+# Ignore the final build output (the "finished" code for production).
 /dist/
 /build/
 /temp/*
 !/temp/.gitkeep
 
-# Build-Caches
-# Ignoriert Vite- oder andere Build-Caches.
+# Build caches
+# Ignore Vite or other build caches.
 .vite/
-# Ignoriert Caches für Next.js/Gatsby/etc.
+# Ignore caches for Next.js/Gatsby/etc.
 .next/
 .cache/
 
@@ -58,50 +58,50 @@ Thumbs.db
 /target/
 
 ##################################
-# 4. ENTWICKLER-TOOLS & EDIOTREN #
+# 4. DEVELOPER TOOLS & EDITORS   #
 ##################################
 
 
-# Lokale oder temporäre Ordner für individuelle Tests
+# Local or temporary folders for individual tests
 .local/
 tem/
 
 ##################################
-# 5. SENSIBLE DATEN (SICHERHEIT) #
+# 5. SENSITIVE DATA (SECURITY)   #
 ##################################
 
-# Umgebungsvariablen
-# ESSENTIELL: Ignoriert die Datei, die sensible Daten (API-Keys, Passwörter) enthält.
+# Environment variables
+# ESSENTIAL: Ignore the file containing sensitive data (API keys, passwords).
 .env
-# Ignoriert die lokalen/Test-Versionen der .env-Datei.
+# Ignore local/test versions of the .env file.
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
 ##################################
-# 6. SERVER-SPEZIFISCHE ARTEFAKTE #
+# 6. SERVER-SPECIFIC ARTIFACTS   #
 ##################################
 
-# Gegebenenfalls erstellte öffentliche oder temporäre Dateien auf dem Server
-# Wenn 'server/public' nur automatisch generierte Dateien enthält, ignorieren:
+# Public or temporary files potentially created on the server
+# If 'server/public' only contains auto-generated files, ignore:
 # server/public/
-# Wenn 'server/public' handgeschriebene Assets (Bilder, Favicons) enthält, NICHT ignorieren.
+# If 'server/public' contains hand-written assets (images, favicons), DO NOT ignore.
 
-# Ignoriert Datenbank-Dateien, wenn diese lokal gehalten werden (z.B. SQLite)
+# Ignore database files if they are kept locally (e.g., SQLite)
 *.sqlite
 *.db
 
 ##################################
-# 7. TYPESCRIPT/JEST ARTEFAKTE   #
+# 7. TYPESCRIPT/JEST ARTIFACTS   #
 ##################################
 
-# TypeScript Build-Informationen
-# Caches, die von TypeScript-Compilern erstellt werden.
+# TypeScript build information
+# Caches created by TypeScript compilers.
 *.tsbuildinfo
 
-# Jest (Test-Framework)
-# Ignoriert den Ordner mit Test-Coverage-Berichten.
+# Jest (test framework)
+# Ignore the folder containing test coverage reports.
 /coverage/
 .vercel
 .env*.local

@@ -1,9 +1,5 @@
 import { useRef, useEffect } from 'react';
-
-interface OutputLine {
-  text: string;
-  complete: boolean;
-}
+import type { OutputLine } from '@shared/schema';
 
 interface SerialMonitorProps {
   output: OutputLine[];

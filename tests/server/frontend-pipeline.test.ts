@@ -4,11 +4,7 @@
  */
 import { describe, it, expect } from '@jest/globals';
 import { applyBackspaceAcrossLines } from '../../client/src/components/features/serial-monitor';
-
-interface OutputLine {
-  text: string;
-  complete: boolean;
-}
+import type { OutputLine } from '../../shared/schema';
 
 /**
  * Simulates processSerialEvents from arduino-simulator.tsx

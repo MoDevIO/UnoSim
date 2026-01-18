@@ -20,8 +20,8 @@ describe('ArduinoCompiler - Parser Messages Tests', () => {
     mockRm.mockResolvedValue(undefined);
   });
 
-  describe('Parser Messages erscheinen NUR im parserMessages-Feld', () => {
-    it('Serial-Warnungen erscheinen NICHT im output-Feld', async () => {
+  describe('Parser Messages appear ONLY in parserMessages field', () => {
+    it('Serial warnings do NOT appear in output field', async () => {
       const code = `
         void setup() {
           Serial.begin(9600); // Falsche Baudrate
@@ -47,30 +47,30 @@ describe('ArduinoCompiler - Parser Messages Tests', () => {
 
       expect(result.success).toBe(true);
       
-      // Parser-Messages müssen existieren
+      // Parser messages must exist
       expect(result.parserMessages).toBeDefined();
       expect(Array.isArray(result.parserMessages)).toBe(true);
       
       const messages = result.parserMessages!;
       const serialMessages = messages.filter(m => m.category === 'serial');
       
-      // Serial-Warnungen müssen im parserMessages-Feld sein
+      // Serial warnings must be in parserMessages field
       expect(serialMessages.length).toBeGreaterThan(0);
       expect(serialMessages.some(m => m.message.includes('9600'))).toBe(true);
       
-      // Output-Feld darf KEINE Serial-Warnungen enthalten
+      // Output field must NOT contain Serial warnings
       expect(result.output).not.toContain('Serial.begin');
       expect(result.output).not.toContain('9600');
       expect(result.output).not.toContain('115200');
       expect(result.output).not.toContain('baudrate');
       expect(result.output).not.toContain('Baudrate');
       
-      // Output enthält nur Compiler-Informationen
+      // Output contains only compiler information
       expect(result.output).toContain('Sketch uses');
       expect(result.output).toContain('Board: Arduino UNO');
     });
 
-    it('Fehlende Serial.begin()-Warnung erscheint NICHT im output-Feld', async () => {
+    it('Missing Serial.begin() warning does NOT appear in output field', async () => {
       const code = `
         void setup() {
           // Serial.begin(115200); // auskommentiert
@@ -96,23 +96,23 @@ describe('ArduinoCompiler - Parser Messages Tests', () => {
 
       expect(result.success).toBe(true);
       
-      // Parser-Messages müssen existieren
+      // Parser messages must exist
       const messages = result.parserMessages!;
       const serialMessages = messages.filter(m => m.category === 'serial');
       
-      // Serial-Warnungen müssen im parserMessages-Feld sein
+      // Serial warnings must be in parserMessages field
       expect(serialMessages.length).toBeGreaterThan(0);
       expect(serialMessages.some(m => 
         m.message.includes('Serial.begin') || m.message.includes('commented out')
       )).toBe(true);
       
-      // Output-Feld darf KEINE Serial-Warnungen enthalten
+      // Output field must NOT contain Serial warnings
       expect(result.output).not.toContain('Serial.begin');
       expect(result.output).not.toContain('commented');
       expect(result.output).not.toContain('missing');
     });
 
-    it('Code ohne Serial-Nutzung hat leere parserMessages', async () => {
+    it('Code without Serial usage has empty parserMessages', async () => {
       const code = `
         void setup() {
           pinMode(13, OUTPUT);
@@ -140,16 +140,16 @@ describe('ArduinoCompiler - Parser Messages Tests', () => {
       expect(result.success).toBe(true);
       expect(result.parserMessages).toBeDefined();
       
-      // Keine Serial-Warnungen, wenn Serial nicht verwendet wird
+      // No serial warnings when Serial is not used
       const serialMessages = result.parserMessages!.filter(m => m.category === 'serial');
       expect(serialMessages.length).toBe(0);
       
-      // Output ist sauber (nur Compiler-Info)
+      // Output is clean (only compiler info)
       expect(result.output).toContain('Board: Arduino UNO');
       expect(result.output).not.toContain('Serial');
     });
 
-    it('Mehrere Serial-Probleme erscheinen alle in parserMessages', async () => {
+    it('Multiple Serial issues all appear in parserMessages', async () => {
       const code = `
         void setup() {
           // Serial.begin(115200); // auskommentiert
@@ -179,22 +179,22 @@ describe('ArduinoCompiler - Parser Messages Tests', () => {
       const messages = result.parserMessages!;
       const serialMessages = messages.filter(m => m.category === 'serial');
       
-      // Mindestens eine Warnung wegen fehlendem Serial.begin
+      // At least one warning due to missing Serial.begin
       expect(serialMessages.length).toBeGreaterThan(0);
       
-      // Alle Warnungen sind strukturiert
+      // All warnings are structured
       serialMessages.forEach(msg => {
         expect(msg).toHaveProperty('message');
         expect(msg).toHaveProperty('category');
         expect(msg.category).toBe('serial');
       });
       
-      // Output-Feld bleibt sauber
+      // Output field stays clean
       expect(result.output).not.toContain('Serial');
       expect(result.output).toContain('Board: Arduino UNO');
     });
 
-    it('Korrekter Code (Serial.begin(115200)) hat keine Serial-Warnungen', async () => {
+    it('Correct code (Serial.begin(115200)) has no Serial warnings', async () => {
       const code = `
         void setup() {
           Serial.begin(115200);
@@ -221,23 +221,23 @@ describe('ArduinoCompiler - Parser Messages Tests', () => {
       expect(result.success).toBe(true);
       expect(result.parserMessages).toBeDefined();
       
-      // Keine Serial-Warnungen bei korrekter Verwendung
+      // No serial warnings with correct usage
       const serialMessages = result.parserMessages!.filter(m => m.category === 'serial');
       expect(serialMessages.length).toBe(0);
       
-      // Output ist sauber
+      // Output is clean
       expect(result.output).toContain('Board: Arduino UNO');
       expect(result.output).not.toContain('warning');
       expect(result.output).not.toContain('Serial.begin');
     });
   });
 
-  describe('Parser Messages auch bei Compiler-Fehlern', () => {
-    it('parserMessages werden auch bei Compiler-Fehler zurückgegeben', async () => {
+  describe('Parser Messages even on Compiler Errors', () => {
+    it('parserMessages are returned even on Compiler Error', async () => {
       const code = `
         void setup() {
-          Serial.begin(9600); // Falsche Baudrate
-          int x = "wrong"; // Syntax-Fehler
+          Serial.begin(9600); // Wrong baudrate
+          int x = "wrong"; // Syntax error
         }
         void loop() {
           Serial.println("Test");
@@ -261,19 +261,19 @@ describe('ArduinoCompiler - Parser Messages Tests', () => {
       expect(result.success).toBe(false);
       expect(result.errors).toBeDefined();
       
-      // Parser-Messages sind trotz Compiler-Fehler vorhanden
+      // Parser messages are present despite compiler error
       expect(result.parserMessages).toBeDefined();
       const serialMessages = result.parserMessages!.filter(m => m.category === 'serial');
       expect(serialMessages.length).toBeGreaterThan(0);
       
-      // Serial-Warnungen nicht im errors-Feld
+      // Serial warnings not in errors field
       expect(result.errors).not.toContain('Serial.begin');
       expect(result.errors).not.toContain('9600');
     });
 
-    it('parserMessages bei fehlenden setup()/loop()', async () => {
+    it('parserMessages on missing setup()/loop()', async () => {
       const code = `
-        // Keine setup/loop Funktionen
+        // No setup/loop functions
         void myFunction() {
           Serial.println("Test");
         }
@@ -285,10 +285,10 @@ describe('ArduinoCompiler - Parser Messages Tests', () => {
       expect(result.errors).toContain('setup()');
       expect(result.errors).toContain('loop()');
       
-      // Parser-Messages existieren auch bei strukturellem Fehler
+      // Parser messages exist even with structural error
       expect(result.parserMessages).toBeDefined();
       
-      // Serial-Warnungen nicht in der Fehlermeldung
+      // Serial warnings not in error message
       expect(result.errors).not.toContain('Serial.begin');
     });
   });

@@ -1,10 +1,10 @@
 /**
- * Tests für Parser Messages Integration im Frontend
+ * Tests for Parser Messages Integration in Frontend
  * 
- * Diese Tests verifizieren, dass:
- * 1. Parser Messages vom Compile-Response im Frontend gesetzt werden
- * 2. Das ParserOutput-Panel bei Messages angezeigt wird
- * 3. Serial-Warnungen korrekt angezeigt werden
+ * These tests verify that:
+ * 1. Parser Messages from Compile-Response are set in Frontend
+ * 2. The ParserOutput panel is shown when messages are present
+ * 3. Serial warnings are displayed correctly
  */
 
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -16,7 +16,7 @@ describe('Parser Messages Frontend Integration', () => {
   
   describe('ParserOutput Component', () => {
     
-    it('sollte Messages-Tab anzeigen wenn parserMessages vorhanden', () => {
+    it('should display Messages tab when parserMessages are present', () => {
       const messages: ParserMessage[] = [
         {
           id: 'test-1',
@@ -36,14 +36,14 @@ describe('Parser Messages Frontend Integration', () => {
         />
       );
       
-      // Header sollte "Parser Analysis" zeigen
+      // Header should show "Parser Analysis"
       expect(screen.getByText('Parser Analysis')).toBeInTheDocument();
       
-      // Messages-Tab sollte angezeigt werden
+      // Messages tab should be displayed
       expect(screen.getByText('Messages (1)')).toBeInTheDocument();
     });
 
-    it('sollte Serial-Warnungen mit korrektem Icon anzeigen', () => {
+    it('should display serial warnings with correct icon', () => {
       const messages: ParserMessage[] = [
         {
           id: 'test-1',
@@ -64,12 +64,12 @@ describe('Parser Messages Frontend Integration', () => {
         />
       );
       
-      // Die Warnung sollte angezeigt werden
+      // The warning should be displayed
       expect(screen.getByText(/wrong baud rate/)).toBeInTheDocument();
       expect(screen.getByText('Serial Configuration')).toBeInTheDocument();
     });
 
-    it('sollte Serial.begin Suggestion anzeigen', () => {
+    it('should display Serial.begin suggestion', () => {
       const onInsertSuggestion = jest.fn();
       
       const messages: ParserMessage[] = [
@@ -92,12 +92,12 @@ describe('Parser Messages Frontend Integration', () => {
         />
       );
       
-      // Suggestion sollte angezeigt werden (Text erscheint mehrfach - Message + Suggestion)
+      // Suggestion should be displayed (Text appears multiple times - Message + Suggestion)
       const serialBeginElements = screen.getAllByText(/Serial.begin\(115200\)/);
       expect(serialBeginElements.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('sollte I/O Registry Tab bei Inkonsistenzen anzeigen', () => {
+    it('should display I/O Registry tab when inconsistencies are present', () => {
       const ioRegistry: IOPinRecord[] = [
         {
           pin: '5',
@@ -116,11 +116,11 @@ describe('Parser Messages Frontend Integration', () => {
         />
       );
       
-      // Registry-Tab sollte angezeigt werden (weil digitalWrite ohne pinMode)
+      // Registry tab should be displayed (because digitalWrite without pinMode)
       expect(screen.getByText(/I\/O Registry/)).toBeInTheDocument();
     });
 
-    it('sollte beide Tabs anzeigen wenn Messages und Registry-Probleme existieren', () => {
+    it('should display both tabs when Messages and Registry problems exist', () => {
       const messages: ParserMessage[] = [
         {
           id: 'test-1',
@@ -150,12 +150,12 @@ describe('Parser Messages Frontend Integration', () => {
         />
       );
       
-      // Beide Tabs sollten angezeigt werden
+      // Both tabs should be displayed
       expect(screen.getByText('Messages (1)')).toBeInTheDocument();
       expect(screen.getByText(/I\/O Registry/)).toBeInTheDocument();
     });
 
-    it('sollte Fehler-Zähler im Header anzeigen', () => {
+    it('should display error counter in header', () => {
       const messages: ParserMessage[] = [
         {
           id: 'test-1',
@@ -181,15 +181,15 @@ describe('Parser Messages Frontend Integration', () => {
         />
       );
       
-      // Sollte Fehler und Warnungen anzeigen (severity 3 = error, severity 2 = warning)
-      // Header sollte beide Zähler anzeigen (text-red-400 für errors, text-yellow-400 für warnings)
+      // Should show errors and warnings (severity 3 = error, severity 2 = warning)
+      // Header should display both counters (text-red-400 for errors, text-yellow-400 for warnings)
       const errorCount = document.querySelector('.text-red-400');
       const warningCount = document.querySelector('.text-yellow-400');
       expect(errorCount).toBeInTheDocument();
       expect(warningCount).toBeInTheDocument();
     });
 
-    it('sollte Clear-Button haben', () => {
+    it('should have Clear button', () => {
       const onClear = jest.fn();
       
       const messages: ParserMessage[] = [
@@ -210,18 +210,18 @@ describe('Parser Messages Frontend Integration', () => {
         />
       );
       
-      // Clear-Button sollte vorhanden sein (im Code hat er title="Close")
+      // Clear button should be present (in code it has title="Close")
       const clearButton = screen.getByTitle('Close');
       expect(clearButton).toBeInTheDocument();
       
-      // Klick auf Clear sollte onClear aufrufen
+      // Click on Clear should call onClear
       fireEvent.click(clearButton);
       expect(onClear).toHaveBeenCalled();
     });
   });
   
   describe('Message Categories', () => {
-    it('sollte alle Message-Kategorien korrekt labeln', () => {
+    it('should label all message categories correctly', () => {
       const messages: ParserMessage[] = [
         { id: '1', type: 'warning', category: 'serial', severity: 2, message: 'Serial issue' },
         { id: '2', type: 'error', category: 'structure', severity: 3, message: 'Structure issue' },

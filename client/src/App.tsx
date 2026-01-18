@@ -7,6 +7,7 @@ import ArduinoSimulator from "@/pages/arduino-simulator";
 import NotFound from "@/pages/not-found";
 import React from "react";
 import SettingsDialog from "@/components/features/settings-dialog";
+import { isMac } from "@/lib/platform";
 
 function Router() {
   return (
@@ -21,8 +22,6 @@ function App() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   React.useEffect(() => {
-    const isMac = navigator.platform.toUpperCase().includes("MAC");
-
     const onKey = (e: KeyboardEvent) => {
       // Open Settings dialog with Meta/Ctrl + , (comma)
       const isSettings = (isMac ? e.metaKey : e.ctrlKey) && e.code === "Comma";

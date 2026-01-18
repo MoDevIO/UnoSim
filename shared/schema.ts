@@ -153,3 +153,9 @@ export interface IOPinRecord {
   definedAt?: { line: number; loopContext?: LoopContext };
   usedAt?: Array<{ line: number; operation: string; loopContext?: LoopContext }>;
 }
+
+// Output line for serial monitor/plotter and compilation output
+export interface OutputLine {
+  text: string;
+  complete: boolean;
+}
