@@ -17,7 +17,7 @@ const TOAST_DURATION_KEY = "unoToastDuration";
 const DEFAULT_TOAST_SECONDS = 1;
 const DEBUG_MODE_KEY = "unoDebugMode";
 const SHOW_COMPILE_OUTPUT_KEY = "unoShowCompileOutput";
-const DEFAULT_SHOW_COMPILE_OUTPUT = true;
+const DEFAULT_SHOW_COMPILE_OUTPUT = false;
 const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
 const DEFAULT_KEEP_EXAMPLES_MENU_OPEN = false;
 
@@ -249,8 +249,8 @@ export default function SettingsDialog({
           <div className="rounded border p-3 bg-muted">
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-medium">Show Compilation Output</div>
-                <div className="text-xs text-muted-foreground">Display compilation panel by default. When enabled, the compiler output will always be shown.</div>
+                <div className="font-medium">Always Show Compilation Output</div>
+                <div className="text-xs text-muted-foreground">When disabled (default), the compilation panel is hidden unless there are errors. Enable to always show it.</div>
               </div>
               <div className="flex items-center">
                 <Checkbox

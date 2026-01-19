@@ -12,10 +12,12 @@ interface ParserOutputProps {
   onClear: () => void;
   onGoToLine?: (line: number) => void;
   onInsertSuggestion?: (suggestion: string, line?: number) => void;
+  hideHeader?: boolean;
+  defaultTab?: 'messages' | 'registry';
 }
 
-export function ParserOutput({ messages, ioRegistry = [], onClear, onGoToLine, onInsertSuggestion }: ParserOutputProps) {
-  const [activeTab, setActiveTab] = useState<'messages' | 'registry'>('messages');
+export function ParserOutput({ messages, ioRegistry = [], onClear, onGoToLine, onInsertSuggestion, hideHeader = false, defaultTab = 'messages' }: ParserOutputProps) {
+  const [activeTab, setActiveTab] = useState<'messages' | 'registry'>(defaultTab);
   const [showAllPins, setShowAllPins] = useState(false);
   // PWM-capable pins on Arduino UNO
   const PWM_PINS = [3, 5, 6, 9, 10, 11];
@@ -43,13 +45,16 @@ export function ParserOutput({ messages, ioRegistry = [], onClear, onGoToLine, o
   }, [ioRegistry]);
   
   // Auto-switch to registry tab if registry has problems and no messages
+  // But only if defaultTab is 'messages' (to not interfere with explicit registry view)
   React.useEffect(() => {
-    if (hasIOProblems && messages.length === 0) {
-      setActiveTab('registry');
-    } else if (messages.length > 0) {
-      setActiveTab('messages');
+    if (defaultTab === 'messages') {
+      if (hasIOProblems && messages.length === 0) {
+        setActiveTab('registry');
+      } else if (messages.length > 0) {
+        setActiveTab('messages');
+      }
     }
-  }, [hasIOProblems, messages.length]);
+  }, [hasIOProblems, messages.length, defaultTab]);
 
   // Group messages by category for better organization
   const messagesByCategory = messages.reduce(
@@ -87,17 +92,20 @@ export function ParserOutput({ messages, ioRegistry = [], onClear, onGoToLine, o
     });
   }, [ioRegistry, showAllPins]);
 
+  // Count of programmed pins (pins with any operation)
+  const totalProgrammedPins = React.useMemo(() => {
+    return ioRegistry.filter(record => {
+      const hasOperations = record.usedAt && record.usedAt.length > 0;
+      const hasPinMode = record.defined || (record.usedAt?.some(u => u.operation.includes('pinMode')) ?? false);
+      return hasOperations || hasPinMode;
+    }).length;
+  }, [ioRegistry]);
+
   // Inline CSS to hide scrollbars while keeping scrolling functional
   const hideScrollbarStyle = `
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .no-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
   `;
-
-  const totalProgrammedPins = ioRegistry.filter(record => {
-    const hasOperations = record.usedAt && record.usedAt.length > 0;
-    const hasPinMode = record.defined || (record.usedAt?.some(u => u.operation.includes('pinMode')) ?? false);
-    return hasOperations || hasPinMode;
-  }).length;
 
   const getSeverityIcon = (severity: 1 | 2 | 3) => {
     if (severity === 1) return <Info className="w-4 h-4 text-blue-400" />;
@@ -120,7 +128,7 @@ export function ParserOutput({ messages, ioRegistry = [], onClear, onGoToLine, o
       {/* Tabs wrapper for entire component */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'messages' | 'registry')} className="h-full flex flex-col">
         {/* Header with integrated tabs */}
-        <div className="bg-muted px-4 border-b border-border flex items-center h-10 overflow-hidden">
+          {!hideHeader && <div className="bg-muted px-4 border-b border-border flex items-center h-10 overflow-hidden">
           <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
             <div className="flex items-center space-x-2 flex-shrink-0">
               <AlertCircle className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
@@ -173,6 +181,7 @@ export function ParserOutput({ messages, ioRegistry = [], onClear, onGoToLine, o
             </Button>
           </div>
         </div>
+        }
 
         {/* Messages Tab */}
         <TabsContent
@@ -277,7 +286,21 @@ export function ParserOutput({ messages, ioRegistry = [], onClear, onGoToLine, o
             <style>{hideScrollbarStyle}</style>
             {filteredRegistry.length === 0 ? (
               <div className="text-muted-foreground p-4 text-center text-xs">
-                No pins detected in analysis
+                {showAllPins ? (
+                  'No pins available'
+                ) : (
+                  <div className="space-y-2">
+                    <p>No pins used in current sketch</p>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={() => setShowAllPins(true)}
+                      className="h-auto p-0 text-xs text-blue-400"
+                    >
+                      Show all pins →
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="h-full overflow-visible">

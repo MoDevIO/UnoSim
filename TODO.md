@@ -5,14 +5,12 @@
 ## Features
 
 - Better Analog Input UI
-- Better AUtocomplete/Linting
+- Better Autocomplete/Linting
 - Autosaving
 - Ability to pause the running sketch
 
 ## Bug Fixes
 
-- Multiple selections in example menu
-- Toggle visibility PWM button
 
 # Completed
 
@@ -23,5 +21,7 @@
 - Enhanced Parsing
 
 ## Bug Fixes
+- Toggle visibility PWM button
+- Multiple selections in example menu
 
 [NONE]

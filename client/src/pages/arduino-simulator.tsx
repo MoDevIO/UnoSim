@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, Play, Square, Loader2, Terminal, Wrench, Trash2, ChevronsDown, BarChart, Monitor, SendHorizontal, Columns } from 'lucide-react';
+import { Cpu, Play, Square, Loader2, Terminal, Wrench, Trash2, ChevronsDown, BarChart, Monitor, SendHorizontal, Columns, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { InputGroup } from '@/components/ui/input-group';
 import { clsx } from 'clsx';
@@ -34,6 +34,7 @@ import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { Sketch, ParserMessage, IOPinRecord } from '@shared/schema';
 import { isMac } from '@/lib/platform';
 
@@ -92,6 +93,10 @@ export default function ArduinoSimulator() {
   const [compilationStatus, setCompilationStatus] = useState<'ready' | 'compiling' | 'success' | 'error'>('ready');
   const [arduinoCliStatus, setArduinoCliStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
   const [gccStatus, setGccStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
+  const [hasCompilationErrors, setHasCompilationErrors] = useState(false);
+  const [lastCompilationResult, setLastCompilationResult] = useState<'success' | 'error' | null>(null);
+  const [compilationPanelSize, setCompilationPanelSize] = useState(3);
+  const [activeOutputTab, setActiveOutputTab] = useState<'compiler' | 'messages' | 'registry'>('compiler');
   const [debugMode, setDebugMode] = useState<boolean>(() => {
     try {
       return window.localStorage.getItem('unoDebugMode') === '1';
@@ -354,6 +359,31 @@ export default function ArduinoSimulator() {
     }
   }, [isClient]);
 
+  // Update compilation panel size based on error content
+  useEffect(() => {
+    if (hasCompilationErrors && cliOutput.trim().length > 0) {
+      const lines = Math.max(3, cliOutput.split('\n').length);
+      const HEADER_HEIGHT = 50;
+      const PER_LINE = 18;
+      const PADDING = 40;
+      const AVAILABLE = 720;
+      const estimatedPx = HEADER_HEIGHT + PADDING + lines * PER_LINE;
+      const newSize = Math.min(75, Math.max(25, Math.ceil((estimatedPx / AVAILABLE) * 100)));
+      setCompilationPanelSize(newSize);
+    } else if (lastCompilationResult === 'success' && !hasCompilationErrors) {
+      setCompilationPanelSize(5);
+    }
+  }, [cliOutput, hasCompilationErrors, lastCompilationResult]);
+
+  // Auto-switch output tab based on errors and messages
+  useEffect(() => {
+    if (hasCompilationErrors) {
+      setActiveOutputTab('compiler');
+    } else if (parserMessages.length > 0 && !parserPanelDismissed) {
+      setActiveOutputTab('messages');
+    }
+  }, [hasCompilationErrors, parserMessages.length, parserPanelDismissed]);
+
   // Backend availability tracking
   const [backendReachable, setBackendReachable] = useState(true);
   const [backendPingError, setBackendPingError] = useState<string | null>(null);
@@ -548,6 +578,7 @@ export default function ArduinoSimulator() {
   const compileMutation = useMutation({
     mutationFn: async (payload: { code: string; headers?: Array<{ name: string; content: string }> }) => {
       setArduinoCliStatus('compiling');
+      setLastCompilationResult(null);
       const response = await apiRequest('POST', '/api/compile', payload);
       const ct = (response.headers.get('content-type') || '').toLowerCase();
       if (ct.includes('application/json')) {
@@ -564,10 +595,14 @@ export default function ArduinoSimulator() {
     onSuccess: (data) => {
       if (data.success) {
         setArduinoCliStatus('success');
+        setHasCompilationErrors(false);
+        setLastCompilationResult('success');
         // REPLACE output, don't append
         setCliOutput(data.output || '✓ Arduino-CLI Compilation succeeded.');
       } else {
         setArduinoCliStatus('error');
+        setHasCompilationErrors(true);
+        setLastCompilationResult('error');
         // trigger global red glitch to indicate compile error
         triggerErrorGlitch();
         // REPLACE output, don't append
@@ -1492,6 +1527,7 @@ export default function ArduinoSimulator() {
       setCompilationStatus('ready');
       setArduinoCliStatus('idle');
       setGccStatus('idle');
+      setLastCompilationResult(null);
       setSimulationStatus('stopped');
       setHasCompiledOnce(false);
     } else {
@@ -1532,6 +1568,7 @@ export default function ArduinoSimulator() {
     setCompilationStatus('ready');
     setArduinoCliStatus('idle');
     setGccStatus('idle');
+    setLastCompilationResult(null);
     setSimulationStatus('stopped');
     setHasCompiledOnce(false);
   };
@@ -1631,6 +1668,15 @@ export default function ArduinoSimulator() {
     setSerialOutput([]);
     setPinStates([]);
     setParserMessages([]);
+    // Reset IO-Registry to initial state with all pins
+    const pins: IOPinRecord[] = [];
+    for (let i = 0; i <= 13; i++) {
+      pins.push({ pin: String(i), defined: false, usedAt: [] });
+    }
+    for (let i = 0; i <= 5; i++) {
+      pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
+    }
+    setIoRegistry(pins);
     
     // Get the actual main sketch code - use editor ref if available,
     // otherwise use state
@@ -1871,6 +1917,7 @@ export default function ArduinoSimulator() {
 
   const handleClearCompilationOutput = () => {
     setCliOutput('');
+    setLastCompilationResult(null);
     setParserMessages([]);
   };
 
@@ -2109,8 +2156,25 @@ export default function ArduinoSimulator() {
                     <DropdownMenuShortcut>{isMac ? '⌘U' : 'Ctrl+U'}</DropdownMenuShortcut>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setParserPanelDismissed(false); }}>
-                    Show Parser Analysis
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setShowCompilationOutput(true);
+                      setParserPanelDismissed(false);
+                      setActiveOutputTab('compiler');
+                    }}
+                  >
+                    Show Output Panel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setShowCompilationOutput(true);
+                      setParserPanelDismissed(false);
+                      setActiveOutputTab('registry');
+                    }}
+                  >
+                    Show I/O Registry
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -2343,8 +2407,9 @@ export default function ArduinoSimulator() {
                 </div>
               </ResizablePanel>
 
-              {/* Parser Output only visible if there are problems */}
+              {/* Combined Output Panel with Tabs: Compiler / Messages / IO-Registry */}
               {(() => {
+                const isSuccessState = lastCompilationResult === 'success' && !hasCompilationErrors;
                 const hasIOProblems = ioRegistry.some(record => {
                   const ops = record.usedAt || [];
                   const digitalReads = ops.filter(u => u.operation.includes('digitalRead'));
@@ -2360,80 +2425,131 @@ export default function ArduinoSimulator() {
                   return hasIOWithoutMode || hasMultipleModes;
                 });
 
-                // Show parser only if: has messages AND not manually dismissed
-                // User can always show it manually via Sketch menu
-                const shouldShowParser = !parserPanelDismissed && parserMessages.length > 0;
-                
-                // Calculate dynamic panel size based on content
-                let dynamicSize = 18; // default
-                if (hasIOProblems && parserMessages.length === 0) {
-                  const totalPins = ioRegistry.length;
-                  dynamicSize = Math.min(50, Math.max(22, 18 + totalPins * 4));
-                } else if (parserMessages.length > 0) {
-                  dynamicSize = Math.min(45, Math.max(18, 15 + parserMessages.length * 5));
-                } else if (hasIOProblems && parserMessages.length > 0) {
-                  const totalPins = ioRegistry.length;
-                  dynamicSize = Math.min(50, Math.max(25, 20 + parserMessages.length * 4 + totalPins * 2));
-                }
+                // Show output panel if:
+                // - There are compilation errors OR
+                // - User enabled showCompilationOutput setting OR
+                // - There are parser messages
+                // Panel stays visible if user explicitly opened it via menu/setting
+                const shouldShowOutput = hasCompilationErrors || showCompilationOutput || (parserMessages.length > 0 && !parserPanelDismissed);
 
                 return (
                   <>
-                    {shouldShowParser && <ResizableHandle withHandle data-testid="vertical-resizer-editor-parser" />}
+                    {shouldShowOutput && <ResizableHandle withHandle data-testid="vertical-resizer-output" />}
                     
                     <ResizablePanel 
-                      defaultSize={dynamicSize} 
-                      minSize={15} 
-                      id="parser-output-under-editor"
-                      collapsible
-                      className={shouldShowParser ? '' : 'hidden'}
+                      defaultSize={compilationPanelSize} 
+                      minSize={3}
+                      id="output-under-editor"
+                      className={shouldShowOutput ? '' : 'hidden'}
                     >
-                      <ParserOutput
-                        messages={parserMessages}
-                        ioRegistry={ioRegistry}
-                        onClear={() => setParserPanelDismissed(true)}
-                        onGoToLine={(line) => {
-                            logger.debug('Go to line:', line);
-                        }}
-                        onInsertSuggestion={(suggestion, line) => {
-                          if (editorRef.current && typeof (editorRef.current as any).insertSuggestionSmartly === 'function') {
-                            // Mark that we're inserting a suggestion so handleCodeChange won't stop the simulation
-                            skipSimStopRef.current = true;
-                            (editorRef.current as any).insertSuggestionSmartly(suggestion, line);
-                            toast({ 
-                              title: 'Suggestion inserted', 
-                              description: 'Code added to the appropriate location' 
-                            });
-                          } else {
-                            console.error('insertSuggestionSmartly method not available on editor');
-                          }
-                        }}
-                      />
-                    </ResizablePanel>
-                  </>
-                );
-              })()}
+                      <Tabs value={activeOutputTab} onValueChange={(v) => setActiveOutputTab(v as 'compiler' | 'messages' | 'registry')} className="h-full flex flex-col">
+                        <div className="flex items-center justify-between px-2 h-8 bg-muted border-b">
+                          <TabsList className="h-full flex gap-1 bg-transparent">
+                            <TabsTrigger value="compiler" className={clsx(
+                              'h-7 px-2 text-xs data-[state=active]:bg-background rounded-sm',
+                              {
+                                'text-gray-400': lastCompilationResult === null,
+                                'text-green-400': isSuccessState && lastCompilationResult !== null,
+                                'text-red-400': hasCompilationErrors,
+                              }
+                            )}>
+                              <span className={clsx(
+                                {
+                                  'text-gray-400': lastCompilationResult === null,
+                                  'text-green-400': isSuccessState && lastCompilationResult !== null,
+                                  'text-red-400': hasCompilationErrors,
+                                }
+                              )}>Compiler</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="messages" className={clsx(
+                              'h-7 px-2 text-xs data-[state=active]:bg-background rounded-sm',
+                              {
+                                'text-orange-400': parserMessages.length > 0,
+                                'text-gray-400': parserMessages.length === 0,
+                              }
+                            )}>
+                              <span className={clsx(
+                                {
+                                  'text-orange-400': parserMessages.length > 0,
+                                  'text-gray-400': parserMessages.length === 0,
+                                }
+                              )}>Messages</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="registry" className={clsx(
+                              'h-7 px-2 text-xs data-[state=active]:bg-background rounded-sm',
+                              {
+                                'text-orange-400': hasIOProblems,
+                                'text-gray-400': !hasIOProblems,
+                              }
+                            )}>
+                              <span className={clsx(
+                                {
+                                  'text-orange-400': hasIOProblems,
+                                  'text-gray-400': !hasIOProblems,
+                                }
+                              )}>I/O Registry</span>
+                            </TabsTrigger>
+                          </TabsList>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setShowCompilationOutput(false);
+                              setParserPanelDismissed(true);
+                            }}
+                            className="h-7 w-7 p-0 hover:bg-transparent"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
 
-              {/* Compilation Output */}
-              {(() => {
-                const shouldShowCompilation = simulationStatus === 'running' || showCompilationOutput;
-                return (
-                  <>
-                    {shouldShowCompilation && <ResizableHandle withHandle data-testid="vertical-resizer-parser-compile" />}
-                    
-                    <ResizablePanel 
-                      defaultSize={15} 
-                      minSize={10} 
-                      id="compilation-under-editor"
-                      collapsible
-                    >
-                      {shouldShowCompilation ? (
-                        <CompilationOutput
-                          output={cliOutput}
-                          onClear={handleClearCompilationOutput}
-                        />
-                      ) : (
-                        <div />
-                      )}
+                        <TabsContent value="compiler" className="flex-1 overflow-hidden m-0">
+                          <CompilationOutput
+                            output={cliOutput}
+                            onClear={handleClearCompilationOutput}
+                            isSuccess={isSuccessState}
+                            showSuccessMessage={isSuccessState && !isModified}
+                            hideHeader={true}
+                          />
+                        </TabsContent>
+
+                        <TabsContent value="messages" className="flex-1 overflow-hidden m-0">
+                          <ParserOutput
+                            messages={parserMessages}
+                            ioRegistry={ioRegistry}
+                            onClear={() => setParserPanelDismissed(true)}
+                            onGoToLine={(line) => {
+                              logger.debug('Go to line:', line);
+                            }}
+                            onInsertSuggestion={(suggestion, line) => {
+                              if (editorRef.current && typeof (editorRef.current as any).insertSuggestionSmartly === 'function') {
+                                skipSimStopRef.current = true;
+                                (editorRef.current as any).insertSuggestionSmartly(suggestion, line);
+                                toast({ 
+                                  title: 'Suggestion inserted', 
+                                  description: 'Code added to the appropriate location' 
+                                });
+                              } else {
+                                console.error('insertSuggestionSmartly method not available on editor');
+                              }
+                            }}
+                            hideHeader={true}
+                          />
+                        </TabsContent>
+
+                        <TabsContent value="registry" className="flex-1 overflow-hidden m-0">
+                          <ParserOutput
+                            messages={[]}
+                            ioRegistry={ioRegistry}
+                            onClear={() => {}}
+                            onGoToLine={(line) => {
+                              logger.debug('Go to line:', line);
+                            }}
+                            hideHeader={true}
+                            defaultTab="registry"
+                          />
+                        </TabsContent>
+                      </Tabs>
                     </ResizablePanel>
                   </>
                 );
