@@ -117,11 +117,29 @@ export function ExamplesMenu({ onLoadExample, backendReachable = true }: Example
       return all.filter(el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length));
     };
 
+    const clearHighlight = () => {
+      const items = getVisibleItems();
+      items.forEach((it) => {
+        it.classList.remove('bg-accent', 'text-accent-foreground', 'rounded-sm');
+        it.setAttribute('data-keyboard-focused', 'false');
+      });
+    };
+
     const highlightItem = (items: HTMLElement[], idx: number) => {
-      items.forEach((it) => it.classList.remove('bg-accent', 'text-accent-foreground', 'rounded-sm'));
+      clearHighlight();
       if (items[idx]) {
         items[idx].classList.add('bg-accent', 'text-accent-foreground', 'rounded-sm');
+        items[idx].setAttribute('data-keyboard-focused', 'true');
         items[idx].focus();
+      }
+    };
+
+    // Handle mouse movement - clear keyboard highlight
+    const onMouseMove = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('[data-role="example-folder"], [data-role="example-item"]') as HTMLElement;
+      if (target && target.getAttribute('data-keyboard-focused') === 'true') {
+        clearHighlight();
+        focusedIndexRef.current = -1;
       }
     };
 
@@ -172,11 +190,13 @@ export function ExamplesMenu({ onLoadExample, backendReachable = true }: Example
       }
     };
 
+    // Add mouse move listener
+    window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('keydown', onKey, { capture: true });
     return () => {
+      window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('keydown', onKey, { capture: true });
-      const items = getVisibleItems();
-      items.forEach((it) => it.classList.remove('bg-accent', 'text-accent-foreground', 'rounded-sm'));
+      clearHighlight();
     };
   }, [open]);
 
