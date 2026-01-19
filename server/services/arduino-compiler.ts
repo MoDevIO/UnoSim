@@ -89,6 +89,8 @@ export class ArduinoCompiler {
       
       // Process code: replace #include statements with actual header content
       let processedCode = code;
+      let lineOffset = 0; // Track how many lines were added by header insertion
+      
       if (headers && headers.length > 0) {
         console.log(`[COMPILER] Processing ${headers.length} header includes`);
         for (const header of headers) {
@@ -106,12 +108,21 @@ export class ArduinoCompiler {
             if (processedCode.includes(includeStatement)) {
               console.log(`[COMPILER] Found include for: ${header.name} (pattern: ${includeStatement})`);
               // Replace the #include with the actual header content
+              const replacement = `// --- Start of ${header.name} ---\n${header.content}\n// --- End of ${header.name} ---`;
               processedCode = processedCode.replace(
                 new RegExp(`#include\\s*"${includeStatement.split('"')[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g'),
-                `// --- Start of ${header.name} ---\n${header.content}\n// --- End of ${header.name} ---`
+                replacement
               );
+              
+              // Calculate line offset by counting newlines: replacement newlines - 0 (original #include line stays as 1 line)
+              // The #include statement is replaced, so we count how many MORE lines we added
+              const newlinesInReplacement = (replacement.match(/\n/g) || []).length;
+              // Each #include is 1 line, replacement has newlinesInReplacement+1 lines
+              // So offset is: (newlinesInReplacement+1) - 1 = newlinesInReplacement
+              lineOffset += newlinesInReplacement;
+              
               found = true;
-              console.log(`[COMPILER] Replaced include for: ${header.name}`);
+              console.log(`[COMPILER] Replaced include for: ${header.name}, line offset now: ${lineOffset}`);
               break;
             }
           }
@@ -136,7 +147,7 @@ export class ArduinoCompiler {
 
       // 1. Arduino CLI
       arduinoCliStatus = 'compiling';
-      const cliResult = await this.compileWithArduinoCli(sketchFile);
+      const cliResult = await this.compileWithArduinoCli(sketchFile, lineOffset);
 
       let cliOutput = "";
       let cliErrors = "";
@@ -197,7 +208,7 @@ export class ArduinoCompiler {
     }
   }
 
-  private async compileWithArduinoCli(sketchFile: string): Promise<{ success: boolean; output: string; errors?: string } | null> {
+  private async compileWithArduinoCli(sketchFile: string, lineOffset: number = 0): Promise<{ success: boolean; output: string; errors?: string } | null> {
     return new Promise((resolve) => {
       // Arduino CLI expects the sketch DIRECTORY, not the file
       const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf('/'));
@@ -243,11 +254,19 @@ export class ArduinoCompiler {
           // Compilation failed (syntax error etc.)
           // Bereinige Fehlermeldungen von Pfaden
           const escapedPath = sketchFile.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-          const cleanedErrors = errors
+          let cleanedErrors = errors
             .replace(new RegExp(escapedPath, 'g'), 'sketch.ino')
             .replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/[a-f0-9-]+\.ino/gi, 'sketch.ino')
             .replace(/Error during build: exit status \d+\s*/g, '')
             .trim();
+          
+          // Correct line numbers if headers were embedded
+          if (lineOffset > 0) {
+            cleanedErrors = cleanedErrors.replace(/sketch\.ino:(\d+):/g, (match, lineNum) => {
+              const correctedLine = Math.max(1, parseInt(lineNum) - lineOffset);
+              return `sketch.ino:${correctedLine}:`;
+            });
+          }
 
           resolve({
             success: false,

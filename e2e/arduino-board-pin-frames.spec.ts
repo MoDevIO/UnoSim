@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// Run tests serially to avoid interference between simulations
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Arduino Board - Pin Frame Rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -15,23 +18,37 @@ test.describe('Arduino Board - Pin Frame Rendering', () => {
     // Wait for menu
     await page.waitForTimeout(500);
     
+    // First expand the arduino-io folder
+    const arduinoIoFolder = page.locator('[data-role="example-folder"]').filter({ hasText: 'arduino-io' });
+    await arduinoIoFolder.click();
+    
+    // Wait for folder to expand
+    await page.waitForTimeout(300);
+    
     // Click digital pin read example
-    const digitalReadExample = page.getByText(/digital pin read/i);
+    const digitalReadExample = page.locator('[data-role="example-item"]').filter({ hasText: 'digital-pin-read' });
     await digitalReadExample.click();
     
-    // Wait for load
-    await page.waitForTimeout(1000);
+    // Wait for the menu to close and code to load
+    await page.waitForTimeout(500);
     
-    // Run
-    const runButton = page.getByRole('button', { name: /compile|run|start/i }).first();
+    // Close the menu by pressing Escape (in case it's still open)
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    
+    // Run using data-testid for reliability
+    const runButton = page.locator('[data-testid="button-simulate-toggle"]');
     await runButton.click();
     
-    // Wait for simulation
-    await page.waitForTimeout(3500);
+    // Wait for simulation to actually start (button changes to "Stop Simulation")
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 15000 });
+    
+    // Wait a bit more for the I/O registry to be processed and frames to render
+    await page.waitForTimeout(2000);
     
     // Check pin 2 frame (buttonPin in example is pin 2)
     const frame = page.locator('#pin-2-frame');
-    await expect(frame).toBeVisible({ timeout: 5000 });
+    await expect(frame).toBeVisible({ timeout: 10000 });
   });
 
   test('Multiple INPUT pins should all display yellow frames', async ({ page }) => {
@@ -42,14 +59,23 @@ test.describe('Arduino Board - Pin Frame Rendering', () => {
     // Wait for examples menu to open
     await page.waitForTimeout(500);
     
+    // First expand the arduino-io folder
+    const arduinoIoFolder = page.locator('[data-role="example-folder"]').filter({ hasText: 'arduino-io' });
+    await arduinoIoFolder.click();
+    
+    // Wait for folder to expand
+    await page.waitForTimeout(300);
+    
     // Find and click analog pin read
-    const analogReadExample = page.getByText(/analog pin read/i);
+    const analogReadExample = page.locator('[data-role="example-item"]').filter({ hasText: 'analog-pin-read' });
     await analogReadExample.click();
     
-    // Wait for example to load
-    await page.waitForTimeout(1000);
+    // Wait for example to load and close menu
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
     
-    const runButton = page.getByRole('button', { name: /compile|run|start/i }).first();
+    const runButton = page.locator('[data-testid="button-simulate-toggle"]');
     await runButton.click();
     
     // Wait for compilation and simulation
@@ -68,14 +94,23 @@ test.describe('Arduino Board - Pin Frame Rendering', () => {
     // Wait for examples menu
     await page.waitForTimeout(500);
     
+    // First expand the arduino-io folder
+    const arduinoIoFolder = page.locator('[data-role="example-folder"]').filter({ hasText: 'arduino-io' });
+    await arduinoIoFolder.click();
+    
+    // Wait for folder to expand
+    await page.waitForTimeout(300);
+    
     // Find and click digital pin write example
-    const digitalWriteExample = page.getByText(/digital pin write/i);
+    const digitalWriteExample = page.locator('[data-role="example-item"]').filter({ hasText: 'digital-pin-write' });
     await digitalWriteExample.click();
     
-    // Wait for example to load
-    await page.waitForTimeout(1000);
+    // Wait for example to load and close menu
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
     
-    const runButton = page.getByRole('button', { name: /compile|run|start/i }).first();
+    const runButton = page.locator('[data-testid="button-simulate-toggle"]');
     await runButton.click();
     
     // Wait for compilation and simulation
@@ -107,7 +142,7 @@ void loop() {
     await page.keyboard.type(exampleCode);
     await page.waitForTimeout(500);
     
-    const runButton = page.getByRole('button', { name: /compile|run|start/i }).first();
+    const runButton = page.locator('[data-testid="button-simulate-toggle"]');
     await runButton.click();
     await page.waitForTimeout(2000);
     
@@ -133,7 +168,7 @@ void loop() {
     await page.keyboard.type(exampleCode);
     await page.waitForTimeout(500);
     
-    const runButton = page.getByRole('button', { name: /compile|run|start/i }).first();
+    const runButton = page.locator('[data-testid="button-simulate-toggle"]');
     await runButton.click();
     await page.waitForTimeout(2000);
     
@@ -160,7 +195,7 @@ void loop() {
     await page.keyboard.type(exampleCode);
     await page.waitForTimeout(500);
     
-    let runButton = page.getByRole('button', { name: /compile|run|start/i }).first();
+    let runButton = page.locator('[data-testid="button-simulate-toggle"]');
     await runButton.click();
     await page.waitForTimeout(2000);
     
@@ -168,12 +203,9 @@ void loop() {
     let frame = page.locator('#pin-0-frame');
     await expect(frame).toBeHidden();
     
-    // Stop simulation
-    const stopButton = page.getByRole('button', { name: /stop|pause/i }).first();
-    if (await stopButton.isVisible()) {
-      await stopButton.click();
-      await page.waitForTimeout(500);
-    }
+    // Stop simulation (click the same button again)
+    await runButton.click();
+    await page.waitForTimeout(500);
     
     // Now change to INPUT
     exampleCode = `
@@ -192,7 +224,7 @@ void loop() {
     await page.keyboard.type(exampleCode);
     await page.waitForTimeout(500);
     
-    runButton = page.getByRole('button', { name: /compile|run|start/i }).first();
+    runButton = page.locator('[data-testid="button-simulate-toggle"]');
     await runButton.click();
     await page.waitForTimeout(2000);
     

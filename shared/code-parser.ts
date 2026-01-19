@@ -493,16 +493,52 @@ export class CodeParser {
     }
 
     // Check for recursion
-    const functionRegex = /(\w+)\s*\([^)]*\)\s*{[^}]*\1\s*\(/;
-    if (functionRegex.test(code)) {
-      messages.push({
-        id: randomUUID(),
-        type: 'warning',
-        category: 'performance',
-        severity: 2 as SeverityLevel,
-        message: 'Recursive function detected. Deep recursion may cause stack overflow on Arduino.',
-        suggestion: '// Use iterative approach instead',
-      });
+    // Match function definitions: return_type function_name(params) { ... }
+    // Exclude keywords like if, for, while, switch
+    const functionDefinitionRegex = /(?:void|int|bool|byte|long|float|double|char|String|unsigned\s+int|unsigned\s+long)\s+(\w+)\s*\([^)]*\)\s*\{/g;
+    const uncommentedCode = this.removeComments(code);
+    
+    let match;
+    while ((match = functionDefinitionRegex.exec(uncommentedCode)) !== null) {
+      const functionName = match[1];
+      const functionStart = match.index;
+      
+      // Find the end of this function by counting braces
+      let braceCount = 0;
+      let foundOpenBrace = false;
+      let functionEnd = functionStart;
+      
+      for (let i = functionStart; i < uncommentedCode.length; i++) {
+        if (uncommentedCode[i] === '{') {
+          braceCount++;
+          foundOpenBrace = true;
+        } else if (uncommentedCode[i] === '}') {
+          braceCount--;
+          if (foundOpenBrace && braceCount === 0) {
+            functionEnd = i;
+            break;
+          }
+        }
+      }
+      
+      // Extract function body
+      const functionBody = uncommentedCode.substring(functionStart, functionEnd + 1);
+      
+      // Check if function calls itself (recursive)
+      const functionCallRegex = new RegExp(`\\b${functionName}\\s*\\(`, 'g');
+      // Count calls - there should be the definition itself, so if we find more than 1, it's recursive
+      const calls = functionBody.match(functionCallRegex);
+      if (calls && calls.length > 1) {
+        messages.push({
+          id: randomUUID(),
+          type: 'warning',
+          category: 'performance',
+          severity: 2 as SeverityLevel,
+          message: `Recursive function '${functionName}' detected. Deep recursion may cause stack overflow on Arduino.`,
+          suggestion: '// Use iterative approach instead',
+          line: this.findLineNumber(code, new RegExp(`\\b${functionName}\\s*\\(`)),
+        });
+      }
     }
 
     return messages;
