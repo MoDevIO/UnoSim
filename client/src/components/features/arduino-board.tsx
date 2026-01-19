@@ -156,6 +156,28 @@ export function ArduinoBoard({
 
       const { pinStates, isSimulationRunning, txBlink, rxBlink, analogPins } = stateRef.current;
 
+      // Helper to check if pin is INPUT
+      const isPinInput = (pin: number): boolean => {
+        const state = pinStates.find(p => p.pin === pin);
+        return state !== undefined && (state.mode === 'INPUT' || state.mode === 'INPUT_PULLUP');
+      };
+
+      // Helper to get pin color
+      const getPinColor = (pin: number): string => {
+        const state = pinStates.find(p => p.pin === pin);
+        if (!state) return 'transparent';
+        
+        const isPWM = PWM_PINS.includes(pin);
+        if (state.type === 'digital') {
+          return state.value > 0 ? '#ff0000' : '#000000';
+        } else if (isPWM && state.value > 0 && state.value < 255) {
+          return '#ffa500';
+        } else if (state.value >= 255) {
+          return '#ff0000';
+        }
+        return '#000000';
+      };
+
       // Update digital pins 0-13
       for (let pin = 0; pin <= 13; pin++) {
         const frame = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-frame`);
@@ -448,7 +470,9 @@ export function ArduinoBoard({
         const cy = bbox.y + bbox.height / 2;
         const leftPct = (cx / VIEWBOX_WIDTH) * 100;
         const topPct = (cy / VIEWBOX_HEIGHT) * 100;
-        const value = pinStates.find(p => p.pin === pin)?.value ?? 0;
+        // Note: We read pinStates directly but don't depend on it to avoid re-renders
+        // The slider value will be updated separately when pinStates changes
+        const value = 0; // Default value, will be updated by a separate effect
         // Compute slider visual length (in viewBox pixels) and clamp to reasonable size
         const rawLen = Math.max(16, Math.min(80, bbox.width * 3));
         // Placement: if pin is in upper half, place slider below; otherwise above
@@ -460,7 +484,27 @@ export function ArduinoBoard({
     }
 
     setSliderPositions(positions);
-  }, [overlaySvgContent, analogPins, pinStates]);
+  }, [overlaySvgContent, analogPins]);
+
+  // Update slider values when pinStates changes (without triggering re-calculation of positions)
+  useEffect(() => {
+    setSliderPositions(prev => {
+      if (prev.length === 0) return prev;
+      
+      let changed = false;
+      const updated = prev.map(slider => {
+        const pinState = pinStates.find(p => p.pin === slider.pin);
+        const newValue = pinState?.value ?? 0;
+        if (newValue !== slider.value) {
+          changed = true;
+          return { ...slider, value: newValue };
+        }
+        return slider;
+      });
+      
+      return changed ? updated : prev;
+    });
+  }, [pinStates]);
 
   // Handle clicks on the overlay SVG
   const handleOverlayClick = useCallback((e: React.MouseEvent) => {
