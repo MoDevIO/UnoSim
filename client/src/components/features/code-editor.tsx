@@ -1,16 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-
-// Lazy load monaco-editor to defer ~4MB bundle until editor is mounted
-// This significantly improves initial page load time
-let monacoPromise: Promise<typeof import("monaco-editor")> | null = null;
-const getMonaco = async () => {
-  if (!monacoPromise) {
-    monacoPromise = import("monaco-editor");
-  }
-  return monacoPromise;
-};
-
-let monaco: typeof import("monaco-editor") | null = null;
+import { useEffect, useRef } from "react";
+import * as monaco from "monaco-editor";
 
 // Formatting function
 function formatCode(code: string): string {
@@ -76,32 +65,21 @@ export function CodeEditor({
   readOnly = false,
   editorRef: externalEditorRef,
 }: CodeEditorProps) {
-  const editorRef = useRef<any | null>(null);
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const ignoreChangesRef = useRef(false);
-  const [monacoLoaded, setMonacoLoaded] = useState(false);
   // Store callback refs to avoid closure issues with keyboard shortcuts
   const onCompileAndRunRef = useRef(onCompileAndRun);
   const onFormatRef = useRef(onFormat);
 
-  // Lazy load Monaco editor on component mount
   useEffect(() => {
-    getMonaco().then((monacoModule) => {
-      monaco = monacoModule;
-      setMonacoLoaded(true);
-    }).catch((err) => {
-      console.error('Failed to load Monaco editor:', err);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!containerRef.current || !monacoLoaded || !monaco) return;
+    if (!containerRef.current) return;
 
     // Configure Monaco for Arduino C++
-    monaco!.languages.register({ id: "arduino-cpp" });
+    monaco.languages.register({ id: "arduino-cpp" });
 
     // Set tokens provider for Arduino C++ (use stateful handling for block comments)
-    monaco!.languages.setMonarchTokensProvider("arduino-cpp", {
+    monaco.languages.setMonarchTokensProvider("arduino-cpp", {
       tokenizer: {
         root: [
           [/\/\/.*$/, "comment"],
@@ -134,7 +112,7 @@ export function CodeEditor({
     });
 
     // Configure theme
-    monaco!.editor.defineTheme("arduino-dark", {
+    monaco.editor.defineTheme("arduino-dark", {
       base: "vs-dark",
       inherit: true,
       rules: [
@@ -157,7 +135,7 @@ export function CodeEditor({
       },
     });
 
-    const editor = monaco!.editor.create(containerRef.current, {
+    const editor = monaco.editor.create(containerRef.current, {
       value,
       language: "arduino-cpp",
       theme: "arduino-dark",
