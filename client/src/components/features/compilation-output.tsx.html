@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">71.42% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>10/14</span>
             </div>
         
             
@@ -107,8 +107,24 @@
 <a name='L42'></a><a href='#L42'>42</a>
 <a name='L43'></a><a href='#L43'>43</a>
 <a name='L44'></a><a href='#L44'>44</a>
-<a name='L45'></a><a href='#L45'>45</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -151,23 +167,45 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Button } from '@/components/ui/button';
-import { Terminal, Trash2 } from 'lucide-react';
+import { Terminal, Trash2, CheckCircle2 } from 'lucide-react';
 &nbsp;
 interface CompilationOutputProps {
   output: string;
   onClear: () =&gt; void;
+  isSuccess?: boolean;
+  showSuccessMessage?: boolean;
+  hideHeader?: boolean;
 }
 &nbsp;
-export function CompilationOutput({ output, onClear }: CompilationOutputProps) {
+export function CompilationOutput({ output, onClear, isSuccess = false, showSuccessMessage = true, hideHeader = false }: CompilationOutputProps) {
   return (
     &lt;div className="h-full flex flex-col border-b border-border" data-testid="compilation-output"&gt;
-      &lt;div className="bg-muted px-4 border-b border-border flex items-center h-10 overflow-hidden"&gt;
-        &lt;div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap"&gt;
+      {!hideHeader &amp;&amp; &lt;div className="bg-muted px-4 border-b border-border flex items-center h-10 overflow-hidden"&gt;
+        &lt;div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap gap-2"&gt;
           &lt;div className="flex items-center space-x-2 flex-shrink-0"&gt;
-            &lt;Terminal className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} /&gt;
+            {isSuccess &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >showSuccessMessage </span>? (
+<span class="branch-0 cbranch-no" title="branch not covered" >              &lt;CheckCircle2 className="text-green-500 opacity-95 h-5 w-5" strokeWidth={1.67} /&gt;</span>
+            ) : (
+              &lt;Terminal className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} /&gt;
+            )}
             &lt;span className="sr-only"&gt;Compilation Output&lt;/span&gt;
           &lt;/div&gt;
+          {isSuccess &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >showSuccessMessage </span>&amp;&amp; (
+<span class="branch-2 cbranch-no" title="branch not covered" >            &lt;span className="text-green-500 text-sm font-medium flex-shrink-0"&gt;</span>
+              Compilation successful ✓
+            &lt;/span&gt;
+          )}
           &lt;div className="flex-1 min-w-0" /&gt;
           &lt;Button
             variant="outline"
@@ -182,6 +220,7 @@ export function CompilationOutput({ output, onClear }: CompilationOutputProps) {
           &lt;/Button&gt;
         &lt;/div&gt;
       &lt;/div&gt;
+      }
       
       &lt;div className="flex-1 overflow-auto custom-scrollbar"&gt;
         &lt;div className="console-output p-3 text-xs font-mono whitespace-pre-wrap" data-testid="compilation-text"&gt;
@@ -202,7 +241,7 @@ export function CompilationOutput({ output, onClear }: CompilationOutputProps) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-19T12:40:26.650Z
+                at 2026-01-19T21:22:12.706Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
