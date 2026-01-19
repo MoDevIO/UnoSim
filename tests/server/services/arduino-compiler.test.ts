@@ -405,5 +405,79 @@ describe('ArduinoCompiler - Full Coverage', () => {
     });
   });
 
+  describe('Header File Processing', () => {
+    it('should embed single header file into code', async () => {
+      const code = `
+        #include "myHeader.h"
+        void setup() { Serial.begin(115200); }
+        void loop() {}
+      `;
+      const headers = [{ name: 'myHeader.h', content: '#define MY_CONST 42' }];
+
+      // Mock successful compilation
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
+          on: (event: string, cb: Function) => {
+            if (event === 'data') cb(Buffer.from('Success'));
+          }
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === 'close') cb(0);
+        }
+      }));
+
+      const result = await compiler.compile(code, headers);
+      
+      expect(result.processedCode).toContain('#define MY_CONST 42');
+      expect(result.processedCode).toContain('--- Start of myHeader.h ---');
+      expect(result.processedCode).not.toContain('#include "myHeader.h"');
+    });
+
+    it('should handle multiple header files', async () => {
+      const code = `
+        #include "header1.h"
+        #include "header2.h"
+        void setup() {}
+        void loop() {}
+      `;
+      const headers = [
+        { name: 'header1.h', content: 'int x = 1;' },
+        { name: 'header2.h', content: 'int y = 2;' }
+      ];
+
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: { on: (e: string, cb: Function) => { if (e === 'data') cb(Buffer.from('OK')); } },
+        stderr: { on: jest.fn() },
+        on: (e: string, cb: Function) => { if (e === 'close') cb(0); }
+      }));
+
+      const result = await compiler.compile(code, headers);
+      
+      expect(result.processedCode).toContain('int x = 1;');
+      expect(result.processedCode).toContain('int y = 2;');
+    });
+
+    it('should handle include without .h extension', async () => {
+      const code = `
+        #include "helper"
+        void setup() {}
+        void loop() {}
+      `;
+      const headers = [{ name: 'helper.h', content: 'void helperFunc() {}' }];
+
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: { on: (e: string, cb: Function) => { if (e === 'data') cb(Buffer.from('OK')); } },
+        stderr: { on: jest.fn() },
+        on: (e: string, cb: Function) => { if (e === 'close') cb(0); }
+      }));
+
+      const result = await compiler.compile(code, headers);
+      
+      // The current implementation should handle this case
+      expect(result.success).toBe(true);
+    });
+  });
+
 
 });

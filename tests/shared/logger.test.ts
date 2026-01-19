@@ -39,4 +39,51 @@ describe('Logger', () => {
 
     dateSpy.mockRestore();
   });
+
+  describe('Logger - Browser Environment', () => {
+    const originalWindow = global.window;
+    const originalProcess = global.process;
+
+    beforeEach(() => {
+      // Simulate browser environment
+      (global as any).window = {};
+      (global as any).process = { env: {} };
+      jest.spyOn(console, 'log').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      (global as any).window = originalWindow;
+      (global as any).process = originalProcess;
+      jest.restoreAllMocks();
+    });
+
+    it('should suppress DEBUG logs in browser production mode', () => {
+      (global as any).process.env.NODE_ENV = 'production';
+      const browserLogger = new Logger('TestBrowser');
+      
+      browserLogger.debug('This should not appear');
+      
+      expect(console.log).not.toHaveBeenCalled();
+    });
+
+    it('should allow DEBUG logs in browser development mode', () => {
+      (global as any).process.env.NODE_ENV = 'development';
+      const browserLogger = new Logger('TestBrowser');
+      
+      browserLogger.debug('This should appear');
+      
+      expect(console.log).toHaveBeenCalled();
+    });
+
+    it('should always allow INFO/WARN/ERROR in browser', () => {
+      (global as any).process.env.NODE_ENV = 'production';
+      const browserLogger = new Logger('TestBrowser');
+      
+      browserLogger.info('Info message');
+      browserLogger.warn('Warn message');
+      browserLogger.error('Error message');
+      
+      expect(console.log).toHaveBeenCalledTimes(3);
+    });
+  });
 });
