@@ -1,18 +1,18 @@
 {
   "statements": {
-    "covered": 490,
-    "total": 595,
-    "percent": 82.35
+    "covered": 518,
+    "total": 623,
+    "percent": 83.15
   },
   "functions": {
-    "covered": 77,
-    "total": 96,
-    "percent": 80.21
+    "covered": 78,
+    "total": 97,
+    "percent": 80.41
   },
   "branches": {
-    "covered": 257,
-    "total": 409,
-    "percent": 62.84
+    "covered": 270,
+    "total": 424,
+    "percent": 63.68
   },
-  "generatedAt": "2026-01-19T08:45:38.428Z"
+  "generatedAt": "2026-01-19T10:51:01.144Z"
 }
