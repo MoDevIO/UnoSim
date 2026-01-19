@@ -19,6 +19,8 @@ interface ExamplesMenuProps {
   backendReachable?: boolean;
 }
 
+const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
+
 export function ExamplesMenu({ onLoadExample, backendReachable = true }: ExamplesMenuProps) {
   const [examples, setExamples] = useState<Example[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -206,6 +208,17 @@ export function ExamplesMenu({ onLoadExample, backendReachable = true }: Example
       title: 'Example Loaded',
       description: `${example.filename} has been loaded into the editor`,
     });
+    
+    // Close menu after loading example unless "keep open" setting is enabled
+    try {
+      const keepOpen = window.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) === '1';
+      if (!keepOpen) {
+        setOpen(false);
+      }
+    } catch {
+      // If storage fails, default to closing the menu
+      setOpen(false);
+    }
   };
 
   return (

@@ -18,6 +18,8 @@ const DEFAULT_TOAST_SECONDS = 1;
 const DEBUG_MODE_KEY = "unoDebugMode";
 const SHOW_COMPILE_OUTPUT_KEY = "unoShowCompileOutput";
 const DEFAULT_SHOW_COMPILE_OUTPUT = true;
+const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
+const DEFAULT_KEEP_EXAMPLES_MENU_OPEN = false;
 
 export default function SettingsDialog({
   open,
@@ -81,6 +83,27 @@ export default function SettingsDialog({
     setShowCompileOutput(v);
     try {
       const ev = new CustomEvent('showCompileOutputChange', { detail: { value: v } });
+      document.dispatchEvent(ev);
+    } catch {}
+  };
+
+  // Keep examples menu open toggle
+  const [keepExamplesMenuOpen, setKeepExamplesMenuOpen] = React.useState<boolean>(() => {
+    try {
+      const stored = window.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY);
+      return stored === null ? DEFAULT_KEEP_EXAMPLES_MENU_OPEN : stored === '1';
+    } catch {
+      return DEFAULT_KEEP_EXAMPLES_MENU_OPEN;
+    }
+  });
+
+  const setStoredKeepExamplesMenuOpen = (v: boolean) => {
+    try {
+      window.localStorage.setItem(KEEP_EXAMPLES_MENU_OPEN_KEY, v ? '1' : '0');
+    } catch {}
+    setKeepExamplesMenuOpen(v);
+    try {
+      const ev = new CustomEvent('keepExamplesMenuOpenChange', { detail: { value: v } });
       document.dispatchEvent(ev);
     } catch {}
   };
@@ -200,6 +223,23 @@ export default function SettingsDialog({
                   checked={debugMode}
                   onCheckedChange={(v) => setStoredDebug(Boolean(v))}
                   aria-label="enable debug mode"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Keep examples menu open option */}
+          <div className="rounded border p-3 bg-muted">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">Keep Examples Menu Open</div>
+                <div className="text-xs text-muted-foreground">When disabled (default), the examples menu closes after selecting an example. Enable to keep it open.</div>
+              </div>
+              <div className="flex items-center">
+                <Checkbox
+                  checked={keepExamplesMenuOpen}
+                  onCheckedChange={(v) => setStoredKeepExamplesMenuOpen(Boolean(v))}
+                  aria-label="keep examples menu open"
                 />
               </div>
             </div>
