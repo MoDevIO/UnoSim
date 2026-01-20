@@ -504,6 +504,13 @@ int main() {
                 onError(this.errorBuffer.trim());
             }
 
+            // Guarantee that onIORegistry is called with final registry state BEFORE onExit
+            // This ensures tests receive registry data even if process terminates before IO_REGISTRY_END marker
+            // Call even if registry is empty - tests need to know registry collection completed
+            if (this.ioRegistryCallback) {
+                this.ioRegistryCallback(this.ioRegistryData);
+            }
+
             if (!this.processKilled) onExit(code);
             this.process = null;
             this.isRunning = false;
@@ -777,6 +784,13 @@ int main() {
             if (this.errorBuffer.trim()) {
                 this.logger.warn(`[STDERR final]: ${JSON.stringify(this.errorBuffer)}`);
                 onError(this.errorBuffer.trim());
+            }
+
+            // Guarantee that onIORegistry is called with final registry state BEFORE onExit
+            // This ensures tests receive registry data even if process terminates before IO_REGISTRY_END marker
+            // Call even if registry is empty - tests need to know registry collection completed
+            if (this.ioRegistryCallback) {
+                this.ioRegistryCallback(this.ioRegistryData);
             }
 
             if (!this.processKilled) onExit(code);
