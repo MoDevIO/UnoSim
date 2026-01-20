@@ -97,59 +97,43 @@ function renderSerialMonitor(output: OutputLine[]): string[] {
 
 describe('Frontend Pipeline Simulation', () => {
   it('should correctly process backspace sequence step by step', () => {
-    console.log('\n=== STEP BY STEP SIMULATION ===\n');
-    
     // Simulate events arriving one by one (as they would from backend)
     let serialOutput: OutputLine[] = [];
     
     // Event 1: "Counting: 1"
-    console.log('--- Event 1: "Counting: 1" ---');
     serialOutput = processSerialEvents(
       [{ payload: { data: 'Counting: 1' } }],
       serialOutput
     );
-    console.log('After processSerialEvents:', JSON.stringify(serialOutput));
     let rendered = renderSerialMonitor(serialOutput);
-    console.log('Rendered:', rendered);
     expect(rendered).toEqual(['Counting: 1']);
     
     // Event 2: "\b2"
-    console.log('\n--- Event 2: "\\b2" ---');
     serialOutput = processSerialEvents(
       [{ payload: { data: '\b2' } }],
       serialOutput
     );
-    console.log('After processSerialEvents:', JSON.stringify(serialOutput));
     rendered = renderSerialMonitor(serialOutput);
-    console.log('Rendered:', rendered);
     expect(rendered).toEqual(['Counting: 2']);
     
     // Event 3: "\b3"
-    console.log('\n--- Event 3: "\\b3" ---');
     serialOutput = processSerialEvents(
       [{ payload: { data: '\b3' } }],
       serialOutput
     );
-    console.log('After processSerialEvents:', JSON.stringify(serialOutput));
     rendered = renderSerialMonitor(serialOutput);
-    console.log('Rendered:', rendered);
     expect(rendered).toEqual(['Counting: 3']);
     
     // Event 4: "\b4"
-    console.log('\n--- Event 4: "\\b4" ---');
     serialOutput = processSerialEvents(
       [{ payload: { data: '\b4' } }],
       serialOutput
     );
-    console.log('After processSerialEvents:', JSON.stringify(serialOutput));
     rendered = renderSerialMonitor(serialOutput);
-    console.log('Rendered:', rendered);
     expect(rendered).toEqual(['Counting: 4']);
   });
 
   it('should handle batched events (coalesced by backend)', () => {
-    console.log('\n=== BATCHED EVENTS ===\n');
-    
     // If backend coalesces "\b3" and "\b4" into one batch
     let serialOutput: OutputLine[] = [];
     
@@ -157,13 +141,11 @@ describe('Frontend Pipeline Simulation', () => {
       [{ payload: { data: 'Counting: 1' } }],
       serialOutput
     );
-    console.log('After "Counting: 1":', JSON.stringify(serialOutput));
     
     serialOutput = processSerialEvents(
       [{ payload: { data: '\b2' } }],
       serialOutput
     );
-    console.log('After "\\b2":', JSON.stringify(serialOutput));
     
     // Batched: both \b3 and \b4 arrive together
     serialOutput = processSerialEvents(
@@ -173,16 +155,12 @@ describe('Frontend Pipeline Simulation', () => {
       ],
       serialOutput
     );
-    console.log('After batched "\\b3" + "\\b4":', JSON.stringify(serialOutput));
     
     const rendered = renderSerialMonitor(serialOutput);
-    console.log('Rendered:', rendered);
     expect(rendered).toEqual(['Counting: 4']);
   });
 
   it('should handle all events batched together', () => {
-    console.log('\n=== ALL EVENTS BATCHED ===\n');
-    
     // Worst case: all events arrive in one batch
     const serialOutput = processSerialEvents(
       [
@@ -193,10 +171,8 @@ describe('Frontend Pipeline Simulation', () => {
       ],
       []
     );
-    console.log('After all batched:', JSON.stringify(serialOutput));
     
     const rendered = renderSerialMonitor(serialOutput);
-    console.log('Rendered:', rendered);
     expect(rendered).toEqual(['Counting: 4']);
   });
 });

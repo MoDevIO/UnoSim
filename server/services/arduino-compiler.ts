@@ -92,7 +92,7 @@ export class ArduinoCompiler {
       let lineOffset = 0; // Track how many lines were added by header insertion
       
       if (headers && headers.length > 0) {
-        console.log(`[COMPILER] Processing ${headers.length} header includes`);
+        this.logger.debug(`Processing ${headers.length} header includes`);
         for (const header of headers) {
           // Try to find includes with both the full name (header_1.h) and without extension (header_1)
           const headerWithoutExt = header.name.replace(/\.[^/.]+$/, ''); // Remove extension
@@ -106,7 +106,7 @@ export class ArduinoCompiler {
           let found = false;
           for (const includeStatement of includeVariants) {
             if (processedCode.includes(includeStatement)) {
-              console.log(`[COMPILER] Found include for: ${header.name} (pattern: ${includeStatement})`);
+              this.logger.debug(`Found include for: ${header.name} (pattern: ${includeStatement})`);
               // Replace the #include with the actual header content
               const replacement = `// --- Start of ${header.name} ---\n${header.content}\n// --- End of ${header.name} ---`;
               processedCode = processedCode.replace(
@@ -122,13 +122,13 @@ export class ArduinoCompiler {
               lineOffset += newlinesInReplacement;
               
               found = true;
-              console.log(`[COMPILER] Replaced include for: ${header.name}, line offset now: ${lineOffset}`);
+              this.logger.debug(`Replaced include for: ${header.name}, line offset now: ${lineOffset}`);
               break;
             }
           }
           
           if (!found) {
-            console.log(`[COMPILER] Include not found for: ${header.name} (tried: ${includeVariants.join(', ')})`);
+            this.logger.debug(`Include not found for: ${header.name} (tried: ${includeVariants.join(', ')})`);
           }
         }
       }
@@ -137,10 +137,10 @@ export class ArduinoCompiler {
 
       // Write header files to disk as separate files
       if (headers && headers.length > 0) {
-        console.log(`[COMPILER] Writing ${headers.length} header files to ${sketchDir}`);
+        this.logger.debug(`Writing ${headers.length} header files to ${sketchDir}`);
         for (const header of headers) {
           const headerPath = join(sketchDir, header.name);
-          console.log(`[COMPILER] Writing header: ${headerPath}`);
+          this.logger.debug(`Writing header: ${headerPath}`);
           await writeFile(headerPath, header.content);
         }
       }
