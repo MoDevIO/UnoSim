@@ -85,8 +85,8 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     messages: z.array(z.object({
       id: z.string(),
       type: z.enum(['warning', 'error', 'info']),
-      category: z.enum(['serial', 'hardware', 'structure', 'performance', 'library']),
-      severity: z.enum([1, 2, 3] as const),
+      category: z.enum(['serial', 'hardware', 'structure', 'performance', 'library', 'pins']),
+      severity: z.union([z.literal(1), z.literal(2), z.literal(3)]),
       line: z.number().optional(),
       column: z.number().optional(),
       message: z.string(),
@@ -105,6 +105,8 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
           variable: z.string(),
           operator: z.string(),
           limit: z.number(),
+                  startLine: z.number(),
+                  endLine: z.number(),
         }).optional(),
       }).optional(),
       usedAt: z.array(z.object({
@@ -114,6 +116,8 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
           variable: z.string(),
           operator: z.string(),
           limit: z.number(),
+          startLine: z.number(),
+          endLine: z.number(),
         }).optional(),
       })).optional(),
     })),
@@ -126,7 +130,7 @@ export type WSMessage = z.infer<typeof wsMessageSchema>;
 export const parserMessageSchema = z.object({
   id: z.string(),
   type: z.enum(['warning', 'error', 'info']),
-  category: z.enum(['serial', 'hardware', 'structure', 'performance', 'library']),
+  category: z.enum(['serial', 'hardware', 'structure', 'performance', 'library', 'pins']),
   severity: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   line: z.number().optional(),
   column: z.number().optional(),

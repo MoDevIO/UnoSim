@@ -3,86 +3,8 @@ import { randomUUID } from 'crypto';
 
 type SeverityLevel = 1 | 2 | 3;
 
-interface LoopContext {
-  variable: string;  // e.g., "i"
-  operator: string;  // e.g., "<"
-  limit: number;     // e.g., 6
-  startLine: number;
-  endLine: number;
-}
-
 export class CodeParser {
-  private loopContexts: LoopContext[] = [];
 
-  /**
-   * Extract all for-loop contexts from the code
-   * Returns array of LoopContext with line ranges and conditions
-   */
-  private extractLoopContexts(code: string): void {
-    this.loopContexts = [];
-    const lines = code.split('\n');
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      
-      // Match: for (type variable = start; variable OPERATOR limit; ...)
-      const forMatch = /for\s*\(\s*(?:byte|int|unsigned\s+int)?\s*([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>=!]+)\s*(\d+)\s*;/.exec(line);
-      
-      if (forMatch) {
-        const variable = forMatch[1];
-        const operator = forMatch[3];
-        const limit = parseInt(forMatch[4]);
-        const startLine = i + 1; // 1-indexed
-        
-        // Find the end of this loop by counting braces
-        let braceCount = 0;
-        let endLine = startLine;
-        let foundOpenBrace = false;
-        
-        for (let j = i; j < lines.length; j++) {
-          const currentLine = lines[j];
-          for (const char of currentLine) {
-            if (char === '{') {
-              braceCount++;
-              foundOpenBrace = true;
-            } else if (char === '}') {
-              braceCount--;
-              if (foundOpenBrace && braceCount === 0) {
-                endLine = j + 1;
-                break;
-              }
-            }
-          }
-          if (foundOpenBrace && braceCount === 0) break;
-        }
-        
-        this.loopContexts.push({
-          variable,
-          operator,
-          limit,
-          startLine,
-          endLine,
-        });
-      }
-    }
-  }
-
-  /**
-   * Find which loop context contains a given line number
-   */
-  private findLoopContextForLine(lineNum: number, variable: string): LoopContext | undefined {
-    return this.loopContexts.find(
-      ctx => ctx.variable === variable && lineNum >= ctx.startLine && lineNum <= ctx.endLine
-    );
-  }
-
-  /**
-   * Check if two loop contexts have different ranges for the same variable
-   */
-  private loopContextsDiffer(ctx1: LoopContext, ctx2: LoopContext): boolean {
-    if (ctx1.variable !== ctx2.variable) return false;
-    return ctx1.operator !== ctx2.operator || ctx1.limit !== ctx2.limit;
-  }
   /**
    * Parse Serial configuration issues
    */
@@ -270,7 +192,6 @@ export class CodeParser {
     let match;
     
     while ((match = loopRegex.exec(code)) !== null) {
-      const varName = match[1];
       const startVal = parseInt(match[2], 10);
       const endVal = parseInt(match[3], 10);
       

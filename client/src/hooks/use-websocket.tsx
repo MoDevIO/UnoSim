@@ -32,13 +32,13 @@ export function useWebSocket() {
       ws.onmessage = (event) => {
         try {
           const rawData = JSON.parse(event.data);
-          logger.debug('[WS HOOK] Raw message received:', rawData.type, rawData);
+          logger.debug(`[WS HOOK] Raw message received: ${rawData.type} ${JSON.stringify(rawData)}`);
           const data = wsMessageSchema.parse(rawData);
           // Add to queue instead of replacing
           setMessageQueue(prev => [...prev, data]);
           setLastMessage(data);
         } catch (error) {
-          logger.error('[WS HOOK] Invalid WebSocket message:', error, 'Raw:', event.data);
+          logger.error(`[WS HOOK] Invalid WebSocket message: ${error} Raw: ${event.data}`);
         }
       };
 
@@ -51,13 +51,13 @@ export function useWebSocket() {
       };
 
       ws.onerror = (error) => {
-        logger.error('WebSocket error:', error);
+        logger.error(`WebSocket error: ${error}`);
         setIsConnected(false);
         setConnectionError('WebSocket error. Backend may be unreachable.');
         scheduleReconnect();
       };
     } catch (error) {
-      logger.error('Failed to create WebSocket:', error);
+      logger.error(`Failed to create WebSocket: ${error}`);
       setIsConnected(false);
       setConnectionError('Cannot establish WebSocket. Backend unreachable.');
       scheduleReconnect();
@@ -94,7 +94,7 @@ export function useWebSocket() {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
     } else {
-      logger.warn('WebSocket is not open. Message not sent:', message);
+      logger.warn(`WebSocket is not open. Message not sent: ${JSON.stringify(message)}`);
     }
   };
 

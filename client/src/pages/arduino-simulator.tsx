@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, Play, Square, Loader2, Terminal, Wrench, Trash2, ChevronsDown, BarChart, Monitor, SendHorizontal, Columns, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Cpu, Play, Square, Loader2, Terminal, Wrench, Trash2, ChevronsDown, BarChart, Monitor, Columns, X } from 'lucide-react';
 import { InputGroup } from '@/components/ui/input-group';
 import { clsx } from 'clsx';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuGroup,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSub,
@@ -35,7 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import type { Sketch, ParserMessage, IOPinRecord } from '@shared/schema';
+import type { Sketch, ParserMessage, IOPinRecord, OutputLine } from '@shared/schema';
 import { isMac } from '@/lib/platform';
 
 // Lazy load SerialPlotter to defer recharts (~400KB) until needed
@@ -157,8 +155,8 @@ export default function ArduinoSimulator() {
   const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
 
   // Selected board and baud rate (moved to Tools menu)
-  const [board, setBoard] = useState<string>('Arduino UNO');
-  const [baudRate, setBaudRate] = useState<number>(115200);
+  const [board, _setBoard] = useState<string>('Arduino UNO');
+  const [baudRate, _setBaudRate] = useState<number>(115200);
 
   // Serial input box state (always visible at bottom of serial frame)
   const [serialInputValue, setSerialInputValue] = useState('');
@@ -360,7 +358,7 @@ export default function ArduinoSimulator() {
       }
       const chosenZ = z > 0 ? Math.max(z - 1, 5) : 30;
       setOverlayZ(chosenZ);
-      logger.debug('[mobile overlay] header detect:', hdr, 'headerHeight=', h, 'overlayZ=', chosenZ);
+      logger.debug(`[mobile overlay] header detect: ${hdr} headerHeight=${h} overlayZ=${chosenZ}`);
     };
 
     measure();
@@ -681,7 +679,7 @@ export default function ArduinoSimulator() {
           if (data.success) {
             const payload = lastCompilePayloadRef.current;
             if (payload) {
-              logger.info('[CLIENT] Uploading compiled artifact...', payload);
+              logger.info(`[CLIENT] Uploading compiled artifact... ${JSON.stringify(payload)}`);
               uploadMutation.mutate(payload);
             } else {
               toast({ title: 'Upload failed', description: 'No compiled artifact available to upload.', variant: 'destructive' });
@@ -985,7 +983,7 @@ export default function ArduinoSimulator() {
           if (lastSerialEventAtRef.current && (now - lastSerialEventAtRef.current) < 1000 && !isSystemSerialMessage) {
             // Short-circuit: drop this legacy serial_output
             // eslint-disable-next-line no-console
-            logger.debug('Dropping legacy serial_output because recent serial_event exists', { text, ageMs: now - lastSerialEventAtRef.current });
+            logger.debug(`Dropping legacy serial_output because recent serial_event exists ${JSON.stringify({ text, ageMs: now - lastSerialEventAtRef.current })}`);
             break;
           }
 
@@ -1068,7 +1066,7 @@ export default function ArduinoSimulator() {
         case 'compilation_error':
           // For GCC errors: REPLACE previous output, do not append
           // Arduino-CLI reported success, but GCC failed
-          logger.info('[WS] GCC Compilation Error detected:', message.data);
+          logger.info(`[WS] GCC Compilation Error detected: ${JSON.stringify(message.data)}`);
           setCliOutput('❌ GCC Compilation Error:\n\n' + message.data);
           setGccStatus('error');
           setCompilationStatus('error');
@@ -1744,7 +1742,7 @@ export default function ArduinoSimulator() {
       name: tab.name,
       content: tab.content
     }));
-    logger.info('[CLIENT] Compiling with', headers.length, 'headers');
+    logger.info(`[CLIENT] Compiling with ${headers.length} headers`);
     // Store payload so we can upload it after compile if requested
     lastCompilePayloadRef.current = { code: mainSketchCode, headers };
     compileMutation.mutate({ code: mainSketchCode, headers });
@@ -1884,10 +1882,10 @@ export default function ArduinoSimulator() {
       name: tab.name,
       content: tab.content
     }));
-    logger.info('[CLIENT] Compile & Start with', headers.length, 'headers');
-    logger.info('[CLIENT] Code length:', mainSketchCode.length, 'bytes');
-    logger.info('[CLIENT] Main code from:', editorRef.current ? 'editor' : (tabs[0]?.content ? 'tabs' : 'state'));
-    logger.info('[CLIENT] Tabs:', tabs.map(t => `${t.name}(${t.content.length}b)`).join(', '));
+    logger.info(`[CLIENT] Compile & Start with ${headers.length} headers`);
+    logger.info(`[CLIENT] Code length: ${mainSketchCode.length} bytes`);
+    logger.info(`[CLIENT] Main code from: ${editorRef.current ? 'editor' : (tabs[0]?.content ? 'tabs' : 'state')}`);
+    logger.info(`[CLIENT] Tabs: ${tabs.map(t => `${t.name}(${t.content.length}b)`).join(', ')}`);
     
     setCliOutput('');
     setSerialOutput([]);
@@ -1896,7 +1894,7 @@ export default function ArduinoSimulator() {
 
     compileMutation.mutate({ code: mainSketchCode, headers }, {
       onSuccess: (data) => {
-        logger.info('[CLIENT] Compile response:', JSON.stringify(data, null, 2));
+        logger.info(`[CLIENT] Compile response: ${JSON.stringify(data, null, 2)}`);
         
         // Update arduinoCliStatus based on compile result
         setArduinoCliStatus(data.success ? 'success' : 'error');
@@ -1904,10 +1902,10 @@ export default function ArduinoSimulator() {
         
         // Display compilation output or errors (REPLACE, don't append)
         if (data.success) {
-          logger.info('[CLIENT] Compile SUCCESS, output:', data.output);
+          logger.info(`[CLIENT] Compile SUCCESS, output: ${data.output}`);
           setCliOutput(data.output || '✓ Arduino-CLI Compilation succeeded.');
         } else {
-          logger.info('[CLIENT] Compile FAILED, errors:', data.errors);
+          logger.info(`[CLIENT] Compile FAILED, errors: ${data.errors}`);
           setCliOutput(data.errors || '✗ Arduino-CLI Compilation failed.');
         }
         
@@ -2555,7 +2553,7 @@ export default function ArduinoSimulator() {
                             ioRegistry={ioRegistry}
                             onClear={() => setParserPanelDismissed(true)}
                             onGoToLine={(line) => {
-                              logger.debug('Go to line:', line);
+                              logger.debug(`Go to line: ${line}`);
                             }}
                             onInsertSuggestion={(suggestion, line) => {
                               if (editorRef.current && typeof (editorRef.current as any).insertSuggestionSmartly === 'function') {
@@ -2579,7 +2577,7 @@ export default function ArduinoSimulator() {
                             ioRegistry={ioRegistry}
                             onClear={() => {}}
                             onGoToLine={(line) => {
-                              logger.debug('Go to line:', line);
+                              logger.debug(`Go to line: ${line}`);
                             }}
                             hideHeader={true}
                             defaultTab="registry"
@@ -2812,7 +2810,7 @@ export default function ArduinoSimulator() {
                             ioRegistry={ioRegistry}
                             onClear={() => setParserPanelDismissed(true)}
                             onGoToLine={(line) => {
-                              logger.debug('Go to line:', line);
+                              logger.debug(`Go to line: ${line}`);
                             }}
                           />
                         </div>

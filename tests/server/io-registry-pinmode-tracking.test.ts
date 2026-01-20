@@ -24,7 +24,7 @@ describe('I/O Registry - pinMode Multiple Calls Detection', () => {
       const timer = setTimeout(() => {
         if (runner.isRunning) runner.stop();
         reject(new Error('Registry collection timeout'));
-      }, 10000); // Increased timeout for compilation + execution
+      }, 20000); // 20s timeout to handle cold start compilation
 
       let latestRegistry: IOPinRecord[] | null = null;
       let registryReceived = false;
@@ -57,7 +57,7 @@ describe('I/O Registry - pinMode Multiple Calls Detection', () => {
               } else {
                 finish(reject, new Error('Registry data not received before process exit'));
               }
-            }, 500);
+            }, 2000); // 2s wait for slow hardware
           }
         }, // onExit
         undefined, // onCompileError

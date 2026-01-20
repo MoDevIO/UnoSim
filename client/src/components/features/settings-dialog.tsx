@@ -16,8 +16,6 @@ const DEFAULT_COLOR = "#0f7391";
 const TOAST_DURATION_KEY = "unoToastDuration";
 const DEFAULT_TOAST_SECONDS = 1;
 const DEBUG_MODE_KEY = "unoDebugMode";
-const SHOW_COMPILE_OUTPUT_KEY = "unoShowCompileOutput";
-const DEFAULT_SHOW_COMPILE_OUTPUT = false;
 const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
 const DEFAULT_KEEP_EXAMPLES_MENU_OPEN = false;
 
@@ -62,27 +60,6 @@ export default function SettingsDialog({
     setDebugMode(v);
     try {
       const ev = new CustomEvent('debugModeChange', { detail: { value: v } });
-      document.dispatchEvent(ev);
-    } catch {}
-  };
-
-  // Show compile output toggle
-  const [showCompileOutput, setShowCompileOutput] = React.useState<boolean>(() => {
-    try {
-      const stored = window.localStorage.getItem(SHOW_COMPILE_OUTPUT_KEY);
-      return stored === null ? DEFAULT_SHOW_COMPILE_OUTPUT : stored === '1';
-    } catch {
-      return DEFAULT_SHOW_COMPILE_OUTPUT;
-    }
-  });
-
-  const setStoredShowCompileOutput = (v: boolean) => {
-    try {
-      window.localStorage.setItem(SHOW_COMPILE_OUTPUT_KEY, v ? '1' : '0');
-    } catch {}
-    setShowCompileOutput(v);
-    try {
-      const ev = new CustomEvent('showCompileOutputChange', { detail: { value: v } });
       document.dispatchEvent(ev);
     } catch {}
   };

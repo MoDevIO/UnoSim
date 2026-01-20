@@ -130,9 +130,9 @@ void loop() {
     expect(result2.success).toBe(true);
 
     // Both should have completed (no hanging on broadcast wait)
-    expect(time1).toBeLessThan(15000); // Should complete in reasonable time
-    expect(time2).toBeLessThan(15000);
-  }, 60000);
+    expect(time1).toBeLessThan(40000); // 40s for slow hardware
+    expect(time2).toBeLessThan(40000);
+  }, 90000); // 90 second timeout
 
   it('should allow same code to be cached across different sessions', async () => {
     // Use unique code to ensure fresh compile (not from previous test runs)

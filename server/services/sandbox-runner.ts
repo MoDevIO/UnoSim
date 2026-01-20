@@ -360,7 +360,7 @@ int main() {
                             const pin = pinMatch[1];
                             const defined = pinMatch[2] === '1';
                             const definedLine = parseInt(pinMatch[3]);
-                            const pinMode = parseInt(pinMatch[4]);
+                            const pinModeParsed = parseInt(pinMatch[4]);
                             const operationsStr = pinMatch[5];
                             
                             const usedAt: Array<{ line: number; operation: string }> = [];
@@ -386,6 +386,7 @@ int main() {
                             this.ioRegistryData.push({
                                 pin,
                                 defined,
+                                pinMode: pinModeParsed,
                                 definedAt: defined ? { line: definedLine } : undefined,
                                 usedAt
                             });
@@ -549,13 +550,13 @@ int main() {
             setTimeout(() => {
                 if (!completed) {
                     compile.kill('SIGKILL');
-                    this.logger.error("g++ Timeout nach 10s");
+                    this.logger.error("g++ Timeout nach 20s");
                     if (onCompileError) {
-                        onCompileError("g++ timeout after 10s");
+                        onCompileError("g++ timeout after 20s");
                     }
-                    reject(new Error("g++ timeout after 10s"));
+                    reject(new Error("g++ timeout after 20s"));
                 }
-            }, 10000);
+            }, 20000); // 20s timeout for cold start compilation
         });
     }
 
@@ -672,7 +673,7 @@ int main() {
                             const pin = pinMatch[1];
                             const defined = pinMatch[2] === '1';
                             const definedLine = parseInt(pinMatch[3]);
-                            const pinMode = parseInt(pinMatch[4]);
+                            const pinModeParsed = parseInt(pinMatch[4]);
                             const operationsStr = pinMatch[5];
                             
                             const usedAt: Array<{ line: number; operation: string }> = [];
@@ -700,7 +701,7 @@ int main() {
                             this.ioRegistryData.push({
                                 pin,
                                 defined,
-                                pinMode,
+                                pinMode: pinModeParsed,
                                 definedAt: defined ? { line: definedLine } : undefined,
                                 usedAt
                             });

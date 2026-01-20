@@ -175,7 +175,7 @@ export function CodeEditor({
         getValue: () => editor.getValue(),
         undo: () => { try { editor.focus(); editor.trigger('keyboard', 'undo', {}); } catch {} },
         redo: () => { try { editor.focus(); editor.trigger('keyboard', 'redo', {}); } catch {} },
-        find: () => { try { editor.focus(); editor.getAction('actions.find').run(); } catch {} },
+        find: () => { try { editor.focus(); const action = editor.getAction('actions.find'); if (action) action.run(); } catch {} },
         selectAll: () => { try { editor.focus(); const model = editor.getModel(); if (model) { editor.setSelection(model.getFullModelRange()); editor.revealRangeInCenter(model.getFullModelRange()); } } catch {} },
         insertTextAtLine: (line: number | undefined, text: string) => {
           try {
@@ -206,7 +206,7 @@ export function CodeEditor({
             console.error('Insert text at line failed:', err);
           }
         },
-        insertSuggestionSmartly: (text: string, errorLine: number | undefined) => {
+        insertSuggestionSmartly: (text: string, _errorLine: number | undefined) => {
           try {
             editor.focus();
             const model = editor.getModel();

@@ -388,7 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       logger.debug(`I/O Registry saved to: ${registryFile}`);
                       
                       // Store filename in runner for cleanup marking
-                      clientState.runner.setRegistryFile(registryFile);
+                      if (clientState.runner) clientState.runner.setRegistryFile(registryFile);
                     }
                   } catch (err) {
                     logger.warn(`Failed to save I/O Registry file: ${err instanceof Error ? err.message : String(err)}`);

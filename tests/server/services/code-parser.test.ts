@@ -408,6 +408,54 @@ void loop()
       // Note: Each pin that is both digital and analog is one conflict
       expect(messages.length).toBeGreaterThanOrEqual(1);
     });
+
+    it('should detect digital and analog use on same pin', () => {
+      const code = `
+        void setup() {
+          pinMode(A0, OUTPUT);
+        }
+        void loop() {
+          digitalWrite(A0, HIGH);
+          int val = analogRead(A0);
+        }
+      `;
+      const messages = parser.parsePinConflicts(code);
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: 'warning',
+          category: 'hardware',
+          message: expect.stringMatching(/both digital.*analog|analog.*digital/i)
+        })
+      );
+    });
+
+    it('should NOT warn when digital and analog pins are separate', () => {
+      const code = `
+        void setup() {
+          pinMode(13, OUTPUT);
+        }
+        void loop() {
+          digitalWrite(13, HIGH);
+          int val = analogRead(A0);
+        }
+      `;
+      const messages = parser.parsePinConflicts(code);
+      expect(messages).toHaveLength(0);
+    });
+
+    it('should detect conflict with numeric pin notation', () => {
+      const code = `
+        void setup() {
+          pinMode(14, OUTPUT);  // A0 = 14
+        }
+        void loop() {
+          digitalWrite(14, HIGH);
+          analogRead(14);
+        }
+      `;
+      const messages = parser.parsePinConflicts(code);
+      expect(messages.length).toBeGreaterThan(0);
+    });
   });
 
   describe('parsePerformance', () => {
@@ -497,6 +545,51 @@ void loop()
       const messages = parser.parsePerformance(code);
       // Should detect the recursion pattern
       expect(messages.length).toBeGreaterThan(0);
+    });
+
+    it('should detect while(true) inside a function', () => {
+      const code = `
+        void setup() {}
+        void loop() {}
+        void myFunc() {
+          while(true) { delay(10); }
+        }
+      `;
+      const messages = parser.parsePerformance(code);
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: 'warning',
+          category: 'performance',
+          message: expect.stringMatching(/loop|infinite/i)
+        })
+      );
+    });
+
+    it('should NOT warn for reasonably sized arrays', () => {
+      const code = `
+        int smallArray[100];
+        void setup() {}
+        void loop() {}
+      `;
+      const messages = parser.parsePerformance(code);
+      const arrayWarnings = messages.filter((m: ParserMessage) => m.message.includes('array'));
+      expect(arrayWarnings).toHaveLength(0);
+    });
+
+    it('should detect arrays larger than 1000 elements', () => {
+      const code = `
+        int bigArray[5000];
+        void setup() {}
+        void loop() {}
+      `;
+      const messages = parser.parsePerformance(code);
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: 'warning',
+          category: 'performance',
+          message: expect.stringContaining('array')
+        })
+      );
     });
   });
 

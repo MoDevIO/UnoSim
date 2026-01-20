@@ -381,8 +381,8 @@ export function ParserOutput({ messages, ioRegistry = [], onClear, onGoToLine, o
                                 </span>
                               </div>
                             ) : (digitalReads.length > 0 || digitalWrites.length > 0) ? (
-                              <div className="flex items-center justify-center">
-                                <X className="w-4 h-4 text-red-500" title="pinMode() missing" />
+                              <div className="flex items-center justify-center" title="pinMode() missing">
+                                <X className="w-4 h-4 text-red-500" />
                               </div>
                             ) : (
                               <span className="text-gray-400">—</span>

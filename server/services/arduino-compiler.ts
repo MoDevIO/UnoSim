@@ -262,7 +262,7 @@ export class ArduinoCompiler {
           
           // Correct line numbers if headers were embedded
           if (lineOffset > 0) {
-            cleanedErrors = cleanedErrors.replace(/sketch\.ino:(\d+):/g, (match, lineNum) => {
+            cleanedErrors = cleanedErrors.replace(/sketch\.ino:(\d+):/g, (_match, lineNum) => {
               const correctedLine = Math.max(1, parseInt(lineNum) - lineOffset);
               return `sketch.ino:${correctedLine}:`;
             });
