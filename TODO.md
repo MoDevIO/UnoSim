@@ -19,6 +19,8 @@
 - Soft cursor movement
 - Serial Plotter
 - Enhanced Parsing
+- I/O-Registry
+- Output-Panel
 
 ## Bug Fixes
 - Toggle visibility PWM button

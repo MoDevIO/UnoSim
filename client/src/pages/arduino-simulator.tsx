@@ -65,6 +65,7 @@ export default function ArduinoSimulator() {
   const [code, setCode] = useState('');
   const [cliOutput, setCliOutput] = useState('');
   const editorRef = useRef<{ getValue: () => string } | null>(null);
+  const outputPanelRef = useRef<any>(null);
   
   // Tab management
   const [tabs, setTabs] = useState<Array<{ id: string; name: string; content: string }>>([]);
@@ -181,7 +182,14 @@ export default function ArduinoSimulator() {
   useEffect(() => {
     const handler = (ev: any) => {
       try {
-        setShowCompilationOutput(Boolean(ev?.detail?.value));
+        const newValue = Boolean(ev?.detail?.value);
+        setShowCompilationOutput(newValue);
+        // Persist to localStorage
+        try {
+          window.localStorage.setItem('unoShowCompileOutput', newValue ? '1' : '0');
+        } catch {
+          // localStorage may be unavailable (private browsing, etc.)
+        }
       } catch {
         // ignore
       }
@@ -189,6 +197,15 @@ export default function ArduinoSimulator() {
     document.addEventListener('showCompileOutputChange', handler as EventListener);
     return () => document.removeEventListener('showCompileOutputChange', handler as EventListener);
   }, []);
+
+  // Persist showCompilationOutput state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('unoShowCompileOutput', showCompilationOutput ? '1' : '0');
+    } catch {
+      // localStorage may be unavailable (private browsing, etc.)
+    }
+  }, [showCompilationOutput]);
 
   // Helper to download all tabs (used by File -> Download All Files)
   const downloadAllFiles = async () => {
@@ -359,21 +376,54 @@ export default function ArduinoSimulator() {
     }
   }, [isClient]);
 
-  // Update compilation panel size based on error content
+  // Update compilation panel size based on error content and parser messages
   useEffect(() => {
+    // Reset parserPanelDismissed when new errors occur (auto-reopen logic)
     if (hasCompilationErrors && cliOutput.trim().length > 0) {
-      const lines = Math.max(3, cliOutput.split('\n').length);
+      setParserPanelDismissed(false);
+      setShowCompilationOutput(true);
+      
+      // Auto-show and size panel for compiler errors
+      const lines = cliOutput.split('\n').length;
+      const totalChars = cliOutput.length;
       const HEADER_HEIGHT = 50;
-      const PER_LINE = 18;
-      const PADDING = 40;
-      const AVAILABLE = 720;
-      const estimatedPx = HEADER_HEIGHT + PADDING + lines * PER_LINE;
-      const newSize = Math.min(75, Math.max(25, Math.ceil((estimatedPx / AVAILABLE) * 100)));
+      const PER_LINE = 20;
+      const PADDING = 60;
+      const AVAILABLE_HEIGHT = 800;
+      
+      const lineBasedPx = HEADER_HEIGHT + PADDING + Math.max(lines, Math.ceil(totalChars / 80)) * PER_LINE;
+      const newSize = Math.min(75, Math.max(25, Math.ceil((lineBasedPx / AVAILABLE_HEIGHT) * 100)));
+      
       setCompilationPanelSize(newSize);
-    } else if (lastCompilationResult === 'success' && !hasCompilationErrors) {
-      setCompilationPanelSize(5);
+    } else if (parserMessages.length > 0 && !hasCompilationErrors) {
+      // Reset dismissal flag and show panel for new parser messages (auto-reopen)
+      setParserPanelDismissed(false);
+      setShowCompilationOutput(true);
+      
+      // Auto-show and size panel for parser messages
+      const messageCount = parserMessages.length;
+      const totalMessageLength = parserMessages.reduce((sum, msg) => sum + (msg.message?.length || 0) + 50, 0);
+      const HEADER_HEIGHT = 50;
+      const PER_MESSAGE_BASE = 55;
+      const PADDING = 60;
+      const AVAILABLE_HEIGHT = 800;
+      
+      const estimatedPx = HEADER_HEIGHT + PADDING + messageCount * PER_MESSAGE_BASE + Math.ceil(totalMessageLength / 100) * 15;
+      const newSize = Math.min(75, Math.max(25, Math.ceil((estimatedPx / AVAILABLE_HEIGHT) * 100)));
+      
+      setCompilationPanelSize(newSize);
+    } else if (lastCompilationResult === 'success' && !hasCompilationErrors && parserMessages.length === 0) {
+      // Minimize panel when no errors and no messages (keep visible at 3%)
+      setCompilationPanelSize(3);
     }
-  }, [cliOutput, hasCompilationErrors, lastCompilationResult]);
+  }, [cliOutput, hasCompilationErrors, lastCompilationResult, parserMessages.length]);
+
+  // Apply panel size imperatively to ResizablePanel
+  useEffect(() => {
+    if (outputPanelRef.current && typeof outputPanelRef.current.resize === 'function') {
+      outputPanelRef.current.resize(compilationPanelSize);
+    }
+  }, [compilationPanelSize]);
 
   // Auto-switch output tab based on errors and messages
   useEffect(() => {
@@ -2156,25 +2206,11 @@ export default function ArduinoSimulator() {
                     <DropdownMenuShortcut>{isMac ? '⌘U' : 'Ctrl+U'}</DropdownMenuShortcut>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setShowCompilationOutput(true);
-                      setParserPanelDismissed(false);
-                      setActiveOutputTab('compiler');
-                    }}
-                  >
-                    Show Output Panel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setShowCompilationOutput(true);
-                      setParserPanelDismissed(false);
-                      setActiveOutputTab('registry');
-                    }}
-                  >
-                    Show I/O Registry
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); }}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>Output Panel</span>
+                      {showCompilationOutput && <span className="text-xs">✓</span>}
+                    </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -2426,17 +2462,17 @@ export default function ArduinoSimulator() {
                 });
 
                 // Show output panel if:
-                // - There are compilation errors OR
-                // - User enabled showCompilationOutput setting OR
-                // - There are parser messages
-                // Panel stays visible if user explicitly opened it via menu/setting
-                const shouldShowOutput = hasCompilationErrors || showCompilationOutput || (parserMessages.length > 0 && !parserPanelDismissed);
+                // - User has NOT explicitly closed it (showCompilationOutput)
+                // User intent is PRIMARY - user can always close even with errors/messages
+                // Auto-reopen happens via setShowCompilationOutput(true) in useEffect
+                const shouldShowOutput = showCompilationOutput;
 
                 return (
                   <>
                     {shouldShowOutput && <ResizableHandle withHandle data-testid="vertical-resizer-output" />}
                     
                     <ResizablePanel 
+                      ref={outputPanelRef}
                       defaultSize={compilationPanelSize} 
                       minSize={3}
                       id="output-under-editor"

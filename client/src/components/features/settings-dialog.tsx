@@ -245,22 +245,6 @@ export default function SettingsDialog({
             </div>
           </div>
 
-          {/* Show compile output option */}
-          <div className="rounded border p-3 bg-muted">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Always Show Compilation Output</div>
-                <div className="text-xs text-muted-foreground">When disabled (default), the compilation panel is hidden unless there are errors. Enable to always show it.</div>
-              </div>
-              <div className="flex items-center">
-                <Checkbox
-                  checked={showCompileOutput}
-                  onCheckedChange={(v) => setStoredShowCompileOutput(Boolean(v))}
-                  aria-label="show compilation output"
-                />
-              </div>
-            </div>
-          </div>
         </div>
 
         <DialogFooter className="mt-4">
