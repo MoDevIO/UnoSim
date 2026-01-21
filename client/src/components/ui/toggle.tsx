@@ -1,8 +1,8 @@
-import * as React from "react"
-import * as TogglePrimitive from "@radix-ui/react-toggle"
-import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react";
+import * as TogglePrimitive from "@radix-ui/react-toggle";
+import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 const toggleVariants = cva(
   "inline-flex items-center justify-center rounded-md text-ui-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 gap-2",
@@ -14,7 +14,8 @@ const toggleVariants = cva(
           "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
       },
       size: {
-        default: "h-[var(--ui-button-height)] px-3 min-w-[var(--ui-button-height)]",
+        default:
+          "h-[var(--ui-button-height)] px-3 min-w-[var(--ui-button-height)]",
         sm: "h-9 px-2.5 min-w-9",
         lg: "h-[var(--ui-button-height)] px-5 min-w-[var(--ui-button-height)]",
       },
@@ -23,8 +24,8 @@ const toggleVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
-)
+  },
+);
 
 const Toggle = React.forwardRef<
   React.ElementRef<typeof TogglePrimitive.Root>,
@@ -36,8 +37,8 @@ const Toggle = React.forwardRef<
     className={cn(toggleVariants({ variant, size, className }))}
     {...props}
   />
-))
+));
 
-Toggle.displayName = TogglePrimitive.Root.displayName
+Toggle.displayName = TogglePrimitive.Root.displayName;
 
-export { Toggle, toggleVariants }
+export { Toggle, toggleVariants };

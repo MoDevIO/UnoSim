@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -106,15 +106,46 @@
     line-height: var(--lh-md);
   }
 
-  h1 { font-size: var(--fs-3xl); line-height: var(--lh-3xl); font-weight: 600; }
-  h2 { font-size: var(--fs-2xl); line-height: var(--lh-2xl); font-weight: 600; }
-  h3 { font-size: var(--fs-2xl);  line-height: var(--lh-2xl);  font-weight: 600; }
-  h4 { font-size: var(--fs-2xl);  line-height: var(--lh-2xl);  font-weight: 600; }
-  h5 { font-size: var(--fs-md);  line-height: var(--lh-md);  font-weight: 600; }
-  h6 { font-size: var(--fs-md);  line-height: var(--lh-md);  font-weight: 600; }
+  h1 {
+    font-size: var(--fs-3xl);
+    line-height: var(--lh-3xl);
+    font-weight: 600;
+  }
+  h2 {
+    font-size: var(--fs-2xl);
+    line-height: var(--lh-2xl);
+    font-weight: 600;
+  }
+  h3 {
+    font-size: var(--fs-2xl);
+    line-height: var(--lh-2xl);
+    font-weight: 600;
+  }
+  h4 {
+    font-size: var(--fs-2xl);
+    line-height: var(--lh-2xl);
+    font-weight: 600;
+  }
+  h5 {
+    font-size: var(--fs-md);
+    line-height: var(--lh-md);
+    font-weight: 600;
+  }
+  h6 {
+    font-size: var(--fs-md);
+    line-height: var(--lh-md);
+    font-weight: 600;
+  }
 
   /* Make all header elements visually the same height */
-  h1, h2, h3, h4, h5, h6, .text-title, .text-subtitle {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .text-title,
+  .text-subtitle {
     height: var(--ui-header-height);
     display: flex;
     align-items: center;
@@ -123,21 +154,21 @@
 }
 
 /* Status indicators */
-.status-ready { 
-  color: hsl(180 100% 50%); 
+.status-ready {
+  color: hsl(180 100% 50%);
 }
-.status-compiling { 
-  color: hsl(45 100% 60%); 
+.status-compiling {
+  color: hsl(45 100% 60%);
 }
-.status-error { 
-  color: hsl(0 70% 60%); 
+.status-error {
+  color: hsl(0 70% 60%);
 }
-.status-success { 
-  color: hsl(120 70% 60%); 
+.status-success {
+  color: hsl(120 70% 60%);
 }
 
 /* Console output styling */
-  .console-output {
+.console-output {
   font-family: var(--font-mono);
   /* Console should follow GUI text (12pt) */
   font-size: var(--fs-md);
@@ -168,30 +199,87 @@
 .app-navbar {
   -webkit-app-region: drag; /* Makes the header draggable in desktop wrapper apps */
   backdrop-filter: blur(6px);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.55);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
 }
-.app-navbar .no-drag { -webkit-app-region: no-drag; }
-
+.app-navbar .no-drag {
+  -webkit-app-region: no-drag;
+}
 
 /* App menu (desktop) */
-.app-menu { display: flex; gap: 0.5rem; margin-left: 0.5rem; align-items: center; font-size: var(--ui-control-font-size); user-select: none; }
+.app-menu {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+  align-items: center;
+  font-size: var(--ui-control-font-size);
+  user-select: none;
+}
 /* Utility typography classes for consistent usage */
-.text-title { font-size: var(--fs-2xl); line-height: var(--lh-2xl); font-weight: 600; }
-.text-subtitle { font-size: var(--fs-xl); line-height: var(--lh-xl); font-weight: 500; }
-.text-body { font-size: var(--fs-md); line-height: var(--lh-md); }
-.text-small { font-size: var(--fs-sm); line-height: var(--lh-sm); }
-.text-caption { font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted-foreground); }
-.text-code { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-sm); }
+.text-title {
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-2xl);
+  font-weight: 600;
+}
+.text-subtitle {
+  font-size: var(--fs-xl);
+  line-height: var(--lh-xl);
+  font-weight: 500;
+}
+.text-body {
+  font-size: var(--fs-md);
+  line-height: var(--lh-md);
+}
+.text-small {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+.text-caption {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--muted-foreground);
+}
+.text-code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
 
 /* Override Tailwind `text-ui-*` utilities to enforce central UI font-size/line-height */
-.text-ui-xs { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
-.text-ui-sm { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
-.text-ui-md { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
-.text-ui-lg { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
-.text-ui-xl { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
-.app-menu .menu-item { padding: 6px 10px; border-radius: 4px; color: var(--muted-foreground); }
-.app-menu .menu-item:hover, .app-menu .menu-item:focus { background: rgba(255,255,255,0.03); color: var(--foreground); outline: none; cursor: pointer; }
-.app-menu .menu-item:active { background: rgba(255,255,255,0.04); }
+.text-ui-xs {
+  font-size: var(--ui-font-size) !important;
+  line-height: var(--ui-line-height) !important;
+}
+.text-ui-sm {
+  font-size: var(--ui-font-size) !important;
+  line-height: var(--ui-line-height) !important;
+}
+.text-ui-md {
+  font-size: var(--ui-font-size) !important;
+  line-height: var(--ui-line-height) !important;
+}
+.text-ui-lg {
+  font-size: var(--ui-font-size) !important;
+  line-height: var(--ui-line-height) !important;
+}
+.text-ui-xl {
+  font-size: var(--ui-font-size) !important;
+  line-height: var(--ui-line-height) !important;
+}
+.app-menu .menu-item {
+  padding: 6px 10px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+}
+.app-menu .menu-item:hover,
+.app-menu .menu-item:focus {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--foreground);
+  outline: none;
+  cursor: pointer;
+}
+.app-menu .menu-item:active {
+  background: rgba(255, 255, 255, 0.04);
+}
 
 /* Controls (buttons, menu items, icon-only controls) should use the scaled control font and align vertically */
 button,
@@ -212,10 +300,16 @@ button,
 }
 
 /* Ensure icon-only square controls center SVGs */
-button > svg, .btn > svg, .inline-flex > svg { width: 1em; height: 1em; }
+button > svg,
+.btn > svg,
+.inline-flex > svg {
+  width: 1em;
+  height: 1em;
+}
 
 /* Force child nodes to inherit control sizing to avoid mixed line-height from inner spans */
-button *, .app-menu .menu-item * {
+button *,
+.app-menu .menu-item * {
   font-size: var(--ui-control-font-size) !important;
   line-height: var(--ui-button-height) !important;
 }
@@ -226,16 +320,21 @@ button *, .app-menu .menu-item * {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 /* Hide scrollbar while maintaining scroll functionality */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;     /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;             /* Chrome, Safari and Opera */
+  display: none; /* Chrome, Safari and Opera */
 }

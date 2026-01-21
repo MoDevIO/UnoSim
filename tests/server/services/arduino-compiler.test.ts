@@ -1,21 +1,21 @@
 /**
  * Complete Test Suite for ArduinoCompiler with 100% Coverage
- * 
+ *
  * These tests cover all remaining Edge Cases:
  * - Line 88: rm error in finally block
  * - Line 194: Fallback output without Memory information
  * - Lines 271-273: GCC Error without stderr
  */
 
-import { ArduinoCompiler } from '../../../server/services/arduino-compiler';
-import { spawn } from 'child_process';
-import { writeFile, mkdir, rm } from 'fs/promises';
+import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
+import { spawn } from "child_process";
+import { writeFile, mkdir, rm } from "fs/promises";
 import { Logger } from "@shared/logger";
 
-jest.mock('child_process');
-jest.mock('fs/promises');
+jest.mock("child_process");
+jest.mock("fs/promises");
 
-describe('ArduinoCompiler - Full Coverage', () => {
+describe("ArduinoCompiler - Full Coverage", () => {
   let compiler: ArduinoCompiler;
   const mockWriteFile = writeFile as jest.MockedFunction<typeof writeFile>;
   const mockMkdir = mkdir as jest.MockedFunction<typeof mkdir>;
@@ -31,8 +31,8 @@ describe('ArduinoCompiler - Full Coverage', () => {
     mockRm.mockResolvedValue(undefined);
   });
 
-  describe('Serial Validation Edge Cases', () => {
-    it('should fail if Serial.begin() has wrong baudrate', async () => {
+  describe("Serial Validation Edge Cases", () => {
+    it("should fail if Serial.begin() has wrong baudrate", async () => {
       const code = `
         void setup() {
           Serial.begin(9600); // Wrong baudrate
@@ -42,30 +42,38 @@ describe('ArduinoCompiler - Full Coverage', () => {
         }
       `;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
           on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
+            if (event === "data")
+              cb(
+                Buffer.from(
+                  "Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n",
+                ),
+              );
+          },
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
 
       const result = await compiler.compile(code);
 
       expect(result.success).toBe(true);
       // Serial warnings now appear in parserMessages, not in output
       const messages = result.parserMessages as any[];
-      const serialMessages = messages.filter(m => m.category === 'serial');
+      const serialMessages = messages.filter((m) => m.category === "serial");
       expect(serialMessages.length).toBeGreaterThan(0);
-      expect(serialMessages.some(m => m.message.includes('9600') && m.message.includes('wrong'))).toBe(true);
+      expect(
+        serialMessages.some(
+          (m) => m.message.includes("9600") && m.message.includes("wrong"),
+        ),
+      ).toBe(true);
     });
 
-    it('should succeed with Serial.begin(115200) in block comment but active code', async () => {
+    it("should succeed with Serial.begin(115200) in block comment but active code", async () => {
       const code = `
         void setup() {
           /* This is Serial.begin(115200) in comment */
@@ -76,24 +84,28 @@ describe('ArduinoCompiler - Full Coverage', () => {
         }
       `;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
           on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
+            if (event === "data")
+              cb(
+                Buffer.from(
+                  "Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n",
+                ),
+              );
+          },
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
     });
 
-    it('should succeed with code without Serial output', async () => {
+    it("should succeed with code without Serial output", async () => {
       const code = `
         void setup() {
           pinMode(13, OUTPUT);
@@ -104,24 +116,23 @@ describe('ArduinoCompiler - Full Coverage', () => {
         }
       `;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Compilation successful\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
           on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
+            if (event === "data") cb(Buffer.from("Compilation successful\n"));
+          },
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
     });
 
-    it('should fail when Serial.begin(115200) is commented out', async () => {
+    it("should fail when Serial.begin(115200) is commented out", async () => {
       const code = `
         void setup() {
           // Serial.begin(115200);
@@ -131,168 +142,190 @@ describe('ArduinoCompiler - Full Coverage', () => {
         }
       `;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
           on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
+            if (event === "data")
+              cb(
+                Buffer.from(
+                  "Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n",
+                ),
+              );
+          },
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
       // Serial warnings now appear in parserMessages, not in output
       const messages = result.parserMessages as any[];
-      const serialMessages = messages.filter(m => m.category === 'serial');
+      const serialMessages = messages.filter((m) => m.category === "serial");
       expect(serialMessages.length).toBeGreaterThan(0);
-      expect(serialMessages.some(m => m.message.includes('commented out'))).toBe(true);
+      expect(
+        serialMessages.some((m) => m.message.includes("commented out")),
+      ).toBe(true);
     });
   });
 
-  describe('Memory Usage Parsing', () => {
-    it('should parse English memory output', async () => {
+  describe("Memory Usage Parsing", () => {
+    it("should parse English memory output", async () => {
       const code = `
         void setup() { Serial.begin(115200); }
         void loop() {}
       `;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') {
-                cb(Buffer.from('Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n'));
-              }
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
+          on: (event: string, cb: Function) => {
+            if (event === "data") {
+              cb(
+                Buffer.from(
+                  "Sketch uses 1024 bytes.\nGlobal variables use 32 bytes.\n",
+                ),
+              );
             }
           },
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
-      expect(result.output).toEqual(expect.stringContaining('Sketch uses 1024 bytes'));
+      expect(result.output).toEqual(
+        expect.stringContaining("Sketch uses 1024 bytes"),
+      );
     });
 
-    it('should parse German memory output', async () => {
+    it("should parse German memory output", async () => {
       const code = `
         void setup() { Serial.begin(115200); }
         void loop() {}
       `;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') {
-                cb(Buffer.from('Der Sketch verwendet 1024 Bytes.\nGlobale Variablen verwenden 32 Bytes.\n'));
-              }
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
+          on: (event: string, cb: Function) => {
+            if (event === "data") {
+              cb(
+                Buffer.from(
+                  "Der Sketch verwendet 1024 Bytes.\nGlobale Variablen verwenden 32 Bytes.\n",
+                ),
+              );
             }
           },
-          stderr: { on: jest.fn() },
-          on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
-      expect(result.output).toEqual(expect.stringContaining('Der Sketch verwendet 1024 Bytes'));
+      expect(result.output).toEqual(
+        expect.stringContaining("Der Sketch verwendet 1024 Bytes"),
+      );
     });
 
     // CRITICAL: Test for line 194
-    it('should use (Simulation) output if no memory information is present', async () => {
+    it("should use (Simulation) output if no memory information is present", async () => {
       const code = `
         void setup() { Serial.begin(115200); }
         void loop() {}
       `;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Success, no memory info.\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
           on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
+            if (event === "data") cb(Buffer.from("Success, no memory info.\n"));
+          },
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
-      expect(result.output).toEqual(expect.stringContaining('Board: Arduino UNO (Simulation)'));
+      expect(result.output).toEqual(
+        expect.stringContaining("Board: Arduino UNO (Simulation)"),
+      );
     });
   });
 
-  describe('File System Operations', () => {
-    it('should handle mkdir errors gracefully', async () => {
+  describe("File System Operations", () => {
+    it("should handle mkdir errors gracefully", async () => {
       const code = `
         void setup() { Serial.begin(115200); }
         void loop() {}
       `;
 
-      mockMkdir.mockRejectedValueOnce(new Error('Permission denied'));
+      mockMkdir.mockRejectedValueOnce(new Error("Permission denied"));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('Compilation failed'));
+      expect(result.errors).toEqual(
+        expect.stringContaining("Compilation failed"),
+      );
     });
 
-    it('should handle writeFile errors', async () => {
+    it("should handle writeFile errors", async () => {
       const code = `
         void setup() { Serial.begin(115200); }
         void loop() {}
       `;
 
-      mockWriteFile.mockRejectedValueOnce(new Error('Disk full'));
+      mockWriteFile.mockRejectedValueOnce(new Error("Disk full"));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('Compilation failed'));
+      expect(result.errors).toEqual(
+        expect.stringContaining("Compilation failed"),
+      );
     });
 
     // CRITICAL: Test für Zeile 88
-    it('should log warning if rm fails in finally block', async () => {
+    it("should log warning if rm fails in finally block", async () => {
       const code = `
         void setup() { Serial.begin(115200); }
         void loop() {}
       `;
 
-      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      const warnSpy = jest.spyOn(Logger.prototype, "warn").mockImplementation();
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Success\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
           on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
+            if (event === "data") cb(Buffer.from("Success\n"));
+          },
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
 
-      mockRm.mockRejectedValueOnce(new Error('Cleanup failure'));
+      mockRm.mockRejectedValueOnce(new Error("Cleanup failure"));
 
       await compiler.compile(code);
 
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Cleanup failure'));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Cleanup failure"),
+      );
       warnSpy.mockRestore();
     });
   });
 
-  describe('Complex Code Validation', () => {
-    it('should handle setup() and loop() with complex formatting', async () => {
+  describe("Complex Code Validation", () => {
+    it("should handle setup() and loop() with complex formatting", async () => {
       const code = `
         void
         setup
@@ -307,24 +340,23 @@ describe('ArduinoCompiler - Full Coverage', () => {
         }
       `;
 
-      (spawn as jest.Mock)
-        .mockImplementationOnce(() => ({
-          stdout: {
-            on: (event: string, cb: Function) => {
-              if (event === 'data') cb(Buffer.from('Success\n'));
-            }
-          },
-          stderr: { on: jest.fn() },
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: {
           on: (event: string, cb: Function) => {
-            if (event === 'close') cb(0);
-          }
-        }));
+            if (event === "data") cb(Buffer.from("Success\n"));
+          },
+        },
+        stderr: { on: jest.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
     });
 
-    it('should fail when both setup() and loop() are missing', async () => {
+    it("should fail when both setup() and loop() are missing", async () => {
       const code = `
         int x = 5;
         void someFunction() {}
@@ -332,109 +364,114 @@ describe('ArduinoCompiler - Full Coverage', () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('setup() and loop()'));
+      expect(result.errors).toEqual(
+        expect.stringContaining("setup() and loop()"),
+      );
     });
 
-    it('should fail when only setup() is missing', async () => {
+    it("should fail when only setup() is missing", async () => {
       const code = `void loop() {}`;
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('setup()'));
+      expect(result.errors).toEqual(expect.stringContaining("setup()"));
     });
 
-    it('should fail when only loop() is missing', async () => {
+    it("should fail when only loop() is missing", async () => {
       const code = `void setup() {}`;
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('loop()'));
+      expect(result.errors).toEqual(expect.stringContaining("loop()"));
     });
   });
 
-  describe('Compiler Error Handling', () => {
-    it('should handle arduino-cli spawn error', async () => {
+  describe("Compiler Error Handling", () => {
+    it("should handle arduino-cli spawn error", async () => {
       const code = `void setup() {} void loop() {}`;
 
       (spawn as jest.Mock).mockImplementation(() => ({
         stdout: { on: jest.fn() },
         stderr: { on: jest.fn() },
         on: (event: string, cb: Function) => {
-          if (event === 'error') cb(new Error('spawn ENOENT'));
-        }
+          if (event === "error") cb(new Error("spawn ENOENT"));
+        },
       }));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('Arduino CLI not available'));
+      expect(result.errors).toEqual(
+        expect.stringContaining("Arduino CLI not available"),
+      );
     });
 
-    it('should handle arduino-cli compilation failure', async () => {
+    it("should handle arduino-cli compilation failure", async () => {
       const code = `void setup() {} void loop() {}`;
 
       (spawn as jest.Mock).mockImplementation(() => ({
         stdout: { on: jest.fn() },
         stderr: {
           on: (event: string, cb: Function) => {
-            if (event === 'data') cb(Buffer.from('error: expected semicolon\n'));
-          }
+            if (event === "data")
+              cb(Buffer.from("error: expected semicolon\n"));
+          },
         },
         on: (event: string, cb: Function) => {
-          if (event === 'close') cb(1);
-        }
+          if (event === "close") cb(1);
+        },
       }));
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining('expected semicolon'));
+      expect(result.errors).toEqual(
+        expect.stringContaining("expected semicolon"),
+      );
     });
-
-
   });
 
-  describe('Constructor and Factory', () => {
-    it('should handle mkdir error in ensureTempDir and log warning', async () => {
-      mockMkdir.mockRejectedValueOnce(new Error('Permission denied'));
+  describe("Constructor and Factory", () => {
+    it("should handle mkdir error in ensureTempDir and log warning", async () => {
+      mockMkdir.mockRejectedValueOnce(new Error("Permission denied"));
 
-      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      const warnSpy = jest.spyOn(Logger.prototype, "warn").mockImplementation();
 
       const newCompiler = await ArduinoCompiler.create();
 
       expect(newCompiler).toBeDefined();
       expect(warnSpy).toHaveBeenCalled();
-      
+
       warnSpy.mockRestore();
     });
   });
 
-  describe('Header File Processing', () => {
-    it('should embed single header file into code', async () => {
+  describe("Header File Processing", () => {
+    it("should embed single header file into code", async () => {
       const code = `
         #include "myHeader.h"
         void setup() { Serial.begin(115200); }
         void loop() {}
       `;
-      const headers = [{ name: 'myHeader.h', content: '#define MY_CONST 42' }];
+      const headers = [{ name: "myHeader.h", content: "#define MY_CONST 42" }];
 
       // Mock successful compilation
       (spawn as jest.Mock).mockImplementationOnce(() => ({
         stdout: {
           on: (event: string, cb: Function) => {
-            if (event === 'data') cb(Buffer.from('Success'));
-          }
+            if (event === "data") cb(Buffer.from("Success"));
+          },
         },
         stderr: { on: jest.fn() },
         on: (event: string, cb: Function) => {
-          if (event === 'close') cb(0);
-        }
+          if (event === "close") cb(0);
+        },
       }));
 
       const result = await compiler.compile(code, headers);
-      
-      expect(result.processedCode).toContain('#define MY_CONST 42');
-      expect(result.processedCode).toContain('--- Start of myHeader.h ---');
+
+      expect(result.processedCode).toContain("#define MY_CONST 42");
+      expect(result.processedCode).toContain("--- Start of myHeader.h ---");
       expect(result.processedCode).not.toContain('#include "myHeader.h"');
     });
 
-    it('should handle multiple header files', async () => {
+    it("should handle multiple header files", async () => {
       const code = `
         #include "header1.h"
         #include "header2.h"
@@ -442,42 +479,52 @@ describe('ArduinoCompiler - Full Coverage', () => {
         void loop() {}
       `;
       const headers = [
-        { name: 'header1.h', content: 'int x = 1;' },
-        { name: 'header2.h', content: 'int y = 2;' }
+        { name: "header1.h", content: "int x = 1;" },
+        { name: "header2.h", content: "int y = 2;" },
       ];
 
       (spawn as jest.Mock).mockImplementationOnce(() => ({
-        stdout: { on: (e: string, cb: Function) => { if (e === 'data') cb(Buffer.from('OK')); } },
+        stdout: {
+          on: (e: string, cb: Function) => {
+            if (e === "data") cb(Buffer.from("OK"));
+          },
+        },
         stderr: { on: jest.fn() },
-        on: (e: string, cb: Function) => { if (e === 'close') cb(0); }
+        on: (e: string, cb: Function) => {
+          if (e === "close") cb(0);
+        },
       }));
 
       const result = await compiler.compile(code, headers);
-      
-      expect(result.processedCode).toContain('int x = 1;');
-      expect(result.processedCode).toContain('int y = 2;');
+
+      expect(result.processedCode).toContain("int x = 1;");
+      expect(result.processedCode).toContain("int y = 2;");
     });
 
-    it('should handle include without .h extension', async () => {
+    it("should handle include without .h extension", async () => {
       const code = `
         #include "helper"
         void setup() {}
         void loop() {}
       `;
-      const headers = [{ name: 'helper.h', content: 'void helperFunc() {}' }];
+      const headers = [{ name: "helper.h", content: "void helperFunc() {}" }];
 
       (spawn as jest.Mock).mockImplementationOnce(() => ({
-        stdout: { on: (e: string, cb: Function) => { if (e === 'data') cb(Buffer.from('OK')); } },
+        stdout: {
+          on: (e: string, cb: Function) => {
+            if (e === "data") cb(Buffer.from("OK"));
+          },
+        },
         stderr: { on: jest.fn() },
-        on: (e: string, cb: Function) => { if (e === 'close') cb(0); }
+        on: (e: string, cb: Function) => {
+          if (e === "close") cb(0);
+        },
       }));
 
       const result = await compiler.compile(code, headers);
-      
+
       // The current implementation should handle this case
       expect(result.success).toBe(true);
     });
   });
-
-
 });

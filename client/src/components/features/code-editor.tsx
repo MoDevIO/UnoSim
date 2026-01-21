@@ -139,13 +139,17 @@ export function CodeEditor({
     const computeUi = () => {
       try {
         const cs = getComputedStyle(document.documentElement);
-        const baseFs = parseFloat(cs.getPropertyValue('--ui-font-base-size')) || 16;
-        const baseLh = parseFloat(cs.getPropertyValue('--ui-line-base')) || 20;
-        const scale = parseFloat(cs.getPropertyValue('--ui-font-scale')) || 1;
+        const baseFs =
+          parseFloat(cs.getPropertyValue("--ui-font-base-size")) || 16;
+        const baseLh = parseFloat(cs.getPropertyValue("--ui-line-base")) || 20;
+        const scale = parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1;
         const fs = baseFs * scale;
         const lh = baseLh * scale;
         return { fs, lh };
-      } catch (e) { console.warn('computeUi failed', e); return { fs: 16, lh: 20 } }
+      } catch (e) {
+        console.warn("computeUi failed", e);
+        return { fs: 16, lh: 20 };
+      }
     };
 
     const initial = computeUi();
@@ -188,10 +192,15 @@ export function CodeEditor({
     requestAnimationFrame(() => {
       try {
         const ui = computeUi();
-        editor.updateOptions({ fontSize: Math.round(ui.fs), lineHeight: Math.round(ui.lh) });
-        try { editor.layout(); } catch {}
+        editor.updateOptions({
+          fontSize: Math.round(ui.fs),
+          lineHeight: Math.round(ui.lh),
+        });
+        try {
+          editor.layout();
+        } catch {}
       } catch (err) {
-        console.warn('Monaco initial rAF sync failed', err);
+        console.warn("Monaco initial rAF sync failed", err);
       }
     });
 
@@ -199,66 +208,123 @@ export function CodeEditor({
     if (externalEditorRef) {
       externalEditorRef.current = {
         getValue: () => editor.getValue(),
-        undo: () => { try { editor.focus(); editor.trigger('keyboard', 'undo', {}); } catch {} },
-        redo: () => { try { editor.focus(); editor.trigger('keyboard', 'redo', {}); } catch {} },
-        find: () => { try { editor.focus(); const action = editor.getAction('actions.find'); if (action) action.run(); } catch {} },
-        selectAll: () => { try { editor.focus(); const model = editor.getModel(); if (model) { editor.setSelection(model.getFullModelRange()); editor.revealRangeInCenter(model.getFullModelRange()); } } catch {} },
+        undo: () => {
+          try {
+            editor.focus();
+            editor.trigger("keyboard", "undo", {});
+          } catch {}
+        },
+        redo: () => {
+          try {
+            editor.focus();
+            editor.trigger("keyboard", "redo", {});
+          } catch {}
+        },
+        find: () => {
+          try {
+            editor.focus();
+            const action = editor.getAction("actions.find");
+            if (action) action.run();
+          } catch {}
+        },
+        selectAll: () => {
+          try {
+            editor.focus();
+            const model = editor.getModel();
+            if (model) {
+              editor.setSelection(model.getFullModelRange());
+              editor.revealRangeInCenter(model.getFullModelRange());
+            }
+          } catch {}
+        },
         insertTextAtLine: (line: number | undefined, text: string) => {
           try {
             editor.focus();
             const model = editor.getModel();
             if (!model) return;
-            
+
             // If no line specified, insert at current cursor position
             if (line === undefined) {
               const pos = editor.getPosition();
               if (pos) {
                 const endOfLine = model.getLineMaxColumn(pos.lineNumber);
-                const range = { startLineNumber: pos.lineNumber, startColumn: endOfLine, endLineNumber: pos.lineNumber, endColumn: endOfLine };
-                editor.executeEdits('insertSuggestion', [{ range, text: '\n' + text }]);
-                editor.setPosition({ lineNumber: pos.lineNumber + 1, column: text.length + 1 });
-                editor.revealPositionInCenter({ lineNumber: pos.lineNumber + 1, column: 1 });
+                const range = {
+                  startLineNumber: pos.lineNumber,
+                  startColumn: endOfLine,
+                  endLineNumber: pos.lineNumber,
+                  endColumn: endOfLine,
+                };
+                editor.executeEdits("insertSuggestion", [
+                  { range, text: "\n" + text },
+                ]);
+                editor.setPosition({
+                  lineNumber: pos.lineNumber + 1,
+                  column: text.length + 1,
+                });
+                editor.revealPositionInCenter({
+                  lineNumber: pos.lineNumber + 1,
+                  column: 1,
+                });
               }
             } else {
               // Insert at specified line (at the end of that line)
-              const targetLine = Math.min(Math.max(1, Math.floor(line)), model.getLineCount());
+              const targetLine = Math.min(
+                Math.max(1, Math.floor(line)),
+                model.getLineCount(),
+              );
               const endOfLine = model.getLineMaxColumn(targetLine);
-              const range = { startLineNumber: targetLine, startColumn: endOfLine, endLineNumber: targetLine, endColumn: endOfLine };
-              editor.executeEdits('insertSuggestion', [{ range, text: '\n' + text }]);
-              editor.setPosition({ lineNumber: targetLine + 1, column: text.length + 1 });
-              editor.revealPositionInCenter({ lineNumber: targetLine + 1, column: 1 });
+              const range = {
+                startLineNumber: targetLine,
+                startColumn: endOfLine,
+                endLineNumber: targetLine,
+                endColumn: endOfLine,
+              };
+              editor.executeEdits("insertSuggestion", [
+                { range, text: "\n" + text },
+              ]);
+              editor.setPosition({
+                lineNumber: targetLine + 1,
+                column: text.length + 1,
+              });
+              editor.revealPositionInCenter({
+                lineNumber: targetLine + 1,
+                column: 1,
+              });
             }
           } catch (err) {
-            console.error('Insert text at line failed:', err);
+            console.error("Insert text at line failed:", err);
           }
         },
-        insertSuggestionSmartly: (text: string, _errorLine: number | undefined) => {
+        insertSuggestionSmartly: (
+          text: string,
+          _errorLine: number | undefined,
+        ) => {
           try {
             editor.focus();
             const model = editor.getModel();
             if (!model) return;
-            
+
             const fullCode = model.getValue();
-            const lines = fullCode.split('\n');
-            
+            const lines = fullCode.split("\n");
+
             // Determine which function this suggestion belongs to
-            const isSetupSuggestion = 
-              text.includes('Serial.begin') || 
-              text.includes('pinMode') ||
-              text.includes('void setup');
-            
-            let targetFunctionName = isSetupSuggestion ? 'setup' : 'loop';
-            
+            const isSetupSuggestion =
+              text.includes("Serial.begin") ||
+              text.includes("pinMode") ||
+              text.includes("void setup");
+
+            let targetFunctionName = isSetupSuggestion ? "setup" : "loop";
+
             // Find the target function (setup or loop)
             let functionStartLine = -1;
             let functionOpenBraceIndex = -1;
-            
+
             for (let i = 0; i < lines.length; i++) {
               if (lines[i].includes(`void ${targetFunctionName}()`)) {
                 functionStartLine = i + 1; // 1-indexed for Monaco
                 // Find the opening brace
                 for (let j = i; j < Math.min(i + 3, lines.length); j++) {
-                  if (lines[j].includes('{')) {
+                  if (lines[j].includes("{")) {
                     functionOpenBraceIndex = j + 1;
                     break;
                   }
@@ -266,36 +332,60 @@ export function CodeEditor({
                 break;
               }
             }
-            
+
             // If function not found, just insert at current position
             if (functionStartLine === -1) {
               const pos = editor.getPosition();
               if (pos) {
                 const endOfLine = model.getLineMaxColumn(pos.lineNumber);
-                const range = { startLineNumber: pos.lineNumber, startColumn: endOfLine, endLineNumber: pos.lineNumber, endColumn: endOfLine };
-                editor.executeEdits('insertSuggestion', [{ range, text: '\n' + text }]);
-                editor.setPosition({ lineNumber: pos.lineNumber + 1, column: 1 });
-                editor.revealPositionInCenter({ lineNumber: pos.lineNumber + 1, column: 1 });
+                const range = {
+                  startLineNumber: pos.lineNumber,
+                  startColumn: endOfLine,
+                  endLineNumber: pos.lineNumber,
+                  endColumn: endOfLine,
+                };
+                editor.executeEdits("insertSuggestion", [
+                  { range, text: "\n" + text },
+                ]);
+                editor.setPosition({
+                  lineNumber: pos.lineNumber + 1,
+                  column: 1,
+                });
+                editor.revealPositionInCenter({
+                  lineNumber: pos.lineNumber + 1,
+                  column: 1,
+                });
               }
               return;
             }
-            
+
             // Insert inside the function body, after the opening brace
-            const insertLine = functionOpenBraceIndex > 0 ? functionOpenBraceIndex : functionStartLine;
-            
+            const insertLine =
+              functionOpenBraceIndex > 0
+                ? functionOpenBraceIndex
+                : functionStartLine;
+
             // Always create a new line after the opening brace
-            const indent = '  '; // 2 spaces
-            const range = { 
-              startLineNumber: insertLine, 
-              startColumn: model.getLineMaxColumn(insertLine), 
-              endLineNumber: insertLine, 
-              endColumn: model.getLineMaxColumn(insertLine) 
+            const indent = "  "; // 2 spaces
+            const range = {
+              startLineNumber: insertLine,
+              startColumn: model.getLineMaxColumn(insertLine),
+              endLineNumber: insertLine,
+              endColumn: model.getLineMaxColumn(insertLine),
             };
-            editor.executeEdits('insertSuggestion', [{ range, text: '\n' + indent + text }]);
-            editor.setPosition({ lineNumber: insertLine + 1, column: indent.length + text.length + 1 });
-            editor.revealPositionInCenter({ lineNumber: insertLine + 1, column: 1 });
+            editor.executeEdits("insertSuggestion", [
+              { range, text: "\n" + indent + text },
+            ]);
+            editor.setPosition({
+              lineNumber: insertLine + 1,
+              column: indent.length + text.length + 1,
+            });
+            editor.revealPositionInCenter({
+              lineNumber: insertLine + 1,
+              column: 1,
+            });
           } catch (err) {
-            console.error('Insert suggestion smartly failed:', err);
+            console.error("Insert suggestion smartly failed:", err);
           }
         },
         copy: () => {
@@ -305,7 +395,9 @@ export function CodeEditor({
             const sel = editor.getSelection();
             if (model && sel && !sel.isEmpty()) {
               const text = model.getValueInRange(sel);
-              try { navigator.clipboard.writeText(text).catch(() => {}); } catch {}
+              try {
+                navigator.clipboard.writeText(text).catch(() => {});
+              } catch {}
             }
           } catch {}
         },
@@ -317,8 +409,10 @@ export function CodeEditor({
             if (model && sel && !sel.isEmpty()) {
               const text = model.getValueInRange(sel);
               // try clipboard write (async) but not await to avoid blocking
-              try { navigator.clipboard.writeText(text).catch(() => {}); } catch {}
-              editor.executeEdits('cut', [{ range: sel, text: '' }]);
+              try {
+                navigator.clipboard.writeText(text).catch(() => {});
+              } catch {}
+              editor.executeEdits("cut", [{ range: sel, text: "" }]);
             }
           } catch {}
         },
@@ -333,12 +427,19 @@ export function CodeEditor({
                 if (!text) return;
                 const pos = editor.getPosition();
                 if (model && sel && !sel.isEmpty()) {
-                  editor.executeEdits('paste', [{ range: sel, text }]);
+                  editor.executeEdits("paste", [{ range: sel, text }]);
                 } else if (pos) {
-                  const r = { startLineNumber: pos.lineNumber, startColumn: pos.column, endLineNumber: pos.lineNumber, endColumn: pos.column };
-                  editor.executeEdits('paste', [{ range: r, text }]);
+                  const r = {
+                    startLineNumber: pos.lineNumber,
+                    startColumn: pos.column,
+                    endLineNumber: pos.lineNumber,
+                    endColumn: pos.column,
+                  };
+                  editor.executeEdits("paste", [{ range: r, text }]);
                 }
-              } catch (err) { /* ignore clipboard read errors */ }
+              } catch (err) {
+                /* ignore clipboard read errors */
+              }
             })();
           } catch {}
         },
@@ -347,7 +448,10 @@ export function CodeEditor({
             editor.focus();
             const model = editor.getModel();
             if (!model) return;
-            const line = Math.min(Math.max(1, Math.floor(ln)), model.getLineCount());
+            const line = Math.min(
+              Math.max(1, Math.floor(ln)),
+              model.getLineCount(),
+            );
             editor.setPosition({ lineNumber: line, column: 1 });
             editor.revealPositionInCenter({ lineNumber: line, column: 1 });
           } catch {}
@@ -412,15 +516,22 @@ export function CodeEditor({
       try {
         const ui = computeUi();
         if (editor) {
-          editor.updateOptions({ fontSize: Math.round(ui.fs), lineHeight: Math.round(ui.lh) });
-          try { editor.layout(); } catch {}
+          editor.updateOptions({
+            fontSize: Math.round(ui.fs),
+            lineHeight: Math.round(ui.lh),
+          });
+          try {
+            editor.layout();
+          } catch {}
         }
-      } catch (err) { console.warn('onScale failed', err); }
+      } catch (err) {
+        console.warn("onScale failed", err);
+      }
     };
 
     // Keep listening for scale changes (some emit on document, others on window)
-    window.addEventListener('uiFontScaleChange', onScale);
-    document.addEventListener('uiFontScaleChange', onScale);
+    window.addEventListener("uiFontScaleChange", onScale);
+    document.addEventListener("uiFontScaleChange", onScale);
     const handlePaste = (e: ClipboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -469,8 +580,8 @@ export function CodeEditor({
       if (domNode) {
         domNode.removeEventListener("paste", handlePaste);
       }
-      document.removeEventListener('uiFontScaleChange', onScale);
-      window.removeEventListener('uiFontScaleChange', onScale);
+      document.removeEventListener("uiFontScaleChange", onScale);
+      window.removeEventListener("uiFontScaleChange", onScale);
       editor.dispose();
     };
   }, []);

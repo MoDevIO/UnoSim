@@ -1,22 +1,33 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, MoreVertical, Wand2, Pen, Trash2, Plus, Download, Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useRef, useEffect } from "react";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  Wand2,
+  Pen,
+  Trash2,
+  Plus,
+  Download,
+  Upload,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,8 +37,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { clsx } from 'clsx';
+} from "@/components/ui/alert-dialog";
+import { clsx } from "clsx";
 
 interface Tab {
   id: string;
@@ -43,7 +54,10 @@ interface SketchTabsProps {
   onTabClose: (tabId: string) => void;
   onTabRename: (tabId: string, newName: string) => void;
   onTabAdd: () => void;
-  onFilesLoaded?: (files: Array<{ name: string; content: string }>, replaceAll: boolean) => void;
+  onFilesLoaded?: (
+    files: Array<{ name: string; content: string }>,
+    replaceAll: boolean,
+  ) => void;
   onFormatCode?: () => void;
   examplesMenu?: React.ReactNode;
 }
@@ -62,11 +76,16 @@ export function SketchTabs({
 }: SketchTabsProps) {
   const { toast } = useToast();
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
-  const [deleteConfirmTabId, setDeleteConfirmTabId] = useState<string | null>(null);
+  const [deleteConfirmTabId, setDeleteConfirmTabId] = useState<string | null>(
+    null,
+  );
   const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = useState(false);
-  const [pendingFilesToLoad, setPendingFilesToLoad] = useState<Array<{ name: string; content: string }> | null>(null);
+  const [pendingFilesToLoad, setPendingFilesToLoad] = useState<Array<{
+    name: string;
+    content: string;
+  }> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,7 +97,7 @@ export function SketchTabs({
     if (container) {
       setCanScrollLeft(container.scrollLeft > 0);
       setCanScrollRight(
-        container.scrollLeft < container.scrollWidth - container.clientWidth
+        container.scrollLeft < container.scrollWidth - container.clientWidth,
       );
     }
   };
@@ -86,11 +105,11 @@ export function SketchTabs({
   useEffect(() => {
     checkScroll();
     const container = tabsContainerRef.current;
-    container?.addEventListener('scroll', checkScroll);
-    window.addEventListener('resize', checkScroll);
+    container?.addEventListener("scroll", checkScroll);
+    window.addEventListener("resize", checkScroll);
     return () => {
-      container?.removeEventListener('scroll', checkScroll);
-      window.removeEventListener('resize', checkScroll);
+      container?.removeEventListener("scroll", checkScroll);
+      window.removeEventListener("resize", checkScroll);
     };
   }, [tabs]);
 
@@ -102,13 +121,13 @@ export function SketchTabs({
     }
   }, [renamingTabId]);
 
-  const scroll = (direction: 'left' | 'right') => {
+  const scroll = (direction: "left" | "right") => {
     const container = tabsContainerRef.current;
     if (container) {
       const scrollAmount = 200;
       container.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth',
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
       });
     }
   };
@@ -116,14 +135,20 @@ export function SketchTabs({
   const handleRenameStart = (tabId: string, currentName: string) => {
     setRenamingTabId(tabId);
     // Remove file extension for display
-    const nameWithoutExtension = currentName.substring(0, currentName.lastIndexOf('.'));
+    const nameWithoutExtension = currentName.substring(
+      0,
+      currentName.lastIndexOf("."),
+    );
     setNewName(nameWithoutExtension);
   };
 
   const handleRenameStartDialog = (tabId: string, currentName: string) => {
     setRenamingTabId(tabId);
     // Remove file extension for display
-    const nameWithoutExtension = currentName.substring(0, currentName.lastIndexOf('.'));
+    const nameWithoutExtension = currentName.substring(
+      0,
+      currentName.lastIndexOf("."),
+    );
     setNewName(nameWithoutExtension);
     setIsRenameDialogOpen(true);
   };
@@ -133,7 +158,9 @@ export function SketchTabs({
       const currentTab = tabs.find((t) => t.id === renamingTabId);
       if (currentTab) {
         // Extract the file extension
-        const extension = currentTab.name.substring(currentTab.name.lastIndexOf('.'));
+        const extension = currentTab.name.substring(
+          currentTab.name.lastIndexOf("."),
+        );
         // Remove extension from new name if user included it
         let baseName = newName.trim();
         if (baseName.endsWith(extension)) {
@@ -146,13 +173,13 @@ export function SketchTabs({
       setIsRenameDialogOpen(false);
     }
     setRenamingTabId(null);
-    setNewName('');
+    setNewName("");
   };
 
   const handleRenameCancel = () => {
     setIsRenameDialogOpen(false);
     setRenamingTabId(null);
-    setNewName('');
+    setNewName("");
   };
 
   const handleDeleteConfirm = () => {
@@ -162,7 +189,9 @@ export function SketchTabs({
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
@@ -173,10 +202,10 @@ export function SketchTabs({
       // Read all files
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const extension = file.name.substring(file.name.lastIndexOf('.'));
+        const extension = file.name.substring(file.name.lastIndexOf("."));
 
         // Only allow .ino and .h files
-        if (extension !== '.ino' && extension !== '.h') {
+        if (extension !== ".ino" && extension !== ".h") {
           toast({
             title: "Unsupported File Type",
             description: `"${file.name}" is not supported. Please only upload .ino and .h files.`,
@@ -185,7 +214,7 @@ export function SketchTabs({
           return;
         }
 
-        if (extension === '.ino') {
+        if (extension === ".ino") {
           inoCount++;
         }
 
@@ -242,7 +271,7 @@ export function SketchTabs({
 
     // Reset file input
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -261,7 +290,7 @@ export function SketchTabs({
   const handleReplaceConfirmNo = () => {
     // Only add .h files, skip the .ino
     if (pendingFilesToLoad && onFilesLoaded) {
-      const hFiles = pendingFilesToLoad.filter(f => f.name.endsWith('.h'));
+      const hFiles = pendingFilesToLoad.filter((f) => f.name.endsWith(".h"));
       if (hFiles.length > 0) {
         onFilesLoaded(hFiles, false); // false = don't replace all
         toast({
@@ -287,26 +316,29 @@ export function SketchTabs({
       // Download each file individually
       tabs.forEach((tab, index) => {
         setTimeout(() => {
-          const element = document.createElement('a');
+          const element = document.createElement("a");
           element.setAttribute(
-            'href',
-            'data:text/plain;charset=utf-8,' + encodeURIComponent(tab.content)
+            "href",
+            "data:text/plain;charset=utf-8," + encodeURIComponent(tab.content),
           );
-          element.setAttribute('download', tab.name);
-          element.style.display = 'none';
+          element.setAttribute("download", tab.name);
+          element.style.display = "none";
           document.body.appendChild(element);
           element.click();
           document.body.removeChild(element);
         }, index * 200); // Stagger downloads to avoid browser throttling
       });
-      
+
       // Show success toast after all downloads are initiated
-      setTimeout(() => {
-        toast({
-          title: "Download started",
-          description: `${tabs.length} file(s) downloading`,
-        });
-      }, tabs.length * 200 + 100);
+      setTimeout(
+        () => {
+          toast({
+            title: "Download started",
+            description: `${tabs.length} file(s) downloading`,
+          });
+        },
+        tabs.length * 200 + 100,
+      );
     } catch (error) {
       toast({
         title: "Download failed",
@@ -317,14 +349,17 @@ export function SketchTabs({
   };
 
   return (
-    <div className="flex items-center bg-muted border-b border-border px-2" style={{ minHeight: 'var(--ui-button-height)' }}>
+    <div
+      className="flex items-center bg-muted border-b border-border px-2"
+      style={{ minHeight: "var(--ui-button-height)" }}
+    >
       {/* Scroll left button */}
       {canScrollLeft && (
         <Button
           variant="ghost"
           size="sm"
           className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
-          onClick={() => scroll('left')}
+          onClick={() => scroll("left")}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -334,18 +369,27 @@ export function SketchTabs({
       <div
         ref={tabsContainerRef}
         className="flex items-center overflow-x-auto flex-1 scrollbar-hide"
-        style={{ scrollBehavior: 'smooth', minHeight: 'var(--ui-button-height)' }}
+        style={{
+          scrollBehavior: "smooth",
+          minHeight: "var(--ui-button-height)",
+        }}
       >
         {tabs.map((tab) => (
-            <div
+          <div
             key={tab.id}
             className={clsx(
-              'flex items-center space-x-2 px-4 mr-2 cursor-pointer transition-colors flex-shrink-0 group rounded-md',
+              "flex items-center space-x-2 px-4 mr-2 cursor-pointer transition-colors flex-shrink-0 group rounded-md",
               activeTabId === tab.id
-                ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
-                : 'hover:bg-muted/80 text-muted-foreground'
+                ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                : "hover:bg-muted/80 text-muted-foreground",
             )}
-            style={{ height: 'var(--ui-button-height)', lineHeight: 'var(--ui-button-height)', display: 'flex', alignItems: 'center', fontSize: 'var(--ui-control-font-size)' }}
+            style={{
+              height: "var(--ui-button-height)",
+              lineHeight: "var(--ui-button-height)",
+              display: "flex",
+              alignItems: "center",
+              fontSize: "var(--ui-control-font-size)",
+            }}
             onClick={() => {
               if (renamingTabId !== tab.id) {
                 onTabClick(tab.id);
@@ -359,21 +403,31 @@ export function SketchTabs({
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => {
                   e.stopPropagation();
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     handleRenameSave();
-                  } else if (e.key === 'Escape') {
+                  } else if (e.key === "Escape") {
                     handleRenameCancel();
                   }
                 }}
                 onBlur={handleRenameSave}
                 className="w-24 px-2 py-1 text-ui-sm"
-                style={{ height: 'var(--ui-button-height)', fontSize: 'var(--ui-control-font-size)', lineHeight: 'var(--ui-button-height)' }}
+                style={{
+                  height: "var(--ui-button-height)",
+                  fontSize: "var(--ui-control-font-size)",
+                  lineHeight: "var(--ui-button-height)",
+                }}
               />
             ) : (
               <>
                 <span
                   className="text-ui-sm whitespace-nowrap cursor-pointer hover:underline"
-                  style={{ fontSize: 'var(--ui-control-font-size)', lineHeight: 'var(--ui-button-height)', height: 'var(--ui-button-height)', display: 'flex', alignItems: 'center' }}
+                  style={{
+                    fontSize: "var(--ui-control-font-size)",
+                    lineHeight: "var(--ui-button-height)",
+                    height: "var(--ui-button-height)",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     handleRenameStart(tab.id, tab.name);
@@ -458,7 +512,7 @@ export function SketchTabs({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        
+
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -466,7 +520,7 @@ export function SketchTabs({
           multiple
           accept=".ino,.h"
           onChange={handleFileUpload}
-          style={{ display: 'none' }}
+          style={{ display: "none" }}
         />
 
         {/* Examples Menu - Right-aligned */}
@@ -481,26 +535,34 @@ export function SketchTabs({
           variant="ghost"
           size="sm"
           className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
-          onClick={() => scroll('right')}
+          onClick={() => scroll("right")}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteConfirmTabId !== null} onOpenChange={(open) => {
-        if (!open) setDeleteConfirmTabId(null);
-      }}>
+      <AlertDialog
+        open={deleteConfirmTabId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirmTabId(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete File?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{tabs.find((t) => t.id === deleteConfirmTabId)?.name}"? This action cannot be undone.
+              Are you sure you want to delete "
+              {tabs.find((t) => t.id === deleteConfirmTabId)?.name}"? This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -518,9 +580,9 @@ export function SketchTabs({
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === "Enter") {
                 handleRenameSave();
-              } else if (e.key === 'Escape') {
+              } else if (e.key === "Escape") {
                 handleRenameCancel();
               }
             }}
@@ -530,29 +592,36 @@ export function SketchTabs({
             <Button variant="outline" onClick={handleRenameCancel}>
               Cancel
             </Button>
-            <Button onClick={handleRenameSave}>
-              Rename
-            </Button>
+            <Button onClick={handleRenameSave}>Rename</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Replace Sketch Confirmation Dialog */}
-      <AlertDialog open={isReplaceConfirmOpen} onOpenChange={setIsReplaceConfirmOpen}>
+      <AlertDialog
+        open={isReplaceConfirmOpen}
+        onOpenChange={setIsReplaceConfirmOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Sketch ersetzen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Es wurde eine .ino-Datei zum Laden ausgewählt. Möchtest du den aktuellen Sketch ersetzen?
-              <br/><br/>
+              Es wurde eine .ino-Datei zum Laden ausgewählt. Möchtest du den
+              aktuellen Sketch ersetzen?
+              <br />
+              <br />
               <strong>Ja:</strong> Der aktuelle Sketch wird vollständig ersetzt
-              <br/>
-              <strong>Nein:</strong> Nur die Header-Dateien (.h) werden hinzugefügt
+              <br />
+              <strong>Nein:</strong> Nur die Header-Dateien (.h) werden
+              hinzugefügt
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Nein (nur .h Dateien)</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReplaceConfirmYes} className="bg-blue-600 hover:bg-blue-700">
+            <AlertDialogAction
+              onClick={handleReplaceConfirmYes}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               Ja (Sketch ersetzen)
             </AlertDialogAction>
           </AlertDialogFooter>

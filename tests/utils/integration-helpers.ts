@@ -1,11 +1,11 @@
 /**
  * Integration Test Utilities
- * 
+ *
  * Helper functions for integration tests that require a running server.
  */
 
-import http from 'http';
-import { execSync } from 'child_process';
+import http from "http";
+import { execSync } from "child_process";
 
 /**
  * Synchronously check if the server is running.
@@ -15,10 +15,13 @@ import { execSync } from 'child_process';
 export function isServerRunningSync(): boolean {
   try {
     // Use curl with a very short timeout to check server availability
-    execSync('curl -s --max-time 1 http://localhost:3000/api/sketches > /dev/null 2>&1', {
-      timeout: 2000,
-      stdio: 'pipe',
-    });
+    execSync(
+      "curl -s --max-time 1 http://localhost:3000/api/sketches > /dev/null 2>&1",
+      {
+        timeout: 2000,
+        stdio: "pipe",
+      },
+    );
     return true;
   } catch {
     return false;
@@ -33,19 +36,19 @@ export async function isServerRunning(): Promise<boolean> {
   return new Promise((resolve) => {
     const req = http.request(
       {
-        hostname: 'localhost',
+        hostname: "localhost",
         port: 3000,
-        path: '/api/sketches',
-        method: 'GET',
+        path: "/api/sketches",
+        method: "GET",
         timeout: 1000,
       },
       (res) => {
         resolve(res.statusCode !== undefined && res.statusCode < 500);
-      }
+      },
     );
 
-    req.on('error', () => resolve(false));
-    req.on('timeout', () => {
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
       req.destroy();
       resolve(false);
     });

@@ -1,30 +1,37 @@
-import { describe, it, expect, beforeAll } from '@jest/globals';
-import http from 'http';
-import { describeIfServer } from '../utils/integration-helpers';
+import { describe, it, expect, beforeAll } from "@jest/globals";
+import http from "http";
+import { describeIfServer } from "../utils/integration-helpers";
 
 /**
  * CLI Label Isolation Test
- * 
+ *
  * Verifies that CLI status labels don't change across session boundaries
- * 
+ *
  * Diese Tests werden automatisch übersprungen wenn der Server nicht läuft.
  */
 
-function fetchHttp(url: string, options?: { method?: string; headers?: Record<string, string>; body?: string }): Promise<{ ok: boolean; status: number; json: () => Promise<any> }> {
+function fetchHttp(
+  url: string,
+  options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  },
+): Promise<{ ok: boolean; status: number; json: () => Promise<any> }> {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
     const reqOptions = {
       hostname: urlObj.hostname,
       port: urlObj.port,
       path: urlObj.pathname + urlObj.search,
-      method: options?.method || 'GET',
+      method: options?.method || "GET",
       headers: options?.headers || {},
     };
 
     const req = http.request(reqOptions, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
         resolve({
           ok: res.statusCode! >= 200 && res.statusCode! < 300,
           status: res.statusCode!,
@@ -33,14 +40,14 @@ function fetchHttp(url: string, options?: { method?: string; headers?: Record<st
       });
     });
 
-    req.on('error', reject);
+    req.on("error", reject);
     if (options?.body) req.write(options.body);
     req.end();
   });
 }
 
-describeIfServer('CLI Label Session Isolation', () => {
-  const API_BASE = 'http://localhost:3000';
+describeIfServer("CLI Label Session Isolation", () => {
+  const API_BASE = "http://localhost:3000";
 
   beforeAll(async () => {
     try {
@@ -53,7 +60,7 @@ describeIfServer('CLI Label Session Isolation', () => {
     }
   });
 
-  it('should NOT broadcast CLI status across sessions', async () => {
+  it("should NOT broadcast CLI status across sessions", async () => {
     const code1 = `
 void setup() {
   Serial.begin(115200);
@@ -76,50 +83,56 @@ void loop() {
 }
 `;
 
-    console.log('\n📊 CLI LABEL ISOLATION TEST\n');
-    console.log('🔴 SESSION 1: Compiling unique code...');
-    
+    console.log("\n📊 CLI LABEL ISOLATION TEST\n");
+    console.log("🔴 SESSION 1: Compiling unique code...");
+
     // Session 1 compile
     const start1 = Date.now();
     const response1 = await fetchHttp(`${API_BASE}/api/compile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: code1 }),
     });
     const time1 = Date.now() - start1;
-    
+
     expect(response1.ok).toBe(true);
     const result1 = await response1.json();
     expect(result1.success).toBe(true);
     console.log(`   Compilation time: ${time1}ms`);
     console.log(`   Result success: ${result1.success}`);
-    
-    console.log('\n🟢 SESSION 2: Compiling different code (same time as session 1)...');
-    
+
+    console.log(
+      "\n🟢 SESSION 2: Compiling different code (same time as session 1)...",
+    );
+
     // Session 2 compile - DIFFERENT CODE
     const start2 = Date.now();
     const response2 = await fetchHttp(`${API_BASE}/api/compile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: code2 }),
     });
     const time2 = Date.now() - start2;
-    
+
     expect(response2.ok).toBe(true);
     const result2 = await response2.json();
     expect(result2.success).toBe(true);
     console.log(`   Compilation time: ${time2}ms`);
     console.log(`   Result success: ${result2.success}`);
 
-    console.log('\n✅ ISOLATION VERIFICATION\n');
-    console.log('┌────────────────────────────┬──────────┬──────────┐');
-    console.log('│ Session                    │ Time     │ Success  │');
-    console.log('├────────────────────────────┼──────────┼──────────┤');
-    console.log(`│ Session 1 (unique code)    │ ${time1}ms  │ ${result1.success ? '✓' : '✗'}      │`);
-    console.log(`│ Session 2 (different code) │ ${time2}ms  │ ${result2.success ? '✓' : '✗'}      │`);
-    console.log('└────────────────────────────┴──────────┴──────────┘');
+    console.log("\n✅ ISOLATION VERIFICATION\n");
+    console.log("┌────────────────────────────┬──────────┬──────────┐");
+    console.log("│ Session                    │ Time     │ Success  │");
+    console.log("├────────────────────────────┼──────────┼──────────┤");
+    console.log(
+      `│ Session 1 (unique code)    │ ${time1}ms  │ ${result1.success ? "✓" : "✗"}      │`,
+    );
+    console.log(
+      `│ Session 2 (different code) │ ${time2}ms  │ ${result2.success ? "✓" : "✗"}      │`,
+    );
+    console.log("└────────────────────────────┴──────────┴──────────┘");
 
-    console.log('\n💡 Key Verification Points:\n');
+    console.log("\n💡 Key Verification Points:\n");
     console.log(`   ✓ Both sessions compiled independently`);
     console.log(`   ✓ No shared state between sessions`);
     console.log(`   ✓ No broadcast to other sessions`);
@@ -134,7 +147,7 @@ void loop() {
     expect(time2).toBeLessThan(40000);
   }, 90000); // 90 second timeout
 
-  it('should allow same code to be cached across different sessions', async () => {
+  it("should allow same code to be cached across different sessions", async () => {
     // Use unique code to ensure fresh compile (not from previous test runs)
     const uniqueId = Date.now();
     const sharedCode = `
@@ -148,37 +161,43 @@ void loop() {
 }
 `;
 
-    console.log('\n📊 CACHE SHARING ACROSS SESSIONS TEST\n');
-    
-    console.log('🔵 SESSION 1: Compile unique code (first time - cache miss expected)...');
+    console.log("\n📊 CACHE SHARING ACROSS SESSIONS TEST\n");
+
+    console.log(
+      "🔵 SESSION 1: Compile unique code (first time - cache miss expected)...",
+    );
     const start1 = Date.now();
     const response1 = await fetchHttp(`${API_BASE}/api/compile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: sharedCode }),
     });
     const time1 = Date.now() - start1;
     const result1 = await response1.json();
-    
-    console.log(`   Time: ${time1}ms`);
-    console.log(`   Cached: ${result1.cached ? 'YES (unexpected!)' : 'NO (expected)'}`);
 
-    console.log('\n🟢 SESSION 2: Compile SAME code (cache hit expected)...');
+    console.log(`   Time: ${time1}ms`);
+    console.log(
+      `   Cached: ${result1.cached ? "YES (unexpected!)" : "NO (expected)"}`,
+    );
+
+    console.log("\n🟢 SESSION 2: Compile SAME code (cache hit expected)...");
     const start2 = Date.now();
     const response2 = await fetchHttp(`${API_BASE}/api/compile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: sharedCode }),
     });
     const time2 = Date.now() - start2;
     const result2 = await response2.json();
-    
-    console.log(`   Time: ${time2}ms`);
-    console.log(`   Cached: ${result2.cached ? 'YES ✓' : 'NO'}`);
 
-    console.log('\n✅ CACHE ACROSS SESSIONS\n');
+    console.log(`   Time: ${time2}ms`);
+    console.log(`   Cached: ${result2.cached ? "YES ✓" : "NO"}`);
+
+    console.log("\n✅ CACHE ACROSS SESSIONS\n");
     console.log(`   ✓ Cache is shared across sessions (when code matches)`);
-    console.log(`   ✓ Session 2 benefited from cache: ${time2}ms vs ${time1}ms (${((time1-time2)/time1*100).toFixed(0)}% faster)\n`);
+    console.log(
+      `   ✓ Session 2 benefited from cache: ${time2}ms vs ${time1}ms (${(((time1 - time2) / time1) * 100).toFixed(0)}% faster)\n`,
+    );
 
     // First compile should NOT be cached (fresh unique code)
     expect(result1.cached).toBeFalsy(); // undefined or false

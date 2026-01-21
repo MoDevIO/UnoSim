@@ -13,33 +13,37 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function startCleanupService() {
   const CLEANUP_INTERVAL_MS = 60 * 1000; // Check every minute
   const CLEANUP_AGE_MS = 5 * 60 * 1000; // Delete files/dirs older than 5 minutes
-  
+
   setInterval(() => {
     try {
-      const tempDir = path.join(process.cwd(), 'temp');
+      const tempDir = path.join(process.cwd(), "temp");
       if (!fs.existsSync(tempDir)) return;
-      
+
       const items = fs.readdirSync(tempDir);
       const now = Date.now();
       let deletedCount = 0;
-      
+
       for (const item of items) {
         const itemPath = path.join(tempDir, item);
         const stats = fs.statSync(itemPath);
         const age = now - stats.mtimeMs;
-        
+
         // Delete old .cleanup.json files
-        if (item.endsWith('.cleanup.json') && age > CLEANUP_AGE_MS) {
+        if (item.endsWith(".cleanup.json") && age > CLEANUP_AGE_MS) {
           fs.unlinkSync(itemPath);
           deletedCount++;
         }
         // Delete old .cleanup directories
-        else if (item.endsWith('.cleanup') && stats.isDirectory() && age > CLEANUP_AGE_MS) {
+        else if (
+          item.endsWith(".cleanup") &&
+          stats.isDirectory() &&
+          age > CLEANUP_AGE_MS
+        ) {
           fs.rmSync(itemPath, { recursive: true, force: true });
           deletedCount++;
         }
       }
-      
+
       if (deletedCount > 0) {
         console.log(`[Cleanup] Deleted ${deletedCount} old temp items`);
       }
@@ -52,48 +56,56 @@ function startCleanupService() {
 const app = express();
 
 // Security: Helmet adds various HTTP headers for protection
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Monaco Editor needs these
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "ws:", "wss:"],
-      fontSrc: ["'self'", "data:"],
-      workerSrc: ["'self'", "blob:"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Monaco Editor needs these
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "ws:", "wss:"],
+        fontSrc: ["'self'", "data:"],
+        workerSrc: ["'self'", "blob:"],
+      },
     },
-  },
-}));
+  }),
+);
 
 // Security: Rate limiting to prevent DoS attacks
 // In test/development mode, use higher limits
-const isTestMode = process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true';
+const isTestMode =
+  process.env.NODE_ENV === "test" || process.env.DISABLE_RATE_LIMIT === "true";
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 Minuten
   max: isTestMode ? 10000 : 100, // 10000 in Test-Modus, 100 in Produktion
-  message: { error: 'Too many requests, please try again later.' },
+  message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => isTestMode, // Komplett überspringen im Test-Modus
 });
 
 // Apply rate limiting to API routes
-app.use('/api/', apiLimiter);
+app.use("/api/", apiLimiter);
 
-app.use(express.json({ limit: '1mb' })); // Limit payload size
-app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+app.use(express.json({ limit: "1mb" })); // Limit payload size
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
 // Serve example files
-app.use('/examples', express.static(path.resolve(__dirname, '..', 'public', 'examples')));
+app.use(
+  "/examples",
+  express.static(path.resolve(__dirname, "..", "public", "examples")),
+);
 
 // Serve public folder static files FIRST (before API routes)
 // public is now copied to dist/public during build
-const publicPath = path.resolve(__dirname, '..', 'public');
-app.use(express.static(publicPath, { 
-  index: false,
-  dotfiles: 'ignore'
-}));
+const publicPath = path.resolve(__dirname, "..", "public");
+app.use(
+  express.static(publicPath, {
+    index: false,
+    dotfiles: "ignore",
+  }),
+);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -126,15 +138,15 @@ app.use((req, res, next) => {
 });
 
 // Global error handlers to prevent server crashes
-process.on('unhandledRejection', (reason, promise) => {
+process.on("unhandledRejection", (reason, promise) => {
   console.error(`[ERROR] Unhandled Promise Rejection at ${promise}:`, reason);
 });
 
-process.on('uncaughtException', (error) => {
+process.on("uncaughtException", (error) => {
   console.error(`[ERROR] Uncaught Exception:`, error);
   // In development, keep running; in production may want to restart
-  if (process.env.NODE_ENV === 'production') {
-    console.error('Shutting down due to uncaught exception');
+  if (process.env.NODE_ENV === "production") {
+    console.error("Shutting down due to uncaught exception");
     process.exit(1);
   }
 });
@@ -144,16 +156,20 @@ process.on('uncaughtException', (error) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const isProduction = process.env.NODE_ENV === 'production';
-    
+    const isProduction = process.env.NODE_ENV === "production";
+
     // In Production: keine Details leaken
-    const message = isProduction && status === 500 
-      ? "Internal Server Error" 
-      : (err.message || "Internal Server Error");
+    const message =
+      isProduction && status === 500
+        ? "Internal Server Error"
+        : err.message || "Internal Server Error";
 
     // Logging für Debugging (Server-seitig)
     if (status >= 500) {
-      console.error(`[ERROR] ${status}: ${err.message}`, isProduction ? '' : err.stack);
+      console.error(
+        `[ERROR] ${status}: ${err.message}`,
+        isProduction ? "" : err.stack,
+      );
     }
 
     res.status(status).json({ message });
@@ -175,9 +191,8 @@ process.on('uncaughtException', (error) => {
   const PORT = Number(process.env.PORT) || 3000;
   server.listen(PORT, () => {
     console.log(`[express] Server running at http://localhost:${PORT}`);
-    
+
     // Start cleanup service for old temp files
     startCleanupService();
   });
-
 })();

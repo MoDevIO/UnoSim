@@ -1,24 +1,24 @@
 /**
  * Monaco Editor Debug Script
- * 
+ *
  * Führen Sie dies in der Browser-Konsole aus (F12), um den Editor-Zustand zu diagnostizieren:
  * copy(await fetch('DEBUG_MONACO.js').then(r => r.text())) && eval(await fetch('DEBUG_MONACO.js').then(r => r.text()))
- * 
+ *
  * ODER manuell in der Konsole:
  */
 
-console.log('=== 🔍 MONACO EDITOR DIAGNOSTICS ===');
+console.log("=== 🔍 MONACO EDITOR DIAGNOSTICS ===");
 
 // 1. Container finden
 const container = document.querySelector('[data-testid="code-editor"]');
-console.log('1. Container gefunden:', !!container);
+console.log("1. Container gefunden:", !!container);
 if (container) {
-  console.log('   - offsetHeight:', container.offsetHeight);
-  console.log('   - offsetWidth:', container.offsetWidth);
-  console.log('   - innerHTML length:', container.innerHTML?.length);
-  
+  console.log("   - offsetHeight:", container.offsetHeight);
+  console.log("   - offsetWidth:", container.offsetWidth);
+  console.log("   - innerHTML length:", container.innerHTML?.length);
+
   const computed = window.getComputedStyle(container);
-  console.log('   - Computed CSS:', {
+  console.log("   - Computed CSS:", {
     display: computed.display,
     visibility: computed.visibility,
     opacity: computed.opacity,
@@ -29,8 +29,8 @@ if (container) {
 }
 
 // 2. Monaco Editor Instanz finden
-const monacoEditors = (window.monaco?.editor?.getEditors?.() || []);
-console.log('2. Monaco Editoren gefunden:', monacoEditors.length);
+const monacoEditors = window.monaco?.editor?.getEditors?.() || [];
+console.log("2. Monaco Editoren gefunden:", monacoEditors.length);
 monacoEditors.forEach((editor, i) => {
   console.log(`   Editor ${i}:`, {
     isDiffEditor: editor.isDiffEditor?.(),
@@ -38,7 +38,7 @@ monacoEditors.forEach((editor, i) => {
     contentHeight: editor.getContentHeight?.(),
     lineCount: editor.getModel?.()?.getLineCount?.(),
   });
-  
+
   const dom = editor.getDomNode?.();
   if (dom) {
     console.log(`   DOM ${i}:`, {
@@ -50,7 +50,7 @@ monacoEditors.forEach((editor, i) => {
 });
 
 // 3. Manuelle Layout-Auslösung
-console.log('3. Triggering editor.layout()...');
+console.log("3. Triggering editor.layout()...");
 monacoEditors.forEach((editor, i) => {
   try {
     editor.layout?.();
@@ -61,7 +61,7 @@ monacoEditors.forEach((editor, i) => {
 });
 
 // 4. Eltern-Container überprüfen
-console.log('4. Parent containers:');
+console.log("4. Parent containers:");
 let parent = container?.parentElement;
 let level = 0;
 while (parent && level < 5) {
@@ -75,4 +75,4 @@ while (parent && level < 5) {
   level++;
 }
 
-console.log('=== END DIAGNOSTICS ===');
+console.log("=== END DIAGNOSTICS ===");

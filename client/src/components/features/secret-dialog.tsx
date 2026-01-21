@@ -1,1 +1,1 @@
-export { default } from './settings-dialog';
+export { default } from "./settings-dialog";

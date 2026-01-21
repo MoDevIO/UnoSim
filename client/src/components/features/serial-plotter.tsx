@@ -1,6 +1,15 @@
-import React, { useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import type { OutputLine } from '@shared/schema';
+import React, { useMemo } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import type { OutputLine } from "@shared/schema";
 
 interface SerialPlotterProps {
   output: OutputLine[];
@@ -8,14 +17,14 @@ interface SerialPlotterProps {
 
 // Color palette for multiple series
 const SERIES_COLORS = [
-  '#3b82f6', // blue
-  '#ef4444', // red
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#f97316', // orange
+  "#3b82f6", // blue
+  "#ef4444", // red
+  "#10b981", // green
+  "#f59e0b", // amber
+  "#8b5cf6", // purple
+  "#ec4899", // pink
+  "#06b6d4", // cyan
+  "#f97316", // orange
 ];
 
 export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
@@ -33,7 +42,9 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
 
       // Split by comma or tab to handle multiple values per line
       const parts = text.split(/[,\t]/);
-      const dataPoint: { index: number; [key: string]: number | string } = { index: pointIndex };
+      const dataPoint: { index: number; [key: string]: number | string } = {
+        index: pointIndex,
+      };
       let hasValidValue = false;
       let unnamedIndex = 0;
       const localNameCounts = new Map<string, number>(); // Count names within this line
@@ -47,11 +58,11 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
         if (namedMatch) {
           const baseName = namedMatch[1].trim();
           const value = Number(namedMatch[2]);
-          
+
           // Count occurrences within this line
           const localCount = (localNameCounts.get(baseName) || 0) + 1;
           localNameCounts.set(baseName, localCount);
-          
+
           // Get or create stable registry index for this name
           if (!seriesRegistry.has(baseName)) {
             seriesRegistry.set(baseName, nextSeriesIndex);
@@ -59,7 +70,7 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
             nextSeriesIndex++;
           }
           const stableIndex = seriesRegistry.get(baseName)!;
-          
+
           // Create internal key using stable index and local count (for uniqueness within line)
           const internalKey = `series_${stableIndex}_${localCount}`;
           dataPoint[internalKey] = value;
@@ -85,7 +96,11 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
       }
     });
 
-    return { chartData: data, seriesKeys: Array.from(seriesSet), seriesNames: seriesNameMap };
+    return {
+      chartData: data,
+      seriesKeys: Array.from(seriesSet),
+      seriesNames: seriesNameMap,
+    };
   }, [output]);
 
   // Keep last 200 points for performance
@@ -97,7 +112,9 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
     return (
       <div className="h-full flex flex-col" data-testid="serial-plotter">
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-muted-foreground italic">No numeric data to plot.</div>
+          <div className="text-muted-foreground italic">
+            No numeric data to plot.
+          </div>
         </div>
       </div>
     );
@@ -107,37 +124,44 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
     <div className="h-full flex flex-col" data-testid="serial-plotter">
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={displayData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,100,100,0.2)" />
-            <XAxis 
-              dataKey="index" 
+          <LineChart
+            data={displayData}
+            margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="rgba(100,100,100,0.2)"
+            />
+            <XAxis
+              dataKey="index"
               stroke="rgba(100,100,100,0.5)"
               tick={{ fontSize: 12 }}
             />
-            <YAxis 
-              stroke="rgba(100,100,100,0.5)"
-              tick={{ fontSize: 12 }}
-            />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'rgba(0,0,0,0.8)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: '4px',
-                color: '#ffffff'
+            <YAxis stroke="rgba(100,100,100,0.5)" tick={{ fontSize: 12 }} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "rgba(0,0,0,0.8)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                borderRadius: "4px",
+                color: "#ffffff",
               }}
-              formatter={(value) => [typeof value === 'number' ? value.toFixed(2) : value, '']}
+              formatter={(value) => [
+                typeof value === "number" ? value.toFixed(2) : value,
+                "",
+              ]}
             />
             <Legend />
             {seriesKeys.map((key, idx) => {
               // Extract the stable index from the internal key
               const match = key.match(/^series_(\d+)_\d+$/);
               const stableIndex = match ? Number(match[1]) : null;
-              
+
               // Get display name from the map
-              const displayName = stableIndex !== null && seriesNames.has(stableIndex) 
-                ? seriesNames.get(stableIndex)! 
-                : key;
-              
+              const displayName =
+                stableIndex !== null && seriesNames.has(stableIndex)
+                  ? seriesNames.get(stableIndex)!
+                  : key;
+
               return (
                 <Line
                   key={key}

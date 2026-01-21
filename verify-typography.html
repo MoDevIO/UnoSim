@@ -1,99 +1,155 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>Typography Verification</title>
-  <style>
-    body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
-    h1 { color: #22c55e; }
-    .result { margin: 10px 0; padding: 10px; background: #222; border-left: 3px solid #22c55e; }
-    .error { border-left-color: #ef4444; }
-    .pass { color: #22c55e; }
-    .fail { color: #ef4444; }
-    code { background: #333; padding: 2px 6px; border-radius: 3px; }
-  </style>
-</head>
-<body>
-  <h1>Typography Runtime Verification</h1>
-  <p>Opening app in iframe and inspecting computed font-sizes...</p>
-  <div id="results"></div>
-  
-  <iframe id="app" src="http://localhost:3001" style="width:100%; height:600px; border:1px solid #333; margin-top:20px;"></iframe>
+  <head>
+    <title>Typography Verification</title>
+    <style>
+      body {
+        font-family: monospace;
+        padding: 20px;
+        background: #111;
+        color: #eee;
+      }
+      h1 {
+        color: #22c55e;
+      }
+      .result {
+        margin: 10px 0;
+        padding: 10px;
+        background: #222;
+        border-left: 3px solid #22c55e;
+      }
+      .error {
+        border-left-color: #ef4444;
+      }
+      .pass {
+        color: #22c55e;
+      }
+      .fail {
+        color: #ef4444;
+      }
+      code {
+        background: #333;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Typography Runtime Verification</h1>
+    <p>Opening app in iframe and inspecting computed font-sizes...</p>
+    <div id="results"></div>
 
-  <script>
-    const expectedSizes = {
-      'text-ui-xs': '12px',
-      'text-ui-sm': '14px', 
-      'text-ui-md': '16px',
-      'text-ui-lg': '18px',
-      'text-ui-xl': '20px',
-      'text-ui-2xl': '24px',
-      'text-ui-3xl': '30px'
-    };
+    <iframe
+      id="app"
+      src="http://localhost:3001"
+      style="
+        width: 100%;
+        height: 600px;
+        border: 1px solid #333;
+        margin-top: 20px;
+      "
+    ></iframe>
 
-    const selectors = [
-      { name: 'Button', selector: 'button', expected: 'text-ui-sm' },
-      { name: 'Badge', selector: '.inline-flex.rounded-full', expected: 'text-ui-xs' },
-      { name: 'Input', selector: 'input[type="text"]', expected: 'text-ui-md' },
-      { name: 'Label', selector: 'label', expected: 'text-ui-sm' },
-      { name: 'Dialog Title', selector: '[role="dialog"] h2', expected: 'text-ui-lg' },
-      { name: 'Compilation Output', selector: '[data-testid="compilation-text"]', expected: 'text-ui-sm' },
-      { name: 'Serial Output', selector: '[data-testid="serial-output"]', expected: 'text-ui-xs' },
-      { name: 'Tab Trigger', selector: '[role="tab"]', expected: 'text-ui-sm' }
-    ];
+    <script>
+      const expectedSizes = {
+        "text-ui-xs": "12px",
+        "text-ui-sm": "14px",
+        "text-ui-md": "16px",
+        "text-ui-lg": "18px",
+        "text-ui-xl": "20px",
+        "text-ui-2xl": "24px",
+        "text-ui-3xl": "30px",
+      };
 
-    function checkFontSizes() {
-      const iframe = document.getElementById('app');
-      const results = document.getElementById('results');
-      
-      try {
-        const doc = iframe.contentDocument || iframe.contentWindow.document;
-        const body = doc.body;
-        
-        if (!body) {
-          results.innerHTML += '<div class="result error">⏳ App not loaded yet, retrying...</div>';
-          setTimeout(checkFontSizes, 1000);
-          return;
-        }
+      const selectors = [
+        { name: "Button", selector: "button", expected: "text-ui-sm" },
+        {
+          name: "Badge",
+          selector: ".inline-flex.rounded-full",
+          expected: "text-ui-xs",
+        },
+        {
+          name: "Input",
+          selector: 'input[type="text"]',
+          expected: "text-ui-md",
+        },
+        { name: "Label", selector: "label", expected: "text-ui-sm" },
+        {
+          name: "Dialog Title",
+          selector: '[role="dialog"] h2',
+          expected: "text-ui-lg",
+        },
+        {
+          name: "Compilation Output",
+          selector: '[data-testid="compilation-text"]',
+          expected: "text-ui-sm",
+        },
+        {
+          name: "Serial Output",
+          selector: '[data-testid="serial-output"]',
+          expected: "text-ui-xs",
+        },
+        {
+          name: "Tab Trigger",
+          selector: '[role="tab"]',
+          expected: "text-ui-sm",
+        },
+      ];
 
-        results.innerHTML = '<h2>✓ App loaded, inspecting elements...</h2>';
+      function checkFontSizes() {
+        const iframe = document.getElementById("app");
+        const results = document.getElementById("results");
 
-        selectors.forEach(({ name, selector, expected }) => {
-          const elements = doc.querySelectorAll(selector);
-          if (elements.length === 0) {
-            results.innerHTML += `<div class="result error"><strong>${name}</strong>: <code>${selector}</code> - <span class="fail">NOT FOUND</span></div>`;
+        try {
+          const doc = iframe.contentDocument || iframe.contentWindow.document;
+          const body = doc.body;
+
+          if (!body) {
+            results.innerHTML +=
+              '<div class="result error">⏳ App not loaded yet, retrying...</div>';
+            setTimeout(checkFontSizes, 1000);
             return;
           }
 
-          const el = elements[0];
-          const computed = window.getComputedStyle(el);
-          const fontSize = computed.fontSize;
-          const expectedSize = expectedSizes[expected];
+          results.innerHTML = "<h2>✓ App loaded, inspecting elements...</h2>";
 
-          const match = fontSize === expectedSize;
-          const status = match ? 'PASS' : 'FAIL';
-          const className = match ? 'pass' : 'fail';
+          selectors.forEach(({ name, selector, expected }) => {
+            const elements = doc.querySelectorAll(selector);
+            if (elements.length === 0) {
+              results.innerHTML += `<div class="result error"><strong>${name}</strong>: <code>${selector}</code> - <span class="fail">NOT FOUND</span></div>`;
+              return;
+            }
 
-          results.innerHTML += `
-            <div class="result ${match ? '' : 'error'}">
+            const el = elements[0];
+            const computed = window.getComputedStyle(el);
+            const fontSize = computed.fontSize;
+            const expectedSize = expectedSizes[expected];
+
+            const match = fontSize === expectedSize;
+            const status = match ? "PASS" : "FAIL";
+            const className = match ? "pass" : "fail";
+
+            results.innerHTML += `
+            <div class="result ${match ? "" : "error"}">
               <strong>${name}</strong>: <code>${selector}</code><br>
               Expected: <code>${expected}</code> (${expectedSize})<br>
               Actual: <code>${fontSize}</code><br>
               Status: <span class="${className}">${status}</span>
             </div>
           `;
-        });
+          });
 
-        results.innerHTML += '<h2>✓ Verification Complete</h2>';
-      } catch (err) {
-        results.innerHTML += `<div class="result error">Error: ${err.message}</div>`;
-        setTimeout(checkFontSizes, 2000);
+          results.innerHTML += "<h2>✓ Verification Complete</h2>";
+        } catch (err) {
+          results.innerHTML += `<div class="result error">Error: ${err.message}</div>`;
+          setTimeout(checkFontSizes, 2000);
+        }
       }
-    }
 
-    // Wait for iframe to load
-    document.getElementById('app').addEventListener('load', () => {
-      setTimeout(checkFontSizes, 2000);
-    });
-  </script>
-</body>
+      // Wait for iframe to load
+      document.getElementById("app").addEventListener("load", () => {
+        setTimeout(checkFontSizes, 2000);
+      });
+    </script>
+  </body>
 </html>

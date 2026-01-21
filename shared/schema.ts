@@ -4,11 +4,17 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const sketches = pgTable("sketches", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("created_at").default(sql`now()`).notNull(),
-  updatedAt: timestamp("updated_at").default(sql`now()`).notNull(),
+  createdAt: timestamp("created_at")
+    .default(sql`now()`)
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .default(sql`now()`)
+    .notNull(),
 });
 
 export const insertSketchSchema = createInsertSchema(sketches).omit({
@@ -61,7 +67,9 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("compilation_status"),
-    arduinoCliStatus: z.enum(["idle", "compiling", "success", "error"]).optional(),
+    arduinoCliStatus: z
+      .enum(["idle", "compiling", "success", "error"])
+      .optional(),
     gccStatus: z.enum(["idle", "compiling", "success", "error"]).optional(),
     message: z.string().optional(),
   }),
@@ -82,45 +90,66 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("parser_messages"),
-    messages: z.array(z.object({
-      id: z.string(),
-      type: z.enum(['warning', 'error', 'info']),
-      category: z.enum(['serial', 'hardware', 'structure', 'performance', 'library', 'pins']),
-      severity: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-      line: z.number().optional(),
-      column: z.number().optional(),
-      message: z.string(),
-      suggestion: z.string().optional(),
-    })),
+    messages: z.array(
+      z.object({
+        id: z.string(),
+        type: z.enum(["warning", "error", "info"]),
+        category: z.enum([
+          "serial",
+          "hardware",
+          "structure",
+          "performance",
+          "library",
+          "pins",
+        ]),
+        severity: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+        line: z.number().optional(),
+        column: z.number().optional(),
+        message: z.string(),
+        suggestion: z.string().optional(),
+      }),
+    ),
   }),
   z.object({
     type: z.literal("io_registry"),
-    registry: z.array(z.object({
-      pin: z.string(),
-      defined: z.boolean(),
-      pinMode: z.number().optional(),
-      definedAt: z.object({
-        line: z.number(),
-        loopContext: z.object({
-          variable: z.string(),
-          operator: z.string(),
-          limit: z.number(),
+    registry: z.array(
+      z.object({
+        pin: z.string(),
+        defined: z.boolean(),
+        pinMode: z.number().optional(),
+        definedAt: z
+          .object({
+            line: z.number(),
+            loopContext: z
+              .object({
+                variable: z.string(),
+                operator: z.string(),
+                limit: z.number(),
+                startLine: z.number(),
+                endLine: z.number(),
+              })
+              .optional(),
+          })
+          .optional(),
+        usedAt: z
+          .array(
+            z.object({
+              line: z.number(),
+              operation: z.string(),
+              loopContext: z
+                .object({
+                  variable: z.string(),
+                  operator: z.string(),
+                  limit: z.number(),
                   startLine: z.number(),
                   endLine: z.number(),
-        }).optional(),
-      }).optional(),
-      usedAt: z.array(z.object({
-        line: z.number(),
-        operation: z.string(),
-        loopContext: z.object({
-          variable: z.string(),
-          operator: z.string(),
-          limit: z.number(),
-          startLine: z.number(),
-          endLine: z.number(),
-        }).optional(),
-      })).optional(),
-    })),
+                })
+                .optional(),
+            }),
+          )
+          .optional(),
+      }),
+    ),
   }),
 ]);
 
@@ -129,8 +158,15 @@ export type WSMessage = z.infer<typeof wsMessageSchema>;
 // Parser Message Types
 export const parserMessageSchema = z.object({
   id: z.string(),
-  type: z.enum(['warning', 'error', 'info']),
-  category: z.enum(['serial', 'hardware', 'structure', 'performance', 'library', 'pins']),
+  type: z.enum(["warning", "error", "info"]),
+  category: z.enum([
+    "serial",
+    "hardware",
+    "structure",
+    "performance",
+    "library",
+    "pins",
+  ]),
   severity: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   line: z.number().optional(),
   column: z.number().optional(),
@@ -153,9 +189,13 @@ export interface LoopContext {
 export interface IOPinRecord {
   pin: string;
   defined: boolean;
-  pinMode?: number;  // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
+  pinMode?: number; // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
   definedAt?: { line: number; loopContext?: LoopContext };
-  usedAt?: Array<{ line: number; operation: string; loopContext?: LoopContext }>;
+  usedAt?: Array<{
+    line: number;
+    operation: string;
+    loopContext?: LoopContext;
+  }>;
 }
 
 // Output line for serial monitor/plotter and compilation output

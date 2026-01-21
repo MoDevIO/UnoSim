@@ -12,7 +12,6 @@
 
 ## Bug Fixes
 
-
 # Completed
 
 ## Features
@@ -24,6 +23,7 @@
 - Output-Panel
 
 ## Bug Fixes
+
 - Toggle visibility PWM button
 - Multiple selections in example menu
 

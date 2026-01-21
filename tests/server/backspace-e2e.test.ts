@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { SandboxRunner } from '../../server/services/sandbox-runner';
+import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { SandboxRunner } from "../../server/services/sandbox-runner";
 
 // Increase timeout for compilation and execution
 jest.setTimeout(30000);
 
-describe('Backspace E2E Test', () => {
+describe("Backspace E2E Test", () => {
   let runner: SandboxRunner;
 
   beforeEach(() => {
@@ -15,7 +15,7 @@ describe('Backspace E2E Test', () => {
     runner.stop();
   });
 
-  it('should show all characters 1, 2, 3, 4 in sequence with backspace correction', async () => {
+  it("should show all characters 1, 2, 3, 4 in sequence with backspace correction", async () => {
     const testCode = `
 void setup() {
   Serial.begin(115200);
@@ -33,24 +33,27 @@ void loop() {
 }
 `;
 
-    const allOutputs: Array<{ raw: string; timestamp: number; type: string }> = [];
+    const allOutputs: Array<{ raw: string; timestamp: number; type: string }> =
+      [];
     let exitCode: number | null = null;
 
     await new Promise<void>((resolve, reject) => {
       const startTime = Date.now();
-      
+
       runner.runSketch(
         testCode,
         // onOutput - log EVERYTHING
         (line: string, isComplete?: boolean) => {
           const timestamp = Date.now() - startTime;
-          allOutputs.push({ raw: line, timestamp, type: 'output' });
-          console.log(`[${timestamp}ms] RAW OUTPUT: ${JSON.stringify(line).substring(0, 200)}`);
+          allOutputs.push({ raw: line, timestamp, type: "output" });
+          console.log(
+            `[${timestamp}ms] RAW OUTPUT: ${JSON.stringify(line).substring(0, 200)}`,
+          );
         },
         // onError
         (err: string) => {
           const timestamp = Date.now() - startTime;
-          allOutputs.push({ raw: err, timestamp, type: 'error' });
+          allOutputs.push({ raw: err, timestamp, type: "error" });
           console.log(`[${timestamp}ms] ERROR: ${err}`);
         },
         // onExit
@@ -66,18 +69,20 @@ void loop() {
         },
         // onCompileSuccess
         () => {
-          console.log('[COMPILE SUCCESS]');
+          console.log("[COMPILE SUCCESS]");
         },
         // onPinState
         undefined,
         // timeout (increased for slow hardware)
-        5
+        5,
       );
     });
 
-    console.log('\n=== ALL RAW OUTPUTS ===');
+    console.log("\n=== ALL RAW OUTPUTS ===");
     allOutputs.forEach((o, i) => {
-      console.log(`  ${i}: [${o.type}] "${JSON.stringify(o.raw).substring(0, 150)}" at ${o.timestamp}ms`);
+      console.log(
+        `  ${i}: [${o.type}] "${JSON.stringify(o.raw).substring(0, 150)}" at ${o.timestamp}ms`,
+      );
     });
 
     // Parse all SERIAL_EVENT_JSON messages
@@ -88,43 +93,49 @@ void loop() {
         try {
           const event = JSON.parse(match[1]);
           serialEvents.push({ data: event.data, ts: event.ts_write });
-          console.log(`  Parsed: data="${JSON.stringify(event.data)}" hex=${Buffer.from(event.data).toString('hex')}`);
+          console.log(
+            `  Parsed: data="${JSON.stringify(event.data)}" hex=${Buffer.from(event.data).toString("hex")}`,
+          );
         } catch {}
       }
     }
 
     console.log(`\n=== SERIAL EVENTS (${serialEvents.length}) ===`);
     serialEvents.forEach((e, i) => {
-      console.log(`  ${i}: "${JSON.stringify(e.data)}" (hex: ${Buffer.from(e.data).toString('hex')})`);
+      console.log(
+        `  ${i}: "${JSON.stringify(e.data)}" (hex: ${Buffer.from(e.data).toString("hex")})`,
+      );
     });
 
     // Check we have at least 3 serial events (relaxed for slow hardware)
     expect(serialEvents.length).toBeGreaterThanOrEqual(3);
-    
+
     // Combine and check for all backspace sequences
-    const combined = serialEvents.map(e => e.data).join('');
-    console.log(`\nCombined: "${JSON.stringify(combined)}" (hex: ${Buffer.from(combined).toString('hex')})`);
-    
-    expect(combined).toContain('Counting: 1');
-    expect(combined).toContain('\b2');
-    expect(combined).toContain('\b3');
-    expect(combined).toContain('\b4');
-    
+    const combined = serialEvents.map((e) => e.data).join("");
+    console.log(
+      `\nCombined: "${JSON.stringify(combined)}" (hex: ${Buffer.from(combined).toString("hex")})`,
+    );
+
+    expect(combined).toContain("Counting: 1");
+    expect(combined).toContain("\b2");
+    expect(combined).toContain("\b3");
+    expect(combined).toContain("\b4");
+
     // Apply backspaces
-    let visual = '';
+    let visual = "";
     for (const char of combined) {
-      if (char === '\b') {
+      if (char === "\b") {
         visual = visual.slice(0, -1);
       } else {
         visual += char;
       }
     }
     console.log(`Visual result: "${visual}"`);
-    
-    expect(visual).toBe('Counting: 4');
+
+    expect(visual).toBe("Counting: 4");
   });
 
-  it('should flush output even with empty loop', async () => {
+  it("should flush output even with empty loop", async () => {
     const testCode = `
 void setup() {
   Serial.begin(115200);
@@ -142,7 +153,7 @@ void loop() {
 `;
 
     const outputs: string[] = [];
-    
+
     await new Promise<void>((resolve, reject) => {
       runner.runSketch(
         testCode,
@@ -156,7 +167,7 @@ void loop() {
             } catch {
               outputs.push(line);
             }
-          } else if (line.trim() && !line.includes('Simulation')) {
+          } else if (line.trim() && !line.includes("Simulation")) {
             outputs.push(line);
             console.log(`Received raw: "${line}"`);
           }
@@ -166,16 +177,16 @@ void loop() {
         (compileErr) => reject(new Error(compileErr)),
         () => {},
         undefined,
-        2
+        2,
       );
     });
 
-    const combined = outputs.join('');
+    const combined = outputs.join("");
     console.log(`Combined output: "${combined}"`);
-    
+
     // All three characters should be received
-    expect(combined).toContain('A');
-    expect(combined).toContain('B');
-    expect(combined).toContain('C');
+    expect(combined).toContain("A");
+    expect(combined).toContain("B");
+    expect(combined).toContain("C");
   });
 });

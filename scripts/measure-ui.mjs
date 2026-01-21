@@ -1,28 +1,35 @@
 #!/usr/bin/env node
-import fs from 'fs';
-import path from 'path';
-import { chromium } from 'playwright';
+import fs from "fs";
+import path from "path";
+import { chromium } from "playwright";
 
 const ports = [3001, 3000, 3002];
-const outDir = path.resolve(process.cwd(), 'temp', 'typography-screenshots');
-const outJson = path.resolve(process.cwd(), 'typography-headless-evidence.json');
+const outDir = path.resolve(process.cwd(), "temp", "typography-screenshots");
+const outJson = path.resolve(
+  process.cwd(),
+  "typography-headless-evidence.json",
+);
 fs.mkdirSync(outDir, { recursive: true });
 
 async function measure(url, scale) {
   const browser = await chromium.launch();
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+  });
   const page = await context.newPage();
   // ensure persisted scale is set before first render by writing localStorage then reloading
   try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
   } catch (e) {
     await browser.close();
     throw e;
   }
 
   try {
-    await page.evaluate((s) => { window.localStorage.setItem('unoFontScale', String(s)); }, scale);
-    await page.reload({ waitUntil: 'networkidle' });
+    await page.evaluate((s) => {
+      window.localStorage.setItem("unoFontScale", String(s));
+    }, scale);
+    await page.reload({ waitUntil: "networkidle" });
   } catch (e) {}
 
   // give page a moment to apply CSS vars and for Monaco to update
@@ -32,12 +39,16 @@ async function measure(url, scale) {
   const expected = await page.evaluate(() => {
     try {
       const cs = getComputedStyle(document.documentElement);
-      const lineBase = parseFloat(cs.getPropertyValue('--ui-line-base')) || 20;
-      const buttonBase = parseFloat(cs.getPropertyValue('--ui-button-base-height')) || 32;
-      const fontBase = parseFloat(cs.getPropertyValue('--ui-font-base-size')) || 16;
-      const scale = parseFloat(cs.getPropertyValue('--ui-font-scale')) || 1;
+      const lineBase = parseFloat(cs.getPropertyValue("--ui-line-base")) || 20;
+      const buttonBase =
+        parseFloat(cs.getPropertyValue("--ui-button-base-height")) || 32;
+      const fontBase =
+        parseFloat(cs.getPropertyValue("--ui-font-base-size")) || 16;
+      const scale = parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1;
       return { lineBase, buttonBase, fontBase, scale };
-    } catch (e) { return { lineBase: 20, buttonBase: 32, fontBase: 16, scale: 1 }; }
+    } catch (e) {
+      return { lineBase: 20, buttonBase: 32, fontBase: 16, scale: 1 };
+    }
   });
 
   const results = await page.evaluate(() => {
@@ -47,8 +58,11 @@ async function measure(url, scale) {
       return {
         tag: el.tagName.toLowerCase(),
         classes: el.className || null,
-        text: (el.textContent || '').trim().slice(0, 80),
-        rect: { height: Math.round(r.height * 100) / 100, width: Math.round(r.width * 100) / 100 },
+        text: (el.textContent || "").trim().slice(0, 80),
+        rect: {
+          height: Math.round(r.height * 100) / 100,
+          width: Math.round(r.width * 100) / 100,
+        },
         offsetHeight: el.offsetHeight,
         computedHeight: cs.height,
         lineHeight: cs.lineHeight,
@@ -62,17 +76,37 @@ async function measure(url, scale) {
 
     // Category selectors for evidence-driven measurement
     const selectors = {
-      editorLine: ['.monaco-editor .view-lines .view-line'],
-      consoleOutput: ['.console-output', '[data-testid="compilation-text"]', '[data-testid="serial-output"]'],
-      tabs: ['[role="tab"]', '.TabsTrigger', '.tabs-trigger'],
-      buttons: ['button', '[role="button"]', '.menu-item'],
-      menus: ['.app-menu', '[role="menubar"]', '[role="menu"]', '.dropdown-menu'],
-      labels: ['.text-caption', '.text-small', '.text-ui-xs', '.text-ui-sm', '.text-muted-foreground']
+      editorLine: [".monaco-editor .view-lines .view-line"],
+      consoleOutput: [
+        ".console-output",
+        '[data-testid="compilation-text"]',
+        '[data-testid="serial-output"]',
+      ],
+      tabs: ['[role="tab"]', ".TabsTrigger", ".tabs-trigger"],
+      buttons: ["button", '[role="button"]', ".menu-item"],
+      menus: [
+        ".app-menu",
+        '[role="menubar"]',
+        '[role="menu"]',
+        ".dropdown-menu",
+      ],
+      labels: [
+        ".text-caption",
+        ".text-small",
+        ".text-ui-xs",
+        ".text-ui-sm",
+        ".text-muted-foreground",
+      ],
     };
 
     const measureCategory = (arr) => {
-      const nodes = arr.flatMap(s => Array.from(document.querySelectorAll(s))).filter((e, i, a) => a.indexOf(e) === i);
-      return nodes.filter(e => e.offsetHeight > 0 && e.offsetWidth > 0).slice(0, 200).map(elInfo);
+      const nodes = arr
+        .flatMap((s) => Array.from(document.querySelectorAll(s)))
+        .filter((e, i, a) => a.indexOf(e) === i);
+      return nodes
+        .filter((e) => e.offsetHeight > 0 && e.offsetWidth > 0)
+        .slice(0, 200)
+        .map(elInfo);
     };
 
     return {
@@ -122,71 +156,126 @@ async function measure(url, scale) {
 
   await browser.close();
 
-  const payload = { measuredAt: new Date().toISOString(), url, scale, expected, results, fullScreenshot: fullScreenshot, elementScreenshots: elementShots };
+  const payload = {
+    measuredAt: new Date().toISOString(),
+    url,
+    scale,
+    expected,
+    results,
+    fullScreenshot: fullScreenshot,
+    elementScreenshots: elementShots,
+  };
   return payload;
 }
 
 (async () => {
   const scales = [1.0, 1.25];
   const args = process.argv.slice(2);
-  const assertMode = args.includes('--assert') || process.env.FAIL_ON_DEVIATION === '1';
+  const assertMode =
+    args.includes("--assert") || process.env.FAIL_ON_DEVIATION === "1";
   const runs = [];
   for (const p of ports) {
     const url = `http://localhost:${p}`;
     try {
-      console.log('Trying', url);
+      console.log("Trying", url);
       for (const s of scales) {
-        console.log(' Measuring scale', s);
+        console.log(" Measuring scale", s);
         const res = await measure(url, s);
         runs.push(res);
         // save after each run
-        fs.writeFileSync(outJson, JSON.stringify({ measuredAt: new Date().toISOString(), url, runs }, null, 2));
-        console.log(' Wrote evidence for scale', s, '->', outJson);
+        fs.writeFileSync(
+          outJson,
+          JSON.stringify(
+            { measuredAt: new Date().toISOString(), url, runs },
+            null,
+            2,
+          ),
+        );
+        console.log(" Wrote evidence for scale", s, "->", outJson);
 
         // If assertion mode is enabled, validate measured values against expected
         if (assertMode) {
           try {
             const last = res;
-            const expectedLine = (last.expected.lineBase || 20) * (last.expected.scale || 1);
-            const expectedButton = (last.expected.buttonBase || 32) * (last.expected.scale || 1);
+            const expectedLine =
+              (last.expected.lineBase || 20) * (last.expected.scale || 1);
+            const expectedButton =
+              (last.expected.buttonBase || 32) * (last.expected.scale || 1);
 
-            const measuredEditor = last.results.editorLine && last.results.editorLine[0] ? (last.results.editorLine[0].rect.height || last.results.editorLine[0].offsetHeight) : null;
-            const measuredTab = last.results.tabs && last.results.tabs[0] ? (last.results.tabs[0].rect.height || last.results.tabs[0].offsetHeight) : null;
-            const measuredButton = last.results.buttons && last.results.buttons[0] ? (last.results.buttons[0].rect.height || last.results.buttons[0].offsetHeight) : null;
+            const measuredEditor =
+              last.results.editorLine && last.results.editorLine[0]
+                ? last.results.editorLine[0].rect.height ||
+                  last.results.editorLine[0].offsetHeight
+                : null;
+            const measuredTab =
+              last.results.tabs && last.results.tabs[0]
+                ? last.results.tabs[0].rect.height ||
+                  last.results.tabs[0].offsetHeight
+                : null;
+            const measuredButton =
+              last.results.buttons && last.results.buttons[0]
+                ? last.results.buttons[0].rect.height ||
+                  last.results.buttons[0].offsetHeight
+                : null;
 
             const errors = [];
             if (measuredEditor !== null) {
               const d = Math.abs(measuredEditor - expectedLine);
-              if (d > 1) errors.push(`editorLine: expected ${expectedLine}px got ${measuredEditor}px (Δ ${d}px)`);
+              if (d > 1)
+                errors.push(
+                  `editorLine: expected ${expectedLine}px got ${measuredEditor}px (Δ ${d}px)`,
+                );
             }
             if (measuredTab !== null) {
               const d = Math.abs(measuredTab - expectedButton);
-              if (d > 1) errors.push(`tab: expected ${expectedButton}px got ${measuredTab}px (Δ ${d}px)`);
+              if (d > 1)
+                errors.push(
+                  `tab: expected ${expectedButton}px got ${measuredTab}px (Δ ${d}px)`,
+                );
             }
             if (measuredButton !== null) {
               const d = Math.abs(measuredButton - expectedButton);
-              if (d > 1) errors.push(`button: expected ${expectedButton}px got ${measuredButton}px (Δ ${d}px)`);
+              if (d > 1)
+                errors.push(
+                  `button: expected ${expectedButton}px got ${measuredButton}px (Δ ${d}px)`,
+                );
             }
 
             if (errors.length) {
-              console.error('ASSERTION ERRORS:', errors.join('; '));
+              console.error("ASSERTION ERRORS:", errors.join("; "));
               // Keep writing evidence, but exit with non-zero to indicate hard failure
-              fs.writeFileSync(outJson, JSON.stringify({ measuredAt: new Date().toISOString(), url, runs, assertionErrors: errors }, null, 2));
+              fs.writeFileSync(
+                outJson,
+                JSON.stringify(
+                  {
+                    measuredAt: new Date().toISOString(),
+                    url,
+                    runs,
+                    assertionErrors: errors,
+                  },
+                  null,
+                  2,
+                ),
+              );
               process.exit(3);
             } else {
-              console.log('Assertions passed for scale', s);
+              console.log("Assertions passed for scale", s);
             }
           } catch (ae) {
-            console.error('Assertion logic failed', ae);
+            console.error("Assertion logic failed", ae);
           }
         }
       }
-      console.log('ALL RUNS COMPLETE');
+      console.log("ALL RUNS COMPLETE");
       process.exit(0);
     } catch (err) {
-      console.error('Failed to measure at', url, err && err.message ? err.message : err);
+      console.error(
+        "Failed to measure at",
+        url,
+        err && err.message ? err.message : err,
+      );
     }
   }
-  console.error('All ports failed.');
+  console.error("All ports failed.");
   process.exit(2);
 })();

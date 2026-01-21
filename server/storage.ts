@@ -5,7 +5,10 @@ export interface IStorage {
   getSketch(id: string): Promise<Sketch | undefined>;
   getSketchByName(name: string): Promise<Sketch | undefined>;
   createSketch(sketch: InsertSketch): Promise<Sketch>;
-  updateSketch(id: string, sketch: Partial<InsertSketch>): Promise<Sketch | undefined>;
+  updateSketch(
+    id: string,
+    sketch: Partial<InsertSketch>,
+  ): Promise<Sketch | undefined>;
   deleteSketch(id: string): Promise<boolean>;
   getAllSketches(): Promise<Sketch[]>;
 }
@@ -15,7 +18,7 @@ export class MemStorage implements IStorage {
 
   constructor() {
     this.sketches = new Map();
-    
+
     // Initialize with default blink sketch
     const defaultSketch: Sketch = {
       id: randomUUID(),
@@ -31,7 +34,7 @@ void loop() {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    
+
     this.sketches.set(defaultSketch.id, defaultSketch);
   }
 
@@ -48,26 +51,29 @@ void loop() {
   async createSketch(insertSketch: InsertSketch): Promise<Sketch> {
     const id = randomUUID();
     const now = new Date();
-    const sketch: Sketch = { 
-      ...insertSketch, 
-      id, 
+    const sketch: Sketch = {
+      ...insertSketch,
+      id,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
     this.sketches.set(id, sketch);
     return sketch;
   }
 
-  async updateSketch(id: string, updateData: Partial<InsertSketch>): Promise<Sketch | undefined> {
+  async updateSketch(
+    id: string,
+    updateData: Partial<InsertSketch>,
+  ): Promise<Sketch | undefined> {
     const existing = this.sketches.get(id);
     if (!existing) return undefined;
-    
+
     const updated: Sketch = {
       ...existing,
       ...updateData,
       updatedAt: new Date(),
     };
-    
+
     this.sketches.set(id, updated);
     return updated;
   }

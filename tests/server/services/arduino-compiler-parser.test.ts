@@ -1,17 +1,17 @@
-import { ArduinoCompiler } from '../../../server/services/arduino-compiler';
-import { ParserMessage } from '../../../shared/schema';
+import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
+import { ParserMessage } from "../../../shared/schema";
 
-jest.mock('child_process');
-const { spawn } = require('child_process');
+jest.mock("child_process");
+const { spawn } = require("child_process");
 
-describe('ArduinoCompiler - Parser Integration', () => {
+describe("ArduinoCompiler - Parser Integration", () => {
   let compiler: ArduinoCompiler;
 
   beforeEach(async () => {
     compiler = await ArduinoCompiler.create();
   });
 
-  it('should include parser messages in compilation result', async () => {
+  it("should include parser messages in compilation result", async () => {
     const code = `
       void setup() {
         Serial.begin(9600);  // Wrong baudrate
@@ -25,12 +25,12 @@ describe('ArduinoCompiler - Parser Integration', () => {
     (spawn as jest.Mock).mockImplementationOnce(() => ({
       stdout: {
         on: (event: string, cb: Function) => {
-          if (event === 'data') cb(Buffer.from('Success\n'));
+          if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
       stderr: { on: jest.fn() },
       on: (event: string, cb: Function) => {
-        if (event === 'close') cb(0);
+        if (event === "close") cb(0);
       },
     }));
 
@@ -39,15 +39,15 @@ describe('ArduinoCompiler - Parser Integration', () => {
     // Check that parserMessages are included
     expect(result.parserMessages).toBeDefined();
     expect(Array.isArray(result.parserMessages)).toBe(true);
-    
+
     // Should detect Serial.begin wrong baudrate
     const serialWarnings = (result.parserMessages as ParserMessage[]).filter(
-      m => m.category === 'serial'
+      (m) => m.category === "serial",
     );
     expect(serialWarnings.length).toBeGreaterThan(0);
   });
 
-  it('should return empty parser messages for correct code', async () => {
+  it("should return empty parser messages for correct code", async () => {
     const code = `
       void setup() {
         Serial.begin(115200);
@@ -62,12 +62,12 @@ describe('ArduinoCompiler - Parser Integration', () => {
     (spawn as jest.Mock).mockImplementationOnce(() => ({
       stdout: {
         on: (event: string, cb: Function) => {
-          if (event === 'data') cb(Buffer.from('Success\n'));
+          if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
       stderr: { on: jest.fn() },
       on: (event: string, cb: Function) => {
-        if (event === 'close') cb(0);
+        if (event === "close") cb(0);
       },
     }));
 
@@ -77,7 +77,7 @@ describe('ArduinoCompiler - Parser Integration', () => {
     expect(result.parserMessages).toEqual([]);
   });
 
-  it('should include parser messages even when compilation fails', async () => {
+  it("should include parser messages even when compilation fails", async () => {
     const code = `
       void setup() {
         Serial.begin(9600);  // Wrong baudrate
@@ -93,7 +93,7 @@ describe('ArduinoCompiler - Parser Integration', () => {
     expect(messages.length).toBeGreaterThan(0);
   });
 
-  it('should include multiple parser messages from different categories', async () => {
+  it("should include multiple parser messages from different categories", async () => {
     const code = `
       void setup() {
         Serial.begin(9600);  // Wrong baudrate
@@ -112,12 +112,12 @@ describe('ArduinoCompiler - Parser Integration', () => {
     (spawn as jest.Mock).mockImplementationOnce(() => ({
       stdout: {
         on: (event: string, cb: Function) => {
-          if (event === 'data') cb(Buffer.from('Success\n'));
+          if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
       stderr: { on: jest.fn() },
       on: (event: string, cb: Function) => {
-        if (event === 'close') cb(0);
+        if (event === "close") cb(0);
       },
     }));
 
@@ -125,7 +125,7 @@ describe('ArduinoCompiler - Parser Integration', () => {
     const messages = result.parserMessages as ParserMessage[];
 
     // Should have messages from multiple categories
-    const categories = new Set(messages.map(m => m.category));
+    const categories = new Set(messages.map((m) => m.category));
     expect(categories.size).toBeGreaterThan(1);
   });
 });
