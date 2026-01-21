@@ -1,23 +1,23 @@
 {
   "files.exclude": {
-    "vite.config.ts": false,
-    "vercel.json": false,
-    "test-vercel-build.sh": false,
-    "tsconfig.json": false,
-    "tailwind.config.ts": false,
-    "screenshot.png": false,
-    "README copy.md": false,
-    "postcss.config.js": false,
-    "package-lock.json": false,
-    "LICENSE": false,
-    "jest.config.js": false,
-    "drizzle.config.ts": false,
-    "components.json": false,
-    "build.sh": false,
-    ".vercelignore": false,
-    ".gitlab-ci.yml": false,
-    "node_modules": false,
-    "temp": false
+    "vite.config.ts": true,
+    "vercel.json": true,
+    "test-vercel-build.sh": true,
+    "tsconfig.json": true,
+    "tailwind.config.ts": true,
+    "screenshot.png": true,
+    "README copy.md": true,
+    "postcss.config.js": true,
+    "package-lock.json": true,
+    "LICENSE": true,
+    "jest.config.js": true,
+    "drizzle.config.ts": true,
+    "components.json": true,
+    "build.sh": true,
+    ".vercelignore": true,
+    ".gitlab-ci.yml": true,
+    "node_modules": true,
+    "temp": true
   },
   "chat.tools.terminal.autoApprove": {
     "npm ls": true,
@@ -39,6 +39,10 @@
       "approve": true,
       "matchCommandLine": true
     },
-    "mkdir": true
+    "mkdir": true,
+    "git add": true,
+    "git commit": true,
+    "git push": true,
+    "git mv": true
   }
 }
