@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.73% </span>
+                <span class="strong">85.71% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>18/19</span>
+                <span class='fraction'>18/21</span>
             </div>
         
             
@@ -114,7 +114,16 @@
 <a name='L49'></a><a href='#L49'>49</a>
 <a name='L50'></a><a href='#L50'>50</a>
 <a name='L51'></a><a href='#L51'>51</a>
-<a name='L52'></a><a href='#L52'>52</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -127,15 +136,23 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">672x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">672x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">672x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">672x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">671x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">671x</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">671x</span>
@@ -165,9 +182,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">559x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// UnoSim/shared/logger.ts
 &nbsp;
-export type LogLevel = 'TEST' | 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+export type LogLevel = "TEST" | "INFO" | "WARN" | "ERROR" | "DEBUG";
 &nbsp;
 export class Logger {
   private sender: string;
@@ -177,19 +195,27 @@ export class Logger {
   }
 &nbsp;
   private log(level: LogLevel, ...args: any[]) {
-    const isBrowser = typeof window !== 'undefined';
-    const nodeEnv = (typeof process !== 'undefined' &amp;&amp; process.env?.NODE_ENV) || <span class="branch-2 cbranch-no" title="branch not covered" >undefined;</span>
-    const allowDebug = !isBrowser || nodeEnv === 'development' || nodeEnv === 'test';
+    const isBrowser = typeof window !== "undefined";
+    const nodeEnv =
+      (typeof process !== "undefined" &amp;&amp; process.env?.NODE_ENV) || <span class="branch-2 cbranch-no" title="branch not covered" >undefined;</span>
+    const allowDebug =
+      !isBrowser || nodeEnv === "development" || nodeEnv === "test";
 &nbsp;
     // Suppress DEBUG logs in browser when not in development or test
-    if (level === 'DEBUG' &amp;&amp; !allowDebug) return;
+    if (level === "DEBUG" &amp;&amp; !allowDebug) return;
 &nbsp;
-    const message = args.map(a =&gt; {
-      <span class="missing-if-branch" title="else path not taken" >E</span>if (typeof a === 'string') return a;
-<span class="cstat-no" title="statement not covered" >      try { <span class="cstat-no" title="statement not covered" >return JSON.stringify(a); </span>} catch { <span class="cstat-no" title="statement not covered" >return String(a); </span>}</span>
-    }).join(' ');
+    const message = args
+      .map((a) =&gt; {
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (typeof a === "string") return a;
+<span class="cstat-no" title="statement not covered" >        try {</span>
+<span class="cstat-no" title="statement not covered" >          return JSON.stringify(a);</span>
+        } catch {
+<span class="cstat-no" title="statement not covered" >          return String(a);</span>
+        }
+      })
+      .join(" ");
 &nbsp;
-    if (level === 'TEST') {
+    if (level === "TEST") {
       console.log(message);
     } else {
       const timestamp = new Date().toISOString();
@@ -198,32 +224,33 @@ export class Logger {
   }
 &nbsp;
   test(message: string) {
-    this.log('TEST', message);
+    this.log("TEST", message);
   }
 &nbsp;
   info(message: string) {
-    this.log('INFO', message);
+    this.log("INFO", message);
   }
 &nbsp;
   warn(message: string) {
-    this.log('WARN', message);
+    this.log("WARN", message);
   }
 &nbsp;
   error(message: string) {
-    this.log('ERROR', message);
+    this.log("ERROR", message);
   }
 &nbsp;
   debug(message: string) {
-    this.log('DEBUG', message);
+    this.log("DEBUG", message);
   }
-}</pre></td></tr></table></pre>
+}
+&nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-20T17:26:29.088Z
+                at 2026-01-21T10:50:56.247Z
             </div>
         <script src="../prettify.js"></script>
         <script>

@@ -288,7 +288,28 @@
 <a name='L223'></a><a href='#L223'>223</a>
 <a name='L224'></a><a href='#L224'>224</a>
 <a name='L225'></a><a href='#L225'>225</a>
-<a name='L226'></a><a href='#L226'>226</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">3x</span>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -308,6 +329,8 @@
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -360,8 +383,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -434,6 +464,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -449,6 +483,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -513,8 +550,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useRef, useEffect } from 'react';
-import type { OutputLine } from '@shared/schema';
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useRef, useEffect } from "react";
+import type { OutputLine } from "@shared/schema";
 &nbsp;
 interface SerialMonitorProps {
   output: OutputLine[];
@@ -529,19 +571,21 @@ interface SerialMonitorProps {
 // Simple ANSI escape code processor
 // NOTE: Backspace (\b) is handled separately in applyBackspaceAcrossLines for cross-line support
 function processAnsiCodes(text: string): string {
-  let processed = text.replace(/\x1b\[2J/g, '').replace(/\u001b\[2J/g, '');
-  processed = processed.replace(/\x1b\[H/g, '').replace(/\u001b\[H/g, '');
+  let processed = text.replace(/\x1b\[2J/g, "").replace(/\u001b\[2J/g, "");
+  processed = processed.replace(/\x1b\[H/g, "").replace(/\u001b\[H/g, "");
   // Remove common ANSI color sequences
-  processed = processed.replace(/\x1b\[[0-9;]*m/g, '').replace(/\u001b\[[0-9;]*m/g, '');
+  processed = processed
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    .replace(/\u001b\[[0-9;]*m/g, "");
   // Clear line CSI (ESC[K) - remove it
-  processed = processed.replace(/\x1b\[K/g, '').replace(/\u001b\[K/g, '');
+  processed = processed.replace(/\x1b\[K/g, "").replace(/\u001b\[K/g, "");
 &nbsp;
   // Backspace within the SAME chunk: apply locally
   // (Cross-chunk backspaces are handled in applyBackspaceAcrossLines)
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (processed.includes('\b')) {
-    let out = <span class="cstat-no" title="statement not covered" >'';</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (processed.includes("\b")) {
+    let out = <span class="cstat-no" title="statement not covered" >"";</span>
 <span class="cstat-no" title="statement not covered" >    for (const ch of processed) {</span>
-<span class="cstat-no" title="statement not covered" >      if (ch === '\b') {</span>
+<span class="cstat-no" title="statement not covered" >      if (ch === "\b") {</span>
 <span class="cstat-no" title="statement not covered" >        out = out.slice(0, -1);</span>
       } else {
 <span class="cstat-no" title="statement not covered" >        out += ch;</span>
@@ -551,18 +595,18 @@ function processAnsiCodes(text: string): string {
   }
 &nbsp;
   // Expand tabs to 4 spaces
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (processed.includes('\t')) {
-<span class="cstat-no" title="statement not covered" >    processed = processed.replace(/\t/g, '    ');</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (processed.includes("\t")) {
+<span class="cstat-no" title="statement not covered" >    processed = processed.replace(/\t/g, "    ");</span>
   }
 &nbsp;
   // Bell character: replace with visible marker (so it's not silently dropped)
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (processed.includes('\x07')) {
-<span class="cstat-no" title="statement not covered" >    processed = processed.replace(/\x07/g, '␇');</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (processed.includes("\x07")) {
+<span class="cstat-no" title="statement not covered" >    processed = processed.replace(/\x07/g, "␇");</span>
   }
 &nbsp;
   // Form feed and vertical tab =&gt; normalize to newline
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (processed.includes('\f') || processed.includes('\v')) {
-<span class="cstat-no" title="statement not covered" >    processed = processed.replace(/\f/g, '\n').replace(/\v/g, '\n');</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (processed.includes("\f") || processed.includes("\v")) {
+<span class="cstat-no" title="statement not covered" >    processed = processed.replace(/\f/g, "\n").replace(/\v/g, "\n");</span>
   }
 &nbsp;
   return processed;
@@ -572,21 +616,28 @@ function processAnsiCodes(text: string): string {
 export function applyBackspaceAcrossLines(
   lines: Array&lt;{ text: string; incomplete: boolean }&gt;,
   text: string,
-  isComplete: boolean
+  isComplete: boolean,
 ): string | null {
   // Handle backspaces at the start of text
-  if (text.includes('\b')) {
+  if (text.includes("\b")) {
     // Count leading backspaces to remove from previous line
     let backspaceCount = 0;
     let idx = 0;
-    while (idx &lt; text.length &amp;&amp; text[idx] === '\b') {
+    while (idx &lt; text.length &amp;&amp; text[idx] === "\b") {
       backspaceCount++;
       idx++;
     }
 &nbsp;
-    <span class="missing-if-branch" title="else path not taken" >E</span>if (backspaceCount &gt; 0 &amp;&amp; lines.length &gt; 0 &amp;&amp; lines[lines.length - 1].incomplete) {
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (
+      backspaceCount &gt; 0 &amp;&amp;
+      lines.length &gt; 0 &amp;&amp;
+      lines[lines.length - 1].incomplete
+    ) {
       const lastLine = lines[lines.length - 1];
-      lastLine.text = lastLine.text.slice(0, Math.max(0, lastLine.text.length - backspaceCount));
+      lastLine.text = lastLine.text.slice(
+        0,
+        Math.max(0, lastLine.text.length - backspaceCount),
+      );
       text = text.slice(backspaceCount);
     }
   }
@@ -612,9 +663,9 @@ export function applyBackspaceAcrossLines(
 &nbsp;
 function hasControlChars(text: string) {
   return {
-    hasClearScreen: text.includes('\x1b[2J') || text.includes('\u001b[2J'),
-    hasCursorHome: text.includes('\x1b[H') || text.includes('\u001b[H'),
-    hasCarriageReturn: text.includes('\r')
+    hasClearScreen: text.includes("\x1b[2J") || text.includes("\u001b[2J"),
+    hasCursorHome: text.includes("\x1b[H") || text.includes("\u001b[H"),
+    hasCarriageReturn: text.includes("\r"),
   };
 }
 &nbsp;
@@ -625,7 +676,7 @@ export function SerialMonitor({
   onSendMessage: _onSendMessage,
   onClear: _onClear,
   showMonitor = <span class="branch-0 cbranch-no" title="branch not covered" >true,</span>
-  autoScrollEnabled = true
+  autoScrollEnabled = true,
 }: SerialMonitorProps) {
   void isConnected;
   const outputRef = useRef&lt;HTMLDivElement | null&gt;(null);
@@ -658,14 +709,18 @@ export function SerialMonitor({
       }
 &nbsp;
       // Handle backspace across line boundaries: apply to last incomplete line
-      const backspaceResult = applyBackspaceAcrossLines(lines, text, line.complete ?? <span class="branch-1 cbranch-no" title="branch not covered" >true)</span>;
+      const backspaceResult = applyBackspaceAcrossLines(
+        lines,
+        text,
+        line.complete ?? <span class="branch-1 cbranch-no" title="branch not covered" >true,</span>
+      );
       <span class="missing-if-branch" title="if path not taken" >I</span>if (backspaceResult === null) {
 <span class="cstat-no" title="statement not covered" >        return; </span>// handled fully
       }
       text = backspaceResult;
 &nbsp;
       <span class="missing-if-branch" title="if path not taken" >I</span>if (controls.hasCarriageReturn) {
-        const parts = <span class="cstat-no" title="statement not covered" >text.split('\r');</span>
+        const parts = <span class="cstat-no" title="statement not covered" >text.split("\r");</span>
         const cleanParts = <span class="cstat-no" title="statement not covered" >parts.map(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; <span class="cstat-no" title="statement not covered" >processAnsiCodes(p))</span>;</span>
 <span class="cstat-no" title="statement not covered" >        if (cleanParts.length &gt; 1) {</span>
           const finalText = <span class="cstat-no" title="statement not covered" >cleanParts[cleanParts.length - 1];</span>
@@ -673,7 +728,10 @@ export function SerialMonitor({
 <span class="cstat-no" title="statement not covered" >            lines.push({ text: finalText, incomplete: !line.complete });</span>
           } else {
 <span class="cstat-no" title="statement not covered" >            if (lines.length &gt; 0) {</span>
-<span class="cstat-no" title="statement not covered" >              lines[lines.length - 1] = { text: finalText, incomplete: !line.complete };</span>
+<span class="cstat-no" title="statement not covered" >              lines[lines.length - 1] = {</span>
+                text: finalText,
+                incomplete: !line.complete,
+              };
             } else {
 <span class="cstat-no" title="statement not covered" >              lines.push({ text: finalText, incomplete: !line.complete });</span>
             }
@@ -690,16 +748,16 @@ export function SerialMonitor({
 &nbsp;
     const el = outputRef.current;
     if (!el) return;
-    el.innerHTML = '';
+    el.innerHTML = "";
     if (lines.length === 0) {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'text-muted-foreground italic';
-      placeholder.textContent = 'Serial output will appear here...';
+      const placeholder = document.createElement("div");
+      placeholder.className = "text-muted-foreground italic";
+      placeholder.textContent = "Serial output will appear here...";
       el.appendChild(placeholder);
     } else {
       lines.forEach((ln) =&gt; {
-        const div = document.createElement('div');
-        div.className = 'text-foreground whitespace-pre-wrap break-words';
+        const div = document.createElement("div");
+        div.className = "text-foreground whitespace-pre-wrap break-words";
         div.textContent = ln.text;
         el.appendChild(div);
       });
@@ -730,7 +788,12 @@ export function SerialMonitor({
     &lt;div className="h-full flex flex-col" data-testid="serial-monitor"&gt;
       &lt;div className="flex-1 min-h-0"&gt;
         {showMonitor ? (
-          &lt;div ref={outputRef} className="h-full overflow-auto custom-scrollbar p-3 text-xs font-mono" data-testid="serial-output" onScroll={handleScroll} /&gt;
+          &lt;div
+            ref={outputRef}
+            className="h-full overflow-auto custom-scrollbar p-3 text-ui-xs font-mono"
+            data-testid="serial-output"
+            onScroll={handleScroll}
+          /&gt;
         ) : (
           &lt;div className="h-full" /&gt;
         )}
@@ -745,7 +808,7 @@ export function SerialMonitor({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-20T17:26:29.088Z
+                at 2026-01-21T10:50:56.247Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

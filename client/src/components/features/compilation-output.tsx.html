@@ -120,7 +120,26 @@
 <a name='L55'></a><a href='#L55'>55</a>
 <a name='L56'></a><a href='#L56'>56</a>
 <a name='L57'></a><a href='#L57'>57</a>
-<a name='L58'></a><a href='#L58'>58</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -132,6 +151,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -177,8 +202,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Button } from '@/components/ui/button';
-import { Terminal, Trash2, CheckCircle2 } from 'lucide-react';
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Button } from "@/components/ui/button";
+import { Terminal, Trash2, CheckCircle2 } from "lucide-react";
 &nbsp;
 interface CompilationOutputProps {
   output: string;
@@ -188,42 +226,61 @@ interface CompilationOutputProps {
   hideHeader?: boolean;
 }
 &nbsp;
-export function CompilationOutput({ output, onClear, isSuccess = false, showSuccessMessage = true, hideHeader = false }: CompilationOutputProps) {
+export function CompilationOutput({
+  output,
+  onClear,
+  isSuccess = false,
+  showSuccessMessage = true,
+  hideHeader = false,
+}: CompilationOutputProps) {
   return (
-    &lt;div className="h-full flex flex-col border-b border-border" data-testid="compilation-output"&gt;
-      {!hideHeader &amp;&amp; &lt;div className="bg-muted px-4 border-b border-border flex items-center h-10 overflow-hidden"&gt;
-        &lt;div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap gap-2"&gt;
-          &lt;div className="flex items-center space-x-2 flex-shrink-0"&gt;
-            {isSuccess &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >showSuccessMessage </span>? (
-<span class="branch-0 cbranch-no" title="branch not covered" >              &lt;CheckCircle2 className="text-green-500 opacity-95 h-5 w-5" strokeWidth={1.67} /&gt;</span>
-            ) : (
-              &lt;Terminal className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} /&gt;
+    &lt;div
+      className="h-full flex flex-col border-b border-border"
+      data-testid="compilation-output"
+    &gt;
+      {!hideHeader &amp;&amp; (
+        &lt;div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-button-height)] overflow-hidden"&gt;
+          &lt;div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap gap-2"&gt;
+            &lt;div className="flex items-center space-x-2 flex-shrink-0"&gt;
+              {isSuccess &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >showSuccessMessage </span>? (
+<span class="branch-0 cbranch-no" title="branch not covered" >                &lt;CheckCircle2</span>
+                  className="text-green-500 opacity-95 h-5 w-5"
+                  strokeWidth={1.67}
+                /&gt;
+              ) : (
+                &lt;Terminal
+                  className="text-white opacity-95 h-5 w-5"
+                  strokeWidth={1.67}
+                /&gt;
+              )}
+              &lt;span className="sr-only"&gt;Compilation Output&lt;/span&gt;
+            &lt;/div&gt;
+            {isSuccess &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >showSuccessMessage </span>&amp;&amp; (
+<span class="branch-2 cbranch-no" title="branch not covered" >              &lt;span className="text-green-500 text-ui-sm font-medium flex-shrink-0"&gt;</span>
+                Compilation successful ✓
+              &lt;/span&gt;
             )}
-            &lt;span className="sr-only"&gt;Compilation Output&lt;/span&gt;
+            &lt;div className="flex-1 min-w-0" /&gt;
+            &lt;Button
+              variant="outline"
+              size="sm"
+              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+              onClick={onClear}
+              aria-label="Clear compilation output"
+              title="Clear compilation output"
+              data-testid="button-clear-output"
+            &gt;
+              &lt;Trash2 className="h-4 w-4" /&gt;
+            &lt;/Button&gt;
           &lt;/div&gt;
-          {isSuccess &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >showSuccessMessage </span>&amp;&amp; (
-<span class="branch-2 cbranch-no" title="branch not covered" >            &lt;span className="text-green-500 text-sm font-medium flex-shrink-0"&gt;</span>
-              Compilation successful ✓
-            &lt;/span&gt;
-          )}
-          &lt;div className="flex-1 min-w-0" /&gt;
-          &lt;Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0 flex items-center justify-center"
-            onClick={onClear}
-            aria-label="Clear compilation output"
-            title="Clear compilation output"
-            data-testid="button-clear-output"
-          &gt;
-            &lt;Trash2 className="h-4 w-4" /&gt;
-          &lt;/Button&gt;
         &lt;/div&gt;
-      &lt;/div&gt;
-      }
-      
+      )}
+&nbsp;
       &lt;div className="flex-1 overflow-auto custom-scrollbar"&gt;
-        &lt;div className="console-output p-3 text-xs font-mono whitespace-pre-wrap" data-testid="compilation-text"&gt;
+        &lt;div
+          className="console-output p-3 font-mono whitespace-pre-wrap"
+          data-testid="compilation-text"
+        &gt;
           {output || (
             &lt;div className="text-muted-foreground italic"&gt;
               Compilation output will appear here...
@@ -241,7 +298,7 @@ export function CompilationOutput({ output, onClear, isSuccess = false, showSucc
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-20T17:26:29.088Z
+                at 2026-01-21T10:50:56.247Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
