@@ -33,10 +33,10 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
             data-testid={inputTestId}
             onKeyDown={handleKeyDown}
             className={cn(
-              "flex-1 bg-transparent px-3 py-2 h-9 text-base placeholder-muted-foreground text-foreground focus:outline-none",
-              // ensure no internal rounding or border
+              "flex-1 bg-transparent px-3 py-2 text-ui-md placeholder-muted-foreground text-foreground focus:outline-none",
               "rounded-none border-0"
             )}
+            style={{ fontSize: "var(--ui-font-size)", lineHeight: "var(--ui-line-height)", height: "var(--ui-button-height)" }}
           />
 
           <Button
@@ -46,7 +46,7 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
             disabled={disabled}
             data-testid={buttonTestId}
             className={cn(
-              "h-9 w-9 p-0 flex items-center justify-center transition-colors duration-150 rounded-none",
+              "h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center transition-colors duration-150 rounded-none",
               disabled ? "bg-background text-muted-foreground" : "bg-green-600 hover:bg-green-700 text-white",
               // remove default border so edges flush
               "border-0"

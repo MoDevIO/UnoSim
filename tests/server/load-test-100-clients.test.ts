@@ -40,7 +40,9 @@ function fetchHttp(url: string, options?: { method?: string; headers?: Record<st
   });
 }
 
-describeIfServer('Load Test: 100 Concurrent Clients', () => {
+const maybeDescribe = process.env.SKIP_LOAD_TESTS ? describe.skip : describeIfServer;
+
+maybeDescribe('Load Test: 100 Concurrent Clients', () => {
   const API_BASE = 'http://localhost:3000';
   const NUM_CLIENTS = 100;
   const TEST_CODE = `

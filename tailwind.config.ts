@@ -5,6 +5,15 @@ export default {
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      fontSize: {
+        "ui-xs": ["12px", { lineHeight: "16px" }],
+        "ui-sm": ["14px", { lineHeight: "20px" }],
+        "ui-md": ["16px", { lineHeight: "24px" }],
+        "ui-lg": ["18px", { lineHeight: "26px" }],
+        "ui-xl": ["20px", { lineHeight: "28px" }],
+        "ui-2xl": ["24px", { lineHeight: "32px" }],
+        "ui-3xl": ["30px", { lineHeight: "36px" }],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

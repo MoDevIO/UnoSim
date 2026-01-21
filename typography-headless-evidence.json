@@ -1,0 +1,1550 @@
+{
+  "measuredAt": "2026-01-21T09:44:12.324Z",
+  "url": "http://localhost:3001",
+  "runs": [
+    {
+      "measuredAt": "2026-01-21T09:44:08.883Z",
+      "url": "http://localhost:3001",
+      "scale": 1,
+      "expected": {
+        "lineBase": 20,
+        "buttonBase": 32,
+        "fontBase": 16,
+        "scale": 1
+      },
+      "results": {
+        "editorLine": [
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "",
+            "rect": {
+              "height": 20,
+              "width": 584
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "void setup() {",
+            "rect": {
+              "height": 20,
+              "width": 584
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "// put your setup code here, to run once",
+            "rect": {
+              "height": 20,
+              "width": 584
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "}",
+            "rect": {
+              "height": 20,
+              "width": 584
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "",
+            "rect": {
+              "height": 20,
+              "width": 584
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "void loop() {",
+            "rect": {
+              "height": 20,
+              "width": 584
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "// put your main code here, to run repeatedly",
+            "rect": {
+              "height": 20,
+              "width": 584
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "}",
+            "rect": {
+              "height": 20,
+              "width": 584
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          }
+        ],
+        "consoleOutput": [
+          {
+            "tag": "div",
+            "classes": "console-output p-3 font-mono whitespace-pre-wrap",
+            "text": "Compilation output will appear here...",
+            "rect": {
+              "height": 44,
+              "width": 639.5
+            },
+            "offsetHeight": 44,
+            "computedHeight": "44px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "12px",
+            "paddingBottom": "12px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "h-full overflow-auto custom-scrollbar p-3 text-ui-xs font-mono",
+            "text": "Serial output will appear here...",
+            "rect": {
+              "height": 335.5,
+              "width": 639.5
+            },
+            "offsetHeight": 336,
+            "computedHeight": "335.5px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "12px",
+            "paddingBottom": "12px",
+            "fontSize": "16px"
+          }
+        ],
+        "tabs": [
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "Compiler",
+            "rect": {
+              "height": 32,
+              "width": 85.16
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "Messages",
+            "rect": {
+              "height": 32,
+              "width": 94.25
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "I/O Registry",
+            "rect": {
+              "height": 32,
+              "width": 106
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          }
+        ],
+        "buttons": [
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "File",
+            "rect": {
+              "height": 32,
+              "width": 46.53
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "Edit",
+            "rect": {
+              "height": 32,
+              "width": 48.53
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "Sketch",
+            "rect": {
+              "height": 32,
+              "width": 71.7
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "Tools",
+            "rect": {
+              "height": 32,
+              "width": 60.59
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "Help",
+            "rect": {
+              "height": 32,
+              "width": 54.89
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap rounded-md font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-[var(--ui-button-height)] w-32 p-0 flex items-center justify-center !text-white transition-colors !bg-green-600 hover:!bg-green-700",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 128
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "Compiler",
+            "rect": {
+              "height": 32,
+              "width": 85.16
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "Messages",
+            "rect": {
+              "height": 32,
+              "width": 94.25
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "I/O Registry",
+            "rect": {
+              "height": 32,
+              "width": 106
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:text-accent-foreground h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 hover:bg-transparent",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center bg-background text-white hover:bg-green-600 hover:text-white",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-primary/90 h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center transition-colors duration-150 rounded-none bg-background text-muted-foreground border-0",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          }
+        ],
+        "menus": [
+          {
+            "tag": "nav",
+            "classes": "app-menu no-drag",
+            "text": "FileEditSketchToolsHelp",
+            "rect": {
+              "height": 32,
+              "width": 314.25
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          }
+        ],
+        "labels": [
+          {
+            "tag": "div",
+            "classes": "h-full overflow-auto custom-scrollbar p-3 text-ui-xs font-mono",
+            "text": "Serial output will appear here...",
+            "rect": {
+              "height": 335.5,
+              "width": 639.5
+            },
+            "offsetHeight": 336,
+            "computedHeight": "335.5px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "12px",
+            "paddingBottom": "12px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "h1",
+            "classes": "text-ui-sm font-semibold truncate select-none",
+            "text": "Arduino UNO Simulator",
+            "rect": {
+              "height": 32,
+              "width": 179.17
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "600",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "span",
+            "classes": "text-ui-sm whitespace-nowrap cursor-pointer hover:underline",
+            "text": "sketch.ino",
+            "rect": {
+              "height": 32,
+              "width": 77.41
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:text-accent-foreground h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 hover:bg-transparent",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "20px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "text-muted-foreground italic",
+            "text": "Compilation output will appear here...",
+            "rect": {
+              "height": 20,
+              "width": 615.5
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "text-muted-foreground italic",
+            "text": "Serial output will appear here...",
+            "rect": {
+              "height": 20,
+              "width": 615.5
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-primary/90 h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center transition-colors duration-150 rounded-none bg-background text-muted-foreground border-0",
+            "text": "",
+            "rect": {
+              "height": 32,
+              "width": 32
+            },
+            "offsetHeight": 32,
+            "computedHeight": "32px",
+            "lineHeight": "32px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          }
+        ],
+        "timestamp": 1768988648404,
+        "url": "http://localhost:3001/"
+      },
+      "fullScreenshot": "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/full-page-1.png",
+      "elementScreenshots": [
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-1.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-2.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-3.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-4.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-5.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-6.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-7.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-8.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/tab-1.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/tab-2.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/tab-3.png"
+      ]
+    },
+    {
+      "measuredAt": "2026-01-21T09:44:12.324Z",
+      "url": "http://localhost:3001",
+      "scale": 1.25,
+      "expected": {
+        "lineBase": 20,
+        "buttonBase": 32,
+        "fontBase": 16,
+        "scale": 1.25
+      },
+      "results": {
+        "editorLine": [
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "",
+            "rect": {
+              "height": 25,
+              "width": 577
+            },
+            "offsetHeight": 25,
+            "computedHeight": "25px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "void setup() {",
+            "rect": {
+              "height": 25,
+              "width": 577
+            },
+            "offsetHeight": 25,
+            "computedHeight": "25px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "// put your setup code here, to run once",
+            "rect": {
+              "height": 25,
+              "width": 577
+            },
+            "offsetHeight": 25,
+            "computedHeight": "25px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "}",
+            "rect": {
+              "height": 25,
+              "width": 577
+            },
+            "offsetHeight": 25,
+            "computedHeight": "25px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "",
+            "rect": {
+              "height": 25,
+              "width": 577
+            },
+            "offsetHeight": 25,
+            "computedHeight": "25px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "void loop() {",
+            "rect": {
+              "height": 25,
+              "width": 577
+            },
+            "offsetHeight": 25,
+            "computedHeight": "25px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "// put your main code here, to run repeatedly",
+            "rect": {
+              "height": 25,
+              "width": 577
+            },
+            "offsetHeight": 25,
+            "computedHeight": "25px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "div",
+            "classes": "view-line",
+            "text": "}",
+            "rect": {
+              "height": 25,
+              "width": 577
+            },
+            "offsetHeight": 25,
+            "computedHeight": "25px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace, Menlo, Monaco, \"Courier New\", monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          }
+        ],
+        "consoleOutput": [
+          {
+            "tag": "div",
+            "classes": "console-output p-3 font-mono whitespace-pre-wrap",
+            "text": "Compilation output will appear here...",
+            "rect": {
+              "height": 44,
+              "width": 639.5
+            },
+            "offsetHeight": 44,
+            "computedHeight": "44px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "12px",
+            "paddingBottom": "12px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "h-full overflow-auto custom-scrollbar p-3 text-ui-xs font-mono",
+            "text": "Serial output will appear here...",
+            "rect": {
+              "height": 315.5,
+              "width": 639.5
+            },
+            "offsetHeight": 316,
+            "computedHeight": "315.5px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "12px",
+            "paddingBottom": "12px",
+            "fontSize": "20px"
+          }
+        ],
+        "tabs": [
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "Compiler",
+            "rect": {
+              "height": 40,
+              "width": 102.44
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "Messages",
+            "rect": {
+              "height": 40,
+              "width": 113.81
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "I/O Registry",
+            "rect": {
+              "height": 40,
+              "width": 128.5
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          }
+        ],
+        "buttons": [
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "File",
+            "rect": {
+              "height": 40,
+              "width": 53.16
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "Edit",
+            "rect": {
+              "height": 40,
+              "width": 55.66
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "Sketch",
+            "rect": {
+              "height": 40,
+              "width": 84.63
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "Tools",
+            "rect": {
+              "height": 40,
+              "width": 70.73
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "menu-item",
+            "text": "Help",
+            "rect": {
+              "height": 40,
+              "width": 63.63
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap rounded-md font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-[var(--ui-button-height)] w-32 p-0 flex items-center justify-center !text-white transition-colors !bg-green-600 hover:!bg-green-700",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 128
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "Compiler",
+            "rect": {
+              "height": 40,
+              "width": 102.44
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "Messages",
+            "rect": {
+              "height": 40,
+              "width": 113.81
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm h-[var(--ui-button-height)] px-2 data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)] text-gray-400",
+            "text": "I/O Registry",
+            "rect": {
+              "height": 40,
+              "width": 128.5
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:text-accent-foreground h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 hover:bg-transparent",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center bg-background text-white hover:bg-green-600 hover:text-white",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-primary/90 h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center transition-colors duration-150 rounded-none bg-background text-muted-foreground border-0",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          }
+        ],
+        "menus": [
+          {
+            "tag": "nav",
+            "classes": "app-menu no-drag",
+            "text": "FileEditSketchToolsHelp",
+            "rect": {
+              "height": 40,
+              "width": 359.8
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          }
+        ],
+        "labels": [
+          {
+            "tag": "div",
+            "classes": "h-full overflow-auto custom-scrollbar p-3 text-ui-xs font-mono",
+            "text": "Serial output will appear here...",
+            "rect": {
+              "height": 315.5,
+              "width": 639.5
+            },
+            "offsetHeight": 316,
+            "computedHeight": "315.5px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "12px",
+            "paddingBottom": "12px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "h1",
+            "classes": "text-ui-sm font-semibold truncate select-none",
+            "text": "Arduino UNO Simulator",
+            "rect": {
+              "height": 40,
+              "width": 223.97
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "600",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "span",
+            "classes": "text-ui-sm whitespace-nowrap cursor-pointer hover:underline",
+            "text": "sketch.ino",
+            "rect": {
+              "height": 40,
+              "width": 96.77
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:text-accent-foreground h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 hover:bg-transparent",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap text-ui-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "25px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "div",
+            "classes": "text-muted-foreground italic",
+            "text": "Compilation output will appear here...",
+            "rect": {
+              "height": 20,
+              "width": 615.5
+            },
+            "offsetHeight": 20,
+            "computedHeight": "20px",
+            "lineHeight": "20px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "16px"
+          },
+          {
+            "tag": "div",
+            "classes": "text-muted-foreground italic",
+            "text": "Serial output will appear here...",
+            "rect": {
+              "height": 25,
+              "width": 615.5
+            },
+            "offsetHeight": 25,
+            "computedHeight": "25px",
+            "lineHeight": "25px",
+            "fontWeight": "400",
+            "fontFamily": "\"JetBrains Mono\", Consolas, Monaco, monospace",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          },
+          {
+            "tag": "button",
+            "classes": "gap-2 whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 leading-[var(--ui-button-height)] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-primary/90 h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center transition-colors duration-150 rounded-none bg-background text-muted-foreground border-0",
+            "text": "",
+            "rect": {
+              "height": 40,
+              "width": 40
+            },
+            "offsetHeight": 40,
+            "computedHeight": "40px",
+            "lineHeight": "40px",
+            "fontWeight": "500",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "paddingTop": "0px",
+            "paddingBottom": "0px",
+            "fontSize": "20px"
+          }
+        ],
+        "timestamp": 1768988651846,
+        "url": "http://localhost:3001/"
+      },
+      "fullScreenshot": "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/full-page-1.25.png",
+      "elementScreenshots": [
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-1.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-2.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-3.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-4.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-5.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-6.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-7.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/button-8.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/tab-1.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/tab-2.png",
+        "/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/temp/typography-screenshots/tab-3.png"
+      ]
+    }
+  ]
+}

@@ -215,7 +215,7 @@ export function SerialMonitor({
     <div className="h-full flex flex-col" data-testid="serial-monitor">
       <div className="flex-1 min-h-0">
         {showMonitor ? (
-          <div ref={outputRef} className="h-full overflow-auto custom-scrollbar p-3 text-xs font-mono" data-testid="serial-output" onScroll={handleScroll} />
+          <div ref={outputRef} className="h-full overflow-auto custom-scrollbar p-3 text-ui-xs font-mono" data-testid="serial-output" onScroll={handleScroll} />
         ) : (
           <div className="h-full" />
         )}

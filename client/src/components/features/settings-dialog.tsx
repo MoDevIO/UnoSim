@@ -18,6 +18,8 @@ const DEFAULT_TOAST_SECONDS = 1;
 const DEBUG_MODE_KEY = "unoDebugMode";
 const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
 const DEFAULT_KEEP_EXAMPLES_MENU_OPEN = false;
+const FONT_SCALE_KEY = 'unoFontScale';
+const DEFAULT_FONT_SCALE = '1.0';
 
 export default function SettingsDialog({
   open,
@@ -100,7 +102,7 @@ export default function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent style={{ maxHeight: 'calc(100vh - 4rem)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
@@ -108,21 +110,49 @@ export default function SettingsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4">
+        <div className="grid gap-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 12rem)' }}>
+          {/* UI Font scale control */}
+          <div className="rounded border p-3 bg-muted">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">Schriftgröße (UI)</div>
+                <div className="text-ui-xs text-muted-foreground">Skaliert alle UI-Schriftgrößen und Editor (S/M/L oder numerisch).</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  aria-label="ui font scale"
+                  defaultValue={(() => { try { return window.localStorage.getItem(FONT_SCALE_KEY) || DEFAULT_FONT_SCALE } catch { return DEFAULT_FONT_SCALE } })()}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    try { window.localStorage.setItem(FONT_SCALE_KEY, v); } catch {}
+                    try { document.documentElement.style.setProperty('--ui-font-scale', v); } catch {}
+                    try { const ev = new CustomEvent('uiFontScaleChange', { detail: { value: parseFloat(v) } }); document.dispatchEvent(ev); } catch {}
+                  }}
+                  className="bg-background text-foreground border px-2 py-1 rounded"
+                >
+                  <option value="0.875">S (0.875×)</option>
+                  <option value="1.0">M (1.0×)</option>
+                  <option value="1.125">L (1.125×)</option>
+                  <option value="1.25">XL (1.25×)</option>
+                  <option value="1.5">XXL (1.5×)</option>
+                </select>
+              </div>
+            </div>
+          </div>
           {/* Feature: Arduino color picker (affects main ArduinoUno.svg) */}
           <div className="rounded border p-3 bg-muted">
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-medium">Arduino Color</div>
-                <div className="text-xs text-muted-foreground">Change the main board color (applies to the primary SVG).</div>
+                <div className="text-ui-xs text-muted-foreground">Change the main board color (applies to the primary SVG).</div>
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-8 rounded border" style={{ background: color }} />
                   <div className="flex flex-col">
-                    <div className="text-xs">Hex</div>
+                    <div className="text-ui-xs">Hex</div>
                     <input
-                      className="w-28 bg-transparent border rounded px-1 text-sm"
+                      className="w-28 bg-transparent border rounded px-1 text-ui-sm"
                       value={color}
                       onChange={(e) => {
                         const v = e.target.value;
@@ -184,7 +214,7 @@ export default function SettingsDialog({
           {/* Placeholder for future settings */}
           <div className="rounded border p-3 bg-muted">
             <div className="font-medium">Toast Duration</div>
-            <div className="text-xs text-muted-foreground mb-2">Change global toast expiry (0.5s steps). Choose "Infinite" to disable auto-hide.</div>
+            <div className="text-ui-xs text-muted-foreground mb-2">Change global toast expiry (0.5s steps). Choose "Infinite" to disable auto-hide.</div>
             <ToastDurationControl />
           </div>
 
@@ -193,7 +223,7 @@ export default function SettingsDialog({
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-medium">Debug Mode</div>
-                <div className="text-xs text-muted-foreground">Enable debug UI elements (status light and CLI/GCC labels).</div>
+                <div className="text-ui-xs text-muted-foreground">Enable debug UI elements (status light and CLI/GCC labels).</div>
               </div>
               <div className="flex items-center">
                 <Checkbox
@@ -210,7 +240,7 @@ export default function SettingsDialog({
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-medium">Keep Examples Menu Open</div>
-                <div className="text-xs text-muted-foreground">When disabled (default), the examples menu closes after selecting an example. Enable to keep it open.</div>
+                <div className="text-ui-xs text-muted-foreground">When disabled (default), the examples menu closes after selecting an example. Enable to keep it open.</div>
               </div>
               <div className="flex items-center">
                 <Checkbox
@@ -224,7 +254,7 @@ export default function SettingsDialog({
 
         </div>
 
-        <DialogFooter className="mt-4">
+        <DialogFooter className="mt-4" style={{ position: 'sticky', bottom: 0, background: 'var(--popover)', zIndex: 2, boxShadow: '0 -2px 8px rgba(0,0,0,0.08)' }}>
           <div className="flex w-full justify-end gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               Close
@@ -284,8 +314,8 @@ function ToastDurationControl() {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <div className="text-sm">Duration: <span className="font-medium">{label}</span></div>
-        <div className="text-xs text-muted-foreground">Step: 0.5s</div>
+        <div className="text-ui-sm">Duration: <span className="font-medium">{label}</span></div>
+        <div className="text-ui-xs text-muted-foreground">Step: 0.5s</div>
       </div>
       <input
         type="range"

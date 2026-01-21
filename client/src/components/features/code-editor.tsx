@@ -135,6 +135,20 @@ export function CodeEditor({
       },
     });
 
+    // Read UI sizing from base vars and multiplier to avoid unresolved calc() strings
+    const computeUi = () => {
+      try {
+        const cs = getComputedStyle(document.documentElement);
+        const baseFs = parseFloat(cs.getPropertyValue('--ui-font-base-size')) || 16;
+        const baseLh = parseFloat(cs.getPropertyValue('--ui-line-base')) || 20;
+        const scale = parseFloat(cs.getPropertyValue('--ui-font-scale')) || 1;
+        const fs = baseFs * scale;
+        const lh = baseLh * scale;
+        return { fs, lh };
+      } catch (e) { console.warn('computeUi failed', e); return { fs: 16, lh: 20 } }
+    };
+
+    const initial = computeUi();
     const editor = monaco.editor.create(containerRef.current, {
       value,
       language: "arduino-cpp",
@@ -150,8 +164,8 @@ export function CodeEditor({
         horizontalScrollbarSize: 0,
         handleMouseWheel: true,
       },
-      fontSize: 14,
-      lineHeight: 20,
+      fontSize: Math.round(initial.fs),
+      lineHeight: Math.round(initial.lh),
       fontFamily: "JetBrains Mono, Consolas, Monaco, monospace",
       wordWrap: "on",
       scrollBeyondLastLine: false,
@@ -168,6 +182,18 @@ export function CodeEditor({
     });
 
     editorRef.current = editor;
+
+    // Ensure Monaco re-measures and layouts after CSS has fully applied.
+    // Use rAF so the browser has painted and CSS vars are resolved.
+    requestAnimationFrame(() => {
+      try {
+        const ui = computeUi();
+        editor.updateOptions({ fontSize: Math.round(ui.fs), lineHeight: Math.round(ui.lh) });
+        try { editor.layout(); } catch {}
+      } catch (err) {
+        console.warn('Monaco initial rAF sync failed', err);
+      }
+    });
 
     // Expose getValue method to external ref if provided
     if (externalEditorRef) {
@@ -381,6 +407,20 @@ export function CodeEditor({
 
     // Better approach: Add a DOM paste listener directly
     const domNode = editor.getDomNode();
+    // Listen for UI font-scale changes and update Monaco options accordingly
+    const onScale = () => {
+      try {
+        const ui = computeUi();
+        if (editor) {
+          editor.updateOptions({ fontSize: Math.round(ui.fs), lineHeight: Math.round(ui.lh) });
+          try { editor.layout(); } catch {}
+        }
+      } catch (err) { console.warn('onScale failed', err); }
+    };
+
+    // Keep listening for scale changes (some emit on document, others on window)
+    window.addEventListener('uiFontScaleChange', onScale);
+    document.addEventListener('uiFontScaleChange', onScale);
     const handlePaste = (e: ClipboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -429,6 +469,8 @@ export function CodeEditor({
       if (domNode) {
         domNode.removeEventListener("paste", handlePaste);
       }
+      document.removeEventListener('uiFontScaleChange', onScale);
+      window.removeEventListener('uiFontScaleChange', onScale);
       editor.dispose();
     };
   }, []);

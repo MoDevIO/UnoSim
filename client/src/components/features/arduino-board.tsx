@@ -617,7 +617,7 @@ export function ArduinoBoard({
   return (
     <div className="h-full flex flex-col bg-card border-t border-border">
       {/* Header */}
-<div className="bg-muted px-4 border-b border-border flex items-center justify-between h-10 overflow-hidden">
+<div className="bg-muted px-4 border-b border-border flex items-center justify-between h-[var(--ui-button-height)] overflow-hidden">
     <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
       <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
       <span className="sr-only">Arduino UNO Board</span>
@@ -626,7 +626,7 @@ export function ArduinoBoard({
       <Button
         variant="outline"
         size="sm"
-        className="h-8 w-8 p-0 flex items-center justify-center"
+        className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
         onClick={() => setShowPWMValues(!showPWMValues)}
         title={showPWMValues ? 'Hide I/O values' : 'Show I/O values'}
         aria-label={showPWMValues ? 'Hide I/O values' : 'Show I/O values'}

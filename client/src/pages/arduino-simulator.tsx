@@ -42,7 +42,7 @@ const SerialPlotter = lazy(() => import('@/components/features/serial-plotter').
 // Loading placeholder for lazy components
 const LoadingPlaceholder = () => (
   <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
-    <span className="text-sm">Loading chart...</span>
+    <span className="text-ui-sm">Loading chart...</span>
   </div>
 );
 
@@ -64,6 +64,8 @@ export default function ArduinoSimulator() {
   const [cliOutput, setCliOutput] = useState('');
   const editorRef = useRef<{ getValue: () => string } | null>(null);
   const outputPanelRef = useRef<any>(null);
+  const outputTabsHeaderRef = useRef<HTMLDivElement | null>(null);
+  const [outputPanelMinPercent, setOutputPanelMinPercent] = useState<number>(3);
   
   // Tab management
   const [tabs, setTabs] = useState<Array<{ id: string; name: string; content: string }>>([]);
@@ -417,11 +419,71 @@ export default function ArduinoSimulator() {
   }, [cliOutput, hasCompilationErrors, lastCompilationResult, parserMessages.length]);
 
   // Apply panel size imperatively to ResizablePanel
+  const enforceOutputPanelFloor = useCallback((forceResize: boolean = false) => {
+    if (!showCompilationOutput) return;
+    const headerEl = outputTabsHeaderRef.current;
+    const panelHandle = outputPanelRef.current;
+    if (!headerEl || !panelHandle) return;
+
+    const panelNode = headerEl.closest('[data-panel]') as HTMLElement | null;
+    const groupNode = panelNode?.parentElement as HTMLElement | null;
+    if (!panelNode || !groupNode) return;
+
+    const headerHeight = headerEl.getBoundingClientRect().height;
+    const groupHeight = groupNode.getBoundingClientRect().height;
+    if (!groupHeight || headerHeight <= 0) return;
+
+    // Calculate exact percentage needed for header to be flush with bottom
+    const derivedPercent = (headerHeight / groupHeight) * 100;
+    const minPercent = Math.max(derivedPercent, 3);
+    
+    setOutputPanelMinPercent((prev) => {
+      return Math.abs(prev - minPercent) > 0.01 ? minPercent : prev;
+    });
+
+    if (typeof panelHandle.getSize === 'function' && typeof panelHandle.resize === 'function') {
+      const currentSize = panelHandle.getSize();
+      if (typeof currentSize === 'number') {
+        // Only resize if:
+        // 1. forceResize is true (scale change), OR
+        // 2. Panel is below minPercent (minimized/too small)
+        if (forceResize || currentSize < minPercent) {
+          if (Math.abs(currentSize - (forceResize ? minPercent : Math.max(currentSize, minPercent))) > 0.01) {
+            panelHandle.resize(forceResize ? minPercent : Math.max(currentSize, minPercent));
+          }
+        }
+      }
+    }
+  }, [showCompilationOutput]);
+
   useEffect(() => {
     if (outputPanelRef.current && typeof outputPanelRef.current.resize === 'function') {
       outputPanelRef.current.resize(compilationPanelSize);
     }
+    // No floor enforcement here - allow automatic compilation/parser-driven sizing
   }, [compilationPanelSize]);
+
+  useEffect(() => {
+    const handleResize = () => requestAnimationFrame(() => enforceOutputPanelFloor(false));
+    const handleUiScale: EventListener = () => {
+      // Double rAF to ensure CSS has fully applied and DOM has re-rendered
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          enforceOutputPanelFloor(true); // Force resize on scale change
+          // Additional delayed enforcement for complex layout changes
+          setTimeout(() => enforceOutputPanelFloor(true), 50);
+        });
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('uiFontScaleChange', handleUiScale);
+    document.addEventListener('uiFontScaleChange', handleUiScale);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('uiFontScaleChange', handleUiScale);
+      document.removeEventListener('uiFontScaleChange', handleUiScale);
+    };
+  }, [enforceOutputPanelFloor]);
 
   // Auto-switch output tab based on errors and messages
   useEffect(() => {
@@ -2085,7 +2147,7 @@ export default function ArduinoSimulator() {
         <div className="flex items-center space-x-4 min-w-0 whitespace-nowrap">
           <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
               <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
-              <h1 className="text-sm font-semibold truncate select-none">Arduino UNO Simulator</h1>
+              <h1 className="text-ui-sm font-semibold truncate select-none">Arduino UNO Simulator</h1>
             </div>
 
           <nav className="app-menu no-drag" role="menubar" aria-label="Application menu">
@@ -2207,7 +2269,7 @@ export default function ArduinoSimulator() {
                   <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); }}>
                     <div className="flex items-center justify-between w-full">
                       <span>Output Panel</span>
-                      {showCompilationOutput && <span className="text-xs">✓</span>}
+                      {showCompilationOutput && <span className="text-ui-xs">✓</span>}
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -2227,14 +2289,14 @@ export default function ArduinoSimulator() {
                   <DropdownMenuItem className="cursor-default" onSelect={(e) => e.preventDefault()}>
                     <div className="flex items-center justify-between w-full">
                       <span>Board:</span>
-                      <span className="text-xs text-muted-foreground">{board}</span>
+                      <span className="text-ui-xs text-muted-foreground">{board}</span>
                     </div>
                   </DropdownMenuItem>
 
                   <DropdownMenuItem className="cursor-default" onSelect={(e) => e.preventDefault()}>
                     <div className="flex items-center justify-between w-full">
                       <span>Baud Rate:</span>
-                      <span className="text-xs text-muted-foreground">{baudRate}</span>
+                      <span className="text-ui-xs text-muted-foreground">{baudRate}</span>
                     </div>
                   </DropdownMenuItem>
 
@@ -2282,7 +2344,7 @@ export default function ArduinoSimulator() {
               onClick={simulationStatus === 'running' ? handleStop : handleCompileAndStart}
               disabled={simulateDisabled}
               className={clsx(
-                'h-8 w-32 p-0 flex items-center justify-center',
+                'h-[var(--ui-button-height)] w-32 p-0 flex items-center justify-center',
                 '!text-white',
                 'transition-colors',
                 {
@@ -2309,7 +2371,7 @@ export default function ArduinoSimulator() {
           <div className="flex items-center space-x-3 min-w-0 no-drag">
             {debugMode && (
               <>
-                <div className="flex items-center space-x-2 text-sm">
+                <div className="flex items-center space-x-2 text-ui-sm">
                   <div 
                     className="w-6 h-6 rounded-full"
                     style={{
@@ -2340,7 +2402,7 @@ export default function ArduinoSimulator() {
 
                 </div>
 
-                <div className="flex flex-col space-y-1 text-xs w-32 max-w-full ml-8">
+                <div className="flex flex-col space-y-1 text-ui-xs w-32 max-w-full ml-8">
                   <div 
                     className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
                     style={{
@@ -2380,7 +2442,7 @@ export default function ArduinoSimulator() {
               onClick={simulationStatus === 'running' ? handleStop : handleCompileAndStart}
               disabled={simulateDisabled}
               className={clsx(
-                'absolute left-1/2 transform -translate-x-1/2 h-10 w-40 p-0 flex items-center justify-center',
+                'absolute left-1/2 transform -translate-x-1/2 h-[var(--ui-button-height)] w-40 p-0 flex items-center justify-center',
                 '!text-white',
                 'transition-colors',
                 {
@@ -2472,15 +2534,15 @@ export default function ArduinoSimulator() {
                     <ResizablePanel 
                       ref={outputPanelRef}
                       defaultSize={compilationPanelSize} 
-                      minSize={3}
+                      minSize={outputPanelMinPercent}
                       id="output-under-editor"
                       className={shouldShowOutput ? '' : 'hidden'}
                     >
                       <Tabs value={activeOutputTab} onValueChange={(v) => setActiveOutputTab(v as 'compiler' | 'messages' | 'registry')} className="h-full flex flex-col">
-                        <div className="flex items-center justify-between px-2 h-8 bg-muted border-b">
+                        <div ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="flex items-center justify-between px-2 h-[var(--ui-button-height)] bg-muted border-b">
                           <TabsList className="h-full flex gap-1 bg-transparent">
                             <TabsTrigger value="compiler" className={clsx(
-                              'h-7 px-2 text-xs data-[state=active]:bg-background rounded-sm',
+                              'h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)]',
                               {
                                 'text-gray-400': lastCompilationResult === null,
                                 'text-green-400': isSuccessState && lastCompilationResult !== null,
@@ -2496,7 +2558,7 @@ export default function ArduinoSimulator() {
                               )}>Compiler</span>
                             </TabsTrigger>
                             <TabsTrigger value="messages" className={clsx(
-                              'h-7 px-2 text-xs data-[state=active]:bg-background rounded-sm',
+                              'h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)]',
                               {
                                 'text-orange-400': parserMessages.length > 0,
                                 'text-gray-400': parserMessages.length === 0,
@@ -2510,7 +2572,7 @@ export default function ArduinoSimulator() {
                               )}>Messages</span>
                             </TabsTrigger>
                             <TabsTrigger value="registry" className={clsx(
-                              'h-7 px-2 text-xs data-[state=active]:bg-background rounded-sm',
+                              'h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)]',
                               {
                                 'text-orange-400': hasIOProblems,
                                 'text-gray-400': !hasIOProblems,
@@ -2531,7 +2593,7 @@ export default function ArduinoSimulator() {
                               setShowCompilationOutput(false);
                               setParserPanelDismissed(true);
                             }}
-                            className="h-7 w-7 p-0 hover:bg-transparent"
+                            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 hover:bg-transparent"
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -2601,7 +2663,7 @@ export default function ArduinoSimulator() {
               <ResizablePanel defaultSize={50} minSize={20} id="serial-panel">
                 <div className="h-full flex flex-col">
                   {/* Static Serial Header (always full width) */}
-                  <div className="bg-muted px-4 border-b border-border flex items-center h-10">
+                  <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-button-height)]">
                     <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
                       <div className="flex items-center space-x-2 flex-shrink-0">
                         <Monitor className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} aria-hidden />
@@ -2611,7 +2673,7 @@ export default function ArduinoSimulator() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 w-8 p-0 flex items-center justify-center"
+                          className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
                           onClick={cycleSerialViewMode}
                           data-testid="button-serial-view-toggle"
                           aria-label={serialViewMode === 'monitor' ? 'Monitor only' : serialViewMode === 'plotter' ? 'Plotter only' : 'Split view'}
@@ -2628,7 +2690,7 @@ export default function ArduinoSimulator() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className={clsx('h-8 w-8 p-0 flex items-center justify-center', autoScrollEnabled ? 'bg-background text-white hover:bg-green-600 hover:text-white' : '')}
+                          className={clsx('h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center', autoScrollEnabled ? 'bg-background text-white hover:bg-green-600 hover:text-white' : '')}
                           onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
                           disabled={serialViewMode === 'plotter'}
                           title={autoScrollEnabled ? 'Autoscroll on' : 'Autoscroll off'}
@@ -2641,7 +2703,7 @@ export default function ArduinoSimulator() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 w-8 p-0 flex items-center justify-center"
+                          className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
                           onClick={handleClearSerialOutput}
                           aria-label="Clear serial output"
                           title="Clear serial output"
@@ -2747,28 +2809,28 @@ export default function ArduinoSimulator() {
                   <button
                     aria-label="Code Editor"
                     onClick={() => setMobilePanel(mobilePanel === 'code' ? null : 'code')}
-                    className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'code' ? 'bg-blue-600 text-white' : 'bg-transparent text-muted-foreground')}
+                    className={clsx('w-[var(--ui-button-height)] h-[var(--ui-button-height)] flex items-center justify-center rounded-full transition', mobilePanel === 'code' ? 'bg-blue-600 text-white' : 'bg-transparent text-muted-foreground')}
                   >
                     <Cpu className="w-5 h-5" />
                   </button>
                   <button
                     aria-label="Compilation Output"
                     onClick={() => setMobilePanel(mobilePanel === 'compile' ? null : 'compile')}
-                    className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'compile' ? 'bg-green-600 text-white' : 'bg-transparent text-muted-foreground')}
+                    className={clsx('w-[var(--ui-button-height)] h-[var(--ui-button-height)] flex items-center justify-center rounded-full transition', mobilePanel === 'compile' ? 'bg-green-600 text-white' : 'bg-transparent text-muted-foreground')}
                   >
                     <Wrench className="w-5 h-5 opacity-80" />
                   </button>
                   <button
                     aria-label="Serial Output"
                     onClick={() => setMobilePanel(mobilePanel === 'serial' ? null : 'serial')}
-                    className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'serial' ? 'bg-amber-600 text-white' : 'bg-transparent text-muted-foreground')}
+                    className={clsx('w-[var(--ui-button-height)] h-[var(--ui-button-height)] flex items-center justify-center rounded-full transition', mobilePanel === 'serial' ? 'bg-amber-600 text-white' : 'bg-transparent text-muted-foreground')}
                   >
                     <Terminal className="w-5 h-5" />
                   </button>
                   <button
                     aria-label="Arduino Board"
                     onClick={() => setMobilePanel(mobilePanel === 'board' ? null : 'board')}
-                    className={clsx('w-10 h-10 flex items-center justify-center rounded-full transition', mobilePanel === 'board' ? 'bg-sky-600 text-white' : 'bg-transparent text-muted-foreground')}
+                    className={clsx('w-[var(--ui-button-height)] h-[var(--ui-button-height)] flex items-center justify-center rounded-full transition', mobilePanel === 'board' ? 'bg-sky-600 text-white' : 'bg-transparent text-muted-foreground')}
                   >
                     <Square className="w-5 h-5" />
                   </button>

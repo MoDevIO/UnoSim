@@ -40,6 +40,35 @@
   --font-serif: Georgia, serif;
   --font-mono: JetBrains Mono, Consolas, Monaco, monospace;
   --radius: 0.5rem;
+  /* Unified font-size scale — set GUI text to 12pt (16px) except titles */
+  --fs-xs: 16px;
+  --fs-sm: 16px;
+  --fs-md: 16px;
+  --fs-lg: 16px;
+  --fs-xl: 16px;
+  --fs-2xl: 24px;
+  --fs-3xl: 30px;
+  /* Matching line-heights */
+  --lh-xs: 20px;
+  --lh-sm: 20px;
+  --lh-md: 20px;
+  --lh-lg: 20px;
+  --lh-xl: 20px;
+  --lh-2xl: 32px;
+  --lh-3xl: 36px;
+  /* Unified component heights */
+  --ui-button-height: 2rem; /* 32px */
+  --ui-header-height: var(--ui-button-height);
+  --ui-button-padding-x: 0.75rem; /* horizontal padding for buttons */
+  /* Central UI font size/line-height invariant and scalable multiplier */
+  --ui-font-scale: 1;
+  --ui-font-base-size: 16px; /* base 12pt */
+  --ui-line-base: 20px;
+  --ui-button-base-height: 32px;
+  --ui-control-font-size: calc(var(--ui-font-size) * 1);
+  --ui-font-size: calc(var(--ui-font-base-size) * var(--ui-font-scale));
+  --ui-line-height: calc(var(--ui-line-base) * var(--ui-font-scale));
+  --ui-button-height: calc(var(--ui-button-base-height) * var(--ui-font-scale));
 }
 
 .dark {
@@ -72,6 +101,24 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
     font-family: var(--font-sans);
+    /* Make GUI body text 12pt (16px) */
+    font-size: var(--fs-md);
+    line-height: var(--lh-md);
+  }
+
+  h1 { font-size: var(--fs-3xl); line-height: var(--lh-3xl); font-weight: 600; }
+  h2 { font-size: var(--fs-2xl); line-height: var(--lh-2xl); font-weight: 600; }
+  h3 { font-size: var(--fs-2xl);  line-height: var(--lh-2xl);  font-weight: 600; }
+  h4 { font-size: var(--fs-2xl);  line-height: var(--lh-2xl);  font-weight: 600; }
+  h5 { font-size: var(--fs-md);  line-height: var(--lh-md);  font-weight: 600; }
+  h6 { font-size: var(--fs-md);  line-height: var(--lh-md);  font-weight: 600; }
+
+  /* Make all header elements visually the same height */
+  h1, h2, h3, h4, h5, h6, .text-title, .text-subtitle {
+    height: var(--ui-header-height);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
   }
 }
 
@@ -90,10 +137,11 @@
 }
 
 /* Console output styling */
-.console-output {
+  .console-output {
   font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 18px;
+  /* Console should follow GUI text (12pt) */
+  font-size: var(--fs-md);
+  line-height: var(--lh-md);
   background: var(--background);
   color: hsl(0 0% 85%);
   white-space: pre-wrap;
@@ -126,10 +174,51 @@
 
 
 /* App menu (desktop) */
-.app-menu { display: flex; gap: 0.5rem; margin-left: 0.5rem; align-items: center; font-size: 13px; user-select: none; }
+.app-menu { display: flex; gap: 0.5rem; margin-left: 0.5rem; align-items: center; font-size: var(--ui-control-font-size); user-select: none; }
+/* Utility typography classes for consistent usage */
+.text-title { font-size: var(--fs-2xl); line-height: var(--lh-2xl); font-weight: 600; }
+.text-subtitle { font-size: var(--fs-xl); line-height: var(--lh-xl); font-weight: 500; }
+.text-body { font-size: var(--fs-md); line-height: var(--lh-md); }
+.text-small { font-size: var(--fs-sm); line-height: var(--lh-sm); }
+.text-caption { font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted-foreground); }
+.text-code { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-sm); }
+
+/* Override Tailwind `text-ui-*` utilities to enforce central UI font-size/line-height */
+.text-ui-xs { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
+.text-ui-sm { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
+.text-ui-md { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
+.text-ui-lg { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
+.text-ui-xl { font-size: var(--ui-font-size) !important; line-height: var(--ui-line-height) !important; }
 .app-menu .menu-item { padding: 6px 10px; border-radius: 4px; color: var(--muted-foreground); }
 .app-menu .menu-item:hover, .app-menu .menu-item:focus { background: rgba(255,255,255,0.03); color: var(--foreground); outline: none; cursor: pointer; }
 .app-menu .menu-item:active { background: rgba(255,255,255,0.04); }
+
+/* Controls (buttons, menu items, icon-only controls) should use the scaled control font and align vertically */
+button,
+.app-menu .menu-item,
+.menu-item,
+[role="button"],
+.inline-flex.items-center.justify-center.gap-2,
+.inline-flex.items-center.justify-center.gap-2 svg + span,
+.btn {
+  font-size: var(--ui-control-font-size) !important;
+  line-height: var(--ui-button-height) !important;
+  height: var(--ui-button-height) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Ensure icon-only square controls center SVGs */
+button > svg, .btn > svg, .inline-flex > svg { width: 1em; height: 1em; }
+
+/* Force child nodes to inherit control sizing to avoid mixed line-height from inner spans */
+button *, .app-menu .menu-item * {
+  font-size: var(--ui-control-font-size) !important;
+  line-height: var(--ui-button-height) !important;
+}
 
 /* Animation for compile button */
 .compile-animation {

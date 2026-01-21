@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-01-20 22:50:14",
+  "url": "http://localhost:3001",
+  "scale": {
+    "text-ui-xs": "12px",
+    "text-ui-sm": "14px",
+    "text-ui-md": "16px",
+    "text-ui-lg": "18px",
+    "text-ui-xl": "20px",
+    "text-ui-2xl": "24px",
+    "text-ui-3xl": "30px"
+  },
+  "results": [
+    {
+      "component": "Button (default)",
+      "expected_token": "text-ui-sm",
+      "expected_size": "14px",
+      "actual_size": "14px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Badge",
+      "expected_token": "text-ui-xs",
+      "expected_size": "12px",
+      "actual_size": "12px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Input Field",
+      "expected_token": "text-ui-md",
+      "expected_size": "16px",
+      "actual_size": "16px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Label",
+      "expected_token": "text-ui-sm",
+      "expected_size": "14px",
+      "actual_size": "14px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Dropdown Menu Item",
+      "expected_token": "text-ui-sm",
+      "expected_size": "14px",
+      "actual_size": "14px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Tab Trigger",
+      "expected_token": "text-ui-sm",
+      "expected_size": "14px",
+      "actual_size": "14px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Toast Title",
+      "expected_token": "text-ui-sm",
+      "expected_size": "14px",
+      "actual_size": "14px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Dialog Title",
+      "expected_token": "text-ui-lg",
+      "expected_size": "18px",
+      "actual_size": "18px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Compilation Output",
+      "expected_token": "text-ui-sm",
+      "expected_size": "14px",
+      "actual_size": "14px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Serial Monitor",
+      "expected_token": "text-ui-xs",
+      "expected_size": "12px",
+      "actual_size": "12px",
+      "status": "\u2713 PASS"
+    },
+    {
+      "component": "Parser Analysis Header",
+      "expected_token": "text-ui-sm",
+      "expected_size": "14px",
+      "actual_size": "14px",
+      "status": "\u2713 PASS"
+    }
+  ],
+  "all_passed": true
+}

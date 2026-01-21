@@ -317,13 +317,13 @@ export function SketchTabs({
   };
 
   return (
-    <div className="flex items-center bg-muted border-b border-border h-10 px-2">
+    <div className="flex items-center bg-muted border-b border-border px-2" style={{ minHeight: 'var(--ui-button-height)' }}>
       {/* Scroll left button */}
       {canScrollLeft && (
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 p-0 flex-shrink-0"
+          className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
           onClick={() => scroll('left')}
         >
           <ChevronLeft className="h-4 w-4" />
@@ -334,17 +334,18 @@ export function SketchTabs({
       <div
         ref={tabsContainerRef}
         className="flex items-center overflow-x-auto flex-1 scrollbar-hide"
-        style={{ scrollBehavior: 'smooth' }}
+        style={{ scrollBehavior: 'smooth', minHeight: 'var(--ui-button-height)' }}
       >
         {tabs.map((tab) => (
-          <div
+            <div
             key={tab.id}
             className={clsx(
-              'flex items-center space-x-2 px-4 py-1.5 mr-2 cursor-pointer transition-colors flex-shrink-0 group rounded-md',
+              'flex items-center space-x-2 px-4 mr-2 cursor-pointer transition-colors flex-shrink-0 group rounded-md',
               activeTabId === tab.id
                 ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
                 : 'hover:bg-muted/80 text-muted-foreground'
             )}
+            style={{ height: 'var(--ui-button-height)', lineHeight: 'var(--ui-button-height)', display: 'flex', alignItems: 'center', fontSize: 'var(--ui-control-font-size)' }}
             onClick={() => {
               if (renamingTabId !== tab.id) {
                 onTabClick(tab.id);
@@ -365,12 +366,14 @@ export function SketchTabs({
                   }
                 }}
                 onBlur={handleRenameSave}
-                className="h-6 w-24 px-2 py-1 text-sm"
+                className="w-24 px-2 py-1 text-ui-sm"
+                style={{ height: 'var(--ui-button-height)', fontSize: 'var(--ui-control-font-size)', lineHeight: 'var(--ui-button-height)' }}
               />
             ) : (
               <>
                 <span
-                  className="text-sm truncate max-w-xs cursor-pointer hover:underline"
+                  className="text-ui-sm whitespace-nowrap cursor-pointer hover:underline"
+                  style={{ fontSize: 'var(--ui-control-font-size)', lineHeight: 'var(--ui-button-height)', height: 'var(--ui-button-height)', display: 'flex', alignItems: 'center' }}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     handleRenameStart(tab.id, tab.name);
@@ -383,7 +386,7 @@ export function SketchTabs({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-5 w-5 p-0"
+                    className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0"
                     onClick={(e) => {
                       e.stopPropagation();
                       setDeleteConfirmTabId(tab.id);
@@ -404,7 +407,7 @@ export function SketchTabs({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0"
                 title="Options"
               >
                 <MoreVertical className="h-4 w-4" />
@@ -477,7 +480,7 @@ export function SketchTabs({
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 p-0 flex-shrink-0"
+          className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
           onClick={() => scroll('right')}
         >
           <ChevronRight className="h-4 w-4" />

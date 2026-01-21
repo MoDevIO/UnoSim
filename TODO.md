@@ -8,6 +8,7 @@
 - Better Autocomplete/Linting
 - Autosaving
 - Ability to pause the running sketch
+- Ability to change font size
 
 ## Bug Fixes
 
