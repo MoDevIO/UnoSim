@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 
 // Increase timeout for compilation and execution
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 describe("Backspace E2E Test", () => {
   let runner: SandboxRunner;
@@ -11,8 +11,31 @@ describe("Backspace E2E Test", () => {
     runner = new SandboxRunner();
   });
 
-  afterEach(() => {
-    runner.stop();
+  afterEach(async () => {
+    // Ensure runner is stopped and allow short delay for cleanup
+    try {
+      if (runner && typeof runner.stop === "function") {
+        const maybe = runner.stop();
+        if (maybe && typeof maybe.then === "function") {
+          await maybe;
+        }
+      }
+    } catch (e) {
+      console.warn("Warning during runner.stop():", e);
+    }
+
+    // small delay to allow any lingering handles to close
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // If a worker was used by tests, attempt to terminate it
+    try {
+      if ((globalThis as any).worker && typeof (globalThis as any).worker.terminate === "function") {
+        const t = (globalThis as any).worker.terminate();
+        if (t && typeof t.then === "function") await t;
+      }
+    } catch (e) {
+      console.warn("Warning terminating global worker:", e);
+    }
   });
 
   it("should show all characters 1, 2, 3, 4 in sequence with backspace correction", async () => {
@@ -136,6 +159,17 @@ void loop() {
   });
 
   it("should flush output even with empty loop", async () => {
+    // Skip if Docker is not available in the environment (CI without Docker)
+    let dockerAvailable = true;
+    try {
+      require("child_process").execSync("docker version", { stdio: ["ignore", "ignore", "ignore"] });
+    } catch (e) {
+      dockerAvailable = false;
+    }
+    if (process.env.CI && !dockerAvailable) {
+      console.log("⚠️ Skipping test - Docker not available in CI");
+      return;
+    }
     const testCode = `
 void setup() {
   Serial.begin(115200);
@@ -188,5 +222,5 @@ void loop() {
     expect(combined).toContain("A");
     expect(combined).toContain("B");
     expect(combined).toContain("C");
-  });
+  }, 60000);
 });

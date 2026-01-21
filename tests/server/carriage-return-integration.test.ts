@@ -132,7 +132,8 @@ describe("Carriage Return Integration Test", () => {
 
     // Should check for carriage return
     expect(monitorCode).toContain("hasCarriageReturn");
-    expect(monitorCode).toContain("split('\\r')");
+    // Match either single- or double-quoted split("\\r") or split('\r')
+    expect(monitorCode).toMatch(/split\(["']\\r["']\)/);
 
     // Should handle the split result
     expect(monitorCode).toContain("cleanParts");
