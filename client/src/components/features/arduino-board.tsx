@@ -689,7 +689,7 @@ export function ArduinoBoard({
             (state.mode === "INPUT" || state.mode === "INPUT_PULLUP")
           ) {
             const newValue = state.value > 0 ? 0 : 1;
-            console.log(
+            logger.debug(
               `[ArduinoBoard] Pin ${pin} clicked, toggling to ${newValue}`,
             );
             onPinToggle(pin, newValue);
@@ -701,7 +701,7 @@ export function ArduinoBoard({
       // Check for reset button click
       const resetClick = target.closest("#reset-click");
       if (resetClick && onReset) {
-        console.log("[ArduinoBoard] Reset button clicked");
+        logger.debug("[ArduinoBoard] Reset button clicked");
         onReset();
       }
     },

@@ -107,3 +107,12 @@ tem/
 .env*.local
 
 UNOWEBSIM_gitlab/
+
+# Runtime artifacts
+logs/
+temp/
+*.log
+
+# Measurement reports (werden bei Bedarf neu erzeugt)
+font_size_report_*.md
+font_size_report_*.csv

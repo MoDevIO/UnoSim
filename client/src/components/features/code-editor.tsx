@@ -464,7 +464,7 @@ export function CodeEditor({
       if (ignoreChangesRef.current) return;
       const model = editor.getModel();
       if (model) {
-        console.log("CodeEditor: onDidChangeModelContent, calling onChange");
+        logger.debug("CodeEditor: onDidChangeModelContent, calling onChange");
         onChange(editor.getValue());
       }
     });
@@ -506,7 +506,7 @@ export function CodeEditor({
     const pasteDisposable = editor.onDidPaste((e) => {
       // This event fires after paste, we can use it to detect if paste was truncated
       // But we need to handle it before Monaco processes it
-      console.log("Paste event detected", e);
+      logger.debug("Paste event detected", e);
     });
 
     // Better approach: Add a DOM paste listener directly

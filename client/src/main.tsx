@@ -26,7 +26,7 @@ function setupFontScaleShortcuts() {
     if (e.key === "+" || e.key === "=") {
       e.preventDefault(); // Prevent browser zoom
       if (increaseFontScale()) {
-        console.log("Font scale increased");
+        logger.debug("Font scale increased");
       }
       return;
     }
@@ -35,7 +35,7 @@ function setupFontScaleShortcuts() {
     if (e.key === "-" || e.key === "_") {
       e.preventDefault(); // Prevent browser zoom
       if (decreaseFontScale()) {
-        console.log("Font scale decreased");
+        logger.debug("Font scale decreased");
       }
       return;
     }
