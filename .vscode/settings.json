@@ -43,6 +43,10 @@
     "git add": true,
     "git commit": true,
     "git push": true,
-    "git mv": true
+    "git mv": true,
+    "/^python3 --version$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
   }
 }

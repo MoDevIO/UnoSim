@@ -21,6 +21,15 @@ const DEFAULT_KEEP_EXAMPLES_MENU_OPEN = false;
 const FONT_SCALE_KEY = "unoFontScale";
 const DEFAULT_FONT_SCALE = "1.0";
 
+// Font scale options with labels showing both size name and px value
+const FONT_SCALE_OPTIONS = [
+  { value: "0.875", label: "S (12px)", px: 12 },
+  { value: "1.0", label: "M (14px)", px: 14 },
+  { value: "1.125", label: "L (16px)", px: 16 },
+  { value: "1.25", label: "XL (18px)", px: 18 },
+  { value: "1.5", label: "XXL (20px)", px: 20 },
+] as const;
+
 export default function SettingsDialog({
   open,
   onOpenChange,
@@ -132,8 +141,7 @@ export default function SettingsDialog({
               <div>
                 <div className="font-medium">Schriftgröße (UI)</div>
                 <div className="text-ui-xs text-muted-foreground">
-                  Skaliert alle UI-Schriftgrößen und Editor (S/M/L oder
-                  numerisch).
+                  Skaliert alle UI-Schriftgrößen und Editor (S/M/L/XL/XXL).
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -169,11 +177,11 @@ export default function SettingsDialog({
                   }}
                   className="bg-background text-foreground border px-2 py-1 rounded"
                 >
-                  <option value="0.875">S (0.875×)</option>
-                  <option value="1.0">M (1.0×)</option>
-                  <option value="1.125">L (1.125×)</option>
-                  <option value="1.25">XL (1.25×)</option>
-                  <option value="1.5">XXL (1.5×)</option>
+                  {FONT_SCALE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

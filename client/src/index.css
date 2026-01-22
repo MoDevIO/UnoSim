@@ -40,29 +40,29 @@
   --font-serif: Georgia, serif;
   --font-mono: JetBrains Mono, Consolas, Monaco, monospace;
   --radius: 0.5rem;
-  /* Unified font-size scale — set GUI text to 12pt (16px) except titles */
-  --fs-xs: 16px;
-  --fs-sm: 16px;
-  --fs-md: 16px;
-  --fs-lg: 16px;
-  --fs-xl: 16px;
-  --fs-2xl: 24px;
-  --fs-3xl: 30px;
+  /* Unified font-size scale — all sizes now scale with --ui-font-scale */
+  --fs-xs: calc(14px * var(--ui-font-scale));
+  --fs-sm: calc(14px * var(--ui-font-scale));
+  --fs-md: calc(14px * var(--ui-font-scale));
+  --fs-lg: calc(14px * var(--ui-font-scale));
+  --fs-xl: calc(16px * var(--ui-font-scale));
+  --fs-2xl: calc(24px * var(--ui-font-scale));
+  --fs-3xl: calc(30px * var(--ui-font-scale));
   /* Matching line-heights */
-  --lh-xs: 20px;
-  --lh-sm: 20px;
-  --lh-md: 20px;
-  --lh-lg: 20px;
-  --lh-xl: 20px;
-  --lh-2xl: 32px;
-  --lh-3xl: 36px;
+  --lh-xs: calc(20px * var(--ui-font-scale));
+  --lh-sm: calc(20px * var(--ui-font-scale));
+  --lh-md: calc(20px * var(--ui-font-scale));
+  --lh-lg: calc(20px * var(--ui-font-scale));
+  --lh-xl: calc(24px * var(--ui-font-scale));
+  --lh-2xl: calc(32px * var(--ui-font-scale));
+  --lh-3xl: calc(36px * var(--ui-font-scale));
   /* Unified component heights */
   --ui-button-height: 2rem; /* 32px */
   --ui-header-height: var(--ui-button-height);
   --ui-button-padding-x: 0.75rem; /* horizontal padding for buttons */
   /* Central UI font size/line-height invariant and scalable multiplier */
   --ui-font-scale: 1;
-  --ui-font-base-size: 16px; /* base 12pt */
+  --ui-font-base-size: 14px; /* base 14px = M (Normal) */
   --ui-line-base: 20px;
   --ui-button-base-height: 32px;
   --ui-control-font-size: calc(var(--ui-font-size) * 1);

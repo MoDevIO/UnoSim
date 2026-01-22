@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Body",
+    "description": "Basis-Body-Element",
+    "selector": "body"
+  },
+  {
+    "name": "Code-Editor",
+    "description": "Monaco Editor",
+    "selector": ".monaco-editor .view-line"
+  },
+  {
+    "name": "Compiler-Output",
+    "description": "Compiler-Ausgabe Panel",
+    "selector": ".console-output"
+  },
+  {
+    "name": "Serieller Monitor",
+    "description": "Serial Monitor Ausgabe",
+    "selector": "[data-testid='serial-output']"
+  },
+  {
+    "name": "Serieller Monitor Input",
+    "description": "Serial Monitor Eingabefeld",
+    "selector": "input[placeholder*='Send to Arduino']"
+  },
+  {
+    "name": "App-Menü",
+    "description": "Hauptmenü Item",
+    "selector": ".app-menu .menu-item"
+  },
+  {
+    "name": "Button",
+    "description": "Standard-Button",
+    "selector": "button"
+  },
+  {
+    "name": "Tab",
+    "description": "Sketch-Tab",
+    "selector": ".text-ui-sm"
+  },
+  {
+    "name": "Header h1",
+    "description": "Hauptüberschrift",
+    "selector": "h1"
+  },
+  {
+    "name": "Dialog Text",
+    "description": "Dialog-Textinhalt",
+    "selector": ".text-ui-md"
+  },
+  {
+    "name": "Status Text",
+    "description": "Statusleiste",
+    "selector": ".text-ui-xs"
+  },
+  {
+    "name": "Dropdown Menu",
+    "description": "Dropdown-Menü-Item",
+    "selector": "[role='menuitem']"
+  }
+]
