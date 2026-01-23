@@ -2,6 +2,9 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Cpu, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Logger } from "@shared/logger";
+
+const logger = new Logger("ArduinoBoard");
 
 interface PinState {
   pin: number;

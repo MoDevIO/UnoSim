@@ -1,5 +1,8 @@
 import { useEffect, useRef } from "react";
 import * as monaco from "monaco-editor";
+import { Logger } from "@shared/logger";
+
+const logger = new Logger("CodeEditor");
 
 // Formatting function
 function formatCode(code: string): string {
@@ -503,10 +506,10 @@ export function CodeEditor({
     });
 
     // NEW: Custom paste handler to handle large pastes
-    const pasteDisposable = editor.onDidPaste((e) => {
+    const pasteDisposable = editor.onDidPaste(() => {
       // This event fires after paste, we can use it to detect if paste was truncated
       // But we need to handle it before Monaco processes it
-      logger.debug("Paste event detected", e);
+      logger.debug("Paste event detected");
     });
 
     // Better approach: Add a DOM paste listener directly

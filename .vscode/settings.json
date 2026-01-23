@@ -47,6 +47,7 @@
     "/^python3 --version$/": {
       "approve": true,
       "matchCommandLine": true
-    }
+    },
+    "git checkout": true
   }
 }

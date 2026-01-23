@@ -10,7 +10,7 @@ import { Logger } from "../../../shared/logger";
 const logger = new Logger("MonacoErrorSuppressor");
 const log = (msg: string, ...args: any[]) => {
   if (DEBUG) {
-    logger.debug(`[Monaco Error Suppressor] ${msg}`, ...args);
+    logger.debug(`[Monaco Error Suppressor] ${msg}`, ...(args as []));
   }
 };
 

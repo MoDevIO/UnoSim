@@ -2,8 +2,11 @@ import "./lib/monaco-error-suppressor"; // Geändert von @/lib/...
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
-import { getCurrentFontScale, setFontScale, increaseFontScale, decreaseFontScale } from "./lib/font-scale-utils";
+import { getCurrentFontScale, increaseFontScale, decreaseFontScale } from "./lib/font-scale-utils";
 import { isMac } from "./lib/platform";
+import { Logger } from "@shared/logger";
+
+const logger = new Logger("Main");
 
 // Apply persisted UI font-scale before first render
 try {
