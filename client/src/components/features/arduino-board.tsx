@@ -225,8 +225,10 @@ export function ArduinoBoard({
         const isPWM = PWM_PINS.includes(pin);
         if (state.type === "digital") {
           return state.value > 0 ? "#ff0000" : "#000000";
-        } else if (isPWM && state.value > 0 && state.value < 255) {
-          return "#ffa500";
+        } else if (isPWM && state.value > 0) {
+          // PWM: Rot mit Intensität
+          const intensity = Math.round((state.value / 255) * 255);
+          return `rgb(${intensity}, 0, 0)`;
         } else if (state.value >= 255) {
           return "#ff0000";
         }
