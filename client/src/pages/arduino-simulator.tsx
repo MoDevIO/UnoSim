@@ -12,9 +12,6 @@ import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Cpu,
-  Play,
-  Square,
-  Loader2,
   Terminal,
   Wrench,
   Trash2,
@@ -27,20 +24,6 @@ import {
 import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuShortcut,
-} from "@/components/ui/dropdown-menu";
 import { CodeEditor } from "@/components/features/code-editor";
 import { SerialMonitor } from "@/components/features/serial-monitor";
 import { CompilationOutput } from "@/components/features/compilation-output";
@@ -48,6 +31,7 @@ import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
 import { ExamplesMenu } from "@/components/features/examples-menu";
 import { ArduinoBoard } from "@/components/features/arduino-board";
+import { AppHeader } from "@/components/features/app-header";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -143,13 +127,6 @@ export default function ArduinoSimulator() {
   const [activeOutputTab, setActiveOutputTab] = useState<
     "compiler" | "messages" | "registry"
   >("compiler");
-  const [debugMode, setDebugMode] = useState<boolean>(() => {
-    try {
-      return window.localStorage.getItem("unoDebugMode") === "1";
-    } catch {
-      return false;
-    }
-  });
   const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(
     () => {
       try {
@@ -219,11 +196,11 @@ export default function ArduinoSimulator() {
   // Hidden file input for File → Load Files
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Listen for debug mode change events from settings dialog
+  // Listen for debug mode change events from settings dialog (disabled)
   useEffect(() => {
-    const handler = (ev: any) => {
+    const handler = (_ev: any) => {
       try {
-        setDebugMode(Boolean(ev?.detail?.value));
+        // Debug mode toggle removed
       } catch {
         // ignore
       }
@@ -404,7 +381,7 @@ export default function ArduinoSimulator() {
   }, [mobilePanel, isClient]);
 
   // Compute header height so mobile overlay can sit below it (preserve normal header)
-  const [headerHeight, setHeaderHeight] = useState<number>(56);
+  const [headerHeight, setHeaderHeight] = useState<number>(40);
   const [overlayZ, setOverlayZ] = useState<number>(30);
   useEffect(() => {
     if (!isClient) return;
@@ -441,12 +418,13 @@ export default function ArduinoSimulator() {
 
       if (hdr === document.body || hdr === document.documentElement) hdr = null;
 
-      let h = 56;
+      let h = 40;
       if (hdr) {
         const rect = (hdr as HTMLElement).getBoundingClientRect();
         if (rect.height > 0 && rect.height < window.innerHeight / 2)
           h = Math.ceil(rect.height);
       }
+      console.log("[Header Height Measurement]", { detected: h, hdr: hdr?.tagName, rect: hdr ? (hdr as HTMLElement).getBoundingClientRect().height : "N/A" });
       setHeaderHeight(h);
 
       let z = 0;
@@ -557,6 +535,8 @@ export default function ArduinoSimulator() {
       const headerHeight = headerEl.getBoundingClientRect().height;
       const groupHeight = groupNode.getBoundingClientRect().height;
       if (!groupHeight || headerHeight <= 0) return;
+
+      console.log("[OutputPanel Size Calc]", { headerHeight, groupHeight, derived: (headerHeight / groupHeight) * 100 });
 
       // Calculate exact percentage needed for header to be flush with bottom
       const derivedPercent = (headerHeight / groupHeight) * 100;
@@ -2452,21 +2432,6 @@ export default function ArduinoSimulator() {
   }
 
   // Replace 'Compilation Successful' with 'Successful' in status label
-  function compilationStatusLabel(status: string) {
-    switch (status) {
-      case "idle":
-        return "Idle";
-      case "compiling":
-        return "Compiling...";
-      case "success":
-        return "Successful";
-      case "error":
-        return "Error";
-      default:
-        return status;
-    }
-  }
-
   const statusInfo = getStatusInfo();
   void getStatusClass;
   void statusInfo;
@@ -2528,554 +2493,64 @@ export default function ArduinoSimulator() {
         </div>
       )}
       {/* Header/Toolbar */}
-      {!isMobile ? (
-        <div className="app-navbar bg-card px-4 py-2 relative flex items-center justify-between flex-nowrap overflow-x-hidden whitespace-nowrap w-screen">
-          <div className="flex items-center space-x-4 min-w-0 whitespace-nowrap">
-            <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
-              <Cpu
-                className="text-white opacity-95 h-5 w-5"
-                strokeWidth={1.67}
-              />
-              <h1 className="text-ui-sm font-semibold truncate select-none">
-                Arduino UNO Simulator
-              </h1>
-            </div>
-
-            <nav
-              className="app-menu no-drag"
-              role="menubar"
-              aria-label="Application menu"
-            >
-              <div className="relative">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="menu-item" tabIndex={0}>
-                      File
-                    </Button>
-                  </DropdownMenuTrigger>
-
-                  <DropdownMenuContent className="w-56">
-                    <DropdownMenuLabel>File</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        handleTabAdd();
-                      }}
-                    >
-                      New File
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        if (!activeTabId) {
-                          toast({
-                            title: "No file selected",
-                            description: "Open a file/tab first to rename.",
-                          });
-                          return;
-                        }
-                        const current = tabs.find((t) => t.id === activeTabId);
-                        const newName = window.prompt(
-                          "Rename file",
-                          current?.name || "untitled.ino",
-                        );
-                        if (newName && newName.trim()) {
-                          handleTabRename(activeTabId, newName.trim());
-                        }
-                      }}
-                    >
-                      Rename
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        formatCode();
-                      }}
-                    >
-                      Format Code
-                      <DropdownMenuShortcut>
-                        {isMac ? "⇧⌘F" : "Ctrl+Shift+F"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        fileInputRef.current?.click();
-                      }}
-                    >
-                      Load Files
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        downloadAllFiles();
-                      }}
-                    >
-                      Download All Files
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        openSettings();
-                      }}
-                    >
-                      Settings
-                      <DropdownMenuShortcut>
-                        {isMac ? "⌘," : "Ctrl+,"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="relative">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="menu-item" tabIndex={0}>
-                      Edit
-                    </Button>
-                  </DropdownMenuTrigger>
-
-                  <DropdownMenuContent className="w-56">
-                    <DropdownMenuLabel>Edit</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        runEditorCommand("undo");
-                      }}
-                    >
-                      Undo
-                      <DropdownMenuShortcut>
-                        {isMac ? "⌘Z" : "Ctrl+Z"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        runEditorCommand("redo");
-                      }}
-                    >
-                      Redo
-                      <DropdownMenuShortcut>
-                        {isMac ? "⇧⌘Z" : "Ctrl+Y"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        handleCut();
-                      }}
-                    >
-                      Cut
-                      <DropdownMenuShortcut>
-                        {isMac ? "⌘X" : "Ctrl+X"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        handleCopy();
-                      }}
-                    >
-                      Copy
-                      <DropdownMenuShortcut>
-                        {isMac ? "⌘C" : "Ctrl+C"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        handlePaste();
-                      }}
-                    >
-                      Paste
-                      <DropdownMenuShortcut>
-                        {isMac ? "⌘V" : "Ctrl+V"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        runEditorCommand("selectAll");
-                      }}
-                    >
-                      Select All
-                      <DropdownMenuShortcut>
-                        {isMac ? "⌘A" : "Ctrl+A"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        handleGoToLine();
-                      }}
-                    >
-                      Go to Line…
-                      <DropdownMenuShortcut>
-                        {isMac ? "⌘G" : "Ctrl+G"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        runEditorCommand("find");
-                      }}
-                    >
-                      Find
-                      <DropdownMenuShortcut>
-                        {isMac ? "⌘F" : "Ctrl+F"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="relative">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="menu-item" tabIndex={0}>
-                      Sketch
-                    </Button>
-                  </DropdownMenuTrigger>
-
-                  <DropdownMenuContent className="w-56">
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        if (!compileMutation.isPending) {
-                          handleCompile();
-                        }
-                      }}
-                    >
-                      Compile
-                      <DropdownMenuShortcut>F5</DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        handleCompileAndStart();
-                      }}
-                    >
-                      Compile/Upload
-                      <DropdownMenuShortcut>
-                        {isMac ? "⌘U" : "Ctrl+U"}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        setShowCompilationOutput(!showCompilationOutput);
-                        setParserPanelDismissed(false);
-                      }}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span>Output Panel</span>
-                        {showCompilationOutput && (
-                          <span className="text-ui-xs">✓</span>
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              {/* Tools will be a dropdown */}
-              <div className="relative">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="menu-item" tabIndex={0}>
-                      Tools
-                    </Button>
-                  </DropdownMenuTrigger>
-
-                  <DropdownMenuContent className="w-56">
-                    <DropdownMenuLabel>Tools</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-
-                    <DropdownMenuItem
-                      className="cursor-default"
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span>Board:</span>
-                        <span className="text-ui-xs text-muted-foreground">
-                          {board}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      className="cursor-default"
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span>Baud Rate:</span>
-                        <span className="text-ui-xs text-muted-foreground">
-                          {baudRate}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger className="w-full text-left">
-                        Timeout
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        <DropdownMenuRadioGroup
-                          value={String(simulationTimeout)}
-                          onValueChange={(v) => setSimulationTimeout(Number(v))}
-                        >
-                          <DropdownMenuRadioItem value="5">
-                            5s
-                          </DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="10">
-                            10s
-                          </DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="30">
-                            30s
-                          </DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="60">
-                            60s
-                          </DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="120">
-                            2min
-                          </DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="300">
-                            5min
-                          </DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="600">
-                            10min
-                          </DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="0">
-                            ∞
-                          </DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="relative">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="menu-item" tabIndex={0}>
-                      Help
-                    </Button>
-                  </DropdownMenuTrigger>
-
-                  <DropdownMenuContent className="w-56">
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        window.open(
-                          "https://github.com/MoDevIO/UnoSim",
-                          "_blank",
-                          "noopener",
-                        );
-                      }}
-                    >
-                      Github
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </nav>
-
-            {/* Hidden file input used by File → Load Files */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".ino,.h"
-              multiple
-              onChange={handleHiddenFileInput}
-              className="hidden"
-            />
-
-            {/* Centered simulation button */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 z-10">
-              <Button
-                onClick={
-                  simulationStatus === "running"
-                    ? handleStop
-                    : handleCompileAndStart
-                }
-                disabled={simulateDisabled}
-                className={clsx(
-                  "h-[var(--ui-button-height)] w-32 p-0 flex items-center justify-center",
-                  "!text-white",
-                  "transition-colors",
-                  {
-                    "!bg-orange-600 hover:!bg-orange-700":
-                      simulationStatus === "running" && !simulateDisabled,
-                    "!bg-green-600 hover:!bg-green-700":
-                      simulationStatus !== "running" && !simulateDisabled,
-                    "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500":
-                      simulateDisabled,
-                  },
-                )}
-                data-testid="button-simulate-toggle"
-                aria-label={
-                  simulationStatus === "running"
-                    ? "Stop Simulation"
-                    : "Start Simulation"
-                }
-              >
-                {compileMutation.isPending ||
-                startMutation.isPending ||
-                stopMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : simulationStatus === "running" ? (
-                  <Square className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3 min-w-0 no-drag">
-            {debugMode && (
-              <>
-                <div className="flex items-center space-x-2 text-ui-sm">
-                  <div
-                    className="w-6 h-6 rounded-full"
-                    style={{
-                      backgroundColor:
-                        compilationStatus === "compiling"
-                          ? "#eab308"
-                          : compilationStatus === "success"
-                            ? "#22c55e"
-                            : compilationStatus === "error"
-                              ? "#ef4444"
-                              : compilationStatus === "ready"
-                                ? "#6b7280"
-                                : "#3b82f6",
-                      boxShadow:
-                        compilationStatus === "success"
-                          ? "0 0 12px 3px rgba(34,197,94,0.6)"
-                          : compilationStatus === "error"
-                            ? "0 0 12px 3px rgba(239,68,68,0.6)"
-                            : "none",
-                      transition:
-                        "background-color 500ms ease-in-out, box-shadow 500ms ease-in-out",
-                      animation:
-                        compilationStatus === "compiling" ||
-                        compilationStatus === "success"
-                          ? "gentle-pulse 3s ease-in-out infinite"
-                          : compilationStatus === "error"
-                            ? "error-blink 0.3s ease-in-out 5"
-                            : "none",
-                    }}
-                  />
-                  <style>{`
-                    @keyframes gentle-pulse {
-                      0%, 100% { opacity: 1; }
-                      50% { opacity: 0.7; }
-                    }
-                    @keyframes error-blink {
-                      0%, 100% { opacity: 1; }
-                      50% { opacity: 0.6; }
-                    }
-                  `}</style>
-                </div>
-
-                <div className="flex flex-col space-y-1 text-ui-xs w-32 max-w-full ml-8">
-                  <div
-                    className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
-                    style={{
-                      backgroundColor:
-                        arduinoCliStatus === "compiling"
-                          ? "rgba(234, 179, 8, 0.10)"
-                          : arduinoCliStatus === "success"
-                            ? "rgba(34, 197, 94, 0.10)"
-                            : arduinoCliStatus === "error"
-                              ? "rgba(239, 68, 68, 0.10)"
-                              : "rgba(107, 114, 128, 0.10)",
-                    }}
-                  >
-                    <Terminal className="h-3 w-3 mr-1 flex-shrink-0" />
-                    <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`CLI: ${compilationStatusLabel(arduinoCliStatus)}`}</span>
-                  </div>
-                  <div
-                    className="flex items-center px-1.5 py-1 rounded border border-border bg-muted transition-colors duration-300 w-full min-w-0"
-                    style={{
-                      backgroundColor:
-                        gccStatus === "compiling"
-                          ? "rgba(234, 179, 8, 0.10)"
-                          : gccStatus === "success"
-                            ? "rgba(34, 197, 94, 0.10)"
-                            : gccStatus === "error"
-                              ? "rgba(239, 68, 68, 0.10)"
-                              : "rgba(107, 114, 128, 0.10)",
-                    }}
-                  >
-                    <Wrench className="h-3 w-3 mr-1 flex-shrink-0" />
-                    <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{`GCC: ${compilationStatusLabel(gccStatus)}`}</span>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="flex items-center space-x-3">
-              {/* simulate button moved to center */}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div
-          data-mobile-header
-          className="bg-card border-b border-border px-4 py-3 flex items-center justify-center flex-nowrap overflow-hidden w-full relative z-10"
-        >
-          <Button
-            onClick={
-              simulationStatus === "running"
-                ? handleStop
-                : handleCompileAndStart
-            }
-            disabled={simulateDisabled}
-            className={clsx(
-              "absolute left-1/2 transform -translate-x-1/2 h-[var(--ui-button-height)] w-40 p-0 flex items-center justify-center",
-              "!text-white",
-              "transition-colors",
-              {
-                "!bg-orange-600 hover:!bg-orange-700":
-                  simulationStatus === "running" && !simulateDisabled,
-                "!bg-green-600 hover:!bg-green-700":
-                  simulationStatus !== "running" && !simulateDisabled,
-                "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500":
-                  simulateDisabled,
-              },
-            )}
-            data-testid="button-simulate-toggle-mobile"
-            aria-label={
-              simulationStatus === "running"
-                ? "Stop Simulation"
-                : "Start Simulation"
-            }
-          >
-            {compileMutation.isPending ||
-            startMutation.isPending ||
-            stopMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : simulationStatus === "running" ? (
-              <Square className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      )}
+      <AppHeader
+        isMobile={isMobile}
+        simulationStatus={simulationStatus}
+        simulateDisabled={simulateDisabled}
+        isCompiling={compileMutation.isPending}
+        isStarting={startMutation.isPending}
+        isStopping={stopMutation.isPending}
+        onSimulate={handleCompileAndStart}
+        onStop={handleStop}
+        board={board}
+        baudRate={baudRate}
+        simulationTimeout={simulationTimeout}
+        onTimeoutChange={setSimulationTimeout}
+        isMac={isMac}
+        onFileAdd={handleTabAdd}
+        onFileRename={() => {
+          if (!activeTabId) {
+            toast({
+              title: "No file selected",
+              description: "Open a file/tab first to rename.",
+            });
+            return;
+          }
+          const current = tabs.find((t) => t.id === activeTabId);
+          const newName = window.prompt(
+            "Rename file",
+            current?.name || "untitled.ino",
+          );
+          if (newName && newName.trim()) {
+            handleTabRename(activeTabId, newName.trim());
+          }
+        }}
+        onFormatCode={formatCode}
+        onLoadFiles={() => fileInputRef.current?.click()}
+        onDownloadAllFiles={downloadAllFiles}
+        onSettings={openSettings}
+        onUndo={() => runEditorCommand("undo")}
+        onRedo={() => runEditorCommand("redo")}
+        onCut={handleCut}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onSelectAll={() => runEditorCommand("selectAll")}
+        onGoToLine={handleGoToLine}
+        onFind={() => runEditorCommand("find")}
+        onCompile={() => { if (!compileMutation.isPending) handleCompile(); }}
+        onCompileAndStart={handleCompileAndStart}
+        onOutputPanelToggle={() => { setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); }}
+        showCompilationOutput={showCompilationOutput}
+      />
+      {/* Hidden file input used by File → Load Files */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".ino,.h"
+        multiple
+        onChange={handleHiddenFileInput}
+        className="hidden"
+      />
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative z-0">
         {!isMobile ? (
@@ -3192,13 +2667,13 @@ export default function ArduinoSimulator() {
                           <div
                             ref={outputTabsHeaderRef}
                             data-testid="output-tabs-header"
-                            className="flex items-center justify-between px-2 h-[var(--ui-button-height)] bg-muted border-b"
+                            className="flex items-center justify-start gap-2 px-2 h-[var(--ui-header-height)] bg-muted border-b"
                           >
-                            <TabsList className="h-full flex gap-1 bg-transparent">
+                            <TabsList className="h-auto flex gap-1 bg-transparent items-center">
                               <TabsTrigger
                                 value="compiler"
                                 className={clsx(
-                                  "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)]",
+                                  "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
                                   {
                                     "text-gray-400":
                                       lastCompilationResult === null,
@@ -3225,7 +2700,7 @@ export default function ArduinoSimulator() {
                               <TabsTrigger
                                 value="messages"
                                 className={clsx(
-                                  "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)]",
+                                  "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
                                   {
                                     "text-orange-400":
                                       parserMessages.length > 0,
@@ -3248,7 +2723,7 @@ export default function ArduinoSimulator() {
                               <TabsTrigger
                                 value="registry"
                                 className={clsx(
-                                  "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-[var(--ui-button-height)]",
+                                  "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
                                   {
                                     "text-orange-400": hasIOProblems,
                                     "text-gray-400": !hasIOProblems,
@@ -3272,7 +2747,7 @@ export default function ArduinoSimulator() {
                                 setShowCompilationOutput(false);
                                 setParserPanelDismissed(true);
                               }}
-                              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 hover:bg-transparent"
+                              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 hover:bg-transparent ml-auto"
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -3358,7 +2833,7 @@ export default function ArduinoSimulator() {
                 <ResizablePanel defaultSize={50} minSize={20} id="serial-panel">
                   <div className="h-full flex flex-col">
                     {/* Static Serial Header (always full width) */}
-                    <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-button-height)]">
+                    <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)]">
                       <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
                         <div className="flex items-center space-x-2 flex-shrink-0">
                           <Monitor

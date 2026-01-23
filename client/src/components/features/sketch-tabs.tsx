@@ -351,13 +351,13 @@ export function SketchTabs({
   return (
     <div
       className="flex items-center bg-muted border-b border-border px-2"
-      style={{ minHeight: "var(--ui-button-height)" }}
+      style={{ minHeight: "var(--ui-header-height)" }}
     >
       {/* Scroll left button */}
       {canScrollLeft && (
         <Button
           variant="ghost"
-          size="small"
+          size="sm"
           className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
           onClick={() => scroll("left")}
         >
@@ -371,7 +371,7 @@ export function SketchTabs({
         className="flex items-center overflow-x-auto flex-1 scrollbar-hide"
         style={{
           scrollBehavior: "smooth",
-          minHeight: "var(--ui-button-height)",
+          minHeight: "var(--ui-header-height)",
         }}
       >
         {tabs.map((tab) => (

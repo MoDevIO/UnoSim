@@ -332,7 +332,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
             <div key={folder}>
               <Button
                 variant="ghost"
-                size="small"
+                size="sm"
                 onClick={() => toggleFolder(folder)}
                 data-role="example-folder"
                 data-folder={folder}
@@ -358,7 +358,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                       <Button
                         key={example.filename}
                         variant="ghost"
-                        size="small"
+                        size="sm"
                         onClick={() => onLoadExample(example)}
                         data-role="example-item"
                         data-example-index={idx}

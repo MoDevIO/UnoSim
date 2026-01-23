@@ -22,7 +22,7 @@ export function CompilationOutput({
       data-testid="compilation-output"
     >
       {!hideHeader && (
-        <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-button-height)] overflow-hidden">
+        <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden">
           <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap gap-2">
             <div className="flex items-center space-x-2 flex-shrink-0">
               {isSuccess && showSuccessMessage ? (
@@ -47,7 +47,7 @@ export function CompilationOutput({
             <Button
               variant="outline"
               size="sm"
-              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+              className="h-[var(--ui-header-height)] w-[var(--ui-header-height)] p-0 flex items-center justify-center"
               onClick={onClear}
               aria-label="Clear compilation output"
               title="Clear compilation output"

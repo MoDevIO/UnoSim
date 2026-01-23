@@ -58,7 +58,7 @@
   --lh-3xl: calc(36px * var(--ui-font-scale));
   /* Unified component heights */
   --ui-button-height: 2rem; /* 32px */
-  --ui-header-height: var(--ui-button-height);
+  --ui-header-height: 2.5rem; /* 40px - slightly taller than buttons */
   --ui-button-padding-x: 0.75rem; /* horizontal padding for buttons */
   /* Central UI font size/line-height invariant and scalable multiplier */
   --ui-font-scale: 1;
@@ -292,6 +292,7 @@ button,
   font-size: var(--ui-control-font-size) !important;
   line-height: var(--ui-button-height) !important;
   height: var(--ui-button-height) !important;
+  margin: auto 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   display: inline-flex !important;

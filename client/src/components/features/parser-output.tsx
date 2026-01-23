@@ -170,7 +170,7 @@ export function ParserOutput({
       >
         {/* Header with integrated tabs */}
         {!hideHeader && (
-          <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-button-height)] overflow-hidden">
+          <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden">
             <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
               <div className="flex items-center space-x-2 flex-shrink-0">
                 <AlertCircle
@@ -185,13 +185,13 @@ export function ParserOutput({
               <TabsList className="bg-transparent h-auto ml-4 p-0 gap-1">
                 <TabsTrigger
                   value="messages"
-                  className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
+                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
                 >
                   Messages {messages.length > 0 && `(${messages.length})`}
                 </TabsTrigger>
                 <TabsTrigger
                   value="registry"
-                  className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
+                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
                 >
                   I/O Registry{" "}
                   {(showAllPins ? ioRegistry.length : totalProgrammedPins) >
@@ -307,7 +307,7 @@ export function ParserOutput({
                                       message.line,
                                     );
                                   }}
-                                  className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center hover:bg-primary/20"
+                                  className="h-[var(--ui-header-height)] w-[var(--ui-header-height)] p-0 flex items-center justify-center hover:bg-primary/20"
                                   title="Insert suggestion"
                                 >
                                   <Plus className="h-3.5 w-3.5" />
