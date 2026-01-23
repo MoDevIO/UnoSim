@@ -2549,9 +2549,9 @@ export default function ArduinoSimulator() {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button role="menuitem" tabIndex={0} className="menu-item">
+                    <Button variant="ghost" className="menu-item" tabIndex={0}>
                       File
-                    </button>
+                    </Button>
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent className="w-56">
@@ -2638,9 +2638,9 @@ export default function ArduinoSimulator() {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button role="menuitem" tabIndex={0} className="menu-item">
+                    <Button variant="ghost" className="menu-item" tabIndex={0}>
                       Edit
-                    </button>
+                    </Button>
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent className="w-56">
@@ -2742,9 +2742,9 @@ export default function ArduinoSimulator() {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button role="menuitem" tabIndex={0} className="menu-item">
+                    <Button variant="ghost" className="menu-item" tabIndex={0}>
                       Sketch
-                    </button>
+                    </Button>
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent className="w-56">
@@ -2793,9 +2793,9 @@ export default function ArduinoSimulator() {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button role="menuitem" tabIndex={0} className="menu-item">
+                    <Button variant="ghost" className="menu-item" tabIndex={0}>
                       Tools
-                    </button>
+                    </Button>
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent className="w-56">
@@ -2869,9 +2869,9 @@ export default function ArduinoSimulator() {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button role="menuitem" tabIndex={0} className="menu-item">
+                    <Button variant="ghost" className="menu-item" tabIndex={0}>
                       Help
-                    </button>
+                    </Button>
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent className="w-56">
@@ -3575,7 +3575,9 @@ export default function ArduinoSimulator() {
                       style={{ alignSelf: "flex-end" }}
                     >
                       <div className="bg-black/95 rounded-full shadow-lg p-1 flex flex-col items-center space-y-2">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           aria-label="Code Editor"
                           onClick={() =>
                             setMobilePanel(
@@ -3583,15 +3585,17 @@ export default function ArduinoSimulator() {
                             )
                           }
                           className={clsx(
-                            "w-[var(--ui-button-height)] h-[var(--ui-button-height)] flex items-center justify-center rounded-full transition",
+                            "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                             mobilePanel === "code"
-                              ? "bg-blue-600 text-white"
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
                               : "bg-transparent text-muted-foreground",
                           )}
                         >
                           <Cpu className="w-5 h-5" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           aria-label="Compilation Output"
                           onClick={() =>
                             setMobilePanel(
@@ -3599,15 +3603,17 @@ export default function ArduinoSimulator() {
                             )
                           }
                           className={clsx(
-                            "w-[var(--ui-button-height)] h-[var(--ui-button-height)] flex items-center justify-center rounded-full transition",
+                            "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                             mobilePanel === "compile"
-                              ? "bg-green-600 text-white"
+                              ? "bg-green-600 text-white hover:bg-green-700"
                               : "bg-transparent text-muted-foreground",
                           )}
                         >
                           <Wrench className="w-5 h-5 opacity-80" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           aria-label="Serial Output"
                           onClick={() =>
                             setMobilePanel(
@@ -3615,15 +3621,17 @@ export default function ArduinoSimulator() {
                             )
                           }
                           className={clsx(
-                            "w-[var(--ui-button-height)] h-[var(--ui-button-height)] flex items-center justify-center rounded-full transition",
+                            "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                             mobilePanel === "serial"
-                              ? "bg-amber-600 text-white"
+                              ? "bg-amber-600 text-white hover:bg-amber-700"
                               : "bg-transparent text-muted-foreground",
                           )}
                         >
                           <Terminal className="w-5 h-5" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           aria-label="Arduino Board"
                           onClick={() =>
                             setMobilePanel(
@@ -3631,14 +3639,14 @@ export default function ArduinoSimulator() {
                             )
                           }
                           className={clsx(
-                            "w-[var(--ui-button-height)] h-[var(--ui-button-height)] flex items-center justify-center rounded-full transition",
+                            "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                             mobilePanel === "board"
-                              ? "bg-sky-600 text-white"
+                              ? "bg-sky-600 text-white hover:bg-sky-700"
                               : "bg-transparent text-muted-foreground",
                           )}
                         >
-                          <Square className="w-5 h-5" />
-                        </button>
+                          <Monitor className="w-5 h-5" />
+                        </Button>
                       </div>
                     </div>
                   </div>

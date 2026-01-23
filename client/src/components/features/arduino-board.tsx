@@ -978,30 +978,18 @@ function DialogInner(props: {
           marginTop: 8,
         }}
       >
-        <button
+        <Button
           onClick={onClose}
-          style={{
-            background: "transparent",
-            color: "#ccc",
-            border: "none",
-            padding: "6px 8px",
-            borderRadius: 4,
-          }}
+          variant="outline"
         >
           Abbrechen
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => onConfirm(dialog.pin, val)}
-          style={{
-            background: "#1f6feb",
-            color: "#fff",
-            border: "none",
-            padding: "6px 8px",
-            borderRadius: 4,
-          }}
+          variant="default"
         >
-          OK
-        </button>
+          Bestätigung
+        </Button>
       </div>
     </div>
   );

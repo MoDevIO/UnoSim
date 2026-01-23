@@ -257,11 +257,13 @@ export default function SettingsDialog({
                 "#2a2a2a",
                 "#f4f4f5",
               ].map((s) => (
-                <button
+                <Button
                   key={s}
                   onClick={() => setColor(s)}
                   aria-label={`preset ${s}`}
                   title={s}
+                  variant="outline"
+                  size="icon"
                   style={{ background: s }}
                   className={`w-6 h-6 rounded ${color.toLowerCase() === s.toLowerCase() ? "ring-2 ring-offset-1 ring-white" : "border"}`}
                 />
@@ -332,9 +334,6 @@ export default function SettingsDialog({
           }}
         >
           <div className="flex w-full justify-end gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
             <DialogClose asChild>
               <Button
                 className="text-white hover:bg-[#16a34a]"

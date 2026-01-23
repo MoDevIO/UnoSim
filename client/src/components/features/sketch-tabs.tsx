@@ -357,7 +357,7 @@ export function SketchTabs({
       {canScrollLeft && (
         <Button
           variant="ghost"
-          size="sm"
+          size="small"
           className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
           onClick={() => scroll("left")}
         >

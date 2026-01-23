@@ -330,12 +330,15 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
 
           return (
             <div key={folder}>
-              <button
+              <Button
+                variant="ghost"
+                size="small"
                 onClick={() => toggleFolder(folder)}
                 data-role="example-folder"
                 data-folder={folder}
                 tabIndex={0}
-                className="w-full px-2 py-1.5 text-ui-sm flex items-center justify-start gap-1 hover:bg-accent hover:text-accent-foreground text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                className="w-full px-2 py-1.5 text-ui-sm flex items-center justify-start gap-1 text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                style={{ justifyContent: 'flex-start' }}
               >
                 <ChevronRight
                   className={`h-4 w-4 transition-transform ${
@@ -345,24 +348,27 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                 <span className="font-medium text-ui-xs text-left w-full">
                   {cleanFolderName}
                 </span>
-              </button>
+              </Button>
 
               {isExpanded && (
                 <div className="bg-muted/30">
                   {items
                     .sort((a, b) => a.filename.localeCompare(b.filename))
                     .map((example, idx) => (
-                      <button
+                      <Button
                         key={example.filename}
+                        variant="ghost"
+                        size="small"
                         onClick={() => onLoadExample(example)}
                         data-role="example-item"
                         data-example-index={idx}
                         tabIndex={0}
-                        className="w-full px-4 py-1 text-ui-xs flex items-center justify-start gap-2 hover:bg-accent hover:text-accent-foreground text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                        className="w-full px-4 py-1 text-ui-xs flex items-center justify-start gap-2 text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                        style={{ justifyContent: 'flex-start' }}
                       >
                         <span className="text-muted-foreground">•</span>
                         <span className="text-left w-full">{example.name}</span>
-                      </button>
+                      </Button>
                     ))}
                 </div>
               )}
