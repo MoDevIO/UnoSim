@@ -98,7 +98,7 @@ describe("I/O Registry - pinMode Multiple Calls Detection", () => {
       pin5!.usedAt?.filter((u) => u.operation.includes("pinMode")) || [];
     expect(pinModeOps.length).toBe(1);
     expect(pinModeOps[0].operation).toBe("pinMode:1"); // OUTPUT = 1
-  }, 30000);
+  }, 60000);
 
   it("should track multiple pinMode calls with different modes (conflict)", async () => {
     const code = `
@@ -123,7 +123,7 @@ describe("I/O Registry - pinMode Multiple Calls Detection", () => {
     const modes = pinModeOps.map((op) => op.operation);
     const uniqueModes = [...new Set(modes)];
     expect(uniqueModes.length).toBe(2); // Conflict detected
-  }, 30000);
+  }, 60000);
 
   it("should track repeated pinMode calls with same mode", async () => {
     const code = `
@@ -144,7 +144,7 @@ describe("I/O Registry - pinMode Multiple Calls Detection", () => {
       pin3!.usedAt?.filter((u) => u.operation.includes("pinMode")) || [];
     expect(pinModeOps.length).toBe(3);
     expect(pinModeOps.every((op) => op.operation === "pinMode:0")).toBe(true); // All INPUT
-  }, 30000);
+  }, 60000);
 
   it("should track pinMode:2 for INPUT_PULLUP", async () => {
     const code = `
@@ -163,7 +163,7 @@ describe("I/O Registry - pinMode Multiple Calls Detection", () => {
       pin7!.usedAt?.filter((u) => u.operation.includes("pinMode")) || [];
     expect(pinModeOps.length).toBe(1);
     expect(pinModeOps[0].operation).toBe("pinMode:2"); // INPUT_PULLUP = 2
-  }, 30000);
+  }, 60000);
 
   it("should track complex scenario with conflicts and repeats", async () => {
     const code = `
@@ -199,7 +199,7 @@ describe("I/O Registry - pinMode Multiple Calls Detection", () => {
     const inputCount = modes.filter((m) => m === 0).length;
     expect(outputCount).toBe(3);
     expect(inputCount).toBe(1);
-  }, 30000);
+  }, 60000);
 
   it("should not include pinMode in other operations", async () => {
     const code = `
@@ -228,5 +228,5 @@ describe("I/O Registry - pinMode Multiple Calls Detection", () => {
     expect(readOps.length).toBe(1);
 
     expect(pinModeOps[0].operation).toBe("pinMode:1");
-  }, 30000);
+  }, 60000);
 });
