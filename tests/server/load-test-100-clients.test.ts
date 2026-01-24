@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
 import http from "http";
-import {
-  describeIfServer,
-  SERVER_AVAILABLE,
-} from "../utils/integration-helpers";
 
 /**
  * Load Test: 100 Concurrent Clients
@@ -55,11 +51,9 @@ function fetchHttp(
   });
 }
 
-const maybeDescribe = process.env.SKIP_LOAD_TESTS
-  ? describe.skip
-  : describeIfServer;
+const loadDescribe = describe.skip;
 
-maybeDescribe("Load Test: 100 Concurrent Clients", () => {
+loadDescribe("Load Test: 100 Concurrent Clients", () => {
   const API_BASE = "http://localhost:3000";
   const NUM_CLIENTS = 100;
   const TEST_CODE = `

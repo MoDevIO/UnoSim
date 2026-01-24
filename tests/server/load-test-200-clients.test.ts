@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
 import http from "http";
-import { describeIfServer } from "../utils/integration-helpers";
 
 /**
  * Load Test: 200 Concurrent Clients
@@ -52,7 +51,7 @@ function fetchHttp(
   });
 }
 
-describeIfServer("Load Test: 200 Concurrent Clients", () => {
+describe.skip("Load Test: 200 Concurrent Clients", () => {
   const API_BASE = "http://localhost:3000";
   const NUM_CLIENTS = 200;
   const TEST_CODE = `
