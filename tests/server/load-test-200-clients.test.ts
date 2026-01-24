@@ -51,7 +51,10 @@ function fetchHttp(
   });
 }
 
-describe.skip("Load Test: 200 Concurrent Clients", () => {
+const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const loadDescribe = skipHeavy ? describe.skip : describe;
+
+loadDescribe("Load Test: 200 Concurrent Clients", () => {
   const API_BASE = "http://localhost:3000";
   const NUM_CLIENTS = 200;
   const TEST_CODE = `

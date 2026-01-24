@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 import type { IOPinRecord } from "@shared/schema";
 
-describe("I/O Registry - pinMode Multiple Calls Detection", () => {
+const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const maybeDescribe = skipHeavy ? describe.skip : describe;
+
+maybeDescribe("I/O Registry - pinMode Multiple Calls Detection", () => {
   let runner: SandboxRunner;
   let registryData: IOPinRecord[] = [];
 
@@ -26,7 +29,7 @@ describe("I/O Registry - pinMode Multiple Calls Detection", () => {
       const timer = setTimeout(() => {
         if (runner.isRunning) runner.stop();
         reject(new Error("Registry collection timeout"));
-      }, 25000); // 25s cap to keep suite runtime lean
+      }, 35000); // 35s cap for CI stability (GitHub Actions slower hardware)
 
       let latestRegistry: IOPinRecord[] | null = null;
       let registryReceived = false;

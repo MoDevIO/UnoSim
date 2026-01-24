@@ -51,7 +51,8 @@ function fetchHttp(
   });
 }
 
-const loadDescribe = describe.skip;
+const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const loadDescribe = skipHeavy ? describe.skip : describe;
 
 loadDescribe("Load Test: 500 Concurrent Clients", () => {
   const API_BASE = "http://localhost:3000";
