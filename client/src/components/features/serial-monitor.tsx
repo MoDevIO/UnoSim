@@ -233,7 +233,7 @@ export function SerialMonitor({
         {showMonitor ? (
           <div
             ref={outputRef}
-            className="h-full overflow-auto custom-scrollbar p-3 text-ui-xs font-mono"
+            className="h-full overflow-auto custom-scrollbar scrollbar-hide p-3 text-ui-xs font-mono"
             data-testid="serial-output"
             onScroll={handleScroll}
           />

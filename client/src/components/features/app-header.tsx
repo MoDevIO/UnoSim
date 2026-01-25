@@ -102,9 +102,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   // Desktop Header
   if (!isMobile) {
     return (
-      <header className="app-navbar bg-card border-b border-border px-4 h-[var(--ui-header-height)] flex items-center justify-between flex-nowrap overflow-x-auto whitespace-nowrap w-full">
+      <header className="app-navbar bg-card border-b border-border px-4 h-[var(--ui-header-height)] grid grid-cols-[1fr_auto_1fr] items-center overflow-x-hidden overflow-y-hidden whitespace-nowrap w-full min-h-[var(--ui-header-height)]">
         {/* Left: Logo + Title */}
-        <div className="flex items-center gap-4 min-w-0 flex-shrink-0">
+        <div className="flex items-center gap-4 min-w-0 flex-shrink-0 justify-start">
           <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
             <Cpu
               className="text-white opacity-95 h-5 w-5 flex-shrink-0"
@@ -333,13 +333,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </div>
 
         {/* Center: Simulate Button */}
-        <div className="flex-1 flex items-center justify-center px-4">
+        <div className="flex justify-center items-center">
           <Button
             onClick={simulationStatus === "running" ? onStop : onSimulate}
             disabled={simulateDisabled}
             className={clsx(
-              "h-[var(--ui-button-height)] px-6 flex items-center justify-center gap-2",
+              "h-[var(--ui-button-height)] px-10 min-w-[16rem] max-w-[32rem] w-full flex items-center justify-center gap-2 mx-auto flex-shrink",
               "!text-white font-medium transition-colors whitespace-nowrap",
+              "overflow-hidden text-ellipsis",
               {
                 "!bg-orange-600 hover:!bg-orange-700":
                   simulationStatus === "running" && !simulateDisabled,
@@ -363,14 +364,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             ) : (
               <Play className="h-4 w-4 flex-shrink-0" />
             )}
-            <span>
+            <span className="truncate block">
               {simulationStatus === "running" ? "Stop" : "Start"}
             </span>
           </Button>
         </div>
 
         {/* Right: Empty for symmetry */}
-        <div className="flex-shrink-0 w-32" />
+        <div />
       </header>
     );
   }
