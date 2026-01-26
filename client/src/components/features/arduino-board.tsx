@@ -784,11 +784,11 @@ export function ArduinoBoard({
           <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
           <span className="sr-only">Arduino UNO Board</span>
         </div>
-        <div className="flex items-center ml-4">
+        <div className="flex items-center ml-3">
           <Button
             variant="outline"
             size="sm"
-            className="h-[var(--ui-header-height)] w-[var(--ui-header-height)] p-0 flex items-center justify-center"
+            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
             onClick={() => setShowPWMValues(!showPWMValues)}
             title={showPWMValues ? "Hide I/O values" : "Show I/O values"}
             aria-label={showPWMValues ? "Hide I/O values" : "Show I/O values"}

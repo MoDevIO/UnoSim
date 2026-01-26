@@ -173,65 +173,63 @@ export function ParserOutput({
         {/* Header with integrated tabs */}
         {!hideHeader && (
           <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden">
-            <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
-              <div className="flex items-center space-x-2 flex-shrink-0">
-                <AlertCircle
-                  className="text-white opacity-95 h-5 w-5"
-                  strokeWidth={1.67}
-                />
-                <span className="text-ui-sm font-medium text-white opacity-95">
-                  Parser Analysis
-                </span>
-              </div>
-              {/* Tabs integrated in header */}
-              <TabsList className="bg-transparent h-auto ml-4 p-0 gap-1">
-                <TabsTrigger
-                  value="messages"
-                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
-                >
-                  Messages {messages.length > 0 && `(${messages.length})`}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="registry"
-                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
-                >
-                  I/O Registry{" "}
-                  {(showAllPins ? ioRegistry.length : totalProgrammedPins) >
-                    0 &&
-                    `(${showAllPins ? ioRegistry.length : totalProgrammedPins})`}
-                </TabsTrigger>
-              </TabsList>
-              <div className="flex items-center gap-3 ml-4 text-ui-sm">
-                {totalErrors > 0 && (
-                  <span className="flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                    <span className="text-red-400">{totalErrors}</span>
-                  </span>
-                )}
-                {totalWarnings > 0 && (
-                  <span className="flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5 text-yellow-400" />
-                    <span className="text-yellow-400">{totalWarnings}</span>
-                  </span>
-                )}
-                {totalInfos > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Info className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="text-blue-400">{totalInfos}</span>
-                  </span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0" />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onClear}
-                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-                title="Close"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <AlertCircle
+                className="text-white opacity-95 h-5 w-5"
+                strokeWidth={1.67}
+              />
+              <span className="text-ui-sm font-medium text-white opacity-95">
+                Parser Analysis
+              </span>
             </div>
+            {/* Tabs integrated in header */}
+            <TabsList className="bg-transparent h-auto ml-4 p-0 gap-1">
+              <TabsTrigger
+                value="messages"
+                className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
+              >
+                Messages {messages.length > 0 && `(${messages.length})`}
+              </TabsTrigger>
+              <TabsTrigger
+                value="registry"
+                className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
+              >
+                I/O Registry{" "}
+                {(showAllPins ? ioRegistry.length : totalProgrammedPins) >
+                  0 &&
+                  `(${showAllPins ? ioRegistry.length : totalProgrammedPins})`}
+              </TabsTrigger>
+            </TabsList>
+            <div className="flex items-center gap-3 ml-4 text-ui-sm">
+              {totalErrors > 0 && (
+                <span className="flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                  <span className="text-red-400">{totalErrors}</span>
+                </span>
+              )}
+              {totalWarnings > 0 && (
+                <span className="flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-400" />
+                  <span className="text-yellow-400">{totalWarnings}</span>
+                </span>
+              )}
+              {totalInfos > 0 && (
+                <span className="flex items-center gap-1">
+                  <Info className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-blue-400">{totalInfos}</span>
+                </span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClear}
+              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-2 border-2 border-red-500"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         )}
 
@@ -304,7 +302,7 @@ export function ParserOutput({
                                   {message.suggestion}
                                 </div>
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -313,7 +311,7 @@ export function ParserOutput({
                                       message.line,
                                     );
                                   }}
-                                  className="h-[var(--ui-header-height)] w-[var(--ui-header-height)] p-0 flex items-center justify-center hover:bg-primary/20"
+                                  className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-3"
                                   title="Insert suggestion"
                                 >
                                   <Plus className="h-3.5 w-3.5" />
@@ -344,10 +342,10 @@ export function ParserOutput({
                 : `Programmed pins (${totalProgrammedPins})`}
             </span>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={() => setShowAllPins(!showAllPins)}
-              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-3"
               title={showAllPins ? "Hide empty pins" : "Show all pins"}
             >
               {showAllPins ? (

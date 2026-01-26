@@ -47,7 +47,7 @@ export function CompilationOutput({
             <Button
               variant="outline"
               size="sm"
-              className="h-[var(--ui-header-height)] w-[var(--ui-header-height)] p-0 flex items-center justify-center"
+              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-3"
               onClick={onClear}
               aria-label="Clear compilation output"
               title="Clear compilation output"

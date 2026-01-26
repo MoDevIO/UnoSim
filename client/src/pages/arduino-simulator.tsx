@@ -2776,7 +2776,7 @@ export default function ArduinoSimulator() {
                           <div
                             ref={outputTabsHeaderRef}
                             data-testid="output-tabs-header"
-                            className="flex items-center justify-start gap-2 px-2 h-[var(--ui-header-height)] bg-muted border-b"
+                            className="flex items-center justify-start px-2 h-[var(--ui-header-height)] bg-muted border-b"
                           >
                             <TabsList className="h-auto flex gap-1 bg-transparent items-center">
                               <TabsTrigger
@@ -2849,17 +2849,21 @@ export default function ArduinoSimulator() {
                                 </span>
                               </TabsTrigger>
                             </TabsList>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setShowCompilationOutput(false);
-                                setParserPanelDismissed(true);
-                              }}
-                              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 hover:bg-transparent ml-auto"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
+                            <div className="flex-1" />
+                            <div className="flex items-center px-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setShowCompilationOutput(false);
+                                  setParserPanelDismissed(true);
+                                }}
+                                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+                                title="Close"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
 
                           <TabsContent
@@ -2953,7 +2957,7 @@ export default function ArduinoSimulator() {
                           />
                           <span className="sr-only">Serial Output</span>
                         </div>
-                        <div className="flex items-center space-x-3 ml-auto">
+                        <div className="flex items-center gap-4 ml-auto">
                           <Button
                             variant="outline"
                             size="sm"

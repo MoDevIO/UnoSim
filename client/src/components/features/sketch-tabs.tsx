@@ -356,7 +356,7 @@ export function SketchTabs({
       {/* Scroll left button */}
       {canScrollLeft && (
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
           onClick={() => scroll("left")}
@@ -438,9 +438,9 @@ export function SketchTabs({
                 </span>
                 {tabs[0]?.id !== tab.id && (
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0"
+                    className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 ml-2"
                     onClick={(e) => {
                       e.stopPropagation();
                       setDeleteConfirmTabId(tab.id);
@@ -459,7 +459,7 @@ export function SketchTabs({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0"
                 title="Options"
@@ -532,7 +532,7 @@ export function SketchTabs({
       {/* Scroll right button */}
       {canScrollRight && (
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
           onClick={() => scroll("right")}
