@@ -1,4 +1,7 @@
 import "./lib/monaco-error-suppressor"; // Geändert von @/lib/...
+// Monaco worker wiring to avoid fallback-to-main-thread warning
+// eslint-disable-next-line import/order
+import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
@@ -7,6 +10,15 @@ import { isMac } from "./lib/platform";
 import { Logger } from "@shared/logger";
 
 const logger = new Logger("Main");
+
+// Provide MonacoEnvironment.getWorker to load editor workers off the main thread
+if (typeof self !== "undefined") {
+  (self as any).MonacoEnvironment = {
+    getWorker() {
+      return new (editorWorker as any)();
+    },
+  };
+}
 
 // Apply persisted UI font-scale before first render
 try {

@@ -93,6 +93,7 @@ export default function ArduinoSimulator() {
   // CHANGED: Store OutputLine objects instead of plain strings
   const [serialOutput, setSerialOutput] = useState<OutputLine[]>([]);
   const [parserMessages, setParserMessages] = useState<ParserMessage[]>([]);
+  const parserMessagesContainerRef = useRef<HTMLDivElement | null>(null);
   // Track if user manually dismissed the parser panel (reset on new compile with messages)
   const [parserPanelDismissed, setParserPanelDismissed] = useState(false);
 
@@ -481,11 +482,12 @@ export default function ArduinoSimulator() {
       // Reset dismissal flag and show panel for new parser messages (auto-reopen)
       setParserPanelDismissed(false);
       setShowCompilationOutput(true);
+      setActiveOutputTab("messages");
 
-      // Auto-show and size panel for parser messages
+      // Auto-show and size panel for parser messages (spec 3.2)
       const messageCount = parserMessages.length;
       const totalMessageLength = parserMessages.reduce(
-        (sum, msg) => sum + (msg.message?.length || 0) + 50,
+        (sum, msg) => sum + (msg.message?.length || 0),
         0,
       );
       const HEADER_HEIGHT = 50;
@@ -493,16 +495,48 @@ export default function ArduinoSimulator() {
       const PADDING = 60;
       const AVAILABLE_HEIGHT = 800;
 
+      // SSOT formula (based on count + text length)
       const estimatedPx =
         HEADER_HEIGHT +
         PADDING +
         messageCount * PER_MESSAGE_BASE +
         Math.ceil(totalMessageLength / 100) * 15;
-      const newSize = Math.min(
+      const estimatedPercent = Math.min(
         75,
         Math.max(25, Math.ceil((estimatedPx / AVAILABLE_HEIGHT) * 100)),
       );
 
+      // Measure rendered message container to ensure all containers stay visible
+      const headerEl = outputTabsHeaderRef.current;
+      const headerHeightPx = headerEl
+        ? Math.ceil(headerEl.getBoundingClientRect().height || HEADER_HEIGHT)
+        : HEADER_HEIGHT;
+      let measuredPercent = estimatedPercent;
+
+      try {
+        const panelNode = headerEl?.closest("[data-panel]") as
+          | HTMLElement
+          | null;
+        const groupNode = panelNode?.parentElement as HTMLElement | null;
+        const groupHeightPx = Math.ceil(
+          groupNode?.getBoundingClientRect().height || 0,
+        );
+        const messagesHeightPx = parserMessagesContainerRef.current
+          ? Math.ceil(parserMessagesContainerRef.current.scrollHeight)
+          : 0;
+
+        if (groupHeightPx > 0) {
+          const measuredPx = headerHeightPx + messagesHeightPx;
+          measuredPercent = Math.min(
+            75,
+            Math.max(25, Math.ceil((measuredPx / groupHeightPx) * 100)),
+          );
+        }
+      } catch {
+        // Fallback to estimatedPercent
+      }
+
+      const newSize = Math.min(75, Math.max(25, Math.max(estimatedPercent, measuredPercent)));
       setCompilationPanelSize(newSize);
     } else if (
       lastCompilationResult === "success" &&
@@ -2638,7 +2672,7 @@ export default function ArduinoSimulator() {
                 className="h-full"
                 id="code-layout"
               >
-                <ResizablePanel defaultSize={70} minSize={30} id="editor-panel">
+                <ResizablePanel defaultSize={97} minSize={30} id="editor-panel">
                   <div className="h-full flex flex-col">
                     {/* Sketch Tabs */}
                     <SketchTabs
@@ -2722,7 +2756,10 @@ export default function ArduinoSimulator() {
 
                       <ResizablePanel
                         ref={outputPanelRef}
-                        defaultSize={compilationPanelSize}
+                        defaultSize={Math.max(
+                          compilationPanelSize,
+                          outputPanelMinPercent,
+                        )}
                         minSize={outputPanelMinPercent}
                         id="output-under-editor"
                         className={shouldShowOutput ? "" : "hidden"}
@@ -2845,6 +2882,7 @@ export default function ArduinoSimulator() {
                             <ParserOutput
                               messages={parserMessages}
                               ioRegistry={ioRegistry}
+                              messagesContainerRef={parserMessagesContainerRef}
                               onClear={() => setParserPanelDismissed(true)}
                               onGoToLine={(line) => {
                                 logger.debug(`Go to line: ${line}`);

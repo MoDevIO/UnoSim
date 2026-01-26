@@ -34,7 +34,7 @@ Das **Output Panel** reagiert automatisch auf Compiler-Ergebnisse und Parser-Mes
  `parserMessages.length > 0`
 
 **Verhalten**  
- Das Output Panel MUSS automatisch sichtbar werden. Der aktive Tab MUSS „Messages“ sein. Die Panel-Höhe MUSS dynamisch anhand der Anzahl und Textlänge der Parser-Messages berechnet werden und innerhalb eines Bereichs von **25 % bis 75 %** liegen.
+ Das Output Panel MUSS automatisch sichtbar werden. Der aktive Tab MUSS „Messages“ sein. Die Panel-Höhe MUSS dynamisch anhand der Anzahl und Textlänge der Parser-Messages berechnet werden und innerhalb eines Bereichs von **25 % bis 75 %** liegen. Dabei sollen die Container, die die Messages enthalten komplett sichtbar sein, d.h. die Höhe dieser Container MUSS in der Berechnung der Höhe des Output-Panels verwendet werden.
 
 ---
 

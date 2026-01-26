@@ -22,6 +22,7 @@ interface ParserOutputProps {
   onInsertSuggestion?: (suggestion: string, line?: number) => void;
   hideHeader?: boolean;
   defaultTab?: "messages" | "registry";
+  messagesContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function ParserOutput({
@@ -32,6 +33,7 @@ export function ParserOutput({
   onInsertSuggestion,
   hideHeader = false,
   defaultTab = "messages",
+  messagesContainerRef,
 }: ParserOutputProps) {
   const [activeTab, setActiveTab] = useState<"messages" | "registry">(
     defaultTab,
@@ -244,7 +246,11 @@ export function ParserOutput({
               No parser messages
             </div>
           ) : (
-            <div className="p-3 text-ui-xs space-y-2 overflow-auto no-scrollbar flex-1">
+            <div
+              className="p-3 text-ui-xs space-y-2 overflow-auto no-scrollbar flex-1"
+              ref={messagesContainerRef}
+              data-testid="parser-messages-container"
+            >
               {Object.entries(messagesByCategory).map(
                 ([category, categoryMessages]) => (
                   <div key={category} className="space-y-1">
