@@ -424,7 +424,6 @@ export default function ArduinoSimulator() {
         if (rect.height > 0 && rect.height < window.innerHeight / 2)
           h = Math.ceil(rect.height);
       }
-      console.log("[Header Height Measurement]", { detected: h, hdr: hdr?.tagName, rect: hdr ? (hdr as HTMLElement).getBoundingClientRect().height : "N/A" });
       setHeaderHeight(h);
 
       let z = 0;
@@ -520,7 +519,7 @@ export default function ArduinoSimulator() {
     parserMessages.length,
   ]);
 
-  // Apply panel size imperatively to ResizablePanel
+  // Apply panel size imperatively to ResizablePanel using absolute pixel floor
   const enforceOutputPanelFloor = useCallback(
     (forceResize: boolean = false) => {
       if (!showCompilationOutput) return;
@@ -532,19 +531,26 @@ export default function ArduinoSimulator() {
       const groupNode = panelNode?.parentElement as HTMLElement | null;
       if (!panelNode || !groupNode) return;
 
-      const headerHeight = headerEl.getBoundingClientRect().height;
-      const groupHeight = groupNode.getBoundingClientRect().height;
+      const headerRect = headerEl.getBoundingClientRect();
+      const headerHeight = Math.ceil(headerRect.height);
+      const groupHeight = Math.ceil(groupNode.getBoundingClientRect().height);
       if (!groupHeight || headerHeight <= 0) return;
 
-      console.log("[OutputPanel Size Calc]", { headerHeight, groupHeight, derived: (headerHeight / groupHeight) * 100 });
+      // Enforce absolute minimum height (px) equal to the header height (plus 0 gap target).
+      // The panel is the bottom panel; keeping it at header height keeps the header near the bottom edge.
+      const absoluteMinPx = headerHeight;
+      const currentMinPx = parseInt(panelNode.style.minHeight || "0", 10);
+      if (Number.isNaN(currentMinPx) || currentMinPx !== absoluteMinPx) {
+        panelNode.style.minHeight = `${absoluteMinPx}px`;
+      }
 
-      // Calculate exact percentage needed for header to be flush with bottom
-      const derivedPercent = (headerHeight / groupHeight) * 100;
-      const minPercent = Math.max(derivedPercent, 3);
+      // Convert absolute floor to percentage only for library API calls
+      const minPercent = Math.max((absoluteMinPx / groupHeight) * 100, 3);
+      const targetMinPercent = Math.min(75, minPercent);
 
-      setOutputPanelMinPercent((prev) => {
-        return Math.abs(prev - minPercent) > 0.01 ? minPercent : prev;
-      });
+      setOutputPanelMinPercent((prev) =>
+        Math.abs(prev - targetMinPercent) > 0.01 ? targetMinPercent : prev,
+      );
 
       if (
         typeof panelHandle.getSize === "function" &&
@@ -552,22 +558,11 @@ export default function ArduinoSimulator() {
       ) {
         const currentSize = panelHandle.getSize();
         if (typeof currentSize === "number") {
-          // Only resize if:
-          // 1. forceResize is true (scale change), OR
-          // 2. Panel is below minPercent (minimized/too small)
-          if (forceResize || currentSize < minPercent) {
-            if (
-              Math.abs(
-                currentSize -
-                  (forceResize
-                    ? minPercent
-                    : Math.max(currentSize, minPercent)),
-              ) > 0.01
-            ) {
-              panelHandle.resize(
-                forceResize ? minPercent : Math.max(currentSize, minPercent),
-              );
-            }
+          const target = forceResize
+            ? targetMinPercent // when forced (e.g., example load), snap to computed floor
+            : Math.max(currentSize, targetMinPercent);
+          if (Math.abs(currentSize - target) > 0.01) {
+            panelHandle.resize(target);
           }
         }
       }
@@ -587,7 +582,7 @@ export default function ArduinoSimulator() {
 
   useEffect(() => {
     const handleResize = () =>
-      requestAnimationFrame(() => enforceOutputPanelFloor(false));
+      requestAnimationFrame(() => enforceOutputPanelFloor(true));
     const handleUiScale: EventListener = () => {
       // Double rAF to ensure CSS has fully applied and DOM has re-rendered
       requestAnimationFrame(() => {
@@ -607,6 +602,71 @@ export default function ArduinoSimulator() {
       document.removeEventListener("uiFontScaleChange", handleUiScale);
     };
   }, [enforceOutputPanelFloor]);
+
+  // ResizeObserver to continuously enforce floor when panel group size changes (e.g., when dragging divider)
+  useEffect(() => {
+    if (!showCompilationOutput) return;
+
+    const headerEl = outputTabsHeaderRef.current;
+    const panelNode = headerEl?.closest("[data-panel]") as HTMLElement | null;
+    const groupNode = panelNode?.parentElement as HTMLElement | null;
+
+    if (!groupNode) return;
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(() => enforceOutputPanelFloor(true));
+    });
+
+    observer.observe(groupNode);
+    return () => observer.disconnect();
+  }, [showCompilationOutput, enforceOutputPanelFloor]);
+
+  // Initial floor enforcement on first layout
+  useEffect(() => {
+    // Run after first paint to ensure DOM sizes are available
+    requestAnimationFrame(() => enforceOutputPanelFloor(true));
+  }, [enforceOutputPanelFloor]);
+
+  // Re-enforce output panel floor when code changes (e.g., loading new example)
+  // Use iterative correction loop until gap reaches 0, same approach as ResizeObserver
+  useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    const correctUntilFlush = () => {
+      if (cancelled || attempts >= maxAttempts) return;
+      attempts++;
+
+      const headerEl = outputTabsHeaderRef.current;
+      if (!headerEl) return;
+
+      const panelNode = headerEl.closest("[data-panel]") as HTMLElement | null;
+      const groupNode = panelNode?.parentElement as HTMLElement | null;
+      if (!panelNode || !groupNode) return;
+
+      const headerRect = headerEl.getBoundingClientRect();
+      const groupRect = groupNode.getBoundingClientRect();
+      const gap = Math.round(groupRect.bottom - headerRect.bottom);
+
+      enforceOutputPanelFloor(true);
+
+      // If gap still exists, schedule another correction
+      if (gap > 1) {
+        requestAnimationFrame(correctUntilFlush);
+      }
+    };
+
+    // Start after a brief delay to let DOM settle
+    const timeoutId = setTimeout(() => {
+      requestAnimationFrame(correctUntilFlush);
+    }, 50);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [code, enforceOutputPanelFloor]);
 
   // Auto-switch output tab based on errors and messages
   useEffect(() => {
@@ -2002,6 +2062,9 @@ export default function ArduinoSimulator() {
     setActiveTabId(newTab.id);
     setCode(content);
     setIsModified(false);
+    // Reset output panel sizing and tabs when loading a fresh example
+    setCompilationPanelSize(3);
+    setActiveOutputTab("compiler");
 
     // Clear previous outputs and messages
     setCliOutput("");

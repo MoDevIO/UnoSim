@@ -48,6 +48,7 @@
       "approve": true,
       "matchCommandLine": true
     },
-    "git checkout": true
+    "git checkout": true,
+    "killall": true
   }
 }
