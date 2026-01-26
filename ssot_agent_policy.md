@@ -91,3 +91,8 @@ Wenn irgendetwas fehlschlägt → Feature als DEFEKT markieren
    - Unit-Tests prüfen Berechnung
    - Integration-Tests prüfen UI-Effekt
    - Edge-Cases (lange Fehler, leere Messages, schnelle Statuswechsel)
+
+## 6. TODOs für das Beispielmenü
+
+- Beispielmenü: Zeige nur ein markiertes Element (grün), niemals mehr als eines
+- Beispielmenü: Beim Öffnen eines Baumknotens andere Baumknoten schließen!

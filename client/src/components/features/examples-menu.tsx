@@ -28,6 +28,7 @@ export function ExamplesMenu({
   const [examples, setExamples] = useState<Example[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [keyboardNavActive, setKeyboardNavActive] = useState(false);
   const focusedIndexRef = useRef<number>(-1);
   const { toast } = useToast();
 
@@ -116,6 +117,7 @@ export function ExamplesMenu({
   useEffect(() => {
     if (!open) {
       focusedIndexRef.current = -1;
+      setKeyboardNavActive(false);
       return;
     }
 
@@ -132,8 +134,11 @@ export function ExamplesMenu({
     };
 
     const clearHighlight = () => {
-      const items = getVisibleItems();
-      items.forEach((it) => {
+      // Clear from all items including those not currently visible
+      const allItems = document.querySelectorAll(
+        '[data-role="example-folder"], [data-role="example-item"]',
+      );
+      allItems.forEach((it) => {
         it.classList.remove(
           "bg-accent",
           "text-accent-foreground",
@@ -145,6 +150,7 @@ export function ExamplesMenu({
 
     const highlightItem = (items: HTMLElement[], idx: number) => {
       clearHighlight();
+      setKeyboardNavActive(true);
       if (items[idx]) {
         items[idx].classList.add(
           "bg-accent",
@@ -156,7 +162,7 @@ export function ExamplesMenu({
       }
     };
 
-    // Handle mouse movement - clear keyboard highlight
+    // Handle mouse movement - clear keyboard highlight and re-enable hover
     const onMouseMove = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest(
         '[data-role="example-folder"], [data-role="example-item"]',
@@ -165,6 +171,8 @@ export function ExamplesMenu({
         clearHighlight();
         focusedIndexRef.current = -1;
       }
+      // Re-enable hover effects when mouse moves
+      setKeyboardNavActive(false);
     };
 
     // Auto-focus the first visible item when menu opens — defer until the
@@ -261,6 +269,7 @@ export function ExamplesMenu({
       <DropdownMenuContent
         align="end"
         className="w-56 max-h-96 overflow-y-auto p-0"
+        data-keyboard-nav={keyboardNavActive}
       >
         <div className="px-2 py-1.5">
           <div className="text-ui-xs font-semibold mb-1">Load Example</div>
@@ -293,9 +302,7 @@ interface ExamplesTreeProps {
 }
 
 function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set(),
-  );
+  const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
 
   function groupExamplesByFolder(items: Example[]): Record<string, Example[]> {
     const grouped: Record<string, Example[]> = {};
@@ -309,13 +316,12 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
   }
 
   function toggleFolder(folder: string) {
-    const newSet = new Set(expandedFolders);
-    if (newSet.has(folder)) {
-      newSet.delete(folder);
+    // Close the folder if it's already open, otherwise open it and close others
+    if (expandedFolder === folder) {
+      setExpandedFolder(null);
     } else {
-      newSet.add(folder);
+      setExpandedFolder(folder);
     }
-    setExpandedFolders(newSet);
   }
 
   const grouped = groupExamplesByFolder(examples);
@@ -325,7 +331,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
       {Object.entries(grouped)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([folder, items]) => {
-          const isExpanded = expandedFolders.has(folder);
+          const isExpanded = expandedFolder === folder;
           const cleanFolderName = folder.replace(/^\d+-/, "");
 
           return (
@@ -337,7 +343,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                 data-role="example-folder"
                 data-folder={folder}
                 tabIndex={0}
-                className="w-full px-2 py-1.5 text-ui-sm flex items-center justify-start gap-1 text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                className="w-full px-2 py-1.5 text-ui-sm flex items-center justify-start gap-1 text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
                 style={{ justifyContent: 'flex-start' }}
               >
                 <ChevronRight
@@ -363,7 +369,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                         data-role="example-item"
                         data-example-index={idx}
                         tabIndex={0}
-                        className="w-full px-4 py-1 text-ui-xs flex items-center justify-start gap-2 text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                        className="w-full px-4 py-1 text-ui-xs flex items-center justify-start gap-2 text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
                         style={{ justifyContent: 'flex-start' }}
                       >
                         <span className="text-muted-foreground">•</span>
