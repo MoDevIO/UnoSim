@@ -2003,17 +2003,26 @@ export default function ArduinoSimulator() {
     setCode(content);
     setIsModified(false);
 
-    // Clear previous outputs
+    // Clear previous outputs and messages
     setCliOutput("");
     setSerialOutput([]);
-    // Reset UI pin state and detected pin-mode info
-    resetPinUI();
+    setParserMessages([]); // Clear parser messages
+    setIoRegistry(() => {
+      const pins: IOPinRecord[] = [];
+      for (let i = 0; i <= 13; i++) pins.push({ pin: String(i), defined: false, usedAt: [] });
+      for (let i = 0; i <= 5; i++) pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
+      return pins;
+    });
     setCompilationStatus("ready");
     setArduinoCliStatus("idle");
     setGccStatus("idle");
     setLastCompilationResult(null);
     setSimulationStatus("stopped");
     setHasCompiledOnce(false);
+    setActiveOutputTab("compiler"); // Always reset to compiler tab
+    setOutputPanelMinPercent(5); // Minimize output panel
+    setCompilationPanelSize(5); // Minimize output panel size
+    setParserPanelDismissed(false); // Ensure panel is not dismissed
   };
 
   /**
