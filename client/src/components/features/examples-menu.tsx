@@ -202,7 +202,7 @@ export function ExamplesMenu({
         e.preventDefault();
         e.stopPropagation();
         const i = focusedIndexRef.current;
-        const next = i + 1 >= items.length ? 0 : Math.max(0, i + 1);
+        const next = i + 1 >= items.length ? 0 : i + 1;
         focusedIndexRef.current = next;
         highlightItem(items, next);
       } else if (e.key === "ArrowUp") {
@@ -241,13 +241,10 @@ export function ExamplesMenu({
 
     // Close menu after loading example unless "keep open" setting is enabled
     try {
-      const keepOpen =
-        window.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) === "1";
-      if (!keepOpen) {
+      if (window.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) !== "1") {
         setOpen(false);
       }
     } catch {
-      // If storage fails, default to closing the menu
       setOpen(false);
     }
   };
@@ -268,7 +265,7 @@ export function ExamplesMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-56 max-h-96 overflow-y-auto p-0"
+        className="w-56 max-h-96 overflow-y-scroll scrollbar-hide p-0"
         data-keyboard-nav={keyboardNavActive}
       >
         <div className="px-2 py-1.5">
@@ -343,15 +340,12 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                 data-role="example-folder"
                 data-folder={folder}
                 tabIndex={0}
-                className="w-full px-2 py-1.5 text-ui-sm flex items-center justify-start gap-1 text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
-                style={{ justifyContent: 'flex-start' }}
+                className="w-full px-2 py-1.5 text-ui-sm text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
               >
                 <ChevronRight
-                  className={`h-4 w-4 transition-transform ${
-                    isExpanded ? "rotate-90" : ""
-                  }`}
+                  className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
                 />
-                <span className="font-medium text-ui-xs text-left w-full">
+                <span className="font-medium text-ui-xs w-full">
                   {cleanFolderName}
                 </span>
               </Button>
@@ -360,20 +354,18 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                 <div className="bg-muted/30">
                   {items
                     .sort((a, b) => a.filename.localeCompare(b.filename))
-                    .map((example, idx) => (
+                    .map((example) => (
                       <Button
                         key={example.filename}
                         variant="ghost"
                         size="sm"
                         onClick={() => onLoadExample(example)}
                         data-role="example-item"
-                        data-example-index={idx}
                         tabIndex={0}
-                        className="w-full px-4 py-1 text-ui-xs flex items-center justify-start gap-2 text-left focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
-                        style={{ justifyContent: 'flex-start' }}
+                        className="w-full px-4 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
                       >
                         <span className="text-muted-foreground">•</span>
-                        <span className="text-left w-full">{example.name}</span>
+                        <span className="w-full">{example.name}</span>
                       </Button>
                     ))}
                 </div>
