@@ -62,27 +62,28 @@ test.describe("Arduino Board - Pin Frame Rendering", () => {
   test("Multiple INPUT pins should all display yellow frames", async ({
     page,
   }) => {
-    // Load analog-pin-read.ino which has A0 as INPUT
+    // Load testA0.ino which has A0 as INPUT
     const examplesButton = page.getByRole("button", { name: /examples/i });
     await examplesButton.click();
 
     // Wait for examples menu to open
     await page.waitForTimeout(500);
 
-    // First expand the arduino-io folder
-    const arduinoIoFolder = page
+    // First expand the basic-programming folder (note: UI strips "01-" prefix)
+    const basicProgrammingFolder = page
       .locator('[data-role="example-folder"]')
-      .filter({ hasText: "arduino-io" });
-    await arduinoIoFolder.click();
+      .filter({ hasText: "basic-programming" });
+    await basicProgrammingFolder.click();
 
     // Wait for folder to expand
     await page.waitForTimeout(300);
 
-    // Find and click analog pin read
-    const analogReadExample = page
+    // Find and click testA0
+    const testA0Example = page
       .locator('[data-role="example-item"]')
-      .filter({ hasText: "analog-pin-read" });
-    await analogReadExample.click();
+      .filter({ hasText: "00_testA0" });
+    await testA0Example.waitFor({ timeout: 60000 });
+    await testA0Example.click();
 
     // Wait for example to load and close menu
     await page.waitForTimeout(500);
@@ -253,5 +254,83 @@ void loop() {
     // Frame should now be visible
     frame = page.locator("#pin-0-frame");
     await expect(frame).toBeVisible({ timeout: 5000 });
+  });
+
+  test("Loading a new program should clear previous pin frame markings", async ({
+    page,
+  }) => {
+    // First program: testA0 - uses A0 as INPUT
+    const program1 = `
+void setup() {
+  Serial.begin(115200);
+  pinMode(A0, INPUT);
+  Serial.println("A0 gestartet");
+}
+
+void loop() {
+  digitalRead(A0);  
+  delay(80);
+}
+`;
+
+    // Load first program
+    await page.click(".monaco-editor");
+    await page.keyboard.press("Control+A");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.type(program1);
+    await page.waitForTimeout(500);
+
+    // Run first program
+    let runButton = page.locator('[data-testid="button-simulate-toggle"]');
+    await runButton.click();
+    await page.waitForTimeout(2000);
+
+    // Verify A0 frame is visible
+    let frameA0 = page.locator("#pin-A0-frame");
+    await expect(frameA0).toBeVisible({ timeout: 5000 });
+
+    // Stop simulation
+    let stopButton = page.locator('[data-testid="button-simulate-toggle"]');
+    await stopButton.click();
+    await page.waitForTimeout(500);
+
+    // Second program: testD7 - does NOT use A0
+    const program2 = `
+void setup()
+{
+    Serial.begin(115200);
+    Serial.println("D7 gestartet");
+}
+
+void loop()
+{
+    static bool state = false;
+    state = !state;
+    digitalWrite(7, state);
+    delay(20);
+}
+`;
+
+    // Load second program
+    await page.click(".monaco-editor");
+    await page.keyboard.press("Control+A");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.type(program2);
+    await page.waitForTimeout(500);
+
+    // Run second program
+    runButton = page.locator('[data-testid="button-simulate-toggle"]');
+    await runButton.click();
+    await page.waitForTimeout(2000);
+
+    // CRITICAL TEST: A0 frame should NOT be visible anymore
+    // because the new program doesn't use A0
+    frameA0 = page.locator("#pin-A0-frame");
+    const isA0Hidden = await frameA0.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return style.display === "none" || style.visibility === "hidden";
+    });
+
+    expect(isA0Hidden).toBe(true);
   });
 });

@@ -2256,8 +2256,9 @@ export default function ArduinoSimulator() {
   const handleCompile = () => {
     setCliOutput("");
     setSerialOutput([]);
-    setPinStates([]);
     setParserMessages([]);
+    // Reset all pin-related UI state (including detectedPinModes)
+    resetPinUI();
     // Reset IO-Registry to initial state with all pins
     const pins: IOPinRecord[] = [];
     for (let i = 0; i <= 13; i++) {
@@ -2453,6 +2454,9 @@ export default function ArduinoSimulator() {
 
     setCliOutput("");
     setSerialOutput([]);
+    setParserMessages([]);
+    // Reset all pin-related UI state (including detectedPinModes)
+    resetPinUI();
     setCompilationStatus("compiling");
     setArduinoCliStatus("compiling"); // Track HTTP compile request
 

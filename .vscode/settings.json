@@ -49,6 +49,7 @@
       "matchCommandLine": true
     },
     "git checkout": true,
-    "killall": true
+    "killall": true,
+    "pgrep": true
   }
 }

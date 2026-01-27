@@ -6,11 +6,9 @@
 - Autosaving
 
 
-
 ## Bug Fixes
-
-
-
+- After pause/resume the I/O-Registry Input doesn`t work
+- While a program is paused, the time isn`t paused
 
 # Completed
 
