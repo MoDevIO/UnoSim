@@ -806,15 +806,18 @@ void checkStdinForPinCommands() {
     fd_set readfds;
     struct timeval tv;
     
-    // Check if data is available on stdin (non-blocking, zero timeout)
-    FD_ZERO(&readfds);
-    FD_SET(STDIN_FILENO, &readfds);
-    tv.tv_sec = 0;
-    tv.tv_usec = 0; // Zero timeout = immediate return
-    
-    int selectResult = select(STDIN_FILENO + 1, &readfds, NULL, NULL, &tv);
-    
-    while (selectResult > 0 && FD_ISSET(STDIN_FILENO, &readfds)) {
+    while (true) {
+        FD_ZERO(&readfds);
+        FD_SET(STDIN_FILENO, &readfds);
+        tv.tv_sec = 0;
+        tv.tv_usec = 0; // Zero timeout = immediate return
+        
+        int selectResult = select(STDIN_FILENO + 1, &readfds, NULL, NULL, &tv);
+        
+        if (selectResult <= 0 || !FD_ISSET(STDIN_FILENO, &readfds)) {
+            break;
+        }
+        
         // Read one byte
         char c;
         ssize_t n = read(STDIN_FILENO, &c, 1);
@@ -840,12 +843,6 @@ void checkStdinForPinCommands() {
         } else if (stdinBufPos < sizeof(stdinBuffer) - 1) {
             stdinBuffer[stdinBufPos++] = c;
         }
-        
-        // Reset for next select check
-        FD_ZERO(&readfds);
-        FD_SET(STDIN_FILENO, &readfds);
-        tv.tv_sec = 0;
-        tv.tv_usec = 0;
     }
 }
 

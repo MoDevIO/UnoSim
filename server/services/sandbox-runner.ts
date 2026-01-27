@@ -59,6 +59,8 @@ export class SandboxRunner {
   private timeoutDeadlineMs: number | null = null;
   private pausedTimeoutRemainingMs: number | null = null;
   private timeoutCallback: (() => void) | null = null;
+  // Stored onOutput callback for resume functionality
+  private onOutputCallback: ((line: string, isComplete?: boolean) => void) | null = null;
 
   constructor() {
     mkdir(this.tempDir, { recursive: true }).catch(() => {
@@ -215,6 +217,7 @@ export class SandboxRunner {
     this.errorBuffer = "";
     this.isSendingOutput = false;
     this.totalOutputBytes = 0;
+    this.onOutputCallback = onOutput; // Store for resume functionality
     let compilationFailed = false;
 
     // Parse baudrate from code
@@ -533,18 +536,27 @@ int main() {
           const pinSetMatch = line.match(/\[\[PIN_SET:(\d+):(\d+)\]\]/);
           const stdinRecvMatch = line.match(/\[\[STDIN_RECV:(.+)\]\]/);
 
-          if (pinModeMatch && onPinState) {
-            const pin = parseInt(pinModeMatch[1]);
-            const mode = parseInt(pinModeMatch[2]);
-            onPinState(pin, "mode", mode);
-          } else if (pinValueMatch && onPinState) {
-            const pin = parseInt(pinValueMatch[1]);
-            const value = parseInt(pinValueMatch[2]);
-            onPinState(pin, "value", value);
-          } else if (pinPwmMatch && onPinState) {
-            const pin = parseInt(pinPwmMatch[1]);
-            const value = parseInt(pinPwmMatch[2]);
-            onPinState(pin, "pwm", value);
+          if (pinModeMatch) {
+            // PIN_MODE is internal protocol - filter regardless of onPinState
+            if (onPinState) {
+              const pin = parseInt(pinModeMatch[1]);
+              const mode = parseInt(pinModeMatch[2]);
+              onPinState(pin, "mode", mode);
+            }
+          } else if (pinValueMatch) {
+            // PIN_VALUE is internal protocol - filter regardless of onPinState
+            if (onPinState) {
+              const pin = parseInt(pinValueMatch[1]);
+              const value = parseInt(pinValueMatch[2]);
+              onPinState(pin, "value", value);
+            }
+          } else if (pinPwmMatch) {
+            // PIN_PWM is internal protocol - filter regardless of onPinState
+            if (onPinState) {
+              const pin = parseInt(pinPwmMatch[1]);
+              const value = parseInt(pinPwmMatch[2]);
+              onPinState(pin, "pwm", value);
+            }
           } else if (dreadMatch || pinSetMatch) {
             // debug - don't send to client
           } else if (stdinRecvMatch) {
@@ -902,23 +914,33 @@ int main() {
             return;
           }
 
-          // Check for pin state messages
+          // Check for pin state messages - these are internal protocol, not errors
+          // They must be filtered regardless of whether onPinState exists
           const pinModeMatch = line.match(/\[\[PIN_MODE:(\d+):(\d+)\]\]/);
           const pinValueMatch = line.match(/\[\[PIN_VALUE:(\d+):(\d+)\]\]/);
           const pinPwmMatch = line.match(/\[\[PIN_PWM:(\d+):(\d+)\]\]/);
 
-          if (pinModeMatch && onPinState) {
-            const pin = parseInt(pinModeMatch[1]);
-            const mode = parseInt(pinModeMatch[2]);
-            onPinState(pin, "mode", mode);
-          } else if (pinValueMatch && onPinState) {
-            const pin = parseInt(pinValueMatch[1]);
-            const value = parseInt(pinValueMatch[2]);
-            onPinState(pin, "value", value);
-          } else if (pinPwmMatch && onPinState) {
-            const pin = parseInt(pinPwmMatch[1]);
-            const value = parseInt(pinPwmMatch[2]);
-            onPinState(pin, "pwm", value);
+          if (pinModeMatch) {
+            // PIN_MODE is internal protocol - filter regardless of onPinState
+            if (onPinState) {
+              const pin = parseInt(pinModeMatch[1]);
+              const mode = parseInt(pinModeMatch[2]);
+              onPinState(pin, "mode", mode);
+            }
+          } else if (pinValueMatch) {
+            // PIN_VALUE is internal protocol - filter regardless of onPinState
+            if (onPinState) {
+              const pin = parseInt(pinValueMatch[1]);
+              const value = parseInt(pinValueMatch[2]);
+              onPinState(pin, "value", value);
+            }
+          } else if (pinPwmMatch) {
+            // PIN_PWM is internal protocol - filter regardless of onPinState
+            if (onPinState) {
+              const pin = parseInt(pinPwmMatch[1]);
+              const value = parseInt(pinPwmMatch[2]);
+              onPinState(pin, "pwm", value);
+            }
           } else {
             // Detect structured serial events emitted by the mock
             const serialEventMatch = line.match(
@@ -1032,6 +1054,19 @@ int main() {
       this.isPaused = false;
       this.resumeTimeoutClock();
       this.logger.info("Simulation resumed (SIGCONT)");
+      
+      // Send a newline to stdin to wake up any blocked read() calls
+      // This ensures the C++ process processes any buffered stdin data
+      // Note: Use processKilled instead of process.killed since killed is true after any signal
+      if (this.process.stdin && !this.processKilled) {
+        this.process.stdin.write("\n");
+      }
+      
+      // Restart output processing if there's buffered data and callback is available
+      if (this.outputBuffer.length > 0 && this.onOutputCallback && !this.isSendingOutput) {
+        this.sendOutputWithDelay(this.onOutputCallback);
+      }
+      
       return true;
     } catch (err) {
       this.logger.error(
@@ -1057,12 +1092,13 @@ int main() {
 
   sendSerialInput(input: string) {
     this.logger.debug(`Serial Input im Runner angekommen: ${input}`);
+    // Note: Use processKilled instead of process.killed since killed is true after any signal (including SIGSTOP/SIGCONT)
     if (
       this.isRunning &&
       !this.isPaused &&
       this.process &&
       this.process.stdin &&
-      !this.process.killed
+      !this.processKilled
     ) {
       this.process.stdin.write(input + "\n");
       this.logger.debug(`Serial Input an Sketch gesendet: ${input}`);
@@ -1117,27 +1153,35 @@ int main() {
   }
 
   setPinValue(pin: number, value: number) {
+    this.logger.info(`[SET_PIN] Called with pin=${pin}, value=${value}`);
+    this.logger.info(`[SET_PIN] State: isRunning=${this.isRunning}, isPaused=${this.isPaused}, process=${!!this.process}, stdin=${!!this.process?.stdin}, processKilled=${this.processKilled}`);
+    
+    // Note: Use processKilled instead of process.killed since killed is true after any signal (including SIGSTOP/SIGCONT)
     if (
       (this.isRunning || this.isPaused) &&
       this.process &&
       this.process.stdin &&
-      !this.process.killed
+      !this.processKilled
     ) {
       const command = `[[SET_PIN:${pin}:${value}]]\n`;
       const stdin = this.process.stdin;
 
+      this.logger.info(`[SET_PIN] Writing command: ${command.trim()}`);
+      
       // Write with callback to ensure it's flushed
       const success = stdin.write(command, "utf8", (err) => {
         if (err) {
-          this.logger.error(`Failed to write pin command: ${err.message}`);
+          this.logger.error(`[SET_PIN] Write callback error: ${err.message}`);
+        } else {
+          this.logger.info(`[SET_PIN] Write callback success`);
         }
       });
 
       // If write returned false, the buffer is full - drain it
       if (!success) {
-        this.logger.warn(`stdin buffer full, waiting for drain`);
+        this.logger.warn(`[SET_PIN] stdin buffer full, waiting for drain`);
         stdin.once("drain", () => {
-          this.logger.info(`stdin drained`);
+          this.logger.info(`[SET_PIN] stdin drained`);
         });
       }
 
@@ -1146,7 +1190,7 @@ int main() {
       );
     } else {
       this.logger.warn(
-        "setPinValue: Simulator is not running — pin value ignored",
+        `[SET_PIN] Ignored - isRunning=${this.isRunning}, isPaused=${this.isPaused}, process=${!!this.process}, stdin=${!!this.process?.stdin}, killed=${this.process?.killed}`,
       );
     }
   }
@@ -1155,7 +1199,20 @@ int main() {
   private sendOutputWithDelay(
     onOutput: (line: string, isComplete?: boolean) => void,
   ) {
-    if (this.outputBuffer.length === 0 || !this.isRunning) {
+    // Stop if not running anymore
+    if (!this.isRunning) {
+      this.isSendingOutput = false;
+      return;
+    }
+
+    // If paused, stop sending but keep isSendingOutput flag
+    // This will be retriggered when new data arrives after resume
+    if (this.isPaused) {
+      this.isSendingOutput = false;
+      return;
+    }
+
+    if (this.outputBuffer.length === 0) {
       this.isSendingOutput = false;
       return;
     }
@@ -1222,18 +1279,27 @@ int main() {
           const pinSetMatch = line.match(/\[\[PIN_SET:(\d+):(\d+)\]\]/);
           const stdinRecvMatch = line.match(/\[\[STDIN_RECV:(.+)\]\]/);
 
-          if (pinModeMatch && onPinState) {
-            const pin = parseInt(pinModeMatch[1]);
-            const mode = parseInt(pinModeMatch[2]);
-            onPinState(pin, "mode", mode);
-          } else if (pinValueMatch && onPinState) {
-            const pin = parseInt(pinValueMatch[1]);
-            const value = parseInt(pinValueMatch[2]);
-            onPinState(pin, "value", value);
-          } else if (pinPwmMatch && onPinState) {
-            const pin = parseInt(pinPwmMatch[1]);
-            const value = parseInt(pinPwmMatch[2]);
-            onPinState(pin, "pwm", value);
+          if (pinModeMatch) {
+            // PIN_MODE is internal protocol - filter regardless of onPinState
+            if (onPinState) {
+              const pin = parseInt(pinModeMatch[1]);
+              const mode = parseInt(pinModeMatch[2]);
+              onPinState(pin, "mode", mode);
+            }
+          } else if (pinValueMatch) {
+            // PIN_VALUE is internal protocol - filter regardless of onPinState
+            if (onPinState) {
+              const pin = parseInt(pinValueMatch[1]);
+              const value = parseInt(pinValueMatch[2]);
+              onPinState(pin, "value", value);
+            }
+          } else if (pinPwmMatch) {
+            // PIN_PWM is internal protocol - filter regardless of onPinState
+            if (onPinState) {
+              const pin = parseInt(pinPwmMatch[1]);
+              const value = parseInt(pinPwmMatch[2]);
+              onPinState(pin, "pwm", value);
+            }
           } else if (dreadMatch || pinSetMatch || stdinRecvMatch) {
             // Debug output - don't send to client
           } else {
@@ -1251,6 +1317,7 @@ int main() {
     this.clearTimeoutTimer();
     this.timeoutCallback = null;
     this.processKilled = true;
+    this.onOutputCallback = null; // Clear stored callback
 
     if (this.process) {
       this.process.kill("SIGKILL");

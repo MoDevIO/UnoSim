@@ -50,6 +50,7 @@
     },
     "git checkout": true,
     "killall": true,
-    "pgrep": true
+    "pgrep": true,
+    "reset": true
   }
 }
