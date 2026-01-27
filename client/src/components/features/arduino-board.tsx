@@ -759,7 +759,7 @@ export function ArduinoBoard({
     } catch {}
     modified = modified.replace(
       /<svg([^>]*)>/,
-      `<svg$1 style="width: 100%; height: 100%; display: block;" preserveAspectRatio="xMidYMid meet">`,
+      `<svg$1 style="width: 100%; height: 100%; display: block; opacity: ${isSimulationRunning ? 1 : 0.35};" preserveAspectRatio="xMidYMid meet">`,
     );
     return modified;
   };
