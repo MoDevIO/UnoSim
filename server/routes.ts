@@ -53,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Map to store per-client runner processes
   const clientRunners = new Map<
     WebSocket,
-    { runner: SandboxRunner | null; isRunning: boolean }
+    { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean }
   >();
 
   function sendMessageToClient(ws: WebSocket, message: WSMessage) {
@@ -217,13 +217,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
 
     // Initialize client session
-    clientRunners.set(ws, { runner: null, isRunning: false });
+    clientRunners.set(ws, { runner: null, isRunning: false, isPaused: false });
 
     // Send initial status
     const clientState = clientRunners.get(ws);
     sendMessageToClient(ws, {
       type: "simulation_status",
-      status: clientState?.isRunning ? "running" : "stopped",
+        status: clientState?.isPaused
+          ? "paused"
+          : clientState?.isRunning
+            ? "running"
+            : "stopped",
     });
 
     ws.on("message", async (message) => {
@@ -252,6 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Create a NEW runner instance for this client (not reusing global one)
               clientState.runner = new SandboxRunner();
               clientState.isRunning = true;
+              clientState.isPaused = false;
 
               // Update simulation status
               sendMessageToClient(ws, {
@@ -331,6 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       const clientState = clientRunners.get(ws);
                       if (clientState) {
                         clientState.isRunning = false;
+                        clientState.isPaused = false;
                       }
                       // If we exit with code 0 and haven't sent success yet, send it now
                       if (exitCode === 0 && !gccSuccessSent) {
@@ -375,6 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const clientState = clientRunners.get(ws);
                   if (clientState) {
                     clientState.isRunning = false;
+                    clientState.isPaused = false;
                   }
                   logger.error(`[Client Compile Error]: ${compileErr}`);
                 },
@@ -451,6 +458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 logger.info("Stopping simulation due to code change");
                 clientState.runner.stop();
                 clientState.isRunning = false;
+                clientState.isPaused = false;
                 sendMessageToClient(ws, {
                   type: "simulation_status",
                   status: "stopped",
@@ -472,6 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (clientState?.runner) {
                 clientState.runner.stop();
                 clientState.isRunning = false;
+                clientState.isPaused = false;
               }
               sendMessageToClient(ws, {
                 type: "simulation_status",
@@ -484,10 +493,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             break;
 
+          case "pause_simulation":
+            {
+              const clientState = clientRunners.get(ws);
+              if (clientState?.runner && clientState.isRunning) {
+                const paused = clientState.runner.pause();
+                if (paused) {
+                  clientState.isPaused = true;
+                  sendMessageToClient(ws, {
+                    type: "simulation_status",
+                    status: "paused",
+                  });
+                  sendMessageToClient(ws, {
+                    type: "serial_output",
+                    data: "--- Simulation paused ---\n",
+                  });
+                }
+              } else {
+                logger.warn(
+                  "Pause requested but no running simulation is available.",
+                );
+              }
+            }
+            break;
+
+          case "resume_simulation":
+            {
+              const clientState = clientRunners.get(ws);
+              if (clientState?.runner && clientState.isPaused) {
+                const resumed = clientState.runner.resume();
+                if (resumed) {
+                  clientState.isPaused = false;
+                  clientState.isRunning = true;
+                  sendMessageToClient(ws, {
+                    type: "simulation_status",
+                    status: "running",
+                  });
+                  sendMessageToClient(ws, {
+                    type: "serial_output",
+                    data: "--- Simulation resumed ---\n",
+                  });
+                }
+              } else {
+                logger.warn(
+                  "Resume requested but simulation is not paused.",
+                );
+              }
+            }
+            break;
+
           case "serial_input":
             {
               const clientState = clientRunners.get(ws);
-              if (clientState?.runner && clientState?.isRunning) {
+              if (
+                clientState?.runner &&
+                clientState?.isRunning &&
+                !clientState.isPaused
+              ) {
                 clientState.runner.sendSerialInput(data.data);
               } else {
                 logger.warn(
@@ -500,7 +562,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case "set_pin_value":
             {
               const clientState = clientRunners.get(ws);
-              if (clientState?.runner && clientState?.isRunning) {
+              if (
+                clientState?.runner &&
+                (clientState.isRunning || clientState.isPaused)
+              ) {
                 clientState.runner.setPinValue(data.pin, data.value);
               } else {
                 logger.warn(

@@ -33,6 +33,7 @@ export class SandboxRunner {
   tempDir = join(process.cwd(), "temp");
   process: ReturnType<typeof spawn> | null = null;
   processKilled = false;
+  isPaused = false;
   private logger = new Logger("SandboxRunner");
   private outputBuffer = "";
   private errorBuffer = "";
@@ -54,6 +55,10 @@ export class SandboxRunner {
   private ioRegistryData: IOPinRecord[] = [];
   private collectingRegistry = false;
   private currentRegistryFile: string | null = null;
+  private timeoutHandle: NodeJS.Timeout | null = null;
+  private timeoutDeadlineMs: number | null = null;
+  private pausedTimeoutRemainingMs: number | null = null;
+  private timeoutCallback: (() => void) | null = null;
 
   constructor() {
     mkdir(this.tempDir, { recursive: true }).catch(() => {
@@ -126,6 +131,56 @@ export class SandboxRunner {
     }
   }
 
+  private clearTimeoutTimer() {
+    if (this.timeoutHandle) {
+      clearTimeout(this.timeoutHandle);
+      this.timeoutHandle = null;
+    }
+    this.timeoutDeadlineMs = null;
+  }
+
+  private scheduleTimeoutMs(
+    ms: number | null,
+    onTimeout: () => void,
+  ): void {
+    this.clearTimeoutTimer();
+    this.timeoutCallback = null;
+
+    if (ms === null || ms <= 0) {
+      return;
+    }
+
+    this.timeoutCallback = onTimeout;
+    this.timeoutDeadlineMs = Date.now() + ms;
+    this.timeoutHandle = setTimeout(() => {
+      this.timeoutHandle = null;
+      this.timeoutDeadlineMs = null;
+      this.timeoutCallback = null;
+      onTimeout();
+    }, ms);
+  }
+
+  private pauseTimeoutClock() {
+    if (this.timeoutHandle && this.timeoutDeadlineMs) {
+      this.pausedTimeoutRemainingMs = Math.max(
+        0,
+        this.timeoutDeadlineMs - Date.now(),
+      );
+      this.clearTimeoutTimer();
+    }
+  }
+
+  private resumeTimeoutClock() {
+    if (
+      this.pausedTimeoutRemainingMs !== null &&
+      this.timeoutCallback !== null
+    ) {
+      const remainingMs = Math.max(0, this.pausedTimeoutRemainingMs);
+      this.pausedTimeoutRemainingMs = null;
+      this.scheduleTimeoutMs(remainingMs, this.timeoutCallback);
+    }
+  }
+
   async runSketch(
     code: string,
     onOutput: (line: string, isComplete?: boolean) => void,
@@ -153,6 +208,7 @@ export class SandboxRunner {
     );
 
     this.isRunning = true;
+    this.isPaused = false;
     this.ioRegistryData = []; // Reset registry
     this.collectingRegistry = false;
     this.outputBuffer = "";
@@ -331,19 +387,18 @@ int main() {
 
     // Custom handler for combined compile+run
     // Only set timeout if not infinite (0)
-    const timeout =
-      effectiveTimeout > 0
-        ? setTimeout(() => {
-            if (this.process) {
-              this.process.kill("SIGKILL");
-              onOutput(
-                `--- Simulation timeout (${effectiveTimeout}s) ---`,
-                true,
-              );
-              this.logger.info(`Docker timeout after ${effectiveTimeout}s`);
-            }
-          }, effectiveTimeout * 1000)
-        : null;
+    const handleTimeout = () => {
+      if (this.process) {
+        this.process.kill("SIGKILL");
+        onOutput(`--- Simulation timeout (${effectiveTimeout}s) ---`, true);
+        this.logger.info(`Docker timeout after ${effectiveTimeout}s`);
+      }
+    };
+
+    this.scheduleTimeoutMs(
+      effectiveTimeout > 0 ? effectiveTimeout * 1000 : null,
+      handleTimeout,
+    );
 
     // Handle process errors
     this.process?.on("error", (err) => {
@@ -555,7 +610,10 @@ int main() {
     });
 
     this.process?.on("close", (code) => {
-      if (timeout) clearTimeout(timeout);
+      this.clearTimeoutTimer();
+      this.timeoutCallback = null;
+      this.pausedTimeoutRemainingMs = null;
+      this.isPaused = false;
 
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
@@ -729,19 +787,18 @@ int main() {
         : SANDBOX_CONFIG.maxExecutionTimeSec;
 
     // Only set timeout if not infinite (0)
-    const timeout =
-      effectiveTimeout > 0
-        ? setTimeout(() => {
-            if (this.process) {
-              this.process.kill("SIGKILL");
-              onOutput(
-                `--- Simulation timeout (${effectiveTimeout}s) ---`,
-                true,
-              );
-              this.logger.info(`Sketch timeout after ${effectiveTimeout}s`);
-            }
-          }, effectiveTimeout * 1000)
-        : null;
+    const handleTimeout = () => {
+      if (this.process) {
+        this.process.kill("SIGKILL");
+        onOutput(`--- Simulation timeout (${effectiveTimeout}s) ---`, true);
+        this.logger.info(`Sketch timeout after ${effectiveTimeout}s`);
+      }
+    };
+
+    this.scheduleTimeoutMs(
+      effectiveTimeout > 0 ? effectiveTimeout * 1000 : null,
+      handleTimeout,
+    );
 
     // Handle process errors
     this.process?.on("error", (err) => {
@@ -904,7 +961,9 @@ int main() {
     });
 
     this.process?.on("close", (code) => {
-      if (timeout) clearTimeout(timeout);
+      this.clearTimeoutTimer();
+      this.timeoutCallback = null;
+      this.pausedTimeoutRemainingMs = null;
 
       // Flush any pending serial events before closing
       if (this.pendingSerialFlushTimer) {
@@ -941,6 +1000,53 @@ int main() {
     });
   }
 
+  pause(): boolean {
+    // ChildProcess.killed is true after any kill(), so skip it here
+    if (!this.isRunning || this.isPaused || !this.process) {
+      return false;
+    }
+
+    this.pauseTimeoutClock();
+
+    try {
+      this.process.kill("SIGSTOP");
+      this.isPaused = true;
+      this.logger.info("Simulation paused (SIGSTOP)");
+      return true;
+    } catch (err) {
+      this.logger.error(
+        `Failed to pause simulation: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return false;
+    }
+  }
+
+  resume(): boolean {
+    // ChildProcess.killed is true after any kill(), so skip it here
+    if (!this.isPaused || !this.process) {
+      return false;
+    }
+
+    try {
+      this.process.kill("SIGCONT");
+      this.isPaused = false;
+      this.resumeTimeoutClock();
+      this.logger.info("Simulation resumed (SIGCONT)");
+      return true;
+    } catch (err) {
+      this.logger.error(
+        `Failed to resume simulation: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      // If resume fails, keep paused flag to avoid inconsistent state
+      this.isPaused = true;
+      return false;
+    }
+  }
+
+  isPausedState(): boolean {
+    return this.isPaused;
+  }
+
   private cleanCompilerErrors(errors: string): string {
     // Remove full paths from error messages
     return errors
@@ -953,6 +1059,7 @@ int main() {
     this.logger.debug(`Serial Input im Runner angekommen: ${input}`);
     if (
       this.isRunning &&
+      !this.isPaused &&
       this.process &&
       this.process.stdin &&
       !this.process.killed
@@ -960,7 +1067,9 @@ int main() {
       this.process.stdin.write(input + "\n");
       this.logger.debug(`Serial Input an Sketch gesendet: ${input}`);
     } else {
-      this.logger.warn("Simulator is not running — serial input ignored");
+      this.logger.warn(
+        "Simulator is not running or is paused — serial input ignored",
+      );
     }
   }
 
@@ -1009,7 +1118,7 @@ int main() {
 
   setPinValue(pin: number, value: number) {
     if (
-      this.isRunning &&
+      (this.isRunning || this.isPaused) &&
       this.process &&
       this.process.stdin &&
       !this.process.killed
@@ -1137,6 +1246,10 @@ int main() {
 
   stop() {
     this.isRunning = false;
+    this.isPaused = false;
+    this.pausedTimeoutRemainingMs = null;
+    this.clearTimeoutTimer();
+    this.timeoutCallback = null;
     this.processKilled = true;
 
     if (this.process) {

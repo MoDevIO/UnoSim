@@ -56,6 +56,12 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     timeout: z.number().optional(), // Timeout in seconds, 0 = infinite
   }),
   z.object({
+    type: z.literal("pause_simulation"),
+  }),
+  z.object({
+    type: z.literal("resume_simulation"),
+  }),
+  z.object({
     type: z.literal("stop_simulation"),
   }),
   z.object({
@@ -75,7 +81,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("simulation_status"),
-    status: z.enum(["running", "stopped"]),
+    status: z.enum(["running", "stopped", "paused"]),
   }),
   z.object({
     type: z.literal("pin_state"),

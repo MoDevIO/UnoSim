@@ -4,8 +4,8 @@
 - Better Analog Input UI
 - Better Autocomplete/Linting
 - Autosaving
-- Ability to pause the running sketch
-- Visualize the arduino board svg in transparent when simulation not running
+
+
 
 ## Bug Fixes
 
@@ -18,6 +18,8 @@
 - Soft cursor movement
 - Serial Plotter
 - Enhanced Parsing
+- Visualize the arduino board svg in transparent when simulation not running
+- Ability to pause the running sketch
 
 ## Bug Fixes
 - Toggle visibility PWM button

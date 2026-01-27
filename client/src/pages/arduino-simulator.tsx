@@ -139,7 +139,7 @@ export default function ArduinoSimulator() {
     },
   );
   const [simulationStatus, setSimulationStatus] = useState<
-    "running" | "stopped"
+    "running" | "stopped" | "paused"
   >("stopped");
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   const [isModified, setIsModified] = useState(false);
@@ -1061,6 +1061,42 @@ export default function ArduinoSimulator() {
       serialEventQueueRef.current = [];
       // Reset UI pin state on stop but preserve detected pinMode declarations
       resetPinUI({ keepDetected: true });
+    },
+  });
+
+  // Pause simulation mutation
+  const pauseMutation = useMutation({
+    mutationFn: async () => {
+      sendMessage({ type: "pause_simulation" });
+      return { success: true };
+    },
+    onSuccess: () => {
+      setSimulationStatus("paused");
+    },
+    onError: () => {
+      toast({
+        title: "Pause failed",
+        description: "Could not pause simulation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Resume simulation mutation
+  const resumeMutation = useMutation({
+    mutationFn: async () => {
+      sendMessage({ type: "resume_simulation" });
+      return { success: true };
+    },
+    onSuccess: () => {
+      setSimulationStatus("running");
+    },
+    onError: () => {
+      toast({
+        title: "Resume failed",
+        description: "Could not resume simulation",
+        variant: "destructive",
+      });
     },
   });
 
@@ -2263,6 +2299,16 @@ export default function ArduinoSimulator() {
     if (!ensureBackendConnected("Simulation starten")) return;
     startMutation.mutate();
   };
+
+  const handlePause = () => {
+    if (!ensureBackendConnected("Simulation pausieren")) return;
+    pauseMutation.mutate();
+  };
+
+  const handleResume = () => {
+    if (!ensureBackendConnected("Simulation fortsetzen")) return;
+    resumeMutation.mutate();
+  };
   // mark as intentionally present
   void handleStart;
 
@@ -2292,13 +2338,17 @@ export default function ArduinoSimulator() {
 
   // Toggle INPUT pin value (called when user clicks on an INPUT pin square)
   const handlePinToggle = (pin: number, newValue: number) => {
-    if (simulationStatus !== "running") {
+    if (simulationStatus === "stopped") {
       toast({
         title: "Simulation not active",
         description: "Start the simulation to change pin values.",
         variant: "destructive",
       });
       return;
+    }
+
+    if (simulationStatus === "paused") {
+      // Pin changes are allowed during pause - send and update
     }
 
     // Send the new pin value to the server
@@ -2320,13 +2370,17 @@ export default function ArduinoSimulator() {
 
   // Handle analog slider changes (0..1023)
   const handleAnalogChange = (pin: number, newValue: number) => {
-    if (simulationStatus !== "running") {
+    if (simulationStatus === "stopped") {
       toast({
         title: "Simulation not active",
         description: "Start the simulation to change pin values.",
         variant: "destructive",
       });
       return;
+    }
+
+    if (simulationStatus === "paused") {
+      // Pin changes are allowed during pause - send and update
     }
 
     sendMessage({ type: "set_pin_value", pin, value: newValue });
@@ -2470,6 +2524,22 @@ export default function ArduinoSimulator() {
 
   const handleSerialSend = (message: string) => {
     if (!ensureBackendConnected("Serial senden")) return;
+
+    if (simulationStatus !== "running") {
+      toast({
+        title:
+          simulationStatus === "paused"
+            ? "Simulation paused"
+            : "Simulation not running",
+        description:
+          simulationStatus === "paused"
+            ? "Resume the simulation to send serial input."
+            : "Start the simulation to send serial input.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Trigger TX LED blink when client sends data
     setTxActivity((prev) => prev + 1);
 
@@ -2541,12 +2611,22 @@ export default function ArduinoSimulator() {
   const statusInfo = getStatusInfo();
   void getStatusClass;
   void statusInfo;
-  const simulateDisabled =
-    (simulationStatus !== "running" && (!backendReachable || !isConnected)) ||
+  const simControlBusy =
     compileMutation.isPending ||
     startMutation.isPending ||
+    stopMutation.isPending ||
+    pauseMutation.isPending ||
+    resumeMutation.isPending;
+
+  const simulateDisabled =
+    ((simulationStatus === "stopped" || simulationStatus === "paused") &&
+      (!backendReachable || !isConnected)) ||
+    simControlBusy;
+
+  const stopDisabled =
+    (simulationStatus !== "running" && simulationStatus !== "paused") ||
     stopMutation.isPending;
-  const stopDisabled = simulationStatus !== "running" || stopMutation.isPending;
+
   const buttonsClassName =
     "hover:bg-green-600 hover:text-white transition-colors";
   void stopDisabled;
@@ -2606,8 +2686,12 @@ export default function ArduinoSimulator() {
         isCompiling={compileMutation.isPending}
         isStarting={startMutation.isPending}
         isStopping={stopMutation.isPending}
+        isPausing={pauseMutation.isPending}
+        isResuming={resumeMutation.isPending}
         onSimulate={handleCompileAndStart}
         onStop={handleStop}
+        onPause={handlePause}
+        onResume={handleResume}
         board={board}
         baudRate={baudRate}
         simulationTimeout={simulationTimeout}
