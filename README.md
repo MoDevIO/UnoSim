@@ -14,11 +14,11 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 ## Preview
 
 <p align="center">
-   <img src="./screenshots/screenshot.png" alt="UnoSim Interface" width="48%" style="display:inline-block; margin-right:2%;" />
-   <img src="./screenshots/screenshot_iotest.png" alt="UnoSim with Example loaded" width="48%" style="display:inline-block;" />
+   <img src="./screenshots/screen1.png" alt="UnoSim Interface" width="48%" style="display:inline-block; margin-right:2%;" />
+   <img src="./screenshots/screen2.png" alt="UnoSim with Example loaded" width="48%" style="display:inline-block;" />
 </p>
 <p align="center">
-   <img src="./screenshots/screenshot_addition.png" alt="alternative UnoSim Interface picture" width="48%" style="display:inline-block; margin-right:2%;" />
+   <img src="./screenshots/screen3.png" alt="UnoSim Arduino Preview" width="48%" style="display:inline-block;" />
 </p>
 
 ## Features
@@ -27,7 +27,7 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 - **Compilation**: Compile Arduino code directly in the browser
 - **Serial Monitor**: Real-time output display from simulated Arduino execution
 - **Pause/Resume Simulation**: Pause running sketches to inspect state, change pin values, and resume execution
-  - ⚠️ Note: `millis()` continues during pause (system time-based limitation)
+  - ✅ `millis()` and `micros()` are frozen during pause for accurate timing
 - **Arduino Preview**: A preview of analog/digital inputs and outputs directly in the Arduino SVG
 - **Web-based**: No installation required, run entirely in the browser
 - **Modern UI**: Built with React and TailwindCSS for a responsive, professional interface

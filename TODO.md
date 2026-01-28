@@ -7,7 +7,6 @@
 
 
 ## Bug Fixes
-- Screenshots in README.md wieder hinzufügen (aber aktualisiert)
 
 # Completed
 
@@ -29,5 +28,6 @@
 - Pause/Resume functionality: digitalRead() returning wrong values, no serial output, timing frozen (Fixed: Added atomic pause state and offset tracking)
 - PIN_MODE/PIN_VALUE messages triggering onError incorrectly
 - Timing issue: delay(1000) in loop() needs 1200ms! (Fixed: removed stdin polling overhead from delay())
+- Screenshots in README.md again with updated images (Fixed: Added 3 updated screenshots)
 
 
