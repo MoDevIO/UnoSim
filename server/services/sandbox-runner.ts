@@ -34,6 +34,7 @@ export class SandboxRunner {
   process: ReturnType<typeof spawn> | null = null;
   processKilled = false;
   isPaused = false;
+  private pauseStartTime: number | null = null;
   private logger = new Logger("SandboxRunner");
   private outputBuffer = "";
   private errorBuffer = "";
@@ -211,6 +212,7 @@ export class SandboxRunner {
 
     this.isRunning = true;
     this.isPaused = false;
+    this.pauseStartTime = null;
     this.ioRegistryData = []; // Reset registry
     this.collectingRegistry = false;
     this.outputBuffer = "";
@@ -626,6 +628,7 @@ int main() {
       this.timeoutCallback = null;
       this.pausedTimeoutRemainingMs = null;
       this.isPaused = false;
+      this.pauseStartTime = null;
 
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
@@ -1031,8 +1034,14 @@ int main() {
     this.pauseTimeoutClock();
 
     try {
+      // Send pause command to freeze timing in C++
+      if (this.process.stdin && !this.processKilled) {
+        this.process.stdin.write("[[PAUSE_TIME]]\n");
+      }
+      
       this.process.kill("SIGSTOP");
       this.isPaused = true;
+      this.pauseStartTime = Date.now();
       this.logger.info("Simulation paused (SIGSTOP)");
       return true;
     } catch (err) {
@@ -1050,10 +1059,19 @@ int main() {
     }
 
     try {
+      // Calculate pause duration
+      const pauseDuration = Date.now() - (this.pauseStartTime || Date.now());
+      
+      // Send resume command with pause duration to adjust timing offset in C++
+      if (this.process.stdin && !this.processKilled) {
+        this.process.stdin.write(`[[RESUME_TIME:${pauseDuration}]]\n`);
+      }
+      
       this.process.kill("SIGCONT");
       this.isPaused = false;
+      this.pauseStartTime = null;
       this.resumeTimeoutClock();
-      this.logger.info("Simulation resumed (SIGCONT)");
+      this.logger.info(`Simulation resumed after ${pauseDuration}ms pause (SIGCONT)`);
       
       // Send a newline to stdin to wake up any blocked read() calls
       // This ensures the C++ process processes any buffered stdin data
@@ -1313,6 +1331,7 @@ int main() {
   stop() {
     this.isRunning = false;
     this.isPaused = false;
+    this.pauseStartTime = null;
     this.pausedTimeoutRemainingMs = null;
     this.clearTimeoutTimer();
     this.timeoutCallback = null;

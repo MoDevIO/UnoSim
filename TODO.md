@@ -7,7 +7,7 @@
 
 
 ## Bug Fixes
-- While a program is paused, the time isn`t paused
+- Screenshots in README.md wieder hinzufügen (aber aktualisiert)
 
 # Completed
 
@@ -26,9 +26,8 @@
 - The margin of all button should be enlarged
 - Example Menu: Only show one mared item (green) never more than one
 - Example Menu: When opening a tree node, close other tree nodes!
-- After pause/resume the I/O-Pins Input doesn`t work (Input) - digitalRead() returning wrong values after pause/resume
+- Pause/Resume functionality: digitalRead() returning wrong values, no serial output, timing frozen (Fixed: Added atomic pause state and offset tracking)
 - PIN_MODE/PIN_VALUE messages triggering onError incorrectly
-- No serial output after pause/resume
 - Timing issue: delay(1000) in loop() needs 1200ms! (Fixed: removed stdin polling overhead from delay())
 
 

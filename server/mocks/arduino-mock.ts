@@ -86,6 +86,12 @@ static std::mt19937 rng(std::time(nullptr));
 
 std::atomic<bool> keepReading(true);
 
+// Pause/Resume timing state
+static std::atomic<bool> processIsPaused(false);
+static std::atomic<unsigned long> pausedTimeMs(0);
+static auto processStartTime = std::chrono::steady_clock::now();
+static unsigned long pauseTimeOffset = 0;
+
 // Forward declaration
 void checkStdinForPinCommands();
 
@@ -299,19 +305,41 @@ int analogRead(int pin) {
     return 0;
 }
 
-// Timing Functions - now with stdin polling for responsiveness
+// Timing Functions - with pause/resume support
 void delayMicroseconds(unsigned int us) { 
     std::this_thread::sleep_for(std::chrono::microseconds(us)); 
 }
+
 unsigned long millis() { 
-    static auto start = std::chrono::steady_clock::now();
+    // If paused, return the frozen time value
+    if (processIsPaused.load()) {
+        return pausedTimeMs.load();
+    }
+    
+    // Normal operation: calculate elapsed time since start
     auto now = std::chrono::steady_clock::now();
-    return std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now - processStartTime
+    ).count();
+    
+    // Subtract any pause offsets that have been accumulated
+    return static_cast<unsigned long>(elapsed) - pauseTimeOffset;
 }
+
 unsigned long micros() {
-    static auto start = std::chrono::steady_clock::now();
+    // If paused, return the frozen time value (in microseconds)
+    if (processIsPaused.load()) {
+        return pausedTimeMs.load() * 1000UL;
+    }
+    
+    // Normal operation: calculate elapsed time since start
     auto now = std::chrono::steady_clock::now();
-    return std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+        now - processStartTime
+    ).count();
+    
+    // Subtract any pause offsets that have been accumulated
+    return static_cast<unsigned long>(elapsed) - (pauseTimeOffset * 1000UL);
 }
 
 // Random Functions
@@ -749,6 +777,21 @@ void setExternalPinValue(int pin, int value) {
     }
 }
 
+// Helper functions for pause/resume timing
+void handlePauseTimeCommand() {
+    processIsPaused.store(true);
+    unsigned long currentMs = millis();  // Get current time before freezing
+    pausedTimeMs.store(currentMs);
+    std::cerr << "[[TIME_FROZEN:" << currentMs << "]]" << std::endl;
+}
+
+void handleResumeTimeCommand(unsigned long pauseDurationMs) {
+    processIsPaused.store(false);
+    // Adjust offset to account for the pause duration that elapsed in real time
+    pauseTimeOffset += pauseDurationMs;
+    std::cerr << "[[TIME_RESUMED:" << pauseTimeOffset << "]]" << std::endl;
+}
+
 // Non-blocking check for stdin pin commands - called from delay() and txDelay()
 void checkStdinForPinCommands() {
     fd_set readfds;
@@ -776,15 +819,27 @@ void checkStdinForPinCommands() {
             if (stdinBufPos > 0) {
                 stdinBuffer[stdinBufPos] = '\\0';
                 
-                // Check for special pin value command: [[SET_PIN:X:Y]]
-                int pin, value;
-                if (sscanf(stdinBuffer, "[[SET_PIN:%d:%d]]", &pin, &value) == 2) {
-                    setExternalPinValue(pin, value);
+                // Check for pause/resume commands
+                if (sscanf(stdinBuffer, "[[PAUSE_TIME]]") == 0 && 
+                    strncmp(stdinBuffer, "[[PAUSE_TIME]]", 14) == 0) {
+                    handlePauseTimeCommand();
                 } else {
-                    // Normal serial input (add newline back for serial input)
-                    Serial.mockInput(stdinBuffer, stdinBufPos);
-                    char newline = 10;
-                    Serial.mockInput(&newline, 1);
+                    // Check for resume time with duration parameter
+                    unsigned long pauseDurationMs;
+                    if (sscanf(stdinBuffer, "[[RESUME_TIME:%lu]]", &pauseDurationMs) == 1) {
+                        handleResumeTimeCommand(pauseDurationMs);
+                    } else {
+                        // Check for special pin value command: [[SET_PIN:X:Y]]
+                        int pin, value;
+                        if (sscanf(stdinBuffer, "[[SET_PIN:%d:%d]]", &pin, &value) == 2) {
+                            setExternalPinValue(pin, value);
+                        } else {
+                            // Normal serial input (add newline back for serial input)
+                            Serial.mockInput(stdinBuffer, stdinBufPos);
+                            char newline = 10;
+                            Serial.mockInput(&newline, 1);
+                        }
+                    }
                 }
                 stdinBufPos = 0;
             }
