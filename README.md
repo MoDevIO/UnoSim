@@ -27,7 +27,6 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 - **Compilation**: Compile Arduino code directly in the browser
 - **Serial Monitor**: Real-time output display from simulated Arduino execution
 - **Pause/Resume Simulation**: Pause running sketches to inspect state, change pin values, and resume execution
-  - ✅ `millis()` and `micros()` are frozen during pause for accurate timing
 - **Arduino Preview**: A preview of analog/digital inputs and outputs directly in the Arduino SVG
 - **Web-based**: No installation required, run entirely in the browser
 - **Modern UI**: Built with React and TailwindCSS for a responsive, professional interface
