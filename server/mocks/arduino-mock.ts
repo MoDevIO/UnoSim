@@ -236,6 +236,23 @@ void pinMode(int pin, int mode) {
     }
 }
 
+// Helper: Track IO operation (consolidates redundant tracking code)
+inline void trackIOOperation(int pin, const std::string& operation) {
+    if (ioRegistry.find(pin) != ioRegistry.end()) {
+        bool opExists = false;
+        for (const auto& op : ioRegistry[pin].operations) {
+            if (op.operation == operation) {
+                opExists = true;
+                break;
+            }
+        }
+        if (!opExists) {
+            ioRegistry[pin].operations.push_back({0, operation});
+            outputIORegistry();
+        }
+    }
+}
+
 void digitalWrite(int pin, int value) {
     if (pin >= 0 && pin < 20) {
         int oldValue = pinValues[pin].load(std::memory_order_seq_cst);
@@ -245,45 +262,14 @@ void digitalWrite(int pin, int value) {
             std::cerr << "[[PIN_VALUE:" << pin << ":" << value << "]]" << std::endl;
             std::cerr.flush(); // Force immediate flush for fast updates
         }
-        
-        // Track in I/O Registry - only if operation doesn't exist yet
-        if (ioRegistry.find(pin) != ioRegistry.end()) {
-            bool opExists = false;
-            for (const auto& op : ioRegistry[pin].operations) {
-                if (op.operation == "digitalWrite") {
-                    opExists = true;
-                    break;
-                }
-            }
-            if (!opExists) {
-                ioRegistry[pin].operations.push_back({0, "digitalWrite"});
-                // Output updated registry immediately when new operation detected
-                outputIORegistry();
-            }
-        }
+        trackIOOperation(pin, "digitalWrite");
     }
 }
 
 int digitalRead(int pin) { 
     if (pin >= 0 && pin < 20) {
         int val = pinValues[pin].load(std::memory_order_seq_cst);
-        
-        // Track in I/O Registry - only if operation doesn't exist yet
-        if (ioRegistry.find(pin) != ioRegistry.end()) {
-            bool opExists = false;
-            for (const auto& op : ioRegistry[pin].operations) {
-                if (op.operation == "digitalRead") {
-                    opExists = true;
-                    break;
-                }
-            }
-            if (!opExists) {
-                ioRegistry[pin].operations.push_back({0, "digitalRead"});
-                // Output updated registry immediately when new operation detected
-                outputIORegistry();
-            }
-        }
-        
+        trackIOOperation(pin, "digitalRead");
         return val;
     }
     return LOW; 
@@ -297,22 +283,7 @@ void analogWrite(int pin, int value) {
         if (oldValue != value) {
             std::cerr << "[[PIN_PWM:" << pin << ":" << value << "]]" << std::endl;
         }
-        
-        // Track in I/O Registry - only if operation doesn't exist yet
-        if (ioRegistry.find(pin) != ioRegistry.end()) {
-            bool opExists = false;
-            for (const auto& op : ioRegistry[pin].operations) {
-                if (op.operation == "analogWrite") {
-                    opExists = true;
-                    break;
-                }
-            }
-            if (!opExists) {
-                ioRegistry[pin].operations.push_back({0, "analogWrite"});
-                // Output updated registry immediately when new operation detected
-                outputIORegistry();
-            }
-        }
+        trackIOOperation(pin, "analogWrite");
     }
 }
 
@@ -321,22 +292,7 @@ int analogRead(int pin) {
     int p = pin;
     if (pin >= 0 && pin <= 5) p = 14 + pin; // map channel 0..5 to A0..A5
     if (p >= 0 && p < 20) {
-        // Track in I/O Registry - only if operation doesn't exist yet
-        if (ioRegistry.find(p) != ioRegistry.end()) {
-            bool opExists = false;
-            for (const auto& op : ioRegistry[p].operations) {
-                if (op.operation == "analogRead") {
-                    opExists = true;
-                    break;
-                }
-            }
-            if (!opExists) {
-                ioRegistry[p].operations.push_back({0, "analogRead"});
-                // Output updated registry immediately when new operation detected
-                outputIORegistry();
-            }
-        }
-        
+        trackIOOperation(p, "analogRead");
         // Return the externally-set pin value (0..1023 expected for analog inputs)
         return pinValues[p].load(std::memory_order_seq_cst);
     }
@@ -391,13 +347,8 @@ private:
         if (_baudrate > 0 && numChars > 0) {
             // Milliseconds total = (10 bits * numChars * 1000) / baudrate
             long totalMs = (10L * numChars * 1000L) / _baudrate;
-            // Split into small chunks and check stdin
-            while (totalMs > 0) {
-                long chunk = (totalMs > 10) ? 10 : totalMs;
-                std::this_thread::sleep_for(std::chrono::milliseconds(chunk));
-                totalMs -= chunk;
-                checkStdinForPinCommands();
-            }
+            // Direct sleep (consistent with simplified delay() - no stdin polling during serial tx)
+            std::this_thread::sleep_for(std::chrono::milliseconds(totalMs));
         }
     }
     
@@ -778,14 +729,11 @@ inline void delay(unsigned long ms) {
     // Flush serial buffer FIRST so output appears before the delay
     Serial.flush();
     
-    // Split delay into small chunks to check stdin frequently
-    unsigned long remaining = ms;
-    while (remaining > 0) {
-        unsigned long chunk = (remaining > 10) ? 10 : remaining;
-        std::this_thread::sleep_for(std::chrono::milliseconds(chunk));
-        remaining -= chunk;
-        checkStdinForPinCommands(); // Check for pin commands during delay
-    }
+    // Direct sleep without chunking to avoid overhead from repeated system calls.
+    // The previous implementation split into 10ms chunks and called checkStdinForPinCommands()
+    // ~100 times per second, which added ~2ms per iteration (~200ms overhead for 1000ms delay).
+    // Real Arduino blocks completely during delay, so this matches expected behavior.
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
 // Global buffer for stdin reading (used by checkStdinForPinCommands)

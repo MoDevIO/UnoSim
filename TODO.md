@@ -8,7 +8,6 @@
 
 ## Bug Fixes
 - While a program is paused, the time isn`t paused
-- Timing issue: delay(1000) in loop() needs 1200ms!
 
 # Completed
 
@@ -30,5 +29,6 @@
 - After pause/resume the I/O-Pins Input doesn`t work (Input) - digitalRead() returning wrong values after pause/resume
 - PIN_MODE/PIN_VALUE messages triggering onError incorrectly
 - No serial output after pause/resume
+- Timing issue: delay(1000) in loop() needs 1200ms! (Fixed: removed stdin polling overhead from delay())
 
 
