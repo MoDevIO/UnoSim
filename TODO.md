@@ -5,7 +5,7 @@
 - Better Autocomplete/Linting
 - Autosaving
 - when debug mode is deactivated in settings, do not collect debug console messages
-- consider clearing debug messages when start is pressed
+
 - **Realtime Serial Output Timing**: Implement frontend-side timing to display serial output character-by-character based on baudrate. Currently all text appears instantly. Implementation notes:
   - Use `ts_write` timestamp from `serial_event` messages
   - Use `baudrate` from `io_registry` to calculate character delay: `delay_ms = (10 bits × char_count × 1000) / baudrate`

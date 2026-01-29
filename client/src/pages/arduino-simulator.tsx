@@ -2614,6 +2614,8 @@ export default function ArduinoSimulator() {
 
   const handleCompileAndStart = () => {
     if (!ensureBackendConnected("Simulation starten")) return;
+    // Clear all debug messages from previous simulation - do this first!
+    setDebugMessages([]);
     // Get the actual main sketch code - prioritize editor, then tabs, then state
     let mainSketchCode: string = "";
 
