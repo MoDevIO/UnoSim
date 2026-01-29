@@ -4,7 +4,7 @@
 - Better Analog Input UI
 - Better Autocomplete/Linting
 - Autosaving
-- when debug mode is deactivated in settings, do not collect debug console messages
+
 
 - **Realtime Serial Output Timing**: Implement frontend-side timing to display serial output character-by-character based on baudrate. Currently all text appears instantly. Implementation notes:
   - Use `ts_write` timestamp from `serial_event` messages
@@ -15,7 +15,6 @@
 
 
 ## Bug Fixes
-- Tables (IO-Registry and Debug): records hit header when scrolling. Header should be above the records not on them.
 - When pinMode ist programmed twice or more for one pin, it should create a message in messages
 
 
@@ -41,5 +40,6 @@
 - PIN_MODE/PIN_VALUE messages triggering onError incorrectly
 - Timing issue: delay(1000) in loop() needs 1200ms! (Fixed: removed stdin polling overhead from delay())
 - Screenshots in README.md again with updated images (Fixed: Added 3 updated screenshots)
+- Tables (IO-Registry and Debug): records hit header when scrolling. Header should be above the records not on them.
 
 

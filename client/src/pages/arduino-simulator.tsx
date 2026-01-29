@@ -160,22 +160,6 @@ export default function ArduinoSimulator() {
   const [debugViewMode, setDebugViewMode] = useState<"table" | "tiles">("table");
   const debugMessagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const addDebugMessage = useCallback((sender: "server" | "frontend", type: string, content: string, protocol?: "websocket" | "http") => {
-    const message: DebugMessage = {
-      id: `${Date.now()}-${Math.random()}`,
-      timestamp: new Date(),
-      sender,
-      type,
-      content,
-      protocol,
-    };
-    setDebugMessages((prev) => {
-      const updated = [message, ...prev];
-      // Keep last 500 messages to avoid memory issues
-      return updated.slice(0, 500);
-    });
-  }, []);
-
   // Pin states for Arduino board visualization
   const [pinStates, setPinStates] = useState<PinState[]>([]);
   // Serial view mode (monitor / both / plotter)
@@ -272,6 +256,30 @@ export default function ArduinoSimulator() {
     return () =>
       document.removeEventListener("debugModeChange", handler as EventListener);
   }, []);
+
+  const addDebugMessage = useCallback((
+    sender: "server" | "frontend",
+    type: string,
+    content: string,
+    protocol?: "websocket" | "http",
+  ) => {
+    // Only collect debug messages if debug mode is enabled
+    if (!debugMode) return;
+
+    const message: DebugMessage = {
+      id: `${Date.now()}-${Math.random()}`,
+      timestamp: new Date(),
+      sender,
+      type,
+      content,
+      protocol,
+    };
+    setDebugMessages((prev) => {
+      const updated = [message, ...prev];
+      // Keep last 500 messages to avoid memory issues
+      return updated.slice(0, 500);
+    });
+  }, [debugMode]);
 
   // Helper function to open the output panel
   const openOutputPanel = useCallback((targetTab: "compiler" | "messages" | "registry" | "debug") => {
