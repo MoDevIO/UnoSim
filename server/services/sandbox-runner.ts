@@ -51,10 +51,17 @@ export class SandboxRunner {
   private pendingSerialFlushTimer: NodeJS.Timeout | null = null;
   // Server-side timestamp of when the spawned process was started (ms since epoch)
   private processStartTime: number | null = null;
-  private ioRegistryCallback: ((registry: IOPinRecord[]) => void) | undefined;
+  private ioRegistryCallback: ((registry: IOPinRecord[], baudrate: number) => void) | undefined;
   // Runtime I/O Registry collected from stderr
   private ioRegistryData: IOPinRecord[] = [];
   private collectingRegistry = false;
+  private registryAlreadySent = false; // Flag to prevent duplicate registry sends on exit
+  private registryLastHash = ""; // Hash of last sent registry for change detection
+  private registryDebounceTimer: NodeJS.Timeout | null = null; // Debounce timer for registry sends
+  private registryLastSendTime = 0; // Timestamp of last registry send
+  private waitingForRegistry = false; // Flag to hold messages until registry is sent
+  private registryWaitTimer: NodeJS.Timeout | null = null; // Fallback timer to release output if registry stalls
+  private messageQueue: Array<{ type: string; data: any }> = []; // Queue for messages while waiting for registry
   private currentRegistryFile: string | null = null;
   private timeoutHandle: NodeJS.Timeout | null = null;
   private timeoutDeadlineMs: number | null = null;
@@ -70,6 +77,105 @@ export class SandboxRunner {
 
     // Check Docker availability on startup
     this.checkDockerAvailability();
+  }
+
+  // Calculate hash of registry data for change detection
+  private getRegistryHash(): string {
+    return JSON.stringify(this.ioRegistryData);
+  }
+
+  // Flush queued messages after registry has been sent
+  private flushMessageQueue(): void {
+    if (this.messageQueue.length === 0) {
+      return;
+    }
+
+    this.logger.debug(
+      `[Registry] Flushing ${this.messageQueue.length} queued messages`,
+    );
+
+    const queue = this.messageQueue;
+    this.messageQueue = [];
+
+    // Re-emit all queued messages in order
+    for (const msg of queue) {
+      if (msg.type === "pinState") {
+        msg.data.callback(msg.data.pin, msg.data.stateType, msg.data.value);
+      } else if (msg.type === "output") {
+        msg.data.callback(msg.data.line, msg.data.isComplete);
+      } else if (msg.type === "error") {
+        msg.data.callback(msg.data.line);
+      }
+    }
+  }
+
+  // Send registry with debounce and change detection
+  private sendRegistryWithDebounce(): void {
+    if (!this.ioRegistryCallback || this.registryAlreadySent) {
+      return;
+    }
+
+    const currentHash = this.getRegistryHash();
+    const now = Date.now();
+    const timeSinceLastSend = now - this.registryLastSendTime;
+
+    // Check if registry content has changed
+    if (currentHash === this.registryLastHash) {
+      return; // No change, don't send
+    }
+
+    // First send (no hash set yet) - send immediately without debounce
+    if (this.registryLastHash === "") {
+      this.registryLastHash = currentHash;
+      this.registryLastSendTime = now;
+      this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
+      this.logger.debug(
+        `[Registry] First send (no debounce): ${this.ioRegistryData.length} pins`,
+      );
+      // Flush queued messages after first registry send
+      this.waitingForRegistry = false;
+      if (this.registryWaitTimer) {
+        clearTimeout(this.registryWaitTimer);
+        this.registryWaitTimer = null;
+      }
+      this.flushMessageQueue();
+      // Mark as sent to ensure registry is sent only once per simulation
+      this.registryAlreadySent = true;
+      return;
+    }
+
+    // Subsequent sends - apply debounce (200ms)
+    const DEBOUNCE_MS = 200;
+    if (timeSinceLastSend < DEBOUNCE_MS) {
+      // Clear existing timer if any
+      if (this.registryDebounceTimer) {
+        clearTimeout(this.registryDebounceTimer);
+      }
+
+      // Schedule send after debounce period
+      this.registryDebounceTimer = setTimeout(() => {
+        const latestHash = this.getRegistryHash();
+        // Only send if hash is still different from last sent
+        if (latestHash !== this.registryLastHash && this.ioRegistryCallback && !this.registryAlreadySent) {
+          this.registryLastHash = latestHash;
+          this.registryLastSendTime = Date.now();
+          this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
+          this.logger.debug(
+            `[Registry] Sent after debounce: ${this.ioRegistryData.length} pins`,
+          );
+        }
+        this.registryDebounceTimer = null;
+      }, DEBOUNCE_MS - timeSinceLastSend);
+      return;
+    }
+
+    // Send immediately (enough time has passed since last send)
+    this.registryLastHash = currentHash;
+    this.registryLastSendTime = now;
+    this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
+    this.logger.debug(
+      `[Registry] Sent immediately: ${this.ioRegistryData.length} pins`,
+    );
   }
 
   private flushPendingSerialEvents(
@@ -197,7 +303,7 @@ export class SandboxRunner {
       value: number,
     ) => void,
     timeoutSec?: number, // Custom timeout in seconds, 0 = infinite
-    onIORegistry?: (registry: IOPinRecord[]) => void,
+    onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
   ) {
     // Store callback in local var for access in closures below
     this.ioRegistryCallback = onIORegistry;
@@ -214,6 +320,22 @@ export class SandboxRunner {
     this.isPaused = false;
     this.pauseStartTime = null;
     this.ioRegistryData = []; // Reset registry
+    this.registryAlreadySent = false; // Reset registry sent flag
+    this.registryLastHash = ""; // Reset registry hash for change detection
+    this.registryLastSendTime = 0; // Reset last send time
+    this.waitingForRegistry = true; // Start holding messages until registry is sent
+    this.messageQueue = []; // Clear message queue
+      if (this.registryWaitTimer) {
+        clearTimeout(this.registryWaitTimer);
+      }
+      // Fail-open: if registry never arrives, release queued output after a short grace period
+      this.registryWaitTimer = setTimeout(() => {
+        if (this.waitingForRegistry) {
+          this.logger.warn("[Registry] No registry received in time - releasing queued output");
+          this.waitingForRegistry = false;
+          this.flushMessageQueue();
+        }
+      }, 1500);
     this.collectingRegistry = false;
     this.outputBuffer = "";
     this.errorBuffer = "";
@@ -248,14 +370,19 @@ int main() {
 
     if (hasSetup)
       footer +=
-        "    setup();\n    Serial.flush(); // Flush after setup\n    outputIORegistry(); // Emit registry after setup before entering loop\n";
+        "    setup();\n    Serial.flush(); // Flush after setup\n";
     // Flush serial buffer at the start of each loop iteration
     // This ensures all Serial.print() output is sent even without delay() or newline
-    if (hasLoop) footer += "    while (1) { Serial.flush(); loop(); }\n";
+    if (hasLoop) {
+      footer +=
+        "    bool __registry_sent = false;\n    while (1) { Serial.flush(); loop(); if (!__registry_sent) { Serial.flush(); outputIORegistry(); __registry_sent = true; } }\n";
+    } else {
+      footer += "    outputIORegistry();\n";
+    }
 
     footer += `
+    Serial.flush(); // CRITICAL: Flush any remaining buffered serial output before exit
     keepReading.store(false);
-    outputIORegistry();
     return 0;
 }
 `;
@@ -278,16 +405,59 @@ int main() {
       this.currentSketchDir = sketchDir;
       this.processKilled = false;
 
+      // Create wrapper callbacks to queue messages while waiting for registry
+      const wrappedOnOutput = (line: string, isComplete?: boolean) => {
+        if (this.waitingForRegistry) {
+          this.messageQueue.push({
+            type: "output",
+            data: { line, isComplete, callback: onOutput },
+          });
+        } else if (onOutput) {
+          onOutput(line, isComplete);
+        }
+      };
+
+      const wrappedOnPinState = (
+        pin: number,
+        stateType: "mode" | "value" | "pwm",
+        value: number,
+      ) => {
+        if (this.waitingForRegistry) {
+          this.messageQueue.push({
+            type: "pinState",
+            data: {
+              pin,
+              stateType,
+              value,
+              callback: onPinState,
+            },
+          });
+        } else if (onPinState) {
+          onPinState(pin, stateType, value);
+        }
+      };
+
+      const wrappedOnError = (line: string) => {
+        if (this.waitingForRegistry) {
+          this.messageQueue.push({
+            type: "error",
+            data: { line, callback: onError },
+          });
+        } else if (onError) {
+          onError(line);
+        }
+      };
+
       if (this.dockerAvailable && this.dockerImageBuilt) {
         // Single container: compile AND run (more efficient)
         this.compileAndRunInDocker(
           sketchDir,
-          onOutput,
-          onError,
+          wrappedOnOutput,
+          wrappedOnError,
           onExit,
           onCompileError,
           onCompileSuccess,
-          onPinState,
+          wrappedOnPinState,
           executionTimeout,
           onIORegistry,
         );
@@ -300,10 +470,10 @@ int main() {
         }
         await this.runLocalWithLimits(
           exeFile,
-          onOutput,
-          onError,
+          wrappedOnOutput,
+          wrappedOnError,
           onExit,
-          onPinState,
+          wrappedOnPinState,
           executionTimeout,
           onIORegistry,
         );
@@ -347,7 +517,7 @@ int main() {
       value: number,
     ) => void,
     timeoutSec?: number,
-    onIORegistry?: (registry: IOPinRecord[]) => void,
+    onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
   ): void {
     this.ioRegistryCallback = onIORegistry;
     // Single container: compile then run using shell
@@ -479,9 +649,7 @@ int main() {
               `[Registry] END marker detected, collected ${this.ioRegistryData.length} pins (Docker)`,
             );
             this.collectingRegistry = false;
-            if (this.ioRegistryCallback) {
-              this.ioRegistryCallback(this.ioRegistryData);
-            }
+            this.sendRegistryWithDebounce();
             return;
           }
           if (this.collectingRegistry) {
@@ -575,17 +743,11 @@ int main() {
                 const b64 = serialEventMatch[2];
                 const buf = Buffer.from(b64, "base64");
                 const decoded = buf.toString("utf8");
-                // Build event payload for frontend reconstruction
+                // Build event payload for frontend reconstruction (minimal, optimized for network traffic)
                 const event = {
                   type: "serial",
                   ts_write: (this.processStartTime || Date.now()) + ts,
                   data: decoded,
-                  baud: this.baudrate,
-                  bits_per_frame: 10,
-                  txBufferBefore: this.outputBuffer.length,
-                  txBufferCapacity: 1000,
-                  blocking: true,
-                  atomic: true,
                 };
                 // Send events immediately - no coalescing needed
                 // The frontend will handle timing based on ts_write
@@ -672,8 +834,10 @@ int main() {
       // Guarantee that onIORegistry is called with final registry state BEFORE onExit
       // This ensures tests receive registry data even if process terminates before IO_REGISTRY_END marker
       // Call even if registry is empty - tests need to know registry collection completed
-      if (this.ioRegistryCallback) {
-        this.ioRegistryCallback(this.ioRegistryData);
+      // But skip if already sent to avoid duplicate registry messages
+      if (this.ioRegistryCallback && !this.registryAlreadySent) {
+        this.registryAlreadySent = true;
+        this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
       }
 
       if (!this.processKilled) onExit(code);
@@ -745,7 +909,7 @@ int main() {
       value: number,
     ) => void,
     timeoutSec?: number,
-    onIORegistry?: (registry: IOPinRecord[]) => void,
+    onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
   ): Promise<void> {
     this.ioRegistryCallback = onIORegistry; // Store for use in async handlers
     const effectiveTimeout =
@@ -863,9 +1027,7 @@ int main() {
               `[Registry] END marker detected, collected ${this.ioRegistryData.length} pins (Local)`,
             );
             this.collectingRegistry = false;
-            if (this.ioRegistryCallback) {
-              this.ioRegistryCallback(this.ioRegistryData);
-            }
+            this.sendRegistryWithDebounce();
             return;
           }
           if (this.collectingRegistry) {
@@ -950,6 +1112,7 @@ int main() {
               /\[\[SERIAL_EVENT:(\d+):([A-Za-z0-9+/=]+)\]\]/,
             );
             if (serialEventMatch) {
+              this.logger.debug(`[STDERR][SERIAL_EVENT RAW] ${line}`);
               try {
                 const ts = parseInt(serialEventMatch[1], 10);
                 const b64 = serialEventMatch[2];
@@ -959,12 +1122,6 @@ int main() {
                   type: "serial",
                   ts_write: (this.processStartTime || Date.now()) + ts,
                   data: decoded,
-                  baud: this.baudrate,
-                  bits_per_frame: 10,
-                  txBufferBefore: this.outputBuffer.length,
-                  txBufferCapacity: 1000,
-                  blocking: true,
-                  atomic: true,
                 };
                 onOutput(
                   "[[" + "SERIAL_EVENT_JSON:" + JSON.stringify(event) + "]]",
@@ -1009,8 +1166,10 @@ int main() {
       // Guarantee that onIORegistry is called with final registry state BEFORE onExit
       // This ensures tests receive registry data even if process terminates before IO_REGISTRY_END marker
       // Call even if registry is empty - tests need to know registry collection completed
-      if (this.ioRegistryCallback) {
-        this.ioRegistryCallback(this.ioRegistryData);
+      // But skip if already sent to avoid duplicate registry messages
+      if (this.ioRegistryCallback && !this.registryAlreadySent) {
+        this.registryAlreadySent = true;
+        this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
       }
 
       if (!this.processKilled) onExit(code);
@@ -1336,7 +1495,18 @@ int main() {
     this.clearTimeoutTimer();
     this.timeoutCallback = null;
     this.processKilled = true;
+    this.registryAlreadySent = true; // Prevent sending registry on exit after manual stop
     this.onOutputCallback = null; // Clear stored callback
+
+    // Clear any pending registry debounce timer
+    if (this.registryDebounceTimer) {
+      clearTimeout(this.registryDebounceTimer);
+      this.registryDebounceTimer = null;
+    }
+    if (this.registryWaitTimer) {
+      clearTimeout(this.registryWaitTimer);
+      this.registryWaitTimer = null;
+    }
 
     if (this.process) {
       this.process.kill("SIGKILL");

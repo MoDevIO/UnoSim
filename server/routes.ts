@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import type { CompilationResult } from "./services/arduino-compiler";
+import type { IOPinRecord } from "@shared/schema";
 
 import { createServer, type Server } from "http";
 import { createHash } from "crypto";
@@ -165,9 +166,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           logger.info(`✅ Cache hit for code (age: ${cacheAge}ms)`);
           const result = cachedEntry.result;
 
-          if (result.success) {
-            lastCompiledCode = result.processedCode || code;
-          }
+          // Store the code for WebSocket-based simulation (even on cache hit)
+          lastCompiledCode = code;
 
           // ❌ DO NOT BROADCAST - This is an HTTP endpoint
           // Each client manages their own compilation status locally
@@ -191,9 +191,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (result.success) {
         compilationCache.set(codeHash, { result, timestamp: Date.now() });
         logger.info(`✅ Cached compilation result for code`);
-
-        // Store the processed code (with embedded headers) for simulation
-        lastCompiledCode = result.processedCode || code;
+        // Store the code for WebSocket-based simulation
+        lastCompiledCode = code;
       }
 
       // ❌ DO NOT BROADCAST - This is an HTTP endpoint
@@ -409,14 +408,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   });
                 },
                 timeoutValue, // Custom timeout in seconds (0 = infinite)
-                (registry) => {
+                (registry: IOPinRecord[], baudrate: number) => {
                   logger.debug(
-                    `[io_registry callback] Received registry with ${registry.length} pins`,
+                    `[io_registry callback] Received registry with ${registry.length} pins, baudrate=${baudrate}`,
                   );
                   // Send I/O Registry to client
                   sendMessageToClient(ws, {
                     type: "io_registry",
                     registry,
+                    baudrate,
                   });
                   logger.debug(
                     `[io_registry callback] Sent io_registry message to client`,

@@ -43,8 +43,8 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       type: z.string(),
       ts_write: z.number(),
       data: z.string(),
-      baud: z.number(),
-      bits_per_frame: z.number(),
+      baud: z.number().optional(),
+      bits_per_frame: z.number().optional(),
       txBufferBefore: z.number().optional(),
       txBufferCapacity: z.number().optional(),
       blocking: z.boolean().optional(),
@@ -156,6 +156,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
           .optional(),
       }),
     ),
+    baudrate: z.number().optional(),
   }),
 ]);
 

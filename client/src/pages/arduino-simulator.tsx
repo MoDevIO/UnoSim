@@ -20,6 +20,8 @@ import {
   Monitor,
   Columns,
   X,
+  Table,
+  LayoutGrid,
 } from "lucide-react";
 import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
@@ -126,7 +128,7 @@ export default function ArduinoSimulator() {
   >(null);
   const [compilationPanelSize, setCompilationPanelSize] = useState(3);
   const [activeOutputTab, setActiveOutputTab] = useState<
-    "compiler" | "messages" | "registry"
+    "compiler" | "messages" | "registry" | "debug"
   >("compiler");
   const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(
     () => {
@@ -143,6 +145,36 @@ export default function ArduinoSimulator() {
   >("stopped");
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   const [isModified, setIsModified] = useState(false);
+
+  // Debug message log
+  interface DebugMessage {
+    id: string;
+    timestamp: Date;
+    sender: "server" | "frontend";
+    type: string;
+    content: string;
+    protocol?: "websocket" | "http"; // websocket or http source
+  }
+  const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
+  const [debugMessageFilter, setDebugMessageFilter] = useState<string>("");
+  const [debugViewMode, setDebugViewMode] = useState<"table" | "tiles">("table");
+  const debugMessagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const addDebugMessage = useCallback((sender: "server" | "frontend", type: string, content: string, protocol?: "websocket" | "http") => {
+    const message: DebugMessage = {
+      id: `${Date.now()}-${Math.random()}`,
+      timestamp: new Date(),
+      sender,
+      type,
+      content,
+      protocol,
+    };
+    setDebugMessages((prev) => {
+      const updated = [message, ...prev];
+      // Keep last 500 messages to avoid memory issues
+      return updated.slice(0, 500);
+    });
+  }, []);
 
   // Pin states for Arduino board visualization
   const [pinStates, setPinStates] = useState<PinState[]>([]);
@@ -184,12 +216,32 @@ export default function ArduinoSimulator() {
     }
   }, []);
 
+  // Helper function to convert pin strings to numbers (A0-A5 → 14-19, digital → as-is)
+  const pinToNumber = (pinStr: string): number | null => {
+    if (/^\d+$/.test(pinStr)) {
+      return parseInt(pinStr, 10);
+    }
+    const aMatch = pinStr.match(/^A(\d+)$/i);
+    if (aMatch) {
+      const idx = parseInt(aMatch[1], 10);
+      if (idx >= 0 && idx <= 5) return 14 + idx;
+    }
+    return null;
+  };
+
+  // Clear all outputs and messages
+  const clearOutputs = useCallback(() => {
+    setCliOutput("");
+    setSerialOutput([]);
+    setParserMessages([]);
+  }, []);
+
   // Simulation timeout setting (in seconds)
   const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
 
   // Selected board and baud rate (moved to Tools menu)
   const [board, _setBoard] = useState<string>("Arduino UNO");
-  const [baudRate, _setBaudRate] = useState<number>(115200);
+  const [baudRate, setBaudRate] = useState<number>(115200);
 
   // Serial input box state (always visible at bottom of serial frame)
   const [serialInputValue, setSerialInputValue] = useState("");
@@ -197,11 +249,21 @@ export default function ArduinoSimulator() {
   // Hidden file input for File → Load Files
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Listen for debug mode change events from settings dialog (disabled)
+  // Debug mode state
+  const [debugMode, setDebugMode] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem("unoDebugMode") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for debug mode change events from settings dialog
   useEffect(() => {
-    const handler = (_ev: any) => {
+    const handler = (ev: any) => {
       try {
-        // Debug mode toggle removed
+        const newValue = Boolean(ev?.detail?.value);
+        setDebugMode(newValue);
       } catch {
         // ignore
       }
@@ -209,6 +271,23 @@ export default function ArduinoSimulator() {
     document.addEventListener("debugModeChange", handler as EventListener);
     return () =>
       document.removeEventListener("debugModeChange", handler as EventListener);
+  }, []);
+
+  // Helper function to open the output panel
+  const openOutputPanel = useCallback((targetTab: "compiler" | "messages" | "registry" | "debug") => {
+    setShowCompilationOutput(true);
+    setParserPanelDismissed(false);
+    setActiveOutputTab(targetTab);
+    
+    // Resize panel to 50%
+    setTimeout(() => {
+      if (
+        outputPanelRef.current &&
+        typeof outputPanelRef.current.resize === "function"
+      ) {
+        outputPanelRef.current.resize(50);
+      }
+    }, 0);
   }, []);
 
   useEffect(() => {
@@ -738,11 +817,16 @@ export default function ArduinoSimulator() {
     lastMessage,
     messageQueue,
     consumeMessages,
-    sendMessage,
+    sendMessage: sendMessageRaw,
   } = useWebSocket();
   // Mark some hook values as intentionally read to avoid TS unused-local errors
   void isConnected;
   void lastMessage;
+
+  // Wrapper for sendMessage that sends raw to backend
+  const sendMessage = useCallback((message: any) => {
+    sendMessageRaw(message);
+  }, [sendMessageRaw]);
 
   // Backend / websocket reachability notifications
   useEffect(() => {
@@ -817,6 +901,15 @@ export default function ArduinoSimulator() {
     }
   }, [backendReachable, backendPingError, toast]);
 
+  // Auto-scroll debug console to latest message
+  useEffect(() => {
+    if (debugMessagesContainerRef.current) {
+      requestAnimationFrame(() => {
+        debugMessagesContainerRef.current?.scrollTo(0, debugMessagesContainerRef.current.scrollHeight);
+      });
+    }
+  }, [debugMessages]);
+
   const ensureBackendConnected = (actionLabel: string) => {
     if (!backendReachable || !isConnected) {
       toast({
@@ -871,6 +964,13 @@ export default function ArduinoSimulator() {
       code: string;
       headers?: Array<{ name: string; content: string }>;
     }) => {
+      // Log the upload request to debug console
+      addDebugMessage(
+        "frontend",
+        "upload_request",
+        JSON.stringify({ endpoint: "POST /api/upload", codeLength: payload.code.length }, null, 2),
+        "http",
+      );
       // Attempt to call a backend upload endpoint; backend can implement this to actually flash hardware
       const response = await apiRequest("POST", "/api/upload", payload);
       // Be tolerant: some backends may return plain text (204 or HTML). Try to parse JSON, otherwise return text.
@@ -953,6 +1053,13 @@ export default function ArduinoSimulator() {
     }) => {
       setArduinoCliStatus("compiling");
       setLastCompilationResult(null);
+      // Log the request to debug console (don't clear - let compile messages stack)
+      addDebugMessage(
+        "frontend",
+        "compile_request",
+        JSON.stringify({ endpoint: "POST /api/compile", codeLength: payload.code.length }, null, 2),
+        "http",
+      );
       const response = await apiRequest("POST", "/api/compile", payload);
       const ct = (response.headers.get("content-type") || "").toLowerCase();
       if (ct.includes("application/json")) {
@@ -973,6 +1080,13 @@ export default function ArduinoSimulator() {
         setLastCompilationResult("success");
         // REPLACE output, don't append
         setCliOutput(data.output || "✓ Arduino-CLI Compilation succeeded.");
+        // Log to debug console
+        addDebugMessage(
+          "server",
+          "compilation_status",
+          JSON.stringify({ gccStatus: "success" }, null, 2),
+          "http",
+        );
       } else {
         setArduinoCliStatus("error");
         setHasCompilationErrors(true);
@@ -981,6 +1095,23 @@ export default function ArduinoSimulator() {
         triggerErrorGlitch();
         // REPLACE output, don't append
         setCliOutput(data.errors || "✗ Arduino-CLI Compilation failed.");
+        // Log to debug console
+        addDebugMessage(
+          "server",
+          "compilation_error",
+          JSON.stringify(
+            { type: "compilation_error", data: data.errors },
+            null,
+            2,
+          ),
+          "http",
+        );
+        addDebugMessage(
+          "server",
+          "compilation_status",
+          JSON.stringify({ gccStatus: "error" }, null, 2),
+          "http",
+        );
       }
 
       // Update parser messages from compile response
@@ -1052,6 +1183,12 @@ export default function ArduinoSimulator() {
   // Stop simulation mutation
   const stopMutation = useMutation({
     mutationFn: async () => {
+      addDebugMessage(
+        "frontend",
+        "stop_simulation",
+        JSON.stringify({ type: "stop_simulation" }, null, 2),
+        "websocket",
+      );
       sendMessage({ type: "stop_simulation" });
       return { success: true };
     },
@@ -1067,6 +1204,12 @@ export default function ArduinoSimulator() {
   // Pause simulation mutation
   const pauseMutation = useMutation({
     mutationFn: async () => {
+      addDebugMessage(
+        "frontend",
+        "pause_simulation",
+        JSON.stringify({ type: "pause_simulation" }, null, 2),
+        "websocket",
+      );
       sendMessage({ type: "pause_simulation" });
       return { success: true };
     },
@@ -1085,6 +1228,12 @@ export default function ArduinoSimulator() {
   // Resume simulation mutation
   const resumeMutation = useMutation({
     mutationFn: async () => {
+      addDebugMessage(
+        "frontend",
+        "resume_simulation",
+        JSON.stringify({ type: "resume_simulation" }, null, 2),
+        "websocket",
+      );
       sendMessage({ type: "resume_simulation" });
       return { success: true };
     },
@@ -1105,6 +1254,13 @@ export default function ArduinoSimulator() {
     mutationFn: async () => {
       // Reset UI before starting a fresh simulation but preserve detected pinMode info
       resetPinUI({ keepDetected: true });
+      // Log start_simulation to debug console
+      addDebugMessage(
+        "frontend",
+        "start_simulation",
+        JSON.stringify({ type: "start_simulation", timeout: simulationTimeout }, null, 2),
+        "websocket",
+      );
       sendMessage({ type: "start_simulation", timeout: simulationTimeout });
       return { success: true };
     },
@@ -1397,6 +1553,31 @@ export default function ArduinoSimulator() {
   useEffect(() => {
     if (messageQueue.length === 0) return;
 
+    // Log all messages to debug console BEFORE consuming them
+    messageQueue.forEach((msg) => {
+      // For serial_events, log a compact version to reduce noise
+      if (msg.type === "serial_event") {
+        const payload = (msg as any).payload || {};
+        const compactMsg = {
+          type: "serial_event",
+          data: payload.data,
+        };
+        addDebugMessage(
+          "server",
+          msg.type,
+          JSON.stringify(compactMsg, null, 2),
+          "websocket",
+        );
+      } else {
+        addDebugMessage(
+          "server",
+          msg.type || "unknown",
+          JSON.stringify(msg, null, 2),
+          "websocket",
+        );
+      }
+    });
+
     // Consume all messages from the queue
     const messages = consumeMessages();
 
@@ -1406,6 +1587,15 @@ export default function ArduinoSimulator() {
           // NEW: Handle isComplete flag for Serial.print() vs Serial.println()
           let text = (message.data ?? "").toString();
           const isComplete = message.isComplete ?? true; // Default to true for backwards compatibility
+
+          // Filter out debug/pause-resume internal messages
+          if (
+            text.includes("[[TIME_RESUMED:") ||
+            text.includes("[[TIME_FROZEN:") ||
+            text.includes("[ERR]")
+          ) {
+            break; // Skip these internal debug messages
+          }
 
           // Trigger RX LED blink when client receives data
           setRxActivity((prev) => prev + 1);
@@ -1479,21 +1669,18 @@ export default function ArduinoSimulator() {
           break;
         }
         case "serial_event": {
-          // Only queue serial events if simulation is running
-          if (simulationStatus === "running") {
-            const payload = (message as any).payload || {};
-            // Record arrival time so we can suppress duplicate legacy serial_output messages
-            const receivedAt = Date.now();
-            // Trigger RX LED blink when client receives structured data
-            setRxActivity((prev) => prev + 1);
-            lastSerialEventAtRef.current = receivedAt;
+          const payload = (message as any).payload || {};
+          // Record arrival time so we can suppress duplicate legacy serial_output messages
+          const receivedAt = Date.now();
+          // Trigger RX LED blink when client receives structured data
+          setRxActivity((prev) => prev + 1);
+          lastSerialEventAtRef.current = receivedAt;
 
-            // Use push() to avoid race conditions when multiple events arrive simultaneously
-            // This mutates the array directly instead of creating a new one
-            serialEventQueueRef.current.push({ payload, receivedAt });
-            // Trigger processing
-            setSerialQueueTrigger((t) => t + 1);
-          }
+          // Use push() to avoid race conditions when multiple events arrive simultaneously
+          // This mutates the array directly instead of creating a new one
+          serialEventQueueRef.current.push({ payload, receivedAt });
+          // Trigger processing
+          setSerialQueueTrigger((t) => t + 1);
           break;
         }
         case "compilation_status":
@@ -1619,62 +1806,164 @@ export default function ArduinoSimulator() {
         }
         case "io_registry": {
           // Update I/O Registry from runtime execution
-          const { registry } = message;
+          const { registry, baudrate } = message as any;
           setIoRegistry(registry);
+          
+          // Update baudrate from registry if provided
+          if (typeof baudrate === "number" && baudrate > 0) {
+            setBaudRate(baudrate);
+          }
 
-          // Analyze registry for pinMode inconsistencies and add to parser messages
-          const ioMessages = analyzeIORegistry(registry);
-          if (ioMessages.length > 0) {
-            let hasNewMessages = false;
+          // Update analogPinsUsed from registry - add pins that are used with analogRead/analogWrite
+          const analogPinsFromRegistry = new Set<number>();
+          for (const record of registry) {
+            const usedOps = record.usedAt || [];
+            const hasAnalogOp = usedOps.some(
+              (u: { line: number; operation: string }) =>
+                u.operation === "analogRead" ||
+                u.operation === "analogWrite" ||
+                u.operation.startsWith("analogWrite:")
+            );
+            if (hasAnalogOp) {
+              const pinNum = pinToNumber(record.pin);
+              if (pinNum !== null && pinNum >= 14 && pinNum <= 19) {
+                analogPinsFromRegistry.add(pinNum);
+              }
+            }
+          }
+
+          // Merge with existing analogPinsUsed and update if changed
+          if (analogPinsFromRegistry.size > 0) {
+            setAnalogPinsUsed((prev) => {
+              const merged = new Set([...prev, ...analogPinsFromRegistry]);
+              const arr = Array.from(merged).sort((a, b) => a - b);
+              // Only update if actually changed to avoid infinite loops
+              if (
+                arr.length !== prev.length ||
+                arr.some((p, i) => p !== prev[i])
+              ) {
+                return arr;
+              }
+              return prev;
+            });
+          }
+
+          // Update pinStates from registry data - add pins that have been defined
+          setPinStates((prev) => {
+            const newStates = [...prev];
+
+            for (const record of registry) {
+              if (!record.defined) continue; // Skip undefined pins
+
+              const pinNum = pinToNumber(record.pin);
+              if (pinNum === null) continue;
+
+              const modeMap: {
+                [key: number]: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+              } = {
+                0: "INPUT",
+                1: "OUTPUT",
+                2: "INPUT_PULLUP",
+              };
+              const mode = modeMap[record.pinMode ?? 0] || "INPUT";
+
+              const exists = newStates.find((p) => p.pin === pinNum);
+              if (!exists) {
+                newStates.push({
+                  pin: pinNum,
+                  mode,
+                  value: 0,
+                  type: pinNum >= 14 && pinNum <= 19 ? "digital" : "digital",
+                });
+              } else {
+                exists.mode = mode;
+              }
+            }
+
+            return newStates;
+          });
+
+          // Check for pins used without pinMode (digitalWrite, digitalRead on undefined pins)
+          const usageWarnings: ParserMessage[] = [];
+          for (const record of registry) {
+            // Skip if pin was properly defined with pinMode
+            if (record.defined) continue;
+
+            const ops = record.usedAt || [];
+            // Check if pin was used with digitalWrite or digitalRead without pinMode
+            const usedOps = ops.filter(
+              (u: { line: number; operation: string }) =>
+                u.operation === "digitalWrite" ||
+                u.operation === "digitalRead" ||
+                u.operation.startsWith("digitalWrite:") ||
+                u.operation.startsWith("digitalRead:"),
+            );
+
+            if (usedOps.length > 0) {
+              const firstOp = usedOps[0];
+              const line = firstOp.line || undefined;
+              const opName = firstOp.operation.includes("Write")
+                ? "digitalWrite"
+                : "digitalRead";
+
+              usageWarnings.push({
+                id: crypto.randomUUID(),
+                type: "warning",
+                category: "pins",
+                severity: 2,
+                message: `Pin ${record.pin} is used with ${opName}() but pinMode() was never called. This may cause unexpected behavior.`,
+                suggestion: `pinMode(${record.pin}, OUTPUT); // Add this in setup()`,
+                line,
+              });
+            }
+          }
+
+          // Add usage warnings to parser messages
+          if (usageWarnings.length > 0) {
             setParserMessages((prev) => {
-              // Remove older pinMode-duplicate messages for the same pin so we only show one entry per pin
+              // Remove older warnings for the same pin
               const cleanedPrev = prev.filter((existing) => {
                 if (existing.category !== "pins") return true;
-                const pinMatch = existing.message.match(
-                  /Pin\s+(\S+)\s+has\s+pinMode/,
-                );
+                if (!existing.message.includes("pinMode() was never called"))
+                  return true;
+                const pinMatch = existing.message.match(/Pin\s+(\S+)\s+is/);
                 if (!pinMatch) return true;
                 const pinKey = pinMatch[1];
-                const isReplaced = ioMessages.some((m) => {
-                  if (m.category !== "pins") return false;
-                  const newMatch = m.message.match(
-                    /Pin\s+(\S+)\s+has\s+pinMode/,
-                  );
+                const isReplaced = usageWarnings.some((m) => {
+                  const newMatch = m.message.match(/Pin\s+(\S+)\s+is/);
                   return newMatch && newMatch[1] === pinKey;
                 });
                 return !isReplaced;
               });
 
-              // Merge new IO messages with existing messages, avoiding duplicates by message content
+              // Merge new warnings, avoiding duplicates
               const existingMessages = new Set(
                 cleanedPrev.map((m) => `${m.category}:${m.message}`),
               );
-              const newMessages = ioMessages.filter(
+              const newMessages = usageWarnings.filter(
                 (m) => !existingMessages.has(`${m.category}:${m.message}`),
               );
               if (newMessages.length > 0) {
-                hasNewMessages = true;
+                setParserPanelDismissed(false);
+                return [...cleanedPrev, ...newMessages];
               }
-              return [...cleanedPrev, ...newMessages];
+              return cleanedPrev;
             });
-            // Reset dismissed state to show the panel with new messages
-            if (hasNewMessages) {
-              setParserPanelDismissed(false);
-            }
           }
           break;
         }
       }
     }
-  }, [messageQueue, consumeMessages]);
+  }, [messageQueue, consumeMessages, addDebugMessage]);
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
     setIsModified(true);
 
     // Stop simulation when user edits the code (unless inserting a suggestion)
-    sendMessage({ type: "code_changed" });
+    // Only send message to server if simulation is actually running
     if (simulationStatus === "running" && !skipSimStopRef.current) {
+      sendMessage({ type: "code_changed" });
       setSimulationStatus("stopped");
       // Reset all UI pin state when code changes while running
       resetPinUI();
@@ -1800,11 +2089,13 @@ export default function ArduinoSimulator() {
     // is actually running. Populate `pinStates` for analog pins when
     // `simulationStatus` becomes 'running' (see separate effect below).
 
-    // Detect explicit pinMode calls in code so pins become clickable even before runtime updates
-    // Examples: pinMode(A0, INPUT); pinMode(14, INPUT_PULLUP);
+    // Parse pinMode calls in code ONLY to detect conflicts and record detected modes.
+    // Do NOT add pins to pinStates during code editing — pins should only appear
+    // after upload/simulation starts (via io_registry message from the server).
     const pinModeRe =
       /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
     const digitalPinsFromPinMode = new Set<number>();
+    const detectedModes: Record<number, string> = {};
     while ((m = pinModeRe.exec(mainCode))) {
       const token = m[1];
       const modeToken = m[2];
@@ -1826,32 +2117,11 @@ export default function ArduinoSimulator() {
             : modeToken === "OUTPUT"
               ? "OUTPUT"
               : "INPUT";
+        detectedModes[p] = mode;
 
-        // For analog-numbered pins (14..19), do NOT immediately insert into
-        // `pinStates`. We want analog pins (even when used via pinMode(Ax,...))
-        // to become visible only when the simulation starts. Record the detected
-        // mode in `detectedPinModes` so it can be applied on simulation start.
-        if (p >= 14 && p <= 19) {
-          setDetectedPinModes((prev) => ({ ...prev, [p]: mode }));
-        } else {
-          // Non-analog pins: make them clickable immediately
-          setPinStates((prev) => {
-            const newStates = [...prev];
-            const exists = newStates.find((x) => x.pin === p);
-            if (!exists) {
-              newStates.push({
-                pin: p,
-                mode: mode as any,
-                value: 0,
-                type: "digital",
-              });
-            } else {
-              exists.mode = mode as any;
-              exists.type = "digital";
-            }
-            return newStates;
-          });
-        }
+        // Store detected mode for ALL pins (digital and analog)
+        // These will be applied when simulation starts via the separate useEffect
+        setDetectedPinModes((prev) => ({ ...prev, [p]: mode }));
       }
     }
 
@@ -2093,8 +2363,7 @@ export default function ArduinoSimulator() {
       }
 
       // Clear previous outputs and stop simulation
-      setCliOutput("");
-      setSerialOutput([]);
+      clearOutputs();
       // Reset UI pin state and detected pin-mode info
       resetPinUI();
       setCompilationStatus("ready");
@@ -2137,9 +2406,7 @@ export default function ArduinoSimulator() {
     setActiveOutputTab("compiler");
 
     // Clear previous outputs and messages
-    setCliOutput("");
-    setSerialOutput([]);
-    setParserMessages([]); // Clear parser messages
+    clearOutputs();
     setIoRegistry(() => {
       const pins: IOPinRecord[] = [];
       for (let i = 0; i <= 13; i++) pins.push({ pin: String(i), defined: false, usedAt: [] });
@@ -2156,68 +2423,6 @@ export default function ArduinoSimulator() {
     setOutputPanelMinPercent(5); // Minimize output panel
     setCompilationPanelSize(5); // Minimize output panel size
     setParserPanelDismissed(false); // Ensure panel is not dismissed
-  };
-
-  /**
-   * Analyze IO Registry for pinMode inconsistencies and generate parser messages
-   */
-  const analyzeIORegistry = (registry: IOPinRecord[]): ParserMessage[] => {
-    const messages: ParserMessage[] = [];
-
-    for (const record of registry) {
-      const ops = record.usedAt || [];
-      const pinModeOps = ops.filter((u) => u.operation.includes("pinMode"));
-
-      if (pinModeOps.length === 0) continue;
-
-      // Extract pinMode modes
-      const pinModes = pinModeOps.map((u) => {
-        const match = u.operation.match(/pinMode:(\d+)/);
-        const mode = match ? parseInt(match[1]) : -1;
-        return mode === 0
-          ? "INPUT"
-          : mode === 1
-            ? "OUTPUT"
-            : mode === 2
-              ? "INPUT_PULLUP"
-              : "UNKNOWN";
-      });
-
-      const uniqueModes = [...new Set(pinModes)];
-      const hasMultipleModes = uniqueModes.length > 1;
-
-      if (hasMultipleModes) {
-        // Get first line where pinMode was called for this pin
-        const firstPinModeOp = pinModeOps[0];
-        const line = firstPinModeOp.line || undefined;
-
-        messages.push({
-          id: crypto.randomUUID(),
-          type: "warning",
-          category: "pins",
-          severity: 2,
-          message: `Pin ${record.pin} has inconsistent pinMode() configurations: ${uniqueModes.join(", ")}. This may cause unexpected behavior.`,
-          suggestion: `// Use consistent pinMode for pin ${record.pin}`,
-          line,
-        });
-      } else if (pinModeOps.length > 1) {
-        // Multiple calls with same mode - info message
-        const mode = uniqueModes[0];
-        const firstPinModeOp = pinModeOps[0];
-        const line = firstPinModeOp.line || undefined;
-
-        messages.push({
-          id: crypto.randomUUID(),
-          type: "info",
-          category: "pins",
-          severity: 1,
-          message: `Pin ${record.pin} has pinMode(${record.pin}, ${mode}) called ${pinModeOps.length} times. Consider calling it only once in setup().`,
-          line,
-        });
-      }
-    }
-
-    return messages;
   };
 
   const handleTabClose = (tabId: string) => {
@@ -2254,9 +2459,7 @@ export default function ArduinoSimulator() {
   };
 
   const handleCompile = () => {
-    setCliOutput("");
-    setSerialOutput([]);
-    setParserMessages([]);
+    clearOutputs();
     // Reset all pin-related UI state (including detectedPinModes)
     resetPinUI();
     // Reset IO-Registry to initial state with all pins
@@ -2322,7 +2525,7 @@ export default function ArduinoSimulator() {
       setSimulationStatus("stopped");
     }
     // Clear serial output on reset
-    setSerialOutput([]);
+    clearOutputs();
     // Reset pin states (preserve detected pinMode info)
     resetPinUI({ keepDetected: true });
 
@@ -2452,9 +2655,7 @@ export default function ArduinoSimulator() {
       `[CLIENT] Tabs: ${tabs.map((t) => `${t.name}(${t.content.length}b)`).join(", ")}`,
     );
 
-    setCliOutput("");
-    setSerialOutput([]);
-    setParserMessages([]);
+    clearOutputs();
     // Reset all pin-related UI state (including detectedPinModes)
     resetPinUI();
     setCompilationStatus("compiling");
@@ -2559,9 +2760,9 @@ export default function ArduinoSimulator() {
     setParserMessages([]);
   };
 
-  const handleClearSerialOutput = () => {
+  const handleClearSerialOutput = useCallback(() => {
     setSerialOutput([]);
-  };
+  }, []);
 
   const getStatusInfo = () => {
     switch (compilationStatus) {
@@ -2856,7 +3057,7 @@ export default function ArduinoSimulator() {
                           value={activeOutputTab}
                           onValueChange={(v) =>
                             setActiveOutputTab(
-                              v as "compiler" | "messages" | "registry",
+                              v as "compiler" | "messages" | "registry" | "debug",
                             )
                           }
                           className="h-full flex flex-col"
@@ -2869,6 +3070,7 @@ export default function ArduinoSimulator() {
                             <TabsList className="h-auto flex gap-1 bg-transparent items-center">
                               <TabsTrigger
                                 value="compiler"
+                                onDoubleClick={() => openOutputPanel("compiler")}
                                 className={clsx(
                                   "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
                                   {
@@ -2896,6 +3098,7 @@ export default function ArduinoSimulator() {
                               </TabsTrigger>
                               <TabsTrigger
                                 value="messages"
+                                onDoubleClick={() => openOutputPanel("messages")}
                                 className={clsx(
                                   "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
                                   {
@@ -2919,6 +3122,7 @@ export default function ArduinoSimulator() {
                               </TabsTrigger>
                               <TabsTrigger
                                 value="registry"
+                                onDoubleClick={() => openOutputPanel("registry")}
                                 className={clsx(
                                   "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
                                   {
@@ -2936,6 +3140,20 @@ export default function ArduinoSimulator() {
                                   I/O Registry
                                 </span>
                               </TabsTrigger>
+                              {debugMode && (
+                                <TabsTrigger
+                                  value="debug"
+                                  onDoubleClick={() => openOutputPanel("debug")}
+                                  className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center text-purple-400 gap-1.5"
+                                >
+                                  Debug
+                                  {debugMessages.length > 0 && (
+                                    <span className="bg-purple-600/30 text-purple-300 text-[10px] px-1.5 py-0.5 rounded-full font-mono">
+                                      {debugMessages.length > 99 ? "99+" : debugMessages.length}
+                                    </span>
+                                  )}
+                                </TabsTrigger>
+                              )}
                             </TabsList>
                             <div className="flex-1" />
                             <div className="flex items-center px-2">
@@ -3019,6 +3237,168 @@ export default function ArduinoSimulator() {
                               defaultTab="registry"
                             />
                           </TabsContent>
+
+                          <TabsContent
+                            value="debug"
+                            className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
+                          >
+                            <div className="flex-1 overflow-hidden flex flex-col">
+                                {/* Debug Console Header */}
+                                <div className="bg-muted/50 border-b border-muted-foreground/30 px-3 h-[var(--ui-button-height)] flex items-center justify-between gap-2 flex-shrink-0">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <span className="text-ui-xs text-muted-foreground whitespace-nowrap">Filter:</span>
+                                    <select
+                                      value={debugMessageFilter}
+                                      onChange={(e) => setDebugMessageFilter(e.target.value.toLowerCase())}
+                                      className="flex-1 px-2 py-1 text-ui-xs bg-background border border-muted-foreground/20 rounded text-foreground min-w-0 max-w-xs"
+                                    >
+                                      <option value="">All Types</option>
+                                      {Array.from(new Set(debugMessages.map((m) => m.type))).sort().map((type) => (
+                                        <option key={type} value={type.toLowerCase()}>
+                                          {type}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <button
+                                      onClick={() => setDebugViewMode(debugViewMode === "table" ? "tiles" : "table")}
+                                      className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center text-ui-xs bg-purple-600/20 text-purple-400 border border-purple-600/40 rounded hover:bg-purple-600/30 transition-colors"
+                                      title={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
+                                    >
+                                      {debugViewMode === "table" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Table className="h-3.5 w-3.5" />}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const messages = debugMessages
+                                          .filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)
+                                          .map((m) => `[${m.timestamp.toLocaleTimeString()}] ${m.sender.toUpperCase()} (${m.type}): ${m.content}`)
+                                          .join('\n');
+                                        if (messages) {
+                                          navigator.clipboard.writeText(messages);
+                                          toast({
+                                            title: "Copied to clipboard",
+                                            description: `${debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length} messages`,
+                                          });
+                                        }
+                                      }}
+                                      className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-blue-600/20 text-blue-400 border border-blue-600/40 rounded hover:bg-blue-600/30 transition-colors"
+                                    >
+                                      Copy
+                                    </button>
+                                    <button
+                                      onClick={() => setDebugMessages([])}
+                                      className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-red-600/20 text-red-400 border border-red-600/40 rounded hover:bg-red-600/30 transition-colors"
+                                    >
+                                      Clear
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Debug Messages Table View */}
+                                {debugViewMode === "table" && (
+                                  <div ref={debugMessagesContainerRef} className="flex-1 overflow-auto custom-scrollbar">
+                                    <table className="w-full text-ui-xs border-collapse">
+                                      <thead className="sticky top-0 bg-muted/80 border-b border-muted-foreground/20">
+                                        <tr>
+                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-24">Time</th>
+                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-16">Sender</th>
+                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-20">Protocol</th>
+                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-32">Type</th>
+                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground">Content</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {debugMessages
+                                          .filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)
+                                          .reverse()
+                                          .map((msg, idx) => (
+                                            <tr
+                                              key={msg.id}
+                                              className={`border-b border-muted-foreground/10 ${idx % 2 === 0 ? "bg-background" : "bg-muted/20"} hover:bg-muted/40 transition-colors`}
+                                            >
+                                              <td className="px-2 py-1 text-cyan-400 border-r border-muted-foreground/10 font-mono whitespace-nowrap">
+                                                {msg.timestamp.toLocaleTimeString()}
+                                              </td>
+                                              <td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap">
+                                                <span className={msg.sender === "server" ? "text-blue-400" : "text-green-400"}>
+                                                  {msg.sender.toUpperCase()}
+                                                </span>
+                                              </td>
+                                              <td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap">
+                                                <span className={msg.protocol === "http" ? "text-orange-400" : "text-purple-400"}>
+                                                  {msg.protocol?.toUpperCase() || "?"}
+                                                </span>
+                                              </td>
+                                              <td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap">
+                                                <span className="text-yellow-400 font-mono">{msg.type}</span>
+                                              </td>
+                                              <td className="px-2 py-1 text-gray-300 font-mono max-w-md truncate" title={msg.content}>
+                                                {msg.content}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length === 0 && (
+                                          <tr>
+                                            <td colSpan={5} className="px-2 py-4 text-center text-muted-foreground text-ui-xs">
+                                              {debugMessages.length === 0 ? "No messages yet" : "No messages match filter"}
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+
+                                {/* Debug Messages Tiles View */}
+                                {debugViewMode === "tiles" && (
+                                  <div ref={debugMessagesContainerRef} className="flex-1 overflow-auto custom-scrollbar p-3">
+                                    <div className="space-y-3">
+                                      {debugMessages
+                                        .filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)
+                                        .reverse()
+                                        .map((msg) => (
+                                          <div
+                                            key={msg.id}
+                                            className="bg-muted/20 border border-muted-foreground/20 rounded p-3 hover:bg-muted/40 transition-colors"
+                                          >
+                                            {/* Header Row */}
+                                            <div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b border-muted-foreground/20">
+                                              <div className="flex items-center gap-3">
+                                                <span className={`text-ui-xs font-semibold px-2 py-0.5 rounded ${msg.sender === "server" ? "bg-blue-600/20 text-blue-400" : "bg-green-600/20 text-green-400"}`}>
+                                                  {msg.sender.toUpperCase()}
+                                                </span>
+                                                <span className="text-ui-xs text-yellow-400 font-mono bg-yellow-600/10 px-2 py-0.5 rounded">
+                                                  {msg.type}
+                                                </span>
+                                              </div>
+                                              <span className="text-ui-xs text-cyan-400 font-mono whitespace-nowrap">
+                                                {msg.timestamp.toLocaleTimeString()}
+                                              </span>
+                                            </div>
+                                            {/* Content with JSON formatting */}
+                                            <pre className="text-ui-xs text-gray-300 font-mono overflow-x-auto bg-black/20 p-2 rounded border border-muted-foreground/10">
+                                              <code>{(() => {
+                                                try {
+                                                  const parsed = JSON.parse(msg.content);
+                                                  return JSON.stringify(parsed, null, 2);
+                                                } catch {
+                                                  return msg.content;
+                                                }
+                                              })()}</code>
+                                            </pre>
+                                          </div>
+                                        ))}
+                                      {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length === 0 && (
+                                        <div className="text-center text-muted-foreground text-ui-xs py-8">
+                                          {debugMessages.length === 0 ? "No messages yet" : "No messages match filter"}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </TabsContent>
                         </Tabs>
                       </ResizablePanel>
                     </>

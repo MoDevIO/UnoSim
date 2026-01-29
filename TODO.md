@@ -4,6 +4,12 @@
 - Better Analog Input UI
 - Better Autocomplete/Linting
 - Autosaving
+- **Realtime Serial Output Timing**: Implement frontend-side timing to display serial output character-by-character based on baudrate. Currently all text appears instantly. Implementation notes:
+  - Use `ts_write` timestamp from `serial_event` messages
+  - Use `baudrate` from `io_registry` to calculate character delay: `delay_ms = (10 bits × char_count × 1000) / baudrate`
+  - Instead of immediately appending text, queue events and use `setTimeout` to reveal characters at realistic intervals
+  - At 115200 baud: ~0.09ms per char (imperceptible), at 300 baud: ~33ms per char (visibly slow)
+  - Consider a "fast mode" toggle to bypass timing for debugging
 
 
 ## Bug Fixes
@@ -16,6 +22,7 @@
 - Enhanced Parsing
 - Visualize the arduino board svg in transparent when simulation not running
 - Ability to pause the running sketch
+- Debug Console
 
 ## Bug Fixes
 - Toggle visibility PWM button

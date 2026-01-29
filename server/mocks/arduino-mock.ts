@@ -235,9 +235,6 @@ void pinMode(int pin, int mode) {
             // Track pinMode in operations (format: "pinMode:MODE" where MODE is 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP)
             std::string pinModeOp = "pinMode:" + std::to_string(mode);
             ioRegistry[pin].operations.push_back({0, pinModeOp});
-            
-            // Output updated registry immediately when pinMode called
-            outputIORegistry();
         }
     }
 }
@@ -254,7 +251,6 @@ inline void trackIOOperation(int pin, const std::string& operation) {
         }
         if (!opExists) {
             ioRegistry[pin].operations.push_back({0, operation});
-            outputIORegistry();
         }
     }
 }

@@ -21,7 +21,7 @@ describe("ArduinoCompiler - additional", () => {
 
     const res = await compiler.compile(code, headers);
     expect(res.success).toBe(true);
-    expect(res.processedCode).toMatch(/myheader.h/);
+    // Note: processedCode was removed from CompilationResult as an optimization
     expect(res.output).toMatch(/Board: Arduino UNO/);
 
     spy.mockRestore();

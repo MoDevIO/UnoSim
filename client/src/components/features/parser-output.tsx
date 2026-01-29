@@ -42,53 +42,10 @@ export function ParserOutput({
   // PWM-capable pins on Arduino UNO
   const PWM_PINS = [3, 5, 6, 9, 10, 11];
 
-  // Check for I/O registry problems
-  const hasIOProblems = React.useMemo(() => {
-    return ioRegistry.some((record) => {
-      const ops = record.usedAt || [];
-      const digitalReads = ops.filter((u) =>
-        u.operation.includes("digitalRead"),
-      );
-      const digitalWrites = ops.filter((u) =>
-        u.operation.includes("digitalWrite"),
-      );
-      const pinModes = ops
-        .filter((u) => u.operation.includes("pinMode"))
-        .map((u) => {
-          const match = u.operation.match(/pinMode:(\d+)/);
-          const mode = match ? parseInt(match[1]) : -1;
-          return mode === 0
-            ? "INPUT"
-            : mode === 1
-              ? "OUTPUT"
-              : mode === 2
-                ? "INPUT_PULLUP"
-                : "UNKNOWN";
-        });
-      const uniqueModes = [...new Set(pinModes)];
-      const hasMultipleModes = uniqueModes.length > 1;
+  // Check for I/O registry problems is handled by the I/O Registry tab display
 
-      // Problem: digitalWrite/digitalRead without pinMode
-      const hasIOWithoutMode =
-        (digitalReads.length > 0 || digitalWrites.length > 0) &&
-        pinModes.length === 0;
-
-      // Problem: Multiple different pinMode calls
-      return hasIOWithoutMode || hasMultipleModes;
-    });
-  }, [ioRegistry]);
-
-  // Auto-switch to registry tab if registry has problems and no messages
-  // But only if defaultTab is 'messages' (to not interfere with explicit registry view)
-  React.useEffect(() => {
-    if (defaultTab === "messages") {
-      if (hasIOProblems && messages.length === 0) {
-        setActiveTab("registry");
-      } else if (messages.length > 0) {
-        setActiveTab("messages");
-      }
-    }
-  }, [hasIOProblems, messages.length, defaultTab]);
+  // Do NOT auto-switch tabs - let user control which tab they want to see
+  // Previously this auto-switched to registry when no messages, but that was confusing
 
   // Group messages by category for better organization
   const messagesByCategory = messages.reduce(

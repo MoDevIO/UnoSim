@@ -136,48 +136,6 @@ export function ArduinoBoard({
       );
   }, []);
 
-  // Get pin color based on state
-  const getPinColor = useCallback(
-    (pin: number): string => {
-      const state = pinStates.find((p) => p.pin === pin);
-      if (!state) return "transparent";
-
-      if (state.type === "pwm" && PWM_PINS.includes(pin)) {
-        const intensity = Math.round((state.value / 255) * 255);
-        if (intensity <= 0) return "transparent";
-        return `rgb(${intensity}, 0, 0)`;
-      }
-
-      if (state.type === "analog") {
-        // analog values expected 0..1023 -> map to 0..255 red intensity
-        const v = Math.max(0, Math.min(1023, state.value));
-        const intensity = Math.round((v / 1023) * 255);
-        if (intensity <= 0) return "transparent";
-        return `rgb(${intensity}, 0, 0)`;
-      }
-
-      // digital
-      if (state.value > 0) {
-        return "#ff0000";
-      } else {
-        return "#000000";
-      }
-    },
-    [pinStates],
-  );
-
-  // Check if pin is INPUT
-  const isPinInput = useCallback(
-    (pin: number): boolean => {
-      const state = pinStates.find((p) => p.pin === pin);
-      return (
-        state !== undefined &&
-        (state.mode === "INPUT" || state.mode === "INPUT_PULLUP")
-      );
-    },
-    [pinStates],
-  );
-
   // Stable reference to ALL current state for polling - updated on every render
   const stateRef = useRef({
     pinStates,
@@ -198,18 +156,19 @@ export function ArduinoBoard({
 
   // Single stable polling loop for ALL SVG updates - runs ONCE, never restarts
   useEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-
     const performAllUpdates = () => {
+      // Check overlay ref INSIDE the callback to handle late mounting
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+
       const svgEl = overlay.querySelector("svg");
       if (!svgEl) return;
 
       const { pinStates, isSimulationRunning, txBlink, rxBlink, analogPins } =
         stateRef.current;
 
-      // Helper to check if pin is INPUT
-      const isPinInput = (pin: number): boolean => {
+      // Helper to check if pin is INPUT (using stateRef.current pinStates)
+      const isPinInputLocal = (pin: number): boolean => {
         const state = pinStates.find((p) => p.pin === pin);
         return (
           state !== undefined &&
@@ -243,7 +202,7 @@ export function ArduinoBoard({
         );
         const click = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-click`);
 
-        const isInput = isPinInput(pin);
+        const isInput = isPinInputLocal(pin);
         const color = getPinColor(pin);
 
         if (frame) {
@@ -284,7 +243,7 @@ export function ArduinoBoard({
           `#pin-${pinId}-click`,
         );
 
-        const isInput = isPinInput(pinNumber);
+        const isInput = isPinInputLocal(pinNumber);
         const usedAsAnalog = analogPins.includes(pinNumber);
         const color = getPinColor(pinNumber);
 
@@ -545,7 +504,7 @@ export function ArduinoBoard({
     performAllUpdates();
 
     return () => clearInterval(intervalId);
-  }, [isPinInput, getPinColor]); // Only depends on stable callbacks
+  }, []); // Empty dep array - polling loop never restarts, reads from stateRef which is always current
 
   // Compute slider positions for analog pins using SVG bbox (percent of viewBox)
   useEffect(() => {

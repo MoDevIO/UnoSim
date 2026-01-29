@@ -26,8 +26,7 @@ describe("ArduinoCompiler", () => {
     expect(result.success).toBe(true);
     expect(result.arduinoCliStatus).toBe("success");
     expect(result.output).toContain("Board: Arduino UNO");
-    expect(result.processedCode).toContain("// --- Start of myh.h ---");
-    expect(result.processedCode).toContain("// header content");
+    // Note: processedCode was removed from CompilationResult as an optimization
   });
 
   it("returns error when arduino-cli reports compilation failures", async () => {

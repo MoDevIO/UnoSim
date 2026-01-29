@@ -16,9 +16,8 @@ export interface CompilationResult {
   binary?: Buffer;
   arduinoCliStatus: "idle" | "compiling" | "success" | "error";
   gccStatus: "idle" | "compiling" | "success" | "error";
-  processedCode?: string; // NEW: The code with embedded headers
-  parserMessages?: ParserMessage[]; // NEW: Parser validation messages
-  ioRegistry?: IOPinRecord[]; // NEW: I/O Registry for visualization
+  parserMessages?: ParserMessage[]; // Parser validation messages
+  ioRegistry?: IOPinRecord[]; // I/O Registry for visualization
 }
 
 export class ArduinoCompiler {
@@ -204,7 +203,6 @@ export class ArduinoCompiler {
         errors: cliErrors || undefined,
         arduinoCliStatus,
         gccStatus: "idle", // Nicht mehr verwendet in Compiler
-        processedCode, // Include the processed code with embedded headers
         parserMessages, // Include parser messages
         ioRegistry, // Include I/O registry
       };
@@ -216,7 +214,6 @@ export class ArduinoCompiler {
         arduinoCliStatus:
           arduinoCliStatus === "compiling" ? "error" : arduinoCliStatus,
         gccStatus: "idle",
-        processedCode: code, // Return original code on error
         parserMessages, // Include parser messages even on error
         ioRegistry, // Include I/O registry
       };
