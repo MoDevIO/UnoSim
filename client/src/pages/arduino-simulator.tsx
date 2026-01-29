@@ -1884,7 +1884,12 @@ export default function ArduinoSimulator() {
           });
 
           // Check for pins used without pinMode (digitalWrite, digitalRead on undefined pins)
+          // NOTE: Duplicate warning suppression - the CodeParser.parseHardwareCompatibility()
+          // already generates the "hardware" category warning for pins used with digitalRead/digitalWrite
+          // without pinMode, so we don't need to generate another "pins" category warning here
           const usageWarnings: ParserMessage[] = [];
+          // Disabled: This duplicates hardware compatibility warnings from the parser
+          /* 
           for (const record of registry) {
             // Skip if pin was properly defined with pinMode
             if (record.defined) continue;
@@ -1917,6 +1922,7 @@ export default function ArduinoSimulator() {
               });
             }
           }
+          */
 
           // Add usage warnings to parser messages
           if (usageWarnings.length > 0) {
@@ -3299,8 +3305,8 @@ export default function ArduinoSimulator() {
                                 {debugViewMode === "table" && (
                                   <div ref={debugMessagesContainerRef} className="flex-1 overflow-auto custom-scrollbar">
                                     <table className="w-full text-ui-xs border-collapse">
-                                      <thead className="sticky top-0 bg-muted/80 border-b border-muted-foreground/20">
-                                        <tr>
+                                      <thead>
+                                        <tr className="sticky top-0 z-40 bg-muted border-b border-muted-foreground/20">
                                           <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-24">Time</th>
                                           <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-16">Sender</th>
                                           <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-20">Protocol</th>

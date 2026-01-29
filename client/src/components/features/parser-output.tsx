@@ -334,10 +334,10 @@ export function ParserOutput({
                 )}
               </div>
             ) : (
-              <div className="h-full overflow-visible">
+              <div className="h-full overflow-auto">
                 <table className="w-full text-ui-xs border-collapse">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="border-b border-muted-foreground/30 bg-muted/50">
+                  <thead>
+                    <tr className="sticky top-0 z-40 border-b border-muted-foreground/30 bg-muted">
                       <th className="px-2 py-1 text-right font-semibold text-foreground">
                         Pin
                       </th>
