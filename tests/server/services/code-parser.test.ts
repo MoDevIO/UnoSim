@@ -360,6 +360,25 @@ void loop()
       );
       expect(pinConfigWarnings).toHaveLength(0);
     });
+
+    it("should warn when pinMode is called multiple times for the same pin", () => {
+      const code = `
+        void setup() {
+          pinMode(0, INPUT);
+          pinMode(0, OUTPUT);
+        }
+        void loop() {}
+      `;
+
+      const messages = parser.parseHardwareCompatibility(code);
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: "warning",
+          category: "pins",
+          message: expect.stringMatching(/pinMode\(\).*multiple|multiple pinMode|different modes/i),
+        }),
+      );
+    });
   });
 
   describe("parsePinConflicts", () => {

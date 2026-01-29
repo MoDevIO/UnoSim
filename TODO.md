@@ -15,7 +15,7 @@
 
 
 ## Bug Fixes
-- When pinMode ist programmed twice or more for one pin, it should create a message in messages
+
 
 
 # Completed
@@ -41,5 +41,6 @@
 - Timing issue: delay(1000) in loop() needs 1200ms! (Fixed: removed stdin polling overhead from delay())
 - Screenshots in README.md again with updated images (Fixed: Added 3 updated screenshots)
 - Tables (IO-Registry and Debug): records hit header when scrolling. Header should be above the records not on them.
+- When pinMode ist programmed twice or more for one pin, it should create a message in messages
 
 

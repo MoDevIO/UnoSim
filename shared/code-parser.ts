@@ -255,6 +255,58 @@ export class CodeParser {
       pinModeSet.add(match[1]);
     }
 
+    // Detect multiple pinMode calls for the same pin
+    const uncommentedCode = this.removeComments(code);
+    const pinModeWithModeRegex =
+      /pinMode\s*\(\s*(\d+|A\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
+    const pinModeCalls = new Map<
+      string,
+      { modes: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">; lines: number[] }
+    >();
+
+    while ((match = pinModeWithModeRegex.exec(uncommentedCode)) !== null) {
+      const pin = match[1];
+      const mode = match[2] as "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+      const line = uncommentedCode.substring(0, match.index).split("\n").length;
+
+      if (!pinModeCalls.has(pin)) {
+        pinModeCalls.set(pin, { modes: [mode], lines: [line] });
+      } else {
+        const entry = pinModeCalls.get(pin)!;
+        entry.modes.push(mode);
+        entry.lines.push(line);
+      }
+    }
+
+    for (const [pin, entry] of pinModeCalls.entries()) {
+      if (entry.modes.length < 2) continue;
+
+      const uniqueModes = Array.from(new Set(entry.modes));
+      const line = entry.lines[1];
+
+      if (uniqueModes.length > 1) {
+        messages.push({
+          id: randomUUID(),
+          type: "warning",
+          category: "pins",
+          severity: 2 as SeverityLevel,
+          message: `Pin ${pin} has multiple pinMode() calls with different modes: ${uniqueModes.join(", ")}.`,
+          suggestion: `Use a single pinMode(${pin}, <MODE>) call in setup().`,
+          line,
+        });
+      } else {
+        messages.push({
+          id: randomUUID(),
+          type: "warning",
+          category: "pins",
+          severity: 2 as SeverityLevel,
+          message: `Pin ${pin} has pinMode() called multiple times (${entry.modes.length}x).`,
+          suggestion: `Remove duplicate pinMode(${pin}, ${uniqueModes[0]}) calls.`,
+          line,
+        });
+      }
+    }
+
     // Also detect pins configured in loops
     const loopConfiguredPins = this.getLoopConfiguredPins(code);
 

@@ -52,5 +52,9 @@
     "killall": true,
     "pgrep": true,
     "reset": true
-  }
+  },
+  "jest.jestCommandLine": "npx jest",
+  "jest.configPath": "jest.config.js",
+  "jest.rootPath": ".",
+  "jest.runMode": "on-demand"
 }
