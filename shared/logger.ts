@@ -30,11 +30,21 @@ export class Logger {
       })
       .join(" ");
 
-    if (level === "TEST") {
-      console.log(message);
-    } else {
-      const timestamp = new Date().toISOString();
-      console.log(`[${timestamp}][${level}][${this.sender}] ${message}`);
+    // Test-Guard: Catch errors if console stream is closed (happens after tests finish)
+    try {
+      if (level === "TEST") {
+        console.log(message);
+      } else {
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}][${level}][${this.sender}] ${message}`);
+      }
+    } catch (err) {
+      // Silently ignore logging errors in test environment
+      // This prevents "Cannot log after tests are done" errors
+      if (nodeEnv !== "test") {
+        // In non-test environments, we still want to see the error
+        console.error("Logger error:", err);
+      }
     }
   }
 

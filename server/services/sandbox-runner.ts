@@ -2,13 +2,26 @@
 // Secure sandbox execution for Arduino sketches using Docker
 
 import { spawn, execSync } from "child_process";
-import { writeFile, mkdir, rm, chmod } from "fs/promises";
+import { mkdir, rm } from "fs/promises";
 import { existsSync, renameSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
-import { ARDUINO_MOCK_CODE } from "../mocks/arduino-mock";
 import type { IOPinRecord } from "@shared/schema";
+import { ArduinoOutputParser } from "./arduino-output-parser";
+import { RegistryManager } from "./registry-manager";
+import { SimulationTimeoutManager } from "./simulation-timeout-manager";
+import { DockerCommandBuilder } from "./docker-command-builder";
+import { SketchFileBuilder } from "./sketch-file-builder";
+import { LocalCompiler } from "./local-compiler";
+
+enum SimulationState {
+  STOPPED = "stopped",
+  STARTING = "starting",
+  RUNNING = "running",
+  PAUSED = "paused",
+  ERROR = "error",
+}
 
 // Configuration
 const SANDBOX_CONFIG = {
@@ -29,59 +42,195 @@ const SANDBOX_CONFIG = {
 };
 
 export class SandboxRunner {
-  isRunning = false;
-  tempDir = join(process.cwd(), "temp");
-  process: ReturnType<typeof spawn> | null = null;
-  processKilled = false;
-  isPaused = false;
+  // Core state
+  private state: SimulationState = SimulationState.STOPPED;
+  private tempDir = join(process.cwd(), "temp");
+  private process: ReturnType<typeof spawn> | null = null;
+  private processKilled = false;
   private pauseStartTime: number | null = null;
+  
+  // Managers and helpers
   private logger = new Logger("SandboxRunner");
+  private parser = new ArduinoOutputParser();
+  private registryManager: RegistryManager;
+  private timeoutManager: SimulationTimeoutManager;
+  private fileBuilder: SketchFileBuilder;
+  private localCompiler: LocalCompiler;
+  
+  // Output buffers
   private outputBuffer = "";
   private errorBuffer = "";
   private totalOutputBytes = 0;
-  private dockerAvailable = false;
-  private dockerImageBuilt = false;
-  private currentSketchDir: string | null = null;
-  private baudrate = 9600; // Default baudrate
-  private isSendingOutput = false; // Flag to prevent overlapping sends
+  private isSendingOutput = false;
   private flushTimer: NodeJS.Timeout | null = null;
   private pendingIncomplete = false;
-  // Buffer for coalescing SERIAL_EVENTs emitted by the C++ mock
   private pendingSerialEvents: Array<any> = [];
   private pendingSerialFlushTimer: NodeJS.Timeout | null = null;
-  // Server-side timestamp of when the spawned process was started (ms since epoch)
+  
+  // Execution state
   private processStartTime: number | null = null;
+  private currentSketchDir: string | null = null;
+  private baudrate = 9600;
+  private dockerAvailable = false;
+  private dockerImageBuilt = false;
+  
+  // Callbacks and message queue
   private ioRegistryCallback: ((registry: IOPinRecord[], baudrate: number) => void) | undefined;
-  // Runtime I/O Registry collected from stderr
-  private ioRegistryData: IOPinRecord[] = [];
-  private collectingRegistry = false;
-  private registryAlreadySent = false; // Flag to prevent duplicate registry sends on exit
-  private registryLastHash = ""; // Hash of last sent registry for change detection
-  private registryDebounceTimer: NodeJS.Timeout | null = null; // Debounce timer for registry sends
-  private registryLastSendTime = 0; // Timestamp of last registry send
-  private waitingForRegistry = false; // Flag to hold messages until registry is sent
-  private registryWaitTimer: NodeJS.Timeout | null = null; // Fallback timer to release output if registry stalls
-  private messageQueue: Array<{ type: string; data: any }> = []; // Queue for messages while waiting for registry
-  private currentRegistryFile: string | null = null;
-  private timeoutHandle: NodeJS.Timeout | null = null;
-  private timeoutDeadlineMs: number | null = null;
-  private pausedTimeoutRemainingMs: number | null = null;
-  private timeoutCallback: (() => void) | null = null;
-  // Stored onOutput callback for resume functionality
+  private messageQueue: Array<{ type: string; data: any }> = [];
   private onOutputCallback: ((line: string, isComplete?: boolean) => void) | null = null;
+  
+  // Stable callback references for async operations
+  private outputCallback: ((line: string, isComplete?: boolean) => void) | null = null;
+  private errorCallback: ((line: string) => void) | null = null;
+  private pinStateCallback: ((pin: number, type: "mode" | "value" | "pwm", value: number) => void) | null = null;
+  
+  // Lazy initialization flags
+  private dockerChecked = false;
+  private tempDirCreated = false;
 
   constructor() {
-    mkdir(this.tempDir, { recursive: true }).catch(() => {
-      this.logger.warn("Temp-Verzeichnis konnte nicht initial erstellt werden");
-    });
+    // Lightweight constructor - no side effects, no I/O, no blocking
+    // All heavy initialization happens lazily in ensureDockerChecked() and ensureTempDir()
+    
+    // Initialize managers and helpers
+    this.timeoutManager = new SimulationTimeoutManager();
+    this.fileBuilder = new SketchFileBuilder(this.tempDir);
+    this.localCompiler = new LocalCompiler();
 
-    // Check Docker availability on startup
-    this.checkDockerAvailability();
+    // Initialize registry manager with arrow function callback for correct 'this' binding
+    this.registryManager = new RegistryManager({
+      debounceMs: 200,
+      onUpdate: (registry, baudrate) => {
+        // Forward to WebSocket callback if set
+        if (this.ioRegistryCallback) {
+          this.ioRegistryCallback(registry, baudrate);
+        }
+        // Flush queued messages after first registry send
+        this.flushMessageQueue();
+      },
+    });
   }
 
-  // Calculate hash of registry data for change detection
-  private getRegistryHash(): string {
-    return JSON.stringify(this.ioRegistryData);
+  get isRunning(): boolean {
+    return (
+      this.state === SimulationState.STARTING ||
+      this.state === SimulationState.RUNNING ||
+      this.state === SimulationState.PAUSED
+    );
+  }
+
+  get isPaused(): boolean {
+    return this.state === SimulationState.PAUSED;
+  }
+
+  get simulationState(): SimulationState {
+    return this.state;
+  }
+
+  private transitionTo(newState: SimulationState): boolean {
+    const oldState = this.state;
+
+    if (oldState === newState) {
+      return true;
+    }
+
+    const validTransitions: Record<SimulationState, SimulationState[]> = {
+      [SimulationState.STOPPED]: [
+        SimulationState.STARTING,
+        SimulationState.ERROR,
+      ],
+      [SimulationState.STARTING]: [
+        SimulationState.RUNNING,
+        SimulationState.ERROR,
+        SimulationState.STOPPED,
+      ],
+      [SimulationState.RUNNING]: [
+        SimulationState.PAUSED,
+        SimulationState.STOPPED,
+        SimulationState.ERROR,
+      ],
+      [SimulationState.PAUSED]: [
+        SimulationState.RUNNING,
+        SimulationState.STOPPED,
+        SimulationState.ERROR,
+      ],
+      [SimulationState.ERROR]: [SimulationState.STOPPED],
+    };
+
+    if (!validTransitions[oldState]?.includes(newState)) {
+      this.logger.warn(
+        `Invalid state transition: ${oldState} -> ${newState}`,
+      );
+      return false;
+    }
+
+    this.handleStateExit(oldState, newState);
+    this.state = newState;
+    this.handleStateEnter(newState, oldState);
+    return true;
+  }
+
+  private handleStateExit(
+    state: SimulationState,
+    nextState: SimulationState,
+  ): void {
+    switch (state) {
+      case SimulationState.RUNNING:
+        if (nextState === SimulationState.PAUSED) {
+          // Freeze timeout clock
+          this.timeoutManager.pause();
+        } else if (nextState === SimulationState.STOPPED) {
+          // CRITICAL: Clear timeout to prevent zombie timer
+          this.timeoutManager.clear();
+        }
+        break;
+      
+      case SimulationState.PAUSED:
+        if (nextState === SimulationState.STOPPED) {
+          // CRITICAL: Clear paused timeout
+          this.timeoutManager.clear();
+        }
+        this.pauseStartTime = null;
+        break;
+      
+      default:
+        break;
+    }
+  }
+
+  private handleStateEnter(
+    state: SimulationState,
+    previousState: SimulationState,
+  ): void {
+    switch (state) {
+      case SimulationState.STARTING:
+        this.pauseStartTime = null;
+        break;
+      
+      case SimulationState.RUNNING:
+        if (previousState === SimulationState.PAUSED) {
+          // Resume timeout clock with remaining time
+          this.timeoutManager.resume();
+        }
+        break;
+      
+      case SimulationState.PAUSED:
+        this.pauseStartTime = Date.now();
+        // Timeout manager already paused in handleStateExit
+        break;
+      
+      case SimulationState.STOPPED:
+        this.pauseStartTime = null;
+        // Double-check: ensure no timers remain
+        this.timeoutManager.clear();
+        break;
+      
+      case SimulationState.ERROR:
+        break;
+      
+      default:
+        break;
+    }
   }
 
   // Flush queued messages after registry has been sent
@@ -97,85 +246,16 @@ export class SandboxRunner {
     const queue = this.messageQueue;
     this.messageQueue = [];
 
-    // Re-emit all queued messages in order
+    // Re-emit all queued messages in order using stable instance callbacks
     for (const msg of queue) {
-      if (msg.type === "pinState") {
-        msg.data.callback(msg.data.pin, msg.data.stateType, msg.data.value);
-      } else if (msg.type === "output") {
-        msg.data.callback(msg.data.line, msg.data.isComplete);
-      } else if (msg.type === "error") {
-        msg.data.callback(msg.data.line);
+      if (msg.type === "pinState" && this.pinStateCallback) {
+        this.pinStateCallback(msg.data.pin, msg.data.stateType, msg.data.value);
+      } else if (msg.type === "output" && this.outputCallback) {
+        this.outputCallback(msg.data.line, msg.data.isComplete);
+      } else if (msg.type === "error" && this.errorCallback) {
+        this.errorCallback(msg.data.line);
       }
     }
-  }
-
-  // Send registry with debounce and change detection
-  private sendRegistryWithDebounce(): void {
-    if (!this.ioRegistryCallback || this.registryAlreadySent) {
-      return;
-    }
-
-    const currentHash = this.getRegistryHash();
-    const now = Date.now();
-    const timeSinceLastSend = now - this.registryLastSendTime;
-
-    // Check if registry content has changed
-    if (currentHash === this.registryLastHash) {
-      return; // No change, don't send
-    }
-
-    // First send (no hash set yet) - send immediately without debounce
-    if (this.registryLastHash === "") {
-      this.registryLastHash = currentHash;
-      this.registryLastSendTime = now;
-      this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
-      this.logger.debug(
-        `[Registry] First send (no debounce): ${this.ioRegistryData.length} pins`,
-      );
-      // Flush queued messages after first registry send
-      this.waitingForRegistry = false;
-      if (this.registryWaitTimer) {
-        clearTimeout(this.registryWaitTimer);
-        this.registryWaitTimer = null;
-      }
-      this.flushMessageQueue();
-      // Mark as sent to ensure registry is sent only once per simulation
-      this.registryAlreadySent = true;
-      return;
-    }
-
-    // Subsequent sends - apply debounce (200ms)
-    const DEBOUNCE_MS = 200;
-    if (timeSinceLastSend < DEBOUNCE_MS) {
-      // Clear existing timer if any
-      if (this.registryDebounceTimer) {
-        clearTimeout(this.registryDebounceTimer);
-      }
-
-      // Schedule send after debounce period
-      this.registryDebounceTimer = setTimeout(() => {
-        const latestHash = this.getRegistryHash();
-        // Only send if hash is still different from last sent
-        if (latestHash !== this.registryLastHash && this.ioRegistryCallback && !this.registryAlreadySent) {
-          this.registryLastHash = latestHash;
-          this.registryLastSendTime = Date.now();
-          this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
-          this.logger.debug(
-            `[Registry] Sent after debounce: ${this.ioRegistryData.length} pins`,
-          );
-        }
-        this.registryDebounceTimer = null;
-      }, DEBOUNCE_MS - timeSinceLastSend);
-      return;
-    }
-
-    // Send immediately (enough time has passed since last send)
-    this.registryLastHash = currentHash;
-    this.registryLastSendTime = now;
-    this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
-    this.logger.debug(
-      `[Registry] Sent immediately: ${this.ioRegistryData.length} pins`,
-    );
   }
 
   private flushPendingSerialEvents(
@@ -207,13 +287,28 @@ export class SandboxRunner {
     this.pendingSerialEvents = [];
   }
 
+  /**
+   * Lazy initialization: Check Docker availability only when needed
+   * This prevents blocking the constructor and freezing tests
+   */
+  private ensureDockerChecked(): void {
+    if (this.dockerChecked) {
+      return; // Already checked
+    }
+    this.dockerChecked = true;
+    this.checkDockerAvailability();
+  }
+
+  /**
+   * Check if Docker is available and the sandbox image is built
+   */
   private checkDockerAvailability(): void {
     try {
       // Check if docker command exists AND daemon is running
-      execSync("docker --version", { stdio: "pipe" });
+      execSync("docker --version", { stdio: "pipe", timeout: 2000 });
 
       // Test if Docker daemon is actually running by pinging it
-      execSync("docker info", { stdio: "pipe", timeout: 5000 });
+      execSync("docker info", { stdio: "pipe", timeout: 2000 });
 
       this.dockerAvailable = true;
       this.logger.info("✅ Docker daemon running — Sandbox mode enabled");
@@ -222,6 +317,7 @@ export class SandboxRunner {
       try {
         execSync(`docker image inspect ${SANDBOX_CONFIG.dockerImage}`, {
           stdio: "pipe",
+          timeout: 2000,
         });
         this.dockerImageBuilt = true;
         this.logger.info("✅ Sandbox Docker Image gefunden");
@@ -240,55 +336,27 @@ export class SandboxRunner {
     }
   }
 
-  private clearTimeoutTimer() {
-    if (this.timeoutHandle) {
-      clearTimeout(this.timeoutHandle);
-      this.timeoutHandle = null;
+  /**
+   * Lazy initialization: Create temp directory only when needed
+   * This prevents async operations in the constructor
+   */
+  private async ensureTempDir(): Promise<void> {
+    if (this.tempDirCreated) {
+      return; // Already created
     }
-    this.timeoutDeadlineMs = null;
-  }
-
-  private scheduleTimeoutMs(
-    ms: number | null,
-    onTimeout: () => void,
-  ): void {
-    this.clearTimeoutTimer();
-    this.timeoutCallback = null;
-
-    if (ms === null || ms <= 0) {
-      return;
-    }
-
-    this.timeoutCallback = onTimeout;
-    this.timeoutDeadlineMs = Date.now() + ms;
-    this.timeoutHandle = setTimeout(() => {
-      this.timeoutHandle = null;
-      this.timeoutDeadlineMs = null;
-      this.timeoutCallback = null;
-      onTimeout();
-    }, ms);
-  }
-
-  private pauseTimeoutClock() {
-    if (this.timeoutHandle && this.timeoutDeadlineMs) {
-      this.pausedTimeoutRemainingMs = Math.max(
-        0,
-        this.timeoutDeadlineMs - Date.now(),
+    this.tempDirCreated = true;
+    
+    try {
+      await mkdir(this.tempDir, { recursive: true });
+    } catch (err) {
+      this.logger.warn(
+        `Temp directory creation failed: ${err instanceof Error ? err.message : String(err)}`
       );
-      this.clearTimeoutTimer();
+      // Don't throw - let the actual file operations fail later if needed
     }
   }
 
-  private resumeTimeoutClock() {
-    if (
-      this.pausedTimeoutRemainingMs !== null &&
-      this.timeoutCallback !== null
-    ) {
-      const remainingMs = Math.max(0, this.pausedTimeoutRemainingMs);
-      this.pausedTimeoutRemainingMs = null;
-      this.scheduleTimeoutMs(remainingMs, this.timeoutCallback);
-    }
-  }
+  // Note: Duplicate flushMessageQueue removed - using single implementation above
 
   async runSketch(
     code: string,
@@ -302,184 +370,62 @@ export class SandboxRunner {
       type: "mode" | "value" | "pwm",
       value: number,
     ) => void,
-    timeoutSec?: number, // Custom timeout in seconds, 0 = infinite
+    timeoutSec?: number,
     onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
   ) {
-    // Store callback in local var for access in closures below
-    this.ioRegistryCallback = onIORegistry;
-    // Use custom timeout or default
-    const executionTimeout =
-      timeoutSec !== undefined
-        ? timeoutSec
-        : SANDBOX_CONFIG.maxExecutionTimeSec;
-    this.logger.info(
-      `🕐 runSketch called with timeoutSec=${timeoutSec}, using executionTimeout=${executionTimeout}s`,
-    );
+    // Lazy initialization: ensure Docker is checked and temp directory exists
+    this.ensureDockerChecked();
+    await this.ensureTempDir();
+    
+    if (!this.transitionTo(SimulationState.STARTING)) {
+      this.logger.warn(
+        `runSketch ignored - invalid state: ${this.state}`,
+      );
+      return;
+    }
+    
+    // Bind callbacks to instance BEFORE initializeRunState (which also sets onOutputCallback)
+    this.outputCallback = onOutput;
+    this.errorCallback = onError;
+    this.pinStateCallback = onPinState || null;
 
-    this.isRunning = true;
-    this.isPaused = false;
-    this.pauseStartTime = null;
-    this.ioRegistryData = []; // Reset registry
-    this.registryAlreadySent = false; // Reset registry sent flag
-    this.registryLastHash = ""; // Reset registry hash for change detection
-    this.registryLastSendTime = 0; // Reset last send time
-    this.waitingForRegistry = true; // Start holding messages until registry is sent
-    this.messageQueue = []; // Clear message queue
-      if (this.registryWaitTimer) {
-        clearTimeout(this.registryWaitTimer);
-      }
-      // Fail-open: if registry never arrives, release queued output after a short grace period
-      this.registryWaitTimer = setTimeout(() => {
-        if (this.waitingForRegistry) {
-          this.logger.warn("[Registry] No registry received in time - releasing queued output");
-          this.waitingForRegistry = false;
-          this.flushMessageQueue();
-        }
-      }, 1500);
-    this.collectingRegistry = false;
-    this.outputBuffer = "";
-    this.errorBuffer = "";
-    this.isSendingOutput = false;
-    this.totalOutputBytes = 0;
-    this.onOutputCallback = onOutput; // Store for resume functionality
+    // Initialize run state (will also set this.onOutputCallback and this.ioRegistryCallback)
+    this.initializeRunState(code, onOutput, onIORegistry, timeoutSec);
+    const sketchId = randomUUID();
     let compilationFailed = false;
 
-    // Parse baudrate from code
-    const baudMatch = code.match(/Serial\s*\.\s*begin\s*\(\s*(\d+)\s*\)/);
-    this.baudrate = baudMatch ? parseInt(baudMatch[1]) : 9600;
-    this.logger.info(`Parsed baudrate: ${this.baudrate}`);
-
-    const sketchId = randomUUID();
-    const sketchDir = join(this.tempDir, sketchId);
-    const sketchFile = join(sketchDir, `sketch.cpp`);
-    const exeFile = join(sketchDir, `sketch`);
-
-    const hasSetup = /void\s+setup\s*\([^)]*\)/.test(code);
-    const hasLoop = /void\s+loop\s*\([^)]*\)/.test(code);
-
-    let footer = `
-#include <thread>
-#include <atomic>
-#include <cstring>
-
-int main() {
-    initIORegistry();
-    std::thread readerThread(serialInputReader);
-    readerThread.detach();
-`;
-
-    if (hasSetup)
-      footer +=
-        "    setup();\n    Serial.flush(); // Flush after setup\n";
-    // Flush serial buffer at the start of each loop iteration
-    // This ensures all Serial.print() output is sent even without delay() or newline
-    if (hasLoop) {
-      footer +=
-        "    bool __registry_sent = false;\n    while (1) { Serial.flush(); loop(); if (!__registry_sent) { Serial.flush(); outputIORegistry(); __registry_sent = true; } }\n";
-    } else {
-      footer += "    outputIORegistry();\n";
-    }
-
-    footer += `
-    Serial.flush(); // CRITICAL: Flush any remaining buffered serial output before exit
-    keepReading.store(false);
-    return 0;
-}
-`;
-
-    if (!hasSetup && !hasLoop) {
-      this.logger.warn(
-        "Weder setup() noch loop() gefunden - Code wird nur als Bibliothek kompiliert",
-      );
-    }
-
     try {
-      await mkdir(sketchDir, { recursive: true });
-
-      // Remove Arduino.h include to avoid compilation errors in GCC
-      const cleanedCode = code.replace(/#include\s*[<"]Arduino\.h[>"]/g, "");
-      const combined = `${ARDUINO_MOCK_CODE}\n// --- User code follows ---\n${cleanedCode}\n\n// --- Footer ---\n${footer}`;
-      await writeFile(sketchFile, combined);
-
-      // Store sketchDir for cleanup in close handler
-      this.currentSketchDir = sketchDir;
+      // Build sketch files using helper
+      const files = await this.fileBuilder.build(code, sketchId);
+      this.currentSketchDir = files.sketchDir;
       this.processKilled = false;
 
-      // Create wrapper callbacks to queue messages while waiting for registry
-      const wrappedOnOutput = (line: string, isComplete?: boolean) => {
-        if (this.waitingForRegistry) {
-          this.messageQueue.push({
-            type: "output",
-            data: { line, isComplete, callback: onOutput },
-          });
-        } else if (onOutput) {
-          onOutput(line, isComplete);
-        }
-      };
+      // Create wrapped callbacks for message queuing
+      const wrapped = this.createWrappedCallbacks(onOutput, onError, onPinState);
 
-      const wrappedOnPinState = (
-        pin: number,
-        stateType: "mode" | "value" | "pwm",
-        value: number,
-      ) => {
-        if (this.waitingForRegistry) {
-          this.messageQueue.push({
-            type: "pinState",
-            data: {
-              pin,
-              stateType,
-              value,
-              callback: onPinState,
-            },
-          });
-        } else if (onPinState) {
-          onPinState(pin, stateType, value);
-        }
-      };
-
-      const wrappedOnError = (line: string) => {
-        if (this.waitingForRegistry) {
-          this.messageQueue.push({
-            type: "error",
-            data: { line, callback: onError },
-          });
-        } else if (onError) {
-          onError(line);
-        }
-      };
+      // Choose execution path
+      const executionTimeout =
+        timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
 
       if (this.dockerAvailable && this.dockerImageBuilt) {
-        // Single container: compile AND run (more efficient)
-        this.compileAndRunInDocker(
-          sketchDir,
-          wrappedOnOutput,
-          wrappedOnError,
-          onExit,
+        await this.runInDocker(
+          files,
+          wrapped,
           onCompileError,
           onCompileSuccess,
-          wrappedOnPinState,
+          onExit,
           executionTimeout,
-          onIORegistry,
         );
       } else {
-        // Local fallback: compile then run
-        await this.compileLocal(sketchFile, exeFile, onCompileError);
-        // If we get here, compilation was successful
-        if (onCompileSuccess) {
-          onCompileSuccess();
-        }
-        await this.runLocalWithLimits(
-          exeFile,
-          wrappedOnOutput,
-          wrappedOnError,
+        await this.runLocally(
+          files,
+          wrapped,
+          onCompileError,
+          onCompileSuccess,
           onExit,
-          wrappedOnPinState,
           executionTimeout,
-          onIORegistry,
         );
       }
-
-      // Note: Don't cleanup here - cleanup happens in close handler
     } catch (err) {
       this.logger.error(
         `Kompilierfehler oder Timeout: ${err instanceof Error ? err.message : String(err)}`,
@@ -493,112 +439,222 @@ int main() {
 
       // Cleanup on error
       try {
-        await rm(sketchDir, { recursive: true, force: true });
+        await rm(this.currentSketchDir!, { recursive: true, force: true });
       } catch {
-        this.logger.warn(`Could not delete temp directory: ${sketchDir}`);
+        this.logger.warn(`Could not delete temp directory: ${this.currentSketchDir}`);
       }
     }
   }
 
   /**
-   * Combined compile and run in a single Docker container.
-   * This is more efficient than spawning two separate containers.
+   * Initialize run state for a new sketch execution
    */
-  private compileAndRunInDocker(
-    sketchDir: string,
+  private initializeRunState(
+    code: string,
+    onOutput: (line: string, isComplete?: boolean) => void,
+    onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
+    timeoutSec?: number,
+  ): void {
+    // Parse baudrate from code
+    const baudMatch = code.match(/Serial\s*\.\s*begin\s*\(\s*(\d+)\s*\)/);
+    this.baudrate = baudMatch ? parseInt(baudMatch[1]) : 9600;
+
+    const executionTimeout =
+      timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
+    this.logger.info(
+      `🕐 runSketch called with timeoutSec=${timeoutSec}, using executionTimeout=${executionTimeout}s`,
+    );
+    this.logger.info(`Parsed baudrate: ${this.baudrate}`);
+
+    // Reset state
+    this.pauseStartTime = null;
+    this.registryManager.reset();
+    this.registryManager.setBaudrate(this.baudrate);
+    this.registryManager.enableWaitMode(1500);
+    this.messageQueue = [];
+    this.outputBuffer = "";
+    this.errorBuffer = "";
+    this.isSendingOutput = false;
+    this.totalOutputBytes = 0;
+    this.onOutputCallback = onOutput;
+    this.ioRegistryCallback = onIORegistry;
+  }
+
+  /**
+   * Create wrapped callbacks that queue messages while waiting for registry
+   * Uses stable instance callbacks (this.outputCallback etc.) for async playback
+   */
+  private createWrappedCallbacks(
     onOutput: (line: string, isComplete?: boolean) => void,
     onError: (line: string) => void,
-    onExit: (code: number | null) => void,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
     onPinState?: (
       pin: number,
       type: "mode" | "value" | "pwm",
       value: number,
     ) => void,
-    timeoutSec?: number,
-    onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
-  ): void {
-    this.ioRegistryCallback = onIORegistry;
-    // Single container: compile then run using shell
-    // Uses sh -c to chain compile && run in one container
-    this.process = spawn("docker", [
-      "run",
-      "--rm",
-      "-i", // Interactive for stdin
-      "--network",
-      "none", // No network access
-      "--memory",
-      `${SANDBOX_CONFIG.maxMemoryMB}m`,
-      "--memory-swap",
-      `${SANDBOX_CONFIG.maxMemoryMB}m`, // No swap
-      "--cpus",
-      "0.5",
-      "--pids-limit",
-      "50", // Limit processes
-      "--security-opt",
-      "no-new-privileges", // No privilege escalation
-      "--cap-drop",
-      "ALL", // Drop all capabilities
-      "-v",
-      `${sketchDir}:/sandbox:rw`, // Mount as read-write for compilation
-      SANDBOX_CONFIG.dockerImage,
-      "sh",
-      "-c",
-      "g++ /sandbox/sketch.cpp -o /tmp/sketch -pthread 2>&1 && /tmp/sketch",
-    ]);
+  ) {
+    return {
+      onOutput: (line: string, isComplete?: boolean) => {
+        if (this.registryManager.isWaiting()) {
+          this.messageQueue.push({
+            type: "output",
+            data: { line, isComplete },
+          });
+        } else if (onOutput) {
+          onOutput(line, isComplete);
+        }
+      },
+      onPinState: (
+        pin: number,
+        stateType: "mode" | "value" | "pwm",
+        value: number,
+      ) => {
+        if (this.registryManager.isWaiting()) {
+          this.messageQueue.push({
+            type: "pinState",
+            data: { pin, stateType, value },
+          });
+        } else if (onPinState) {
+          onPinState(pin, stateType, value);
+        }
+      },
+      onError: (line: string) => {
+        if (this.registryManager.isWaiting()) {
+          this.messageQueue.push({
+            type: "error",
+            data: { line },
+          });
+        } else if (onError) {
+          onError(line);
+        }
+      },
+    };
+  }
 
+  /**
+   * Run sketch in Docker sandbox
+   */
+  private async runInDocker(
+    files: { sketchDir: string; sketchFile: string; exeFile: string },
+    callbacks: any,
+    onCompileError?: (error: string) => void,
+    onCompileSuccess?: () => void,
+    onExit?: (code: number | null) => void,
+    executionTimeout?: number,
+  ): Promise<void> {
+    const dockerArgs = DockerCommandBuilder.buildSecureRunCommand({
+      sketchDir: files.sketchDir,
+      memoryMB: SANDBOX_CONFIG.maxMemoryMB,
+      cpuLimit: "0.5",
+      pidsLimit: 50,
+      imageName: SANDBOX_CONFIG.dockerImage,
+      command: DockerCommandBuilder.buildCompileAndRunCommand(),
+    });
+
+    this.process = spawn("docker", dockerArgs);
     this.logger.info("🚀 Docker: Compile + Run in single container");
-    // Record server-side absolute start time for the spawned process so we can convert C++ millis()
     this.processStartTime = Date.now();
+    this.transitionTo(SimulationState.RUNNING);
 
+    this.setupDockerHandlers(
+      callbacks,
+      onCompileError,
+      onCompileSuccess,
+      onExit,
+      executionTimeout || SANDBOX_CONFIG.maxExecutionTimeSec,
+    );
+  }
+
+  /**
+   * Run sketch locally (fallback when Docker unavailable)
+   */
+  private async runLocally(
+    files: { sketchDir: string; sketchFile: string; exeFile: string },
+    callbacks: any,
+    onCompileError?: (error: string) => void,
+    onCompileSuccess?: () => void,
+    onExit?: (code: number | null) => void,
+    executionTimeout?: number,
+  ): Promise<void> {
+    try {
+      // Compile using LocalCompiler
+      await this.localCompiler.compile(files.sketchFile, files.exeFile);
+
+      if (onCompileSuccess) {
+        onCompileSuccess();
+      }
+
+      // Make executable
+      await this.localCompiler.makeExecutable(files.exeFile);
+
+      // Run the compiled executable
+      this.process = spawn(files.exeFile);
+      this.processStartTime = Date.now();
+      this.transitionTo(SimulationState.RUNNING);
+
+      this.setupLocalHandlers(
+        callbacks,
+        onExit,
+        executionTimeout || SANDBOX_CONFIG.maxExecutionTimeSec,
+      );
+    } catch (err) {
+      if (onCompileError) {
+        onCompileError(err instanceof Error ? err.message : String(err));
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Setup handlers for Docker process (combined compile + run)
+   */
+  private setupDockerHandlers(
+    callbacks: any,
+    onCompileError?: (error: string) => void,
+    onCompileSuccess?: () => void,
+    onExit?: (code: number | null) => void,
+    executionTimeout?: number,
+  ): void {
     let compileErrorBuffer = "";
     let isCompilePhase = true;
     let compileSuccessSent = false;
-    const effectiveTimeout =
-      timeoutSec !== undefined
-        ? timeoutSec
-        : SANDBOX_CONFIG.maxExecutionTimeSec;
 
-    // Custom handler for combined compile+run
-    // Only set timeout if not infinite (0)
+    // Setup timeout
     const handleTimeout = () => {
       if (this.process) {
         this.process.kill("SIGKILL");
-        onOutput(`--- Simulation timeout (${effectiveTimeout}s) ---`, true);
-        this.logger.info(`Docker timeout after ${effectiveTimeout}s`);
+        callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
+        this.logger.info(`Docker timeout after ${executionTimeout}s`);
       }
     };
 
-    this.scheduleTimeoutMs(
-      effectiveTimeout > 0 ? effectiveTimeout * 1000 : null,
+    this.timeoutManager.schedule(
+      executionTimeout && executionTimeout > 0 ? executionTimeout * 1000 : null,
       handleTimeout,
     );
 
-    // Handle process errors
+    // Error handler
     this.process?.on("error", (err) => {
       this.logger.error(`Docker process error: ${err.message}`);
-      onError(`Docker process failed: ${err.message}`);
+      callbacks.onError(`Docker process failed: ${err.message}`);
     });
 
+    // Stdout handler (program output)
     this.process?.stdout?.on("data", (data) => {
       const str = data.toString();
 
-      // After successful compile, we get program output
       if (isCompilePhase) {
         isCompilePhase = false;
-        // First output means compilation was successful
         if (!compileSuccessSent && onCompileSuccess) {
           compileSuccessSent = true;
           onCompileSuccess();
         }
       }
 
-      // Check output size limit
       this.totalOutputBytes += str.length;
       if (this.totalOutputBytes > SANDBOX_CONFIG.maxOutputBytes) {
         this.stop();
-        onError("Output size limit exceeded");
+        callbacks.onError("Output size limit exceeded");
         return;
       }
 
@@ -609,24 +665,23 @@ int main() {
       lines.forEach((line) => {
         if (line.length > 0) {
           if (this.pendingIncomplete) {
-            onOutput(line, true);
+            callbacks.onOutput(line, true);
             this.pendingIncomplete = false;
           } else {
-            onOutput(line, true);
+            callbacks.onOutput(line, true);
           }
         }
       });
 
-      // Schedule flush for incomplete output based on baudrate
       if (this.outputBuffer.length > 0 && !this.flushTimer) {
-        this.scheduleFlush(onOutput);
+        this.scheduleFlush(callbacks.onOutput);
       }
     });
 
+    // Stderr handler (compile errors + debug output)
     this.process?.stderr?.on("data", (data) => {
       const str = data.toString();
 
-      // During compile phase, collect errors
       if (isCompilePhase) {
         compileErrorBuffer += str;
       }
@@ -636,374 +691,105 @@ int main() {
       this.errorBuffer = lines.pop() || "";
 
       lines.forEach((line) => {
-        if (line.length > 0) {
-          // Check for I/O Registry markers
-          if (line.includes("[[IO_REGISTRY_START]]")) {
-            this.logger.debug("[Registry] START marker detected (Docker)");
-            this.collectingRegistry = true;
-            this.ioRegistryData = [];
-            return;
-          }
-          if (line.includes("[[IO_REGISTRY_END]]")) {
-            this.logger.debug(
-              `[Registry] END marker detected, collected ${this.ioRegistryData.length} pins (Docker)`,
-            );
-            this.collectingRegistry = false;
-            this.sendRegistryWithDebounce();
-            return;
-          }
-          if (this.collectingRegistry) {
-            // Parse IO_PIN line: [[IO_PIN:pin:defined:line:pinMode:operations]]
-            const pinMatch = line.match(
-              /\[\[IO_PIN:([^:]+):([01]):(\d+):(\d+):?(.*)\]\]/,
-            );
-            if (pinMatch) {
-              this.logger.debug(
-                `[Registry] Parsed pin: ${pinMatch[1]} (Docker)`,
-              );
-              const pin = pinMatch[1];
-              const defined = pinMatch[2] === "1";
-              const definedLine = parseInt(pinMatch[3]);
-              const pinModeParsed = parseInt(pinMatch[4]);
-              const operationsStr = pinMatch[5];
+        if (line.length === 0) return;
 
-              const usedAt: Array<{ line: number; operation: string }> = [];
-              if (operationsStr) {
-                // Split by ':' to get individual operations (e.g., "pinMode:1@0:digitalWrite@5")
-                // But we need to handle "pinMode:1" as one unit, so we match operation@line pairs
-                const opMatches = operationsStr.match(/([^:@]+(?::\d+)?@\d+)/g);
-                if (opMatches) {
-                  opMatches.forEach((opMatch) => {
-                    const atIndex = opMatch.lastIndexOf("@");
-                    if (atIndex > 0) {
-                      const operation = opMatch.substring(0, atIndex);
-                      const lineStr = opMatch.substring(atIndex + 1);
-                      usedAt.push({
-                        line: parseInt(lineStr) || 0,
-                        operation,
-                      });
-                    }
-                  });
-                }
-              }
-
-              this.ioRegistryData.push({
-                pin,
-                defined,
-                pinMode: pinModeParsed,
-                definedAt: defined ? { line: definedLine } : undefined,
-                usedAt,
-              });
-            }
-            return;
-          }
-
-          // Check for pin state messages (these are internal protocol, not errors)
-          const pinModeMatch = line.match(/\[\[PIN_MODE:(\d+):(\d+)\]\]/);
-          const pinValueMatch = line.match(/\[\[PIN_VALUE:(\d+):(\d+)\]\]/);
-          const pinPwmMatch = line.match(/\[\[PIN_PWM:(\d+):(\d+)\]\]/);
-          const dreadMatch = line.match(/\[\[DREAD:(\d+):(\d+)\]\]/);
-          const pinSetMatch = line.match(/\[\[PIN_SET:(\d+):(\d+)\]\]/);
-          const stdinRecvMatch = line.match(/\[\[STDIN_RECV:(.+)\]\]/);
-
-          if (pinModeMatch) {
-            // PIN_MODE is internal protocol - filter regardless of onPinState
-            if (onPinState) {
-              const pin = parseInt(pinModeMatch[1]);
-              const mode = parseInt(pinModeMatch[2]);
-              onPinState(pin, "mode", mode);
-            }
-          } else if (pinValueMatch) {
-            // PIN_VALUE is internal protocol - filter regardless of onPinState
-            if (onPinState) {
-              const pin = parseInt(pinValueMatch[1]);
-              const value = parseInt(pinValueMatch[2]);
-              onPinState(pin, "value", value);
-            }
-          } else if (pinPwmMatch) {
-            // PIN_PWM is internal protocol - filter regardless of onPinState
-            if (onPinState) {
-              const pin = parseInt(pinPwmMatch[1]);
-              const value = parseInt(pinPwmMatch[2]);
-              onPinState(pin, "pwm", value);
-            }
-          } else if (dreadMatch || pinSetMatch) {
-            // debug - don't send to client
-          } else if (stdinRecvMatch) {
-            // stdin received confirmation - log to server
-            this.logger.info(`[C++ STDIN RECV] ${stdinRecvMatch[1]}`);
-          } else {
-            // New: detect structured serial events emitted by the mock
-            const serialEventMatch = line.match(
-              /\[\[SERIAL_EVENT:(\d+):([A-Za-z0-9+/=]+)\]\]/,
-            );
-            if (serialEventMatch) {
-              try {
-                const ts = parseInt(serialEventMatch[1], 10);
-                const b64 = serialEventMatch[2];
-                const buf = Buffer.from(b64, "base64");
-                const decoded = buf.toString("utf8");
-                // Build event payload for frontend reconstruction (minimal, optimized for network traffic)
-                const event = {
-                  type: "serial",
-                  ts_write: (this.processStartTime || Date.now()) + ts,
-                  data: decoded,
-                };
-                // Send events immediately - no coalescing needed
-                // The frontend will handle timing based on ts_write
-                this.logger.debug(
-                  `[SERIAL_EVENT RECEIVED] ts=${event.ts_write} len=${(event.data || "").length} data="${event.data?.replace(/[\x00-\x1f]/g, (c: string) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0"))}"`,
-                );
-
-                // Send immediately without buffering
-                try {
-                  onOutput(
-                    "[[" + "SERIAL_EVENT_JSON:" + JSON.stringify(event) + "]]",
-                    true,
-                  );
-                } catch (err) {
-                  this.logger.warn(
-                    `Failed to send serial event: ${err instanceof Error ? err.message : String(err)}`,
-                  );
-                }
-              } catch (e) {
-                this.logger.warn(
-                  `Failed to parse SERIAL_EVENT: ${e instanceof Error ? e.message : String(e)}`,
-                );
-              }
-            } else {
-              // Only log and send actual errors, not protocol messages
-              this.logger.warn(`[STDERR]: ${line}`);
-              onError(line);
-            }
-          }
-        }
+        const parsed = this.parser.parseStderrLine(line, this.processStartTime);
+        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
       });
 
       if (this.errorBuffer.length > 0) {
-        this.scheduleErrorFlush(onError, onPinState);
+        this.scheduleErrorFlush(callbacks.onError, callbacks.onPinState);
       }
     });
 
+    // Close handler
     this.process?.on("close", (code) => {
-      this.clearTimeoutTimer();
-      this.timeoutCallback = null;
-      this.pausedTimeoutRemainingMs = null;
-      this.isPaused = false;
-      this.pauseStartTime = null;
+      this.transitionTo(SimulationState.STOPPED);
 
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
         this.flushTimer = null;
       }
 
-      // Flush any pending serial events before closing
       if (this.pendingSerialFlushTimer) {
         clearTimeout(this.pendingSerialFlushTimer);
         this.pendingSerialFlushTimer = null;
       }
-      this.flushPendingSerialEvents(onOutput);
+      this.flushPendingSerialEvents(callbacks.onOutput);
 
-      // If we exited with error during compile phase
-      if (
-        code !== 0 &&
-        isCompilePhase &&
-        compileErrorBuffer &&
-        onCompileError
-      ) {
+      if (code !== 0 && isCompilePhase && compileErrorBuffer && onCompileError) {
         onCompileError(this.cleanCompilerErrors(compileErrorBuffer));
       } else {
-        if (code === 0) {
-          this.logger.info("✅ Docker: Compile + Run erfolgreich");
-          // For programs without output, signal compile success on exit
-          if (!compileSuccessSent && onCompileSuccess) {
-            compileSuccessSent = true;
-            onCompileSuccess();
-          }
+        if (code === 0 && !compileSuccessSent && onCompileSuccess) {
+          compileSuccessSent = true;
+          onCompileSuccess();
         }
       }
 
       if (this.outputBuffer.trim()) {
-        onOutput(this.outputBuffer.trim(), true);
+        callbacks.onOutput(this.outputBuffer.trim(), true);
       }
       if (this.errorBuffer.trim()) {
-        this.logger.warn(`[STDERR final]: ${JSON.stringify(this.errorBuffer)}`);
-        onError(this.errorBuffer.trim());
+        callbacks.onError(this.errorBuffer.trim());
       }
 
-      // Guarantee that onIORegistry is called with final registry state BEFORE onExit
-      // This ensures tests receive registry data even if process terminates before IO_REGISTRY_END marker
-      // Call even if registry is empty - tests need to know registry collection completed
-      // But skip if already sent to avoid duplicate registry messages
-      if (this.ioRegistryCallback && !this.registryAlreadySent) {
-        this.registryAlreadySent = true;
-        this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
+      // Send final registry before exit
+      if (this.ioRegistryCallback) {
+        const finalRegistry = this.registryManager.getRegistry();
+        if (finalRegistry.length > 0) {
+          this.ioRegistryCallback([...finalRegistry], this.baudrate);
+        }
       }
 
-      if (!this.processKilled) onExit(code);
+      if (!this.processKilled && onExit) onExit(code);
       this.process = null;
-      this.isRunning = false;
-
-      // Mark temp directory for delayed cleanup instead of immediate deletion
       this.markTempDirForCleanup();
     });
   }
 
-  private async compileLocal(
-    sketchFile: string,
-    exeFile: string,
-    onCompileError?: (error: string) => void,
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const compile = spawn("g++", [sketchFile, "-o", exeFile, "-pthread"]);
-      let errorOutput = "";
-      let completed = false;
-
-      compile.stderr.on("data", (d) => {
-        errorOutput += d.toString();
-      });
-
-      compile.on("close", (code) => {
-        completed = true;
-        if (code === 0) {
-          resolve();
-        } else {
-          this.logger.error(`Compiler Fehler (Code ${code}): ${errorOutput}`);
-          if (onCompileError) {
-            onCompileError(this.cleanCompilerErrors(errorOutput));
-          }
-          reject(new Error(errorOutput));
-        }
-      });
-
-      compile.on("error", (err) => {
-        completed = true;
-        this.logger.error(`Compilerprozess Fehler: ${err.message}`);
-        if (onCompileError) {
-          onCompileError(`Compilerprozess Fehler: ${err.message}`);
-        }
-        reject(err);
-      });
-
-      setTimeout(() => {
-        if (!completed) {
-          compile.kill("SIGKILL");
-          this.logger.error("g++ Timeout nach 20s");
-          if (onCompileError) {
-            onCompileError("g++ timeout after 20s");
-          }
-          reject(new Error("g++ timeout after 20s"));
-        }
-      }, 20000); // 20s timeout for cold start compilation
-    });
-  }
-
-  private async runLocalWithLimits(
-    exeFile: string,
-    onOutput: (line: string, isComplete?: boolean) => void,
-    onError: (line: string) => void,
-    onExit: (code: number | null) => void,
-    onPinState?: (
-      pin: number,
-      type: "mode" | "value" | "pwm",
-      value: number,
-    ) => void,
-    timeoutSec?: number,
-    onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
-  ): Promise<void> {
-    this.ioRegistryCallback = onIORegistry; // Store for use in async handlers
-    const effectiveTimeout =
-      timeoutSec !== undefined
-        ? timeoutSec
-        : SANDBOX_CONFIG.maxExecutionTimeSec;
-
-    // Make executable
-    await chmod(exeFile, 0o755);
-
-    // Run with local limits (less secure, but better than nothing)
-    // On macOS, we use basic timeout; on Linux we could use cgroups
-    const isLinux = process.platform === "linux";
-
-    if (isLinux && effectiveTimeout > 0) {
-      // Use timeout and nice for basic limits
-      this.process = spawn("timeout", [
-        `${effectiveTimeout}s`,
-        "nice",
-        "-n",
-        "19", // Lowest priority
-        exeFile,
-      ]);
-      this.processStartTime = Date.now();
-    } else {
-      // macOS or infinite timeout - just run
-      this.process = spawn(exeFile);
-      this.processStartTime = Date.now();
-    }
-
-    this.setupProcessHandlers(
-      onOutput,
-      onError,
-      onExit,
-      onPinState,
-      effectiveTimeout,
-    );
-  }
-
-  private setupProcessHandlers(
-    onOutput: (line: string, isComplete?: boolean) => void,
-    onError: (line: string) => void,
-    onExit: (code: number | null) => void,
-    onPinState?: (
-      pin: number,
-      type: "mode" | "value" | "pwm",
-      value: number,
-    ) => void,
-    timeoutSec?: number,
+  /**
+   * Setup handlers for local process execution
+   */
+  private setupLocalHandlers(
+    callbacks: any,
+    onExit?: (code: number | null) => void,
+    executionTimeout?: number,
   ): void {
-    const effectiveTimeout =
-      timeoutSec !== undefined
-        ? timeoutSec
-        : SANDBOX_CONFIG.maxExecutionTimeSec;
-
-    // Only set timeout if not infinite (0)
+    // Similar to Docker but without compile phase
     const handleTimeout = () => {
       if (this.process) {
         this.process.kill("SIGKILL");
-        onOutput(`--- Simulation timeout (${effectiveTimeout}s) ---`, true);
-        this.logger.info(`Sketch timeout after ${effectiveTimeout}s`);
+        callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
       }
     };
 
-    this.scheduleTimeoutMs(
-      effectiveTimeout > 0 ? effectiveTimeout * 1000 : null,
+    this.timeoutManager.schedule(
+      executionTimeout && executionTimeout > 0 ? executionTimeout * 1000 : null,
       handleTimeout,
     );
 
-    // Handle process errors
-    this.process?.on("error", (err) => {
-      this.logger.error(`Process error: ${err.message}`);
-      onError(`Process failed: ${err.message}`);
-    });
-
     this.process?.stdout?.on("data", (data) => {
       const str = data.toString();
-
-      // Check output size limit
       this.totalOutputBytes += str.length;
+
       if (this.totalOutputBytes > SANDBOX_CONFIG.maxOutputBytes) {
         this.stop();
-        onError("Output size limit exceeded");
+        callbacks.onError("Output size limit exceeded");
         return;
       }
 
-      // Limit buffer size to simulate blocking Serial output
-      // If buffer is too full, discard new data (simulates waiting for transmission)
-      if (this.outputBuffer.length < 1000) {
-        this.outputBuffer += str;
-      } // Else discard to prevent unlimited buffering
+      this.outputBuffer += str;
+      const lines = this.outputBuffer.split(/\r?\n/);
+      this.outputBuffer = lines.pop() || "";
 
-      if (!this.isSendingOutput) {
-        this.sendOutputWithDelay(onOutput);
+      lines.forEach((line) => {
+        if (line.length > 0) {
+          callbacks.onOutput(line, true);
+        }
+      });
+
+      if (this.outputBuffer.length > 0 && !this.flushTimer) {
+        this.scheduleFlush(callbacks.onOutput);
       }
     });
 
@@ -1014,183 +800,125 @@ int main() {
       this.errorBuffer = lines.pop() || "";
 
       lines.forEach((line) => {
-        if (line.length > 0) {
-          // Check for I/O Registry markers
-          if (line.includes("[[IO_REGISTRY_START]]")) {
-            this.logger.debug("[Registry] START marker detected (Local)");
-            this.collectingRegistry = true;
-            this.ioRegistryData = [];
-            return;
-          }
-          if (line.includes("[[IO_REGISTRY_END]]")) {
-            this.logger.debug(
-              `[Registry] END marker detected, collected ${this.ioRegistryData.length} pins (Local)`,
-            );
-            this.collectingRegistry = false;
-            this.sendRegistryWithDebounce();
-            return;
-          }
-          if (this.collectingRegistry) {
-            this.logger.debug(
-              `[Registry] Collecting line: ${line.substring(0, 50)}...`,
-            );
-            // Parse IO_PIN line: [[IO_PIN:pin:defined:line:pinMode:operations]]
-            const pinMatch = line.match(
-              /\[\[IO_PIN:([^:]+):([01]):(\d+):(\d+):?(.*)\]\]/,
-            );
-            if (pinMatch) {
-              const pin = pinMatch[1];
-              const defined = pinMatch[2] === "1";
-              const definedLine = parseInt(pinMatch[3]);
-              const pinModeParsed = parseInt(pinMatch[4]);
-              const operationsStr = pinMatch[5];
-
-              const usedAt: Array<{ line: number; operation: string }> = [];
-              if (operationsStr) {
-                // Split by ':' to get individual operations (e.g., "pinMode:1@0:digitalWrite@5")
-                // But we need to handle "pinMode:1" as one unit, so we match operation@line pairs
-                const opMatches = operationsStr.match(/([^:@]+(?::\d+)?@\d+)/g);
-                if (opMatches) {
-                  opMatches.forEach((opMatch) => {
-                    if (opMatch && !opMatch.startsWith("_count")) {
-                      // Skip metadata like _count
-                      const atIndex = opMatch.lastIndexOf("@");
-                      if (atIndex > 0) {
-                        const operation = opMatch.substring(0, atIndex);
-                        const lineStr = opMatch.substring(atIndex + 1);
-                        usedAt.push({
-                          line: parseInt(lineStr) || 0,
-                          operation,
-                        });
-                      }
-                    }
-                  });
-                }
-              }
-
-              this.ioRegistryData.push({
-                pin,
-                defined,
-                pinMode: pinModeParsed,
-                definedAt: defined ? { line: definedLine } : undefined,
-                usedAt,
-              });
-            }
-            return;
-          }
-
-          // Check for pin state messages - these are internal protocol, not errors
-          // They must be filtered regardless of whether onPinState exists
-          const pinModeMatch = line.match(/\[\[PIN_MODE:(\d+):(\d+)\]\]/);
-          const pinValueMatch = line.match(/\[\[PIN_VALUE:(\d+):(\d+)\]\]/);
-          const pinPwmMatch = line.match(/\[\[PIN_PWM:(\d+):(\d+)\]\]/);
-
-          if (pinModeMatch) {
-            // PIN_MODE is internal protocol - filter regardless of onPinState
-            if (onPinState) {
-              const pin = parseInt(pinModeMatch[1]);
-              const mode = parseInt(pinModeMatch[2]);
-              onPinState(pin, "mode", mode);
-            }
-          } else if (pinValueMatch) {
-            // PIN_VALUE is internal protocol - filter regardless of onPinState
-            if (onPinState) {
-              const pin = parseInt(pinValueMatch[1]);
-              const value = parseInt(pinValueMatch[2]);
-              onPinState(pin, "value", value);
-            }
-          } else if (pinPwmMatch) {
-            // PIN_PWM is internal protocol - filter regardless of onPinState
-            if (onPinState) {
-              const pin = parseInt(pinPwmMatch[1]);
-              const value = parseInt(pinPwmMatch[2]);
-              onPinState(pin, "pwm", value);
-            }
-          } else {
-            // Detect structured serial events emitted by the mock
-            const serialEventMatch = line.match(
-              /\[\[SERIAL_EVENT:(\d+):([A-Za-z0-9+/=]+)\]\]/,
-            );
-            if (serialEventMatch) {
-              this.logger.debug(`[STDERR][SERIAL_EVENT RAW] ${line}`);
-              try {
-                const ts = parseInt(serialEventMatch[1], 10);
-                const b64 = serialEventMatch[2];
-                const buf = Buffer.from(b64, "base64");
-                const decoded = buf.toString("utf8");
-                const event = {
-                  type: "serial",
-                  ts_write: (this.processStartTime || Date.now()) + ts,
-                  data: decoded,
-                };
-                onOutput(
-                  "[[" + "SERIAL_EVENT_JSON:" + JSON.stringify(event) + "]]",
-                  true,
-                );
-              } catch (e) {
-                this.logger.warn(
-                  `Failed to parse SERIAL_EVENT: ${e instanceof Error ? e.message : String(e)}`,
-                );
-              }
-            } else {
-              // Regular error message
-              this.logger.warn(`[STDERR line]: ${JSON.stringify(line)}`);
-              onError(line);
-            }
-          }
-        }
+        if (line.length === 0) return;
+        const parsed = this.parser.parseStderrLine(line, this.processStartTime);
+        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
       });
     });
 
     this.process?.on("close", (code) => {
-      this.clearTimeoutTimer();
-      this.timeoutCallback = null;
-      this.pausedTimeoutRemainingMs = null;
+      this.transitionTo(SimulationState.STOPPED);
 
-      // Flush any pending serial events before closing
-      if (this.pendingSerialFlushTimer) {
-        clearTimeout(this.pendingSerialFlushTimer);
-        this.pendingSerialFlushTimer = null;
-      }
-      this.flushPendingSerialEvents(onOutput);
-
-      // Send any remaining buffered output immediately, but only if not killed (natural exit)
-      if (!this.processKilled && this.outputBuffer.trim()) {
-        onOutput(this.outputBuffer.trim(), true);
-      }
-      if (this.errorBuffer.trim()) {
-        this.logger.warn(`[STDERR final]: ${JSON.stringify(this.errorBuffer)}`);
-        onError(this.errorBuffer.trim());
+      if (this.flushTimer) {
+        clearTimeout(this.flushTimer);
+        this.flushTimer = null;
       }
 
-      // Guarantee that onIORegistry is called with final registry state BEFORE onExit
-      // This ensures tests receive registry data even if process terminates before IO_REGISTRY_END marker
-      // Call even if registry is empty - tests need to know registry collection completed
-      // But skip if already sent to avoid duplicate registry messages
-      if (this.ioRegistryCallback && !this.registryAlreadySent) {
-        this.registryAlreadySent = true;
-        this.ioRegistryCallback(this.ioRegistryData, this.baudrate);
+      if (this.outputBuffer.trim()) {
+        callbacks.onOutput(this.outputBuffer.trim(), true);
       }
 
-      if (!this.processKilled) onExit(code);
+      if (this.ioRegistryCallback) {
+        const finalRegistry = this.registryManager.getRegistry();
+        if (finalRegistry.length > 0) {
+          this.ioRegistryCallback([...finalRegistry], this.baudrate);
+        }
+      }
+
+      if (!this.processKilled && onExit) onExit(code);
       this.process = null;
-      this.isRunning = false;
-
-      // Mark registry file for delayed cleanup
-      this.markRegistryForCleanup();
-
-      // Mark temp directory for delayed cleanup instead of immediate deletion
       this.markTempDirForCleanup();
     });
   }
 
+  /**
+   * Handle a parsed stderr line (common logic for both Docker and local)
+   */
+  private handleParsedLine(
+    parsed: any,
+    onPinState?: (pin: number, type: "mode" | "value" | "pwm", value: number) => void,
+    onOutput?: (line: string, isComplete?: boolean) => void,
+    onError?: (line: string) => void,
+  ): void {
+    switch (parsed.type) {
+      case "registry_start":
+        this.registryManager.startCollection();
+        break;
+
+      case "registry_end":
+        this.registryManager.finishCollection();
+        break;
+
+      case "registry_pin":
+        this.registryManager.addPin(parsed.pinRecord);
+        break;
+
+      case "pin_mode":
+        this.registryManager.updatePinMode(parsed.pin, parsed.mode);
+        if (onPinState) {
+          onPinState(parsed.pin, "mode", parsed.mode);
+        }
+        break;
+
+      case "pin_value":
+        this.registryManager.updatePinValue(parsed.pin, parsed.value);
+        if (onPinState) {
+          onPinState(parsed.pin, "value", parsed.value);
+        }
+        break;
+
+      case "pin_pwm":
+        this.registryManager.updatePinPWM(parsed.pin, parsed.value);
+        if (onPinState) {
+          onPinState(parsed.pin, "pwm", parsed.value);
+        }
+        break;
+
+      case "serial_event":
+        if (onOutput) {
+          try {
+            onOutput(
+              "[[SERIAL_EVENT_JSON:" +
+                JSON.stringify({
+                  type: "serial",
+                  ts_write: parsed.timestamp,
+                  data: parsed.data,
+                }) +
+                "]]",
+              true,
+            );
+          } catch (err) {
+            this.logger.warn(`Failed to send serial event: ${err}`);
+          }
+        }
+        break;
+
+      case "ignored":
+        // Debug markers - do nothing
+        break;
+
+      case "text":
+        if (onError) {
+          this.logger.warn(`[STDERR]: ${parsed.line}`);
+          onError(parsed.line);
+        }
+        break;
+    }
+  }
+
+  // Remove old compileAndRunInDocker method below
+  // Continue to next method
+
   pause(): boolean {
-    // ChildProcess.killed is true after any kill(), so skip it here
-    if (!this.isRunning || this.isPaused || !this.process) {
+    // Guard: can only pause from RUNNING state
+    if (this.state !== SimulationState.RUNNING || !this.process) {
       return false;
     }
 
-    this.pauseTimeoutClock();
+    // Transition first to update pauseStartTime and pause timeout clock
+    if (!this.transitionTo(SimulationState.PAUSED)) {
+      return false;
+    }
 
     try {
       // Send pause command to freeze timing in C++
@@ -1199,26 +927,26 @@ int main() {
       }
       
       this.process.kill("SIGSTOP");
-      this.isPaused = true;
-      this.pauseStartTime = Date.now();
       this.logger.info("Simulation paused (SIGSTOP)");
       return true;
     } catch (err) {
       this.logger.error(
         `Failed to pause simulation: ${err instanceof Error ? err.message : String(err)}`,
       );
+      // Rollback state on failure
+      this.transitionTo(SimulationState.RUNNING);
       return false;
     }
   }
 
   resume(): boolean {
-    // ChildProcess.killed is true after any kill(), so skip it here
-    if (!this.isPaused || !this.process) {
+    // Guard: can only resume from PAUSED state
+    if (this.state !== SimulationState.PAUSED || !this.process) {
       return false;
     }
 
     try {
-      // Calculate pause duration
+      // Calculate pause duration before transition clears pauseStartTime
       const pauseDuration = Date.now() - (this.pauseStartTime || Date.now());
       
       // Send resume command with pause duration to adjust timing offset in C++
@@ -1227,9 +955,12 @@ int main() {
       }
       
       this.process.kill("SIGCONT");
-      this.isPaused = false;
-      this.pauseStartTime = null;
-      this.resumeTimeoutClock();
+      
+      // Transition state (this clears pauseStartTime and resumes timeout clock)
+      if (!this.transitionTo(SimulationState.RUNNING)) {
+        return false;
+      }
+      
       this.logger.info(`Simulation resumed after ${pauseDuration}ms pause (SIGCONT)`);
       
       // Send a newline to stdin to wake up any blocked read() calls
@@ -1249,8 +980,8 @@ int main() {
       this.logger.error(
         `Failed to resume simulation: ${err instanceof Error ? err.message : String(err)}`,
       );
-      // If resume fails, keep paused flag to avoid inconsistent state
-      this.isPaused = true;
+      // Rollback to paused state on failure
+      this.transitionTo(SimulationState.PAUSED);
       return false;
     }
   }
@@ -1447,69 +1178,73 @@ int main() {
       const lines = this.errorBuffer.split(/\r?\n/);
       this.errorBuffer = lines.pop() || "";
       lines.forEach((line) => {
-        if (line.length > 0) {
-          // Check for pin state messages
-          const pinModeMatch = line.match(/\[\[PIN_MODE:(\d+):(\d+)\]\]/);
-          const pinValueMatch = line.match(/\[\[PIN_VALUE:(\d+):(\d+)\]\]/);
-          const pinPwmMatch = line.match(/\[\[PIN_PWM:(\d+):(\d+)\]\]/);
-          const dreadMatch = line.match(/\[\[DREAD:(\d+):(\d+)\]\]/);
-          const pinSetMatch = line.match(/\[\[PIN_SET:(\d+):(\d+)\]\]/);
-          const stdinRecvMatch = line.match(/\[\[STDIN_RECV:(.+)\]\]/);
+        if (line.length === 0) return;
 
-          if (pinModeMatch) {
-            // PIN_MODE is internal protocol - filter regardless of onPinState
+        const parsed = this.parser.parseStderrLine(line, this.processStartTime);
+
+        switch (parsed.type) {
+          case "pin_mode":
             if (onPinState) {
-              const pin = parseInt(pinModeMatch[1]);
-              const mode = parseInt(pinModeMatch[2]);
-              onPinState(pin, "mode", mode);
+              onPinState(parsed.pin, "mode", parsed.mode);
             }
-          } else if (pinValueMatch) {
-            // PIN_VALUE is internal protocol - filter regardless of onPinState
+            break;
+
+          case "pin_value":
             if (onPinState) {
-              const pin = parseInt(pinValueMatch[1]);
-              const value = parseInt(pinValueMatch[2]);
-              onPinState(pin, "value", value);
+              onPinState(parsed.pin, "value", parsed.value);
             }
-          } else if (pinPwmMatch) {
-            // PIN_PWM is internal protocol - filter regardless of onPinState
+            break;
+
+          case "pin_pwm":
             if (onPinState) {
-              const pin = parseInt(pinPwmMatch[1]);
-              const value = parseInt(pinPwmMatch[2]);
-              onPinState(pin, "pwm", value);
+              onPinState(parsed.pin, "pwm", parsed.value);
             }
-          } else if (dreadMatch || pinSetMatch || stdinRecvMatch) {
-            // Debug output - don't send to client
-          } else {
-            onError(line);
-          }
+            break;
+
+          case "ignored":
+            // Debug markers - do nothing
+            break;
+
+          case "text":
+            onError(parsed.line);
+            break;
+
+          // Other types (registry, serial_event) shouldn't appear in error flush context
+          default:
+            break;
         }
       });
     }
   }
 
   stop() {
-    this.isRunning = false;
-    this.isPaused = false;
-    this.pauseStartTime = null;
-    this.pausedTimeoutRemainingMs = null;
-    this.clearTimeoutTimer();
-    this.timeoutCallback = null;
+    this.transitionTo(SimulationState.STOPPED);
     this.processKilled = true;
-    this.registryAlreadySent = true; // Prevent sending registry on exit after manual stop
-    this.onOutputCallback = null; // Clear stored callback
+    
+    // Clear all callbacks for memory leak prevention
+    this.onOutputCallback = null;
+    this.outputCallback = null;
+    this.errorCallback = null;
+    this.pinStateCallback = null;
+    this.ioRegistryCallback = undefined;
 
-    // Clear any pending registry debounce timer
-    if (this.registryDebounceTimer) {
-      clearTimeout(this.registryDebounceTimer);
-      this.registryDebounceTimer = null;
-    }
-    if (this.registryWaitTimer) {
-      clearTimeout(this.registryWaitTimer);
-      this.registryWaitTimer = null;
-    }
+    // Cleanup all manager timers (debounce, timeout, wait timers)
+    this.registryManager.reset(); // Clears debounce and wait timers
+    this.timeoutManager.clear(); // Clears timeout timer
+    
+    // Destroy registry manager to prevent post-test logging
+    this.registryManager.destroy();
 
     if (this.process) {
-      this.process.kill("SIGKILL");
+      try {
+        this.process.kill("SIGKILL");
+        // Remove all listeners to prevent further events
+        this.process.stdout?.removeAllListeners();
+        this.process.stderr?.removeAllListeners();
+        this.process.removeAllListeners();
+      } catch (err) {
+        // Process might already be dead - ignore errors
+      }
       this.process = null;
     }
 
