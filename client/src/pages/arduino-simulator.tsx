@@ -26,6 +26,7 @@ import {
 import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { CodeEditor } from "@/components/features/code-editor";
 import { SerialMonitor } from "@/components/features/serial-monitor";
 import { CompilationOutput } from "@/components/features/compilation-output";
@@ -127,6 +128,10 @@ export default function ArduinoSimulator() {
     "success" | "error" | null
   >(null);
   const [compilationPanelSize, setCompilationPanelSize] = useState(3);
+  // Track if user manually resized the output panel (disables auto-sizing)
+  const [outputPanelManuallyResized, setOutputPanelManuallyResized] = useState(false);
+  // Ref to always have current value (avoids stale closure in callbacks)
+  const outputPanelManuallyResizedRef = useRef(false);
   const [activeOutputTab, setActiveOutputTab] = useState<
     "compiler" | "messages" | "registry" | "debug"
   >("compiler");
@@ -275,27 +280,33 @@ export default function ArduinoSimulator() {
       protocol,
     };
     setDebugMessages((prev) => {
-      const updated = [message, ...prev];
+      const updated = [...prev, message];
       // Keep last 500 messages to avoid memory issues
-      return updated.slice(0, 500);
+      return updated.slice(-500);
     });
   }, [debugMode]);
 
-  // Helper function to open the output panel
+  // Helper function to open the output panel (via double-click on tabs)
   const openOutputPanel = useCallback((targetTab: "compiler" | "messages" | "registry" | "debug") => {
+    // Mark as manually resized FIRST before showing panel (update both state and ref)
+    outputPanelManuallyResizedRef.current = true;
+    setOutputPanelManuallyResized(true);
     setShowCompilationOutput(true);
     setParserPanelDismissed(false);
     setActiveOutputTab(targetTab);
     
-    // Resize panel to 50%
-    setTimeout(() => {
+    // Resize panel to 50% directly without triggering compilationPanelSize state
+    // This prevents the auto-sizing useEffect from interfering
+    requestAnimationFrame(() => {
       if (
         outputPanelRef.current &&
         typeof outputPanelRef.current.resize === "function"
       ) {
         outputPanelRef.current.resize(50);
+        // Update state after to reflect the manual size
+        setCompilationPanelSize(50);
       }
-    }, 0);
+    });
   }, []);
 
   useEffect(() => {
@@ -303,6 +314,9 @@ export default function ArduinoSimulator() {
       try {
         const newValue = Boolean(ev?.detail?.value);
         setShowCompilationOutput(newValue);
+        // Reset manual resize flag when toggling panel visibility (update both ref and state)
+        outputPanelManuallyResizedRef.current = false;
+        setOutputPanelManuallyResized(false);
         // Persist to localStorage
         try {
           window.localStorage.setItem(
@@ -547,32 +561,37 @@ export default function ArduinoSimulator() {
       setParserPanelDismissed(false);
       setShowCompilationOutput(true);
 
-      // Auto-show and size panel for compiler errors
-      const lines = cliOutput.split("\n").length;
-      const totalChars = cliOutput.length;
-      const HEADER_HEIGHT = 50;
-      const PER_LINE = 20;
-      const PADDING = 60;
-      const AVAILABLE_HEIGHT = 800;
+      // Only auto-size if user hasn't manually resized
+      if (!outputPanelManuallyResized) {
+        // Auto-show and size panel for compiler errors
+        const lines = cliOutput.split("\n").length;
+        const totalChars = cliOutput.length;
+        const HEADER_HEIGHT = 50;
+        const PER_LINE = 20;
+        const PADDING = 60;
+        const AVAILABLE_HEIGHT = 800;
 
-      const lineBasedPx =
-        HEADER_HEIGHT +
-        PADDING +
-        Math.max(lines, Math.ceil(totalChars / 80)) * PER_LINE;
-      const newSize = Math.min(
-        75,
-        Math.max(25, Math.ceil((lineBasedPx / AVAILABLE_HEIGHT) * 100)),
-      );
+        const lineBasedPx =
+          HEADER_HEIGHT +
+          PADDING +
+          Math.max(lines, Math.ceil(totalChars / 80)) * PER_LINE;
+        const newSize = Math.min(
+          75,
+          Math.max(25, Math.ceil((lineBasedPx / AVAILABLE_HEIGHT) * 100)),
+        );
 
-      setCompilationPanelSize(newSize);
+        setCompilationPanelSize(newSize);
+      }
     } else if (parserMessages.length > 0 && !hasCompilationErrors) {
       // Reset dismissal flag and show panel for new parser messages (auto-reopen)
       setParserPanelDismissed(false);
       setShowCompilationOutput(true);
       setActiveOutputTab("messages");
 
-      // Auto-show and size panel for parser messages (spec 3.2)
-      const messageCount = parserMessages.length;
+      // Only auto-size if user hasn't manually resized
+      if (!outputPanelManuallyResized) {
+        // Auto-show and size panel for parser messages (spec 3.2)
+        const messageCount = parserMessages.length;
       const totalMessageLength = parserMessages.reduce(
         (sum, msg) => sum + (msg.message?.length || 0),
         0,
@@ -623,27 +642,34 @@ export default function ArduinoSimulator() {
         // Fallback to estimatedPercent
       }
 
-      const newSize = Math.min(75, Math.max(25, Math.max(estimatedPercent, measuredPercent)));
-      setCompilationPanelSize(newSize);
+        const newSize = Math.min(75, Math.max(25, Math.max(estimatedPercent, measuredPercent)));
+        setCompilationPanelSize(newSize);
+      }
     } else if (
       lastCompilationResult === "success" &&
       !hasCompilationErrors &&
       parserMessages.length === 0
     ) {
-      // Minimize panel when no errors and no messages (keep visible at 3%)
-      setCompilationPanelSize(3);
+      // Only auto-minimize if user hasn't manually resized
+      if (!outputPanelManuallyResized) {
+        // Minimize panel when no errors and no messages (keep visible at 3%)
+        setCompilationPanelSize(3);
+      }
     }
   }, [
     cliOutput,
     hasCompilationErrors,
     lastCompilationResult,
     parserMessages.length,
+    outputPanelManuallyResized,
   ]);
 
   // Apply panel size imperatively to ResizablePanel using absolute pixel floor
   const enforceOutputPanelFloor = useCallback(
     (forceResize: boolean = false) => {
       if (!showCompilationOutput) return;
+      // ALWAYS skip auto-sizing if user manually resized the panel - use REF for current value (avoids stale closure)
+      if (outputPanelManuallyResizedRef.current) return;
       const headerEl = outputTabsHeaderRef.current;
       const panelHandle = outputPanelRef.current;
       if (!headerEl || !panelHandle) return;
@@ -692,18 +718,19 @@ export default function ArduinoSimulator() {
   );
 
   useEffect(() => {
+    // Only auto-resize if not manually resized by user (use ref for current value)
     if (
+      !outputPanelManuallyResizedRef.current &&
       outputPanelRef.current &&
       typeof outputPanelRef.current.resize === "function"
     ) {
       outputPanelRef.current.resize(compilationPanelSize);
     }
-    // No floor enforcement here - allow automatic compilation/parser-driven sizing
-  }, [compilationPanelSize]);
+  }, [compilationPanelSize, outputPanelManuallyResized]);
 
   useEffect(() => {
     const handleResize = () =>
-      requestAnimationFrame(() => enforceOutputPanelFloor(true));
+      requestAnimationFrame(() => enforceOutputPanelFloor(false)); // Don't force resize on window resize
     const handleUiScale: EventListener = () => {
       // Double rAF to ensure CSS has fully applied and DOM has re-rendered
       requestAnimationFrame(() => {
@@ -735,7 +762,7 @@ export default function ArduinoSimulator() {
     if (!groupNode) return;
 
     const observer = new ResizeObserver(() => {
-      requestAnimationFrame(() => enforceOutputPanelFloor(true));
+      requestAnimationFrame(() => enforceOutputPanelFloor(false)); // Don't force on group resize
     });
 
     observer.observe(groupNode);
@@ -911,12 +938,12 @@ export default function ArduinoSimulator() {
 
   // Auto-scroll debug console to latest message
   useEffect(() => {
-    if (debugMessagesContainerRef.current) {
+    if (activeOutputTab === "debug" && debugMessagesContainerRef.current) {
       requestAnimationFrame(() => {
         debugMessagesContainerRef.current?.scrollTo(0, debugMessagesContainerRef.current.scrollHeight);
       });
     }
-  }, [debugMessages]);
+  }, [debugMessages, activeOutputTab]);
 
   const ensureBackendConnected = (actionLabel: string) => {
     if (!backendReachable || !isConnected) {
@@ -2950,7 +2977,7 @@ export default function ArduinoSimulator() {
         onFind={() => runEditorCommand("find")}
         onCompile={() => { if (!compileMutation.isPending) handleCompile(); }}
         onCompileAndStart={handleCompileAndStart}
-        onOutputPanelToggle={() => { setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); }}
+        onOutputPanelToggle={() => { setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); outputPanelManuallyResizedRef.current = false; setOutputPanelManuallyResized(false); }}
         showCompilationOutput={showCompilationOutput}
       />
       {/* Hidden file input used by File → Load Files */}
@@ -3056,6 +3083,13 @@ export default function ArduinoSimulator() {
                         <ResizableHandle
                           withHandle
                           data-testid="vertical-resizer-output"
+                          onDragging={(isDragging) => {
+                            // Mark as manually resized as soon as user starts dragging (update both ref and state)
+                            if (isDragging) {
+                              outputPanelManuallyResizedRef.current = true;
+                              setOutputPanelManuallyResized(true);
+                            }
+                          }}
                         />
                       )}
 
@@ -3142,14 +3176,14 @@ export default function ArduinoSimulator() {
                                 className={clsx(
                                   "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
                                   {
-                                    "text-orange-400": hasIOProblems,
+                                    "text-blue-400": hasIOProblems,
                                     "text-gray-400": !hasIOProblems,
                                   },
                                 )}
                               >
                                 <span
                                   className={clsx({
-                                    "text-orange-400": hasIOProblems,
+                                    "text-blue-400": hasIOProblems,
                                     "text-gray-400": !hasIOProblems,
                                   })}
                                 >
@@ -3164,8 +3198,8 @@ export default function ArduinoSimulator() {
                                 >
                                   Debug
                                   {debugMessages.length > 0 && (
-                                    <span className="bg-purple-600/30 text-purple-300 text-[10px] px-1.5 py-0.5 rounded-full font-mono">
-                                      {debugMessages.length > 99 ? "99+" : debugMessages.length}
+                                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-purple-600/30 text-purple-300 text-[9px] font-mono leading-none overflow-hidden">
+                                      {debugMessages.length > 99 ? "99" : debugMessages.length}
                                     </span>
                                   )}
                                 </TabsTrigger>
@@ -3177,8 +3211,25 @@ export default function ArduinoSimulator() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                  setShowCompilationOutput(false);
-                                  setParserPanelDismissed(true);
+                                  // Check if panel is minimized (at ~3% or min size)
+                                  const currentSize = outputPanelRef.current?.getSize?.() ?? 0;
+                                  const isMinimized = currentSize <= outputPanelMinPercent + 1;
+                                  
+                                  if (isMinimized) {
+                                    // If already minimized, close it completely
+                                    setShowCompilationOutput(false);
+                                    setParserPanelDismissed(true);
+                                    outputPanelManuallyResizedRef.current = false;
+                                    setOutputPanelManuallyResized(false);
+                                  } else {
+                                    // If not minimized, minimize it first and reset manual flag
+                                    setCompilationPanelSize(3);
+                                    outputPanelManuallyResizedRef.current = false;
+                                    setOutputPanelManuallyResized(false);
+                                    if (outputPanelRef.current?.resize) {
+                                      outputPanelRef.current.resize(outputPanelMinPercent);
+                                    }
+                                  }
                                 }}
                                 className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
                                 title="Close"
@@ -3258,6 +3309,8 @@ export default function ArduinoSimulator() {
                             value="debug"
                             className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
                           >
+                            {/* Only render debug content when tab is active to avoid lag */}
+                            {activeOutputTab === "debug" && (
                             <div className="flex-1 overflow-hidden flex flex-col">
                                 {/* Debug Console Header */}
                                 <div className="bg-muted/50 border-b border-muted-foreground/30 px-3 h-[var(--ui-button-height)] flex items-center justify-between gap-2 flex-shrink-0">
@@ -3311,9 +3364,13 @@ export default function ArduinoSimulator() {
                                   </div>
                                 </div>
 
-                                {/* Debug Messages Table View */}
+                                {/* Debug Messages Table View - limited to 100 visible entries */}
                                 {debugViewMode === "table" && (
-                                  <div ref={debugMessagesContainerRef} className="flex-1 overflow-auto custom-scrollbar">
+                                  <ScrollArea
+                                    className="flex-1"
+                                    viewportRef={debugMessagesContainerRef}
+                                    thumbClassName="bg-[#22c55e]"
+                                  >
                                     <table className="w-full text-ui-xs border-collapse">
                                       <thead>
                                         <tr className="sticky top-0 z-40 bg-muted border-b border-muted-foreground/20">
@@ -3327,7 +3384,7 @@ export default function ArduinoSimulator() {
                                       <tbody>
                                         {debugMessages
                                           .filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)
-                                          .reverse()
+                                          .slice(-100)
                                           .map((msg, idx) => (
                                             <tr
                                               key={msg.id}
@@ -3363,16 +3420,21 @@ export default function ArduinoSimulator() {
                                         )}
                                       </tbody>
                                     </table>
-                                  </div>
+                                  </ScrollArea>
                                 )}
 
-                                {/* Debug Messages Tiles View */}
+                                {/* Debug Messages Tiles View - limited to 50 visible entries */}
                                 {debugViewMode === "tiles" && (
-                                  <div ref={debugMessagesContainerRef} className="flex-1 overflow-auto custom-scrollbar p-3">
+                                  <ScrollArea
+                                    className="flex-1"
+                                    viewportRef={debugMessagesContainerRef}
+                                    thumbClassName="bg-[#22c55e]"
+                                  >
+                                    <div className="p-3">
                                     <div className="space-y-3">
                                       {debugMessages
                                         .filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)
-                                        .reverse()
+                                        .slice(-50)
                                         .map((msg) => (
                                           <div
                                             key={msg.id}
@@ -3411,9 +3473,11 @@ export default function ArduinoSimulator() {
                                         </div>
                                       )}
                                     </div>
-                                  </div>
+                                    </div>
+                                  </ScrollArea>
                                 )}
                               </div>
+                            )}
                             </TabsContent>
                         </Tabs>
                       </ResizablePanel>

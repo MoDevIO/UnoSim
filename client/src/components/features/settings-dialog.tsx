@@ -328,9 +328,9 @@ export default function SettingsDialog({
           style={{
             position: "sticky",
             bottom: 0,
-            background: "var(--popover)",
+            background: "transparent",
             zIndex: 2,
-            boxShadow: "0 -2px 8px rgba(0,0,0,0.08)",
+            boxShadow: "none",
           }}
         >
           <div className="flex w-full justify-end gap-2">

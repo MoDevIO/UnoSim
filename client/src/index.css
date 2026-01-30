@@ -199,6 +199,17 @@ html, body {
   background: hsl(0 0% 35%);
 }
 
+/* Hide scrollbar while keeping scroll functionality */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Desktop-style app navbar */
 .app-navbar {
   -webkit-app-region: drag; /* Makes the header draggable in desktop wrapper apps */

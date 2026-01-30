@@ -1,4 +1,5 @@
 import { useRef, useEffect } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { OutputLine } from "@shared/schema";
 
 interface SerialMonitorProps {
@@ -231,11 +232,12 @@ export function SerialMonitor({
     <div className="h-full flex flex-col" data-testid="serial-monitor">
       <div className="flex-1 min-h-0">
         {showMonitor ? (
-          <div
-            ref={outputRef}
-            className="h-full overflow-auto custom-scrollbar scrollbar-hide p-3 text-ui-xs font-mono"
-            data-testid="serial-output"
-            onScroll={handleScroll}
+          <ScrollArea
+            className="h-full"
+            viewportRef={outputRef}
+            viewportProps={{ onScroll: handleScroll, "data-testid": "serial-output" }}
+            viewportClassName="p-3 text-ui-xs font-mono"
+            thumbClassName="bg-[#22c55e]"
           />
         ) : (
           <div className="h-full" />
