@@ -427,14 +427,20 @@ export class SandboxRunner {
         );
       }
     } catch (err) {
-      this.logger.error(
-        `Kompilierfehler oder Timeout: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Kompilierfehler oder Timeout: ${errorMessage}`);
       compilationFailed = true;
-      if (onCompileError && !compilationFailed) {
-        onError(err instanceof Error ? err.message : String(err));
+      
+      // Call onCompileError if provided (for test promise resolution)
+      if (onCompileError) {
+        onCompileError(errorMessage);
       }
-      onExit(-1);
+      
+      // Always call onExit to ensure promises resolve
+      if (onExit) {
+        onExit(-1);
+      }
+      
       this.process = null;
 
       // Cleanup on error
@@ -1217,7 +1223,7 @@ export class SandboxRunner {
     }
   }
 
-  stop() {
+  async stop(): Promise<void> {
     this.transitionTo(SimulationState.STOPPED);
     this.processKilled = true;
     
@@ -1236,15 +1242,8 @@ export class SandboxRunner {
     this.registryManager.destroy();
 
     if (this.process) {
-      try {
-        this.process.kill("SIGKILL");
-        // Remove all listeners to prevent further events
-        this.process.stdout?.removeAllListeners();
-        this.process.stderr?.removeAllListeners();
-        this.process.removeAllListeners();
-      } catch (err) {
-        // Process might already be dead - ignore errors
-      }
+      // Wait for process to actually terminate with timeout fallback
+      await this.killProcessAndWait(this.process);
       this.process = null;
     }
 
@@ -1260,6 +1259,107 @@ export class SandboxRunner {
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
+    }
+  }
+
+  /**
+   * Kill a process and wait for it to fully terminate
+   * Uses SIGTERM first, then SIGKILL fallback after 2s timeout
+   * Ensures all sockets are destroyed to prevent Jest open handles
+   */
+  private async killProcessAndWait(process: ChildProcess): Promise<void> {
+    return new Promise<void>((resolve) => {
+      // Early exit if process already dead
+      if (!process.pid || process.exitCode !== null || process.killed) {
+        // Cleanup sockets even if process is dead
+        this.destroyProcessSockets(process);
+        resolve();
+        return;
+      }
+
+      let timeoutHandle: NodeJS.Timeout | null = null;
+      let resolved = false;
+
+      const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+
+        // Remove all listeners to prevent further events
+        process.stdout?.removeAllListeners();
+        process.stderr?.removeAllListeners();
+        process.removeAllListeners();
+
+        // Explicitly destroy sockets to close handles
+        this.destroyProcessSockets(process);
+
+        resolve();
+      };
+
+      // Listen for process termination
+      process.once("close", cleanup);
+      process.once("exit", cleanup);
+
+      // Try graceful termination first with SIGTERM
+      try {
+        process.kill("SIGTERM");
+        this.logger.info("Sent SIGTERM to process");
+      } catch (err) {
+        // Process might already be dead
+        cleanup();
+        return;
+      }
+
+      // Fallback: Force kill with SIGKILL after 2s timeout
+      timeoutHandle = setTimeout(() => {
+        if (resolved) return;
+
+        try {
+          this.logger.warn("SIGTERM timeout - sending SIGKILL");
+          process.kill("SIGKILL");
+          
+          // Give SIGKILL 500ms to work, then force cleanup
+          setTimeout(() => {
+            cleanup();
+          }, 500);
+        } catch (err) {
+          // Process died during timeout
+          cleanup();
+        }
+      }, 2000);
+    });
+  }
+
+  /**
+   * Explicitly destroy all process sockets to prevent Jest open handles
+   */
+  private destroyProcessSockets(process: ChildProcess): void {
+    try {
+      if (process.stdin && !process.stdin.destroyed) {
+        process.stdin.destroy();
+      }
+    } catch (err) {
+      // Ignore errors
+    }
+
+    try {
+      if (process.stdout && !process.stdout.destroyed) {
+        process.stdout.destroy();
+      }
+    } catch (err) {
+      // Ignore errors
+    }
+
+    try {
+      if (process.stderr && !process.stderr.destroyed) {
+        process.stderr.destroy();
+      }
+    } catch (err) {
+      // Ignore errors
     }
   }
 
