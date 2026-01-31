@@ -108,16 +108,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const isLoading =
     isCompiling || isStarting || isStopping || isPausing || isResuming;
 
-  const isPauseResumeVisible =
-    simulationStatus === "running" || simulationStatus === "paused";
-  const pauseResumeLabel =
-    simulationStatus === "paused" ? "Resume" : "Pause";
-  const pauseResumeIcon = simulationStatus === "paused" ? (
-    <Play className="h-4 w-4 flex-shrink-0" />
-  ) : (
-    <Pause className="h-4 w-4 flex-shrink-0" />
-  );
-
   // Desktop Header
   if (!isMobile) {
     return (
@@ -355,72 +345,92 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <div className="flex justify-center items-center gap-3">
           <Button
             onClick={
-              simulationStatus === "running" || simulationStatus === "paused"
+              simulationStatus === "running"
                 ? onStop
-                : onSimulate
+                : simulationStatus === "paused"
+                  ? onResume
+                  : onSimulate
             }
             disabled={simulateDisabled}
             className={clsx(
-              "h-[var(--ui-button-height)] px-10 min-w-[16rem] max-w-[32rem] w-full flex items-center justify-center gap-2 mx-auto flex-shrink",
-              "!text-white font-medium transition-colors whitespace-nowrap",
-              "overflow-hidden text-ellipsis",
+              "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
+              "!text-white font-medium transition-colors",
               {
                 "!bg-orange-600 hover:!bg-orange-700":
-                  (simulationStatus === "running" ||
-                    simulationStatus === "paused") &&
-                  !simulateDisabled,
+                  simulationStatus === "running" && !simulateDisabled,
                 "!bg-green-600 hover:!bg-green-700":
-                  simulationStatus === "stopped" && !simulateDisabled,
+                  (simulationStatus === "stopped" || simulationStatus === "paused") &&
+                  !simulateDisabled,
                 "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500":
                   simulateDisabled,
               },
             )}
             data-testid="button-simulate-toggle"
             aria-label={
-              simulationStatus === "running" || simulationStatus === "paused"
+              simulationStatus === "running"
                 ? "Stop Simulation"
-                : "Start Simulation"
+                : simulationStatus === "paused"
+                  ? "Resume Simulation"
+                  : "Start Simulation"
             }
           >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-            ) : simulationStatus === "running" ||
-              simulationStatus === "paused" ? (
-              <Square className="h-4 w-4 flex-shrink-0" />
-            ) : (
-              <Play className="h-4 w-4 flex-shrink-0" />
-            )}
-            <span className="truncate block">
-              {simulationStatus === "running" || simulationStatus === "paused"
-                ? "Stop"
-                : "Start"}
-            </span>
-          </Button>
-
-          {isPauseResumeVisible && (
-            <Button
-              onClick={
-                simulationStatus === "paused" ? onResume : onPause
-              }
-              disabled={simulateDisabled || isLoading}
-              variant="outline"
-              className={clsx(
-                "h-[var(--ui-button-height)] px-4 min-w-[8rem] flex items-center gap-2",
-                simulationStatus === "paused"
-                  ? "bg-green-600/20 text-white"
-                  : "bg-orange-600/20 text-white",
-              )}
-              data-testid="button-pause-resume"
-              aria-label={`${pauseResumeLabel} Simulation`}
+            <div
+              className={clsx("flex items-center gap-2", {
+                "absolute left-1/2 -translate-x-1/2":
+                  simulationStatus !== "running",
+              })}
             >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                <Loader2 className="h-4 w-4 flex-shrink-0" />
+              ) : simulationStatus === "running" ? (
+                <Square className="h-4 w-4 flex-shrink-0" />
               ) : (
-                pauseResumeIcon
+                <Play className="h-4 w-4 flex-shrink-0" />
               )}
-              <span className="truncate block">{pauseResumeLabel}</span>
-            </Button>
-          )}
+              <span className="font-semibold">
+                {simulationStatus === "running"
+                  ? "Stop"
+                  : simulationStatus === "paused"
+                    ? "Resume"
+                    : "Start"}
+              </span>
+            </div>
+            {simulationStatus === "running" && (
+              <div
+                className="absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center cursor-pointer bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!simulateDisabled && !isLoading) {
+                    onPause();
+                  }
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!simulateDisabled && !isLoading) {
+                      onPause();
+                    }
+                  }
+                }}
+                aria-label="Pause Simulation"
+                title="Pause"
+              >
+                {isPausing ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-orange-900" />
+                ) : (
+                  <Pause className="h-3 w-3 text-orange-900" />
+                )}
+              </div>
+            )}
+          </Button>
         </div>
 
         {/* Right: Empty for symmetry */}
@@ -438,68 +448,92 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <div className="flex items-center gap-2">
         <Button
           onClick={
-            simulationStatus === "running" || simulationStatus === "paused"
+            simulationStatus === "running"
               ? onStop
-              : onSimulate
+              : simulationStatus === "paused"
+                ? onResume
+                : onSimulate
           }
           disabled={simulateDisabled}
           className={clsx(
-            "h-[var(--ui-button-height)] px-6 flex items-center justify-center gap-2",
+            "h-[var(--ui-button-height)] px-6 pr-12 flex items-center justify-center gap-2 relative",
             "!text-white font-medium transition-colors whitespace-nowrap",
             {
               "!bg-orange-600 hover:!bg-orange-700":
-                (simulationStatus === "running" ||
-                  simulationStatus === "paused") &&
-                !simulateDisabled,
+                simulationStatus === "running" && !simulateDisabled,
               "!bg-green-600 hover:!bg-green-700":
-                simulationStatus === "stopped" && !simulateDisabled,
+                (simulationStatus === "stopped" || simulationStatus === "paused") &&
+                !simulateDisabled,
               "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500":
                 simulateDisabled,
             },
           )}
           data-testid="button-simulate-toggle-mobile"
           aria-label={
-            simulationStatus === "running" || simulationStatus === "paused"
+            simulationStatus === "running"
               ? "Stop Simulation"
-              : "Start Simulation"
+              : simulationStatus === "paused"
+                ? "Resume Simulation"
+                : "Start Simulation"
           }
         >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-          ) : simulationStatus === "running" || simulationStatus === "paused" ? (
-            <Square className="h-4 w-4 flex-shrink-0" />
-          ) : (
-            <Play className="h-4 w-4 flex-shrink-0" />
-          )}
-          <span>
-            {simulationStatus === "running" || simulationStatus === "paused"
-              ? "Stop"
-              : "Start"}
-          </span>
-        </Button>
-
-        {isPauseResumeVisible && (
-          <Button
-            onClick={simulationStatus === "paused" ? onResume : onPause}
-            disabled={simulateDisabled || isLoading}
-            variant="outline"
-            className={clsx(
-              "h-[var(--ui-button-height)] px-4 flex items-center justify-center gap-2",
-              simulationStatus === "paused"
-                ? "bg-green-600/20 text-white"
-                : "bg-orange-600/20 text-white",
-            )}
-            data-testid="button-pause-resume-mobile"
-            aria-label={`${pauseResumeLabel} Simulation`}
+          <div
+            className={clsx("flex items-center gap-2", {
+              "absolute left-1/2 -translate-x-1/2":
+                simulationStatus !== "running",
+            })}
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+            ) : simulationStatus === "running" ? (
+              <Square className="h-4 w-4 flex-shrink-0" />
             ) : (
-              pauseResumeIcon
+              <Play className="h-4 w-4 flex-shrink-0" />
             )}
-            <span>{pauseResumeLabel}</span>
-          </Button>
-        )}
+            <span>
+              {simulationStatus === "running"
+                ? "Stop"
+                : simulationStatus === "paused"
+                  ? "Resume"
+                  : "Start"}
+            </span>
+          </div>
+          {simulationStatus === "running" && (
+            <div
+              className="absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center cursor-pointer bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!simulateDisabled && !isLoading) {
+                  onPause();
+                }
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!simulateDisabled && !isLoading) {
+                    onPause();
+                  }
+                }
+              }}
+              aria-label="Pause Simulation"
+              title="Pause"
+            >
+              {isPausing ? (
+                <Loader2 className="h-3 w-3 animate-spin text-orange-900" />
+              ) : (
+                <Pause className="h-3 w-3 text-orange-900" />
+              )}
+            </div>
+          )}
+        </Button>
       </div>
     </header>
   );

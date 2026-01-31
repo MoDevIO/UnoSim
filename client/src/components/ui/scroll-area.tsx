@@ -8,6 +8,7 @@ type ScrollAreaProps = React.ComponentPropsWithoutRef<
 > & {
   viewportRef?: React.Ref<HTMLDivElement>;
   viewportClassName?: string;
+  viewportTestId?: string;
   viewportProps?: React.ComponentPropsWithoutRef<
     typeof ScrollAreaPrimitive.Viewport
   >;
@@ -25,6 +26,7 @@ const ScrollArea = React.forwardRef<
       children,
       viewportRef,
       viewportClassName,
+      viewportTestId,
       viewportProps,
       scrollbarClassName,
       thumbClassName,
@@ -39,6 +41,7 @@ const ScrollArea = React.forwardRef<
   >
     <ScrollAreaPrimitive.Viewport
       ref={viewportRef}
+      data-testid={viewportTestId}
       className={cn(
         "h-full w-full rounded-[inherit]",
         viewportClassName,

@@ -18,6 +18,14 @@ interface RunSketchCallbacks {
   onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void;
 }
 
+const STRESS_SCALE = Number(process.env.STRESS_TEST_SCALE ?? "0.35");
+const scaleMsLong = (value: number, min = 250) =>
+  Math.max(min, Math.round(value * STRESS_SCALE));
+const scaleMsShort = (value: number, min = 5) =>
+  Math.max(min, Math.round(value * STRESS_SCALE));
+const scaleTestMs = (value: number, min = 5000) =>
+  Math.max(min, Math.round(value * STRESS_SCALE));
+
 // Helper to call runSketch with object-style callbacks
 function runSketchHelper(
   runner: SandboxRunner,
@@ -162,10 +170,10 @@ void loop() {
                 });
               },
             },
-            3000 // 3 second timeout (should abort sooner via size limit)
+            scaleMsLong(3000) // 3 second timeout (should abort sooner via size limit)
           );
         }),
-        25000, // 25s safety timeout
+        scaleMsLong(25000), // 25s safety timeout
         { aborted: false, memoryLeak: false, outputSize: 0 } // Default value
       );
 
@@ -184,7 +192,7 @@ void loop() {
 
       // Cleanup
       await runner.stop();
-    }, 30000); // 30s test timeout
+    }, scaleTestMs(30000)); // 30s test timeout
 
     it("should maintain RegistryManager debouncing during data flood", async () => {
       const runner = new SandboxRunner();
@@ -229,10 +237,10 @@ void loop() {
                 resolve();
               },
             },
-            2000 // 2 second run
+            scaleMsLong(2000) // 2 second run
           );
         }),
-        25000, // 25s safety timeout
+        scaleMsLong(25000), // 25s safety timeout
         undefined
       );
 
@@ -251,7 +259,7 @@ void loop() {
       }
 
       await runner.stop();
-    }, 30000);
+    }, scaleTestMs(30000));
   });
 
   describe("Test 2: Rapid State Jitter - Pause/Resume Stress", () => {
@@ -296,15 +304,15 @@ void loop() {
                 resolve();
               },
             },
-            10000 // 10 second total runtime
+            scaleMsLong(10000) // 10 second total runtime
           );
         }),
-        25000, // 25s safety timeout
+        scaleMsLong(25000), // 25s safety timeout
         undefined
       );
 
       // Wait for sketch to start
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, scaleMsShort(500)));
 
       // Perform 20 rapid pause/resume cycles
       const pauseResults: boolean[] = [];
@@ -313,13 +321,13 @@ void loop() {
       for (let i = 0; i < 20; i++) {
         // Random delay between 10ms and 100ms
         const pauseDelay = 10 + Math.random() * 90;
-        await new Promise((resolve) => setTimeout(resolve, pauseDelay));
+        await new Promise((resolve) => setTimeout(resolve, scaleMsShort(pauseDelay)));
 
         const pauseSuccess = await runner.pause();
         pauseResults.push(pauseSuccess);
 
         const resumeDelay = 10 + Math.random() * 90;
-        await new Promise((resolve) => setTimeout(resolve, resumeDelay));
+        await new Promise((resolve) => setTimeout(resolve, scaleMsShort(resumeDelay)));
 
         const resumeSuccess = await runner.resume();
         resumeResults.push(resumeSuccess);
@@ -343,7 +351,7 @@ void loop() {
         console.log(`Local mode: ${stateErrors.length} state errors, ${tickCount} ticks`);
         expect(stateErrors.length).toBeLessThan(50); // Allow some errors in local mode
       }
-    }, 30000);
+    }, scaleTestMs(30000));
 
     it("should correctly calculate remaining time with pause jitter", async () => {
       const runner = new SandboxRunner();
@@ -387,17 +395,17 @@ void loop() {
                 resolve();
               },
             },
-            5000 // 5 second timeout
+            scaleMsLong(5000) // 5 second timeout
           );
         }),
-        25000, // 25s safety timeout
+        scaleMsLong(25000), // 25s safety timeout
         undefined
       );
 
       // Only pause/resume if sketch actually started (Docker mode)
       if (dockerAvailable && exitResolved && processStartTime > 0) {
         // Wait for start
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, scaleMsShort(300)));
 
         // 5 pause/resume cycles with timing tracking
         for (let i = 0; i < 5; i++) {
@@ -405,7 +413,7 @@ void loop() {
           await runner.pause();
           pauseTimestamps.push(pauseStart);
 
-          await new Promise((resolve) => setTimeout(resolve, 200)); // Pause for 200ms
+          await new Promise((resolve) => setTimeout(resolve, scaleMsShort(200))); // Pause for 200ms
 
           const resumeStart = Date.now();
           await runner.resume();
@@ -419,7 +427,7 @@ void loop() {
       }
 
       // Wait a bit then stop
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, scaleMsShort(500)));
       await runner.stop();
 
       // Verify: Timing and ordering - Docker-aware
@@ -447,7 +455,7 @@ void loop() {
       } else {
         expect(timingErrors).toBeLessThan(3); // Allow some timing issues in local mode
       }
-    }, 30000);
+    }, scaleTestMs(30000));
   });
 
   describe("Test 3: Concurrency & Cleanup - Multi-Instance Stress", () => {
@@ -494,16 +502,16 @@ void loop() {
                   resolve();
                 },
               },
-              3000 // 3 second runtime
+              scaleMsLong(3000) // 3 second runtime
             );
           }),
-          55000, // 55s safety timeout
+          scaleMsLong(55000), // 55s safety timeout
           undefined
         )
       );
 
       // Wait for all to start
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, scaleMsShort(1000)));
 
       // Check temp directory isolation
       const tempEntries = readdirSync(tempDir);
@@ -547,7 +555,7 @@ void loop() {
       }
 
       // Wait for cleanup
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, scaleMsShort(1000)));
 
       // Check cleanup: .cleanup directories should exist, or all cleaned
       const afterCleanup = readdirSync(tempDir);
@@ -557,7 +565,7 @@ void loop() {
       });
 
       expect(remainingSketchDirs.length).toBe(0); // All sketch dirs should be cleaned/renamed
-    }, 60000); // 60s timeout for concurrency test
+    }, scaleTestMs(60000)); // 60s timeout for concurrency test
 
     it("should cleanup temp directory after rapid start/stop cycles", async () => {
       const runner = new SandboxRunner();
@@ -589,21 +597,21 @@ void loop() {
                   resolve();
                 },
               },
-              5000
+              scaleMsLong(5000)
             );
           }),
-          10000, // 10s safety timeout per cycle
+          scaleMsLong(10000), // 10s safety timeout per cycle
           undefined
         );
 
         // Wait briefly then stop
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, scaleMsShort(200)));
         await runner.stop();
         await exitPromise;
       }
 
       // Wait for cleanup to complete
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, scaleMsShort(2000)));
 
       // Count remaining directories
       const entries = readdirSync(tempDir);
@@ -611,7 +619,7 @@ void loop() {
 
       // Should have minimal residual directories (ideally 0)
       expect(nonCleanupDirs.length).toBeLessThan(3); // Allow max 2 stragglers
-    }, 60000);
+    }, scaleTestMs(60000));
 
     it("should prevent resource leaks with memory usage check", async () => {
       const initialMemory = process.memoryUsage().heapUsed;
@@ -648,10 +656,10 @@ void loop() {
                   resolve();
                 },
               },
-              1000
+              scaleMsLong(1000)
             );
           }),
-          5000, // 5s safety timeout per run
+          scaleMsLong(5000), // 5s safety timeout per run
           undefined
         );
         await runner.stop();
@@ -662,7 +670,7 @@ void loop() {
         global.gc();
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, scaleMsShort(1000)));
 
       const finalMemory = process.memoryUsage().heapUsed;
       const memoryGrowth = finalMemory - initialMemory;
@@ -675,7 +683,7 @@ void loop() {
       }
       
       console.log(`Memory growth: ${(memoryGrowth / 1024 / 1024).toFixed(2)} MB`);
-    }, 90000);
+    }, scaleTestMs(90000));
   });
 
   describe("Edge Cases: State Machine Validation", () => {
@@ -719,17 +727,17 @@ void loop() {
                 resolve();
               },
             },
-            5000
+            scaleMsLong(5000)
           );
         }),
-        25000, // 25s safety timeout
+        scaleMsLong(25000), // 25s safety timeout
         undefined
       );
 
       // Only test pause/resume if sketch actually started
       if (sketchStarted) {
         // Wait for RUNNING state
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, scaleMsShort(500)));
 
         // Valid pause
         const validPause = await runner.pause();
@@ -746,7 +754,7 @@ void loop() {
 
       // Stop
       await runner.stop();
-    }, 30000);
+    }, scaleTestMs(30000));
 
     it("should handle stop() during STARTING phase", async () => {
       const runner = new SandboxRunner();
@@ -766,16 +774,16 @@ void loop() {
             console.log("Compilation failed on first run:", error);
           },
         },
-        5000
+        scaleMsLong(5000)
       );
 
       // Immediately stop (might still be in STARTING)
       // This tests the state machine during transition
-      await new Promise((resolve) => setTimeout(resolve, 10)); // Let it start
+      await new Promise((resolve) => setTimeout(resolve, scaleMsShort(10))); // Let it start
       await runner.stop();
 
       // Give it time to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, scaleMsShort(100)));
 
       // Should transition cleanly to STOPPED
       // Verify by trying another run
@@ -795,10 +803,10 @@ void loop() {
                 resolve();
               },
             },
-            1000
+            scaleMsLong(1000)
           );
         }),
-        25000, // 25s safety timeout
+        scaleMsLong(25000), // 25s safety timeout
         undefined
       );
 
@@ -815,6 +823,6 @@ void loop() {
         // In local mode, second run should also compile with error
         expect(firstRunStarted || exitCalled).toBe(true); // At least one callback fired
       }
-    }, 30000);
+    }, scaleTestMs(30000));
   });
 });

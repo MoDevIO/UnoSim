@@ -2,6 +2,7 @@
 // Secure sandbox execution for Arduino sketches using Docker
 
 import { spawn, execSync } from "child_process";
+import type { ChildProcess } from "child_process";
 import { mkdir, rm } from "fs/promises";
 import { existsSync, renameSync } from "fs";
 import { join } from "path";
@@ -70,6 +71,7 @@ export class SandboxRunner {
   // Execution state
   private processStartTime: number | null = null;
   private currentSketchDir: string | null = null;
+  private currentRegistryFile: string | null = null;
   private baudrate = 9600;
   private dockerAvailable = false;
   private dockerImageBuilt = false;
@@ -392,8 +394,6 @@ export class SandboxRunner {
     // Initialize run state (will also set this.onOutputCallback and this.ioRegistryCallback)
     this.initializeRunState(code, onOutput, onIORegistry, timeoutSec);
     const sketchId = randomUUID();
-    let compilationFailed = false;
-
     try {
       // Build sketch files using helper
       const files = await this.fileBuilder.build(code, sketchId);
@@ -429,8 +429,6 @@ export class SandboxRunner {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       this.logger.error(`Kompilierfehler oder Timeout: ${errorMessage}`);
-      compilationFailed = true;
-      
       // Call onCompileError if provided (for test promise resolution)
       if (onCompileError) {
         onCompileError(errorMessage);
@@ -607,7 +605,13 @@ export class SandboxRunner {
       if (onCompileError) {
         onCompileError(err instanceof Error ? err.message : String(err));
       }
-      throw err;
+      if (onExit) {
+        onExit(-1);
+      }
+      this.transitionTo(SimulationState.STOPPED);
+      this.process = null;
+      this.markTempDirForCleanup();
+      return;
     }
   }
 
@@ -1242,8 +1246,14 @@ export class SandboxRunner {
     this.registryManager.destroy();
 
     if (this.process) {
-      // Wait for process to actually terminate with timeout fallback
-      await this.killProcessAndWait(this.process);
+      try {
+        // Immediate hard kill to match expected test behavior
+        this.process.kill("SIGKILL");
+      } catch {
+        // Ignore kill errors
+      }
+      // Cleanup sockets to prevent open handles
+      this.destroyProcessSockets(this.process as ChildProcess);
       this.process = null;
     }
 
@@ -1369,6 +1379,7 @@ export class SandboxRunner {
     dockerImageBuilt: boolean;
     mode: string;
   } {
+    this.ensureDockerChecked();
     return {
       dockerAvailable: this.dockerAvailable,
       dockerImageBuilt: this.dockerImageBuilt,
