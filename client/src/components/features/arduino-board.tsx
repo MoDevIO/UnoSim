@@ -941,13 +941,13 @@ function DialogInner(props: {
           onClick={onClose}
           variant="outline"
         >
-          Abbrechen
+          Cancel
         </Button>
         <Button
           onClick={() => onConfirm(dialog.pin, val)}
           variant="default"
         >
-          Bestätigung
+          Confirm
         </Button>
       </div>
     </div>
