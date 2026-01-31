@@ -90,6 +90,9 @@ off to ensure full coverage of performance-related tests.
 
 MIT License - See [LICENSE](LICENSE) for details
 
+This project uses third-party open-source dependencies.
+See [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt) for details.
+
 ## Contact & Support
 
 ### Getting Help
