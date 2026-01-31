@@ -1272,77 +1272,7 @@ export class SandboxRunner {
     }
   }
 
-  /**
-   * Kill a process and wait for it to fully terminate
-   * Uses SIGTERM first, then SIGKILL fallback after 2s timeout
-   * Ensures all sockets are destroyed to prevent Jest open handles
-   */
-  private async killProcessAndWait(process: ChildProcess): Promise<void> {
-    return new Promise<void>((resolve) => {
-      // Early exit if process already dead
-      if (!process.pid || process.exitCode !== null || process.killed) {
-        // Cleanup sockets even if process is dead
-        this.destroyProcessSockets(process);
-        resolve();
-        return;
-      }
-
-      let timeoutHandle: NodeJS.Timeout | null = null;
-      let resolved = false;
-
-      const cleanup = () => {
-        if (resolved) return;
-        resolved = true;
-
-        if (timeoutHandle) {
-          clearTimeout(timeoutHandle);
-          timeoutHandle = null;
-        }
-
-        // Remove all listeners to prevent further events
-        process.stdout?.removeAllListeners();
-        process.stderr?.removeAllListeners();
-        process.removeAllListeners();
-
-        // Explicitly destroy sockets to close handles
-        this.destroyProcessSockets(process);
-
-        resolve();
-      };
-
-      // Listen for process termination
-      process.once("close", cleanup);
-      process.once("exit", cleanup);
-
-      // Try graceful termination first with SIGTERM
-      try {
-        process.kill("SIGTERM");
-        this.logger.info("Sent SIGTERM to process");
-      } catch (err) {
-        // Process might already be dead
-        cleanup();
-        return;
-      }
-
-      // Fallback: Force kill with SIGKILL after 2s timeout
-      timeoutHandle = setTimeout(() => {
-        if (resolved) return;
-
-        try {
-          this.logger.warn("SIGTERM timeout - sending SIGKILL");
-          process.kill("SIGKILL");
-          
-          // Give SIGKILL 500ms to work, then force cleanup
-          setTimeout(() => {
-            cleanup();
-          }, 500);
-        } catch (err) {
-          // Process died during timeout
-          cleanup();
-        }
-      }, 2000);
-    });
-  }
+  /* killProcessAndWait removed (unused) */
 
   /**
    * Explicitly destroy all process sockets to prevent Jest open handles
