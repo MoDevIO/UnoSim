@@ -108,12 +108,50 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const isLoading =
     isCompiling || isStarting || isStopping || isPausing || isResuming;
 
+  const headerRef = React.useRef<HTMLElement | null>(null);
+  const leftGroupRef = React.useRef<HTMLDivElement | null>(null);
+  const centerGroupRef = React.useRef<HTMLDivElement | null>(null);
+  const [centerLeft, setCenterLeft] = React.useState<number | null>(null);
+
+  React.useLayoutEffect(() => {
+    if (isMobile) return;
+    const headerEl = headerRef.current;
+    const leftEl = leftGroupRef.current;
+    const centerEl = centerGroupRef.current;
+    if (!headerEl || !leftEl || !centerEl) return;
+
+    const computeCenter = () => {
+      const headerRect = headerEl.getBoundingClientRect();
+      const leftRect = leftEl.getBoundingClientRect();
+      const centerRect = centerEl.getBoundingClientRect();
+      const gap = 12;
+      const leftEdge = leftRect.left - headerRect.left;
+      const minCenter =
+        leftEdge + leftRect.width + gap + centerRect.width / 2;
+      const target = Math.max(headerRect.width / 2, minCenter);
+      setCenterLeft(target);
+    };
+
+    computeCenter();
+    const observer = new ResizeObserver(() => computeCenter());
+    observer.observe(headerEl);
+    observer.observe(leftEl);
+    observer.observe(centerEl);
+    return () => observer.disconnect();
+  }, [isMobile]);
+
   // Desktop Header
   if (!isMobile) {
     return (
-      <header className="app-navbar bg-card border-b border-border px-4 h-[var(--ui-header-height)] grid grid-cols-[1fr_auto_1fr] items-center overflow-x-hidden overflow-y-hidden whitespace-nowrap w-full min-h-[var(--ui-header-height)]">
+      <header
+        ref={headerRef}
+        className="app-navbar bg-card border-b border-border px-4 py-2 relative flex items-center overflow-x-hidden overflow-y-hidden whitespace-nowrap w-full"
+      >
         {/* Left: Logo + Title */}
-        <div className="flex items-center gap-4 min-w-0 flex-shrink-0 justify-start">
+        <div
+          ref={leftGroupRef}
+          className="flex items-center gap-4 min-w-0 flex-shrink-0 justify-start"
+        >
           <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
             <Cpu
               className="text-white opacity-95 h-5 w-5 flex-shrink-0"
@@ -341,8 +379,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </nav>
         </div>
 
+        <div className="flex-1" />
+
         {/* Center: Simulate Button */}
-        <div className="flex justify-center items-center gap-3">
+        <div
+          ref={centerGroupRef}
+          className="absolute top-1/2"
+          style={{
+            left: centerLeft ? `${centerLeft}px` : "50%",
+            transform: "translate(-50%, -50%)",
+          }}
+        >
           <Button
             onClick={
               simulationStatus === "running"
@@ -374,12 +421,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   : "Start Simulation"
             }
           >
-            <div
-              className={clsx("flex items-center gap-2", {
-                "absolute left-1/2 -translate-x-1/2":
-                  simulationStatus !== "running",
-              })}
-            >
+            <div className="flex items-center gap-2 justify-center">
               {isLoading ? (
                 <Loader2 className="h-4 w-4 flex-shrink-0" />
               ) : simulationStatus === "running" ? (
@@ -434,7 +476,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </div>
 
         {/* Right: Empty for symmetry */}
-        <div />
+        <div className="flex-1" />
       </header>
     );
   }
