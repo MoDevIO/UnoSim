@@ -421,15 +421,34 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   : "Start Simulation"
             }
           >
-            <div className="flex items-center gap-2 justify-center">
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 flex-shrink-0" />
-              ) : simulationStatus === "running" ? (
-                <Square className="h-4 w-4 flex-shrink-0" />
-              ) : (
-                <Play className="h-4 w-4 flex-shrink-0" />
-              )}
-              <span className="font-semibold">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
+              <div className="relative w-4 h-4">
+                <Play
+                  className={clsx(
+                    "absolute inset-0 m-auto h-4 w-4 transition-all duration-200",
+                    {
+                      "opacity-100 scale-100": !isLoading && simulationStatus !== "running",
+                      "opacity-0 scale-75": isLoading || simulationStatus === "running",
+                    },
+                  )}
+                />
+                <Square
+                  className={clsx(
+                    "absolute inset-0 m-auto h-4 w-4 transition-all duration-200",
+                    {
+                      "opacity-100 scale-100": !isLoading && simulationStatus === "running",
+                      "opacity-0 scale-75": isLoading || simulationStatus !== "running",
+                    },
+                  )}
+                />
+                <Loader2
+                  className={clsx(
+                    "absolute inset-0 m-auto h-4 w-4 transition-opacity duration-150",
+                    { "opacity-100": isLoading, "opacity-0": !isLoading },
+                  )}
+                />
+              </div>
+              <span className="font-semibold leading-none">
                 {simulationStatus === "running"
                   ? "Stop"
                   : simulationStatus === "paused"
