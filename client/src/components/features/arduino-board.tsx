@@ -773,6 +773,15 @@ export function ArduinoBoard({
               height: "100%",
             }}
           >
+            {/* Darken overlay covering entire board area (not scaled) */}
+            <div
+              className="absolute inset-0 transition-opacity duration-300 ease-in-out pointer-events-none"
+              style={{
+                background: "rgba(0,0,0,0.45)",
+                opacity: isSimulationRunning ? 0 : 1,
+                zIndex: 20,
+              }}
+            />
             {/* Scaled inner wrapper to fit both width and height */}
             <div
               ref={innerWrapperRef}
@@ -788,14 +797,6 @@ export function ArduinoBoard({
               <div
                 style={{ position: "relative", width: "100%", height: "100%" }}
                 dangerouslySetInnerHTML={{ __html: getModifiedSvg() }}
-              />
-              {/* Darken overlay - fades in/out when simulation stops/starts */}
-              <div
-                className="absolute inset-0 transition-opacity duration-300 ease-in-out pointer-events-none"
-                style={{
-                  background: "rgba(0,0,0,0.45)",
-                  opacity: isSimulationRunning ? 0 : 1,
-                }}
               />
               {/* Overlay SVG - dynamic visualization and click handling */}
               <div

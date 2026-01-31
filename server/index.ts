@@ -62,10 +62,10 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Monaco Editor needs these
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'", "ws:", "wss:"],
-        fontSrc: ["'self'", "data:"],
+        connectSrc: ["'self'", "ws:", "wss:", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
+        fontSrc: ["'self'", "data:", 'https://fonts.gstatic.com'],
         workerSrc: ["'self'", "blob:"],
       },
     },
