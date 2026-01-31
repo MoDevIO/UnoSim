@@ -8,7 +8,7 @@
     "dev:full": "npm run dev",
     "dev:client": "vite",
     "preview": "vite preview",
-    "build": "npm run build && NODE_ENV=production",
+    "build": "npm run build:client && npm run build:server && npm run build:copy-public",
     "build:client": "vite build client/ --config vite.config.ts",
     "build:server": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js --alias:@shared=./shared --external:fs --external:path --external:http --external:ws --external:url --external:express --external:crypto --external:helmet --external:express-rate-limit",
     "build:copy-public": "[ -d public ] && cp -r public dist/ || true",
