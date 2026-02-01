@@ -33,7 +33,13 @@ export class SketchFileBuilder {
     const sketchFile = join(sketchDir, "sketch.cpp");
     const exeFile = join(sketchDir, "sketch");
 
-    await mkdir(sketchDir, { recursive: true });
+    try {
+      await mkdir(sketchDir, { recursive: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to create sketch directory: ${msg}`);
+      throw err;
+    }
 
     const hasSetup = /void\s+setup\s*\([^)]*\)/.test(code);
     const hasLoop = /void\s+loop\s*\([^)]*\)/.test(code);

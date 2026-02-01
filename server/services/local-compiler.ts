@@ -6,7 +6,8 @@
  */
 
 import { spawn } from "child_process";
-import { chmod } from "fs/promises";
+import { chmod, mkdir, access } from "fs/promises";
+import { dirname } from "path";
 import { Logger } from "@shared/logger";
 
 export class LocalCompiler {
@@ -21,6 +22,23 @@ export class LocalCompiler {
    * @throws Error if compilation fails or times out
    */
   async compile(sketchFile: string, exeFile: string): Promise<void> {
+    // Ensure output directory exists before compilation
+    const outputDir = dirname(exeFile);
+    try {
+      await access(outputDir);
+      this.logger.debug(`Output directory exists: ${outputDir}`);
+    } catch (err) {
+      this.logger.info(`Output directory missing, creating: ${outputDir}`);
+      try {
+        await mkdir(outputDir, { recursive: true });
+        this.logger.debug(`Created output directory: ${outputDir}`);
+      } catch (mkdirErr) {
+        const msg = mkdirErr instanceof Error ? mkdirErr.message : String(mkdirErr);
+        this.logger.error(`Failed to create output directory: ${msg}`);
+        throw mkdirErr;
+      }
+    }
+
     return new Promise((resolve, reject) => {
       const compile = spawn("g++", [
         sketchFile,
