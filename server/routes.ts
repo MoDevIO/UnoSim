@@ -8,6 +8,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { compiler } from "./services/arduino-compiler";
 import { SandboxRunner } from "./services/sandbox-runner";
+import { getSimulationRateLimiter } from "./services/rate-limiter";
 import {
   insertSketchSchema,
   wsMessageSchema,
@@ -245,6 +246,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         switch (data.type) {
           case "start_simulation":
             {
+              // 🔥 RATE LIMITING CHECK
+              const rateLimiter = getSimulationRateLimiter();
+              const limitCheck = rateLimiter.checkLimit(ws);
+              
+              if (!limitCheck.allowed) {
+                const retryAfter = limitCheck.retryAfter || 30;
+                logger.warn(
+                  `[RateLimit] Simulation start rejected. Retry after ${retryAfter}s`
+                );
+                sendMessageToClient(ws, {
+                  type: "serial_output",
+                  data: `[ERR] Rate limit exceeded. Too many simulation starts. Please wait ${retryAfter} seconds before starting again.\n`,
+                });
+                sendMessageToClient(ws, {
+                  type: "simulation_status",
+                  status: "stopped",
+                });
+                break;
+              }
+
               const clientState = clientRunners.get(ws);
               if (!clientState) break;
 
@@ -252,6 +273,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 sendMessageToClient(ws, {
                   type: "serial_output",
                   data: "[ERR] No compiled code available. Please compile first.\n",
+                });
+                sendMessageToClient(ws, {
+                  type: "simulation_status",
+                  status: "stopped",
                 });
                 break;
               }
@@ -599,6 +624,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientState.runner.stop();
       }
       clientRunners.delete(ws);
+      
+      // Clean up rate limiter for this client
+      const rateLimiter = getSimulationRateLimiter();
+      rateLimiter.removeClient(ws);
+      
       logger.info(
         `Client disconnected. Remaining clients: ${wss.clients.size}`,
       );

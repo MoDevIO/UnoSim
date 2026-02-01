@@ -1623,11 +1623,10 @@ export default function ArduinoSimulator() {
           let text = (message.data ?? "").toString();
           const isComplete = message.isComplete ?? true; // Default to true for backwards compatibility
 
-          // Filter out debug/pause-resume internal messages
+          // Filter out debug/pause-resume internal messages (but NOT user-facing errors like rate limit)
           if (
             text.includes("[[TIME_RESUMED:") ||
-            text.includes("[[TIME_FROZEN:") ||
-            text.includes("[ERR]")
+            text.includes("[[TIME_FROZEN:")
           ) {
             break; // Skip these internal debug messages
           }
