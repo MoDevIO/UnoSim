@@ -255,6 +255,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 logger.warn(
                   `[RateLimit] Simulation start rejected. Retry after ${retryAfter}s`
                 );
+                
+                // Stop any running simulation for this client
+                const clientState = clientRunners.get(ws);
+                if (clientState?.runner) {
+                  clientState.runner.stop();
+                  clientState.isRunning = false;
+                  clientState.isPaused = false;
+                }
+                
                 sendMessageToClient(ws, {
                   type: "serial_output",
                   data: `[ERR] Rate limit exceeded. Too many simulation starts. Please wait ${retryAfter} seconds before starting again.\n`,
@@ -270,6 +279,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (!clientState) break;
 
               if (!lastCompiledCode) {
+                // Stop any running simulation for this client
+                if (clientState.runner) {
+                  clientState.runner.stop();
+                  clientState.isRunning = false;
+                  clientState.isPaused = false;
+                }
+                
                 sendMessageToClient(ws, {
                   type: "serial_output",
                   data: "[ERR] No compiled code available. Please compile first.\n",
