@@ -212,27 +212,25 @@ void loop() {}
     expect(result.outputs.length).toBeGreaterThan(0);
   });
 
-    test('Serial output from setup() must appear before loop() output', async () => {
-      const sketch = `
-  int counter = 0;
+  test('Serial output from setup() must appear before loop() output', async () => {
+    const sketch = `
+bool done = false;
 
-  void setup() {
-    Serial.begin(9600);
-    Serial.print("1");  // From setup()
-  }
+void setup() {
+  Serial.begin(9600);
+  Serial.println("SETUP");  // From setup()
+  delay(5); // allow serial parser to flush
+}
 
-  void loop() {
-    if (counter == 0) {
-      Serial.print("2");  // First iteration of loop()
-    }
-  
-    counter++;
-    if (counter > 10) {
-      exit(0);
-    }
-    delay(10);
+void loop() {
+  if (!done) {
+    Serial.println("LOOP");  // First iteration of loop()
+    delay(5);
+    done = true;
+    exit(0);
   }
-      `.trim();
+}
+    `.trim();
 
       const result = await runSketchWithOutput(runner, sketch, { timeout: 15 });
 
@@ -240,16 +238,14 @@ void loop() {}
 
       const fullOutput = extractPlainText(result.outputs);
     
-      // CRITICAL: setup() output ("1") MUST appear before loop() output ("2")
+        // CRITICAL: setup() output ("SETUP") MUST appear before loop() output ("LOOP")
       // This validates that serial data is NOT queued during registry wait mode
-      const index1 = fullOutput.indexOf('1');
-      const index2 = fullOutput.indexOf('2');
+        const index1 = fullOutput.indexOf('SETUP');
+        const index2 = fullOutput.indexOf('LOOP');
     
-      expect(index1).toBeGreaterThan(-1); // "1" should be present
-      expect(index2).toBeGreaterThan(-1); // "2" should be present
-      expect(index1).toBeLessThan(index2); // "1" must come BEFORE "2"
+        expect(index1).toBeGreaterThan(-1); // "SETUP" should be present
+        expect(index2).toBeGreaterThan(-1); // "LOOP" should be present
+        expect(index1).toBeLessThan(index2); // "SETUP" must come BEFORE "LOOP"
     
-      // Verify actual order
-      expect(fullOutput).toMatch(/1.*2/); // "1" followed by "2"
-    });
+      });
 });

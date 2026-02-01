@@ -4,8 +4,23 @@ test.describe.configure({ mode: "serial" });
 
 test.describe("Sandbox UI Batching Integration", () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem("unoPinMonitorVisible", "1");
+      } catch {}
+    });
     await page.goto("/");
     await page.waitForSelector(".monaco-editor", { timeout: 10000 });
+    await page.evaluate(() => {
+      try {
+        window.localStorage.setItem("unoPinMonitorVisible", "1");
+        window.dispatchEvent(
+          new CustomEvent("pinMonitorVisibleChange", {
+            detail: { value: true },
+          }),
+        );
+      } catch {}
+    });
   });
 
   const loadMasterTestSketch = async (page: any) => {
