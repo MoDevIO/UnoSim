@@ -9,7 +9,8 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord } from "@shared/schema";
-import { ArduinoOutputParser } from "./arduino-output-parser";
+import { ArduinoOutputParser as StderrParser } from "./arduino-output-parser";
+import { ArduinoOutputParser as SerialParser } from "../../src/utils/arduino-output-parser";
 import { RegistryManager } from "./registry-manager";
 import { SimulationTimeoutManager } from "./simulation-timeout-manager";
 import { DockerCommandBuilder } from "./docker-command-builder";
@@ -52,7 +53,8 @@ export class SandboxRunner {
   
   // Managers and helpers
   private logger = new Logger("SandboxRunner");
-  private parser = new ArduinoOutputParser();
+  private stderrParser = new StderrParser();
+  private serialParser = new SerialParser();
   private registryManager: RegistryManager;
   private timeoutManager: SimulationTimeoutManager;
   private fileBuilder: SketchFileBuilder;
@@ -64,7 +66,6 @@ export class SandboxRunner {
   private totalOutputBytes = 0;
   private isSendingOutput = false;
   private flushTimer: NodeJS.Timeout | null = null;
-  private pendingIncomplete = false;
   private pendingSerialEvents: Array<any> = [];
   private pendingSerialFlushTimer: NodeJS.Timeout | null = null;
   
@@ -110,6 +111,16 @@ export class SandboxRunner {
         // Flush queued messages after first registry send
         this.flushMessageQueue();
       },
+    });
+
+    // Setup Serial Parser event listeners
+    // The serialParser will emit 'data' events with formatted/flushed chunks
+    // Forward to output callback with message queuing logic
+    this.serialParser.on('data', (chunk: string) => {
+        // Serial data always sent immediately (not registry-dependent)
+        if (this.outputCallback) {
+        this.outputCallback(chunk, true);
+      }
     });
   }
 
@@ -474,7 +485,7 @@ export class SandboxRunner {
     this.pauseStartTime = null;
     this.registryManager.reset();
     this.registryManager.setBaudrate(this.baudrate);
-    this.registryManager.enableWaitMode(1500);
+      this.registryManager.enableWaitMode(300); // Reduced from 1500ms to 300ms - faster serial output
     this.messageQueue = [];
     this.outputBuffer = "";
     this.errorBuffer = "";
@@ -499,12 +510,9 @@ export class SandboxRunner {
   ) {
     return {
       onOutput: (line: string, isComplete?: boolean) => {
-        if (this.registryManager.isWaiting()) {
-          this.messageQueue.push({
-            type: "output",
-            data: { line, isComplete },
-          });
-        } else if (onOutput) {
+          // Serial output is always sent immediately - no queuing
+          // This ensures chronological order (setup() before loop())
+          if (onOutput) {
           onOutput(line, isComplete);
         }
       },
@@ -513,6 +521,7 @@ export class SandboxRunner {
         stateType: "mode" | "value" | "pwm",
         value: number,
       ) => {
+          // Pin states are queued until registry is synchronized
         if (this.registryManager.isWaiting()) {
           this.messageQueue.push({
             type: "pinState",
@@ -523,12 +532,8 @@ export class SandboxRunner {
         }
       },
       onError: (line: string) => {
-        if (this.registryManager.isWaiting()) {
-          this.messageQueue.push({
-            type: "error",
-            data: { line },
-          });
-        } else if (onError) {
+          // Errors are sent immediately (not registry-dependent)
+          if (onError) {
           onError(line);
         }
       },
@@ -668,24 +673,9 @@ export class SandboxRunner {
         return;
       }
 
-      this.outputBuffer += str;
-      const lines = this.outputBuffer.split(/\r?\n/);
-      this.outputBuffer = lines.pop() || "";
-
-      lines.forEach((line) => {
-        if (line.length > 0) {
-          if (this.pendingIncomplete) {
-            callbacks.onOutput(line, true);
-            this.pendingIncomplete = false;
-          } else {
-            callbacks.onOutput(line, true);
-          }
-        }
-      });
-
-      if (this.outputBuffer.length > 0 && !this.flushTimer) {
-        this.scheduleFlush(callbacks.onOutput);
-      }
+      // Pass raw data to serialParser for Arduino-style formatting and timing
+      // The parser handles its own buffering, timing, and newline detection
+      this.serialParser.print(str);
     });
 
     // Stderr handler (compile errors + debug output)
@@ -703,7 +693,7 @@ export class SandboxRunner {
       lines.forEach((line) => {
         if (line.length === 0) return;
 
-        const parsed = this.parser.parseStderrLine(line, this.processStartTime);
+        const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
         this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
       });
 
@@ -716,6 +706,9 @@ export class SandboxRunner {
     this.process?.on("close", (code) => {
       this.transitionTo(SimulationState.STOPPED);
 
+      // Reset serialParser to stop any pending timers
+      this.serialParser.reset();
+
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
         this.flushTimer = null;
@@ -727,6 +720,10 @@ export class SandboxRunner {
       }
       this.flushPendingSerialEvents(callbacks.onOutput);
 
+      // CRITICAL: Flush message queue before exit to prevent losing queued output
+      // Messages may be queued if sketch exits before registry wait mode timeout
+      this.flushMessageQueue();
+
       if (code !== 0 && isCompilePhase && compileErrorBuffer && onCompileError) {
         onCompileError(this.cleanCompilerErrors(compileErrorBuffer));
       } else {
@@ -736,8 +733,10 @@ export class SandboxRunner {
         }
       }
 
-      if (this.outputBuffer.trim()) {
-        callbacks.onOutput(this.outputBuffer.trim(), true);
+      // Flush any remaining data in serialParser buffer
+      const remainingBuffer = this.serialParser.getBuffer();
+      if (remainingBuffer.trim()) {
+        callbacks.onOutput(remainingBuffer.trim(), true);
       }
       if (this.errorBuffer.trim()) {
         callbacks.onError(this.errorBuffer.trim());
@@ -788,19 +787,8 @@ export class SandboxRunner {
         return;
       }
 
-      this.outputBuffer += str;
-      const lines = this.outputBuffer.split(/\r?\n/);
-      this.outputBuffer = lines.pop() || "";
-
-      lines.forEach((line) => {
-        if (line.length > 0) {
-          callbacks.onOutput(line, true);
-        }
-      });
-
-      if (this.outputBuffer.length > 0 && !this.flushTimer) {
-        this.scheduleFlush(callbacks.onOutput);
-      }
+      // Pass raw data to serialParser for Arduino-style formatting and timing
+      this.serialParser.print(str);
     });
 
     this.process?.stderr?.on("data", (data) => {
@@ -811,7 +799,7 @@ export class SandboxRunner {
 
       lines.forEach((line) => {
         if (line.length === 0) return;
-        const parsed = this.parser.parseStderrLine(line, this.processStartTime);
+        const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
         this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
       });
     });
@@ -819,13 +807,21 @@ export class SandboxRunner {
     this.process?.on("close", (code) => {
       this.transitionTo(SimulationState.STOPPED);
 
+      // Reset serialParser to stop any pending timers
+      this.serialParser.reset();
+
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
         this.flushTimer = null;
       }
 
-      if (this.outputBuffer.trim()) {
-        callbacks.onOutput(this.outputBuffer.trim(), true);
+      // CRITICAL: Flush message queue before exit to prevent losing queued output
+      this.flushMessageQueue();
+
+      // Flush any remaining data in serialParser buffer
+      const remainingBuffer = this.serialParser.getBuffer();
+      if (remainingBuffer.trim()) {
+        callbacks.onOutput(remainingBuffer.trim(), true);
       }
 
       if (this.ioRegistryCallback) {
@@ -1157,23 +1153,6 @@ export class SandboxRunner {
     setTimeout(() => this.sendOutputWithDelay(onOutput), charDelayMs);
   }
 
-  private scheduleFlush(
-    onOutput: (line: string, isComplete?: boolean) => void,
-  ) {
-    if (this.flushTimer) return;
-
-    // Use a fixed short timeout - the C++ side handles actual baudrate simulation
-    // This just ensures incomplete lines get flushed to the UI
-    this.flushTimer = setTimeout(() => {
-      this.flushTimer = null;
-      if (this.outputBuffer.length > 0) {
-        onOutput(this.outputBuffer, true);
-        this.outputBuffer = "";
-        this.pendingIncomplete = false;
-      }
-    }, 50); // Fixed 50ms flush timeout
-  }
-
   private scheduleErrorFlush(
     onError: (line: string) => void,
     onPinState?: (
@@ -1190,7 +1169,7 @@ export class SandboxRunner {
       lines.forEach((line) => {
         if (line.length === 0) return;
 
-        const parsed = this.parser.parseStderrLine(line, this.processStartTime);
+        const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
 
         switch (parsed.type) {
           case "pin_mode":
@@ -1241,6 +1220,7 @@ export class SandboxRunner {
     // Cleanup all manager timers (debounce, timeout, wait timers)
     this.registryManager.reset(); // Clears debounce and wait timers
     this.timeoutManager.clear(); // Clears timeout timer
+    this.serialParser.reset(); // Stop serial parser timers
     
     // Destroy registry manager to prevent post-test logging
     this.registryManager.destroy();

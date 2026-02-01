@@ -18,6 +18,8 @@ const DEFAULT_TOAST_SECONDS = 1;
 const DEBUG_MODE_KEY = "unoDebugMode";
 const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
 const DEFAULT_KEEP_EXAMPLES_MENU_OPEN = false;
+const PIN_MONITOR_VISIBLE_KEY = "unoPinMonitorVisible";
+const DEFAULT_PIN_MONITOR_VISIBLE = false;
 const FONT_SCALE_KEY = "unoFontScale";
 const DEFAULT_FONT_SCALE = "1.0";
 
@@ -94,6 +96,31 @@ export default function SettingsDialog({
     setKeepExamplesMenuOpen(v);
     try {
       const ev = new CustomEvent("keepExamplesMenuOpenChange", {
+        detail: { value: v },
+      });
+      document.dispatchEvent(ev);
+    } catch {}
+  };
+
+  // Pin Monitor visibility toggle
+  const [pinMonitorVisible, setPinMonitorVisible] = React.useState<boolean>(
+    () => {
+      try {
+        const stored = window.localStorage.getItem(PIN_MONITOR_VISIBLE_KEY);
+        return stored === null ? DEFAULT_PIN_MONITOR_VISIBLE : stored === "1";
+      } catch {
+        return DEFAULT_PIN_MONITOR_VISIBLE;
+      }
+    },
+  );
+
+  const setStoredPinMonitorVisible = (v: boolean) => {
+    try {
+      window.localStorage.setItem(PIN_MONITOR_VISIBLE_KEY, v ? "1" : "0");
+    } catch {}
+    setPinMonitorVisible(v);
+    try {
+      const ev = new CustomEvent("pinMonitorVisibleChange", {
         detail: { value: v },
       });
       document.dispatchEvent(ev);
@@ -295,6 +322,25 @@ export default function SettingsDialog({
                   checked={debugMode}
                   onCheckedChange={(v) => setStoredDebug(Boolean(v))}
                   aria-label="enable debug mode"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Pin Monitor visibility toggle */}
+          <div className="rounded border p-3 bg-muted">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">Pin Monitor anzeigen</div>
+                <div className="text-ui-xs text-muted-foreground">
+                  Zeigt den Pin-Status-Monitor oberhalb des Arduino-Boards.
+                </div>
+              </div>
+              <div className="flex items-center">
+                <Checkbox
+                  checked={pinMonitorVisible}
+                  onCheckedChange={(v) => setStoredPinMonitorVisible(Boolean(v))}
+                  aria-label="show pin monitor"
                 />
               </div>
             </div>

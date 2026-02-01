@@ -34,9 +34,11 @@ import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
 import { ExamplesMenu } from "@/components/features/examples-menu";
 import { ArduinoBoard } from "@/components/features/arduino-board";
+import { PinMonitor } from "@/components/features/pin-monitor";
 import { AppHeader } from "@/components/features/app-header";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
+import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ResizablePanelGroup,
@@ -69,14 +71,6 @@ const LoadingPlaceholder = () => (
 // Logger import
 import { Logger } from "@shared/logger";
 const logger = new Logger("ArduinoSimulator");
-
-// Pin state interface for Arduino board visualization
-interface PinState {
-  pin: number;
-  mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
-  value: number;
-  type: "digital" | "analog" | "pwm";
-}
 
 export default function ArduinoSimulator() {
   const [currentSketch, setCurrentSketch] = useState<Sketch | null>(null);
@@ -165,8 +159,13 @@ export default function ArduinoSimulator() {
   const [debugViewMode, setDebugViewMode] = useState<"table" | "tiles">("table");
   const debugMessagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Pin states for Arduino board visualization
-  const [pinStates, setPinStates] = useState<PinState[]>([]);
+  const {
+    pinStates,
+    setPinStates,
+    resetPinStates,
+    enqueuePinEvent,
+    batchStats,
+  } = useSimulationStore();
   // Serial view mode (monitor / both / plotter)
   const [serialViewMode, setSerialViewMode] = useState<
     "monitor" | "plotter" | "both"
@@ -196,7 +195,7 @@ export default function ArduinoSimulator() {
   // Centralized helper to reset UI pin-related state. Pass { keepDetected: true }
   // to preserve detected pinMode declarations and pending conflicts when desired.
   const resetPinUI = useCallback((opts?: { keepDetected?: boolean }) => {
-    setPinStates([]);
+    resetPinStates();
     // Only clear detected/derived data when keepDetected is not requested.
     if (!opts?.keepDetected) {
       setAnalogPinsUsed([]);
@@ -260,6 +259,30 @@ export default function ArduinoSimulator() {
     document.addEventListener("debugModeChange", handler as EventListener);
     return () =>
       document.removeEventListener("debugModeChange", handler as EventListener);
+  }, []);
+
+  // Pin Monitor visibility state
+  const [pinMonitorVisible, setPinMonitorVisible] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem("unoPinMonitorVisible") === "1";
+    } catch {
+      return false; // Hidden by default
+    }
+  });
+
+  // Listen for pin monitor visibility change events from settings dialog
+  useEffect(() => {
+    const handler = (ev: any) => {
+      try {
+        const newValue = Boolean(ev?.detail?.value);
+        setPinMonitorVisible(newValue);
+      } catch {
+        // ignore
+      }
+    };
+    document.addEventListener("pinMonitorVisibleChange", handler as EventListener);
+    return () =>
+      document.removeEventListener("pinMonitorVisibleChange", handler as EventListener);
   }, []);
 
   const addDebugMessage = useCallback((
@@ -1767,75 +1790,7 @@ export default function ArduinoSimulator() {
         case "pin_state": {
           // Update pin state for Arduino board visualization
           const { pin, stateType, value } = message;
-          setPinStates((prev) => {
-            const newStates = [...prev];
-            const existingIndex = newStates.findIndex((p) => p.pin === pin);
-
-            if (existingIndex >= 0) {
-              // Update existing pin state
-              if (stateType === "mode") {
-                const modeMap: {
-                  [key: number]: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
-                } = {
-                  0: "INPUT",
-                  1: "OUTPUT",
-                  2: "INPUT_PULLUP",
-                };
-                // If a mode update comes from the runtime (pinMode call), consider this an explicit
-                // digital usage — convert an auto-detected 'analog' type to 'digital' so the UI
-                // shows a solid frame instead of dashed.
-                newStates[existingIndex] = {
-                  ...newStates[existingIndex],
-                  mode: modeMap[value] || "INPUT",
-                  type:
-                    newStates[existingIndex].type === "analog"
-                      ? "digital"
-                      : newStates[existingIndex].type,
-                };
-              } else if (stateType === "value") {
-                // Update value only. Do NOT change the pin `type` based on incoming
-                // value updates — `pinMode` (runtime or parsed) controls whether a
-                // pin is considered digital. For analog pins that were never
-                // explicitly `pinMode`-ed, new entries (below) will be created
-                // with type 'analog'. Here we preserve existing.type.
-                newStates[existingIndex] = {
-                  ...newStates[existingIndex],
-                  value,
-                };
-              } else if (stateType === "pwm") {
-                newStates[existingIndex] = {
-                  ...newStates[existingIndex],
-                  value,
-                  type: "pwm",
-                };
-              }
-            } else {
-              // Add new pin state
-              const modeMap: {
-                [key: number]: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
-              } = {
-                0: "INPUT",
-                1: "OUTPUT",
-                2: "INPUT_PULLUP",
-              };
-              newStates.push({
-                pin,
-                mode:
-                  stateType === "mode" ? modeMap[value] || "INPUT" : "OUTPUT",
-                value: stateType === "value" || stateType === "pwm" ? value : 0,
-                // New pins on 14..19 are analog by default when a value arrives
-                // and we haven't seen an explicit pinMode yet.
-                type:
-                  stateType === "pwm"
-                    ? "pwm"
-                    : pin >= 14 && pin <= 19
-                      ? "analog"
-                      : "digital",
-              });
-            }
-
-            return newStates;
-          });
+          enqueuePinEvent(pin, stateType, value);
           break;
         }
         case "io_registry": {
@@ -3676,16 +3631,23 @@ export default function ArduinoSimulator() {
                 />
 
                 <ResizablePanel defaultSize={50} minSize={20} id="board-panel">
-                  <ArduinoBoard
-                    pinStates={pinStates}
-                    isSimulationRunning={simulationStatus === "running"}
-                    txActive={txActivity}
-                    rxActive={rxActivity}
-                    onReset={handleReset}
-                    onPinToggle={handlePinToggle}
-                    analogPins={analogPinsUsed}
-                    onAnalogChange={handleAnalogChange}
-                  />
+                  <div className="h-full w-full flex flex-col gap-3 p-2">
+                    {pinMonitorVisible && (
+                      <PinMonitor pinStates={pinStates} batchStats={batchStats} />
+                    )}
+                    <div className="flex-1 min-h-0">
+                      <ArduinoBoard
+                        pinStates={pinStates}
+                        isSimulationRunning={simulationStatus === "running"}
+                        txActive={txActivity}
+                        rxActive={rxActivity}
+                        onReset={handleReset}
+                        onPinToggle={handlePinToggle}
+                        analogPins={analogPinsUsed}
+                        onAnalogChange={handleAnalogChange}
+                      />
+                    </div>
+                  </div>
                 </ResizablePanel>
               </ResizablePanelGroup>
             </ResizablePanel>
@@ -3867,16 +3829,23 @@ export default function ArduinoSimulator() {
                   )}
                   {mobilePanel === "board" && (
                     <div className="h-full w-full">
-                      <ArduinoBoard
-                        pinStates={pinStates}
-                        isSimulationRunning={simulationStatus === "running"}
-                        txActive={txActivity}
-                        rxActive={rxActivity}
-                        onReset={handleReset}
-                        onPinToggle={handlePinToggle}
-                        analogPins={analogPinsUsed}
-                        onAnalogChange={handleAnalogChange}
-                      />
+                      <div className="h-full w-full flex flex-col gap-3 p-2">
+                        {pinMonitorVisible && (
+                          <PinMonitor pinStates={pinStates} batchStats={batchStats} />
+                        )}
+                        <div className="flex-1 min-h-0">
+                          <ArduinoBoard
+                            pinStates={pinStates}
+                            isSimulationRunning={simulationStatus === "running"}
+                            txActive={txActivity}
+                            rxActive={rxActivity}
+                            onReset={handleReset}
+                            onPinToggle={handlePinToggle}
+                            analogPins={analogPinsUsed}
+                            onAnalogChange={handleAnalogChange}
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

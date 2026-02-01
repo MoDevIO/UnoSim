@@ -10,6 +10,7 @@
  * - Zu schnelle Requests werden abgelehnt mit Retry-After Header
  */
 
+import { WebSocket } from "ws";
 import { Logger } from "@shared/logger";
 
 const logger = new Logger("RateLimiter");
