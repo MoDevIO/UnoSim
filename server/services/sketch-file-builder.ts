@@ -62,6 +62,7 @@ export class SketchFileBuilder {
 #include <thread>
 #include <atomic>
 #include <cstring>
+#include <chrono>
 
 int main() {
     // Initialize IO registry for pin state tracking
@@ -94,6 +95,9 @@ int main() {
             outputIORegistry();
             __registry_sent = true;
         }
+        
+        // Sleep 1ms to prevent 100% CPU usage (Arduino runs at ~16MHz, so 1ms is reasonable throttle)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 `;
     } else {
