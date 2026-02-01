@@ -13,10 +13,13 @@ export class Logger {
     const isBrowser = typeof window !== "undefined";
     const nodeEnv =
       (typeof process !== "undefined" && process.env?.NODE_ENV) || undefined;
-    const allowDebug =
-      !isBrowser || nodeEnv === "development" || nodeEnv === "test";
+    // Suppress DEBUG logs in test environment to prevent console spam in CI/CD
+    if (level === "DEBUG" && nodeEnv === "test") return;
 
-    // Suppress DEBUG logs in browser when not in development or test
+    const allowDebug =
+      !isBrowser || nodeEnv === "development";
+
+    // Suppress DEBUG logs in browser when not in development
     if (level === "DEBUG" && !allowDebug) return;
 
     const message = args

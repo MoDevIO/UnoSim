@@ -23,7 +23,7 @@ describe("Logger", () => {
     ["info", "INFO"],
     ["warn", "WARN"],
     ["error", "ERROR"],
-    ["debug", "DEBUG"],
+
   ])("should log correct format for %s level", (methodName, level) => {
     const msg = "hello world";
     const now = new Date();
@@ -43,6 +43,13 @@ describe("Logger", () => {
     );
 
     dateSpy.mockRestore();
+  });
+
+  it('should suppress DEBUG logs in test environment', () => {
+    const msg = 'debug message';
+    logger.debug(msg);
+    // DEBUG logs are suppressed in test environment
+    expect(consoleSpy).not.toHaveBeenCalled();
   });
 
   describe("Logger - Browser Environment", () => {
