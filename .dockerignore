@@ -1,0 +1,18 @@
+# Ignore node modules and local artifacts
+node_modules
+dist
+.turbo
+.cache
+coverage
+playwright-report
+.idea
+.vscode
+.DS_Store
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+package-lock.json
+
+# Temporary files
+temp
+*.log

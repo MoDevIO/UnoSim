@@ -66,7 +66,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // --- Examples API endpoint ---
   app.get("/api/examples", (_req, res) => {
     try {
-      const examplesDir = path.resolve(__dirname, "..", "public", "examples");
+      const publicCandidates = [
+        path.resolve(__dirname, "..", "public"),
+        path.resolve(__dirname, "public"),
+      ];
+      const publicDir =
+        publicCandidates.find((candidate) => fs.existsSync(candidate)) ||
+        publicCandidates[0];
+      const examplesDir = path.resolve(publicDir, "examples");
       const exampleFiles: string[] = [];
 
       // Recursively read all .ino and .h files from examples and subdirectories

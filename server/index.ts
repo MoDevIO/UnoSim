@@ -82,7 +82,10 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => isTestMode, // Komplett überspringen im Test-Modus
+  skip: (req) =>
+    isTestMode ||
+    req.originalUrl === "/api/examples" ||
+    req.originalUrl === "/api/health", // Skip for lightweight endpoints
 });
 
 // Apply rate limiting to API routes
@@ -91,15 +94,21 @@ app.use("/api/", apiLimiter);
 app.use(express.json({ limit: "1mb" })); // Limit payload size
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
+// Resolve public folder for both dev (repo root) and prod (dist/public)
+const publicPathCandidates = [
+  path.resolve(__dirname, "..", "public"),
+  path.resolve(__dirname, "public"),
+];
+const publicPath =
+  publicPathCandidates.find((candidate) => fs.existsSync(candidate)) ||
+  publicPathCandidates[0];
+const examplesPath = path.resolve(publicPath, "examples");
+
 // Serve example files
-app.use(
-  "/examples",
-  express.static(path.resolve(__dirname, "..", "public", "examples")),
-);
+app.use("/examples", express.static(examplesPath));
 
 // Serve public folder static files FIRST (before API routes)
-// public is now copied to dist/public during build
-const publicPath = path.resolve(__dirname, "..", "public");
+// public is copied to dist/public during build
 app.use(
   express.static(publicPath, {
     index: false,
@@ -178,6 +187,8 @@ process.on("uncaughtException", (error) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
+  // In production, use serveStatic to serve the pre-built client
+  // In development, use Vite middleware for HMR
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
@@ -189,8 +200,8 @@ process.on("uncaughtException", (error) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const PORT = Number(process.env.PORT) || 3000;
-  server.listen(PORT, () => {
-    console.log(`[express] Server running at http://localhost:${PORT}`);
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`[express] Server running at http://0.0.0.0:${PORT}`);
 
     // Start cleanup service for old temp files
     startCleanupService();

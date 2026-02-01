@@ -52,7 +52,13 @@
     "killall": true,
     "pgrep": true,
     "reset": true,
-    "mv": true
+    "mv": true,
+    "docker-compose": true,
+    "docker rmi": true,
+    "docker ps": true,
+    "docker rm": true,
+    "docker image": true,
+    "docker logs": true
   },
   "jest.jestCommandLine": "npx jest",
   "jest.configPath": "jest.config.js",

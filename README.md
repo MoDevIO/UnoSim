@@ -111,3 +111,27 @@ See [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt) for details.
 - [Arduino Official Documentation](https://www.arduino.cc/reference/)
 - [Monaco Editor Documentation](https://microsoft.github.io/monaco-editor/)
 - [React Documentation](https://react.dev/)
+
+## Docker
+
+This repository includes a Dockerfile that builds the project using Node.js v25.2.1.
+
+- Build the image:
+
+```bash
+docker build -t unowebsim:latest .
+```
+
+- Run the container (exposes port 3000):
+
+```bash
+docker run --rm -p 3000:3000 -e NODE_ENV=production unowebsim:latest
+```
+
+- Alternatively use docker-compose:
+
+```bash
+docker-compose up --build
+```
+
+The server will be available at http://localhost:3000
