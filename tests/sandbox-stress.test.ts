@@ -92,10 +92,14 @@ describe("SandboxRunner Stress Tests - Phase 5", () => {
     }
     activeRunners = [];
     
-    // Aggressive cleanup after each test
+    // Cleanup after each test (only remove .cleanup artifacts to avoid
+    // interfering with other tests running in parallel)
     try {
       const entries = readdirSync(tempDir);
       for (const entry of entries) {
+        if (!entry.endsWith(".cleanup") && !entry.endsWith(".cleanup.json")) {
+          continue;
+        }
         const fullPath = join(tempDir, entry);
         await rm(fullPath, { recursive: true, force: true });
       }
