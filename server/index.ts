@@ -195,11 +195,9 @@ process.on("uncaughtException", (error) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
+  // ALWAYS serve the app on port 3000
   // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`[express] Server running at http://0.0.0.0:${PORT}`);
 
