@@ -158,6 +158,16 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     ),
     baudrate: z.number().optional(),
   }),
+  z.object({
+    type: z.literal("sim_telemetry"),
+    metrics: z.object({
+      incomingEvents: z.number(),
+      sentBatches: z.number(),
+      eventsPerSecond: z.number(),
+      batchEfficiency: z.number(),
+      timestamp: z.number(),
+    }),
+  }),
 ]);
 
 export type WSMessage = z.infer<typeof wsMessageSchema>;

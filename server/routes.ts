@@ -494,6 +494,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     );
                   }
                 },
+                (metrics: any) => {
+                  // Forward telemetry metrics to client as dedicated SIM_TELEMETRY message
+                  sendMessageToClient(ws, {
+                    type: "sim_telemetry",
+                    metrics,
+                  });
+                },
               );
             }
             break;

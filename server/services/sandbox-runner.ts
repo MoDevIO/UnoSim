@@ -86,6 +86,7 @@ export class SandboxRunner {
   private outputCallback: ((line: string, isComplete?: boolean) => void) | null = null;
   private errorCallback: ((line: string) => void) | null = null;
   private pinStateCallback: ((pin: number, type: "mode" | "value" | "pwm", value: number) => void) | null = null;
+  private telemetryCallback: ((metrics: any) => void) | null = null;
   
   // Lazy initialization flags
   private dockerChecked = false;
@@ -102,7 +103,7 @@ export class SandboxRunner {
 
     // Initialize registry manager with arrow function callback for correct 'this' binding
     this.registryManager = new RegistryManager({
-      debounceMs: 200,
+      debounceMs: 20,
       onUpdate: (registry, baudrate) => {
         // Forward to WebSocket callback if set
         if (this.ioRegistryCallback) {
@@ -110,6 +111,12 @@ export class SandboxRunner {
         }
         // Flush queued messages after first registry send
         this.flushMessageQueue();
+      },
+      onTelemetry: (metrics) => {
+        // Forward telemetry metrics to dedicated telemetry callback (not to serial output)
+        if (this.telemetryCallback) {
+          this.telemetryCallback(metrics);
+        }
       },
     });
 
@@ -385,6 +392,7 @@ export class SandboxRunner {
     ) => void,
     timeoutSec?: number,
     onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
+    onTelemetry?: (metrics: any) => void,
   ) {
     // Lazy initialization: ensure Docker is checked and temp directory exists
     this.ensureDockerChecked();
@@ -401,6 +409,7 @@ export class SandboxRunner {
     this.outputCallback = onOutput;
     this.errorCallback = onError;
     this.pinStateCallback = onPinState || null;
+    this.telemetryCallback = onTelemetry || null;
 
     // Initialize run state (will also set this.onOutputCallback and this.ioRegistryCallback)
     this.initializeRunState(code, onOutput, onIORegistry, timeoutSec);
@@ -510,9 +519,26 @@ export class SandboxRunner {
   ) {
     return {
       onOutput: (line: string, isComplete?: boolean) => {
-          // Serial output is always sent immediately - no queuing
-          // This ensures chronological order (setup() before loop())
-          if (onOutput) {
+        // Filter out SIM_TELEMETRY markers and handle them separately
+        if (typeof line === "string" && line.startsWith("[[SIM_TELEMETRY:") && line.endsWith("]]")) {
+          // Extract JSON from the marker
+          try {
+            const jsonStr = line.slice("[[SIM_TELEMETRY:".length, -2);
+            const metrics = JSON.parse(jsonStr);
+            // Send to telemetry callback instead of serial output
+            if (this.telemetryCallback) {
+              this.telemetryCallback(metrics);
+            }
+            return; // Don't output to serial stream
+          } catch (err) {
+            // If parsing fails, fall through to normal output
+            this.logger.warn(`Failed to parse telemetry marker: ${err}`);
+          }
+        }
+        
+        // Serial output is always sent immediately - no queuing
+        // This ensures chronological order (setup() before loop())
+        if (onOutput) {
           onOutput(line, isComplete);
         }
       },
@@ -1214,6 +1240,7 @@ export class SandboxRunner {
     this.onOutputCallback = null;
     this.outputCallback = null;
     this.errorCallback = null;
+    this.telemetryCallback = null;
     this.pinStateCallback = null;
     this.ioRegistryCallback = undefined;
 

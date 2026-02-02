@@ -5,7 +5,7 @@ const int pulsePin = 2; // High-Frequency Stress
 
 void setup()
 {
-    Serial.begin(9600);
+    Serial.begin(115200);
     pinMode(ledPin, OUTPUT);
     pinMode(pwmPin, OUTPUT);
     pinMode(pulsePin, OUTPUT);
