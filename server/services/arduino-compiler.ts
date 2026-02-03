@@ -47,9 +47,11 @@ export class ArduinoCompiler {
   async compile(
     code: string,
     headers?: Array<{ name: string; content: string }>,
+    tempRoot?: string,
   ): Promise<CompilationResult> {
     const sketchId = randomUUID();
-    const sketchDir = join(this.tempDir, sketchId);
+    const baseTempDir = tempRoot || this.tempDir;
+    const sketchDir = join(baseTempDir, sketchId);
     const sketchFile = join(sketchDir, `${sketchId}.ino`);
 
     let arduinoCliStatus: "idle" | "compiling" | "success" | "error" = "idle";

@@ -245,7 +245,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "[COMPILE] Received headers:",
         headers ? `${headers.length} files` : "none",
       );
-      const result: CompilationResult = await compiler.compile(code, headers);
+      const testRunIdHeader = req.header("x-test-run-id") || undefined;
+      const compileTempRoot = testRunIdHeader
+        ? path.join(process.cwd(), "temp", testRunIdHeader)
+        : undefined;
+
+      const result: CompilationResult = await compiler.compile(
+        code,
+        headers,
+        compileTempRoot,
+      );
 
       // 💾 CACHE STORAGE: Save successful compilations
       if (result.success) {
@@ -370,8 +379,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Stop any current simulation for this client
               if (clientState.runner) clientState.runner.stop();
 
+              const runnerTempDir = testRunId
+                ? path.join(process.cwd(), "temp", testRunId)
+                : undefined;
+
               // Create a NEW runner instance for this client (not reusing global one)
-              clientState.runner = new SandboxRunner();
+              clientState.runner = new SandboxRunner({ tempDir: runnerTempDir });
               clientState.isRunning = true;
               clientState.isPaused = false;
 

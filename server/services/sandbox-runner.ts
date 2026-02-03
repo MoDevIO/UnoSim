@@ -94,9 +94,13 @@ export class SandboxRunner {
   private dockerChecked = false;
   private tempDirCreated = false;
 
-  constructor() {
+  constructor(options?: { tempDir?: string }) {
     // Lightweight constructor - no side effects, no I/O, no blocking
     // All heavy initialization happens lazily in ensureDockerChecked() and ensureTempDir()
+
+    if (options?.tempDir) {
+      this.tempDir = options.tempDir;
+    }
     
     // Initialize managers and helpers
     this.timeoutManager = new SimulationTimeoutManager();

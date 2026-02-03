@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/test-base";
 
 /**
  * SANDBOX UI BATCHING INTEGRATION TEST - FULL VERSION
@@ -19,8 +19,8 @@ test.describe("Sandbox UI Batching Integration", () => {
   // Erhöhtes Globales Timeout gegen "Target Closed" Errors
   test.setTimeout(60000);
 
-  test.beforeEach(async ({ page }) => {
-    currentTestRunId = `test-${Date.now()}`;
+  test.beforeEach(async ({ page, testRunId, compilerDir }) => {
+    currentTestRunId = testRunId;
     console.log(`\n🚀 STARTE VOLLSTÄNDIGEN TEST-DURCHLAUF: ${currentTestRunId}`);
 
     // 1. Backend Reset
@@ -31,6 +31,8 @@ test.describe("Sandbox UI Batching Integration", () => {
       window.sessionStorage.setItem("__TEST_RUN_ID__", testId);
       window.localStorage.setItem("unoPinMonitorVisible", "1");
     }, currentTestRunId);
+
+    console.log(`   🧪 Compiler temp dir: ${compilerDir}`);
 
     // 3. App laden
     await page.goto("/");
@@ -53,7 +55,7 @@ test.describe("Sandbox UI Batching Integration", () => {
 
   // --- HAUPTTEST ---
 
-  test("Kompletter Integrations-Workflow", async ({ page }) => {
+  test("Kompletter Integrations-Workflow", async ({ page, monacoEditor, compilerDir }) => {
     // I. SKETCH LADEN
     console.log("   📂 Lade 'master-test.ino'...");
     await page.getByRole("button", { name: /examples/i }).click();
@@ -63,18 +65,15 @@ test.describe("Sandbox UI Batching Integration", () => {
     await page.keyboard.press("Escape");
 
     // Verifikation: Ist der Code im Editor? (Regex für Variablen + Zeilennummern)
-    const code = await page.locator(".monaco-editor").innerText();
-    
-    // Step 1: Prüfe Variable/Literal-Definition für Pin 13
-    const pinDefMatch = code.match(/(?:const\s+int\s+)?(\w*[Pp]in\w*)\s*=\s*13|pinMode\s*\(\s*13/);
-    const pinVar = pinDefMatch?.[1] || "13";
-    
-    // Step 2: Prüfe pinMode-Aufruf mit Variable oder Literal
-    expect(code).toMatch(new RegExp(`pinMode\\s*\\(\\s*(?:${pinVar}|13)\\s*,\\s*OUTPUT\\s*\\)`));
+    await monacoEditor.waitForReady();
+    await monacoEditor.verifyCodeContains("pinMode", { pin: 13, mode: "OUTPUT" });
+    const code = await monacoEditor.getValue();
+    expect(code).toHaveArduinoCode(/\bpinMode\s*\(/i);
 
     // II. SIMULATION STARTEN
     const runButton = page.locator('[data-testid="button-simulate-toggle"]');
     await runButton.click();
+    await expect(runButton).toHaveAttribute("aria-label", "Stop Simulation", { timeout: 20000 });
     console.log("   ⚡ Simulation aktiv.");
 
     // III. PIN 13 INITIALISIERUNG (Mit Diagnose-Schleife)
@@ -108,7 +107,9 @@ test.describe("Sandbox UI Batching Integration", () => {
     const serialInput = page.locator('[data-testid="input-serial"]');
     
     await serialInput.fill("1");
-    await page.locator('[data-testid="button-send-serial"]').click();
+    const sendSerialButton = page.locator('[data-testid="button-send-serial"]');
+    await expect(sendSerialButton).toBeEnabled({ timeout: 20000 });
+    await sendSerialButton.click();
 
     await expect.poll(() => getPinValue(pinMonitor, 13), {
       timeout: 10000,
@@ -119,7 +120,8 @@ test.describe("Sandbox UI Batching Integration", () => {
     // V. PWM SMOOTHING (PIN 9)
     console.log("   📝 Teste PWM Smoothing...");
     await serialInput.fill("2");
-    await page.locator('[data-testid="button-send-serial"]').click();
+    await expect(sendSerialButton).toBeEnabled({ timeout: 20000 });
+    await sendSerialButton.click();
     
     const pin9 = getPinRow(pinMonitor, 9);
     await expect(pin9).toBeVisible({ timeout: 5000 });

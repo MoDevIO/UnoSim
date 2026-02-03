@@ -12,9 +12,24 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const headers: Record<string, string> = data
+    ? { "Content-Type": "application/json" }
+    : {};
+
+  if (typeof window !== "undefined") {
+    try {
+      const testRunId = window.sessionStorage?.getItem("__TEST_RUN_ID__");
+      if (testRunId) {
+        headers["x-test-run-id"] = testRunId;
+      }
+    } catch {
+      // Ignore sessionStorage access errors
+    }
+  }
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });

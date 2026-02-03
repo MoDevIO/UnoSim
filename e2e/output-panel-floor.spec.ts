@@ -1,13 +1,12 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/test-base";
 
 // Verifies that the Output Panel enforces an absolute pixel minimum height
 // matching the header height, both on initial load and after window resize,
 // and also when loading a new example.
 
 test.describe("Output Panel absolute floor", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, testRunId }) => {
     // Reset backend and frontend state before each test
-    const testRunId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     try {
       await page.context().request.post("/api/test-reset");

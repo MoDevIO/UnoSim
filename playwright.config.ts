@@ -2,11 +2,12 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: false,  // Disabled: Tests use shared backend state (compiler, temp dirs)
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,  // Single worker to avoid compiler race conditions
+  workers: process.env.CI ? 2 : 2,
   reporter: "html",
+  globalSetup: "./e2e/setup.ts",
   use: {
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",

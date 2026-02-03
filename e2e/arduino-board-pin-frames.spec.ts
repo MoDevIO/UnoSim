@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, Page } from "./fixtures/test-base";
 
 /**
  * Erweitertes Debugging: Schießt Screenshots und loggt Computed Styles.
@@ -32,8 +32,8 @@ test.describe.configure({ mode: "serial" });
 test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
   let currentTestRunId: string;
 
-  test.beforeEach(async ({ page }) => {
-    currentTestRunId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  test.beforeEach(async ({ page, testRunId }) => {
+    currentTestRunId = testRunId;
     console.log(`\n🚀 STARTE TESTLAUF: ${currentTestRunId}`);
     
     // Backend Reset mit Error-Catch
@@ -135,14 +135,11 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
   });
 
   // --- TEST 4: INPUT_PULLUP MANUELL ---
-  test("INPUT_PULLUP pins should display yellow frames", async ({ page }) => {
+  test("INPUT_PULLUP pins should display yellow frames", async ({ page, monacoEditor }) => {
     console.log("🏃 Test: INPUT_PULLUP manuell");
     const code = "\nvoid setup() {\n  pinMode(0, INPUT_PULLUP);\n}\n\nvoid loop() {\n  int value = digitalRead(0);\n}";
     
-    await page.click(".monaco-editor");
-    await page.keyboard.press("Control+A");
-    await page.keyboard.press("Backspace");
-    await page.keyboard.type(code);
+    await monacoEditor.setValue(code);
     
     await page.locator('[data-testid="button-simulate-toggle"]').click();
     
@@ -157,15 +154,11 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
   });
 
   // --- TEST 5: ANALOG READ MANUELL ---
-  test("Analog pins (A0-A5) should display frames when configured as INPUT", async ({ page }) => {
+  test("Analog pins (A0-A5) should display frames when configured as INPUT", async ({ page, monacoEditor }) => {
     console.log("🏃 Test: Analog A0 manuell");
     const code = "\nvoid setup() {\n  pinMode(A0, INPUT);\n}\n\nvoid loop() {\n  analogRead(A0);\n}";
     
-    await page.click(".monaco-editor");
-    await page.keyboard.press("Control+A");
-    await page.keyboard.press("Backspace");
-    await page.keyboard.type(code);
-    
+    await monacoEditor.setValue(code);
     await page.locator('[data-testid="button-simulate-toggle"]').click();
     
     const frame = page.locator("#pin-A0-frame");
@@ -174,15 +167,12 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
   });
 
   // --- TEST 6: DYNAMISCHER WECHSEL ---
-  test("Switching pin mode from OUTPUT to INPUT should show frame", async ({ page }) => {
+  test("Switching pin mode from OUTPUT to INPUT should show frame", async ({ page, monacoEditor }) => {
     console.log("🏃 Test: Dynamischer Modus-Wechsel");
     const runButton = page.locator('[data-testid="button-simulate-toggle"]');
     
     // Schritt 1: OUTPUT
-    await page.click(".monaco-editor");
-    await page.keyboard.press("Control+A");
-    await page.keyboard.press("Backspace");
-    await page.keyboard.type("void setup() { pinMode(0, OUTPUT); } \n void loop() {}");
+    await monacoEditor.setValue("void setup() { pinMode(0, OUTPUT); } \n void loop() {}");
     await runButton.click();
     await expect(page.locator("#pin-0-frame")).toBeHidden();
 
@@ -191,26 +181,19 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
     await page.waitForTimeout(1000);
 
     // Schritt 2: INPUT
-    await page.click(".monaco-editor");
-    await page.keyboard.press("Control+A");
-    await page.keyboard.press("Backspace");
-    await page.keyboard.type("void setup() { pinMode(0, INPUT); } \n void loop() { digitalRead(0); }");
+    await monacoEditor.setValue("void setup() { pinMode(0, INPUT); } \n void loop() { digitalRead(0); }");
     await runButton.click();
 
     await expect(page.locator("#pin-0-frame")).toBeVisible({ timeout: 10000 });
-    console.log("   ✅ Wechsel von OUTPUT zu INPUT erfolgreich");
   });
 
   // --- TEST 7: CLEAR ON RELOAD (REINIGUNGSTEST) ---
-  test("Loading a new program should clear previous pin frame markings", async ({ page }) => {
+  test("Loading a new program should clear previous pin frame markings", async ({ page, monacoEditor }) => {
     console.log("🏃 Test: Programmwechsel-Cleanup");
     const runButton = page.locator('[data-testid="button-simulate-toggle"]');
 
     // Programm 1: A0 aktiv
-    await page.click(".monaco-editor");
-    await page.keyboard.press("Control+A");
-    await page.keyboard.press("Backspace");
-    await page.keyboard.type("void setup() { pinMode(A0, INPUT); } \n void loop() {}");
+    await monacoEditor.setValue("void setup() { pinMode(A0, INPUT); } \n void loop() {}");
     await runButton.click();
     await expect(page.locator("#pin-A0-frame")).toBeVisible();
 
@@ -218,10 +201,7 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
     await page.waitForTimeout(800);
 
     // Programm 2: Nur Pin 7 aktiv
-    await page.click(".monaco-editor");
-    await page.keyboard.press("Control+A");
-    await page.keyboard.press("Backspace");
-    await page.keyboard.type("void setup() { pinMode(7, OUTPUT); } \n void loop() {}");
+    await monacoEditor.setValue("void setup() { pinMode(7, OUTPUT); } \n void loop() {}");
     await runButton.click();
 
     const frameA0 = page.locator("#pin-A0-frame");
