@@ -112,6 +112,7 @@ UNOWEBSIM_gitlab/
 logs/
 temp/
 *.log
+test-results/
 
 # Measurement reports (werden bei Bedarf neu erzeugt)
 font_size_report_*.md
