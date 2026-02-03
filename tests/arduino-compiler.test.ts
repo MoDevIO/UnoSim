@@ -2,11 +2,11 @@ import { ArduinoCompiler } from "../server/services/arduino-compiler";
 
 describe("ArduinoCompiler", () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("succeeds for a valid sketch and embeds headers", async () => {
-    jest
+    vi
       .spyOn(ArduinoCompiler.prototype, "compileWithArduinoCli")
       .mockResolvedValue({
         success: true,
@@ -31,7 +31,7 @@ describe("ArduinoCompiler", () => {
 
   it("returns error when arduino-cli reports compilation failures", async () => {
     // simulate compileWithArduinoCli returning errors (already cleaned)
-    jest
+    vi
       .spyOn(ArduinoCompiler.prototype, "compileWithArduinoCli")
       .mockResolvedValue({
         success: false,
@@ -50,7 +50,7 @@ describe("ArduinoCompiler", () => {
   });
 
   it("rejects invalid sketch missing setup or loop", async () => {
-    const compileSpy = jest.spyOn(
+    const compileSpy = vi.spyOn(
       ArduinoCompiler.prototype,
       "compileWithArduinoCli",
     );
@@ -68,7 +68,7 @@ describe("ArduinoCompiler", () => {
   });
 
   it("handles arduino-cli not available (spawn error)", async () => {
-    jest
+    vi
       .spyOn(ArduinoCompiler.prototype, "compileWithArduinoCli")
       .mockResolvedValue(null as any);
 

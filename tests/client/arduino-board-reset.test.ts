@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+// ...existing code...
 
 describe.skip('Arduino Board Reset', () => {
   it('should be implemented', () => {

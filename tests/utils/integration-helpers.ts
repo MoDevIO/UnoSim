@@ -5,7 +5,7 @@
  */
 
 import http from "http";
-import { execSync } from "child_process";
+import * as childProcess from "child_process";
 
 /**
  * Synchronously check if the server is running.
@@ -15,7 +15,7 @@ import { execSync } from "child_process";
 export function isServerRunningSync(): boolean {
   try {
     // Use curl with a very short timeout to check server availability
-    execSync(
+    childProcess.execSync(
       "curl -s --max-time 1 http://localhost:3000/api/sketches > /dev/null 2>&1",
       {
         timeout: 2000,

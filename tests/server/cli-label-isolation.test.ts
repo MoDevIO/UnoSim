@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "@jest/globals";
+import { describe, it, expect, beforeAll } from "vitest";
 import http from "http";
 import { describeIfServer } from "../utils/integration-helpers";
 

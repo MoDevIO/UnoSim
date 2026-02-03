@@ -8,7 +8,7 @@
  */
 
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import "@testing-library/jest-dom";
+// ...existing code...
 import { ParserOutput } from "../../client/src/components/features/parser-output";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
 
@@ -62,7 +62,7 @@ describe("Parser Messages Frontend Integration", () => {
     });
 
     it("should display Serial.begin suggestion", () => {
-      const onInsertSuggestion = jest.fn();
+      const onInsertSuggestion = vi.fn();
 
       const messages: ParserMessage[] = [
         {
@@ -174,7 +174,7 @@ describe("Parser Messages Frontend Integration", () => {
     });
 
     it("should have Clear button", () => {
-      const onClear = jest.fn();
+      const onClear = vi.fn();
 
       const messages: ParserMessage[] = [
         {

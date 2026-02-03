@@ -9,8 +9,38 @@ import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
 import { spawn } from "child_process";
 import { writeFile, mkdir, rm } from "fs/promises";
 
-jest.mock("child_process");
-jest.mock("fs/promises");
+vi.setConfig({ testTimeout: 2000 });
+
+const createMockProcess = () => {
+  const mockProcess = {
+    on: vi.fn((event: string, cb: Function) => {
+      if (event === "close") setTimeout(() => cb(0), 10);
+      return mockProcess;
+    }),
+    stdout: { on: vi.fn().mockReturnThis() },
+    stderr: { on: vi.fn().mockReturnThis() },
+    kill: vi.fn(),
+  };
+  return mockProcess;
+};
+
+vi.mock("child_process", () => {
+  const spawnMock = vi.fn(() => createMockProcess());
+  return {
+    spawn: spawnMock,
+    default: { spawn: spawnMock },
+  };
+});
+vi.mock("fs/promises", () => ({
+  writeFile: vi.fn(),
+  mkdir: vi.fn(),
+  rm: vi.fn(),
+  default: {
+    writeFile: vi.fn(),
+    mkdir: vi.fn(),
+    rm: vi.fn(),
+  },
+}));
 
 describe("ArduinoCompiler - Line Number Correction", () => {
   let compiler: ArduinoCompiler;
@@ -19,7 +49,7 @@ describe("ArduinoCompiler - Line Number Correction", () => {
   const mockRm = rm as jest.MockedFunction<typeof rm>;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     compiler = await ArduinoCompiler.create();
 
     // Standard mocks

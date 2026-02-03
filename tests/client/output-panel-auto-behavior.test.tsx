@@ -11,9 +11,35 @@
 
 import type { ParserMessage } from "@shared/schema";
 
+const createLocalStorageMock = () => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => (key in store ? store[key] : null),
+    setItem: (key: string, value: string) => {
+      store[key] = String(value);
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+    get length() {
+      return Object.keys(store).length;
+    },
+  } as Storage;
+};
+
 describe("OutputPanel Auto-Behavior", () => {
+  beforeAll(() => {
+    if (!globalThis.localStorage || typeof globalThis.localStorage.clear !== "function") {
+      vi.stubGlobal("localStorage", createLocalStorageMock());
+    }
+  });
+
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
   });
 

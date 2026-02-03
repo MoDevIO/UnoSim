@@ -2,8 +2,38 @@ import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
 import { spawn } from "child_process";
 import { writeFile, mkdir, rm } from "fs/promises";
 
-jest.mock("child_process");
-jest.mock("fs/promises");
+vi.setConfig({ testTimeout: 2000 });
+
+const createMockProcess = () => {
+  const mockProcess = {
+    on: vi.fn((event: string, cb: Function) => {
+      if (event === "close") setTimeout(() => cb(0), 10);
+      return mockProcess;
+    }),
+    stdout: { on: vi.fn().mockReturnThis() },
+    stderr: { on: vi.fn().mockReturnThis() },
+    kill: vi.fn(),
+  };
+  return mockProcess;
+};
+
+vi.mock("child_process", () => {
+  const spawnMock = vi.fn(() => createMockProcess());
+  return {
+    spawn: spawnMock,
+    default: { spawn: spawnMock },
+  };
+});
+vi.mock("fs/promises", () => ({
+  writeFile: vi.fn(),
+  mkdir: vi.fn(),
+  rm: vi.fn(),
+  default: {
+    writeFile: vi.fn(),
+    mkdir: vi.fn(),
+    rm: vi.fn(),
+  },
+}));
 
 describe("ArduinoCompiler - Parser Messages Tests", () => {
   let compiler: ArduinoCompiler;
@@ -12,7 +42,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
   const mockRm = rm as jest.MockedFunction<typeof rm>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     compiler = new ArduinoCompiler();
 
     mockWriteFile.mockResolvedValue(undefined);
@@ -42,7 +72,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
               );
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -91,7 +121,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
             if (event === "data") cb(Buffer.from("Sketch uses 1024 bytes.\n"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -139,7 +169,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
               cb(Buffer.from("Board: Arduino UNO (Simulation)\n"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -179,7 +209,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
               cb(Buffer.from("Board: Arduino UNO (Simulation)\n"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -224,7 +254,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
               cb(Buffer.from("Board: Arduino UNO (Simulation)\n"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -261,7 +291,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       `;
 
       (spawn as jest.Mock).mockImplementationOnce(() => ({
-        stdout: { on: jest.fn() },
+        stdout: { on: vi.fn() },
         stderr: {
           on: (event: string, cb: Function) => {
             if (event === "data") cb(Buffer.from("error: invalid conversion"));

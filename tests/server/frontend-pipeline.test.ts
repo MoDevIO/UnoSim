@@ -2,7 +2,7 @@
  * This test simulates the EXACT frontend processing pipeline to debug
  * why backspace doesn't work correctly in the real app.
  */
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect } from "vitest";
 import { applyBackspaceAcrossLines } from "../../client/src/components/features/serial-monitor";
 import type { OutputLine } from "../../shared/schema";
 

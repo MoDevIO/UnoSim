@@ -2,10 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  fullyParallel: false, // Disable parallel execution - tests share backend state
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 4 : 1,
+  workers: 1, // Run tests sequentially to avoid backend state conflicts
   reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }]],
   globalSetup: "./e2e/setup.ts",
   use: {

@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import "@testing-library/jest-dom";
+// ...existing code...
 import { SimCockpit } from "@/components/features/sim-cockpit";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import type { BatchStats } from "@/hooks/use-simulation-store";
@@ -16,11 +16,11 @@ describe("SimCockpit UI", () => {
 
   beforeEach(() => {
     telemetryStore.resetTelemetry();
-    jest.spyOn(Date, "now").mockReturnValue(fixedNow);
+    vi.spyOn(Date, "now").mockReturnValue(fixedNow);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("derives UI Hz from batchStats frame timing", () => {

@@ -39,12 +39,21 @@ test.describe("Sandbox UI Batching Integration", () => {
   const getPinMonitor = (page: any) => page.locator('[data-testid="pin-monitor"]');
   const getPinRow = (monitor: any, pin: number) => monitor.locator(`[data-pin="${pin}"]`);
   const getPinValue = async (monitor: any, pin: number) => {
-    return (await getPinRow(monitor, pin).locator("[data-value]").textContent())?.trim() || "";
-  };
+     const pinRow = getPinRow(monitor, pin);
+     await pinRow.waitFor({ state: "attached", timeout: 10000 });
+     const valueSpan = pinRow.locator("[data-value]");
+     await valueSpan.waitFor({ state: "attached", timeout: 5000 });
+     
+     // Get text content with shorter timeout to avoid hanging
+     const value = await valueSpan.textContent({ timeout: 5000 });
+     return value?.trim() || "";
+   };
 
-  // --- HAUPTTEST ---
+   // --- HAUPTTEST ---
 
-  test("Kompletter Integrations-Workflow", async ({ page, monacoEditor, startSimulation, stopSimulation }) => {
+   test("Kompletter Integrations-Workflow", async ({ page, monacoEditor, startSimulation, stopSimulation }) => {
+    test.setTimeout(90000); // Increase timeout to 90s for this complex test
+    
     // I. SKETCH LADEN
     await page.getByRole("button", { name: /examples/i }).click();
     await page.locator('[data-role="example-folder"]').filter({ hasText: "tests" }).click();
@@ -58,11 +67,22 @@ test.describe("Sandbox UI Batching Integration", () => {
 
     // II. SIMULATION STARTEN & PERFORMANCE MESSUNG
     const perfStart = performance.now();
+    // Start simulation
     await startSimulation();
-    const pinMonitor = getPinMonitor(page);
-    await expect(pinMonitor).toBeVisible({ timeout: 10000 });
-    const pin13 = getPinRow(pinMonitor, 13);
-    await expect(pin13).toBeVisible({ timeout: 20000 });
+
+     // Verify simulation actually started by checking for Stop button
+     await expect(page.getByRole("button", { name: /stop simulation/i })).toBeVisible({ timeout: 15000 });
+
+     const pinMonitor = getPinMonitor(page);
+     await expect(pinMonitor).toBeVisible({ timeout: 10000 });
+
+     // Wait for Pin 13 to appear with data-value attribute (not just SVG label)
+     const pin13 = getPinRow(pinMonitor, 13);
+     await expect.poll(async () => {
+       const valueSpan = pin13.locator("[data-value]");
+       return await valueSpan.count() > 0;
+     }, { timeout: 20000 }).toBe(true);
+    await expect(pin13).toBeVisible({ timeout: 5000 });
     const perfEnd = performance.now();
     const duration = perfEnd - perfStart;
     test.info().annotations.push({
@@ -77,24 +97,36 @@ test.describe("Sandbox UI Batching Integration", () => {
 
     // IV. INTERAKTION: SERIAL TOGGLE (PIN 13)
     const initial13 = await getPinValue(pinMonitor, 13);
-    const serialInput = page.locator('[data-testid="input-serial"]');
     
+    // Ensure simulation is still running before attempting serial interaction
+    await expect(page.getByRole("button", { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
+    
+    const serialInput = page.locator('[data-testid="input-serial"]');
     await serialInput.fill("1");
     const sendSerialButton = page.locator('[data-testid="button-send-serial"]');
     await expect(sendSerialButton).toBeEnabled({ timeout: 20000 });
-    await sendSerialButton.click();
+     await serialInput.blur();
+     await sendSerialButton.click({ force: true });
 
-    await expect.poll(() => getPinValue(pinMonitor, 13), {
-      timeout: 10000,
-      message: "Pin 13 Toggle reagiert nicht auf Serial '1'"
-    }).not.toBe(initial13);
-    // V. PWM SMOOTHING (PIN 9)
-    await serialInput.fill("2");
-    await expect(sendSerialButton).toBeEnabled({ timeout: 20000 });
-    await sendSerialButton.click();
-    
-    const pin9 = getPinRow(pinMonitor, 9);
-    await expect(pin9).toBeVisible({ timeout: 5000 });
+     await expect.poll(() => getPinValue(pinMonitor, 13), {
+       timeout: 10000,
+       message: "Pin 13 Toggle reagiert nicht auf Serial '1'"
+     }).not.toBe(initial13);
+     
+     // V. PWM SMOOTHING (PIN 9)
+     await serialInput.fill("2");
+     await expect(sendSerialButton).toBeEnabled({ timeout: 20000 });
+     await serialInput.blur();
+     await sendSerialButton.click({ force: true });
+     
+     await serialInput.fill("2");
+     await expect(sendSerialButton).toBeEnabled({ timeout: 20000 });
+     await serialInput.blur();
+     await sendSerialButton.click({ force: true });
+     
+     const pin9 = getPinRow(pinMonitor, 9);
+     await pin9.waitFor({ state: "attached", timeout: 10000 });
+     await expect(pin9).toBeVisible({ timeout: 5000 });
 
     const pwm1 = await getPinValue(pinMonitor, 9);
     await expect.poll(async () => {

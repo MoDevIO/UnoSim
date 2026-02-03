@@ -1,8 +1,29 @@
 import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
 import { ParserMessage } from "../../../shared/schema";
+import { spawn } from "child_process";
 
-jest.mock("child_process");
-const { spawn } = require("child_process");
+vi.setConfig({ testTimeout: 2000 });
+
+const createMockProcess = () => {
+  const mockProcess = {
+    on: vi.fn((event: string, cb: Function) => {
+      if (event === "close") setTimeout(() => cb(0), 10);
+      return mockProcess;
+    }),
+    stdout: { on: vi.fn().mockReturnThis() },
+    stderr: { on: vi.fn().mockReturnThis() },
+    kill: vi.fn(),
+  };
+  return mockProcess;
+};
+
+vi.mock("child_process", () => {
+  const spawnMock = vi.fn(() => createMockProcess());
+  return {
+    spawn: spawnMock,
+    default: { spawn: spawnMock },
+  };
+});
 
 describe("ArduinoCompiler - Parser Integration", () => {
   let compiler: ArduinoCompiler;
@@ -22,13 +43,13 @@ describe("ArduinoCompiler - Parser Integration", () => {
       }
     `;
 
-    (spawn as jest.Mock).mockImplementationOnce(() => ({
+    vi.mocked(spawn).mockImplementationOnce(() => ({
       stdout: {
         on: (event: string, cb: Function) => {
           if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
-      stderr: { on: jest.fn() },
+      stderr: { on: vi.fn() },
       on: (event: string, cb: Function) => {
         if (event === "close") cb(0);
       },
@@ -59,13 +80,13 @@ describe("ArduinoCompiler - Parser Integration", () => {
       }
     `;
 
-    (spawn as jest.Mock).mockImplementationOnce(() => ({
+    vi.mocked(spawn).mockImplementationOnce(() => ({
       stdout: {
         on: (event: string, cb: Function) => {
           if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
-      stderr: { on: jest.fn() },
+      stderr: { on: vi.fn() },
       on: (event: string, cb: Function) => {
         if (event === "close") cb(0);
       },
@@ -109,13 +130,13 @@ describe("ArduinoCompiler - Parser Integration", () => {
       }
     `;
 
-    (spawn as jest.Mock).mockImplementationOnce(() => ({
+    vi.mocked(spawn).mockImplementationOnce(() => ({
       stdout: {
         on: (event: string, cb: Function) => {
           if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
-      stderr: { on: jest.fn() },
+      stderr: { on: vi.fn() },
       on: (event: string, cb: Function) => {
         if (event === "close") cb(0);
       },

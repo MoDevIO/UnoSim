@@ -1,7 +1,7 @@
 // system-stress.test.ts
 // Full-system stress test: Serial + Registry throttling
 
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { performance } from "perf_hooks";
 import { ArduinoOutputParser } from "../../../src/utils/arduino-output-parser";
 import { RegistryManager } from "../../../server/services/registry-manager";
@@ -10,12 +10,12 @@ import type { IOPinRecord } from "@shared/schema";
 describe("System stress (Serial + Registry)", () => {
   let parser: ArduinoOutputParser;
   let manager: RegistryManager;
-  let updateCallback: jest.Mock<(registry: IOPinRecord[], baudrate: number) => void>;
+  let updateCallback: ReturnType<typeof vi.fn>;
   const serialChunks: string[] = [];
 
   beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date(0));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(0));
 
     parser = new ArduinoOutputParser();
     serialChunks.length = 0;
@@ -23,7 +23,7 @@ describe("System stress (Serial + Registry)", () => {
       serialChunks.push(chunk);
     });
 
-    updateCallback = jest.fn();
+    updateCallback = vi.fn();
     manager = new RegistryManager({
       debounceMs: 20,
       onUpdate: updateCallback,
@@ -40,7 +40,7 @@ describe("System stress (Serial + Registry)", () => {
   afterEach(() => {
     parser.reset();
     parser.removeAllListeners();
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("should preserve serial order and throttle registry updates under combined load", () => {
@@ -67,7 +67,7 @@ describe("System stress (Serial + Registry)", () => {
         maxSliceMs = sliceDuration;
       }
 
-      jest.advanceTimersByTime(1);
+      vi.advanceTimersByTime(1);
     }
 
     // Validate serial chronology and completeness

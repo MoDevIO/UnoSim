@@ -6,35 +6,85 @@
 // Store original setTimeout
 const originalSetTimeout = global.setTimeout;
 
+vi.setConfig({ testTimeout: 2000 });
+
 // Mock child_process
 const spawnInstances: any[] = [];
 
-jest.mock("child_process", () => ({
-  spawn: jest.fn(() => {
+vi.mock("child_process", () => {
+  const spawnMock = vi.fn(() => {
     const proc = {
-      stdout: { on: jest.fn() },
-      stderr: { on: jest.fn() },
-      stdin: { write: jest.fn() },
-      on: jest.fn(),
-      kill: jest.fn(),
+      on: vi.fn((event: string, cb: Function) => {
+        if (event === "close") setTimeout(() => cb(0), 10);
+        return proc;
+      }),
+      stdout: { on: vi.fn().mockReturnThis() },
+      stderr: { on: vi.fn().mockReturnThis() },
+      stdin: { write: vi.fn() },
+      kill: vi.fn(),
       killed: false,
     };
     spawnInstances.push(proc);
     return proc;
-  }),
-  execSync: jest.fn(),
-}));
+  });
+  const execSyncMock = vi.fn();
 
-jest.mock("fs/promises", () => ({
-  mkdir: jest.fn().mockResolvedValue(undefined),
-  writeFile: jest.fn().mockResolvedValue(undefined),
-  rm: jest.fn().mockResolvedValue(undefined),
-  chmod: jest.fn().mockResolvedValue(undefined),
-  rename: jest.fn().mockResolvedValue(undefined),
-}));
+  return {
+    spawn: spawnMock,
+    execSync: execSyncMock,
+    default: {
+      spawn: spawnMock,
+      execSync: execSyncMock,
+    },
+  };
+});
+
+vi.mock("fs/promises", () => {
+  const mkdirMock = vi.fn().mockResolvedValue(undefined);
+  const writeFileMock = vi.fn().mockResolvedValue(undefined);
+  const rmMock = vi.fn().mockResolvedValue(undefined);
+  const chmodMock = vi.fn().mockResolvedValue(undefined);
+  const renameMock = vi.fn().mockResolvedValue(undefined);
+  const accessMock = vi.fn().mockRejectedValue(new Error("not found"));
+
+  return {
+    mkdir: mkdirMock,
+    writeFile: writeFileMock,
+    rm: rmMock,
+    chmod: chmodMock,
+    rename: renameMock,
+    access: accessMock,
+    default: {
+      mkdir: mkdirMock,
+      writeFile: writeFileMock,
+      rm: rmMock,
+      chmod: chmodMock,
+      rename: renameMock,
+      access: accessMock,
+    },
+  };
+});
+
+vi.mock("fs", () => {
+  const existsSyncMock = vi.fn().mockReturnValue(true);
+  const renameSyncMock = vi.fn();
+  const rmSyncMock = vi.fn();
+
+  return {
+    existsSync: existsSyncMock,
+    renameSync: renameSyncMock,
+    rmSync: rmSyncMock,
+    default: {
+      existsSync: existsSyncMock,
+      renameSync: renameSyncMock,
+      rmSync: rmSyncMock,
+    },
+  };
+});
 
 import { spawn, execSync } from "child_process";
 import { mkdir, writeFile, rm, chmod, rename } from "fs/promises";
+import { existsSync, renameSync } from "fs";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 
 describe("SandboxRunner", () => {
@@ -46,15 +96,15 @@ describe("SandboxRunner", () => {
   beforeEach(() => {
     activeRunners = [];
     spawnInstances.length = 0;
-    (mkdir as jest.Mock).mockClear();
-    (writeFile as jest.Mock).mockClear();
-    (rm as jest.Mock).mockClear();
-    (chmod as jest.Mock).mockClear();
-    (rename as jest.Mock).mockClear();
-    (spawn as jest.Mock).mockClear();
-    (execSync as jest.Mock).mockClear();
+    (mkdir as any).mockClear();
+    (writeFile as any).mockClear();
+    (rm as any).mockClear();
+    (chmod as any).mockClear();
+    (rename as any).mockClear();
+    (spawn as any).mockClear();
+    (execSync as any).mockClear();
 
-    jest.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
   });
 
   afterEach(async () => {
@@ -79,9 +129,9 @@ describe("SandboxRunner", () => {
       }
     }
 
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
-    jest.restoreAllMocks();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+    vi.clearAllMocks();
   });
 
   // Helper to track runners for cleanup
@@ -168,12 +218,12 @@ describe("SandboxRunner", () => {
       runner.runSketch(
         "void setup(){} void loop(){}",
         (line) => outputs.push(line),
-        jest.fn(),
+        vi.fn(),
         (code) => (exitCode = code),
       );
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       // Compile process
       const compileProc = spawnInstances[0];
@@ -185,7 +235,7 @@ describe("SandboxRunner", () => {
       compileClose(0);
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       // Run process
       const runProc = spawnInstances[1];
@@ -196,14 +246,14 @@ describe("SandboxRunner", () => {
       )?.[1];
 
       stdoutHandler(Buffer.from("Hello World\n"));
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       const runClose = runProc.on.mock.calls.find(
         ([event]: any[]) => event === "close",
       )?.[1];
       runClose(0);
 
-      jest.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
       // With serialParser, outputs may be processed differently
       // Just verify exit code is correct
       expect(exitCode).toBe(0);
@@ -216,8 +266,8 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "invalid code {{{",
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
         (code) => (exitCode = code),
         (err) => (compileError = err),
       );
@@ -248,9 +298,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -284,7 +334,7 @@ describe("SandboxRunner", () => {
       runner.runSketch(
         "void setup(){} void loop(){}",
         (line) => outputs.push(line),
-        jest.fn(),
+        vi.fn(),
         (code) => (exitCode = code),
       );
 
@@ -319,7 +369,7 @@ describe("SandboxRunner", () => {
       )?.[1];
       closeHandler(0);
 
-      jest.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
       // Output is now processed through serialParser with timing
       // Verify exitCode instead
       expect(exitCode).toBe(0);
@@ -330,9 +380,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -356,9 +406,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "invalid code",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
         (err) => (compileError = err),
       );
 
@@ -398,8 +448,8 @@ describe("SandboxRunner", () => {
         "void setup(){} void loop(){}",
         (line, isComplete) =>
           outputs.push({ line, complete: isComplete ?? true }),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -429,8 +479,8 @@ describe("SandboxRunner", () => {
       runner.runSketch(
         "void setup(){} void loop(){}",
         (line) => outputs.push(line),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -447,7 +497,7 @@ describe("SandboxRunner", () => {
 
       stdoutHandler(Buffer.from("Line1\nLine2\n"));
       // SerialParser needs time to process and flush
-      jest.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
       
       // With serialParser, lines are emitted via events with timing
       // Verify that data was received (may be combined or separate)
@@ -467,9 +517,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -497,14 +547,8 @@ describe("SandboxRunner", () => {
       // Manually set currentSketchDir to simulate a running sketch
       (runner as any).currentSketchDir = "/temp/test-dir-uuid";
 
-      // Mock fs.existsSync to return true (directory exists)
-      const existsSync = jest
-        .spyOn(require("fs"), "existsSync")
-        .mockReturnValue(true);
-      // Mock fs.renameSync to capture the call
-      const renameSync = jest
-        .spyOn(require("fs"), "renameSync")
-        .mockImplementation(() => {});
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(renameSync).mockImplementation(() => {});
 
       runner.stop();
 
@@ -517,9 +561,6 @@ describe("SandboxRunner", () => {
         "/temp/test-dir-uuid",
         "/temp/test-dir-uuid.cleanup",
       );
-
-      existsSync.mockRestore();
-      renameSync.mockRestore();
     });
 
     it("should handle serial input", async () => {
@@ -527,9 +568,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -561,9 +602,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
+        vi.fn(),
         (err) => errors.push(err),
-        jest.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -593,9 +634,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "#include <Arduino.h>\nvoid setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -613,9 +654,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -645,9 +686,9 @@ describe("SandboxRunner", () => {
       // Start sketch
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -678,9 +719,9 @@ describe("SandboxRunner", () => {
       // Start and pause sketch
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -698,7 +739,7 @@ describe("SandboxRunner", () => {
       // Mock Date.now for pause duration calculation
       const originalNow = Date.now;
       let mockTime = 1000;
-      Date.now = jest.fn(() => mockTime);
+      Date.now = vi.fn(() => mockTime);
 
       mockTime = 1500; // 500ms pause duration
 
@@ -729,9 +770,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -755,9 +796,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();
@@ -780,9 +821,9 @@ describe("SandboxRunner", () => {
 
       runner.runSketch(
         "void setup(){} void loop(){}",
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
       await wait();

@@ -9,11 +9,9 @@
  * ensures output is delivered even when sketches exit quickly (< 1.5s).
  */
 
+import { vi } from "vitest";
 import { SandboxRunner } from '../../server/services/sandbox-runner';
 import { extractPlainText, runSketchWithOutput } from '../utils/serial-test-helper';
-
-// Extended timeout for compilation and execution (Docker scenarios need more time)
-jest.setTimeout(60000);
 
 describe('Serial Output Flow Integration', () => {
   let runner: SandboxRunner;

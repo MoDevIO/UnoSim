@@ -16,11 +16,10 @@ describe("Sanity Test - Module Loading", () => {
     expect(SandboxRunner).toBeDefined();
   });
   
-  it("should create SandboxRunner instance without blocking", () => {
+  it("should create SandboxRunner instance without blocking", async () => {
     const startTime = Date.now();
     
-    // Dynamic require to avoid top-level import
-    const { SandboxRunner } = require("../server/services/sandbox-runner");
+    const { SandboxRunner } = await import("../server/services/sandbox-runner");
     
     const instance = new SandboxRunner();
     
@@ -31,8 +30,8 @@ describe("Sanity Test - Module Loading", () => {
     expect(instance).toBeDefined();
   });
   
-  it("should create 10 instances quickly", () => {
-    const { SandboxRunner } = require("../server/services/sandbox-runner");
+  it("should create 10 instances quickly", async () => {
+    const { SandboxRunner } = await import("../server/services/sandbox-runner");
     
     const startTime = Date.now();
     const instances = [];

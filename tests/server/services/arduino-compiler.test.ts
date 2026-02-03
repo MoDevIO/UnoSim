@@ -12,8 +12,43 @@ import { spawn } from "child_process";
 import { writeFile, mkdir, rm } from "fs/promises";
 import { Logger } from "@shared/logger";
 
-jest.mock("child_process");
-jest.mock("fs/promises");
+vi.setConfig({ testTimeout: 2000 });
+
+const createMockProcess = () => {
+  const mockProcess = {
+    on: vi.fn((event: string, cb: Function) => {
+      if (event === "close") setTimeout(() => cb(0), 10);
+      return mockProcess;
+    }),
+    stdout: { on: vi.fn().mockReturnThis() },
+    stderr: { on: vi.fn().mockReturnThis() },
+    kill: vi.fn(),
+  };
+  return mockProcess;
+};
+
+vi.mock("child_process", () => {
+  const spawnMock = vi.fn(() => createMockProcess());
+  return {
+    spawn: spawnMock,
+    default: { spawn: spawnMock },
+  };
+});
+vi.mock("fs/promises", () => {
+  const writeFileMock = vi.fn();
+  const mkdirMock = vi.fn();
+  const rmMock = vi.fn();
+  return {
+    writeFile: writeFileMock,
+    mkdir: mkdirMock,
+    rm: rmMock,
+    default: {
+      writeFile: writeFileMock,
+      mkdir: mkdirMock,
+      rm: rmMock,
+    },
+  };
+});
 
 describe("ArduinoCompiler - Full Coverage", () => {
   let compiler: ArduinoCompiler;
@@ -22,7 +57,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
   const mockRm = rm as jest.MockedFunction<typeof rm>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     compiler = new ArduinoCompiler();
 
     // Standard mocks
@@ -53,7 +88,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
               );
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -95,7 +130,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
               );
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -122,7 +157,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
             if (event === "data") cb(Buffer.from("Compilation successful\n"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -153,7 +188,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
               );
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -190,7 +225,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
             }
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -221,7 +256,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
             }
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -247,7 +282,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
             if (event === "data") cb(Buffer.from("Success, no memory info.\n"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -299,7 +334,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
         void loop() {}
       `;
 
-      const warnSpy = jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      const warnSpy = vi.spyOn(Logger.prototype, "warn").mockImplementation();
 
       (spawn as jest.Mock).mockImplementationOnce(() => ({
         stdout: {
@@ -307,7 +342,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
             if (event === "data") cb(Buffer.from("Success\n"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -346,7 +381,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
             if (event === "data") cb(Buffer.from("Success\n"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -389,8 +424,8 @@ describe("ArduinoCompiler - Full Coverage", () => {
       const code = `void setup() {} void loop() {}`;
 
       (spawn as jest.Mock).mockImplementation(() => ({
-        stdout: { on: jest.fn() },
-        stderr: { on: jest.fn() },
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "error") cb(new Error("spawn ENOENT"));
         },
@@ -407,7 +442,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
       const code = `void setup() {} void loop() {}`;
 
       (spawn as jest.Mock).mockImplementation(() => ({
-        stdout: { on: jest.fn() },
+        stdout: { on: vi.fn() },
         stderr: {
           on: (event: string, cb: Function) => {
             if (event === "data")
@@ -431,7 +466,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
     it("should handle mkdir error in ensureTempDir and log warning", async () => {
       mockMkdir.mockRejectedValueOnce(new Error("Permission denied"));
 
-      const warnSpy = jest.spyOn(Logger.prototype, "warn").mockImplementation();
+      const warnSpy = vi.spyOn(Logger.prototype, "warn").mockImplementation();
 
       const newCompiler = await ArduinoCompiler.create();
 
@@ -458,7 +493,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
             if (event === "data") cb(Buffer.from("Success"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (event: string, cb: Function) => {
           if (event === "close") cb(0);
         },
@@ -488,7 +523,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
             if (e === "data") cb(Buffer.from("OK"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (e: string, cb: Function) => {
           if (e === "close") cb(0);
         },
@@ -514,7 +549,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
             if (e === "data") cb(Buffer.from("OK"));
           },
         },
-        stderr: { on: jest.fn() },
+        stderr: { on: vi.fn() },
         on: (e: string, cb: Function) => {
           if (e === "close") cb(0);
         },

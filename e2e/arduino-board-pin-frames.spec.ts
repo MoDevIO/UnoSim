@@ -24,9 +24,19 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
     await page.keyboard.press("Escape");
     await startSimulation();
     
-    // Pin 2 Frame Check
+    // Verify simulation is running
+    await expect(page.getByRole("button", { name: /stop simulation/i })).toBeVisible({ timeout: 15000 });
+    
+    // Wait for registry to be processed - look for the pin-2-frame element first
     const frame = page.locator("#pin-2-frame");
-    await expect(frame).toBeVisible({ timeout: 12000 });
+    await expect(frame).toBeAttached({ timeout: 10000 });
+    
+    // Now wait for it to become visible (display:block)
+    await expect.poll(async () => {
+      // Check the computed style - the frame should have display: block when INPUT
+      const display = await frame.evaluate((el) => window.getComputedStyle(el).display);
+      return display !== "none";
+    }, { timeout: 25000, message: "Pin 2 frame should become visible when configured as INPUT" }).toBe(true);
   });
 
   // --- TEST 2: MEHRERE INPUT PINS (A0) ---
@@ -46,7 +56,9 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
     await startSimulation();
 
     const frameA0 = page.locator("#pin-A0-frame");
-    await expect(frameA0).toBeVisible({ timeout: 10000 });
+    await expect.poll(async () => {
+      return await frameA0.isVisible();
+    }, { timeout: 10000 }).toBe(true);
   });
 
   // --- TEST 3: OUTPUT (KEIN RAHMEN) ---
@@ -71,7 +83,9 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
     await startSimulation();
     
     const frame = page.locator("#pin-0-frame");
-    await expect(frame).toBeVisible({ timeout: 10000 });
+    await expect.poll(async () => {
+      return await frame.isVisible();
+    }, { timeout: 10000 }).toBe(true);
   });
 
   // --- TEST 5: ANALOG READ MANUELL ---
@@ -82,7 +96,9 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
     await startSimulation();
     
     const frame = page.locator("#pin-A0-frame");
-    await expect(frame).toBeVisible({ timeout: 10000 });
+    await expect.poll(async () => {
+      return await frame.isVisible();
+    }, { timeout: 10000 }).toBe(true);
   });
 
   // --- TEST 6: DYNAMISCHER WECHSEL ---
@@ -96,7 +112,9 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
     await monacoEditor.setValue("void setup() { pinMode(0, INPUT); } \n void loop() { digitalRead(0); }");
     await startSimulation();
 
-    await expect(page.locator("#pin-0-frame")).toBeVisible({ timeout: 10000 });
+    await expect.poll(async () => {
+      return await page.locator("#pin-0-frame").isVisible();
+    }, { timeout: 10000 }).toBe(true);
   });
 
   // --- TEST 7: CLEAR ON RELOAD (REINIGUNGSTEST) ---

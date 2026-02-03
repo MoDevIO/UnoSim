@@ -229,7 +229,7 @@ import React from "react";
 
 describe("OutputPanel Runtime Behavior - Real React Tests", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("Feature 1: Auto-Open on Compiler Errors", () => {
@@ -283,8 +283,8 @@ describe("OutputPanel Runtime Behavior - Real React Tests", () => {
 
       // DOM PROOF
       const panelElement = screen.getByTestId("output-panel");
-      expect(panelElement).toHaveStyle({ display: "block" });
-      expect(panelElement).toHaveStyle({ height: `${panelSize}%` });
+      expect(panelElement.style.display).toBe("block");
+      expect(panelElement.style.height).toBe(`${panelSize}%`);
     });
   });
 
@@ -336,7 +336,7 @@ describe("OutputPanel Runtime Behavior - Real React Tests", () => {
 
       // DOM PROOF
       const messagesDiv = screen.getByTestId("messages-output");
-      expect(messagesDiv).toBeInTheDocument();
+      expect(messagesDiv).toBeTruthy();
     });
   });
 
@@ -382,7 +382,7 @@ describe("OutputPanel Runtime Behavior - Real React Tests", () => {
 
       // DOM PROOF
       const panelElement = screen.getByTestId("output-panel");
-      expect(panelElement).toHaveStyle({ height: "3%" });
+      expect(panelElement.style.height).toBe("3%");
     });
   });
 

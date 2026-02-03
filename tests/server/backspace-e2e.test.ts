@@ -1,8 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
-
-// Increase timeout for compilation and execution
-jest.setTimeout(60000);
 
 describe("Backspace E2E Test", () => {
   let runner: SandboxRunner;

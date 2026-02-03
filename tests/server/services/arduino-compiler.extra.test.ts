@@ -1,7 +1,7 @@
+import { vi } from "vitest";
 import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
 
 describe("ArduinoCompiler - additional", () => {
-  jest.setTimeout(10000);
 
   test("returns error when setup or loop missing", async () => {
     const compiler = await ArduinoCompiler.create();
@@ -11,7 +11,7 @@ describe("ArduinoCompiler - additional", () => {
   });
 
   test("processes header includes and returns processedCode", async () => {
-    const spy = jest
+    const spy = vi
       .spyOn(ArduinoCompiler.prototype as any, "compileWithArduinoCli")
       .mockResolvedValue({ success: true, output: "Board: Arduino UNO" });
 

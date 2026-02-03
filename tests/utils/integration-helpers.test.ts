@@ -1,42 +1,59 @@
-import { jest } from "@jest/globals";
+import { vi } from "vitest";
+
+vi.mock("child_process", () => ({
+  execSync: vi.fn(),
+  default: { execSync: vi.fn() },
+}));
 
 describe("integration-helpers", () => {
-  test("isServerRunningSync -> true when execSync succeeds", () => {
-    jest.isolateModules(() => {
-      const child_process = require("child_process");
-      jest
-        .spyOn(child_process, "execSync")
-        .mockImplementation(() => Buffer.from("ok"));
-      const mod = require("../../tests/utils/integration-helpers");
-      expect(mod.isServerRunningSync()).toBe(true);
-    });
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
   });
 
-  test("isServerRunningSync -> false when execSync throws", () => {
-    jest.isolateModules(() => {
-      const child_process = require("child_process");
-      jest.spyOn(child_process, "execSync").mockImplementation(() => {
-        throw new Error("no");
-      });
-      const mod = require("../../tests/utils/integration-helpers");
-      expect(mod.isServerRunningSync()).toBe(false);
+  test("isServerRunningSync -> true when execSync succeeds", async () => {
+    const childProcess = await import("child_process");
+    vi.mocked(childProcess.execSync).mockImplementation(() => Buffer.from("ok"));
+    const mod = await import("../../tests/utils/integration-helpers");
+    expect(mod.isServerRunningSync()).toBe(true);
+  });
+
+  test("isServerRunningSync -> false when execSync throws", async () => {
+    const childProcess = await import("child_process");
+    vi.mocked(childProcess.execSync).mockImplementation(() => {
+      throw new Error("no");
     });
+    const mod = await import("../../tests/utils/integration-helpers");
+    expect(mod.isServerRunningSync()).toBe(false);
   });
 
   test("isServerRunning (async) resolves true when http.request returns 200", async () => {
-    const http = require("http");
-    const events = require("events");
+    const events = await import("events");
+    const childProcess = await import("child_process");
+    vi.mocked(childProcess.execSync).mockImplementation(() => Buffer.from("ok"));
 
-    jest.spyOn(http, "request").mockImplementation((opts: any, cb: any) => {
-      const res = { statusCode: 200 };
-      if (typeof cb === "function") cb(res);
-      const req = new events.EventEmitter();
-      req.end = () => {};
-      req.on = req.addListener;
-      return req;
-    });
+    vi.doMock("http", () => ({
+      request: vi.fn((opts: any, cb: any) => {
+        const res = { statusCode: 200 };
+        if (typeof cb === "function") cb(res);
+        const req = new events.EventEmitter();
+        (req as any).end = () => {};
+        (req as any).on = (req as any).addListener;
+        return req;
+      }),
+      default: {
+        request: vi.fn((opts: any, cb: any) => {
+          const res = { statusCode: 200 };
+          if (typeof cb === "function") cb(res);
+          const req = new events.EventEmitter();
+          (req as any).end = () => {};
+          (req as any).on = (req as any).addListener;
+          return req;
+        }),
+      },
+    }));
 
-    const mod = require("../../tests/utils/integration-helpers");
+    const mod = await import("../../tests/utils/integration-helpers");
     await expect(mod.isServerRunning()).resolves.toBe(true);
   });
 });

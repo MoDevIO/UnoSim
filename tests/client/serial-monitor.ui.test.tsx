@@ -5,8 +5,8 @@ describe("SerialMonitor UI", () => {
   const baseProps = {
     isConnected: true,
     isSimulationRunning: true,
-    onSendMessage: jest.fn(),
-    onClear: jest.fn(),
+    onSendMessage: vi.fn(),
+    onClear: vi.fn(),
   };
 
   it("displays the Serial frame and renders placeholder without output", async () => {

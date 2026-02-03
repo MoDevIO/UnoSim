@@ -1,7 +1,7 @@
 // arduino-output-parser.test.ts
 // Unit tests for ArduinoOutputParser
 
-import { describe, it, expect } from "@jest/globals";
+// ...existing code...
 import { ArduinoOutputParser } from "../../../server/services/arduino-output-parser";
 
 describe("ArduinoOutputParser", () => {

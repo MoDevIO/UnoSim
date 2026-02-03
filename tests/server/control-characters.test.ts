@@ -1,4 +1,4 @@
-import { describe, it, expect, jest } from "@jest/globals";
+import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import { applyBackspaceAcrossLines } from "../../client/src/components/features/serial-monitor";

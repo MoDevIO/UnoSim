@@ -1,4 +1,4 @@
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect } from "vitest";
 
 /**
  * WebSocket Multi-Client Session Isolation Tests

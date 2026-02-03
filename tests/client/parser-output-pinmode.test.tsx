@@ -1,4 +1,4 @@
-import { describe, it, expect } from "@jest/globals";
+// ...existing code...
 
 // Helper function to extract pinMode data (extracted from parser-output.tsx)
 function extractPinModeData(

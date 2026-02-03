@@ -1,7 +1,7 @@
 // registry-manager.test.ts
 // Unit tests for RegistryManager
 
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { RegistryManager } from "../../../server/services/registry-manager";
 import type { IOPinRecord } from "@shared/schema";
 
@@ -10,7 +10,7 @@ describe("RegistryManager", () => {
   let updateCallback: jest.Mock<(registry: IOPinRecord[], baudrate: number) => void>;
 
   beforeEach(() => {
-    updateCallback = jest.fn();
+    updateCallback = vi.fn();
     manager = new RegistryManager({
       debounceMs: 100,
       onUpdate: updateCallback,
@@ -119,11 +119,11 @@ describe("RegistryManager", () => {
 
   describe("debouncing behavior", () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it("should send first registry immediately without debounce", () => {
@@ -148,7 +148,7 @@ describe("RegistryManager", () => {
       // Should debounce but not send immediately
       expect(updateCallback).not.toHaveBeenCalled();
 
-      jest.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
 
       // Should send after debounce
       expect(updateCallback).toHaveBeenCalledTimes(1);
@@ -165,17 +165,17 @@ describe("RegistryManager", () => {
       // Make rapid updates within short time window
       manager.updatePinMode(13, 1);
       
-      jest.advanceTimersByTime(20);
+      vi.advanceTimersByTime(20);
       manager.updatePinMode(13, 0);
       
-      jest.advanceTimersByTime(20);
+      vi.advanceTimersByTime(20);
       manager.updatePinMode(13, 1);
       
       // Should not have sent yet (still within debounce window)
       expect(updateCallback).not.toHaveBeenCalled();
 
       // After full debounce period from last update
-      jest.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
       
       // Should send exactly once with final state
       expect(updateCallback).toHaveBeenCalledTimes(1);
@@ -200,11 +200,11 @@ describe("RegistryManager", () => {
 
   describe("wait mode", () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it("should enable wait mode with timeout", () => {
@@ -212,7 +212,7 @@ describe("RegistryManager", () => {
 
       expect(manager.isWaiting()).toBe(true);
 
-      jest.advanceTimersByTime(500);
+      vi.advanceTimersByTime(500);
 
       expect(manager.isWaiting()).toBe(false);
     });
@@ -231,11 +231,11 @@ describe("RegistryManager", () => {
 
   describe("reset", () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it("should clear all state", () => {
@@ -263,7 +263,7 @@ describe("RegistryManager", () => {
 
       manager.reset();
 
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
 
       // No callbacks should fire after reset
       expect(updateCallback).not.toHaveBeenCalled();
@@ -296,7 +296,7 @@ describe("RegistryManager", () => {
       expect(updateCallback).toHaveBeenCalledTimes(1);
       updateCallback.mockClear();
 
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       // Change pin mode - should trigger update after debounce
       manager.updatePinMode(13, 0);
@@ -305,11 +305,11 @@ describe("RegistryManager", () => {
       expect(updateCallback).not.toHaveBeenCalled();
 
       // Wait for debounce to complete
-      jest.advanceTimersByTime(200);
+      vi.advanceTimersByTime(200);
 
       expect(updateCallback).toHaveBeenCalledTimes(1);
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it("should not send duplicate registry data", () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+// ...existing code...
 import {
   getCurrentFontScale,
   setFontScale,
@@ -8,7 +8,33 @@ import {
   DEFAULT_FONT_SCALE,
 } from "@/lib/font-scale-utils";
 
+const createLocalStorageMock = () => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => (key in store ? store[key] : null),
+    setItem: (key: string, value: string) => {
+      store[key] = String(value);
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+    get length() {
+      return Object.keys(store).length;
+    },
+  } as Storage;
+};
+
 describe("Font Scale Utils", () => {
+  beforeAll(() => {
+    if (!globalThis.localStorage || typeof globalThis.localStorage.clear !== "function") {
+      vi.stubGlobal("localStorage", createLocalStorageMock());
+    }
+  });
+
   beforeEach(() => {
     // Clear localStorage before each test
     localStorage.clear();

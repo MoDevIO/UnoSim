@@ -6,7 +6,7 @@ describe("CompilationOutput", () => {
     render(
       <CompilationOutput
         output="Sketch uses 736 bytes (2%) of program storage space."
-        onClear={jest.fn()}
+        onClear={vi.fn()}
       />,
     );
 
@@ -17,7 +17,7 @@ describe("CompilationOutput", () => {
     render(
       <CompilationOutput
         output="error: 'digitalWrit' was not declared in this scope"
-        onClear={jest.fn()}
+        onClear={vi.fn()}
       />,
     );
 
@@ -25,7 +25,7 @@ describe("CompilationOutput", () => {
   });
 
   it("should show placeholder when no output", () => {
-    render(<CompilationOutput output="" onClear={jest.fn()} />);
+    render(<CompilationOutput output="" onClear={vi.fn()} />);
 
     expect(
       screen.getByText(/Compilation output will appear here/i),
@@ -33,7 +33,7 @@ describe("CompilationOutput", () => {
   });
 
   it("should call onClear when clear button is clicked", () => {
-    const onClear = jest.fn();
+    const onClear = vi.fn();
     render(<CompilationOutput output="Some output" onClear={onClear} />);
 
     const clearButton = screen.getByRole("button", { name: /clear/i });
@@ -46,7 +46,7 @@ describe("CompilationOutput", () => {
     const multiLineOutput = `Sketch uses 736 bytes (2%) of program storage space.
 Global variables use 9 bytes (0%) of dynamic memory.`;
 
-    render(<CompilationOutput output={multiLineOutput} onClear={jest.fn()} />);
+    render(<CompilationOutput output={multiLineOutput} onClear={vi.fn()} />);
 
     expect(screen.getByTestId("compilation-text")).toHaveTextContent(
       /Sketch uses 736 bytes/i,

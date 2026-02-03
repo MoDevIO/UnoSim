@@ -1,4 +1,4 @@
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect } from "vitest";
 import { ARDUINO_MOCK_CODE } from "../../server/mocks/arduino-mock";
 
 describe("Carriage Return Integration Test", () => {

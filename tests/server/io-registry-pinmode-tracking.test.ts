@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 import type { IOPinRecord } from "@shared/schema";
 

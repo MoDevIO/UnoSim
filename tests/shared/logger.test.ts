@@ -2,11 +2,11 @@ import { Logger } from "../../shared/logger";
 
 describe("Logger", () => {
   let logger: Logger;
-  let consoleSpy: jest.SpyInstance;
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     logger = new Logger("TestSender");
-    consoleSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -26,23 +26,16 @@ describe("Logger", () => {
 
   ])("should log correct format for %s level", (methodName, level) => {
     const msg = "hello world";
-    const now = new Date();
-
-    // Mock Date to fix timestamp
-    const dateSpy = jest.spyOn(global, "Date").mockImplementation(
-      () =>
-        ({
-          toISOString: () => "fixed-timestamp",
-        }) as any,
-    );
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-01-01T00:00:00.000Z"));
 
     (logger as any)[methodName](msg);
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      `[fixed-timestamp][${level}][TestSender] ${msg}`,
+      `[2025-01-01T00:00:00.000Z][${level}][TestSender] ${msg}`,
     );
 
-    dateSpy.mockRestore();
+    vi.useRealTimers();
   });
 
   it('should suppress DEBUG logs in test environment', () => {
@@ -60,13 +53,13 @@ describe("Logger", () => {
       // Simulate browser environment
       (global as any).window = {};
       (global as any).process = { env: {} };
-      jest.spyOn(console, "log").mockImplementation(() => {});
+      vi.spyOn(console, "log").mockImplementation(() => {});
     });
 
     afterEach(() => {
       (global as any).window = originalWindow;
       (global as any).process = originalProcess;
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     it("should suppress DEBUG logs in browser production mode", () => {

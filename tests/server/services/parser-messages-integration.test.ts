@@ -2,14 +2,35 @@ import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
 import { spawn } from "child_process";
 import type { ParserMessage } from "../../../shared/schema";
 
-jest.mock("child_process");
+vi.setConfig({ testTimeout: 2000 });
+
+const createMockProcess = () => {
+  const mockProcess = {
+    on: vi.fn((event: string, cb: Function) => {
+      if (event === "close") setTimeout(() => cb(0), 10);
+      return mockProcess;
+    }),
+    stdout: { on: vi.fn().mockReturnThis() },
+    stderr: { on: vi.fn().mockReturnThis() },
+    kill: vi.fn(),
+  };
+  return mockProcess;
+};
+
+vi.mock("child_process", () => {
+  const spawnMock = vi.fn(() => createMockProcess());
+  return {
+    spawn: spawnMock,
+    default: { spawn: spawnMock },
+  };
+});
 
 describe("Parser Messages Integration", () => {
   let compiler: ArduinoCompiler;
 
   beforeEach(() => {
     compiler = new ArduinoCompiler();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("should include Serial.begin missing warning ONLY in parserMessages, not in output", async () => {
@@ -29,7 +50,7 @@ describe("Parser Messages Integration", () => {
           if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
-      stderr: { on: jest.fn() },
+      stderr: { on: vi.fn() },
       on: (event: string, cb: Function) => {
         if (event === "close") cb(0);
       },
@@ -71,7 +92,7 @@ describe("Parser Messages Integration", () => {
           if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
-      stderr: { on: jest.fn() },
+      stderr: { on: vi.fn() },
       on: (event: string, cb: Function) => {
         if (event === "close") cb(0);
       },
@@ -108,7 +129,7 @@ describe("Parser Messages Integration", () => {
           if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
-      stderr: { on: jest.fn() },
+      stderr: { on: vi.fn() },
       on: (event: string, cb: Function) => {
         if (event === "close") cb(0);
       },
@@ -141,7 +162,7 @@ describe("Parser Messages Integration", () => {
           if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
-      stderr: { on: jest.fn() },
+      stderr: { on: vi.fn() },
       on: (event: string, cb: Function) => {
         if (event === "close") cb(0);
       },
@@ -176,7 +197,7 @@ describe("Parser Messages Integration", () => {
           if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
-      stderr: { on: jest.fn() },
+      stderr: { on: vi.fn() },
       on: (event: string, cb: Function) => {
         if (event === "close") cb(0);
       },
@@ -210,7 +231,7 @@ describe("Parser Messages Integration", () => {
           if (event === "data") cb(Buffer.from("Success\n"));
         },
       },
-      stderr: { on: jest.fn() },
+      stderr: { on: vi.fn() },
       on: (event: string, cb: Function) => {
         if (event === "close") cb(0);
       },
