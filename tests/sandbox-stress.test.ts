@@ -585,6 +585,8 @@ void loop() {
 }
       `.trim();
 
+  const baselineEntries = new Set(readdirSync(tempDir));
+
       // Perform 10 rapid start/stop cycles
       for (let i = 0; i < 10; i++) {
         const exitPromise = withTimeout(
@@ -619,7 +621,9 @@ void loop() {
 
       // Count remaining directories
       const entries = readdirSync(tempDir);
-      const nonCleanupDirs = entries.filter((e) => !e.endsWith(".cleanup"));
+      const nonCleanupDirs = entries.filter(
+        (e) => !baselineEntries.has(e) && !e.endsWith(".cleanup"),
+      );
 
       // Should have minimal residual directories (ideally 0)
       expect(nonCleanupDirs.length).toBeLessThan(3); // Allow max 2 stragglers

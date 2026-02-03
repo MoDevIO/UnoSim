@@ -53,6 +53,7 @@ interface AppHeaderProps {
   onCompileAndStart: () => void;
   onOutputPanelToggle: () => void;
   showCompilationOutput: boolean;
+  rightSlot?: React.ReactNode;
 }
 
 /**
@@ -104,6 +105,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onCompileAndStart,
   onOutputPanelToggle,
   showCompilationOutput,
+  rightSlot,
 }) => {
   const isLoading =
     isCompiling || isStarting || isStopping || isPausing || isResuming;
@@ -494,8 +496,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </Button>
         </div>
 
-        {/* Right: Empty for symmetry */}
-        <div className="flex-1" />
+        {/* Right: Optional telemetry/extra controls */}
+        <div className="flex-1 flex items-center justify-end min-w-0">
+          {rightSlot}
+        </div>
       </header>
     );
   }

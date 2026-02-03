@@ -24,6 +24,7 @@ export interface RegistryManagerConfig {
   debounceMs?: number;
   onUpdate?: RegistryUpdateCallback;
   onTelemetry?: TelemetryUpdateCallback;
+  enableTelemetry?: boolean;
 }
 
 /**
@@ -40,12 +41,14 @@ export class RegistryManager {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private waitingForRegistry = false;
   private isDirty = false;
+  private allowDuplicateSend = false;
   private baudrate = 9600;
   private destroyed = false; // Prevent logging after destruction
   private readonly logger = new Logger("RegistryManager");
   private readonly debounceMs: number;
   private readonly onUpdateCallback?: RegistryUpdateCallback;
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
+  private readonly enableTelemetry: boolean;
   
   // Telemetry tracking
   private telemetry = {
@@ -58,9 +61,10 @@ export class RegistryManager {
     this.debounceMs = config.debounceMs ?? 200;
     this.onUpdateCallback = config.onUpdate;
     this.onTelemetryCallback = config.onTelemetry;
+    this.enableTelemetry = config.enableTelemetry ?? false;
     
     // Start heartbeat if telemetry callback is provided
-    if (this.onTelemetryCallback) {
+    if (this.onTelemetryCallback && this.enableTelemetry) {
       this.startHeartbeat();
     }
   }
@@ -69,6 +73,7 @@ export class RegistryManager {
    * Start 1-second heartbeat for telemetry reporting
    */
   private startHeartbeat(): void {
+    if (this.heartbeatInterval) return;
     this.heartbeatInterval = setInterval(() => {
       if (!this.destroyed) {
         const metrics = this.getPerformanceMetrics();
@@ -77,6 +82,16 @@ export class RegistryManager {
         }
       }
     }, 1000);
+  }
+
+  /**
+   * Stop telemetry heartbeat and clear interval
+   */
+  private stopTelemetry(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
   }
   
   /**
@@ -119,12 +134,41 @@ export class RegistryManager {
 
   /**
    * Start collecting registry data (called when [[IO_REGISTRY_START]] marker is received)
+   * 
+   * NEW: Implements "Initial Sync Flush" to ensure any runtime pin definitions (e.g., from updatePinMode)
+   * are sent to clients before the registry is cleared. This prevents losing pin definitions that arrive
+   * before the IO_REGISTRY_START marker.
    */
   startCollection(): void {
     if (this.destroyed) return;
     this.logger.debug("Starting registry collection");
+    
+    // ROBUSTNESS: Flush current registry state before clearing
+    // This ensures any pins added via updatePinMode before IO_REGISTRY_START marker are sent
+    if (this.registry.length > 0 && this.isDirty) {
+      const hasDefinedPins = this.registry.some((p) => p.defined);
+      if (hasDefinedPins) {
+        this.logger.info(
+          `Initial Sync Flush: Sending ${this.registry.length} pins before clearing for new collection`,
+        );
+        const preCollectionHash = this.computeRegistryHash();
+        this.sendNow(preCollectionHash, "pre-collection-flush");
+      }
+    }
+    
     this.isCollecting = true;
     this.registry = [];
+    
+    // Reset telemetry counters and restart heartbeat
+    this.telemetry.incomingEvents = 0;
+    this.telemetry.sentBatches = 0;
+    this.telemetry.lastReportTime = Date.now();
+    
+    if (this.onTelemetryCallback && this.enableTelemetry) {
+      this.stopTelemetry(); // Clear any previous heartbeat
+      this.startHeartbeat();
+      this.logger.debug("Telemetry heartbeat restarted");
+    }
   }
 
   /**
@@ -153,7 +197,12 @@ export class RegistryManager {
     );
     this.isCollecting = false;
     this.isDirty = true;
-    this.sendNow("collection-complete");
+    const nextHash = this.computeRegistryHash();
+    if (nextHash !== this.registryHash) {
+      this.sendNow(nextHash, "collection-complete");
+    } else {
+      this.isDirty = false;
+    }
     this.waitingForRegistry = false;
     if (this.waitTimer) {
       clearTimeout(this.waitTimer);
@@ -180,7 +229,12 @@ export class RegistryManager {
     const pinStr = pin >= 14 && pin <= 19 ? `A${pin - 14}` : String(pin);
     const existing = this.registry.find((p) => p.pin === pinStr);
 
+    this.logger.debug(
+      `updatePinMode: pin=${pin} (${pinStr}), mode=${mode}, existing=${!!existing}, wasDefinedBefore=${existing?.defined || false}`,
+    );
+
     if (existing) {
+      const wasDefinedBefore = existing.defined;
       existing.pinMode = mode;
       existing.defined = true;
 
@@ -196,7 +250,17 @@ export class RegistryManager {
       }
       this.isDirty = true;
       this.telemetry.incomingEvents++;
-      this.sendNow("mode-updated");
+
+      // Structural changes (defined: false -> true) must be sent immediately, not debounced
+      if (!wasDefinedBefore) {
+        this.logger.debug(
+          `Structural change: pin ${pinStr} marked as defined, sending immediately`,
+        );
+        const nextHash = this.computeRegistryHash();
+        this.sendNow(nextHash, "pin-defined-changed");
+      } else {
+        this.sendWithDebounce("debounce");
+      }
     } else {
       // Create new pin record if not yet in registry
       this.registry.push({
@@ -207,7 +271,11 @@ export class RegistryManager {
       });
       this.isDirty = true;
       this.telemetry.incomingEvents++;
-      this.sendNow("mode-updated");
+      this.logger.debug(
+        `New pin record created: ${pinStr} with mode=${mode}, sending immediately`,
+      );
+      const nextHash = this.computeRegistryHash();
+      this.sendNow(nextHash, "pin-new-record");
     }
   }
 
@@ -220,8 +288,9 @@ export class RegistryManager {
     // This could be extended to track value changes if needed
     this.logger.debug(`Pin ${pin} value updated to ${value}`);
     this.isDirty = true;
+    this.allowDuplicateSend = true;
     this.telemetry.incomingEvents++;
-    this.sendWithDebounce();
+    this.sendWithDebounce("throttle");
   }
 
   /**
@@ -233,8 +302,9 @@ export class RegistryManager {
     // PWM updates don't modify registry structure, just track usage
     this.logger.debug(`Pin ${pin} PWM updated to ${value}`);
     this.isDirty = true;
+    this.allowDuplicateSend = true;
     this.telemetry.incomingEvents++;
-    this.sendWithDebounce();
+    this.sendWithDebounce("throttle");
   }
 
   /**
@@ -269,6 +339,9 @@ export class RegistryManager {
     this.registryHash = "";
     this.waitingForRegistry = false;
     this.isDirty = false;
+    this.allowDuplicateSend = false;
+
+    this.stopTelemetry();
 
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -303,10 +376,7 @@ export class RegistryManager {
       this.waitTimer = null;
     }
     
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
+    this.stopTelemetry();
 
     // Reset state without logging
     this.registry = [];
@@ -326,7 +396,7 @@ export class RegistryManager {
   /**
    * Send registry with debouncing and change detection
    */
-  private sendWithDebounce(): void {
+  private sendWithDebounce(mode: "debounce" | "throttle" = "debounce"): void {
     if (this.destroyed) return;
     if (!this.onUpdateCallback) {
       return;
@@ -337,34 +407,34 @@ export class RegistryManager {
       return;
     }
 
-    // First send (no hash set yet) - send immediately without throttling
-    if (this.registryHash === "") {
-      this.logger.debug(
-        `First registry send (no debounce): ${this.registry.length} pins`,
-      );
-      this.sendNow("init");
-
-      // Release wait mode and clear timer
-      this.waitingForRegistry = false;
-      if (this.waitTimer) {
-        clearTimeout(this.waitTimer);
-        this.waitTimer = null;
-      }
-
+    const nextHash = this.computeRegistryHash();
+    if (nextHash === this.registryHash && !this.allowDuplicateSend) {
+      this.isDirty = false;
       return;
     }
 
-    // Throttle: if a timer is already running, do not reset it
     if (this.debounceTimer) {
-      return;
+      if (mode === "debounce") {
+        // Debounce: reset timer on each update
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = null;
+      } else {
+        // Throttle: keep existing timer
+        return;
+      }
     }
 
     this.debounceTimer = setTimeout(() => {
       if (this.onUpdateCallback && this.isDirty) {
-        this.logger.debug(
-          `Registry send after throttle: ${this.registry.length} pins`,
-        );
-        this.sendNow("throttled");
+        const finalHash = this.computeRegistryHash();
+        if (finalHash !== this.registryHash || this.allowDuplicateSend) {
+          this.logger.debug(
+            `Registry send after debounce: ${this.registry.length} pins`,
+          );
+          this.sendNow(finalHash, "debounced");
+        } else {
+          this.isDirty = false;
+        }
       }
       this.debounceTimer = null;
     }, this.debounceMs);
@@ -374,7 +444,7 @@ export class RegistryManager {
    * Immediately send the registry via callback
    * Cancels any pending throttle timer to ensure structural changes reach UI immediately
    */
-  private sendNow(hash: string): void {
+  private sendNow(hash: string, reason?: string): void {
     // Cancel any pending throttle timer to ensure immediate send
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -383,11 +453,31 @@ export class RegistryManager {
 
     this.registryHash = hash;
     this.isDirty = false;
+    this.allowDuplicateSend = false;
     this.telemetry.sentBatches++;
 
     if (this.onUpdateCallback) {
+      // Enhanced logging: show which pins are being sent, especially pin 13
+      const pinsList = this.registry.map((p) => `${p.pin}(def=${p.defined})`).join(",");
+      const hasPin13 = this.registry.some((p) => p.pin === "13");
+      if (reason && !this.destroyed) {
+        this.logger.info(
+          `📤 Registry SEND [${reason}]: ${this.registry.length} pins [${pinsList}] ${hasPin13 ? "✅ PIN13_INCLUDED" : "❌ NO_PIN13"}`,
+        );
+      }
       this.onUpdateCallback([...this.registry], this.baudrate);
     }
+  }
+
+  private computeRegistryHash(): string {
+    const normalized = this.registry.map((pin) => ({
+      pin: pin.pin,
+      defined: pin.defined,
+      pinMode: pin.pinMode,
+      usedAt: pin.usedAt ? [...pin.usedAt] : [],
+    }));
+    normalized.sort((a, b) => a.pin.localeCompare(b.pin));
+    return JSON.stringify(normalized);
   }
 
   /**

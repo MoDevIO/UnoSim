@@ -84,6 +84,10 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     status: z.enum(["running", "stopped", "paused"]),
   }),
   z.object({
+    type: z.literal("handshake"),
+    testRunId: z.string(),
+  }),
+  z.object({
     type: z.literal("pin_state"),
     pin: z.number(),
     stateType: z.enum(["mode", "value", "pwm"]),

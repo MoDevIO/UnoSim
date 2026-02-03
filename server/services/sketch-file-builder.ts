@@ -18,6 +18,7 @@ export interface SketchBuildResult {
 
 export class SketchFileBuilder {
   private logger = new Logger("SketchFileBuilder");
+  private createdSketchDirs = new Set<string>();
 
   constructor(private tempDir: string) {}
 
@@ -35,6 +36,7 @@ export class SketchFileBuilder {
 
     try {
       await mkdir(sketchDir, { recursive: true });
+      this.createdSketchDirs.add(sketchDir);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Failed to create sketch directory: ${msg}`);
@@ -58,6 +60,14 @@ export class SketchFileBuilder {
     await writeFile(sketchFile, combined);
 
     return { sketchDir, sketchFile, exeFile };
+  }
+
+  getCreatedSketchDirs(): string[] {
+    return Array.from(this.createdSketchDirs);
+  }
+
+  clearCreatedSketchDir(dir: string): void {
+    this.createdSketchDirs.delete(dir);
   }
 
   /**

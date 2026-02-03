@@ -189,7 +189,57 @@ export const simulationStore = {
   setPinStates,
   resetPinStates,
   enqueuePinEvent,
+  resetToInitial: () => {
+    // IMPORTANT: Only clear pending events and RAF, preserve loaded pin states
+    // Pin states from WebSocket should persist between tests
+    // Only pending/unprocessed events should be cleared
+    pendingEvents.clear();
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    // DONT reset snapshot - preserve loaded pin states from WebSocket
+    notify();
+  },
+  /**
+   * Hard reset for complete state wipe (rarely needed)
+   */
+  resetToEmpty: () => {
+    snapshot = JSON.parse(JSON.stringify(initialSnapshot));
+    pendingEvents.clear();
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    notify();
+  },
 };
+
+// DEBUG: Export for E2E tests to inspect and reset store state
+if (typeof window !== "undefined") {
+  (window as any).__SIM_DEBUG__ = {
+    getState: () => snapshot,
+    resetToInitial: () => {
+      simulationStore.resetToInitial();
+    },
+    /**
+     * Reset all stores to initial state (for test isolation)
+     * Call this from E2E tests before each test to ensure clean state
+     */
+    resetAllStores: async () => {
+      // Reset simulation store
+      simulationStore.resetToInitial();
+      
+      // Reset telemetry store (lazy import to avoid circular dependencies)
+      try {
+        const { telemetryStore } = await import('./use-telemetry-store');
+        telemetryStore.resetToInitial();
+      } catch (err) {
+        console.warn('[SIM_DEBUG] Could not reset telemetry store:', err);
+      }
+    },
+  };
+}
 
 export const useSimulationStore = () => {
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);

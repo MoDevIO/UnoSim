@@ -5,6 +5,26 @@ import { test, expect } from "@playwright/test";
 // and also when loading a new example.
 
 test.describe("Output Panel absolute floor", () => {
+  test.beforeEach(async ({ page }) => {
+    // Reset backend and frontend state before each test
+    const testRunId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    try {
+      await page.context().request.post("/api/test-reset");
+    } catch (err) {
+      // Silent - test-reset may not be critical for output panel tests
+    }
+    
+    await page.addInitScript((testId: string) => {
+      window.sessionStorage.setItem("__TEST_RUN_ID__", testId);
+    }, testRunId);
+
+    await page.goto("/");
+
+    // Wait for app ready
+    await page.waitForTimeout(500);
+  });
+
   test("min-height equals header height on load and after resize", async ({ page }) => {
     await page.goto("/");
 

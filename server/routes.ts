@@ -31,6 +31,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
 
+  // Test Reset Endpoint: Cleanup all running simulations for idempotent test isolation
+  // Each E2E test can call this before starting to ensure a clean backend state
+  app.post("/api/test-reset", (_req, res) => {
+    try {
+      // Stop all active client runners and clean up their state
+      const cleanedUpCount = clientRunners.size;
+      const cleanedTestRunIds: (string | undefined)[] = [];
+      
+      for (const [ws, clientState] of clientRunners.entries()) {
+        if (clientState.runner) {
+          try {
+            clientState.runner.stop();
+          } catch (err) {
+            logger.debug(`Failed to stop runner during reset: ${err}`);
+          }
+        }
+        // Reset client state
+        clientState.isRunning = false;
+        clientState.isPaused = false;
+        clientState.runner = null;
+        cleanedTestRunIds.push(clientState.testRunId);
+
+        // Send reset confirmation to client
+        sendMessageToClient(ws, {
+          type: "simulation_status",
+          status: "stopped",
+        });
+      }
+
+      logger.info(
+        `[Test Reset] Cleaned up ${cleanedUpCount} client runner(s). TestRunIds: ${cleanedTestRunIds.filter(id => id).join(", ") || "none"}`
+      );
+      res.json({
+        status: "reset",
+        message: `Backend reset complete. Cleaned up ${cleanedUpCount} runner(s).`,
+        cleanedTestRunIds: cleanedTestRunIds.filter(id => id),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error(`[Test Reset] Error during reset: ${error}`);
+      res.status(500).json({
+        error: "Reset failed",
+        message: String(error),
+      });
+    }
+  });
+
   // Setup WebSocket server
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
@@ -52,10 +99,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return createHash("sha256").update(combinedInput).digest("hex");
   }
 
-  // Map to store per-client runner processes
+  // Map to store per-client runner processes with testRunId for test isolation
   const clientRunners = new Map<
     WebSocket,
-    { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean }
+    { 
+      runner: SandboxRunner | null; 
+      isRunning: boolean; 
+      isPaused: boolean;
+      testRunId?: string; // For E2E test isolation - unique ID per test
+    }
   >();
 
   function sendMessageToClient(ws: WebSocket, message: WSMessage) {
@@ -217,14 +269,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // --- WebSocket Connection Handler (nun mit per-Client Sitzungen) ---
-  wss.on("connection", (ws) => {
+  // --- WebSocket Connection Handler (mit testRunId für Test-Isolation) ---
+  wss.on("connection", (ws, req) => {
+    // Extract testRunId from query params for E2E test isolation
+    const url = req.url || "";
+    const urlParams = new URLSearchParams(url.split("?")[1] || "");
+    const testRunId = urlParams.get("testRunId") || undefined;
+    
     logger.info(
-      `New WebSocket client connected. Total clients: ${wss.clients.size}`,
+      `New WebSocket client connected${testRunId ? ` [testRunId: ${testRunId}]` : ""}. Total clients: ${wss.clients.size}`,
     );
 
-    // Initialize client session
-    clientRunners.set(ws, { runner: null, isRunning: false, isPaused: false });
+    // Initialize client session with testRunId
+    clientRunners.set(ws, { 
+      runner: null, 
+      isRunning: false, 
+      isPaused: false,
+      testRunId 
+    });
 
     // Send initial status
     const clientState = clientRunners.get(ws);
@@ -236,6 +298,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? "running"
             : "stopped",
     });
+    
+    // Confirm testRunId handshake
+    if (testRunId) {
+      sendMessageToClient(ws, {
+        type: "handshake",
+        testRunId,
+      });
+    }
 
     ws.on("message", async (message) => {
       try {

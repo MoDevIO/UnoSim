@@ -2,10 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  fullyParallel: false,  // Disabled: Tests use shared backend state (compiler, temp dirs)
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,  // Single worker to avoid compiler race conditions
   reporter: "html",
   use: {
     baseURL: "http://localhost:3000",

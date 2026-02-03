@@ -4,7 +4,7 @@
 import { spawn, execSync } from "child_process";
 import type { ChildProcess } from "child_process";
 import { mkdir, rm } from "fs/promises";
-import { existsSync, renameSync } from "fs";
+import { existsSync, renameSync, rmSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
@@ -73,6 +73,8 @@ export class SandboxRunner {
   private processStartTime: number | null = null;
   private currentSketchDir: string | null = null;
   private currentRegistryFile: string | null = null;
+  private pendingCleanup = false;
+  private cleanupRetries = new Map<string, number>();
   private baudrate = 9600;
   private dockerAvailable = false;
   private dockerImageBuilt = false;
@@ -118,6 +120,7 @@ export class SandboxRunner {
           this.telemetryCallback(metrics);
         }
       },
+      enableTelemetry: true,
     });
 
     // Setup Serial Parser event listeners
@@ -404,6 +407,9 @@ export class SandboxRunner {
       );
       return;
     }
+
+    // Clear pending cleanup for a fresh run
+    this.pendingCleanup = false;
     
     // Bind callbacks to instance BEFORE initializeRunState (which also sets onOutputCallback)
     this.outputCallback = onOutput;
@@ -419,6 +425,12 @@ export class SandboxRunner {
       const files = await this.fileBuilder.build(code, sketchId);
       this.currentSketchDir = files.sketchDir;
       this.processKilled = false;
+
+      // If stop() was called during startup, cleanup and exit early
+      if (this.pendingCleanup || this.processKilled || this.state === SimulationState.STOPPED) {
+        this.markTempDirForCleanup();
+        return;
+      }
 
       // Create wrapped callbacks for message queuing
       const wrapped = this.createWrappedCallbacks(onOutput, onError, onPinState);
@@ -621,6 +633,12 @@ export class SandboxRunner {
 
       // Make executable
       await this.localCompiler.makeExecutable(files.exeFile);
+
+      // If stop() was called during compilation, cleanup and exit early
+      if (this.pendingCleanup || this.processKilled || this.state === SimulationState.STOPPED) {
+        this.markTempDirForCleanup();
+        return;
+      }
 
       // Run the compiled executable
       this.process = spawn(files.exeFile);
@@ -1077,18 +1095,73 @@ export class SandboxRunner {
   }
 
   private markTempDirForCleanup() {
-    if (this.currentSketchDir && existsSync(this.currentSketchDir)) {
+    if (!this.currentSketchDir) return;
+    const dir = this.currentSketchDir;
+    if (!existsSync(dir)) {
+      this.fileBuilder.clearCreatedSketchDir(dir);
+      this.currentSketchDir = null;
+      this.pendingCleanup = false;
+      return;
+    }
+
+    const cleaned = this.attemptCleanupDir(dir);
+    if (cleaned) {
+      this.fileBuilder.clearCreatedSketchDir(dir);
+      this.currentSketchDir = null;
+      this.pendingCleanup = false;
+    } else {
+      this.scheduleCleanupRetry(dir);
+    }
+  }
+
+  private attemptCleanupDir(dir: string): boolean {
+    try {
+      const cleanupDir = dir + ".cleanup";
+      renameSync(dir, cleanupDir);
+      this.logger.debug(`Marked temp directory for cleanup: ${cleanupDir}`);
+      return true;
+    } catch (err) {
       try {
-        // Rename directory by appending .cleanup suffix
-        const cleanupDir = this.currentSketchDir + ".cleanup";
-        renameSync(this.currentSketchDir, cleanupDir);
-        this.logger.debug(`Marked temp directory for cleanup: ${cleanupDir}`);
-        this.currentSketchDir = null;
-      } catch (err) {
+        rmSync(dir, {
+          recursive: true,
+          force: true,
+          maxRetries: 5,
+          retryDelay: 100,
+        });
+        this.logger.debug(`Removed temp directory directly: ${dir}`);
+        return true;
+      } catch (rmErr) {
         this.logger.warn(
-          `Failed to mark temp directory for cleanup: ${err instanceof Error ? err.message : String(err)}`,
+          `Failed to mark temp directory for cleanup: ${err instanceof Error ? err.message : String(err)}; remove failed: ${rmErr instanceof Error ? rmErr.message : String(rmErr)}`,
         );
+        return false;
       }
+    }
+  }
+
+  private scheduleCleanupRetry(dir: string): void {
+    const attempts = (this.cleanupRetries.get(dir) ?? 0) + 1;
+    this.cleanupRetries.set(dir, attempts);
+    if (attempts > 8) return;
+
+    const delayMs = Math.min(200 + attempts * 150, 2000);
+    const timer = setTimeout(() => {
+      if (!existsSync(dir)) {
+        this.cleanupRetries.delete(dir);
+        this.fileBuilder.clearCreatedSketchDir(dir);
+        return;
+      }
+      const cleaned = this.attemptCleanupDir(dir);
+      if (cleaned) {
+        this.cleanupRetries.delete(dir);
+        this.fileBuilder.clearCreatedSketchDir(dir);
+      } else {
+        this.scheduleCleanupRetry(dir);
+      }
+    }, delayMs);
+
+    if (typeof timer.unref === "function") {
+      timer.unref();
     }
   }
 
@@ -1235,6 +1308,7 @@ export class SandboxRunner {
   async stop(): Promise<void> {
     this.transitionTo(SimulationState.STOPPED);
     this.processKilled = true;
+    this.pendingCleanup = true;
     
     // Clear all callbacks for memory leak prevention
     this.onOutputCallback = null;
@@ -1269,6 +1343,20 @@ export class SandboxRunner {
 
     // Mark temp directory for delayed cleanup instead of immediate deletion
     this.markTempDirForCleanup();
+
+    // Ensure all known sketch dirs are cleaned up (covers rapid stop during startup)
+    for (const dir of this.fileBuilder.getCreatedSketchDirs()) {
+      if (!existsSync(dir)) {
+        this.fileBuilder.clearCreatedSketchDir(dir);
+        continue;
+      }
+      const cleaned = this.attemptCleanupDir(dir);
+      if (cleaned) {
+        this.fileBuilder.clearCreatedSketchDir(dir);
+      } else {
+        this.scheduleCleanupRetry(dir);
+      }
+    }
 
     this.outputBuffer = "";
     this.errorBuffer = "";

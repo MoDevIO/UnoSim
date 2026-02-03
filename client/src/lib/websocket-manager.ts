@@ -65,6 +65,9 @@ class WebSocketManager {
   // Track if we ever successfully connected (for UI messaging)
   private _hasEverConnected = false;
   
+  // Test isolation: unique ID for E2E tests
+  private testRunId: string | null = null;
+  
   private constructor() {
     // Private constructor for singleton
     logger.info("WebSocketManager instance created");
@@ -78,6 +81,23 @@ class WebSocketManager {
       WebSocketManager.instance = new WebSocketManager();
     }
     return WebSocketManager.instance;
+  }
+  
+  /**
+   * Set testRunId for E2E test isolation (test-only feature)
+   * Call this before connect() to associate this connection with a specific test
+   */
+  public setTestRunId(id: string): void {
+    this.testRunId = id;
+    logger.debug(`[Test Isolation] testRunId set: ${id}`);
+  }
+  
+  /**
+   * Clear testRunId (called when E2E test resets)
+   */
+  public clearTestRunId(): void {
+    this.testRunId = null;
+    logger.debug(`[Test Isolation] testRunId cleared`);
   }
   
   /**
@@ -109,9 +129,28 @@ class WebSocketManager {
     this.cleanupConnection();
     
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    let wsUrl = `${protocol}//${window.location.host}/ws`;
     
-    logger.info(`Connecting to WebSocket: ${wsUrl}`);
+    // Check for testRunId from sessionStorage (E2E test isolation)
+    // or use previously set testRunId
+    if (!this.testRunId && typeof window !== "undefined") {
+      try {
+        const storedTestRunId = window.sessionStorage?.getItem("__TEST_RUN_ID__");
+        if (storedTestRunId) {
+          this.testRunId = storedTestRunId;
+          logger.debug(`[Test Isolation] Loaded testRunId from sessionStorage: ${this.testRunId}`);
+        }
+      } catch (err) {
+        logger.debug(`Could not read sessionStorage: ${err}`);
+      }
+    }
+    
+    // Add testRunId query param for E2E test isolation
+    if (this.testRunId) {
+      wsUrl += `?testRunId=${encodeURIComponent(this.testRunId)}`;
+    }
+    
+    logger.info(`Connecting to WebSocket: ${wsUrl}${this.testRunId ? ` [testRunId: ${this.testRunId}]` : ""}`);
     
     try {
       this.ws = new WebSocket(wsUrl);

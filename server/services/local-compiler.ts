@@ -6,7 +6,7 @@
  */
 
 import { spawn } from "child_process";
-import { chmod, mkdir, access } from "fs/promises";
+import { chmod, mkdir, access, rm } from "fs/promises";
 import { dirname } from "path";
 import { Logger } from "@shared/logger";
 
@@ -30,8 +30,8 @@ export class LocalCompiler {
     } catch (err) {
       this.logger.info(`Output directory missing, creating: ${outputDir}`);
       try {
-        await mkdir(outputDir, { recursive: true });
-        this.logger.debug(`Created output directory: ${outputDir}`);
+        await mkdir(outputDir, { recursive: true, mode: 0o755 });
+        this.logger.debug(`Created output directory with proper permissions: ${outputDir}`);
       } catch (mkdirErr) {
         const msg = mkdirErr instanceof Error ? mkdirErr.message : String(mkdirErr);
         this.logger.error(`Failed to create output directory: ${msg}`);
@@ -39,6 +39,40 @@ export class LocalCompiler {
       }
     }
 
+    // Ensure output directory is writable by removing any stale exe file
+    try {
+      await rm(exeFile, { force: true });
+      this.logger.debug(`Cleaned up stale executable: ${exeFile}`);
+    } catch (err) {
+      // Ignore - file might not exist yet
+    }
+
+    // Try compilation with retry logic for transient failures
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await this.runCompilation(sketchFile, exeFile, attempt);
+        return; // Success on this attempt
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        const isCompilerError = (lastError as any).isCompilerError === true;
+        if (isCompilerError || attempt >= 2) {
+          break;
+        }
+        if (attempt < 2) {
+          this.logger.warn(`Compilation attempt ${attempt} failed, retrying... (${lastError.message})`);
+          await new Promise(r => setTimeout(r, 500)); // Wait before retry
+        }
+      }
+    }
+    
+    if (lastError) throw lastError;
+  }
+
+  /**
+   * Internal method to run the actual g++ compilation
+   */
+  private runCompilation(sketchFile: string, exeFile: string, attempt: number): Promise<void> {
     return new Promise((resolve, reject) => {
       const compile = spawn("g++", [
         sketchFile,
@@ -61,8 +95,11 @@ export class LocalCompiler {
           resolve();
         } else {
           const cleanedError = this.cleanCompilerErrors(errorOutput);
-          this.logger.error(`Compiler Fehler (Code ${code}): ${cleanedError}`);
-          reject(new Error(cleanedError));
+          const errorMsg = `Compiler error (Code ${code}, attempt ${attempt}): ${cleanedError}`;
+          this.logger.error(errorMsg);
+          const compileErr = new Error(cleanedError);
+          (compileErr as any).isCompilerError = true;
+          reject(compileErr);
         }
       });
 
