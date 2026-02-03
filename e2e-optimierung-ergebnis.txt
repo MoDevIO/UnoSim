@@ -20,7 +20,6 @@ export default defineConfig({
   ],
   outputDir: 'test-results',
 });
-
 ---
 
 GitHub Actions Workflow (.github/workflows/e2e.yml):
@@ -75,13 +74,11 @@ if (duration > 5000) {
   TestLogger.warn(`Compile-to-Run dauerte ${duration.toFixed(0)}ms (>5s)`);
 }
 
----
 
 Visual Regression Snapshot-Test:
 
 test('PinMonitor visual regression', async ({ page }) => {
   await page.goto('/');
-  await page.getByTestId('button-start-simulation').click();
   await page.waitForSelector('[data-pin="13"]', { timeout: 10000 });
   const pinMonitor = page.locator('[data-testid="pin-monitor"]');
   expect(await pinMonitor.screenshot()).toMatchSnapshot('pin-monitor-ready.png');

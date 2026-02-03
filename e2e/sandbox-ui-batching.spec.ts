@@ -56,14 +56,24 @@ test.describe("Sandbox UI Batching Integration", () => {
     await expect.poll(() => monacoEditor.getValue()).toMatch(/\bpinMode\s*\(/i);
     await monacoEditor.verifyCodeContains("pinMode", { pin: 13, mode: "OUTPUT" });
 
-    // II. SIMULATION STARTEN
+    // II. SIMULATION STARTEN & PERFORMANCE MESSUNG
+    const perfStart = performance.now();
     await startSimulation();
-
-    // III. PIN 13 INITIALISIERUNG (Mit Diagnose-Schleife)
     const pinMonitor = getPinMonitor(page);
     await expect(pinMonitor).toBeVisible({ timeout: 10000 });
     const pin13 = getPinRow(pinMonitor, 13);
     await expect(pin13).toBeVisible({ timeout: 20000 });
+    const perfEnd = performance.now();
+    const duration = perfEnd - perfStart;
+    test.info().annotations.push({
+      type: 'info',
+      description: `Compile-to-Run duration: ${duration.toFixed(0)}ms`
+    });
+    if (duration > 5000) {
+      // eslint-disable-next-line no-console
+      console.warn(`Compile-to-Run dauerte ${duration.toFixed(0)}ms (>5s)`);
+      // Optional: TestLogger.warn(`Compile-to-Run dauerte ${duration.toFixed(0)}ms (>5s)`);
+    }
 
     // IV. INTERAKTION: SERIAL TOGGLE (PIN 13)
     const initial13 = await getPinValue(pinMonitor, 13);

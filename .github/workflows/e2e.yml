@@ -31,18 +31,19 @@ jobs:
           path: playwright-report
 
   merge-reports:
-    needs: e2e
+    needs: [e2e]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Download all Playwright Reports
         uses: actions/download-artifact@v3
         with:
-          path: merged-reports
+          path: all-reports
       - name: Merge Playwright Reports
-        run: npx playwright merge-reports merged-reports/*/playwright-report
-      - name: Upload Merged Report
+        run: npx playwright merge-reports ./all-reports/*/playwright-report
+      - name: Upload Final HTML Report
         uses: actions/upload-artifact@v3
         with:
-          name: playwright-report-merged
+          name: playwright-report-final
+          path: playwright-report
           path: playwright-report
