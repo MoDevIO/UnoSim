@@ -1,0 +1,96 @@
+Playwright-Konfiguration (playwright.config.ts):
+
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  fullyParallel: true,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 4 : 1,
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      shard: process.env.CI ? { total: 4, current: process.env.CI_NODE_INDEX || 1 } : undefined,
+    },
+    // Weitere Browser-Projekte nach Bedarf
+  ],
+  reporter: [
+    ['list'],
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+  ],
+  outputDir: 'test-results',
+});
+
+---
+
+GitHub Actions Workflow (.github/workflows/e2e.yml):
+
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      CI: true
+      CI_NODE_INDEX: ${{ matrix.shard }}
+      compilerDir: ${{ github.workspace }}/.pw-compiler-${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Playwright E2E (Shard ${{ matrix.shard }})
+        run: npx playwright test --shard=${{ matrix.shard }}/4
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: playwright-report
+
+---
+
+Performance-Messung im E2E-Test:
+
+import { performance } from 'perf_hooks';
+import { TestLogger } from '../TestLogger';
+
+// ...existing test setup...
+
+const start = performance.now();
+await page.getByTestId('button-start-simulation').click();
+await page.waitForSelector('[data-pin="13"]', { timeout: 10000 });
+const duration = performance.now() - start;
+
+if (duration > 5000) {
+  TestLogger.warn(`Compile-to-Run dauerte ${duration.toFixed(0)}ms (>5s)`);
+}
+
+---
+
+Visual Regression Snapshot-Test:
+
+test('PinMonitor visual regression', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('button-start-simulation').click();
+  await page.waitForSelector('[data-pin="13"]', { timeout: 10000 });
+  const pinMonitor = page.locator('[data-testid="pin-monitor"]');
+  expect(await pinMonitor.screenshot()).toMatchSnapshot('pin-monitor-ready.png');
+});
+
+---
+
+Ergebnis:
+- Playwright-Konfiguration für CI-Sharding und Parallelisierung
+- GitHub Actions Workflow für E2E mit Artefakt-Upload
+- Beispiel für Performance-Benchmark im Test
+- Snapshot-Test für visuelle Regression

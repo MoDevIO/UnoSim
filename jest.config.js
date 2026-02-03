@@ -14,4 +14,5 @@ export default {
     "^@/(.*)$": "<rootDir>/client/src/$1",
     "^@shared/(.*)$": "<rootDir>/shared/$1",
   },
+  reporters: ["default"],
 };

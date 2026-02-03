@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
 import http from "http";
+import { TestLogger } from '../TestLogger';
 
 /**
  * Load Test: 500 Concurrent Clients
@@ -218,6 +219,7 @@ void loop() {
     const stats = calculateStats(results);
 
     testResults.push(stats);
+    TestLogger.info('Load Test Stats:', stats);
 
     expect(stats.successful).toBeGreaterThan(NUM_CLIENTS * 0.25); // 25% pass rate (slow hardware)
     expect(stats.avgTime).toBeLessThan(90000); // 90 seconds average

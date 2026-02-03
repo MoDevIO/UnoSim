@@ -1,5 +1,6 @@
 // Sanity Test: Check if SandboxRunner can be imported without blocking
 // This test should complete in < 1 second if the module loads properly
+import { TestLogger } from './TestLogger';
 
 describe("Sanity Test - Module Loading", () => {
   it("should import SandboxRunner without timeout", async () => {
@@ -9,7 +10,7 @@ describe("Sanity Test - Module Loading", () => {
     const { SandboxRunner } = await import("../server/services/sandbox-runner");
     
     const importTime = Date.now() - startTime;
-    console.log(`Import time: ${importTime}ms`);
+    TestLogger.info(`Import time: ${importTime}ms`);
     
     expect(importTime).toBeLessThan(5000); // Should be < 5 seconds
     expect(SandboxRunner).toBeDefined();
@@ -24,7 +25,7 @@ describe("Sanity Test - Module Loading", () => {
     const instance = new SandboxRunner();
     
     const constructorTime = Date.now() - startTime;
-    console.log(`Constructor time: ${constructorTime}ms`);
+    TestLogger.info(`Constructor time: ${constructorTime}ms`);
     
     expect(constructorTime).toBeLessThan(100); // Should be < 100ms
     expect(instance).toBeDefined();
@@ -41,7 +42,7 @@ describe("Sanity Test - Module Loading", () => {
     }
     
     const totalTime = Date.now() - startTime;
-    console.log(`10 instances created in: ${totalTime}ms`);
+    TestLogger.info(`10 instances created in: ${totalTime}ms`);
     
     expect(totalTime).toBeLessThan(500); // Should be < 500ms for 10 instances
     expect(instances).toHaveLength(10);
