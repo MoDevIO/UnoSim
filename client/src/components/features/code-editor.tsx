@@ -190,6 +190,12 @@ export function CodeEditor({
 
     editorRef.current = editor;
 
+    // E2E TEST HOOK: Expose the editor instance globally for Playwright
+    if (typeof window !== "undefined") {
+      // Only expose the first editor (or last, if multiple)
+      (window as any).__MONACO_EDITOR__ = editor;
+    }
+
     // Ensure Monaco re-measures and layouts after CSS has fully applied.
     // Use rAF so the browser has painted and CSS vars are resolved.
     requestAnimationFrame(() => {

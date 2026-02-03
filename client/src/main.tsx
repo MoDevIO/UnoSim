@@ -67,4 +67,40 @@ function setupFontScaleShortcuts() {
 // Setup shortcuts
 setupFontScaleShortcuts();
 
+
+// E2E TEST HOOK: Add a global setEditorContent function for Playwright
+if (typeof window !== "undefined") {
+  (window as any).setEditorContent = async function (code: string, maxRetries: number = 10) {
+    const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+    let lastErr;
+    for (let i = 0; i < maxRetries; ++i) {
+      try {
+        const editor = (window as any).__MONACO_EDITOR__;
+        if (editor && typeof editor.setValue === "function") {
+          editor.focus();
+          editor.setValue(code);
+          // Trigger change event if needed
+          if (editor.getModel) {
+            const model = editor.getModel();
+            if (model && typeof model.setValue === "function") {
+              model.setValue(code);
+            }
+          }
+          // Optionally trigger input event for React
+          const domNode = editor.getDomNode && editor.getDomNode();
+          if (domNode) {
+            domNode.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          return true;
+        }
+      } catch (err) {
+        lastErr = err;
+      }
+      await sleep(100);
+    }
+    if (lastErr) throw lastErr;
+    throw new Error("setEditorContent: Monaco editor not found after retries");
+  };
+}
+
 createRoot(document.getElementById("root")!).render(<App />);
