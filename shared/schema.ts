@@ -44,9 +44,6 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       ts_write: z.number(),
       data: z.string(),
       baud: z.number().optional(),
-      bits_per_frame: z.number().optional(),
-      txBufferBefore: z.number().optional(),
-      txBufferCapacity: z.number().optional(),
       blocking: z.boolean().optional(),
       atomic: z.boolean().optional(),
     }),
@@ -97,28 +94,6 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("set_pin_value"),
     pin: z.number(),
     value: z.number(),
-  }),
-  z.object({
-    type: z.literal("parser_messages"),
-    messages: z.array(
-      z.object({
-        id: z.string(),
-        type: z.enum(["warning", "error", "info"]),
-        category: z.enum([
-          "serial",
-          "hardware",
-          "structure",
-          "performance",
-          "library",
-          "pins",
-        ]),
-        severity: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-        line: z.number().optional(),
-        column: z.number().optional(),
-        message: z.string(),
-        suggestion: z.string().optional(),
-      }),
-    ),
   }),
   z.object({
     type: z.literal("io_registry"),
