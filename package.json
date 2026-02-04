@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "build": "npm run build:client && npm run build:server && npm run build:copy-public",
     "build:client": "vite build client/ --config vite.config.ts",
-    "build:server": "esbuild server/index.ts --platform=node --bundle --format=esm --outfile=dist/index.js --alias:@shared=./shared --external:fs --external:path --external:http --external:ws --external:url --external:express --external:crypto --external:helmet --external:express-rate-limit --external:vite --external:@babel/preset-typescript",
+    "build:server": "esbuild server/index.ts --platform=node --bundle --format=esm --packages=external --outfile=dist/index.js --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --alias:@shared=./shared",
     "build:copy-public": "[ -d public ] && cp -r public dist/ || true",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
