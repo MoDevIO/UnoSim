@@ -1,9 +1,11 @@
-
 import { defineConfig } from 'vitest/config';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
+
 const __dirname = path.resolve();
 
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   resolve: {
     alias: {
       '@shared': path.resolve(__dirname, 'shared'),
