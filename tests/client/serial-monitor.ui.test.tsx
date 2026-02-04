@@ -19,10 +19,8 @@ describe("SerialMonitor UI", () => {
       />,
     );
 
-    expect(screen.getByTestId("serial-output")).toBeInTheDocument();
-    expect(
-      await screen.findByText("Serial output will appear here..."),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("serial-output")).not.toBeNull();
+    expect(await screen.findByText("Serial output will appear here...")).not.toBeNull();
   });
 
   it("hides the Serial frame when showMonitor=false is set", () => {
@@ -40,6 +38,6 @@ describe("SerialMonitor UI", () => {
       />,
     );
 
-    expect(await screen.findByText("Hello World!")).toBeInTheDocument();
+    expect(await screen.findByText("Hello World!")).not.toBeNull();
   });
 });

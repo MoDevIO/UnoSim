@@ -1,20 +1,17 @@
-import "@testing-library/jest-dom/vitest";
-
-// ...existing code...
-
-// Mock console.log to prevent CI failures from Logger output
-// The Logger class in shared/logger.ts uses console.log() internally,
-// and GitHub Actions fails on any console output during tests.
-// This mock silently suppresses Logger output without affecting test behavior.
-// Error interceptor: Only log on test failure
 import { afterEach, vi } from "vitest";
 
+// Kompatibilitätsschicht für alten Code, der noch 'jest' statt 'vi' erwartet
 (globalThis as any).jest = vi;
 
-afterEach(() => {
-  vi.spyOn(console, 'log').mockImplementation(() => {});
-  vi.spyOn(console, 'info').mockImplementation(() => {});
-});
+// Globale Mocks für die Konsole, um CI-Logs sauber zu halten
+// Wir mocken diese einmalig global.
 vi.spyOn(console, "log").mockImplementation(() => {});
+vi.spyOn(console, "info").mockImplementation(() => {});
 vi.spyOn(console, "error").mockImplementation(() => {});
 vi.spyOn(console, "warn").mockImplementation(() => {});
+
+afterEach(() => {
+  // Stellt sicher, dass Mocks zwischen den Tests zurückgesetzt werden, 
+  // falls ein Test spezifische Implementierungen (vi.mock) nutzt.
+  vi.clearAllMocks();
+});

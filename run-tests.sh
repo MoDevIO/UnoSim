@@ -6,7 +6,7 @@ LOG_FILE="full_test_output.log"
 WORKERS=1
 
 clear
-echo "🛡️  Starte vollständigen System-Check..."
+echo "🛡️  Starte vollständigen System-Check (inkl. Coverage)..."
 echo "----------------------------------------------------------------------"
 rm -f "$LOG_FILE"
 
@@ -18,7 +18,6 @@ run_step() {
     echo -n "⏳ Schritt: $label... "
     start_time=$(date +%s)
     
-    # Befehl ausführen und Output ins Log umleiten
     if eval "$command" >> "$LOG_FILE" 2>&1; then
         end_time=$(date +%s)
         echo "✅ OK ($((end_time - start_time))s)"
@@ -29,28 +28,30 @@ run_step() {
     fi
 }
 
-# 1. Code-Check
+# 1. Statische Analyse
 run_step "Linting/Check" "npm run check" || { echo "🛑 Abbruch bei Check"; exit 1; }
 
-# 2. Unit-Tests
-run_step "Unit-Tests" "npm run test" || { echo "🛑 Abbruch bei Unit-Tests"; exit 1; }
+# 2. Unit-Tests & Coverage
+# Hinweis: Falls @vitest/coverage-v8 fehlt, wird dieser Schritt scheitern.
+run_step "Unit-Tests & Coverage" "npm run test:coverage" || { 
+    echo "🛑 Abbruch: Tests oder Coverage fehlgeschlagen."
+    echo "👉 Tipp: Prüfe ob 'npm install -D @vitest/coverage-v8' ausgeführt wurde."
+    exit 1 
+}
 
 # 3. E2E Tests
 echo "----------------------------------------------------------------------"
 echo "🚀 Starte E2E-Tests (Parallel: $WORKERS Worker)..."
 
-# E2E im Hintergrund starten
 npm run test:e2e -- --fully-parallel --workers=$WORKERS >> "$LOG_FILE" 2>&1 &
 test_pid=$!
 
-# Countdown
 for ((i=$TIMEOUT_SECS; i>0; i--)); do
     if ! kill -0 $test_pid 2>/dev/null; then break; fi
     echo -ne "\r\033[K⏳ E2E läuft... Noch ca. ${i}s verbleibend"
     sleep 1
 done
 
-# Ergebnis auswerten
 if kill -0 $test_pid 2>/dev/null; then
     kill $test_pid
     echo -e "\n⚠️  Timeout erreicht!"

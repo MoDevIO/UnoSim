@@ -32,10 +32,10 @@ describe("Parser Messages Frontend Integration", () => {
       );
 
       // Header should show "Parser Analysis"
-      expect(screen.getByText("Parser Analysis")).toBeInTheDocument();
+      expect(screen.getByText("Parser Analysis")).not.toBeNull();
 
       // Messages tab should be displayed
-      expect(screen.getByText("Messages (1)")).toBeInTheDocument();
+      expect(screen.getByText("Messages (1)")).not.toBeNull();
     });
 
     it("should display serial warnings with correct icon", () => {
@@ -57,8 +57,8 @@ describe("Parser Messages Frontend Integration", () => {
       );
 
       // The warning should be displayed
-      expect(screen.getByText(/wrong baud rate/)).toBeInTheDocument();
-      expect(screen.getByText("Serial Configuration")).toBeInTheDocument();
+      expect(screen.getByText(/wrong baud rate/)).not.toBeNull();
+      expect(screen.getByText("Serial Configuration")).not.toBeNull();
     });
 
     it("should display Serial.begin suggestion", () => {
@@ -107,7 +107,7 @@ describe("Parser Messages Frontend Integration", () => {
       );
 
       // Registry tab should be displayed (because digitalWrite without pinMode)
-      expect(screen.getByText(/I\/O Registry/)).toBeInTheDocument();
+      expect(screen.getByText(/I\/O Registry/)).not.toBeNull();
     });
 
     it("should display both tabs when Messages and Registry problems exist", () => {
@@ -139,8 +139,8 @@ describe("Parser Messages Frontend Integration", () => {
       );
 
       // Both tabs should be displayed
-      expect(screen.getByText("Messages (1)")).toBeInTheDocument();
-      expect(screen.getByText(/I\/O Registry/)).toBeInTheDocument();
+      expect(screen.getByText("Messages (1)")).not.toBeNull();
+      expect(screen.getByText(/I\/O Registry/)).not.toBeNull();
     });
 
     it("should display error counter in header", () => {
@@ -169,8 +169,8 @@ describe("Parser Messages Frontend Integration", () => {
       // Header should display both counters (text-red-400 for errors, text-yellow-400 for warnings)
       const errorCount = document.querySelector(".text-red-400");
       const warningCount = document.querySelector(".text-yellow-400");
-      expect(errorCount).toBeInTheDocument();
-      expect(warningCount).toBeInTheDocument();
+      expect(errorCount).not.toBeNull();
+      expect(warningCount).not.toBeNull();
     });
 
     it("should have Clear button", () => {
@@ -192,7 +192,7 @@ describe("Parser Messages Frontend Integration", () => {
 
       // Clear button should be present (in code it has title="Close")
       const clearButton = screen.getByTitle("Close");
-      expect(clearButton).toBeInTheDocument();
+      expect(clearButton).not.toBeNull();
 
       // Click on Clear should call onClear
       fireEvent.click(clearButton);
@@ -237,10 +237,10 @@ describe("Parser Messages Frontend Integration", () => {
         <ParserOutput messages={messages} ioRegistry={[]} onClear={() => {}} />,
       );
 
-      expect(screen.getByText("Serial Configuration")).toBeInTheDocument();
-      expect(screen.getByText("Code Structure")).toBeInTheDocument();
-      expect(screen.getByText("Hardware Compatibility")).toBeInTheDocument();
-      expect(screen.getByText("Performance Issues")).toBeInTheDocument();
+      expect(screen.getByText("Serial Configuration")).not.toBeNull();
+      expect(screen.getByText("Code Structure")).not.toBeNull();
+      expect(screen.getByText("Hardware Compatibility")).not.toBeNull();
+      expect(screen.getByText("Performance Issues")).not.toBeNull();
     });
   });
 });

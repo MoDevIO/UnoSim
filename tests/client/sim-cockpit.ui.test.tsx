@@ -48,6 +48,6 @@ describe("SimCockpit UI", () => {
 
     rerender(<SimCockpit batchStats={secondBatch} />);
 
-    expect(screen.getByText("20.0")).toBeInTheDocument();
+    expect(screen.getByText("20.0")).not.toBeNull();
   });
 });
