@@ -1,10 +1,13 @@
+
 import { defineConfig } from 'vitest/config';
+import path from 'path';
+const __dirname = path.resolve();
 
 export default defineConfig({
   resolve: {
     alias: {
-      '@shared': '/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/shared',
-      '@': '/Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/client/src',
+      '@shared': path.resolve(__dirname, 'shared'),
+      '@': path.resolve(__dirname, 'client', 'src'),
     },
   },
   test: {
