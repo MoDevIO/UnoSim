@@ -6,7 +6,7 @@ LOG_FILE="run-tests_output.log"
 WORKERS=1
 
 clear
-echo "🛡️  Starte vollständigen System-Check (inkl. Coverage)..."
+echo "🛡️  Starte vollständigen System-Check & Build..."
 echo "----------------------------------------------------------------------"
 rm -f "$LOG_FILE"
 
@@ -32,7 +32,6 @@ run_step() {
 run_step "Linting/Check" "npm run check" || { echo "🛑 Abbruch bei Check"; exit 1; }
 
 # 2. Unit-Tests & Coverage
-# Hinweis: Falls @vitest/coverage-v8 fehlt, wird dieser Schritt scheitern.
 run_step "Unit-Tests & Coverage" "npm run test:coverage" || { 
     echo "🛑 Abbruch: Tests oder Coverage fehlgeschlagen."
     echo "👉 Tipp: Prüfe ob 'npm install -D @vitest/coverage-v8' ausgeführt wurde."
@@ -59,10 +58,23 @@ if kill -0 $test_pid 2>/dev/null; then
 else
     wait $test_pid
     if [ $? -eq 0 ]; then
-        echo -e "\n🎉 ALLES GRÜN! System bereit."
+        echo -e "\n✅ E2E-Tests erfolgreich."
     else
         echo -e "\n❌ E2E-Tests fehlgeschlagen. Siehe $LOG_FILE"
         tail -n 20 "$LOG_FILE"
         exit 1
     fi
 fi
+
+# 4. Finaler Build
+echo "----------------------------------------------------------------------"
+echo "🏗️  Tests bestanden. Starte Produktions-Build..."
+
+run_step "Produktions-Build (Vite/Esbuild)" "npm run build" || {
+    echo "🛑 Build fehlgeschlagen! Siehe $LOG_FILE"
+    exit 1
+}
+
+echo "----------------------------------------------------------------------"
+echo "🎉 ALLES ERLEDIGT! System geprüft und erfolgreich gebaut."
+echo "👉 Die Dateien befinden sich im /dist Ordner."
