@@ -93,15 +93,14 @@ tem/
 *.db
 
 ##################################
-# 7. TYPESCRIPT/JEST ARTIFACTS   #
+# 7. TYPESCRIPT ARTIFACTS        #
 ##################################
 
 # TypeScript build information
-# Caches created by TypeScript compilers.
+# Caches created by TypeScript Compilern.
 *.tsbuildinfo
 
-# Jest (test framework)
-# Ignore the folder containing test coverage reports.
+# Coverage reports (Vitest)
 /coverage/
 .vercel
 .env*.local
