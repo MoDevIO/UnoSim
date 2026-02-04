@@ -13,7 +13,6 @@ README.md
 README\ copy.md
 .eslintrc.cjs
 .prettierrc
-jest.config.js
 postcss.config.js
 tailwind.config.js
 drizzle.config.ts

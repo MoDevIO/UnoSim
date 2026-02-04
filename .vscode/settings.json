@@ -10,7 +10,6 @@
     "postcss.config.js": false,
     "package-lock.json": false,
     "LICENSE": false,
-    "jest.config.js": false,
     "drizzle.config.ts": false,
     "components.json": false,
     "build.sh": false,
