@@ -16,6 +16,7 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "test": "vitest run",
+    "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",

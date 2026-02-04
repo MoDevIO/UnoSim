@@ -38,6 +38,10 @@ Thumbs.db
 
 ##################################
 # 3. BUILD & COMPILATION TARGETS #
+
+# Test/Playwright reports (added by cleanup)
+playwright-report/
+test-results/
 ##################################
 
 # Frontend (Vite, Webpack, etc.)
