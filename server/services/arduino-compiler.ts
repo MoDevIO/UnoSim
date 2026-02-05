@@ -7,6 +7,7 @@ import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
 import { ParserMessage, IOPinRecord } from "@shared/schema";
 import { CodeParser } from "@shared/code-parser";
+import { reservedNamesValidator } from "@shared/reserved-names-validator";
 // Removed unused mock imports to satisfy TypeScript
 
 export interface CompilationResult {
@@ -61,6 +62,10 @@ export class ArduinoCompiler {
     const parser = new CodeParser();
     const parserMessages = parser.parseAll(code);
 
+    // Check for reserved name conflicts
+    const reservedNameMessages = reservedNamesValidator.validateReservedNames(code);
+    const allParserMessages = [...parserMessages, ...reservedNameMessages];
+
     // I/O Registry is now populated at runtime, not from static parsing
     const ioRegistry: any[] = [];
 
@@ -80,7 +85,7 @@ export class ArduinoCompiler {
           errors: `Missing Arduino functions: ${missingFunctions.join(" and ")}\n\nArduino sketches require:\n- void setup() { }\n- void loop() { }`,
           arduinoCliStatus: "error",
           gccStatus: "idle",
-          parserMessages, // Include parser messages even on error
+          parserMessages: allParserMessages, // Include parser messages even on error
           ioRegistry, // Include I/O registry
         };
       }
@@ -205,7 +210,7 @@ export class ArduinoCompiler {
         errors: cliErrors || undefined,
         arduinoCliStatus,
         gccStatus: "idle", // Nicht mehr verwendet in Compiler
-        parserMessages, // Include parser messages
+        parserMessages: allParserMessages, // Include parser messages
         ioRegistry, // Include I/O registry
       };
     } catch (error) {
@@ -216,7 +221,7 @@ export class ArduinoCompiler {
         arduinoCliStatus:
           arduinoCliStatus === "compiling" ? "error" : arduinoCliStatus,
         gccStatus: "idle",
-        parserMessages, // Include parser messages even on error
+        parserMessages: allParserMessages, // Include parser messages even on error
         ioRegistry, // Include I/O registry
       };
     } finally {

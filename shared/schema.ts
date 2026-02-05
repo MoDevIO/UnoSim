@@ -163,6 +163,7 @@ export const parserMessageSchema = z.object({
     "performance",
     "library",
     "pins",
+    "reserved-name",
   ]),
   severity: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   line: z.number().optional(),
