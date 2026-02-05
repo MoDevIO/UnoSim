@@ -117,10 +117,6 @@ vi.mock("@/components/features/sim-cockpit", () => ({
   SimCockpit: () => <div data-testid="sim-cockpit" />,
 }));
 
-vi.mock("@/components/features/telemetry-history-tab", () => ({
-  TelemetryHistoryTab: () => <div data-testid="telemetry-history" />,
-}));
-
 vi.mock("@/components/ui/resizable", () => ({
   ResizablePanelGroup: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="resizable-group">{children}</div>

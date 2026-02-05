@@ -1,4 +1,4 @@
-export type OutputTab = "compiler" | "messages" | "registry" | "debug" | "stats";
+export type OutputTab = "compiler" | "messages" | "registry" | "debug";
 
 export interface GccCompilationErrorState {
   cliOutput: string;

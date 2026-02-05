@@ -37,7 +37,6 @@ import { ArduinoBoard } from "@/components/features/arduino-board";
 import { PinMonitor } from "@/components/features/pin-monitor";
 import { AppHeader } from "@/components/features/app-header";
 import { SimCockpit } from "@/components/features/sim-cockpit";
-import { TelemetryHistoryTab } from "@/components/features/telemetry-history-tab";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
@@ -131,7 +130,7 @@ export default function ArduinoSimulator() {
   // Ref to always have current value (avoids stale closure in callbacks)
   const outputPanelManuallyResizedRef = useRef(false);
   const [activeOutputTab, setActiveOutputTab] = useState<
-    "compiler" | "messages" | "registry" | "debug" | "stats"
+    "compiler" | "messages" | "registry" | "debug"
   >("compiler");
   const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(
     () => {
@@ -323,7 +322,7 @@ export default function ArduinoSimulator() {
   }, [debugMode]);
 
   // Helper function to open the output panel (via double-click on tabs)
-  const openOutputPanel = useCallback((targetTab: "compiler" | "messages" | "registry" | "debug" | "stats") => {
+  const openOutputPanel = useCallback((targetTab: "compiler" | "messages" | "registry" | "debug") => {
     // Mark as manually resized FIRST before showing panel (update both state and ref)
     outputPanelManuallyResizedRef.current = true;
     setOutputPanelManuallyResized(true);
@@ -3111,7 +3110,7 @@ export default function ArduinoSimulator() {
                           value={activeOutputTab}
                           onValueChange={(v) =>
                             setActiveOutputTab(
-                              v as "compiler" | "messages" | "registry" | "debug" | "stats",
+                              v as "compiler" | "messages" | "registry" | "debug",
                             )
                           }
                           className="h-full flex flex-col"
@@ -3195,27 +3194,18 @@ export default function ArduinoSimulator() {
                                 </span>
                               </TabsTrigger>
                               {debugMode && (
-                                <>
-                                  <TabsTrigger
-                                    value="stats"
-                                    onDoubleClick={() => openOutputPanel("stats")}
-                                    className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center text-emerald-400"
-                                  >
-                                    Stats
-                                  </TabsTrigger>
-                                  <TabsTrigger
-                                    value="debug"
-                                    onDoubleClick={() => openOutputPanel("debug")}
-                                    className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center text-purple-400 gap-1.5"
-                                  >
-                                    Debug
-                                    {debugMessages.length > 0 && (
-                                      <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-purple-600/30 text-purple-300 text-[9px] font-mono leading-none overflow-hidden">
-                                        {debugMessages.length > 99 ? "99" : debugMessages.length}
-                                      </span>
-                                    )}
-                                  </TabsTrigger>
-                                </>
+                                <TabsTrigger
+                                  value="debug"
+                                  onDoubleClick={() => openOutputPanel("debug")}
+                                  className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center text-purple-400 gap-1.5"
+                                >
+                                  Debug
+                                  {debugMessages.length > 0 && (
+                                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-purple-600/30 text-purple-300 text-[9px] font-mono leading-none overflow-hidden">
+                                      {debugMessages.length > 99 ? "99" : debugMessages.length}
+                                    </span>
+                                  )}
+                                </TabsTrigger>
                               )}
                             </TabsList>
                             <div className="flex-1" />
@@ -3317,17 +3307,6 @@ export default function ArduinoSimulator() {
                               defaultTab="registry"
                             />
                           </TabsContent>
-
-                          {debugMode && (
-                            <TabsContent
-                              value="stats"
-                              className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
-                            >
-                              {activeOutputTab === "stats" && (
-                                <TelemetryHistoryTab />
-                              )}
-                            </TabsContent>
-                          )}
 
                           <TabsContent
                             value="debug"
