@@ -154,6 +154,11 @@ export function ArduinoBoard({
     showPWMValues,
   };
 
+  // Fade-Out tracking for LEDs
+  const FADE_OUT_MS = 50;
+  const pinIsOnRef = useRef<Map<number, boolean>>(new Map());
+  const pinTurnedOffAtRef = useRef<Map<number, number>>(new Map());
+
   // Single stable polling loop for ALL SVG updates - runs ONCE, never restarts
   useEffect(() => {
     const performAllUpdates = () => {
@@ -176,20 +181,49 @@ export function ArduinoBoard({
         );
       };
 
-      // Helper to get pin color
+      // Helper to get pin color with fade-out effect
       const getPinColor = (pin: number): string => {
         const state = pinStates.find((p) => p.pin === pin);
         if (!state) return "transparent";
 
         const isPWM = PWM_PINS.includes(pin);
+        const isHigh = state.value > 0;
+
+        // Calculate brightness with fade-out
+        let brightness = 0;
+        if (isHigh) {
+          // LED is ON → full brightness
+          brightness = 1.0;
+        } else {
+          // LED is OFF → calculate fade-out
+          const turnedOffAt = pinTurnedOffAtRef.current.get(pin);
+          if (turnedOffAt) {
+            const timeSinceTurnedOff = Date.now() - turnedOffAt;
+            if (timeSinceTurnedOff < FADE_OUT_MS) {
+              // Still fading out
+              brightness = 1.0 - (timeSinceTurnedOff / FADE_OUT_MS);
+            } else {
+              // Fade complete
+              brightness = 0;
+            }
+          }
+        }
+
+        if (brightness <= 0) {
+          return "#000000";
+        }
+
+        // Apply brightness to red color
+        const intensity = Math.round(brightness * 255);
+
         if (state.type === "digital") {
-          return state.value > 0 ? "#ff0000" : "#000000";
-        } else if (isPWM && state.value > 0) {
-          // PWM: Rot mit Intensität
-          const intensity = Math.round((state.value / 255) * 255);
           return `rgb(${intensity}, 0, 0)`;
+        } else if (isPWM) {
+          // PWM: Combine PWM value with fade brightness
+          const pwmIntensity = Math.round((state.value / 255) * intensity);
+          return `rgb(${pwmIntensity}, 0, 0)`;
         } else if (state.value >= 255) {
-          return "#ff0000";
+          return `rgb(${intensity}, 0, 0)`;
         }
         return "#000000";
       };
@@ -203,6 +237,19 @@ export function ArduinoBoard({
         const click = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-click`);
 
         const isInput = isPinInputLocal(pin);
+
+        // Track state changes for fade-out effect
+        const pinState = pinStates.find((p) => p.pin === pin);
+        const isHigh = pinState && pinState.value > 0;
+        const wasOn = pinIsOnRef.current.get(pin) ?? false;
+        if (wasOn !== isHigh) {
+          pinIsOnRef.current.set(pin, isHigh ?? false);
+          if (!isHigh) {
+            // Pin turned OFF → start fade-out
+            pinTurnedOffAtRef.current.set(pin, Date.now());
+          }
+        }
+
         const color = getPinColor(pin);
 
         if (frame) {
@@ -244,6 +291,19 @@ export function ArduinoBoard({
         );
 
         const isInput = isPinInputLocal(pinNumber);
+
+        // Track state changes for fade-out effect (when used as digital)
+        const pinState = pinStates.find((p) => p.pin === pinNumber);
+        const isHigh = pinState && pinState.value > 0;
+        const wasOn = pinIsOnRef.current.get(pinNumber) ?? false;
+        if (wasOn !== isHigh) {
+          pinIsOnRef.current.set(pinNumber, isHigh ?? false);
+          if (!isHigh) {
+            // Pin turned OFF → start fade-out
+            pinTurnedOffAtRef.current.set(pinNumber, Date.now());
+          }
+        }
+
         const usedAsAnalog = analogPins.includes(pinNumber);
         const color = getPinColor(pinNumber);
 
