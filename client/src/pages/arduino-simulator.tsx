@@ -1854,6 +1854,9 @@ export default function ArduinoSimulator() {
           }
 
           // Update pinStates from registry data - add pins that have been defined
+          // NOTE: Only create pin records, do NOT set modes from registry.
+          // Modes are determined solely by detectedPinModes (client-parsed Arduino code).
+          // This ensures a single source of truth: what the user wrote.
           setPinStates((prev) => {
             const newStates = [...prev];
 
@@ -1863,26 +1866,17 @@ export default function ArduinoSimulator() {
               const pinNum = pinToNumber(record.pin);
               if (pinNum === null) continue;
 
-              const modeMap: {
-                [key: number]: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
-              } = {
-                0: "INPUT",
-                1: "OUTPUT",
-                2: "INPUT_PULLUP",
-              };
-              const mode = modeMap[record.pinMode ?? 0] || "INPUT";
-
               const exists = newStates.find((p) => p.pin === pinNum);
               if (!exists) {
+                // Create new pin with default INPUT mode (will be overridden by detectedPinModes)
                 newStates.push({
                   pin: pinNum,
-                  mode,
+                  mode: "INPUT",
                   value: 0,
                   type: pinNum >= 14 && pinNum <= 19 ? "digital" : "digital",
                 });
-              } else {
-                exists.mode = mode;
               }
+              // If pin already exists, don't change anything - modes come from detectedPinModes
             }
 
             return newStates;
@@ -1976,11 +1970,12 @@ export default function ArduinoSimulator() {
     if (simulationStatus === "running" && !skipSimStopRef.current) {
       sendMessage({ type: "code_changed" });
       setSimulationStatus("stopped");
-      // Reset all UI pin state when code changes while running
-      resetPinUI();
+      // Reset all UI pin state when code changes while running, but preserve detected modes
+      // so they can be re-applied when simulation restarts
+      resetPinUI({ keepDetected: true });
     }
     skipSimStopRef.current = false;
-    // Detected pin modes and pending conflicts are cleared as part of resetPinUI
+    // Detected pin modes are preserved so they'll be applied at next simulation start
 
     // Update the active tab content
     if (activeTabId) {
@@ -2195,6 +2190,35 @@ export default function ArduinoSimulator() {
       return newStates;
     });
   }, [simulationStatus, analogPinsUsed, detectedPinModes]);
+
+  // Apply detectedPinModes after io_registry has been processed.
+  // This ensures that client-side parsed modes override server modes.
+  useEffect(() => {
+    if (Object.keys(detectedPinModes).length === 0) {
+      return;
+    }
+
+    setPinStates((prev) => {
+      const newStates = [...prev];
+      for (const [pinStr, mode] of Object.entries(detectedPinModes)) {
+        const pin = Number(pinStr);
+        if (Number.isNaN(pin)) continue;
+        const pinState = newStates.find((p) => p.pin === pin);
+        if (pinState) {
+          pinState.mode = mode as any;
+        } else {
+          // CREATE pin if it doesn't exist yet (io_registry might not have detected it)
+          newStates.push({
+            pin,
+            mode: mode as any,
+            value: 0,
+            type: pin >= 14 && pin <= 19 ? "digital" : "digital",
+          });
+        }
+      }
+      return newStates;
+    });
+  }, [detectedPinModes, simulationStatus]);
 
   // Helper to process serial event data and update lines
   const processSerialEvents = (
