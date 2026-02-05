@@ -72,6 +72,7 @@ export function CodeEditor({
   const containerRef = useRef<HTMLDivElement>(null);
   const ignoreChangesRef = useRef(false);
   // Store callback refs to avoid closure issues with keyboard shortcuts
+  const onChangeRef = useRef(onChange);
   const onCompileAndRunRef = useRef(onCompileAndRun);
   const onFormatRef = useRef(onFormat);
 
@@ -474,7 +475,7 @@ export function CodeEditor({
       const model = editor.getModel();
       if (model) {
         logger.debug("CodeEditor: onDidChangeModelContent, calling onChange");
-        onChange(editor.getValue());
+        onChangeRef.current(editor.getValue());
       }
     });
 
@@ -604,6 +605,10 @@ export function CodeEditor({
   }, [value]);
 
   // Update callback refs whenever they change
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   useEffect(() => {
     onCompileAndRunRef.current = onCompileAndRun;
   }, [onCompileAndRun]);

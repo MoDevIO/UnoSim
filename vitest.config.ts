@@ -10,6 +10,7 @@ export default defineConfig({
     alias: {
       '@shared': path.resolve(__dirname, 'shared'),
       '@': path.resolve(__dirname, 'client', 'src'),
+      'monaco-editor': path.resolve(__dirname, 'tests', 'mocks', 'monaco-editor.ts'),
     },
   },
   test: {

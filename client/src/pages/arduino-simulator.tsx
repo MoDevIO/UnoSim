@@ -1655,7 +1655,9 @@ export default function ArduinoSimulator() {
     for (const message of messages) {
       switch (message.type) {
         case "sim_telemetry": {
-          telemetryStore.pushTelemetry(message.metrics);
+          if (simulationStatus === "running") {
+            telemetryStore.pushTelemetry(message.metrics);
+          }
           break;
         }
         case "serial_output": {
@@ -1973,11 +1975,11 @@ export default function ArduinoSimulator() {
     setIsModified(true);
 
     // Stop simulation when user edits the code (unless inserting a suggestion)
-    // Only send message to server if simulation is actually running
-    if (simulationStatus === "running" && !skipSimStopRef.current) {
-      sendMessage({ type: "code_changed" });
+    // Stop both running and paused simulations
+    if ((simulationStatus === "running" || simulationStatus === "paused") && !skipSimStopRef.current) {
+      sendMessage({ type: "stop_simulation" });
       setSimulationStatus("stopped");
-      // Reset all UI pin state when code changes while running, but preserve detected modes
+      // Reset all UI pin state when code changes while running/paused, but preserve detected modes
       // so they can be re-applied when simulation restarts
       resetPinUI({ keepDetected: true });
     }

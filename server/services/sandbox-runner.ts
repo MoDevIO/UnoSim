@@ -1321,6 +1321,9 @@ export class SandboxRunner {
     this.processKilled = true;
     this.pendingCleanup = true;
     
+    // Stop telemetry reporting when simulation stops
+    this.registryManager.pauseTelemetry();
+    
     // Clear all callbacks for memory leak prevention
     this.onOutputCallback = null;
     this.outputCallback = null;
