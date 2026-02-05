@@ -136,6 +136,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       }),
     ),
     baudrate: z.number().optional(),
+    reason: z.string().optional(),
   }),
   z.object({
     type: z.literal("sim_telemetry"),

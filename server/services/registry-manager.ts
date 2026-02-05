@@ -5,7 +5,7 @@ import type { IOPinRecord } from "@shared/schema";
 import { Logger } from "@shared/logger";
 
 export interface RegistryUpdateCallback {
-  (registry: IOPinRecord[], baudrate: number): void;
+  (registry: IOPinRecord[], baudrate: number | undefined, reason?: string): void;
 }
 
 export interface PerformanceMetrics {
@@ -21,10 +21,32 @@ export interface TelemetryUpdateCallback {
 }
 
 export interface RegistryManagerConfig {
-  debounceMs?: number;
   onUpdate?: RegistryUpdateCallback;
   onTelemetry?: TelemetryUpdateCallback;
   enableTelemetry?: boolean;
+}
+
+/**
+ * Helper to clean up pin record by removing line: 0 from usedAt/definedAt
+ */
+function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
+  const cleaned = { ...pin };
+  
+  // Remove definedAt if line is 0
+  if (cleaned.definedAt?.line === 0) {
+    delete (cleaned as any).definedAt;
+  }
+  
+  // Filter out usedAt entries with line: 0
+  if (cleaned.usedAt && cleaned.usedAt.length > 0) {
+    cleaned.usedAt = cleaned.usedAt.filter(entry => entry.line !== 0);
+    // Remove usedAt entirely if empty
+    if (cleaned.usedAt.length === 0) {
+      delete (cleaned as any).usedAt;
+    }
+  }
+  
+  return cleaned;
 }
 
 /**
@@ -41,11 +63,9 @@ export class RegistryManager {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private waitingForRegistry = false;
   private isDirty = false;
-  private allowDuplicateSend = false;
-  private baudrate = 9600;
+  private baudrate: number | undefined = undefined; // undefined = Serial.begin() not found in code
   private destroyed = false; // Prevent logging after destruction
   private readonly logger = new Logger("RegistryManager");
-  private readonly debounceMs: number;
   private readonly onUpdateCallback?: RegistryUpdateCallback;
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
   private readonly enableTelemetry: boolean;
@@ -58,7 +78,6 @@ export class RegistryManager {
   };
 
   constructor(config: RegistryManagerConfig = {}) {
-    this.debounceMs = config.debounceMs ?? 200;
     this.onUpdateCallback = config.onUpdate;
     this.onTelemetryCallback = config.onTelemetry;
     this.enableTelemetry = config.enableTelemetry ?? false;
@@ -212,12 +231,21 @@ export class RegistryManager {
 
   /**
    * Set the baudrate (parsed from Serial.begin() in user code)
+   * Only set if baudrate is explicitly defined in the code (not default 9600)
    */
   setBaudrate(baudrate: number): void {
     if (this.destroyed) return;
-    if (baudrate > 0 && baudrate !== this.baudrate) {
-      this.logger.debug(`Baudrate updated: ${this.baudrate} -> ${baudrate}`);
-      this.baudrate = baudrate;
+    if (baudrate > 0) {
+      // Only set if non-default (not 9600)
+      // This ensures we know that Serial.begin() was actually in the code
+      if (baudrate !== 9600) {
+        this.logger.debug(`Baudrate from Serial.begin(): ${baudrate}`);
+        this.baudrate = baudrate;
+      } else {
+        // Default 9600 might mean Serial.begin() wasn't in the code
+        // Leave as undefined so we don't send a false positive
+        this.logger.debug(`Serial.begin(9600) - not sending default bandrate`);
+      }
     }
   }
 
@@ -248,18 +276,19 @@ export class RegistryManager {
       if (!alreadyTracked) {
         existing.usedAt.push({ line: 0, operation: pinModeOp });
       }
-      this.isDirty = true;
       this.telemetry.incomingEvents++;
 
-      // Structural changes (defined: false -> true) must be sent immediately, not debounced
+      // Structural changes (defined: false -> true) must be sent immediately.
+      // If the pin was already defined, do not re-send the registry.
       if (!wasDefinedBefore) {
         this.logger.debug(
           `Structural change: pin ${pinStr} marked as defined, sending immediately`,
         );
+        this.logger.info(
+          `Registry send trigger: first-time pin use ${pinStr} (pinMode:${mode})`,
+        );
         const nextHash = this.computeRegistryHash();
         this.sendNow(nextHash, "pin-defined-changed");
-      } else {
-        this.sendWithDebounce("debounce");
       }
     } else {
       // Create new pin record if not yet in registry
@@ -287,10 +316,7 @@ export class RegistryManager {
     // Pin value updates don't modify registry structure, just track usage
     // This could be extended to track value changes if needed
     this.logger.debug(`Pin ${pin} value updated to ${value}`);
-    this.isDirty = true;
-    this.allowDuplicateSend = true;
     this.telemetry.incomingEvents++;
-    this.sendWithDebounce("throttle");
   }
 
   /**
@@ -301,10 +327,7 @@ export class RegistryManager {
     if (this.destroyed) return;
     // PWM updates don't modify registry structure, just track usage
     this.logger.debug(`Pin ${pin} PWM updated to ${value}`);
-    this.isDirty = true;
-    this.allowDuplicateSend = true;
     this.telemetry.incomingEvents++;
-    this.sendWithDebounce("throttle");
   }
 
   /**
@@ -339,7 +362,6 @@ export class RegistryManager {
     this.registryHash = "";
     this.waitingForRegistry = false;
     this.isDirty = false;
-    this.allowDuplicateSend = false;
 
     this.stopTelemetry();
 
@@ -394,53 +416,6 @@ export class RegistryManager {
   }
 
   /**
-   * Send registry with debouncing and change detection
-   */
-  private sendWithDebounce(mode: "debounce" | "throttle" = "debounce"): void {
-    if (this.destroyed) return;
-    if (!this.onUpdateCallback) {
-      return;
-    }
-
-    if (!this.isDirty) {
-      this.logger.debug("Registry unchanged - skipping send");
-      return;
-    }
-
-    const nextHash = this.computeRegistryHash();
-    if (nextHash === this.registryHash && !this.allowDuplicateSend) {
-      this.isDirty = false;
-      return;
-    }
-
-    if (this.debounceTimer) {
-      if (mode === "debounce") {
-        // Debounce: reset timer on each update
-        clearTimeout(this.debounceTimer);
-        this.debounceTimer = null;
-      } else {
-        // Throttle: keep existing timer
-        return;
-      }
-    }
-
-    this.debounceTimer = setTimeout(() => {
-      if (this.onUpdateCallback && this.isDirty) {
-        const finalHash = this.computeRegistryHash();
-        if (finalHash !== this.registryHash || this.allowDuplicateSend) {
-          this.logger.debug(
-            `Registry send after debounce: ${this.registry.length} pins`,
-          );
-          this.sendNow(finalHash, "debounced");
-        } else {
-          this.isDirty = false;
-        }
-      }
-      this.debounceTimer = null;
-    }, this.debounceMs);
-  }
-
-  /**
    * Immediately send the registry via callback
    * Cancels any pending throttle timer to ensure structural changes reach UI immediately
    */
@@ -453,7 +428,6 @@ export class RegistryManager {
 
     this.registryHash = hash;
     this.isDirty = false;
-    this.allowDuplicateSend = false;
     this.telemetry.sentBatches++;
 
     if (this.onUpdateCallback) {
@@ -461,11 +435,15 @@ export class RegistryManager {
       const pinsList = this.registry.map((p) => `${p.pin}(def=${p.defined})`).join(",");
       const hasPin13 = this.registry.some((p) => p.pin === "13");
       if (reason && !this.destroyed) {
+        const baudInfo = this.baudrate !== undefined ? ` | baud=${this.baudrate}` : " | baud=not-defined";
         this.logger.info(
-          `📤 Registry SEND [${reason}]: ${this.registry.length} pins [${pinsList}] ${hasPin13 ? "✅ PIN13_INCLUDED" : "❌ NO_PIN13"}`,
+          `📤 Registry SEND [${reason}]: ${this.registry.length} pins [${pinsList}]${baudInfo} ${hasPin13 ? "✅ PIN13_INCLUDED" : "❌ NO_PIN13"}`,
         );
       }
-      this.onUpdateCallback([...this.registry], this.baudrate);
+      // Clean up registry to remove useless line: 0 entries
+      const cleanedRegistry = this.registry.map(cleanupPinRecord);
+      // Only send baudrate if it was actually defined in the code
+      this.onUpdateCallback(cleanedRegistry, this.baudrate, reason);
     }
   }
 

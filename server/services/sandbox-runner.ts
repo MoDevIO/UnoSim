@@ -80,7 +80,9 @@ export class SandboxRunner {
   private dockerImageBuilt = false;
   
   // Callbacks and message queue
-  private ioRegistryCallback: ((registry: IOPinRecord[], baudrate: number) => void) | undefined;
+  private ioRegistryCallback:
+    | ((registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => void)
+    | undefined;
   private messageQueue: Array<{ type: string; data: any }> = [];
   private onOutputCallback: ((line: string, isComplete?: boolean) => void) | null = null;
   
@@ -109,11 +111,10 @@ export class SandboxRunner {
 
     // Initialize registry manager with arrow function callback for correct 'this' binding
     this.registryManager = new RegistryManager({
-      debounceMs: 20,
-      onUpdate: (registry, baudrate) => {
+      onUpdate: (registry, baudrate, reason) => {
         // Forward to WebSocket callback if set
         if (this.ioRegistryCallback) {
-          this.ioRegistryCallback(registry, baudrate);
+          this.ioRegistryCallback(registry, baudrate, reason);
         }
         // Flush queued messages after first registry send
         this.flushMessageQueue();
@@ -398,7 +399,7 @@ export class SandboxRunner {
       value: number,
     ) => void,
     timeoutSec?: number,
-    onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
+    onIORegistry?: (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => void,
     onTelemetry?: (metrics: any) => void,
   ) {
     // Lazy initialization: ensure Docker is checked and temp directory exists
@@ -492,7 +493,7 @@ export class SandboxRunner {
   private initializeRunState(
     code: string,
     onOutput: (line: string, isComplete?: boolean) => void,
-    onIORegistry?: (registry: IOPinRecord[], baudrate: number) => void,
+    onIORegistry?: (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => void,
     timeoutSec?: number,
   ): void {
     // Parse baudrate from code
@@ -794,7 +795,7 @@ export class SandboxRunner {
       if (this.ioRegistryCallback) {
         const finalRegistry = this.registryManager.getRegistry();
         if (finalRegistry.length > 0) {
-          this.ioRegistryCallback([...finalRegistry], this.baudrate);
+          this.ioRegistryCallback([...finalRegistry], this.baudrate, "process-exit");
         }
       }
 
@@ -875,7 +876,7 @@ export class SandboxRunner {
       if (this.ioRegistryCallback) {
         const finalRegistry = this.registryManager.getRegistry();
         if (finalRegistry.length > 0) {
-          this.ioRegistryCallback([...finalRegistry], this.baudrate);
+          this.ioRegistryCallback([...finalRegistry], this.baudrate, "process-exit");
         }
       }
 

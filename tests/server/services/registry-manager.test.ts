@@ -98,11 +98,12 @@ describe("RegistryManager", () => {
       expect(updateCallback).toHaveBeenCalledWith(
         expect.any(Array),
         115200,
+        "collection-complete",
       );
     });
 
-    it("should ignore invalid baudrate", () => {
-      manager.setBaudrate(9600);
+    it("should ignore invalid baudrate and skip default 9600", () => {
+      manager.setBaudrate(9600); // Default - should be skipped
       manager.setBaudrate(0);
       manager.setBaudrate(-100);
 
@@ -110,9 +111,11 @@ describe("RegistryManager", () => {
       manager.addPin({ pin: "13", defined: true, pinMode: 1, usedAt: [] });
       manager.finishCollection();
 
+      // Baudrate should be undefined because 9600 is default and is skipped
       expect(updateCallback).toHaveBeenCalledWith(
         expect.any(Array),
-        9600,
+        undefined,
+        "collection-complete",
       );
     });
   });
@@ -134,7 +137,7 @@ describe("RegistryManager", () => {
       expect(updateCallback).toHaveBeenCalledTimes(1);
     });
 
-    it("should allow subsequent sends with changed registry", () => {
+    it("should send when discovering a new pin via updatePinMode", () => {
       manager.startCollection();
       manager.addPin({ pin: "13", defined: true, pinMode: 1, usedAt: [] });
       manager.finishCollection();
@@ -142,16 +145,12 @@ describe("RegistryManager", () => {
       expect(updateCallback).toHaveBeenCalledTimes(1);
       updateCallback.mockClear();
 
-      // Update pin mode - registry content changes
-      manager.updatePinMode(13, 0);
+      // Discover a new pin via updatePinMode - should trigger immediate send
+      manager.updatePinMode(12, 0);
 
-      // Should debounce but not send immediately
-      expect(updateCallback).not.toHaveBeenCalled();
-
-      vi.advanceTimersByTime(100);
-
-      // Should send after debounce
+      // Should send immediately (structural change - new pin)
       expect(updateCallback).toHaveBeenCalledTimes(1);
+      expect(updateCallback.mock.calls[0][2]).toBe("pin-new-record");
     });
 
     it("should debounce rapid pin mode updates", () => {
@@ -159,25 +158,18 @@ describe("RegistryManager", () => {
       manager.addPin({ pin: "13", defined: true, pinMode: 0, usedAt: [] });
       manager.finishCollection();
 
-      const firstCallTime = Date.now();
       updateCallback.mockClear();
 
-      // Make rapid updates within short time window
-      manager.updatePinMode(13, 1);
+      // Discover new pins rapidly - each should trigger immediate send
+      manager.updatePinMode(12, 1);
+      expect(updateCallback).toHaveBeenCalledTimes(1);
+      updateCallback.mockClear();
       
-      vi.advanceTimersByTime(20);
-      manager.updatePinMode(13, 0);
+      manager.updatePinMode(11, 0);
+      expect(updateCallback).toHaveBeenCalledTimes(1);
+      updateCallback.mockClear();
       
-      vi.advanceTimersByTime(20);
-      manager.updatePinMode(13, 1);
-      
-      // Should not have sent yet (still within debounce window)
-      expect(updateCallback).not.toHaveBeenCalled();
-
-      // After full debounce period from last update
-      vi.advanceTimersByTime(100);
-      
-      // Should send exactly once with final state
+      manager.updatePinMode(10, 1);
       expect(updateCallback).toHaveBeenCalledTimes(1);
     });
 
@@ -257,15 +249,19 @@ describe("RegistryManager", () => {
       manager.addPin({ pin: "13", defined: true, pinMode: 1, usedAt: [] });
       manager.finishCollection();
 
-      // Start an update that would normally debounce
+      // Try to discover a new pin that would trigger a send
       updateCallback.mockClear();
-      manager.updatePinMode(13, 0);
+      manager.updatePinMode(12, 0);
+      
+      // One call from discovering the new pin
+      expect(updateCallback).toHaveBeenCalledTimes(1);
+      updateCallback.mockClear();
 
       manager.reset();
 
       vi.advanceTimersByTime(1000);
 
-      // No callbacks should fire after reset
+      // No additional callbacks should fire after reset
       expect(updateCallback).not.toHaveBeenCalled();
     });
 
@@ -288,7 +284,7 @@ describe("RegistryManager", () => {
   });
 
   describe("change detection", () => {
-    it("should detect registry changes", () => {
+    it("should detect new pin discovery and send immediately", () => {
       manager.startCollection();
       manager.addPin({ pin: "13", defined: true, pinMode: 1, usedAt: [] });
       manager.finishCollection();
@@ -296,20 +292,12 @@ describe("RegistryManager", () => {
       expect(updateCallback).toHaveBeenCalledTimes(1);
       updateCallback.mockClear();
 
-      vi.useFakeTimers();
+      // Discover a new pin via updatePinMode
+      manager.updatePinMode(12, 0);
 
-      // Change pin mode - should trigger update after debounce
-      manager.updatePinMode(13, 0);
-
-      // Should not send immediately (debouncing)
-      expect(updateCallback).not.toHaveBeenCalled();
-
-      // Wait for debounce to complete
-      vi.advanceTimersByTime(200);
-
+      // Should send immediately (structural change)
       expect(updateCallback).toHaveBeenCalledTimes(1);
-
-      vi.useRealTimers();
+      expect(updateCallback.mock.calls[0][2]).toBe("pin-new-record");
     });
 
     it("should not send duplicate registry data", () => {
