@@ -100,6 +100,18 @@ tem/
 # 7. TYPESCRIPT ARTIFACTS        #
 ##################################
 
+# Ignoriere generierte JS-Dateien in TS-Projekten
+# (Verhindert das "Verschmutzen" der Quellordner)
+*.js
+*.js.map
+*.d.ts
+
+# Aber: Wichtige Konfigurationsdateien NICHT ignorieren
+!vite.config.js
+!tailwind.config.js
+!postcss.config.js
+!jest.config.js
+
 # TypeScript build information
 # Caches created by TypeScript Compilern.
 *.tsbuildinfo
