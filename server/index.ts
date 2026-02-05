@@ -61,7 +61,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Monaco Editor needs these
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://replit.com"], // Monaco Editor needs these + Replit banner
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", "data:", "blob:"],
         connectSrc: ["'self'", "ws:", "wss:", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],

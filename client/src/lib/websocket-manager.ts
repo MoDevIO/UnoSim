@@ -329,7 +329,9 @@ class WebSocketManager {
     this.isConnecting = false;
     this.clearConnectionTimeout();
     
-    logger.info(`WebSocket closed: code=${event.code}, reason=${event.reason || "none"}`);
+    // Code 1001 is normal closure - log at DEBUG level, others at INFO
+    const logLevel = event.code === 1001 ? 'debug' : 'info';
+    logger[logLevel](`WebSocket closed: code=${event.code}, reason=${event.reason || "none"}`);
     
     // Only reconnect if we didn't explicitly disconnect
     if (this.state !== "disconnected") {
@@ -372,7 +374,7 @@ class WebSocketManager {
     this.reconnectAttempts++;
     this.setState("reconnecting");
     
-    logger.info(`Scheduling reconnect in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts}/${CONFIG.RECONNECT_MAX_ATTEMPTS})`);
+    logger.debug(`Scheduling reconnect in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts}/${CONFIG.RECONNECT_MAX_ATTEMPTS})`);
     
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectTimeout = null;
