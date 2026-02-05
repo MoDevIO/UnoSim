@@ -976,6 +976,9 @@ export class SandboxRunner {
     }
 
     try {
+      // Stop telemetry reporting while paused (no need to send data)
+      this.registryManager.pauseTelemetry();
+      
       // Send pause command to freeze timing in C++
       if (this.process.stdin && !this.processKilled) {
         this.process.stdin.write("[[PAUSE_TIME]]\n");
@@ -1015,6 +1018,9 @@ export class SandboxRunner {
       if (!this.transitionTo(SimulationState.RUNNING)) {
         return false;
       }
+      
+      // Resume telemetry reporting
+      this.registryManager.resumeTelemetry();
       
       this.logger.info(`Simulation resumed after ${pauseDuration}ms pause (SIGCONT)`);
       

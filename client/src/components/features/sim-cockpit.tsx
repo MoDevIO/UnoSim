@@ -3,6 +3,8 @@ import clsx from "clsx";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import type { BatchStats } from "@/hooks/use-simulation-store";
 
+type SimulationStatus = "idle" | "running" | "compiling" | "stopped" | "paused";
+
 const formatValue = (value: number) => {
   if (!Number.isFinite(value)) return "--";
   if (value >= 10000) return `${(value / 1000).toFixed(1)}k`;
@@ -24,15 +26,20 @@ const Sparkline = ({ data }: { data: number[] }) => {
   );
 };
 
-export const SimCockpit: React.FC<{ batchStats?: BatchStats | null }> = React.memo(({ batchStats }) => {
+export const SimCockpit: React.FC<{ 
+  batchStats?: BatchStats | null;
+  simulationStatus?: SimulationStatus;
+}> = React.memo(({ batchStats, simulationStatus = "idle" }) => {
   const { last, lastHeartbeatAt } = useTelemetryStore();
   const [refreshHz, setRefreshHz] = React.useState(0);
   const [epsHistory, setEpsHistory] = React.useState<number[]>([]);
   const deltasRef = React.useRef<number[]>([]);
   const lastFrameAtRef = React.useRef<number | null>(null);
 
-  const eps = last?.eventsPerSecond ?? 0;
-  const isActive = lastHeartbeatAt && Date.now() - lastHeartbeatAt < 2000;
+  // Show 0 values when paused or stopped
+  const isSimActive = simulationStatus === "running";
+  const eps = isSimActive ? (last?.eventsPerSecond ?? 0) : 0;
+  const isActive = isSimActive && lastHeartbeatAt && Date.now() - lastHeartbeatAt < 2000;
 
   // EPS Historie für den Graphen
   React.useEffect(() => {
@@ -41,8 +48,22 @@ export const SimCockpit: React.FC<{ batchStats?: BatchStats | null }> = React.me
     }
   }, [eps]);
 
-  // UI Hz Berechnung
+  // Clear history when simulation stops
   React.useEffect(() => {
+    if (simulationStatus === "stopped" || simulationStatus === "idle") {
+      setEpsHistory([]);
+      deltasRef.current = [];
+      lastFrameAtRef.current = null;
+      setRefreshHz(0);
+    }
+  }, [simulationStatus]);
+
+  // UI Hz Berechnung - only when running
+  React.useEffect(() => {
+    if (!isSimActive) {
+      setRefreshHz(0);
+      return;
+    }
     const currentFrameAt = batchStats?.lastFrameAt ?? 0;
     if (!currentFrameAt) return;
     const previousFrameAt = lastFrameAtRef.current;
@@ -53,7 +74,7 @@ export const SimCockpit: React.FC<{ batchStats?: BatchStats | null }> = React.me
       setRefreshHz(1000 / avgDelta);
     }
     lastFrameAtRef.current = currentFrameAt;
-  }, [batchStats?.lastFrameAt]);
+  }, [batchStats?.lastFrameAt, isSimActive]);
 
   return (
     <div className="hidden lg:flex items-center gap-6 bg-black/20 backdrop-blur-md border border-white/10 rounded-lg px-4 py-2 text-[10px] uppercase tracking-wider font-medium shadow-2xl">

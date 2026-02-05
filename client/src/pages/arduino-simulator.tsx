@@ -2973,7 +2973,7 @@ export default function ArduinoSimulator() {
         onCompileAndStart={handleCompileAndStart}
         onOutputPanelToggle={() => { setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); outputPanelManuallyResizedRef.current = false; setOutputPanelManuallyResized(false); }}
         showCompilationOutput={showCompilationOutput}
-        rightSlot={debugMode ? <SimCockpit batchStats={batchStats} /> : undefined}
+        rightSlot={debugMode ? <SimCockpit batchStats={batchStats} simulationStatus={simulationStatus} /> : undefined}
       />
       {/* Hidden file input used by File → Load Files */}
       <input

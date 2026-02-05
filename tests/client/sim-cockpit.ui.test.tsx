@@ -32,7 +32,7 @@ describe("SimCockpit UI", () => {
       lastFrameAt: fixedNow,
     };
 
-    const { rerender } = render(<SimCockpit batchStats={firstBatch} />);
+    const { rerender } = render(<SimCockpit batchStats={firstBatch} simulationStatus="running" />);
 
     telemetryStore.pushTelemetry({
       ...baseMetrics,
@@ -46,7 +46,7 @@ describe("SimCockpit UI", () => {
       lastFrameAt: fixedNow + 50, // 50ms frame interval -> 20Hz
     };
 
-    rerender(<SimCockpit batchStats={secondBatch} />);
+    rerender(<SimCockpit batchStats={secondBatch} simulationStatus="running" />);
 
     expect(screen.getByText("20.0")).not.toBeNull();
   });

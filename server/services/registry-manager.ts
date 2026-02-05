@@ -112,6 +112,30 @@ export class RegistryManager {
       this.heartbeatInterval = null;
     }
   }
+
+  /**
+   * Pause telemetry heartbeat (called when simulation is paused)
+   * Stops sending telemetry data while paused
+   */
+  pauseTelemetry(): void {
+    this.stopTelemetry();
+    this.logger.debug("Telemetry heartbeat paused");
+  }
+
+  /**
+   * Resume telemetry heartbeat (called when simulation is resumed)
+   * Resets counters and restarts the heartbeat
+   */
+  resumeTelemetry(): void {
+    if (this.onTelemetryCallback && this.enableTelemetry) {
+      // Reset counters for fresh start after pause
+      this.telemetry.incomingEvents = 0;
+      this.telemetry.sentBatches = 0;
+      this.telemetry.lastReportTime = Date.now();
+      this.startHeartbeat();
+      this.logger.debug("Telemetry heartbeat resumed");
+    }
+  }
   
   /**
    * Calculate and return current performance metrics

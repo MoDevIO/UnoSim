@@ -57,6 +57,7 @@
     "docker ps": true,
     "docker rm": true,
     "docker image": true,
-    "docker logs": true
+    "docker logs": true,
+    "./run-tests.sh": true
   },
 }
