@@ -3,7 +3,9 @@
 ## Features
 - Better Analog Input UI
 - Better Autocomplete/Linting
-- Autosaving
+- Autosaving so that you do not loose code when browser refreshes
+- Batching of pin states: collect pin states with timestamps and send them together / decode in frontend
+- Batching of serial messages / decode them in frontend
 
 
 - **Realtime Serial Output Timing**: Implement frontend-side timing to display serial output character-by-character based on baudrate. Currently all text appears instantly. Implementation notes:
