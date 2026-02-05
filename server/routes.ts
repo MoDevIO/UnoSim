@@ -9,6 +9,7 @@ import { storage } from "./storage";
 import { compiler } from "./services/arduino-compiler";
 import { SandboxRunner } from "./services/sandbox-runner";
 import { getSimulationRateLimiter } from "./services/rate-limiter";
+import { shouldSendSimulationEndMessage } from "./services/simulation-end";
 import {
   insertSketchSchema,
   wsMessageSchema,
@@ -402,6 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               // Track if we've sent compile success
               let gccSuccessSent = false;
+              let compileFailed = false;
 
               // Extract timeout from message (for start_simulation type)
               const timeoutValue = "timeout" in data ? data.timeout : undefined;
@@ -468,6 +470,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         clientState.isRunning = false;
                         clientState.isPaused = false;
                       }
+
+                      if (!shouldSendSimulationEndMessage(compileFailed)) {
+                        return;
+                      }
+
                       // If we exit with code 0 and haven't sent success yet, send it now
                       if (exitCode === 0 && !gccSuccessSent) {
                         gccSuccessSent = true;
@@ -493,6 +500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }, 100);
                 },
                 (compileErr: string) => {
+                  compileFailed = true;
                   // Send compile error to compilation output window
                   sendMessageToClient(ws, {
                     type: "compilation_error",

@@ -43,6 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import { apiRequest } from "@/lib/queryClient";
+import { buildGccCompilationErrorState } from "@/lib/compilation-error-state";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -1782,7 +1783,13 @@ export default function ArduinoSimulator() {
           logger.info(
             `[WS] GCC Compilation Error detected: ${JSON.stringify(message.data)}`,
           );
-          setCliOutput("❌ GCC Compilation Error:\n\n" + message.data);
+          const gccErrorState = buildGccCompilationErrorState(message.data);
+          setCliOutput(gccErrorState.cliOutput);
+          setHasCompilationErrors(gccErrorState.hasCompilationErrors);
+          setLastCompilationResult(gccErrorState.lastCompilationResult);
+          setShowCompilationOutput(gccErrorState.showCompilationOutput);
+          setParserPanelDismissed(gccErrorState.parserPanelDismissed);
+          setActiveOutputTab(gccErrorState.activeOutputTab);
           setGccStatus("error");
           setCompilationStatus("error");
           setSimulationStatus("stopped");
