@@ -177,9 +177,59 @@ Diese Refactorings wurden in separaten Commits umgesetzt:
 
 **Nächste Schritte zum Erreichen von 80%+ (optio):**
 Um die restlichen ~8 pp zu erreichen:
-1. Weitere Tests für arduino-simulator.tsx (derzeit 36,65%)
-2. Mehr Edge-Cases in sandbox-runner.ts (derzeit 67,95%)
-3. Tests für ungetestete UI-Komponenten
-4. Höhere Coverage in serial-monitor.tsx
+
+### 1. Weitere Tests für arduino-simulator.tsx (derzeit 36,65%)
+
+Untestete Funktionsbereiche:
+- **Pin Detection & Conflicts** (~5pp):
+  - Pin mode detection aus Code-Analyse (`detectPinModesFromCode`)
+  - Pin conflict detection und Fehler-Output
+  - Analog pins A0-A5 Erkennung aus verschiedenen Code-Mustern
+  
+- **File I/O Operations** (~2pp):
+  - `handleHiddenFileInput()` - .ino/.h Datei-Upload
+  - `downloadAllFiles()` - Multi-File Download mit Timing
+  - File validation und error handling
+  
+- **Keyboard Shortcuts** (~2pp):
+  - F5: Compile only (Verify)
+  - Escape: Stop simulation
+  - Cmd/Ctrl+S: Save (Mac vs. non-Mac)
+  
+- **Serial I/O & Pin Events** (~3pp):
+  - `handleAnalogChange()` - Analog pin value updates via SimCockpit
+  - Serial message queue processing
+  - TX/RX LED activity counters
+  
+- **Settings & Configuration** (~2pp):
+  - `openSettings()` - Custom event dispatch
+  - Board/Baud rate state management
+  - localStorage persistence für showCompilationOutput
+  
+- **Output Panel Management** (~2pp):
+  - Panel size persistence
+  - Auto-scroll in debug console
+  - Output tab switching logic
+  
+- **Error Visualization** (~1pp):
+  - Glitch effect rendering on compilation errors
+  - Error boundary and error recovery
+
+**Geschätzter Gesamtgewinn:** +17pp (36,65% → ~53-54%)
+
+### 2. Mehr Edge-Cases in sandbox-runner.ts (derzeit 67,95%)
+- Invalid socket timeouts
+- Resource cleanup on errors
+- Output size limits edge cases
+
+### 3. Tests für ungetestete UI-Komponenten
+- serial-monitor.tsx full workflow
+- parser-output.tsx with complex pin hierarchies
+- simulation-timeout-manager edge cases
+
+### 4. Höhere Coverage in serial-monitor.tsx
+- Edge cases in ANSI code processing
+- Carriage return handling
+- Auto-scroll with large outputs
 
 **Empfehlung:** Die erreichten 71,99% sind ein sehr gutes Niveau für ein Projekt dieser Größe. Weitere Coverage-Verbesserung sollte nur bei konkretem Bedarf (z.B. kritische Bereiche) erfolgen.
