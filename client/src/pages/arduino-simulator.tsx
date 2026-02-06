@@ -39,6 +39,11 @@ import { AppHeader } from "@/components/features/app-header";
 import { SimCockpit } from "@/components/features/sim-cockpit";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
+import { useBackendHealth } from "@/hooks/use-backend-health";
+import { useMobileLayout } from "@/hooks/use-mobile-layout";
+import { useDebugConsole } from "@/hooks/use-debug-console";
+import { useSketchTabs } from "@/hooks/use-sketch-tabs";
+import { useSerialIO } from "@/hooks/use-serial-io";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import { apiRequest } from "@/lib/queryClient";
@@ -84,14 +89,23 @@ export default function ArduinoSimulator() {
   const outputTabsHeaderRef = useRef<HTMLDivElement | null>(null);
   const [outputPanelMinPercent, setOutputPanelMinPercent] = useState<number>(3);
 
-  // Tab management
-  const [tabs, setTabs] = useState<
-    Array<{ id: string; name: string; content: string }>
-  >([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  // Sketch tabs management
+  const { tabs, setTabs, activeTabId, setActiveTabId } = useSketchTabs();
 
   // CHANGED: Store OutputLine objects instead of plain strings
-  const [serialOutput, setSerialOutput] = useState<OutputLine[]>([]);
+  const {
+    serialOutput,
+    setSerialOutput,
+    serialViewMode,
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    serialInputValue,
+    setSerialInputValue,
+    showSerialMonitor,
+    showSerialPlotter,
+    cycleSerialViewMode,
+    clearSerialOutput,
+  } = useSerialIO();
   const [parserMessages, setParserMessages] = useState<ParserMessage[]>([]);
   const parserMessagesContainerRef = useRef<HTMLDivElement | null>(null);
   // Track if user manually dismissed the parser panel (reset on new compile with messages)
@@ -147,21 +161,6 @@ export default function ArduinoSimulator() {
   >("stopped");
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   const [isModified, setIsModified] = useState(false);
-  const prevSimulationStatusRef = useRef(simulationStatus);
-
-  // Debug message log
-  interface DebugMessage {
-    id: string;
-    timestamp: Date;
-    sender: "server" | "frontend";
-    type: string;
-    content: string;
-    protocol?: "websocket" | "http"; // websocket or http source
-  }
-  const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
-  const [debugMessageFilter, setDebugMessageFilter] = useState<string>("");
-  const [debugViewMode, setDebugViewMode] = useState<"table" | "tiles">("table");
-  const debugMessagesContainerRef = useRef<HTMLDivElement | null>(null);
 
   const {
     pinStates,
@@ -170,22 +169,7 @@ export default function ArduinoSimulator() {
     enqueuePinEvent,
     batchStats,
   } = useSimulationStore();
-  // Serial view mode (monitor / both / plotter)
-  const [serialViewMode, setSerialViewMode] = useState<
-    "monitor" | "plotter" | "both"
-  >("monitor");
-  const showSerialMonitor = serialViewMode !== "plotter";
-  const showSerialPlotter = serialViewMode !== "monitor";
-  // Autoscroll toggle for serial monitor
-  const [autoScrollEnabled, setAutoScrollEnabled] = useState<boolean>(true);
-
-  const cycleSerialViewMode = () => {
-    setSerialViewMode((prev) => {
-      if (prev === "monitor") return "both";
-      if (prev === "both") return "plotter";
-      return "monitor";
-    });
-  };
+  // Serial view mode state handled by useSerialIO
   // Analog pins detected in the code that need sliders (internal pin numbers 14..19)
   const [analogPinsUsed, setAnalogPinsUsed] = useState<number[]>([]);
   // Detected explicit pinMode(...) declarations found during parsing.
@@ -235,43 +219,25 @@ export default function ArduinoSimulator() {
   const [board, _setBoard] = useState<string>("Arduino UNO");
   const [baudRate, setBaudRate] = useState<number>(115200);
 
-  // Serial input box state (always visible at bottom of serial frame)
-  const [serialInputValue, setSerialInputValue] = useState("");
+  // Serial input box state handled by useSerialIO
 
   // Hidden file input for File → Load Files
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Debug mode state
-  const [debugMode, setDebugMode] = useState<boolean>(() => {
-    try {
-      return window.localStorage.getItem("unoDebugMode") === "1";
-    } catch {
-      return false;
-    }
-  });
-
-  // Listen for debug mode change events from settings dialog
-  useEffect(() => {
-    const handler = (ev: any) => {
-      try {
-        const newValue = Boolean(ev?.detail?.value);
-        setDebugMode(newValue);
-      } catch {
-        // ignore
-      }
-    };
-    document.addEventListener("debugModeChange", handler as EventListener);
-    return () =>
-      document.removeEventListener("debugModeChange", handler as EventListener);
-  }, []);
-
-  useEffect(() => {
-    const prev = prevSimulationStatusRef.current;
-    if (simulationStatus === "running" && prev !== "running") {
-      telemetryStore.resetTelemetry();
-    }
-    prevSimulationStatusRef.current = simulationStatus;
-  }, [simulationStatus]);
+  // Debug console state and functions
+  const {
+    debugMode,
+    setDebugMode: _setDebugMode,
+    debugMessages,
+    setDebugMessages,
+    debugMessageFilter,
+    setDebugMessageFilter,
+    debugViewMode,
+    setDebugViewMode,
+    debugMessagesContainerRef,
+    addDebugMessage,
+  } = useDebugConsole(activeOutputTab);
+  void _setDebugMode; // Mark as intentionally unused (managed by hook)
 
   // Pin Monitor visibility state
   const [pinMonitorVisible, setPinMonitorVisible] = useState<boolean>(() => {
@@ -296,30 +262,6 @@ export default function ArduinoSimulator() {
     return () =>
       document.removeEventListener("pinMonitorVisibleChange", handler as EventListener);
   }, []);
-
-  const addDebugMessage = useCallback((
-    sender: "server" | "frontend",
-    type: string,
-    content: string,
-    protocol?: "websocket" | "http",
-  ) => {
-    // Only collect debug messages if debug mode is enabled
-    if (!debugMode) return;
-
-    const message: DebugMessage = {
-      id: `${Date.now()}-${Math.random()}`,
-      timestamp: new Date(),
-      sender,
-      type,
-      content,
-      protocol,
-    };
-    setDebugMessages((prev) => {
-      const updated = [...prev, message];
-      // Keep last 500 messages to avoid memory issues
-      return updated.slice(-500);
-    });
-  }, [debugMode]);
 
   // Helper function to open the output panel (via double-click on tabs)
   const openOutputPanel = useCallback((targetTab: "compiler" | "messages" | "registry" | "debug") => {
@@ -470,124 +412,8 @@ export default function ArduinoSimulator() {
   >([]);
   // Trigger state to force processing
   const [serialQueueTrigger, setSerialQueueTrigger] = useState(0);
-
-  // Mobile UI: detect small screens and provide a floating tab full-screen view
-  const isClient = typeof window !== "undefined";
-  const mqQuery = "(max-width: 768px)";
-  const initialIsMobile = isClient ? window.matchMedia(mqQuery).matches : false;
-  const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile);
-  // Initialize mobilePanel immediately on mount when on mobile to avoid flicker/delay
-  const [mobilePanel, setMobilePanel] = useState<
-    "code" | "compile" | "serial" | "board" | null
-  >(initialIsMobile ? "code" : null);
-
-  useEffect(() => {
-    if (!isClient) return;
-    const mq = window.matchMedia(mqQuery);
-    const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      const matches = "matches" in e ? e.matches : mq.matches;
-      setIsMobile(matches);
-      // If switching into mobile mode, open code panel immediately
-      if (matches && !mobilePanel) setMobilePanel("code");
-      // If switching out of mobile, close any mobile panel
-      if (!matches) setMobilePanel(null);
-    };
-    // Modern browsers: addEventListener; fallback to addListener
-    if (typeof mq.addEventListener === "function")
-      mq.addEventListener("change", onChange as any);
-    else mq.addListener(onChange as any);
-    return () => {
-      if (typeof mq.removeEventListener === "function")
-        mq.removeEventListener("change", onChange as any);
-      else mq.removeListener(onChange as any);
-    };
-  }, [isClient, mobilePanel]);
-
-  // Prevent body scroll when mobile panel is open
-  useEffect(() => {
-    if (!isClient) return;
-    const prev = document.body.style.overflow;
-    if (mobilePanel) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = prev || "";
-    }
-    return () => {
-      document.body.style.overflow = prev || "";
-    };
-  }, [mobilePanel, isClient]);
-
-  // Compute header height so mobile overlay can sit below it (preserve normal header)
-  const [headerHeight, setHeaderHeight] = useState<number>(40);
-  const [overlayZ, setOverlayZ] = useState<number>(30);
-  useEffect(() => {
-    if (!isClient) return;
-    const measure = () => {
-      // First try to find our mobile header by data attribute
-      let hdr: Element | null = document.querySelector("[data-mobile-header]");
-      // Fallback to <header> tag
-      if (!hdr) hdr = document.querySelector("header");
-      if (!hdr) {
-        const all = Array.from(
-          document.body.querySelectorAll("*"),
-        ) as HTMLElement[];
-        hdr =
-          all.find((el) => {
-            if (!el) return false;
-            // ignore html/body
-            if (el === document.body || el === document.documentElement)
-              return false;
-            const style = getComputedStyle(el);
-            if (
-              style.display === "none" ||
-              style.visibility === "hidden" ||
-              Number(style.opacity) === 0
-            )
-              return false;
-            const r = el.getBoundingClientRect();
-            // must be near the top and reasonably small (not full-page)
-            if (r.top < -5 || r.top > 48) return false;
-            if (r.height < 24 || r.height > window.innerHeight / 2)
-              return false;
-            return true;
-          }) || null;
-      }
-
-      if (hdr === document.body || hdr === document.documentElement) hdr = null;
-
-      let h = 40;
-      if (hdr) {
-        const rect = (hdr as HTMLElement).getBoundingClientRect();
-        if (rect.height > 0 && rect.height < window.innerHeight / 2)
-          h = Math.ceil(rect.height);
-      }
-      setHeaderHeight(h);
-
-      let z = 0;
-      if (hdr) {
-        const zStr = getComputedStyle(hdr as HTMLElement).zIndex;
-        const zNum = parseInt(zStr || "", 10);
-        z = Number.isFinite(zNum) ? zNum : 0;
-      }
-      const chosenZ = z > 0 ? Math.max(z - 1, 5) : 30;
-      setOverlayZ(chosenZ);
-      logger.debug(
-        `[mobile overlay] header detect: ${hdr} headerHeight=${h} overlayZ=${chosenZ}`,
-      );
-    };
-
-    measure();
-    window.addEventListener("resize", measure);
-    const hdr = document.querySelector("header");
-    if (hdr) {
-      const obs = new MutationObserver(measure);
-      obs.observe(hdr, { attributes: true, childList: true, subtree: true });
-      return () => {
-        window.removeEventListener("resize", measure);
-        obs.disconnect();
-      };
-    }
-  }, [isClient]);
+  // Mobile layout (responsive design and panel management)
+  const { isMobile, mobilePanel, setMobilePanel, headerHeight, overlayZ } = useMobileLayout();
 
   // Update compilation panel size based on error content and parser messages
   useEffect(() => {
@@ -860,37 +686,16 @@ export default function ArduinoSimulator() {
     }
   }, [hasCompilationErrors, parserMessages.length, parserPanelDismissed]);
 
-  // Backend availability tracking
-  const [backendReachable, setBackendReachable] = useState(true);
-  const [backendPingError, setBackendPingError] = useState<string | null>(null);
-
-  // Ref to track if backend was ever unreachable (for recovery toast)
-  const wasBackendUnreachableRef = useRef(false);
-
-  // Ref to track previous backend reachable state for detecting transitions
-  const prevBackendReachableRef = useRef(true);
-
-  const { toast } = useToast();
-  // transient screen glitch on compile error
-  const [showErrorGlitch, setShowErrorGlitch] = useState(false);
-  const triggerErrorGlitch = (duration = 600) => {
-    try {
-      setShowErrorGlitch(true);
-      window.setTimeout(() => setShowErrorGlitch(false), duration);
-    } catch {}
-  };
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const {
     isConnected,
-    connectionError,
-    hasEverConnected,
     lastMessage,
     messageQueue,
     consumeMessages,
     sendMessage: sendMessageRaw,
   } = useWebSocket();
   // Mark some hook values as intentionally read to avoid TS unused-local errors
-  void isConnected;
   void lastMessage;
 
   // Wrapper for sendMessage that sends raw to backend
@@ -898,78 +703,14 @@ export default function ArduinoSimulator() {
     sendMessageRaw(message);
   }, [sendMessageRaw]);
 
-  // Backend / websocket reachability notifications
-  useEffect(() => {
-    if (connectionError) {
-      toast({
-        title: "Backend unreachable",
-        description: connectionError,
-        variant: "destructive",
-      });
-    } else if (!isConnected && hasEverConnected) {
-      toast({
-        title: "Connection lost",
-        description: "Trying to re-establish backend connection...",
-        variant: "destructive",
-      });
-    }
-  }, [connectionError, isConnected, hasEverConnected, toast]);
-
-  // Lightweight backend ping every second
-  useEffect(() => {
-    let cancelled = false;
-
-    const ping = async () => {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 800);
-      try {
-        const res = await fetch("/api/health", {
-          method: "GET",
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        if (!cancelled) {
-          setBackendReachable(true);
-          setBackendPingError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setBackendReachable(false);
-          setBackendPingError((err as Error)?.message || "Health check failed");
-        }
-      } finally {
-        clearTimeout(timeout);
-      }
-    };
-
-    const interval = setInterval(ping, 1000);
-    ping();
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
-
-  // Show toast when HTTP backend becomes unreachable or recovers
-  useEffect(() => {
-    if (!backendReachable) {
-      wasBackendUnreachableRef.current = true;
-      toast({
-        title: "Backend unreachable",
-        description: backendPingError || "Could not reach API server.",
-        variant: "destructive",
-      });
-    } else if (backendReachable && wasBackendUnreachableRef.current) {
-      // Backend recovered after being unreachable
-      wasBackendUnreachableRef.current = false;
-      toast({
-        title: "Backend reachable again",
-        description: "Connection restored.",
-      });
-    }
-  }, [backendReachable, backendPingError, toast]);
+  // Backend health check and recovery
+  const {
+    backendReachable,
+    showErrorGlitch,
+    ensureBackendConnected,
+    isBackendUnreachableError,
+    triggerErrorGlitch,
+  } = useBackendHealth(queryClient);
 
   // Auto-scroll debug console to latest message
   useEffect(() => {
@@ -980,31 +721,6 @@ export default function ArduinoSimulator() {
     }
   }, [debugMessages, activeOutputTab]);
 
-  const ensureBackendConnected = (actionLabel: string) => {
-    if (!backendReachable || !isConnected) {
-      toast({
-        title: "Backend unreachable",
-        description:
-          backendPingError ||
-          connectionError ||
-          `${actionLabel} failed because the backend is not reachable. Please check the server or retry in a moment.`,
-        variant: "destructive",
-      });
-      return false;
-    }
-    return true;
-  };
-
-  const isBackendUnreachableError = (error: unknown) => {
-    const message = (error as Error | undefined)?.message || "";
-    return (
-      message.includes("Failed to fetch") ||
-      message.includes("NetworkError") ||
-      message.includes("ERR_CONNECTION") ||
-      message.includes("Network request failed")
-    );
-  };
-
   // Fetch default sketch
   const { data: sketches } = useQuery<Sketch[]>({
     queryKey: ["/api/sketches"],
@@ -1012,21 +728,6 @@ export default function ArduinoSimulator() {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     enabled: backendReachable, // Only query if backend is reachable
   });
-
-  // Refetch sketches when backend becomes reachable again (false -> true transition)
-  useEffect(() => {
-    const wasUnreachable = !prevBackendReachableRef.current;
-    const isNowReachable = backendReachable;
-
-    // Update the ref for next check
-    prevBackendReachableRef.current = backendReachable;
-
-    if (wasUnreachable && isNowReachable) {
-      // Backend just transitioned from unreachable to reachable
-      logger.info("[Backend] Recovered, refetching queries...");
-      queryClient.refetchQueries({ queryKey: ["/api/sketches"] });
-    }
-  }, [backendReachable, queryClient]);
 
   // Upload mutation (used by Compile → Upload)
   const uploadMutation = useMutation({
@@ -2806,8 +2507,8 @@ export default function ArduinoSimulator() {
   };
 
   const handleClearSerialOutput = useCallback(() => {
-    setSerialOutput([]);
-  }, []);
+    clearSerialOutput();
+  }, [clearSerialOutput]);
 
   const getStatusInfo = () => {
     switch (compilationStatus) {
@@ -3704,7 +3405,7 @@ export default function ArduinoSimulator() {
         ) : (
           <div className="h-full relative">
             {/* Render tab bar in a portal so it's fixed to the viewport regardless of ancestor transforms */}
-            {isClient &&
+            {typeof window !== "undefined" &&
               createPortal(
                 <div
                   className="fixed inset-0 pointer-events-none"
