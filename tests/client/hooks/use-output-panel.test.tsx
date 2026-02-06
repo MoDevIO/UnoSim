@@ -523,9 +523,8 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle localStorage errors gracefully when persisting showCompilationOutput", () => {
-    // Replace localStorage with one that throws on setItem
-    const originalSetItem = localStorage.setItem;
-    localStorage.setItem = vi.fn(() => {
+    // Spy on window.localStorage.setItem and make it throw
+    const setItemSpy = vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
       throw new Error("localStorage unavailable");
     });
 
@@ -541,16 +540,15 @@ describe("useOutputPanel", () => {
     });
 
     // No error should propagate - hook has try-catch
-    expect(localStorage.setItem).toHaveBeenCalled();
+    expect(setItemSpy).toHaveBeenCalled();
     
     // Restore
-    localStorage.setItem = originalSetItem;
+    setItemSpy.mockRestore();
   });
 
   it("should handle localStorage errors in showCompileOutputChange event listener", () => {
-    // Replace localStorage with one that throws on setItem
-    const originalSetItem = localStorage.setItem;
-    localStorage.setItem = vi.fn(() => {
+    // Spy on window.localStorage.setItem and make it throw
+    const setItemSpy = vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
       throw new Error("localStorage unavailable");
     });
 
@@ -564,10 +562,10 @@ describe("useOutputPanel", () => {
     });
 
     // Should not throw - event handler has try-catch
-    expect(localStorage.setItem).toHaveBeenCalled();
+    expect(setItemSpy).toHaveBeenCalled();
     
     // Restore
-    localStorage.setItem = originalSetItem;
+    setItemSpy.mockRestore();
   });
 
   it("should auto-minimize panel on successful compilation with no errors", () => {
