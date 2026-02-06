@@ -154,4 +154,478 @@ describe("useCompilation", () => {
     );
     expect(apiRequest).not.toHaveBeenCalled();
   });
+
+  it("handles compile failure and shows error", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: false,
+        errors: "Compilation error",
+        parserMessages: [{ type: "error", message: "Syntax error" }],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(result.current.lastCompilationResult).toBe("error");
+    });
+
+    expect(result.current.cliOutput).toBe("Compilation error");
+    expect(result.current.hasCompilationErrors).toBe(true);
+    expect(params.triggerErrorGlitch).toHaveBeenCalled();
+    expect(params.setParserMessages).toHaveBeenCalledWith([
+      { type: "error", message: "Syntax error" },
+    ]);
+    expect(params.setParserPanelDismissed).toHaveBeenCalledWith(false);
+  });
+
+  it("handles backend unreachable during compile", async () => {
+    const params = buildParams();
+    params.isBackendUnreachableError.mockReturnValue(true);
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockRejectedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockRejectedValue(new Error("Network error"));
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(params.isBackendUnreachableError).toHaveBeenCalled();
+    });
+
+    expect(params.toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Backend unreachable",
+        variant: "destructive",
+      }),
+    );
+  });
+
+  it("compiles with multiple tabs as headers", async () => {
+    const params = buildParams();
+    params.tabs = [
+      { id: "tab-1", name: "sketch.ino", content: "main code" },
+      { id: "tab-2", name: "header1.h", content: "header 1" },
+      { id: "tab-3", name: "header2.h", content: "header 2" },
+    ];
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "OK",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalled();
+    });
+
+    const callArgs = (apiRequest as any).mock.calls[0][2];
+    expect(callArgs.headers).toHaveLength(2);
+    expect(callArgs.headers[0]).toEqual({
+      name: "header1.h",
+      content: "header 1",
+    });
+    expect(callArgs.headers[1]).toEqual({
+      name: "header2.h",
+      content: "header 2",
+    });
+  });
+
+  it("handleCompileAndStart starts simulation on success", async () => {
+    vi.useFakeTimers();
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "Compiled successfully",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    await waitFor(() => {
+      expect(params.startSimulation).toHaveBeenCalled();
+    });
+
+    expect(result.current.compilationStatus).toBe("success");
+    expect(params.setHasCompiledOnce).toHaveBeenCalledWith(true);
+    expect(params.setIsModified).toHaveBeenCalledWith(false);
+
+    vi.useRealTimers();
+  });
+
+  it("handleCompileAndStart does not start simulation on error", async () => {
+    vi.useFakeTimers();
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: false,
+        errors: "Compilation failed",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    await waitFor(() => {
+      expect(result.current.compilationStatus).toBe("error");
+    });
+
+    expect(params.startSimulation).not.toHaveBeenCalled();
+    expect(params.toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Compilation Completed with Errors",
+        variant: "destructive",
+      }),
+    );
+
+    vi.useRealTimers();
+  });
+
+  it("checks backend connection before compiling", () => {
+    const params = buildParams();
+    params.ensureBackendConnected.mockReturnValue(false);
+    const wrapper = createWrapper();
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    expect(params.ensureBackendConnected).toHaveBeenCalledWith(
+      "Simulation starten",
+    );
+    expect(apiRequest).not.toHaveBeenCalled();
+  });
+
+  it("resets pin UI and clears outputs before compiling", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "OK",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(params.resetPinUI).toHaveBeenCalled();
+    });
+
+    expect(params.setSerialOutput).toHaveBeenCalledWith([]);
+    expect(params.setParserMessages).toHaveBeenCalledWith([]);
+  });
+
+  it("adds debug messages during compilation", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "OK",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(params.addDebugMessage).toHaveBeenCalled();
+    });
+
+    expect(params.addDebugMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "frontend",
+        type: "compile_request",
+      }),
+    );
+  });
+
+  it("calls compileMutation.mutate when handleCompile is invoked", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "OK",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith(
+        "POST",
+        "/api/compile",
+        expect.objectContaining({ code: expect.any(String) }),
+      );
+    });
+  });
+
+  it("handles network error by showing toast", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockRejectedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockRejectedValue(new Error("Network error"));
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    // Wait for mutation to process error and show toast
+    await waitFor(
+      () => {
+        expect(params.toast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            variant: "destructive",
+          }),
+        );
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  it("getMainSketchCode gets value from editor when available", async () => {
+    const params = buildParams();
+    params.editorRef.current = { getValue: () => "editor code" };
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "OK",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalled();
+    });
+
+    const callArgs = (apiRequest as any).mock.calls[0][2];
+    expect(callArgs.code).toBe("editor code");
+  });
+
+  it("getMainSketchCode falls back to first tab content", async () => {
+    const params = buildParams();
+    params.editorRef.current = null;
+    params.tabs = [{ id: "tab-1", name: "sketch.ino", content: "tab code" }];
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "OK",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalled();
+    });
+
+    const callArgs = (apiRequest as any).mock.calls[0][2];
+    expect(callArgs.code).toBe("tab code");
+  });
+
+  it("shows toast notification on successful compilation", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "Compiled successfully",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(params.toast).toHaveBeenCalled();
+    });
+
+    expect(params.toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Arduino-CLI Compilation succeeded",
+        description: "Your sketch has been compiled successfully",
+      }),
+    );
+  });
+
+  it("shows toast notification on failed compilation", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: false,
+        errors: "Compilation failed",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(params.toast).toHaveBeenCalled();
+    });
+
+    expect(params.toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Arduino-CLI Compilation failed",
+        description: "There were errors in your sketch",
+        variant: "destructive",
+      }),
+    );
+  });
 });
