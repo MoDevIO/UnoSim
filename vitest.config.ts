@@ -27,7 +27,9 @@ export default defineConfig({
       'e2e/**',
     ],
     coverage: {
-      reporter: ['text', 'json', 'html'],
+      provider: 'v8',
+      reporter: ['text', 'json', 'html', 'lcov'],
+      reportBase: 'coverage',
     },
   },
 });
