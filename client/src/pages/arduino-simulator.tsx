@@ -9,7 +9,7 @@ import {
   Suspense,
 } from "react";
 import { createPortal } from "react-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Cpu,
   Terminal,
@@ -38,6 +38,9 @@ import { PinMonitor } from "@/components/features/pin-monitor";
 import { AppHeader } from "@/components/features/app-header";
 import { SimCockpit } from "@/components/features/sim-cockpit";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { useCompilation } from "@/hooks/use-compilation";
+import { useSimulationControls } from "@/hooks/use-simulation-controls";
+import { usePinState } from "@/hooks/use-pin-state";
 import { useToast } from "@/hooks/use-toast";
 import { useBackendHealth } from "@/hooks/use-backend-health";
 import { useMobileLayout } from "@/hooks/use-mobile-layout";
@@ -47,7 +50,6 @@ import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
-import { apiRequest } from "@/lib/queryClient";
 import { buildGccCompilationErrorState } from "@/lib/compilation-error-state";
 import {
   ResizablePanelGroup,
@@ -84,7 +86,6 @@ const logger = new Logger("ArduinoSimulator");
 export default function ArduinoSimulator() {
   const [currentSketch, setCurrentSketch] = useState<Sketch | null>(null);
   const [code, setCode] = useState("");
-  const [cliOutput, setCliOutput] = useState("");
   const editorRef = useRef<{ getValue: () => string } | null>(null);
 
   // Sketch tabs management
@@ -123,19 +124,6 @@ export default function ArduinoSimulator() {
     return pins;
   });
 
-  const [compilationStatus, setCompilationStatus] = useState<
-    "ready" | "compiling" | "success" | "error"
-  >("ready");
-  const [arduinoCliStatus, setArduinoCliStatus] = useState<
-    "idle" | "compiling" | "success" | "error"
-  >("idle");
-  const [gccStatus, setGccStatus] = useState<
-    "idle" | "compiling" | "success" | "error"
-  >("idle");
-  const [hasCompilationErrors, setHasCompilationErrors] = useState(false);
-  const [lastCompilationResult, setLastCompilationResult] = useState<
-    "success" | "error" | null
-  >(null);
   const [activeOutputTab, setActiveOutputTab] = useState<
     "compiler" | "messages" | "registry" | "debug"
   >("compiler");
@@ -149,10 +137,6 @@ export default function ArduinoSimulator() {
       }
     },
   );
-  const [simulationStatus, setSimulationStatus] = useState<
-    "running" | "stopped" | "paused"
-  >("stopped");
-  const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   const [isModified, setIsModified] = useState(false);
 
   const {
@@ -162,51 +146,21 @@ export default function ArduinoSimulator() {
     enqueuePinEvent,
     batchStats,
   } = useSimulationStore();
+
+  // Pin state management via hook
+  const {
+    analogPinsUsed,
+    setAnalogPinsUsed,
+    detectedPinModes,
+    setDetectedPinModes,
+    pendingPinConflicts,
+    setPendingPinConflicts,
+    pinMonitorVisible,
+    resetPinUI,
+    pinToNumber,
+  } = usePinState({ resetPinStates });
+
   // Serial view mode state handled by useSerialIO
-  // Analog pins detected in the code that need sliders (internal pin numbers 14..19)
-  const [analogPinsUsed, setAnalogPinsUsed] = useState<number[]>([]);
-  // Detected explicit pinMode(...) declarations found during parsing.
-  // We store modes for pins so that we can apply them when the simulation starts.
-  const [detectedPinModes, setDetectedPinModes] = useState<
-    Record<number, "INPUT" | "OUTPUT" | "INPUT_PULLUP">
-  >({});
-  // Pins that have a detected pinMode(...) declaration which conflicts with analogRead usage
-  const [pendingPinConflicts, setPendingPinConflicts] = useState<number[]>([]);
-
-  // Centralized helper to reset UI pin-related state. Pass { keepDetected: true }
-  // to preserve detected pinMode declarations and pending conflicts when desired.
-  const resetPinUI = useCallback((opts?: { keepDetected?: boolean }) => {
-    resetPinStates();
-    // Only clear detected/derived data when keepDetected is not requested.
-    if (!opts?.keepDetected) {
-      setAnalogPinsUsed([]);
-      setDetectedPinModes({});
-      setPendingPinConflicts([]);
-    }
-  }, []);
-
-  // Helper function to convert pin strings to numbers (A0-A5 → 14-19, digital → as-is)
-  const pinToNumber = (pinStr: string): number | null => {
-    if (/^\d+$/.test(pinStr)) {
-      return parseInt(pinStr, 10);
-    }
-    const aMatch = pinStr.match(/^A(\d+)$/i);
-    if (aMatch) {
-      const idx = parseInt(aMatch[1], 10);
-      if (idx >= 0 && idx <= 5) return 14 + idx;
-    }
-    return null;
-  };
-
-  // Clear all outputs and messages
-  const clearOutputs = useCallback(() => {
-    setCliOutput("");
-    setSerialOutput([]);
-    setParserMessages([]);
-  }, []);
-
-  // Simulation timeout setting (in seconds)
-  const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
 
   // Selected board and baud rate (moved to Tools menu)
   const [board, _setBoard] = useState<string>("Arduino UNO");
@@ -231,52 +185,6 @@ export default function ArduinoSimulator() {
     addDebugMessage,
   } = useDebugConsole(activeOutputTab);
   void _setDebugMode; // Mark as intentionally unused (managed by hook)
-
-  // Pin Monitor visibility state
-  const [pinMonitorVisible, setPinMonitorVisible] = useState<boolean>(() => {
-    try {
-      return window.localStorage.getItem("unoPinMonitorVisible") === "1";
-    } catch {
-      return false; // Hidden by default
-    }
-  });
-
-  // Listen for pin monitor visibility change events from settings dialog
-  useEffect(() => {
-    const handler = (ev: any) => {
-      try {
-        const newValue = Boolean(ev?.detail?.value);
-        setPinMonitorVisible(newValue);
-      } catch {
-        // ignore
-      }
-    };
-    document.addEventListener("pinMonitorVisibleChange", handler as EventListener);
-    return () =>
-      document.removeEventListener("pinMonitorVisibleChange", handler as EventListener);
-  }, []);
-
-  // Output panel sizing and management
-  const {
-    outputPanelRef,
-    outputTabsHeaderRef,
-    compilationPanelSize,
-    setCompilationPanelSize,
-    outputPanelMinPercent,
-    outputPanelManuallyResizedRef,
-    openOutputPanel,
-  } = useOutputPanel(
-    hasCompilationErrors,
-    cliOutput,
-    parserMessages,
-    lastCompilationResult,
-    parserMessagesContainerRef,
-    showCompilationOutput,
-    setShowCompilationOutput,
-    setParserPanelDismissed,
-    setActiveOutputTab,
-    code,
-  );
 
   // Helper to download all tabs (used by File -> Download All Files)
   const downloadAllFiles = async () => {
@@ -363,15 +271,6 @@ export default function ArduinoSimulator() {
   // Mobile layout (responsive design and panel management)
   const { isMobile, mobilePanel, setMobilePanel, headerHeight, overlayZ } = useMobileLayout();
 
-  // Auto-switch output tab based on errors and messages
-  useEffect(() => {
-    if (hasCompilationErrors) {
-      setActiveOutputTab("compiler");
-    } else if (parserMessages.length > 0 && !parserPanelDismissed) {
-      setActiveOutputTab("messages");
-    }
-  }, [hasCompilationErrors, parserMessages.length, parserPanelDismissed]);
-
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const {
@@ -398,6 +297,135 @@ export default function ArduinoSimulator() {
     triggerErrorGlitch,
   } = useBackendHealth(queryClient);
 
+  const startSimulationRef = useRef<(() => void) | null>(null);
+  const startSimulation = useCallback(() => {
+    startSimulationRef.current?.();
+  }, []);
+
+  const setHasCompiledOnceRef = useRef<
+    ((value: boolean | ((prev: boolean) => boolean)) => void) | null
+  >(null);
+  const setHasCompiledOnceProxy = useCallback(
+    (value: boolean | ((prev: boolean) => boolean)) => {
+      setHasCompiledOnceRef.current?.(value);
+    },
+    [],
+  );
+
+  const {
+    compilationStatus,
+    setCompilationStatus,
+    arduinoCliStatus,
+    setArduinoCliStatus,
+    gccStatus,
+    setGccStatus,
+    hasCompilationErrors,
+    setHasCompilationErrors,
+    lastCompilationResult,
+    setLastCompilationResult,
+    cliOutput,
+    setCliOutput,
+    compileMutation,
+    handleCompile,
+    handleCompileAndStart,
+    handleClearCompilationOutput,
+    clearOutputs,
+  } = useCompilation({
+    editorRef,
+    tabs,
+    activeTabId,
+    code,
+    setSerialOutput,
+    setParserMessages,
+    setParserPanelDismissed,
+    resetPinUI,
+    setIoRegistry,
+    setHasCompiledOnce: setHasCompiledOnceProxy,
+    setIsModified,
+    setDebugMessages,
+    addDebugMessage: (params) =>
+      addDebugMessage(
+        params.source,
+        params.type,
+        params.data,
+        params.protocol,
+      ),
+    ensureBackendConnected,
+    isBackendUnreachableError,
+    triggerErrorGlitch,
+    toast,
+    startSimulation,
+  });
+
+  const {
+    simulationStatus,
+    setSimulationStatus,
+    setHasCompiledOnce,
+    simulationTimeout,
+    setSimulationTimeout,
+    startMutation,
+    stopMutation,
+    pauseMutation,
+    resumeMutation,
+    handleStop,
+    handlePause,
+    handleResume,
+    handleReset,
+  } = useSimulationControls({
+    ensureBackendConnected,
+    sendMessage,
+    resetPinUI,
+    clearOutputs,
+    addDebugMessage: (params) =>
+      addDebugMessage(
+        params.source,
+        params.type,
+        params.data,
+        params.protocol,
+      ),
+    serialEventQueueRef,
+    toast,
+    pendingPinConflicts,
+    setPendingPinConflicts,
+    setCliOutput,
+    isModified,
+    handleCompileAndStart,
+    startSimulationRef,
+  });
+
+  setHasCompiledOnceRef.current = setHasCompiledOnce;
+
+  // Output panel sizing and management
+  const {
+    outputPanelRef,
+    outputTabsHeaderRef,
+    compilationPanelSize,
+    setCompilationPanelSize,
+    outputPanelMinPercent,
+    outputPanelManuallyResizedRef,
+    openOutputPanel,
+  } = useOutputPanel(
+    hasCompilationErrors,
+    cliOutput,
+    parserMessages,
+    lastCompilationResult,
+    parserMessagesContainerRef,
+    showCompilationOutput,
+    setShowCompilationOutput,
+    setParserPanelDismissed,
+    setActiveOutputTab,
+    code,
+  );
+
+  // Auto-switch output tab based on errors and messages
+  useEffect(() => {
+    if (hasCompilationErrors) {
+      setActiveOutputTab("compiler");
+    } else if (parserMessages.length > 0 && !parserPanelDismissed) {
+      setActiveOutputTab("messages");
+    }
+  }, [hasCompilationErrors, parserMessages.length, parserPanelDismissed]);
+
   // Auto-scroll debug console to latest message
   useEffect(() => {
     if (activeOutputTab === "debug" && debugMessagesContainerRef.current) {
@@ -416,349 +444,8 @@ export default function ArduinoSimulator() {
   });
 
   // Upload mutation (used by Compile → Upload)
-  const uploadMutation = useMutation({
-    mutationFn: async (payload: {
-      code: string;
-      headers?: Array<{ name: string; content: string }>;
-    }) => {
-      // Log the upload request to debug console
-      addDebugMessage(
-        "frontend",
-        "upload_request",
-        JSON.stringify({ endpoint: "POST /api/upload", codeLength: payload.code.length }, null, 2),
-        "http",
-      );
-      // Attempt to call a backend upload endpoint; backend can implement this to actually flash hardware
-      const response = await apiRequest("POST", "/api/upload", payload);
-      // Be tolerant: some backends may return plain text (204 or HTML). Try to parse JSON, otherwise return text.
-      const ct = (response.headers.get("content-type") || "").toLowerCase();
-      if (ct.includes("application/json")) {
-        try {
-          return await response.json();
-        } catch (err) {
-          // Malformed JSON — return raw text instead
-          const txt = await response.text();
-          return { success: response.ok, raw: txt } as any;
-        }
-      }
-      const txt = await response.text();
-      return { success: response.ok, raw: txt } as any;
-    },
-    onSuccess: (data) => {
-      // data may be an object with shape { success, ... } or { raw: text }
-      if (data && (data as any).success) {
-        toast({
-          title: "Upload started",
-          description: "Upload initiated to connected device.",
-        });
-      } else if (data && typeof (data as any).raw === "string") {
-        const txt = String((data as any).raw || "").trim();
-        if (txt.length === 0) {
-          // Some backends return 204 No Content or an empty response — treat as success
-          toast({
-            title: "Upload started",
-            description: "Upload initiated to connected device.",
-          });
-        } else {
-          toast({ title: "Upload response", description: txt.slice(0, 200) });
-        }
-      } else {
-        toast({
-          title: "Upload failed",
-          description:
-            data && (data as any).error
-              ? (data as any).error
-              : "Upload did not succeed.",
-          variant: "destructive",
-        });
-      }
-    },
-
-    onError: (err) => {
-      const backendDown = isBackendUnreachableError(err);
-      toast({
-        title: backendDown ? "Backend unreachable" : "Upload failed",
-        description: backendDown
-          ? "API server unreachable. Please check the backend or reload."
-          : (err as Error)?.message || "Upload failed",
-        variant: "destructive",
-      });
-    },
-    onSettled: () => {
-      // Clear the flag after any attempt
-      try {
-        doUploadOnCompileSuccessRef.current = false;
-        lastCompilePayloadRef.current = null;
-      } catch {}
-    },
-  });
-
-  // Ref to request upload after successful compile and to store last compile payload
-  const doUploadOnCompileSuccessRef = useRef(false);
-  const lastCompilePayloadRef = useRef<{
-    code: string;
-    headers?: Array<{ name: string; content: string }>;
-  } | null>(null);
   // Ref to skip stopping simulation when a suggestion is inserted
   const skipSimStopRef = useRef(false);
-
-  // Compilation mutation
-  const compileMutation = useMutation({
-    mutationFn: async (payload: {
-      code: string;
-      headers?: Array<{ name: string; content: string }>;
-    }) => {
-      setArduinoCliStatus("compiling");
-      setLastCompilationResult(null);
-      // Log the request to debug console (don't clear - let compile messages stack)
-      addDebugMessage(
-        "frontend",
-        "compile_request",
-        JSON.stringify({ endpoint: "POST /api/compile", codeLength: payload.code.length }, null, 2),
-        "http",
-      );
-      const response = await apiRequest("POST", "/api/compile", payload);
-      const ct = (response.headers.get("content-type") || "").toLowerCase();
-      if (ct.includes("application/json")) {
-        try {
-          return await response.json();
-        } catch (err) {
-          const txt = await response.text();
-          return { success: false, errors: txt, raw: txt } as any;
-        }
-      }
-      const txt = await response.text();
-      return { success: false, errors: txt, raw: txt } as any;
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        setArduinoCliStatus("success");
-        setHasCompilationErrors(false);
-        setLastCompilationResult("success");
-        // REPLACE output, don't append
-        setCliOutput(data.output || "✓ Arduino-CLI Compilation succeeded.");
-        // Log to debug console
-        addDebugMessage(
-          "server",
-          "compilation_status",
-          JSON.stringify({ gccStatus: "success" }, null, 2),
-          "http",
-        );
-      } else {
-        setArduinoCliStatus("error");
-        setHasCompilationErrors(true);
-        setLastCompilationResult("error");
-        // trigger global red glitch to indicate compile error
-        triggerErrorGlitch();
-        // REPLACE output, don't append
-        setCliOutput(data.errors || "✗ Arduino-CLI Compilation failed.");
-        // Log to debug console
-        addDebugMessage(
-          "server",
-          "compilation_error",
-          JSON.stringify(
-            { type: "compilation_error", data: data.errors },
-            null,
-            2,
-          ),
-          "http",
-        );
-        addDebugMessage(
-          "server",
-          "compilation_status",
-          JSON.stringify({ gccStatus: "error" }, null, 2),
-          "http",
-        );
-      }
-
-      // Update parser messages from compile response
-      if (data.parserMessages && Array.isArray(data.parserMessages)) {
-        setParserMessages(data.parserMessages);
-        // Auto-show parser panel if there are new messages (reset dismissed state)
-        if (data.parserMessages.length > 0) {
-          setParserPanelDismissed(false);
-        }
-      }
-
-      toast({
-        title: data.success
-          ? "Arduino-CLI Compilation succeeded"
-          : "Arduino-CLI Compilation failed",
-        description: data.success
-          ? "Your sketch has been compiled successfully"
-          : "There were errors in your sketch",
-        variant: data.success ? undefined : "destructive",
-      });
-
-      // If the user requested a compile → upload, perform upload after successful compilation
-      try {
-        if (doUploadOnCompileSuccessRef.current) {
-          doUploadOnCompileSuccessRef.current = false;
-          if (data.success) {
-            const payload = lastCompilePayloadRef.current;
-            if (payload) {
-              logger.info(
-                `[CLIENT] Uploading compiled artifact... ${JSON.stringify(payload)}`,
-              );
-              uploadMutation.mutate(payload);
-            } else {
-              toast({
-                title: "Upload failed",
-                description: "No compiled artifact available to upload.",
-                variant: "destructive",
-              });
-            }
-          } else {
-            toast({
-              title: "Upload canceled",
-              description: "Compilation failed — upload canceled.",
-              variant: "destructive",
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error handling post-compile upload", err);
-      }
-    },
-    onError: (error) => {
-      setArduinoCliStatus("error");
-      // network/backend or unexpected compile error — show glitch as well
-      triggerErrorGlitch();
-      const backendDown = isBackendUnreachableError(error);
-      toast({
-        title: backendDown
-          ? "Backend unreachable"
-          : "Compilation with Arduino-CLI Failed",
-        description: backendDown
-          ? "API server unreachable. Please check the backend or reload."
-          : "There were errors in your sketch",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Stop simulation mutation
-  const stopMutation = useMutation({
-    mutationFn: async () => {
-      addDebugMessage(
-        "frontend",
-        "stop_simulation",
-        JSON.stringify({ type: "stop_simulation" }, null, 2),
-        "websocket",
-      );
-      sendMessage({ type: "stop_simulation" });
-      return { success: true };
-    },
-    onSuccess: () => {
-      setSimulationStatus("stopped");
-      // Clear serial event queue to prevent buffered characters from appearing after stop
-      serialEventQueueRef.current = [];
-      // Reset UI pin state on stop but preserve detected pinMode declarations
-      resetPinUI({ keepDetected: true });
-    },
-  });
-
-  // Pause simulation mutation
-  const pauseMutation = useMutation({
-    mutationFn: async () => {
-      addDebugMessage(
-        "frontend",
-        "pause_simulation",
-        JSON.stringify({ type: "pause_simulation" }, null, 2),
-        "websocket",
-      );
-      sendMessage({ type: "pause_simulation" });
-      return { success: true };
-    },
-    onSuccess: () => {
-      setSimulationStatus("paused");
-    },
-    onError: () => {
-      toast({
-        title: "Pause failed",
-        description: "Could not pause simulation",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Resume simulation mutation
-  const resumeMutation = useMutation({
-    mutationFn: async () => {
-      addDebugMessage(
-        "frontend",
-        "resume_simulation",
-        JSON.stringify({ type: "resume_simulation" }, null, 2),
-        "websocket",
-      );
-      sendMessage({ type: "resume_simulation" });
-      return { success: true };
-    },
-    onSuccess: () => {
-      setSimulationStatus("running");
-    },
-    onError: () => {
-      toast({
-        title: "Resume failed",
-        description: "Could not resume simulation",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Start simulation mutation
-  const startMutation = useMutation({
-    mutationFn: async () => {
-      // Reset UI before starting a fresh simulation but preserve detected pinMode info
-      resetPinUI({ keepDetected: true });
-      // Log start_simulation to debug console
-      addDebugMessage(
-        "frontend",
-        "start_simulation",
-        JSON.stringify({ type: "start_simulation", timeout: simulationTimeout }, null, 2),
-        "websocket",
-      );
-      sendMessage({ type: "start_simulation", timeout: simulationTimeout });
-      return { success: true };
-    },
-    onSuccess: () => {
-      setSimulationStatus("running");
-      toast({
-        title: "Simulation Started",
-        description: "Arduino simulation is now running",
-      });
-      // If there are any pending pin conflicts detected during parsing,
-      // append a warning to the compilation output so the user sees it in
-      // the Compiler panel after starting the simulation.
-      try {
-        if (pendingPinConflicts && pendingPinConflicts.length > 0) {
-          const names = pendingPinConflicts
-            .map((p) => (p >= 14 && p <= 19 ? `A${p - 14}` : `${p}`))
-            .join(", ");
-          setCliOutput(
-            (prev) =>
-              (prev ? prev + "\n\n" : "") +
-              `⚠️ Pin usage conflict: Pins used as digital via pinMode(...) and also read with analogRead(): ${names}. This may be unintended.`,
-          );
-          // Clear pending after showing once
-          setPendingPinConflicts([]);
-        }
-      } catch {}
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Start Failed",
-        description: error.message || "Could not start simulation",
-        variant: "destructive",
-      });
-      if (isModified && hasCompiledOnce) {
-        toast({
-          title: "Code Modified",
-          description: "Compile to apply your latest changes",
-        });
-      }
-    },
-  });
 
   useEffect(() => {
     // Reset status when code actually changes
@@ -1887,88 +1574,6 @@ export default function ArduinoSimulator() {
     );
   };
 
-  const handleCompile = () => {
-    clearOutputs();
-    // Reset all pin-related UI state (including detectedPinModes)
-    resetPinUI();
-    // Reset IO-Registry to initial state with all pins
-    const pins: IOPinRecord[] = [];
-    for (let i = 0; i <= 13; i++) {
-      pins.push({ pin: String(i), defined: false, usedAt: [] });
-    }
-    for (let i = 0; i <= 5; i++) {
-      pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
-    }
-    setIoRegistry(pins);
-
-    // Get the actual main sketch code - use editor ref if available,
-    // otherwise use state
-    let mainSketchCode: string;
-    if (activeTabId === tabs[0]?.id && editorRef.current) {
-      // If the main tab is active, get the latest code from the editor
-      mainSketchCode = editorRef.current.getValue();
-    } else {
-      // Otherwise use the stored content
-      mainSketchCode = tabs[0]?.content || code;
-    }
-
-    // Prepare header files (all tabs except the first)
-    const headers = tabs.slice(1).map((tab) => ({
-      name: tab.name,
-      content: tab.content,
-    }));
-    logger.info(`[CLIENT] Compiling with ${headers.length} headers`);
-    // Store payload so we can upload it after compile if requested
-    lastCompilePayloadRef.current = { code: mainSketchCode, headers };
-    compileMutation.mutate({ code: mainSketchCode, headers });
-  };
-
-  const handleStop = () => {
-    if (!ensureBackendConnected("Simulation stoppen")) return;
-    stopMutation.mutate();
-  };
-
-  const handleStart = () => {
-    if (!ensureBackendConnected("Simulation starten")) return;
-    startMutation.mutate();
-  };
-
-  const handlePause = () => {
-    if (!ensureBackendConnected("Simulation pausieren")) return;
-    pauseMutation.mutate();
-  };
-
-  const handleResume = () => {
-    if (!ensureBackendConnected("Simulation fortsetzen")) return;
-    resumeMutation.mutate();
-  };
-  // mark as intentionally present
-  void handleStart;
-
-  // Reset simulation (stop, recompile, and restart - like pressing the physical reset button)
-  const handleReset = () => {
-    if (!ensureBackendConnected("Reset simulation")) return;
-    // Stop if running
-    if (simulationStatus === "running") {
-      sendMessage({ type: "stop_simulation" });
-      setSimulationStatus("stopped");
-    }
-    // Clear serial output on reset
-    clearOutputs();
-    // Reset pin states (preserve detected pinMode info)
-    resetPinUI({ keepDetected: true });
-
-    toast({
-      title: "Resetting...",
-      description: "Recompiling and restarting simulation",
-    });
-
-    // Small delay then recompile and start
-    setTimeout(() => {
-      handleCompileAndStart();
-    }, 100);
-  };
-
   // Toggle INPUT pin value (called when user clicks on an INPUT pin square)
   const handlePinToggle = (pin: number, newValue: number) => {
     if (simulationStatus === "stopped") {
@@ -2035,129 +1640,6 @@ export default function ArduinoSimulator() {
     });
   };
 
-  const handleCompileAndStart = () => {
-    if (!ensureBackendConnected("Simulation starten")) return;
-    // Clear all debug messages from previous simulation - do this first!
-    setDebugMessages([]);
-    // Get the actual main sketch code - prioritize editor, then tabs, then state
-    let mainSketchCode: string = "";
-
-    // Try editor first (most up-to-date)
-    if (editorRef.current) {
-      try {
-        mainSketchCode = editorRef.current.getValue();
-      } catch (error) {
-        console.error("[CLIENT] Error getting code from editor:", error);
-        // Fall through to fallbacks
-      }
-    }
-
-    // Fallback to tabs (for header scenario)
-    if (!mainSketchCode && tabs.length > 0 && tabs[0]?.content) {
-      mainSketchCode = tabs[0].content;
-    }
-
-    // Last fallback to state
-    if (!mainSketchCode && code) {
-      mainSketchCode = code;
-    }
-
-    // Validate we have code
-    if (!mainSketchCode || mainSketchCode.trim().length === 0) {
-      toast({
-        title: "No Code",
-        description: "Please write some code before compiling",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Prepare header files (all tabs except the first)
-    const headers = tabs.slice(1).map((tab) => ({
-      name: tab.name,
-      content: tab.content,
-    }));
-    logger.info(`[CLIENT] Compile & Start with ${headers.length} headers`);
-    logger.info(`[CLIENT] Code length: ${mainSketchCode.length} bytes`);
-    logger.info(
-      `[CLIENT] Main code from: ${editorRef.current ? "editor" : tabs[0]?.content ? "tabs" : "state"}`,
-    );
-    logger.info(
-      `[CLIENT] Tabs: ${tabs.map((t) => `${t.name}(${t.content.length}b)`).join(", ")}`,
-    );
-
-    clearOutputs();
-    // Reset all pin-related UI state (including detectedPinModes)
-    resetPinUI();
-    setCompilationStatus("compiling");
-    setArduinoCliStatus("compiling"); // Track HTTP compile request
-
-    compileMutation.mutate(
-      { code: mainSketchCode, headers },
-      {
-        onSuccess: (data) => {
-          logger.info(
-            `[CLIENT] Compile response: ${JSON.stringify(data, null, 2)}`,
-          );
-
-          // Update arduinoCliStatus based on compile result
-          setArduinoCliStatus(data.success ? "success" : "error");
-          // Don't set gccStatus here - it will be set by WebSocket when g++ runs
-
-          // Display compilation output or errors (REPLACE, don't append)
-          if (data.success) {
-            logger.info(`[CLIENT] Compile SUCCESS, output: ${data.output}`);
-            setCliOutput(data.output || "✓ Arduino-CLI Compilation succeeded.");
-          } else {
-            logger.info(`[CLIENT] Compile FAILED, errors: ${data.errors}`);
-            setCliOutput(data.errors || "✗ Arduino-CLI Compilation failed.");
-          }
-
-          // Only start simulation when compilation succeeded
-          if (data?.success) {
-            startMutation.mutate();
-            setCompilationStatus("success");
-            setHasCompiledOnce(true);
-            setIsModified(false);
-
-            // Reset CLI status to idle after a short delay
-            setTimeout(() => {
-              setArduinoCliStatus("idle");
-            }, 2000);
-          } else {
-            // Optional error handling if API response is unclear
-            setCompilationStatus("error");
-            toast({
-              title: "Compilation Completed with Errors",
-              description:
-                "Simulation will not start due to compilation errors.",
-              variant: "destructive",
-            });
-
-            // Reset CLI status to idle after a short delay
-            setTimeout(() => {
-              setArduinoCliStatus("idle");
-            }, 2000);
-          }
-        },
-        onError: () => {
-          setCompilationStatus("error");
-          setArduinoCliStatus("error");
-          toast({
-            title: "Compilation Failed",
-            description: "Simulation will not start due to compilation errors.",
-            variant: "destructive",
-          });
-
-          // Reset CLI status to idle after a short delay
-          setTimeout(() => {
-            setArduinoCliStatus("idle");
-          }, 2000);
-        },
-      },
-    );
-  };
-
   const handleSerialSend = (message: string) => {
     if (!ensureBackendConnected("Serial senden")) return;
 
@@ -2183,12 +1665,6 @@ export default function ArduinoSimulator() {
       type: "serial_input",
       data: message,
     });
-  };
-
-  const handleClearCompilationOutput = () => {
-    setCliOutput("");
-    setLastCompilationResult(null);
-    setParserMessages([]);
   };
 
   const handleClearSerialOutput = useCallback(() => {
