@@ -308,7 +308,15 @@ export function ArduinoBoard({
         const color = getPinColor(pinNumber);
 
         if (frame) {
-          const show = isInput || (usedAsAnalog && isSimulationRunning);
+          // Show frame if:
+          // - Pin is INPUT mode (shows all the time), OR
+          // - Pin is detected as used with analogRead (shows immediately when code is recognized)
+          const show = isInput || usedAsAnalog;
+          if (usedAsAnalog) {
+            logger.debug(
+              `[ArduinoBoard] A${i} (pin ${pinNumber}): detected as analogRead, show=${show}`,
+            );
+          }
           frame.style.display = show ? "block" : "none";
           frame.style.filter = show ? "drop-shadow(0 0 2px #ffff00)" : "none";
           const pinState = pinStates.find((p) => p.pin === pinNumber);

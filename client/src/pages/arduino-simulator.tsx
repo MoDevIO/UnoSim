@@ -1170,6 +1170,12 @@ export default function ArduinoSimulator() {
     }
 
     const arr = Array.from(pins).sort((a, b) => a - b);
+    if (arr.length > 0) {
+      console.log(
+        "[arduino-simulator] Detected analog pins:",
+        arr.map((p) => (p >= 14 && p <= 19 ? `A${p - 14}` : `P${p}`)).join(", "),
+      );
+    }
     setAnalogPinsUsed(arr);
 
     // Do NOT prepopulate `pinStates` for detected analog pins here —

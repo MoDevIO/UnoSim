@@ -62,6 +62,15 @@
     "/^cd /Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe && node -e \"\nconst code = \\\\`int pause;\\\\n\\\\nvoid setup\\(\\) \\{\\\\n\\}\\\\n\\\\nvoid loop\\(\\) \\{\\\\n\\}\\\\`;\nconsole\\.log\\('Testing code:'\\);\nconsole\\.log\\(code\\);\nconsole\\.log\\('---'\\);\n\n// Simple regex test to validate the pattern\nconst varDeclRegex = /\\(int\\|float\\|double\\|bool\\|byte\\|char\\|short\\|long\\|unsigned\\|void\\|const\\|volatile\\|static\\)\\\\\\\\s\\+\\(\\?:\\\\\\\\\\*\\+\\\\\\\\s\\*\\)\\*\\(\\\\\\\\w\\+\\)\\\\\\\\s\\*\\(\\?:\\[=\\\\\\\\\\[\\\\\\\\;\\]\\)/g;\nlet match;\nwhile \\(\\(match = varDeclRegex\\.exec\\(code\\)\\) !== null\\) \\{\n  console\\.log\\('Found variable:', match\\[2\\], 'of type:', match\\[1\\]\\);\n  if \\(match\\[2\\] === 'pause'\\) \\{\n    console\\.log\\('✓ DETECTED: pause is a reserved name!'\\);\n  \\}\n\\}\n\"$/": {
       "approve": true,
       "matchCommandLine": true
-    }
+    },
+    "/^node /tmp/test-regex\\.js$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^node test-regex\\.js$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "uniq": true
   },
 }
