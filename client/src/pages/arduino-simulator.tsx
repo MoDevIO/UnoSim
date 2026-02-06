@@ -44,6 +44,7 @@ import { useMobileLayout } from "@/hooks/use-mobile-layout";
 import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useSketchTabs } from "@/hooks/use-sketch-tabs";
 import { useSerialIO } from "@/hooks/use-serial-io";
+import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import { apiRequest } from "@/lib/queryClient";
@@ -85,9 +86,6 @@ export default function ArduinoSimulator() {
   const [code, setCode] = useState("");
   const [cliOutput, setCliOutput] = useState("");
   const editorRef = useRef<{ getValue: () => string } | null>(null);
-  const outputPanelRef = useRef<any>(null);
-  const outputTabsHeaderRef = useRef<HTMLDivElement | null>(null);
-  const [outputPanelMinPercent, setOutputPanelMinPercent] = useState<number>(3);
 
   // Sketch tabs management
   const { tabs, setTabs, activeTabId, setActiveTabId } = useSketchTabs();
@@ -138,11 +136,6 @@ export default function ArduinoSimulator() {
   const [lastCompilationResult, setLastCompilationResult] = useState<
     "success" | "error" | null
   >(null);
-  const [compilationPanelSize, setCompilationPanelSize] = useState(3);
-  // Track if user manually resized the output panel (disables auto-sizing)
-  const [outputPanelManuallyResized, setOutputPanelManuallyResized] = useState(false);
-  // Ref to always have current value (avoids stale closure in callbacks)
-  const outputPanelManuallyResizedRef = useRef(false);
   const [activeOutputTab, setActiveOutputTab] = useState<
     "compiler" | "messages" | "registry" | "debug"
   >("compiler");
@@ -263,72 +256,27 @@ export default function ArduinoSimulator() {
       document.removeEventListener("pinMonitorVisibleChange", handler as EventListener);
   }, []);
 
-  // Helper function to open the output panel (via double-click on tabs)
-  const openOutputPanel = useCallback((targetTab: "compiler" | "messages" | "registry" | "debug") => {
-    // Mark as manually resized FIRST before showing panel (update both state and ref)
-    outputPanelManuallyResizedRef.current = true;
-    setOutputPanelManuallyResized(true);
-    setShowCompilationOutput(true);
-    setParserPanelDismissed(false);
-    setActiveOutputTab(targetTab);
-    
-    // Resize panel to 50% directly without triggering compilationPanelSize state
-    // This prevents the auto-sizing useEffect from interfering
-    requestAnimationFrame(() => {
-      if (
-        outputPanelRef.current &&
-        typeof outputPanelRef.current.resize === "function"
-      ) {
-        outputPanelRef.current.resize(50);
-        // Update state after to reflect the manual size
-        setCompilationPanelSize(50);
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    const handler = (ev: any) => {
-      try {
-        const newValue = Boolean(ev?.detail?.value);
-        setShowCompilationOutput(newValue);
-        // Reset manual resize flag when toggling panel visibility (update both ref and state)
-        outputPanelManuallyResizedRef.current = false;
-        setOutputPanelManuallyResized(false);
-        // Persist to localStorage
-        try {
-          window.localStorage.setItem(
-            "unoShowCompileOutput",
-            newValue ? "1" : "0",
-          );
-        } catch {
-          // localStorage may be unavailable (private browsing, etc.)
-        }
-      } catch {
-        // ignore
-      }
-    };
-    document.addEventListener(
-      "showCompileOutputChange",
-      handler as EventListener,
-    );
-    return () =>
-      document.removeEventListener(
-        "showCompileOutputChange",
-        handler as EventListener,
-      );
-  }, []);
-
-  // Persist showCompilationOutput state to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        "unoShowCompileOutput",
-        showCompilationOutput ? "1" : "0",
-      );
-    } catch {
-      // localStorage may be unavailable (private browsing, etc.)
-    }
-  }, [showCompilationOutput]);
+  // Output panel sizing and management
+  const {
+    outputPanelRef,
+    outputTabsHeaderRef,
+    compilationPanelSize,
+    setCompilationPanelSize,
+    outputPanelMinPercent,
+    outputPanelManuallyResizedRef,
+    openOutputPanel,
+  } = useOutputPanel(
+    hasCompilationErrors,
+    cliOutput,
+    parserMessages,
+    lastCompilationResult,
+    parserMessagesContainerRef,
+    showCompilationOutput,
+    setShowCompilationOutput,
+    setParserPanelDismissed,
+    setActiveOutputTab,
+    code,
+  );
 
   // Helper to download all tabs (used by File -> Download All Files)
   const downloadAllFiles = async () => {
@@ -414,268 +362,6 @@ export default function ArduinoSimulator() {
   const [serialQueueTrigger, setSerialQueueTrigger] = useState(0);
   // Mobile layout (responsive design and panel management)
   const { isMobile, mobilePanel, setMobilePanel, headerHeight, overlayZ } = useMobileLayout();
-
-  // Update compilation panel size based on error content and parser messages
-  useEffect(() => {
-    // Reset parserPanelDismissed when new errors occur (auto-reopen logic)
-    if (hasCompilationErrors && cliOutput.trim().length > 0) {
-      setParserPanelDismissed(false);
-      setShowCompilationOutput(true);
-
-      // Only auto-size if user hasn't manually resized
-      if (!outputPanelManuallyResized) {
-        // Auto-show and size panel for compiler errors
-        const lines = cliOutput.split("\n").length;
-        const totalChars = cliOutput.length;
-        const HEADER_HEIGHT = 50;
-        const PER_LINE = 20;
-        const PADDING = 60;
-        const AVAILABLE_HEIGHT = 800;
-
-        const lineBasedPx =
-          HEADER_HEIGHT +
-          PADDING +
-          Math.max(lines, Math.ceil(totalChars / 80)) * PER_LINE;
-        const newSize = Math.min(
-          75,
-          Math.max(25, Math.ceil((lineBasedPx / AVAILABLE_HEIGHT) * 100)),
-        );
-
-        setCompilationPanelSize(newSize);
-      }
-    } else if (parserMessages.length > 0 && !hasCompilationErrors) {
-      // Reset dismissal flag and show panel for new parser messages (auto-reopen)
-      setParserPanelDismissed(false);
-      setShowCompilationOutput(true);
-      setActiveOutputTab("messages");
-
-      // Only auto-size if user hasn't manually resized
-      if (!outputPanelManuallyResized) {
-        // Auto-show and size panel for parser messages (spec 3.2)
-        const messageCount = parserMessages.length;
-      const totalMessageLength = parserMessages.reduce(
-        (sum, msg) => sum + (msg.message?.length || 0),
-        0,
-      );
-      const HEADER_HEIGHT = 50;
-      const PER_MESSAGE_BASE = 55;
-      const PADDING = 60;
-      const AVAILABLE_HEIGHT = 800;
-
-      // SSOT formula (based on count + text length)
-      const estimatedPx =
-        HEADER_HEIGHT +
-        PADDING +
-        messageCount * PER_MESSAGE_BASE +
-        Math.ceil(totalMessageLength / 100) * 15;
-      const estimatedPercent = Math.min(
-        75,
-        Math.max(25, Math.ceil((estimatedPx / AVAILABLE_HEIGHT) * 100)),
-      );
-
-      // Measure rendered message container to ensure all containers stay visible
-      const headerEl = outputTabsHeaderRef.current;
-      const headerHeightPx = headerEl
-        ? Math.ceil(headerEl.getBoundingClientRect().height || HEADER_HEIGHT)
-        : HEADER_HEIGHT;
-      let measuredPercent = estimatedPercent;
-
-      try {
-        const panelNode = headerEl?.closest("[data-panel]") as
-          | HTMLElement
-          | null;
-        const groupNode = panelNode?.parentElement as HTMLElement | null;
-        const groupHeightPx = Math.ceil(
-          groupNode?.getBoundingClientRect().height || 0,
-        );
-        const messagesHeightPx = parserMessagesContainerRef.current
-          ? Math.ceil(parserMessagesContainerRef.current.scrollHeight)
-          : 0;
-
-        if (groupHeightPx > 0) {
-          const measuredPx = headerHeightPx + messagesHeightPx;
-          measuredPercent = Math.min(
-            75,
-            Math.max(25, Math.ceil((measuredPx / groupHeightPx) * 100)),
-          );
-        }
-      } catch {
-        // Fallback to estimatedPercent
-      }
-
-        const newSize = Math.min(75, Math.max(25, Math.max(estimatedPercent, measuredPercent)));
-        setCompilationPanelSize(newSize);
-      }
-    } else if (
-      lastCompilationResult === "success" &&
-      !hasCompilationErrors &&
-      parserMessages.length === 0
-    ) {
-      // Only auto-minimize if user hasn't manually resized
-      if (!outputPanelManuallyResized) {
-        // Minimize panel when no errors and no messages (keep visible at 3%)
-        setCompilationPanelSize(3);
-      }
-    }
-  }, [
-    cliOutput,
-    hasCompilationErrors,
-    lastCompilationResult,
-    parserMessages.length,
-    outputPanelManuallyResized,
-  ]);
-
-  // Apply panel size imperatively to ResizablePanel using absolute pixel floor
-  const enforceOutputPanelFloor = useCallback(
-    (forceResize: boolean = false) => {
-      if (!showCompilationOutput) return;
-      // ALWAYS skip auto-sizing if user manually resized the panel - use REF for current value (avoids stale closure)
-      if (outputPanelManuallyResizedRef.current) return;
-      const headerEl = outputTabsHeaderRef.current;
-      const panelHandle = outputPanelRef.current;
-      if (!headerEl || !panelHandle) return;
-
-      const panelNode = headerEl.closest("[data-panel]") as HTMLElement | null;
-      const groupNode = panelNode?.parentElement as HTMLElement | null;
-      if (!panelNode || !groupNode) return;
-
-      const headerRect = headerEl.getBoundingClientRect();
-      const headerHeight = Math.ceil(headerRect.height);
-      const groupHeight = Math.ceil(groupNode.getBoundingClientRect().height);
-      if (!groupHeight || headerHeight <= 0) return;
-
-      // Enforce absolute minimum height (px) equal to the header height (plus 0 gap target).
-      // The panel is the bottom panel; keeping it at header height keeps the header near the bottom edge.
-      const absoluteMinPx = headerHeight;
-      const currentMinPx = parseInt(panelNode.style.minHeight || "0", 10);
-      if (Number.isNaN(currentMinPx) || currentMinPx !== absoluteMinPx) {
-        panelNode.style.minHeight = `${absoluteMinPx}px`;
-      }
-
-      // Convert absolute floor to percentage only for library API calls
-      const minPercent = Math.max((absoluteMinPx / groupHeight) * 100, 3);
-      const targetMinPercent = Math.min(75, minPercent);
-
-      setOutputPanelMinPercent((prev) =>
-        Math.abs(prev - targetMinPercent) > 0.01 ? targetMinPercent : prev,
-      );
-
-      if (
-        typeof panelHandle.getSize === "function" &&
-        typeof panelHandle.resize === "function"
-      ) {
-        const currentSize = panelHandle.getSize();
-        if (typeof currentSize === "number") {
-          const target = forceResize
-            ? targetMinPercent // when forced (e.g., example load), snap to computed floor
-            : Math.max(currentSize, targetMinPercent);
-          if (Math.abs(currentSize - target) > 0.01) {
-            panelHandle.resize(target);
-          }
-        }
-      }
-    },
-    [showCompilationOutput],
-  );
-
-  useEffect(() => {
-    // Only auto-resize if not manually resized by user (use ref for current value)
-    if (
-      !outputPanelManuallyResizedRef.current &&
-      outputPanelRef.current &&
-      typeof outputPanelRef.current.resize === "function"
-    ) {
-      outputPanelRef.current.resize(compilationPanelSize);
-    }
-  }, [compilationPanelSize, outputPanelManuallyResized]);
-
-  useEffect(() => {
-    const handleResize = () =>
-      requestAnimationFrame(() => enforceOutputPanelFloor(false)); // Don't force resize on window resize
-    const handleUiScale: EventListener = () => {
-      // Double rAF to ensure CSS has fully applied and DOM has re-rendered
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          enforceOutputPanelFloor(true); // Force resize on scale change
-          // Additional delayed enforcement for complex layout changes
-          setTimeout(() => enforceOutputPanelFloor(true), 50);
-        });
-      });
-    };
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("uiFontScaleChange", handleUiScale);
-    document.addEventListener("uiFontScaleChange", handleUiScale);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("uiFontScaleChange", handleUiScale);
-      document.removeEventListener("uiFontScaleChange", handleUiScale);
-    };
-  }, [enforceOutputPanelFloor]);
-
-  // ResizeObserver to continuously enforce floor when panel group size changes (e.g., when dragging divider)
-  useEffect(() => {
-    if (!showCompilationOutput) return;
-
-    const headerEl = outputTabsHeaderRef.current;
-    const panelNode = headerEl?.closest("[data-panel]") as HTMLElement | null;
-    const groupNode = panelNode?.parentElement as HTMLElement | null;
-
-    if (!groupNode) return;
-
-    const observer = new ResizeObserver(() => {
-      requestAnimationFrame(() => enforceOutputPanelFloor(false)); // Don't force on group resize
-    });
-
-    observer.observe(groupNode);
-    return () => observer.disconnect();
-  }, [showCompilationOutput, enforceOutputPanelFloor]);
-
-  // Initial floor enforcement on first layout
-  useEffect(() => {
-    // Run after first paint to ensure DOM sizes are available
-    requestAnimationFrame(() => enforceOutputPanelFloor(true));
-  }, [enforceOutputPanelFloor]);
-
-  // Re-enforce output panel floor when code changes (e.g., loading new example)
-  // Use iterative correction loop until gap reaches 0, same approach as ResizeObserver
-  useEffect(() => {
-    let cancelled = false;
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    const correctUntilFlush = () => {
-      if (cancelled || attempts >= maxAttempts) return;
-      attempts++;
-
-      const headerEl = outputTabsHeaderRef.current;
-      if (!headerEl) return;
-
-      const panelNode = headerEl.closest("[data-panel]") as HTMLElement | null;
-      const groupNode = panelNode?.parentElement as HTMLElement | null;
-      if (!panelNode || !groupNode) return;
-
-      const headerRect = headerEl.getBoundingClientRect();
-      const groupRect = groupNode.getBoundingClientRect();
-      const gap = Math.round(groupRect.bottom - headerRect.bottom);
-
-      enforceOutputPanelFloor(true);
-
-      // If gap still exists, schedule another correction
-      if (gap > 1) {
-        requestAnimationFrame(correctUntilFlush);
-      }
-    };
-
-    // Start after a brief delay to let DOM settle
-    const timeoutId = setTimeout(() => {
-      requestAnimationFrame(correctUntilFlush);
-    }, 50);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-    };
-  }, [code, enforceOutputPanelFloor]);
 
   // Auto-switch output tab based on errors and messages
   useEffect(() => {
@@ -2164,7 +1850,6 @@ export default function ArduinoSimulator() {
     setSimulationStatus("stopped");
     setHasCompiledOnce(false);
     setActiveOutputTab("compiler"); // Always reset to compiler tab
-    setOutputPanelMinPercent(5); // Minimize output panel
     setCompilationPanelSize(5); // Minimize output panel size
     setParserPanelDismissed(false); // Ensure panel is not dismissed
   };
@@ -2680,7 +2365,7 @@ export default function ArduinoSimulator() {
         onFind={() => runEditorCommand("find")}
         onCompile={() => { if (!compileMutation.isPending) handleCompile(); }}
         onCompileAndStart={handleCompileAndStart}
-        onOutputPanelToggle={() => { setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); outputPanelManuallyResizedRef.current = false; setOutputPanelManuallyResized(false); }}
+        onOutputPanelToggle={() => { setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); outputPanelManuallyResizedRef.current = false; }}
         showCompilationOutput={showCompilationOutput}
         rightSlot={debugMode ? <SimCockpit batchStats={batchStats} simulationStatus={simulationStatus} /> : undefined}
       />
@@ -2788,10 +2473,9 @@ export default function ArduinoSimulator() {
                           withHandle
                           data-testid="vertical-resizer-output"
                           onDragging={(isDragging) => {
-                            // Mark as manually resized as soon as user starts dragging (update both ref and state)
+                            // Mark as manually resized as soon as user starts dragging
                             if (isDragging) {
                               outputPanelManuallyResizedRef.current = true;
-                              setOutputPanelManuallyResized(true);
                             }
                           }}
                         />
@@ -2924,12 +2608,10 @@ export default function ArduinoSimulator() {
                                     setShowCompilationOutput(false);
                                     setParserPanelDismissed(true);
                                     outputPanelManuallyResizedRef.current = false;
-                                    setOutputPanelManuallyResized(false);
                                   } else {
                                     // If not minimized, minimize it first and reset manual flag
                                     setCompilationPanelSize(3);
                                     outputPanelManuallyResizedRef.current = false;
-                                    setOutputPanelManuallyResized(false);
                                     if (outputPanelRef.current?.resize) {
                                       outputPanelRef.current.resize(outputPanelMinPercent);
                                     }
