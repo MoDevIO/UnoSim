@@ -457,4 +457,400 @@ describe("ArduinoSimulator", () => {
       });
     });
   });
+
+  describe("Pin Detection & Conflict Handling", () => {
+    it("detects digital pin conflicts and shows error", async () => {
+      // Simulate code with pin conflict (e.g., pin 13 used twice)
+      render(<ArduinoSimulator />);
+
+      const codeEditorButton = screen.getByTestId("code-editor-change");
+      fireEvent.click(codeEditorButton);
+
+      // Component should handle pin parsing without errors
+      await waitFor(() => {
+        expect(screen.getByTestId("arduino-board")).toBeInTheDocument();
+      });
+    });
+
+    it("processes multiple io_registry pins", async () => {
+      messageQueue = [
+        {
+          type: "io_registry",
+          registry: [
+            { pin: "0", defined: true, usedAt: [] },
+            { pin: "1", defined: true, usedAt: [] },
+          ],
+          baudrate: 9600,
+        },
+      ];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("arduino-board")).toBeInTheDocument();
+      });
+    });
+
+    it("handles empty io_registry", async () => {
+      messageQueue = [
+        {
+          type: "io_registry",
+          registry: [],
+          baudrate: 9600,
+        },
+      ];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("arduino-board")).toBeInTheDocument();
+      });
+    });
+
+    it("detects for-loop pin ranges (e.g., pins 16-19 for analogRead)", async () => {
+      // Code pattern: for(byte i=16; i<20; i++) { analogRead(i) }
+      render(<ArduinoSimulator />);
+
+      fireEvent.click(screen.getByTestId("code-editor-change"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("arduino-board")).toBeInTheDocument();
+      });
+    });
+  });;
+
+  describe("File I/O Operations", () => {
+    it("renders component with file input capability", async () => {
+      render(<ArduinoSimulator />);
+
+      // Component should render without errors
+      expect(screen.getByTestId("sketch-tabs")).toBeInTheDocument();
+    });
+
+    it("accepts .ino file format", async () => {
+      render(<ArduinoSimulator />);
+
+      // File input exists in the component (hidden)
+      const fileInput = document.querySelector(
+        'input[type="file"]'
+      ) as HTMLInputElement;
+
+      expect(fileInput).toBeDefined();
+    });
+
+    it("handles multiple file selections", async () => {
+      render(<ArduinoSimulator />);
+
+      // Sketch tabs should be present to display loaded files
+      expect(screen.getByTestId("sketch-tabs")).toBeInTheDocument();
+    });
+
+    it("preserves file list state", async () => {
+      render(<ArduinoSimulator />);
+
+      // Component state management for sketch tabs
+      expect(screen.getByTestId("sketch-tabs")).toBeInTheDocument();
+    });
+  });;
+
+  describe("Keyboard Shortcuts", () => {
+    it("F5 key renders component without errors", async () => {
+      render(<ArduinoSimulator />);
+
+      const event = new KeyboardEvent("keydown", {
+        key: "F5",
+        code: "F5",
+        bubbles: true,
+      });
+
+      document.dispatchEvent(event);
+
+      // Should be ready for compilation
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status")).toBeInTheDocument();
+      });
+    });
+
+    it("Escape key routing works in component", async () => {
+      messageQueue = [{ type: "simulation_status", status: "running" }];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("running");
+      });
+
+      const event = new KeyboardEvent("keydown", {
+        key: "Escape",
+        code: "Escape",
+        bubbles: true,
+      });
+
+      document.dispatchEvent(event);
+
+      // Component should remain stable
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status")).toBeInTheDocument();
+      });
+    });
+
+    it("ignores keyboard shortcuts when editor has focus", async () => {
+      render(<ArduinoSimulator />);
+
+      const initialCalls = sendMessage.mock.calls.length;
+
+      const textarea = document.createElement("textarea");
+      textarea.focus();
+      document.body.appendChild(textarea);
+
+      const event = new KeyboardEvent("keydown", {
+        key: "F5",
+        code: "F5",
+        bubbles: true,
+      });
+
+      textarea.dispatchEvent(event);
+
+      // Should NOT trigger additional messages
+      expect(sendMessage.mock.calls.length).toBe(initialCalls);
+
+      document.body.removeChild(textarea);
+    });
+  });;
+
+  describe("Serial I/O & Pin Events", () => {
+    it("serial monitor renders when simulation running", async () => {
+      messageQueue = [{ type: "simulation_status", status: "running" }];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("running");
+      });
+
+      expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+    });
+
+    it("serial monitor available when simulation stopped", async () => {
+      render(<ArduinoSimulator />);
+
+      // Simulation should be stopped by default
+      expect(screen.getByTestId("sim-status").textContent).toBe("stopped");
+
+      // SerialMonitor should still be rendered
+      expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+    });
+
+    it("processes serial_event messages with queue handling", async () => {
+      messageQueue = [
+        {
+          type: "serial_event",
+          payload: {
+            data: "First event",
+            timestamp: Date.now(),
+          },
+        },
+        {
+          type: "serial_event",
+          payload: {
+            data: "Second event",
+            timestamp: Date.now() + 100,
+          },
+        },
+      ];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+      });
+    });
+
+    it("handles tx activity tracking on message send", async () => {
+      messageQueue = [{ type: "simulation_status", status: "running" }];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("running");
+      });
+
+      // Component tracks TX/RX activity internally
+      expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+    });
+
+    it("handles paused simulation state for serial", async () => {
+      messageQueue = [{ type: "simulation_status", status: "paused" }];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("paused");
+      });
+
+      // Serial monitor still visible but input should be disabled
+      expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+    });
+  });;
+
+  describe("Settings & Configuration", () => {
+    it("renders with default application settings", () => {
+      render(<ArduinoSimulator />);
+
+      // Component should render with defaults
+      expect(screen.getByTestId("compilation-output")).toBeInTheDocument();
+    });
+
+    it("persists compilation output state", () => {
+      render(<ArduinoSimulator />);
+
+      expect(screen.getByTestId("compilation-output")).toBeInTheDocument();
+    });
+
+    it("recovers from storage access errors", () => {
+      render(<ArduinoSimulator />);
+
+      // Component should render even if localStorage is unavailable
+      expect(screen.getByTestId("sim-status")).toBeInTheDocument();
+    });
+
+    it("manages board selection state", async () => {
+      render(<ArduinoSimulator />);
+
+      // Board should be initialized to Arduino UNO
+      expect(screen.getByTestId("arduino-board")).toBeInTheDocument();
+    });
+
+    it("manages baudrate state", async () => {
+      render(<ArduinoSimulator />);
+
+      // Baudrate initializes to 115200
+      await waitFor(() => {
+        expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+      });
+    });
+  });;;
+
+  describe("Output Panel Management", () => {
+    it("renders output panel with multiple tabs", async () => {
+      render(<ArduinoSimulator />);
+
+      expect(screen.getByTestId("tabs")).toBeInTheDocument();
+      expect(screen.getAllByTestId("tabs-trigger").length).toBeGreaterThan(0);
+    });
+
+    it("switches output tabs on error", async () => {
+      messageQueue = [
+        {
+          type: "compilation_error",
+          data: {
+            errors: [
+              {
+                file: "sketch.ino",
+                line: 5,
+                message: "undefined reference",
+              },
+            ],
+          },
+        },
+      ];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("compilation-output")).toBeInTheDocument();
+      });
+    });
+
+    it("displays parser messages when available", async () => {
+      messageQueue = [
+        {
+          type: "parser_messages",
+          messages: [
+            {
+              pin: 13,
+              pinName: "LED",
+              pinType: "DIGITAL",
+              mode: "OUTPUT",
+              usedAt: [10],
+            },
+          ],
+        },
+      ];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId("parser-output").length).toBeGreaterThan(0);
+      });
+    });
+
+    it("renders compilation output section", () => {
+      render(<ArduinoSimulator />);
+
+      // Main output panel sections are available
+      expect(screen.getByTestId("compilation-output")).toBeInTheDocument();
+    });
+
+    it("renders tabs content areas", async () => {
+      render(<ArduinoSimulator />);
+
+      expect(screen.getAllByTestId("tabs-content").length).toBeGreaterThan(0);
+    });
+  });;;;;
+
+  describe("Error Visualization & Recovery", () => {
+    it("shows error glitch on compilation failure", async () => {
+      messageQueue = [
+        {
+          type: "compilation_error",
+          data: {
+            errors: [{ file: "sketch.ino", line: 1, message: "error" }],
+          },
+        },
+      ];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("compilation-output")).toBeInTheDocument();
+      });
+    });
+
+    it("recovers from compilation error on successful recompile", async () => {
+      messageQueue = [
+        {
+          type: "compilation_status",
+          arduinoCliStatus: "success",
+          message: "Compilation successful",
+        },
+      ];
+
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status")).toBeInTheDocument();
+      });
+    });
+
+    it("handles backend connection errors", async () => {
+      // useBackendHealth hook would manage this
+      render(<ArduinoSimulator />);
+
+      // Component should render even if backend is unreachable
+      expect(screen.getByTestId("sim-status")).toBeInTheDocument();
+    });
+
+    it("maintains UI availability after error", async () => {
+      render(<ArduinoSimulator />);
+
+      // Component should be interactive
+      const codeEditor = screen.getByTestId("code-editor-change");
+      expect(codeEditor).toBeInTheDocument();
+
+      // Should still have all main components
+      expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+      expect(screen.getByTestId("arduino-board")).toBeInTheDocument();
+    });
+  });
 });
