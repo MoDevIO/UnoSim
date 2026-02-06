@@ -628,4 +628,217 @@ describe("useCompilation", () => {
       }),
     );
   });
+
+  it("handles editorRef.getValue() throwing error in handleCompileAndStart", async () => {
+    const params = buildParams();
+    params.editorRef.current = {
+      getValue: vi.fn().mockImplementation(() => {
+        throw new Error("Editor error");
+      }),
+    };
+    params.tabs = [{ id: "tab-1", name: "sketch.ino", content: "fallback code" }];
+
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "OK",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    // Should fallback to tabs[0].content when getValue throws
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith(
+        "POST",
+        "/api/compile",
+        expect.objectContaining({ code: "fallback code" }),
+      );
+    });
+  });
+
+  it("handles editorRef null in handleCompileAndStart with tabs fallback", async () => {
+    const params = buildParams();
+    params.editorRef.current = null;
+    params.tabs = [{ id: "tab-1", name: "sketch.ino", content: "tab content" }];
+
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "OK",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith(
+        "POST",
+        "/api/compile",
+        expect.objectContaining({ code: "tab content" }),
+      );
+    });
+  });
+
+  it("handles editorRef null and empty tabs with code fallback", async () => {
+    const params = buildParams();
+    params.editorRef.current = null;
+    params.tabs = [];
+    params.code = "code fallback";
+
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "OK",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith(
+        "POST",
+        "/api/compile",
+        expect.objectContaining({ code: "code fallback" }),
+      );
+    });
+  });
+
+  it("handles compile and start success calling startSimulation", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        output: "Compilation successful",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    await waitFor(() => {
+      expect(params.startSimulation).toHaveBeenCalled();
+    });
+
+    expect(params.setHasCompiledOnce).toHaveBeenCalledWith(true);
+    expect(params.setIsModified).toHaveBeenCalledWith(false);
+  });
+
+  it("handles compile and start failure without calling startSimulation", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockResolvedValue: (value: unknown) => void;
+    };
+
+    apiRequestMock.mockResolvedValue({
+      headers: { get: () => "application/json" },
+      json: vi.fn().mockResolvedValue({
+        success: false,
+        output: "Compilation error",
+        errors: "Error details",
+        parserMessages: [],
+      }),
+      text: vi.fn(),
+    });
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    await waitFor(() => {
+      expect(params.toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Compilation Completed with Errors",
+          description: "Simulation will not start due to compilation errors.",
+          variant: "destructive",
+        }),
+      );
+    });
+
+    expect(params.startSimulation).not.toHaveBeenCalled();
+  });
+
+  it("handles compile and start API error", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+
+    const apiRequestMock = apiRequest as unknown as {
+      mockRejectedValue: (value: unknown) => void;
+    };
+
+    (apiRequestMock as any).mockRejectedValue(new Error("Network error"));
+
+    const { result } = renderHook(() => useCompilation(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    await waitFor(() => {
+      expect(params.toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Compilation Failed",
+          description: "Simulation will not start due to compilation errors.",
+          variant: "destructive",
+        }),
+      );
+    });
+
+    expect(params.startSimulation).not.toHaveBeenCalled();
+  });
 });

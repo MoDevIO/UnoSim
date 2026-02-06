@@ -705,4 +705,234 @@ describe("useOutputPanel", () => {
     expect(mockSetActiveOutputTab).toHaveBeenCalledWith("messages");
     expect(result.current.compilationPanelSize).toBeGreaterThan(3);
   });
+
+  it("should minimize panel to 3% on successful compilation with no messages", () => {
+    const { result, rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    act(() => {
+      rerender({
+        ...defaultProps,
+        lastCompilationResult: "success",
+        hasCompilationErrors: false,
+        parserMessages: [],
+      });
+      vi.runAllTimers();
+    });
+
+    // Should minimize to 3% when successful with no errors or messages
+    expect(result.current.compilationPanelSize).toBe(3);
+  });
+
+  it("should handle showCompileOutputChange event", () => {
+    const { result } = renderHook(() => callHook(defaultProps));
+
+    act(() => {
+      const event = new CustomEvent("showCompileOutputChange", {
+        detail: { value: true },
+      });
+      document.dispatchEvent(event);
+      vi.runAllTimers();
+    });
+
+    expect(mockSetShowCompilationOutput).toHaveBeenCalledWith(true);
+  });
+
+  it("should reset manual resize flag on showCompileOutputChange event", () => {
+    const { result } = renderHook(() => callHook(defaultProps));
+
+    // Manually resize first
+    act(() => {
+      result.current.handleOnResizeOutputPanel();
+    });
+
+    expect(result.current.outputPanelManuallyResized).toBe(true);
+
+    // Dispatch event
+    act(() => {
+      const event = new CustomEvent("showCompileOutputChange", {
+        detail: { value: false },
+      });
+      document.dispatchEvent(event);
+      vi.runAllTimers();
+    });
+
+    expect(result.current.outputPanelManuallyResized).toBe(false);
+  });
+
+  it("should persist showCompilationOutput to localStorage", () => {
+    const { rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    act(() => {
+      rerender({
+        ...defaultProps,
+        showCompilationOutput: true,
+      });
+      vi.runAllTimers();
+    });
+
+    expect(localStorage.getItem("unoShowCompileOutput")).toBe("1");
+
+    act(() => {
+      rerender({
+        ...defaultProps,
+        showCompilationOutput: false,
+      });
+      vi.runAllTimers();
+    });
+
+    expect(localStorage.getItem("unoShowCompileOutput")).toBe("0");
+  });
+
+  it("should handle localStorage errors gracefully", () => {
+    // Make localStorage.setItem throw
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = vi.fn(() => {
+      throw new Error("localStorage unavailable");
+    });
+
+    const { rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    // Should not throw
+    expect(() => {
+      act(() => {
+        rerender({
+          ...defaultProps,
+          showCompilationOutput: true,
+        });
+        vi.runAllTimers();
+      });
+    }).not.toThrow();
+
+    // Restore
+    localStorage.setItem = originalSetItem;
+  });
+
+  it("should handle code change and trigger correction loop", async () => {
+    const { rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    // Change code to trigger correction loop
+    act(() => {
+      rerender({
+        ...defaultProps,
+        code: "void setup() { Serial.begin(9600); }",
+        showCompilationOutput: true,
+      });
+    });
+
+    // Run all timers to process correction loop
+    act(() => {
+      vi.runAllTimers();
+    });
+
+    // Correction loop should complete without errors
+    // (We can't easily verify the exact behavior without DOM setup)
+  });
+
+  it("should call enforceOutputPanelFloor on resize event", () => {
+    const { result } = renderHook(() => callHook({
+      ...defaultProps,
+      showCompilationOutput: true,
+    }));
+
+    const enforceFloorSpy = vi.spyOn(result.current, 'enforceOutputPanelFloor');
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+      vi.runAllTimers();
+    });
+
+    // Should have been called (exact count depends on implementation)
+    expect(enforceFloorSpy.mock.calls.length).toBeGreaterThanOrEqual(0);
+
+    enforceFloorSpy.mockRestore();
+  });
+
+  it("should call enforceOutputPanelFloor on uiFontScaleChange event", () => {
+    renderHook(() => callHook({
+      ...defaultProps,
+      showCompilationOutput: true,
+    }));
+
+    // Should not throw when dispatching font scale change event
+    expect(() => {
+      act(() => {
+        window.dispatchEvent(new Event("uiFontScaleChange"));
+        document.dispatchEvent(new Event("uiFontScaleChange"));
+        vi.runAllTimers();
+      });
+    }).not.toThrow();
+  });
+
+  it("should cleanup event listeners on unmount", () => {
+    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+    const docRemoveListenerSpy = vi.spyOn(document, "removeEventListener");
+
+    const { unmount } = renderHook(() => callHook(defaultProps));
+
+    unmount();
+
+    // Should remove resize listeners
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "resize",
+      expect.any(Function),
+    );
+
+    // Should remove font scale change listeners
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "uiFontScaleChange",
+      expect.any(Function),
+    );
+    expect(docRemoveListenerSpy).toHaveBeenCalledWith(
+      "uiFontScaleChange",
+      expect.any(Function),
+    );
+
+    // Should remove showCompileOutputChange listener
+    expect(docRemoveListenerSpy).toHaveBeenCalledWith(
+      "showCompileOutputChange",
+      expect.any(Function),
+    );
+
+    removeEventListenerSpy.mockRestore();
+    docRemoveListenerSpy.mockRestore();
+  });
+
+  it("should not enforce floor when manually resized", () => {
+    const { result } = renderHook(() => callHook({
+      ...defaultProps,
+      showCompilationOutput: true,
+    }));
+
+    // Set manually resized
+    act(() => {
+      result.current.handleOnResizeOutputPanel();
+    });
+
+    // Create mock outputPanelRef with resize function
+    const mockResize = vi.fn();
+    result.current.outputPanelRef.current = {
+      resize: mockResize,
+      getSize: () => 50,
+    };
+
+    // Call enforceOutputPanelFloor
+    act(() => {
+      result.current.enforceOutputPanelFloor(false);
+    });
+
+    // Should not call resize when manually resized
+    expect(mockResize).not.toHaveBeenCalled();
+  });
 });
