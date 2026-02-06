@@ -523,13 +523,16 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle localStorage errors gracefully when persisting showCompilationOutput", () => {
-    // Replace localStorage.setItem with one that throws
-    const originalSetItem = window.localStorage.setItem;
+    // Replace localStorage.setItem with one that throws (on both objects)
+    const originalSetItem = localStorage.setItem;
+    const originalWindowSetItem = window.localStorage.setItem;
     let setItemCalled = false;
-    window.localStorage.setItem = () => {
+    const throwingSetItem = () => {
       setItemCalled = true;
       throw new Error("localStorage unavailable");
     };
+    localStorage.setItem = throwingSetItem;
+    window.localStorage.setItem = throwingSetItem;
 
     // Should not throw even though localStorage throws
     expect(() => {
@@ -548,17 +551,21 @@ describe("useOutputPanel", () => {
     expect(setItemCalled).toBe(true);
     
     // Restore
-    window.localStorage.setItem = originalSetItem;
+    localStorage.setItem = originalSetItem;
+    window.localStorage.setItem = originalWindowSetItem;
   });
 
   it("should handle localStorage errors in showCompileOutputChange event listener", () => {
-    // Replace localStorage.setItem with one that throws
-    const originalSetItem = window.localStorage.setItem;
+    // Replace localStorage.setItem with one that throws (on both objects)
+    const originalSetItem = localStorage.setItem;
+    const originalWindowSetItem = window.localStorage.setItem;
     let setItemCalled = false;
-    window.localStorage.setItem = () => {
+    const throwingSetItem = () => {
       setItemCalled = true;
       throw new Error("localStorage unavailable");
     };
+    localStorage.setItem = throwingSetItem;
+    window.localStorage.setItem = throwingSetItem;
 
     // Should not throw even though localStorage throws
     expect(() => {
@@ -576,7 +583,8 @@ describe("useOutputPanel", () => {
     expect(setItemCalled).toBe(true);
     
     // Restore
-    window.localStorage.setItem = originalSetItem;
+    localStorage.setItem = originalSetItem;
+    window.localStorage.setItem = originalWindowSetItem;
   });
 
   it("should auto-minimize panel on successful compilation with no errors", () => {
