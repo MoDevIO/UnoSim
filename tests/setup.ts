@@ -1,4 +1,5 @@
 import { afterEach, vi } from "vitest";
+import "@testing-library/jest-dom/vitest";
 
 // Kompatibilitätsschicht für alten Code, der noch 'jest' statt 'vi' erwartet
 (globalThis as any).jest = vi;

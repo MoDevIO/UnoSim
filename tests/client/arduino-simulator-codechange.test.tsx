@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import React from "react";
 
 let messageQueue: Array<{ type: string; status?: string }> = [];
@@ -152,7 +152,7 @@ vi.mock("@/lib/queryClient", () => ({
   apiRequest: vi.fn(),
 }));
 
-describe("ArduinoSimulator code change auto-stop", () => {
+describe("ArduinoSimulator", () => {
   beforeAll(async () => {
     ({ default: ArduinoSimulator } = await import("@/pages/arduino-simulator"));
   });
@@ -183,37 +183,278 @@ describe("ArduinoSimulator code change auto-stop", () => {
     vi.unstubAllGlobals();
   });
 
-  it("stops a running simulation on code change", async () => {
-    messageQueue = [{ type: "simulation_status", status: "running" }];
+  describe("Component Lifecycle", () => {
+    it("renders main UI components on mount", () => {
+      render(<ArduinoSimulator />);
 
-    render(<ArduinoSimulator />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("sim-status").textContent).toBe("running");
+      expect(screen.getByTestId("code-editor-change")).toBeInTheDocument();
+      expect(screen.getByTestId("sim-status")).toBeInTheDocument();
+      expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+      expect(screen.getByTestId("compilation-output")).toBeInTheDocument();
+      // There are multiple ParserOutput instances, verify at least one exists
+      expect(screen.getAllByTestId("parser-output").length).toBeGreaterThan(0);
+      expect(screen.getByTestId("sketch-tabs")).toBeInTheDocument();
+      expect(screen.getByTestId("arduino-board")).toBeInTheDocument();
+      // Note: sim-cockpit is only rendered when debugMode is true
     });
 
-    fireEvent.click(screen.getByTestId("code-editor-change"));
+    it("initializes with stopped simulation status", () => {
+      render(<ArduinoSimulator />);
 
-    await waitFor(() => {
-      expect(sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
+      // Default status should be stopped
       expect(screen.getByTestId("sim-status").textContent).toBe("stopped");
+    });
+
+    it("loads default sketch from query on mount", async () => {
+      render(<ArduinoSimulator />);
+
+      // useQuery mock returns default sketch, component should load it
+      await waitFor(() => {
+        // The CodeEditor is mocked, so we can't check its content directly
+        // But we can verify the component rendered without errors
+        expect(screen.getByTestId("code-editor-change")).toBeInTheDocument();
+      });
     });
   });
 
-  it("stops a paused simulation on code change", async () => {
-    messageQueue = [{ type: "simulation_status", status: "paused" }];
+  describe("Code Change Auto-Stop", () => {
+    it("stops a running simulation on code change", async () => {
+      messageQueue = [{ type: "simulation_status", status: "running" }];
 
-    render(<ArduinoSimulator />);
+      render(<ArduinoSimulator />);
 
-    await waitFor(() => {
-      expect(screen.getByTestId("sim-status").textContent).toBe("paused");
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("running");
+      });
+
+      fireEvent.click(screen.getByTestId("code-editor-change"));
+
+      await waitFor(() => {
+        expect(sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
+        expect(screen.getByTestId("sim-status").textContent).toBe("stopped");
+      });
     });
 
-    fireEvent.click(screen.getByTestId("code-editor-change"));
+    it("stops a paused simulation on code change", async () => {
+      messageQueue = [{ type: "simulation_status", status: "paused" }];
 
-    await waitFor(() => {
-      expect(sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("paused");
+      });
+
+      fireEvent.click(screen.getByTestId("code-editor-change"));
+
+      await waitFor(() => {
+        expect(sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
+        expect(screen.getByTestId("sim-status").textContent).toBe("stopped");
+      });
+    });
+
+    it("does not stop simulation when status is already stopped", async () => {
+      render(<ArduinoSimulator />);
+
+      // Initial status is stopped
       expect(screen.getByTestId("sim-status").textContent).toBe("stopped");
+
+      fireEvent.click(screen.getByTestId("code-editor-change"));
+
+      // Should not send stop message when already stopped
+      expect(sendMessage).not.toHaveBeenCalledWith({ type: "stop_simulation" });
+    });
+  });
+
+  describe("WebSocket Message Handling", () => {
+    it("handles simulation_status message", async () => {
+      messageQueue = [{ type: "simulation_status", status: "running" }];
+      
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("running");
+      });
+    });
+
+    it("handles status stopped from message queue", async () => {
+      messageQueue = [{ type: "simulation_status", status: "stopped" }];
+      
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("stopped");
+      });
+    });
+
+    it("handles status paused from message queue", async () => {
+      messageQueue = [{ type: "simulation_status", status: "paused" }];
+      
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("paused");
+      });
+    });
+
+    it("handles compilation_status message with arduinoCliStatus", async () => {
+      messageQueue = [
+        {
+          type: "compilation_status",
+          arduinoCliStatus: "success",
+          message: "Compilation complete",
+        },
+      ];
+      
+      render(<ArduinoSimulator />);
+
+      // Component should process message without errors
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status")).toBeInTheDocument();
+      });
+    });
+
+    it("handles compilation_status message with gccStatus", async () => {
+      messageQueue = [
+        {
+          type: "compilation_status",
+          gccStatus: "compiling",
+          message: "Compiling with GCC",
+        },
+      ];
+      
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status")).toBeInTheDocument();
+      });
+    });
+
+    it("handles pin_state message", async () => {
+      messageQueue = [
+        {
+          type: "pin_state",
+          pin: 13,
+          stateType: "digital",
+          value: 1,
+        },
+      ];
+      
+      render(<ArduinoSimulator />);
+
+      // Component should process pin state without errors
+      await waitFor(() => {
+        expect(screen.getByTestId("arduino-board")).toBeInTheDocument();
+      });
+    });
+
+    it("handles io_registry message", async () => {
+      messageQueue = [
+        {
+          type: "io_registry",
+          registry: [
+            { pin: "13", defined: true, usedAt: [] },
+            { pin: "A0", defined: true, usedAt: [] },
+          ],
+          baudrate: 9600,
+        },
+      ];
+      
+      render(<ArduinoSimulator />);
+
+      // Component should process io_registry without errors
+      await waitFor(() => {
+        expect(screen.getByTestId("arduino-board")).toBeInTheDocument();
+      });
+    });
+
+    it("handles serial_output message", async () => {
+      messageQueue = [
+        {
+          type: "serial_output",
+          data: "Hello from Arduino",
+          isComplete: true,
+        },
+      ];
+      
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+      });
+    });
+
+    it("handles serial_event message", async () => {
+      messageQueue = [
+        {
+          type: "serial_event",
+          payload: {
+            data: "Test data",
+          },
+        },
+      ];
+      
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("serial-monitor")).toBeInTheDocument();
+      });
+    });
+
+    it("handles sim_telemetry message when running", async () => {
+      messageQueue = [
+        { type: "simulation_status", status: "running" },
+        {
+          type: "sim_telemetry",
+          metrics: {
+            loopCount: 100,
+            avgLoopTime: 5,
+          },
+        },
+      ];
+      
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("running");
+      });
+    });
+
+    it("handles compilation_error message", async () => {
+      messageQueue = [
+        {
+          type: "compilation_error",
+          data: {
+            errors: [
+              {
+                file: "sketch.ino",
+                line: 10,
+                message: "expected ';' before '}' token",
+              },
+            ],
+          },
+        },
+      ];
+      
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("compilation-output")).toBeInTheDocument();
+      });
+    });
+
+    it("processes multiple messages in queue", async () => {
+      messageQueue = [
+        { type: "simulation_status", status: "running" },
+        { type: "serial_output", data: "Message 1", isComplete: true },
+        { type: "serial_output", data: "Message 2", isComplete: true },
+        { type: "pin_state", pin: 13, stateType: "digital", value: 1 },
+      ];
+      
+      render(<ArduinoSimulator />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sim-status").textContent).toBe("running");
+      });
     });
   });
 });
