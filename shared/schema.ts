@@ -1,30 +1,24 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const sketches = pgTable("sketches", {
-  id: varchar("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at")
-    .default(sql`now()`)
-    .notNull(),
-  updatedAt: timestamp("updated_at")
-    .default(sql`now()`)
-    .notNull(),
-});
+// Sketch types (non-DB, for MemStorage)
+export interface Sketch {
+  id: string;
+  name: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-export const insertSketchSchema = createInsertSchema(sketches).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+export interface InsertSketch {
+  name: string;
+  content: string;
+}
 
-export type InsertSketch = z.infer<typeof insertSketchSchema>;
-export type Sketch = typeof sketches.$inferSelect;
+// Zod schema for validation
+export const insertSketchSchema = z.object({
+  name: z.string(),
+  content: z.string(),
+});
 
 // WebSocket message types
 export const wsMessageSchema = z.discriminatedUnion("type", [
@@ -153,46 +147,49 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
 export type WSMessage = z.infer<typeof wsMessageSchema>;
 
 // Parser Message Types
-export const parserMessageSchema = z.object({
-  id: z.string(),
-  type: z.enum(["warning", "error", "info"]),
-  category: z.enum([
-    "serial",
-    "hardware",
-    "structure",
-    "performance",
-    "library",
-    "pins",
-    "reserved-name",
-  ]),
-  severity: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  line: z.number().optional(),
-  column: z.number().optional(),
-  message: z.string(),
-  suggestion: z.string().optional(),
-});
-
-export type ParserMessage = z.infer<typeof parserMessageSchema>;
-
-// Loop Context for I/O Registry
-export interface LoopContext {
-  variable: string;
-  operator: string;
-  limit: number;
-  startLine: number;
-  endLine: number;
-}
+export type ParserMessage = {
+  id: string;
+  type: "warning" | "error" | "info";
+  category:
+    | "serial"
+    | "hardware"
+    | "structure"
+    | "performance"
+    | "library"
+    | "pins"
+    | "reserved-name";
+  severity: 1 | 2 | 3;
+  line?: number;
+  column?: number;
+  message: string;
+  suggestion?: string;
+};
 
 // I/O Pin Record for Registry Display
 export interface IOPinRecord {
   pin: string;
   defined: boolean;
   pinMode?: number; // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
-  definedAt?: { line: number; loopContext?: LoopContext };
+  definedAt?: {
+    line: number;
+    loopContext?: {
+      variable: string;
+      operator: string;
+      limit: number;
+      startLine: number;
+      endLine: number;
+    };
+  };
   usedAt?: Array<{
     line: number;
     operation: string;
-    loopContext?: LoopContext;
+    loopContext?: {
+      variable: string;
+      operator: string;
+      limit: number;
+      startLine: number;
+      endLine: number;
+    };
   }>;
 }
 
