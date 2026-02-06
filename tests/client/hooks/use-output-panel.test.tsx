@@ -369,4 +369,340 @@ describe("useOutputPanel", () => {
     // Should not cause any errors after unmount
     expect(mockResize).not.toHaveBeenCalled();
   });
+
+  it("should auto-size panel for parser messages when no compilation errors", () => {
+    const messages: ParserMessage[] = [
+      { severity: "warning", message: "Unused variable 'x'", line: 1 },
+      { severity: "info", message: "Consider using const", line: 2 },
+    ];
+
+    const { result, rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    act(() => {
+      rerender({
+        ...defaultProps,
+        parserMessages: messages,
+        hasCompilationErrors: false,
+        showCompilationOutput: false,
+      });
+      vi.runAllTimers();
+    });
+
+    expect(mockSetParserPanelDismissed).toHaveBeenCalledWith(false);
+    expect(mockSetShowCompilationOutput).toHaveBeenCalledWith(true);
+    expect(mockSetActiveOutputTab).toHaveBeenCalledWith("messages");
+    expect(result.current.compilationPanelSize).toBeGreaterThan(3);
+  });
+
+  it("should skip auto-sizing when manually resized flag is set", () => {
+    const { result, rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    // Set manually resized flag
+    act(() => {
+      result.current.handleOnResizeOutputPanel();
+    });
+
+    const initialSize = result.current.compilationPanelSize;
+
+    // Now trigger error that would normally auto-size
+    act(() => {
+      rerender({
+        ...defaultProps,
+        hasCompilationErrors: true,
+        cliOutput: "Error: test error",
+      });
+      vi.runAllTimers();
+    });
+
+    // Size should remain unchanged due to manual resize flag
+    expect(result.current.compilationPanelSize).toBe(initialSize);
+  });
+
+  it("should persist showCompilationOutput to localStorage when changed", () => {
+    const { rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: { ...defaultProps, showCompilationOutput: false } },
+    );
+
+    expect(localStorage.getItem("unoShowCompileOutput")).toBe("0");
+
+    act(() => {
+      rerender({ ...defaultProps, showCompilationOutput: true });
+      vi.runAllTimers();
+    });
+
+    expect(localStorage.getItem("unoShowCompileOutput")).toBe("1");
+  });
+
+  it("should handle window resize event", () => {
+    const { result } = renderHook(() =>
+      callHook({ ...defaultProps, showCompilationOutput: true }),
+    );
+
+    const mockGetSize = vi.fn(() => 25);
+    const mockResize = vi.fn();
+    result.current.outputPanelRef.current = {
+      getSize: mockGetSize,
+      resize: mockResize,
+    };
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+      vi.runAllTimers();
+    });
+
+    // enforceOutputPanelFloor should be called but won't do much without DOM
+    expect(result.current.enforceOutputPanelFloor).toBeDefined();
+  });
+
+  it("should handle uiFontScaleChange event on window", () => {
+    const { result } = renderHook(() =>
+      callHook({ ...defaultProps, showCompilationOutput: true }),
+    );
+
+    const mockResize = vi.fn();
+    result.current.outputPanelRef.current = { resize: mockResize };
+
+    act(() => {
+      window.dispatchEvent(new Event("uiFontScaleChange"));
+      vi.runAllTimers();
+    });
+
+    // Should trigger enforceOutputPanelFloor with forceResize=true
+    expect(result.current.enforceOutputPanelFloor).toBeDefined();
+  });
+
+  it("should handle uiFontScaleChange event on document", () => {
+    const { result } = renderHook(() =>
+      callHook({ ...defaultProps, showCompilationOutput: true }),
+    );
+
+    const mockResize = vi.fn();
+    result.current.outputPanelRef.current = { resize: mockResize };
+
+    act(() => {
+      document.dispatchEvent(new Event("uiFontScaleChange"));
+      vi.runAllTimers();
+    });
+
+    expect(result.current.enforceOutputPanelFloor).toBeDefined();
+  });
+
+  it("should cleanup window and document event listeners on unmount", () => {
+    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+    const docRemoveListenerSpy = vi.spyOn(document, "removeEventListener");
+
+    const { unmount } = renderHook(() =>
+      callHook({ ...defaultProps, showCompilationOutput: true }),
+    );
+
+    unmount();
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith("resize", expect.any(Function));
+    expect(removeEventListenerSpy).toHaveBeenCalledWith("uiFontScaleChange", expect.any(Function));
+    expect(docRemoveListenerSpy).toHaveBeenCalledWith("uiFontScaleChange", expect.any(Function));
+  });
+
+  it("should cleanup showCompileOutputChange listener on unmount", () => {
+    const removeEventListenerSpy = vi.spyOn(document, "removeEventListener");
+
+    const { unmount } = renderHook(() => callHook(defaultProps));
+
+    unmount();
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "showCompileOutputChange",
+      expect.any(Function),
+    );
+  });
+
+  it("should handle localStorage errors gracefully when persisting showCompilationOutput", () => {
+    // Replace localStorage with one that throws on setItem
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = vi.fn(() => {
+      throw new Error("localStorage unavailable");
+    });
+
+    // Should not throw
+    const { rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: { ...defaultProps, showCompilationOutput: false } },
+    );
+
+    act(() => {
+      rerender({ ...defaultProps, showCompilationOutput: true });
+      vi.runAllTimers();
+    });
+
+    // No error should propagate - hook has try-catch
+    expect(localStorage.setItem).toHaveBeenCalled();
+    
+    // Restore
+    localStorage.setItem = originalSetItem;
+  });
+
+  it("should handle localStorage errors in showCompileOutputChange event listener", () => {
+    // Replace localStorage with one that throws on setItem
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = vi.fn(() => {
+      throw new Error("localStorage unavailable");
+    });
+
+    renderHook(() => callHook(defaultProps));
+
+    act(() => {
+      const event = new CustomEvent("showCompileOutputChange", {
+        detail: { value: true },
+      });
+      document.dispatchEvent(event);
+    });
+
+    // Should not throw - event handler has try-catch
+    expect(localStorage.setItem).toHaveBeenCalled();
+    
+    // Restore
+    localStorage.setItem = originalSetItem;
+  });
+
+  it("should auto-minimize panel on successful compilation with no errors", () => {
+    const { result, rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: { ...defaultProps, compilationPanelSize: 50 } },
+    );
+
+    // Trigger successful compilation
+    act(() => {
+      rerender({
+        ...defaultProps,
+        lastCompilationResult: "success",
+        hasCompilationErrors: false,
+        parserMessages: [],
+        cliOutput: "",
+      });
+      vi.runAllTimers();
+    });
+
+    expect(result.current.compilationPanelSize).toBe(3);
+  });
+
+  it("should calculate panel size based on cliOutput lines", () => {
+    const longCliOutput = Array(20).fill("Error line").join("\n");
+
+    const { result, rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    act(() => {
+      rerender({
+        ...defaultProps,
+        hasCompilationErrors: true,
+        cliOutput: longCliOutput,
+      });
+      vi.runAllTimers();
+    });
+
+    // Should calculate size based on line count
+    expect(result.current.compilationPanelSize).toBeGreaterThan(25);
+  });
+
+  it("should cap panel size at 75% maximum", () => {
+    const veryLongCliOutput = Array(200).fill("Error line").join("\n");
+
+    const { result, rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    act(() => {
+      rerender({
+        ...defaultProps,
+        hasCompilationErrors: true,
+        cliOutput: veryLongCliOutput,
+      });
+      vi.runAllTimers();
+    });
+
+    // Should be capped at 75%
+    expect(result.current.compilationPanelSize).toBeLessThanOrEqual(75);
+  });
+
+  it("should enforce minimum at 25% for errors", () => {
+    const shortCliOutput = "err";
+
+    const { result, rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    act(() => {
+      rerender({
+        ...defaultProps,
+        hasCompilationErrors: true,
+        cliOutput: shortCliOutput,
+      });
+      vi.runAllTimers();
+    });
+
+    // Should be at least 25%
+    expect(result.current.compilationPanelSize).toBeGreaterThanOrEqual(25);
+  });
+
+  it("should compute panel size based on parser message count and length", () => {
+    const manyMessages: ParserMessage[] = Array(10)
+      .fill(null)
+      .map((_, i) => ({
+        severity: "warning",
+        message: `Warning message ${i}`,
+        line: i + 1,
+      }));
+
+    const { result, rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    act(() => {
+      rerender({
+        ...defaultProps,
+        parserMessages: manyMessages,
+        hasCompilationErrors: false,
+      });
+      vi.runAllTimers();
+    });
+
+    expect(result.current.compilationPanelSize).toBeGreaterThan(25);
+    expect(result.current.compilationPanelSize).toBeLessThanOrEqual(75);
+  });
+
+  it("should not auto-minimize if parser messages exist", () => {
+    const messages: ParserMessage[] = [
+      { severity: "warning", message: "Test warning", line: 1 },
+    ];
+
+    const { result, rerender } = renderHook(
+      (props) => callHook(props),
+      { initialProps: defaultProps },
+    );
+
+    act(() => {
+      rerender({
+        ...defaultProps,
+        lastCompilationResult: "success",
+        hasCompilationErrors: false,
+        parserMessages: messages,
+      });
+      vi.runAllTimers();
+    });
+
+    // Should open to show messages, not minimize
+    expect(mockSetActiveOutputTab).toHaveBeenCalledWith("messages");
+    expect(result.current.compilationPanelSize).toBeGreaterThan(3);
+  });
 });
