@@ -523,49 +523,60 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle localStorage errors gracefully when persisting showCompilationOutput", () => {
-    // Spy on window.localStorage.setItem and make it throw
-    const setItemSpy = vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+    // Replace localStorage.setItem with one that throws
+    const originalSetItem = window.localStorage.setItem;
+    let setItemCalled = false;
+    window.localStorage.setItem = () => {
+      setItemCalled = true;
       throw new Error("localStorage unavailable");
-    });
+    };
 
-    // Should not throw
-    const { rerender } = renderHook(
-      (props) => callHook(props),
-      { initialProps: { ...defaultProps, showCompilationOutput: false } },
-    );
+    // Should not throw even though localStorage throws
+    expect(() => {
+      const { rerender } = renderHook(
+        (props) => callHook(props),
+        { initialProps: { ...defaultProps, showCompilationOutput: false } },
+      );
 
-    act(() => {
-      rerender({ ...defaultProps, showCompilationOutput: true });
-      vi.runAllTimers();
-    });
+      act(() => {
+        rerender({ ...defaultProps, showCompilationOutput: true });
+        vi.runAllTimers();
+      });
+    }).not.toThrow();
 
-    // No error should propagate - hook has try-catch
-    expect(setItemSpy).toHaveBeenCalled();
+    // Verify setItem was attempted (error was caught)
+    expect(setItemCalled).toBe(true);
     
     // Restore
-    setItemSpy.mockRestore();
+    window.localStorage.setItem = originalSetItem;
   });
 
   it("should handle localStorage errors in showCompileOutputChange event listener", () => {
-    // Spy on window.localStorage.setItem and make it throw
-    const setItemSpy = vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+    // Replace localStorage.setItem with one that throws
+    const originalSetItem = window.localStorage.setItem;
+    let setItemCalled = false;
+    window.localStorage.setItem = () => {
+      setItemCalled = true;
       throw new Error("localStorage unavailable");
-    });
+    };
 
-    renderHook(() => callHook(defaultProps));
+    // Should not throw even though localStorage throws
+    expect(() => {
+      renderHook(() => callHook(defaultProps));
 
-    act(() => {
-      const event = new CustomEvent("showCompileOutputChange", {
-        detail: { value: true },
+      act(() => {
+        const event = new CustomEvent("showCompileOutputChange", {
+          detail: { value: true },
+        });
+        document.dispatchEvent(event);
       });
-      document.dispatchEvent(event);
-    });
+    }).not.toThrow();
 
-    // Should not throw - event handler has try-catch
-    expect(setItemSpy).toHaveBeenCalled();
+    // Verify setItem was attempted (error was caught)
+    expect(setItemCalled).toBe(true);
     
     // Restore
-    setItemSpy.mockRestore();
+    window.localStorage.setItem = originalSetItem;
   });
 
   it("should auto-minimize panel on successful compilation with no errors", () => {
