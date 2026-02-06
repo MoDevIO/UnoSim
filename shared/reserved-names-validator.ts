@@ -7,7 +7,7 @@ type SeverityLevel = 1 | 2 | 3;
  * Reserved names that conflict with standard C/C++ and Arduino libraries
  * These names cannot be used as variable/function names in Arduino sketches
  */
-export const RESERVED_STANDARD_NAMES = new Set([
+const RESERVED_STANDARD_NAMES = new Set([
   // POSIX functions (unistd.h, stdlib.h, etc.)
   "pause",
   "system",
@@ -172,7 +172,7 @@ export const RESERVED_STANDARD_NAMES = new Set([
   "FALSE",
 ]);
 
-export class ReservedNamesValidator {
+class ReservedNamesValidator {
   /**
    * Validate Arduino code for reserved name conflicts
    */

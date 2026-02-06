@@ -106,8 +106,7 @@ tem/
 *.js.map
 *.d.ts
 
-# Aber: Wichtige Konfigurationsdateien NICHT ignorieren
-!vite.config.js
+# Aber: Important configuration files SHOULD NOT be ignored
 !tailwind.config.js
 !postcss.config.js
 !jest.config.js
