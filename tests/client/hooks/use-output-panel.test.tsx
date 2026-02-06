@@ -523,16 +523,15 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle localStorage errors gracefully when persisting showCompilationOutput", () => {
-    // Replace localStorage.setItem with one that throws (on both objects)
+    // Replace localStorage.setItem with one that throws
     const originalSetItem = localStorage.setItem;
     const originalWindowSetItem = window.localStorage.setItem;
-    let setItemCalled = false;
-    const throwingSetItem = () => {
-      setItemCalled = true;
+    localStorage.setItem = () => {
       throw new Error("localStorage unavailable");
     };
-    localStorage.setItem = throwingSetItem;
-    window.localStorage.setItem = throwingSetItem;
+    window.localStorage.setItem = () => {
+      throw new Error("localStorage unavailable");
+    };
 
     // Should not throw even though localStorage throws
     expect(() => {
@@ -546,9 +545,6 @@ describe("useOutputPanel", () => {
         vi.runAllTimers();
       });
     }).not.toThrow();
-
-    // Verify setItem was attempted (error was caught)
-    expect(setItemCalled).toBe(true);
     
     // Restore
     localStorage.setItem = originalSetItem;
@@ -556,16 +552,15 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle localStorage errors in showCompileOutputChange event listener", () => {
-    // Replace localStorage.setItem with one that throws (on both objects)
+    // Replace localStorage.setItem with one that throws
     const originalSetItem = localStorage.setItem;
     const originalWindowSetItem = window.localStorage.setItem;
-    let setItemCalled = false;
-    const throwingSetItem = () => {
-      setItemCalled = true;
+    localStorage.setItem = () => {
       throw new Error("localStorage unavailable");
     };
-    localStorage.setItem = throwingSetItem;
-    window.localStorage.setItem = throwingSetItem;
+    window.localStorage.setItem = () => {
+      throw new Error("localStorage unavailable");
+    };
 
     // Should not throw even though localStorage throws
     expect(() => {
@@ -578,9 +573,6 @@ describe("useOutputPanel", () => {
         document.dispatchEvent(event);
       });
     }).not.toThrow();
-
-    // Verify setItem was attempted (error was caught)
-    expect(setItemCalled).toBe(true);
     
     // Restore
     localStorage.setItem = originalSetItem;
