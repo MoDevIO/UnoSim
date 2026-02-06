@@ -3,24 +3,11 @@ import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import path from "path";
 import { fileURLToPath } from "url";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [
-    tsconfigPaths(),
-    react(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          runtimeErrorOverlay(),
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-        ]
-      : []),
-  ],
+  plugins: [tsconfigPaths(), react()],
   resolve: {
     alias: {
       "@assets": path.resolve(__dirname, "attached_assets"),
