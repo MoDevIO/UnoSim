@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Cpu, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { Logger } from "@shared/logger";
 
 const logger = new Logger("ArduinoBoard");
@@ -56,6 +57,8 @@ export function ArduinoBoard({
   const [txBlink, setTxBlink] = useState(false);
   const [rxBlink, setRxBlink] = useState(false);
   const [showPWMValues, setShowPWMValues] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+  const { last: telemetry } = useTelemetryStore();
   const txTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rxTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [scale, setScale] = useState<number>(1);
@@ -138,6 +141,28 @@ export function ArduinoBoard({
         "arduinoColorChange",
         onColor as EventListener,
       );
+  }, []);
+
+  // Listen for debug mode changes
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("unoDebugMode") === "1";
+      setDebugMode(stored);
+    } catch {
+      setDebugMode(false);
+    }
+
+    const handler = (ev: any) => {
+      try {
+        const newValue = Boolean(ev?.detail?.value);
+        setDebugMode(newValue);
+      } catch {
+        // ignore
+      }
+    };
+    document.addEventListener("debugModeChange", handler as EventListener);
+    return () =>
+      document.removeEventListener("debugModeChange", handler as EventListener);
   }, []);
 
   // Stable reference to ALL current state for polling - updated on every render
@@ -808,6 +833,32 @@ export function ArduinoBoard({
         <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
           <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
           <span className="sr-only">Arduino UNO Board</span>
+          {debugMode && telemetry && isSimulationRunning && (
+            <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase tracking-wider text-white/50">Pin Changes</span>
+                <span className="text-sm font-mono text-white/90">
+                  {telemetry.intendedPinChangesPerSecond > 0 ? (
+                    <>
+                      {telemetry.intendedPinChangesPerSecond.toFixed(1)} /s → {telemetry.actualPinChangesPerSecond.toFixed(1)} /s
+                      {telemetry.pinChangeLossPercentage > 0 && (
+                        <span className="ml-1 text-red-400" title={`${telemetry.pinChangeLossPercentage}% of pin changes lost due to debouncing`}>
+                          (Loss: {telemetry.pinChangeLossPercentage}%)
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>{telemetry.pinChangesPerSecond.toFixed(1)} /s</>
+                  )}
+                  {telemetry.isThrottled && (
+                    <span className="ml-2 text-amber-400" title="Pin changes are being throttled">
+                      ⏸
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex items-center ml-3">
           <Button

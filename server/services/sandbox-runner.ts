@@ -134,8 +134,10 @@ export class SandboxRunner {
     this.serialParser.on('data', (chunk: string) => {
         // Serial data always sent immediately (not registry-dependent)
         if (this.outputCallback) {
-        this.outputCallback(chunk, true);
-      }
+          this.outputCallback(chunk, true);
+        }
+        // Track serial output event for telemetry
+        this.registryManager.trackSerialOutput();
     });
   }
 
@@ -909,6 +911,7 @@ export class SandboxRunner {
         break;
 
       case "pin_mode":
+        this.registryManager.trackIntendedPinChange();
         this.registryManager.updatePinMode(parsed.pin, parsed.mode);
         if (onPinState) {
           onPinState(parsed.pin, "mode", parsed.mode);
@@ -916,6 +919,7 @@ export class SandboxRunner {
         break;
 
       case "pin_value":
+        this.registryManager.trackIntendedPinChange();
         this.registryManager.updatePinValue(parsed.pin, parsed.value);
         if (onPinState) {
           onPinState(parsed.pin, "value", parsed.value);
@@ -923,6 +927,7 @@ export class SandboxRunner {
         break;
 
       case "pin_pwm":
+        this.registryManager.trackIntendedPinChange();
         this.registryManager.updatePinPWM(parsed.pin, parsed.value);
         if (onPinState) {
           onPinState(parsed.pin, "pwm", parsed.value);

@@ -14,6 +14,12 @@ export interface PerformanceMetrics {
   eventsPerSecond: number;
   batchEfficiency: number; // average events per batch
   timestamp: number;
+  pinChangesPerSecond: number; // new: pin state changes (value/pwm/mode) per second
+  intendedPinChangesPerSecond: number; // what the code tried to do
+  actualPinChangesPerSecond: number; // what actually got through debounce
+  pinChangeLossPercentage: number; // loss percentage
+  isThrottled: boolean; // new: whether pin changes are currently throttled
+  serialOutputPerSecond: number; // new: serial output events per second
 }
 
 export interface TelemetryUpdateCallback {
@@ -69,11 +75,15 @@ export class RegistryManager {
   private readonly onUpdateCallback?: RegistryUpdateCallback;
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
   private readonly enableTelemetry: boolean;
+  private lastPinChangeTime = new Map<number, number>(); // Track last change time per pin for debouncing
   
   // Telemetry tracking
   private telemetry = {
     incomingEvents: 0,
     sentBatches: 0,
+    pinChanges: 0, // track pin value/pwm/mode changes separately
+    intendedPinChanges: 0, // what the simulator tried to do
+    serialOutputEvents: 0, // track serial output events
     lastReportTime: Date.now(),
   };
 
@@ -152,6 +162,31 @@ export class RegistryManager {
     const batchEfficiency = this.telemetry.sentBatches > 0
       ? Math.round((this.telemetry.incomingEvents / this.telemetry.sentBatches) * 10) / 10
       : 0;
+
+    // Calculate pin changes per second
+    const pinChangesPerSecond = timeElapsedSec > 0
+      ? Math.round((this.telemetry.pinChanges / timeElapsedSec) * 10) / 10
+      : 0;
+
+    // Calculate intended vs actual pin changes
+    const intendedPinChangesPerSecond = timeElapsedSec > 0
+      ? Math.round((this.telemetry.intendedPinChanges / timeElapsedSec) * 10) / 10
+      : 0;
+    
+    const actualPinChangesPerSecond = pinChangesPerSecond;
+    
+    // Calculate loss percentage
+    const pinChangeLossPercentage = intendedPinChangesPerSecond > 0
+      ? Math.round(((intendedPinChangesPerSecond - actualPinChangesPerSecond) / intendedPinChangesPerSecond) * 100)
+      : 0;
+
+    // Check if pin changes are being throttled (if we're debouncing)
+    const isThrottled = this.debounceTimer !== null;
+
+    // Calculate serial output events per second
+    const serialOutputPerSecond = timeElapsedSec > 0
+      ? Math.round((this.telemetry.serialOutputEvents / timeElapsedSec) * 10) / 10
+      : 0;
     
     const metrics: PerformanceMetrics = {
       incomingEvents: this.telemetry.incomingEvents,
@@ -159,16 +194,25 @@ export class RegistryManager {
       eventsPerSecond,
       batchEfficiency,
       timestamp: now,
+      pinChangesPerSecond,
+      intendedPinChangesPerSecond,
+      actualPinChangesPerSecond,
+      pinChangeLossPercentage,
+      isThrottled,
+      serialOutputPerSecond,
     };
     
     // Reset counters for next period
     this.telemetry.incomingEvents = 0;
     this.telemetry.sentBatches = 0;
+    this.telemetry.pinChanges = 0;
+    this.telemetry.intendedPinChanges = 0;
+    this.telemetry.serialOutputEvents = 0;
     this.telemetry.lastReportTime = now;
     
     if (!this.destroyed) {
       this.logger.debug(
-        `Telemetry: ${eventsPerSecond} evt/s, ${batchEfficiency} evt/batch, ${this.telemetry.sentBatches} batches`,
+        `Telemetry: ${eventsPerSecond} evt/s, ${batchEfficiency} evt/batch, intended: ${intendedPinChangesPerSecond} pin/s, actual: ${actualPinChangesPerSecond} pin/s (loss: ${pinChangeLossPercentage}%), ${serialOutputPerSecond} serial/s`,
       );
     }
     
@@ -205,6 +249,8 @@ export class RegistryManager {
     // Reset telemetry counters and restart heartbeat
     this.telemetry.incomingEvents = 0;
     this.telemetry.sentBatches = 0;
+    this.telemetry.pinChanges = 0;
+    this.telemetry.intendedPinChanges = 0;
     this.telemetry.lastReportTime = Date.now();
     
     if (this.onTelemetryCallback && this.enableTelemetry) {
@@ -341,6 +387,27 @@ export class RegistryManager {
     // This could be extended to track value changes if needed
     this.logger.debug(`Pin ${pin} value updated to ${value}`);
     this.telemetry.incomingEvents++;
+    
+    // Apply 50ms debounce per pin to actual pin changes
+    const now = Date.now();
+    const lastChange = this.lastPinChangeTime.get(pin) ?? 0;
+    const timeSinceLastChange = now - lastChange;
+    
+    if (timeSinceLastChange >= 50) {
+      this.telemetry.pinChanges++; // Only count if 50ms+ since last change
+      this.lastPinChangeTime.set(pin, now);
+      this.logger.debug(`Pin ${pin} change counted (${timeSinceLastChange}ms since last)`);
+    } else {
+      this.logger.debug(`Pin ${pin} change ignored - debounce active (${timeSinceLastChange}ms since last)`);
+    }
+  }
+  
+  /**
+   * Track an intended pin change (before debounce)
+   */
+  trackIntendedPinChange(): void {
+    if (this.destroyed) return;
+    this.telemetry.intendedPinChanges++;
   }
 
   /**
@@ -352,6 +419,27 @@ export class RegistryManager {
     // PWM updates don't modify registry structure, just track usage
     this.logger.debug(`Pin ${pin} PWM updated to ${value}`);
     this.telemetry.incomingEvents++;
+    
+    // Apply 50ms debounce per pin to actual pin changes
+    const now = Date.now();
+    const lastChange = this.lastPinChangeTime.get(pin) ?? 0;
+    const timeSinceLastChange = now - lastChange;
+    
+    if (timeSinceLastChange >= 50) {
+      this.telemetry.pinChanges++; // Only count if 50ms+ since last change
+      this.lastPinChangeTime.set(pin, now);
+      this.logger.debug(`Pin ${pin} PWM change counted (${timeSinceLastChange}ms since last)`);
+    } else {
+      this.logger.debug(`Pin ${pin} PWM change ignored - debounce active (${timeSinceLastChange}ms since last)`);
+    }
+  }
+
+  /**
+   * Track a serial output event (called when serial data is sent)
+   */
+  trackSerialOutput(): void {
+    if (this.destroyed) return;
+    this.telemetry.serialOutputEvents++;
   }
 
   /**
@@ -386,6 +474,7 @@ export class RegistryManager {
     this.registryHash = "";
     this.waitingForRegistry = false;
     this.isDirty = false;
+    this.lastPinChangeTime.clear(); // Reset pin debounce timings
 
     this.stopTelemetry();
 

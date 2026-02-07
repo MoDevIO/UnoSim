@@ -6,6 +6,12 @@ export interface TelemetryMetrics {
   eventsPerSecond: number;
   batchEfficiency: number;
   timestamp: number;
+  pinChangesPerSecond: number;
+  intendedPinChangesPerSecond: number;
+  actualPinChangesPerSecond: number;
+  pinChangeLossPercentage: number;
+  isThrottled: boolean;
+  serialOutputPerSecond: number;
 }
 
 export interface TelemetryPeaks {
