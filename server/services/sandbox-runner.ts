@@ -405,6 +405,7 @@ export class SandboxRunner {
     timeoutSec?: number,
     onIORegistry?: (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => void,
     onTelemetry?: (metrics: any) => void,
+    onPinStateBatch?: (batch: PinStateBatch) => void,
   ) {
     // Lazy initialization: ensure Docker is checked and temp directory exists
     this.ensureDockerChecked();
@@ -424,7 +425,6 @@ export class SandboxRunner {
     this.pinStateBatcher = new PinStateBatcher({
       tickIntervalMs: 50, // 20 batches/sec
       onBatch: (batch: PinStateBatch) => {
-        // Convert batch to pin_state messages (for now - will be replaced by pin_state_batch in routes.ts)
         // Queue pin states until registry is synchronized
         if (this.registryManager.isWaiting()) {
           for (const state of batch.states) {
@@ -433,8 +433,11 @@ export class SandboxRunner {
               data: { pin: state.pin, stateType: state.stateType, value: state.value },
             });
           }
+        } else if (onPinStateBatch) {
+          // Send batch as a single pin_state_batch message
+          onPinStateBatch(batch);
         } else if (onPinState) {
-          // Send each pin state individually (will be batched on client side)
+          // Fallback: Send each pin state individually for backward compatibility
           for (const state of batch.states) {
             onPinState(state.pin, state.stateType, state.value);
           }

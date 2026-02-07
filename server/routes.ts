@@ -598,6 +598,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     metrics,
                   });
                 },
+                (batch: { states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }>; timestamp: number }) => {
+                  // Send batched pin states as a single pin_state_batch message
+                  sendMessageToClient(ws, {
+                    type: "pin_state_batch",
+                    states: batch.states,
+                    timestamp: batch.timestamp,
+                  });
+                },
               );
             }
             break;
