@@ -894,6 +894,7 @@ export default function ArduinoSimulator() {
         case "io_registry": {
           // Update I/O Registry from runtime execution
           const { registry, baudrate } = message as any;
+          console.log("[arduino-simulator] Received io_registry message with", registry?.length, "pins");
           setIoRegistry(registry);
           
           // Update baudrate from registry if provided
@@ -913,6 +914,7 @@ export default function ArduinoSimulator() {
             );
             if (hasAnalogOp) {
               const pinNum = pinToNumber(record.pin);
+              console.log(`[arduino-simulator] Pin ${record.pin} has analog operation, pinNum=${pinNum}, usedOps=`, usedOps);
               if (pinNum !== null && pinNum >= 14 && pinNum <= 19) {
                 analogPinsFromRegistry.add(pinNum);
               }
@@ -921,6 +923,7 @@ export default function ArduinoSimulator() {
 
           // Merge with existing analogPinsUsed and update if changed
           if (analogPinsFromRegistry.size > 0) {
+            console.log(`[arduino-simulator] Adding analog pins from registry:`, Array.from(analogPinsFromRegistry));
             setAnalogPinsUsed((prev) => {
               const merged = new Set([...prev, ...analogPinsFromRegistry]);
               const arr = Array.from(merged).sort((a, b) => a - b);
@@ -929,6 +932,7 @@ export default function ArduinoSimulator() {
                 arr.length !== prev.length ||
                 arr.some((p, i) => p !== prev[i])
               ) {
+                console.log(`[arduino-simulator] Updated analogPinsUsed:`, arr.map(p => `A${p - 14}`).join(", "));
                 return arr;
               }
               return prev;
@@ -1117,17 +1121,26 @@ export default function ArduinoSimulator() {
 
     // Find all analogRead(...) occurrences
     const areadRe = /analogRead\s*\(\s*([^\)]+)\s*\)/g;
+    let analogReadMatchCount = 0;
     while ((m = areadRe.exec(mainCode))) {
+      analogReadMatchCount++;
       const token = m[1].trim();
+      console.log(`[arduino-simulator] analogRead match #${analogReadMatchCount}: token="${token}"`);
       // strip possible casts or expressions (very simple handling)
       const simple = token.match(/^(A\d+|\d+|\w+)$/i);
-      if (!simple) continue;
+      if (!simple) {
+        console.log(`[arduino-simulator]   -> Token "${token}" does NOT match simple pattern, skipping`);
+        continue;
+      }
       const tok = simple[1];
       // If token is A<n>
       const aMatch = tok.match(/^A(\d+)$/i);
       if (aMatch) {
         const idx = Number(aMatch[1]);
-        if (idx >= 0 && idx <= 5) pins.add(14 + idx);
+        if (idx >= 0 && idx <= 5) {
+          pins.add(14 + idx);
+          console.log(`[arduino-simulator]   -> Added pin ${14 + idx} (A${idx})`);
+        }
         continue;
       }
       // If numeric literal
@@ -1142,6 +1155,7 @@ export default function ArduinoSimulator() {
         pins.add(varMap.get(tok)!);
       }
     }
+    console.log(`[arduino-simulator] Total analogRead matches: ${analogReadMatchCount}`);
 
     // Detect for-loops like: for (byte i=16; i<20; i++) { ... analogRead(i) ... }
     const forLoopRe =
@@ -1170,20 +1184,8 @@ export default function ArduinoSimulator() {
     }
 
     const arr = Array.from(pins).sort((a, b) => a - b);
-    if (arr.length > 0) {
-      console.log(
-        "[arduino-simulator] Detected analog pins:",
-        arr.map((p) => (p >= 14 && p <= 19 ? `A${p - 14}` : `P${p}`)).join(", "),
-      );
-    }
     setAnalogPinsUsed(arr);
 
-    // Do NOT prepopulate `pinStates` for detected analog pins here —
-    // showing analog-only frames should only happen when the simulation
-    // is actually running. Populate `pinStates` for analog pins when
-    // `simulationStatus` becomes 'running' (see separate effect below).
-
-    // Parse pinMode calls in code ONLY to detect conflicts and record detected modes.
     // Do NOT add pins to pinStates during code editing — pins should only appear
     // after upload/simulation starts (via io_registry message from the server).
     const pinModeRe =
@@ -2471,7 +2473,7 @@ export default function ArduinoSimulator() {
                                 output={serialOutput}
                                 isConnected={isConnected}
                                 isSimulationRunning={
-                                  simulationStatus === "running"
+                                  simulationStatus !== "stopped"
                                 }
                                 onSendMessage={handleSerialSend}
                                 onClear={handleClearSerialOutput}
@@ -2502,7 +2504,7 @@ export default function ArduinoSimulator() {
                         <SerialMonitor
                           output={serialOutput}
                           isConnected={isConnected}
-                          isSimulationRunning={simulationStatus === "running"}
+                          isSimulationRunning={simulationStatus !== "stopped"}
                           onSendMessage={handleSerialSend}
                           onClear={handleClearSerialOutput}
                           showMonitor={showSerialMonitor}
@@ -2552,7 +2554,8 @@ export default function ArduinoSimulator() {
                     <div className="flex-1 min-h-0">
                       <ArduinoBoard
                         pinStates={pinStates}
-                        isSimulationRunning={simulationStatus === "running"}
+                        isSimulationRunning={simulationStatus !== "stopped"}
+                        simulationStatus={simulationStatus}
                         txActive={txActivity}
                         rxActive={rxActivity}
                         onReset={handleReset}
@@ -2733,7 +2736,7 @@ export default function ArduinoSimulator() {
                       <SerialMonitor
                         output={serialOutput}
                         isConnected={isConnected}
-                        isSimulationRunning={simulationStatus === "running"}
+                        isSimulationRunning={simulationStatus !== "stopped"}
                         onSendMessage={handleSerialSend}
                         onClear={handleClearSerialOutput}
                         showMonitor={showSerialMonitor}
@@ -2750,7 +2753,8 @@ export default function ArduinoSimulator() {
                         <div className="flex-1 min-h-0">
                           <ArduinoBoard
                             pinStates={pinStates}
-                            isSimulationRunning={simulationStatus === "running"}
+                            isSimulationRunning={simulationStatus !== "stopped"}
+                            simulationStatus={simulationStatus}
                             txActive={txActivity}
                             rxActive={rxActivity}
                             onReset={handleReset}

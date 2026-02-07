@@ -223,7 +223,7 @@ export class RegistryManager {
       this.logger.warn("Received pin record while not collecting - ignoring");
       return;
     }
-    this.logger.debug(`Adding pin to registry: ${pinRecord.pin}`);
+    this.logger.debug(`Adding pin to registry: ${pinRecord.pin}, usedAt operations: ${JSON.stringify(pinRecord.usedAt || [])}`);
     this.registry.push(pinRecord);
     this.isDirty = true;
     this.telemetry.incomingEvents++;

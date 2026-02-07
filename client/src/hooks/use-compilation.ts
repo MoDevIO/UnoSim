@@ -367,7 +367,6 @@ export function useCompilation({
     );
 
     clearOutputs();
-    resetPinUI();
     setCompilationStatus("compiling");
     setArduinoCliStatus("compiling");
 

@@ -71,6 +71,19 @@
       "approve": true,
       "matchCommandLine": true
     },
-    "uniq": true
+    "uniq": true,
+    "pk": true,
+    "/^bash run-tests\\.sh 2>&1 \\| tail -30$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^pkill -f \"playwright show-report\" && sleep 2 && cd /Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe && bash run-tests\\.sh 2>&1 \\| grep -A 20 \"E2E\"$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^bash -n run-tests\\.sh$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
   },
 }

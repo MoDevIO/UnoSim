@@ -16,6 +16,7 @@ interface PinState {
 interface ArduinoBoardProps {
   pinStates?: PinState[];
   isSimulationRunning?: boolean;
+  simulationStatus?: "running" | "paused" | "stopped";
   txActive?: number; // TX activity counter (changes trigger blink)
   rxActive?: number; // RX activity counter (changes trigger blink)
   onReset?: () => void; // Callback when reset button is clicked
@@ -35,6 +36,7 @@ const PWM_PINS = [3, 5, 6, 9, 10, 11];
 export function ArduinoBoard({
   pinStates = [],
   isSimulationRunning = false,
+  simulationStatus = "stopped",
   txActive = 0,
   rxActive = 0,
   onReset,
@@ -99,6 +101,8 @@ export function ArduinoBoard({
     }
   }, [rxActive]);
 
+
+
   // Load both SVGs once
   useEffect(() => {
     Promise.all([
@@ -140,6 +144,7 @@ export function ArduinoBoard({
   const stateRef = useRef({
     pinStates,
     isSimulationRunning,
+    simulationStatus,
     txBlink,
     rxBlink,
     analogPins,
@@ -148,6 +153,7 @@ export function ArduinoBoard({
   stateRef.current = {
     pinStates,
     isSimulationRunning,
+    simulationStatus,
     txBlink,
     rxBlink,
     analogPins,
@@ -161,6 +167,7 @@ export function ArduinoBoard({
 
   // Single stable polling loop for ALL SVG updates - runs ONCE, never restarts
   useEffect(() => {
+    console.log("[ArduinoBoard] Starting stable polling loop");
     const performAllUpdates = () => {
       // Check overlay ref INSIDE the callback to handle late mounting
       const overlay = overlayRef.current;
@@ -253,8 +260,8 @@ export function ArduinoBoard({
         const color = getPinColor(pin);
 
         if (frame) {
-          frame.style.display = isInput ? "block" : "none";
-          frame.style.filter = isInput
+          frame.style.display = isSimulationRunning && isInput ? "block" : "none";
+          frame.style.filter = isSimulationRunning && isInput
             ? "drop-shadow(0 0 2px #ffff00)"
             : "none";
         }
@@ -309,22 +316,13 @@ export function ArduinoBoard({
 
         if (frame) {
           // Show frame if:
-          // - Pin is INPUT mode (shows all the time), OR
-          // - Pin is detected as used with analogRead (shows immediately when code is recognized)
-          const show = isInput || usedAsAnalog;
-          if (usedAsAnalog) {
-            logger.debug(
-              `[ArduinoBoard] A${i} (pin ${pinNumber}): detected as analogRead, show=${show}`,
-            );
-          }
+          // - Simulation is running AND
+          // - (Pin is INPUT mode OR pin is detected as used with analogRead)
+          const show = isSimulationRunning && (isInput || usedAsAnalog);
           frame.style.display = show ? "block" : "none";
           frame.style.filter = show ? "drop-shadow(0 0 2px #ffff00)" : "none";
-          const pinState = pinStates.find((p) => p.pin === pinNumber);
-          if (
-            show &&
-            usedAsAnalog &&
-            (!pinState || pinState.type === "analog")
-          ) {
+          // Dashed frame if analogRead is used, solid otherwise
+          if (show && usedAsAnalog) {
             (frame as any).style.strokeDasharray = "3,2";
           } else {
             (frame as any).style.strokeDasharray = "";
@@ -786,7 +784,7 @@ export function ArduinoBoard({
     } catch {}
     modified = modified.replace(
       /<svg([^>]*)>/,
-      `<svg$1 style="width: 100%; height: 100%; display: block; opacity: ${isSimulationRunning ? 1 : 0.35};" preserveAspectRatio="xMidYMid meet">`,
+      `<svg$1 style="width: 100%; height: 100%; display: block; opacity: ${simulationStatus === "running" ? 1 : 0.35};" preserveAspectRatio="xMidYMid meet">`,
     );
     return modified;
   };
@@ -846,7 +844,7 @@ export function ArduinoBoard({
               className="absolute inset-0 transition-opacity duration-300 ease-in-out pointer-events-none"
               style={{
                 background: "rgba(0,0,0,0.45)",
-                opacity: isSimulationRunning ? 0 : 1,
+                opacity: simulationStatus === "running" ? 0 : 1,
                 zIndex: 20,
               }}
             />
