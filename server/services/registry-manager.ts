@@ -2,6 +2,7 @@
 // Manages I/O Registry for Arduino pin states with debouncing and change detection
 
 import type { IOPinRecord } from "@shared/schema";
+import type { PinStateBatcher } from "./pin-state-batcher";
 import { Logger } from "@shared/logger";
 
 export interface RegistryUpdateCallback {
@@ -76,13 +77,14 @@ export class RegistryManager {
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
   private readonly enableTelemetry: boolean;
   private lastPinChangeTime = new Map<number, number>(); // Track last change time per pin for debouncing
+  private pinStateBatcher: PinStateBatcher | null = null; // Reference to PinStateBatcher for telemetry
   
   // Telemetry tracking
   private telemetry = {
     incomingEvents: 0,
     sentBatches: 0,
     pinChanges: 0, // track pin value/pwm/mode changes separately
-    intendedPinChanges: 0, // what the simulator tried to do
+    intendedPinChanges: 0, // what the simulator tried to do (DEPRECATED - use PinStateBatcher)
     serialOutputEvents: 0, // track serial output events
     lastReportTime: Date.now(),
   };
@@ -96,6 +98,13 @@ export class RegistryManager {
     if (this.onTelemetryCallback && this.enableTelemetry) {
       this.startHeartbeat();
     }
+  }
+  
+  /**
+   * Set reference to PinStateBatcher for telemetry tracking
+   */
+  setPinStateBatcher(batcher: PinStateBatcher | null): void {
+    this.pinStateBatcher = batcher;
   }
   
   /**
@@ -163,25 +172,31 @@ export class RegistryManager {
       ? Math.round((this.telemetry.incomingEvents / this.telemetry.sentBatches) * 10) / 10
       : 0;
 
-    // Calculate pin changes per second
-    const pinChangesPerSecond = timeElapsedSec > 0
-      ? Math.round((this.telemetry.pinChanges / timeElapsedSec) * 10) / 10
-      : 0;
+    // Get pin change telemetry from PinStateBatcher
+    let intendedPinChangesPerSecond = 0;
+    let actualPinChangesPerSecond = 0;
+    let pinChangeLossPercentage = 0;
+    
+    if (this.pinStateBatcher) {
+      const batcherTelemetry = this.pinStateBatcher.getTelemetryAndReset();
+      intendedPinChangesPerSecond = timeElapsedSec > 0
+        ? Math.round((batcherTelemetry.intended / timeElapsedSec) * 10) / 10
+        : 0;
+      actualPinChangesPerSecond = timeElapsedSec > 0
+        ? Math.round((batcherTelemetry.actual / timeElapsedSec) * 10) / 10
+        : 0;
+      pinChangeLossPercentage = intendedPinChangesPerSecond > 0
+        ? Math.round(((intendedPinChangesPerSecond - actualPinChangesPerSecond) / intendedPinChangesPerSecond) * 100)
+        : 0;
+    }
 
-    // Calculate intended vs actual pin changes
-    const intendedPinChangesPerSecond = timeElapsedSec > 0
-      ? Math.round((this.telemetry.intendedPinChanges / timeElapsedSec) * 10) / 10
-      : 0;
-    
-    const actualPinChangesPerSecond = pinChangesPerSecond;
-    
-    // Calculate loss percentage
-    const pinChangeLossPercentage = intendedPinChangesPerSecond > 0
-      ? Math.round(((intendedPinChangesPerSecond - actualPinChangesPerSecond) / intendedPinChangesPerSecond) * 100)
-      : 0;
+    // Pin changes per second (legacy, kept for compatibility)
+    const pinChangesPerSecond = actualPinChangesPerSecond;
 
     // Check if pin changes are being throttled (if we're debouncing)
-    const isThrottled = this.debounceTimer !== null;
+    // NOTE: With PinStateBatcher, throttling is always happening at 20Hz
+    // We consider it "throttled" if there's loss (i.e., intended > actual)
+    const isThrottled = pinChangeLossPercentage > 0;
 
     // Calculate serial output events per second
     const serialOutputPerSecond = timeElapsedSec > 0

@@ -443,6 +443,9 @@ export class SandboxRunner {
     });
     this.pinStateBatcher.start();
     
+    // Give RegistryManager reference to PinStateBatcher for telemetry
+    this.registryManager.setPinStateBatcher(this.pinStateBatcher);
+    
     // Bind callbacks to instance BEFORE initializeRunState (which also sets onOutputCallback)
     this.outputCallback = onOutput;
     this.errorCallback = onError;
