@@ -76,14 +76,13 @@ export class RegistryManager {
   private readonly onUpdateCallback?: RegistryUpdateCallback;
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
   private readonly enableTelemetry: boolean;
-  private lastPinChangeTime = new Map<number, number>(); // Track last change time per pin for debouncing
   private pinStateBatcher: PinStateBatcher | null = null; // Reference to PinStateBatcher for telemetry
   
   // Telemetry tracking
   private telemetry = {
     incomingEvents: 0,
     sentBatches: 0,
-    pinChanges: 0, // track pin value/pwm/mode changes separately
+    pinChanges: 0, // track pin value/pwm/mode changes separately (DEPRECATED - use PinStateBatcher)
     intendedPinChanges: 0, // what the simulator tried to do (DEPRECATED - use PinStateBatcher)
     serialOutputEvents: 0, // track serial output events
     lastReportTime: Date.now(),
@@ -395,58 +394,24 @@ export class RegistryManager {
 
   /**
    * Update a pin's digital value (called when [[PIN_VALUE:pin:value]] is received)
+   * Note: No debouncing here - PinStateBatcher handles batching on the output side
    */
   updatePinValue(pin: number, value: number): void {
     if (this.destroyed) return;
     // Pin value updates don't modify registry structure, just track usage
-    // This could be extended to track value changes if needed
     this.logger.debug(`Pin ${pin} value updated to ${value}`);
     this.telemetry.incomingEvents++;
-    
-    // Apply 50ms debounce per pin to actual pin changes
-    const now = Date.now();
-    const lastChange = this.lastPinChangeTime.get(pin) ?? 0;
-    const timeSinceLastChange = now - lastChange;
-    
-    if (timeSinceLastChange >= 50) {
-      this.telemetry.pinChanges++; // Only count if 50ms+ since last change
-      this.lastPinChangeTime.set(pin, now);
-      this.logger.debug(`Pin ${pin} change counted (${timeSinceLastChange}ms since last)`);
-    } else {
-      this.logger.debug(`Pin ${pin} change ignored - debounce active (${timeSinceLastChange}ms since last)`);
-    }
   }
   
   /**
-   * Track an intended pin change (before debounce)
-   */
-  trackIntendedPinChange(): void {
-    if (this.destroyed) return;
-    this.telemetry.intendedPinChanges++;
-  }
-
-  /**
    * Update a pin's PWM value (called when [[PIN_PWM:pin:value]] is received)
-   * High-frequency updates are throttled to minimize WebSocket traffic
+   * Note: No debouncing here - PinStateBatcher handles batching on the output side
    */
   updatePinPWM(pin: number, value: number): void {
     if (this.destroyed) return;
     // PWM updates don't modify registry structure, just track usage
     this.logger.debug(`Pin ${pin} PWM updated to ${value}`);
     this.telemetry.incomingEvents++;
-    
-    // Apply 50ms debounce per pin to actual pin changes
-    const now = Date.now();
-    const lastChange = this.lastPinChangeTime.get(pin) ?? 0;
-    const timeSinceLastChange = now - lastChange;
-    
-    if (timeSinceLastChange >= 50) {
-      this.telemetry.pinChanges++; // Only count if 50ms+ since last change
-      this.lastPinChangeTime.set(pin, now);
-      this.logger.debug(`Pin ${pin} PWM change counted (${timeSinceLastChange}ms since last)`);
-    } else {
-      this.logger.debug(`Pin ${pin} PWM change ignored - debounce active (${timeSinceLastChange}ms since last)`);
-    }
   }
 
   /**
@@ -489,7 +454,6 @@ export class RegistryManager {
     this.registryHash = "";
     this.waitingForRegistry = false;
     this.isDirty = false;
-    this.lastPinChangeTime.clear(); // Reset pin debounce timings
 
     this.stopTelemetry();
 
