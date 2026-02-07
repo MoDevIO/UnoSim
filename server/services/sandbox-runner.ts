@@ -16,6 +16,7 @@ import { SimulationTimeoutManager } from "./simulation-timeout-manager";
 import { DockerCommandBuilder } from "./docker-command-builder";
 import { SketchFileBuilder } from "./sketch-file-builder";
 import { LocalCompiler } from "./local-compiler";
+import { PinStateBatcher, type PinStateBatch } from "./pin-state-batcher";
 
 enum SimulationState {
   STOPPED = "stopped",
@@ -59,6 +60,7 @@ export class SandboxRunner {
   private timeoutManager: SimulationTimeoutManager;
   private fileBuilder: SketchFileBuilder;
   private localCompiler: LocalCompiler;
+  private pinStateBatcher: PinStateBatcher | null = null;
   
   // Output buffers
   private outputBuffer = "";
@@ -417,6 +419,29 @@ export class SandboxRunner {
 
     // Clear pending cleanup for a fresh run
     this.pendingCleanup = false;
+    
+    // Create and start PinStateBatcher for this simulation run
+    this.pinStateBatcher = new PinStateBatcher({
+      tickIntervalMs: 50, // 20 batches/sec
+      onBatch: (batch: PinStateBatch) => {
+        // Convert batch to pin_state messages (for now - will be replaced by pin_state_batch in routes.ts)
+        // Queue pin states until registry is synchronized
+        if (this.registryManager.isWaiting()) {
+          for (const state of batch.states) {
+            this.messageQueue.push({
+              type: "pinState",
+              data: { pin: state.pin, stateType: state.stateType, value: state.value },
+            });
+          }
+        } else if (onPinState) {
+          // Send each pin state individually (will be batched on client side)
+          for (const state of batch.states) {
+            onPinState(state.pin, state.stateType, state.value);
+          }
+        }
+      },
+    });
+    this.pinStateBatcher.start();
     
     // Bind callbacks to instance BEFORE initializeRunState (which also sets onOutputCallback)
     this.outputCallback = onOutput;
@@ -911,25 +936,31 @@ export class SandboxRunner {
         break;
 
       case "pin_mode":
-        this.registryManager.trackIntendedPinChange();
         this.registryManager.updatePinMode(parsed.pin, parsed.mode);
-        if (onPinState) {
+        if (this.pinStateBatcher) {
+          this.pinStateBatcher.enqueue(parsed.pin, "mode", parsed.mode);
+        } else if (onPinState) {
+          // Fallback if batcher not initialized
           onPinState(parsed.pin, "mode", parsed.mode);
         }
         break;
 
       case "pin_value":
-        this.registryManager.trackIntendedPinChange();
         this.registryManager.updatePinValue(parsed.pin, parsed.value);
-        if (onPinState) {
+        if (this.pinStateBatcher) {
+          this.pinStateBatcher.enqueue(parsed.pin, "value", parsed.value);
+        } else if (onPinState) {
+          // Fallback if batcher not initialized
           onPinState(parsed.pin, "value", parsed.value);
         }
         break;
 
       case "pin_pwm":
-        this.registryManager.trackIntendedPinChange();
         this.registryManager.updatePinPWM(parsed.pin, parsed.value);
-        if (onPinState) {
+        if (this.pinStateBatcher) {
+          this.pinStateBatcher.enqueue(parsed.pin, "pwm", parsed.value);
+        } else if (onPinState) {
+          // Fallback if batcher not initialized
           onPinState(parsed.pin, "pwm", parsed.value);
         }
         break;
@@ -981,6 +1012,11 @@ export class SandboxRunner {
     }
 
     try {
+      // Pause PinStateBatcher (stops ticking, keeps pending states)
+      if (this.pinStateBatcher) {
+        this.pinStateBatcher.pause();
+      }
+      
       // Stop telemetry reporting while paused (no need to send data)
       this.registryManager.pauseTelemetry();
       
@@ -1022,6 +1058,11 @@ export class SandboxRunner {
       // Transition state (this clears pauseStartTime and resumes timeout clock)
       if (!this.transitionTo(SimulationState.RUNNING)) {
         return false;
+      }
+      
+      // Resume PinStateBatcher
+      if (this.pinStateBatcher) {
+        this.pinStateBatcher.resume();
       }
       
       // Resume telemetry reporting
@@ -1325,6 +1366,13 @@ export class SandboxRunner {
     this.transitionTo(SimulationState.STOPPED);
     this.processKilled = true;
     this.pendingCleanup = true;
+    
+    // Stop and destroy PinStateBatcher
+    if (this.pinStateBatcher) {
+      this.pinStateBatcher.stop();
+      this.pinStateBatcher.destroy();
+      this.pinStateBatcher = null;
+    }
     
     // Stop telemetry reporting when simulation stops
     this.registryManager.pauseTelemetry();
