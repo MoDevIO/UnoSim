@@ -891,6 +891,14 @@ export default function ArduinoSimulator() {
           enqueuePinEvent(pin, stateType, value);
           break;
         }
+        case "pin_state_batch": {
+          // Handle batched pin state updates
+          const { states } = message as { states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }> };
+          for (const { pin, stateType, value } of states) {
+            enqueuePinEvent(pin, stateType, value);
+          }
+          break;
+        }
         case "io_registry": {
           // Update I/O Registry from runtime execution
           const { registry, baudrate } = message as any;
