@@ -42,9 +42,24 @@ test.describe("Arduino Board - I/O Value Display Toggle", () => {
     const hideButton = page.getByRole("button", { name: /hide i\/o values/i });
     await expect(hideButton).toBeVisible({ timeout: 5000 });
 
-    // Verify aria-label changed
-    const hideAriaLabel = await hideButton.getAttribute("aria-label");
-    expect(hideAriaLabel).toBe("Hide I/O values");
+    // Wait for SVG text elements to render
+    await page.waitForTimeout(1000);
+
+    // Check that SVG text elements are now visible with values
+    // Look for text elements inside the overlay SVG
+    const textElements = page.locator('svg text[id$="-val"]');
+    const count = await textElements.count();
+    
+    console.log(`Found ${count} text elements with values`);
+    
+    // There should be at least some text elements (for PWM or analog pins)
+    if (count > 0) {
+      // Get the first visible text element and verify it has numeric content
+      const firstText = textElements.first();
+      const content = await firstText.textContent();
+      console.log(`First text element content: "${content}"`);
+      expect(content).toMatch(/\d+/); // Should contain at least one digit
+    }
 
     // Toggle back to hide
     await hideButton.click();

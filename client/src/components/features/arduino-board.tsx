@@ -404,7 +404,7 @@ export function ArduinoBoard({
 
       // Update numeric I/O labels (PWM pins and analog A0-A5)
       // Only show when requested via the header button
-      const showLabels = !!showPWMValues;
+      const showLabels = !!stateRef.current.showPWMValues;
 
       // Helper to create/update text nodes
       // rotateLeft: if true, the label will be rotated -90deg around (x,y)
