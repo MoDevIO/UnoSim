@@ -85,6 +85,17 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     value: z.number(),
   }),
   z.object({
+    type: z.literal("pin_state_batch"),
+    states: z.array(
+      z.object({
+        pin: z.number(),
+        stateType: z.enum(["mode", "value", "pwm"]),
+        value: z.number(),
+      })
+    ),
+    timestamp: z.number(),
+  }),
+  z.object({
     type: z.literal("set_pin_value"),
     pin: z.number(),
     value: z.number(),
