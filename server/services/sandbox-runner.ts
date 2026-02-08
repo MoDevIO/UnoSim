@@ -952,7 +952,6 @@ export class SandboxRunner {
         break;
 
       case "pin_value":
-        this.registryManager.updatePinValue(parsed.pin, parsed.value);
         if (this.pinStateBatcher) {
           this.pinStateBatcher.enqueue(parsed.pin, "value", parsed.value);
         } else if (onPinState) {
@@ -962,7 +961,6 @@ export class SandboxRunner {
         break;
 
       case "pin_pwm":
-        this.registryManager.updatePinPWM(parsed.pin, parsed.value);
         if (this.pinStateBatcher) {
           this.pinStateBatcher.enqueue(parsed.pin, "pwm", parsed.value);
         } else if (onPinState) {

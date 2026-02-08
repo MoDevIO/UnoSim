@@ -834,21 +834,21 @@ export function ArduinoBoard({
           <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
           <span className="sr-only">Arduino UNO Board</span>
           {debugMode && telemetry && isSimulationRunning && (
-            <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
-              <div className="flex flex-col">
+            <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4" data-testid="telemetry-metrics">
+              <div className="flex flex-col" data-testid="telemetry-pin-changes">
                 <span className="text-[10px] uppercase tracking-wider text-white/50">Pin Changes</span>
-                <span className="text-sm font-mono text-white/90">
+                <span className="text-sm font-mono text-white/90" data-testid="telemetry-pin-changes-value">
                   {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
                   {telemetry.droppedPinChangesPerSecond > 0 && (
-                    <span className="ml-1 text-amber-400/80">
+                    <span className="ml-1 text-amber-400/80" data-testid="telemetry-dropped">
                       ({telemetry.droppedPinChangesPerSecond.toFixed(0)} dropped)
                     </span>
                   )}
                 </span>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col" data-testid="telemetry-batching">
                 <span className="text-[10px] uppercase tracking-wider text-white/50">Batching</span>
-                <span className="text-sm font-mono text-white/90">
+                <span className="text-sm font-mono text-white/90" data-testid="telemetry-batching-value">
                   {telemetry.batchesPerSecond.toFixed(0)} bat/s · {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
                 </span>
               </div>

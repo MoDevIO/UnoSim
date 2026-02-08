@@ -78,8 +78,6 @@ export class RegistryManager {
   private telemetry = {
     incomingEvents: 0,
     sentBatches: 0,
-    pinChanges: 0, // track pin value/pwm/mode changes separately (DEPRECATED - use PinStateBatcher)
-    intendedPinChanges: 0, // what the simulator tried to do (DEPRECATED - use PinStateBatcher)
     serialOutputEvents: 0, // track serial output events
     lastReportTime: Date.now(),
   };
@@ -142,9 +140,7 @@ export class RegistryManager {
    */
   resumeTelemetry(): void {
     if (this.onTelemetryCallback && this.enableTelemetry) {
-      // Reset counters for fresh start after pause
-      this.telemetry.incomingEvents = 0;
-      this.telemetry.sentBatches = 0;
+      // Reset timestamp for fresh start after pause
       this.telemetry.lastReportTime = Date.now();
       this.startHeartbeat();
       this.logger.debug("Telemetry heartbeat resumed");
@@ -377,27 +373,7 @@ export class RegistryManager {
     }
   }
 
-  /**
-   * Update a pin's digital value (called when [[PIN_VALUE:pin:value]] is received)
-   * Note: No debouncing here - PinStateBatcher handles batching on the output side
-   */
-  updatePinValue(pin: number, value: number): void {
-    if (this.destroyed) return;
-    // Pin value updates don't modify registry structure, just track usage
-    this.logger.debug(`Pin ${pin} value updated to ${value}`);
-    this.telemetry.incomingEvents++;
-  }
-  
-  /**
-   * Update a pin's PWM value (called when [[PIN_PWM:pin:value]] is received)
-   * Note: No debouncing here - PinStateBatcher handles batching on the output side
-   */
-  updatePinPWM(pin: number, value: number): void {
-    if (this.destroyed) return;
-    // PWM updates don't modify registry structure, just track usage
-    this.logger.debug(`Pin ${pin} PWM updated to ${value}`);
-    this.telemetry.incomingEvents++;
-  }
+
 
   /**
    * Track a serial output event (called when serial data is sent)
