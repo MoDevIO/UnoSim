@@ -1,5 +1,5 @@
 // use-telemetry-store.test.ts
-// Unit tests for telemetry store hook
+// Unit tests for telemetry store hook (Phase A: New Metrics)
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
@@ -12,16 +12,15 @@ describe("telemetryStore", () => {
   });
 
   describe("pushTelemetry", () => {
-    it("should store telemetry metrics", () => {
+    it("should store telemetry metrics with new interface", () => {
       const metric = {
-        incomingEvents: 100,
-        sentBatches: 10,
-        eventsPerSecond: 100,
-        batchEfficiency: 10,
-        pinChangesPerSecond: 50,
-        isThrottled: false,
-        serialOutputPerSecond: 10,
         timestamp: Date.now(),
+        intendedPinChangesPerSecond: 150,
+        actualPinChangesPerSecond: 120,
+        droppedPinChangesPerSecond: 30,
+        batchesPerSecond: 20,
+        avgStatesPerBatch: 6,
+        serialOutputPerSecond: 10,
       };
 
       telemetryStore.pushTelemetry(metric);
@@ -37,14 +36,13 @@ describe("telemetryStore", () => {
 
       for (let i = 0; i < 30; i++) {
         const metric = {
-          incomingEvents: i * 10,
-          sentBatches: i,
-          eventsPerSecond: i * 10,
-          batchEfficiency: 10,
-          pinChangesPerSecond: i * 5,
-          isThrottled: false,
-          serialOutputPerSecond: i,
           timestamp: baseTime + i * 1000,
+          intendedPinChangesPerSecond: i * 50,
+          actualPinChangesPerSecond: i * 40,
+          droppedPinChangesPerSecond: i * 10,
+          batchesPerSecond: 20,
+          avgStatesPerBatch: i * 2,
+          serialOutputPerSecond: i,
         };
         metrics.push(metric);
         telemetryStore.pushTelemetry(metric);
@@ -56,235 +54,162 @@ describe("telemetryStore", () => {
       expect(snapshot.last).toEqual(metrics[29]);
     });
 
-    it("should track peak EPS (events per second)", () => {
-      const metrics = [
-        {
-          incomingEvents: 100,
-          sentBatches: 10,
-          eventsPerSecond: 100,
-          batchEfficiency: 10,
-          pinChangesPerSecond: 50,
-          isThrottled: false,
-          serialOutputPerSecond: 10,
-          timestamp: Date.now(),
-        },
-        {
-          incomingEvents: 200,
-          sentBatches: 20,
-          eventsPerSecond: 200, // Peak
-          batchEfficiency: 10,
-          pinChangesPerSecond: 100,
-          isThrottled: false,
-          serialOutputPerSecond: 20,
-          timestamp: Date.now() + 1000,
-        },
-        {
-          incomingEvents: 50,
-          sentBatches: 5,
-          eventsPerSecond: 50,
-          batchEfficiency: 10,
-          pinChangesPerSecond: 25,
-          isThrottled: false,
-          serialOutputPerSecond: 5,
-          timestamp: Date.now() + 2000,
-        },
-      ];
-
-      metrics.forEach((m) => telemetryStore.pushTelemetry(m));
-
-      const snapshot = telemetryStore.getSnapshot();
-      expect(snapshot.peaks.maxEventsPerSecond).toBe(200);
-    });
-
-    it("should track peak pin changes per second", () => {
-      const metrics = [
-        {
-          incomingEvents: 50,
-          sentBatches: 5,
-          eventsPerSecond: 50,
-          batchEfficiency: 10,
-          pinChangesPerSecond: 30, // Peak
-          isThrottled: false,
-          serialOutputPerSecond: 10,
-          timestamp: Date.now(),
-        },
-        {
-          incomingEvents: 100,
-          sentBatches: 10,
-          eventsPerSecond: 100,
-          batchEfficiency: 10,
-          pinChangesPerSecond: 20,
-          isThrottled: false,
-          serialOutputPerSecond: 20,
-          timestamp: Date.now() + 1000,
-        },
-      ];
-
-      metrics.forEach((m) => telemetryStore.pushTelemetry(m));
-
-      const snapshot = telemetryStore.getSnapshot();
-      expect(snapshot.peaks.maxEventsPerSecond).toBe(100); // Overall EPS peak
-    });
-
-    it("should track throttle status", () => {
-      const metrics = [
-        {
-          incomingEvents: 50,
-          sentBatches: 5,
-          eventsPerSecond: 50,
-          batchEfficiency: 10,
-          pinChangesPerSecond: 10,
-          isThrottled: true, // Throttled
-          serialOutputPerSecond: 10,
-          timestamp: Date.now(),
-        },
-        {
-          incomingEvents: 100,
-          sentBatches: 10,
-          eventsPerSecond: 100,
-          batchEfficiency: 10,
-          pinChangesPerSecond: 20,
-          isThrottled: false, // Not throttled
-          serialOutputPerSecond: 20,
-          timestamp: Date.now() + 1000,
-        },
-      ];
-
-      metrics.forEach((m) => telemetryStore.pushTelemetry(m));
-
-      const snapshot = telemetryStore.getSnapshot();
-      expect(snapshot.last?.isThrottled).toBe(false);
-    });
-  });
-
-  describe("useTelemetryStore hook", () => {
-    it("should return empty snapshot initially", () => {
-      const { result } = renderHook(() => useTelemetryStore());
-
-      expect(result.current.last).toBeNull();
-      expect(result.current.history).toEqual([]);
-      expect(result.current.peaks.maxEventsPerSecond).toBe(0);
-    });
-
-    it("should subscribe to telemetry updates", () => {
-      const { result, rerender } = renderHook(() => useTelemetryStore());
-
+    it("should handle zero metrics gracefully", () => {
       const metric = {
-        incomingEvents: 100,
-        sentBatches: 10,
-        eventsPerSecond: 100,
-        batchEfficiency: 10,
-        pinChangesPerSecond: 50,
-        isThrottled: false,
-        serialOutputPerSecond: 10,
         timestamp: Date.now(),
+        intendedPinChangesPerSecond: 0,
+        actualPinChangesPerSecond: 0,
+        droppedPinChangesPerSecond: 0,
+        batchesPerSecond: 0,
+        avgStatesPerBatch: 0,
+        serialOutputPerSecond: 0,
       };
 
-      act(() => {
-        telemetryStore.pushTelemetry(metric);
-      });
+      telemetryStore.pushTelemetry(metric);
 
-      rerender();
-
-      expect(result.current.last).toEqual(metric);
-      expect(result.current.history).toHaveLength(1);
+      const snapshot = telemetryStore.getSnapshot();
+      expect(snapshot.last).toEqual(metric);
     });
 
-    it("should reflect peak values", () => {
-      const { result, rerender } = renderHook(() => useTelemetryStore());
+    it("should handle realistic simulation metrics", () => {
+      const metric = {
+        timestamp: Date.now(),
+        intendedPinChangesPerSecond: 1520,
+        actualPinChangesPerSecond: 1140,
+        droppedPinChangesPerSecond: 380,
+        batchesPerSecond: 20,
+        avgStatesPerBatch: 57,
+        serialOutputPerSecond: 5,
+      };
 
-      const metrics = [
-        {
-          incomingEvents: 100,
-          sentBatches: 10,
-          eventsPerSecond: 100,
-          batchEfficiency: 10,
-          pinChangesPerSecond: 50,
-          isThrottled: false,
-          serialOutputPerSecond: 10,
-          timestamp: Date.now(),
-        },
-        {
-          incomingEvents: 200,
-          sentBatches: 20,
-          eventsPerSecond: 200, // Peak
-          batchEfficiency: 10,
-          pinChangesPerSecond: 100, // Peak
-          isThrottled: false,
-          serialOutputPerSecond: 20,
-          timestamp: Date.now() + 1000,
-        },
-      ];
+      telemetryStore.pushTelemetry(metric);
 
-      act(() => {
-        metrics.forEach((m) => telemetryStore.pushTelemetry(m));
-      });
-
-      rerender();
-
-      expect(result.current.peaks.maxEventsPerSecond).toBe(200);
+      const snapshot = telemetryStore.getSnapshot();
+      expect(snapshot.last?.intendedPinChangesPerSecond).toBe(1520);
+      expect(snapshot.last?.actualPinChangesPerSecond).toBe(1140);
+      expect(snapshot.last?.droppedPinChangesPerSecond).toBe(380);
     });
   });
 
   describe("resetTelemetry", () => {
     it("should clear all telemetry data", () => {
       const metric = {
-        incomingEvents: 100,
-        sentBatches: 10,
-        eventsPerSecond: 100,
-        batchEfficiency: 10,
-        pinChangesPerSecond: 50,
-        isThrottled: false,
-        serialOutputPerSecond: 10,
         timestamp: Date.now(),
+        intendedPinChangesPerSecond: 100,
+        actualPinChangesPerSecond: 80,
+        droppedPinChangesPerSecond: 20,
+        batchesPerSecond: 20,
+        avgStatesPerBatch: 4,
+        serialOutputPerSecond: 10,
       };
 
       telemetryStore.pushTelemetry(metric);
       telemetryStore.resetTelemetry();
 
       const snapshot = telemetryStore.getSnapshot();
-      expect(snapshot.history).toEqual([]);
       expect(snapshot.last).toBeNull();
+      expect(snapshot.history).toEqual([]);
       expect(snapshot.lastHeartbeatAt).toBeNull();
     });
   });
 
-  describe("resetToInitial", () => {
-    it("should clear history but preserve peaks", () => {
-      const metrics = [
-        {
-          incomingEvents: 100,
-          sentBatches: 10,
-          eventsPerSecond: 100,
-          batchEfficiency: 10,
-          pinChangesPerSecond: 50,
-          isThrottled: false,
-          serialOutputPerSecond: 10,
-          timestamp: Date.now(),
-        },
-        {
-          incomingEvents: 200,
-          sentBatches: 20,
-          eventsPerSecond: 200,
-          batchEfficiency: 10,
-          pinChangesPerSecond: 100,
-          isThrottled: false,
-          serialOutputPerSecond: 20,
-          timestamp: Date.now() + 1000,
-        },
-      ];
+  describe("resetToEmpty", () => {
+    it("should perform hard reset of telemetry", () => {
+      const metrics = [];
+      for (let i = 0; i < 5; i++) {
+        const metric = {
+          timestamp: Date.now() + i * 1000,
+          intendedPinChangesPerSecond: i * 100,
+          actualPinChangesPerSecond: i * 80,
+          droppedPinChangesPerSecond: i * 20,
+          batchesPerSecond: 20,
+          avgStatesPerBatch: 4,
+          serialOutputPerSecond: i * 10,
+        };
+        metrics.push(metric);
+        telemetryStore.pushTelemetry(metric);
+      }
 
-      metrics.forEach((m) => telemetryStore.pushTelemetry(m));
+      telemetryStore.resetToEmpty();
 
-      const snapshotBefore = telemetryStore.getSnapshot();
-      const peakBefore = snapshotBefore.peaks.maxEventsPerSecond;
-
-      telemetryStore.resetToInitial();
-
-      const snapshotAfter = telemetryStore.getSnapshot();
-      expect(snapshotAfter.history).toEqual([]);
-      expect(snapshotAfter.last).toBeNull();
-      expect(snapshotAfter.peaks.maxEventsPerSecond).toBe(peakBefore);
+      const snapshot = telemetryStore.getSnapshot();
+      expect(snapshot.last).toBeNull();
+      expect(snapshot.history).toEqual([]);
     });
+  });
+});
+
+describe("useTelemetryStore", () => {
+  beforeEach(() => {
+    telemetryStore.resetTelemetry();
+  });
+
+  it("should provide telemetry snapshot via hook", () => {
+    const { result } = renderHook(() => useTelemetryStore());
+
+    expect(result.current.history).toEqual([]);
+    expect(result.current.last).toBeNull();
+  });
+
+  it("should update when telemetry is pushed", () => {
+    const { result } = renderHook(() => useTelemetryStore());
+
+    act(() => {
+      telemetryStore.pushTelemetry({
+        timestamp: Date.now(),
+        intendedPinChangesPerSecond: 100,
+        actualPinChangesPerSecond: 80,
+        droppedPinChangesPerSecond: 20,
+        batchesPerSecond: 20,
+        avgStatesPerBatch: 4,
+        serialOutputPerSecond: 10,
+      });
+    });
+
+    expect(result.current.last).toBeDefined();
+    expect(result.current.last?.intendedPinChangesPerSecond).toBe(100);
+  });
+
+  it("should track lastHeartbeatAt timestamp", () => {
+    const { result } = renderHook(() => useTelemetryStore());
+    const now = Date.now();
+
+    act(() => {
+      telemetryStore.pushTelemetry({
+        timestamp: now,
+        intendedPinChangesPerSecond: 100,
+        actualPinChangesPerSecond: 80,
+        droppedPinChangesPerSecond: 20,
+        batchesPerSecond: 20,
+        avgStatesPerBatch: 4,
+        serialOutputPerSecond: 10,
+      });
+    });
+
+    expect(result.current.lastHeartbeatAt).toBe(now);
+  });
+
+  it("should provide access to reset function", () => {
+    const { result } = renderHook(() => useTelemetryStore());
+
+    act(() => {
+      telemetryStore.pushTelemetry({
+        timestamp: Date.now(),
+        intendedPinChangesPerSecond: 100,
+        actualPinChangesPerSecond: 80,
+        droppedPinChangesPerSecond: 20,
+        batchesPerSecond: 20,
+        avgStatesPerBatch: 4,
+        serialOutputPerSecond: 10,
+      });
+    });
+
+    expect(result.current.last).toBeDefined();
+
+    act(() => {
+      result.current.resetTelemetry();
+    });
+
+    expect(result.current.last).toBeNull();
   });
 });

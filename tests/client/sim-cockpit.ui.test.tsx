@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-// ...existing code...
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SimCockpit } from "@/components/features/sim-cockpit";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import type { BatchStats } from "@/hooks/use-simulation-store";
@@ -7,11 +7,13 @@ import type { BatchStats } from "@/hooks/use-simulation-store";
 describe("SimCockpit UI", () => {
   const fixedNow = 1_000_000;
   const baseMetrics = {
-    incomingEvents: 10,
-    sentBatches: 1,
-    eventsPerSecond: 6,
-    batchEfficiency: 10,
     timestamp: fixedNow,
+    intendedPinChangesPerSecond: 100,
+    actualPinChangesPerSecond: 80,
+    droppedPinChangesPerSecond: 20,
+    batchesPerSecond: 20,
+    avgStatesPerBatch: 4,
+    serialOutputPerSecond: 10,
   };
 
   beforeEach(() => {
@@ -23,31 +25,20 @@ describe("SimCockpit UI", () => {
     vi.restoreAllMocks();
   });
 
-  it("derives UI Hz from batchStats frame timing", () => {
+  it("renders SimCockpit with Link State display", () => {
     telemetryStore.pushTelemetry(baseMetrics);
 
-    const firstBatch: BatchStats = {
+    const batchStats: BatchStats = {
       lastBatchMs: 1,
       lastBatchSize: 5,
       lastFrameAt: fixedNow,
     };
 
-    const { rerender } = render(<SimCockpit batchStats={firstBatch} simulationStatus="running" />);
+    render(<SimCockpit batchStats={batchStats} simulationStatus="running" />);
 
-    telemetryStore.pushTelemetry({
-      ...baseMetrics,
-      eventsPerSecond: 1570,
-      timestamp: fixedNow + 1000,
-    });
-
-    const secondBatch: BatchStats = {
-      lastBatchMs: 1,
-      lastBatchSize: 10,
-      lastFrameAt: fixedNow + 50, // 50ms frame interval -> 20Hz
-    };
-
-    rerender(<SimCockpit batchStats={secondBatch} simulationStatus="running" />);
-
-    expect(screen.getByText("20.0")).not.toBeNull();
+    // SimCockpit should render with Link State indicator
+    // According to Phase C.3 concept, this component only shows Link State now
+    expect(screen.getByText("Link State")).toBeDefined();
+    expect(screen.getByText("STABLE")).toBeDefined();
   });
 });

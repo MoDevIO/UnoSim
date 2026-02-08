@@ -244,8 +244,6 @@ export class RegistryManager {
     // Reset telemetry counters and restart heartbeat
     this.telemetry.incomingEvents = 0;
     this.telemetry.sentBatches = 0;
-    this.telemetry.pinChanges = 0;
-    this.telemetry.intendedPinChanges = 0;
     this.telemetry.lastReportTime = Date.now();
     
     if (this.onTelemetryCallback && this.enableTelemetry) {

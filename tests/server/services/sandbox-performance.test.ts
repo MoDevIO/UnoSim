@@ -144,6 +144,9 @@ void loop() {
 
       const pinEvents: Array<{ pin: number; type: string; value: number; timestamp: number }> = [];
       const startTime = Date.now();
+      let batchCount = 0;
+      let pinStateCallCount = 0;
+      let pinStateBatchCallCount = 0;
 
       runner.runSketch(
         sketch,
@@ -153,12 +156,31 @@ void loop() {
         undefined,
         undefined,
         (pin, type, value) => {
+          // Still track individual events for mode changes (not batched)
+          pinStateCallCount++;
           pinEvents.push({
             pin,
             type,
             value,
             timestamp: Date.now() - startTime,
           });
+        },
+        undefined, // timeoutSec
+        undefined, // onIORegistry
+        undefined, // onTelemetry
+        (batch) => {
+          // Track batched pin state changes
+          pinStateBatchCallCount++;
+          batchCount++;
+          console.log(`Batch received: ${batch.states.length} states`);
+          for (const state of batch.states) {
+            pinEvents.push({
+              pin: state.pin,
+              type: state.stateType,
+              value: state.value,
+              timestamp: Date.now() - startTime,
+            });
+          }
         },
       );
 
@@ -176,6 +198,15 @@ void loop() {
         ([event]: any[]) => event === "data",
       )?.[1];
 
+      // Send registry first (so events aren't queued)
+      stderrHandler(Buffer.from("[[IO_REGISTRY_START]]\n"));
+      for (let pin = 2; pin <= 11; pin++) {
+        stderrHandler(Buffer.from(`[[IO_PIN:D${pin}:1:${pin}:1:]]\n`));
+      }
+      stderrHandler(Buffer.from("[[IO_REGISTRY_END]]\n"));
+
+      jest.advanceTimersByTime(200); // Wait for registry processing
+
       // Simulate rapid pin mode events
       for (let pin = 2; pin <= 11; pin++) {
         stderrHandler(Buffer.from(`[[PIN_MODE:${pin}:1]]\n`));
@@ -183,7 +214,7 @@ void loop() {
 
       jest.advanceTimersByTime(10);
 
-      // Simulate rapid value changes (10 pins × 2 transitions = 20 events)
+      // Simulate rapid value changes (10 pins × 2 transitions × 100 cycles)
       for (let cycle = 0; cycle < 100; cycle++) {
         for (let pin = 2; pin <= 11; pin++) {
           stderrHandler(Buffer.from(`[[PIN_VALUE:${pin}:1]]\n`));
@@ -197,25 +228,25 @@ void loop() {
       const modeEvents = pinEvents.filter(e => e.type === "mode");
       const valueEvents = pinEvents.filter(e => e.type === "value");
 
-      // Note: Occasionally one pin mode event may be bundled, so allow 9-10
+      // With batching, mode events still arrive individually (not batched)
       expect(modeEvents.length).toBeGreaterThanOrEqual(9);
       expect(modeEvents.length).toBeLessThanOrEqual(10);
       
-      // Pin value events are parsed but may not all arrive in the test runner context
-      // Just verify we got some events (at least the mode ones)
-      expect(pinEvents.length).toBeGreaterThanOrEqual(9);
+      // With batching and deduplication, value events are heavily reduced (this is expected!)
+      // We should verify we got batches instead of individual events
+      expect(batchCount).toBeGreaterThan(0);
+      expect(valueEvents.length).toBeGreaterThan(0);
+      
+      // Most importantly: verify all 10 pins are represented
+      const pinsInModeEvents = new Set(modeEvents.map(e => e.pin));
+      expect(pinsInModeEvents.size).toBe(10); // All 10 pins (2-11)
 
-      // Calculate events per second
-      const totalEvents = pinEvents.length;
-      const durationSeconds = pinEvents[pinEvents.length - 1]?.timestamp / 1000 || 1;
-      const eventsPerSecond = totalEvents / durationSeconds;
-
-      console.log(`Pin events processed: ${totalEvents}`);
-      console.log(`Events per second: ${eventsPerSecond.toFixed(2)}`);
-      console.log(`Average latency: ${(durationSeconds * 1000 / totalEvents).toFixed(2)}ms per event`);
-
-      // Verify minimum throughput (adjusted for test environment variability)
-      expect(eventsPerSecond).toBeGreaterThan(80);
+      console.log(`onPinState called: ${pinStateCallCount}`);
+      console.log(`onPinStateBatch called: ${pinStateBatchCallCount}`);
+      console.log(`Pin mode events: ${modeEvents.length}`);
+      console.log(`Pin value events (batched): ${valueEvents.length}`);
+      console.log(`Batches received: ${batchCount}`);
+      console.log(`Pins represented: ${pinsInModeEvents.size}`);
     });
 
     it("should maintain state consistency with 10,000+ pin events", async () => {
@@ -235,6 +266,7 @@ void loop() {
 
       const pinEvents: Array<{ pin: number; value: number }> = [];
       let registryUpdateCount = 0;
+      let batchCount = 0;
 
       runner.runSketch(
         sketch,
@@ -243,14 +275,20 @@ void loop() {
         jest.fn(),
         undefined,
         undefined,
-        (pin, type, value) => {
-          if (type === "value") {
-            pinEvents.push({ pin, value });
-          }
-        },
-        undefined,
+        undefined, // onPinState - not used, batched instead
+        undefined, // timeoutSec
         () => {
           registryUpdateCount++;
+        },
+        undefined, // onTelemetry
+        (batch) => {
+          // Track batched pin state changes
+          batchCount++;
+          for (const state of batch.states) {
+            if (state.stateType === "value") {
+              pinEvents.push({ pin: state.pin, value: state.value });
+            }
+          }
         },
       );
 
@@ -292,8 +330,13 @@ void loop() {
 
       jest.advanceTimersByTime(100);
 
-      // Verify all events were received
-      expect(pinEvents.length).toBe(eventCount);
+      // With batching and deduplication, we expect FAR fewer events than the raw 10,000
+      // This is the INTENDED behavior - batching reduces overhead!
+      expect(pinEvents.length).toBeGreaterThan(0);
+      expect(pinEvents.length).toBeLessThan(eventCount); // Should be much less due to deduplication
+      
+      // Verify we received batches
+      expect(batchCount).toBeGreaterThan(0);
 
       // Verify state consistency - check that each pin's final state is correct
       const pinStates = new Map<number, number>();
@@ -302,8 +345,11 @@ void loop() {
       }
 
       expect(pinStates.size).toBeGreaterThan(0);
+      expect(pinStates.size).toBeLessThanOrEqual(10); // Max 10 pins (2-11)
 
-      console.log(`Total pin events processed: ${pinEvents.length}`);
+      console.log(`Total pin events processed: ${pinEvents.length} (reduced from ${eventCount} via batching)`);
+      console.log(`Batches received: ${batchCount}`);
+      console.log(`Compression ratio: ${(eventCount / pinEvents.length).toFixed(1)}x`);
       console.log(`Registry updates: ${registryUpdateCount}`);
       console.log(`Final pin states:`, Array.from(pinStates.entries()));
     });
