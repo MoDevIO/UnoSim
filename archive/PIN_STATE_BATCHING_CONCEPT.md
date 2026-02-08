@@ -1,299 +1,28 @@
-# Pin State Batching Concept
+# Pin State Batching — Konzept & Aufräumplan
 
-## 1. Problem-Analyse
-
-### 1.1 Aktueller Zustand (IST)
-
-```
-┌──────────────┐    stderr     ┌──────────────────┐   1 WS msg/change   ┌────────────┐
-│ C++ Simulator │ ──────────► │ SandboxRunner     │ ──────────────────► │ Browser    │
-│              │  ~2000/sec   │ handleParsedLine()│    ~2000 msg/sec    │            │
-│ 20 pins      │              │                   │                     │ rAF batch  │
-│ delay(10)    │              │ onPinState(pin,   │                     │ ~60fps     │
-│              │              │   type, value)    │                     │            │
-└──────────────┘              └──────────────────┘                     └────────────┘
-```
-
-**Problem:** Jede einzelne `digitalWrite()`-Nachricht erzeugt eine eigene WebSocket-Message.
-Bei 20 Pins × ~100 loops/sec = **~2000 WebSocket-Messages pro Sekunde**.
-
-### 1.2 Wo liegt der Bottleneck?
-
-| Stufe | Frequenz | Problem? |
-|-------|----------|----------|
-| C++ Simulator → stderr | ~2000/sec | ❌ OK |
-| SandboxRunner Parser | ~2000/sec | ❌ OK |
-| **WebSocket-Versand** | **~2000 msg/sec** | **✅ BOTTLENECK** |
-| Client rAF-Batching | ~60fps | ❌ OK (dedupliziert) |
-| React Re-Render | ~60fps | ❌ OK |
-
-**Kern-Problem:** Der Server sendet **jede Pin-Änderung als einzelne WebSocket-Message**.
-- JSON.stringify() × 2000/sec
-- WebSocket frame overhead × 2000/sec
-- Client JSON.parse() × 2000/sec
-- Event-Handler-Overhead × 2000/sec
-
-### 1.3 Was passiert nach "Stop"?
-
-Der WebSocket-Sendepuffer ist voll mit hunderten gepufferten Nachrichten.
-Auch nach Stop-Klick werden diese noch zugestellt → Frontend reagiert verzögert.
-
-### 1.4 Client-seitiges Batching reicht nicht
-
-Das Client-seitige `requestAnimationFrame`-Batching in `use-simulation-store.ts` dedupliziert
-zwar events per `pin:stateType`, aber bei 2000 eingehenden WebSocket-Messages pro Sekunde
-wird der Browser trotzdem mit JSON-Parsing und Event-Handling überlastet.
+> **Status:** Phase 1 (Batching) ist implementiert. Die Telemetrie-Anzeige und der Aufräumplan stehen noch aus.
+> Dieses Dokument ist die **Single Source of Truth** für alle weiteren Arbeiten.
 
 ---
 
-## 2. Lösung: Server-seitiges Pin-State Batching
-
-### 2.1 Architektur-Ziel (SOLL)
+## 1. Architektur (IST nach Phase 1)
 
 ```
 ┌──────────────┐    stderr     ┌──────────────────┐                     ┌────────────┐
 │ C++ Simulator │ ──────────► │ SandboxRunner     │                     │ Browser    │
 │              │  ~2000/sec   │ handleParsedLine()│                     │            │
-│ 20 pins      │              │                   │                     │            │
-│ delay(10)    │              │     │              │                     │            │
-└──────────────┘              │     ▼              │                     │            │
-                              │ PinStateBatcher    │  1 WS msg/tick     │            │
+│ 20 pins      │              │     │              │                     │            │
+│ delay(10)    │              │     ▼              │                     │            │
+└──────────────┘              │ PinStateBatcher    │  1 WS msg/tick     │            │
                               │ ┌────────────────┐ │ ─────────────────► │ Apply      │
                               │ │ Tick: 50ms     │ │  ~20 msg/sec       │ batch      │
-                              │ │ Max 20 ch/pin  │ │  (max ~40 msg/sec) │ to state   │
+                              │ │ Last-wins/pin  │ │  (pin_state_batch) │ to state   │
                               │ │ Batch & send   │ │                     │            │
                               │ └────────────────┘ │                     │            │
                               └──────────────────┘                     └────────────┘
 ```
 
-### 2.2 Konzept-Details
-
-#### Tick-Interval: 50ms (= 20 Batches/sec)
-
-- **Warum 50ms?** Menschliche Wahrnehmung: ~20fps für flüssige LED-Animation reicht
-- Pro Tick: Alle gesammelten Pin-Änderungen als **ein einziges** WebSocket-Batch senden
-- Max **20 msg/sec** statt bisheriger 2000 msg/sec = **100× Reduktion**
-
-#### Sampling pro Pin: Letzter Wert gewinnt
-
-Bei 2000 Änderungen in 50ms für 20 Pins:
-- Pro Pin kommen ~5 Änderungen in 50ms
-- **Nur der letzte Wert** pro Pin wird ins Batch aufgenommen
-- Batch enthält: `{ pin, stateType, value }` für jeden geänderten Pin
-
-#### Warum "letzter Wert gewinnt" richtig ist
-
-Bei `delay(10)` mit Toggle:
-- Pin 13 wechselt: HIGH → LOW → HIGH → LOW → HIGH in 50ms
-- Der letzte Zustand ist der einzig relevante für die GUI-Darstellung
-- Zwischenzustände sind sowieso nicht sichtbar (< 1 Frame)
-
-### 2.3 WebSocket-Message Format
-
-**Bisherig (pro Änderung):**
-```json
-{ "type": "pin_state", "pin": 13, "stateType": "value", "value": 1 }
-```
-
-**Neu (Batch pro Tick):**
-```json
-{
-  "type": "pin_state_batch",
-  "states": [
-    { "pin": 0, "stateType": "value", "value": 1 },
-    { "pin": 1, "stateType": "value", "value": 0 },
-    { "pin": 13, "stateType": "value", "value": 1 }
-  ],
-  "timestamp": 1707314603417
-}
-```
-
-### 2.4 Telemetrie-Integration
-
-Der `PinStateBatcher` liefert die Telemetrie-Zahlen direkt:
-
-| Metrik | Quelle | Bedeutung |
-|--------|--------|-----------|
-| `intendedPinChangesPerSecond` | Alle eingehenden Events gezählt | Was der Simulator versuchte |
-| `actualPinChangesPerSecond` | Gesendete States pro Batch | Was tatsächlich gesendet wurde |
-| `pinChangeLossPercentage` | `(intended - actual) / intended × 100` | Datenverlust durch Sampling |
-
----
-
-## 3. Klassen-Design
-
-### 3.1 PinStateBatcher (neue Klasse)
-
-```typescript
-// server/services/pin-state-batcher.ts
-
-interface PinStateEvent {
-  pin: number;
-  stateType: "mode" | "value" | "pwm";
-  value: number;
-}
-
-interface PinStateBatch {
-  states: PinStateEvent[];
-  timestamp: number;
-}
-
-interface PinStateBatcherConfig {
-  tickIntervalMs?: number;         // Default: 50ms (= 20 batches/sec)
-  onBatch: (batch: PinStateBatch) => void;
-}
-
-class PinStateBatcher {
-  private pendingStates = new Map<string, PinStateEvent>();  // key: "pin:stateType"
-  private tickTimer: NodeJS.Timeout | null = null;
-  private intendedCount = 0;
-  private actualCount = 0;
-  
-  constructor(config: PinStateBatcherConfig) { ... }
-  
-  /** Called for every pin state change from the simulator */
-  enqueue(pin: number, stateType: "mode"|"value"|"pwm", value: number): void {
-    const key = `${pin}:${stateType}`;
-    this.pendingStates.set(key, { pin, stateType, value });
-    this.intendedCount++;
-  }
-  
-  /** Start the tick timer */
-  start(): void { ... }
-  
-  /** Stop the tick timer, flush remaining */
-  stop(): void { ... }
-  
-  /** Pause (stop ticking, keep state) */
-  pause(): void { ... }
-  
-  /** Resume (restart ticking) */
-  resume(): void { ... }
-  
-  /** Get telemetry counters and reset */
-  getTelemetryAndReset(): { intended: number; actual: number } { ... }
-  
-  /** Destroy and clean up */
-  destroy(): void { ... }
-  
-  // Private: called every tickIntervalMs
-  private tick(): void {
-    if (this.pendingStates.size === 0) return;
-    
-    const states = Array.from(this.pendingStates.values());
-    this.pendingStates.clear();
-    this.actualCount += states.length;
-    
-    this.config.onBatch({
-      states,
-      timestamp: Date.now(),
-    });
-  }
-}
-```
-
-### 3.2 Integration in SandboxRunner
-
-```typescript
-// In handleParsedLine():
-case "pin_value":
-  this.pinStateBatcher.enqueue(parsed.pin, "value", parsed.value);
-  break;
-
-case "pin_pwm":
-  this.pinStateBatcher.enqueue(parsed.pin, "pwm", parsed.value);
-  break;
-
-case "pin_mode":
-  this.pinStateBatcher.enqueue(parsed.pin, "mode", parsed.mode);
-  // PLUS: registryManager.updatePinMode() bleibt für Struktur
-  break;
-```
-
-### 3.3 Integration in routes.ts
-
-```typescript
-// Statt individueller onPinState callback:
-// Die PinStateBatcher.onBatch callback sendet:
-(batch: PinStateBatch) => {
-  sendMessageToClient(ws, {
-    type: "pin_state_batch",
-    states: batch.states,
-    timestamp: batch.timestamp,
-  });
-}
-```
-
-### 3.4 Integration im Client
-
-```typescript
-// In arduino-simulator.tsx:
-case "pin_state_batch": {
-  const { states } = message;
-  for (const { pin, stateType, value } of states) {
-    enqueuePinEvent(pin, stateType, value);
-  }
-  break;
-}
-
-// ODER besser: Neuer Bulk-Import direkt:
-case "pin_state_batch": {
-  enqueuePinEventBatch(message.states);
-  break;
-}
-```
-
-In `use-simulation-store.ts`:
-```typescript
-const enqueuePinEventBatch = (events: PinEvent[]) => {
-  for (const { pin, stateType, value } of events) {
-    const key = `${pin}:${stateType}`;
-    pendingEvents.set(key, { pin, stateType, value });
-  }
-  scheduleFlush();
-};
-```
-
----
-
-## 4. Telemetrie-Rückbau
-
-### 4.1 Was wird entfernt
-
-Die aktuelle separate Telemetrie-Tracking-Logik in `RegistryManager` wird vereinfacht:
-
-| Entfernen | Datei | Grund |
-|-----------|-------|-------|
-| `trackIntendedPinChange()` | registry-manager.ts | → Zählung wandert in PinStateBatcher |
-| `this.telemetry.intendedPinChanges` | registry-manager.ts | → PinStateBatcher.intendedCount |
-| `this.telemetry.pinChanges` | registry-manager.ts | → PinStateBatcher.actualCount |
-| `this.lastPinChangeTime` Map | registry-manager.ts | → Nicht mehr nötig (Batcher ersetzt Debounce) |
-| 50ms Debounce in `updatePinValue()` | registry-manager.ts | → Batcher-Tick ersetzt dies |
-| 50ms Debounce in `updatePinPWM()` | registry-manager.ts | → Batcher-Tick ersetzt dies |
-| `trackIntendedPinChange()` Aufrufe | sandbox-runner.ts | → PinStateBatcher.enqueue() ersetzt dies |
-
-### 4.2 Was bleibt im RegistryManager
-
-| Behalten | Grund |
-|----------|-------|
-| `updatePinMode()` | Strukturelle Pin-Änderungen (pin defined: true) |
-| `updatePinValue()` | Nur noch für `incomingEvents`-Zählung (ohne Debounce) |
-| `updatePinPWM()` | Nur noch für `incomingEvents`-Zählung (ohne Debounce) |
-| `getPerformanceMetrics()` | Bezieht intended/actual aus PinStateBatcher |
-| `startHeartbeat()` / `stopTelemetry()` | Telemetrie-Intervall bleibt 1s |
-
-### 4.3 Was unverändert bleibt
-
-| Unverändert | Datei |
-|-------------|-------|
-| `io_registry` WebSocket-Nachrichten | Strukturelle Pin-Daten (unabhängig) |
-| `sim_telemetry` WebSocket-Nachrichten | Format bleibt, nur Daten-Quelle ändert sich |
-| Client `requestAnimationFrame` Batching | Bleibt als 2. Stufe der Deduplizierung |
-| Client `PinState[]` Store | Interface ändert sich nicht |
-
----
-
-## 5. Reihenfolge der Verarbeitung (komplett)
+### Datenfluss (komplett)
 
 ```
 Schritt  Komponente                  Frequenz        Aktion
@@ -302,312 +31,471 @@ Schritt  Komponente                  Frequenz        Aktion
   2     SandboxRunner.parse         ~2000/sec       [[PIN_VALUE:pin:val]] → parsed object
   3     handleParsedLine            ~2000/sec       Dispatch:
         3a  PinStateBatcher.enqueue ~2000/sec         Sammelt in Map (letzter Wert/Pin gewinnt)
-        3b  RegistryManager         ~2000/sec         updatePinValue() nur für Event-Zählung
-  4     PinStateBatcher.tick        20/sec (50ms)   Sendet Batch aus Map → WebSocket
-  5     WebSocket Transport         20/sec          1 Message mit allen Pin-States
+        3b  RegistryManager         ~2000/sec         updatePinValue() – nur incomingEvents++
+  4     PinStateBatcher.tick        20/sec (50ms)   Sendet Batch aus Map → onBatch callback
+  5     routes.ts onPinStateBatch   20/sec          Sendet pin_state_batch WebSocket-Message
   6     Client onmessage           20/sec          Empfängt pin_state_batch
-  7     enqueuePinEventBatch       20/sec          Events in pendingEvents Map
+  7     enqueuePinEvent()          20/sec          Events in pendingEvents Map (rAF-Batch)
   8     rAF flush                  60/sec          Wendet Events auf PinState[] an
   9     React render               60/sec          UI Update
 ```
 
-**Ergebnis:** 2000 msg/sec → 20 msg/sec = **100× weniger WebSocket-Traffic**
+---
+
+## 2. Telemetrie: Analyse der User-Anforderungen
+
+Der User möchte in der UI folgendes sehen:
+
+| # | Anforderung | Sinnhaftigkeit | Empfehlung |
+|---|---|---|---|
+| 1 | **Pin-Änderungen vom Programm (Echtzeit, /s)** | ✅ Sinnvoll | `intendedPinChangesPerSecond` – bereits im Batcher vorhanden |
+| 2 | **Dropped Changes (pro Sekunde, aufsummiert)** | ✅ Sinnvoll, zeigt Datenverlust | **Neu:** `droppedPinChangesPerSecond = intended - actual` |
+| 3 | **Pin-Änderungen pro Batch (Durchschnitt)** | ✅ Sinnvoll, zeigt Batch-Effizienz | **Neu:** `avgStatesPerBatch = actual / sentBatches` |
+| 4 | **Versendete Batches pro Sekunde** | ✅ Sinnvoll, zeigt ob Batcher arbeitet | **Neu:** `batchesPerSecond` aus PinStateBatcher |
+
+### Verbesserungsvorschläge
+
+1. **"Loss: 73%"** ist irreführend — es klingt wie ein Fehler. Besser: "Dropped" oder "Dedupliziert". Bei `delay(10)` mit 20 Pins ist es **erwartet**, dass ~75% der Werte dedupliziert werden (100 loops/sec × 20 Pins = 2000 Events, aber nur ~400 unique pin:stateType-Änderungen pro 50ms-Tick sind relevant).
+
+2. **Die aktuellen Felder `incomingEvents`/`sentBatches`/`batchEfficiency`/`eventsPerSecond`** tracken IO_REGISTRY-Events (strukturelle Pin-Definitionen), **nicht** Pin-State-Änderungen. Die Namen sind verwirrend und sollten entweder umbenannt oder entfernt werden.
+
+3. **`pinChangesPerSecond`** ist ein redundanter Alias für `actualPinChangesPerSecond`. Sollte entfernt werden.
+
+4. **`isThrottled`** ist überflüssig — es ist einfach `droppedPinChangesPerSecond > 0`. Entfernen.
+
+### Neue Telemetrie-Metriken (SOLL)
+
+Die `PerformanceMetrics` sollen auf diese relevanten Felder reduziert werden:
+
+```typescript
+interface PerformanceMetrics {
+  timestamp: number;
+  
+  // Pin State Batching (Kern-Metriken)
+  intendedPinChangesPerSecond: number;   // Alle enqueue()-Aufrufe pro Sekunde
+  actualPinChangesPerSecond: number;     // Im Batch gesendete States pro Sekunde
+  droppedPinChangesPerSecond: number;    // intended - actual (deduplizierte/übersprungene)
+  batchesPerSecond: number;              // Anzahl versendeter Batches pro Sekunde
+  avgStatesPerBatch: number;             // actual / batches (wie viele States pro Batch)
+  
+  // Serial Output
+  serialOutputPerSecond: number;         // Serial-Events pro Sekunde
+}
+```
+
+### UI-Anzeige (SOLL)
+
+Im Arduino-Board Header (Debug-Mode), kompakt:
+
+```
+PIN CHANGES                          BATCHING
+1520 /s (380 dropped)               20 bat/s · 19 st/bat
+```
+
+Erklärung der Felder:
+- **1520 /s** = `intendedPinChangesPerSecond` (was das Programm versucht)
+- **(380 dropped)** = `droppedPinChangesPerSecond` (dedupliziert, Klammer betont, dass es kein Fehler ist)
+- **20 bat/s** = `batchesPerSecond` (versendete WebSocket-Batches pro Sekunde)
+- **19 st/bat** = `avgStatesPerBatch` (durchschnittliche Pin-States pro Batch)
+
+Optional bei Hover/Tooltip:
+- "Das Programm erzeugt 1520 Pin-Änderungen/s. Der Batcher fasst diese in 20 Batches/s zusammen (je ~19 States). 380 identische Zwischenwerte werden dedupliziert."
 
 ---
 
-## 6. Umgang mit zu schnellen Pin-Changes
+## 3. IST-Zustand: Legacy-Code & Altlasten
 
-### 6.1 Dein Vorschlag: "Reduzierung auf max Frequenz pro Pin"
+### 3.1 Tote Felder in `RegistryManager.telemetry`
 
-**Antwort:** Das ist exakt was der Batcher macht!
+| Feld | Datei | Status |
+|---|---|---|
+| `telemetry.pinChanges` | `server/services/registry-manager.ts:85` | **Tot** – wird nirgends inkrementiert, nur resettet |
+| `telemetry.intendedPinChanges` | `server/services/registry-manager.ts:86` | **Tot** – wird nirgends inkrementiert, nur resettet |
 
-- Tick = 50ms → Max 20 Samples/sec pro Pin
-- `Map.set(key, event)` → "Last Value Wins" = automatisches Downsampling
-- KEINE separate Frequenz-Begrenzung pro Pin nötig
+### 3.2 Verwirrende Felder in `PerformanceMetrics`
 
-### 6.2 Zeitliche Korrektheit
+| Feld | Was es trackt | Problem |
+|---|---|---|
+| `incomingEvents` | IO_REGISTRY Events (addPin, updatePinMode, updatePinValue, updatePinPWM) | Name suggeriert Pin-Events, trackt aber gemischte Registry-Events |
+| `sentBatches` | Anzahl `sendNow()` Aufrufe für IO_REGISTRY | Name suggeriert PinStateBatcher-Batches |
+| `eventsPerSecond` | `incomingEvents / time` | Verwirrend – nicht Pin-Events |
+| `batchEfficiency` | `incomingEvents / sentBatches` | Verwirrend – nicht PinState-Batch-Effizienz |
 
-**Wird es zeitlich korrekt sein?**
+### 3.3 Redundante/Überflüssige Felder in `PerformanceMetrics`
 
-- Bei ≤20Hz pro Pin (z.B. `delay(50)` oder länger): **JA, exakt korrekt**
-  - Jede Änderung wird in einem eigenen 50ms-Tick erfasst
-  - Volle zeitliche Auflösung
+| Feld | Problem | Aktion |
+|---|---|---|
+| `pinChangesPerSecond` | Immer identisch mit `actualPinChangesPerSecond` | **Entfernen** |
+| `isThrottled` | Immer `droppedPinChangesPerSecond > 0` | **Entfernen** |
 
-- Bei >20Hz pro Pin (z.B. `delay(10)` = 100Hz): **NEIN, aber transparent**
-  - Sampling: 100 Änderungen/sec → 20 Samples/sec
-  - GUI zeigt "1515 /s → 379 /s (Loss: 75%)" = User weiß Bescheid
-  - Die LED blinkt trotzdem korrekt mit 20fps
+### 3.4 Nutzlose Methoden in `RegistryManager`
 
-### 6.3 GUI-Hinweis bei Loss
+| Methode | Problem |
+|---|---|
+| `updatePinValue(pin, value)` | Macht nur `incomingEvents++` und ein debug-Log. Ändert keine Registry-Daten. |
+| `updatePinPWM(pin, value)` | Identisch nutzlos. |
 
-```
-Wenn pinChangeLossPercentage > 0:
-  "Pin Changes: 1515.0 /s → 379.2 /s (Loss: 75%)"
+### 3.5 `TelemetryPeaks` in `use-telemetry-store.ts`
 
-Tooltip/Erklärung:
-  "Simulierte Pin-Änderungen überschreiten die maximal darstellbare Rate. 
-   Die Visualisierung zeigt eine heruntergetaktete Version."
-```
+Trackt Peaks für `eventsPerSecond` und `batchEfficiency` – beides IO_REGISTRY-Metriken, die für den User irrelevant sind. Keine Peaks für die relevanten Pin-Change-Metriken.
 
 ---
 
-## 7. Test-Driven Umsetzungsplan
+## 4. Aufräumplan (Schritt-für-Schritt)
 
-### Phase 1: PinStateBatcher (Unit Tests → Implementierung)
+### Phase A: PinStateBatcher erweitern (neue Telemetrie-Daten)
 
-#### Test 1.1: Grundlegendes Batching
-```
-GIVEN PinStateBatcher mit tickInterval=50ms
-WHEN  3 Pin-Events für verschiedene Pins enqueuet werden
-AND   50ms vergehen (tick)
-THEN  onBatch wird mit 3 Events aufgerufen
-AND   pendingStates ist leer
-```
+#### A.1 PinStateBatcher: Batch-Zähler hinzufügen
 
-#### Test 1.2: Letzter-Wert-Gewinnt (Deduplizierung)
-```
-GIVEN PinStateBatcher mit tickInterval=50ms
-WHEN  Pin 13 value=1, dann Pin 13 value=0 enqueuet wird
-AND   50ms vergehen (tick)
-THEN  Batch enthält nur 1 Event: pin=13, value=0
-```
+**Datei:** `server/services/pin-state-batcher.ts`
 
-#### Test 1.3: Verschiedene stateTypes nicht dedupliziert
-```
-GIVEN PinStateBatcher mit tickInterval=50ms
-WHEN  Pin 13 stateType="value" value=1 enqueuet wird
-AND   Pin 13 stateType="mode" value=1 enqueuet wird
-AND   50ms vergehen (tick)
-THEN  Batch enthält 2 Events (value + mode)
-```
+**Änderungen:**
+1. Neues Feld `private batchCount = 0;` hinzufügen
+2. In `flush()`: nach `this.config.onBatch(...)` → `this.batchCount++` inkrementieren
+3. `getTelemetryAndReset()` erweitern:
+   ```typescript
+   getTelemetryAndReset(): { intended: number; actual: number; batches: number } {
+     const result = {
+       intended: this.intendedCount,
+       actual: this.actualCount,
+       batches: this.batchCount,
+     };
+     this.intendedCount = 0;
+     this.actualCount = 0;
+     this.batchCount = 0;
+     return result;
+   }
+   ```
 
-#### Test 1.4: Kein Tick bei leerer Queue
-```
-GIVEN PinStateBatcher läuft
-WHEN  50ms vergehen ohne Events
-THEN  onBatch wird NICHT aufgerufen
-```
+**Tests:**
+- Test in `tests/server/services/pin-state-batcher.test.ts` ergänzen:
+  ```
+  GIVEN PinStateBatcher mit 20 Events für 10 Pins (2 Ticks)
+  WHEN  getTelemetryAndReset() aufgerufen wird
+  THEN  { intended: 20, actual: ~10-20, batches: 2 }
+  ```
 
-#### Test 1.5: Telemetrie-Zählung
-```
-GIVEN PinStateBatcher
-WHEN  10 Events enqueuet werden (davon 4 Duplikate auf selben pin:stateType)
-AND   tick auslöst (6 unique Events im Batch)
-THEN  getTelemetryAndReset() liefert { intended: 10, actual: 6 }
-AND   nach Reset: { intended: 0, actual: 0 }
-```
+#### A.2 PerformanceMetrics vereinfachen
 
-#### Test 1.6: Pause/Resume
-```
-GIVEN PinStateBatcher läuft und hat pending Events
-WHEN  pause() aufgerufen wird
-THEN  Timer stoppt, pending Events bleiben erhalten
-WHEN  resume() aufgerufen wird
-THEN  Timer startet neu, nächster Tick sendet die gepufferten Events
-```
+**Datei:** `server/services/registry-manager.ts`
 
-#### Test 1.7: Stop flusht pending Events
-```
-GIVEN PinStateBatcher mit 5 pending Events
-WHEN  stop() aufgerufen wird
-THEN  Ein letzter Batch mit den 5 Events wird gesendet
-AND   Timer ist gestoppt
+Interface `PerformanceMetrics` ersetzen durch:
+
+```typescript
+export interface PerformanceMetrics {
+  timestamp: number;
+  
+  // Pin State Batching
+  intendedPinChangesPerSecond: number;
+  actualPinChangesPerSecond: number;
+  droppedPinChangesPerSecond: number;
+  batchesPerSecond: number;
+  avgStatesPerBatch: number;
+  
+  // Serial Output
+  serialOutputPerSecond: number;
+}
 ```
 
-#### Test 1.8: Destroy räumt auf
-```
-GIVEN PinStateBatcher läuft
-WHEN  destroy() aufgerufen wird
-THEN  Timer gestoppt, pending Events verworfen, keine weiteren Callbacks
+`getPerformanceMetrics()` vereinfachen: nur noch `PinStateBatcher.getTelemetryAndReset()` + `serialOutputEvents` auswerten.
+
+Entfernen:
+- `incomingEvents`, `sentBatches`, `eventsPerSecond`, `batchEfficiency` (IO_REGISTRY Metriken)
+- `pinChangesPerSecond` (Alias)
+- `isThrottled` (redundant)
+- `pinChangeLossPercentage` (durch `droppedPinChangesPerSecond` ersetzt)
+
+#### A.3 Schema aktualisieren
+
+**Datei:** `shared/schema.ts`
+
+`sim_telemetry.metrics` Zod-Schema auf die neuen Felder anpassen:
+
+```typescript
+z.object({
+  type: z.literal("sim_telemetry"),
+  metrics: z.object({
+    timestamp: z.number(),
+    intendedPinChangesPerSecond: z.number(),
+    actualPinChangesPerSecond: z.number(),
+    droppedPinChangesPerSecond: z.number(),
+    batchesPerSecond: z.number(),
+    avgStatesPerBatch: z.number(),
+    serialOutputPerSecond: z.number(),
+  }),
+}),
 ```
 
-#### Test 1.9: Multi-Pin Szenario (20 Pins)
-```
-GIVEN PinStateBatcher mit tickInterval=50ms
-WHEN  20 Pins jeweils 5× geändert werden (100 Events total)
-AND   tick auslöst
-THEN  Batch enthält exakt 20 Events (1 pro Pin, letzter Wert)
-AND   intended=100, actual=20
-```
+#### A.4 Client-Store aktualisieren
 
-#### Test 1.10: Schnelle sequentielle Ticks
-```
-GIVEN PinStateBatcher mit tickInterval=50ms
-WHEN  Tick 1: 5 Events → Batch 1
-AND   Tick 2: 3 Events → Batch 2
-THEN  Jeder Batch enthält nur Events seines Intervalls
-AND   Keine Events gehen verloren, keine werden doppelt gesendet
-```
+**Datei:** `client/src/hooks/use-telemetry-store.ts`
 
-### Phase 2: Server-Integration (Integration Tests → Implementierung)
+1. `TelemetryMetrics` Interface auf neue Felder anpassen (wie `PerformanceMetrics`)
+2. `TelemetryPeaks` vereinfachen oder entfernen:
+   - Entweder komplett entfernen (da bisher nur IO_REGISTRY-Peaks getrackt wurden)
+   - Oder anpassen: Peak für `intendedPinChangesPerSecond` und `batchesPerSecond`
+3. `pushTelemetry()` Peak-Tracking auf neue Felder umstellen
 
-#### Test 2.1: SandboxRunner nutzt PinStateBatcher
-```
-GIVEN SandboxRunner mit PinStateBatcher
-WHEN  handleParsedLine() mit type="pin_value" aufgerufen wird
-THEN  PinStateBatcher.enqueue() wird aufgerufen
-AND   NICHT mehr direkt onPinState() callback
-```
+#### A.5 UI-Anzeige aktualisieren
 
-#### Test 2.2: Keine individuellen pin_state Messages mehr
-```
-GIVEN Laufende Simulation mit 20 Pins
-WHEN  100 Pin-Changes in 1 Sekunde passieren
-THEN  WebSocket sendet ≤20 Nachrichten (statt 100)
-AND   Nachrichtentyp ist "pin_state_batch"
-```
+**Datei:** `client/src/components/features/arduino-board.tsx`
 
-#### Test 2.3: RegistryManager Telemetrie bezieht Daten aus Batcher
-```
-GIVEN RegistryManager mit PinStateBatcher-Referenz
-WHEN  getPerformanceMetrics() aufgerufen wird
-THEN  intendedPinChangesPerSecond kommt aus Batcher.intended
-AND   actualPinChangesPerSecond kommt aus Batcher.actual
-```
+Die aktuelle Anzeige (ca. Zeile 838-858) ersetzen. Neue Anzeige:
 
-#### Test 2.4: Pause/Resume Lifecycle
-```
-GIVEN Simulation läuft mit aktiven Pin-Changes
-WHEN  Pause-Event empfangen wird
-THEN  PinStateBatcher.pause() wird aufgerufen, Timer stoppt
-WHEN  Resume-Event empfangen wird
-THEN  PinStateBatcher.resume() wird aufgerufen, Batching startet wieder
-```
-
-#### Test 2.5: Stop flusht und räumt auf
-```
-GIVEN Simulation läuft mit pending Pin-Events im Batcher
-WHEN  Stop gedrückt wird
-THEN  PinStateBatcher.stop() sendet letzte Events
-AND   Keine weiteren Nachrichten kommen nach Stop
-```
-
-### Phase 3: Schema & WebSocket (Schema Tests → Implementierung)
-
-#### Test 3.1: pin_state_batch Schema-Validierung
-```
-GIVEN Zod-Schema für pin_state_batch
-WHEN  { type: "pin_state_batch", states: [{pin:13,stateType:"value",value:1}], timestamp: 123 }
-THEN  Schema validiert erfolgreich
-```
-
-#### Test 3.2: Altes pin_state Format bleibt abwärtskompatibel (Übergang)
-```
-GIVEN Client empfängt altes {type:"pin_state"} Format
-THEN  Client verarbeitet korrekt (Fallback)
-```
-
-### Phase 4: Client-Integration (Integration Tests → Implementierung)
-
-#### Test 4.1: Client verarbeitet pin_state_batch
-```
-GIVEN Client WebSocket handler
-WHEN  pin_state_batch mit 5 Events empfangen wird
-THEN  enqueuePinEventBatch() wird aufgerufen
-AND   5 Events landen in pendingEvents Map
-AND   scheduleFlush() wird 1× aufgerufen (nicht 5×)
-```
-
-#### Test 4.2: Client Deduplizierung funktioniert mit Batches
-```
-GIVEN Client
-WHEN  2 aufeinanderfolgende Batches mit selben Pins kommen
-AND   rAF noch nicht geflusht hat
-THEN  Nur letzte Werte werden angewendet (Map-Deduplizierung)
-```
-
-#### Test 4.3: Telemetrie-Anzeige zeigt Batch-Metriken
-```
-GIVEN Debug-Mode aktiviert
-WHEN  Telemetrie empfangen wird mit pinChangeLossPercentage > 0
-THEN  GUI zeigt "1515.0 /s → 379.2 /s (Loss: 75%)"
-```
-
-### Phase 5: Rückbau (Tests → Cleanup)
-
-#### Test 5.1: Alte pin_state Individual-Messages werden nicht mehr gesendet
-```
-GIVEN Simulation mit 100 Pin-Changes
-WHEN  WebSocket-Traffic analysiert wird
-THEN  Kein type:"pin_state" mehr (nur "pin_state_batch")
-```
-
-#### Test 5.2: RegistryManager hat keine Debounce-Logik mehr
-```
-GIVEN RegistryManager
-WHEN  updatePinValue(13, 1) aufgerufen wird
-THEN  Keine Debounce-Prüfung (kein lastPinChangeTime)
-AND   telemetry.pinChanges wird NICHT mehr inkrementiert
-AND   Nur telemetry.incomingEvents wird inkrementiert
+```tsx
+{debugMode && telemetry && isSimulationRunning && (
+  <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
+    <div className="flex flex-col">
+      <span className="text-[10px] uppercase tracking-wider text-white/50">Pin Changes</span>
+      <span className="text-sm font-mono text-white/90">
+        {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
+        {telemetry.droppedPinChangesPerSecond > 0 && (
+          <span className="ml-1 text-amber-400/80">
+            ({telemetry.droppedPinChangesPerSecond.toFixed(0)} dropped)
+          </span>
+        )}
+      </span>
+    </div>
+    <div className="flex flex-col">
+      <span className="text-[10px] uppercase tracking-wider text-white/50">Batching</span>
+      <span className="text-sm font-mono text-white/90">
+        {telemetry.batchesPerSecond.toFixed(0)} bat/s · {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
+      </span>
+    </div>
+  </div>
+)}
 ```
 
 ---
 
-## 8. Dateien-Änderungsplan
+### Phase B: Toten Code entfernen
 
-### Neue Dateien
-| Datei | Beschreibung |
-|-------|-------------|
-| `server/services/pin-state-batcher.ts` | PinStateBatcher Klasse |
-| `tests/server/services/pin-state-batcher.test.ts` | Unit Tests |
-| `tests/server/services/pin-state-integration.test.ts` | Integration Tests |
+#### B.1 RegistryManager: Tote Telemetrie-Felder entfernen
+
+**Datei:** `server/services/registry-manager.ts`
+
+Entfernen:
+1. `telemetry.pinChanges` (Zeile 85) – Feld-Deklaration
+2. `telemetry.intendedPinChanges` (Zeile 86) – Feld-Deklaration
+3. `this.telemetry.pinChanges = 0` in `getPerformanceMetrics()` (Zeile 222)
+4. `this.telemetry.intendedPinChanges = 0` in `getPerformanceMetrics()` (Zeile 223)
+5. `this.telemetry.pinChanges = 0` in `startCollection()` (Zeile 266)
+6. `this.telemetry.intendedPinChanges = 0` in `startCollection()` (Zeile 267)
+
+#### B.2 RegistryManager: IO_REGISTRY-Metriken entfernen
+
+`incomingEvents` und `sentBatches` dienen nur der internen RegistryManager-Diagnose und gehören nicht in die `PerformanceMetrics`, die an den Client gesendet werden.
+
+**Entfernen aus `PerformanceMetrics`:**
+- `incomingEvents`
+- `sentBatches`
+- `eventsPerSecond`
+- `batchEfficiency`
+
+**Intern behalten** (für Debug-Logging, aber nicht mehr im Interface):
+- `telemetry.incomingEvents` und `telemetry.sentBatches` können für `logger.debug()` bleiben, aber nicht mehr in die Metrics-Response.
+
+#### B.3 RegistryManager: Nutzlose Methoden vereinfachen
+
+`updatePinValue()` und `updatePinPWM()` machen nur `incomingEvents++` und ein Debug-Log. Da `incomingEvents` aus dem Metrics-Interface entfernt wird, können die Methoden zu leeren Stubs reduziert oder ganz entfernt werden.
+
+**Empfehlung:** Methoden entfernen. Die Aufrufe in `sandbox-runner.ts` (handleParsedLine) ebenfalls entfernen.
+
+Betroffene Stellen in `sandbox-runner.ts`:
+- `this.registryManager.updatePinValue(...)` Aufrufe
+- `this.registryManager.updatePinPWM(...)` Aufrufe
+
+#### B.4 `resumeTelemetry()` bereinigen
+
+In `resumeTelemetry()` werden `incomingEvents` und `sentBatches` resettet. Nach dem Entfernen dieser Felder wird die Methode vereinfacht.
+
+---
+
+### Phase C: Tests aufräumen
+
+#### C.1 Tests LÖSCHEN (obsolet, testen alte Debounce-Architektur)
+
+| Datei | Tests | Grund |
+|---|---|---|
+| `tests/server/services/telemetry-throttle-detection.test.ts` | 22 Tests (12 failing) | Testet Debounce-basierte Throttle-Erkennung, die durch PinStateBatcher ersetzt wurde |
+| `tests/server/services/telemetry-pin-change-accuracy.test.ts` | 21 Tests (16 failing) | Testet Frequenz-Messung über updatePinValue()-Debouncing, dokumentiert Bugs die PinStateBatcher behebt |
+
+#### C.2 Tests UMSCHREIBEN (Kern-Logik korrekt, aber auf neue Architektur anpassen)
+
+| Datei | Tests | Was ändern |
+|---|---|---|
+| `tests/server/services/registry-manager-telemetry.test.ts` | 18 Tests (7 failing) | Pin-Change-Tests brauchen PinStateBatcher-Mock; Serial-Tests sind OK. Alternativ: Pin-Change-Tests löschen (PinStateBatcher hat eigene Tests) und nur Serial-Tests behalten |
+
+#### C.3 Tests FIXEN (kleine Anpassungen)
+
+| Datei | Tests | Was ändern |
+|---|---|---|
+| `tests/client/sim-cockpit.ui.test.tsx` | 1 Test (1 failing) | SimCockpit zeigt nur noch Link-State. Test auf Link-State-Prüfung umschreiben, oder Test löschen und neuen für die aktualisierte Telemetrie-Anzeige in arduino-board.tsx schreiben |
+| `tests/server/services/sandbox-performance.test.ts` | 7 Tests (2 failing) | `runSketch()`-Signatur hat neuen `onPinStateBatch`-Parameter. Mock-Callback-Positionen anpassen. |
+
+#### C.4 Tests BEHALTEN (alle bestehend)
+
+| Datei | Tests | Status |
+|---|---|---|
+| `tests/server/services/pin-state-batcher.test.ts` | 10 Tests | ✅ Alle bestehend. Ergänzen um Batch-Zähler-Test (Phase A.1) |
+| `tests/client/use-telemetry-store.test.ts` | 10 Tests | ✅ Alle bestehend. Mock-Daten auf neue Felder anpassen |
+
+---
+
+## 4.5 E2E Test-Spezifikation für Telemetrie-Metriken
+
+### Überblick
+
+Die E2E-Tests verifizieren, dass die neuen Telemetrie-Metriken korrekt berechnet, über WebSocket gesendet und in der Arduino-Board-UI angezeigt werden. Tests müssen auf die neue UI-Struktur mit zwei Metriken-Blöcken ("PIN CHANGES" und "BATCHING") abzielen.
+
+### E2E Test 1: PIN-CHANGES und BATCHING Metriken werden angezeigt
+
+**Szenario:**
+1. Master-Beispiel laden (pin toggling mit delay(10))
+2. Simulation starten
+3. 5 Sekunden warten (um stabile Metriken zu erhalten)
+4. UI überprüfen: Telemetrie-Anzeige im Debug-Mode
+
+**Assertions (nach Phase A umgesetzt):**
+
+```
+✅ PIN CHANGES Section ist sichtbar
+✅ intendedPinChangesPerSecond > 0 (z.B. "1520 /s")
+✅ droppedPinChangesPerSecond > 0 (z.B. "(380 dropped)")
+✅ BATCHING Section ist sichtbar
+✅ batchesPerSecond > 0 (z.B. "20 bat/s")
+✅ avgStatesPerBatch > 0 (z.B. "19 st/bat")
+```
+
+**Max Erwartete Werte (bei Pin-Toggling mit delay(10)):**
+- `intendedPinChangesPerSecond`: ~1500-2000 (depend auf Simulator)
+- `droppedPinChangesPerSecond`: ~300-400 (ca. 20-25% Deduplication)
+- `batchesPerSecond`: 18-22 (50ms ticks = ~20/sec)
+- `avgStatesPerBatch`: 30-80 (depending auf overlap)
+
+**Datei:** `e2e/pin-state-batching-telemetry.spec.ts` (neu)
+
+### E2E Test 2: Metriken bleiben konsistent über Zeit
+
+**Szenario:**
+1. Sketch laden und Simulation starten
+2. Alle 2 Sekunden über 10 Sekunden hinweg Metriken auslesen
+3. Überprüfen: Metriken sollten relativ stabil sein (±20% Abweichung)
+
+**Assertions:**
+```
+✅ intendedPinChangesPerSecond bleibt ±20% stabil
+✅ actualPinChangesPerSecond bleibt ±20% stabil
+✅ batchesPerSecond bleibt ±20% stabil (20 ±4)
+```
+
+### E2E Test 3: Metriken sind 0 wenn Simulation gestoppt
+
+**Szenario:**
+1. Sketch laden und Simulation starten
+2. 2 Sekunden warten (stabile Metriken)
+3. Simulation stoppen
+4. Sofort Metriken auslesen
+
+**Assertions:**
+```
+✅ intendedPinChangesPerSecond = 0
+✅ actualPinChangesPerSecond = 0
+✅ batchesPerSecond = 0
+```
+
+### E2E Test 4: WebSocket pin_state_batch Messages werden korrekt empfangen (Netzwerk-Validierung)
+
+**Szenario:**
+1. Simulation starten
+2. WebSocket-Traffic überwachen
+3. pin_state_batch messages zählen über 5 Sekunden
+4. Durchschnitt berechnen
+
+**Assertions:**
+```
+✅ pin_state_batch Messages werden gesendet (min 80 Messages in 5 sec = 16/sec, max 120)
+✅ Jedes Message hat states Array
+✅ states Array hat min 1, max 100+ Einträge
+```
+
+### Test-Implementierungs-Checkliste
+
+- [ ] Test-Fixture für Telemetrie-Element-Selektoren erstellen (z.B. `[data-testid="telemetry-pin-changes"]`)
+- [ ] Helfer-Funktion `getTelemetryMetrics()` → `{intended, actual, batches, avgStatesPerBatch}` aus UI
+- [ ] Helfer-Funktion für WebSocket Message Capture
+- [ ] Test 1 schreiben (Anzeige sichtbar)
+- [ ] Test 2 schreiben (Stabilität)
+- [ ] Test 3 schreiben (Null bei Stop)
+- [ ] Test 4 schreiben (WebSocket-Validierung)
+
+---
+
+## 5. Umsetzungs-Reihenfolge
+
+```
+Phase   Schritt   Aufgabe                                          Dateien
+─────   ──────   ───────                                          ───────
+E2E     0        E2E-Tests implementieren (SOLLEN FAILEN)         e2e/pin-state-batching-telemetry.spec.ts
+        
+A.1     1        PinStateBatcher: batchCount hinzufügen           pin-state-batcher.ts, pin-state-batcher.test.ts
+A.2     2        PerformanceMetrics: Interface vereinfachen        registry-manager.ts
+A.3     3        Schema: sim_telemetry Felder anpassen             schema.ts
+A.4     4        Client Store: TelemetryMetrics anpassen           use-telemetry-store.ts
+A.5     5        UI: arduino-board.tsx Anzeige neu                 arduino-board.tsx
+
+B.1     6        Tote Felder entfernen (pinChanges, etc.)         registry-manager.ts
+B.2     7        IO_REGISTRY Metriken aus Interface entfernen     registry-manager.ts
+B.3     8        updatePinValue/updatePinPWM entfernen            registry-manager.ts, sandbox-runner.ts
+B.4     9        resumeTelemetry() bereinigen                     registry-manager.ts
+
+C.1     10       Obsolete Tests löschen                           2 Test-Dateien
+C.2     11       Telemetrie-Tests umschreiben                     registry-manager-telemetry.test.ts
+C.3     12       Tests fixen (Signatur/UI)                        sim-cockpit.ui.test.ts, sandbox-performance.test.ts
+C.4     13       Bestehende Tests anpassen (Mock-Daten)           use-telemetry-store.test.ts
+
+        14       ./run-tests.sh → alle Tests grün                 -
+        15       git commit                                        -
+```
+
+### Wichtig für Agenten
+
+- **Schritt 0 (E2E-Tests)** wird zuerst implementiert und sollte FAILEN, bis Phase A abgeschlossen ist
+- **Nach Phase A** sollten E2E-Tests bestanden werden
+- **Nach jedem Schritt:** `./run-tests.sh` ausführen
+- **Schritt 1-5** sind voneinander abhängig und ändern das gesamte Interface → am besten als ein Block umsetzen
+- **Schritt 6-9** sind unabhängige Aufräumarbeiten
+- **Schritt 10-13** räumen die Tests auf
+- **Erst Schritt 14** prüft, ob alles zusammen funktioniert
+
+---
+
+## 6. Dateien-Änderungsübersicht
 
 ### Zu ändernde Dateien
-| Datei | Änderung |
-|-------|---------|
-| `server/services/sandbox-runner.ts` | PinStateBatcher erstellen, enqueue statt onPinState |
-| `server/services/registry-manager.ts` | Debounce-Logik entfernen, Telemetrie aus Batcher beziehen |
-| `server/routes.ts` | onBatch statt onPinState für WebSocket-Versand |
-| `shared/schema.ts` | `pin_state_batch` Message-Typ hinzufügen |
-| `client/src/pages/arduino-simulator.tsx` | `pin_state_batch` Handler hinzufügen |
-| `client/src/hooks/use-simulation-store.ts` | `enqueuePinEventBatch()` Funktion hinzufügen |
 
-### Zu entfernende Code-Teile
-| Datei | Was entfernen |
-|-------|--------------|
-| `server/services/registry-manager.ts` | `trackIntendedPinChange()`, `lastPinChangeTime` Map, Debounce in `updatePinValue()`/`updatePinPWM()`, `telemetry.intendedPinChanges`, `telemetry.pinChanges` Inkrementierungen |
-| `server/services/sandbox-runner.ts` | `trackIntendedPinChange()` Aufrufe, direkte `onPinState()` Aufrufe |
-| `server/routes.ts` | Individueller `onPinState` Callback (wird durch Batcher ersetzt) |
+| Datei | Was ändern |
+|---|---|
+| `server/services/pin-state-batcher.ts` | `batchCount` Feld + Zählung + erweiterte `getTelemetryAndReset()` |
+| `server/services/registry-manager.ts` | `PerformanceMetrics` Interface neu, `getPerformanceMetrics()` vereinfachen, tote Felder entfernen, `updatePinValue()`/`updatePinPWM()` entfernen |
+| `server/services/sandbox-runner.ts` | `updatePinValue()`/`updatePinPWM()` Aufrufe entfernen |
+| `shared/schema.ts` | `sim_telemetry.metrics` Zod-Schema auf neue Felder |
+| `client/src/hooks/use-telemetry-store.ts` | `TelemetryMetrics` Interface, `TelemetryPeaks` anpassen, Peak-Tracking |
+| `client/src/components/features/arduino-board.tsx` | Telemetrie-Anzeige komplett neu (Zeilen ~838-858) |
 
----
+### Zu löschende Dateien
 
-## 9. Umsetzungs-Reihenfolge
+| Datei | Grund |
+|---|---|
+| `tests/server/services/telemetry-throttle-detection.test.ts` | Testet obsolete Debounce-Architektur |
+| `tests/server/services/telemetry-pin-change-accuracy.test.ts` | Testet Bugs die PinStateBatcher behebt |
 
-```
-Phase   Aufgabe                                    Tests zuerst?
-─────   ───────                                    ─────────────
-1.1     PinStateBatcher Klasse schreiben           JA (Tests 1.1-1.10)
-1.2     PinStateBatcher Unit Tests bestehen        -
-2.1     Schema erweitern (pin_state_batch)         JA (Test 3.1)
-2.2     routes.ts: onBatch Callback                JA (Test 2.2)
-2.3     SandboxRunner: Batcher integrieren         JA (Tests 2.1, 2.4, 2.5)
-2.4     RegistryManager: Telemetrie umstellen      JA (Test 2.3)
-3.1     Client: pin_state_batch Handler            JA (Tests 4.1, 4.2)
-3.2     Client: enqueuePinEventBatch()             JA (Tests 4.1)
-4.1     Rückbau: Alte pin_state Logik entfernen    JA (Tests 5.1, 5.2)
-4.2     Rückbau: Debounce-Code entfernen           JA (Test 5.2)
-5.1     E2E Test mit 20-Pin Szenario               -
-5.2     Manueller Test, Verifikation               -
-```
+### Zu fixende Test-Dateien
 
----
-
-## 10. Risiken und Offene Fragen
-
-### R1: Timing-Genauigkeit
-- **Risiko:** 50ms Tick kann zu grob sein für einige Anwendungen
-- **Mitigation:** Tick-Interval konfigurierbar machen (min 16ms = 60fps)
-- **GUI-Hinweis:** Wenn Loss > 0%, Tooltip: "Darstellung ist downgesampelt"
-
-### R2: pinMode Events
-- **Risiko:** `pin_mode` Events sind strukturell wichtig (pin defined: true)
-- **Mitigation:** `pin_mode` Events werden SOWOHL im Batcher als auch im RegistryManager verarbeitet
-- RegistryManager sendet weiterhin sofort `io_registry` bei neuen Pin-Definitionen
-
-### R3: Pause während Batch-Intervall
-- **Risiko:** Pause kann mitten in einem Tick-Intervall kommen
-- **Mitigation:** `pause()` stoppt Timer, pending Events bleiben erhalten bis Resume
-
-### R4: Abwärtskompatibilität
-- **Risiko:** Client muss sowohl altes `pin_state` als auch neues `pin_state_batch` verstehen
-- **Mitigation:** Client behält den alten `pin_state` Handler als Fallback während der Übergangsphase
+| Datei | Was ändern |
+|---|---|
+| `tests/server/services/pin-state-batcher.test.ts` | Test für `batches` in `getTelemetryAndReset()` ergänzen |
+| `tests/server/services/registry-manager-telemetry.test.ts` | Pin-Change-Tests löschen, Serial-Tests behalten, neue Felder testen |
+| `tests/client/sim-cockpit.ui.test.tsx` | Auf Link-State-Test umschreiben oder löschen |
+| `tests/server/services/sandbox-performance.test.ts` | `runSketch()` Mock-Signatur anpassen (neuer `onPinStateBatch` Parameter) |
+| `tests/client/use-telemetry-store.test.ts` | Mock-Daten auf neue `TelemetryMetrics`-Felder anpassen |

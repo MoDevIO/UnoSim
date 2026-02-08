@@ -36,6 +36,7 @@ export class PinStateBatcher {
   private tickTimer: NodeJS.Timeout | null = null;
   private intendedCount = 0;
   private actualCount = 0;
+  private batchCount = 0;
 
   constructor(config: PinStateBatcherConfig) {
     this.config = {
@@ -97,13 +98,15 @@ export class PinStateBatcher {
   /**
    * Get telemetry counters and reset them.
    */
-  getTelemetryAndReset(): { intended: number; actual: number } {
+  getTelemetryAndReset(): { intended: number; actual: number; batches: number } {
     const result = {
       intended: this.intendedCount,
       actual: this.actualCount,
+      batches: this.batchCount,
     };
     this.intendedCount = 0;
     this.actualCount = 0;
+    this.batchCount = 0;
     return result;
   }
 
@@ -141,5 +144,7 @@ export class PinStateBatcher {
       states,
       timestamp: Date.now(),
     });
+
+    this.batchCount++;
   }
 }

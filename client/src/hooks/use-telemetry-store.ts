@@ -1,34 +1,18 @@
 import { useSyncExternalStore } from "react";
 
 export interface TelemetryMetrics {
-  incomingEvents: number;
-  sentBatches: number;
-  eventsPerSecond: number;
-  batchEfficiency: number;
   timestamp: number;
-  pinChangesPerSecond: number;
   intendedPinChangesPerSecond: number;
   actualPinChangesPerSecond: number;
-  pinChangeLossPercentage: number;
-  isThrottled: boolean;
+  droppedPinChangesPerSecond: number;
+  batchesPerSecond: number;
+  avgStatesPerBatch: number;
   serialOutputPerSecond: number;
-}
-
-export interface TelemetryPeaks {
-  maxEventsPerSecond: number;
-  maxEventsAt: number | null;
-  minEventsPerSecond: number;
-  minEventsAt: number | null;
-  maxBatchEfficiency: number;
-  maxEfficiencyAt: number | null;
-  minBatchEfficiency: number;
-  minEfficiencyAt: number | null;
 }
 
 interface TelemetrySnapshot {
   history: TelemetryMetrics[];
   last: TelemetryMetrics | null;
-  peaks: TelemetryPeaks;
   lastHeartbeatAt: number | null;
 }
 
@@ -36,21 +20,9 @@ const TELEMETRY_BUFFER_SIZE = 60;
 
 const subscribers = new Set<() => void>();
 
-const emptyPeaks: TelemetryPeaks = {
-  maxEventsPerSecond: 0,
-  maxEventsAt: null,
-  minEventsPerSecond: Number.POSITIVE_INFINITY,
-  minEventsAt: null,
-  maxBatchEfficiency: 0,
-  maxEfficiencyAt: null,
-  minBatchEfficiency: Number.POSITIVE_INFINITY,
-  minEfficiencyAt: null,
-};
-
 let snapshot: TelemetrySnapshot = {
   history: [],
   last: null,
-  peaks: emptyPeaks,
   lastHeartbeatAt: null,
 };
 
@@ -80,32 +52,9 @@ const pushTelemetry = (metrics: TelemetryMetrics) => {
   ringIndex = (ringIndex + 1) % TELEMETRY_BUFFER_SIZE;
   ringCount = Math.min(TELEMETRY_BUFFER_SIZE, ringCount + 1);
 
-  const nextPeaks: TelemetryPeaks = { ...snapshot.peaks };
-  
-  // Track EPS peaks (only count values > 0 for min)
-  if (metrics.eventsPerSecond > nextPeaks.maxEventsPerSecond) {
-    nextPeaks.maxEventsPerSecond = metrics.eventsPerSecond;
-    nextPeaks.maxEventsAt = metrics.timestamp;
-  }
-  if (metrics.eventsPerSecond > 0 && metrics.eventsPerSecond < nextPeaks.minEventsPerSecond) {
-    nextPeaks.minEventsPerSecond = metrics.eventsPerSecond;
-    nextPeaks.minEventsAt = metrics.timestamp;
-  }
-  
-  // Track Efficiency peaks (only count values > 0 for meaningful stats)
-  if (metrics.batchEfficiency > nextPeaks.maxBatchEfficiency) {
-    nextPeaks.maxBatchEfficiency = metrics.batchEfficiency;
-    nextPeaks.maxEfficiencyAt = metrics.timestamp;
-  }
-  if (metrics.batchEfficiency > 0 && metrics.batchEfficiency < nextPeaks.minBatchEfficiency) {
-    nextPeaks.minBatchEfficiency = metrics.batchEfficiency;
-    nextPeaks.minEfficiencyAt = metrics.timestamp;
-  }
-
   snapshot = {
     history: getHistory(),
     last: metrics,
-    peaks: nextPeaks,
     lastHeartbeatAt: metrics.timestamp,
   };
 
@@ -119,7 +68,6 @@ const resetTelemetry = () => {
   snapshot = {
     history: [],
     last: null,
-    peaks: { ...emptyPeaks },
     lastHeartbeatAt: null,
   };
   notify();
@@ -138,11 +86,10 @@ export const telemetryStore = {
   pushTelemetry,
   resetTelemetry,
   resetToInitial: () => {
-    // Clear telemetry history but preserve peaks (accumulated stats)
+    // Clear telemetry history  
     snapshot = {
       history: [],
       last: null,
-      peaks: snapshot.peaks, // Keep accumulated peaks
       lastHeartbeatAt: null,
     };
     ringBuffer = new Array(TELEMETRY_BUFFER_SIZE);
@@ -157,7 +104,6 @@ export const telemetryStore = {
     snapshot = {
       history: [],
       last: null,
-      peaks: JSON.parse(JSON.stringify(emptyPeaks)),
       lastHeartbeatAt: null,
     };
     ringBuffer = new Array(TELEMETRY_BUFFER_SIZE);
@@ -173,7 +119,6 @@ export const useTelemetryStore = () => {
   return {
     history: state.history,
     last: state.last,
-    peaks: state.peaks,
     lastHeartbeatAt: state.lastHeartbeatAt,
     pushTelemetry,
     resetTelemetry,

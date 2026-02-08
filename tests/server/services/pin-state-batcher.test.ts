@@ -303,4 +303,46 @@ describe("PinStateBatcher", () => {
 
     batcher.destroy();
   });
+
+  // Test 10: getTelemetryAndReset with batchCount
+  it("should track and reset batchCount in getTelemetryAndReset", () => {
+    const batches: any[] = [];
+    const batcher = new PinStateBatcher({
+      tickIntervalMs: 50,
+      onBatch: (batch) => batches.push(batch),
+    });
+
+    batcher.start();
+
+    // First tick: 5 events
+    batcher.enqueue(1, "value", 1);
+    batcher.enqueue(2, "value", 0);
+    batcher.enqueue(3, "value", 1);
+    batcher.enqueue(4, "value", 0);
+    batcher.enqueue(5, "value", 1);
+
+    vi.advanceTimersByTime(50);
+
+    // Second tick: 3 events
+    batcher.enqueue(6, "value", 1);
+    batcher.enqueue(7, "value", 0);
+    batcher.enqueue(8, "value", 1);
+
+    vi.advanceTimersByTime(50);
+
+    // Get telemetry: should have 2 batches, 8 total events (5 + 3)
+    const telemetry = batcher.getTelemetryAndReset();
+
+    expect(telemetry.intended).toBe(8);
+    expect(telemetry.actual).toBe(8); // No deduplication in this test
+    expect(telemetry.batches).toBe(2); // Two flushes occurred
+
+    // After reset, counters should be 0
+    const telemetry2 = batcher.getTelemetryAndReset();
+    expect(telemetry2.intended).toBe(0);
+    expect(telemetry2.actual).toBe(0);
+    expect(telemetry2.batches).toBe(0);
+
+    batcher.destroy();
+  });
 });

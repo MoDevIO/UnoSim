@@ -10,17 +10,13 @@ export interface RegistryUpdateCallback {
 }
 
 export interface PerformanceMetrics {
-  incomingEvents: number;
-  sentBatches: number;
-  eventsPerSecond: number;
-  batchEfficiency: number; // average events per batch
   timestamp: number;
-  pinChangesPerSecond: number; // new: pin state changes (value/pwm/mode) per second
-  intendedPinChangesPerSecond: number; // what the code tried to do
-  actualPinChangesPerSecond: number; // what actually got through debounce
-  pinChangeLossPercentage: number; // loss percentage
-  isThrottled: boolean; // new: whether pin changes are currently throttled
-  serialOutputPerSecond: number; // new: serial output events per second
+  intendedPinChangesPerSecond: number;
+  actualPinChangesPerSecond: number;
+  droppedPinChangesPerSecond: number;
+  batchesPerSecond: number;
+  avgStatesPerBatch: number;
+  serialOutputPerSecond: number;
 }
 
 export interface TelemetryUpdateCallback {
@@ -162,74 +158,63 @@ export class RegistryManager {
     const now = Date.now();
     const timeElapsedMs = now - this.telemetry.lastReportTime;
     const timeElapsedSec = timeElapsedMs / 1000;
-    
-    const eventsPerSecond = timeElapsedSec > 0 
-      ? Math.round((this.telemetry.incomingEvents / timeElapsedSec) * 10) / 10
-      : 0;
-    
-    const batchEfficiency = this.telemetry.sentBatches > 0
-      ? Math.round((this.telemetry.incomingEvents / this.telemetry.sentBatches) * 10) / 10
-      : 0;
 
     // Get pin change telemetry from PinStateBatcher
     let intendedPinChangesPerSecond = 0;
     let actualPinChangesPerSecond = 0;
-    let pinChangeLossPercentage = 0;
-    
+    let droppedPinChangesPerSecond = 0;
+    let batchesPerSecond = 0;
+    let avgStatesPerBatch = 0;
+
     if (this.pinStateBatcher) {
       const batcherTelemetry = this.pinStateBatcher.getTelemetryAndReset();
+      
       intendedPinChangesPerSecond = timeElapsedSec > 0
         ? Math.round((batcherTelemetry.intended / timeElapsedSec) * 10) / 10
         : 0;
+      
       actualPinChangesPerSecond = timeElapsedSec > 0
         ? Math.round((batcherTelemetry.actual / timeElapsedSec) * 10) / 10
         : 0;
-      pinChangeLossPercentage = intendedPinChangesPerSecond > 0
-        ? Math.round(((intendedPinChangesPerSecond - actualPinChangesPerSecond) / intendedPinChangesPerSecond) * 100)
+      
+      droppedPinChangesPerSecond = intendedPinChangesPerSecond - actualPinChangesPerSecond;
+      
+      batchesPerSecond = timeElapsedSec > 0
+        ? Math.round((batcherTelemetry.batches / timeElapsedSec) * 10) / 10
+        : 0;
+      
+      avgStatesPerBatch = batcherTelemetry.batches > 0
+        ? Math.round((batcherTelemetry.actual / batcherTelemetry.batches) * 10) / 10
         : 0;
     }
-
-    // Pin changes per second (legacy, kept for compatibility)
-    const pinChangesPerSecond = actualPinChangesPerSecond;
-
-    // Check if pin changes are being throttled (if we're debouncing)
-    // NOTE: With PinStateBatcher, throttling is always happening at 20Hz
-    // We consider it "throttled" if there's loss (i.e., intended > actual)
-    const isThrottled = pinChangeLossPercentage > 0;
 
     // Calculate serial output events per second
     const serialOutputPerSecond = timeElapsedSec > 0
       ? Math.round((this.telemetry.serialOutputEvents / timeElapsedSec) * 10) / 10
       : 0;
-    
+
     const metrics: PerformanceMetrics = {
-      incomingEvents: this.telemetry.incomingEvents,
-      sentBatches: this.telemetry.sentBatches,
-      eventsPerSecond,
-      batchEfficiency,
       timestamp: now,
-      pinChangesPerSecond,
       intendedPinChangesPerSecond,
       actualPinChangesPerSecond,
-      pinChangeLossPercentage,
-      isThrottled,
+      droppedPinChangesPerSecond,
+      batchesPerSecond,
+      avgStatesPerBatch,
       serialOutputPerSecond,
     };
-    
+
     // Reset counters for next period
     this.telemetry.incomingEvents = 0;
     this.telemetry.sentBatches = 0;
-    this.telemetry.pinChanges = 0;
-    this.telemetry.intendedPinChanges = 0;
     this.telemetry.serialOutputEvents = 0;
     this.telemetry.lastReportTime = now;
-    
+
     if (!this.destroyed) {
       this.logger.debug(
-        `Telemetry: ${eventsPerSecond} evt/s, ${batchEfficiency} evt/batch, intended: ${intendedPinChangesPerSecond} pin/s, actual: ${actualPinChangesPerSecond} pin/s (loss: ${pinChangeLossPercentage}%), ${serialOutputPerSecond} serial/s`,
+        `Telemetry: intended: ${intendedPinChangesPerSecond} pin/s, actual: ${actualPinChangesPerSecond} pin/s (dropped: ${droppedPinChangesPerSecond}), ${batchesPerSecond} bat/s, ${avgStatesPerBatch} st/bat, ${serialOutputPerSecond} serial/s`,
       );
     }
-    
+
     return metrics;
   }
 

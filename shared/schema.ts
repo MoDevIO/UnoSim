@@ -146,16 +146,12 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("sim_telemetry"),
     metrics: z.object({
-      incomingEvents: z.number(),
-      sentBatches: z.number(),
-      eventsPerSecond: z.number(),
-      batchEfficiency: z.number(),
       timestamp: z.number(),
-      pinChangesPerSecond: z.number(),
-      intendedPinChangesPerSecond: z.number(), // What the code tried to do
-      actualPinChangesPerSecond: z.number(),   // What actually got through
-      pinChangeLossPercentage: z.number(),     // Loss percentage
-      isThrottled: z.boolean(),
+      intendedPinChangesPerSecond: z.number(),
+      actualPinChangesPerSecond: z.number(),
+      droppedPinChangesPerSecond: z.number(),
+      batchesPerSecond: z.number(),
+      avgStatesPerBatch: z.number(),
       serialOutputPerSecond: z.number(),
     }),
   }),

@@ -838,23 +838,18 @@ export function ArduinoBoard({
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase tracking-wider text-white/50">Pin Changes</span>
                 <span className="text-sm font-mono text-white/90">
-                  {telemetry.intendedPinChangesPerSecond > 0 ? (
-                    <>
-                      {telemetry.intendedPinChangesPerSecond.toFixed(1)} /s → {telemetry.actualPinChangesPerSecond.toFixed(1)} /s
-                      {telemetry.pinChangeLossPercentage > 0 && (
-                        <span className="ml-1 text-red-400" title={`${telemetry.pinChangeLossPercentage}% of pin changes lost due to debouncing`}>
-                          (Loss: {telemetry.pinChangeLossPercentage}%)
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <>{telemetry.pinChangesPerSecond.toFixed(1)} /s</>
-                  )}
-                  {telemetry.isThrottled && (
-                    <span className="ml-2 text-amber-400" title="Pin changes are being throttled">
-                      ⏸
+                  {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
+                  {telemetry.droppedPinChangesPerSecond > 0 && (
+                    <span className="ml-1 text-amber-400/80">
+                      ({telemetry.droppedPinChangesPerSecond.toFixed(0)} dropped)
                     </span>
                   )}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase tracking-wider text-white/50">Batching</span>
+                <span className="text-sm font-mono text-white/90">
+                  {telemetry.batchesPerSecond.toFixed(0)} bat/s · {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
                 </span>
               </div>
             </div>
