@@ -229,4 +229,49 @@ describe('ArduinoOutputParser', () => {
       expect(receivedData).toEqual([]);
     });
   });
+
+  describe('Integer mit numerischem Modifier', () => {
+    test('Integer mit Modifier 3 fällt auf Dezimal zurück (TS-Parser)', async () => {
+      // Note: In the actual pipeline, base conversion is done by the C++ mock.
+      // The TS parser treats numeric modifiers on integers as decimal fallthrough.
+      parser.print(255, 3);
+      await vi.advanceTimersByTimeAsync(20);
+      // TS parser doesn't support arbitrary bases - it falls to decimal
+      expect(receivedData).toEqual(['255']);
+    });
+
+    test('println mit leerem Argument erzeugt nur Newline', () => {
+      parser.println();
+      expect(receivedData).toEqual(['\n']);
+    });
+
+    test('println mit String und Newline', () => {
+      parser.println('Hello');
+      expect(receivedData).toEqual(['Hello\n']);
+    });
+
+    test('Negative Ganzzahl', async () => {
+      parser.print(-42);
+      await vi.advanceTimersByTimeAsync(20);
+      expect(receivedData).toEqual(['-42']);
+    });
+
+    test('Zero in verschiedenen Basen', async () => {
+      parser.print(0, 'BIN');
+      await vi.advanceTimersByTimeAsync(20);
+      expect(receivedData).toEqual(['0']);
+    });
+
+    test('Float mit Precision 0', async () => {
+      parser.print(3.7, 0);
+      await vi.advanceTimersByTimeAsync(20);
+      expect(receivedData).toEqual(['4']);
+    });
+
+    test('Float Standard-Precision (1.23456 -> 1.23)', async () => {
+      parser.print(1.23456);
+      await vi.advanceTimersByTimeAsync(20);
+      expect(receivedData).toEqual(['1.23']);
+    });
+  });
 });

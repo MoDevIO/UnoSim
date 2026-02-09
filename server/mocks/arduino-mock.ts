@@ -536,24 +536,29 @@ public:
     }
     
     // Helper for number format conversion - returns string
+    // Supports any base >= 2, matching Arduino's Print::printNumber() behavior
     std::string formatNumber(long n, int base) {
+        if (base < 2) base = 10; // Arduino defaults to base 10 for invalid bases
+        
         std::ostringstream oss;
         if (base == DEC) {
             oss << n;
         } else if (base == HEX) {
-            oss << std::hex << n << std::dec;
+            oss << std::uppercase << std::hex << n << std::dec;
         } else if (base == OCT) {
             oss << std::oct << n << std::dec;
-        } else if (base == BIN) {
+        } else {
+            // General base conversion (BIN and any other base >= 2)
             if (n == 0) { oss << "0"; }
             else {
-                std::string binary;
+                std::string result;
                 unsigned long un = (n < 0) ? (unsigned long)n : n;
                 while (un > 0) {
-                    binary = ((un & 1) ? "1" : "0") + binary;
-                    un >>= 1;
+                    int digit = un % base;
+                    result = (char)(digit < 10 ? '0' + digit : 'A' + digit - 10) + result;
+                    un /= base;
                 }
-                oss << binary;
+                oss << result;
             }
         }
         return oss.str();
@@ -718,15 +723,17 @@ public:
         return negative ? -result : result;
     }
 
-    void write(uint8_t b) { std::cout << (char)b << std::flush; }
-    void write(const char* str) { std::cout << str << std::flush; }
+    void write(uint8_t b) { serialWrite(std::string(1, (char)b)); }
+    void write(const char* str) { serialWrite(std::string(str)); }
     
     // Write buffer with length
     size_t write(const uint8_t* buffer, size_t size) {
+        std::string s;
+        s.reserve(size);
         for (size_t i = 0; i < size; i++) {
-            std::cout << (char)buffer[i];
+            s += (char)buffer[i];
         }
-        std::cout << std::flush;
+        serialWrite(s);
         return size;
     }
     

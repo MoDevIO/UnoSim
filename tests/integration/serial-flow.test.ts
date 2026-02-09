@@ -246,4 +246,111 @@ void loop() {
         expect(index1).toBeLessThan(index2); // "SETUP" must come BEFORE "LOOP"
     
       });
+
+  test('Serial.println with arbitrary base (base 3) should output correct value', async () => {
+    const sketch = `
+void setup() {
+  Serial.begin(9600);
+  Serial.println(255, 3);
+}
+
+void loop() {
+  exit(0);
+}
+    `.trim();
+
+    const result = await runSketchWithOutput(runner, sketch);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Unknown error');
+    }
+
+    const fullOutput = extractPlainText(result.outputs);
+    
+    // 255 in base 3 = 100110
+    // Arduino's printNumber supports any base >= 2
+    expect(fullOutput).toContain('100110');
+  });
+
+  test('Serial.print with invalid base (< 2) should default to decimal', async () => {
+    const sketch = `
+void setup() {
+  Serial.begin(9600);
+  Serial.println(42, 1);
+  Serial.println(42, 0);
+}
+
+void loop() {
+  exit(0);
+}
+    `.trim();
+
+    const result = await runSketchWithOutput(runner, sketch);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Unknown error');
+    }
+
+    const fullOutput = extractPlainText(result.outputs);
+    
+    // Base < 2 should default to base 10 (decimal), printing "42" twice
+    const matches = fullOutput.match(/42/g);
+    expect(matches).toBeTruthy();
+    expect(matches!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('Serial.write should produce output via SERIAL_EVENT', async () => {
+    const sketch = `
+void setup() {
+  Serial.begin(9600);
+  Serial.write('A');
+  Serial.write('B');
+  Serial.write('C');
+  Serial.println();
+}
+
+void loop() {
+  exit(0);
+}
+    `.trim();
+
+    const result = await runSketchWithOutput(runner, sketch);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Unknown error');
+    }
+
+    const fullOutput = extractPlainText(result.outputs);
+    
+    // Serial.write sends raw bytes - should appear as characters
+    expect(fullOutput).toContain('ABC');
+  });
+
+  test('Serial.print byte with base should format correctly', async () => {
+    const sketch = `
+void setup() {
+  Serial.begin(9600);
+  byte val = 255;
+  Serial.println(val, HEX);
+  Serial.println(val, BIN);
+}
+
+void loop() {
+  exit(0);
+}
+    `.trim();
+
+    const result = await runSketchWithOutput(runner, sketch);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Unknown error');
+    }
+
+    const fullOutput = extractPlainText(result.outputs);
+    
+    // 255 in HEX = FF (uppercase on real Arduino)
+    expect(fullOutput.toUpperCase()).toContain('FF');
+    // 255 in BIN = 11111111
+    expect(fullOutput).toContain('11111111');
+  });
 });
