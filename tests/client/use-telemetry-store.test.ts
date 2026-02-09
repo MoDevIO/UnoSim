@@ -21,6 +21,7 @@ describe("telemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 6,
         serialOutputPerSecond: 10,
+        serialBytesTotal: 0,
       };
 
       telemetryStore.pushTelemetry(metric);
@@ -63,6 +64,7 @@ describe("telemetryStore", () => {
         batchesPerSecond: 0,
         avgStatesPerBatch: 0,
         serialOutputPerSecond: 0,
+        serialBytesTotal: 0,
       };
 
       telemetryStore.pushTelemetry(metric);
@@ -80,6 +82,7 @@ describe("telemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 57,
         serialOutputPerSecond: 5,
+        serialBytesTotal: 0,
       };
 
       telemetryStore.pushTelemetry(metric);
@@ -101,6 +104,7 @@ describe("telemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 4,
         serialOutputPerSecond: 10,
+        serialBytesTotal: 0,
       };
 
       telemetryStore.pushTelemetry(metric);
@@ -125,6 +129,7 @@ describe("telemetryStore", () => {
           batchesPerSecond: 20,
           avgStatesPerBatch: 4,
           serialOutputPerSecond: i * 10,
+          serialBytesTotal: 0,
         };
         metrics.push(metric);
         telemetryStore.pushTelemetry(metric);
@@ -183,6 +188,7 @@ describe("useTelemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 4,
         serialOutputPerSecond: 10,
+        serialBytesTotal: 0,
       });
     });
 

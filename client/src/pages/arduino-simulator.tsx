@@ -2388,13 +2388,27 @@ export default function ArduinoSimulator() {
                               return snapshot;
                             })();
                             return telemetry ? (
-                              <div className="ml-4 flex items-center gap-2 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
+                              <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
                                 <div className="flex flex-col">
                                   <span className="text-[10px] uppercase tracking-wider text-white/50">Serial Output</span>
                                   <span className="text-sm font-mono text-white/90">
                                     {telemetry.serialOutputPerSecond.toFixed(1)} /s
                                   </span>
                                 </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] uppercase tracking-wider text-white/50">Baudrate</span>
+                                  <span className="text-sm font-mono text-white/90">
+                                    {baudRate}
+                                  </span>
+                                </div>
+                                {telemetry.serialBytesTotal !== undefined && (
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] uppercase tracking-wider text-white/50">Total Bytes</span>
+                                    <span className="text-sm font-mono text-white/90">
+                                      {telemetry.serialBytesTotal}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             ) : null;
                           })()}

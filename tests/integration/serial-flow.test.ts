@@ -81,9 +81,9 @@ void loop() {
 
     const fullOutput = extractPlainText(result.outputs);
     
-    // Arduino prints lowercase hex by default
-    expect(fullOutput.toLowerCase()).toContain('ff');
-    expect(fullOutput.toLowerCase()).toContain('4e');
+    // Arduino prints uppercase hex by default
+    expect(fullOutput.toUpperCase()).toContain('FF');
+    expect(fullOutput.toUpperCase()).toContain('4E');
   });
 
   test('Serial.print with float precision should format correctly', async () => {
@@ -352,5 +352,29 @@ void loop() {
     expect(fullOutput.toUpperCase()).toContain('FF');
     // 255 in BIN = 11111111
     expect(fullOutput).toContain('11111111');
+  });
+
+  test('Serial output at low baudrate (300) should complete in < 2 seconds due to txDelay capping', async () => {
+    const sketch = `
+void setup() {
+  Serial.begin(300);  // Very low baudrate
+  Serial.println("Hello World!");  // Would take 3.3s without capping
+}
+
+void loop() {
+  exit(0);
+}
+    `.trim();
+
+    const start = Date.now();
+    const result = await runSketchWithOutput(runner, sketch, { timeout: 15 });
+    const elapsed = Date.now() - start;
+
+    expect(result.success).toBe(true);
+    const fullOutput = extractPlainText(result.outputs);
+    expect(fullOutput).toContain('Hello World');
+
+    // txDelay is capped at 10ms, so even with low baudrate, should complete quickly
+    expect(elapsed).toBeLessThan(2000);  // Should complete in < 2 seconds
   });
 });

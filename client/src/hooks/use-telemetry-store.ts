@@ -8,6 +8,7 @@ export interface TelemetryMetrics {
   batchesPerSecond: number;
   avgStatesPerBatch: number;
   serialOutputPerSecond: number;
+  serialBytesTotal?: number;  // Cumulative bytes sent since simulation start (optional, for future use)
 }
 
 interface TelemetrySnapshot {
