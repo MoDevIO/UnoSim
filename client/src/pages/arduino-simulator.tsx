@@ -883,6 +883,10 @@ export default function ArduinoSimulator() {
             // Clear any pending serial-event tracking so system messages aren't dropped after stop
             lastSerialEventAtRef.current = 0;
             serialEventQueueRef.current = [];
+            // Clear pin states from previous simulation run
+            setPinStates([]);
+            // Clear analog pins used from previous simulation
+            setAnalogPinsUsed([]);
             // Preserve detected pinMode declarations when simulation stops
             resetPinUI({ keepDetected: true });
             setCompilationStatus("ready");
@@ -932,23 +936,22 @@ export default function ArduinoSimulator() {
             }
           }
 
-          // Merge with existing analogPinsUsed and update if changed
-          if (analogPinsFromRegistry.size > 0) {
-            console.log(`[arduino-simulator] Adding analog pins from registry:`, Array.from(analogPinsFromRegistry));
-            setAnalogPinsUsed((prev) => {
-              const merged = new Set([...prev, ...analogPinsFromRegistry]);
+          // Merge or replace analog pins based on simulation state
+          if (simulationStatus === "running") {
+            // During simulation: merge server pins with client-detected pins
+            setAnalogPinsUsed(prev => {
+              const merged = new Set([...prev, ...Array.from(analogPinsFromRegistry)]);
               const arr = Array.from(merged).sort((a, b) => a - b);
-              // Only update if actually changed to avoid infinite loops
-              if (
-                arr.length !== prev.length ||
-                arr.some((p, i) => p !== prev[i])
-              ) {
-                console.log(`[arduino-simulator] Updated analogPinsUsed:`, arr.map(p => `A${p - 14}`).join(", "));
-                return arr;
-              }
-              return prev;
+              console.log(`[arduino-simulator] Merging analog pins (simulation running) - client:`, prev, `server:`, Array.from(analogPinsFromRegistry), `merged:`, arr);
+              return arr;
             });
+          } else if (analogPinsFromRegistry.size > 0) {
+            // Not running but registry has analog pins: update (for initial compile detection)
+            const arr = Array.from(analogPinsFromRegistry).sort((a, b) => a - b);
+            console.log(`[arduino-simulator] Setting analog pins from registry (not running, registry not empty):`, arr);
+            setAnalogPinsUsed(arr);
           }
+          // If registry is empty and not running, don't overwrite client-detected pins
 
           // Update pinStates from registry data - add pins that have been defined
           // NOTE: Only create pin records, do NOT set modes from registry.
@@ -1194,15 +1197,12 @@ export default function ArduinoSimulator() {
       }
     }
 
-    const arr = Array.from(pins).sort((a, b) => a - b);
-    setAnalogPinsUsed(arr);
-
     // Do NOT add pins to pinStates during code editing — pins should only appear
     // after upload/simulation starts (via io_registry message from the server).
     const pinModeRe =
       /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
     const digitalPinsFromPinMode = new Set<number>();
-    const detectedModes: Record<number, string> = {};
+    const detectedModes: Record<number, "INPUT" | "OUTPUT" | "INPUT_PULLUP"> = {};
     while ((m = pinModeRe.exec(mainCode))) {
       const token = m[1];
       const modeToken = m[2];
@@ -1225,12 +1225,11 @@ export default function ArduinoSimulator() {
               ? "OUTPUT"
               : "INPUT";
         detectedModes[p] = mode;
-
-        // Store detected mode for ALL pins (digital and analog)
-        // These will be applied when simulation starts via the separate useEffect
-        setDetectedPinModes((prev) => ({ ...prev, [p]: mode }));
       }
     }
+
+    // Replace detectedPinModes completely (don't merge) to avoid old modes persisting
+    setDetectedPinModes(detectedModes);
 
     // If any pin is both declared via pinMode(...) and used with analogRead(...), warn the user
     try {
@@ -1250,6 +1249,11 @@ export default function ArduinoSimulator() {
         setPendingPinConflicts([]);
       }
     } catch {}
+
+    // Update analogPinsUsed with client-detected pins
+    const clientPins = Array.from(pins).sort((a, b) => a - b);
+    console.log(`[arduino-simulator] Client-detected analog pins:`, clientPins);
+    setAnalogPinsUsed(clientPins);
   }, [code, tabs, activeTabId]);
 
   // When the simulation starts, apply recorded pinMode declarations and

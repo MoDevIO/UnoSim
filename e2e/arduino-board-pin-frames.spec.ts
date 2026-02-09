@@ -118,9 +118,7 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
   });
 
   // --- TEST 7: CLEAR ON RELOAD (REINIGUNGSTEST) ---
-  // TODO: This test has a timing issue where pinStates persist after stop/start cycle
-  // Need to investigate proper cleanup mechanism
-  test.skip("Loading a new program should clear previous pin frame markings", async ({ page, monacoEditor, startSimulation, stopSimulation }) => {
+  test("Loading a new program should clear previous pin frame markings", async ({ page, monacoEditor, startSimulation, stopSimulation }) => {
     await monacoEditor.setValue("void setup() { pinMode(A0, INPUT); } \n void loop() {}");
     await startSimulation();
     await expect(page.locator("#pin-A0-frame")).toBeVisible();
@@ -131,7 +129,9 @@ test.describe("Arduino Board - Pin Frame Rendering (Vollversion)", () => {
     await startSimulation();
 
     const frameA0 = page.locator("#pin-A0-frame");
-    await expect(frameA0).toBeHidden({ timeout: 10000 });
+    await expect.poll(async () => {
+      return await frameA0.isHidden();
+    }, { timeout: 10000 }).toBe(true);
   });
 
   // --- TEST 8: analogRead WITHOUT pinMode SHOULD SHOW DASHED FRAME ---
