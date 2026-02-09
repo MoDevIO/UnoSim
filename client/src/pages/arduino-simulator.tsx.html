@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">36.12% </span>
+                <span class="strong">36.37% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>306/847</span>
+                <span class='fraction'>307/844</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">26.97% </span>
+                <span class="strong">26.96% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>174/645</span>
+                <span class='fraction'>175/649</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">21.65% </span>
+                <span class="strong">21.93% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>34/157</span>
+                <span class='fraction'>34/155</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">37.9% </span>
+                <span class="strong">38.18% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>293/773</span>
+                <span class='fraction'>294/770</span>
             </div>
         
             
@@ -2878,7 +2878,8 @@
 <a name='L2813'></a><a href='#L2813'>2813</a>
 <a name='L2814'></a><a href='#L2814'>2814</a>
 <a name='L2815'></a><a href='#L2815'>2815</a>
-<a name='L2816'></a><a href='#L2816'>2816</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L2816'></a><a href='#L2816'>2816</a>
+<a name='L2817'></a><a href='#L2817'>2817</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3064,6 +3065,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">252x</span>
+<span class="cline-any cline-yes">252x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">252x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -5263,11 +5267,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -5744,7 +5746,7 @@ import { useSketchTabs } from "@/hooks/use-sketch-tabs";
 import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
-import { telemetryStore } from "@/hooks/use-telemetry-store";
+import { telemetryStore, useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { buildGccCompilationErrorState } from "@/lib/compilation-error-state";
 import {
   ResizablePanelGroup,
@@ -5880,6 +5882,9 @@ export default function ArduinoSimulator() {
     addDebugMessage,
   } = useDebugConsole(activeOutputTab);
   void _setDebugMode; // Mark as intentionally unused (managed by hook)
+&nbsp;
+  // Subscribe to telemetry updates (to re-render when metrics change)
+  const telemetryData = useTelemetryStore();
 &nbsp;
   // Helper to download all tabs (used by File -&gt; Download All Files)
   const downloadAllFiles = <span class="fstat-no" title="function not covered" >async () =&gt; {</span>
@@ -8077,36 +8082,34 @@ export default function ArduinoSimulator() {
                             aria-hidden
                           /&gt;
                           &lt;span className="sr-only"&gt;Serial Output&lt;/span&gt;
-                          {debugMode &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >simulationStatus === <span class="branch-2 cbranch-no" title="branch not covered" >"running" &amp;&amp; (<span class="fstat-no" title="function not covered" >(</span>) =&gt; {</span></span>
-                            const { last: telemetry <span class="cstat-no" title="statement not covered" >} = (<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-                              const snapshot = <span class="cstat-no" title="statement not covered" >telemetryStore.getSnapshot();</span>
-<span class="cstat-no" title="statement not covered" >                              return snapshot;</span>
-                            })();
-<span class="cstat-no" title="statement not covered" >                            return telemetry ? (</span>
-                              &lt;div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4"&gt;
-                                &lt;div className="flex flex-col"&gt;
-                                  &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Serial Output&lt;/span&gt;
-                                  &lt;span className="text-sm font-mono text-white/90"&gt;
-                                    {telemetry.serialOutputPerSecond.toFixed(1)} /s
-                                  &lt;/span&gt;
-                                &lt;/div&gt;
-                                &lt;div className="flex flex-col"&gt;
-                                  &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Baudrate&lt;/span&gt;
-                                  &lt;span className="text-sm font-mono text-white/90"&gt;
-                                    {baudRate}
-                                  &lt;/span&gt;
-                                &lt;/div&gt;
-                                {telemetry.serialBytesTotal !== undefined &amp;&amp; (
-                                  &lt;div className="flex flex-col"&gt;
-                                    &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Total Bytes&lt;/span&gt;
-                                    &lt;span className="text-sm font-mono text-white/90"&gt;
-                                      {telemetry.serialBytesTotal}
-                                    &lt;/span&gt;
-                                  &lt;/div&gt;
-                                )}
+                          {debugMode &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >simulationStatus === "running" &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >t</span>elemetryData.last ? (</span>
+<span class="branch-0 cbranch-no" title="branch not covered" >                            &lt;div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4"&gt;</span>
+                              &lt;div className="flex flex-col"&gt;
+                                &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Serial Events&lt;/span&gt;
+                                &lt;span className="text-sm font-mono text-white/90"&gt;
+                                  {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(1)} /s
+                                &lt;/span&gt;
                               &lt;/div&gt;
-                            ) : null;
-                          })()}
+                              &lt;div className="flex flex-col"&gt;
+                                &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Serial Bytes&lt;/span&gt;
+                                &lt;span className="text-sm font-mono text-white/90"&gt;
+                                  {(telemetryData.last.serialBytesPerSecond ?? 0).toFixed(1)} /s
+                                &lt;/span&gt;
+                              &lt;/div&gt;
+                              &lt;div className="flex flex-col"&gt;
+                                &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Baudrate&lt;/span&gt;
+                                &lt;span className="text-sm font-mono text-white/90"&gt;
+                                  {baudRate}
+                                &lt;/span&gt;
+                              &lt;/div&gt;
+                              &lt;div className="flex flex-col"&gt;
+                                &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Total Bytes&lt;/span&gt;
+                                &lt;span className="text-sm font-mono text-white/90"&gt;
+                                  {telemetryData.last.serialBytesTotal ?? 0}
+                                &lt;/span&gt;
+                              &lt;/div&gt;
+                            &lt;/div&gt;
+                          ) : null}
                         &lt;/div&gt;
                         &lt;div className="flex items-center gap-4 ml-auto"&gt;
                           &lt;Button
@@ -8515,7 +8518,7 @@ export default function ArduinoSimulator() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-09T18:07:17.815Z
+                at 2026-02-09T18:41:05.801Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
