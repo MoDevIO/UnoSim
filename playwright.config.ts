@@ -22,7 +22,7 @@ export default defineConfig({
   webServer: {
     command: "npm run dev:full",
     url: "http://localhost:3000",
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env.CI, // Reuse in dev, fresh in CI
     timeout: 120 * 1000,
     stdout: "pipe",
     stderr: "pipe",

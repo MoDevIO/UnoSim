@@ -50,7 +50,7 @@ run_e2e_step() {
     printf "%s [%d/%d] %-40s" "$icon_run" "$STEP" "$TOTAL_STEPS" "$label"
     start_time=$(date +%s)
 
-    npm run test:e2e -- --fully-parallel --workers=$WORKERS >> "$LOG_FILE" 2>&1 &
+    npm run test:e2e >> "$LOG_FILE" 2>&1 &
     local pid=$!
 
     for ((i=TIMEOUT_SECS; i>0; i--)); do
@@ -89,6 +89,13 @@ run_step "Unit-Tests & Coverage" "npm run test:coverage" || {
 
 # 3. E2E Tests
 echo "🚀 Starte E2E-Tests (Parallel: $WORKERS Worker)..."
+
+# Cleanup: Kill any existing dev servers on port 3000
+if lsof -i :3000 >/dev/null 2>&1; then
+    echo "🧹 Cleaning up port 3000..."
+    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+    sleep 1
+fi
 
 run_e2e_step "E2E-Tests" || { echo "${RED}🛑 Abbruch: E2E fehlgeschlagen${RESET}"; tail -n 20 "$LOG_FILE"; exit 1; }
 
