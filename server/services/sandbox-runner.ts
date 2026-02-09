@@ -139,7 +139,7 @@ export class SandboxRunner {
           this.outputCallback(chunk, true);
         }
         // Track serial output event for telemetry
-        this.registryManager.trackSerialOutput();
+        this.registryManager.trackSerialOutput(chunk.length);
     });
   }
 
@@ -970,6 +970,8 @@ export class SandboxRunner {
         break;
 
       case "serial_event":
+        // Track telemetry for serial output events from stderr protocol
+        this.registryManager.trackSerialOutput(parsed.data.length);
         if (onOutput) {
           try {
             onOutput(

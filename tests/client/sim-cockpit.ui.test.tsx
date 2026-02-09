@@ -14,6 +14,8 @@ describe("SimCockpit UI", () => {
     batchesPerSecond: 20,
     avgStatesPerBatch: 4,
     serialOutputPerSecond: 10,
+    serialBytesPerSecond: 120,
+    serialBytesTotal: 1200,
   };
 
   beforeEach(() => {

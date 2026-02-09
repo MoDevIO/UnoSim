@@ -153,6 +153,8 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       batchesPerSecond: z.number(),
       avgStatesPerBatch: z.number(),
       serialOutputPerSecond: z.number(),
+      serialBytesPerSecond: z.number(),
+      serialBytesTotal: z.number(),
     }),
   }),
 ]);

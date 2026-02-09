@@ -17,6 +17,8 @@ export interface PerformanceMetrics {
   batchesPerSecond: number;
   avgStatesPerBatch: number;
   serialOutputPerSecond: number;
+  serialBytesPerSecond: number;
+  serialBytesTotal: number;
 }
 
 export interface TelemetryUpdateCallback {
@@ -79,6 +81,8 @@ export class RegistryManager {
     incomingEvents: 0,
     sentBatches: 0,
     serialOutputEvents: 0, // track serial output events
+    serialOutputBytes: 0, // bytes in current interval
+    serialOutputBytesTotal: 0, // cumulative bytes since start
     lastReportTime: Date.now(),
   };
 
@@ -181,9 +185,12 @@ export class RegistryManager {
         : 0;
     }
 
-    // Calculate serial output events per second
+    // Calculate serial output events and bytes per second
     const serialOutputPerSecond = timeElapsedSec > 0
       ? Math.round((this.telemetry.serialOutputEvents / timeElapsedSec) * 10) / 10
+      : 0;
+    const serialBytesPerSecond = timeElapsedSec > 0
+      ? Math.round((this.telemetry.serialOutputBytes / timeElapsedSec) * 10) / 10
       : 0;
 
     const metrics: PerformanceMetrics = {
@@ -194,12 +201,15 @@ export class RegistryManager {
       batchesPerSecond,
       avgStatesPerBatch,
       serialOutputPerSecond,
+      serialBytesPerSecond,
+      serialBytesTotal: this.telemetry.serialOutputBytesTotal,
     };
 
     // Reset counters for next period
     this.telemetry.incomingEvents = 0;
     this.telemetry.sentBatches = 0;
     this.telemetry.serialOutputEvents = 0;
+    this.telemetry.serialOutputBytes = 0;
     this.telemetry.lastReportTime = now;
 
     if (!this.destroyed) {
@@ -241,6 +251,9 @@ export class RegistryManager {
     // Reset telemetry counters and restart heartbeat
     this.telemetry.incomingEvents = 0;
     this.telemetry.sentBatches = 0;
+    this.telemetry.serialOutputEvents = 0;
+    this.telemetry.serialOutputBytes = 0;
+    this.telemetry.serialOutputBytesTotal = 0;
     this.telemetry.lastReportTime = Date.now();
     
     if (this.onTelemetryCallback && this.enableTelemetry) {
@@ -373,9 +386,11 @@ export class RegistryManager {
   /**
    * Track a serial output event (called when serial data is sent)
    */
-  trackSerialOutput(): void {
+  trackSerialOutput(bytes: number = 0): void {
     if (this.destroyed) return;
     this.telemetry.serialOutputEvents++;
+    this.telemetry.serialOutputBytes += bytes;
+    this.telemetry.serialOutputBytesTotal += bytes;
   }
 
   /**
