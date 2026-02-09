@@ -66,6 +66,13 @@ vi.mock("@/hooks/use-telemetry-store", () => ({
     pushTelemetry: vi.fn(),
     resetTelemetry: vi.fn(),
   },
+  useTelemetryStore: () => ({
+    history: [],
+    last: null,
+    lastHeartbeatAt: null,
+    pushTelemetry: vi.fn(),
+    resetTelemetry: vi.fn(),
+  }),
 }));
 
 vi.mock("@/components/features/code-editor", () => ({

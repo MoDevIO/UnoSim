@@ -49,7 +49,7 @@ import { useSketchTabs } from "@/hooks/use-sketch-tabs";
 import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
-import { telemetryStore } from "@/hooks/use-telemetry-store";
+import { telemetryStore, useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { buildGccCompilationErrorState } from "@/lib/compilation-error-state";
 import {
   ResizablePanelGroup,
@@ -185,6 +185,9 @@ export default function ArduinoSimulator() {
     addDebugMessage,
   } = useDebugConsole(activeOutputTab);
   void _setDebugMode; // Mark as intentionally unused (managed by hook)
+
+  // Subscribe to telemetry updates (to re-render when metrics change)
+  const telemetryData = useTelemetryStore();
 
   // Helper to download all tabs (used by File -> Download All Files)
   const downloadAllFiles = async () => {
@@ -2382,36 +2385,34 @@ export default function ArduinoSimulator() {
                             aria-hidden
                           />
                           <span className="sr-only">Serial Output</span>
-                          {debugMode && simulationStatus === "running" && (() => {
-                            const { last: telemetry } = (() => {
-                              const snapshot = telemetryStore.getSnapshot();
-                              return snapshot;
-                            })();
-                            return telemetry ? (
-                              <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
-                                <div className="flex flex-col">
-                                  <span className="text-[10px] uppercase tracking-wider text-white/50">Serial Output</span>
-                                  <span className="text-sm font-mono text-white/90">
-                                    {telemetry.serialOutputPerSecond.toFixed(1)} /s
-                                  </span>
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-[10px] uppercase tracking-wider text-white/50">Baudrate</span>
-                                  <span className="text-sm font-mono text-white/90">
-                                    {baudRate}
-                                  </span>
-                                </div>
-                                {telemetry.serialBytesTotal !== undefined && (
-                                  <div className="flex flex-col">
-                                    <span className="text-[10px] uppercase tracking-wider text-white/50">Total Bytes</span>
-                                    <span className="text-sm font-mono text-white/90">
-                                      {telemetry.serialBytesTotal}
-                                    </span>
-                                  </div>
-                                )}
+                          {debugMode && simulationStatus === "running" && telemetryData.last ? (
+                            <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-white/50">Serial Events</span>
+                                <span className="text-sm font-mono text-white/90">
+                                  {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(1)} /s
+                                </span>
                               </div>
-                            ) : null;
-                          })()}
+                              <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-white/50">Serial Bytes</span>
+                                <span className="text-sm font-mono text-white/90">
+                                  {(telemetryData.last.serialBytesPerSecond ?? 0).toFixed(1)} /s
+                                </span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-white/50">Baudrate</span>
+                                <span className="text-sm font-mono text-white/90">
+                                  {baudRate}
+                                </span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-white/50">Total Bytes</span>
+                                <span className="text-sm font-mono text-white/90">
+                                  {telemetryData.last.serialBytesTotal ?? 0}
+                                </span>
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                         <div className="flex items-center gap-4 ml-auto">
                           <Button

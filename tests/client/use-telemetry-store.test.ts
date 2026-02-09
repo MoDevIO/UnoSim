@@ -21,7 +21,8 @@ describe("telemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 6,
         serialOutputPerSecond: 10,
-        serialBytesTotal: 0,
+        serialBytesPerSecond: 120,
+        serialBytesTotal: 1200,
       };
 
       telemetryStore.pushTelemetry(metric);
@@ -44,6 +45,8 @@ describe("telemetryStore", () => {
           batchesPerSecond: 20,
           avgStatesPerBatch: i * 2,
           serialOutputPerSecond: i,
+          serialBytesPerSecond: i * 10,
+          serialBytesTotal: i * 100,
         };
         metrics.push(metric);
         telemetryStore.pushTelemetry(metric);
@@ -64,6 +67,7 @@ describe("telemetryStore", () => {
         batchesPerSecond: 0,
         avgStatesPerBatch: 0,
         serialOutputPerSecond: 0,
+        serialBytesPerSecond: 0,
         serialBytesTotal: 0,
       };
 
@@ -82,7 +86,8 @@ describe("telemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 57,
         serialOutputPerSecond: 5,
-        serialBytesTotal: 0,
+        serialBytesPerSecond: 50,
+        serialBytesTotal: 500,
       };
 
       telemetryStore.pushTelemetry(metric);
@@ -104,7 +109,8 @@ describe("telemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 4,
         serialOutputPerSecond: 10,
-        serialBytesTotal: 0,
+        serialBytesPerSecond: 100,
+        serialBytesTotal: 1000,
       };
 
       telemetryStore.pushTelemetry(metric);
@@ -129,7 +135,8 @@ describe("telemetryStore", () => {
           batchesPerSecond: 20,
           avgStatesPerBatch: 4,
           serialOutputPerSecond: i * 10,
-          serialBytesTotal: 0,
+          serialBytesPerSecond: i * 100,
+          serialBytesTotal: i * 1000,
         };
         metrics.push(metric);
         telemetryStore.pushTelemetry(metric);
@@ -168,6 +175,8 @@ describe("useTelemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 4,
         serialOutputPerSecond: 10,
+        serialBytesPerSecond: 100,
+        serialBytesTotal: 1000,
       });
     });
 
@@ -188,7 +197,8 @@ describe("useTelemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 4,
         serialOutputPerSecond: 10,
-        serialBytesTotal: 0,
+        serialBytesPerSecond: 100,
+        serialBytesTotal: 1000,
       });
     });
 
@@ -207,6 +217,8 @@ describe("useTelemetryStore", () => {
         batchesPerSecond: 20,
         avgStatesPerBatch: 4,
         serialOutputPerSecond: 10,
+        serialBytesPerSecond: 100,
+        serialBytesTotal: 1000,
       });
     });
 
