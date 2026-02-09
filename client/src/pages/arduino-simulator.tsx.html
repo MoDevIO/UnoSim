@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">27.06% </span>
+                <span class="strong">26.97% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>174/643</span>
+                <span class='fraction'>174/645</span>
             </div>
         
             
@@ -2864,7 +2864,21 @@
 <a name='L2799'></a><a href='#L2799'>2799</a>
 <a name='L2800'></a><a href='#L2800'>2800</a>
 <a name='L2801'></a><a href='#L2801'>2801</a>
-<a name='L2802'></a><a href='#L2802'>2802</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L2802'></a><a href='#L2802'>2802</a>
+<a name='L2803'></a><a href='#L2803'>2803</a>
+<a name='L2804'></a><a href='#L2804'>2804</a>
+<a name='L2805'></a><a href='#L2805'>2805</a>
+<a name='L2806'></a><a href='#L2806'>2806</a>
+<a name='L2807'></a><a href='#L2807'>2807</a>
+<a name='L2808'></a><a href='#L2808'>2808</a>
+<a name='L2809'></a><a href='#L2809'>2809</a>
+<a name='L2810'></a><a href='#L2810'>2810</a>
+<a name='L2811'></a><a href='#L2811'>2811</a>
+<a name='L2812'></a><a href='#L2812'>2812</a>
+<a name='L2813'></a><a href='#L2813'>2813</a>
+<a name='L2814'></a><a href='#L2814'>2814</a>
+<a name='L2815'></a><a href='#L2815'>2815</a>
+<a name='L2816'></a><a href='#L2816'>2816</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -5254,6 +5268,20 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -8055,13 +8083,27 @@ export default function ArduinoSimulator() {
 <span class="cstat-no" title="statement not covered" >                              return snapshot;</span>
                             })();
 <span class="cstat-no" title="statement not covered" >                            return telemetry ? (</span>
-                              &lt;div className="ml-4 flex items-center gap-2 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4"&gt;
+                              &lt;div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4"&gt;
                                 &lt;div className="flex flex-col"&gt;
                                   &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Serial Output&lt;/span&gt;
                                   &lt;span className="text-sm font-mono text-white/90"&gt;
                                     {telemetry.serialOutputPerSecond.toFixed(1)} /s
                                   &lt;/span&gt;
                                 &lt;/div&gt;
+                                &lt;div className="flex flex-col"&gt;
+                                  &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Baudrate&lt;/span&gt;
+                                  &lt;span className="text-sm font-mono text-white/90"&gt;
+                                    {baudRate}
+                                  &lt;/span&gt;
+                                &lt;/div&gt;
+                                {telemetry.serialBytesTotal !== undefined &amp;&amp; (
+                                  &lt;div className="flex flex-col"&gt;
+                                    &lt;span className="text-[10px] uppercase tracking-wider text-white/50"&gt;Total Bytes&lt;/span&gt;
+                                    &lt;span className="text-sm font-mono text-white/90"&gt;
+                                      {telemetry.serialBytesTotal}
+                                    &lt;/span&gt;
+                                  &lt;/div&gt;
+                                )}
                               &lt;/div&gt;
                             ) : null;
                           })()}
@@ -8473,7 +8515,7 @@ export default function ArduinoSimulator() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-09T13:56:58.493Z
+                at 2026-02-09T18:07:17.815Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
