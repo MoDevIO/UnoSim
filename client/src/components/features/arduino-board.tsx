@@ -186,7 +186,7 @@ export function ArduinoBoard({
   };
 
   // Fade-Out tracking for LEDs
-  const FADE_OUT_MS = 75;
+  const FADE_OUT_MS = 200;
   const pinIsOnRef = useRef<Map<number, boolean>>(new Map());
   const pinTurnedOffAtRef = useRef<Map<number, number>>(new Map());
 

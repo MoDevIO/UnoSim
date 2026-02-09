@@ -87,10 +87,7 @@ export class RegistryManager {
     this.onTelemetryCallback = config.onTelemetry;
     this.enableTelemetry = config.enableTelemetry ?? false;
     
-    // Start heartbeat if telemetry callback is provided
-    if (this.onTelemetryCallback && this.enableTelemetry) {
-      this.startHeartbeat();
-    }
+    // Telemetry heartbeat starts only when simulation is running
   }
   
   /**

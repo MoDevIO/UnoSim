@@ -11,6 +11,8 @@ describe("RegistryManager - Telemetry Metrics", () => {
   const telemetryCallbacks: any[] = [];
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-02-08T00:00:00.000Z"));
     telemetryCallbacks.length = 0;
     manager = new RegistryManager({
       onTelemetry: (metrics) => {
@@ -18,7 +20,8 @@ describe("RegistryManager - Telemetry Metrics", () => {
       },
       enableTelemetry: true,
     });
-    vi.useFakeTimers();
+    // Keep heartbeat paused for deterministic metric tests
+    manager.pauseTelemetry();
   });
 
   afterEach(() => {
@@ -186,6 +189,65 @@ describe("RegistryManager - Telemetry Metrics", () => {
       expect(metrics.intendedPinChangesPerSecond).toBe(0);
 
       newManager.destroy();
+    });
+  });
+
+  describe("Telemetry heartbeat lifecycle", () => {
+    const createTelemetryManager = () => {
+      const callbacks: any[] = [];
+      const localManager = new RegistryManager({
+        onTelemetry: (metrics) => {
+          callbacks.push(metrics);
+        },
+        enableTelemetry: true,
+      });
+      return { localManager, callbacks };
+    };
+
+    it("should not emit telemetry while idle", () => {
+      const { localManager, callbacks } = createTelemetryManager();
+
+      vi.advanceTimersByTime(3000);
+
+      expect(callbacks.length).toBe(0);
+      localManager.destroy();
+    });
+
+    it("should start emitting telemetry after startCollection", () => {
+      const { localManager, callbacks } = createTelemetryManager();
+      localManager.startCollection();
+
+      vi.advanceTimersByTime(1500);
+
+      expect(callbacks.length).toBeGreaterThan(0);
+      localManager.destroy();
+    });
+
+    it("should stop emitting telemetry when paused", () => {
+      const { localManager, callbacks } = createTelemetryManager();
+      localManager.startCollection();
+      vi.advanceTimersByTime(1100);
+      const beforePauseCount = callbacks.length;
+
+      localManager.pauseTelemetry();
+      vi.advanceTimersByTime(2000);
+
+      expect(callbacks.length).toBe(beforePauseCount);
+      localManager.destroy();
+    });
+
+    it("should resume emitting telemetry after resumeTelemetry", () => {
+      const { localManager, callbacks } = createTelemetryManager();
+      localManager.startCollection();
+      vi.advanceTimersByTime(1100);
+      localManager.pauseTelemetry();
+      const pausedCount = callbacks.length;
+
+      localManager.resumeTelemetry();
+      vi.advanceTimersByTime(1200);
+
+      expect(callbacks.length).toBeGreaterThan(pausedCount);
+      localManager.destroy();
     });
   });
 
