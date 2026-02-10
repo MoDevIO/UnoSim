@@ -2270,6 +2270,17 @@ export default function ArduinoSimulator() {
                                 </span>
                               </div>
                               <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-white/50">Dropped /s</span>
+                                <span className={clsx(
+                                  "text-sm font-mono",
+                                  (telemetryData.last.serialDroppedBytesPerSecond ?? 0) > 0
+                                    ? "text-red-500 font-semibold"
+                                    : "text-white/90"
+                                )}>
+                                  {(telemetryData.last.serialDroppedBytesPerSecond ?? 0).toFixed(1)}
+                                </span>
+                              </div>
+                              <div className="flex flex-col">
                                 <span className="text-[10px] uppercase tracking-wider text-white/50">Baudrate</span>
                                 <span className="text-sm font-mono text-white/90">
                                   {baudRate}
