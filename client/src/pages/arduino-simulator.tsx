@@ -61,7 +61,6 @@ import type {
   Sketch,
   ParserMessage,
   IOPinRecord,
-  OutputLine,
 } from "@shared/schema";
 import { isMac } from "@/lib/platform";
 
@@ -269,8 +268,6 @@ export default function ArduinoSimulator() {
   const serialEventQueueRef = useRef<
     Array<{ payload: any; receivedAt: number }>
   >([]);
-  // Trigger state to force processing
-  const [serialQueueTrigger, setSerialQueueTrigger] = useState(0);
   // Mobile layout (responsive design and panel management)
   const { isMobile, mobilePanel, setMobilePanel, headerHeight, overlayZ } = useMobileLayout();
 
@@ -702,27 +699,12 @@ export default function ArduinoSimulator() {
 
     // Log all messages to debug console BEFORE consuming them
     messageQueue.forEach((msg) => {
-      // For serial_events, log a compact version to reduce noise
-      if (msg.type === "serial_event") {
-        const payload = (msg as any).payload || {};
-        const compactMsg = {
-          type: "serial_event",
-          data: payload.data,
-        };
-        addDebugMessage(
-          "server",
-          msg.type,
-          JSON.stringify(compactMsg, null, 2),
-          "websocket",
-        );
-      } else {
-        addDebugMessage(
-          "server",
-          msg.type || "unknown",
-          JSON.stringify(msg, null, 2),
-          "websocket",
-        );
-      }
+      addDebugMessage(
+        "server",
+        msg.type || "unknown",
+        JSON.stringify(msg, null, 2),
+        "websocket",
+      );
     });
 
     // Consume all messages from the queue
@@ -818,21 +800,6 @@ export default function ArduinoSimulator() {
 
             return newLines;
           });
-          break;
-        }
-        case "serial_event": {
-          const payload = (message as any).payload || {};
-          // Record arrival time so we can suppress duplicate legacy serial_output messages
-          const receivedAt = Date.now();
-          // Trigger RX LED blink when client receives structured data
-          setRxActivity((prev) => prev + 1);
-          lastSerialEventAtRef.current = receivedAt;
-
-          // Use push() to avoid race conditions when multiple events arrive simultaneously
-          // This mutates the array directly instead of creating a new one
-          serialEventQueueRef.current.push({ payload, receivedAt });
-          // Trigger processing
-          setSerialQueueTrigger((t) => t + 1);
           break;
         }
         case "compilation_status":
@@ -1324,107 +1291,6 @@ export default function ArduinoSimulator() {
       return newStates;
     });
   }, [detectedPinModes, simulationStatus]);
-
-  // Helper to process serial event data and update lines
-  const processSerialEvents = (
-    events: Array<{ payload: any; receivedAt: number }>,
-    currentLines: OutputLine[],
-  ): OutputLine[] => {
-    if (events.length === 0) return currentLines;
-
-    // Sort events by original write timestamp when available (fallback to receivedAt)
-    const sortedEvents = [...events].sort((a, b) => {
-      const ta =
-        a.payload && typeof a.payload.ts_write === "number"
-          ? a.payload.ts_write
-          : a.receivedAt;
-      const tb =
-        b.payload && typeof b.payload.ts_write === "number"
-          ? b.payload.ts_write
-          : b.receivedAt;
-      return ta - tb;
-    });
-
-    let newLines: OutputLine[] = [...currentLines];
-
-    for (const { payload } of sortedEvents) {
-      // Normalize data: ensure string but PRESERVE control chars for Serial Monitor
-      const piece: string = (payload.data || "").toString();
-
-      // Handle backspace at the start of this piece - apply to previous line
-      let text = piece;
-      if (text.includes("\b")) {
-        let backspaceCount = 0;
-        let idx = 0;
-        while (idx < text.length && text[idx] === "\b") {
-          backspaceCount++;
-          idx++;
-        }
-
-        if (
-          backspaceCount > 0 &&
-          newLines.length > 0 &&
-          !newLines[newLines.length - 1].complete
-        ) {
-          // Remove characters from the last incomplete line
-          const lastLine = newLines[newLines.length - 1];
-          lastLine.text = lastLine.text.slice(
-            0,
-            Math.max(0, lastLine.text.length - backspaceCount),
-          );
-          text = text.slice(backspaceCount);
-        }
-      }
-
-      // Process remaining text
-      if (!text) continue;
-
-      // Check for newlines
-      if (text.includes("\n")) {
-        const pos = text.indexOf("\n");
-        const beforeNewline = text.substring(0, pos);
-        const afterNewline = text.substring(pos + 1);
-
-        // Append text before newline to current line and mark complete
-        if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
-          newLines.push({ text: beforeNewline, complete: true });
-        } else {
-          newLines[newLines.length - 1].text += beforeNewline;
-          newLines[newLines.length - 1].complete = true;
-        }
-
-        // Handle text after newline
-        if (afterNewline) {
-          newLines.push({ text: afterNewline, complete: false });
-        }
-      } else {
-        // No newline - append to last incomplete line or create new
-        if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
-          newLines.push({ text: text, complete: false });
-        } else {
-          newLines[newLines.length - 1].text += text;
-        }
-      }
-    }
-
-    return newLines;
-  };
-
-  // Process queued serial events in order - process immediately without debounce
-  // Each event is processed as it arrives to ensure proper backspace handling
-  useEffect(() => {
-    const queue = serialEventQueueRef.current;
-    if (queue.length === 0) return;
-
-    // Take all events from the ref queue
-    const eventsToProcess = [...queue];
-    serialEventQueueRef.current = [];
-
-    // Use functional update to avoid stale closure issues with serialOutput
-    setSerialOutput((prevOutput) => {
-      return processSerialEvents(eventsToProcess, prevOutput);
-    });
-  }, [serialQueueTrigger]);
 
   // When simulation stops, flush any pending incomplete lines to make them visible
   useEffect(() => {
