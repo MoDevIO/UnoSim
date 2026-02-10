@@ -769,6 +769,22 @@ export class SandboxRunner {
       // CRITICAL: Flush message queue before exit to prevent losing queued output
       // Messages may be queued if sketch exits before registry wait mode timeout
       this.flushMessageQueue();
+      
+      // CRITICAL: Stop batchers to flush pending data before exit
+      // Only stop batchers when RUN phase exits, not during compile phase
+      // SerialOutputBatcher and PinStateBatcher may have pending data when sketch exits
+      if (!isCompilePhase) {
+        if (this.serialOutputBatcher) {
+          this.serialOutputBatcher.stop();
+          this.serialOutputBatcher.destroy();
+          this.serialOutputBatcher = null;
+        }
+        if (this.pinStateBatcher) {
+          this.pinStateBatcher.stop();
+          this.pinStateBatcher.destroy();
+          this.pinStateBatcher = null;
+        }
+      }
 
       if (code !== 0 && isCompilePhase && compileErrorBuffer && onCompileError) {
         onCompileError(this.cleanCompilerErrors(compileErrorBuffer));
@@ -834,6 +850,7 @@ export class SandboxRunner {
     });
 
     this.process?.on("close", (code) => {
+      const wasRunning = this.state === SimulationState.RUNNING;
       this.transitionTo(SimulationState.STOPPED);
 
       if (this.flushTimer) {
@@ -843,6 +860,22 @@ export class SandboxRunner {
 
       // CRITICAL: Flush message queue before exit to prevent losing queued output
       this.flushMessageQueue();
+      
+      // CRITICAL: Flush and stop batchers to prevent data loss
+      // Only stop batchers if we were actually RUNNING (not during mock test setup)
+      // In mock tests, close fires during setup before state reaches RUNNING
+      if (wasRunning) {
+        if (this.serialOutputBatcher) {
+          this.serialOutputBatcher.stop();  // Flushes pending data
+          this.serialOutputBatcher.destroy(); // Cleans up timer
+          this.serialOutputBatcher = null;
+        }
+        if (this.pinStateBatcher) {
+          this.pinStateBatcher.stop();  // Flushes pending states
+          this.pinStateBatcher.destroy(); // Cleans up timer
+          this.pinStateBatcher = null;
+        }
+      }
 
       if (this.ioRegistryCallback) {
         const finalRegistry = this.registryManager.getRegistry();

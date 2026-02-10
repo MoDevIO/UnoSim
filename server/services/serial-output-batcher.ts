@@ -73,7 +73,13 @@ export class SerialOutputBatcher {
     // Byte budget per tick = (baudrate / 10 bits per byte) × (tick interval in seconds)
     const bytesPerSecond = this.config.baudrate / 10;
     const bytesPerTick = bytesPerSecond * (this.config.tickIntervalMs / 1000);
-    this.maxBudget = Math.floor(bytesPerTick * this.config.burstFactor);
+    const burstBudget = bytesPerTick * this.config.burstFactor;
+    
+    // Set minimum budget to prevent dropping normal output at low baudrates
+    // At 300 baud: 1.5 bytes/tick × 3 = 4.5 bytes, but we want at least 50 bytes
+    // This way, low baudrates don't drop data, but high baudrates still have rate limiting
+    const MIN_BUDGET = 50;
+    this.maxBudget = Math.max(MIN_BUDGET, Math.floor(burstBudget));
     this.currentBudget = this.maxBudget; // Start with full burst budget
   }
   
