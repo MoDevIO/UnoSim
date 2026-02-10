@@ -3,6 +3,7 @@
 
 import type { IOPinRecord } from "@shared/schema";
 import type { PinStateBatcher } from "./pin-state-batcher";
+import type { SerialOutputBatcher } from "./serial-output-batcher";
 import { Logger } from "@shared/logger";
 
 export interface RegistryUpdateCallback {
@@ -19,6 +20,8 @@ export interface PerformanceMetrics {
   serialOutputPerSecond: number;
   serialBytesPerSecond: number;
   serialBytesTotal: number;
+  serialIntendedBytesPerSecond: number;
+  serialDroppedBytesPerSecond: number;
 }
 
 export interface TelemetryUpdateCallback {
@@ -75,6 +78,7 @@ export class RegistryManager {
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
   private readonly enableTelemetry: boolean;
   private pinStateBatcher: PinStateBatcher | null = null; // Reference to PinStateBatcher for telemetry
+  private serialOutputBatcher: SerialOutputBatcher | null = null; // Reference to SerialOutputBatcher for telemetry
   
   // Telemetry tracking
   private telemetry = {
@@ -99,6 +103,13 @@ export class RegistryManager {
    */
   setPinStateBatcher(batcher: PinStateBatcher | null): void {
     this.pinStateBatcher = batcher;
+  }
+  
+  /**
+   * Set reference to SerialOutputBatcher for telemetry tracking
+   */
+  setSerialOutputBatcher(batcher: SerialOutputBatcher | null): void {
+    this.serialOutputBatcher = batcher;
   }
   
   /**
@@ -193,6 +204,22 @@ export class RegistryManager {
       ? Math.round((this.telemetry.serialOutputBytes / timeElapsedSec) * 10) / 10
       : 0;
 
+    // Get serial output telemetry from SerialOutputBatcher
+    let serialIntendedBytesPerSecond = 0;
+    let serialDroppedBytesPerSecond = 0;
+
+    if (this.serialOutputBatcher) {
+      const batcherTelemetry = this.serialOutputBatcher.getTelemetryAndReset();
+      
+      serialIntendedBytesPerSecond = timeElapsedSec > 0
+        ? Math.round((batcherTelemetry.intended / timeElapsedSec) * 10) / 10
+        : 0;
+      
+      serialDroppedBytesPerSecond = timeElapsedSec > 0
+        ? Math.round((batcherTelemetry.dropped / timeElapsedSec) * 10) / 10
+        : 0;
+    }
+
     const metrics: PerformanceMetrics = {
       timestamp: now,
       intendedPinChangesPerSecond,
@@ -203,6 +230,8 @@ export class RegistryManager {
       serialOutputPerSecond,
       serialBytesPerSecond,
       serialBytesTotal: this.telemetry.serialOutputBytesTotal,
+      serialIntendedBytesPerSecond,
+      serialDroppedBytesPerSecond,
     };
 
     // Reset counters for next period

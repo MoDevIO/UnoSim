@@ -17,6 +17,7 @@ import { DockerCommandBuilder } from "./docker-command-builder";
 import { SketchFileBuilder } from "./sketch-file-builder";
 import { LocalCompiler } from "./local-compiler";
 import { PinStateBatcher, type PinStateBatch } from "./pin-state-batcher";
+import { SerialOutputBatcher } from "./serial-output-batcher";
 
 enum SimulationState {
   STOPPED = "stopped",
@@ -61,6 +62,7 @@ export class SandboxRunner {
   private fileBuilder: SketchFileBuilder;
   private localCompiler: LocalCompiler;
   private pinStateBatcher: PinStateBatcher | null = null;
+  private serialOutputBatcher: SerialOutputBatcher | null = null;
   
   // Output buffers
   private outputBuffer = "";
@@ -457,6 +459,23 @@ export class SandboxRunner {
 
     // Initialize run state (will also set this.onOutputCallback and this.ioRegistryCallback)
     this.initializeRunState(code, onOutput, onIORegistry, timeoutSec);
+    
+    // Create and start SerialOutputBatcher for this simulation run
+    this.serialOutputBatcher = new SerialOutputBatcher({
+      baudrate: this.baudrate,
+      tickIntervalMs: 50, // 20 batches/sec (matching PinStateBatcher)
+      onChunk: (data: string) => {
+        // Send batched serial data directly to client
+        if (this.outputCallback) {
+          this.outputCallback(data, true);
+        }
+      },
+    });
+    this.serialOutputBatcher.start();
+    
+    // Give RegistryManager reference to SerialOutputBatcher for telemetry
+    this.registryManager.setSerialOutputBatcher(this.serialOutputBatcher);
+    
     const sketchId = randomUUID();
     try {
       // Build sketch files using helper
@@ -970,23 +989,12 @@ export class SandboxRunner {
         break;
 
       case "serial_event":
-        // Track telemetry for serial output events from stderr protocol
-        this.registryManager.trackSerialOutput(parsed.data.length);
-        if (onOutput) {
-          try {
-            onOutput(
-              "[[SERIAL_EVENT_JSON:" +
-                JSON.stringify({
-                  type: "serial",
-                  ts_write: parsed.timestamp,
-                  data: parsed.data,
-                }) +
-                "]]",
-              true,
-            );
-          } catch (err) {
-            this.logger.warn(`Failed to send serial event: ${err}`);
-          }
+        // Route through SerialOutputBatcher for baudrate-based rate limiting
+        if (this.serialOutputBatcher) {
+          this.serialOutputBatcher.enqueue(parsed.data);
+        } else if (onOutput) {
+          // Fallback if batcher not initialized (should not happen in normal flow)
+          onOutput(parsed.data, true);
         }
         break;
 
@@ -1021,6 +1029,11 @@ export class SandboxRunner {
       // Pause PinStateBatcher (stops ticking, keeps pending states)
       if (this.pinStateBatcher) {
         this.pinStateBatcher.pause();
+      }
+      
+      // Pause SerialOutputBatcher (stops ticking, keeps pending data)
+      if (this.serialOutputBatcher) {
+        this.serialOutputBatcher.pause();
       }
       
       // Stop telemetry reporting while paused (no need to send data)
@@ -1069,6 +1082,11 @@ export class SandboxRunner {
       // Resume PinStateBatcher
       if (this.pinStateBatcher) {
         this.pinStateBatcher.resume();
+      }
+      
+      // Resume SerialOutputBatcher
+      if (this.serialOutputBatcher) {
+        this.serialOutputBatcher.resume();
       }
       
       // Resume telemetry reporting
@@ -1378,6 +1396,13 @@ export class SandboxRunner {
       this.pinStateBatcher.stop();
       this.pinStateBatcher.destroy();
       this.pinStateBatcher = null;
+    }
+    
+    // Stop and destroy SerialOutputBatcher
+    if (this.serialOutputBatcher) {
+      this.serialOutputBatcher.stop();
+      this.serialOutputBatcher.destroy();
+      this.serialOutputBatcher = null;
     }
     
     // Stop telemetry reporting when simulation stops
