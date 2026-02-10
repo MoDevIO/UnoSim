@@ -10,7 +10,6 @@ import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord } from "@shared/schema";
 import { ArduinoOutputParser as StderrParser } from "./arduino-output-parser";
-import { ArduinoOutputParser as SerialParser } from "../../src/utils/arduino-output-parser";
 import { RegistryManager } from "./registry-manager";
 import { SimulationTimeoutManager } from "./simulation-timeout-manager";
 import { DockerCommandBuilder } from "./docker-command-builder";
@@ -56,7 +55,6 @@ export class SandboxRunner {
   // Managers and helpers
   private logger = new Logger("SandboxRunner");
   private stderrParser = new StderrParser();
-  private serialParser = new SerialParser();
   private registryManager: RegistryManager;
   private timeoutManager: SimulationTimeoutManager;
   private fileBuilder: SketchFileBuilder;
@@ -70,8 +68,6 @@ export class SandboxRunner {
   private totalOutputBytes = 0;
   private isSendingOutput = false;
   private flushTimer: NodeJS.Timeout | null = null;
-  private pendingSerialEvents: Array<any> = [];
-  private pendingSerialFlushTimer: NodeJS.Timeout | null = null;
   
   // Execution state
   private processStartTime: number | null = null;
@@ -130,18 +126,6 @@ export class SandboxRunner {
         }
       },
       enableTelemetry: true,
-    });
-
-    // Setup Serial Parser event listeners
-    // The serialParser will emit 'data' events with formatted/flushed chunks
-    // Forward to output callback with message queuing logic
-    this.serialParser.on('data', (chunk: string) => {
-        // Serial data always sent immediately (not registry-dependent)
-        if (this.outputCallback) {
-          this.outputCallback(chunk, true);
-        }
-        // Track serial output event for telemetry
-        this.registryManager.trackSerialOutput(chunk.length);
     });
   }
 
@@ -290,35 +274,6 @@ export class SandboxRunner {
         this.errorCallback(msg.data.line);
       }
     }
-  }
-
-  private flushPendingSerialEvents(
-    onOutput: (line: string, isComplete?: boolean) => void,
-  ) {
-    if (this.pendingSerialEvents.length === 0) return;
-
-    // Sort by ts_write to ensure chronological order
-    const events = this.pendingSerialEvents
-      .slice()
-      .sort((a, b) => (a.ts_write || 0) - (b.ts_write || 0));
-
-    // Send each event individually to preserve backspace semantics
-    // (Backspace at start of a chunk should apply to previous output)
-    for (const event of events) {
-      try {
-        onOutput(
-          "[[" + "SERIAL_EVENT_JSON:" + JSON.stringify(event) + "]]",
-          true,
-        );
-      } catch (err) {
-        this.logger.warn(
-          `Failed to send serial event: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-
-    // Clear pending buffer
-    this.pendingSerialEvents = [];
   }
 
   /**
@@ -755,7 +710,8 @@ export class SandboxRunner {
       callbacks.onError(`Docker process failed: ${err.message}`);
     });
 
-    // Stdout handler (program output)
+    // Stdout: Not used for serial data anymore (all via stderr SERIAL_EVENT)
+    // Keep handler to prevent broken pipe errors, detect end of compilation
     this.process?.stdout?.on("data", (data) => {
       const str = data.toString();
 
@@ -774,9 +730,7 @@ export class SandboxRunner {
         return;
       }
 
-      // Pass raw data to serialParser for Arduino-style formatting and timing
-      // The parser handles its own buffering, timing, and newline detection
-      this.serialParser.print(str);
+      // Ignore stdout - serial data comes via stderr SERIAL_EVENT protocol
     });
 
     // Stderr handler (compile errors + debug output)
@@ -807,19 +761,10 @@ export class SandboxRunner {
     this.process?.on("close", (code) => {
       this.transitionTo(SimulationState.STOPPED);
 
-      // Reset serialParser to stop any pending timers
-      this.serialParser.reset();
-
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
         this.flushTimer = null;
       }
-
-      if (this.pendingSerialFlushTimer) {
-        clearTimeout(this.pendingSerialFlushTimer);
-        this.pendingSerialFlushTimer = null;
-      }
-      this.flushPendingSerialEvents(callbacks.onOutput);
 
       // CRITICAL: Flush message queue before exit to prevent losing queued output
       // Messages may be queued if sketch exits before registry wait mode timeout
@@ -831,23 +776,6 @@ export class SandboxRunner {
         if (code === 0 && !compileSuccessSent && onCompileSuccess) {
           compileSuccessSent = true;
           onCompileSuccess();
-        }
-      }
-
-      // Flush any remaining data in serialParser buffer
-      const remainingBuffer = this.serialParser.getBuffer();
-      if (remainingBuffer.trim()) {
-        callbacks.onOutput(remainingBuffer.trim(), true);
-      }
-      if (this.errorBuffer.trim()) {
-        callbacks.onError(this.errorBuffer.trim());
-      }
-
-      // Send final registry before exit
-      if (this.ioRegistryCallback) {
-        const finalRegistry = this.registryManager.getRegistry();
-        if (finalRegistry.length > 0) {
-          this.ioRegistryCallback([...finalRegistry], this.baudrate, "process-exit");
         }
       }
 
@@ -878,6 +806,7 @@ export class SandboxRunner {
       handleTimeout,
     );
 
+    // Stdout: Not used for serial data (all via stderr)
     this.process?.stdout?.on("data", (data) => {
       const str = data.toString();
       this.totalOutputBytes += str.length;
@@ -888,8 +817,7 @@ export class SandboxRunner {
         return;
       }
 
-      // Pass raw data to serialParser for Arduino-style formatting and timing
-      this.serialParser.print(str);
+      // Ignore stdout - serial data comes via stderr SERIAL_EVENT protocol
     });
 
     this.process?.stderr?.on("data", (data) => {
@@ -908,9 +836,6 @@ export class SandboxRunner {
     this.process?.on("close", (code) => {
       this.transitionTo(SimulationState.STOPPED);
 
-      // Reset serialParser to stop any pending timers
-      this.serialParser.reset();
-
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
         this.flushTimer = null;
@@ -918,12 +843,6 @@ export class SandboxRunner {
 
       // CRITICAL: Flush message queue before exit to prevent losing queued output
       this.flushMessageQueue();
-
-      // Flush any remaining data in serialParser buffer
-      const remainingBuffer = this.serialParser.getBuffer();
-      if (remainingBuffer.trim()) {
-        callbacks.onOutput(remainingBuffer.trim(), true);
-      }
 
       if (this.ioRegistryCallback) {
         const finalRegistry = this.registryManager.getRegistry();
@@ -1419,7 +1338,6 @@ export class SandboxRunner {
     // Cleanup all manager timers (debounce, timeout, wait timers)
     this.registryManager.reset(); // Clears debounce and wait timers
     this.timeoutManager.clear(); // Clears timeout timer
-    this.serialParser.reset(); // Stop serial parser timers
     
     // Destroy registry manager to prevent post-test logging
     this.registryManager.destroy();
