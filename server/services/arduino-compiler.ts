@@ -241,16 +241,18 @@ export class ArduinoCompiler {
       // Arduino CLI expects the sketch DIRECTORY, not the file
       const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf("/"));
 
-      // LOG: Command being executed
-      this.logger.info(`Executing arduino-cli compile --fqbn arduino:avr:uno --verbose ${sketchDir}`);
-
-      const arduino = spawn("arduino-cli", [
+      const args = [
         "compile",
         "--fqbn",
         "arduino:avr:uno",
         "--verbose",
         sketchDir,
-      ]);
+      ];
+
+      // LOG: Command being executed
+      this.logger.info(`Executing arduino-cli ${args.join(" ")}`);
+
+      const arduino = spawn("arduino-cli", args);
 
       let output = "";
       let errors = "";
@@ -292,7 +294,7 @@ export class ArduinoCompiler {
           // LOG: Full stderr and exit code on failure
           this.logger.error(`arduino-cli compilation failed with exit code ${code}`);
           this.logger.error(`Full stderr output:\n${errors}`);
-          
+
           // Bereinige Fehlermeldungen von Pfaden
           const escapedPath = sketchFile.replace(
             /[-\/\\^$*+?.()|[\]{}]/g,
