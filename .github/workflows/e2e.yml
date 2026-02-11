@@ -26,8 +26,8 @@ jobs:
         run: npx playwright install --with-deps
       - name: Setup Arduino CLI
         run: |
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          echo "$HOME/bin" >> $GITHUB_PATH
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          arduino-cli version
       - name: Install Arduino Core
         run: |
           arduino-cli core update-index
