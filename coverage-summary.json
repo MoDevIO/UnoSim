@@ -10,9 +10,9 @@
     "percent": 70.65
   },
   "branches": {
-    "covered": 1267,
+    "covered": 1266,
     "total": 2210,
-    "percent": 57.33
+    "percent": 57.29
   },
-  "generatedAt": "2026-02-11T17:30:16.960Z"
+  "generatedAt": "2026-02-11T17:47:09.229Z"
 }
