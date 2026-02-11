@@ -78,8 +78,8 @@ describe("Control Characters Examples and Handling", () => {
     // Ensure we didn't accidentally reintroduce strip of CR
     // Check that carriage return is preserved (not stripped with replace)
     expect(simCode).not.toMatch(/replace\(\/\\r\//);
-    // Check that serial events are processed (piece variable exists)
-    expect(simCode).toMatch(/const piece.*payload\.data/);
+    // Serial data comes via serial_output (no more payload.data with new SerialOutputBatcher)
+    expect(simCode).toContain("serial_output");
   });
 
   describe("backspace (\\b) behavior", () => {

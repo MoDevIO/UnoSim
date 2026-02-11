@@ -423,37 +423,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       gccStatus: "success",
                     });
                   }
-                  // Backwards-compatible: detect wrapped SERIAL_EVENT JSON sent by backend
-                  const serialWrapMatch =
-                    typeof line === "string" &&
-                    line.startsWith("[[SERIAL_EVENT_JSON:") &&
-                    line.endsWith("]]");
-                  if (serialWrapMatch) {
-                    try {
-                      const jsonStr = line.slice(
-                        "[[SERIAL_EVENT_JSON:".length,
-                        -2,
-                      );
-                      const payload = JSON.parse(jsonStr);
-                      sendMessageToClient(ws, {
-                        type: "serial_event",
-                        payload,
-                      });
-                    } catch (err) {
-                      // Fall back to raw output if parsing fails
-                      sendMessageToClient(ws, {
-                        type: "serial_output",
-                        data: line,
-                        isComplete: isComplete ?? true,
-                      });
-                    }
-                  } else {
-                    sendMessageToClient(ws, {
-                      type: "serial_output",
-                      data: line,
-                      isComplete: isComplete ?? true,
-                    });
-                  }
+                  // Send batched serial output directly
+                  sendMessageToClient(ws, {
+                    type: "serial_output",
+                    data: line,
+                    isComplete: isComplete ?? true,
+                  });
                 },
                 (err: string) => {
                   logger.warn(`[Client WS][ERR]: ${err}`);

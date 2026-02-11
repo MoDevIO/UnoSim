@@ -90,10 +90,9 @@ describe("Carriage Return Integration Test", () => {
 
   it("should verify frontend does not strip \\r in arduino-simulator.tsx", () => {
     /**
-     * Critical fix: arduino-simulator.tsx line ~1007 should NOT contain:
-     *   buffer += piece.replace(/\r/g, '');
-     *
-     * It should preserve \r so SerialMonitor can process it.
+     * Critical: Serial output should preserve \r so SerialMonitor can process it.
+     * With the new SerialOutputBatcher, data comes as plain serial_output,
+     * not as wrapped JSON events.
      */
 
     const fs = require("fs");
@@ -105,12 +104,12 @@ describe("Carriage Return Integration Test", () => {
     );
     const simulatorCode = fs.readFileSync(simulatorPath, "utf8");
 
-    // Should NOT strip \r in the serial event processing
-    const problematicLine = /piece\.replace\(\/\\r\/g,\s*['""]['"]\)/;
+    // Should NOT strip \r in the serial output processing
+    const problematicLine = /data\.replace\(\/\\r\/g,\s*['""]['"]\)/;
     expect(simulatorCode).not.toMatch(problematicLine);
 
-    // Should process piece data from payload (preserving control chars)
-    expect(simulatorCode).toMatch(/const piece.*payload\.data/);
+    // Serial output comes via serial_output message type (no more payload wrapper)
+    expect(simulatorCode).toContain("serial_output");
   });
 
   it("should verify SerialMonitor handles \\r correctly", () => {

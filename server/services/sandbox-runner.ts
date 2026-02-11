@@ -10,13 +10,13 @@ import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord } from "@shared/schema";
 import { ArduinoOutputParser as StderrParser } from "./arduino-output-parser";
-import { ArduinoOutputParser as SerialParser } from "../../src/utils/arduino-output-parser";
 import { RegistryManager } from "./registry-manager";
 import { SimulationTimeoutManager } from "./simulation-timeout-manager";
 import { DockerCommandBuilder } from "./docker-command-builder";
 import { SketchFileBuilder } from "./sketch-file-builder";
 import { LocalCompiler } from "./local-compiler";
 import { PinStateBatcher, type PinStateBatch } from "./pin-state-batcher";
+import { SerialOutputBatcher } from "./serial-output-batcher";
 
 enum SimulationState {
   STOPPED = "stopped",
@@ -55,12 +55,12 @@ export class SandboxRunner {
   // Managers and helpers
   private logger = new Logger("SandboxRunner");
   private stderrParser = new StderrParser();
-  private serialParser = new SerialParser();
   private registryManager: RegistryManager;
   private timeoutManager: SimulationTimeoutManager;
   private fileBuilder: SketchFileBuilder;
   private localCompiler: LocalCompiler;
   private pinStateBatcher: PinStateBatcher | null = null;
+  private serialOutputBatcher: SerialOutputBatcher | null = null;
   
   // Output buffers
   private outputBuffer = "";
@@ -68,8 +68,6 @@ export class SandboxRunner {
   private totalOutputBytes = 0;
   private isSendingOutput = false;
   private flushTimer: NodeJS.Timeout | null = null;
-  private pendingSerialEvents: Array<any> = [];
-  private pendingSerialFlushTimer: NodeJS.Timeout | null = null;
   
   // Execution state
   private processStartTime: number | null = null;
@@ -128,18 +126,6 @@ export class SandboxRunner {
         }
       },
       enableTelemetry: true,
-    });
-
-    // Setup Serial Parser event listeners
-    // The serialParser will emit 'data' events with formatted/flushed chunks
-    // Forward to output callback with message queuing logic
-    this.serialParser.on('data', (chunk: string) => {
-        // Serial data always sent immediately (not registry-dependent)
-        if (this.outputCallback) {
-          this.outputCallback(chunk, true);
-        }
-        // Track serial output event for telemetry
-        this.registryManager.trackSerialOutput(chunk.length);
     });
   }
 
@@ -290,35 +276,6 @@ export class SandboxRunner {
     }
   }
 
-  private flushPendingSerialEvents(
-    onOutput: (line: string, isComplete?: boolean) => void,
-  ) {
-    if (this.pendingSerialEvents.length === 0) return;
-
-    // Sort by ts_write to ensure chronological order
-    const events = this.pendingSerialEvents
-      .slice()
-      .sort((a, b) => (a.ts_write || 0) - (b.ts_write || 0));
-
-    // Send each event individually to preserve backspace semantics
-    // (Backspace at start of a chunk should apply to previous output)
-    for (const event of events) {
-      try {
-        onOutput(
-          "[[" + "SERIAL_EVENT_JSON:" + JSON.stringify(event) + "]]",
-          true,
-        );
-      } catch (err) {
-        this.logger.warn(
-          `Failed to send serial event: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-
-    // Clear pending buffer
-    this.pendingSerialEvents = [];
-  }
-
   /**
    * Lazy initialization: Check Docker availability only when needed
    * This prevents blocking the constructor and freezing tests
@@ -457,6 +414,35 @@ export class SandboxRunner {
 
     // Initialize run state (will also set this.onOutputCallback and this.ioRegistryCallback)
     this.initializeRunState(code, onOutput, onIORegistry, timeoutSec);
+    
+    // Create and start SerialOutputBatcher for this simulation run
+    this.serialOutputBatcher = new SerialOutputBatcher({
+      baudrate: this.baudrate,
+      tickIntervalMs: 50, // 20 batches/sec (matching PinStateBatcher)
+      onChunk: (data: string) => {
+        if (!this.outputCallback) return;
+        // Split batched data by newlines to preserve Serial.print() vs println() semantics.
+        // Data from Serial.println() contains trailing \n, Serial.print() does not.
+        // Each part before a \n is a complete line; the trailing part (if any) is incomplete.
+        const endsWithNewline = data.endsWith('\n');
+        const parts = data.split('\n');
+        for (let i = 0; i < parts.length; i++) {
+          const isLastPart = i === parts.length - 1;
+          if (isLastPart && endsWithNewline) {
+            // Trailing empty string from split("...\n") — already handled by previous part
+            break;
+          }
+          // Parts before the last had a \n after them → complete lines
+          const isComplete = !isLastPart;
+          this.outputCallback(parts[i], isComplete);
+        }
+      },
+    });
+    this.serialOutputBatcher.start();
+    
+    // Give RegistryManager reference to SerialOutputBatcher for telemetry
+    this.registryManager.setSerialOutputBatcher(this.serialOutputBatcher);
+    
     const sketchId = randomUUID();
     try {
       // Build sketch files using helper
@@ -586,9 +572,14 @@ export class SandboxRunner {
           }
         }
         
-        // Serial output is always sent immediately - no queuing
-        // This ensures chronological order (setup() before loop())
-        if (onOutput) {
+        // Serial output should be batched via SerialOutputBatcher
+        // This applies baudrate-based rate limiting and collects telemetry
+        if (this.serialOutputBatcher) {
+          // Send to batcher for rate-limiting and batching
+          this.serialOutputBatcher.enqueue(line);
+        } else if (onOutput && !this.processKilled) {
+          // Fallback if batcher not available (shouldn't happen in normal flow)
+          // Guard: discard data from OS pipe buffer after stop() killed the process
           onOutput(line, isComplete);
         }
       },
@@ -736,7 +727,8 @@ export class SandboxRunner {
       callbacks.onError(`Docker process failed: ${err.message}`);
     });
 
-    // Stdout handler (program output)
+    // Stdout: Not used for serial data anymore (all via stderr SERIAL_EVENT)
+    // Keep handler to prevent broken pipe errors, detect end of compilation
     this.process?.stdout?.on("data", (data) => {
       const str = data.toString();
 
@@ -755,9 +747,7 @@ export class SandboxRunner {
         return;
       }
 
-      // Pass raw data to serialParser for Arduino-style formatting and timing
-      // The parser handles its own buffering, timing, and newline detection
-      this.serialParser.print(str);
+      // Ignore stdout - serial data comes via stderr SERIAL_EVENT protocol
     });
 
     // Stderr handler (compile errors + debug output)
@@ -788,23 +778,30 @@ export class SandboxRunner {
     this.process?.on("close", (code) => {
       this.transitionTo(SimulationState.STOPPED);
 
-      // Reset serialParser to stop any pending timers
-      this.serialParser.reset();
-
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
         this.flushTimer = null;
       }
 
-      if (this.pendingSerialFlushTimer) {
-        clearTimeout(this.pendingSerialFlushTimer);
-        this.pendingSerialFlushTimer = null;
-      }
-      this.flushPendingSerialEvents(callbacks.onOutput);
-
       // CRITICAL: Flush message queue before exit to prevent losing queued output
       // Messages may be queued if sketch exits before registry wait mode timeout
       this.flushMessageQueue();
+      
+      // CRITICAL: Stop batchers to flush pending data before exit
+      // Only stop batchers when RUN phase exits, not during compile phase
+      // SerialOutputBatcher and PinStateBatcher may have pending data when sketch exits
+      if (!isCompilePhase) {
+        if (this.serialOutputBatcher) {
+          this.serialOutputBatcher.stop();
+          this.serialOutputBatcher.destroy();
+          this.serialOutputBatcher = null;
+        }
+        if (this.pinStateBatcher) {
+          this.pinStateBatcher.stop();
+          this.pinStateBatcher.destroy();
+          this.pinStateBatcher = null;
+        }
+      }
 
       if (code !== 0 && isCompilePhase && compileErrorBuffer && onCompileError) {
         onCompileError(this.cleanCompilerErrors(compileErrorBuffer));
@@ -812,23 +809,6 @@ export class SandboxRunner {
         if (code === 0 && !compileSuccessSent && onCompileSuccess) {
           compileSuccessSent = true;
           onCompileSuccess();
-        }
-      }
-
-      // Flush any remaining data in serialParser buffer
-      const remainingBuffer = this.serialParser.getBuffer();
-      if (remainingBuffer.trim()) {
-        callbacks.onOutput(remainingBuffer.trim(), true);
-      }
-      if (this.errorBuffer.trim()) {
-        callbacks.onError(this.errorBuffer.trim());
-      }
-
-      // Send final registry before exit
-      if (this.ioRegistryCallback) {
-        const finalRegistry = this.registryManager.getRegistry();
-        if (finalRegistry.length > 0) {
-          this.ioRegistryCallback([...finalRegistry], this.baudrate, "process-exit");
         }
       }
 
@@ -859,6 +839,7 @@ export class SandboxRunner {
       handleTimeout,
     );
 
+    // Stdout: Not used for serial data (all via stderr)
     this.process?.stdout?.on("data", (data) => {
       const str = data.toString();
       this.totalOutputBytes += str.length;
@@ -869,8 +850,7 @@ export class SandboxRunner {
         return;
       }
 
-      // Pass raw data to serialParser for Arduino-style formatting and timing
-      this.serialParser.print(str);
+      // Ignore stdout - serial data comes via stderr SERIAL_EVENT protocol
     });
 
     this.process?.stderr?.on("data", (data) => {
@@ -887,10 +867,8 @@ export class SandboxRunner {
     });
 
     this.process?.on("close", (code) => {
+      const wasRunning = this.state === SimulationState.RUNNING;
       this.transitionTo(SimulationState.STOPPED);
-
-      // Reset serialParser to stop any pending timers
-      this.serialParser.reset();
 
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
@@ -899,11 +877,21 @@ export class SandboxRunner {
 
       // CRITICAL: Flush message queue before exit to prevent losing queued output
       this.flushMessageQueue();
-
-      // Flush any remaining data in serialParser buffer
-      const remainingBuffer = this.serialParser.getBuffer();
-      if (remainingBuffer.trim()) {
-        callbacks.onOutput(remainingBuffer.trim(), true);
+      
+      // CRITICAL: Flush and stop batchers to prevent data loss
+      // Only stop batchers if we were actually RUNNING (not during mock test setup)
+      // In mock tests, close fires during setup before state reaches RUNNING
+      if (wasRunning) {
+        if (this.serialOutputBatcher) {
+          this.serialOutputBatcher.stop();  // Flushes pending data
+          this.serialOutputBatcher.destroy(); // Cleans up timer
+          this.serialOutputBatcher = null;
+        }
+        if (this.pinStateBatcher) {
+          this.pinStateBatcher.stop();  // Flushes pending states
+          this.pinStateBatcher.destroy(); // Cleans up timer
+          this.pinStateBatcher = null;
+        }
       }
 
       if (this.ioRegistryCallback) {
@@ -970,23 +958,12 @@ export class SandboxRunner {
         break;
 
       case "serial_event":
-        // Track telemetry for serial output events from stderr protocol
-        this.registryManager.trackSerialOutput(parsed.data.length);
-        if (onOutput) {
-          try {
-            onOutput(
-              "[[SERIAL_EVENT_JSON:" +
-                JSON.stringify({
-                  type: "serial",
-                  ts_write: parsed.timestamp,
-                  data: parsed.data,
-                }) +
-                "]]",
-              true,
-            );
-          } catch (err) {
-            this.logger.warn(`Failed to send serial event: ${err}`);
-          }
+        // Route through SerialOutputBatcher for baudrate-based rate limiting
+        if (this.serialOutputBatcher) {
+          this.serialOutputBatcher.enqueue(parsed.data);
+        } else if (onOutput) {
+          // Fallback if batcher not initialized (should not happen in normal flow)
+          onOutput(parsed.data, true);
         }
         break;
 
@@ -1023,6 +1000,11 @@ export class SandboxRunner {
         this.pinStateBatcher.pause();
       }
       
+      // Pause SerialOutputBatcher (stops ticking, keeps pending data)
+      if (this.serialOutputBatcher) {
+        this.serialOutputBatcher.pause();
+      }
+      
       // Stop telemetry reporting while paused (no need to send data)
       this.registryManager.pauseTelemetry();
       
@@ -1031,6 +1013,10 @@ export class SandboxRunner {
         this.process.stdin.write("[[PAUSE_TIME]]\n");
       }
       
+      // Note: SIGSTOP is sent immediately after PAUSE_TIME. This can cause a race
+      // condition where C++ is frozen mid-write of TIME_FROZEN message, resulting
+      // in protocol fragments. The ArduinoOutputParser handles these fragments by
+      // detecting and ignoring incomplete protocol messages like "]]".
       this.process.kill("SIGSTOP");
       this.logger.info("Simulation paused (SIGSTOP)");
       return true;
@@ -1069,6 +1055,11 @@ export class SandboxRunner {
       // Resume PinStateBatcher
       if (this.pinStateBatcher) {
         this.pinStateBatcher.resume();
+      }
+      
+      // Resume SerialOutputBatcher
+      if (this.serialOutputBatcher) {
+        this.serialOutputBatcher.resume();
       }
       
       // Resume telemetry reporting
@@ -1380,6 +1371,14 @@ export class SandboxRunner {
       this.pinStateBatcher = null;
     }
     
+    // Destroy SerialOutputBatcher WITHOUT flushing pending data.
+    // User-initiated stop should discard buffered data immediately.
+    // (Natural process exit uses batcher.stop() in the close handler to flush.)
+    if (this.serialOutputBatcher) {
+      this.serialOutputBatcher.destroy();
+      this.serialOutputBatcher = null;
+    }
+    
     // Stop telemetry reporting when simulation stops
     this.registryManager.pauseTelemetry();
     
@@ -1394,7 +1393,6 @@ export class SandboxRunner {
     // Cleanup all manager timers (debounce, timeout, wait timers)
     this.registryManager.reset(); // Clears debounce and wait timers
     this.timeoutManager.clear(); // Clears timeout timer
-    this.serialParser.reset(); // Stop serial parser timers
     
     // Destroy registry manager to prevent post-test logging
     this.registryManager.destroy();

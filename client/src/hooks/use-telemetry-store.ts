@@ -9,7 +9,9 @@ export interface TelemetryMetrics {
   avgStatesPerBatch: number;
   serialOutputPerSecond: number;
   serialBytesPerSecond: number;
-  serialBytesTotal: number;  // Cumulative bytes sent since simulation start (optional, for future use)
+  serialBytesTotal: number;  // Cumulative bytes sent since simulation start
+  serialIntendedBytesPerSecond?: number;  // Bytes that sketch tried to send (optional for backward compat)
+  serialDroppedBytesPerSecond?: number;   // Bytes dropped due to baudrate limit (optional for backward compat)
 }
 
 interface TelemetrySnapshot {

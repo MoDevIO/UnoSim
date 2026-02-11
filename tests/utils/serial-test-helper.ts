@@ -11,41 +11,21 @@ import { SandboxRunner } from '../../server/services/sandbox-runner';
 /**
  * Extract plain text from serial outputs.
  * 
- * Handles both plain text output and structured SERIAL_EVENT_JSON format.
- * The SandboxRunner may send serial data as JSON events for precise timing
- * and metadata preservation.
+ * With the new SerialOutputBatcher system, all serial data comes as plain text
+ * (batched and rate-limited by baudrate). No more JSON wrapping.
  * 
  * @param outputs - Array of output lines or single output string
- * @returns Plain text content with JSON events decoded
+ * @returns Plain text content
  * 
  * @example
  * ```ts
- * const outputs = ['[[SERIAL_EVENT_JSON:{"type":"serial","data":"Hello"}]]'];
- * const text = extractPlainText(outputs); // Returns: "Hello"
+ * const outputs = ['Hello', 'World'];
+ * const text = extractPlainText(outputs); // Returns: "HelloWorld"
  * ```
  */
 export function extractPlainText(outputs: string[] | string): string {
   const lines = Array.isArray(outputs) ? outputs : [outputs];
-  
-  return lines.map(line => {
-    // Check if it's a SERIAL_EVENT_JSON formatted output
-    const match = line.match(/\[\[SERIAL_EVENT_JSON:(.+?)\]\]/g);
-    if (match) {
-      // Extract and parse all JSON events in this line
-      return match.map(m => {
-        try {
-          const jsonStr = m.replace('[[SERIAL_EVENT_JSON:', '').replace(']]', '');
-          const event = JSON.parse(jsonStr);
-          return event.data || '';
-        } catch {
-          // Malformed JSON - return empty string
-          return '';
-        }
-      }).join('');
-    }
-    // Plain text output - return as-is
-    return line;
-  }).join('');
+  return lines.join('');
 }
 
 /**
@@ -90,9 +70,9 @@ export async function waitForRunning(runner: SandboxRunner, timeout = 15000): Pr
  *    - Container startup: ~1-2s
  *    - Compilation: ~2-5s (can be 10s+ in CI)
  *    - Execution: varies by sketch
- *    - Serial batching: 20ms buffering for efficiency
+ *    - Serial batching: 50ms tick interval for SerialOutputBatcher
  * 
- * 3. WHY CONTENT-BASED: The SerialParser uses 20ms batching, so we can't
+ * 3. WHY CONTENT-BASED: The SerialOutputBatcher uses 50ms ticks, so we can't
  *    predict chunk counts. We only check if the expected content exists.
  * 
  * @param outputs - Reference to array that will be populated by onOutput callback
