@@ -7,13 +7,8 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        shard: [1, 2, 3, 4]
     env:
       CI: true
-      CI_NODE_INDEX: ${{ matrix.shard }}
-      compilerDir: ${{ github.workspace }}/.pw-compiler-${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -22,27 +17,14 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm ci
-      - name: Run Playwright E2E (Shard ${{ matrix.shard }})
-        run: npx playwright test --shard=${{ matrix.shard }}/4
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright E2E Tests
+        run: npx playwright test
       - name: Upload Playwright Report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report
           path: playwright-report
-
-  merge-reports:
-    needs: [e2e]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download all Playwright Reports
-        uses: actions/download-artifact@v4
-        with:
-          path: all-reports
-      - name: Merge Playwright Reports
-        run: npx playwright merge-reports ./all-reports/*/playwright-report
-      - name: Upload Final HTML Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-final
-          path: playwright-report
+          retention-days: 7
