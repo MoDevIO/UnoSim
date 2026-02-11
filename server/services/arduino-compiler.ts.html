@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.39% </span>
+                <span class="strong">97.54% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>112/115</span>
+                <span class='fraction'>119/122</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.34% </span>
+                <span class="strong">97.5% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>110/113</span>
+                <span class='fraction'>117/120</span>
             </div>
         
             
@@ -392,7 +392,21 @@
 <a name='L327'></a><a href='#L327'>327</a>
 <a name='L328'></a><a href='#L328'>328</a>
 <a name='L329'></a><a href='#L329'>329</a>
-<a name='L330'></a><a href='#L330'>330</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-yes">7x</span>
@@ -643,6 +657,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">38x</span>
 <span class="cline-any cline-yes">38x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -651,6 +670,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -676,6 +698,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
@@ -714,6 +740,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -964,13 +992,18 @@ export class ArduinoCompiler {
       // Arduino CLI expects the sketch DIRECTORY, not the file
       const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf("/"));
 &nbsp;
-      const arduino = spawn("arduino-cli", [
+      const args = [
         "compile",
         "--fqbn",
         "arduino:avr:uno",
         "--verbose",
         sketchDir,
-      ]);
+      ];
+&nbsp;
+      // LOG: Command being executed
+      this.logger.info(`Executing arduino-cli ${args.join(" ")}`);
+&nbsp;
+      const arduino = spawn("arduino-cli", args);
 &nbsp;
       let output = "";
       let errors = "";
@@ -980,7 +1013,10 @@ export class ArduinoCompiler {
       });
 &nbsp;
       arduino.stderr?.on("data", (data) =&gt; {
-        errors += data.toString();
+        const chunk = data.toString();
+        errors += chunk;
+        // LOG: Real-time stderr output for CI debugging
+        this.logger.debug(`arduino-cli stderr: ${chunk.trim()}`);
       });
 &nbsp;
       arduino.on("close", (code) =&gt; {
@@ -1006,6 +1042,10 @@ export class ArduinoCompiler {
           });
         } else {
           // Compilation failed (syntax error etc.)
+          // LOG: Full stderr and exit code on failure
+          this.logger.error(`arduino-cli compilation failed with exit code ${code}`);
+          this.logger.error(`Full stderr output:\n${errors}`);
+&nbsp;
           // Bereinige Fehlermeldungen von Pfaden
           const escapedPath = sketchFile.replace(
             /[-\/\\^$*+?.()|[\]{}]/g,
@@ -1042,7 +1082,9 @@ export class ArduinoCompiler {
         }
       });
 &nbsp;
-      arduino.on("error", () =&gt; {
+      arduino.on("error", (err) =&gt; {
+        // LOG: Command spawn error
+        this.logger.error(`arduino-cli spawn error: ${err.message}`);
         resolve(null);
       });
     });
@@ -1057,7 +1099,7 @@ export const compiler = new ArduinoCompiler();
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-11T18:07:48.146Z
+                at 2026-02-11T18:27:08.972Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
