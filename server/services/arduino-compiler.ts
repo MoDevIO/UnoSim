@@ -241,13 +241,18 @@ export class ArduinoCompiler {
       // Arduino CLI expects the sketch DIRECTORY, not the file
       const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf("/"));
 
-      const arduino = spawn("arduino-cli", [
+      const args = [
         "compile",
         "--fqbn",
         "arduino:avr:uno",
         "--verbose",
         sketchDir,
-      ]);
+      ];
+
+      // LOG: Command being executed
+      this.logger.info(`Executing arduino-cli ${args.join(" ")}`);
+
+      const arduino = spawn("arduino-cli", args);
 
       let output = "";
       let errors = "";
@@ -257,7 +262,10 @@ export class ArduinoCompiler {
       });
 
       arduino.stderr?.on("data", (data) => {
-        errors += data.toString();
+        const chunk = data.toString();
+        errors += chunk;
+        // LOG: Real-time stderr output for CI debugging
+        this.logger.debug(`arduino-cli stderr: ${chunk.trim()}`);
       });
 
       arduino.on("close", (code) => {
@@ -283,6 +291,10 @@ export class ArduinoCompiler {
           });
         } else {
           // Compilation failed (syntax error etc.)
+          // LOG: Full stderr and exit code on failure
+          this.logger.error(`arduino-cli compilation failed with exit code ${code}`);
+          this.logger.error(`Full stderr output:\n${errors}`);
+
           // Bereinige Fehlermeldungen von Pfaden
           const escapedPath = sketchFile.replace(
             /[-\/\\^$*+?.()|[\]{}]/g,
@@ -319,7 +331,9 @@ export class ArduinoCompiler {
         }
       });
 
-      arduino.on("error", () => {
+      arduino.on("error", (err) => {
+        // LOG: Command spawn error
+        this.logger.error(`arduino-cli spawn error: ${err.message}`);
         resolve(null);
       });
     });

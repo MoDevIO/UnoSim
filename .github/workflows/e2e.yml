@@ -7,13 +7,8 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        shard: [1, 2, 3, 4]
     env:
       CI: true
-      CI_NODE_INDEX: ${{ matrix.shard }}
-      compilerDir: ${{ github.workspace }}/.pw-compiler-${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -22,67 +17,14 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm ci
-      - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v2
-      - name: Install Arduino Core
-        run: |
-          arduino-cli core update-index
-          arduino-cli core install arduino:avr
-
-      - name: Get Playwright version
-        id: playwright-version
-        run: echo "version=$(npx playwright --version)" >> $GITHUB_OUTPUT
-
-      - name: Cache Playwright Browsers
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
-
-      - name: Install Playwright Browsers (only if not cached)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps
-
-      - name: Install Playwright Dependencies (always needed for Linux)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps
-
-      - name: Run Playwright E2E (Shard ${{ matrix.shard }})
-        run: npx playwright test --shard=${{ matrix.shard }}/4
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright E2E Tests
+        run: npx playwright test
       - name: Upload Playwright Report
-        if: always()  # Upload even if tests fail
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.shard }}
-          path: playwright-report
-          retention-days: 30
-
-  merge-reports:
-    if: always()  # Run even if e2e job fails
-    needs: [e2e]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Download all Playwright Reports
-        uses: actions/download-artifact@v4
-        with:
-          path: all-reports
-          pattern: playwright-report-*
-      - name: Merge Playwright Reports
-        run: npx playwright merge-reports --reporter html ./all-reports
-      - name: Upload Final HTML Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-final
+          name: playwright-report
           path: playwright-report
           retention-days: 30
