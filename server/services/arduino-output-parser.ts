@@ -45,6 +45,9 @@ export class ArduinoOutputParser {
     digitalRead: /\[\[DREAD:(\d+):(\d+)\]\]/,
     pinSet: /\[\[PIN_SET:(\d+):(\d+)\]\]/,
     stdinRecv: /\[\[STDIN_RECV:(.+)\]\]/,
+    // Pause/Resume timing markers - should be ignored
+    timeFrozen: /\[\[TIME_FROZEN:(\d+)\]\]/,
+    timeResumed: /\[\[TIME_RESUMED:(\d+)\]\]/,
   };
 
   /**
@@ -125,8 +128,25 @@ export class ArduinoOutputParser {
     if (
       ArduinoOutputParser.PATTERNS.digitalRead.test(line) ||
       ArduinoOutputParser.PATTERNS.pinSet.test(line) ||
-      ArduinoOutputParser.PATTERNS.stdinRecv.test(line)
+      ArduinoOutputParser.PATTERNS.stdinRecv.test(line) ||
+      ArduinoOutputParser.PATTERNS.timeFrozen.test(line) ||
+      ArduinoOutputParser.PATTERNS.timeResumed.test(line)
     ) {
+      return { type: "ignored" };
+    }
+
+    // Priority 6: Protocol fragments (from interrupted writes during SIGSTOP/SIGCONT)
+    // These occur when C++ is mid-write of a [[...]] message when SIGSTOP arrives.
+    // After SIGCONT, the rest of the message (e.g., "]]") arrives as a separate chunk.
+    // Ignore: standalone "]]", lines starting with "[[" that don't match known patterns,
+    // or partial base64 data that looks like protocol message tails.
+    if (
+      line === "]]" ||
+      line === "[[" ||
+      /^\[\[.{0,20}$/.test(line) && !line.includes("]]") ||  // Partial [[... without closing
+      /^[A-Za-z0-9+/=]{1,50}\]\]$/.test(line)  // base64 tail + ]]
+    ) {
+      logger.debug(`Ignoring protocol fragment: ${line}`);
       return { type: "ignored" };
     }
 

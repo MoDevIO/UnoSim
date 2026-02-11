@@ -314,7 +314,12 @@ export default function SettingsDialog({
               <div>
                 <div className="font-medium">Debug Mode</div>
                 <div className="text-ui-xs text-muted-foreground">
-                  Enable debug UI elements (status light and CLI/GCC labels).
+                  Enable debug UI elements (telemetry displays, status light, CLI/GCC labels).
+                </div>
+                <div className="text-ui-xs text-muted-foreground mt-1">
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">
+                    {navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Strg'}+D
+                  </kbd>
                 </div>
               </div>
               <div className="flex items-center">

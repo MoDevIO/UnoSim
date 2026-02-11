@@ -5,6 +5,8 @@ import type { IOPinRecord } from "@shared/schema";
 import type { PinStateBatcher } from "./pin-state-batcher";
 import type { SerialOutputBatcher } from "./serial-output-batcher";
 import { Logger } from "@shared/logger";
+import { appendFileSync } from "fs";
+import { join } from "path";
 
 export interface RegistryUpdateCallback {
   (registry: IOPinRecord[], baudrate: number | undefined, reason?: string): void;
@@ -196,28 +198,38 @@ export class RegistryManager {
         : 0;
     }
 
-    // Calculate serial output events and bytes per second
-    const serialOutputPerSecond = timeElapsedSec > 0
-      ? Math.round((this.telemetry.serialOutputEvents / timeElapsedSec) * 10) / 10
-      : 0;
-    const serialBytesPerSecond = timeElapsedSec > 0
-      ? Math.round((this.telemetry.serialOutputBytes / timeElapsedSec) * 10) / 10
-      : 0;
-
     // Get serial output telemetry from SerialOutputBatcher
+    let serialOutputPerSecond = 0;
+    let serialBytesPerSecond = 0;
     let serialIntendedBytesPerSecond = 0;
     let serialDroppedBytesPerSecond = 0;
+    let serialBytesTotal = this.telemetry.serialOutputBytesTotal; // Fallback for no batcher
 
     if (this.serialOutputBatcher) {
       const batcherTelemetry = this.serialOutputBatcher.getTelemetryAndReset();
       
+      // Serial events = number of chunks sent (batch outputs)
+      serialOutputPerSecond = timeElapsedSec > 0
+        ? Math.round((batcherTelemetry.chunks / timeElapsedSec) * 10) / 10
+        : 0;
+      
+      // Serial bytes = actual bytes sent after rate limiting
+      serialBytesPerSecond = timeElapsedSec > 0
+        ? Math.round((batcherTelemetry.actual / timeElapsedSec) * 10) / 10
+        : 0;
+      
+      // Intended bytes = total bytes enqueued (before drops)
       serialIntendedBytesPerSecond = timeElapsedSec > 0
         ? Math.round((batcherTelemetry.intended / timeElapsedSec) * 10) / 10
         : 0;
       
+      // Dropped bytes per second
       serialDroppedBytesPerSecond = timeElapsedSec > 0
         ? Math.round((batcherTelemetry.dropped / timeElapsedSec) * 10) / 10
         : 0;
+      
+      // Total bytes from batcher (cumulative, never reset)
+      serialBytesTotal = batcherTelemetry.totalBytes;
     }
 
     const metrics: PerformanceMetrics = {
@@ -229,7 +241,7 @@ export class RegistryManager {
       avgStatesPerBatch,
       serialOutputPerSecond,
       serialBytesPerSecond,
-      serialBytesTotal: this.telemetry.serialOutputBytesTotal,
+      serialBytesTotal, // Now from SerialOutputBatcher
       serialIntendedBytesPerSecond,
       serialDroppedBytesPerSecond,
     };
@@ -243,8 +255,28 @@ export class RegistryManager {
 
     if (!this.destroyed) {
       this.logger.debug(
-        `Telemetry: intended: ${intendedPinChangesPerSecond} pin/s, actual: ${actualPinChangesPerSecond} pin/s (dropped: ${droppedPinChangesPerSecond}), ${batchesPerSecond} bat/s, ${avgStatesPerBatch} st/bat, ${serialOutputPerSecond} serial/s`,
+        `Telemetry: intended: ${intendedPinChangesPerSecond} pin/s, actual: ${actualPinChangesPerSecond} pin/s (dropped: ${droppedPinChangesPerSecond}), ${batchesPerSecond} bat/s, ${avgStatesPerBatch} st/bat, ${serialOutputPerSecond} serial/s, SERIAL dropped: ${serialDroppedBytesPerSecond} B/s`,
       );
+
+      if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
+        // DEBUG: Write telemetry to file for inspection
+        try {
+          const debugPath = join(process.cwd(), "temp", "telemetry-debug.jsonl");
+          const debugLine = JSON.stringify({
+            timestamp: new Date(now).toISOString(),
+            serial: {
+              outputPerSec: serialOutputPerSecond,
+              bytesPerSec: serialBytesPerSecond,
+              intendedPerSec: serialIntendedBytesPerSecond,
+              droppedPerSec: serialDroppedBytesPerSecond,
+              bytesTotal: serialBytesTotal,
+            },
+          }) + "\n";
+          appendFileSync(debugPath, debugLine);
+        } catch {
+          // Silently ignore file write errors
+        }
+      }
     }
 
     return metrics;

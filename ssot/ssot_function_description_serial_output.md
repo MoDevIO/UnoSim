@@ -443,3 +443,292 @@ Die Tasks TASK-SERIAL-01 bis TASK-SERIAL-07 aus der vorherigen Version dieses Do
 - **TASK-SERIAL-05** (Doppelte Parser-Architektur): → Phase 5 Cleanup löst das.
 - **TASK-SERIAL-06** (HEX Groß-/Kleinschreibung): → Bleibt als Minor-Cleanup, nicht im Scope.
 - **TASK-SERIAL-07** (Archiv): → Kein Handlungsbedarf.
+
+---
+
+## Anhang C: Phase 8 Post-Mortem (10. Februar 2026)
+
+### C.1 Problem-Report
+Nach der Phase 7 Implementierung wurde folgendes Verhalten gemeldet:
+1. **Kein Dropping erkennbar** trotz High-Frequency-Output
+2. **Output stoppt nach ~1.5s** — keine neuen Nachrichten im Frontend
+3. **Pause/Stop funktioniert** ohne Verzögerung (C++ Prozess läuft noch)
+4. **Tastenkürzel ⌘+Shift+D** kollidierte mit Browser (öffnet "Neue Lesezeichen")
+
+### C.2 Root-Cause-Analyse
+
+**Backend-Pipeline:** ✅ Funktioniert korrekt
+- SerialOutputBatcher sendet Daten kontinuierlich
+- WebSocket sendet `serial_output` Nachrichten
+
+**Frontend-Pipeline:** ⚠️ Probleme identifiziert
+
+| Problem | Ursache | Fix |
+|---------|---------|-----|
+| **Unbegrenztes Array-Wachstum** | `serialOutput` Array wächst ohne Limit → React-Performance kollabiert | MAX_SERIAL_LINES = 5000 eingeführt |
+| **Dead Code mit lastSerialEventAtRef** | Alte Logik prüft auf entfernten `serial_event` Typ (immer = 0) | Code entfernt |
+| **Tastenkürzel-Kollision** | Alt+D war auf ⌥+D gesetzt, ⌘+Shift+D kollidiert mit Browser | Geändert zu ⌘+D / Ctrl+D |
+
+### C.3 Implementierte Fixes (10. Februar 2026)
+
+#### Fix 1: Serial Output Line Limit
+```typescript
+// client/src/pages/arduino-simulator.tsx
+const MAX_SERIAL_LINES = 5000;
+setSerialOutput((prev) => {
+  // ... append logic ...
+  if (newLines.length > MAX_SERIAL_LINES) {
+    return newLines.slice(newLines.length - MAX_SERIAL_LINES);
+  }
+  return newLines;
+});
+```
+
+#### Fix 2: Tastenkürzel korrigiert
+```typescript
+// ⌘+D (Mac) oder Ctrl+D (Windows/Linux)
+const isMac = navigator.platform.toLowerCase().includes('mac');
+const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
+if (isModifierPressed && !e.altKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+  e.preventDefault();
+  // Toggle debug mode
+}
+```
+
+#### Fix 3: Dead Code entfernt
+- `lastSerialEventAtRef` Variable entfernt
+- Zugehörige Drop-Logik für `serial_event` entfernt
+- Obsolete `ssot_serial_parser_architecture.md` gelöscht
+
+### C.4 Verifikation
+
+| Test | Status |
+|------|--------|
+| Build (`npm run build`) | ✅ Erfolgreich |
+| Unit-Tests (`npm run test`) | ✅ 794 Tests bestanden |
+| Integration-Tests | ✅ 12 Serial-Flow Tests bestanden |
+
+### C.5 Offene Test-Lücken
+
+Die folgenden Worst-Case-Szenarien benötigen explizite E2E-Tests:
+
+| Test-ID | Szenario | Erwartung |
+|---------|----------|-----------|
+| E2E-WC-01 | High-Frequency Output (500 Zeilen/s, > 30s) | Frontend bleibt reaktiv, älteste Zeilen werden entfernt |
+| E2E-WC-02 | Flooding-Sketch mit Dropping | Telemetrie zeigt `dropped > 0`, Serial-Monitor scrollt weiter |
+| E2E-WC-03 | ⌘+D Tastenkürzel | Debug-Mode Toggle, kein Browser-Lesezeichen |
+| E2E-WC-04 | Rapid Start/Stop (10x in 5s) | Keine Zombie-Timer, sauberer Cleanup |
+
+---
+
+## Anhang D: Vereinfachter Umsetzungsplan Phase 8
+
+### Phase 8a: E2E-Tests für Worst-Case (Priorität: Hoch)
+| # | Aufgabe | Dateien |
+|---|---------|---------|
+| 8a.1 | E2E-Test: High-Frequency 30s Lauf | `e2e/serial-output-stress.spec.ts` (NEU) |
+| 8a.2 | E2E-Test: Dropping-Anzeige verifizieren | `e2e/serial-output-stress.spec.ts` |
+| 8a.3 | E2E-Test: ⌘+D Tastenkürzel | `e2e/phase7r-keyboard-dropping.spec.ts` (UPDATE) |
+
+### Phase 8b: Frontend-Optimierungen (Priorität: Mittel)
+| # | Aufgabe | Dateien |
+|---|---------|---------|
+| 8b.1 | Virtualized List für Serial-Monitor (react-window) | `client/src/components/features/serial-monitor.tsx` |
+| 8b.2 | Message-Processing in requestAnimationFrame batchen | `client/src/pages/arduino-simulator.tsx` |
+
+### Phase 8c: Dokumentation (Priorität: Niedrig)
+| # | Aufgabe | Dateien |
+|---|---------|---------|
+| 8c.1 | Dieses Dokument finalisieren | `ssot/ssot_function_description_serial_output.md` |
+| 8c.2 | README.md Serial-Sektion aktualisieren | `README.md` |
+
+---
+
+## Anhang E: Testfälle für Worst-Case-Szenarien
+
+### E.1 E2E-Test: serial-output-stress.spec.ts
+
+```typescript
+// e2e/serial-output-stress.spec.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Serial Output Stress Tests', () => {
+  
+  test('E2E-WC-01: High-frequency output for 30s stays responsive', async ({ page }) => {
+    // Upload flooding sketch
+    const floodingCode = `
+      void setup() { Serial.begin(115200); }
+      void loop() {
+        static uint32_t t;
+        if (millis()-t>2) { t=millis(); Serial.println(millis()); }
+      }
+    `;
+    // Start simulation
+    // Wait 30s
+    // Verify: UI still responds to clicks
+    // Verify: Serial monitor shows recent lines (not frozen)
+    // Verify: Line count capped at MAX_SERIAL_LINES
+  });
+
+  test('E2E-WC-02: Dropping shown in telemetry', async ({ page }) => {
+    // Enable debug mode (⌘+D)
+    // Upload extreme flooding sketch
+    const extremeFloodCode = `
+      void setup() { Serial.begin(115200); }
+      void loop() { Serial.println("FLOOD"); } // No delay = extreme
+    `;
+    // Verify: Telemetry shows Dropped/s > 0 after ~1s
+    // Verify: Dropped/s indicator is red
+  });
+
+  test('E2E-WC-03: Cmd+D toggles debug mode', async ({ page }) => {
+    // Press ⌘+D (Mac) or Ctrl+D (Windows/Linux)
+    // Verify: Debug mode toggled
+    // Verify: No browser bookmark dialog
+  });
+
+});
+```
+
+### E.2 Unit-Tests: Frontend Line Limit
+
+```typescript
+// tests/client/serial-output-limit.test.ts
+import { describe, it, expect } from 'vitest';
+
+describe('Serial Output Line Limit', () => {
+  const MAX_SERIAL_LINES = 5000;
+
+  it('should cap array at MAX_SERIAL_LINES', () => {
+    // Simulate 6000 lines added
+    // Verify array.length === 5000
+    // Verify oldest 1000 lines were dropped
+  });
+
+  it('should keep newest lines when capping', () => {
+    // Add lines 1-6000
+    // Verify lines 1001-6000 remain
+    // Verify lines 1-1000 were dropped
+  });
+});
+```
+
+---
+
+## Anhang F: Phase 8b — Serial.print() Regression & Budget-Fix (10. Februar 2026)
+
+### F.1 Problem-Reports
+
+Drei Probleme wurden beim interaktiven Testen entdeckt:
+
+1. **Serial.print() vs println() Regression:** `Serial.print("1 "); Serial.print("2")` erzeugte separate Zeilen statt konkatenierter Ausgabe.
+2. **Daten fließen nach Stop weiter:** Bei schnellem Output kam nach dem Stoppen noch Datenflut ins Frontend.
+3. **Keine Drops bei Baud=1:** Trotz extremer Baudrate-Diskrepanz zeigte die Telemetrie `DROPPED /s: 0`.
+4. **Simulation endet "zu früh":** Sketch mit `exit(0)` nach 5s wurde als Timeout-Problem fehlinterpretiert.
+
+### F.2 Root-Cause-Analyse & Fixes
+
+#### Fix 1: isComplete-Flag im onChunk Callback (sandbox-runner.ts)
+
+**Problem:** Der Batcher's `onChunk` Callback markierte jeden Chunk als `isComplete: true`. Dadurch wurde `Serial.print("A")` wie `Serial.println("A")` behandelt — jede Ausgabe startete eine neue Zeile.
+
+**Fix:** Der Callback splittet nun nach `\n` und leitet `isComplete` korrekt ab:
+```typescript
+onChunk: (data: string) => {
+  const endsWithNewline = data.endsWith('\n');
+  const parts = data.split('\n');
+  for (let i = 0; i < parts.length; i++) {
+    const isLastPart = i === parts.length - 1;
+    if (isLastPart && endsWithNewline) break; // Trailing empty string
+    const isComplete = !isLastPart; // Gefolgt von \n → complete
+    this.outputCallback(parts[i], isComplete);
+  }
+}
+```
+
+#### Fix 2: Stop-Flush Discard (sandbox-runner.ts)
+
+**Problem:** `stop()` rief `batcher.stop()` auf, was **alle** gepufferten Daten ohne Limit flushte — tausende Bytes auf einen Schlag ins Frontend.
+
+**Fix:** User-initiierter `stop()` ruft jetzt `batcher.destroy()` (verwirft Daten) statt `batcher.stop()` (flusht). Natürlicher Prozess-Exit nutzt weiterhin `stop()` → `destroy()` im Close-Handler.
+
+#### Fix 3: Pipe-Buffer Guard (sandbox-runner.ts)
+
+**Problem:** Nach `processKilled` kamen Daten aus dem OS Pipe Buffer (bis zu 64KB) über den Fallback-Pfad ins Frontend.
+
+**Fix:** `!this.processKilled` Guard im Fallback-Output-Pfad.
+
+#### Fix 4: MIN_BUDGET → Proportionaler Floor (serial-output-batcher.ts)
+
+**Problem:** `MIN_BUDGET = 50` (hart kodiert) gab jeder Baudrate ein 50-Byte-Geschenk. Bei Baud=1 bedeutete das: Budget wird nie aufgebraucht (für typische Ausgaben). Bei gleichzeitig `Math.floor(0.005) = 0` Refill pro Tick wurde das Budget nach Verbrauch **nie wieder aufgefüllt**.
+
+**Fix:** Zwei Änderungen:
+
+1. **Proportionaler Floor statt fixem MIN_BUDGET:**
+```typescript
+// Floor = min(50, ceil(bytesPerSecond × 0.5)) = "halbe Sekunde Output, max 50"
+const proportionalFloor = Math.min(50, Math.ceil(bytesPerSecond * 0.5));
+this.maxBudget = Math.max(1, Math.floor(burstBudget), proportionalFloor);
+```
+
+| Baudrate | bytesPerSecond | proportionalFloor | maxBudget | Alt (MIN_BUDGET=50) |
+|----------|---------------|-------------------|-----------|---------------------|
+| 1 | 0.1 | 1 | 1 | 50 |
+| 300 | 30 | 15 | 15 | 50 |
+| 1200 | 120 | 50 | 50 | 50 |
+| 9600 | 960 | 50 | 144 | 144 |
+| 115200 | 11520 | 50 | 1728 | 1728 |
+
+2. **Fraktionale Byte-Akkumulation:**
+```typescript
+// Statt Math.floor() pro Tick (verliert Sub-Byte-Anteile):
+this.budgetAccumulator += rawBytesPerTick;  // z.B. 0.005 pro Tick
+const wholeBytesToAdd = Math.floor(this.budgetAccumulator);
+this.budgetAccumulator -= wholeBytesToAdd;  // Carry-Over der Fraktion
+```
+Bei Baud=1: 0.005 bytes/tick → nach 200 Ticks (10s) akkumuliert 1.0 → 1 Byte Budget.
+
+### F.3 txDelay-Overhead-Analyse
+
+**Warum einzelne `Serial.print("X")` Aufrufe keine Drops erzeugen:**
+
+Der C++ Mock's `txDelay()` berechnet `(10 × numChars × 1000) / baudrate`, gekappt auf max 10ms.
+
+| Muster | txDelay pro Aufruf | Gesamtrate | Budget (11520 B/s) | Drops? |
+|--------|-------------------|------------|---------------------|--------|
+| `Serial.println("X")` einzeln | 0.17ms | ~576 B/tick = exakt Budget | ~11520 B/s | ❌ |
+| 190× `Serial.print("X")` in Schleife | 0.017ms + ~50µs Overhead | ~8400 B/s | ~11520 B/s | ❌ |
+| `Serial.println(buf)` mit 200 Zeichen | 10ms (gekappt) | ~20100 B/s | ~11520 B/s | ✅ ~43% |
+| `Serial.println(buf)` mit 500 Zeichen | 10ms (gekappt) | ~50100 B/s | ~11520 B/s | ✅ ~77% |
+
+**Kerninsight:** Drops treten nur auf, wenn `txDelay` bei 10ms gekappt wird (Strings > ~115 Zeichen bei 115200 Baud). Für kürzere Strings bremst txDelay den Mock natürlich auf Baudrate.
+
+### F.4 Integration Flooding Tests (NEU)
+
+Datei: `tests/integration/serial-flooding.test.ts`
+
+| Test-ID | Szenario | Ergebnis |
+|---------|----------|----------|
+| T-FLOOD-01 | 200-Zeichen-Strings, 2s | ~30-40% Drop-Rate |
+| T-FLOOD-02 | Kurze Strings ("X\n"), 1s | 0 Drops |
+| T-FLOOD-03 | 500-Zeichen-Strings, 2s | ~68-71% Drop-Rate |
+
+### F.5 Extreme-Baudrate Unit Tests (NEU)
+
+Datei: `tests/server/services/serial-output-batcher.test.ts` (T20–T23)
+
+| Test-ID | Szenario | Ergebnis |
+|---------|----------|----------|
+| T20 | Baud=1, "Hello World!\n" | 12 Bytes dropped, 0 actual (maxBudget=1, newline-adjustment) |
+| T21 | Baud=1, fraktionale Akkumulation | 1 Byte nach 200 Ticks (10s) korrekt durchgelassen |
+| T22 | Baud=1, Massen-Flooding 4000 Bytes | ~3999 dropped, ~1 actual |
+| T23 | Baud=300, proportionaler Floor | "Hello World!\n" (13 Bytes) passt in maxBudget=15 |
+
+### F.6 Verifikation
+
+| Test | Status |
+|------|--------|
+| TypeScript Build | ✅ Erfolgreich |
+| Unit-Tests | ✅ 800 Tests bestanden (23 Batcher-Tests) |
+| Integration-Tests | ✅ 15 Serial-Tests bestanden (12 Flow + 3 Flooding) |
+| Sandbox-Stress | ⚠️ 1 flaky (Temp-Dir Cleanup-Timing, unrelated) |

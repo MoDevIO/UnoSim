@@ -1,10 +1,11 @@
 // registry-manager-telemetry.test.ts
-// Unit tests for RegistryManager telemetry tracking (Serial Output only)
-// Pin state telemetry is now handled by PinStateBatcher
+// Unit tests for RegistryManager telemetry tracking (Serial Output and Pin State)
+// Tests verify integration with SerialOutputBatcher and PinStateBatcher
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { RegistryManager } from "../../../server/services/registry-manager";
 import { PinStateBatcher } from "../../../server/services/pin-state-batcher";
+import { SerialOutputBatcher } from "../../../server/services/serial-output-batcher";
 
 describe("RegistryManager - Telemetry Metrics", () => {
   let manager: RegistryManager;
@@ -29,67 +30,135 @@ describe("RegistryManager - Telemetry Metrics", () => {
     manager.destroy();
   });
 
-  describe("Serial Output Tracking", () => {
-    it("should track serial output events", () => {
-      manager.trackSerialOutput();
-
-      vi.advanceTimersByTime(100);
-
-      const metrics = manager.getPerformanceMetrics();
-      expect(metrics.serialOutputPerSecond).toBeGreaterThan(0);
-    });
-
-    it("should track high-frequency serial output", () => {
-      for (let i = 0; i < 50; i++) {
-        manager.trackSerialOutput();
-      }
-
-      vi.advanceTimersByTime(100);
-
-      const metrics = manager.getPerformanceMetrics();
-      expect(metrics.serialOutputPerSecond).toBeGreaterThan(0);
-    });
-
-    it("should reset serial output counter after metric retrieval", () => {
-      manager.trackSerialOutput();
-      vi.advanceTimersByTime(100);
-      let metrics = manager.getPerformanceMetrics();
-      expect(metrics.serialOutputPerSecond).toBeGreaterThan(0);
-
-      // Counter resets after getPerformanceMetrics
-      vi.advanceTimersByTime(100);
-      metrics = manager.getPerformanceMetrics();
-      expect(metrics.serialOutputPerSecond).toBe(0);
-    });
-
-    it("should measure serial events accurately over 1 second", () => {
-      manager.trackSerialOutput();
-      manager.trackSerialOutput();
+  describe("Serial Output Tracking (SerialOutputBatcher Integration)", () => {
+    it("should track serial output from batcher telemetry", () => {
+      const mockSerialBatcher = {
+        getTelemetryAndReset: () => ({ 
+          intended: 100, 
+          actual: 100, 
+          dropped: 0, 
+          chunks: 5,
+          totalBytes: 100 
+        }),
+      } as unknown as SerialOutputBatcher;
+      
+      manager.setSerialOutputBatcher(mockSerialBatcher);
 
       vi.advanceTimersByTime(1000); // 1 second
 
       const metrics = manager.getPerformanceMetrics();
-      expect(metrics.serialOutputPerSecond).toBeGreaterThan(0);
+      expect(metrics.serialOutputPerSecond).toBe(5); // chunks per second
+      expect(metrics.serialBytesPerSecond).toBe(100); // actual bytes per second
     });
 
-    it("should measure zero serial rate correctly", () => {
-      // No events recorded
-      vi.advanceTimersByTime(100);
+    it("should track high-frequency serial output from batcher", () => {
+      const mockSerialBatcher = {
+        getTelemetryAndReset: () => ({ 
+          intended: 5000, 
+          actual: 5000, 
+          dropped: 0, 
+          chunks: 100,
+          totalBytes: 5000 
+        }),
+      } as unknown as SerialOutputBatcher;
+      
+      manager.setSerialOutputBatcher(mockSerialBatcher);
+
+      vi.advanceTimersByTime(1000);
+
+      const metrics = manager.getPerformanceMetrics();
+      expect(metrics.serialOutputPerSecond).toBe(100); // 100 chunks per second
+      expect(metrics.serialBytesPerSecond).toBe(5000); // 5000 bytes per second
+    });
+
+    it("should reset serial output counter after metric retrieval", () => {
+      let callCount = 0;
+      const mockSerialBatcher = {
+        getTelemetryAndReset: () => {
+          callCount++;
+          // First call returns data, second call returns empty
+          if (callCount === 1) {
+            return { intended: 100, actual: 100, dropped: 0, chunks: 5, totalBytes: 100 };
+          }
+          return { intended: 0, actual: 0, dropped: 0, chunks: 0, totalBytes: 100 };
+        },
+      } as unknown as SerialOutputBatcher;
+      
+      manager.setSerialOutputBatcher(mockSerialBatcher);
+
+      vi.advanceTimersByTime(1000);
+      let metrics = manager.getPerformanceMetrics();
+      expect(metrics.serialOutputPerSecond).toBe(5);
+
+      // Counter resets after getPerformanceMetrics (batcher returns 0)
+      vi.advanceTimersByTime(1000);
+      metrics = manager.getPerformanceMetrics();
+      expect(metrics.serialOutputPerSecond).toBe(0);
+    });
+
+    it("should track serial drops from batcher telemetry", () => {
+      const mockSerialBatcher = {
+        getTelemetryAndReset: () => ({ 
+          intended: 2000, 
+          actual: 1728, 
+          dropped: 272, 
+          chunks: 1,
+          totalBytes: 1728 
+        }),
+      } as unknown as SerialOutputBatcher;
+      
+      manager.setSerialOutputBatcher(mockSerialBatcher);
+
+      vi.advanceTimersByTime(1000);
+
+      const metrics = manager.getPerformanceMetrics();
+      expect(metrics.serialDroppedBytesPerSecond).toBe(272);
+      expect(metrics.serialIntendedBytesPerSecond).toBe(2000);
+      expect(metrics.serialBytesPerSecond).toBe(1728);
+    });
+
+    it("should measure zero serial rate correctly when batcher has no activity", () => {
+      const mockSerialBatcher = {
+        getTelemetryAndReset: () => ({ 
+          intended: 0, 
+          actual: 0, 
+          dropped: 0, 
+          chunks: 0,
+          totalBytes: 0 
+        }),
+      } as unknown as SerialOutputBatcher;
+      
+      manager.setSerialOutputBatcher(mockSerialBatcher);
+
+      vi.advanceTimersByTime(1000);
 
       const metrics = manager.getPerformanceMetrics();
       expect(metrics.serialOutputPerSecond).toBe(0);
+      expect(metrics.serialBytesPerSecond).toBe(0);
+      expect(metrics.serialDroppedBytesPerSecond).toBe(0);
     });
   });
 
   describe("New Telemetry Interface (Phase A)", () => {
     it("should include all required fields in metrics report", () => {
       // Setup mock PinStateBatcher
-      const mockBatcher = {
+      const mockPinBatcher = {
         getTelemetryAndReset: () => ({ intended: 10, actual: 8, batches: 2 }),
       } as unknown as PinStateBatcher;
       
-      manager.setPinStateBatcher(mockBatcher);
-      manager.trackSerialOutput();
+      // Setup mock SerialOutputBatcher
+      const mockSerialBatcher = {
+        getTelemetryAndReset: () => ({ 
+          intended: 100, 
+          actual: 100, 
+          dropped: 0, 
+          chunks: 5,
+          totalBytes: 100 
+        }),
+      } as unknown as SerialOutputBatcher;
+      
+      manager.setPinStateBatcher(mockPinBatcher);
+      manager.setSerialOutputBatcher(mockSerialBatcher);
 
       vi.advanceTimersByTime(1000);
 
@@ -168,7 +237,18 @@ describe("RegistryManager - Telemetry Metrics", () => {
         enableTelemetry: false,
       });
 
-      manager.trackSerialOutput();
+      // Mock SerialOutputBatcher
+      const mockSerialBatcher = {
+        getTelemetryAndReset: () => ({ 
+          intended: 100, 
+          actual: 100, 
+          dropped: 0, 
+          chunks: 5,
+          totalBytes: 100 
+        }),
+      } as unknown as SerialOutputBatcher;
+      
+      disabledManager.setSerialOutputBatcher(mockSerialBatcher);
 
       vi.advanceTimersByTime(100);
 
@@ -253,9 +333,20 @@ describe("RegistryManager - Telemetry Metrics", () => {
 
   describe("Metric Types", () => {
     it("should have numeric types for all new metrics", () => {
-      manager.trackSerialOutput();
+      // Mock SerialOutputBatcher
+      const mockSerialBatcher = {
+        getTelemetryAndReset: () => ({ 
+          intended: 100, 
+          actual: 100, 
+          dropped: 0, 
+          chunks: 5,
+          totalBytes: 100 
+        }),
+      } as unknown as SerialOutputBatcher;
+      
+      manager.setSerialOutputBatcher(mockSerialBatcher);
 
-      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(1000);
 
       const metrics = manager.getPerformanceMetrics();
       expect(typeof metrics.intendedPinChangesPerSecond).toBe("number");

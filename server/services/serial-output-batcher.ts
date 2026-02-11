@@ -55,6 +55,12 @@ export class SerialOutputBatcher {
   private currentBudget = 0;
   private maxBudget = 0;
   
+  // Fractional byte accumulator for low baudrates
+  // At baud=1: normalBudget per tick = 0.005 bytes, which rounds to 0.
+  // The accumulator carries over the fractional part so that after 200 ticks
+  // (10 seconds), 1 byte gets through — correctly simulating 0.1 bytes/s.
+  private budgetAccumulator = 0;
+  
   constructor(config: SerialOutputBatcherConfig) {
     this.config = {
       baudrate: config.baudrate,
@@ -75,12 +81,19 @@ export class SerialOutputBatcher {
     const bytesPerTick = bytesPerSecond * (this.config.tickIntervalMs / 1000);
     const burstBudget = bytesPerTick * this.config.burstFactor;
     
-    // Set minimum budget to prevent dropping normal output at low baudrates
-    // At 300 baud: 1.5 bytes/tick × 3 = 4.5 bytes, but we want at least 50 bytes
-    // This way, low baudrates don't drop data, but high baudrates still have rate limiting
-    const MIN_BUDGET = 50;
-    this.maxBudget = Math.max(MIN_BUDGET, Math.floor(burstBudget));
+    // maxBudget: determines initial burst capacity and max accumulation.
+    // For high bauds (≥ ~3333): burstBudget (3 × bytesPerTick) dominates naturally.
+    // For low bauds (< 3333): a proportional floor ensures typical println() works.
+    //   - The floor = min(50, ceil(bytesPerSecond × 0.5)) = "half a second of output, max 50"
+    //   - At 300 baud: floor = min(50, 15) = 15 → covers "Hello World!\n" (14 bytes)
+    //   - At 1200 baud: floor = min(50, 60) = 50 → same as old MIN_BUDGET
+    //   - At baud=1: floor = min(50, 1) = 1 → nearly nothing (correct for 0.1 bytes/s)
+    // The old hardcoded MIN_BUDGET=50 gave baud=1 a 50-byte free pass, defeating rate limiting.
+    // This proportional approach fixes that while preserving setup() burst for standard bauds.
+    const proportionalFloor = Math.min(50, Math.ceil(bytesPerSecond * 0.5));
+    this.maxBudget = Math.max(1, Math.floor(burstBudget), proportionalFloor);
     this.currentBudget = this.maxBudget; // Start with full burst budget
+    this.budgetAccumulator = 0;
   }
   
   /**
@@ -179,14 +192,20 @@ export class SerialOutputBatcher {
    * Tick handler: process pending data with budget limit
    */
   private tick(): void {
+    // Token bucket replenishment with fractional byte accumulation.
+    // At low baudrates, bytesPerTick < 1 (e.g., baud=1 → 0.005 bytes/tick).
+    // We accumulate the fractional part and only grant whole bytes.
+    const bytesPerSecond = this.config.baudrate / 10;
+    const rawBytesPerTick = bytesPerSecond * (this.config.tickIntervalMs / 1000);
+    this.budgetAccumulator += rawBytesPerTick;
+    const wholeBytesToAdd = Math.floor(this.budgetAccumulator);
+    this.budgetAccumulator -= wholeBytesToAdd;
+    this.currentBudget = Math.min(
+      this.currentBudget + wholeBytesToAdd,
+      this.maxBudget
+    );
+    
     if (this.pendingData.length === 0) {
-      // Refill budget if idle (up to max)
-      const bytesPerSecond = this.config.baudrate / 10;
-      const normalBudget = Math.floor(bytesPerSecond * (this.config.tickIntervalMs / 1000));
-      this.currentBudget = Math.min(
-        this.currentBudget + normalBudget,
-        this.maxBudget
-      );
       return;
     }
     
@@ -219,12 +238,9 @@ export class SerialOutputBatcher {
         this.droppedBytes += skipped;
       }
       
-      // Prepend drop indicator
-      const dropIndicator = `[⚠ ${dropped} Bytes verworfen (Baudrate-Limit)]\n`;
-      const output = dropIndicator + dataToSend;
-      
-      this.config.onChunk(output);
-      this.actualBytes += dataToSend.length; // Don't count drop indicator in actual
+      // Send data without drop indicator (drops are visible via telemetry)
+      this.config.onChunk(dataToSend);
+      this.actualBytes += dataToSend.length;
       this.currentBudget = Math.max(0, this.currentBudget - budget);
       this.pendingData = "";
       this.chunks++;

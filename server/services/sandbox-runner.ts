@@ -420,9 +420,21 @@ export class SandboxRunner {
       baudrate: this.baudrate,
       tickIntervalMs: 50, // 20 batches/sec (matching PinStateBatcher)
       onChunk: (data: string) => {
-        // Send batched serial data directly to client
-        if (this.outputCallback) {
-          this.outputCallback(data, true);
+        if (!this.outputCallback) return;
+        // Split batched data by newlines to preserve Serial.print() vs println() semantics.
+        // Data from Serial.println() contains trailing \n, Serial.print() does not.
+        // Each part before a \n is a complete line; the trailing part (if any) is incomplete.
+        const endsWithNewline = data.endsWith('\n');
+        const parts = data.split('\n');
+        for (let i = 0; i < parts.length; i++) {
+          const isLastPart = i === parts.length - 1;
+          if (isLastPart && endsWithNewline) {
+            // Trailing empty string from split("...\n") — already handled by previous part
+            break;
+          }
+          // Parts before the last had a \n after them → complete lines
+          const isComplete = !isLastPart;
+          this.outputCallback(parts[i], isComplete);
         }
       },
     });
@@ -560,9 +572,14 @@ export class SandboxRunner {
           }
         }
         
-        // Serial output is always sent immediately - no queuing
-        // This ensures chronological order (setup() before loop())
-        if (onOutput) {
+        // Serial output should be batched via SerialOutputBatcher
+        // This applies baudrate-based rate limiting and collects telemetry
+        if (this.serialOutputBatcher) {
+          // Send to batcher for rate-limiting and batching
+          this.serialOutputBatcher.enqueue(line);
+        } else if (onOutput && !this.processKilled) {
+          // Fallback if batcher not available (shouldn't happen in normal flow)
+          // Guard: discard data from OS pipe buffer after stop() killed the process
           onOutput(line, isComplete);
         }
       },
@@ -996,6 +1013,10 @@ export class SandboxRunner {
         this.process.stdin.write("[[PAUSE_TIME]]\n");
       }
       
+      // Note: SIGSTOP is sent immediately after PAUSE_TIME. This can cause a race
+      // condition where C++ is frozen mid-write of TIME_FROZEN message, resulting
+      // in protocol fragments. The ArduinoOutputParser handles these fragments by
+      // detecting and ignoring incomplete protocol messages like "]]".
       this.process.kill("SIGSTOP");
       this.logger.info("Simulation paused (SIGSTOP)");
       return true;
@@ -1350,9 +1371,10 @@ export class SandboxRunner {
       this.pinStateBatcher = null;
     }
     
-    // Stop and destroy SerialOutputBatcher
+    // Destroy SerialOutputBatcher WITHOUT flushing pending data.
+    // User-initiated stop should discard buffered data immediately.
+    // (Natural process exit uses batcher.stop() in the close handler to flush.)
     if (this.serialOutputBatcher) {
-      this.serialOutputBatcher.stop();
       this.serialOutputBatcher.destroy();
       this.serialOutputBatcher = null;
     }

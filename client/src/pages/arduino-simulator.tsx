@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CodeEditor } from "@/components/features/code-editor";
 import { SerialMonitor } from "@/components/features/serial-monitor";
+import { SerialMonitorDebugHeader } from "@/components/features/serial-monitor-debug-header";
 import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
@@ -45,6 +46,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBackendHealth } from "@/hooks/use-backend-health";
 import { useMobileLayout } from "@/hooks/use-mobile-layout";
 import { useDebugConsole } from "@/hooks/use-debug-console";
+import { useDebugMode } from "@/hooks/use-debug-mode-store";
 import { useSketchTabs } from "@/hooks/use-sketch-tabs";
 import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
@@ -262,8 +264,6 @@ export default function ArduinoSimulator() {
   // RX/TX LED activity counters (increment on activity for change detection)
   const [txActivity, setTxActivity] = useState(0);
   const [rxActivity, setRxActivity] = useState(0);
-  // Track wall-clock time when last serial_event was received
-  const lastSerialEventAtRef = useRef<number>(0);
   // Queue for incoming serial_events - use ref to avoid React batching issues
   const serialEventQueueRef = useRef<
     Array<{ payload: any; receivedAt: number }>
@@ -273,6 +273,40 @@ export default function ArduinoSimulator() {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { setDebugMode } = useDebugMode();
+  
+  // Keyboard shortcut to toggle debug mode (⌘+D on Mac, Ctrl+D on Windows/Linux)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for ⌘+D (Mac) or Ctrl+D (Windows/Linux)
+      const isMac = navigator.platform.toLowerCase().includes('mac');
+      const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
+      if (isModifierPressed && !e.altKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        
+        // Toggle debug mode using global store
+        const currentValue = window.localStorage.getItem("unoDebugMode") === "1";
+        const newValue = !currentValue;
+        
+        try {
+          setDebugMode(newValue);
+          
+          toast({
+            title: newValue ? "Debug Mode Enabled" : "Debug Mode Disabled",
+            description: newValue 
+              ? "Telemetry displays are now visible"
+              : "Telemetry displays are now hidden",
+          });
+        } catch (err) {
+          console.error("Failed to toggle debug mode:", err);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [toast, setDebugMode]);
+  
   const {
     isConnected,
     lastMessage,
@@ -734,33 +768,15 @@ export default function ArduinoSimulator() {
           // Trigger RX LED blink when client receives data
           setRxActivity((prev) => prev + 1);
 
-          // System messages (stop/timeout/etc.) must always be shown, even if serial_event traffic was recent
-          const trimmedForSystemCheck = text.trimStart();
-          const isSystemSerialMessage =
-            trimmedForSystemCheck.startsWith("---") ||
-            trimmedForSystemCheck.startsWith("Simulation ");
-
-          // If we recently received structured `serial_event` messages, ignore legacy `serial_output` to avoid duplicates
-          const now = Date.now();
-          if (
-            lastSerialEventAtRef.current &&
-            now - lastSerialEventAtRef.current < 1000 &&
-            !isSystemSerialMessage
-          ) {
-            // Short-circuit: drop this legacy serial_output
-            // eslint-disable-next-line no-console
-            logger.debug(
-              `Dropping legacy serial_output because recent serial_event exists ${JSON.stringify({ text, ageMs: now - lastSerialEventAtRef.current })}`,
-            );
-            break;
-          }
-
           // Remove trailing newlines from text (they are represented by isComplete flag)
           const isNewlineOnly = text === "\n" || text === "\r\n";
           if (isNewlineOnly) {
             text = ""; // Don't add the newline character to the text
           }
 
+          // Limit serial output to prevent memory issues (drop oldest lines)
+          const MAX_SERIAL_LINES = 5000;
+          
           setSerialOutput((prev) => {
             const newLines = [...prev];
 
@@ -798,6 +814,11 @@ export default function ArduinoSimulator() {
               }
             }
 
+            // Trim to MAX_SERIAL_LINES to prevent memory exhaustion
+            if (newLines.length > MAX_SERIAL_LINES) {
+              return newLines.slice(newLines.length - MAX_SERIAL_LINES);
+            }
+            
             return newLines;
           });
           break;
@@ -847,8 +868,7 @@ export default function ArduinoSimulator() {
           setSimulationStatus(message.status);
           // Reset pin states and compilation status when simulation stops
           if (message.status === "stopped") {
-            // Clear any pending serial-event tracking so system messages aren't dropped after stop
-            lastSerialEventAtRef.current = 0;
+            // Clear pending serial event queue
             serialEventQueueRef.current = [];
             // Clear pin states from previous simulation run
             setPinStates([]);
@@ -1947,11 +1967,11 @@ export default function ArduinoSimulator() {
                                 <TabsTrigger
                                   value="debug"
                                   onDoubleClick={() => openOutputPanel("debug")}
-                                  className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center text-purple-400 gap-1.5"
+                                  className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center text-cyan-400 gap-1.5"
                                 >
                                   Debug
                                   {debugMessages.length > 0 && (
-                                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-purple-600/30 text-purple-300 text-[9px] font-mono leading-none overflow-hidden">
+                                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyan-600/30 text-cyan-300 text-[9px] font-mono leading-none overflow-hidden">
                                       {debugMessages.length > 99 ? "99" : debugMessages.length}
                                     </span>
                                   )}
@@ -2083,7 +2103,7 @@ export default function ArduinoSimulator() {
                                   <div className="flex items-center gap-1 flex-shrink-0">
                                     <button
                                       onClick={() => setDebugViewMode(debugViewMode === "table" ? "tiles" : "table")}
-                                      className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center text-ui-xs bg-purple-600/20 text-purple-400 border border-purple-600/40 rounded hover:bg-purple-600/30 transition-colors"
+                                      className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors"
                                       title={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
                                     >
                                       {debugViewMode === "table" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Table className="h-3.5 w-3.5" />}
@@ -2102,7 +2122,7 @@ export default function ArduinoSimulator() {
                                           });
                                         }
                                       }}
-                                      className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-blue-600/20 text-blue-400 border border-blue-600/40 rounded hover:bg-blue-600/30 transition-colors"
+                                      className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors"
                                     >
                                       Copy
                                     </button>
@@ -2255,40 +2275,40 @@ export default function ArduinoSimulator() {
                             aria-hidden
                           />
                           <span className="sr-only">Serial Output</span>
-                          {debugMode && simulationStatus === "running" && telemetryData.last ? (
+                          {debugMode && (simulationStatus === "running" || simulationStatus === "paused") && telemetryData.last ? (
                             <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
                               <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-white/50">Serial Events</span>
-                                <span className="text-sm font-mono text-white/90">
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Events</span>
+                                <span className="text-sm font-mono text-cyan-400">
                                   {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(1)} /s
                                 </span>
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-white/50">Serial Bytes</span>
-                                <span className="text-sm font-mono text-white/90">
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Bytes</span>
+                                <span className="text-sm font-mono text-cyan-400">
                                   {(telemetryData.last.serialBytesPerSecond ?? 0).toFixed(1)} /s
                                 </span>
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-white/50">Dropped /s</span>
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Dropped /s</span>
                                 <span className={clsx(
                                   "text-sm font-mono",
                                   (telemetryData.last.serialDroppedBytesPerSecond ?? 0) > 0
-                                    ? "text-red-500 font-semibold"
-                                    : "text-white/90"
+                                    ? "text-red-400 font-semibold"
+                                    : "text-cyan-400"
                                 )}>
                                   {(telemetryData.last.serialDroppedBytesPerSecond ?? 0).toFixed(1)}
                                 </span>
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-white/50">Baudrate</span>
-                                <span className="text-sm font-mono text-white/90">
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Baudrate</span>
+                                <span className="text-sm font-mono text-cyan-400">
                                   {baudRate}
                                 </span>
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-white/50">Total Bytes</span>
-                                <span className="text-sm font-mono text-white/90">
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Total Bytes</span>
+                                <span className="text-sm font-mono text-cyan-400">
                                   {telemetryData.last.serialBytesTotal ?? 0}
                                 </span>
                               </div>
@@ -2388,18 +2408,21 @@ export default function ArduinoSimulator() {
                             minSize={20}
                             id="serial-monitor-panel"
                           >
-                            <div className="h-full">
-                              <SerialMonitor
-                                output={serialOutput}
-                                isConnected={isConnected}
-                                isSimulationRunning={
-                                  simulationStatus !== "stopped"
-                                }
-                                onSendMessage={handleSerialSend}
-                                onClear={handleClearSerialOutput}
-                                showMonitor={showSerialMonitor}
-                                autoScrollEnabled={autoScrollEnabled}
-                              />
+                            <div className="h-full flex flex-col">
+                              <SerialMonitorDebugHeader simulationStatus={simulationStatus} />
+                              <div className="flex-1 min-h-0">
+                                <SerialMonitor
+                                  output={serialOutput}
+                                  isConnected={isConnected}
+                                  isSimulationRunning={
+                                    simulationStatus !== "stopped"
+                                  }
+                                  onSendMessage={handleSerialSend}
+                                  onClear={handleClearSerialOutput}
+                                  showMonitor={showSerialMonitor}
+                                  autoScrollEnabled={autoScrollEnabled}
+                                />
+                              </div>
                             </div>
                           </ResizablePanel>
 
@@ -2421,15 +2444,20 @@ export default function ArduinoSimulator() {
                           </ResizablePanel>
                         </ResizablePanelGroup>
                       ) : showSerialMonitor ? (
-                        <SerialMonitor
-                          output={serialOutput}
-                          isConnected={isConnected}
-                          isSimulationRunning={simulationStatus !== "stopped"}
-                          onSendMessage={handleSerialSend}
-                          onClear={handleClearSerialOutput}
-                          showMonitor={showSerialMonitor}
-                          autoScrollEnabled={autoScrollEnabled}
-                        />
+                        <div className="h-full flex flex-col">
+                          <SerialMonitorDebugHeader simulationStatus={simulationStatus} />
+                          <div className="flex-1 min-h-0">
+                            <SerialMonitor
+                              output={serialOutput}
+                              isConnected={isConnected}
+                              isSimulationRunning={simulationStatus !== "stopped"}
+                              onSendMessage={handleSerialSend}
+                              onClear={handleClearSerialOutput}
+                              showMonitor={showSerialMonitor}
+                              autoScrollEnabled={autoScrollEnabled}
+                            />
+                          </div>
+                        </div>
                       ) : (
                         <div className="h-full">
                           <Suspense fallback={<LoadingPlaceholder />}>
@@ -2652,16 +2680,19 @@ export default function ArduinoSimulator() {
                     </div>
                   )}
                   {mobilePanel === "serial" && (
-                    <div className="h-full w-full">
-                      <SerialMonitor
-                        output={serialOutput}
-                        isConnected={isConnected}
-                        isSimulationRunning={simulationStatus !== "stopped"}
-                        onSendMessage={handleSerialSend}
-                        onClear={handleClearSerialOutput}
-                        showMonitor={showSerialMonitor}
-                        autoScrollEnabled={autoScrollEnabled}
-                      />
+                    <div className="h-full w-full flex flex-col">
+                      <SerialMonitorDebugHeader simulationStatus={simulationStatus} />
+                      <div className="flex-1 min-h-0">
+                        <SerialMonitor
+                          output={serialOutput}
+                          isConnected={isConnected}
+                          isSimulationRunning={simulationStatus !== "stopped"}
+                          onSendMessage={handleSerialSend}
+                          onClear={handleClearSerialOutput}
+                          showMonitor={showSerialMonitor}
+                          autoScrollEnabled={autoScrollEnabled}
+                        />
+                      </div>
                     </div>
                   )}
                   {mobilePanel === "board" && (
