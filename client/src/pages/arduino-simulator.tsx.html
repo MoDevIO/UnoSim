@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.83% </span>
+                <span class="strong">34.7% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>278/798</span>
+                <span class='fraction'>278/801</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">24.91% </span>
+                <span class="strong">24.83% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>154/618</span>
+                <span class='fraction'>154/620</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">36.62% </span>
+                <span class="strong">36.47% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>267/729</span>
+                <span class='fraction'>267/732</span>
             </div>
         
             
@@ -2791,8 +2791,9 @@
 <a name='L2726'></a><a href='#L2726'>2726</a>
 <a name='L2727'></a><a href='#L2727'>2727</a>
 <a name='L2728'></a><a href='#L2728'>2728</a>
-<a name='L2729'></a><a href='#L2729'>2729</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L2729'></a><a href='#L2729'>2729</a>
+<a name='L2730'></a><a href='#L2730'>2730</a>
+<a name='L2731'></a><a href='#L2731'>2731</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3080,6 +3081,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -5265,8 +5272,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -5460,7 +5465,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -5550,7 +5554,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CodeEditor } from "@/components/features/code-editor";
 import { SerialMonitor } from "@/components/features/serial-monitor";
-import { SerialMonitorDebugHeader } from "@/components/features/serial-monitor-debug-header";
 import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
@@ -5805,12 +5808,18 @@ export default function ArduinoSimulator() {
       <span class="missing-if-branch" title="if path not taken" >I</span>if (isModifierPressed &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >!e.altKey &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >!</span>e.shiftKey &amp;&amp; (<span class="branch-3 cbranch-no" title="branch not covered" >e</span>.key === 'd' || <span class="branch-4 cbranch-no" title="branch not covered" >e</span>.key === 'D')) {</span>
 <span class="cstat-no" title="statement not covered" >        e.preventDefault();</span>
         
-        // Toggle debug mode using global store
+        // Toggle debug mode using global store and localStorage
         const currentValue = <span class="cstat-no" title="statement not covered" >window.localStorage.getItem("unoDebugMode") === "1";</span>
         const newValue = <span class="cstat-no" title="statement not covered" >!currentValue;</span>
         
 <span class="cstat-no" title="statement not covered" >        try {</span>
+          // Update localStorage and global store
+<span class="cstat-no" title="statement not covered" >          window.localStorage.setItem("unoDebugMode", newValue ? "1" : "0");</span>
 <span class="cstat-no" title="statement not covered" >          setDebugMode(newValue);</span>
+          
+          // Dispatch custom event so ArduinoBoard and other components update
+          const ev = <span class="cstat-no" title="statement not covered" >new CustomEvent("debugModeChange", { detail: { value: newValue } });</span>
+<span class="cstat-no" title="statement not covered" >          document.dispatchEvent(ev);</span>
           
 <span class="cstat-no" title="statement not covered" >          toast({</span>
             title: newValue ? "Debug Mode Enabled" : "Debug Mode Disabled",
@@ -7930,7 +7939,6 @@ export default function ArduinoSimulator() {
                             id="serial-monitor-panel"
                           &gt;
                             &lt;div className="h-full flex flex-col"&gt;
-                              &lt;SerialMonitorDebugHeader simulationStatus={simulationStatus} /&gt;
                               &lt;div className="flex-1 min-h-0"&gt;
                                 &lt;SerialMonitor
                                   output={serialOutput}
@@ -7966,7 +7974,6 @@ export default function ArduinoSimulator() {
                         &lt;/ResizablePanelGroup&gt;
                       ) : showSerialMonitor ? (
                         &lt;div className="h-full flex flex-col"&gt;
-                          &lt;SerialMonitorDebugHeader simulationStatus={simulationStatus} /&gt;
                           &lt;div className="flex-1 min-h-0"&gt;
                             &lt;SerialMonitor
                               output={serialOutput}
@@ -8202,7 +8209,6 @@ export default function ArduinoSimulator() {
                   )}
                   {mobilePanel === "serial" &amp;&amp; (
                     &lt;div className="h-full w-full flex flex-col"&gt;
-                      &lt;SerialMonitorDebugHeader simulationStatus={simulationStatus} /&gt;
                       &lt;div className="flex-1 min-h-0"&gt;
                         &lt;SerialMonitor
                           output={serialOutput}
@@ -8254,7 +8260,7 @@ export default function ArduinoSimulator() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-11T22:03:31.732Z
+                at 2026-02-13T13:09:50.328Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
