@@ -104,6 +104,9 @@ export default function ArduinoSimulator() {
     showSerialPlotter,
     cycleSerialViewMode,
     clearSerialOutput,
+    // Baudrate rendering (Phase 3) - TODO Phase 4: Use renderedSerialText in UI
+    appendSerialOutput,
+    setBaudrate: setSerialBaudrate,
   } = useSerialIO();
   const [parserMessages, setParserMessages] = useState<ParserMessage[]>([]);
   const parserMessagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -782,6 +785,11 @@ export default function ArduinoSimulator() {
           // Limit serial output to prevent memory issues (drop oldest lines)
           const MAX_SERIAL_LINES = 5000;
           
+          // Phase 3: Feed baudrate renderer with raw text
+          // Include newline if isComplete is true (Serial.println)
+          const textForRenderer = isNewlineOnly ? "\n" : (isComplete && !isNewlineOnly ? text + "\n" : text);
+          appendSerialOutput(textForRenderer);
+          
           setSerialOutput((prev) => {
             const newLines = [...prev];
 
@@ -907,6 +915,7 @@ export default function ArduinoSimulator() {
           // Update baudrate from registry if provided
           if (typeof baudrate === "number" && baudrate > 0) {
             setBaudRate(baudrate);
+            setSerialBaudrate(baudrate); // Phase 3: Update renderer baudrate
           }
 
           // Update analogPinsUsed from registry - add pins that are used with analogRead/analogWrite
