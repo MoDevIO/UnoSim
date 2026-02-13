@@ -45,7 +45,7 @@ describe("SerialOutputBatcher - High-Frequency Output (Phase 7r1)", () => {
     batcher = new SerialOutputBatcher({
       baudrate: 115200,
       tickIntervalMs: 50,
-      onChunk: (data) => chunks.push(data),
+      onChunk: (data, firstLineIncomplete) => chunks.push(data),
     });
 
     batcher.start();
@@ -95,7 +95,7 @@ describe("SerialOutputBatcher - High-Frequency Output (Phase 7r1)", () => {
     batcher = new SerialOutputBatcher({
       baudrate: 115200,
       tickIntervalMs: 50,
-      onChunk: (data) => chunks.push(data),
+      onChunk: (data, firstLineIncomplete) => chunks.push(data),
     });
 
     batcher.start();
@@ -146,7 +146,7 @@ describe("SerialOutputBatcher - High-Frequency Output (Phase 7r1)", () => {
     batcher = new SerialOutputBatcher({
       baudrate: 115200,
       tickIntervalMs: 50,
-      onChunk: (data) => chunks.push(data),
+      onChunk: (data, firstLineIncomplete) => chunks.push(data),
     });
 
     batcher.start();
@@ -191,7 +191,7 @@ describe("SerialOutputBatcher - High-Frequency Output (Phase 7r1)", () => {
     batcher = new SerialOutputBatcher({
       baudrate: 115200,
       tickIntervalMs: 50,
-      onChunk: (data) => chunks.push(data),
+      onChunk: (data, firstLineIncomplete) => chunks.push(data),
     });
 
     batcher.start();

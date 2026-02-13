@@ -3,7 +3,7 @@
 
 import type { IOPinRecord } from "@shared/schema";
 import type { PinStateBatcher } from "./pin-state-batcher";
-import type { SerialOutputBatcher } from "./serial-output-batcher";
+import type { SerialOutputBatcher, SerialOutputTelemetry } from "./serial-output-batcher";
 import { Logger } from "@shared/logger";
 import { appendFileSync } from "fs";
 import { join } from "path";
@@ -204,9 +204,10 @@ export class RegistryManager {
     let serialIntendedBytesPerSecond = 0;
     let serialDroppedBytesPerSecond = 0;
     let serialBytesTotal = this.telemetry.serialOutputBytesTotal; // Fallback for no batcher
+    let batcherTelemetry: SerialOutputTelemetry | null = null;
 
     if (this.serialOutputBatcher) {
-      const batcherTelemetry = this.serialOutputBatcher.getTelemetryAndReset();
+      batcherTelemetry = this.serialOutputBatcher.getTelemetryAndReset();
       
       // Serial events = number of chunks sent (batch outputs)
       serialOutputPerSecond = timeElapsedSec > 0
@@ -255,7 +256,7 @@ export class RegistryManager {
 
     if (!this.destroyed) {
       this.logger.debug(
-        `Telemetry: intended: ${intendedPinChangesPerSecond} pin/s, actual: ${actualPinChangesPerSecond} pin/s (dropped: ${droppedPinChangesPerSecond}), ${batchesPerSecond} bat/s, ${avgStatesPerBatch} st/bat, ${serialOutputPerSecond} serial/s, SERIAL dropped: ${serialDroppedBytesPerSecond} B/s`,
+        `Telemetry: intended: ${intendedPinChangesPerSecond} pin/s, actual: ${actualPinChangesPerSecond} pin/s (dropped: ${droppedPinChangesPerSecond}), ${batchesPerSecond} bat/s, ${avgStatesPerBatch} st/bat, ${serialOutputPerSecond} serial/s, SERIAL: intended=${batcherTelemetry?.intended ?? 0} bytes, actual=${batcherTelemetry?.actual ?? 0} bytes, dropped=${batcherTelemetry?.dropped ?? 0} bytes (${serialDroppedBytesPerSecond} B/s)`,
       );
 
       if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
@@ -268,6 +269,9 @@ export class RegistryManager {
               outputPerSec: serialOutputPerSecond,
               bytesPerSec: serialBytesPerSecond,
               intendedPerSec: serialIntendedBytesPerSecond,
+              intendedBytes: batcherTelemetry?.intended ?? 0,
+              actualBytes: batcherTelemetry?.actual ?? 0,
+              droppedBytes: batcherTelemetry?.dropped ?? 0,
               droppedPerSec: serialDroppedBytesPerSecond,
               bytesTotal: serialBytesTotal,
             },

@@ -18,8 +18,8 @@ export interface SerialOutputBatcherConfig {
   baudrate: number;
   /** Tick interval in milliseconds (default: 50ms = 20 batches/sec) */
   tickIntervalMs?: number;
-  /** Callback invoked with each batch */
-  onChunk: (data: string) => void;
+  /** Callback invoked with each batch. firstLineIncomplete=true if this chunk starts with a truncated line (due to drops). */
+  onChunk: (data: string, firstLineIncomplete?: boolean) => void;
   /** Burst factor (default: 3 = 3× normal budget for short spikes) */
   burstFactor?: number;
 }
@@ -101,7 +101,7 @@ export class SerialOutputBatcher {
    */
   enqueue(data: string): void {
     this.pendingData += data;
-    this.intendedBytes += data.length;
+    // Note: intendedBytes is counted in tick() when data is actually processed (sent or dropped)
     this.totalBytes += data.length;
   }
   
@@ -214,36 +214,47 @@ export class SerialOutputBatcher {
     
     if (this.pendingData.length <= budget) {
       // All data fits in budget
-      this.config.onChunk(this.pendingData);
-      this.actualBytes += this.pendingData.length;
-      this.currentBudget -= this.pendingData.length;
+      const bytesToSend = this.pendingData.length;
+      this.config.onChunk(this.pendingData, false); // no truncation
+      this.actualBytes += bytesToSend;
+      this.intendedBytes += bytesToSend;  // Count intended bytes when actually sent
+      this.currentBudget -= bytesToSend;
       this.pendingData = "";
       this.chunks++;
     } else {
       // Data exceeds budget: drop oldest, keep newest (tail wins)
-      let dropped = this.pendingData.length - budget;
+      const totalInBuffer = this.pendingData.length;
+      let dropped = totalInBuffer - budget;
+      this.intendedBytes += totalInBuffer;  // Count all data that was "intended" (both dropped and sent)
       this.droppedBytes += dropped;
       
       // Extract the newest data (tail) - skip the oldest bytes
       let dataToSend = this.pendingData.slice(dropped);
       
-      // Try to cut at newline boundary to avoid partial lines
-      // Look for first newline in the data we're keeping
+      // Always cut at first newline boundary to avoid sending truncated line fragments.
+      // After dropping, the first part of dataToSend is likely a partial line (the tail
+      // of a line whose beginning was dropped). Skip to after the first \n if there is
+      // still content remaining — this ensures only complete lines are sent, preventing
+      // isComplete:true on truncated data. If the \n is the very last char, the entire
+      // buffer is one (truncated) line and skipping would discard everything, so keep it.
       const firstNewlineIndex = dataToSend.indexOf("\n");
-      if (firstNewlineIndex !== -1 && firstNewlineIndex < budget * 0.5) {
-        // Found a newline in the first half, skip to after it
+      if (firstNewlineIndex !== -1 && firstNewlineIndex < dataToSend.length - 1) {
         const skipped = firstNewlineIndex + 1;
         dataToSend = dataToSend.slice(skipped);
         dropped += skipped;
         this.droppedBytes += skipped;
       }
       
-      // Send data without drop indicator (drops are visible via telemetry)
-      this.config.onChunk(dataToSend);
-      this.actualBytes += dataToSend.length;
+      // Send surviving data (drops are visible via telemetry)
+      // Signal that first line is truncated if we dropped data and didn't skip to newline
+      const firstLineIncomplete = dropped > 0 && dataToSend.length > 0;
+      if (dataToSend.length > 0) {
+        this.config.onChunk(dataToSend, firstLineIncomplete);
+        this.actualBytes += dataToSend.length;
+        this.chunks++;
+      }
       this.currentBudget = Math.max(0, this.currentBudget - budget);
       this.pendingData = "";
-      this.chunks++;
     }
   }
 }
