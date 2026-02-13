@@ -10,12 +10,12 @@ import { SerialOutputBatcher } from "../../../server/services/serial-output-batc
 describe("SerialOutputBatcher", () => {
   let batcher: SerialOutputBatcher;
   let chunks: string[] = [];
-  let onChunk: (data: string) => void;
+  let onChunk: (data: string, firstLineIncomplete?: boolean) => void;
 
   beforeEach(() => {
     vi.useFakeTimers();
     chunks = [];
-    onChunk = (data: string) => chunks.push(data);
+    onChunk = (data: string, firstLineIncomplete?: boolean) => chunks.push(data);
   });
 
   afterEach(() => {
@@ -555,12 +555,13 @@ describe("SerialOutputBatcher", () => {
 
       vi.advanceTimersByTime(50);
 
-      // Budget=1, data=12 bytes. Tail-wins keeps last 1 byte ("\n"),
-      // then newline-adjustment skips past it → 12 dropped, 0 actual
+      // Budget=1, data=12 bytes. Tail-wins keeps last 1 byte ("\n").
+      // Newline is the last char so it's NOT skipped (no content after it).
+      // Result: 11 dropped, 1 actual (the trailing \n)
       const telemetry = batcher.getTelemetryAndReset();
       expect(telemetry.intended).toBe(12);
-      expect(telemetry.dropped).toBe(12); // All dropped after newline adjustment
-      expect(telemetry.actual).toBe(0);
+      expect(telemetry.dropped).toBe(11);
+      expect(telemetry.actual).toBe(1);
     });
 
     it("T21: Baud=1 first byte gets through (initial budget=1), then accumulates", () => {

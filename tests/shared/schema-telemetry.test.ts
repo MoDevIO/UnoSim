@@ -15,6 +15,8 @@ describe("wsMessageSchema sim_telemetry", () => {
         serialOutputPerSecond: 5,
         serialBytesPerSecond: 120,
         serialBytesTotal: 1200,
+        serialIntendedBytesPerSecond: 150,
+        serialDroppedBytesPerSecond: 30,
       },
     };
 
@@ -23,6 +25,8 @@ describe("wsMessageSchema sim_telemetry", () => {
     if (parsed.success) {
       expect(parsed.data.metrics).toHaveProperty("serialBytesPerSecond", 120);
       expect(parsed.data.metrics).toHaveProperty("serialBytesTotal", 1200);
+      expect(parsed.data.metrics).toHaveProperty("serialIntendedBytesPerSecond", 150);
+      expect(parsed.data.metrics).toHaveProperty("serialDroppedBytesPerSecond", 30);
     }
   });
 });

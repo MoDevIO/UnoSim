@@ -371,8 +371,11 @@ private:
         if (_baudrate > 0 && numChars > 0) {
             // Milliseconds total = (10 bits * numChars * 1000) / baudrate
             long totalMs = (10L * numChars * 1000L) / _baudrate;
-            // Cap at 10ms to prevent blocking at low baudrates (e.g., 300 baud would be 3.3s otherwise)
-            if (totalMs > 10L) totalMs = 10L;
+            // Cap at 2ms so the SerialOutputBatcher is the sole rate-limiter.
+            // For short messages at standard baudrates (e.g. println("Hello") at 9600),
+            // txDelay stays realistic (1.2ms uncapped). For large messages or low baudrates,
+            // the mock runs faster than real UART and the batcher drops excess data.
+            if (totalMs > 2L) totalMs = 2L;
             // Direct sleep (consistent with simplified delay() - no stdin polling during serial tx)
             std::this_thread::sleep_for(std::chrono::milliseconds(totalMs));
         }

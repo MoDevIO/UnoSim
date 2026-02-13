@@ -419,7 +419,7 @@ export class SandboxRunner {
     this.serialOutputBatcher = new SerialOutputBatcher({
       baudrate: this.baudrate,
       tickIntervalMs: 50, // 20 batches/sec (matching PinStateBatcher)
-      onChunk: (data: string) => {
+      onChunk: (data: string, firstLineIncomplete?: boolean) => {
         if (!this.outputCallback) return;
         // Split batched data by newlines to preserve Serial.print() vs println() semantics.
         // Data from Serial.println() contains trailing \n, Serial.print() does not.
@@ -432,8 +432,10 @@ export class SandboxRunner {
             // Trailing empty string from split("...\n") — already handled by previous part
             break;
           }
-          // Parts before the last had a \n after them → complete lines
-          const isComplete = !isLastPart;
+          // Parts before the last had a \n after them → complete lines.
+          // BUT: if firstLineIncomplete=true and this is the first part (i==0), 
+          // it's a truncated fragment from a drop, so mark as incomplete.
+          const isComplete = !isLastPart && !(i === 0 && firstLineIncomplete);
           this.outputCallback(parts[i], isComplete);
         }
       },

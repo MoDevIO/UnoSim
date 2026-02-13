@@ -72,14 +72,15 @@ stdout bleibt für mögliche zukünftige Features frei (z.B. direkter C++ `print
 ### 4.2 txDelay (Baudrate-Simulation im Mock)
 Nach jedem `flushLineBuffer()` wird `txDelay(numChars)` aufgerufen:
 - Formel: `totalMs = (10 bits × numChars × 1000) / baudrate`
-- **Capping:** `totalMs` ist auf max. **10ms** begrenzt, damit der Prozess bei niedrigen Baudraten nicht einfriert.
-- Bei 115200 Baud: < 1ms pro 100 Zeichen — vernachlässigbar.
-- Bei 9600 Baud: ~10ms (gekappt) — leichter Effekt.
+- **Capping:** `totalMs` ist auf max. **2ms** begrenzt, damit der SerialOutputBatcher der alleinige Rate-Limiter ist.
+- Bei 115200 Baud: < 1ms pro 100 Zeichen — vernachlässigbar, kein Cap.
+- Bei 9600 Baud: 2ms (gekappt ab ~23 Zeichen) — Batcher limitiert.
+- Kurze Nachrichten (z.B. `println("Hello")` bei 9600): txDelay = 1.25ms → realistisch, kein Cap.
 
 ## 5. Serial Output Batcher (Kern-Neuerung)
 
 ### 5.1 Problem
-Der C++ Mock erzeugt Daten viel schneller als ein realer Arduino. Der `txDelay()`-Cap von 10ms verhindert zwar Blockierung, lässt aber weit mehr Daten durch als die Baudrate erlaubt. Beispiel:
+Der C++ Mock erzeugt Daten viel schneller als ein realer Arduino. Der `txDelay()`-Cap von 2ms verhindert Blockierung bei niedrigen Baudraten, aber der Batcher ist der primäre Rate-Limiter. Beispiel:
 
 ```cpp
 void loop() {
@@ -138,7 +139,7 @@ interface SerialOutputBatcherConfig {
      - Verworfene Bytes zählen.
      - Buffer leeren.
 
-4. **Newline-Awareness:** Wenn möglich, wird auf der nächstliegenden Newline-Grenze geschnitten, damit keine halben Zeilen angezeigt werden.
+4. **Newline-Awareness:** Nach dem Droppen wird immer die erste (abgeschnittene) Zeile bis zum nächsten `\n` übersprungen, sofern danach noch Inhalt vorhanden ist. Damit werden keine halben/abgeschnittenen Zeilen an den Client gesendet.
 
 ### 5.4 Drop-Strategie: „Neueste Daten gewinnen"
 Anders als beim `PinStateBatcher` (last-value-wins per Key) wird hier eine andere Strategie verwendet:
@@ -436,7 +437,7 @@ Viele Sketche geben in `setup()` einmalig viel Text aus (Begrüßung, Konfigurat
 
 Die Tasks TASK-SERIAL-01 bis TASK-SERIAL-07 aus der vorherigen Version dieses Dokuments sind durch den oben beschriebenen Umsetzungsplan ersetzt:
 
-- **TASK-SERIAL-01** (Baudrate-Capping): ✅ Bereits implementiert (txDelay cap 10ms). Wird durch Batcher-Budget ergänzt.
+- **TASK-SERIAL-01** (Baudrate-Capping): ✅ Implementiert (txDelay cap 2ms). SerialOutputBatcher ist der primäre Rate-Limiter.
 - **TASK-SERIAL-02** (Debug-Header): → Phase 4 (§12)
 - **TASK-SERIAL-03** (Frontend-Baudrate-Simulation): → Ersetzt durch Server-seitigen Batcher. Kein Frontend-Timing nötig.
 - **TASK-SERIAL-04** (TS-Parser Basen): → Entfällt mit Entfernung des TS-Parsers (Phase 5).
@@ -692,16 +693,16 @@ Bei Baud=1: 0.005 bytes/tick → nach 200 Ticks (10s) akkumuliert 1.0 → 1 Byte
 
 **Warum einzelne `Serial.print("X")` Aufrufe keine Drops erzeugen:**
 
-Der C++ Mock's `txDelay()` berechnet `(10 × numChars × 1000) / baudrate`, gekappt auf max 10ms.
+Der C++ Mock's `txDelay()` berechnet `(10 × numChars × 1000) / baudrate`, gekappt auf max 2ms.
 
 | Muster | txDelay pro Aufruf | Gesamtrate | Budget (11520 B/s) | Drops? |
 |--------|-------------------|------------|---------------------|--------|
-| `Serial.println("X")` einzeln | 0.17ms | ~576 B/tick = exakt Budget | ~11520 B/s | ❌ |
-| 190× `Serial.print("X")` in Schleife | 0.017ms + ~50µs Overhead | ~8400 B/s | ~11520 B/s | ❌ |
-| `Serial.println(buf)` mit 200 Zeichen | 10ms (gekappt) | ~20100 B/s | ~11520 B/s | ✅ ~43% |
-| `Serial.println(buf)` mit 500 Zeichen | 10ms (gekappt) | ~50100 B/s | ~11520 B/s | ✅ ~77% |
+| `Serial.println("X")` einzeln | 0.17ms (kein Cap) | ~11520 B/s | ~11520 B/s | ❌ |
+| `Serial.println("Hello")` | 0.52ms (kein Cap) | ~11520 B/s | ~11520 B/s | ❌ |
+| `Serial.println(buf)` mit 200 Zeichen | 2ms (gekappt) | ~66000 B/s | ~11520 B/s | ✅ ~83% |
+| `Serial.println(buf)` mit 500 Zeichen | 2ms (gekappt) | ~166000 B/s | ~11520 B/s | ✅ ~92% |
 
-**Kerninsight:** Drops treten nur auf, wenn `txDelay` bei 10ms gekappt wird (Strings > ~115 Zeichen bei 115200 Baud). Für kürzere Strings bremst txDelay den Mock natürlich auf Baudrate.
+**Kerninsight:** Der `txDelay`-Cap bei 2ms stellt sicher, dass der SerialOutputBatcher der alleinige Rate-Limiter ist. Für kurze Strings (< ~23 Zeichen bei 115200) bleibt txDelay realistisch (kein Cap). Für längere Strings oder niedrige Baudraten greift der Cap und der Batcher droppt überschüssige Daten.
 
 ### F.4 Integration Flooding Tests (NEU)
 
@@ -709,9 +710,9 @@ Datei: `tests/integration/serial-flooding.test.ts`
 
 | Test-ID | Szenario | Ergebnis |
 |---------|----------|----------|
-| T-FLOOD-01 | 200-Zeichen-Strings, 2s | ~30-40% Drop-Rate |
+| T-FLOOD-01 | 200-Zeichen-Strings, 2s | ~80-85% Drop-Rate |
 | T-FLOOD-02 | Kurze Strings ("X\n"), 1s | 0 Drops |
-| T-FLOOD-03 | 500-Zeichen-Strings, 2s | ~68-71% Drop-Rate |
+| T-FLOOD-03 | 500-Zeichen-Strings, 2s | ~90-93% Drop-Rate |
 
 ### F.5 Extreme-Baudrate Unit Tests (NEU)
 

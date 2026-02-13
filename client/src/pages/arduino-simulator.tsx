@@ -29,7 +29,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CodeEditor } from "@/components/features/code-editor";
 import { SerialMonitor } from "@/components/features/serial-monitor";
-import { SerialMonitorDebugHeader } from "@/components/features/serial-monitor-debug-header";
 import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
@@ -284,12 +283,18 @@ export default function ArduinoSimulator() {
       if (isModifierPressed && !e.altKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
         
-        // Toggle debug mode using global store
+        // Toggle debug mode using global store and localStorage
         const currentValue = window.localStorage.getItem("unoDebugMode") === "1";
         const newValue = !currentValue;
         
         try {
+          // Update localStorage and global store
+          window.localStorage.setItem("unoDebugMode", newValue ? "1" : "0");
           setDebugMode(newValue);
+          
+          // Dispatch custom event so ArduinoBoard and other components update
+          const ev = new CustomEvent("debugModeChange", { detail: { value: newValue } });
+          document.dispatchEvent(ev);
           
           toast({
             title: newValue ? "Debug Mode Enabled" : "Debug Mode Disabled",
@@ -2409,7 +2414,6 @@ export default function ArduinoSimulator() {
                             id="serial-monitor-panel"
                           >
                             <div className="h-full flex flex-col">
-                              <SerialMonitorDebugHeader simulationStatus={simulationStatus} />
                               <div className="flex-1 min-h-0">
                                 <SerialMonitor
                                   output={serialOutput}
@@ -2445,7 +2449,6 @@ export default function ArduinoSimulator() {
                         </ResizablePanelGroup>
                       ) : showSerialMonitor ? (
                         <div className="h-full flex flex-col">
-                          <SerialMonitorDebugHeader simulationStatus={simulationStatus} />
                           <div className="flex-1 min-h-0">
                             <SerialMonitor
                               output={serialOutput}
@@ -2681,7 +2684,6 @@ export default function ArduinoSimulator() {
                   )}
                   {mobilePanel === "serial" && (
                     <div className="h-full w-full flex flex-col">
-                      <SerialMonitorDebugHeader simulationStatus={simulationStatus} />
                       <div className="flex-1 min-h-0">
                         <SerialMonitor
                           output={serialOutput}
