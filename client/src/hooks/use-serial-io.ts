@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { OutputLine } from "@shared/schema";
 import { SerialCharacterRenderer } from "@/utils/serial-character-renderer";
 
@@ -11,6 +11,17 @@ export function useSerialIO() {
   // Baudrate-simulated rendering
   const [renderedSerialText, setRenderedSerialText] = useState<string>("");
   const rendererRef = useRef<SerialCharacterRenderer | null>(null);
+
+  // Convert renderedSerialText to OutputLine[] format for SerialMonitor
+  const renderedSerialOutput = useMemo<OutputLine[]>(() => {
+    if (!renderedSerialText) return [];
+    
+    const lines = renderedSerialText.split('\n');
+    return lines.map((line, index) => ({
+      text: line,
+      complete: index < lines.length - 1, // All lines except last are complete
+    }));
+  }, [renderedSerialText]);
 
   // Initialize renderer once
   useEffect(() => {
@@ -59,7 +70,7 @@ export function useSerialIO() {
   }, []);
 
   return {
-    // Existing API (unchanged)
+    // Existing API (unchanged - for backward compatibility and Plotter)
     serialOutput,
     setSerialOutput,
     serialViewMode,
@@ -75,6 +86,7 @@ export function useSerialIO() {
     
     // New baudrate rendering API
     renderedSerialText,
+    renderedSerialOutput, // OutputLine[] format for SerialMonitor
     appendSerialOutput,
     setBaudrate,
     pauseRendering,

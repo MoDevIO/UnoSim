@@ -104,7 +104,8 @@ export default function ArduinoSimulator() {
     showSerialPlotter,
     cycleSerialViewMode,
     clearSerialOutput,
-    // Baudrate rendering (Phase 3) - TODO Phase 4: Use renderedSerialText in UI
+    // Baudrate rendering (Phase 3-4)
+    renderedSerialOutput, // Use this for SerialMonitor (baudrate-simulated)
     appendSerialOutput,
     setBaudrate: setSerialBaudrate,
   } = useSerialIO();
@@ -2425,7 +2426,7 @@ export default function ArduinoSimulator() {
                             <div className="h-full flex flex-col">
                               <div className="flex-1 min-h-0">
                                 <SerialMonitor
-                                  output={serialOutput}
+                                  output={renderedSerialOutput}
                                   isConnected={isConnected}
                                   isSimulationRunning={
                                     simulationStatus !== "stopped"
@@ -2460,7 +2461,7 @@ export default function ArduinoSimulator() {
                         <div className="h-full flex flex-col">
                           <div className="flex-1 min-h-0">
                             <SerialMonitor
-                              output={serialOutput}
+                              output={renderedSerialOutput}
                               isConnected={isConnected}
                               isSimulationRunning={simulationStatus !== "stopped"}
                               onSendMessage={handleSerialSend}
@@ -2695,7 +2696,7 @@ export default function ArduinoSimulator() {
                     <div className="h-full w-full flex flex-col">
                       <div className="flex-1 min-h-0">
                         <SerialMonitor
-                          output={serialOutput}
+                          output={renderedSerialOutput}
                           isConnected={isConnected}
                           isSimulationRunning={simulationStatus !== "stopped"}
                           onSendMessage={handleSerialSend}
