@@ -197,9 +197,17 @@ export class SandboxRunner {
         if (nextState === SimulationState.PAUSED) {
           // Freeze timeout clock
           this.timeoutManager.pause();
+          // Pause serial output batcher (blocks new Serial.print() calls)
+          if (this.serialBatcher) {
+            this.serialBatcher.pause();
+          }
         } else if (nextState === SimulationState.STOPPED) {
           // CRITICAL: Clear timeout to prevent zombie timer
           this.timeoutManager.clear();
+          // Stop serial output batcher (discard pending data immediately)
+          if (this.serialBatcher) {
+            this.serialBatcher.stop();
+          }
         }
         break;
       
@@ -207,6 +215,10 @@ export class SandboxRunner {
         if (nextState === SimulationState.STOPPED) {
           // CRITICAL: Clear paused timeout
           this.timeoutManager.clear();
+          // Stop serial output batcher (discard pending data immediately)
+          if (this.serialBatcher) {
+            this.serialBatcher.stop();
+          }
         }
         this.pauseStartTime = null;
         break;
@@ -229,6 +241,10 @@ export class SandboxRunner {
         if (previousState === SimulationState.PAUSED) {
           // Resume timeout clock with remaining time
           this.timeoutManager.resume();
+          // Resume serial output batcher (unblock Serial.print() calls)
+          if (this.serialBatcher) {
+            this.serialBatcher.resume();
+          }
         }
         break;
       

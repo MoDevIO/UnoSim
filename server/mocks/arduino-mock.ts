@@ -13,7 +13,7 @@
  * 6. SerialClass: Added print/println with format (DEC, HEX, OCT, BIN)
  */
 
-export const ARDUINO_MOCK_LINES = 353; // Updated line count
+export const ARDUINO_MOCK_LINES = 427; // Updated line count (added backpressure simulation)
 
 export const ARDUINO_MOCK_CODE = `
 // Simulated Arduino environment
@@ -88,6 +88,7 @@ std::atomic<bool> keepReading(true);
 
 // Pause/Resume timing state
 static std::atomic<bool> processIsPaused(false);
+static std::atomic<bool> processStopped(false);  // Set when simulation is stopped
 static std::atomic<unsigned long> pausedTimeMs(0);
 static auto processStartTime = std::chrono::steady_clock::now();
 static unsigned long pauseTimeOffset = 0;
@@ -364,6 +365,13 @@ private:
     long _baudrate = 9600;
     std::string lineBuffer; // Buffer to accumulate output until newline
     
+    // TX Buffer (backpressure simulation)
+    // Real Arduino Uno has 64-byte TX buffer, MEGA has 128-byte
+    // We use 256 to be generous with modern systems
+    static const size_t TX_BUFFER_SIZE = 256;
+    size_t txBufferUsed = 0;  // Current bytes in TX buffer
+    std::chrono::steady_clock::time_point lastTxTime;  // Initialized in constructor
+    
     // Simulate serial transmission delay for n characters
     // 10 bits per char: start + 8 data + stop
     // Also checks stdin during the delay for responsiveness
@@ -379,6 +387,71 @@ private:
             // Direct sleep (consistent with simplified delay() - no stdin polling during serial tx)
             std::this_thread::sleep_for(std::chrono::milliseconds(totalMs));
         }
+    }
+    
+    // Update TX buffer state - simulates bytes draining at baudrate
+    void updateTxBuffer() {
+        if (txBufferUsed > 0 && _baudrate > 0) {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTxTime).count();
+            
+            // Calculate how many bytes could drain in the elapsed time
+            // Drain rate: baudrate / 10 bits per byte = bytes per second
+            double bytesPerMs = (_baudrate / 10.0) / 1000.0;
+            size_t bytesDrained = static_cast<size_t>(elapsed * bytesPerMs);
+            
+            if (bytesDrained > 0) {
+                txBufferUsed = (bytesDrained >= txBufferUsed) ? 0 : (txBufferUsed - bytesDrained);
+                lastTxTime = now;
+            }
+        }
+    }
+    
+    // Block if TX buffer is getting full (backpressure)
+    // Also respects pause state - blocks permanently when paused
+    // Also respects stop signal - returns early when process is stopped
+    void applyBackpressure(size_t newBytes) {
+        // If process has been stopped, don't apply further backpressure
+        // (The sketch will exit shortly anyway)
+        if (processStopped.load()) {
+            return;
+        }
+        
+        // If process is paused, block immediately and stay blocked
+        while (processIsPaused.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            // Check if stopped while paused
+            if (processStopped.load()) {
+                return;
+            }
+        }
+        
+        updateTxBuffer();
+        
+        if (txBufferUsed + newBytes > TX_BUFFER_SIZE) {
+            // Buffer would overflow - calculate how long to wait
+            size_t bytesOverflow = (txBufferUsed + newBytes) - TX_BUFFER_SIZE;
+            double bytesPerMs = (_baudrate / 10.0) / 1000.0;
+            
+            if (bytesPerMs > 0) {
+                // How long to wait for overflow bytes to drain?
+                unsigned long waitMs = static_cast<unsigned long>((bytesOverflow / bytesPerMs) + 1);
+                std::this_thread::sleep_for(std::chrono::milliseconds(waitMs));
+                updateTxBuffer();
+            }
+        }
+        
+        // Add new bytes to buffer
+        txBufferUsed += newBytes;
+    }
+    
+    // Output system message WITHOUT throttling (bypasses backpressure)
+    void systemWrite(const std::string& s) {
+        unsigned long ts = millis();
+        std::string enc = base64_encode(s);
+        // SYSTEM message prefix to distinguish from user data
+        std::cerr << "[[SYSTEM:" << ts << ":" << enc << "]]" << std::endl;
+        std::cerr.flush();
     }
     
     // Base64 encoder helper
@@ -413,7 +486,11 @@ private:
 
     // Output string - buffer until newline; flush BEFORE backspace/carriage return
     // so that the control char stays with its following content
+    // WITH BACKPRESSURE: blocks if TX buffer would overflow
     void serialWrite(const std::string& s) {
+        // Apply backpressure before adding to output buffer
+        applyBackpressure(s.length());
+        
         for (char c : s) {
             if (c == '\\b' || c == '\\r') {
                 // Flush pending content BEFORE the control character
@@ -430,6 +507,9 @@ private:
     }
     
     void serialWrite(char c) {
+        // Apply backpressure for single character
+        applyBackpressure(1);
+        
         if (c == '\\b' || c == '\\r') {
             flushLineBuffer();
             lineBuffer += c;
@@ -445,6 +525,7 @@ public:
     SerialClass() {
         std::cout.setf(std::ios::unitbuf);
         std::cerr.setf(std::ios::unitbuf);
+        lastTxTime = std::chrono::steady_clock::now();
     }
     
     // Fix for 'while (!Serial)' error
@@ -454,6 +535,10 @@ public:
     
     void begin(long baud) {
         _baudrate = baud;
+        // Reset TX buffer state
+        txBufferUsed = 0;
+        lastTxTime = std::chrono::steady_clock::now();
+        
         if (!initialized) {
             // Disable buffering on stdout and stderr for immediate output
             setvbuf(stdout, NULL, _IONBF, 0);

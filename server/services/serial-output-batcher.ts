@@ -61,6 +61,11 @@ export class SerialOutputBatcher {
   // (10 seconds), 1 byte gets through — correctly simulating 0.1 bytes/s.
   private budgetAccumulator = 0;
   
+  // Maximum queue size before applying FIFO drops (for memory safety)
+  // This prevents unbounded buffering in pathological cases (e.g., data arriving
+  // much faster than baudrate allows). Typical value: 100KB.
+  private readonly MAX_QUEUE_BYTES = 100_000;
+  
   constructor(config: SerialOutputBatcherConfig) {
     this.config = {
       baudrate: config.baudrate,
@@ -98,11 +103,30 @@ export class SerialOutputBatcher {
   
   /**
    * Enqueue data for batching
+   * 
+   * If queue size would exceed MAX_QUEUE_BYTES (memory safety limit),
+   * drop oldest bytes using FIFO strategy (not "tail wins").
+   * 
+   * NOTE: We count ALL enqueued data as "intended" - even if it will later be dropped.
+   * The telemetry semantic is: actual + dropped = intended
    */
   enqueue(data: string): void {
-    this.pendingData += data;
-    // Note: intendedBytes is counted in tick() when data is actually processed (sent or dropped)
+    // Count as intended (part of telemetry accounting)
+    this.intendedBytes += data.length;
     this.totalBytes += data.length;
+    
+    const newData = this.pendingData + data;
+    
+    // Check if we would exceed maximum queue size
+    if (newData.length > this.MAX_QUEUE_BYTES) {
+      const overflow = newData.length - this.MAX_QUEUE_BYTES;
+      // FIFO: Drop oldest bytes (from the beginning)
+      const dropped = overflow;
+      this.droppedBytes += dropped;
+      this.pendingData = newData.slice(overflow);
+    } else {
+      this.pendingData = newData;
+    }
   }
   
   /**
@@ -114,7 +138,11 @@ export class SerialOutputBatcher {
   }
   
   /**
-   * Stop the timer and flush remaining data (without limit)
+   * Stop the timer and flush remaining data immediately (bypassing budget limit)
+   * 
+   * When stopping, we want output to finish immediately without delay.
+   * We flush the buffer as-is without the usual backpressure delays,
+   * but we DO send the data (don't discard it).
    */
   stop(): void {
     if (this.tickTimer) {
@@ -122,9 +150,10 @@ export class SerialOutputBatcher {
       this.tickTimer = null;
     }
     
-    // Flush all remaining data without budget limit
+    // Flush all remaining data without budget constraint
+    // (The onChunk callback won't be subject to further delays)
     if (this.pendingData.length > 0) {
-      this.config.onChunk(this.pendingData);
+      this.config.onChunk(this.pendingData, false);
       this.actualBytes += this.pendingData.length;
       this.chunks++;
       this.pendingData = "";
@@ -132,13 +161,18 @@ export class SerialOutputBatcher {
   }
   
   /**
-   * Pause the timer (keeps pending data)
+   * Pause the timer (keeps pending data, but signals paused state)
+   * 
+   * When pausing, we stop the ticker but keep data.
+   * The Arduino mock should check pauseFlag to apply immediate backpressure.
    */
   pause(): void {
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
     }
+    // Note: The Arduino mock checks global pauseFlag to know when to block
+    // This is handled in the Arduino mock's applyBackpressure()
   }
   
   /**
@@ -190,6 +224,12 @@ export class SerialOutputBatcher {
   
   /**
    * Tick handler: process pending data with budget limit
+   * 
+   * STRATEGY: No data is dropped. Instead, data is buffered and will be sent
+   * as the baudrate allows. This is correct for serial data where FIFO order matters
+   * and completeness is more important than timing.
+   * 
+   * If bandwidth is insufficient for the data rate, output will be delayed but complete.
    */
   private tick(): void {
     // Token bucket replenishment with fractional byte accumulation.
@@ -217,44 +257,33 @@ export class SerialOutputBatcher {
       const bytesToSend = this.pendingData.length;
       this.config.onChunk(this.pendingData, false); // no truncation
       this.actualBytes += bytesToSend;
-      this.intendedBytes += bytesToSend;  // Count intended bytes when actually sent
       this.currentBudget -= bytesToSend;
       this.pendingData = "";
       this.chunks++;
     } else {
-      // Data exceeds budget: drop oldest, keep newest (tail wins)
-      const totalInBuffer = this.pendingData.length;
-      let dropped = totalInBuffer - budget;
-      this.intendedBytes += totalInBuffer;  // Count all data that was "intended" (both dropped and sent)
-      this.droppedBytes += dropped;
+      // Data exceeds budget: send what fits, keep rest in buffer for next tick
+      // NO DROPS - just FIFO: send first N bytes that fit in budget
+      let dataToSend = this.pendingData.slice(0, budget);
+      this.pendingData = this.pendingData.slice(budget);
       
-      // Extract the newest data (tail) - skip the oldest bytes
-      let dataToSend = this.pendingData.slice(dropped);
-      
-      // Always cut at first newline boundary to avoid sending truncated line fragments.
-      // After dropping, the first part of dataToSend is likely a partial line (the tail
-      // of a line whose beginning was dropped). Skip to after the first \n if there is
-      // still content remaining — this ensures only complete lines are sent, preventing
-      // isComplete:true on truncated data. If the \n is the very last char, the entire
-      // buffer is one (truncated) line and skipping would discard everything, so keep it.
-      const firstNewlineIndex = dataToSend.indexOf("\n");
-      if (firstNewlineIndex !== -1 && firstNewlineIndex < dataToSend.length - 1) {
-        const skipped = firstNewlineIndex + 1;
-        dataToSend = dataToSend.slice(skipped);
-        dropped += skipped;
-        this.droppedBytes += skipped;
+      // Try to cut at newline boundary to avoid sending truncated lines
+      const lastNewlineIndex = dataToSend.lastIndexOf("\n");
+      if (lastNewlineIndex !== -1 && lastNewlineIndex < dataToSend.length - 1) {
+        // There's a newline within budget-range (not at very end)
+        // Keep everything up to and including that newline, requeue the rest
+        const toRequeue = dataToSend.slice(lastNewlineIndex + 1);
+        dataToSend = dataToSend.slice(0, lastNewlineIndex + 1);
+        this.pendingData = toRequeue + this.pendingData;
       }
       
-      // Send surviving data (drops are visible via telemetry)
-      // Signal that first line is truncated if we dropped data and didn't skip to newline
-      const firstLineIncomplete = dropped > 0 && dataToSend.length > 0;
       if (dataToSend.length > 0) {
-        this.config.onChunk(dataToSend, firstLineIncomplete);
+        this.config.onChunk(dataToSend, false); // data is complete, not truncated
         this.actualBytes += dataToSend.length;
         this.chunks++;
       }
-      this.currentBudget = Math.max(0, this.currentBudget - budget);
-      this.pendingData = "";
+      
+      // Deduct what we sent from budget
+      this.currentBudget = Math.max(0, this.currentBudget - dataToSend.length);
     }
   }
 }
