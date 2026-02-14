@@ -30,6 +30,7 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 - **Arduino Preview**: A preview of analog/digital inputs and outputs directly in the Arduino SVG
 - **Web-based**: No installation required, run entirely in the browser
 - **Modern UI**: Built with React and TailwindCSS for a responsive, professional interface
+- **I/O Registry**: You can see what Pins are used in your Program!
 
 ## Tech Stack
 
