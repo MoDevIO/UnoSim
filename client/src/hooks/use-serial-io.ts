@@ -69,6 +69,31 @@ export function useSerialIO() {
     rendererRef.current?.resume();
   }, []);
 
+  /**
+   * Stop rendering and clear the renderer queue.
+   * Used on STOP to prevent old data from leaking into the next simulation.
+   * Unlike pauseRendering(), this discards all pending characters.
+   */
+  const stopRendering = useCallback(() => {
+    rendererRef.current?.clear();
+  }, []);
+
+  /**
+   * Inject text directly into rendered output, bypassing the baudrate renderer.
+   * Used for system messages ("--- Simulation paused ---" etc.) that must
+   * appear instantly regardless of baudrate.
+   */
+  const appendRenderedText = useCallback((text: string) => {
+    setRenderedSerialText((prev) => {
+      // Ensure injected text starts on a new line if current output
+      // doesn't end with one (e.g., partial serial line was rendering)
+      if (prev.length > 0 && !prev.endsWith('\n')) {
+        return prev + '\n' + text;
+      }
+      return prev + text;
+    });
+  }, []);
+
   return {
     // Existing API (unchanged - for backward compatibility and Plotter)
     serialOutput,
@@ -91,6 +116,8 @@ export function useSerialIO() {
     setBaudrate,
     pauseRendering,
     resumeRendering,
+    stopRendering,
+    appendRenderedText,
   };
 }
 

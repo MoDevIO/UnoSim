@@ -135,18 +135,26 @@ export class ArduinoOutputParser {
       return { type: "ignored" };
     }
 
-    // Priority 6: Protocol fragments (from interrupted writes during SIGSTOP/SIGCONT)
-    // These occur when C++ is mid-write of a [[...]] message when SIGSTOP arrives.
+    // Priority 6: Protocol fragments (from interrupted writes during SIGSTOP/SIGCONT
+    // or from thread-interleaved stderr output before the cerrMutex fix).
+    // These occur when C++ is mid-write of a [[...]] message when SIGSTOP arrives,
+    // or when two threads wrote to stderr concurrently without proper locking.
     // After SIGCONT, the rest of the message (e.g., "]]") arrives as a separate chunk.
-    // Ignore: standalone "]]", lines starting with "[[" that don't match known patterns,
-    // or partial base64 data that looks like protocol message tails.
+    //
+    // Patterns to catch:
+    //   "]]"                           standalone closing brackets
+    //   "[["                           standalone opening brackets
+    //   "[[SERIAL_EVENT:" (no "]]")    partial protocol header
+    //   "4579:WzAw...Cg==]]"           tail of a split SERIAL_EVENT (timestamp:base64]])
+    //   "WzAwMDAwMl0g...Cg==]]"        base64 tail + closing brackets
     if (
       line === "]]" ||
       line === "[[" ||
-      /^\[\[.{0,20}$/.test(line) && !line.includes("]]") ||  // Partial [[... without closing
-      /^[A-Za-z0-9+/=]{1,50}\]\]$/.test(line)  // base64 tail + ]]
+      (/^\[\[.{0,50}$/.test(line) && !line.includes("]]")) ||  // Partial [[... without closing
+      /^[A-Za-z0-9+/=:]{1,}\]\]$/.test(line) ||                // timestamp:base64 tail + ]]
+      /^\d+:[A-Za-z0-9+/=]+/.test(line)                        // timestamp:base64 (no brackets)
     ) {
-      logger.debug(`Ignoring protocol fragment: ${line}`);
+      logger.debug(`Ignoring protocol fragment: ${line.substring(0, 80)}...`);
       return { type: "ignored" };
     }
 

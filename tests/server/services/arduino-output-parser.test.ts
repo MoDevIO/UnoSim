@@ -192,4 +192,49 @@ describe("ArduinoOutputParser", () => {
       }
     });
   });
+
+  describe("protocol fragment handling", () => {
+    it("should ignore standalone closing brackets ']]'", () => {
+      const result = parser.parseStderrLine("]]", processStartTime);
+      expect(result.type).toBe("ignored");
+    });
+
+    it("should ignore standalone opening brackets '[['", () => {
+      const result = parser.parseStderrLine("[[", processStartTime);
+      expect(result.type).toBe("ignored");
+    });
+
+    it("should ignore partial protocol header without closing", () => {
+      const result = parser.parseStderrLine("[[SERIAL_EVENT:", processStartTime);
+      expect(result.type).toBe("ignored");
+    });
+
+    it("should ignore short base64 tail with closing brackets", () => {
+      const result = parser.parseStderrLine("SGVsbG8=]]", processStartTime);
+      expect(result.type).toBe("ignored");
+    });
+
+    it("T-PF-01: should ignore long timestamp:base64 tail from split SERIAL_EVENT", () => {
+      // This is the exact pattern from the user's bug report:
+      // A SERIAL_EVENT was split by concurrent stderr writes, producing
+      // "4579:WzAwMDAwMl0gWFhY...Cg==]]" as a standalone line
+      const base64 = Buffer.from("[000002] " + "X".repeat(120) + "\\n").toString("base64");
+      const fragment = `4579:${base64}]]`;
+      const result = parser.parseStderrLine(fragment, processStartTime);
+      expect(result.type).toBe("ignored");
+    });
+
+    it("T-PF-02: should ignore timestamp:base64 without brackets", () => {
+      const base64 = Buffer.from("Hello World\\n").toString("base64");
+      const fragment = `1234:${base64}`;
+      const result = parser.parseStderrLine(fragment, processStartTime);
+      expect(result.type).toBe("ignored");
+    });
+
+    it("T-PF-03: should still treat genuine error text as text", () => {
+      const result = parser.parseStderrLine("Segmentation fault (core dumped)", processStartTime);
+      expect(result.type).toBe("text");
+      expect((result as any).line).toBe("Segmentation fault (core dumped)");
+    });
+  });
 });

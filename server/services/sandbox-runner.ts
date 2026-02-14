@@ -197,17 +197,9 @@ export class SandboxRunner {
         if (nextState === SimulationState.PAUSED) {
           // Freeze timeout clock
           this.timeoutManager.pause();
-          // Pause serial output batcher (blocks new Serial.print() calls)
-          if (this.serialBatcher) {
-            this.serialBatcher.pause();
-          }
         } else if (nextState === SimulationState.STOPPED) {
           // CRITICAL: Clear timeout to prevent zombie timer
           this.timeoutManager.clear();
-          // Stop serial output batcher (discard pending data immediately)
-          if (this.serialBatcher) {
-            this.serialBatcher.stop();
-          }
         }
         break;
       
@@ -215,10 +207,6 @@ export class SandboxRunner {
         if (nextState === SimulationState.STOPPED) {
           // CRITICAL: Clear paused timeout
           this.timeoutManager.clear();
-          // Stop serial output batcher (discard pending data immediately)
-          if (this.serialBatcher) {
-            this.serialBatcher.stop();
-          }
         }
         this.pauseStartTime = null;
         break;
@@ -241,10 +229,6 @@ export class SandboxRunner {
         if (previousState === SimulationState.PAUSED) {
           // Resume timeout clock with remaining time
           this.timeoutManager.resume();
-          // Resume serial output batcher (unblock Serial.print() calls)
-          if (this.serialBatcher) {
-            this.serialBatcher.resume();
-          }
         }
         break;
       
@@ -1238,9 +1222,6 @@ export class SandboxRunner {
   }
 
   setPinValue(pin: number, value: number) {
-    this.logger.info(`[SET_PIN] Called with pin=${pin}, value=${value}`);
-    this.logger.info(`[SET_PIN] State: isRunning=${this.isRunning}, isPaused=${this.isPaused}, process=${!!this.process}, stdin=${!!this.process?.stdin}, processKilled=${this.processKilled}`);
-    
     // Note: Use processKilled instead of process.killed since killed is true after any signal (including SIGSTOP/SIGCONT)
     if (
       (this.isRunning || this.isPaused) &&
@@ -1251,28 +1232,18 @@ export class SandboxRunner {
       const command = `[[SET_PIN:${pin}:${value}]]\n`;
       const stdin = this.process.stdin;
 
-      this.logger.info(`[SET_PIN] Writing command: ${command.trim()}`);
-      
-      // Write with callback to ensure it's flushed
       const success = stdin.write(command, "utf8", (err) => {
         if (err) {
-          this.logger.error(`[SET_PIN] Write callback error: ${err.message}`);
-        } else {
-          this.logger.info(`[SET_PIN] Write callback success`);
+          this.logger.error(`[SET_PIN] Write error: ${err.message}`);
         }
       });
 
-      // If write returned false, the buffer is full - drain it
       if (!success) {
         this.logger.warn(`[SET_PIN] stdin buffer full, waiting for drain`);
-        stdin.once("drain", () => {
-          this.logger.info(`[SET_PIN] stdin drained`);
-        });
+        stdin.once("drain", () => {});
       }
 
-      this.logger.info(
-        `[SET_PIN] pin=${pin} value=${value} writeOk=${success}`,
-      );
+      this.logger.debug(`[SET_PIN] pin=${pin} value=${value}`);
     } else {
       this.logger.warn(
         `[SET_PIN] Ignored - isRunning=${this.isRunning}, isPaused=${this.isPaused}, process=${!!this.process}, stdin=${!!this.process?.stdin}, killed=${this.process?.killed}`,

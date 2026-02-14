@@ -30,6 +30,7 @@ type UseCompilationParams = {
   activeTabId: string | null;
   code: string;
   setSerialOutput: SetState<any[]>;
+  clearSerialOutput: () => void;
   setParserMessages: SetState<ParserMessage[]>;
   setParserPanelDismissed: SetState<boolean>;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
@@ -55,6 +56,7 @@ export function useCompilation({
   activeTabId,
   code,
   setSerialOutput,
+  clearSerialOutput,
   setParserMessages,
   setParserPanelDismissed,
   resetPinUI,
@@ -86,8 +88,9 @@ export function useCompilation({
   const clearOutputs = useCallback(() => {
     setCliOutput("");
     setSerialOutput([]);
+    clearSerialOutput();  // Clear baudrate-rendered text + renderer queue
     setParserMessages([]);
-  }, [setCliOutput, setSerialOutput, setParserMessages]);
+  }, [setCliOutput, setSerialOutput, clearSerialOutput, setParserMessages]);
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: CompilePayload) => {

@@ -66,6 +66,9 @@ export class SerialOutputBatcher {
   // much faster than baudrate allows). Typical value: 100KB.
   private readonly MAX_QUEUE_BYTES = 100_000;
   
+  // Flag to prevent enqueue after destroy
+  private destroyed = false;
+  
   constructor(config: SerialOutputBatcherConfig) {
     this.config = {
       baudrate: config.baudrate,
@@ -111,6 +114,9 @@ export class SerialOutputBatcher {
    * The telemetry semantic is: actual + dropped = intended
    */
   enqueue(data: string): void {
+    // After destroy(), enqueue is a no-op
+    if (this.destroyed) return;
+    
     // Count as intended (part of telemetry accounting)
     this.intendedBytes += data.length;
     this.totalBytes += data.length;
@@ -138,11 +144,7 @@ export class SerialOutputBatcher {
   }
   
   /**
-   * Stop the timer and flush remaining data immediately (bypassing budget limit)
-   * 
-   * When stopping, we want output to finish immediately without delay.
-   * We flush the buffer as-is without the usual backpressure delays,
-   * but we DO send the data (don't discard it).
+   * Stop the timer and flush remaining data (without limit)
    */
   stop(): void {
     if (this.tickTimer) {
@@ -150,10 +152,9 @@ export class SerialOutputBatcher {
       this.tickTimer = null;
     }
     
-    // Flush all remaining data without budget constraint
-    // (The onChunk callback won't be subject to further delays)
+    // Flush all remaining data without budget limit
     if (this.pendingData.length > 0) {
-      this.config.onChunk(this.pendingData, false);
+      this.config.onChunk(this.pendingData);
       this.actualBytes += this.pendingData.length;
       this.chunks++;
       this.pendingData = "";
@@ -161,18 +162,13 @@ export class SerialOutputBatcher {
   }
   
   /**
-   * Pause the timer (keeps pending data, but signals paused state)
-   * 
-   * When pausing, we stop the ticker but keep data.
-   * The Arduino mock should check pauseFlag to apply immediate backpressure.
+   * Pause the timer (keeps pending data)
    */
   pause(): void {
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
     }
-    // Note: The Arduino mock checks global pauseFlag to know when to block
-    // This is handled in the Arduino mock's applyBackpressure()
   }
   
   /**
@@ -186,6 +182,7 @@ export class SerialOutputBatcher {
    * Destroy the batcher (stop timer, discard data, no callbacks)
    */
   destroy(): void {
+    this.destroyed = true;
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;

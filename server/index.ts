@@ -130,7 +130,7 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (reqPath.startsWith("/api")) {
+    if (reqPath.startsWith("/api") && reqPath !== "/api/health") {
       let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
