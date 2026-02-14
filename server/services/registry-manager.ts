@@ -145,7 +145,6 @@ export class RegistryManager {
    */
   pauseTelemetry(): void {
     this.stopTelemetry();
-    this.logger.debug("Telemetry heartbeat paused");
   }
 
   /**
@@ -157,7 +156,6 @@ export class RegistryManager {
       // Reset timestamp for fresh start after pause
       this.telemetry.lastReportTime = Date.now();
       this.startHeartbeat();
-      this.logger.debug("Telemetry heartbeat resumed");
     }
   }
   
@@ -295,7 +293,7 @@ export class RegistryManager {
    */
   startCollection(): void {
     if (this.destroyed) return;
-    this.logger.debug("Starting registry collection");
+    // Collection start (not logged individually — too noisy).
     
     // ROBUSTNESS: Flush current registry state before clearing
     // This ensures any pins added via updatePinMode before IO_REGISTRY_START marker are sent
@@ -324,7 +322,6 @@ export class RegistryManager {
     if (this.onTelemetryCallback && this.enableTelemetry) {
       this.stopTelemetry(); // Clear any previous heartbeat
       this.startHeartbeat();
-      this.logger.debug("Telemetry heartbeat restarted");
     }
   }
 
@@ -337,7 +334,7 @@ export class RegistryManager {
       this.logger.warn("Received pin record while not collecting - ignoring");
       return;
     }
-    this.logger.debug(`Adding pin to registry: ${pinRecord.pin}, usedAt operations: ${JSON.stringify(pinRecord.usedAt || [])}`);
+    // Individual pin additions are not logged (20 per start is too noisy).
     this.registry.push(pinRecord);
     this.isDirty = true;
     this.telemetry.incomingEvents++;
@@ -503,9 +500,7 @@ export class RegistryManager {
       this.waitTimer = null;
     }
 
-    if (!this.destroyed) {
-      this.logger.debug("Registry manager reset");
-    }
+    // Reset complete (not logged — happens on every stop/start cycle).
   }
 
   /**

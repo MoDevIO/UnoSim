@@ -40,6 +40,7 @@ const buildParams = () => {
     activeTabId: "tab-1",
     code: "",
     setSerialOutput: vi.fn(),
+    clearSerialOutput: vi.fn(),
     setParserMessages: vi.fn(),
     setParserPanelDismissed: vi.fn(),
     resetPinUI: vi.fn(),

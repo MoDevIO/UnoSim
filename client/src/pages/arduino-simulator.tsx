@@ -104,6 +104,14 @@ export default function ArduinoSimulator() {
     showSerialPlotter,
     cycleSerialViewMode,
     clearSerialOutput,
+    // Baudrate rendering (Phase 3-4)
+    renderedSerialOutput, // Use this for SerialMonitor (baudrate-simulated)
+    appendSerialOutput,
+    setBaudrate: setSerialBaudrate,
+    pauseRendering,
+    resumeRendering,
+    stopRendering,
+    appendRenderedText,
   } = useSerialIO();
   const [parserMessages, setParserMessages] = useState<ParserMessage[]>([]);
   const parserMessagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -375,6 +383,7 @@ export default function ArduinoSimulator() {
     activeTabId,
     code,
     setSerialOutput,
+    clearSerialOutput,
     setParserMessages,
     setParserPanelDismissed,
     resetPinUI,
@@ -782,6 +791,21 @@ export default function ArduinoSimulator() {
           // Limit serial output to prevent memory issues (drop oldest lines)
           const MAX_SERIAL_LINES = 5000;
           
+          // System messages (e.g. "--- Simulation paused ---") bypass the
+          // baudrate renderer entirely so they appear instantly.
+          // Note: text may have trailing \n from server, so trim before checking.
+          const textTrimmed = text.trimEnd();
+          const isSystemMessage = textTrimmed.startsWith("--- ") && textTrimmed.endsWith(" ---");
+          
+          if (isSystemMessage) {
+            // Inject directly into rendered output (appears instantly, no baudrate delay)
+            appendRenderedText(text);
+          } else {
+            // Normal serial data: feed through baudrate character renderer
+            const textForRenderer = isNewlineOnly ? "\n" : (isComplete && !isNewlineOnly ? text + "\n" : text);
+            appendSerialOutput(textForRenderer);
+          }
+          
           setSerialOutput((prev) => {
             const newLines = [...prev];
 
@@ -871,17 +895,23 @@ export default function ArduinoSimulator() {
           break;
         case "simulation_status":
           setSimulationStatus(message.status);
-          // Reset pin states and compilation status when simulation stops
+          // Control baudrate renderer based on simulation lifecycle
           if (message.status === "stopped") {
-            // Clear pending serial event queue
+            // STOP: Clear renderer queue so old chars don't leak into next run.
+            stopRendering();
             serialEventQueueRef.current = [];
-            // Clear pin states from previous simulation run
             setPinStates([]);
-            // Clear analog pins used from previous simulation
             setAnalogPinsUsed([]);
-            // Preserve detected pinMode declarations when simulation stops
             resetPinUI({ keepDetected: true });
             setCompilationStatus("ready");
+          } else if (message.status === "paused") {
+            // PAUSE: Freeze renderer, keep queue for RESUME.
+            pauseRendering();
+          } else if (message.status === "running") {
+            // START or RESUME: display clearing is handled by clearOutputs()
+            // which is called at the beginning of compile/start flows.
+            // Here we just (re)start the renderer.
+            resumeRendering();
           }
           break;
         case "pin_state": {
@@ -907,6 +937,7 @@ export default function ArduinoSimulator() {
           // Update baudrate from registry if provided
           if (typeof baudrate === "number" && baudrate > 0) {
             setBaudRate(baudrate);
+            setSerialBaudrate(baudrate); // Phase 3: Update renderer baudrate
           }
 
           // Update analogPinsUsed from registry - add pins that are used with analogRead/analogWrite
@@ -2416,7 +2447,7 @@ export default function ArduinoSimulator() {
                             <div className="h-full flex flex-col">
                               <div className="flex-1 min-h-0">
                                 <SerialMonitor
-                                  output={serialOutput}
+                                  output={renderedSerialOutput}
                                   isConnected={isConnected}
                                   isSimulationRunning={
                                     simulationStatus !== "stopped"
@@ -2451,7 +2482,7 @@ export default function ArduinoSimulator() {
                         <div className="h-full flex flex-col">
                           <div className="flex-1 min-h-0">
                             <SerialMonitor
-                              output={serialOutput}
+                              output={renderedSerialOutput}
                               isConnected={isConnected}
                               isSimulationRunning={simulationStatus !== "stopped"}
                               onSendMessage={handleSerialSend}
@@ -2686,7 +2717,7 @@ export default function ArduinoSimulator() {
                     <div className="h-full w-full flex flex-col">
                       <div className="flex-1 min-h-0">
                         <SerialMonitor
-                          output={serialOutput}
+                          output={renderedSerialOutput}
                           isConnected={isConnected}
                           isSimulationRunning={simulationStatus !== "stopped"}
                           onSendMessage={handleSerialSend}

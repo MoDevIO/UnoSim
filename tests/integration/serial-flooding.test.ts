@@ -128,12 +128,15 @@ void loop() {
     log(`[T-FLOOD-01] Total produced by C++: ~${totalProduced}`);
     log(`[T-FLOOD-01] Drop rate: ${(dropRate * 100).toFixed(1)}%`);
     
-    // With 200-char lines and txDelay capped at 10ms:
-    // - C++ produces ~100 lines/s × 201 bytes = ~20100 bytes/s
-    // - Budget allows ~11520 bytes/s
-    // - Expected drop rate: ~43%
-    // We expect at least SOME drops (threshold kept low for CI variance)
-    expect(totalMissing).toBeGreaterThan(3);
+    // NOTE: With FIFO buffering strategy (Phase 7r2+), we buffer instead of aggressively drop.
+    // At 115200 baud, 200-char lines don't cause drops - they get buffered for delivery.
+    // This is CORRECT per the new semantics: preserve low-baudrate data completeness.
+    // Expected: 0 drops (data is buffered, not dropped)
+    //
+    // The old "tail wins" strategy would have dropped ~43% here.
+    // The new "FIFO + memory safety" strategy only drops if MAX_QUEUE_BYTES (100KB) is exceeded.
+    // This specific test doesn't hit that limit, so we expect no drops.
+    expect(totalMissing).toBe(0);
 
     // And the output must contain the END marker
     expect(fullOutput).toContain('===END===');
@@ -260,8 +263,13 @@ void loop() {
     log(`[T-FLOOD-03] Drop rate: ${(dropRate * 100).toFixed(1)}%`);
     log(`[T-FLOOD-03] Total bytes: ${fullOutput.length}`);
 
-    // With 500-char lines, expect heavy drops (>50% of lines missing)
-    expect(totalMissing).toBeGreaterThan(totalProduced * 0.3);
+    // With backpressure simulation (Phase 7r2+), even 500-char lines don't cause drops
+    // Arduino's TX buffer blocks Serial.println(), slowing the entire loop()
+    // This prevents data loss even with "extreme" string sizes.
+    // 
+    // Old behavior (without backpressure): Would have 50%+ drops
+    // New behavior (with backpressure):    0 drops, Arduino just runs slower
+    expect(totalMissing).toBe(0);
     expect(fullOutput).toContain('===END===');
   }, 30000);
 });

@@ -523,10 +523,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 },
                 timeoutValue, // Custom timeout in seconds (0 = infinite)
                 (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => {
-                  const baudStr = baudrate !== undefined ? `baudrate=${baudrate}` : "baudrate=not-defined";
-                  logger.debug(
-                    `[io_registry callback] Received registry with ${registry.length} pins, ${baudStr}`,
-                  );
                   // Send I/O Registry to client
                   const message: any = {
                     type: "io_registry",
@@ -539,7 +535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                   sendMessageToClient(ws, message);
                   logger.info(
-                    `[io_registry] Sent io_registry to client: ${registry.length} pins${baudrate !== undefined ? `, baud=${baudrate}` : ""}`,
+                    `[io_registry] ${registry.length} pins${baudrate !== undefined ? `, baud=${baudrate}` : ""}`,
                   );
 
                   // Also save registry to sketch directory for debugging (marked as pending)
@@ -554,7 +550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         registryFile,
                         JSON.stringify(registry, null, 2),
                       );
-                      logger.debug(`I/O Registry saved to: ${registryFile}`);
+                      logger.debug(`Registry saved: ${path.basename(registryFile)}`);
 
                       // Store filename in runner for cleanup marking
                       if (clientState.runner)

@@ -13,7 +13,7 @@
  * 6. SerialClass: Added print/println with format (DEC, HEX, OCT, BIN)
  */
 
-export const ARDUINO_MOCK_LINES = 353; // Updated line count
+export const ARDUINO_MOCK_LINES = 427; // NOTE: approximate line count
 
 export const ARDUINO_MOCK_CODE = `
 // Simulated Arduino environment
@@ -85,6 +85,12 @@ typedef bool boolean;
 static std::mt19937 rng(std::time(nullptr));
 
 std::atomic<bool> keepReading(true);
+
+// Global mutex for all std::cerr writes.
+// The background serialInputReader thread and the main loop thread both write
+// protocol messages to stderr.  Chained << operations are NOT atomic, so without
+// this mutex the two threads can interleave output and corrupt protocol framing.
+static std::mutex cerrMutex;
 
 // Pause/Resume timing state
 static std::atomic<bool> processIsPaused(false);
@@ -198,6 +204,7 @@ void initIORegistry() {
 }
 
 void outputIORegistry() {
+    std::lock_guard<std::mutex> lock(cerrMutex);
     std::cerr << "[[IO_REGISTRY_START]]" << std::endl;
     std::cerr.flush();
     for (const auto& pair : ioRegistry) {
@@ -224,7 +231,8 @@ void pinMode(int pin, int mode) {
     if (pin >= 0 && pin < 20) {
         pinModes[pin] = mode;
         // Send pin state update via stderr (special protocol)
-        std::cerr << "[[PIN_MODE:" << pin << ":" << mode << "]]" << std::endl;
+        { std::lock_guard<std::mutex> lock(cerrMutex);
+          std::cerr << "[[PIN_MODE:" << pin << ":" << mode << "]]" << std::endl; }
         
         // Track in I/O Registry - add pinMode as an operation with mode info
         if (ioRegistry.find(pin) != ioRegistry.end()) {
@@ -261,8 +269,9 @@ void digitalWrite(int pin, int value) {
         pinValues[pin].store(value, std::memory_order_seq_cst);
         // Only send update if value actually changed (avoid stderr flooding)
         if (oldValue != value) {
-            std::cerr << "[[PIN_VALUE:" << pin << ":" << value << "]]" << std::endl;
-            std::cerr.flush(); // Force immediate flush for fast updates
+            { std::lock_guard<std::mutex> lock(cerrMutex);
+              std::cerr << "[[PIN_VALUE:" << pin << ":" << value << "]]" << std::endl;
+              std::cerr.flush(); }
         }
         trackIOOperation(pin, "digitalWrite");
     }
@@ -283,7 +292,8 @@ void analogWrite(int pin, int value) {
         pinValues[pin].store(value, std::memory_order_seq_cst);
         // Only send update if value actually changed
         if (oldValue != value) {
-            std::cerr << "[[PIN_PWM:" << pin << ":" << value << "]]" << std::endl;
+            { std::lock_guard<std::mutex> lock(cerrMutex);
+              std::cerr << "[[PIN_PWM:" << pin << ":" << value << "]]" << std::endl; }
         }
         trackIOOperation(pin, "analogWrite");
     }
@@ -364,6 +374,13 @@ private:
     long _baudrate = 9600;
     std::string lineBuffer; // Buffer to accumulate output until newline
     
+    // TX Buffer (backpressure simulation)
+    // Real Arduino Uno has 64-byte TX buffer, MEGA has 128-byte
+    // We use 256 to be generous with modern systems
+    static const size_t TX_BUFFER_SIZE = 256;
+    size_t txBufferUsed = 0;  // Current bytes in TX buffer
+    std::chrono::steady_clock::time_point lastTxTime;  // Initialized in constructor
+    
     // Simulate serial transmission delay for n characters
     // 10 bits per char: start + 8 data + stop
     // Also checks stdin during the delay for responsiveness
@@ -379,6 +396,45 @@ private:
             // Direct sleep (consistent with simplified delay() - no stdin polling during serial tx)
             std::this_thread::sleep_for(std::chrono::milliseconds(totalMs));
         }
+    }
+    
+    // Update TX buffer state - simulates bytes draining at baudrate
+    void updateTxBuffer() {
+        if (txBufferUsed > 0 && _baudrate > 0) {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTxTime).count();
+            
+            // Calculate how many bytes could drain in the elapsed time
+            // Drain rate: baudrate / 10 bits per byte = bytes per second
+            double bytesPerMs = (_baudrate / 10.0) / 1000.0;
+            size_t bytesDrained = static_cast<size_t>(elapsed * bytesPerMs);
+            
+            if (bytesDrained > 0) {
+                txBufferUsed = (bytesDrained >= txBufferUsed) ? 0 : (txBufferUsed - bytesDrained);
+                lastTxTime = now;
+            }
+        }
+    }
+    
+    // Block if TX buffer is getting full (backpressure)
+    void applyBackpressure(size_t newBytes) {
+        updateTxBuffer();
+        
+        if (txBufferUsed + newBytes > TX_BUFFER_SIZE) {
+            // Buffer would overflow - calculate how long to wait
+            size_t bytesOverflow = (txBufferUsed + newBytes) - TX_BUFFER_SIZE;
+            double bytesPerMs = (_baudrate / 10.0) / 1000.0;
+            
+            if (bytesPerMs > 0) {
+                // How long to wait for overflow bytes to drain?
+                unsigned long waitMs = static_cast<unsigned long>((bytesOverflow / bytesPerMs) + 1);
+                std::this_thread::sleep_for(std::chrono::milliseconds(waitMs));
+                updateTxBuffer();
+            }
+        }
+        
+        // Add new bytes to buffer
+        txBufferUsed += newBytes;
     }
     
     // Base64 encoder helper
@@ -404,8 +460,9 @@ private:
         if (lineBuffer.empty()) return;
         unsigned long ts = millis();
         std::string enc = base64_encode(lineBuffer);
-        std::cerr << "[[SERIAL_EVENT:" << ts << ":" << enc << "]]" << std::endl;
-        std::cerr.flush(); // Force immediate output to Node.js
+        { std::lock_guard<std::mutex> lock(cerrMutex);
+          std::cerr << "[[SERIAL_EVENT:" << ts << ":" << enc << "]]" << std::endl;
+          std::cerr.flush(); }
         // Simulate transmit time for the whole buffer
         txDelay(lineBuffer.length());
         lineBuffer.clear();
@@ -413,7 +470,11 @@ private:
 
     // Output string - buffer until newline; flush BEFORE backspace/carriage return
     // so that the control char stays with its following content
+    // WITH BACKPRESSURE: blocks if TX buffer would overflow
     void serialWrite(const std::string& s) {
+        // Apply backpressure before adding to output buffer
+        applyBackpressure(s.length());
+        
         for (char c : s) {
             if (c == '\\b' || c == '\\r') {
                 // Flush pending content BEFORE the control character
@@ -430,6 +491,9 @@ private:
     }
     
     void serialWrite(char c) {
+        // Apply backpressure for single character
+        applyBackpressure(1);
+        
         if (c == '\\b' || c == '\\r') {
             flushLineBuffer();
             lineBuffer += c;
@@ -445,6 +509,7 @@ public:
     SerialClass() {
         std::cout.setf(std::ios::unitbuf);
         std::cerr.setf(std::ios::unitbuf);
+        lastTxTime = std::chrono::steady_clock::now();
     }
     
     // Fix for 'while (!Serial)' error
@@ -454,6 +519,10 @@ public:
     
     void begin(long baud) {
         _baudrate = baud;
+        // Reset TX buffer state
+        txBufferUsed = 0;
+        lastTxTime = std::chrono::steady_clock::now();
+        
         if (!initialized) {
             // Disable buffering on stdout and stderr for immediate output
             setvbuf(stdout, NULL, _IONBF, 0);
@@ -781,7 +850,8 @@ void setExternalPinValue(int pin, int value) {
     if (pin >= 0 && pin < 20) {
         pinValues[pin].store(value, std::memory_order_seq_cst);
         // Send pin state update so UI reflects the change
-        std::cerr << "[[PIN_VALUE:" << pin << ":" << value << "]]" << std::endl;
+        { std::lock_guard<std::mutex> lock(cerrMutex);
+          std::cerr << "[[PIN_VALUE:" << pin << ":" << value << "]]" << std::endl; }
     }
 }
 
@@ -790,14 +860,16 @@ void handlePauseTimeCommand() {
     processIsPaused.store(true);
     unsigned long currentMs = millis();  // Get current time before freezing
     pausedTimeMs.store(currentMs);
-    std::cerr << "[[TIME_FROZEN:" << currentMs << "]]" << std::endl;
+    { std::lock_guard<std::mutex> lock(cerrMutex);
+      std::cerr << "[[TIME_FROZEN:" << currentMs << "]]" << std::endl; }
 }
 
 void handleResumeTimeCommand(unsigned long pauseDurationMs) {
     processIsPaused.store(false);
     // Adjust offset to account for the pause duration that elapsed in real time
     pauseTimeOffset += pauseDurationMs;
-    std::cerr << "[[TIME_RESUMED:" << pauseTimeOffset << "]]" << std::endl;
+    { std::lock_guard<std::mutex> lock(cerrMutex);
+      std::cerr << "[[TIME_RESUMED:" << pauseTimeOffset << "]]" << std::endl; }
 }
 
 // Non-blocking check for stdin pin commands - called from delay() and txDelay()
