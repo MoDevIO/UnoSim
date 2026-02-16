@@ -105,6 +105,21 @@ html, body {
   --color-led-green: #00ff00;
   --color-led-yellow: #ffff00;
   --color-surface-muted: #eeeeee;
+
+  /* Preset palette tokens (used by SettingsDialog) */
+  --color-brand-variant-1: #0b5f73;
+  --color-brand-variant-2: #0a98a8;
+  --color-brand-blue: #2b6fb3;
+  --color-brand-teal: #1f7a8c;
+  --color-green-dark: #245c3d;
+  --color-success-variant: #1f9d55;
+  --color-danger-soft: #ff6b6b;
+  --color-accent-orange-soft: #ff9f1c;
+  --color-accent-yellow-soft: #ffd166;
+  --color-accent-amber: #fb923c;
+  --color-purple-1: #8338ec;
+  --color-purple-2: #7c3aed;
+  --color-surface-dark: #2a2a2a;
 }
 
 .dark {

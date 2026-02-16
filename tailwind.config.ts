@@ -87,6 +87,21 @@ export default {
         },
 
         "status-success-dark": "var(--color-status-success-dark)",
+
+        /* Preset palette tokens (available as Tailwind colors) */
+        "brand-variant-1": "var(--color-brand-variant-1)",
+        "brand-variant-2": "var(--color-brand-variant-2)",
+        "brand-blue": "var(--color-brand-blue)",
+        "brand-teal": "var(--color-brand-teal)",
+        "green-dark": "var(--color-green-dark)",
+        "success-variant": "var(--color-success-variant)",
+        "danger-soft": "var(--color-danger-soft)",
+        "accent-orange-soft": "var(--color-accent-orange-soft)",
+        "accent-yellow-soft": "var(--color-accent-yellow-soft)",
+        "accent-amber": "var(--color-accent-amber)",
+        "purple-1": "var(--color-purple-1)",
+        "purple-2": "var(--color-purple-2)",
+        "surface-dark": "var(--color-surface-dark)",
         sidebar: {
           DEFAULT: "var(--sidebar)",
           foreground: "var(--sidebar-foreground)",
