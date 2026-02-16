@@ -3,26 +3,28 @@ import fs from "fs";
 import path from "path";
 
 const BASELINE_NAME = "baseline-simulator.png";
-const BASELINE_PATH = path.join(__dirname, BASELINE_NAME);
+// Use repository-relative path instead of __dirname (not available in ESM test runtime)
+const BASELINE_PATH = path.join(process.cwd(), "e2e", BASELINE_NAME);
 
 test.describe("Visual baseline — Simulator UI", () => {
-  test("create baseline (use UPDATE_BASELINE=1 to write file)", async ({ page, monacoEditor, startSimulation }, testInfo) => {
+  test("create baseline (use UPDATE_BASELINE=1 to write file)", async ({ page, monacoEditor, stopSimulation }, testInfo) => {
     // Only create/update baseline when explicitly requested.
     test.skip(process.env.UPDATE_BASELINE !== "1", "set UPDATE_BASELINE=1 to (re)create baseline");
 
-    await page.goto("/");
+    // Prevent accidental auto-start: prefer query param if supported, then ensure Idle
+    await page.goto("/?noautostart=1");
 
     // Wait for Monaco editor to be ready
     await monacoEditor.waitForReady();
 
-    // Start simulation so Arduino board renders
-    await startSimulation();
+    // Ensure app is in Idle state (stop if it auto-started)
+    await stopSimulation();
 
     // Wait for a stable board UI indicator (Show I/O values button)
     const showBtn = page.getByRole("button", { name: /show i\/o values/i });
     await expect(showBtn).toBeVisible({ timeout: 15000 });
 
-    // Optionally reveal I/O overlay so board details are visible in baseline
+    // Reveal I/O overlay so board details are visible in baseline (Idle state)
     await showBtn.click();
     await page.waitForTimeout(500);
 
@@ -37,15 +39,17 @@ test.describe("Visual baseline — Simulator UI", () => {
     testInfo.attach("baseline", { body: shot, contentType: "image/png" });
   });
 
-  test("compare current UI to baseline (visual regression)", async ({ page, monacoEditor, startSimulation }) => {
+  test("compare current UI to baseline (visual regression)", async ({ page, monacoEditor, stopSimulation }) => {
     // Skip if baseline is not present — create it first with UPDATE_BASELINE=1
     test.skip(!fs.existsSync(BASELINE_PATH), "baseline missing - run with UPDATE_BASELINE=1 to create it");
 
-    await page.goto("/");
+    // Load page with a query param to discourage autostart and then ensure Idle
+    await page.goto("/?noautostart=1");
 
-    // Wait for Monaco editor and board
+    // Wait for Monaco editor and ensure Idle state
     await monacoEditor.waitForReady();
-    await startSimulation();
+    await stopSimulation();
+
     const showBtn = page.getByRole("button", { name: /show i\/o values/i });
     await expect(showBtn).toBeVisible({ timeout: 15000 });
 
