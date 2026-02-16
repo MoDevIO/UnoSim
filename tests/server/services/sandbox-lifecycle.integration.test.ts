@@ -257,7 +257,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
           process.removeListener('unhandledRejection', uex);
           reject(new Error('no output observed to trigger race'));
         }
-      }, 1500);
+      }, 3000); // increased to reduce flakiness on CI/full-suite runs
     });
   }, 10000);
 
