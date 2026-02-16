@@ -85,6 +85,13 @@ html, body {
   --color-status-warning: #f97316; /* warning / amber */
   --color-accent-cyan: #06b6d4; /* chart / accent */
   --color-accent-blue: #3b82f6; /* chart / accent */
+
+  /* Additional tokens used by the Arduino board SVG */
+  --color-black: #000000;
+  --color-white: #ffffff;
+  --color-led-green: #00ff00;
+  --color-led-yellow: #ffff00;
+  --color-surface-muted: #eeeeee;
 }
 
 .dark {
