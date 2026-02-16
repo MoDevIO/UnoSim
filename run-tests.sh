@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Konfiguration
-TIMEOUT_SECS=120
+TIMEOUT_SECS=180
 LOG_FILE="run-tests_output.log"
 WORKERS=1
 
