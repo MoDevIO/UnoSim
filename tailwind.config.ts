@@ -53,6 +53,19 @@ export default {
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
+
+        /* Semantic design tokens (mapped to CSS variables) */
+        "brand-primary": "var(--color-brand-primary)",
+        "ui-background": "var(--color-ui-background)",
+        "ui-foreground": "var(--color-ui-foreground)",
+        "ui-panel": "var(--color-ui-panel)",
+        "ui-border": "var(--color-ui-border)",
+        "status-success": "var(--color-status-success)",
+        "status-error": "var(--color-status-error)",
+        "status-warning": "var(--color-status-warning)",
+        "accent-cyan": "var(--color-accent-cyan)",
+        "accent-blue": "var(--color-accent-blue)",
+
         chart: {
           "1": "var(--chart-1)",
           "2": "var(--chart-2)",
