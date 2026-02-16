@@ -38,6 +38,7 @@ import { PinMonitor } from "@/components/features/pin-monitor";
 import { AppHeader } from "@/components/features/app-header";
 import { SimCockpit } from "@/components/features/sim-cockpit";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { useCompilation } from "@/hooks/use-compilation";
 import { useSimulationControls } from "@/hooks/use-simulation-controls";
 import { usePinState } from "@/hooks/use-pin-state";
@@ -50,8 +51,7 @@ import { useSketchTabs } from "@/hooks/use-sketch-tabs";
 import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
-import { telemetryStore, useTelemetryStore } from "@/hooks/use-telemetry-store";
-import { buildGccCompilationErrorState } from "@/lib/compilation-error-state";
+import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -323,8 +323,6 @@ export default function ArduinoSimulator() {
   const {
     isConnected,
     lastMessage,
-    messageQueue,
-    consumeMessages,
     sendMessage: sendMessageRaw,
   } = useWebSocket();
   // Mark some hook values as intentionally read to avoid TS unused-local errors
@@ -741,348 +739,38 @@ export default function ArduinoSimulator() {
     }
   };
 
-  // Handle WebSocket messages - process ALL messages in the queue
-  useEffect(() => {
-    if (messageQueue.length === 0) return;
-
-    // Log all messages to debug console BEFORE consuming them
-    messageQueue.forEach((msg) => {
-      addDebugMessage(
-        "server",
-        msg.type || "unknown",
-        JSON.stringify(msg, null, 2),
-        "websocket",
-      );
-    });
-
-    // Consume all messages from the queue
-    const messages = consumeMessages();
-
-    for (const message of messages) {
-      switch (message.type) {
-        case "sim_telemetry": {
-          if (simulationStatus === "running") {
-            telemetryStore.pushTelemetry(message.metrics);
-          }
-          break;
-        }
-        case "serial_output": {
-          // NEW: Handle isComplete flag for Serial.print() vs Serial.println()
-          let text = (message.data ?? "").toString();
-          const isComplete = message.isComplete ?? true; // Default to true for backwards compatibility
-
-          // Filter out debug/pause-resume internal messages (but NOT user-facing errors like rate limit)
-          if (
-            text.includes("[[TIME_RESUMED:") ||
-            text.includes("[[TIME_FROZEN:")
-          ) {
-            break; // Skip these internal debug messages
-          }
-
-          // Trigger RX LED blink when client receives data
-          setRxActivity((prev) => prev + 1);
-
-          // Remove trailing newlines from text (they are represented by isComplete flag)
-          const isNewlineOnly = text === "\n" || text === "\r\n";
-          if (isNewlineOnly) {
-            text = ""; // Don't add the newline character to the text
-          }
-
-          // Limit serial output to prevent memory issues (drop oldest lines)
-          const MAX_SERIAL_LINES = 5000;
-          
-          // System messages (e.g. "--- Simulation paused ---") bypass the
-          // baudrate renderer entirely so they appear instantly.
-          // Note: text may have trailing \n from server, so trim before checking.
-          const textTrimmed = text.trimEnd();
-          const isSystemMessage = textTrimmed.startsWith("--- ") && textTrimmed.endsWith(" ---");
-          
-          if (isSystemMessage) {
-            // Inject directly into rendered output (appears instantly, no baudrate delay)
-            appendRenderedText(text);
-          } else {
-            // Normal serial data: feed through baudrate character renderer
-            const textForRenderer = isNewlineOnly ? "\n" : (isComplete && !isNewlineOnly ? text + "\n" : text);
-            appendSerialOutput(textForRenderer);
-          }
-          
-          setSerialOutput((prev) => {
-            const newLines = [...prev];
-
-            if (isComplete) {
-              // Check if last line is incomplete - if so, complete it
-              if (
-                newLines.length > 0 &&
-                !newLines[newLines.length - 1].complete
-              ) {
-                // Complete the existing incomplete line (add text only if non-empty)
-                newLines[newLines.length - 1] = {
-                  text: newLines[newLines.length - 1].text + text,
-                  complete: true,
-                };
-              } else {
-                // Complete line without pending incomplete - add as new line only if text is non-empty
-                if (text.length > 0) {
-                  newLines.push({ text, complete: true });
-                }
-              }
-            } else {
-              // Incomplete line (from Serial.print) - append to last line or create new
-              if (
-                newLines.length === 0 ||
-                newLines[newLines.length - 1].complete
-              ) {
-                // Last line is complete or no lines exist - start new incomplete line
-                newLines.push({ text, complete: false });
-              } else {
-                // Last line is incomplete - append to it WITHOUT changing complete status
-                newLines[newLines.length - 1] = {
-                  text: newLines[newLines.length - 1].text + text,
-                  complete: false, // Keep it incomplete
-                };
-              }
-            }
-
-            // Trim to MAX_SERIAL_LINES to prevent memory exhaustion
-            if (newLines.length > MAX_SERIAL_LINES) {
-              return newLines.slice(newLines.length - MAX_SERIAL_LINES);
-            }
-            
-            return newLines;
-          });
-          break;
-        }
-        case "compilation_status":
-          if (message.arduinoCliStatus !== undefined) {
-            setArduinoCliStatus(message.arduinoCliStatus);
-          }
-          if (message.gccStatus !== undefined) {
-            setGccStatus(message.gccStatus);
-            // Reset GCC status to idle after a short delay (like CLI)
-            if (
-              message.gccStatus === "success" ||
-              message.gccStatus === "error"
-            ) {
-              setTimeout(() => {
-                setGccStatus("idle");
-              }, 2000);
-            }
-          }
-          if (message.message) {
-            setCliOutput(message.message);
-          }
-          break;
-        case "compilation_error":
-          // For GCC errors: REPLACE previous output, do not append
-          // Arduino-CLI reported success, but GCC failed
-          logger.info(
-            `[WS] GCC Compilation Error detected: ${JSON.stringify(message.data)}`,
-          );
-          const gccErrorState = buildGccCompilationErrorState(message.data);
-          setCliOutput(gccErrorState.cliOutput);
-          setHasCompilationErrors(gccErrorState.hasCompilationErrors);
-          setLastCompilationResult(gccErrorState.lastCompilationResult);
-          setShowCompilationOutput(gccErrorState.showCompilationOutput);
-          setParserPanelDismissed(gccErrorState.parserPanelDismissed);
-          setActiveOutputTab(gccErrorState.activeOutputTab);
-          setGccStatus("error");
-          setCompilationStatus("error");
-          setSimulationStatus("stopped");
-          // Reset GCC status to idle after a short delay
-          setTimeout(() => {
-            setGccStatus("idle");
-          }, 2000);
-          break;
-        case "simulation_status":
-          setSimulationStatus(message.status);
-          // Control baudrate renderer based on simulation lifecycle
-          if (message.status === "stopped") {
-            // STOP: Clear renderer queue so old chars don't leak into next run.
-            stopRendering();
-            serialEventQueueRef.current = [];
-            setPinStates([]);
-            setAnalogPinsUsed([]);
-            resetPinUI({ keepDetected: true });
-            setCompilationStatus("ready");
-          } else if (message.status === "paused") {
-            // PAUSE: Freeze renderer, keep queue for RESUME.
-            pauseRendering();
-          } else if (message.status === "running") {
-            // START or RESUME: display clearing is handled by clearOutputs()
-            // which is called at the beginning of compile/start flows.
-            // Here we just (re)start the renderer.
-            resumeRendering();
-          }
-          break;
-        case "pin_state": {
-          // Update pin state for Arduino board visualization
-          const { pin, stateType, value } = message;
-          enqueuePinEvent(pin, stateType, value);
-          break;
-        }
-        case "pin_state_batch": {
-          // Handle batched pin state updates
-          const { states } = message as { states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }> };
-          for (const { pin, stateType, value } of states) {
-            enqueuePinEvent(pin, stateType, value);
-          }
-          break;
-        }
-        case "io_registry": {
-          // Update I/O Registry from runtime execution
-          const { registry, baudrate } = message as any;
-          console.log("[arduino-simulator] Received io_registry message with", registry?.length, "pins");
-          setIoRegistry(registry);
-          
-          // Update baudrate from registry if provided
-          if (typeof baudrate === "number" && baudrate > 0) {
-            setBaudRate(baudrate);
-            setSerialBaudrate(baudrate); // Phase 3: Update renderer baudrate
-          }
-
-          // Update analogPinsUsed from registry - add pins that are used with analogRead/analogWrite
-          const analogPinsFromRegistry = new Set<number>();
-          for (const record of registry) {
-            const usedOps = record.usedAt || [];
-            const hasAnalogOp = usedOps.some(
-              (u: { line: number; operation: string }) =>
-                u.operation === "analogRead" ||
-                u.operation === "analogWrite" ||
-                u.operation.startsWith("analogWrite:")
-            );
-            if (hasAnalogOp) {
-              const pinNum = pinToNumber(record.pin);
-              console.log(`[arduino-simulator] Pin ${record.pin} has analog operation, pinNum=${pinNum}, usedOps=`, usedOps);
-              if (pinNum !== null && pinNum >= 14 && pinNum <= 19) {
-                analogPinsFromRegistry.add(pinNum);
-              }
-            }
-          }
-
-          // Merge or replace analog pins based on simulation state
-          if (simulationStatus === "running") {
-            // During simulation: merge server pins with client-detected pins
-            setAnalogPinsUsed(prev => {
-              const merged = new Set([...prev, ...Array.from(analogPinsFromRegistry)]);
-              const arr = Array.from(merged).sort((a, b) => a - b);
-              console.log(`[arduino-simulator] Merging analog pins (simulation running) - client:`, prev, `server:`, Array.from(analogPinsFromRegistry), `merged:`, arr);
-              return arr;
-            });
-          } else if (analogPinsFromRegistry.size > 0) {
-            // Not running but registry has analog pins: update (for initial compile detection)
-            const arr = Array.from(analogPinsFromRegistry).sort((a, b) => a - b);
-            console.log(`[arduino-simulator] Setting analog pins from registry (not running, registry not empty):`, arr);
-            setAnalogPinsUsed(arr);
-          }
-          // If registry is empty and not running, don't overwrite client-detected pins
-
-          // Update pinStates from registry data - add pins that have been defined
-          // NOTE: Only create pin records, do NOT set modes from registry.
-          // Modes are determined solely by detectedPinModes (client-parsed Arduino code).
-          // This ensures a single source of truth: what the user wrote.
-          setPinStates((prev) => {
-            const newStates = [...prev];
-
-            for (const record of registry) {
-              if (!record.defined) continue; // Skip undefined pins
-
-              const pinNum = pinToNumber(record.pin);
-              if (pinNum === null) continue;
-
-              const exists = newStates.find((p) => p.pin === pinNum);
-              if (!exists) {
-                // Create new pin with default INPUT mode (will be overridden by detectedPinModes)
-                newStates.push({
-                  pin: pinNum,
-                  mode: "INPUT",
-                  value: 0,
-                  type: pinNum >= 14 && pinNum <= 19 ? "digital" : "digital",
-                });
-              }
-              // If pin already exists, don't change anything - modes come from detectedPinModes
-            }
-
-            return newStates;
-          });
-
-          // Check for pins used without pinMode (digitalWrite, digitalRead on undefined pins)
-          // NOTE: Duplicate warning suppression - the CodeParser.parseHardwareCompatibility()
-          // already generates the "hardware" category warning for pins used with digitalRead/digitalWrite
-          // without pinMode, so we don't need to generate another "pins" category warning here
-          const usageWarnings: ParserMessage[] = [];
-          // Disabled: This duplicates hardware compatibility warnings from the parser
-          /* 
-          for (const record of registry) {
-            // Skip if pin was properly defined with pinMode
-            if (record.defined) continue;
-
-            const ops = record.usedAt || [];
-            // Check if pin was used with digitalWrite or digitalRead without pinMode
-            const usedOps = ops.filter(
-              (u: { line: number; operation: string }) =>
-                u.operation === "digitalWrite" ||
-                u.operation === "digitalRead" ||
-                u.operation.startsWith("digitalWrite:") ||
-                u.operation.startsWith("digitalRead:"),
-            );
-
-            if (usedOps.length > 0) {
-              const firstOp = usedOps[0];
-              const line = firstOp.line || undefined;
-              const opName = firstOp.operation.includes("Write")
-                ? "digitalWrite"
-                : "digitalRead";
-
-              usageWarnings.push({
-                id: crypto.randomUUID(),
-                type: "warning",
-                category: "pins",
-                severity: 2,
-                message: `Pin ${record.pin} is used with ${opName}() but pinMode() was never called. This may cause unexpected behavior.`,
-                suggestion: `pinMode(${record.pin}, OUTPUT); // Add this in setup()`,
-                line,
-              });
-            }
-          }
-          */
-
-          // Add usage warnings to parser messages
-          if (usageWarnings.length > 0) {
-            setParserMessages((prev) => {
-              // Remove older warnings for the same pin
-              const cleanedPrev = prev.filter((existing) => {
-                if (existing.category !== "pins") return true;
-                if (!existing.message.includes("pinMode() was never called"))
-                  return true;
-                const pinMatch = existing.message.match(/Pin\s+(\S+)\s+is/);
-                if (!pinMatch) return true;
-                const pinKey = pinMatch[1];
-                const isReplaced = usageWarnings.some((m) => {
-                  const newMatch = m.message.match(/Pin\s+(\S+)\s+is/);
-                  return newMatch && newMatch[1] === pinKey;
-                });
-                return !isReplaced;
-              });
-
-              // Merge new warnings, avoiding duplicates
-              const existingMessages = new Set(
-                cleanedPrev.map((m) => `${m.category}:${m.message}`),
-              );
-              const newMessages = usageWarnings.filter(
-                (m) => !existingMessages.has(`${m.category}:${m.message}`),
-              );
-              if (newMessages.length > 0) {
-                setParserPanelDismissed(false);
-                return [...cleanedPrev, ...newMessages];
-              }
-              return cleanedPrev;
-            });
-          }
-          break;
-        }
-      }
-    }
-  }, [messageQueue, consumeMessages, addDebugMessage]);
+  // WebSocket message handling moved to `useWebSocketHandler` (extracted for better separation of concerns)
+  useWebSocketHandler({
+    simulationStatus,
+    addDebugMessage,
+    setRxActivity,
+    appendSerialOutput,
+    appendRenderedText,
+    setSerialOutput,
+    setArduinoCliStatus,
+    setGccStatus,
+    setCliOutput,
+    setHasCompilationErrors,
+    setLastCompilationResult,
+    setShowCompilationOutput,
+    setParserPanelDismissed,
+    setActiveOutputTab,
+    setCompilationStatus,
+    setSimulationStatus,
+    stopRendering,
+    pauseRendering,
+    resumeRendering,
+    serialEventQueueRef,
+    setPinStates,
+    setAnalogPinsUsed,
+    resetPinUI,
+    enqueuePinEvent,
+    setIoRegistry,
+    setBaudRate,
+    setSerialBaudrate,
+    pinToNumber,
+    setParserMessages,
+  });
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);

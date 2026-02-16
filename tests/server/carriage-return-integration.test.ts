@@ -109,7 +109,9 @@ describe("Carriage Return Integration Test", () => {
     expect(simulatorCode).not.toMatch(problematicLine);
 
     // Serial output comes via serial_output message type (no more payload wrapper)
-    expect(simulatorCode).toContain("serial_output");
+    const hookPath = path.join(__dirname, "../../client/src/hooks/useWebSocketHandler.ts");
+    const hookCode = fs.existsSync(hookPath) ? fs.readFileSync(hookPath, "utf8") : "";
+    expect(simulatorCode.includes("serial_output") || hookCode.includes("serial_output")).toBe(true);
   });
 
   it("should verify SerialMonitor handles \\r correctly", () => {

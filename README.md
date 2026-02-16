@@ -36,7 +36,6 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 
 - **Frontend**: React, TypeScript, Vite, TailwindCSS, Radix UI
 - **Backend**: Node.js (TypeScript), Express, WebSocket support
-- **Storage**: In-memory storage (PostgreSQL/Neon infrastructure prepared but not integrated yet)
 - **Editor**: Monaco Editor
 - **Testing**: Vitest with React Testing Library
 - **Build Tools**: Vite, esbuild

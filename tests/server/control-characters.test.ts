@@ -75,11 +75,14 @@ describe("Control Characters Examples and Handling", () => {
 
   it("simulator should preserve \\r (regression guard)", () => {
     const simCode = fs.readFileSync(simulatorPath, "utf8");
+    const hookPath = path.join(__dirname, "../../client/src/hooks/useWebSocketHandler.ts");
+    const hookCode = fs.existsSync(hookPath) ? fs.readFileSync(hookPath, "utf8") : "";
+
     // Ensure we didn't accidentally reintroduce strip of CR
     // Check that carriage return is preserved (not stripped with replace)
     expect(simCode).not.toMatch(/replace\(\/\\r\//);
-    // Serial data comes via serial_output (no more payload.data with new SerialOutputBatcher)
-    expect(simCode).toContain("serial_output");
+    // Serial data comes via serial_output (may live in the extracted hook after refactor)
+    expect(simCode.includes("serial_output") || hookCode.includes("serial_output")).toBe(true);
   });
 
   describe("backspace (\\b) behavior", () => {
