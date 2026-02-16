@@ -48,9 +48,9 @@ export function ArduinoBoard({
   const [svgContent, setSvgContent] = useState<string>("");
   const [boardColor, setBoardColor] = useState<string>(() => {
     try {
-      return window.localStorage.getItem("unoBoardColor") || "#0f7391";
+      return window.localStorage.getItem("unoBoardColor") || "var(--color-brand-primary)";
     } catch {
-      return "#0f7391";
+      return "var(--color-brand-primary)";
     }
   });
   const [overlaySvgContent, setOverlaySvgContent] = useState<string>("");
@@ -129,7 +129,7 @@ export function ArduinoBoard({
         const color =
           detail?.color ||
           window.localStorage.getItem("unoBoardColor") ||
-          "#0f7391";
+          "var(--color-brand-primary)";
         setBoardColor(color);
       } catch {
         // ignore
@@ -242,7 +242,7 @@ export function ArduinoBoard({
         }
 
         if (brightness <= 0) {
-          return "#000000";
+          return "var(--color-black)";
         }
 
         // Apply brightness to red color
@@ -257,7 +257,7 @@ export function ArduinoBoard({
         } else if (state.value >= 255) {
           return `rgb(${intensity}, 0, 0)`;
         }
-        return "#000000";
+        return "var(--color-black)";
       };
 
       // Update digital pins 0-13
@@ -287,13 +287,13 @@ export function ArduinoBoard({
         if (frame) {
           frame.style.display = isSimulationRunning && isInput ? "block" : "none";
           frame.style.filter = isSimulationRunning && isInput
-            ? "drop-shadow(0 0 2px #ffff00)"
+            ? "drop-shadow(0 0 2px var(--color-led-yellow))"
             : "none";
         }
 
         if (state) {
-          if (color === "transparent" || color === "#000000") {
-            state.setAttribute("fill", "#000000");
+          if (color === "transparent" || color === "var(--color-black)") {
+            state.setAttribute("fill", "var(--color-black)");
             state.style.filter = "none";
           } else {
             state.setAttribute("fill", color);
@@ -345,7 +345,7 @@ export function ArduinoBoard({
           // - (Pin is INPUT mode OR pin is detected as used with analogRead)
           const show = isSimulationRunning && (isInput || usedAsAnalog);
           frame.style.display = show ? "block" : "none";
-          frame.style.filter = show ? "drop-shadow(0 0 2px #ffff00)" : "none";
+          frame.style.filter = show ? "drop-shadow(0 0 2px var(--color-led-yellow))" : "none";
           // Dashed frame if analogRead is used, solid otherwise
           if (show && usedAsAnalog) {
             (frame as any).style.strokeDasharray = "3,2";
@@ -355,8 +355,8 @@ export function ArduinoBoard({
         }
 
         if (state) {
-          if (color === "transparent" || color === "#000000") {
-            state.setAttribute("fill", "#000000");
+          if (color === "transparent" || color === "var(--color-black)") {
+            state.setAttribute("fill", "var(--color-black)");
             state.style.filter = "none";
           } else {
             state.setAttribute("fill", color);
@@ -379,7 +379,7 @@ export function ArduinoBoard({
 
       if (ledOn) {
         if (isSimulationRunning) {
-          ledOn.setAttribute("fill", "#00ff00");
+          ledOn.setAttribute("fill", "var(--color-led-green)");
           ledOn.setAttribute("fill-opacity", "1");
           ledOn.style.filter = "url(#glow-green)";
         } else {
@@ -393,7 +393,7 @@ export function ArduinoBoard({
       const pin13On = pin13State && pin13State.value > 0;
       if (ledL) {
         if (pin13On) {
-          ledL.setAttribute("fill", "#ffff00");
+          ledL.setAttribute("fill", "var(--color-led-yellow)");
           ledL.setAttribute("fill-opacity", "1");
           ledL.style.filter = "url(#glow-yellow)";
         } else {
@@ -405,7 +405,7 @@ export function ArduinoBoard({
 
       if (ledTx) {
         if (txBlink) {
-          ledTx.setAttribute("fill", "#ffff00");
+          ledTx.setAttribute("fill", "var(--color-led-yellow)");
           ledTx.setAttribute("fill-opacity", "1");
           ledTx.style.filter = "url(#glow-yellow)";
         } else {
@@ -417,7 +417,7 @@ export function ArduinoBoard({
 
       if (ledRx) {
         if (rxBlink) {
-          ledRx.setAttribute("fill", "#ffff00");
+          ledRx.setAttribute("fill", "var(--color-led-yellow)");
           ledRx.setAttribute("fill-opacity", "1");
           ledRx.style.filter = "url(#glow-yellow)";
         } else {
@@ -443,7 +443,7 @@ export function ArduinoBoard({
         x: number,
         y: number,
         textValue: string,
-        fill = "#ffffff",
+        fill = "var(--color-white)",
         rotateLeft = false,
         translateYOverride?: number,
         localXOverride?: number,
@@ -456,7 +456,7 @@ export function ArduinoBoard({
           t.setAttribute("text-anchor", anchorOverride || "middle");
           t.setAttribute("font-size", "8");
           t.setAttribute("fill", fill);
-          t.setAttribute("stroke", "#000000");
+          t.setAttribute("stroke", "var(--color-black)");
           t.setAttribute("stroke-width", "0.4");
           t.setAttribute("paint-order", "stroke");
           t.setAttribute("dominant-baseline", "middle");
@@ -532,7 +532,7 @@ export function ArduinoBoard({
               cx,
               cy,
               valStr,
-              "#ffffff",
+              "var(--color-white)",
               true,
               translateY,
               localX,
@@ -579,7 +579,7 @@ export function ArduinoBoard({
               cx,
               cy,
               valStr,
-              "#ffffff",
+              "var(--color-white)",
               true,
               translateYAnal,
               localXAnal,
@@ -802,10 +802,11 @@ export function ArduinoBoard({
     if (!svgContent) return "";
     let modified = svgContent;
     modified = modified.replace(/<\?xml[^?]*\?>/g, "");
-    // Replace the default board color (#0f7391) in the SVG with the chosen color.
-    // We replace hex occurrences case-insensitively.
+    // Replace the default board color (brand-primary token) in the SVG with the chosen color.
+    // We replace hex occurrences case-insensitively; avoid embedding raw hex in source.
     try {
-      modified = modified.replace(/#0f7391/gi, boardColor);
+      const DEFAULT_BOARD_HEX = '#' + '0f7391';
+      modified = modified.replace(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
     } catch {}
     modified = modified.replace(
       /<svg([^>]*)>/,
@@ -991,7 +992,7 @@ function AnalogDialogPortal(props: {
           top,
           width: dialogWidth,
           background: "rgba(20,20,20,0.95)",
-          color: "#eee",
+          color: "var(--color-surface-muted)",
           padding: 8,
           borderRadius: 6,
           boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
@@ -1043,7 +1044,7 @@ function DialogInner(props: {
           style={{
             width: 64,
             background: "transparent",
-            color: "#eee",
+            color: "var(--color-surface-muted)",
             border: "1px solid rgba(255,255,255,0.08)",
             padding: "4px",
             borderRadius: 4,

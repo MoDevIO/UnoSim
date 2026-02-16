@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Konfiguration
-TIMEOUT_SECS=180
+# E2E suite can take several minutes locally — increase timeout to avoid
+# spurious CI/local run failures during long Playwright runs.
+TIMEOUT_SECS=600
 LOG_FILE="run-tests_output.log"
 WORKERS=1
 
@@ -79,6 +81,9 @@ run_e2e_step() {
 
 # 1. Statische Analyse
 run_step "Linting/Check" "npm run check" || { echo "🛑 Abbruch bei Check"; exit 1; }
+
+# 1.1 Color-token check (forbid new raw hex in client/src)
+run_step "Color-token check" "npm run check:raw-hex" || { echo "🛑 Abbruch: Raw-hex check failed"; exit 1; }
 
 # 2. Unit-Tests & Coverage
 run_step "Unit-Tests & Coverage" "npm run test:coverage" || { 

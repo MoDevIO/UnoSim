@@ -15,16 +15,16 @@ interface SerialPlotterProps {
   output: OutputLine[];
 }
 
-// Color palette for multiple series
+// Color palette for multiple series — use semantic CSS tokens
 const SERIES_COLORS = [
-  "#3b82f6", // blue
-  "#ef4444", // red
-  "#10b981", // green
-  "#f59e0b", // amber
-  "#8b5cf6", // purple
-  "#ec4899", // pink
-  "#06b6d4", // cyan
-  "#f97316", // orange
+  "var(--plot-1)", // blue
+  "var(--plot-2)", // red
+  "var(--plot-3)", // green
+  "var(--plot-4)", // amber
+  "var(--plot-5)", // purple
+  "var(--plot-6)", // pink
+  "var(--plot-7)", // cyan
+  "var(--plot-8)", // orange
 ];
 
 export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
@@ -143,7 +143,7 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
                 backgroundColor: "rgba(0,0,0,0.8)",
                 border: "1px solid rgba(255,255,255,0.2)",
                 borderRadius: "4px",
-                color: "#ffffff",
+                color: "var(--color-white)",
               }}
               formatter={(value) => [
                 typeof value === "number" ? value.toFixed(2) : value,

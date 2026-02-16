@@ -73,6 +73,53 @@ html, body {
   --ui-font-size: calc(var(--ui-font-base-size) * var(--ui-font-scale));
   --ui-line-height: calc(var(--ui-line-base) * var(--ui-font-scale));
   --ui-button-height: calc(var(--ui-button-base-height) * var(--ui-font-scale));
+
+  /* Design tokens (CSS variable bridge for Tailwind semantic colors) */
+  --color-brand-primary: #0f7391; /* Arduino teal */
+  --color-ui-background: #121212; /* app background (matches --background) */
+  --color-ui-foreground: #fafafa; /* app foreground (matches --foreground) */
+  --color-ui-panel: #1c1c1c; /* cards / sidebars (matches --card) */
+  --color-ui-border: #262626; /* standard borders (matches --border) */
+  --color-status-success: #22c55e; /* success (emerald-500) */
+  --color-status-error: #ef4444; /* error (red-500) */
+  --color-status-warning: #f97316; /* warning / amber */
+  --color-accent-cyan: #06b6d4; /* chart / accent */
+  --color-accent-blue: #3b82f6; /* chart / accent */
+
+  /* Plot/series tokens (used by SerialPlotter) */
+  --plot-1: #3b82f6; /* blue */
+  --plot-2: #ef4444; /* red */
+  --plot-3: #10b981; /* green */
+  --plot-4: #f59e0b; /* amber */
+  --plot-5: #8b5cf6; /* purple */
+  --plot-6: #ec4899; /* pink */
+  --plot-7: #06b6d4; /* cyan */
+  --plot-8: #f97316; /* orange */
+
+  /* hover / variant tokens */
+  --color-status-success-dark: #16a34a; /* darker success for hovers */
+
+  /* Additional tokens used by the Arduino board SVG */
+  --color-black: #000000;
+  --color-white: #ffffff;
+  --color-led-green: #00ff00;
+  --color-led-yellow: #ffff00;
+  --color-surface-muted: #eeeeee;
+
+  /* Preset palette tokens (used by SettingsDialog) */
+  --color-brand-variant-1: #0b5f73;
+  --color-brand-variant-2: #0a98a8;
+  --color-brand-blue: #2b6fb3;
+  --color-brand-teal: #1f7a8c;
+  --color-green-dark: #245c3d;
+  --color-success-variant: #1f9d55;
+  --color-danger-soft: #ff6b6b;
+  --color-accent-orange-soft: #ff9f1c;
+  --color-accent-yellow-soft: #ffd166;
+  --color-accent-amber: #fb923c;
+  --color-purple-1: #8338ec;
+  --color-purple-2: #7c3aed;
+  --color-surface-dark: #2a2a2a;
 }
 
 .dark {

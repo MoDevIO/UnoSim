@@ -53,6 +53,19 @@ export default {
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
+
+        /* Semantic design tokens (mapped to CSS variables) */
+        "brand-primary": "var(--color-brand-primary)",
+        "ui-background": "var(--color-ui-background)",
+        "ui-foreground": "var(--color-ui-foreground)",
+        "ui-panel": "var(--color-ui-panel)",
+        "ui-border": "var(--color-ui-border)",
+        "status-success": "var(--color-status-success)",
+        "status-error": "var(--color-status-error)",
+        "status-warning": "var(--color-status-warning)",
+        "accent-cyan": "var(--color-accent-cyan)",
+        "accent-blue": "var(--color-accent-blue)",
+
         chart: {
           "1": "var(--chart-1)",
           "2": "var(--chart-2)",
@@ -60,6 +73,35 @@ export default {
           "4": "var(--chart-4)",
           "5": "var(--chart-5)",
         },
+
+        /* Serial plotter colors */
+        plot: {
+          "1": "var(--plot-1)",
+          "2": "var(--plot-2)",
+          "3": "var(--plot-3)",
+          "4": "var(--plot-4)",
+          "5": "var(--plot-5)",
+          "6": "var(--plot-6)",
+          "7": "var(--plot-7)",
+          "8": "var(--plot-8)",
+        },
+
+        "status-success-dark": "var(--color-status-success-dark)",
+
+        /* Preset palette tokens (available as Tailwind colors) */
+        "brand-variant-1": "var(--color-brand-variant-1)",
+        "brand-variant-2": "var(--color-brand-variant-2)",
+        "brand-blue": "var(--color-brand-blue)",
+        "brand-teal": "var(--color-brand-teal)",
+        "green-dark": "var(--color-green-dark)",
+        "success-variant": "var(--color-success-variant)",
+        "danger-soft": "var(--color-danger-soft)",
+        "accent-orange-soft": "var(--color-accent-orange-soft)",
+        "accent-yellow-soft": "var(--color-accent-yellow-soft)",
+        "accent-amber": "var(--color-accent-amber)",
+        "purple-1": "var(--color-purple-1)",
+        "purple-2": "var(--color-purple-2)",
+        "surface-dark": "var(--color-surface-dark)",
         sidebar: {
           DEFAULT: "var(--sidebar)",
           foreground: "var(--sidebar-foreground)",

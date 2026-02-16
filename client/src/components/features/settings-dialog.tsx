@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const STORAGE_KEY = "unoBoardColor";
-const DEFAULT_COLOR = "#0f7391";
+const DEFAULT_COLOR = "var(--color-brand-primary)";
 const TOAST_DURATION_KEY = "unoToastDuration";
 const DEFAULT_TOAST_SECONDS = 1;
 const DEBUG_MODE_KEY = "unoDebugMode";
@@ -265,24 +265,24 @@ export default function SettingsDialog({
             {/* Preset palette inside the same box */}
             <div className="mt-3 flex gap-2 flex-wrap">
               {[
-                "#0f7391", // original teal
-                "#0b5f73",
-                "#0a98a8",
-                "#2b6fb3",
-                "#1f7a8c",
-                "#245c3d",
-                "#1f9d55",
-                "#16a34a",
-                "#22c55e",
-                "#ff6b6b",
-                "#ff9f1c",
-                "#ffd166",
-                "#f97316",
-                "#fb923c",
-                "#8338ec",
-                "#7c3aed",
-                "#2a2a2a",
-                "#f4f4f5",
+                "var(--color-brand-primary)",
+                "var(--color-brand-variant-1)",
+                "var(--color-brand-variant-2)",
+                "var(--color-brand-blue)",
+                "var(--color-brand-teal)",
+                "var(--color-green-dark)",
+                "var(--color-success-variant)",
+                "var(--color-status-success-dark)",
+                "var(--color-status-success)",
+                "var(--color-danger-soft)",
+                "var(--color-accent-orange-soft)",
+                "var(--color-accent-yellow-soft)",
+                "var(--color-status-warning)",
+                "var(--color-accent-amber)",
+                "var(--color-purple-1)",
+                "var(--color-purple-2)",
+                "var(--color-surface-dark)",
+                "var(--color-surface-muted)",
               ].map((s) => (
                 <Button
                   key={s}
@@ -387,8 +387,8 @@ export default function SettingsDialog({
           <div className="flex w-full justify-end gap-2">
             <DialogClose asChild>
               <Button
-                className="text-white hover:bg-[#16a34a]"
-                style={{ backgroundColor: "#22c55e" }}
+                className="text-ui-foreground hover:bg-status-success-dark"
+                style={{ backgroundColor: "var(--color-status-success)" }}
               >
                 Done
               </Button>
