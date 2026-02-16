@@ -73,6 +73,20 @@ export default {
           "4": "var(--chart-4)",
           "5": "var(--chart-5)",
         },
+
+        /* Serial plotter colors */
+        plot: {
+          "1": "var(--plot-1)",
+          "2": "var(--plot-2)",
+          "3": "var(--plot-3)",
+          "4": "var(--plot-4)",
+          "5": "var(--plot-5)",
+          "6": "var(--plot-6)",
+          "7": "var(--plot-7)",
+          "8": "var(--plot-8)",
+        },
+
+        "status-success-dark": "var(--color-status-success-dark)",
         sidebar: {
           DEFAULT: "var(--sidebar)",
           foreground: "var(--sidebar-foreground)",

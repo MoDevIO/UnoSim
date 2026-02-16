@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const STORAGE_KEY = "unoBoardColor";
-const DEFAULT_COLOR = "#0f7391";
+const DEFAULT_COLOR = "var(--color-brand-primary)";
 const TOAST_DURATION_KEY = "unoToastDuration";
 const DEFAULT_TOAST_SECONDS = 1;
 const DEBUG_MODE_KEY = "unoDebugMode";
@@ -387,8 +387,8 @@ export default function SettingsDialog({
           <div className="flex w-full justify-end gap-2">
             <DialogClose asChild>
               <Button
-                className="text-white hover:bg-[#16a34a]"
-                style={{ backgroundColor: "#22c55e" }}
+                className="text-ui-foreground hover:bg-status-success-dark"
+                style={{ backgroundColor: "var(--color-status-success)" }}
               >
                 Done
               </Button>

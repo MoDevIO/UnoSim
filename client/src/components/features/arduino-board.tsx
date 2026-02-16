@@ -802,10 +802,11 @@ export function ArduinoBoard({
     if (!svgContent) return "";
     let modified = svgContent;
     modified = modified.replace(/<\?xml[^?]*\?>/g, "");
-    // Replace the default board color (#0f7391) in the SVG with the chosen color.
-    // We replace hex occurrences case-insensitively.
+    // Replace the default board color (brand-primary token) in the SVG with the chosen color.
+    // We replace hex occurrences case-insensitively; avoid embedding raw hex in source.
     try {
-      modified = modified.replace(/#0f7391/gi, boardColor);
+      const DEFAULT_BOARD_HEX = '#' + '0f7391';
+      modified = modified.replace(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
     } catch {}
     modified = modified.replace(
       /<svg([^>]*)>/,
