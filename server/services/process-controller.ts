@@ -1,6 +1,20 @@
 import { spawn } from "child_process";
 import type { ChildProcess, SpawnOptions } from "child_process";
 
+/**
+ * ProcessController
+ *
+ * Encapsulates child_process lifecycle and stream forwarding for SandboxRunner.
+ *
+ * Important concurrency note:
+ * - Callbacks (stdout/stderr/close/error) are captured and iterated by the
+ *   single wrapper attached to the ChildProcess streams. Consumers should
+ *   capture stable callback references before passing them to async code.
+ *   This avoids a race where a caller clears or replaces a callback while
+ *   an interval/timer (e.g. SerialOutputBatcher) is still invoking it — the
+ *   capture-and-check pattern prevents `TypeError: callback is not a function`.
+ */
+
 export type StdDataCb = (data: Buffer) => void;
 export type CloseCb = (code: number | null) => void;
 export type ErrorCb = (err: Error) => void;
@@ -50,22 +64,24 @@ export class ProcessController implements IProcessController {
 
   onStdout(cb: StdDataCb) {
     this.stdoutListeners.push(cb);
-    if (this.proc?.stdout) this.proc.stdout.on("data", cb);
+    // The active process (if any) has a single wrapper attached in spawn()
+    // which iterates over `stdoutListeners`. Do not attach `cb` directly to
+    // `proc.stdout` here — that caused duplicate invocations.
   }
 
   onStderr(cb: StdDataCb) {
     this.stderrListeners.push(cb);
-    if (this.proc?.stderr) this.proc.stderr.on("data", cb);
+    // Handled by the single stderr wrapper installed in spawn().
   }
 
   onClose(cb: CloseCb) {
     this.closeListeners.push(cb);
-    if (this.proc) this.proc.on("close", cb);
+    // `spawn()` wires a single 'close' handler that will call listeners.
   }
 
   onError(cb: ErrorCb) {
     this.errorListeners.push(cb);
-    if (this.proc) this.proc.on("error", cb);
+    // `spawn()` wires a single 'error' handler that will call listeners.
   }
 
   writeStdin(data: string): boolean {
