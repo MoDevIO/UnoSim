@@ -1,8 +1,8 @@
 // sandbox-runner.ts
 // Secure sandbox execution for Arduino sketches using Docker
 
-import { spawn, execSync } from "child_process";
-import type { ChildProcess } from "child_process";
+import { execSync } from "child_process";
+import { ProcessController, type IProcessController } from "./process-controller";
 import { mkdir, rm } from "fs/promises";
 import { existsSync, renameSync, rmSync } from "fs";
 import { join } from "path";
@@ -48,7 +48,7 @@ export class SandboxRunner {
   // Core state
   private state: SimulationState = SimulationState.STOPPED;
   private tempDir = join(process.cwd(), "temp");
-  private process: ReturnType<typeof spawn> | null = null;
+  private processController: IProcessController;
   private processKilled = false;
   private pauseStartTime: number | null = null;
   
@@ -96,9 +96,12 @@ export class SandboxRunner {
   private dockerChecked = false;
   private tempDirCreated = false;
 
-  constructor(options?: { tempDir?: string }) {
+  constructor(options?: { tempDir?: string; processController?: IProcessController }) {
     // Lightweight constructor - no side effects, no I/O, no blocking
     // All heavy initialization happens lazily in ensureDockerChecked() and ensureTempDir()
+
+    // Accept injected ProcessController for easier testing / specialization
+    this.processController = options?.processController ?? new ProcessController();
 
     if (options?.tempDir) {
       this.tempDir = options.tempDir;
@@ -420,7 +423,10 @@ export class SandboxRunner {
       baudrate: this.baudrate,
       tickIntervalMs: 50, // 20 batches/sec (matching PinStateBatcher)
       onChunk: (data: string, firstLineIncomplete?: boolean) => {
-        if (!this.outputCallback) return;
+        // Capture stable reference and ensure it's callable to avoid race conditions
+        const out = this.outputCallback;
+        if (typeof out !== 'function') return;
+
         // Split batched data by newlines to preserve Serial.print() vs println() semantics.
         // Data from Serial.println() contains trailing \n, Serial.print() does not.
         // Each part before a \n is a complete line; the trailing part (if any) is incomplete.
@@ -436,7 +442,7 @@ export class SandboxRunner {
           // BUT: if firstLineIncomplete=true and this is the first part (i==0), 
           // it's a truncated fragment from a drop, so mark as incomplete.
           const isComplete = !isLastPart && !(i === 0 && firstLineIncomplete);
-          this.outputCallback(parts[i], isComplete);
+          out(parts[i], isComplete);
         }
       },
     });
@@ -497,7 +503,8 @@ export class SandboxRunner {
         onExit(-1);
       }
       
-      this.process = null;
+      // Ensure any underlying process streams are destroyed
+      this.processController.destroySockets();
 
       // Cleanup on error
       try {
@@ -629,7 +636,7 @@ export class SandboxRunner {
       command: DockerCommandBuilder.buildCompileAndRunCommand(),
     });
 
-    this.process = spawn("docker", dockerArgs);
+    this.processController.spawn("docker", dockerArgs);
     this.logger.info("🚀 Docker: Compile + Run in single container");
     this.processStartTime = Date.now();
     this.transitionTo(SimulationState.RUNNING);
@@ -671,8 +678,8 @@ export class SandboxRunner {
         return;
       }
 
-      // Run the compiled executable
-      this.process = spawn(files.exeFile);
+      // Run the compiled executable via ProcessController
+      this.processController.spawn(files.exeFile);
       this.processStartTime = Date.now();
       this.transitionTo(SimulationState.RUNNING);
 
@@ -689,7 +696,7 @@ export class SandboxRunner {
         onExit(-1);
       }
       this.transitionTo(SimulationState.STOPPED);
-      this.process = null;
+      this.processController.destroySockets();
       this.markTempDirForCleanup();
       return;
     }
@@ -711,11 +718,10 @@ export class SandboxRunner {
 
     // Setup timeout
     const handleTimeout = () => {
-      if (this.process) {
-        this.process.kill("SIGKILL");
-        callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
-        this.logger.info(`Docker timeout after ${executionTimeout}s`);
-      }
+      // Ask controller to kill underlying process (no-op if none)
+      this.processController.kill("SIGKILL");
+      callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
+      this.logger.info(`Docker timeout after ${executionTimeout}s`);
     };
 
     this.timeoutManager.schedule(
@@ -723,15 +729,15 @@ export class SandboxRunner {
       handleTimeout,
     );
 
-    // Error handler
-    this.process?.on("error", (err) => {
+    // Error handler -> wired through ProcessController
+    this.processController.onError((err) => {
       this.logger.error(`Docker process error: ${err.message}`);
       callbacks.onError(`Docker process failed: ${err.message}`);
     });
 
     // Stdout: Not used for serial data anymore (all via stderr SERIAL_EVENT)
     // Keep handler to prevent broken pipe errors, detect end of compilation
-    this.process?.stdout?.on("data", (data) => {
+    this.processController.onStdout((data) => {
       const str = data.toString();
 
       if (isCompilePhase) {
@@ -753,7 +759,7 @@ export class SandboxRunner {
     });
 
     // Stderr handler (compile errors + debug output)
-    this.process?.stderr?.on("data", (data) => {
+    this.processController.onStderr((data) => {
       const str = data.toString();
 
       if (isCompilePhase) {
@@ -776,8 +782,8 @@ export class SandboxRunner {
       }
     });
 
-    // Close handler
-    this.process?.on("close", (code) => {
+    // Close handler wired via ProcessController
+    this.processController.onClose((code) => {
       this.transitionTo(SimulationState.STOPPED);
 
       if (this.flushTimer) {
@@ -815,7 +821,6 @@ export class SandboxRunner {
       }
 
       if (!this.processKilled && onExit) onExit(code);
-      this.process = null;
       this.markTempDirForCleanup();
     });
   }
@@ -830,10 +835,8 @@ export class SandboxRunner {
   ): void {
     // Similar to Docker but without compile phase
     const handleTimeout = () => {
-      if (this.process) {
-        this.process.kill("SIGKILL");
-        callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
-      }
+      this.processController.kill("SIGKILL");
+      callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
     };
 
     this.timeoutManager.schedule(
@@ -842,7 +845,7 @@ export class SandboxRunner {
     );
 
     // Stdout: Not used for serial data (all via stderr)
-    this.process?.stdout?.on("data", (data) => {
+    this.processController.onStdout((data) => {
       const str = data.toString();
       this.totalOutputBytes += str.length;
 
@@ -855,7 +858,7 @@ export class SandboxRunner {
       // Ignore stdout - serial data comes via stderr SERIAL_EVENT protocol
     });
 
-    this.process?.stderr?.on("data", (data) => {
+    this.processController.onStderr((data) => {
       const str = data.toString();
       this.errorBuffer += str;
       const lines = this.errorBuffer.split(/\r?\n/);
@@ -868,7 +871,7 @@ export class SandboxRunner {
       });
     });
 
-    this.process?.on("close", (code) => {
+    this.processController.onClose((code) => {
       const wasRunning = this.state === SimulationState.RUNNING;
       this.transitionTo(SimulationState.STOPPED);
 
@@ -904,7 +907,6 @@ export class SandboxRunner {
       }
 
       if (!this.processKilled && onExit) onExit(code);
-      this.process = null;
       this.markTempDirForCleanup();
     });
   }
@@ -987,7 +989,7 @@ export class SandboxRunner {
 
   pause(): boolean {
     // Guard: can only pause from RUNNING state
-    if (this.state !== SimulationState.RUNNING || !this.process) {
+    if (this.state !== SimulationState.RUNNING || !this.processController.hasProcess()) {
       return false;
     }
 
@@ -1010,16 +1012,16 @@ export class SandboxRunner {
       // Stop telemetry reporting while paused (no need to send data)
       this.registryManager.pauseTelemetry();
       
-      // Send pause command to freeze timing in C++
-      if (this.process.stdin && !this.processKilled) {
-        this.process.stdin.write("[[PAUSE_TIME]]\n");
+      // Send pause command to freeze timing in C++ (stdin write + SIGSTOP)
+      if (!this.processKilled) {
+        this.processController.writeStdin("[[PAUSE_TIME]]\n");
       }
       
       // Note: SIGSTOP is sent immediately after PAUSE_TIME. This can cause a race
       // condition where C++ is frozen mid-write of TIME_FROZEN message, resulting
       // in protocol fragments. The ArduinoOutputParser handles these fragments by
       // detecting and ignoring incomplete protocol messages like "]]".
-      this.process.kill("SIGSTOP");
+      this.processController.kill("SIGSTOP");
       this.logger.info("Simulation paused (SIGSTOP)");
       return true;
     } catch (err) {
@@ -1034,7 +1036,7 @@ export class SandboxRunner {
 
   resume(): boolean {
     // Guard: can only resume from PAUSED state
-    if (this.state !== SimulationState.PAUSED || !this.process) {
+    if (this.state !== SimulationState.PAUSED || !this.processController.hasProcess()) {
       return false;
     }
 
@@ -1043,11 +1045,11 @@ export class SandboxRunner {
       const pauseDuration = Date.now() - (this.pauseStartTime || Date.now());
       
       // Send resume command with pause duration to adjust timing offset in C++
-      if (this.process.stdin && !this.processKilled) {
-        this.process.stdin.write(`[[RESUME_TIME:${pauseDuration}]]\n`);
+      if (!this.processKilled) {
+        this.processController.writeStdin(`[[RESUME_TIME:${pauseDuration}]]\n`);
       }
       
-      this.process.kill("SIGCONT");
+      this.processController.kill("SIGCONT");
       
       // Transition state (this clears pauseStartTime and resumes timeout clock)
       if (!this.transitionTo(SimulationState.RUNNING)) {
@@ -1072,8 +1074,8 @@ export class SandboxRunner {
       // Send a newline to stdin to wake up any blocked read() calls
       // This ensures the C++ process processes any buffered stdin data
       // Note: Use processKilled instead of process.killed since killed is true after any signal
-      if (this.process.stdin && !this.processKilled) {
-        this.process.stdin.write("\n");
+      if (!this.processKilled) {
+        this.processController.writeStdin("\n");
       }
       
       // Restart output processing if there's buffered data and callback is available
@@ -1107,14 +1109,8 @@ export class SandboxRunner {
   sendSerialInput(input: string) {
     this.logger.debug(`Serial Input im Runner angekommen: ${input}`);
     // Note: Use processKilled instead of process.killed since killed is true after any signal (including SIGSTOP/SIGCONT)
-    if (
-      this.isRunning &&
-      !this.isPaused &&
-      this.process &&
-      this.process.stdin &&
-      !this.processKilled
-    ) {
-      this.process.stdin.write(input + "\n");
+    if (this.isRunning && !this.isPaused && this.processController.hasProcess() && !this.processKilled) {
+      this.processController.writeStdin(input + "\n");
       this.logger.debug(`Serial Input an Sketch gesendet: ${input}`);
     } else {
       this.logger.warn(
@@ -1223,30 +1219,18 @@ export class SandboxRunner {
 
   setPinValue(pin: number, value: number) {
     // Note: Use processKilled instead of process.killed since killed is true after any signal (including SIGSTOP/SIGCONT)
-    if (
-      (this.isRunning || this.isPaused) &&
-      this.process &&
-      this.process.stdin &&
-      !this.processKilled
-    ) {
+    if ((this.isRunning || this.isPaused) && this.processController.hasProcess() && !this.processKilled) {
       const command = `[[SET_PIN:${pin}:${value}]]\n`;
-      const stdin = this.process.stdin;
-
-      const success = stdin.write(command, "utf8", (err) => {
-        if (err) {
-          this.logger.error(`[SET_PIN] Write error: ${err.message}`);
-        }
-      });
+      const success = this.processController.writeStdin(command);
 
       if (!success) {
-        this.logger.warn(`[SET_PIN] stdin buffer full, waiting for drain`);
-        stdin.once("drain", () => {});
+        this.logger.warn(`[SET_PIN] stdin buffer full`);
       }
 
       this.logger.debug(`[SET_PIN] pin=${pin} value=${value}`);
     } else {
       this.logger.warn(
-        `[SET_PIN] Ignored - isRunning=${this.isRunning}, isPaused=${this.isPaused}, process=${!!this.process}, stdin=${!!this.process?.stdin}, killed=${this.process?.killed}`,
+        `[SET_PIN] Ignored - isRunning=${this.isRunning}, isPaused=${this.isPaused}, process=${this.processController.hasProcess()}, stdin=${this.processController.hasProcess()}, killed=${this.processKilled}`,
       );
     }
   }
@@ -1386,17 +1370,9 @@ export class SandboxRunner {
     // Destroy registry manager to prevent post-test logging
     this.registryManager.destroy();
 
-    if (this.process) {
-      try {
-        // Immediate hard kill to match expected test behavior
-        this.process.kill("SIGKILL");
-      } catch {
-        // Ignore kill errors
-      }
-      // Cleanup sockets to prevent open handles
-      this.destroyProcessSockets(this.process as ChildProcess);
-      this.process = null;
-    }
+    // Ask controller to hard-kill underlying process and destroy streams
+    this.processController.kill("SIGKILL");
+    this.processController.destroySockets();
 
     // Also mark registry file for delayed cleanup when stopping manually
     this.markRegistryForCleanup();
@@ -1429,34 +1405,6 @@ export class SandboxRunner {
 
   /* killProcessAndWait removed (unused) */
 
-  /**
-   * Explicitly destroy all process sockets to prevent Jest open handles
-   */
-  private destroyProcessSockets(process: ChildProcess): void {
-    try {
-      if (process.stdin && !process.stdin.destroyed) {
-        process.stdin.destroy();
-      }
-    } catch (err) {
-      // Ignore errors
-    }
-
-    try {
-      if (process.stdout && !process.stdout.destroyed) {
-        process.stdout.destroy();
-      }
-    } catch (err) {
-      // Ignore errors
-    }
-
-    try {
-      if (process.stderr && !process.stderr.destroyed) {
-        process.stderr.destroy();
-      }
-    } catch (err) {
-      // Ignore errors
-    }
-  }
 
   // Public method to check sandbox status
   getSandboxStatus(): {

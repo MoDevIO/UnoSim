@@ -206,6 +206,61 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
     });
   }, 20000);
 
+  it("regression: stopping immediately while data flows does not cause unhandled errors", async () => {
+    const code = `
+      void setup() { Serial.begin(9600); }
+      void loop() { Serial.println("RACE"); delay(20); }
+    `;
+
+    // Track if any uncaught error happens during test
+    let uncaught: any = null;
+    const uex = (err: any) => { uncaught = err; };
+    process.once('uncaughtException', uex);
+    process.once('unhandledRejection', uex);
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('timeout in race regression test')), 8000);
+
+      let seen = false;
+      const runnerResolve = () => {
+        clearTimeout(timeout);
+        process.removeListener('uncaughtException', uex);
+        process.removeListener('unhandledRejection', uex);
+        if (uncaught) return reject(uncaught);
+        resolve();
+      };
+
+      const runPromise = runner.runSketch(
+        code,
+        (line) => {
+          if (!seen) {
+            seen = true;
+            // Immediately stop when first data arrives — replicate race window
+            runner.stop().catch(() => {});
+            // finish shortly after to ensure no asynchronous unhandled errors occur
+            setTimeout(runnerResolve, 300);
+          }
+        },
+        () => {},
+        () => {},
+        undefined,
+        undefined,
+        undefined,
+        5,
+      );
+
+      // Safety: if no output observed in time, fail
+      setTimeout(() => {
+        if (!seen) {
+          clearTimeout(timeout);
+          process.removeListener('uncaughtException', uex);
+          process.removeListener('unhandledRejection', uex);
+          reject(new Error('no output observed to trigger race'));
+        }
+      }, 1500);
+    });
+  }, 10000);
+
   it("error handling: process can exit with non-zero code and onExit receives that code", async () => {
     const code = `
       void setup() {
