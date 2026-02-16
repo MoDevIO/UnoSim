@@ -16,7 +16,14 @@
     ".vercelignore": true,
     ".gitlab-ci.yml": true,
     "node_modules": true,
-    "temp": true
+    "temp": true,
+    "run-tests.sh": true,
+    "vitest.config.ts": true,
+    "playwright.config.ts": true,
+    "package.json": true,
+    "licenses.json": true,
+    "docker-compose.yml": true,
+    "commitlint.config.cjs": true
   },
   "chat.tools.terminal.autoApprove": {
     "npm ls": true,
@@ -87,6 +94,14 @@
     },
     "git remote": true,
     "/^cd /Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe && cat << 'EOF' \\| node --input-type=module\nimport \\{ SandboxRunner \\} from '\\./server/services/sandbox-runner\\.ts';\n\nconst code = `\nvoid setup\\(\\) \\{\n  Serial\\.begin\\(115200\\);\n\\}\n\nvoid loop\\(\\) \\{\n  static uint32_t t1;\n  if \\(millis\\(\\)-t1>300\\) \\{\n    t1=millis\\(\\);\n    Serial\\.println\\(\"Hallo Welt\"\\);\n  \\}\n  \n  static uint32_t t2;\n  if \\(millis\\(\\)-t2>2\\) \\{\n    t2=millis\\(\\);\n    Serial\\.println\\(millis\\(\\)\\);\n  \\}\n\\}\n`;\n\nconst runner = new SandboxRunner\\(\\);\nlet outputCount = 0;\nlet lastOutputTime = Date\\.now\\(\\);\nlet firstOutputTime = 0;\n\nconsole\\.log\\(\"Starting simulation\\.\\.\\.\"\\);\n\nrunner\\.runSketch\\(\n  code,\n  \\(line\\) => \\{\n    outputCount\\+\\+;\n    const now = Date\\.now\\(\\);\n    if \\(firstOutputTime === 0\\) firstOutputTime = now;\n    lastOutputTime = now;\n    if \\(outputCount <= 5 \\|\\| outputCount % 100 === 0\\) \\{\n      console\\.log\\(`Output #\\$\\{outputCount\\} at \\$\\{now - firstOutputTime\\}ms: \\$\\{line\\.slice\\(0, 30\\)\\}`\\);\n    \\}\n  \\},\n  \\(err\\) => console\\.log\\(\"Error:\", err\\),\n  \\(code\\) => \\{\n    const duration = lastOutputTime - firstOutputTime;\n    console\\.log\\(`\\\\nExit code: \\$\\{code\\}`\\);\n    console\\.log\\(`Total outputs received: \\$\\{outputCount\\}`\\);\n    console\\.log\\(`Duration from first to last output: \\$\\{duration\\}ms`\\);\n    runner\\.stop\\(\\);\n    process\\.exit\\(0\\);\n  \\},\n  \\(compileErr\\) => console\\.log\\(\"Compile error:\", compileErr\\),\n  \\(\\) => console\\.log\\(\"Compile success\"\\),\n  \\(pin, type, value\\) => \\{\\}, // onPinState\n  3 // 3 second timeout\n\\);\n\n// Force exit after 5 seconds as safety\nsetTimeout\\(\\(\\) => \\{\n  const duration = lastOutputTime - firstOutputTime;\n  console\\.log\\(\"\\\\n--- Safety timeout reached ---\"\\);\n  console\\.log\\(`Total outputs received: \\$\\{outputCount\\}`\\);\n  console\\.log\\(`Duration from first to last output: \\$\\{duration\\}ms`\\);\n  runner\\.stop\\(\\);\n  setTimeout\\(\\(\\) => process\\.exit\\(0\\), 500\\);\n\\}, 5000\\);\nEOF\n$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^bash /Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/source-stats\\.sh$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^bash /Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/scripts/frontend-source-analysis\\.sh$/": {
       "approve": true,
       "matchCommandLine": true
     }
