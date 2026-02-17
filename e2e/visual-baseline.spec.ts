@@ -70,6 +70,19 @@ test.describe("Visual baseline — Simulator UI", () => {
     const expected = await fs.promises.readFile(BASELINE_PATH);
 
     // Exact byte-level comparison — intentional strictness for CSS refactor guard
+    // Allow one small rendering variance by asserting images are identical bytes.
+    // If they differ, provide a helpful error with pixel-diff stats.
+    if (!current.equals(expected)) {
+      // Save current screenshot for inspection and fail with details
+      await fs.promises.writeFile(path.join(process.cwd(), 'e2e', 'current-simulator.png'), current);
+      const { execSync } = await import('node:child_process');
+      try {
+        execSync('node scripts/image-diff.cjs e2e/baseline-simulator.png e2e/current-simulator.png', { stdio: 'inherit' });
+      } catch (err) {
+        // fallthrough to test failure with human-friendly message
+      }
+    }
+
     expect(current).toEqual(expected);
   });
 });
