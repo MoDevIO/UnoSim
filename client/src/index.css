@@ -198,28 +198,7 @@ html, body {
     overflow: hidden;
   }
 
-/* Status indicators */
-/* .status-* migrated to Tailwind: text-cyan-400, text-yellow-400, text-red-400, text-green-400 */
-
-/* Console output styling */
-/* .console-output migrated to Tailwind: font-mono text-ui-md bg-background text-gray-300 whitespace-pre-wrap break-words */
-
-/* Custom scrollbar */
-/* .custom-scrollbar migrated to Tailwind: scrollbar-thin bg-muted rounded */
-
-/* Hide scrollbar while keeping scroll functionality */
-/* .no-scrollbar migrated to Tailwind: scrollbar-hide */
-
-/* Desktop-style app navbar */
-/* .app-navbar migrated to Tailwind: app-region-drag backdrop-blur shadow-lg */
-
-/* App menu (desktop) */
-/* .app-menu migrated to Tailwind: flex gap-2 ml-2 items-center text-ui-control select-none */
-/* legacy typography helpers removed — use `text-ui-*` utilities instead */
-
 /* Override Tailwind `text-ui-*` utilities to enforce central UI font-size/line-height */
-/* .text-ui-* migrated to Tailwind: text-ui-xs, text-ui-sm, text-ui-md, text-ui-lg */
-/* .menu-item migrated to Tailwind: px-2 py-1 rounded text-muted-foreground hover:bg-white/5 hover:text-foreground focus:outline-none active:bg-white/10 */
 
 /* Controls (buttons, menu items, icon-only controls) should use the scaled control font and align vertically */
 button,
