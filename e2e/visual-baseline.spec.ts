@@ -20,6 +20,10 @@ test.describe("Visual baseline — Simulator UI", () => {
     // Ensure app is in Idle state (stop if it auto-started)
     await stopSimulation();
 
+    // Ensure the Serial Monitor shows the Idle placeholder before proceeding
+    const idleSerialText = page.getByText(/Serial output will appear here\.{3}/i);
+    await expect(idleSerialText).toBeVisible({ timeout: 5000 });
+
     // Wait for a stable board UI indicator (Show I/O values button)
     const showBtn = page.getByRole("button", { name: /show i\/o values/i });
     await expect(showBtn).toBeVisible({ timeout: 15000 });
@@ -49,6 +53,10 @@ test.describe("Visual baseline — Simulator UI", () => {
     // Wait for Monaco editor and ensure Idle state
     await monacoEditor.waitForReady();
     await stopSimulation();
+
+    // Make sure Serial Monitor is Idle (no active output) before screenshot
+    const idleSerialText = page.getByText(/Serial output will appear here\.{3}/i);
+    await expect(idleSerialText).toBeVisible({ timeout: 5000 });
 
     const showBtn = page.getByRole("button", { name: /show i\/o values/i });
     await expect(showBtn).toBeVisible({ timeout: 15000 });
