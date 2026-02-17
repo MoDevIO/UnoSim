@@ -8,14 +8,14 @@ LOG_FILE="run-tests_output.log"
 WORKERS=1
 
 # UI / Styling
+# NOTE: TOTAL_STEPS must match the number of run_step / run_e2e_step invocations below
+TOTAL_STEPS=5
+STEP=0
 GREEN="\033[32m"
 YELLOW="\033[33m"
 RED="\033[31m"
 BOLD="\033[1m"
 RESET="\033[0m"
-
-TOTAL_STEPS=4
-STEP=0
 
 clear
 echo "🛡️  Starte vollständigen System-Check & Build..."
@@ -91,6 +91,15 @@ run_step "Unit-Tests & Coverage" "npm run test:coverage" || {
     echo "👉 Tipp: Prüfe ob 'npm install -D @vitest/coverage-v8' ausgeführt wurde."
     exit 1 
 }
+
+# --- Vitest summary (parsen & anzeigen, damit Testzählung sauber ist) ---
+if grep -q "Test Files" "$LOG_FILE" || grep -q "^\s*Tests " "$LOG_FILE"; then
+  echo
+  echo "🧪 Vitest Zusammenfassung (aus Log):"
+  grep "Test Files" "$LOG_FILE" | tail -n1 || true
+  grep -E "^\s*Tests " "$LOG_FILE" | tail -n1 || true
+  echo
+fi
 
 # 3. E2E Tests
 echo "🚀 Starte E2E-Tests (Parallel: $WORKERS Worker)..."

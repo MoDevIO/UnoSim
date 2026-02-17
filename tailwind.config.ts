@@ -22,7 +22,7 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-        card: {
+        colors: {
           DEFAULT: "var(--card)",
           foreground: "var(--card-foreground)",
         },

@@ -405,9 +405,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
               "!text-white font-medium transition-colors",
               {
-                "!bg-orange-600 hover:!bg-orange-700":
+                "!bg-status-warning hover:!bg-accent-amber":
                   simulationStatus === "running" && !simulateDisabled,
-                "!bg-green-600 hover:!bg-green-700":
+                "!bg-status-success hover:!bg-status-success-dark":
                   (simulationStatus === "stopped" || simulationStatus === "paused") &&
                   !simulateDisabled,
                 "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500":

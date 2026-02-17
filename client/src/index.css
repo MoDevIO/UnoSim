@@ -45,25 +45,17 @@ html, body {
   --font-mono: JetBrains Mono, Consolas, Monaco, monospace;
   --radius: 0.5rem;
   /* Unified font-size scale — all sizes now scale with --ui-font-scale */
-  --fs-xs: calc(14px * var(--ui-font-scale));
   --fs-sm: calc(14px * var(--ui-font-scale));
   --fs-md: calc(14px * var(--ui-font-scale));
-  --fs-lg: calc(14px * var(--ui-font-scale));
-  --fs-xl: calc(16px * var(--ui-font-scale));
   --fs-2xl: calc(24px * var(--ui-font-scale));
   --fs-3xl: calc(30px * var(--ui-font-scale));
   /* Matching line-heights */
-  --lh-xs: calc(20px * var(--ui-font-scale));
-  --lh-sm: calc(20px * var(--ui-font-scale));
   --lh-md: calc(20px * var(--ui-font-scale));
-  --lh-lg: calc(20px * var(--ui-font-scale));
-  --lh-xl: calc(24px * var(--ui-font-scale));
   --lh-2xl: calc(32px * var(--ui-font-scale));
   --lh-3xl: calc(36px * var(--ui-font-scale));
   /* Unified component heights */
   --ui-button-height: 2rem; /* 32px */
   --ui-header-height: 2.5rem; /* 40px - slightly taller than buttons */
-  --ui-button-padding-x: 0.75rem; /* horizontal padding for buttons */
   /* Central UI font size/line-height invariant and scalable multiplier */
   --ui-font-scale: 1;
   --ui-font-base-size: 14px; /* base 14px = M (Normal) */
@@ -75,16 +67,35 @@ html, body {
   --ui-button-height: calc(var(--ui-button-base-height) * var(--ui-font-scale));
 
   /* Design tokens (CSS variable bridge for Tailwind semantic colors) */
-  --color-brand-primary: #0f7391; /* Arduino teal */
-  --color-ui-background: #121212; /* app background (matches --background) */
-  --color-ui-foreground: #fafafa; /* app foreground (matches --foreground) */
-  --color-ui-panel: #1c1c1c; /* cards / sidebars (matches --card) */
-  --color-ui-border: #262626; /* standard borders (matches --border) */
-  --color-status-success: #22c55e; /* success (emerald-500) */
-  --color-status-error: #ef4444; /* error (red-500) */
-  --color-status-warning: #f97316; /* warning / amber */
-  --color-accent-cyan: #06b6d4; /* chart / accent */
-  --color-accent-blue: #3b82f6; /* chart / accent */
+    --color-status-success: #22c55e; /* success (emerald-500) */
+    --color-status-success-dark: #16a34a; /* darker success for hovers */
+    --color-status-warning: #f97316; /* warning / amber */
+    --color-accent-amber: #fb923c;
+    --plot-1: #3b82f6; /* blue */
+    --plot-2: #ef4444; /* red */
+    --plot-3: #10b981; /* green */
+    --plot-4: #f59e0b; /* amber */
+    --plot-5: #8b5cf6; /* purple */
+    --plot-6: #ec4899; /* pink */
+    --plot-7: #06b6d4; /* cyan */
+    --plot-8: #f97316; /* orange */
+    --color-black: #000000;
+    --color-white: #ffffff;
+    --color-led-green: #00ff00;
+    --color-led-yellow: #ffff00;
+    --color-surface-muted: #eeeeee;
+    --color-brand-variant-1: #0b5f73;
+    --color-brand-variant-2: #0a98a8;
+    --color-brand-blue: #2b6fb3;
+    --color-brand-teal: #1f7a8c;
+    --color-green-dark: #245c3d;
+    --color-success-variant: #1f9d55;
+    --color-danger-soft: #ff6b6b;
+    --color-accent-orange-soft: #ff9f1c;
+    --color-accent-yellow-soft: #ffd166;
+    --color-purple-1: #8338ec;
+    --color-purple-2: #7c3aed;
+    --color-surface-dark: #2a2a2a;
 
   /* Plot/series tokens (used by SerialPlotter) */
   --plot-1: #3b82f6; /* blue */
@@ -120,28 +131,13 @@ html, body {
   --color-purple-1: #8338ec;
   --color-purple-2: #7c3aed;
   --color-surface-dark: #2a2a2a;
-}
 
-.dark {
-  --background: hsl(0 0% 7%);
-  --foreground: hsl(0 0% 98%);
-  --card: hsl(0 0% 11%);
-  --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(0 0% 11%);
-  --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(142 86% 28%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(217 33% 17%);
-  --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(0 0% 15%);
-  --muted-foreground: hsl(0 0% 63%);
-  --accent: hsl(142 86% 28%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 63% 31%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(0 0% 15%);
-  --input: hsl(0 0% 15%);
-  --ring: hsl(142 86% 28%);
+  /* Semantic tokens for simulation controls (start/stop) and serial monitor */
+  --color-btn-start: var(--color-status-success);
+  --color-btn-start-hover: var(--color-status-success-dark);
+  --color-btn-stop: var(--color-status-warning);
+  --color-btn-stop-hover: var(--color-accent-amber);
+  --color-serial-monitor-bg: rgba(0,0,0,0.08);
 }
 
 @layer base {
@@ -195,153 +191,35 @@ html, body {
   h4,
   h5,
   h6,
-  .text-title,
-  .text-subtitle {
+  .text-title {
     height: var(--ui-header-height);
     display: flex;
     align-items: center;
     overflow: hidden;
   }
-}
 
 /* Status indicators */
-.status-ready {
-  color: hsl(180 100% 50%);
-}
-.status-compiling {
-  color: hsl(45 100% 60%);
-}
-.status-error {
-  color: hsl(0 70% 60%);
-}
-.status-success {
-  color: hsl(120 70% 60%);
-}
+/* .status-* migrated to Tailwind: text-cyan-400, text-yellow-400, text-red-400, text-green-400 */
 
 /* Console output styling */
-.console-output {
-  font-family: var(--font-mono);
-  /* Console should follow GUI text (12pt) */
-  font-size: var(--fs-md);
-  line-height: var(--lh-md);
-  background: var(--background);
-  color: hsl(0 0% 85%);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
+/* .console-output migrated to Tailwind: font-mono text-ui-md bg-background text-gray-300 whitespace-pre-wrap break-words */
 
 /* Custom scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: hsl(0 0% 11%);
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(0 0% 25%);
-  border-radius: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsl(0 0% 35%);
-}
+/* .custom-scrollbar migrated to Tailwind: scrollbar-thin bg-muted rounded */
 
 /* Hide scrollbar while keeping scroll functionality */
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
+/* .no-scrollbar migrated to Tailwind: scrollbar-hide */
 
 /* Desktop-style app navbar */
-.app-navbar {
-  -webkit-app-region: drag; /* Makes the header draggable in desktop wrapper apps */
-  backdrop-filter: blur(6px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
-}
-.app-navbar .no-drag {
-  -webkit-app-region: no-drag;
-}
+/* .app-navbar migrated to Tailwind: app-region-drag backdrop-blur shadow-lg */
 
 /* App menu (desktop) */
-.app-menu {
-  display: flex;
-  gap: 0.5rem;
-  margin-left: 0.5rem;
-  align-items: center;
-  font-size: var(--ui-control-font-size);
-  user-select: none;
-}
-/* Utility typography classes for consistent usage */
-.text-title {
-  font-size: var(--fs-2xl);
-  line-height: var(--lh-2xl);
-  font-weight: 600;
-}
-.text-subtitle {
-  font-size: var(--fs-xl);
-  line-height: var(--lh-xl);
-  font-weight: 500;
-}
-.text-body {
-  font-size: var(--fs-md);
-  line-height: var(--lh-md);
-}
-.text-small {
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-}
-.text-caption {
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  color: var(--muted-foreground);
-}
-.text-code {
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-}
+/* .app-menu migrated to Tailwind: flex gap-2 ml-2 items-center text-ui-control select-none */
+/* legacy typography helpers removed — use `text-ui-*` utilities instead */
 
 /* Override Tailwind `text-ui-*` utilities to enforce central UI font-size/line-height */
-.text-ui-xs {
-  font-size: var(--ui-font-size) !important;
-  line-height: var(--ui-line-height) !important;
-}
-.text-ui-sm {
-  font-size: var(--ui-font-size) !important;
-  line-height: var(--ui-line-height) !important;
-}
-.text-ui-md {
-  font-size: var(--ui-font-size) !important;
-  line-height: var(--ui-line-height) !important;
-}
-.text-ui-lg {
-  font-size: var(--ui-font-size) !important;
-  line-height: var(--ui-line-height) !important;
-}
-.text-ui-xl {
-  font-size: var(--ui-font-size) !important;
-  line-height: var(--ui-line-height) !important;
-}
-.app-menu .menu-item {
-  padding: 6px 10px;
-  border-radius: 4px;
-  color: var(--muted-foreground);
-}
-.app-menu .menu-item:hover,
-.app-menu .menu-item:focus {
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--foreground);
-  outline: none;
-  cursor: pointer;
-}
-.app-menu .menu-item:active {
-  background: rgba(255, 255, 255, 0.04);
-}
+/* .text-ui-* migrated to Tailwind: text-ui-xs, text-ui-sm, text-ui-md, text-ui-lg */
+/* .menu-item migrated to Tailwind: px-2 py-1 rounded text-muted-foreground hover:bg-white/5 hover:text-foreground focus:outline-none active:bg-white/10 */
 
 /* Controls (buttons, menu items, icon-only controls) should use the scaled control font and align vertically */
 button,
@@ -349,8 +227,7 @@ button,
 .menu-item,
 [role="button"],
 .inline-flex.items-center.justify-center.gap-2,
-.inline-flex.items-center.justify-center.gap-2 svg + span,
-.btn {
+.inline-flex.items-center.justify-center.gap-2 svg + span {
   font-size: var(--ui-control-font-size) !important;
   line-height: var(--ui-button-height) !important;
   height: var(--ui-button-height) !important;
@@ -364,7 +241,6 @@ button,
 
 /* Ensure icon-only square controls center SVGs */
 button > svg,
-.btn > svg,
 .inline-flex > svg {
   width: 1em;
   height: 1em;
@@ -377,20 +253,7 @@ button *,
   line-height: var(--ui-button-height) !important;
 }
 
-/* Animation for compile button */
-.compile-animation {
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
+/* compile-animation + pulse removed (unused) */
 
 /* Hide scrollbar while maintaining scroll functionality */
 .scrollbar-hide {
@@ -401,3 +264,5 @@ button *,
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Chrome, Safari and Opera */
 }
+}
+

@@ -1923,7 +1923,7 @@ export default function ArduinoSimulator() {
                                   <ScrollArea
                                     className="flex-1"
                                     viewportRef={debugMessagesContainerRef}
-                                    thumbClassName="bg-[#22c55e]"
+                                    thumbClassName="bg-status-success"
                                   >
                                     <div className="p-3">
                                     <div className="space-y-3">
