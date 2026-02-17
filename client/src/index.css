@@ -223,11 +223,7 @@ html, body {
 
 /* Controls (buttons, menu items, icon-only controls) should use the scaled control font and align vertically */
 button,
-.app-menu .menu-item,
-.menu-item,
-[role="button"],
-.inline-flex.items-center.justify-center.gap-2,
-.inline-flex.items-center.justify-center.gap-2 svg + span {
+[role="button"] {
   font-size: var(--ui-control-font-size) !important;
   line-height: var(--ui-button-height) !important;
   height: var(--ui-button-height) !important;
@@ -240,29 +236,19 @@ button,
 }
 
 /* Ensure icon-only square controls center SVGs */
-button > svg,
-.inline-flex > svg {
+button > svg {
   width: 1em;
   height: 1em;
 }
 
 /* Force child nodes to inherit control sizing to avoid mixed line-height from inner spans */
-button *,
-.app-menu .menu-item * {
+button * {
   font-size: var(--ui-control-font-size) !important;
   line-height: var(--ui-button-height) !important;
 }
 
 /* compile-animation + pulse removed (unused) */
 
-/* Hide scrollbar while maintaining scroll functionality */
-.scrollbar-hide {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
 
-.scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Chrome, Safari and Opera */
-}
 }
 

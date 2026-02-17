@@ -173,7 +173,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             {/* File Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="menu-item" tabIndex={0}>
+                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
                   File
                 </Button>
               </DropdownMenuTrigger>
@@ -211,7 +211,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             {/* Edit Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="menu-item" tabIndex={0}>
+                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
                   Edit
                 </Button>
               </DropdownMenuTrigger>
@@ -274,7 +274,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             {/* Sketch Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="menu-item" tabIndex={0}>
+                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
                   Sketch
                 </Button>
               </DropdownMenuTrigger>
@@ -305,7 +305,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             {/* Tools Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="menu-item" tabIndex={0}>
+                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
                   Tools
                 </Button>
               </DropdownMenuTrigger>
@@ -360,7 +360,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             {/* Help Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="menu-item" tabIndex={0}>
+                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
                   Help
                 </Button>
               </DropdownMenuTrigger>
