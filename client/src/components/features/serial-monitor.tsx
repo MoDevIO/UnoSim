@@ -238,7 +238,7 @@ export function SerialMonitor({
             viewportTestId="serial-output"
             viewportProps={{ onScroll: handleScroll }}
             viewportClassName="p-3 text-ui-xs font-mono"
-            thumbClassName="bg-[#22c55e]"
+            thumbClassName="bg-status-success"
           />
         ) : (
           <div className="h-full" />
