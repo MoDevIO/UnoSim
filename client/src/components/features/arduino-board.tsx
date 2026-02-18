@@ -820,6 +820,11 @@ export function ArduinoBoard({
     if (!overlaySvgContent) return "";
     let modified = overlaySvgContent;
     modified = modified.replace(/<\?xml[^?]*\?>/g, "");
+
+    // Ensure click areas carry a Tailwind utility for cursor (picked up by JIT)
+    // and keep original `click-area` class so SVG styles remain functional.
+    modified = modified.replace(/class="click-area"/g, 'class="click-area cursor-pointer"');
+
     modified = modified.replace(
       /<svg([^>]*)>/,
       `<svg$1 style="width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0;" preserveAspectRatio="xMidYMid meet">`,
