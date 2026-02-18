@@ -15,17 +15,8 @@ interface SerialPlotterProps {
   output: OutputLine[];
 }
 
-// Color palette for multiple series — use semantic CSS tokens
-const SERIES_COLORS = [
-  "var(--plot-1)", // blue
-  "var(--plot-2)", // red
-  "var(--plot-3)", // green
-  "var(--plot-4)", // amber
-  "var(--plot-5)", // purple
-  "var(--plot-6)", // pink
-  "var(--plot-7)", // cyan
-  "var(--plot-8)", // orange
-];
+// Series colors are provided by Tailwind tokens (mapped to CSS variables)
+// We'll apply them via `currentColor` + `text-plot-*` so Recharts picks up the color.
 
 export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
   const { chartData, seriesKeys, seriesNames } = useMemo(() => {
@@ -135,16 +126,10 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
             <XAxis
               dataKey="index"
               stroke="rgba(100,100,100,0.5)"
-              tick={{ fontSize: 12 }}
+              tick={{ className: 'text-ui-xs text-muted-foreground' }}
             />
-            <YAxis stroke="rgba(100,100,100,0.5)" tick={{ fontSize: 12 }} />
+            <YAxis stroke="rgba(100,100,100,0.5)" tick={{ className: 'text-ui-xs text-muted-foreground' }} />
             <Tooltip
-              contentStyle={{
-                backgroundColor: "rgba(0,0,0,0.8)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: "4px",
-                color: "var(--color-white)",
-              }}
               formatter={(value) => [
                 typeof value === "number" ? value.toFixed(2) : value,
                 "",
@@ -162,12 +147,18 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
                   ? seriesNames.get(stableIndex)!
                   : key;
 
+              // Use Tailwind color token mapped to CSS variable. Set stroke to
+              // `currentColor` and apply `text-plot-*` so the SVG path uses the
+              // Tailwind color without embedding hex values here.
+              const colorClass = `text-plot-${(idx % 8) + 1}`;
+
               return (
                 <Line
                   key={key}
                   type="monotone"
                   dataKey={key}
-                  stroke={SERIES_COLORS[idx % SERIES_COLORS.length]}
+                  stroke="currentColor"
+                  className={colorClass}
                   isAnimationActive={false}
                   dot={false}
                   name={displayName}
