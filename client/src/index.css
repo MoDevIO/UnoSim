@@ -134,12 +134,8 @@ html, body {
   --color-surface-dark: #2a2a2a;
 
   /* Semantic tokens for simulation controls (start/stop) and serial monitor */
-  --color-btn-start: var(--color-status-success);
-  --color-btn-start-hover: var(--color-status-success-dark);
-  --color-btn-stop: var(--color-status-warning);
-  --color-btn-stop-hover: var(--color-accent-amber);
-  --color-serial-monitor-bg: rgba(0,0,0,0.08);
 }
+
 
 @layer base {
   * {

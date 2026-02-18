@@ -286,18 +286,22 @@ export function ArduinoBoard({
 
         if (frame) {
           frame.style.display = isSimulationRunning && isInput ? "block" : "none";
-          frame.style.filter = isSimulationRunning && isInput
-            ? "drop-shadow(0 0 2px var(--color-led-yellow))"
-            : "none";
+          // Use SVG native filter for glow instead of CSS drop-shadow
+          if (isSimulationRunning && isInput) {
+            frame.setAttribute('filter', 'url(#glow-yellow)');
+          } else {
+            frame.removeAttribute('filter');
+          }
         }
 
         if (state) {
           if (color === "transparent" || color === "var(--color-black)") {
             state.setAttribute("fill", "var(--color-black)");
-            state.style.filter = "none";
+            state.removeAttribute('filter');
           } else {
             state.setAttribute("fill", color);
-            state.style.filter = `drop-shadow(0 0 3px ${color})`;
+            // pin states are red/pwm → use red glow filter for consistent appearance
+            state.setAttribute('filter', 'url(#glow-red)');
           }
         }
 
@@ -345,7 +349,11 @@ export function ArduinoBoard({
           // - (Pin is INPUT mode OR pin is detected as used with analogRead)
           const show = isSimulationRunning && (isInput || usedAsAnalog);
           frame.style.display = show ? "block" : "none";
-          frame.style.filter = show ? "drop-shadow(0 0 2px var(--color-led-yellow))" : "none";
+          if (show) {
+            frame.setAttribute('filter', 'url(#glow-yellow)');
+          } else {
+            frame.removeAttribute('filter');
+          }
           // Dashed frame if analogRead is used, solid otherwise
           if (show && usedAsAnalog) {
             (frame as any).style.strokeDasharray = "3,2";
@@ -357,10 +365,10 @@ export function ArduinoBoard({
         if (state) {
           if (color === "transparent" || color === "var(--color-black)") {
             state.setAttribute("fill", "var(--color-black)");
-            state.style.filter = "none";
+            state.removeAttribute('filter');
           } else {
             state.setAttribute("fill", color);
-            state.style.filter = `drop-shadow(0 0 3px ${color})`;
+            state.setAttribute('filter', 'url(#glow-red)');
           }
         }
 
@@ -820,6 +828,11 @@ export function ArduinoBoard({
     if (!overlaySvgContent) return "";
     let modified = overlaySvgContent;
     modified = modified.replace(/<\?xml[^?]*\?>/g, "");
+
+    // Ensure click areas carry a Tailwind utility for cursor (picked up by JIT)
+    // and keep original `click-area` class so SVG styles remain functional.
+    modified = modified.replace(/class="click-area"/g, 'class="click-area cursor-pointer"');
+
     modified = modified.replace(
       /<svg([^>]*)>/,
       `<svg$1 style="width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0;" preserveAspectRatio="xMidYMid meet">`,
