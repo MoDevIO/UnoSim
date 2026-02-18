@@ -126,16 +126,10 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
             <XAxis
               dataKey="index"
               stroke="rgba(100,100,100,0.5)"
-              tick={{ fontSize: 12 }}
+              tick={{ className: 'text-ui-xs text-muted-foreground' }}
             />
-            <YAxis stroke="rgba(100,100,100,0.5)" tick={{ fontSize: 12 }} />
+            <YAxis stroke="rgba(100,100,100,0.5)" tick={{ className: 'text-ui-xs text-muted-foreground' }} />
             <Tooltip
-              contentStyle={{
-                backgroundColor: "rgba(0,0,0,0.8)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: "4px",
-                color: "var(--color-white)",
-              }}
               formatter={(value) => [
                 typeof value === "number" ? value.toFixed(2) : value,
                 "",

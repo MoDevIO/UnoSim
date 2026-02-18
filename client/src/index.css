@@ -228,3 +228,23 @@ button * {
 
 }
 
+@layer components {
+  /* Recharts default tooltip — styled with Tailwind utilities via @apply */
+  .recharts-default-tooltip {
+    @apply text-ui-xs text-white rounded p-2;
+    background-color: rgba(0,0,0,0.8);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--color-white);
+  }
+
+  /* Tooltip label / meta styling inside recharts tooltip */
+  .recharts-default-tooltip .label {
+    @apply text-muted-foreground text-ui-xs font-semibold;
+  }
+
+  /* Legend wrapper — keep legend compact and muted */
+  .recharts-legend-wrapper {
+    @apply text-ui-xs text-muted-foreground;
+  }
+}
+
