@@ -85,8 +85,8 @@ test.describe("Visual baseline — Simulator UI", () => {
       }
 
       const pct = Number(m[1]);
-      // Increased to 1.0% to account for OS-specific rendering differences (Linux vs MacOS).
-      const MAX_PCT = 1.0; // percent - allow larger rendering variance for CI stability
+      // Temporarily tightened to 0.7% for this PR to catch accidental visual shifts during the final cleanup (previous diff ≈ 0.67%).
+      const MAX_PCT = 0.7; // percent - sharpened threshold for this PR
 
       if (pct <= MAX_PCT) {
         // small, acceptable variance (e.g. font antialiasing across platforms)
