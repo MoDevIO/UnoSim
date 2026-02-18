@@ -53,6 +53,7 @@ import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
+import { useFileManager } from "@/hooks/use-file-manager";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -177,8 +178,7 @@ export default function ArduinoSimulator() {
 
   // Serial input box state handled by useSerialIO
 
-  // Hidden file input for File → Load Files
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // File manager hook — instantiated after `handleFilesLoaded` to avoid TDZ (see below)
 
   // Debug console state and functions
   const {
@@ -197,60 +197,6 @@ export default function ArduinoSimulator() {
 
   // Subscribe to telemetry updates (to re-render when metrics change)
   const telemetryData = useTelemetryStore();
-
-  // Helper to download all tabs (used by File -> Download All Files)
-  const downloadAllFiles = async () => {
-    try {
-      tabs.forEach((tab, index) => {
-        setTimeout(() => {
-          const element = document.createElement("a");
-          element.setAttribute(
-            "href",
-            "data:text/plain;charset=utf-8," + encodeURIComponent(tab.content),
-          );
-          element.setAttribute("download", tab.name);
-          element.style.display = "none";
-          document.body.appendChild(element);
-          element.click();
-          document.body.removeChild(element);
-        }, index * 200);
-      });
-
-      setTimeout(
-        () => {
-          toast({
-            title: "Download started",
-            description: `${tabs.length} file(s) will be downloaded`,
-          });
-        },
-        tabs.length * 200 + 100,
-      );
-    } catch (err) {
-      toast({
-        title: "Download failed",
-        description: err instanceof Error ? err.message : String(err),
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Handler for hidden file input change
-  const handleHiddenFileInput = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const fl = e.target.files;
-    if (!fl || fl.length === 0) return;
-    const files: Array<{ name: string; content: string }> = [];
-    for (const f of Array.from(fl)) {
-      if (!f.name.endsWith(".ino") && !f.name.endsWith(".h")) continue;
-      try {
-        const txt = await f.text();
-        files.push({ name: f.name, content: txt });
-      } catch {}
-    }
-    if (files.length > 0) handleFilesLoaded(files, false);
-    e.target.value = "";
-  };
 
   // Helper to request the global Settings dialog to open (App listens for this event)
   const openSettings = () => {
@@ -990,6 +936,16 @@ export default function ArduinoSimulator() {
     }
   };
 
+  // Instantiate file manager once `handleFilesLoaded` is defined (avoids TDZ)
+  const toastAdapter = (p: { title: string; description?: string; variant?: string }) =>
+    toast({ title: p.title, description: p.description, variant: p.variant === "destructive" ? "destructive" : undefined });
+
+  const { fileInputRef, onLoadFiles, downloadAllFiles, handleHiddenFileInput } = useFileManager({
+    tabs,
+    onFilesLoaded: handleFilesLoaded,
+    toast: toastAdapter,
+  });
+
   const handleLoadExample = (filename: string, content: string) => {
     // Stop simulation if running
     if (simulationStatus === "running") {
@@ -1317,7 +1273,7 @@ export default function ArduinoSimulator() {
           }
         }}
         onFormatCode={formatCode}
-        onLoadFiles={() => fileInputRef.current?.click()}
+        onLoadFiles={onLoadFiles}
         onDownloadAllFiles={downloadAllFiles}
         onSettings={openSettings}
         onUndo={() => runEditorCommand("undo")}
