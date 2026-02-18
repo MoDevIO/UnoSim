@@ -51,6 +51,7 @@ import { useSketchTabs } from "@/hooks/use-sketch-tabs";
 import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
+import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import {
   ResizablePanelGroup,
@@ -799,173 +800,28 @@ export default function ArduinoSimulator() {
   };
 
   // Parse the current code to detect which analog pins are used by name or channel
+  // (extracted to `useSketchAnalysis` for testability and reuse)
+  const _sketchCode = code || (tabs.length > 0 ? tabs[0].content || "" : "");
+  const {
+    analogPins: _analogPins,
+    varMap: _varMap,
+    detectedPinModes: _detectedPinModes,
+    pendingPinConflicts: _pendingPinConflicts,
+  } = useSketchAnalysis(_sketchCode);
+
+  // Mirror results into local state (previously done inside the big useEffect)
   useEffect(() => {
-    let mainCode = code;
-    if (!mainCode && tabs.length > 0) mainCode = tabs[0].content || "";
-
-    const pins = new Set<number>();
-    const varMap = new Map<string, number>();
-
-    // Detect #define VAR A0 or #define VAR 0
-    const defineRe = /#define\s+(\w+)\s+(A\d|\d+)/g;
-    let m: RegExpExecArray | null;
-    while ((m = defineRe.exec(mainCode))) {
-      const name = m[1];
-      const token = m[2];
-      let p: number | undefined;
-      const aMatch = token.match(/^A(\d+)$/i);
-      if (aMatch) {
-        const idx = Number(aMatch[1]);
-        if (idx >= 0 && idx <= 5) p = 14 + idx;
-      } else if (/^\d+$/.test(token)) {
-        const idx = Number(token);
-        if (idx >= 0 && idx <= 5) p = 14 + idx;
-        else if (idx >= 14 && idx <= 19) p = idx;
-      }
-      if (p !== undefined) varMap.set(name, p);
-    }
-
-    // Detect simple variable assignments like: int sensorPin = A0; or const int s = 0;
-    const assignRe =
-      /(?:int|const\s+int|uint8_t|byte)\s+(\w+)\s*=\s*(A\d|\d+)\s*;/g;
-    while ((m = assignRe.exec(mainCode))) {
-      const name = m[1];
-      const token = m[2];
-      let p: number | undefined;
-      const aMatch = token.match(/^A(\d+)$/i);
-      if (aMatch) {
-        const idx = Number(aMatch[1]);
-        if (idx >= 0 && idx <= 5) p = 14 + idx;
-      } else if (/^\d+$/.test(token)) {
-        const idx = Number(token);
-        if (idx >= 0 && idx <= 5) p = 14 + idx;
-        else if (idx >= 14 && idx <= 19) p = idx;
-      }
-      if (p !== undefined) varMap.set(name, p);
-    }
-
-    // Find all analogRead(...) occurrences
-    const areadRe = /analogRead\s*\(\s*([^\)]+)\s*\)/g;
-    let analogReadMatchCount = 0;
-    while ((m = areadRe.exec(mainCode))) {
-      analogReadMatchCount++;
-      const token = m[1].trim();
-      console.log(`[arduino-simulator] analogRead match #${analogReadMatchCount}: token="${token}"`);
-      // strip possible casts or expressions (very simple handling)
-      const simple = token.match(/^(A\d+|\d+|\w+)$/i);
-      if (!simple) {
-        console.log(`[arduino-simulator]   -> Token "${token}" does NOT match simple pattern, skipping`);
-        continue;
-      }
-      const tok = simple[1];
-      // If token is A<n>
-      const aMatch = tok.match(/^A(\d+)$/i);
-      if (aMatch) {
-        const idx = Number(aMatch[1]);
-        if (idx >= 0 && idx <= 5) {
-          pins.add(14 + idx);
-          console.log(`[arduino-simulator]   -> Added pin ${14 + idx} (A${idx})`);
-        }
-        continue;
-      }
-      // If numeric literal
-      if (/^\d+$/.test(tok)) {
-        const idx = Number(tok);
-        if (idx >= 0 && idx <= 5) pins.add(14 + idx);
-        else if (idx >= 14 && idx <= 19) pins.add(idx);
-        continue;
-      }
-      // Otherwise assume variable name - resolve from varMap
-      if (varMap.has(tok)) {
-        pins.add(varMap.get(tok)!);
-      }
-    }
-    console.log(`[arduino-simulator] Total analogRead matches: ${analogReadMatchCount}`);
-
-    // Detect for-loops like: for (byte i=16; i<20; i++) { ... analogRead(i) ... }
-    const forLoopRe =
-      /for\s*\(\s*(?:byte|int|unsigned|uint8_t)?\s*(\w+)\s*=\s*(\d+)\s*;\s*\1\s*(<|<=)\s*(\d+)\s*;[^\)]*\)\s*\{([\s\S]*?)\}/g;
-    let fm: RegExpExecArray | null;
-    while ((fm = forLoopRe.exec(mainCode))) {
-      const varName = fm[1];
-      const start = Number(fm[2]);
-      const cmp = fm[3];
-      const end = Number(fm[4]);
-      const body = fm[5];
-      const useRe = new RegExp(
-        "analogRead\\s*\\(\\s*" + varName + "\\s*\\)",
-        "g",
-      );
-      if (useRe.test(body)) {
-        const inclusive = cmp === "<=";
-        const last = inclusive ? end : end - 1;
-        for (let pin = start; pin <= last; pin++) {
-          // If the loop iterates over analog channel numbers (0..5) or internal pins (14..19 or 16..19), handle mapping
-          if (pin >= 0 && pin <= 5) pins.add(14 + pin);
-          else if (pin >= 14 && pin <= 19) pins.add(pin);
-          else if (pin >= 16 && pin <= 19) pins.add(pin);
-        }
-      }
-    }
-
-    // Do NOT add pins to pinStates during code editing — pins should only appear
-    // after upload/simulation starts (via io_registry message from the server).
-    const pinModeRe =
-      /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
-    const digitalPinsFromPinMode = new Set<number>();
-    const detectedModes: Record<number, "INPUT" | "OUTPUT" | "INPUT_PULLUP"> = {};
-    while ((m = pinModeRe.exec(mainCode))) {
-      const token = m[1];
-      const modeToken = m[2];
-      let p: number | undefined;
-      const aMatch = token.match(/^A(\d+)$/i);
-      if (aMatch) {
-        const idx = Number(aMatch[1]);
-        if (idx >= 0 && idx <= 5) p = 14 + idx;
-      } else if (/^\d+$/.test(token)) {
-        // Treat numeric literals in pinMode(...) as literal Arduino pin numbers.
-        const idx = Number(token);
-        if (idx >= 0 && idx <= 255) p = idx;
-      }
-      if (p !== undefined) {
-        digitalPinsFromPinMode.add(p);
-        const mode =
-          modeToken === "INPUT_PULLUP"
-            ? "INPUT_PULLUP"
-            : modeToken === "OUTPUT"
-              ? "OUTPUT"
-              : "INPUT";
-        detectedModes[p] = mode;
-      }
-    }
-
-    // Replace detectedPinModes completely (don't merge) to avoid old modes persisting
-    setDetectedPinModes(detectedModes);
-
-    // If any pin is both declared via pinMode(...) and used with analogRead(...), warn the user
-    try {
-      const overlap = Array.from(pins).filter((p) =>
-        digitalPinsFromPinMode.has(p),
-      );
-      if (overlap.length > 0) {
-        // Store conflicts and show them when simulation starts
-        setPendingPinConflicts(overlap);
-        console.warn(
-          "[arduino-simulator] Pin usage conflict for pins:",
-          overlap
-            .map((p) => (p >= 14 && p <= 19 ? `A${p - 14}` : `${p}`))
-            .join(", "),
-        );
-      } else {
-        setPendingPinConflicts([]);
-      }
-    } catch {}
-
-    // Update analogPinsUsed with client-detected pins
-    const clientPins = Array.from(pins).sort((a, b) => a - b);
-    console.log(`[arduino-simulator] Client-detected analog pins:`, clientPins);
-    setAnalogPinsUsed(clientPins);
-  }, [code, tabs, activeTabId]);
+    setDetectedPinModes(_detectedPinModes);
+    setPendingPinConflicts(_pendingPinConflicts);
+    setAnalogPinsUsed(_analogPins);
+  }, [
+    _detectedPinModes,
+    _pendingPinConflicts,
+    _analogPins,
+    setDetectedPinModes,
+    setPendingPinConflicts,
+    setAnalogPinsUsed,
+  ]);
 
   // When the simulation starts, apply recorded pinMode declarations and
   // populate any detected analog pins so they become clickable and show
