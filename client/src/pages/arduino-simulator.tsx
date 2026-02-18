@@ -54,6 +54,7 @@ import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { useFileManager } from "@/hooks/use-file-manager";
+import { useSimulationLifecycle } from "@/hooks/use-simulation-lifecycle";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -388,6 +389,20 @@ export default function ArduinoSimulator() {
 
   setHasCompiledOnceRef.current = setHasCompiledOnce;
 
+  // Simulation lifecycle orchestration (auto-stop on code edits / compiler errors)
+  const { suppressAutoStopOnce } = useSimulationLifecycle({
+    code,
+    simulationStatus,
+    setSimulationStatus,
+    sendMessage,
+    resetPinUI,
+    clearOutputs,
+    handlePause,
+    handleResume,
+    handleReset,
+    hasCompilationErrors,
+  });
+
   // Output panel sizing and management
   const {
     outputPanelRef,
@@ -438,7 +453,7 @@ export default function ArduinoSimulator() {
 
   // Upload mutation (used by Compile → Upload)
   // Ref to skip stopping simulation when a suggestion is inserted
-  const skipSimStopRef = useRef(false);
+  // suppression flag moved into `useSimulationLifecycle` — no longer needed here
 
   useEffect(() => {
     // Reset status when code actually changes
@@ -722,18 +737,6 @@ export default function ArduinoSimulator() {
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
     setIsModified(true);
-
-    // Stop simulation when user edits the code (unless inserting a suggestion)
-    // Stop both running and paused simulations
-    if ((simulationStatus === "running" || simulationStatus === "paused") && !skipSimStopRef.current) {
-      sendMessage({ type: "stop_simulation" });
-      setSimulationStatus("stopped");
-      // Reset all UI pin state when code changes while running/paused, but preserve detected modes
-      // so they can be re-applied when simulation restarts
-      resetPinUI({ keepDetected: true });
-    }
-    skipSimStopRef.current = false;
-    // Detected pin modes are preserved so they'll be applied at next simulation start
 
     // Update the active tab content
     if (activeTabId) {
@@ -1577,7 +1580,7 @@ export default function ArduinoSimulator() {
                                   typeof (editorRef.current as any)
                                     .insertSuggestionSmartly === "function"
                                 ) {
-                                  skipSimStopRef.current = true;
+                                  suppressAutoStopOnce();
                                   (
                                     editorRef.current as any
                                   ).insertSuggestionSmartly(suggestion, line);
