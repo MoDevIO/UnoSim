@@ -914,13 +914,7 @@ export function ArduinoBoard({
               {/* Overlay SVG - dynamic visualization and click handling */}
               <div
                 ref={overlayRef}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                }}
+                className="arduino-overlay absolute inset-0 w-full h-full"
                 onClick={handleOverlayClick}
                 dangerouslySetInnerHTML={{ __html: getOverlaySvg() }}
               />

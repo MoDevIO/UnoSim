@@ -7,16 +7,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 293.2 221">
   <defs>
     <style>
-      /* Pin connector stroke style from original */
       .pin-stroke { fill: none; stroke: #9a916c; stroke-miterlimit: 5; stroke-width: 1px; }
-      /* LED colors */
       .led-yellow-on { fill: #ff0; fill-opacity: 1; }
       .led-yellow-off { fill: #ff0; fill-opacity: 0.4; }
       .led-green-on { fill: lime; fill-opacity: 1; }
       .led-green-off { fill: lime; fill-opacity: 0.4; }
-      /* Click areas */
       .click-area { fill: transparent; cursor: pointer; }
-      /* State overlays */
       .state-circle { fill-opacity: 0.8; }
       .input-frame { fill: none; stroke: #ffff00; stroke-width: 1; }
     </style>
