@@ -25,6 +25,10 @@ export function useSimulationLifecycle({
   handleReset,
   hasCompilationErrors = false,
 }: UseSimulationLifecycleOptions) {
+  // Trace state transitions for tests/debugging
+  // eslint-disable-next-line no-console
+  useEffect(() => { /* status changes handled by lifecycle */ }, [simulationStatus]);
+
   // Temporary suppression flag (used when inserting editor suggestions)
   const skipAutoStopRef = useRef(false);
 

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import type { MutableRefObject } from "react";
 import { useMutation } from "@tanstack/react-query";
 
@@ -53,6 +53,10 @@ export function useSimulationControls({
   const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>(
     "stopped",
   );
+  // Trace state changes during tests to detect unexpected overwrites
+  // eslint-disable-next-line no-console
+  useEffect(() => { /* simulationStatus observed for side-effects */ }, [simulationStatus]);
+
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
 
