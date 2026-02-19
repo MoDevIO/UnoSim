@@ -22,7 +22,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
   const clientRunners = new Map<
     WebSocket,
-    { runner: InstanceType<typeof SandboxRunner> | null; isRunning: boolean; isPaused: boolean; testRunId?: string }
+    { runner: InstanceType<typeof SandboxRunner> | null; isRunning: boolean; isPaused: boolean; testRunId?: string; runId?: string }
   >();
 
   function sendMessageToClient(ws: WebSocket, message: any) {
@@ -102,6 +102,8 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
             const runnerTempDir = clientState.testRunId ? path.join(process.cwd(), "temp", clientState.testRunId) : undefined;
 
             clientState.runner = new SandboxRunner({ tempDir: runnerTempDir });
+            // attach a per-run identifier to prevent post-stop races from earlier run callbacks
+            clientState.runId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
             clientState.isRunning = true;
             clientState.isPaused = false;
 
@@ -114,15 +116,17 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
             const timeoutValue = "timeout" in data ? data.timeout : undefined;
             logger.info(`[Simulation] Starting with timeout: ${timeoutValue}s`);
 
+            const thisRunId = clientState.runId;
+
             clientState.runner.runSketch(
               lastCompiledCode,
               (line: string, isComplete?: boolean) => {
-                // Guard against race: if the runner has been stopped for this client,
-                // suppress any further serial_output messages coming from in-flight
-                // callbacks to avoid UI receiving post-stop runtime output.
+                // Guard against race: ensure the callback belongs to the current run
                 const cs = clientRunners.get(ws);
-                if (!cs || !cs.isRunning) {
-                  return; // drop outputs produced after stop()
+                if (!cs || !cs.isRunning || cs.runId !== thisRunId) {
+                  // drop outputs produced after stop() or from a previous run
+                  logger.debug && logger.debug(`[WS serial] dropping output for stale run (runId=${thisRunId}) currentRun=${cs?.runId || 'n/a'}`);
+                  return;
                 }
 
                 if (!gccSuccessSent) {
@@ -214,6 +218,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
               clientState.runner.stop();
               clientState.isRunning = false;
               clientState.isPaused = false;
+              clientState.runId = undefined;
               sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
               sendMessageToClient(ws, { type: "serial_output", data: "--- Simulation stopped due to code change ---\n" });
             }
@@ -227,6 +232,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
               clientState.runner.stop();
               clientState.isRunning = false;
               clientState.isPaused = false;
+              clientState.runId = undefined;
             }
             sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
             sendMessageToClient(ws, { type: "serial_output", data: "--- Simulation stopped ---\n" });
@@ -309,6 +315,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       }
       clientState.isRunning = false;
       clientState.isPaused = false;
+      clientState.runId = undefined;
       cleanedTestRunIds.push(clientState.testRunId);
 
       sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
