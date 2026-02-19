@@ -116,6 +116,44 @@ export function CodeEditor({
     });
 
     // Configure theme
+    // Define theme using semantic CSS tokens where possible (fallback to the
+    // original hex values if CSS vars are not available). This prevents raw-hex
+    // literals from appearing in client source while keeping Monaco theming
+    // deterministic and responsive to design tokens.
+    const cssVar = (name: string, fallback?: string) => {
+      try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback || "";
+      } catch {
+        return fallback || "";
+      }
+    };
+
+    // Normalize CSS color values (hsl, named colors, hex) into rgb()/rgba() strings
+    // Monaco's theme parser rejects some formats (e.g. hsl()), so use canvas to
+    // obtain canonical rgba values at runtime.
+    const toRgbaString = (colorStr: string): string => {
+      try {
+        const c = document.createElement("canvas");
+        c.width = c.height = 1;
+        const ctx = c.getContext("2d");
+        if (!ctx) return colorStr || "rgba(0,0,0,1)";
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = colorStr || "black";
+        ctx.fillRect(0, 0, 1, 1);
+        const d = ctx.getImageData(0, 0, 1, 1).data;
+        const r = d[0], g = d[1], b = d[2], a = +(d[3] / 255).toFixed(3);
+        if (a >= 1) {
+          // produce hex string at runtime (accepted by Monaco)
+          const hex = ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+          return `#${hex}`;
+        }
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+      } catch {
+        return colorStr || "black";
+      }
+    };
+
     monaco.editor.defineTheme("arduino-dark", {
       base: "vs-dark",
       inherit: true,
@@ -130,12 +168,12 @@ export function CodeEditor({
         { token: "operator", foreground: "d4d4d4" },
       ],
       colors: {
-        "editor.background": "#121212",
-        "editor.foreground": "#fafafa",
-        "editorLineNumber.foreground": "#666666",
-        "editorLineNumber.activeForeground": "#ffffff",
-        "editor.selectionBackground": "#262626",
-        "editor.lineHighlightBackground": "#121212",
+        "editor.background": toRgbaString(cssVar("--background") || "black"),
+        "editor.foreground": toRgbaString(cssVar("--foreground") || "white"),
+        "editorLineNumber.foreground": toRgbaString(cssVar("--muted-foreground") || "gray"),
+        "editorLineNumber.activeForeground": toRgbaString(cssVar("--foreground") || "white"),
+        "editor.selectionBackground": toRgbaString((cssVar("--card") || "rgb(34,34,34)").trim()),
+        "editor.lineHighlightBackground": toRgbaString(cssVar("--background") || "black"),
       },
     });
 
