@@ -75,13 +75,18 @@ void loop() {
     const before = (await serialViewport.textContent()) || "";
     await stopSimulation();
 
-    // After stopping, UI should show start/resume button
+    // After stopping, UI should show start/resume button and the stop marker should appear
     await expect(page.getByRole("button", { name: /start simulation|resume simulation/i })).toBeVisible({ timeout: 15000 });
+    await expect.poll(async () => {
+      const txt = await serialViewport.textContent();
+      return !!txt && txt.includes('--- Simulation stopped ---');
+    }, { timeout: 5000 }).toBe(true);
 
-    // Wait a short interval and assert no additional serial output was appended after stop
+    // Snapshot the serial content after the stop marker — no further output should appear afterwards
+    const stoppedContent = (await serialViewport.textContent()) || "";
     await page.waitForTimeout(1200);
     const after = (await serialViewport.textContent()) || "";
-    expect(after).toBe(before);
+    expect(after).toBe(stoppedContent);
 
     // Finally, ensure we can start again (no stuck state)
     await startSimulation();
