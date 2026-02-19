@@ -257,7 +257,7 @@ export default function SimulatorOutputPanel(props: {
           </div>
 
           {debugViewMode === "table" ? (
-            <ScrollArea className="h-48" viewportRef={debugMessagesContainerRef} thumbClassName="bg-[#22c55e]">
+            <ScrollArea className="h-48" viewportRef={debugMessagesContainerRef} thumbClassName="bg-status-success">
               <table className="w-full text-ui-xs border-collapse">
                 <thead className="text-ui-xs text-muted-foreground bg-muted/30 sticky top-0">
                   <tr>
