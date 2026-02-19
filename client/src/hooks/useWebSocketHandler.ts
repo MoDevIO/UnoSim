@@ -16,7 +16,7 @@ type UseWebSocketHandlerParams = {
   simulationStatus: string;
 
   // callbacks / setters from parent scope
-  setRxActivity: React.Dispatch<React.SetStateAction<number>>;
+  setRxActivity?: React.Dispatch<React.SetStateAction<number>>;
   appendSerialOutput: (text: string) => void;
   appendRenderedText: (text: string) => void;
   setSerialOutput: React.Dispatch<React.SetStateAction<OutputLine[]>>;
@@ -117,7 +117,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
           break;
         }
 
-        setRxActivity((prev) => prev + 1);
+        setRxActivity?.((prev) => prev + 1);
 
         const isNewlineOnly = text === "\n" || text === "\r\n";
         if (isNewlineOnly) text = "";
@@ -362,7 +362,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
 
     // Log all messages to debug console BEFORE consuming them
     messageQueue.forEach((msg) => {
-      addDebugMessage("server", msg.type || "unknown", JSON.stringify(msg, null, 2), "websocket");
+      addDebugMessage?.("server", msg.type || "unknown", JSON.stringify(msg, null, 2), "websocket");
     });
 
     const messages = consumeMessages();

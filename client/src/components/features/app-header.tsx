@@ -113,8 +113,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const headerRef = React.useRef<HTMLElement | null>(null);
   const leftGroupRef = React.useRef<HTMLDivElement | null>(null);
   const centerGroupRef = React.useRef<HTMLDivElement | null>(null);
-  const [centerLeft, setCenterLeft] = React.useState<number | null>(null);
-
   React.useLayoutEffect(() => {
     if (isMobile) return;
     const headerEl = headerRef.current;
@@ -122,19 +120,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     const centerEl = centerGroupRef.current;
     if (!headerEl || !leftEl || !centerEl) return;
 
+    // keep layout observer for responsive header positioning but no local state
     const computeCenter = () => {
-      const headerRect = headerEl.getBoundingClientRect();
-      const leftRect = leftEl.getBoundingClientRect();
-      const centerRect = centerEl.getBoundingClientRect();
-      const gap = 12;
-      const leftEdge = leftRect.left - headerRect.left;
-      const minCenter =
-        leftEdge + leftRect.width + gap + centerRect.width / 2;
-      const target = Math.max(headerRect.width / 2, minCenter);
-      setCenterLeft(target);
+      /* intentionally no-op; observers remain for future layout-driven changes */
     };
 
-    computeCenter();
     const observer = new ResizeObserver(() => computeCenter());
     observer.observe(headerEl);
     observer.observe(leftEl);

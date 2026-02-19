@@ -1,26 +1,10 @@
 //arduino-simulator.tsx
 
-import {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  lazy,
-  Suspense,
-} from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Cpu,
-  Terminal,
-  Wrench,
-  Trash2,
-  ChevronsDown,
-  BarChart,
-  Monitor,
-  Columns,
-} from "lucide-react";
-import { InputGroup } from "@/components/ui/input-group";
+import { Cpu, Terminal, Wrench, Monitor } from "lucide-react";
+
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/features/code-editor";
@@ -51,7 +35,7 @@ import { SimulationUiProvider, useSimulationUi } from "@/hooks/use-simulation-ui
 import SimulatorHeader from "@/components/features/simulator/SimulatorHeader";
 
 import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
-import { useTelemetryStore } from "@/hooks/use-telemetry-store";
+
 import { useFileManager } from "@/hooks/use-file-manager";
 import { useSimulationLifecycle } from "@/hooks/use-simulation-lifecycle";
 import {
@@ -59,7 +43,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
 import type {
   Sketch,
   ParserMessage,
@@ -67,19 +51,7 @@ import type {
 } from "@shared/schema";
 import { isMac } from "@/lib/platform";
 
-// Lazy load SerialPlotter to defer recharts (~400KB) until needed
-const SerialPlotter = lazy(() =>
-  import("@/components/features/serial-plotter").then((m) => ({
-    default: m.SerialPlotter,
-  })),
-);
 
-// Loading placeholder for lazy components
-const LoadingPlaceholder = () => (
-  <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
-    <span className="text-ui-sm">Loading chart...</span>
-  </div>
-);
 
 // Logger import
 import { Logger } from "@shared/logger";
@@ -97,14 +69,8 @@ function ArduinoSimulatorInner() {
   const {
     serialOutput,
     setSerialOutput,
-    serialViewMode,
     autoScrollEnabled,
-    setAutoScrollEnabled,
-    serialInputValue,
-    setSerialInputValue,
     showSerialMonitor,
-    showSerialPlotter,
-    cycleSerialViewMode,
     clearSerialOutput,
     // Baudrate rendering (Phase 3-4)
     renderedSerialOutput, // Use this for SerialMonitor (baudrate-simulated)
@@ -155,12 +121,13 @@ function ArduinoSimulatorInner() {
   const [isModified, setIsModified] = useState(false);
 
   const {
-    pinStates,
     setPinStates,
     resetPinStates,
     enqueuePinEvent,
     batchStats,
   } = useSimulationStore();
+
+  const { setTxActivity } = useSimulationUi();
 
   // Pin state management via hook
   const {
@@ -187,7 +154,7 @@ function ArduinoSimulatorInner() {
 
 
   // Subscribe to telemetry updates (to re-render when metrics change)
-  const telemetryData = useTelemetryStore();
+
 
   // Helper to request the global Settings dialog to open (App listens for this event)
   const openSettings = () => {
@@ -196,19 +163,12 @@ function ArduinoSimulatorInner() {
     } catch {}
   };
 
-  const handleSerialInputSend = () => {
-    if (!serialInputValue.trim()) return;
-    handleSerialSend(serialInputValue);
-    setSerialInputValue("");
-  };
 
-  const handleSerialInputKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSerialInputSend();
-  };
+
+
 
   // RX/TX LED activity counters (increment on activity for change detection)
-  const [txActivity, setTxActivity] = useState(0);
-  const [rxActivity, setRxActivity] = useState(0);
+
   // Queue for incoming serial_events - use ref to avoid React batching issues
   const serialEventQueueRef = useRef<
     Array<{ payload: any; receivedAt: number }>
@@ -387,7 +347,7 @@ function ArduinoSimulatorInner() {
   setHasCompiledOnceRef.current = setHasCompiledOnce;
 
   // Simulation lifecycle orchestration (auto-stop on code edits / compiler errors)
-  const { suppressAutoStopOnce } = useSimulationLifecycle({
+  useSimulationLifecycle({
     code,
     simulationStatus,
     setSimulationStatus,
@@ -668,7 +628,6 @@ function ArduinoSimulatorInner() {
   // WebSocket message handling moved to `useWebSocketHandler` (extracted for better separation of concerns)
   useWebSocketHandler({
     simulationStatus,
-    setRxActivity,
     appendSerialOutput,
     appendRenderedText,
     setSerialOutput,
@@ -1070,7 +1029,7 @@ function ArduinoSimulatorInner() {
     }
 
     // Trigger TX LED blink when client sends data
-    setTxActivity((prev) => prev + 1);
+    setTxActivity?.((prev: number | undefined) => (prev ?? 0) + 1);
 
     sendMessage({
       type: "serial_input",

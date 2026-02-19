@@ -12,12 +12,7 @@ type CliStatus = "idle" | "compiling" | "success" | "error";
 
 type SetState<T> = (value: T | ((prev: T) => T)) => void;
 
-type DebugMessageParams = {
-  source: "frontend" | "server";
-  type: string;
-  data: string;
-  protocol?: "websocket" | "http";
-};
+
 
 type CompilePayload = {
   code: string;
@@ -94,7 +89,7 @@ export function useCompilation({
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: CompilePayload) => {
-      addDebugMessage(
+      addDebugMessage?.(
         "frontend",
         "upload_request",
         JSON.stringify(
@@ -166,7 +161,7 @@ export function useCompilation({
     mutationFn: async (payload: CompilePayload) => {
       setArduinoCliStatus("compiling");
       setLastCompilationResult(null);
-      addDebugMessage(
+      addDebugMessage?.(
         "frontend",
         "compile_request",
         JSON.stringify(
@@ -195,7 +190,7 @@ export function useCompilation({
         setHasCompilationErrors(false);
         setLastCompilationResult("success");
         setCliOutput(data.output || "✓ Arduino-CLI Compilation succeeded.");
-        addDebugMessage(
+        addDebugMessage?.(
           "server",
           "compilation_status",
           JSON.stringify({ gccStatus: "success" }, null, 2),
@@ -207,7 +202,7 @@ export function useCompilation({
         setLastCompilationResult("error");
         triggerErrorGlitch();
         setCliOutput(data.errors || "✗ Arduino-CLI Compilation failed.");
-        addDebugMessage(
+        addDebugMessage?.(
           "server",
           "compilation_error",
           JSON.stringify(
@@ -217,7 +212,7 @@ export function useCompilation({
           ),
           "http",
         );
-        addDebugMessage(
+        addDebugMessage?.(
           "server",
           "compilation_status",
           JSON.stringify({ gccStatus: "error" }, null, 2),
@@ -327,7 +322,7 @@ export function useCompilation({
   const handleCompileAndStart = useCallback(() => {
     if (!ensureBackendConnected("Simulation starten")) return;
 // clear debug messages via provider
-      setDebugMessages([]);
+      setDebugMessages?.([]);
 
     let mainSketchCode: string = "";
     if (editorRef.current) {

@@ -1,4 +1,3 @@
-import React from "react";
 import { Play, Zap, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,8 +30,6 @@ function getStatusTextClass(status: Props["simulationStatus"]) {
   switch (status) {
     case "idle":
       return "text-gray-500 italic";
-    case "ready":
-      return "text-gray-700";
     case "running":
       return "text-green-600";
     case "stopped":
@@ -46,16 +43,10 @@ export default function SimulatorHeader({
   simulationStatus,
   simulateDisabled = false,
   isCompiling = false,
-  isStarting = false,
-  isStopping = false,
-  isPausing = false,
-  isResuming = false,
   onSimulate,
   onStop,
-  onPause,
   onResume,
   simulationTimeout,
-  onTimeoutChange,
   onCompile,
   onCompileAndStart,
   board = "Arduino UNO",

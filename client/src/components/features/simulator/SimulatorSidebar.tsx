@@ -2,7 +2,6 @@ import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
 import { ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
@@ -10,18 +9,7 @@ import { X } from "lucide-react";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { useSimulationUi } from "@/hooks/use-simulation-ui";
 
-type BatchStats = { lastBatchMs: number; lastBatchSize: number; lastFrameAt: number };
 
-type SimulationStatus = "running" | "stopped" | "paused";
-
-type SimulatorSidebarProps = {
-  pinMonitorVisible: boolean;
-  onReset: () => void;
-  onPinToggle: (pin: number, newValue: number) => void;
-  analogPins: number[];
-  onAnalogChange: (pin: number, newValue: number) => void;
-  isMobile?: boolean;
-};
 
 export type OutputApi = {
   cliOutput: string;
@@ -31,7 +19,7 @@ export type OutputApi = {
   parserMessages: any[];
   ioRegistry: any[];
   parserMessagesContainerRef: React.RefObject<HTMLDivElement>;
-  activeOutputTab: "compiler" | "messages" | "registry";
+  activeOutputTab: "compiler" | "messages" | "registry" | "debug";
   setActiveOutputTab: (v: any) => void;
   showCompilationOutput: boolean;
   setShowCompilationOutput: (v: boolean) => void;
@@ -102,8 +90,6 @@ export function SimulatorOutput({ outputApi }: { outputApi: OutputApi }) {
     parserMessagesContainerRef,
     activeOutputTab,
     setActiveOutputTab,
-    showCompilationOutput,
-    setShowCompilationOutput,
     setParserPanelDismissed,
     outputPanelRef,
     outputTabsHeaderRef,
@@ -112,7 +98,7 @@ export function SimulatorOutput({ outputApi }: { outputApi: OutputApi }) {
     setCompilationPanelSize,
     outputPanelManuallyResizedRef,
     openOutputPanel,
-    toast,
+    setShowCompilationOutput,
   } = outputApi;
 
   return (

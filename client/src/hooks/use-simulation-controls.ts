@@ -6,12 +6,7 @@ type SimulationStatus = "running" | "stopped" | "paused";
 
 type SetState<T> = (value: T | ((prev: T) => T)) => void;
 
-type DebugMessageParams = {
-  source: "frontend" | "server";
-  type: string;
-  data: string;
-  protocol?: "websocket" | "http";
-};
+
 
 type UseSimulationControlsParams = {
   ensureBackendConnected: (reason: string) => boolean;
@@ -63,7 +58,7 @@ export function useSimulationControls({
 
   const stopMutation = useMutation({
     mutationFn: async () => {
-      addDebugMessage(
+      addDebugMessage?.(
         "frontend",
         "stop_simulation",
         JSON.stringify({ type: "stop_simulation" }, null, 2),
@@ -81,7 +76,7 @@ export function useSimulationControls({
 
   const pauseMutation = useMutation({
     mutationFn: async () => {
-      addDebugMessage(
+      addDebugMessage?.(
         "frontend",
         "pause_simulation",
         JSON.stringify({ type: "pause_simulation" }, null, 2),
@@ -104,7 +99,7 @@ export function useSimulationControls({
 
   const resumeMutation = useMutation({
     mutationFn: async () => {
-      addDebugMessage(
+      addDebugMessage?.(
         "frontend",
         "resume_simulation",
         JSON.stringify({ type: "resume_simulation" }, null, 2),
@@ -128,7 +123,7 @@ export function useSimulationControls({
   const startMutation = useMutation({
     mutationFn: async () => {
       resetPinUI({ keepDetected: true });
-      addDebugMessage(
+      addDebugMessage?.(
         "frontend",
         "start_simulation",
         JSON.stringify(

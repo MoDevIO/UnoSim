@@ -119,7 +119,7 @@ export default function SimulatorOutputPanel() {
               variant="outline"
               size="sm"
               className={"h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"}
-              onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
+              onClick={() => setAutoScrollEnabled?.(!autoScrollEnabled)}
               disabled={serialViewMode === "plotter"}
               title={autoScrollEnabled ? "Autoscroll on" : "Autoscroll off"}
               aria-pressed={autoScrollEnabled}
@@ -132,7 +132,7 @@ export default function SimulatorOutputPanel() {
               variant="outline"
               size="sm"
               className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-              onClick={() => clearSerialOutput()}
+              onClick={() => clearSerialOutput?.()}
               aria-label="Clear serial output"
               title="Clear serial output"
               data-testid="button-clear-serial"
@@ -155,7 +155,7 @@ export default function SimulatorOutputPanel() {
                     isConnected={true}
                     isSimulationRunning={simulationStatus !== "stopped"}
                     onSendMessage={handleSerialSend}
-                    onClear={clearSerialOutput}
+                    onClear={clearSerialOutput ?? (() => {})}
                     showMonitor={showSerialMonitor}
                     autoScrollEnabled={autoScrollEnabled}
                   />
@@ -181,7 +181,7 @@ export default function SimulatorOutputPanel() {
                 isConnected={true}
                 isSimulationRunning={simulationStatus !== "stopped"}
                 onSendMessage={handleSerialSend}
-                onClear={clearSerialOutput}
+                onClear={clearSerialOutput ?? (() => {})}
                 showMonitor={showSerialMonitor}
                 autoScrollEnabled={autoScrollEnabled}
               />
@@ -203,7 +203,7 @@ export default function SimulatorOutputPanel() {
             type="text"
             placeholder="Send to Arduino..."
             value={serialInputValue}
-            onChange={(e) => setSerialInputValue(e.target.value)}
+            onChange={(e) => setSerialInputValue?.(e.target.value)}
             onKeyDown={handleSerialInputKeyDown}
             onSubmit={() => handleSerialSend(serialInputValue)}
             disabled={!serialInputValue.trim() || simulationStatus !== "running"}
