@@ -33,10 +33,9 @@ import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
 import { ExamplesMenu } from "@/components/features/examples-menu";
-import { ArduinoBoard } from "@/components/features/arduino-board";
-import { PinMonitor } from "@/components/features/pin-monitor";
 import { AppHeader } from "@/components/features/app-header";
 import { SimCockpit } from "@/components/features/sim-cockpit";
+import SimulatorSidebar from "@/components/features/simulator/SimulatorSidebar";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { useCompilation } from "@/hooks/use-compilation";
@@ -2032,24 +2031,18 @@ export default function ArduinoSimulator() {
                 />
 
                 <ResizablePanel defaultSize={50} minSize={20} id="board-panel">
-                  <div className="h-full w-full flex flex-col gap-3 p-2">
-                    {pinMonitorVisible && (
-                      <PinMonitor pinStates={pinStates} batchStats={batchStats} />
-                    )}
-                    <div className="flex-1 min-h-0">
-                      <ArduinoBoard
-                        pinStates={pinStates}
-                        isSimulationRunning={simulationStatus !== "stopped"}
-                        simulationStatus={simulationStatus}
-                        txActive={txActivity}
-                        rxActive={rxActivity}
-                        onReset={handleReset}
-                        onPinToggle={handlePinToggle}
-                        analogPins={analogPinsUsed}
-                        onAnalogChange={handleAnalogChange}
-                      />
-                    </div>
-                  </div>
+                  <SimulatorSidebar
+                    pinMonitorVisible={pinMonitorVisible}
+                    pinStates={pinStates}
+                    batchStats={batchStats}
+                    simulationStatus={simulationStatus}
+                    txActivity={txActivity}
+                    rxActivity={rxActivity}
+                    onReset={handleReset}
+                    onPinToggle={handlePinToggle}
+                    analogPins={analogPinsUsed}
+                    onAnalogChange={handleAnalogChange}
+                  />
                 </ResizablePanel>
               </ResizablePanelGroup>
             </ResizablePanel>
@@ -2233,24 +2226,19 @@ export default function ArduinoSimulator() {
                   )}
                   {mobilePanel === "board" && (
                     <div className="h-full w-full">
-                      <div className="h-full w-full flex flex-col gap-3 p-2">
-                        {pinMonitorVisible && (
-                          <PinMonitor pinStates={pinStates} batchStats={batchStats} />
-                        )}
-                        <div className="flex-1 min-h-0">
-                          <ArduinoBoard
-                            pinStates={pinStates}
-                            isSimulationRunning={simulationStatus !== "stopped"}
-                            simulationStatus={simulationStatus}
-                            txActive={txActivity}
-                            rxActive={rxActivity}
-                            onReset={handleReset}
-                            onPinToggle={handlePinToggle}
-                            analogPins={analogPinsUsed}
-                            onAnalogChange={handleAnalogChange}
-                          />
-                        </div>
-                      </div>
+                      <SimulatorSidebar
+                        isMobile
+                        pinMonitorVisible={pinMonitorVisible}
+                        pinStates={pinStates}
+                        batchStats={batchStats}
+                        simulationStatus={simulationStatus}
+                        txActivity={txActivity}
+                        rxActivity={rxActivity}
+                        onReset={handleReset}
+                        onPinToggle={handlePinToggle}
+                        analogPins={analogPinsUsed}
+                        onAnalogChange={handleAnalogChange}
+                      />
                     </div>
                   )}
                 </div>
