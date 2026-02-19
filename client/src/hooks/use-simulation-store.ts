@@ -1,4 +1,6 @@
 import { useSyncExternalStore } from "react";
+import { Logger } from "@shared/logger";
+const logger = new Logger("use-simulation-store");
 
 type PinMode = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
 export type PinStateType = "mode" | "value" | "pwm";
@@ -235,10 +237,10 @@ if (typeof window !== "undefined") {
         const { telemetryStore } = await import('./use-telemetry-store');
         telemetryStore.resetToInitial();
       } catch (err) {
-        console.warn('[SIM_DEBUG] Could not reset telemetry store:', err);
+        logger.warn(`[SIM_DEBUG] Could not reset telemetry store: ${String(err)}`);
       }
     },
-  };
+  }; 
 }
 
 export const useSimulationStore = () => {

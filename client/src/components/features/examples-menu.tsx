@@ -7,6 +7,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { BookOpen, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Logger } from "@shared/logger";
+const logger = new Logger("ExamplesMenu");
 
 interface Example {
   name: string;
@@ -63,7 +65,7 @@ export function ExamplesMenu({
               });
             }
           } catch (error) {
-            console.error(`Failed to load example ${filename}:`, error);
+            logger.error(`Failed to load example ${filename}: ${String(error)}`);
           }
         }
 
@@ -71,7 +73,7 @@ export function ExamplesMenu({
         loadedExamples.sort((a, b) => a.filename.localeCompare(b.filename));
         setExamples(loadedExamples);
       } catch (error) {
-        console.error("Failed to load examples:", error);
+        logger.error(`Failed to load examples: ${String(error)}`);
         toast({
           title: "Failed to Load Examples",
           description: "Could not load example files",

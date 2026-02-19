@@ -1,5 +1,8 @@
 // font-scale-utils.ts - Utility functions for global font scale management
 
+import { Logger } from "@shared/logger";
+const logger = new Logger("font-scale-utils");
+
 export const FONT_SCALES = [
   { label: "S", value: 0.875, px: 12 },
   { label: "M", value: 1.0, px: 14 },
@@ -30,7 +33,7 @@ export function setFontScale(scale: number): void {
       new CustomEvent("uiFontScaleChange", { detail: { value: scale } })
     );
   } catch (e) {
-    console.error("Failed to set font scale:", e);
+    logger.error(`Failed to set font scale: ${String(e)}`);
   }
 }
 

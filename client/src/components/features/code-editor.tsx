@@ -151,7 +151,7 @@ export function CodeEditor({
         const lh = baseLh * scale;
         return { fs, lh };
       } catch (e) {
-        console.warn("computeUi failed", e);
+        logger.warn(`computeUi failed: ${String(e)}`);
         return { fs: 16, lh: 20 };
       }
     };
@@ -210,7 +210,7 @@ export function CodeEditor({
           editor.layout();
         } catch {}
       } catch (err) {
-        console.warn("Monaco initial rAF sync failed", err);
+        logger.warn(`Monaco initial rAF sync failed: ${String(err)}`);
       }
     });
 
@@ -302,7 +302,7 @@ export function CodeEditor({
               });
             }
           } catch (err) {
-            console.error("Insert text at line failed:", err);
+            logger.error(`Insert text at line failed: ${String(err)}`);
           }
         },
         insertSuggestionSmartly: (
@@ -395,7 +395,7 @@ export function CodeEditor({
               column: 1,
             });
           } catch (err) {
-            console.error("Insert suggestion smartly failed:", err);
+            logger.error(`Insert suggestion smartly failed: ${String(err)}`);
           }
         },
         copy: () => {
@@ -535,7 +535,7 @@ export function CodeEditor({
           } catch {}
         }
       } catch (err) {
-        console.warn("onScale failed", err);
+        logger.warn(`onScale failed: ${String(err)}`);
       }
     };
 

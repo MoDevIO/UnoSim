@@ -215,7 +215,7 @@ function ArduinoSimulatorInner() {
               : "Telemetry displays are now hidden",
           });
         } catch (err) {
-          console.error("Failed to toggle debug mode:", err);
+          logger.error(`Failed to toggle debug mode: ${String(err)}`);
         }
       }
     };
@@ -543,7 +543,7 @@ function ArduinoSimulatorInner() {
       try {
         ed[cmd]();
       } catch (err) {
-        console.error("Editor command failed", err);
+        logger.error(`Editor command failed: ${String(err)}`);
       }
     } else {
       toast({
@@ -566,7 +566,7 @@ function ArduinoSimulatorInner() {
     try {
       ed.copy();
     } catch (err) {
-      console.error("Copy failed", err);
+      logger.error(`Copy failed: ${String(err)}`);
     }
   };
 
@@ -583,7 +583,7 @@ function ArduinoSimulatorInner() {
     try {
       ed.cut();
     } catch (err) {
-      console.error("Cut failed", err);
+      logger.error(`Cut failed: ${String(err)}`);
     }
   };
 
@@ -600,7 +600,7 @@ function ArduinoSimulatorInner() {
     try {
       ed.paste();
     } catch (err) {
-      console.error("Paste failed", err);
+      logger.error(`Paste failed: ${String(err)}`);
     }
   };
 
@@ -627,7 +627,7 @@ function ArduinoSimulatorInner() {
     try {
       ed.goToLine(num);
     } catch (err) {
-      console.error("Go to line failed", err);
+      logger.error(`Go to line failed: ${String(err)}`);
     }
   };
 

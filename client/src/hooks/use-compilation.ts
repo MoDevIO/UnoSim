@@ -263,7 +263,7 @@ export function useCompilation({
           }
         }
       } catch (err) {
-        console.error("Error handling post-compile upload", err);
+        logger.error(`Error handling post-compile upload: ${String(err)}`);
       }
     },
     onError: (error) => {
@@ -329,7 +329,7 @@ export function useCompilation({
       try {
         mainSketchCode = editorRef.current.getValue();
       } catch (error) {
-        console.error("[CLIENT] Error getting code from editor:", error);
+        logger.error(`[CLIENT] Error getting code from editor: ${String(error)}`);
       }
     }
 

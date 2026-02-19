@@ -116,7 +116,7 @@ export function ArduinoBoard({
         setSvgContent(main);
         setOverlaySvgContent(overlay);
       })
-      .catch((err) => console.error("Failed to load Arduino SVGs:", err));
+      .catch((err) => logger.error(`Failed to load Arduino SVGs: ${String(err)}`));
   }, []);
 
   // Listen for color changes from settings dialog (custom event)
@@ -192,7 +192,7 @@ export function ArduinoBoard({
 
   // Single stable polling loop for ALL SVG updates - runs ONCE, never restarts
   useEffect(() => {
-    console.log("[ArduinoBoard] Starting stable polling loop");
+    logger.debug("[ArduinoBoard] Starting stable polling loop");
     const performAllUpdates = () => {
       // Check overlay ref INSIDE the callback to handle late mounting
       const overlay = overlayRef.current;
