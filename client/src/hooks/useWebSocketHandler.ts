@@ -104,9 +104,10 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   const processMessage = (message: any) => {
     switch (message.type) {
       case "sim_telemetry": {
-        if (simulationStatus === "running") {
-          telemetryStore.pushTelemetry((message as any).metrics);
-        }
+        // Always forward telemetry messages to the telemetry store. Previously
+        // this was gated on `simulationStatus === "running"` which could
+        // miss telemetry when messages arrive before the local status is set.
+        telemetryStore.pushTelemetry((message as any).metrics);
         break;
       }
       case "serial_output": {
