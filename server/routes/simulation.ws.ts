@@ -117,14 +117,25 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
             clientState.runner.runSketch(
               lastCompiledCode,
               (line: string, isComplete?: boolean) => {
+                // Guard against race: if the runner has been stopped for this client,
+                // suppress any further serial_output messages coming from in-flight
+                // callbacks to avoid UI receiving post-stop runtime output.
+                const cs = clientRunners.get(ws);
+                if (!cs || !cs.isRunning) {
+                  return; // drop outputs produced after stop()
+                }
+
                 if (!gccSuccessSent) {
                   gccSuccessSent = true;
                   sendMessageToClient(ws, { type: "compilation_status", gccStatus: "success" });
                 }
+
                 sendMessageToClient(ws, { type: "serial_output", data: line, isComplete: isComplete ?? true });
               },
               (err: string) => {
                 logger.warn(`[Client WS][ERR]: ${err}`);
+                const cs = clientRunners.get(ws);
+                if (!cs || !cs.isRunning) return;
                 sendMessageToClient(ws, { type: "serial_output", data: "[ERR] " + err });
               },
               (exitCode: number | null) => {
