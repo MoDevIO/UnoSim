@@ -20,7 +20,20 @@ const LoadingPlaceholder = () => (
   </div>
 );
 
-export default function SimulatorOutputPanel() {
+export default function SimulatorOutputPanel(props: {
+  simulationStatus?: string;
+  serialOutput?: any[];
+  renderedSerialOutput?: any[];
+  serialViewMode?: "monitor" | "plotter" | "both";
+  autoScrollEnabled?: boolean;
+  setAutoScrollEnabled?: (v: boolean) => void;
+  serialInputValue?: string;
+  setSerialInputValue?: (v: string) => void;
+  showSerialMonitor?: boolean;
+  showSerialPlotter?: boolean;
+  cycleSerialViewMode?: () => void;
+  clearSerialOutput?: () => void;
+} = {}) {
   const queryClient = useQueryClient();
   const { ensureBackendConnected } = useBackendHealth(queryClient);
   const { toast } = useToast();
@@ -28,32 +41,33 @@ export default function SimulatorOutputPanel() {
 
   const telemetryData = useTelemetryStore();
 
-  const {
-    serialOutput = [],
-    renderedSerialOutput = [],
-    serialViewMode = "monitor",
-    autoScrollEnabled = false,
-    setAutoScrollEnabled,
-    serialInputValue = "",
-    setSerialInputValue,
-    showSerialMonitor = true,
-    showSerialPlotter = false,
-    cycleSerialViewMode,
-    clearSerialOutput,
-  } = useSimulationUi();
+  // Prefer props (page-provided) but fall back to provider/context values for
+  // backwards compatibility. The provider may not be passed the page-level
+  // serial state after the refactor, so prefer explicit props from the page.
+  const ui = useSimulationUi();
 
-  const {
-    simulationStatus,
-    setTxActivity,
-    debugMode,
-    debugMessages,
-    debugViewMode,
-    setDebugViewMode,
-    debugMessageFilter,
-    setDebugMessageFilter,
-    debugMessagesContainerRef,
-    setDebugMessages,
-  } = useSimulationUi();
+  const serialOutput = props.serialOutput ?? ui.serialOutput ?? [];
+  const renderedSerialOutput = props.renderedSerialOutput ?? ui.renderedSerialOutput ?? [];
+  const serialViewMode = props.serialViewMode ?? ui.serialViewMode ?? "monitor";
+  const autoScrollEnabled = props.autoScrollEnabled ?? ui.autoScrollEnabled ?? false;
+  const setAutoScrollEnabled = props.setAutoScrollEnabled ?? ui.setAutoScrollEnabled;
+  const serialInputValue = props.serialInputValue ?? ui.serialInputValue ?? "";
+  const setSerialInputValue = props.setSerialInputValue ?? ui.setSerialInputValue;
+  const showSerialMonitor = props.showSerialMonitor ?? ui.showSerialMonitor ?? true;
+  const showSerialPlotter = props.showSerialPlotter ?? ui.showSerialPlotter ?? false;
+  const cycleSerialViewMode = props.cycleSerialViewMode ?? ui.cycleSerialViewMode;
+  const clearSerialOutput = props.clearSerialOutput ?? ui.clearSerialOutput;
+
+  const simulationStatus = props.simulationStatus ?? ui.simulationStatus;
+  const setTxActivity = ui.setTxActivity;
+  const debugMode = ui.debugMode;
+  const debugMessages = ui.debugMessages;
+  const debugViewMode = ui.debugViewMode;
+  const setDebugViewMode = ui.setDebugViewMode;
+  const debugMessageFilter = ui.debugMessageFilter;
+  const setDebugMessageFilter = ui.setDebugMessageFilter;
+  const debugMessagesContainerRef = ui.debugMessagesContainerRef;
+  const setDebugMessages = ui.setDebugMessages;
 
   const handleSerialSend = (message: string) => {
     if (!ensureBackendConnected("Serial senden")) return;

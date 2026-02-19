@@ -42,6 +42,10 @@ export default function SimulatorSidebar({
   analogPins = [],
   onAnalogChange,
   isMobile = false,
+  // optional props — prefer page-provided values but fall back to context
+  simulationStatus: propSimulationStatus,
+  txActivity: propTxActivity,
+  rxActivity: propRxActivity,
 }: Partial<{
   pinMonitorVisible: boolean;
   onReset: () => void;
@@ -49,9 +53,15 @@ export default function SimulatorSidebar({
   analogPins: number[];
   onAnalogChange: (pin: number, newValue: number) => void;
   isMobile?: boolean;
+  simulationStatus?: string;
+  txActivity?: number;
+  rxActivity?: number;
 }>) {
   const { pinStates, batchStats } = useSimulationStore();
-  const { simulationStatus, txActivity, rxActivity } = useSimulationUi();
+  const ui = useSimulationUi();
+  const simulationStatus = (propSimulationStatus as any) ?? ui.simulationStatus;
+  const txActivity = (propTxActivity as any) ?? ui.txActivity;
+  const rxActivity = (propRxActivity as any) ?? ui.rxActivity;
   const isRunning = simulationStatus === "running";
 
   return (

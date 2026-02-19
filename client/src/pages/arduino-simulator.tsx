@@ -69,8 +69,14 @@ function ArduinoSimulatorInner() {
   const {
     serialOutput,
     setSerialOutput,
+    serialViewMode,
     autoScrollEnabled,
+    setAutoScrollEnabled,
+    serialInputValue,
+    setSerialInputValue,
     showSerialMonitor,
+    showSerialPlotter,
+    cycleSerialViewMode,
     clearSerialOutput,
     // Baudrate rendering (Phase 3-4)
     renderedSerialOutput, // Use this for SerialMonitor (baudrate-simulated)
@@ -127,7 +133,7 @@ function ArduinoSimulatorInner() {
     batchStats,
   } = useSimulationStore();
 
-  const { setTxActivity } = useSimulationUi();
+  const { setTxActivity, txActivity, rxActivity } = useSimulationUi();
 
   // Pin state management via hook
   const {
@@ -1330,7 +1336,20 @@ function ArduinoSimulatorInner() {
             <ResizablePanel defaultSize={50} minSize={20} id="output-panel">
               <ResizablePanelGroup direction="vertical" id="output-layout">
                 <ResizablePanel defaultSize={50} minSize={20} id="serial-panel">
-                  <SimulatorOutputPanel />
+                  <SimulatorOutputPanel
+                    simulationStatus={simulationStatus}
+                    serialOutput={serialOutput}
+                    renderedSerialOutput={renderedSerialOutput}
+                    serialViewMode={serialViewMode}
+                    autoScrollEnabled={autoScrollEnabled}
+                    setAutoScrollEnabled={setAutoScrollEnabled}
+                    serialInputValue={serialInputValue}
+                    setSerialInputValue={setSerialInputValue}
+                    showSerialMonitor={showSerialMonitor}
+                    showSerialPlotter={showSerialPlotter}
+                    cycleSerialViewMode={cycleSerialViewMode}
+                    clearSerialOutput={clearSerialOutput}
+                  />
                 </ResizablePanel>
 
                 <ResizableHandle
@@ -1345,6 +1364,9 @@ function ArduinoSimulatorInner() {
                     onPinToggle={handlePinToggle}
                     analogPins={analogPinsUsed}
                     onAnalogChange={handleAnalogChange}
+                    simulationStatus={simulationStatus}
+                    txActivity={txActivity}
+                    rxActivity={rxActivity}
                   />
                 </ResizablePanel>
               </ResizablePanelGroup>
@@ -1536,6 +1558,9 @@ function ArduinoSimulatorInner() {
                         onPinToggle={handlePinToggle}
                         analogPins={analogPinsUsed}
                         onAnalogChange={handleAnalogChange}
+                        simulationStatus={simulationStatus}
+                        txActivity={txActivity}
+                        rxActivity={rxActivity}
                       />
                     </div>
                   )}
