@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">5.26% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>1/19</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/37</span>
+                <span class='fraction'>0/33</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">5.26% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>1/19</span>
             </div>
         
             
@@ -227,7 +227,20 @@
 <a name='L162'></a><a href='#L162'>162</a>
 <a name='L163'></a><a href='#L163'>163</a>
 <a name='L164'></a><a href='#L164'>164</a>
-<a name='L165'></a><a href='#L165'>165</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -280,6 +293,25 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -381,17 +413,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Play, Zap, Server } from "lucide-react";
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from "react";
+import { Play, Zap, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -432,7 +457,7 @@ function <span class="fstat-no" title="function not covered" >getStatusTextClass
   }
 }
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >SimulatorHeader({</span>
+function <span class="fstat-no" title="function not covered" >SimulatorHeader({</span>
   simulationStatus,
   simulateDisabled = <span class="branch-0 cbranch-no" title="branch not covered" >false,</span>
   isCompiling = <span class="branch-0 cbranch-no" title="branch not covered" >false,</span>
@@ -444,19 +469,32 @@ export default function <span class="fstat-no" title="function not covered" >Sim
   onCompileAndStart,
   board = <span class="branch-0 cbranch-no" title="branch not covered" >"Arduino UNO",</span>
 }: Props) {
+  // keep a stable ref to the latest status so the click handler can be memoized
+  const statusRef = <span class="cstat-no" title="statement not covered" >React.useRef(simulationStatus);</span>
+<span class="cstat-no" title="statement not covered" >  React.useEffect(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    statusRef.current = simulationStatus;</span>
+  }, [simulationStatus]);
+&nbsp;
+  const handleSimulateClick = <span class="cstat-no" title="statement not covered" >React.useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+    const status = <span class="cstat-no" title="statement not covered" >statusRef.current;</span>
+<span class="cstat-no" title="statement not covered" >    if (status === "running") {</span>
+<span class="cstat-no" title="statement not covered" >      onStop?.();</span>
+<span class="cstat-no" title="statement not covered" >      return;</span>
+    }
+<span class="cstat-no" title="statement not covered" >    if (status === "paused") {</span>
+<span class="cstat-no" title="statement not covered" >      onResume?.();</span>
+<span class="cstat-no" title="statement not covered" >      return;</span>
+    }
+<span class="cstat-no" title="statement not covered" >    onSimulate?.();</span>
+  }, [onSimulate, onStop, onResume]);
+&nbsp;
 <span class="cstat-no" title="statement not covered" >  return (</span>
     &lt;div className="flex items-center gap-2"&gt;
       {/* Simulate toggle (compact desktop) */}
       &lt;div className="hidden md:flex items-center gap-2"&gt;
         &lt;Button
           size="sm"
-          onClick={
-            simulationStatus === "running"
-              ? onStop
-              : simulationStatus === "paused"
-              ? onResume
-              : onSimulate
-          }
+          onClick={handleSimulateClick}
           disabled={simulateDisabled}
           className="flex items-center gap-1 px-2"
           data-testid="button-simulate-toggle"
@@ -491,13 +529,7 @@ export default function <span class="fstat-no" title="function not covered" >Sim
       &lt;div className="md:hidden flex items-center gap-2"&gt;
         &lt;Button
           size="sm"
-          onClick={
-            simulationStatus === "running"
-              ? onStop
-              : simulationStatus === "paused"
-              ? onResume
-              : onSimulate
-          }
+          onClick={handleSimulateClick}
           disabled={simulateDisabled}
           className="flex items-center gap-1 px-2"
           data-testid="button-simulate-toggle-mobile"
@@ -555,6 +587,10 @@ export default function <span class="fstat-no" title="function not covered" >Sim
     &lt;/div&gt;
   );
 }
+&nbsp;
+// Memoize to reduce unnecessary re-renders and improve DOM stability during E2E interactions
+export const MemoizedSimulatorHeader = React.memo(SimulatorHeader);
+export default SimulatorHeader;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -562,7 +598,7 @@ export default function <span class="fstat-no" title="function not covered" >Sim
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-19T15:25:18.580Z
+                at 2026-02-19T20:25:33.844Z
             </div>
         <script src="../../../../../prettify.js"></script>
         <script>
