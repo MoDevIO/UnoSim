@@ -18,7 +18,6 @@ type UseSimulationControlsParams = {
   sendMessage: (message: any) => void;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   clearOutputs: () => void;
-  addDebugMessage: (params: DebugMessageParams) => void;
   serialEventQueueRef: MutableRefObject<
     Array<{ payload: any; receivedAt: number }>
   >;
@@ -35,12 +34,13 @@ type UseSimulationControlsParams = {
   startSimulationRef: MutableRefObject<(() => void) | null>;
 };
 
+import { useSimulationUi } from "@/hooks/use-simulation-ui";
+
 export function useSimulationControls({
   ensureBackendConnected,
   sendMessage,
   resetPinUI,
   clearOutputs,
-  addDebugMessage,
   serialEventQueueRef,
   toast,
   pendingPinConflicts,
@@ -50,6 +50,7 @@ export function useSimulationControls({
   handleCompileAndStart,
   startSimulationRef,
 }: UseSimulationControlsParams) {
+  const { addDebugMessage } = useSimulationUi();
   const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>(
     "stopped",
   );
@@ -62,12 +63,12 @@ export function useSimulationControls({
 
   const stopMutation = useMutation({
     mutationFn: async () => {
-      addDebugMessage({
-        source: "frontend",
-        type: "stop_simulation",
-        data: JSON.stringify({ type: "stop_simulation" }, null, 2),
-        protocol: "websocket",
-      });
+      addDebugMessage(
+        "frontend",
+        "stop_simulation",
+        JSON.stringify({ type: "stop_simulation" }, null, 2),
+        "websocket",
+      );
       sendMessage({ type: "stop_simulation" });
       return { success: true };
     },
@@ -80,12 +81,12 @@ export function useSimulationControls({
 
   const pauseMutation = useMutation({
     mutationFn: async () => {
-      addDebugMessage({
-        source: "frontend",
-        type: "pause_simulation",
-        data: JSON.stringify({ type: "pause_simulation" }, null, 2),
-        protocol: "websocket",
-      });
+      addDebugMessage(
+        "frontend",
+        "pause_simulation",
+        JSON.stringify({ type: "pause_simulation" }, null, 2),
+        "websocket",
+      );
       sendMessage({ type: "pause_simulation" });
       return { success: true };
     },
@@ -103,12 +104,12 @@ export function useSimulationControls({
 
   const resumeMutation = useMutation({
     mutationFn: async () => {
-      addDebugMessage({
-        source: "frontend",
-        type: "resume_simulation",
-        data: JSON.stringify({ type: "resume_simulation" }, null, 2),
-        protocol: "websocket",
-      });
+      addDebugMessage(
+        "frontend",
+        "resume_simulation",
+        JSON.stringify({ type: "resume_simulation" }, null, 2),
+        "websocket",
+      );
       sendMessage({ type: "resume_simulation" });
       return { success: true };
     },
@@ -127,16 +128,16 @@ export function useSimulationControls({
   const startMutation = useMutation({
     mutationFn: async () => {
       resetPinUI({ keepDetected: true });
-      addDebugMessage({
-        source: "frontend",
-        type: "start_simulation",
-        data: JSON.stringify(
+      addDebugMessage(
+        "frontend",
+        "start_simulation",
+        JSON.stringify(
           { type: "start_simulation", timeout: simulationTimeout },
           null,
           2,
         ),
-        protocol: "websocket",
-      });
+        "websocket",
+      );
       sendMessage({ type: "start_simulation", timeout: simulationTimeout });
       return { success: true };
     },

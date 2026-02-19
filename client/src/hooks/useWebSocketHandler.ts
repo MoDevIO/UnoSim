@@ -16,7 +16,6 @@ type UseWebSocketHandlerParams = {
   simulationStatus: string;
 
   // callbacks / setters from parent scope
-  addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http") => void;
   setRxActivity: React.Dispatch<React.SetStateAction<number>>;
   appendSerialOutput: (text: string) => void;
   appendRenderedText: (text: string) => void;
@@ -51,10 +50,11 @@ type UseWebSocketHandlerParams = {
   setParserMessages: React.Dispatch<React.SetStateAction<ParserMessage[]>>;
 };
 
+import { useSimulationUi } from "@/hooks/use-simulation-ui";
+
 export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   const {
     simulationStatus,
-    addDebugMessage,
     setRxActivity,
     appendSerialOutput,
     appendRenderedText,
@@ -83,6 +83,9 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     pinToNumber,
     setParserMessages,
   } = params;
+
+  // get debug function from UI context
+  const { addDebugMessage } = useSimulationUi();
 
   const {
     isConnected,

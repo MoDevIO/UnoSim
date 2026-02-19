@@ -19,14 +19,10 @@ import {
   BarChart,
   Monitor,
   Columns,
-  X,
-  Table,
-  LayoutGrid,
 } from "lucide-react";
 import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { CodeEditor } from "@/components/features/code-editor";
 import { SerialMonitor } from "@/components/features/serial-monitor";
 import { CompilationOutput } from "@/components/features/compilation-output";
@@ -35,7 +31,8 @@ import { SketchTabs } from "@/components/features/sketch-tabs";
 import { ExamplesMenu } from "@/components/features/examples-menu";
 import { AppHeader } from "@/components/features/app-header";
 import { SimCockpit } from "@/components/features/sim-cockpit";
-import SimulatorSidebar from "@/components/features/simulator/SimulatorSidebar";
+import SimulatorSidebar, { SimulatorOutput } from "@/components/features/simulator/SimulatorSidebar";
+import SimulatorOutputPanel from "@/components/features/simulator/SimulatorOutputPanel";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { useCompilation } from "@/hooks/use-compilation";
@@ -44,12 +41,15 @@ import { usePinState } from "@/hooks/use-pin-state";
 import { useToast } from "@/hooks/use-toast";
 import { useBackendHealth } from "@/hooks/use-backend-health";
 import { useMobileLayout } from "@/hooks/use-mobile-layout";
-import { useDebugConsole } from "@/hooks/use-debug-console";
+
 import { useDebugMode } from "@/hooks/use-debug-mode-store";
 import { useSketchTabs } from "@/hooks/use-sketch-tabs";
 import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
+import { SimulationUiProvider, useSimulationUi } from "@/hooks/use-simulation-ui";
+import SimulatorHeader from "@/components/features/simulator/SimulatorHeader";
+
 import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { useFileManager } from "@/hooks/use-file-manager";
@@ -85,7 +85,7 @@ const LoadingPlaceholder = () => (
 import { Logger } from "@shared/logger";
 const logger = new Logger("ArduinoSimulator");
 
-export default function ArduinoSimulator() {
+function ArduinoSimulatorInner() {
   const [currentSketch, setCurrentSketch] = useState<Sketch | null>(null);
   const [code, setCode] = useState("");
   const editorRef = useRef<{ getValue: () => string } | null>(null);
@@ -120,20 +120,6 @@ export default function ArduinoSimulator() {
   // Track if user manually dismissed the parser panel (reset on new compile with messages)
   const [parserPanelDismissed, setParserPanelDismissed] = useState(false);
 
-  // Initialize I/O Registry with all 20 Arduino pins (will be populated at runtime)
-  const [ioRegistry, setIoRegistry] = useState<IOPinRecord[]>(() => {
-    const pins: IOPinRecord[] = [];
-    // Digital pins 0-13
-    for (let i = 0; i <= 13; i++) {
-      pins.push({ pin: String(i), defined: false, usedAt: [] });
-    }
-    // Analog pins A0-A5
-    for (let i = 0; i <= 5; i++) {
-      pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
-    }
-    return pins;
-  });
-
   const [activeOutputTab, setActiveOutputTab] = useState<
     "compiler" | "messages" | "registry" | "debug"
   >("compiler");
@@ -147,6 +133,25 @@ export default function ArduinoSimulator() {
       }
     },
   );
+
+  // --- Debug proxies (provider owns the real state)
+  // Hooks below will emit debug messages via the bridge (see `debugBridge`).
+
+
+
+  // Initialize I/O Registry with all 20 Arduino pins (will be populated at runtime)
+  const [ioRegistry, setIoRegistry] = useState<IOPinRecord[]>(() => {
+    const pins: IOPinRecord[] = [];
+    // Digital pins 0-13
+    for (let i = 0; i <= 13; i++) {
+      pins.push({ pin: String(i), defined: false, usedAt: [] });
+    }
+    // Analog pins A0-A5
+    for (let i = 0; i <= 5; i++) {
+      pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
+    }
+    return pins;
+  });
   const [isModified, setIsModified] = useState(false);
 
   const {
@@ -180,20 +185,6 @@ export default function ArduinoSimulator() {
 
   // File manager hook — instantiated after `handleFilesLoaded` to avoid TDZ (see below)
 
-  // Debug console state and functions
-  const {
-    debugMode,
-    setDebugMode: _setDebugMode,
-    debugMessages,
-    setDebugMessages,
-    debugMessageFilter,
-    setDebugMessageFilter,
-    debugViewMode,
-    setDebugViewMode,
-    debugMessagesContainerRef,
-    addDebugMessage,
-  } = useDebugConsole(activeOutputTab);
-  void _setDebugMode; // Mark as intentionally unused (managed by hook)
 
   // Subscribe to telemetry updates (to re-render when metrics change)
   const telemetryData = useTelemetryStore();
@@ -335,20 +326,34 @@ export default function ArduinoSimulator() {
     setIoRegistry,
     setHasCompiledOnce: setHasCompiledOnceProxy,
     setIsModified,
-    setDebugMessages,
-    addDebugMessage: (params) =>
-      addDebugMessage(
-        params.source,
-        params.type,
-        params.data,
-        params.protocol,
-      ),
     ensureBackendConnected,
     isBackendUnreachableError,
     triggerErrorGlitch,
     toast,
     startSimulation,
   });
+
+  // Output panel refs / sizing (kept here for AppHeader & legacy `SimulatorOutput` props)
+  const {
+    outputPanelRef,
+    outputTabsHeaderRef,
+    outputPanelMinPercent,
+    compilationPanelSize,
+    setCompilationPanelSize,
+    outputPanelManuallyResizedRef,
+    openOutputPanel,
+  } = useOutputPanel(
+    Boolean(hasCompilationErrors),
+    cliOutput,
+    parserMessages,
+    lastCompilationResult,
+    parserMessagesContainerRef,
+    showCompilationOutput,
+    setShowCompilationOutput,
+    setParserPanelDismissed,
+    setActiveOutputTab,
+    code,
+  );
 
   const {
     simulationStatus,
@@ -369,13 +374,6 @@ export default function ArduinoSimulator() {
     sendMessage,
     resetPinUI,
     clearOutputs,
-    addDebugMessage: (params) =>
-      addDebugMessage(
-        params.source,
-        params.type,
-        params.data,
-        params.protocol,
-      ),
     serialEventQueueRef,
     toast,
     pendingPinConflicts,
@@ -402,45 +400,12 @@ export default function ArduinoSimulator() {
     hasCompilationErrors,
   });
 
-  // Output panel sizing and management
-  const {
-    outputPanelRef,
-    outputTabsHeaderRef,
-    compilationPanelSize,
-    setCompilationPanelSize,
-    outputPanelMinPercent,
-    outputPanelManuallyResizedRef,
-    openOutputPanel,
-  } = useOutputPanel(
-    hasCompilationErrors,
-    cliOutput,
-    parserMessages,
-    lastCompilationResult,
-    parserMessagesContainerRef,
-    showCompilationOutput,
-    setShowCompilationOutput,
-    setParserPanelDismissed,
-    setActiveOutputTab,
-    code,
-  );
+  // Output panel sizing/logic and activeOutputTab are now owned by
+  // `SimulationUiProvider` (consumed by `useSimulationUi()`). This removes
+  // prop drilling and centralizes output behavior.
 
-  // Auto-switch output tab based on errors and messages
-  useEffect(() => {
-    if (hasCompilationErrors) {
-      setActiveOutputTab("compiler");
-    } else if (parserMessages.length > 0 && !parserPanelDismissed) {
-      setActiveOutputTab("messages");
-    }
-  }, [hasCompilationErrors, parserMessages.length, parserPanelDismissed]);
 
-  // Auto-scroll debug console to latest message
-  useEffect(() => {
-    if (activeOutputTab === "debug" && debugMessagesContainerRef.current) {
-      requestAnimationFrame(() => {
-        debugMessagesContainerRef.current?.scrollTo(0, debugMessagesContainerRef.current.scrollHeight);
-      });
-    }
-  }, [debugMessages, activeOutputTab]);
+
 
   // Fetch default sketch
   const { data: sketches } = useQuery<Sketch[]>({
@@ -703,7 +668,6 @@ export default function ArduinoSimulator() {
   // WebSocket message handling moved to `useWebSocketHandler` (extracted for better separation of concerns)
   useWebSocketHandler({
     simulationStatus,
-    addDebugMessage,
     setRxActivity,
     appendSerialOutput,
     appendRenderedText,
@@ -1191,20 +1155,47 @@ export default function ArduinoSimulator() {
   void stopDisabled;
   void buttonsClassName;
 
+  function HeaderRightSlot() {
+    const { debugMode } = useSimulationUi();
+    return (
+      <div className="flex items-center gap-2">
+        <SimulatorHeader
+          simulationStatus={simulationStatus}
+          simulateDisabled={simulateDisabled}
+          isCompiling={compileMutation.isPending}
+          isStarting={startMutation.isPending}
+          isStopping={stopMutation.isPending}
+          isPausing={pauseMutation.isPending}
+          isResuming={resumeMutation.isPending}
+          onSimulate={handleCompileAndStart}
+          onStop={handleStop}
+          onPause={handlePause}
+          onResume={handleResume}
+          simulationTimeout={simulationTimeout}
+          onTimeoutChange={setSimulationTimeout}
+          onCompile={() => { if (!compileMutation.isPending) handleCompile(); }}
+          onCompileAndStart={handleCompileAndStart}
+          board={board}
+        />
+        {debugMode ? <SimCockpit batchStats={batchStats} simulationStatus={simulationStatus} /> : null}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`h-screen flex flex-col bg-background text-foreground relative ${showErrorGlitch ? "overflow-hidden" : ""}`}
     >
-      {/* Glitch overlay when compilation fails */}
-      {showErrorGlitch && (
-        <div className="pointer-events-none absolute inset-0 z-50">
-          {/* Single red border flash */}
-          <div className="absolute inset-0 flex items-stretch justify-stretch">
-            <div className="absolute inset-0">
-              <div className="absolute inset-0 border-0 pointer-events-none">
-                <div className="absolute inset-0 rounded-none border-4 border-red-500 opacity-0 animate-border-flash" />
-              </div>
+    {/* Glitch overlay when compilation fails */}
+    {showErrorGlitch && (
+      <div className="pointer-events-none absolute inset-0 z-50">
+        {/* Single red border flash */}
+        <div className="absolute inset-0 flex items-stretch justify-stretch">
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 border-0 pointer-events-none">
+              <div className="absolute inset-0 rounded-none border-4 border-red-500 opacity-0 animate-border-flash" />
             </div>
+          </div>
           </div>
           <style>{`
             @keyframes border-flash {
@@ -1290,7 +1281,7 @@ export default function ArduinoSimulator() {
         onCompileAndStart={handleCompileAndStart}
         onOutputPanelToggle={() => { setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); outputPanelManuallyResizedRef.current = false; }}
         showCompilationOutput={showCompilationOutput}
-        rightSlot={debugMode ? <SimCockpit batchStats={batchStats} simulationStatus={simulationStatus} /> : undefined}
+        rightSlot={<HeaderRightSlot />}
       />
       {/* Hidden file input used by File → Load Files */}
       <input
@@ -1349,450 +1340,28 @@ export default function ArduinoSimulator() {
                   </div>
                 </ResizablePanel>
 
-                {/* Combined Output Panel with Tabs: Compiler / Messages / IO-Registry */}
-                {(() => {
-                  const isSuccessState =
-                    lastCompilationResult === "success" &&
-                    !hasCompilationErrors;
-                  const hasIOProblems = ioRegistry.some((record) => {
-                    const ops = record.usedAt || [];
-                    const digitalReads = ops.filter((u) =>
-                      u.operation.includes("digitalRead"),
-                    );
-                    const digitalWrites = ops.filter((u) =>
-                      u.operation.includes("digitalWrite"),
-                    );
-                    const pinModes = ops
-                      .filter((u) => u.operation.includes("pinMode"))
-                      .map((u) => {
-                        const match = u.operation.match(/pinMode:(\d+)/);
-                        const mode = match ? parseInt(match[1]) : -1;
-                        return mode === 0
-                          ? "INPUT"
-                          : mode === 1
-                            ? "OUTPUT"
-                            : mode === 2
-                              ? "INPUT_PULLUP"
-                              : "UNKNOWN";
-                      });
-                    const uniqueModes = [...new Set(pinModes)];
-                    const hasMultipleModes = uniqueModes.length > 1;
-                    const hasIOWithoutMode =
-                      (digitalReads.length > 0 || digitalWrites.length > 0) &&
-                      pinModes.length === 0;
-                    return hasIOWithoutMode || hasMultipleModes;
-                  });
-
-                  // Show output panel if:
-                  // - User has NOT explicitly closed it (showCompilationOutput)
-                  // User intent is PRIMARY - user can always close even with errors/messages
-                  // Auto-reopen happens via setShowCompilationOutput(true) in useEffect
-                  const shouldShowOutput = showCompilationOutput;
-
-                  return (
-                    <>
-                      {shouldShowOutput && (
-                        <ResizableHandle
-                          withHandle
-                          data-testid="vertical-resizer-output"
-                          onDragging={(isDragging) => {
-                            // Mark as manually resized as soon as user starts dragging
-                            if (isDragging) {
-                              outputPanelManuallyResizedRef.current = true;
-                            }
-                          }}
-                        />
-                      )}
-
-                      <ResizablePanel
-                        ref={outputPanelRef}
-                        defaultSize={Math.max(
-                          compilationPanelSize,
-                          outputPanelMinPercent,
-                        )}
-                        minSize={outputPanelMinPercent}
-                        id="output-under-editor"
-                        className={shouldShowOutput ? "" : "hidden"}
-                      >
-                        <Tabs
-                          value={activeOutputTab}
-                          onValueChange={(v) =>
-                            setActiveOutputTab(
-                              v as "compiler" | "messages" | "registry" | "debug",
-                            )
-                          }
-                          className="h-full flex flex-col"
-                        >
-                          <div
-                            ref={outputTabsHeaderRef}
-                            data-testid="output-tabs-header"
-                            className="flex items-center justify-start px-2 h-[var(--ui-header-height)] bg-muted border-b"
-                          >
-                            <TabsList className="h-auto flex gap-1 bg-transparent items-center">
-                              <TabsTrigger
-                                value="compiler"
-                                onDoubleClick={() => openOutputPanel("compiler")}
-                                className={clsx(
-                                  "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
-                                  {
-                                    "text-gray-400":
-                                      lastCompilationResult === null,
-                                    "text-green-400":
-                                      isSuccessState &&
-                                      lastCompilationResult !== null,
-                                    "text-red-400": hasCompilationErrors,
-                                  },
-                                )}
-                              >
-                                <span
-                                  className={clsx({
-                                    "text-gray-400":
-                                      lastCompilationResult === null,
-                                    "text-green-400":
-                                      isSuccessState &&
-                                      lastCompilationResult !== null,
-                                    "text-red-400": hasCompilationErrors,
-                                  })}
-                                >
-                                  Compiler
-                                </span>
-                              </TabsTrigger>
-                              <TabsTrigger
-                                value="messages"
-                                onDoubleClick={() => openOutputPanel("messages")}
-                                className={clsx(
-                                  "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
-                                  {
-                                    "text-orange-400":
-                                      parserMessages.length > 0,
-                                    "text-gray-400":
-                                      parserMessages.length === 0,
-                                  },
-                                )}
-                              >
-                                <span
-                                  className={clsx({
-                                    "text-orange-400":
-                                      parserMessages.length > 0,
-                                    "text-gray-400":
-                                      parserMessages.length === 0,
-                                  })}
-                                >
-                                  Messages
-                                </span>
-                              </TabsTrigger>
-                              <TabsTrigger
-                                value="registry"
-                                onDoubleClick={() => openOutputPanel("registry")}
-                                className={clsx(
-                                  "h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center",
-                                  {
-                                    "text-blue-400": hasIOProblems,
-                                    "text-gray-400": !hasIOProblems,
-                                  },
-                                )}
-                              >
-                                <span
-                                  className={clsx({
-                                    "text-blue-400": hasIOProblems,
-                                    "text-gray-400": !hasIOProblems,
-                                  })}
-                                >
-                                  I/O Registry
-                                </span>
-                              </TabsTrigger>
-                              {debugMode && (
-                                <TabsTrigger
-                                  value="debug"
-                                  onDoubleClick={() => openOutputPanel("debug")}
-                                  className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center text-cyan-400 gap-1.5"
-                                >
-                                  Debug
-                                  {debugMessages.length > 0 && (
-                                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyan-600/30 text-cyan-300 text-[9px] font-mono leading-none overflow-hidden">
-                                      {debugMessages.length > 99 ? "99" : debugMessages.length}
-                                    </span>
-                                  )}
-                                </TabsTrigger>
-                              )}
-                            </TabsList>
-                            <div className="flex-1" />
-                            <div className="flex items-center px-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  // Check if panel is minimized (at ~3% or min size)
-                                  const currentSize = outputPanelRef.current?.getSize?.() ?? 0;
-                                  const isMinimized = currentSize <= outputPanelMinPercent + 1;
-                                  
-                                  if (isMinimized) {
-                                    // If already minimized, close it completely
-                                    setShowCompilationOutput(false);
-                                    setParserPanelDismissed(true);
-                                    outputPanelManuallyResizedRef.current = false;
-                                  } else {
-                                    // If not minimized, minimize it first and reset manual flag
-                                    setCompilationPanelSize(3);
-                                    outputPanelManuallyResizedRef.current = false;
-                                    if (outputPanelRef.current?.resize) {
-                                      outputPanelRef.current.resize(outputPanelMinPercent);
-                                    }
-                                  }
-                                }}
-                                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-                                title="Close"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          <TabsContent
-                            value="compiler"
-                            className="flex-1 overflow-hidden m-0"
-                          >
-                            <CompilationOutput
-                              output={cliOutput}
-                              onClear={handleClearCompilationOutput}
-                              isSuccess={isSuccessState}
-                              showSuccessMessage={isSuccessState && !isModified}
-                              hideHeader={true}
-                            />
-                          </TabsContent>
-
-                          <TabsContent
-                            value="messages"
-                            className="flex-1 overflow-hidden m-0"
-                          >
-                            <ParserOutput
-                              messages={parserMessages}
-                              ioRegistry={ioRegistry}
-                              messagesContainerRef={parserMessagesContainerRef}
-                              onClear={() => setParserPanelDismissed(true)}
-                              onGoToLine={(line) => {
-                                logger.debug(`Go to line: ${line}`);
-                              }}
-                              onInsertSuggestion={(suggestion, line) => {
-                                if (
-                                  editorRef.current &&
-                                  typeof (editorRef.current as any)
-                                    .insertSuggestionSmartly === "function"
-                                ) {
-                                  suppressAutoStopOnce();
-                                  (
-                                    editorRef.current as any
-                                  ).insertSuggestionSmartly(suggestion, line);
-                                  toast({
-                                    title: "Suggestion inserted",
-                                    description:
-                                      "Code added to the appropriate location",
-                                  });
-                                } else {
-                                  console.error(
-                                    "insertSuggestionSmartly method not available on editor",
-                                  );
-                                }
-                              }}
-                              hideHeader={true}
-                            />
-                          </TabsContent>
-
-                          <TabsContent
-                            value="registry"
-                            className="flex-1 overflow-hidden m-0"
-                          >
-                            <ParserOutput
-                              messages={[]}
-                              ioRegistry={ioRegistry}
-                              onClear={() => {}}
-                              onGoToLine={(line) => {
-                                logger.debug(`Go to line: ${line}`);
-                              }}
-                              hideHeader={true}
-                              defaultTab="registry"
-                            />
-                          </TabsContent>
-
-                          <TabsContent
-                            value="debug"
-                            className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
-                          >
-                            {/* Only render debug content when tab is active to avoid lag */}
-                            {activeOutputTab === "debug" && (
-                            <div className="flex-1 overflow-hidden flex flex-col">
-                                {/* Debug Console Header */}
-                                <div className="bg-muted/50 border-b border-muted-foreground/30 px-3 h-[var(--ui-button-height)] flex items-center justify-between gap-2 flex-shrink-0">
-                                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <span className="text-ui-xs text-muted-foreground whitespace-nowrap">Filter:</span>
-                                    <select
-                                      value={debugMessageFilter}
-                                      onChange={(e) => setDebugMessageFilter(e.target.value.toLowerCase())}
-                                      className="flex-1 px-2 py-1 text-ui-xs bg-background border border-muted-foreground/20 rounded text-foreground min-w-0 max-w-xs"
-                                    >
-                                      <option value="">All Types</option>
-                                      {Array.from(new Set(debugMessages.map((m) => m.type))).sort().map((type) => (
-                                        <option key={type} value={type.toLowerCase()}>
-                                          {type}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <div className="flex items-center gap-1 flex-shrink-0">
-                                    <button
-                                      onClick={() => setDebugViewMode(debugViewMode === "table" ? "tiles" : "table")}
-                                      className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors"
-                                      title={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
-                                    >
-                                      {debugViewMode === "table" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Table className="h-3.5 w-3.5" />}
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        const messages = debugMessages
-                                          .filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)
-                                          .map((m) => `[${m.timestamp.toLocaleTimeString()}] ${m.sender.toUpperCase()} (${m.type}): ${m.content}`)
-                                          .join('\n');
-                                        if (messages) {
-                                          navigator.clipboard.writeText(messages);
-                                          toast({
-                                            title: "Copied to clipboard",
-                                            description: `${debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length} messages`,
-                                          });
-                                        }
-                                      }}
-                                      className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors"
-                                    >
-                                      Copy
-                                    </button>
-                                    <button
-                                      onClick={() => setDebugMessages([])}
-                                      className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-red-600/20 text-red-400 border border-red-600/40 rounded hover:bg-red-600/30 transition-colors"
-                                    >
-                                      Clear
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Debug Messages Table View - limited to 100 visible entries */}
-                                {debugViewMode === "table" && (
-                                  <ScrollArea
-                                    className="flex-1"
-                                    viewportRef={debugMessagesContainerRef}
-                                    thumbClassName="bg-[#22c55e]"
-                                  >
-                                    <table className="w-full text-ui-xs border-collapse">
-                                      <thead>
-                                        <tr className="sticky top-0 z-40 bg-muted border-b border-muted-foreground/20">
-                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-24">Time</th>
-                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-16">Sender</th>
-                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-20">Protocol</th>
-                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-32">Type</th>
-                                          <th className="px-2 py-1 text-left font-semibold text-muted-foreground">Content</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {debugMessages
-                                          .filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)
-                                          .slice(-100)
-                                          .map((msg, idx) => (
-                                            <tr
-                                              key={msg.id}
-                                              className={`border-b border-muted-foreground/10 ${idx % 2 === 0 ? "bg-background" : "bg-muted/20"} hover:bg-muted/40 transition-colors`}
-                                            >
-                                              <td className="px-2 py-1 text-cyan-400 border-r border-muted-foreground/10 font-mono whitespace-nowrap">
-                                                {msg.timestamp.toLocaleTimeString()}
-                                              </td>
-                                              <td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap">
-                                                <span className={msg.sender === "server" ? "text-blue-400" : "text-green-400"}>
-                                                  {msg.sender.toUpperCase()}
-                                                </span>
-                                              </td>
-                                              <td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap">
-                                                <span className={msg.protocol === "http" ? "text-orange-400" : "text-purple-400"}>
-                                                  {msg.protocol?.toUpperCase() || "?"}
-                                                </span>
-                                              </td>
-                                              <td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap">
-                                                <span className="text-yellow-400 font-mono">{msg.type}</span>
-                                              </td>
-                                              <td className="px-2 py-1 text-gray-300 font-mono max-w-md truncate" title={msg.content}>
-                                                {msg.content}
-                                              </td>
-                                            </tr>
-                                          ))}
-                                        {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length === 0 && (
-                                          <tr>
-                                            <td colSpan={5} className="px-2 py-4 text-center text-muted-foreground text-ui-xs">
-                                              {debugMessages.length === 0 ? "No messages yet" : "No messages match filter"}
-                                            </td>
-                                          </tr>
-                                        )}
-                                      </tbody>
-                                    </table>
-                                  </ScrollArea>
-                                )}
-
-                                {/* Debug Messages Tiles View - limited to 50 visible entries */}
-                                {debugViewMode === "tiles" && (
-                                  <ScrollArea
-                                    className="flex-1"
-                                    viewportRef={debugMessagesContainerRef}
-                                    thumbClassName="bg-status-success"
-                                  >
-                                    <div className="p-3">
-                                    <div className="space-y-3">
-                                      {debugMessages
-                                        .filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)
-                                        .slice(-50)
-                                        .map((msg) => (
-                                          <div
-                                            key={msg.id}
-                                            className="bg-muted/20 border border-muted-foreground/20 rounded p-3 hover:bg-muted/40 transition-colors"
-                                          >
-                                            {/* Header Row */}
-                                            <div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b border-muted-foreground/20">
-                                              <div className="flex items-center gap-3">
-                                                <span className={`text-ui-xs font-semibold px-2 py-0.5 rounded ${msg.sender === "server" ? "bg-blue-600/20 text-blue-400" : "bg-green-600/20 text-green-400"}`}>
-                                                  {msg.sender.toUpperCase()}
-                                                </span>
-                                                <span className="text-ui-xs text-yellow-400 font-mono bg-yellow-600/10 px-2 py-0.5 rounded">
-                                                  {msg.type}
-                                                </span>
-                                              </div>
-                                              <span className="text-ui-xs text-cyan-400 font-mono whitespace-nowrap">
-                                                {msg.timestamp.toLocaleTimeString()}
-                                              </span>
-                                            </div>
-                                            {/* Content with JSON formatting */}
-                                            <pre className="text-ui-xs text-gray-300 font-mono overflow-x-auto bg-black/20 p-2 rounded border border-muted-foreground/10">
-                                              <code>{(() => {
-                                                try {
-                                                  const parsed = JSON.parse(msg.content);
-                                                  return JSON.stringify(parsed, null, 2);
-                                                } catch {
-                                                  return msg.content;
-                                                }
-                                              })()}</code>
-                                            </pre>
-                                          </div>
-                                        ))}
-                                      {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length === 0 && (
-                                        <div className="text-center text-muted-foreground text-ui-xs py-8">
-                                          {debugMessages.length === 0 ? "No messages yet" : "No messages match filter"}
-                                        </div>
-                                      )}
-                                    </div>
-                                    </div>
-                                  </ScrollArea>
-                                )}
-                              </div>
-                            )}
-                            </TabsContent>
-                        </Tabs>
-                      </ResizablePanel>
-                    </>
-                  );
-                })()}
+<SimulatorOutput outputApi={{
+                    cliOutput,
+                    handleClearCompilationOutput,
+                    isSuccessState: lastCompilationResult === "success" && !hasCompilationErrors,
+                    isModified,
+                    parserMessages,
+                    ioRegistry,
+                    parserMessagesContainerRef,
+                    activeOutputTab,
+                    setActiveOutputTab,
+                    showCompilationOutput,
+                    setShowCompilationOutput,
+                    setParserPanelDismissed,
+                    outputPanelRef,
+                    outputTabsHeaderRef,
+                    outputPanelMinPercent,
+                    compilationPanelSize,
+                    setCompilationPanelSize,
+                    outputPanelManuallyResizedRef,
+                    openOutputPanel,
+                    toast,
+                  }} />
               </ResizablePanelGroup>
             </ResizablePanel>
 
@@ -1802,227 +1371,7 @@ export default function ArduinoSimulator() {
             <ResizablePanel defaultSize={50} minSize={20} id="output-panel">
               <ResizablePanelGroup direction="vertical" id="output-layout">
                 <ResizablePanel defaultSize={50} minSize={20} id="serial-panel">
-                  <div className="h-full flex flex-col">
-                    {/* Static Serial Header (always full width) */}
-                    <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)]">
-                      <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
-                        <div className="flex items-center space-x-2 flex-shrink-0">
-                          <Monitor
-                            className="text-white opacity-95 h-5 w-5"
-                            strokeWidth={1.67}
-                            aria-hidden
-                          />
-                          <span className="sr-only">Serial Output</span>
-                          {debugMode && (simulationStatus === "running" || simulationStatus === "paused") && telemetryData.last ? (
-                            <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Events</span>
-                                <span className="text-sm font-mono text-cyan-400">
-                                  {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(1)} /s
-                                </span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Bytes</span>
-                                <span className="text-sm font-mono text-cyan-400">
-                                  {(telemetryData.last.serialBytesPerSecond ?? 0).toFixed(1)} /s
-                                </span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Dropped /s</span>
-                                <span className={clsx(
-                                  "text-sm font-mono",
-                                  (telemetryData.last.serialDroppedBytesPerSecond ?? 0) > 0
-                                    ? "text-red-400 font-semibold"
-                                    : "text-cyan-400"
-                                )}>
-                                  {(telemetryData.last.serialDroppedBytesPerSecond ?? 0).toFixed(1)}
-                                </span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Baudrate</span>
-                                <span className="text-sm font-mono text-cyan-400">
-                                  {baudRate}
-                                </span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Total Bytes</span>
-                                <span className="text-sm font-mono text-cyan-400">
-                                  {telemetryData.last.serialBytesTotal ?? 0}
-                                </span>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-4 ml-auto">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-                            onClick={cycleSerialViewMode}
-                            data-testid="button-serial-view-toggle"
-                            aria-label={
-                              serialViewMode === "monitor"
-                                ? "Monitor only"
-                                : serialViewMode === "plotter"
-                                  ? "Plotter only"
-                                  : "Split view"
-                            }
-                            title={
-                              serialViewMode === "monitor"
-                                ? "Monitor only"
-                                : serialViewMode === "plotter"
-                                  ? "Plotter only"
-                                  : "Split view"
-                            }
-                          >
-                            {serialViewMode === "monitor" ? (
-                              <Terminal className="h-4 w-4" />
-                            ) : serialViewMode === "plotter" ? (
-                              <BarChart className="h-4 w-4" />
-                            ) : (
-                              <Columns className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={clsx(
-                              "h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
-                              autoScrollEnabled
-                                ? "bg-background text-white hover:bg-green-600 hover:text-white"
-                                : "",
-                            )}
-                            onClick={() =>
-                              setAutoScrollEnabled(!autoScrollEnabled)
-                            }
-                            disabled={serialViewMode === "plotter"}
-                            title={
-                              autoScrollEnabled
-                                ? "Autoscroll on"
-                                : "Autoscroll off"
-                            }
-                            aria-label={
-                              autoScrollEnabled
-                                ? "Autoscroll on"
-                                : "Autoscroll off"
-                            }
-                            aria-pressed={autoScrollEnabled}
-                            data-testid="button-autoscroll"
-                          >
-                            <ChevronsDown
-                              className={clsx(
-                                "h-4 w-4",
-                                autoScrollEnabled
-                                  ? "text-white"
-                                  : "text-gray-400",
-                              )}
-                            />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-                            onClick={handleClearSerialOutput}
-                            aria-label="Clear serial output"
-                            title="Clear serial output"
-                            data-testid="button-clear-serial"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 min-h-0">
-                      {/* Serial area: SerialMonitor renders output area and parent renders static header above */}
-                      {showSerialMonitor && showSerialPlotter ? (
-                        <ResizablePanelGroup
-                          direction="horizontal"
-                          className="h-full"
-                          id="serial-split"
-                        >
-                          <ResizablePanel
-                            defaultSize={50}
-                            minSize={20}
-                            id="serial-monitor-panel"
-                          >
-                            <div className="h-full flex flex-col">
-                              <div className="flex-1 min-h-0">
-                                <SerialMonitor
-                                  output={renderedSerialOutput}
-                                  isConnected={isConnected}
-                                  isSimulationRunning={
-                                    simulationStatus !== "stopped"
-                                  }
-                                  onSendMessage={handleSerialSend}
-                                  onClear={handleClearSerialOutput}
-                                  showMonitor={showSerialMonitor}
-                                  autoScrollEnabled={autoScrollEnabled}
-                                />
-                              </div>
-                            </div>
-                          </ResizablePanel>
-
-                          <ResizableHandle
-                            withHandle
-                            data-testid="horizontal-resizer-serial"
-                          />
-
-                          <ResizablePanel
-                            defaultSize={50}
-                            minSize={20}
-                            id="serial-plot-panel"
-                          >
-                            <div className="h-full">
-                              <Suspense fallback={<LoadingPlaceholder />}>
-                                <SerialPlotter output={serialOutput} />
-                              </Suspense>
-                            </div>
-                          </ResizablePanel>
-                        </ResizablePanelGroup>
-                      ) : showSerialMonitor ? (
-                        <div className="h-full flex flex-col">
-                          <div className="flex-1 min-h-0">
-                            <SerialMonitor
-                              output={renderedSerialOutput}
-                              isConnected={isConnected}
-                              isSimulationRunning={simulationStatus !== "stopped"}
-                              onSendMessage={handleSerialSend}
-                              onClear={handleClearSerialOutput}
-                              showMonitor={showSerialMonitor}
-                              autoScrollEnabled={autoScrollEnabled}
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="h-full">
-                          <Suspense fallback={<LoadingPlaceholder />}>
-                            <SerialPlotter output={serialOutput} />
-                          </Suspense>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Input area is rendered in the parent so it spans the whole serial frame */}
-                    <div className="p-3 flex-shrink-0">
-                      <div className="w-full">
-                        <InputGroup
-                          type="text"
-                          placeholder="Send to Arduino..."
-                          value={serialInputValue}
-                          onChange={(e) => setSerialInputValue(e.target.value)}
-                          onKeyDown={handleSerialInputKeyDown}
-                          onSubmit={handleSerialInputSend}
-                          disabled={
-                            !serialInputValue.trim() ||
-                            simulationStatus !== "running"
-                          }
-                          inputTestId="input-serial"
-                          buttonTestId="button-send-serial"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <SimulatorOutputPanel />
                 </ResizablePanel>
 
                 <ResizableHandle
@@ -2033,11 +1382,6 @@ export default function ArduinoSimulator() {
                 <ResizablePanel defaultSize={50} minSize={20} id="board-panel">
                   <SimulatorSidebar
                     pinMonitorVisible={pinMonitorVisible}
-                    pinStates={pinStates}
-                    batchStats={batchStats}
-                    simulationStatus={simulationStatus}
-                    txActivity={txActivity}
-                    rxActivity={rxActivity}
                     onReset={handleReset}
                     onPinToggle={handlePinToggle}
                     analogPins={analogPinsUsed}
@@ -2229,11 +1573,6 @@ export default function ArduinoSimulator() {
                       <SimulatorSidebar
                         isMobile
                         pinMonitorVisible={pinMonitorVisible}
-                        pinStates={pinStates}
-                        batchStats={batchStats}
-                        simulationStatus={simulationStatus}
-                        txActivity={txActivity}
-                        rxActivity={rxActivity}
                         onReset={handleReset}
                         onPinToggle={handlePinToggle}
                         analogPins={analogPinsUsed}
@@ -2248,5 +1587,15 @@ export default function ArduinoSimulator() {
         )}
       </div>
     </div>
+  );
+}
+
+// Top-level wrapper: ensure all hooks that consume `useSimulationUi()`
+// are executed inside the `SimulationUiProvider`.
+export default function ArduinoSimulator() {
+  return (
+    <SimulationUiProvider>
+      <ArduinoSimulatorInner />
+    </SimulationUiProvider>
   );
 }

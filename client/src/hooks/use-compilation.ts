@@ -37,8 +37,6 @@ type UseCompilationParams = {
   setIoRegistry: SetState<IOPinRecord[]>;
   setHasCompiledOnce: SetState<boolean>;
   setIsModified: SetState<boolean>;
-  setDebugMessages: SetState<any[]>;
-  addDebugMessage: (params: DebugMessageParams) => void;
   ensureBackendConnected: (reason: string) => boolean;
   isBackendUnreachableError: (error: unknown) => boolean;
   triggerErrorGlitch: () => void;
@@ -49,6 +47,8 @@ type UseCompilationParams = {
   }) => void;
   startSimulation: () => void;
 };
+
+import { useSimulationUi } from "@/hooks/use-simulation-ui";
 
 export function useCompilation({
   editorRef,
@@ -63,14 +63,14 @@ export function useCompilation({
   setIoRegistry,
   setHasCompiledOnce,
   setIsModified,
-  setDebugMessages,
-  addDebugMessage,
   ensureBackendConnected,
   isBackendUnreachableError,
   triggerErrorGlitch,
   toast,
   startSimulation,
 }: UseCompilationParams) {
+  // pull debug helpers from UI context (provider owns debug state)
+  const { addDebugMessage, setDebugMessages } = useSimulationUi();
   const [compilationStatus, setCompilationStatus] = useState<CompilationStatus>(
     "ready",
   );
@@ -94,16 +94,16 @@ export function useCompilation({
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: CompilePayload) => {
-      addDebugMessage({
-        source: "frontend",
-        type: "upload_request",
-        data: JSON.stringify(
+      addDebugMessage(
+        "frontend",
+        "upload_request",
+        JSON.stringify(
           { endpoint: "POST /api/upload", codeLength: payload.code.length },
           null,
           2,
         ),
-        protocol: "http",
-      });
+        "http",
+      );
       const response = await apiRequest("POST", "/api/upload", payload);
       const ct = (response.headers.get("content-type") || "").toLowerCase();
       if (ct.includes("application/json")) {
@@ -166,16 +166,16 @@ export function useCompilation({
     mutationFn: async (payload: CompilePayload) => {
       setArduinoCliStatus("compiling");
       setLastCompilationResult(null);
-      addDebugMessage({
-        source: "frontend",
-        type: "compile_request",
-        data: JSON.stringify(
+      addDebugMessage(
+        "frontend",
+        "compile_request",
+        JSON.stringify(
           { endpoint: "POST /api/compile", codeLength: payload.code.length },
           null,
           2,
         ),
-        protocol: "http",
-      });
+        "http",
+      );
       const response = await apiRequest("POST", "/api/compile", payload);
       const ct = (response.headers.get("content-type") || "").toLowerCase();
       if (ct.includes("application/json")) {
@@ -195,34 +195,34 @@ export function useCompilation({
         setHasCompilationErrors(false);
         setLastCompilationResult("success");
         setCliOutput(data.output || "✓ Arduino-CLI Compilation succeeded.");
-        addDebugMessage({
-          source: "server",
-          type: "compilation_status",
-          data: JSON.stringify({ gccStatus: "success" }, null, 2),
-          protocol: "http",
-        });
+        addDebugMessage(
+          "server",
+          "compilation_status",
+          JSON.stringify({ gccStatus: "success" }, null, 2),
+          "http",
+        );
       } else {
         setArduinoCliStatus("error");
         setHasCompilationErrors(true);
         setLastCompilationResult("error");
         triggerErrorGlitch();
         setCliOutput(data.errors || "✗ Arduino-CLI Compilation failed.");
-        addDebugMessage({
-          source: "server",
-          type: "compilation_error",
-          data: JSON.stringify(
+        addDebugMessage(
+          "server",
+          "compilation_error",
+          JSON.stringify(
             { type: "compilation_error", data: data.errors },
             null,
             2,
           ),
-          protocol: "http",
-        });
-        addDebugMessage({
-          source: "server",
-          type: "compilation_status",
-          data: JSON.stringify({ gccStatus: "error" }, null, 2),
-          protocol: "http",
-        });
+          "http",
+        );
+        addDebugMessage(
+          "server",
+          "compilation_status",
+          JSON.stringify({ gccStatus: "error" }, null, 2),
+          "http",
+        );
       }
 
       if (data.parserMessages && Array.isArray(data.parserMessages)) {
@@ -326,7 +326,8 @@ export function useCompilation({
 
   const handleCompileAndStart = useCallback(() => {
     if (!ensureBackendConnected("Simulation starten")) return;
-    setDebugMessages([]);
+// clear debug messages via provider
+      setDebugMessages([]);
 
     let mainSketchCode: string = "";
     if (editorRef.current) {

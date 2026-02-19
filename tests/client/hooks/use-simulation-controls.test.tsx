@@ -3,6 +3,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useSimulationControls } from "../../../client/src/hooks/use-simulation-controls";
+import { SimulationUiProvider, useSimulationUi } from "../../../client/src/hooks/use-simulation-ui";
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -12,28 +13,37 @@ const createWrapper = () => {
     },
   });
 
+  // enable debug console for wrapper-based tests
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      window.localStorage.setItem("unoDebugMode", "1");
+    } catch {
+      /* ignore if localStorage isn't writable in this env */
+    }
+  }
+
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <SimulationUiProvider>{children}</SimulationUiProvider>
+    </QueryClientProvider>
   );
 };
 
-const buildParams = () => {
-  return {
-    ensureBackendConnected: vi.fn(() => true),
-    sendMessage: vi.fn(),
-    resetPinUI: vi.fn(),
-    clearOutputs: vi.fn(),
-    addDebugMessage: vi.fn(),
-    serialEventQueueRef: { current: [] as Array<{ payload: any; receivedAt: number }> },
-    toast: vi.fn(),
-    pendingPinConflicts: [] as number[],
-    setPendingPinConflicts: vi.fn(),
-    setCliOutput: vi.fn(),
-    isModified: false,
-    handleCompileAndStart: vi.fn(),
-    startSimulationRef: { current: null as null | (() => void) },
-  };
-};
+const buildParams = () => ({
+  ensureBackendConnected: vi.fn(() => true),
+  sendMessage: vi.fn(),
+  resetPinUI: vi.fn(),
+  clearOutputs: vi.fn(),
+  addDebugMessage: vi.fn(),
+  serialEventQueueRef: { current: [] as Array<{ payload: any; receivedAt: number }> },
+  toast: vi.fn(),
+  pendingPinConflicts: [] as number[],
+  setPendingPinConflicts: vi.fn(),
+  setCliOutput: vi.fn(),
+  isModified: false,
+  handleCompileAndStart: vi.fn(),
+  startSimulationRef: { current: null as null | (() => void) },
+});
 
 describe("useSimulationControls", () => {
   beforeEach(() => {
@@ -58,20 +68,30 @@ describe("useSimulationControls", () => {
   it("handleStart starts simulation and sends message", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+
+    const { result } = renderHook(() => {
+      const ui = useSimulationUi();
+      const controls = useSimulationControls(params);
+      return { ui, controls };
+    }, { wrapper });
+
+    // enable provider debug collection BEFORE invoking start
+    act(() => result.current.ui.setDebugMode(true));
+    expect(result.current.ui.debugMode).toBe(true);
 
     act(() => {
-      result.current.handleStart();
+      result.current.controls.handleStart();
     });
 
     await waitFor(() => {
-      expect(result.current.simulationStatus).toBe("running");
+      expect(result.current.controls.simulationStatus).toBe("running");
     });
 
     expect(params.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: "start_simulation" }),
     );
-    expect(params.addDebugMessage).toHaveBeenCalled();
+    // provider should have recorded a debug message for start_simulation
+    expect((result.current.ui.debugMessages || []).some((m: any) => m.type === "start_simulation")).toBe(true);
   });
 
   it("handleStop clears serial queue and stops simulation", async () => {
@@ -120,51 +140,65 @@ describe("useSimulationControls", () => {
   it("handlePause pauses simulation", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+
+    const { result } = renderHook(() => {
+      const ui = useSimulationUi();
+      const controls = useSimulationControls(params);
+      return { ui, controls };
+    }, { wrapper });
+
+    // enable provider debug collection BEFORE invoking pause
+    act(() => result.current.ui.setDebugMode(true));
+    expect(result.current.ui.debugMode).toBe(true);
 
     act(() => {
-      result.current.setSimulationStatus("running");
+      result.current.controls.setSimulationStatus("running");
     });
 
     act(() => {
-      result.current.handlePause();
+      result.current.controls.handlePause();
     });
 
     await waitFor(() => {
-      expect(result.current.simulationStatus).toBe("paused");
+      expect(result.current.controls.simulationStatus).toBe("paused");
     });
 
     expect(params.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: "pause_simulation" }),
     );
-    expect(params.addDebugMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "pause_simulation" }),
-    );
+    expect((result.current.ui.debugMessages || []).some((m: any) => m.type === "pause_simulation")).toBe(true);
   });
 
   it("handleResume resumes simulation from paused", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+
+    const { result } = renderHook(() => {
+      const ui = useSimulationUi();
+      const controls = useSimulationControls(params);
+      return { ui, controls };
+    }, { wrapper });
+
+    // enable provider debug collection BEFORE invoking resume
+    act(() => result.current.ui.setDebugMode(true));
+    expect(result.current.ui.debugMode).toBe(true);
 
     act(() => {
-      result.current.setSimulationStatus("paused");
+      result.current.controls.setSimulationStatus("paused");
     });
 
     act(() => {
-      result.current.handleResume();
+      result.current.controls.handleResume();
     });
 
     await waitFor(() => {
-      expect(result.current.simulationStatus).toBe("running");
+      expect(result.current.controls.simulationStatus).toBe("running");
     });
 
     expect(params.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: "resume_simulation" }),
     );
-    expect(params.addDebugMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "resume_simulation" }),
-    );
+    expect((result.current.ui.debugMessages || []).some((m: any) => m.type === "resume_simulation")).toBe(true);
   });
 
   it("startMutation shows pin conflict warning when pendingPinConflicts exist", async () => {

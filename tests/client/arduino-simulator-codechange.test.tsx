@@ -1,6 +1,7 @@
 import { render, waitFor, act } from "@testing-library/react";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SimulationUiProvider } from "@/hooks/use-simulation-ui";
 
 let messageQueue: Array<{ type: string; status?: string }> = [];
 const sendMessage = vi.fn();
@@ -70,7 +71,9 @@ test("handles simulation_status message", async () => {
   const testQueryClient = new QueryClient();
   const { rerender } = render(
     <QueryClientProvider client={testQueryClient}>
-      <ArduinoSimulator />
+      <SimulationUiProvider>
+        <ArduinoSimulator />
+      </SimulationUiProvider>
     </QueryClientProvider>
   );
 
@@ -86,7 +89,9 @@ test("handles simulation_status message", async () => {
 
   rerender(
     <QueryClientProvider client={testQueryClient}>
-      <ArduinoSimulator />
+      <SimulationUiProvider>
+        <ArduinoSimulator />
+      </SimulationUiProvider>
     </QueryClientProvider>
   );
 

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCompilation } from "../../../client/src/hooks/use-compilation";
 import { apiRequest } from "../../../client/src/lib/queryClient";
+import { SimulationUiProvider, useSimulationUi } from "../../../client/src/hooks/use-simulation-ui";
 
 vi.mock("@/lib/queryClient", () => ({
   apiRequest: vi.fn(),
@@ -17,18 +18,24 @@ const createWrapper = () => {
     },
   });
 
+  // enable debug console for wrapper-based tests
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      window.localStorage.setItem("unoDebugMode", "1");
+    } catch {
+      /* ignore if localStorage isn't writable in this env */
+    }
+  }
+
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <SimulationUiProvider>{children}</SimulationUiProvider>
+    </QueryClientProvider>
   );
 };
 
 const buildParams = () => {
-  const editorRef = {
-    current: {
-      getValue: () => "void setup() {}\nvoid loop() {}",
-    },
-  } as { current: { getValue: () => string } | null };
-
+  const editorRef: any = { current: { getValue: () => "initial code" } };
   const tabs = [
     { id: "tab-1", name: "sketch.ino", content: "tab code" },
     { id: "tab-2", name: "header.h", content: "header" },
@@ -54,7 +61,7 @@ const buildParams = () => {
     triggerErrorGlitch: vi.fn(),
     toast: vi.fn(),
     startSimulation: vi.fn(),
-  };
+  } as any;
 };
 
 describe("useCompilation", () => {
@@ -410,22 +417,25 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    // mount BOTH hooks under the same provider so they share context
+    const { result } = renderHook(() => {
+      const ui = useSimulationUi();
+      const comp = useCompilation(params);
+      return { ui, comp };
+    }, { wrapper });
+
+    // enable debug collection on the provider BEFORE invoking compile
+    act(() => result.current.ui.setDebugMode(true));
+    expect(result.current.ui.debugMode).toBe(true);
 
     act(() => {
-      result.current.handleCompile();
+      result.current.comp.handleCompile();
     });
 
+    // provider should have recorded a debug message for compile_request
     await waitFor(() => {
-      expect(params.addDebugMessage).toHaveBeenCalled();
+      expect((result.current.ui.debugMessages || []).some((m: any) => m.type === "compile_request")).toBe(true);
     });
-
-    expect(params.addDebugMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: "frontend",
-        type: "compile_request",
-      }),
-    );
   });
 
   it("calls compileMutation.mutate when handleCompile is invoked", async () => {
