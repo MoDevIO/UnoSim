@@ -8,6 +8,7 @@ import { ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { X } from "lucide-react";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { useSimulationUi } from "@/hooks/use-simulation-ui";
+import { DebugConsole } from "./SimulatorOutputPanel";
 
 
 
@@ -156,6 +157,14 @@ export function SimulatorOutput({ outputApi }: { outputApi: OutputApi }) {
                 <span>I/O Registry</span>
               </TabsTrigger>
 
+              <TabsTrigger
+                value="debug"
+                onDoubleClick={() => openOutputPanel("debug")}
+                className={"h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center"}
+              >
+                <span>Telemetry</span>
+              </TabsTrigger>
+
             </TabsList>
             <div className="flex-1" />
             <div className="flex items-center px-2">
@@ -197,6 +206,10 @@ export function SimulatorOutput({ outputApi }: { outputApi: OutputApi }) {
             <ParserOutput messages={[]} ioRegistry={ioRegistry} onClear={() => {}} hideHeader={true} defaultTab="registry" />
           </TabsContent>
 
+          <TabsContent value="debug" className="flex-1 overflow-hidden m-0">
+            {/* Telemetry / Debug console moved back into the output tabs */}
+            <DebugConsole />
+          </TabsContent>
 
         </Tabs>
       </ResizablePanel>

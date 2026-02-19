@@ -317,7 +317,7 @@ export default function SettingsDialog({
                   Enable debug UI elements (telemetry displays, status light, CLI/GCC labels).
                 </div>
                 <div className="text-ui-xs text-muted-foreground mt-1">
-                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">
+                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-ui-xs">
                     {navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Strg'}+D
                   </kbd>
                 </div>

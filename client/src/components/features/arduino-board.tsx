@@ -850,8 +850,8 @@ export function ArduinoBoard({
           {debugMode && telemetry && isSimulationRunning && (
             <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4" data-testid="telemetry-metrics">
               <div className="flex flex-col" data-testid="telemetry-pin-changes">
-                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Pin Changes</span>
-                <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-pin-changes-value">
+                <span className="text-ui-xs uppercase tracking-wider text-cyan-500/50">Pin Changes</span>
+                <span className="text-ui-xs font-mono text-cyan-400" data-testid="telemetry-pin-changes-value">
                   {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
                   {telemetry.droppedPinChangesPerSecond > 0 && (
                     <span className="ml-1 text-amber-400/80" data-testid="telemetry-dropped">

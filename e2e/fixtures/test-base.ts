@@ -39,79 +39,72 @@ export const test = base.extend<TestFixtures>({
     const toggle = page.locator('[data-testid="button-simulate-toggle"]');
     await use(toggle);
   },
-  startSimulation: async ({ simulationToggle }, use) => {
+  startSimulation: async ({ simulationToggle, page }, use) => {
     await use(async () => {
-      // helper: robust click that retries on detached DOM errors
-      const robustClick = async (locator: Locator, attempts = 3) => {
-        for (let i = 0; i < attempts; i++) {
-          await locator.waitFor({ state: "visible", timeout: 5000 });
-          await locator.waitFor({ state: "attached", timeout: 5000 });
-          try {
-            await locator.click();
-            return;
-          } catch (err: any) {
-            const msg = String(err && err.message ? err.message : err);
-            if (msg.includes("not attached") || msg.includes("detached")) {
-              // retry after a short backoff
-              await new Promise((r) => setTimeout(r, 150));
-              continue;
-            }
-            throw err;
-          }
-        }
-        // last attempt - let any error bubble
-        await locator.click();
-      };
-
       await expect(simulationToggle).toBeVisible();
       const currentLabel = await simulationToggle.getAttribute("aria-label");
       if (currentLabel && /stop simulation/i.test(currentLabel)) {
         return;
       }
+
       await expect(simulationToggle).toBeEnabled({ timeout: 15000 });
 
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        await robustClick(simulationToggle);
+      // Backend-aware retry: detect /api/compile 429 and retry with exponential backoff
+      const maxAttempts = 5;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        // Click to start (UI triggers /api/compile)
+        await simulationToggle.click();
+
+        // Wait for a compile response if present (short window) so we can detect 429
+        let compileResp;
+        try {
+          compileResp = await page.waitForResponse(
+            (r) => r.url().includes('/api/compile') && r.request().method() === 'POST',
+            { timeout: 5000 },
+          );
+        } catch (err) {
+          compileResp = undefined;
+        }
+
+        // If server returned 429, apply exponential backoff and retry click
+        if (compileResp && compileResp.status() === 429) {
+          const backoff = 250 * Math.pow(2, attempt); // 250ms, 500ms, 1s, 2s...
+          console.warn(`[E2E] /api/compile returned 429 — backing off ${backoff}ms (attempt ${attempt + 1}/${maxAttempts})`);
+          await page.waitForTimeout(backoff);
+          // ensure toggle is enabled again before next attempt
+          await expect(simulationToggle).toBeEnabled({ timeout: 5000 });
+          continue; // retry
+        }
+
+        // If compileResp exists and is an error other than 429, allow normal retry behavior
+        if (compileResp && !compileResp.ok() && compileResp.status() !== 429) {
+          console.warn(`[E2E] /api/compile returned status ${compileResp.status()} — retrying`);
+        }
+
+        // Wait for UI to reflect started state (shorter poll because we already clicked)
         const didStart = await expect
           .poll(() => simulationToggle.getAttribute("aria-label"), {
-            timeout: 15000,
+            timeout: 8000,
             intervals: [250, 500, 1000],
           })
           .toMatch(/stop simulation/i)
           .then(() => true)
           .catch(() => false);
-        if (didStart) {
-          return;
-        }
+
+        if (didStart) return;
+
+        // If not started yet, back off before retrying
+        const backoff = 250 * Math.pow(2, attempt);
+        await page.waitForTimeout(backoff);
         await expect(simulationToggle).toBeEnabled({ timeout: 5000 });
       }
+
+      // Final assertion (will fail the test and surface the reason)
       await expect(simulationToggle).toHaveAttribute("aria-label", /stop simulation/i);
     });
   },
   stopSimulation: async ({ simulationToggle }, use) => {
     await use(async () => {
-      // helper: robust click that retries on detached DOM errors
-      const robustClick = async (locator: Locator, attempts = 3) => {
-        for (let i = 0; i < attempts; i++) {
-          await locator.waitFor({ state: "visible", timeout: 5000 });
-          await locator.waitFor({ state: "attached", timeout: 5000 });
-          try {
-            await locator.click();
-            return;
-          } catch (err: any) {
-            const msg = String(err && err.message ? err.message : err);
-            if (msg.includes("not attached") || msg.includes("detached")) {
-              // retry after a short backoff
-              await new Promise((r) => setTimeout(r, 150));
-              continue;
-            }
-            throw err;
-          }
-        }
-        // last attempt - let any error bubble
-        await locator.click();
-      };
-
       await expect(simulationToggle).toBeVisible();
       const currentLabel = await simulationToggle.getAttribute("aria-label");
       if (currentLabel && /start simulation|resume simulation/i.test(currentLabel)) {
@@ -119,7 +112,7 @@ export const test = base.extend<TestFixtures>({
       }
       // Simulation is running, click to stop it
       await expect(simulationToggle).toBeEnabled({ timeout: 5000 });
-      await robustClick(simulationToggle);
+      await simulationToggle.click();
       
       // Wait for simulation to stop with polling
       await expect.poll(

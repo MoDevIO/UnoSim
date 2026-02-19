@@ -20,6 +20,91 @@ const LoadingPlaceholder = () => (
   </div>
 );
 
+export const DebugConsole: React.FC = () => {
+  const ui = useSimulationUi();
+  const { toast } = useToast();
+  const debugMessages = ui.debugMessages;
+  const debugViewMode = ui.debugViewMode;
+  const setDebugViewMode = ui.setDebugViewMode;
+  const debugMessageFilter = ui.debugMessageFilter;
+  const setDebugMessageFilter = ui.setDebugMessageFilter;
+  const debugMessagesContainerRef = ui.debugMessagesContainerRef;
+  const setDebugMessages = ui.setDebugMessages;
+
+  if (!ui.debugMode) return null;
+
+  return (
+    <div className="border-t border-muted-foreground/20 bg-muted/50">
+      <div className="px-3 h-[var(--ui-button-height)] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="text-ui-xs text-muted-foreground whitespace-nowrap">Filter:</span>
+          <select value={debugMessageFilter ?? ""} onChange={(e) => setDebugMessageFilter?.(e.target.value.toLowerCase())} className="flex-1 px-2 py-1 text-ui-xs bg-background border border-muted-foreground/20 rounded text-foreground min-w-0 max-w-xs">
+            <option value="">All Types</option>
+            {Array.from(new Set((debugMessages || []).map((m) => m.type))).sort().map((type) => (
+              <option key={type} value={type.toLowerCase()}>{type}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button onClick={() => setDebugViewMode?.(debugViewMode === "table" ? "tiles" : "table")} className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors" title={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}>
+            {debugViewMode === "table" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Table className="h-3.5 w-3.5" />}
+          </button>
+          <button onClick={() => {
+            const messages = (debugMessages || []).filter((m: any) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).map((m: any) => `[${new Date(m.timestamp).toLocaleTimeString()}] ${m.sender.toUpperCase()} (${m.type}): ${m.content}`).join('\n');
+            if (messages) {
+              navigator.clipboard.writeText(messages);
+              toast({ title: "Copied to clipboard", description: `${(debugMessages || []).filter((m: any) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length} messages` });
+            }
+          }} className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors">Copy</button>
+          <button onClick={() => setDebugMessages?.([])} className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-red-600/20 text-red-400 border border-red-600/40 rounded hover:bg-red-600/30 transition-colors">Clear</button>
+        </div>
+      </div>
+
+      {debugViewMode === "table" ? (
+        <ScrollArea className="h-48" viewportRef={debugMessagesContainerRef} thumbClassName="bg-status-success">
+          <table className="w-full text-ui-xs border-collapse">
+            <thead className="text-ui-xs text-muted-foreground bg-muted/30 sticky top-0">
+              <tr>
+                <th className="p-2 text-left">Time</th>
+                <th className="p-2 text-left">Sender</th>
+                <th className="p-2 text-left">Type</th>
+                <th className="p-2 text-left">Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(debugMessages || []).filter((m: any) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice().reverse().map((m: any) => (
+                <tr key={m.id} className="border-t border-muted-foreground/10">
+                  <td className="p-2 align-top font-mono text-ui-xs">{new Date(m.timestamp).toLocaleTimeString()}</td>
+                  <td className="p-2 align-top font-mono text-ui-xs">{m.sender}</td>
+                  <td className="p-2 align-top font-mono text-ui-xs">{m.type}</td>
+                  <td className="p-2 align-top break-words whitespace-pre-wrap text-ui-xs">{m.content}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ScrollArea>
+      ) : (
+        <ScrollArea className="h-48" viewportRef={debugMessagesContainerRef} thumbClassName="bg-status-success">
+          <div className="p-3 space-y-3">
+            {(debugMessages || []).filter((m: any) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice().reverse().map((m: any) => (
+              <div key={m.id} className="p-2 border border-muted-foreground/10 rounded bg-background">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="text-ui-xs font-mono text-muted-foreground">{new Date(m.timestamp).toLocaleTimeString()}</div>
+                  <div className="text-ui-xs font-mono text-muted-foreground">{m.sender}</div>
+                </div>
+                <div className="text-ui-xs font-mono mb-1 text-cyan-300">{m.type}</div>
+                <pre className="text-ui-xs whitespace-pre-wrap break-words">{m.content}</pre>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
+  );
+};
+
+
 export default function SimulatorOutputPanel(props: {
   simulationStatus?: string;
   serialOutput?: any[];
@@ -61,13 +146,6 @@ export default function SimulatorOutputPanel(props: {
   const simulationStatus = props.simulationStatus ?? ui.simulationStatus;
   const setTxActivity = ui.setTxActivity;
   const debugMode = ui.debugMode;
-  const debugMessages = ui.debugMessages;
-  const debugViewMode = ui.debugViewMode;
-  const setDebugViewMode = ui.setDebugViewMode;
-  const debugMessageFilter = ui.debugMessageFilter;
-  const setDebugMessageFilter = ui.setDebugMessageFilter;
-  const debugMessagesContainerRef = ui.debugMessagesContainerRef;
-  const setDebugMessages = ui.setDebugMessages;
 
   const handleSerialSend = (message: string) => {
     if (!ensureBackendConnected("Serial senden")) return;
@@ -104,12 +182,12 @@ export default function SimulatorOutputPanel(props: {
           {debugMode && (simulationStatus === "running" || simulationStatus === "paused") && telemetryData.last ? (
             <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
               <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Events</span>
-                <span className="text-sm font-mono text-cyan-400">{(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(1)} /s</span>
+                <span className="text-ui-xs uppercase tracking-wider text-cyan-500/50">Serial Events</span>
+                <span className="text-ui-xs font-mono text-cyan-400">{(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(1)} /s</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Bytes</span>
-                <span className="text-sm font-mono text-cyan-400">{(telemetryData.last.serialBytesPerSecond ?? 0).toFixed(1)} /s</span>
+                <span className="text-ui-xs uppercase tracking-wider text-cyan-500/50">Serial Bytes</span>
+                <span className="text-ui-xs font-mono text-cyan-400">{(telemetryData.last.serialBytesPerSecond ?? 0).toFixed(1)} /s</span>
               </div>
             </div>
           ) : null}
@@ -227,76 +305,8 @@ export default function SimulatorOutputPanel(props: {
         </div>
       </div>
 
-      {/* Debug console (moved here from Sidebar) */}
-      {debugMode && (
-        <div className="border-t border-muted-foreground/20 bg-muted/50">
-          <div className="px-3 h-[var(--ui-button-height)] flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="text-ui-xs text-muted-foreground whitespace-nowrap">Filter:</span>
-              <select value={debugMessageFilter ?? ""} onChange={(e) => setDebugMessageFilter?.(e.target.value.toLowerCase())} className="flex-1 px-2 py-1 text-ui-xs bg-background border border-muted-foreground/20 rounded text-foreground min-w-0 max-w-xs">
-                <option value="">All Types</option>
-                {Array.from(new Set((debugMessages || []).map((m) => m.type))).sort().map((type) => (
-                  <option key={type} value={type.toLowerCase()}>{type}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <button onClick={() => setDebugViewMode?.(debugViewMode === "table" ? "tiles" : "table")} className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors" title={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}>
-                {debugViewMode === "table" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Table className="h-3.5 w-3.5" />}
-              </button>
-              <button onClick={() => {
-                const messages = (debugMessages || []).filter((m: any) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).map((m: any) => `[${new Date(m.timestamp).toLocaleTimeString()}] ${m.sender.toUpperCase()} (${m.type}): ${m.content}`).join('\n');
-                if (messages) {
-                  navigator.clipboard.writeText(messages);
-                  toast({ title: "Copied to clipboard", description: `${(debugMessages || []).filter((m: any) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length} messages` });
-                }
-              }} className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors">Copy</button>
-              <button onClick={() => setDebugMessages?.([])} className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-red-600/20 text-red-400 border border-red-600/40 rounded hover:bg-red-600/30 transition-colors">Clear</button>
-            </div>
-          </div>
-
-          {debugViewMode === "table" ? (
-            <ScrollArea className="h-48" viewportRef={debugMessagesContainerRef} thumbClassName="bg-status-success">
-              <table className="w-full text-ui-xs border-collapse">
-                <thead className="text-ui-xs text-muted-foreground bg-muted/30 sticky top-0">
-                  <tr>
-                    <th className="p-2 text-left">Time</th>
-                    <th className="p-2 text-left">Sender</th>
-                    <th className="p-2 text-left">Type</th>
-                    <th className="p-2 text-left">Message</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(debugMessages || []).filter((m: any) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice().reverse().map((m: any) => (
-                    <tr key={m.id} className="border-t border-muted-foreground/10">
-                      <td className="p-2 align-top font-mono text-[11px]">{new Date(m.timestamp).toLocaleTimeString()}</td>
-                      <td className="p-2 align-top font-mono text-[11px]">{m.sender}</td>
-                      <td className="p-2 align-top font-mono text-[11px]">{m.type}</td>
-                      <td className="p-2 align-top break-words whitespace-pre-wrap text-ui-xs">{m.content}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </ScrollArea>
-          ) : (
-            <ScrollArea className="h-48" viewportRef={debugMessagesContainerRef} thumbClassName="bg-status-success">
-              <div className="p-3 space-y-3">
-                {(debugMessages || []).filter((m: any) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice().reverse().map((m: any) => (
-                  <div key={m.id} className="p-2 border border-muted-foreground/10 rounded bg-background">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="text-[11px] font-mono text-muted-foreground">{new Date(m.timestamp).toLocaleTimeString()}</div>
-                      <div className="text-[11px] font-mono text-muted-foreground">{m.sender}</div>
-                    </div>
-                    <div className="text-sm font-mono mb-1 text-cyan-300">{m.type}</div>
-                    <pre className="text-ui-xs whitespace-pre-wrap break-words">{m.content}</pre>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </div>
-      )}
+      {/* Debug console: extracted so it can be shown as a dedicated "Telemetry" tab */}
+      {/* DebugConsole component exported below for reuse in the Output tabs */}
     </div>
   );
 }

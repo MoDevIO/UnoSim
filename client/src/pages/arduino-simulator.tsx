@@ -817,9 +817,9 @@ function ArduinoSimulatorInner() {
     replaceAll: boolean,
   ) => {
     if (replaceAll) {
-      // Stop simulation if running
+      // Stop simulation if running — use central handler (ensures backend connectivity)
       if (simulationStatus === "running") {
-        sendMessage({ type: "stop_simulation" });
+        handleStop();
       }
 
       // Replace all tabs with new files
@@ -880,7 +880,7 @@ function ArduinoSimulatorInner() {
   const handleLoadExample = (filename: string, content: string) => {
     // Stop simulation if running
     if (simulationStatus === "running") {
-      sendMessage({ type: "stop_simulation" });
+      handleStop();
     }
 
     // Create a new sketch from the example, using the filename as the tab name
