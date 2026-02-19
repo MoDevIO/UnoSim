@@ -1,3 +1,4 @@
+import React from "react";
 import { Play, Zap, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +40,7 @@ function getStatusTextClass(status: Props["simulationStatus"]) {
   }
 }
 
-export default function SimulatorHeader({
+function SimulatorHeader({
   simulationStatus,
   simulateDisabled = false,
   isCompiling = false,
@@ -51,19 +52,32 @@ export default function SimulatorHeader({
   onCompileAndStart,
   board = "Arduino UNO",
 }: Props) {
+  // keep a stable ref to the latest status so the click handler can be memoized
+  const statusRef = React.useRef(simulationStatus);
+  React.useEffect(() => {
+    statusRef.current = simulationStatus;
+  }, [simulationStatus]);
+
+  const handleSimulateClick = React.useCallback(() => {
+    const status = statusRef.current;
+    if (status === "running") {
+      onStop?.();
+      return;
+    }
+    if (status === "paused") {
+      onResume?.();
+      return;
+    }
+    onSimulate?.();
+  }, [onSimulate, onStop, onResume]);
+
   return (
     <div className="flex items-center gap-2">
       {/* Simulate toggle (compact desktop) */}
       <div className="hidden md:flex items-center gap-2">
         <Button
           size="sm"
-          onClick={
-            simulationStatus === "running"
-              ? onStop
-              : simulationStatus === "paused"
-              ? onResume
-              : onSimulate
-          }
+          onClick={handleSimulateClick}
           disabled={simulateDisabled}
           className="flex items-center gap-1 px-2"
           data-testid="button-simulate-toggle"
@@ -98,13 +112,7 @@ export default function SimulatorHeader({
       <div className="md:hidden flex items-center gap-2">
         <Button
           size="sm"
-          onClick={
-            simulationStatus === "running"
-              ? onStop
-              : simulationStatus === "paused"
-              ? onResume
-              : onSimulate
-          }
+          onClick={handleSimulateClick}
           disabled={simulateDisabled}
           className="flex items-center gap-1 px-2"
           data-testid="button-simulate-toggle-mobile"
@@ -162,3 +170,7 @@ export default function SimulatorHeader({
     </div>
   );
 }
+
+// Memoize to reduce unnecessary re-renders and improve DOM stability during E2E interactions
+export const MemoizedSimulatorHeader = React.memo(SimulatorHeader);
+export default SimulatorHeader;

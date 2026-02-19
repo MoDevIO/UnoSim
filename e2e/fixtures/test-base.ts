@@ -41,14 +41,37 @@ export const test = base.extend<TestFixtures>({
   },
   startSimulation: async ({ simulationToggle }, use) => {
     await use(async () => {
+      // helper: robust click that retries on detached DOM errors
+      const robustClick = async (locator: Locator, attempts = 3) => {
+        for (let i = 0; i < attempts; i++) {
+          await locator.waitFor({ state: "visible", timeout: 5000 });
+          await locator.waitFor({ state: "attached", timeout: 5000 });
+          try {
+            await locator.click();
+            return;
+          } catch (err: any) {
+            const msg = String(err && err.message ? err.message : err);
+            if (msg.includes("not attached") || msg.includes("detached")) {
+              // retry after a short backoff
+              await new Promise((r) => setTimeout(r, 150));
+              continue;
+            }
+            throw err;
+          }
+        }
+        // last attempt - let any error bubble
+        await locator.click();
+      };
+
       await expect(simulationToggle).toBeVisible();
       const currentLabel = await simulationToggle.getAttribute("aria-label");
       if (currentLabel && /stop simulation/i.test(currentLabel)) {
         return;
       }
       await expect(simulationToggle).toBeEnabled({ timeout: 15000 });
+
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        await simulationToggle.click();
+        await robustClick(simulationToggle);
         const didStart = await expect
           .poll(() => simulationToggle.getAttribute("aria-label"), {
             timeout: 15000,
@@ -67,6 +90,28 @@ export const test = base.extend<TestFixtures>({
   },
   stopSimulation: async ({ simulationToggle }, use) => {
     await use(async () => {
+      // helper: robust click that retries on detached DOM errors
+      const robustClick = async (locator: Locator, attempts = 3) => {
+        for (let i = 0; i < attempts; i++) {
+          await locator.waitFor({ state: "visible", timeout: 5000 });
+          await locator.waitFor({ state: "attached", timeout: 5000 });
+          try {
+            await locator.click();
+            return;
+          } catch (err: any) {
+            const msg = String(err && err.message ? err.message : err);
+            if (msg.includes("not attached") || msg.includes("detached")) {
+              // retry after a short backoff
+              await new Promise((r) => setTimeout(r, 150));
+              continue;
+            }
+            throw err;
+          }
+        }
+        // last attempt - let any error bubble
+        await locator.click();
+      };
+
       await expect(simulationToggle).toBeVisible();
       const currentLabel = await simulationToggle.getAttribute("aria-label");
       if (currentLabel && /start simulation|resume simulation/i.test(currentLabel)) {
@@ -74,7 +119,7 @@ export const test = base.extend<TestFixtures>({
       }
       // Simulation is running, click to stop it
       await expect(simulationToggle).toBeEnabled({ timeout: 5000 });
-      await simulationToggle.click();
+      await robustClick(simulationToggle);
       
       // Wait for simulation to stop with polling
       await expect.poll(
