@@ -1681,7 +1681,7 @@ export default function ArduinoSimulator() {
                                   <ScrollArea
                                     className="flex-1"
                                     viewportRef={debugMessagesContainerRef}
-                                    thumbClassName="bg-[#22c55e]"
+                                    thumbClassName="bg-status-success"
                                   >
                                     <table className="w-full text-ui-xs border-collapse">
                                       <thead>
