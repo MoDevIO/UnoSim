@@ -272,6 +272,7 @@ export default function ArduinoSimulator() {
     isConnected,
     lastMessage,
     sendMessage: sendMessageRaw,
+    sendMessageImmediate,
   } = useWebSocket();
   // Mark some hook values as intentionally read to avoid TS unused-local errors
   void lastMessage;
@@ -368,6 +369,7 @@ export default function ArduinoSimulator() {
   } = useSimulationControls({
     ensureBackendConnected,
     sendMessage,
+    sendMessageImmediate,
     resetPinUI,
     clearOutputs,
     addDebugMessage: (params) =>
