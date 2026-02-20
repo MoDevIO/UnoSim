@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { MobileLayout, MobilePanel } from "@/components/features/mobile-layout";
+import { MobileLayout, MobilePanel } from "../../client/src/components/features/mobile-layout";
 
 // simple placeholder components
 const Code = () => <div data-testid="slot-code">CODE</div>;

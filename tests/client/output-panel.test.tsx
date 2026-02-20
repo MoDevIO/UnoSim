@@ -1,7 +1,7 @@
 import React, { Profiler, useCallback, useMemo, useRef, useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { OutputPanel } from "@/components/features/output-panel";
+import { OutputPanel } from "../../client/src/components/features/output-panel";
 
 describe("OutputPanel — callback reference stability", () => {
   it("does not re-render when parent updates unrelated state while callbacks and data props are stable", () => {
