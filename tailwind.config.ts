@@ -6,13 +6,15 @@ export default {
   theme: {
     extend: {
       fontSize: {
-        "ui-xs": ["12px", { lineHeight: "16px" }],
-        "ui-sm": ["14px", { lineHeight: "20px" }],
-        "ui-md": ["16px", { lineHeight: "24px" }],
-        "ui-lg": ["18px", { lineHeight: "26px" }],
-        "ui-xl": ["20px", { lineHeight: "28px" }],
-        "ui-2xl": ["24px", { lineHeight: "32px" }],
-        "ui-3xl": ["30px", { lineHeight: "36px" }],
+        /* Scale text-ui-* with the central --ui-font-scale variable so components using
+           these semantic tokens react to fontScale changes without changing markup. */
+        "ui-xs": ["calc(12px * var(--ui-font-scale))", { lineHeight: "calc(16px * var(--ui-font-scale))" }],
+        "ui-sm": ["calc(14px * var(--ui-font-scale))", { lineHeight: "calc(20px * var(--ui-font-scale))" }],
+        "ui-md": ["calc(16px * var(--ui-font-scale))", { lineHeight: "calc(24px * var(--ui-font-scale))" }],
+        "ui-lg": ["calc(18px * var(--ui-font-scale))", { lineHeight: "calc(26px * var(--ui-font-scale))" }],
+        "ui-xl": ["calc(20px * var(--ui-font-scale))", { lineHeight: "calc(28px * var(--ui-font-scale))" }],
+        "ui-2xl": ["calc(24px * var(--ui-font-scale))", { lineHeight: "calc(32px * var(--ui-font-scale))" }],
+        "ui-3xl": ["calc(30px * var(--ui-font-scale))", { lineHeight: "calc(36px * var(--ui-font-scale))" }],
       },
       borderRadius: {
         lg: "var(--radius)",
