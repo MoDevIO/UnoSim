@@ -102,7 +102,7 @@ function SimulatorHeader({
             className={`flex items-center gap-1 px-2 ${simulateDisabled ? 'opacity-50 cursor-not-allowed bg-gray-500' : simulationStatus === 'running' ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}
           >
             <Play className="h-4 w-4" />
-            <span className="text-ui-xs">
+            <span className="text-ui-sm">
               {simulationStatus === "running" ? "Stop" : simulationStatus === "paused" ? "Resume" : "Start"}
             </span>
           </Button>
@@ -124,7 +124,7 @@ function SimulatorHeader({
               data-testid="button-pause-resume"
               title={simulationStatus === "running" ? "Pause Simulation" : "Resume Simulation"}
             >
-              <span className="text-ui-xs">{simulationStatus === "running" ? "Pause" : "Resume"}</span>
+              <span className="text-ui-sm">{simulationStatus === "running" ? "Pause" : "Resume"}</span>
             </Button>
           )}
         </div>
@@ -192,7 +192,7 @@ function SimulatorHeader({
             data-testid="simulator-compile-button"
           >
             <Zap className="h-4 w-4" />
-            <span className="text-ui-xs">Compile</span>
+            <span className="text-ui-sm">Compile</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-40">
@@ -208,7 +208,7 @@ function SimulatorHeader({
       </div>
 
       {/* Status text (keeps visual parity with previous header) */}
-      <div className={`px-2 py-0.5 text-ui-xs font-medium ${getStatusTextClass(simulationStatus)}`} data-testid="simulator-status-badge">
+      <div className={`px-2 py-0.5 text-ui-sm font-medium ${getStatusTextClass(simulationStatus)}`} data-testid="simulator-status-badge">
         {simulationStatus}
       </div>
     </div>
@@ -217,4 +217,4 @@ function SimulatorHeader({
 
 // Memoize to reduce unnecessary re-renders and improve DOM stability during E2E interactions
 export const MemoizedSimulatorHeader = React.memo(SimulatorHeader);
-export default SimulatorHeader;
+export default MemoizedSimulatorHeader;

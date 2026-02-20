@@ -228,6 +228,7 @@ function ArduinoSimulatorInner() {
     isConnected,
     lastMessage,
     sendMessage: sendMessageRaw,
+    sendMessageImmediate,
   } = useWebSocket();
   // Mark some hook values as intentionally read to avoid TS unused-local errors
   void lastMessage;
@@ -338,6 +339,7 @@ function ArduinoSimulatorInner() {
   } = useSimulationControls({
     ensureBackendConnected,
     sendMessage,
+    sendMessageImmediate,
     resetPinUI,
     clearOutputs,
     serialEventQueueRef,
@@ -358,6 +360,7 @@ function ArduinoSimulatorInner() {
     simulationStatus,
     setSimulationStatus,
     sendMessage,
+    sendMessageImmediate,
     resetPinUI,
     clearOutputs,
     handlePause,

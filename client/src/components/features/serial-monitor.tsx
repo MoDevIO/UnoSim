@@ -237,6 +237,7 @@ export function SerialMonitor({
             viewportRef={outputRef}
             viewportTestId="serial-output"
             viewportProps={{ onScroll: handleScroll }}
+            // use token so font-size follows --ui-font-scale
             viewportClassName="p-3 text-ui-xs font-mono"
             thumbClassName="bg-status-success"
           />

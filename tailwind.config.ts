@@ -6,13 +6,14 @@ export default {
   theme: {
     extend: {
       fontSize: {
-        "ui-xs": ["12px", { lineHeight: "16px" }],
-        "ui-sm": ["14px", { lineHeight: "20px" }],
-        "ui-md": ["16px", { lineHeight: "24px" }],
-        "ui-lg": ["18px", { lineHeight: "26px" }],
-        "ui-xl": ["20px", { lineHeight: "28px" }],
-        "ui-2xl": ["24px", { lineHeight: "32px" }],
-        "ui-3xl": ["30px", { lineHeight: "36px" }],
+        /* Use CSS variables so `text-ui-*` scales with --ui-font-scale */
+        "ui-xs": ["calc(var(--ui-font-size) * 0.8571428571)", { lineHeight: "calc(var(--ui-line-height) * 0.8)" }],
+        "ui-sm": ["calc(var(--ui-font-size) * 1)", { lineHeight: "calc(var(--ui-line-height) * 1)" }],
+        "ui-md": ["calc(var(--ui-font-size) * 1.1428571429)", { lineHeight: "calc(var(--ui-line-height) * 1.2)" }],
+        "ui-lg": ["calc(var(--ui-font-size) * 1.2857142857)", { lineHeight: "calc(var(--ui-line-height) * 1.3)" }],
+        "ui-xl": ["calc(var(--ui-font-size) * 1.4285714286)", { lineHeight: "calc(var(--ui-line-height) * 1.4)" }],
+        "ui-2xl": ["calc(var(--ui-font-size) * 1.7142857143)", { lineHeight: "calc(var(--ui-line-height) * 1.6)" }],
+        "ui-3xl": ["calc(var(--ui-font-size) * 2.1428571429)", { lineHeight: "calc(var(--ui-line-height) * 1.8)" }],
       },
       borderRadius: {
         lg: "var(--radius)",

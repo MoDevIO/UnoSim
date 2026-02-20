@@ -125,7 +125,6 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
                 const cs = clientRunners.get(ws);
                 if (!cs || !cs.isRunning || cs.runId !== thisRunId) {
                   // drop outputs produced after stop() or from a previous run
-                  logger.debug && logger.debug(`[WS serial] dropping output for stale run (runId=${thisRunId}) currentRun=${cs?.runId || 'n/a'}`);
                   return;
                 }
 
@@ -134,8 +133,6 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
                   sendMessageToClient(ws, { type: "compilation_status", gccStatus: "success" });
                 }
 
-                // Debug: log serial forwarding and client run state (helps diagnose post-stop races)
-                logger.debug && logger.debug(`[WS serial] sending serial_output (isRunning=${cs?.isRunning}) testRunId=${cs?.testRunId || 'n/a'}`);
                 sendMessageToClient(ws, { type: "serial_output", data: line, isComplete: isComplete ?? true });
               },
               (err: string) => {
@@ -227,13 +224,23 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
           case "stop_simulation": {
             const clientState = clientRunners.get(ws);
-            logger.debug && logger.debug(`[WS] stop_simulation requested for testRunId=${clientState?.testRunId || 'n/a'}`);
             if (clientState?.runner) {
               clientState.runner.stop();
               clientState.isRunning = false;
               clientState.isPaused = false;
               clientState.runId = undefined;
             }
+
+            // Remove rate-limiter entry for this client so a subsequent immediate
+            // start is allowed. This prevents legitimate stop->start test flows
+            // from being blocked by the sliding-window limiter.
+            try {
+              const rateLimiter = getSimulationRateLimiter();
+              rateLimiter.removeClient(ws);
+            } catch (err) {
+              logger.debug(`Failed to remove client from rate limiter: ${String(err)}`);
+            }
+
             sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
             sendMessageToClient(ws, { type: "serial_output", data: "--- Simulation stopped ---\n" });
           }

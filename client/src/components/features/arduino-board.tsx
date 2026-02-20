@@ -861,8 +861,8 @@ export function ArduinoBoard({
                 </span>
               </div>
               <div className="flex flex-col" data-testid="telemetry-batching">
-                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Batching</span>
-                <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-batching-value">
+                <span className="text-ui-xs uppercase tracking-wider text-cyan-500/50">Batching</span>
+                <span className="text-ui-sm font-mono text-cyan-400" data-testid="telemetry-batching-value">
                   {telemetry.batchesPerSecond.toFixed(0)} bat/s · {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
                 </span>
               </div>

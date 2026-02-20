@@ -507,4 +507,58 @@ describe("useSimulationControls", () => {
 
     vi.useRealTimers();
   });
+
+  it("prefers sendMessageImmediate when provided for stop/pause/resume/reset", async () => {
+    const params = buildParams();
+    params.sendMessage = vi.fn();
+    params.sendMessageImmediate = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+
+    // ensure running state for reset
+    act(() => {
+      result.current.setSimulationStatus("running");
+    });
+
+    // stop (mutation -> wait for effect)
+    act(() => {
+      result.current.handleStop();
+    });
+    await waitFor(() => {
+      expect(params.sendMessageImmediate).toHaveBeenCalledWith({ type: "stop_simulation" });
+      expect(result.current.simulationStatus).toBe("stopped");
+    });
+
+    // pause (mutation -> wait for effect)
+    act(() => {
+      result.current.setSimulationStatus("running");
+      result.current.handlePause();
+    });
+    await waitFor(() => {
+      expect(params.sendMessageImmediate).toHaveBeenCalledWith({ type: "pause_simulation" });
+      expect(result.current.simulationStatus).toBe("paused");
+    });
+
+    // resume (mutation -> wait for effect)
+    act(() => {
+      result.current.setSimulationStatus("paused");
+      result.current.handleResume();
+    });
+    await waitFor(() => {
+      expect(params.sendMessageImmediate).toHaveBeenCalledWith({ type: "resume_simulation" });
+      expect(result.current.simulationStatus).toBe("running");
+    });
+
+    // reset (when running should call immediate stop) — synchronous in handleReset
+    act(() => {
+      result.current.setSimulationStatus("running");
+      result.current.handleReset();
+    });
+
+    // sendMessage should not have been used for those time-critical actions
+    expect(params.sendMessage).not.toHaveBeenCalledWith({ type: "stop_simulation" });
+    expect(params.sendMessage).not.toHaveBeenCalledWith({ type: "pause_simulation" });
+    expect(params.sendMessage).not.toHaveBeenCalledWith({ type: "resume_simulation" });
+  });
 });

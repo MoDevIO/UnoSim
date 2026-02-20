@@ -5,6 +5,7 @@ export interface UseSimulationLifecycleOptions {
   simulationStatus: string;
   setSimulationStatus: (s: any) => void;
   sendMessage: (msg: any) => void;
+  sendMessageImmediate?: (msg: any) => void;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   clearOutputs?: () => void;
   handlePause?: () => void;
@@ -18,6 +19,7 @@ export function useSimulationLifecycle({
   simulationStatus,
   setSimulationStatus,
   sendMessage,
+  sendMessageImmediate,
   resetPinUI,
   clearOutputs,
   handlePause,
@@ -41,7 +43,8 @@ export function useSimulationLifecycle({
 
   const stopSimulation = useCallback(() => {
     try {
-      sendMessage({ type: "stop_simulation" });
+      if ((sendMessageImmediate as any) != null) sendMessageImmediate?.({ type: "stop_simulation" });
+      else sendMessage({ type: "stop_simulation" });
     } catch {}
     try {
       setSimulationStatus("stopped");
@@ -49,7 +52,7 @@ export function useSimulationLifecycle({
     try {
       resetPinUI();
     } catch {}
-  }, [sendMessage, setSimulationStatus, resetPinUI]);
+  }, [sendMessage, sendMessageImmediate, setSimulationStatus, resetPinUI]);
 
   // Watch for code edits and stop running/paused simulation (unless suppressed)
   useEffect(() => {

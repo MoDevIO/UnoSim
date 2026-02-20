@@ -11,6 +11,7 @@ type SetState<T> = (value: T | ((prev: T) => T)) => void;
 type UseSimulationControlsParams = {
   ensureBackendConnected: (reason: string) => boolean;
   sendMessage: (message: any) => void;
+  sendMessageImmediate?: (message: any) => void;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   clearOutputs: () => void;
   serialEventQueueRef: MutableRefObject<
@@ -34,6 +35,7 @@ import { useSimulationUi } from "@/hooks/use-simulation-ui";
 export function useSimulationControls({
   ensureBackendConnected,
   sendMessage,
+  sendMessageImmediate,
   resetPinUI,
   clearOutputs,
   serialEventQueueRef,
@@ -64,7 +66,9 @@ export function useSimulationControls({
         JSON.stringify({ type: "stop_simulation" }, null, 2),
         "websocket",
       );
-      sendMessage({ type: "stop_simulation" });
+      // use immediate send for stop to avoid buffered delays
+      if (sendMessageImmediate) sendMessageImmediate({ type: "stop_simulation" });
+      else sendMessage({ type: "stop_simulation" });
       return { success: true };
     },
     onSuccess: () => {
@@ -82,7 +86,8 @@ export function useSimulationControls({
         JSON.stringify({ type: "pause_simulation" }, null, 2),
         "websocket",
       );
-      sendMessage({ type: "pause_simulation" });
+      if (sendMessageImmediate) sendMessageImmediate({ type: "pause_simulation" });
+      else sendMessage({ type: "pause_simulation" });
       return { success: true };
     },
     onSuccess: () => {
@@ -105,7 +110,8 @@ export function useSimulationControls({
         JSON.stringify({ type: "resume_simulation" }, null, 2),
         "websocket",
       );
-      sendMessage({ type: "resume_simulation" });
+      if (sendMessageImmediate) sendMessageImmediate({ type: "resume_simulation" });
+      else sendMessage({ type: "resume_simulation" });
       return { success: true };
     },
     onSuccess: () => {
@@ -196,7 +202,8 @@ export function useSimulationControls({
   const handleReset = useCallback(() => {
     if (!ensureBackendConnected("Reset simulation")) return;
     if (simulationStatus === "running") {
-      sendMessage({ type: "stop_simulation" });
+      if (sendMessageImmediate) sendMessageImmediate({ type: "stop_simulation" });
+      else sendMessage({ type: "stop_simulation" });
       setSimulationStatus("stopped");
     }
     clearOutputs();

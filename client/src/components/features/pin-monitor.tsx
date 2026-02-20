@@ -36,10 +36,10 @@ export function PinMonitor({ pinStates, batchStats }: PinMonitorProps) {
       data-testid="pin-monitor"
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-semibold text-foreground">Pin Monitor</div>
+        <div className="text-ui-sm font-semibold text-foreground">Pin Monitor</div>
         <button
           type="button"
-          className="text-xs text-muted-foreground hover:text-foreground"
+          className="text-ui-xs text-muted-foreground hover:text-foreground"
           onClick={() => setShowPerf((prev) => !prev)}
         >
           {showPerf ? "Hide FPS" : "Show FPS"}
@@ -68,7 +68,7 @@ export function PinMonitor({ pinStates, batchStats }: PinMonitorProps) {
               key={state.pin}
               data-pin={state.pin}
               className={clsx(
-                "flex items-center justify-between rounded-md border px-2 py-1 text-xs",
+                "flex items-center justify-between rounded-md border px-2 py-1 text-ui-xs",
                 isHigh && !isPwm
                   ? "border-green-400 text-green-500"
                   : "border-border text-muted-foreground",

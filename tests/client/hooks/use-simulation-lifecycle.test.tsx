@@ -31,6 +31,35 @@ describe("useSimulationLifecycle", () => {
     expect(resetPinUI).toHaveBeenCalled();
   });
 
+  it("uses sendMessageImmediate when available to stop on code change", async () => {
+    const sendMessage = vi.fn();
+    const sendMessageImmediate = vi.fn();
+    const setSimulationStatus = vi.fn();
+    const resetPinUI = vi.fn();
+
+    const { result, rerender } = renderHook(
+      ({ code, status }) =>
+        useSimulationLifecycle({
+          code,
+          simulationStatus: status,
+          setSimulationStatus,
+          sendMessage,
+          sendMessageImmediate,
+          resetPinUI,
+        }),
+      { initialProps: { code: "a", status: "running" } },
+    );
+
+    // change code -> should trigger stop using immediate sender
+    await act(async () => {
+      rerender({ code: "b", status: "running" });
+    });
+
+    expect(sendMessageImmediate).toHaveBeenCalledWith({ type: "stop_simulation" });
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(setSimulationStatus).toHaveBeenCalledWith("stopped");
+  });
+
   it("suppressAutoStopOnce prevents stopping on next edit", async () => {
     const sendMessage = vi.fn();
     const setSimulationStatus = vi.fn();

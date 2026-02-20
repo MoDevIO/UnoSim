@@ -104,6 +104,7 @@
     "/^bash /Users/to/sciebo/TT_Web/UNOWEBSIM_github_dupe/scripts/frontend-source-analysis\\.sh$/": {
       "approve": true,
       "matchCommandLine": true
-    }
+    },
+    "git rev-parse": true
   },
 }
