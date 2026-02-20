@@ -1648,7 +1648,10 @@
 <a name='L1583'></a><a href='#L1583'>1583</a>
 <a name='L1584'></a><a href='#L1584'>1584</a>
 <a name='L1585'></a><a href='#L1585'>1585</a>
-<a name='L1586'></a><a href='#L1586'>1586</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1586'></a><a href='#L1586'>1586</a>
+<a name='L1587'></a><a href='#L1587'>1587</a>
+<a name='L1588'></a><a href='#L1588'>1588</a>
+<a name='L1589'></a><a href='#L1589'>1589</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1878,12 +1881,35 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1894,28 +1920,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2000,10 +2004,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3463,6 +3469,7 @@ function ArduinoSimulatorInner() {
     isConnected,
     lastMessage,
     sendMessage: sendMessageRaw,
+    sendMessageImmediate,
   } = useWebSocket();
   // Mark some hook values as intentionally read to avoid TS unused-local errors
   void lastMessage;
@@ -3573,6 +3580,7 @@ function ArduinoSimulatorInner() {
   } = useSimulationControls({
     ensureBackendConnected,
     sendMessage,
+    sendMessageImmediate,
     resetPinUI,
     clearOutputs,
     serialEventQueueRef,
@@ -3593,6 +3601,7 @@ function ArduinoSimulatorInner() {
     simulationStatus,
     setSimulationStatus,
     sendMessage,
+    sendMessageImmediate,
     resetPinUI,
     clearOutputs,
     handlePause,
@@ -4052,9 +4061,9 @@ function ArduinoSimulatorInner() {
     replaceAll: boolean,
   ) =&gt; {
 <span class="cstat-no" title="statement not covered" >    if (replaceAll) {</span>
-      // Stop simulation if running
+      // Stop simulation if running — use central handler (ensures backend connectivity)
 <span class="cstat-no" title="statement not covered" >      if (simulationStatus === "running") {</span>
-<span class="cstat-no" title="statement not covered" >        sendMessage({ type: "stop_simulation" });</span>
+<span class="cstat-no" title="statement not covered" >        handleStop();</span>
       }
 &nbsp;
       // Replace all tabs with new files
@@ -4115,7 +4124,7 @@ function ArduinoSimulatorInner() {
   const handleLoadExample = <span class="fstat-no" title="function not covered" >(f</span>ilename: string, content: string) =&gt; {
     // Stop simulation if running
 <span class="cstat-no" title="statement not covered" >    if (simulationStatus === "running") {</span>
-<span class="cstat-no" title="statement not covered" >      sendMessage({ type: "stop_simulation" });</span>
+<span class="cstat-no" title="statement not covered" >      handleStop();</span>
     }
 &nbsp;
     // Create a new sketch from the example, using the filename as the tab name
@@ -4825,7 +4834,7 @@ export default function ArduinoSimulator() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-19T20:30:41.206Z
+                at 2026-02-20T08:33:00.168Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
