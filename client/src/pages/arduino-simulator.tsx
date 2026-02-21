@@ -1072,6 +1072,43 @@ export default function ArduinoSimulator() {
   return (
     <div className="h-full flex flex-col">
       {hiddenInput}
+      {/* top app header with simulation controls/status */}
+      <AppHeader
+        simulationStatus={simulationStatus}
+        simulateDisabled={simulateDisabled}
+        isCompiling={compileMutation.isPending}
+        isStarting={startMutation.isPending}
+        isStopping={stopMutation.isPending}
+        isPausing={pauseMutation.isPending}
+        isResuming={resumeMutation.isPending}
+        onSimulate={handleCompileAndStart}
+        onStop={handleStop}
+        onPause={handlePause}
+        onResume={handleResume}
+        board={board}
+        baudRate={baudRate}
+        simulationTimeout={simulationTimeout}
+        onTimeoutChange={setSimulationTimeout}
+        isMac={isMac}
+        onFileAdd={() => {}}
+        onFileRename={() => {}}
+        onFormatCode={formatCode}
+        onLoadFiles={() => {}}
+        onDownloadAllFiles={downloadAllFiles}
+        onSettings={openSettings}
+        onUndo={undo}
+        onRedo={redo}
+        onCut={cut}
+        onCopy={copy}
+        onPaste={paste}
+        onSelectAll={selectAll}
+        onGoToLine={goToLine}
+        onFind={find}
+        onCompile={handleCompile}
+        onCompileAndStart={handleCompileAndStart}
+        onOutputPanelToggle={() => {}}
+        showCompilationOutput={showCompilationOutput}
+      />
       <ResizablePanelGroup direction="horizontal" className="h-full">
         {/* Left sidebar */}
         <ResizablePanel defaultSize={30} minSize={20} id="sidebar-panel">
