@@ -39,7 +39,7 @@ import SimulatorSidebar from "@/components/features/simulator/SimulatorSidebar";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { useCompilation } from "@/hooks/use-compilation";
-import { useSimulationControls } from "@/hooks/use-simulation-controls";
+import { useSimulation } from "@/hooks/use-simulation";
 import { usePinState } from "@/hooks/use-pin-state";
 import { useToast } from "@/hooks/use-toast";
 import { useBackendHealth } from "@/hooks/use-backend-health";
@@ -51,10 +51,9 @@ import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
-import { useTelemetryStore } from "@/hooks/use-telemetry-store";
-import { useFileManager } from "@/hooks/use-file-manager";
+import { useTelemetry } from "@/hooks/use-telemetry";
+import { useFileManagement } from "@/hooks/use-file-management";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
-import { useSimulationLifecycle } from "@/hooks/use-simulation-lifecycle";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -87,7 +86,6 @@ import { Logger } from "@shared/logger";
 const logger = new Logger("ArduinoSimulator");
 
 export default function ArduinoSimulator() {
-  const [currentSketch, setCurrentSketch] = useState<Sketch | null>(null);
   const [code, setCode] = useState("");
   const editorRef = useRef<{ getValue: () => string } | null>(null);
 
@@ -197,7 +195,7 @@ export default function ArduinoSimulator() {
   void _setDebugMode; // Mark as intentionally unused (managed by hook)
 
   // Subscribe to telemetry updates (to re-render when metrics change)
-  const telemetryData = useTelemetryStore();
+  const { telemetryData, rates } = useTelemetry();
 
   // Helper to request the global Settings dialog to open (App listens for this event)
   const openSettings = () => {
@@ -290,10 +288,13 @@ export default function ArduinoSimulator() {
     triggerErrorGlitch,
   } = useBackendHealth(queryClient);
 
+  // placeholder for compilation-start callback
   const startSimulationRef = useRef<(() => void) | null>(null);
   const startSimulation = useCallback(() => {
     startSimulationRef.current?.();
   }, []);
+
+
 
   const setHasCompiledOnceRef = useRef<
     ((value: boolean | ((prev: boolean) => boolean)) => void) | null
@@ -351,6 +352,8 @@ export default function ArduinoSimulator() {
     startSimulation,
   });
 
+  // now that compilation helpers exist we can initialise the full simulation
+  // hook. pass the earlier ref so the placeholder callback will be wired up.
   const {
     simulationStatus,
     setSimulationStatus,
@@ -365,7 +368,8 @@ export default function ArduinoSimulator() {
     handlePause,
     handleResume,
     handleReset,
-  } = useSimulationControls({
+    suppressAutoStopOnce,
+  } = useSimulation({
     ensureBackendConnected,
     sendMessage,
     resetPinUI,
@@ -384,24 +388,14 @@ export default function ArduinoSimulator() {
     setCliOutput,
     isModified,
     handleCompileAndStart,
+    code,
+    hasCompilationErrors,
     startSimulationRef,
   });
 
   setHasCompiledOnceRef.current = setHasCompiledOnce;
 
-  // Simulation lifecycle orchestration (auto-stop on code edits / compiler errors)
-  const { suppressAutoStopOnce } = useSimulationLifecycle({
-    code,
-    simulationStatus,
-    setSimulationStatus,
-    sendMessage,
-    resetPinUI,
-    clearOutputs,
-    handlePause,
-    handleResume,
-    handleReset,
-    hasCompilationErrors,
-  });
+
 
   // Output panel sizing and management
   const {
@@ -471,25 +465,7 @@ export default function ArduinoSimulator() {
     }
   }, [serialOutput]);
 
-  // Load default sketch on mount
-  useEffect(() => {
-    if (sketches && sketches.length > 0 && !currentSketch) {
-      const defaultSketch = sketches[0];
-      setCurrentSketch(defaultSketch);
-      setCode(defaultSketch.content);
 
-      // Initialize tabs with the default sketch
-      const defaultTabId = "default-sketch";
-      setTabs([
-        {
-          id: defaultTabId,
-          name: "sketch.ino",
-          content: defaultSketch.content,
-        },
-      ]);
-      setActiveTabId(defaultTabId);
-    }
-  }, [sketches]);
 
   // Persist code changes to the active tab
   useEffect(() => {
@@ -748,110 +724,40 @@ export default function ArduinoSimulator() {
     setIsModified(false);
   };
 
-  const handleFilesLoaded = (
-    files: Array<{ name: string; content: string }>,
-    replaceAll: boolean,
-  ) => {
-    if (replaceAll) {
-      // Stop simulation if running
-      if (simulationStatus === "running") {
-        sendMessage({ type: "stop_simulation" });
-      }
-
-      // Replace all tabs with new files
-      const inoFiles = files.filter((f) => f.name.endsWith(".ino"));
-      const hFiles = files.filter((f) => f.name.endsWith(".h"));
-
-      // Put .ino file first, then all .h files
-      const orderedFiles = [...inoFiles, ...hFiles];
-
-      const newTabs = orderedFiles.map((file) => ({
-        id: Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        content: file.content,
-      }));
-
-      setTabs(newTabs);
-
-      // Set the main .ino file as active
-      const inoTab = newTabs[0]; // Should be at index 0 now
-      if (inoTab) {
-        setActiveTabId(inoTab.id);
-        setCode(inoTab.content);
-        setIsModified(false);
-      }
-
-      // Clear previous outputs and stop simulation
-      clearOutputs();
-      // Reset UI pin state and detected pin-mode info
-      resetPinUI();
-      setCompilationStatus("ready");
-      setArduinoCliStatus("idle");
-      setGccStatus("idle");
-      setLastCompilationResult(null);
-      setSimulationStatus("stopped");
-      setHasCompiledOnce(false);
-    } else {
-      // Add only .h files to existing tabs
-      const newHeaderFiles = files.map((file) => ({
-        id: Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        content: file.content,
-      }));
-
-      setTabs([...tabs, ...newHeaderFiles]);
-    }
-  };
-
-  // Instantiate file manager once `handleFilesLoaded` is defined (avoids TDZ)
+  // File management helpers (loads examples, handles dropped files, etc.)
   const toastAdapter = (p: { title: string; description?: string; variant?: string }) =>
     toast({ title: p.title, description: p.description, variant: p.variant === "destructive" ? "destructive" : undefined });
 
-  const { fileInputRef, onLoadFiles, downloadAllFiles, handleHiddenFileInput } = useFileManager({
+  const {
+    fileInputRef,
+    onLoadFiles,
+    downloadAllFiles,
+    handleHiddenFileInput,
+    handleFilesLoaded,
+    handleLoadExample,
+  } = useFileManagement({
     tabs,
-    onFilesLoaded: handleFilesLoaded,
     toast: toastAdapter,
+    sketches,
+    simulationStatus,
+    sendMessage,
+    setTabs,
+    setActiveTabId,
+    setCode,
+    setIsModified,
+    clearOutputs,
+    resetPinUI,
+    setCompilationStatus,
+    setArduinoCliStatus,
+    setGccStatus,
+    setLastCompilationResult,
+    setSimulationStatus,
+    setHasCompiledOnce,
+    setCompilationPanelSize,
+    setActiveOutputTab,
+    setIoRegistry,
+    setParserPanelDismissed,
   });
-
-  const handleLoadExample = (filename: string, content: string) => {
-    // Stop simulation if running
-    if (simulationStatus === "running") {
-      sendMessage({ type: "stop_simulation" });
-    }
-
-    // Create a new sketch from the example, using the filename as the tab name
-    const newTab = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: filename,
-      content: content,
-    };
-
-    setTabs([newTab]);
-    setActiveTabId(newTab.id);
-    setCode(content);
-    setIsModified(false);
-    // Reset output panel sizing and tabs when loading a fresh example
-    setCompilationPanelSize(3);
-    setActiveOutputTab("compiler");
-
-    // Clear previous outputs and messages
-    clearOutputs();
-    setIoRegistry(() => {
-      const pins: IOPinRecord[] = [];
-      for (let i = 0; i <= 13; i++) pins.push({ pin: String(i), defined: false, usedAt: [] });
-      for (let i = 0; i <= 5; i++) pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
-      return pins;
-    });
-    setCompilationStatus("ready");
-    setArduinoCliStatus("idle");
-    setGccStatus("idle");
-    setLastCompilationResult(null);
-    setSimulationStatus("stopped");
-    setHasCompiledOnce(false);
-    setActiveOutputTab("compiler"); // Always reset to compiler tab
-    setCompilationPanelSize(5); // Minimize output panel size
-    setParserPanelDismissed(false); // Ensure panel is not dismissed
-  };
 
   const handleTabClose = (tabId: string) => {
     // Prevent closing the first tab (the .ino file)
@@ -1523,7 +1429,7 @@ export default function ArduinoSimulator() {
                                   <ScrollArea
                                     className="flex-1"
                                     viewportRef={debugMessagesContainerRef}
-                                    thumbClassName="bg-[#22c55e]"
+                                    thumbClassName="bg-status-success"
                                   >
                                     <table className="w-full text-ui-xs border-collapse">
                                       <thead>
@@ -1663,24 +1569,24 @@ export default function ArduinoSimulator() {
                               <div className="flex flex-col">
                                 <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Events</span>
                                 <span className="text-sm font-mono text-cyan-400">
-                                  {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(1)} /s
+                                  {rates.serialOutputPerSecond.toFixed(1)} /s
                                 </span>
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Bytes</span>
                                 <span className="text-sm font-mono text-cyan-400">
-                                  {(telemetryData.last.serialBytesPerSecond ?? 0).toFixed(1)} /s
+                                  {rates.serialBytesPerSecond.toFixed(1)} /s
                                 </span>
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Dropped /s</span>
                                 <span className={clsx(
                                   "text-sm font-mono",
-                                  (telemetryData.last.serialDroppedBytesPerSecond ?? 0) > 0
+                                  rates.serialDroppedBytesPerSecond > 0
                                     ? "text-red-400 font-semibold"
                                     : "text-cyan-400"
                                 )}>
-                                  {(telemetryData.last.serialDroppedBytesPerSecond ?? 0).toFixed(1)}
+                                  {rates.serialDroppedBytesPerSecond.toFixed(1)}
                                 </span>
                               </div>
                               <div className="flex flex-col">
@@ -1692,7 +1598,7 @@ export default function ArduinoSimulator() {
                               <div className="flex flex-col">
                                 <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Total Bytes</span>
                                 <span className="text-sm font-mono text-cyan-400">
-                                  {telemetryData.last.serialBytesTotal ?? 0}
+                                  {rates.serialBytesTotal}
                                 </span>
                               </div>
                             </div>

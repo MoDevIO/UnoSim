@@ -2,18 +2,18 @@ import { useCallback, useState, useEffect } from "react";
 import type { MutableRefObject } from "react";
 import { useMutation } from "@tanstack/react-query";
 
-type SimulationStatus = "running" | "stopped" | "paused";
+export type SimulationStatus = "running" | "stopped" | "paused";
 
-type SetState<T> = (value: T | ((prev: T) => T)) => void;
+export type SetState<T> = (value: T | ((prev: T) => T)) => void;
 
-type DebugMessageParams = {
+export type DebugMessageParams = {
   source: "frontend" | "server";
   type: string;
   data: string;
   protocol?: "websocket" | "http";
 };
 
-type UseSimulationControlsParams = {
+export type UseSimulationControlsParams = {
   ensureBackendConnected: (reason: string) => boolean;
   sendMessage: (message: any) => void;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
