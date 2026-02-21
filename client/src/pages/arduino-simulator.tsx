@@ -39,7 +39,7 @@ import SimulatorSidebar from "@/components/features/simulator/SimulatorSidebar";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { useCompilation } from "@/hooks/use-compilation";
-import { useSimulationControls } from "@/hooks/use-simulation-controls";
+import { useSimulation } from "@/hooks/use-simulation";
 import { usePinState } from "@/hooks/use-pin-state";
 import { useToast } from "@/hooks/use-toast";
 import { useBackendHealth } from "@/hooks/use-backend-health";
@@ -54,7 +54,6 @@ import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { useFileManager } from "@/hooks/use-file-manager";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
-import { useSimulationLifecycle } from "@/hooks/use-simulation-lifecycle";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -290,10 +289,13 @@ export default function ArduinoSimulator() {
     triggerErrorGlitch,
   } = useBackendHealth(queryClient);
 
+  // placeholder for compilation-start callback
   const startSimulationRef = useRef<(() => void) | null>(null);
   const startSimulation = useCallback(() => {
     startSimulationRef.current?.();
   }, []);
+
+
 
   const setHasCompiledOnceRef = useRef<
     ((value: boolean | ((prev: boolean) => boolean)) => void) | null
@@ -351,6 +353,8 @@ export default function ArduinoSimulator() {
     startSimulation,
   });
 
+  // now that compilation helpers exist we can initialise the full simulation
+  // hook. pass the earlier ref so the placeholder callback will be wired up.
   const {
     simulationStatus,
     setSimulationStatus,
@@ -365,7 +369,8 @@ export default function ArduinoSimulator() {
     handlePause,
     handleResume,
     handleReset,
-  } = useSimulationControls({
+    suppressAutoStopOnce,
+  } = useSimulation({
     ensureBackendConnected,
     sendMessage,
     resetPinUI,
@@ -384,24 +389,14 @@ export default function ArduinoSimulator() {
     setCliOutput,
     isModified,
     handleCompileAndStart,
+    code,
+    hasCompilationErrors,
     startSimulationRef,
   });
 
   setHasCompiledOnceRef.current = setHasCompiledOnce;
 
-  // Simulation lifecycle orchestration (auto-stop on code edits / compiler errors)
-  const { suppressAutoStopOnce } = useSimulationLifecycle({
-    code,
-    simulationStatus,
-    setSimulationStatus,
-    sendMessage,
-    resetPinUI,
-    clearOutputs,
-    handlePause,
-    handleResume,
-    handleReset,
-    hasCompilationErrors,
-  });
+
 
   // Output panel sizing and management
   const {
@@ -1523,7 +1518,7 @@ export default function ArduinoSimulator() {
                                   <ScrollArea
                                     className="flex-1"
                                     viewportRef={debugMessagesContainerRef}
-                                    thumbClassName="bg-[#22c55e]"
+                                    thumbClassName="bg-status-success"
                                   >
                                     <table className="w-full text-ui-xs border-collapse">
                                       <thead>
