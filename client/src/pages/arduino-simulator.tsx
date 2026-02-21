@@ -53,6 +53,7 @@ import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { useFileManager } from "@/hooks/use-file-manager";
+import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useSimulationLifecycle } from "@/hooks/use-simulation-lifecycle";
 import {
   ResizablePanelGroup,
@@ -545,160 +546,24 @@ export default function ArduinoSimulator() {
     isMac,
   ]);
 
-  // NEW: Auto format function
-  const formatCode = () => {
-    let formatted = code;
-
-    // Basic C++ formatting rules
-    // 1. Normalize line endings
-    formatted = formatted.replace(/\r\n/g, "\n");
-
-    // 2. Add newlines after opening braces
-    formatted = formatted.replace(/\{\s*/g, "{\n");
-
-    // 3. Add newlines before closing braces
-    formatted = formatted.replace(/\s*\}/g, "\n}");
-
-    // 4. Indent blocks (simple 2-space indentation)
-    const lines = formatted.split("\n");
-    let indentLevel = 0;
-    const indentedLines = lines.map((line) => {
-      const trimmed = line.trim();
-
-      // Decrease indent for closing braces
-      if (trimmed.startsWith("}")) {
-        indentLevel = Math.max(0, indentLevel - 1);
-      }
-
-      const indented = "  ".repeat(indentLevel) + trimmed;
-
-      // Increase indent after opening braces
-      if (trimmed.endsWith("{")) {
-        indentLevel++;
-      }
-
-      return indented;
-    });
-
-    formatted = indentedLines.join("\n");
-
-    // 5. Remove multiple consecutive blank lines
-    formatted = formatted.replace(/\n{3,}/g, "\n\n");
-
-    // 6. Ensure newline at end of file
-    if (!formatted.endsWith("\n")) {
-      formatted += "\n";
-    }
-
-    setCode(formatted);
-
-    toast({
-      title: "Code Formatted",
-      description: "Code has been automatically formatted",
-    });
-  };
-
-  // Editor commands helper
-  const runEditorCommand = (cmd: "undo" | "redo" | "find" | "selectAll") => {
-    const ed = editorRef.current as any;
-    if (!ed) {
-      toast({
-        title: "No active editor",
-        description: "Open the main editor to run this command.",
-      });
-      return;
-    }
-    if (typeof ed[cmd] === "function") {
-      try {
-        ed[cmd]();
-      } catch (err) {
-        console.error("Editor command failed", err);
-      }
-    } else {
-      toast({
-        title: "Command not available",
-        description: `Editor does not support ${cmd}.`,
-      });
-    }
-  };
-
-  // Copy handler: copies selected text to clipboard
-  const handleCopy = () => {
-    const ed = editorRef.current as any;
-    if (!ed || typeof ed.copy !== "function") {
-      toast({
-        title: "Command not available",
-        description: "Copy is not supported by the current editor.",
-      });
-      return;
-    }
-    try {
-      ed.copy();
-    } catch (err) {
-      console.error("Copy failed", err);
-    }
-  };
-
-  // Cut handler: copies selected text to clipboard and deletes selection
-  const handleCut = () => {
-    const ed = editorRef.current as any;
-    if (!ed || typeof ed.cut !== "function") {
-      toast({
-        title: "Command not available",
-        description: "Cut is not supported by the current editor.",
-      });
-      return;
-    }
-    try {
-      ed.cut();
-    } catch (err) {
-      console.error("Cut failed", err);
-    }
-  };
-
-  // Paste handler: read from clipboard and insert at cursor/replace selection
-  const handlePaste = () => {
-    const ed = editorRef.current as any;
-    if (!ed || typeof ed.paste !== "function") {
-      toast({
-        title: "Command not available",
-        description: "Paste is not supported by the current editor.",
-      });
-      return;
-    }
-    try {
-      ed.paste();
-    } catch (err) {
-      console.error("Paste failed", err);
-    }
-  };
-
-  // Go to Line: prompt user for a line number and move cursor there
-  const handleGoToLine = () => {
-    const ed = editorRef.current as any;
-    if (!ed || typeof ed.goToLine !== "function") {
-      toast({
-        title: "Command not available",
-        description: "Go to Line is not supported by the current editor.",
-      });
-      return;
-    }
-    const input = prompt("Go to line number:");
-    if (!input) return;
-    const num = Number(input);
-    if (!Number.isFinite(num) || num <= 0) {
-      toast({
-        title: "Invalid line number",
-        description: "Please enter a positive number.",
-      });
-      return;
-    }
-    try {
-      ed.goToLine(num);
-    } catch (err) {
-      console.error("Go to line failed", err);
-    }
-  };
+  // editor commands moved to hook
+  const {
+    undo,
+    redo,
+    find,
+    selectAll,
+    copy,
+    cut,
+    paste,
+    goToLine,
+    insertSuggestion,
+    formatCode,
+  } = useEditorCommands(editorRef, {
+    toast,
+    suppressAutoStopOnce,
+    code,
+    setCode,
+  });
 
   // WebSocket message handling moved to `useWebSocketHandler` (extracted for better separation of concerns)
   useWebSocketHandler({
@@ -1278,14 +1143,14 @@ export default function ArduinoSimulator() {
         onLoadFiles={onLoadFiles}
         onDownloadAllFiles={downloadAllFiles}
         onSettings={openSettings}
-        onUndo={() => runEditorCommand("undo")}
-        onRedo={() => runEditorCommand("redo")}
-        onCut={handleCut}
-        onCopy={handleCopy}
-        onPaste={handlePaste}
-        onSelectAll={() => runEditorCommand("selectAll")}
-        onGoToLine={handleGoToLine}
-        onFind={() => runEditorCommand("find")}
+        onUndo={undo}
+        onRedo={redo}
+        onCut={cut}
+        onCopy={copy}
+        onPaste={paste}
+        onSelectAll={selectAll}
+        onGoToLine={goToLine}
+        onFind={find}
         onCompile={() => { if (!compileMutation.isPending) handleCompile(); }}
         onCompileAndStart={handleCompileAndStart}
         onOutputPanelToggle={() => { setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); outputPanelManuallyResizedRef.current = false; }}
@@ -1573,27 +1438,7 @@ export default function ArduinoSimulator() {
                               onGoToLine={(line) => {
                                 logger.debug(`Go to line: ${line}`);
                               }}
-                              onInsertSuggestion={(suggestion, line) => {
-                                if (
-                                  editorRef.current &&
-                                  typeof (editorRef.current as any)
-                                    .insertSuggestionSmartly === "function"
-                                ) {
-                                  suppressAutoStopOnce();
-                                  (
-                                    editorRef.current as any
-                                  ).insertSuggestionSmartly(suggestion, line);
-                                  toast({
-                                    title: "Suggestion inserted",
-                                    description:
-                                      "Code added to the appropriate location",
-                                  });
-                                } else {
-                                  console.error(
-                                    "insertSuggestionSmartly method not available on editor",
-                                  );
-                                }
-                              }}
+                              onInsertSuggestion={insertSuggestion}
                               hideHeader={true}
                             />
                           </TabsContent>

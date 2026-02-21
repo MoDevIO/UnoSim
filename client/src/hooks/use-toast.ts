@@ -139,10 +139,19 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">;
 
+// exported types used by consumers (eg. editor commands hook)
+export type ToastOptions = Toast; // alias to the internal shape without an id
+export type ToastFn = (props: ToastOptions) => {
+  id: string;
+  dismiss: () => void;
+  update: (props: ToastOptions) => void;
+};
+
 function toast({ ...props }: Toast) {
   const id = genId();
 
-  const update = (props: ToasterToast) =>
+  // expose a simpler `update` that accepts toast options (without id)
+  const update = (props: ToastOptions) =>
     dispatch({
       type: "UPDATE_TOAST",
       toast: { ...props, id },
