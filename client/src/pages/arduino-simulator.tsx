@@ -1,34 +1,12 @@
 //arduino-simulator.tsx
-// @ts-nocheck
-
 
 import {
   useState,
   useEffect,
   useRef,
   useCallback,
-  lazy,
-  Suspense,
 } from "react";
-import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Cpu,
-  Terminal,
-  Wrench,
-  Trash2,
-  ChevronsDown,
-  BarChart,
-  Monitor,
-  Columns,
-  X,
-  Table,
-  LayoutGrid,
-} from "lucide-react";
-import { InputGroup } from "@/components/ui/input-group";
-import { clsx } from "clsx";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { CodeEditor } from "@/components/features/code-editor";
 import { SerialMonitor } from "@/components/features/serial-monitor";
 import { CompilationOutput } from "@/components/features/compilation-output";
@@ -36,7 +14,6 @@ import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
 import { ExamplesMenu } from "@/components/features/examples-menu";
 import { AppHeader } from "@/components/features/app-header";
-import { SimCockpit } from "@/components/features/sim-cockpit";
 import SimulatorSidebar from "@/components/features/simulator/SimulatorSidebar";
 import { OutputPanel } from "@/components/features/output-panel";
 import { MobileLayout } from "@/components/features/mobile-layout";
@@ -63,7 +40,6 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type {
   Sketch,
   ParserMessage,
@@ -71,19 +47,6 @@ import type {
 } from "@shared/schema";
 import { isMac } from "@/lib/platform";
 
-// Lazy load SerialPlotter to defer recharts (~400KB) until needed
-const SerialPlotter = lazy(() =>
-  import("@/components/features/serial-plotter").then((m) => ({
-    default: m.SerialPlotter,
-  })),
-);
-
-// Loading placeholder for lazy components
-const LoadingPlaceholder = () => (
-  <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
-    <span className="text-ui-sm">Loading chart...</span>
-  </div>
-);
 
 // Logger import
 import { Logger } from "@shared/logger";
@@ -100,14 +63,8 @@ export default function ArduinoSimulator() {
   const {
     serialOutput,
     setSerialOutput,
-    serialViewMode,
     autoScrollEnabled,
-    setAutoScrollEnabled,
-    serialInputValue,
-    setSerialInputValue,
     showSerialMonitor,
-    showSerialPlotter,
-    cycleSerialViewMode,
     clearSerialOutput,
     // Baudrate rendering (Phase 3-4)
     renderedSerialOutput, // Use this for SerialMonitor (baudrate-simulated)
@@ -208,15 +165,7 @@ export default function ArduinoSimulator() {
     } catch {}
   };
 
-  const handleSerialInputSend = () => {
-    if (!serialInputValue.trim()) return;
-    handleSerialSend(serialInputValue);
-    setSerialInputValue("");
-  };
 
-  const handleSerialInputKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSerialInputSend();
-  };
 
   // RX/TX LED activity counters (increment on activity for change detection)
   const [txActivity, setTxActivity] = useState(0);
@@ -286,7 +235,6 @@ export default function ArduinoSimulator() {
   // Backend health check and recovery
   const {
     backendReachable,
-    showErrorGlitch,
     ensureBackendConnected,
     isBackendUnreachableError,
     triggerErrorGlitch,
@@ -408,7 +356,6 @@ export default function ArduinoSimulator() {
     compilationPanelSize,
     setCompilationPanelSize,
     outputPanelMinPercent,
-    outputPanelManuallyResizedRef,
     openOutputPanel,
   } = useOutputPanel(
     hasCompilationErrors,
@@ -734,7 +681,6 @@ export default function ArduinoSimulator() {
 
   const {
     fileInputRef,
-    onLoadFiles,
     downloadAllFiles,
     handleHiddenFileInput,
     handleFilesLoaded,
@@ -1135,10 +1081,42 @@ export default function ArduinoSimulator() {
               {codeSlot}
             </ResizablePanel>
             <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={35} minSize={20} id="output-panel">
+            <ResizablePanel ref={outputPanelRef} defaultSize={35} minSize={20} id="output-panel">
               <OutputPanel
-                compileSlot={compileSlot}
-                serialSlot={serialSlot}
+                activeOutputTab={activeOutputTab}
+                showCompilationOutput={showCompilationOutput}
+                isSuccessState={lastCompilationResult === "success"}
+                isModified={isModified}
+                compilationPanelSize={compilationPanelSize}
+                outputPanelMinPercent={outputPanelMinPercent}
+                debugMode={debugMode}
+                debugViewMode={debugViewMode}
+                debugMessageFilter={debugMessageFilter}
+                cliOutput={cliOutput}
+                parserMessages={parserMessages}
+                ioRegistry={ioRegistry}
+                debugMessages={debugMessages}
+                lastCompilationResult={lastCompilationResult}
+                hasCompilationErrors={hasCompilationErrors}
+                outputTabsHeaderRef={outputTabsHeaderRef}
+                parserMessagesContainerRef={parserMessagesContainerRef}
+                debugMessagesContainerRef={debugMessagesContainerRef}
+                onTabChange={setActiveOutputTab}
+                openOutputPanel={openOutputPanel}
+                onClose={() => setShowCompilationOutput(false)}
+                onClearCompilationOutput={handleClearCompilationOutput}
+                onParserMessagesClear={() => setParserPanelDismissed(true)}
+                onParserGoToLine={(line) => {
+                  logger.debug(`Go to line: ${line}`);
+                }}
+                onInsertSuggestion={(suggestion, line) => {
+                  insertSuggestion(suggestion, line);
+                }}
+                onRegistryClear={() => {}}
+                setDebugMessageFilter={setDebugMessageFilter}
+                setDebugViewMode={setDebugViewMode}
+                onCopyDebugMessages={() => {}}
+                onClearDebugMessages={() => setDebugMessages([])}
               />
             </ResizablePanel>
           </ResizablePanelGroup>
