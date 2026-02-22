@@ -27,7 +27,7 @@ jobs:
         run: npm run check
 
       - name: Linting
-        run: npx lint-staged --errors-only
+        run: npm run lint
 
       - name: Unit Tests
         # Stellt sicher, dass das Refactoring die Logik nicht zerschossen hat
