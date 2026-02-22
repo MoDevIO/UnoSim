@@ -176,6 +176,22 @@ describe("useSerialIO", () => {
     expect(result.current.showSerialPlotter).toBe(true);
   });
 
+  it("should bypass renderer in test mode", () => {
+    // simulate Playwright environment flag
+    (window as any).__PLAYWRIGHT_TEST__ = true;
+
+    const { result } = renderHook(() => useSerialIO());
+
+    act(() => {
+      result.current.appendSerialOutput("LED ON");
+    });
+
+    // in test mode output should appear immediately
+    expect(result.current.renderedSerialText).toBe("LED ON");
+
+    delete (window as any).__PLAYWRIGHT_TEST__;
+  });
+
   it("should maintain callback reference stability", () => {
     const { result, rerender } = renderHook(() => useSerialIO());
 
