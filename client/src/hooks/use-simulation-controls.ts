@@ -16,6 +16,8 @@ export type DebugMessageParams = {
 export type UseSimulationControlsParams = {
   ensureBackendConnected: (reason: string) => boolean;
   sendMessage: (message: any) => void;
+  /** Optional immediate sender for time-critical commands (stop) */
+  sendMessageImmediate?: (message: any) => void;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   clearOutputs: () => void;
   addDebugMessage: (params: DebugMessageParams) => void;
@@ -38,6 +40,8 @@ export type UseSimulationControlsParams = {
 export function useSimulationControls({
   ensureBackendConnected,
   sendMessage,
+  /** Optional immediate sender for time-critical commands (stop) */
+  sendMessageImmediate,
   resetPinUI,
   clearOutputs,
   addDebugMessage,
@@ -68,7 +72,16 @@ export function useSimulationControls({
         data: JSON.stringify({ type: "stop_simulation" }, null, 2),
         protocol: "websocket",
       });
-      sendMessage({ type: "stop_simulation" });
+      // prefer immediate send for STOP (time-critical)
+      if ((arguments as any)?.[0] && typeof (arguments as any)[0].sendMessageImmediate === "function") {
+        // noop: defensive - not used; prefer the passed-in prop below
+      }
+      // use provided immediate sender when available, fall back to buffered send
+      // (don't change other lifecycle flows)
+      // @ts-ignore - sendMessageImmediate may be undefined in older call-sites
+      const immediate = (sendMessageImmediate as any) ?? undefined;
+      if (immediate) immediate({ type: "stop_simulation" });
+      else sendMessage({ type: "stop_simulation" });
       return { success: true };
     },
     onSuccess: () => {
