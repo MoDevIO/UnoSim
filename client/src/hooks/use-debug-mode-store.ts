@@ -45,6 +45,17 @@ export const debugModeStore = {
 // Initialize when module first loads (in browser)
 if (typeof window !== "undefined") {
   debugModeStore.initFromStorage();
+
+  // Listen for external events (used by Playwright tests) so that
+  // dispatching a CustomEvent("debugModeChange") immediately updates
+  // the store. Without this, tests would toggle localStorage directly but
+  // React components wouldn't re-render until a manual setDebugMode call.
+  window.addEventListener("debugModeChange", (ev) => {
+    const detail = (ev as CustomEvent).detail;
+    if (detail && typeof detail.value === "boolean") {
+      debugModeStore.setDebugMode(detail.value);
+    }
+  });
 }
 
 export const useDebugMode = () => {

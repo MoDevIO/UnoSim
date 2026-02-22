@@ -1,26 +1,43 @@
 //arduino-simulator.tsx
 
-import {
+import React, {
   useState,
   useEffect,
   useRef,
   useCallback,
+  lazy,
+  Suspense,
 } from "react";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Terminal,
+  Trash2,
+  ChevronsDown,
+  BarChart,
+  Monitor,
+  Columns,
+} from "lucide-react";
+import { InputGroup } from "@/components/ui/input-group";
+import { clsx } from "clsx";
+import { Button } from "@/components/ui/button";
+
 import { CodeEditor } from "@/components/features/code-editor";
 import { SerialMonitor } from "@/components/features/serial-monitor";
 import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
 import { ExamplesMenu } from "@/components/features/examples-menu";
+import { ArduinoBoard } from "@/components/features/arduino-board";
+import { PinMonitor } from "@/components/features/pin-monitor";
 import { AppHeader } from "@/components/features/app-header";
-import SimulatorSidebar from "@/components/features/simulator/SimulatorSidebar";
+import { SimCockpit } from "@/components/features/sim-cockpit";
 import { OutputPanel } from "@/components/features/output-panel";
 import { MobileLayout } from "@/components/features/mobile-layout";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { useCompilation } from "@/hooks/use-compilation";
-import { useSimulation } from "@/hooks/use-simulation";
+import { useSimulationControls } from "@/hooks/use-simulation-controls";
 import { usePinState } from "@/hooks/use-pin-state";
 import { useToast } from "@/hooks/use-toast";
 import { useBackendHealth } from "@/hooks/use-backend-health";
@@ -32,14 +49,15 @@ import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
-import { useTelemetry } from "@/hooks/use-telemetry";
-import { useFileManagement } from "@/hooks/use-file-management";
-import { useEditorCommands } from "@/hooks/use-editor-commands";
+import { useTelemetryStore } from "@/hooks/use-telemetry-store";
+import { useFileManager } from "@/hooks/use-file-manager";
+import { useSimulationLifecycle } from "@/hooks/use-simulation-lifecycle";
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
+
 import type {
   Sketch,
   ParserMessage,
@@ -47,12 +65,26 @@ import type {
 } from "@shared/schema";
 import { isMac } from "@/lib/platform";
 
+// Lazy load SerialPlotter to defer recharts (~400KB) until needed
+const SerialPlotter = lazy(() =>
+  import("@/components/features/serial-plotter").then((m) => ({
+    default: m.SerialPlotter,
+  })),
+);
+
+// Loading placeholder for lazy components
+const LoadingPlaceholder = () => (
+  <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
+    <span className="text-ui-sm">Loading chart...</span>
+  </div>
+);
 
 // Logger import
 import { Logger } from "@shared/logger";
 const logger = new Logger("ArduinoSimulator");
 
 export default function ArduinoSimulator() {
+  const [currentSketch, setCurrentSketch] = useState<Sketch | null>(null);
   const [code, setCode] = useState("");
   const editorRef = useRef<{ getValue: () => string } | null>(null);
 
@@ -63,8 +95,14 @@ export default function ArduinoSimulator() {
   const {
     serialOutput,
     setSerialOutput,
+    serialViewMode,
     autoScrollEnabled,
+    setAutoScrollEnabled,
+    serialInputValue,
+    setSerialInputValue,
     showSerialMonitor,
+    showSerialPlotter,
+    cycleSerialViewMode,
     clearSerialOutput,
     // Baudrate rendering (Phase 3-4)
     renderedSerialOutput, // Use this for SerialMonitor (baudrate-simulated)
@@ -156,7 +194,7 @@ export default function ArduinoSimulator() {
   void _setDebugMode; // Mark as intentionally unused (managed by hook)
 
   // Subscribe to telemetry updates (to re-render when metrics change)
-  const { telemetryData, rates } = useTelemetry();
+  const telemetryData = useTelemetryStore();
 
   // Helper to request the global Settings dialog to open (App listens for this event)
   const openSettings = () => {
@@ -165,7 +203,15 @@ export default function ArduinoSimulator() {
     } catch {}
   };
 
+  const handleSerialInputSend = () => {
+    if (!serialInputValue.trim()) return;
+    handleSerialSend(serialInputValue);
+    setSerialInputValue("");
+  };
 
+  const handleSerialInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSerialInputSend();
+  };
 
   // RX/TX LED activity counters (increment on activity for change detection)
   const [txActivity, setTxActivity] = useState(0);
@@ -176,6 +222,8 @@ export default function ArduinoSimulator() {
   >([]);
   // Mobile layout (responsive design and panel management)
   const { isMobile, mobilePanel, setMobilePanel, headerHeight, overlayZ } = useMobileLayout();
+
+
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -235,18 +283,16 @@ export default function ArduinoSimulator() {
   // Backend health check and recovery
   const {
     backendReachable,
+    showErrorGlitch,
     ensureBackendConnected,
     isBackendUnreachableError,
     triggerErrorGlitch,
   } = useBackendHealth(queryClient);
 
-  // placeholder for compilation-start callback
   const startSimulationRef = useRef<(() => void) | null>(null);
   const startSimulation = useCallback(() => {
     startSimulationRef.current?.();
   }, []);
-
-
 
   const setHasCompiledOnceRef = useRef<
     ((value: boolean | ((prev: boolean) => boolean)) => void) | null
@@ -304,8 +350,6 @@ export default function ArduinoSimulator() {
     startSimulation,
   });
 
-  // now that compilation helpers exist we can initialise the full simulation
-  // hook. pass the earlier ref so the placeholder callback will be wired up.
   const {
     simulationStatus,
     setSimulationStatus,
@@ -320,8 +364,7 @@ export default function ArduinoSimulator() {
     handlePause,
     handleResume,
     handleReset,
-    suppressAutoStopOnce,
-  } = useSimulation({
+  } = useSimulationControls({
     ensureBackendConnected,
     sendMessage,
     resetPinUI,
@@ -340,14 +383,24 @@ export default function ArduinoSimulator() {
     setCliOutput,
     isModified,
     handleCompileAndStart,
-    code,
-    hasCompilationErrors,
     startSimulationRef,
   });
 
   setHasCompiledOnceRef.current = setHasCompiledOnce;
 
-
+  // Simulation lifecycle orchestration (auto-stop on code edits / compiler errors)
+  const { suppressAutoStopOnce } = useSimulationLifecycle({
+    code,
+    simulationStatus,
+    setSimulationStatus,
+    sendMessage,
+    resetPinUI,
+    clearOutputs,
+    handlePause,
+    handleResume,
+    handleReset,
+    hasCompilationErrors,
+  });
 
   // Output panel sizing and management
   const {
@@ -356,6 +409,7 @@ export default function ArduinoSimulator() {
     compilationPanelSize,
     setCompilationPanelSize,
     outputPanelMinPercent,
+    outputPanelManuallyResizedRef,
     openOutputPanel,
   } = useOutputPanel(
     hasCompilationErrors,
@@ -416,7 +470,25 @@ export default function ArduinoSimulator() {
     }
   }, [serialOutput]);
 
+  // Load default sketch on mount
+  useEffect(() => {
+    if (sketches && sketches.length > 0 && !currentSketch) {
+      const defaultSketch = sketches[0];
+      setCurrentSketch(defaultSketch);
+      setCode(defaultSketch.content);
 
+      // Initialize tabs with the default sketch
+      const defaultTabId = "default-sketch";
+      setTabs([
+        {
+          id: defaultTabId,
+          name: "sketch.ino",
+          content: defaultSketch.content,
+        },
+      ]);
+      setActiveTabId(defaultTabId);
+    }
+  }, [sketches]);
 
   // Persist code changes to the active tab
   useEffect(() => {
@@ -473,24 +545,160 @@ export default function ArduinoSimulator() {
     isMac,
   ]);
 
-  // editor commands moved to hook
-  const {
-    undo,
-    redo,
-    find,
-    selectAll,
-    copy,
-    cut,
-    paste,
-    goToLine,
-    insertSuggestion,
-    formatCode,
-  } = useEditorCommands(editorRef, {
-    toast,
-    suppressAutoStopOnce,
-    code,
-    setCode,
-  });
+  // NEW: Auto format function
+  const formatCode = () => {
+    let formatted = code;
+
+    // Basic C++ formatting rules
+    // 1. Normalize line endings
+    formatted = formatted.replace(/\r\n/g, "\n");
+
+    // 2. Add newlines after opening braces
+    formatted = formatted.replace(/\{\s*/g, "{\n");
+
+    // 3. Add newlines before closing braces
+    formatted = formatted.replace(/\s*\}/g, "\n}");
+
+    // 4. Indent blocks (simple 2-space indentation)
+    const lines = formatted.split("\n");
+    let indentLevel = 0;
+    const indentedLines = lines.map((line) => {
+      const trimmed = line.trim();
+
+      // Decrease indent for closing braces
+      if (trimmed.startsWith("}")) {
+        indentLevel = Math.max(0, indentLevel - 1);
+      }
+
+      const indented = "  ".repeat(indentLevel) + trimmed;
+
+      // Increase indent after opening braces
+      if (trimmed.endsWith("{")) {
+        indentLevel++;
+      }
+
+      return indented;
+    });
+
+    formatted = indentedLines.join("\n");
+
+    // 5. Remove multiple consecutive blank lines
+    formatted = formatted.replace(/\n{3,}/g, "\n\n");
+
+    // 6. Ensure newline at end of file
+    if (!formatted.endsWith("\n")) {
+      formatted += "\n";
+    }
+
+    setCode(formatted);
+
+    toast({
+      title: "Code Formatted",
+      description: "Code has been automatically formatted",
+    });
+  };
+
+  // Editor commands helper
+  const runEditorCommand = (cmd: "undo" | "redo" | "find" | "selectAll") => {
+    const ed = editorRef.current as any;
+    if (!ed) {
+      toast({
+        title: "No active editor",
+        description: "Open the main editor to run this command.",
+      });
+      return;
+    }
+    if (typeof ed[cmd] === "function") {
+      try {
+        ed[cmd]();
+      } catch (err) {
+        console.error("Editor command failed", err);
+      }
+    } else {
+      toast({
+        title: "Command not available",
+        description: `Editor does not support ${cmd}.`,
+      });
+    }
+  };
+
+  // Copy handler: copies selected text to clipboard
+  const handleCopy = () => {
+    const ed = editorRef.current as any;
+    if (!ed || typeof ed.copy !== "function") {
+      toast({
+        title: "Command not available",
+        description: "Copy is not supported by the current editor.",
+      });
+      return;
+    }
+    try {
+      ed.copy();
+    } catch (err) {
+      console.error("Copy failed", err);
+    }
+  };
+
+  // Cut handler: copies selected text to clipboard and deletes selection
+  const handleCut = () => {
+    const ed = editorRef.current as any;
+    if (!ed || typeof ed.cut !== "function") {
+      toast({
+        title: "Command not available",
+        description: "Cut is not supported by the current editor.",
+      });
+      return;
+    }
+    try {
+      ed.cut();
+    } catch (err) {
+      console.error("Cut failed", err);
+    }
+  };
+
+  // Paste handler: read from clipboard and insert at cursor/replace selection
+  const handlePaste = () => {
+    const ed = editorRef.current as any;
+    if (!ed || typeof ed.paste !== "function") {
+      toast({
+        title: "Command not available",
+        description: "Paste is not supported by the current editor.",
+      });
+      return;
+    }
+    try {
+      ed.paste();
+    } catch (err) {
+      console.error("Paste failed", err);
+    }
+  };
+
+  // Go to Line: prompt user for a line number and move cursor there
+  const handleGoToLine = () => {
+    const ed = editorRef.current as any;
+    if (!ed || typeof ed.goToLine !== "function") {
+      toast({
+        title: "Command not available",
+        description: "Go to Line is not supported by the current editor.",
+      });
+      return;
+    }
+    const input = prompt("Go to line number:");
+    if (!input) return;
+    const num = Number(input);
+    if (!Number.isFinite(num) || num <= 0) {
+      toast({
+        title: "Invalid line number",
+        description: "Please enter a positive number.",
+      });
+      return;
+    }
+    try {
+      ed.goToLine(num);
+    } catch (err) {
+      console.error("Go to line failed", err);
+    }
+  };
 
   // WebSocket message handling moved to `useWebSocketHandler` (extracted for better separation of concerns)
   useWebSocketHandler({
@@ -675,39 +883,110 @@ export default function ArduinoSimulator() {
     setIsModified(false);
   };
 
-  // File management helpers (loads examples, handles dropped files, etc.)
+  const handleFilesLoaded = (
+    files: Array<{ name: string; content: string }>,
+    replaceAll: boolean,
+  ) => {
+    if (replaceAll) {
+      // Stop simulation if running
+      if (simulationStatus === "running") {
+        sendMessage({ type: "stop_simulation" });
+      }
+
+      // Replace all tabs with new files
+      const inoFiles = files.filter((f) => f.name.endsWith(".ino"));
+      const hFiles = files.filter((f) => f.name.endsWith(".h"));
+
+      // Put .ino file first, then all .h files
+      const orderedFiles = [...inoFiles, ...hFiles];
+
+      const newTabs = orderedFiles.map((file) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        name: file.name,
+        content: file.content,
+      }));
+
+      setTabs(newTabs);
+
+      // Set the main .ino file as active
+      const inoTab = newTabs[0]; // Should be at index 0 now
+      if (inoTab) {
+        setActiveTabId(inoTab.id);
+        setCode(inoTab.content);
+        setIsModified(false);
+      }
+
+      // Clear previous outputs and stop simulation
+      clearOutputs();
+      // Reset UI pin state and detected pin-mode info
+      resetPinUI();
+      setCompilationStatus("ready");
+      setArduinoCliStatus("idle");
+      setGccStatus("idle");
+      setLastCompilationResult(null);
+      setSimulationStatus("stopped");
+      setHasCompiledOnce(false);
+    } else {
+      // Add only .h files to existing tabs
+      const newHeaderFiles = files.map((file) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        name: file.name,
+        content: file.content,
+      }));
+
+      setTabs([...tabs, ...newHeaderFiles]);
+    }
+  };
+
+  // Instantiate file manager once `handleFilesLoaded` is defined (avoids TDZ)
   const toastAdapter = (p: { title: string; description?: string; variant?: string }) =>
     toast({ title: p.title, description: p.description, variant: p.variant === "destructive" ? "destructive" : undefined });
 
-  const {
-    fileInputRef,
-    downloadAllFiles,
-    handleHiddenFileInput,
-    handleFilesLoaded,
-    handleLoadExample,
-  } = useFileManagement({
+  const { fileInputRef, onLoadFiles, downloadAllFiles, handleHiddenFileInput } = useFileManager({
     tabs,
+    onFilesLoaded: handleFilesLoaded,
     toast: toastAdapter,
-    sketches,
-    simulationStatus,
-    sendMessage,
-    setTabs,
-    setActiveTabId,
-    setCode,
-    setIsModified,
-    clearOutputs,
-    resetPinUI,
-    setCompilationStatus,
-    setArduinoCliStatus,
-    setGccStatus,
-    setLastCompilationResult,
-    setSimulationStatus,
-    setHasCompiledOnce,
-    setCompilationPanelSize,
-    setActiveOutputTab,
-    setIoRegistry,
-    setParserPanelDismissed,
   });
+
+  const handleLoadExample = (filename: string, content: string) => {
+    // Stop simulation if running
+    if (simulationStatus === "running") {
+      sendMessage({ type: "stop_simulation" });
+    }
+
+    // Create a new sketch from the example, using the filename as the tab name
+    const newTab = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: filename,
+      content: content,
+    };
+
+    setTabs([newTab]);
+    setActiveTabId(newTab.id);
+    setCode(content);
+    setIsModified(false);
+    // Reset output panel sizing and tabs when loading a fresh example
+    setCompilationPanelSize(3);
+    setActiveOutputTab("compiler");
+
+    // Clear previous outputs and messages
+    clearOutputs();
+    setIoRegistry(() => {
+      const pins: IOPinRecord[] = [];
+      for (let i = 0; i <= 13; i++) pins.push({ pin: String(i), defined: false, usedAt: [] });
+      for (let i = 0; i <= 5; i++) pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
+      return pins;
+    });
+    setCompilationStatus("ready");
+    setArduinoCliStatus("idle");
+    setGccStatus("idle");
+    setLastCompilationResult(null);
+    setSimulationStatus("stopped");
+    setHasCompiledOnce(false);
+    setActiveOutputTab("compiler"); // Always reset to compiler tab
+    setCompilationPanelSize(5); // Minimize output panel size
+    setParserPanelDismissed(false); // Ensure panel is not dismissed
+  };
 
   const handleTabClose = (tabId: string) => {
     // Prevent closing the first tab (the .ino file)
@@ -741,6 +1020,69 @@ export default function ArduinoSimulator() {
       tabs.map((tab) => (tab.id === tabId ? { ...tab, name: newName } : tab)),
     );
   };
+
+  /* OutputPanel callbacks (stabilized with useCallback per Anti‑Flicker rules) */
+  const handleOutputTabChange = useCallback((v: "compiler" | "messages" | "registry" | "debug") => {
+    setActiveOutputTab(v);
+  }, [setActiveOutputTab]);
+
+  const handleOutputCloseOrMinimize = useCallback(() => {
+    const currentSize = outputPanelRef.current?.getSize?.() ?? 0;
+    const isMinimized = currentSize <= outputPanelMinPercent + 1;
+
+    if (isMinimized) {
+      setShowCompilationOutput(false);
+      setParserPanelDismissed(true);
+      outputPanelManuallyResizedRef.current = false;
+    } else {
+      setCompilationPanelSize(3);
+      outputPanelManuallyResizedRef.current = false;
+      if (outputPanelRef.current?.resize) {
+        outputPanelRef.current.resize(outputPanelMinPercent);
+      }
+    }
+  }, [outputPanelMinPercent, setShowCompilationOutput, setParserPanelDismissed, setCompilationPanelSize]);
+
+  const handleParserMessagesClear = useCallback(() => setParserPanelDismissed(true), [setParserPanelDismissed]);
+  const handleParserGoToLine = useCallback((line: number) => {
+    logger.debug(`Go to line: ${line}`);
+  }, []);
+
+  const handleInsertSuggestion = useCallback((suggestion: string, line?: number) => {
+    if (
+      editorRef.current &&
+      typeof (editorRef.current as any).insertSuggestionSmartly === "function"
+    ) {
+      suppressAutoStopOnce();
+      (editorRef.current as any).insertSuggestionSmartly(suggestion, line);
+      toast({
+        title: "Suggestion inserted",
+        description: "Code added to the appropriate location",
+      });
+    } else {
+      console.error("insertSuggestionSmartly method not available on editor");
+    }
+  }, [suppressAutoStopOnce, toast]);
+
+  const handleRegistryClear = useCallback(() => {}, []);
+
+  const handleSetDebugMessageFilter = useCallback((v: string) => setDebugMessageFilter(v.toLowerCase()), [setDebugMessageFilter]);
+  const handleSetDebugViewMode = useCallback((m: "table" | "tiles") => setDebugViewMode(m), [setDebugViewMode]);
+  const handleCopyDebugMessages = useCallback(() => {
+    const messages = debugMessages
+      .filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)
+      .map((m) => `[${m.timestamp.toLocaleTimeString()}] ${m.sender.toUpperCase()} (${m.type}): ${m.content}`)
+      .join('\n');
+    if (messages) {
+      navigator.clipboard.writeText(messages);
+      toast({
+        title: "Copied to clipboard",
+        description: `${debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length} messages`,
+      });
+    }
+  }, [debugMessages, debugMessageFilter, toast]);
+
+  const handleClearDebugMessages = useCallback(() => setDebugMessages([]), [setDebugMessages]);
 
   // Toggle INPUT pin value (called when user clicks on an INPUT pin square)
   const handlePinToggle = (pin: number, newValue: number) => {
@@ -912,114 +1254,199 @@ export default function ArduinoSimulator() {
   void stopDisabled;
   void buttonsClassName;
 
-  // prepare mobile layout slots so they can also be passed to <MobileLayout>
-  const codeSlot = (
-    <div className="h-full flex flex-col w-full">
-      <SketchTabs
-        tabs={tabs}
-        activeTabId={activeTabId}
-        modifiedTabId={null}
-        onTabClick={handleTabClick}
-        onTabClose={handleTabClose}
-        onTabRename={handleTabRename}
-        onTabAdd={handleTabAdd}
-        onFilesLoaded={handleFilesLoaded}
-        onFormatCode={formatCode}
-        examplesMenu={
-          <ExamplesMenu
-            onLoadExample={handleLoadExample}
-            backendReachable={backendReachable}
-          />
-        }
-      />
-      <div className="flex-1 min-h-0 w-full">
-        <CodeEditor
-          value={code}
-          onChange={handleCodeChange}
-          onCompileAndRun={handleCompileAndStart}
-          onFormat={formatCode}
-          editorRef={editorRef}
+  // mobile layout slots (memoized for performance)
+  const codeSlot = React.useMemo(
+    () => (
+      <>
+        <SketchTabs
+          tabs={tabs}
+          activeTabId={activeTabId}
+          modifiedTabId={null}
+          onTabClick={handleTabClick}
+          onTabClose={handleTabClose}
+          onTabRename={handleTabRename}
+          onTabAdd={handleTabAdd}
+          onFilesLoaded={handleFilesLoaded}
+          onFormatCode={formatCode}
+          examplesMenu={
+            <ExamplesMenu
+              onLoadExample={handleLoadExample}
+              backendReachable={backendReachable}
+            />
+          }
         />
-      </div>
-    </div>
-  );
-
-  const compileSlot = (
-    <div className="h-full w-full flex flex-col">
-      {!parserPanelDismissed && parserMessages.length > 0 && (
-        <div className="flex-1 min-h-0 border-b border-gray-200">
-          <ParserOutput
-            messages={parserMessages}
-            ioRegistry={ioRegistry}
-            onClear={() => setParserPanelDismissed(true)}
-            onGoToLine={(line) => {
-              logger.debug(`Go to line: ${line}`);
-            }}
+        <div className="flex-1 min-h-0 w-full">
+          <CodeEditor
+            value={code}
+            onChange={handleCodeChange}
+            onCompileAndRun={handleCompileAndStart}
+            onFormat={formatCode}
+            editorRef={editorRef}
           />
         </div>
-      )}
-      <div className="flex-1 min-h-0 w-full">
-        <CompilationOutput
-          output={cliOutput}
-          onClear={handleClearCompilationOutput}
-        />
+      </>
+    ),
+    [
+      tabs,
+      activeTabId,
+      handleTabClick,
+      handleTabClose,
+      handleTabRename,
+      handleTabAdd,
+      handleFilesLoaded,
+      formatCode,
+      handleLoadExample,
+      backendReachable,
+      code,
+      handleCodeChange,
+      handleCompileAndStart,
+      editorRef,
+    ],
+  );
+
+  const compileSlot = React.useMemo(
+    () => (
+      <>
+        {!parserPanelDismissed && parserMessages.length > 0 && (
+          <div className="flex-1 min-h-0 border-b border-gray-200">
+            <ParserOutput
+              messages={parserMessages}
+              ioRegistry={ioRegistry}
+              onClear={() => setParserPanelDismissed(true)}
+              onGoToLine={(line) => {
+                logger.debug(`Go to line: ${line}`);
+              }}
+            />
+          </div>
+        )}
+        <div className="flex-1 min-h-0 w-full">
+          <CompilationOutput
+            output={cliOutput}
+            onClear={handleClearCompilationOutput}
+          />
+        </div>
+      </>
+    ),
+    [
+      parserPanelDismissed,
+      parserMessages,
+      ioRegistry,
+      cliOutput,
+      handleClearCompilationOutput,
+    ],
+  );
+
+  const serialSlot = React.useMemo(
+    () => (
+      <>
+        <div className="flex-1 min-h-0">
+          <SerialMonitor
+            output={renderedSerialOutput}
+            isConnected={isConnected}
+            isSimulationRunning={simulationStatus !== "stopped"}
+            onSendMessage={handleSerialSend}
+            onClear={handleClearSerialOutput}
+            showMonitor={showSerialMonitor}
+            autoScrollEnabled={autoScrollEnabled}
+          />
+        </div>
+      </>
+    ),
+    [
+      renderedSerialOutput,
+      isConnected,
+      simulationStatus,
+      handleSerialSend,
+      handleClearSerialOutput,
+      showSerialMonitor,
+      autoScrollEnabled,
+    ],
+  );
+
+  const boardSlot = React.useMemo(
+    () => (
+      <div className="h-full w-full flex flex-col gap-3 p-2">
+        {pinMonitorVisible && (
+          <PinMonitor pinStates={pinStates} batchStats={batchStats} />
+        )}
+        <div className="flex-1 min-h-0">
+          <ArduinoBoard
+            pinStates={pinStates}
+            isSimulationRunning={simulationStatus !== "stopped"}
+            simulationStatus={simulationStatus}
+            txActive={txActivity}
+            rxActive={rxActivity}
+            onReset={handleReset}
+            onPinToggle={handlePinToggle}
+            analogPins={analogPinsUsed}
+            onAnalogChange={handleAnalogChange}
+          />
+        </div>
       </div>
-    </div>
+    ),
+    [
+      pinMonitorVisible,
+      pinStates,
+      batchStats,
+      simulationStatus,
+      txActivity,
+      rxActivity,
+      handleReset,
+      handlePinToggle,
+      analogPinsUsed,
+      handleAnalogChange,
+    ],
   );
 
-  const serialSlot = (
-    <div className="h-full w-full flex flex-col">
-      <div className="flex-1 min-h-0">
-        <SerialMonitor
-          output={renderedSerialOutput}
-          isConnected={isConnected}
-          isSimulationRunning={simulationStatus !== "stopped"}
-          onSendMessage={handleSerialSend}
-          onClear={handleClearSerialOutput}
-          showMonitor={showSerialMonitor}
-          autoScrollEnabled={autoScrollEnabled}
-        />
-      </div>
-    </div>
-  );
-
-  const boardSlot = (
-    <div className="h-full w-full">
-      <SimulatorSidebar
-        pinMonitorVisible={pinMonitorVisible}
-        pinStates={pinStates}
-        batchStats={batchStats}
-        simulationStatus={simulationStatus}
-        txActivity={txActivity}
-        rxActivity={rxActivity}
-        telemetryData={telemetryData}
-        rates={rates}
-        onReset={handleReset}
-        onPinToggle={handlePinToggle}
-        analogPins={analogPinsUsed}
-        onAnalogChange={handleAnalogChange}
-      />
-    </div>
-  );
-
-  // Hidden file input used by File → Load Files (placed inside return below)
-  const hiddenInput = (
-    <input
-      ref={fileInputRef}
-      type="file"
-      accept=".ino,.h"
-      multiple
-      onChange={handleHiddenFileInput}
-      className="hidden"
-    />
-  );
-
-  // main JSX layout returns a two-pane resizable view plus mobile wrapper
   return (
-    <div className="h-full flex flex-col">
-      {hiddenInput}
-      {/* top app header with simulation controls/status */}
+    <div
+      className={`h-screen flex flex-col bg-background text-foreground relative ${showErrorGlitch ? "overflow-hidden" : ""}`}
+    >
+      {/* Glitch overlay when compilation fails */}
+      {showErrorGlitch && (
+        <div className="pointer-events-none absolute inset-0 z-50">
+          {/* Single red border flash */}
+          <div className="absolute inset-0 flex items-stretch justify-stretch">
+            <div className="absolute inset-0">
+              <div className="absolute inset-0 border-0 pointer-events-none">
+                <div className="absolute inset-0 rounded-none border-4 border-red-500 opacity-0 animate-border-flash" />
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes border-flash {
+              0% { opacity: 0; transform: scale(1); }
+              10% { opacity: 1; }
+              60% { opacity: 0.7; }
+              100% { opacity: 0; }
+            }
+            .animate-border-flash { animation: border-flash 0.6s ease-out both; }
+          `}</style>
+        </div>
+      )}
+      {/* Blue breathing border when backend is unreachable */}
+      {!backendReachable && (
+        <div className="pointer-events-none absolute inset-0 z-40">
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 border-0 pointer-events-none">
+              <div className="absolute inset-0 rounded-none border-2 border-blue-400 opacity-80 animate-breathe-blue" />
+            </div>
+          </div>
+          <style>{`
+            @keyframes breathe-blue {
+              0% { box-shadow: 0 0 0 0 rgba(37,99,235,0.06); opacity: 0.6; }
+              25% { box-shadow: 0 0 18px 6px rgba(37,99,235,0.10); opacity: 0.85; }
+              50% { box-shadow: 0 0 36px 12px rgba(37,99,235,0.16); opacity: 1; }
+              75% { box-shadow: 0 0 18px 6px rgba(37,99,235,0.10); opacity: 0.85; }
+              100% { box-shadow: 0 0 0 0 rgba(37,99,235,0.06); opacity: 0.6; }
+            }
+            .animate-breathe-blue { animation: breathe-blue 6s ease-in-out infinite; }
+          `}</style>
+        </div>
+      )}
+      {/* Header/Toolbar */}
       <AppHeader
+        isMobile={isMobile}
         simulationStatus={simulationStatus}
         simulateDisabled={simulateDisabled}
         isCompiling={compileMutation.isPending}
@@ -1036,112 +1463,452 @@ export default function ArduinoSimulator() {
         simulationTimeout={simulationTimeout}
         onTimeoutChange={setSimulationTimeout}
         isMac={isMac}
-        onFileAdd={() => {}}
-        onFileRename={() => {}}
+        onFileAdd={handleTabAdd}
+        onFileRename={() => {
+          if (!activeTabId) {
+            toast({
+              title: "No file selected",
+              description: "Open a file/tab first to rename.",
+            });
+            return;
+          }
+          const current = tabs.find((t) => t.id === activeTabId);
+          const newName = window.prompt(
+            "Rename file",
+            current?.name || "untitled.ino",
+          );
+          if (newName && newName.trim()) {
+            handleTabRename(activeTabId, newName.trim());
+          }
+        }}
         onFormatCode={formatCode}
-        onLoadFiles={() => {}}
+        onLoadFiles={onLoadFiles}
         onDownloadAllFiles={downloadAllFiles}
         onSettings={openSettings}
-        onUndo={undo}
-        onRedo={redo}
-        onCut={cut}
-        onCopy={copy}
-        onPaste={paste}
-        onSelectAll={selectAll}
-        onGoToLine={goToLine}
-        onFind={find}
-        onCompile={handleCompile}
+        onUndo={() => runEditorCommand("undo")}
+        onRedo={() => runEditorCommand("redo")}
+        onCut={handleCut}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onSelectAll={() => runEditorCommand("selectAll")}
+        onGoToLine={handleGoToLine}
+        onFind={() => runEditorCommand("find")}
+        onCompile={() => { if (!compileMutation.isPending) handleCompile(); }}
         onCompileAndStart={handleCompileAndStart}
-        onOutputPanelToggle={() => {}}
+        onOutputPanelToggle={() => { setShowCompilationOutput(!showCompilationOutput); setParserPanelDismissed(false); outputPanelManuallyResizedRef.current = false; }}
         showCompilationOutput={showCompilationOutput}
+        rightSlot={debugMode ? <SimCockpit batchStats={batchStats} simulationStatus={simulationStatus} /> : undefined}
       />
-      {/* ensure main area stretches */}
-      <main className="flex-1 flex flex-col">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* Left sidebar */}
-          <ResizablePanel defaultSize={30} minSize={20} id="sidebar-panel">
-            <SimulatorSidebar
-              pinMonitorVisible={pinMonitorVisible}
-              pinStates={pinStates}
-              batchStats={batchStats}
-              simulationStatus={simulationStatus}
-              txActivity={txActivity}
-              rxActivity={rxActivity}
-              telemetryData={telemetryData}
-              rates={rates}
-              onReset={handleReset}
-              onPinToggle={handlePinToggle}
-              analogPins={analogPinsUsed}
-              onAnalogChange={handleAnalogChange}
-            />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          {/* Right area: editor above, serial + output below */}
-          <ResizablePanel defaultSize={70} minSize={40} id="right-panel">
-            <ResizablePanelGroup direction="vertical" className="h-full">
-              <ResizablePanel defaultSize={65} minSize={40} id="editor-panel">
-                {codeSlot}
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              {/* serial monitor panel */}
-              <ResizablePanel defaultSize={25} minSize={10} id="serial-panel">
-                {serialSlot}
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel ref={outputPanelRef} defaultSize={35} minSize={20} id="output-panel">
-                <OutputPanel
-                activeOutputTab={activeOutputTab}
-                showCompilationOutput={showCompilationOutput}
-                isSuccessState={lastCompilationResult === "success"}
-                isModified={isModified}
-                compilationPanelSize={compilationPanelSize}
-                outputPanelMinPercent={outputPanelMinPercent}
-                debugMode={debugMode}
-                debugViewMode={debugViewMode}
-                debugMessageFilter={debugMessageFilter}
-                cliOutput={cliOutput}
-                parserMessages={parserMessages}
-                ioRegistry={ioRegistry}
-                debugMessages={debugMessages}
-                lastCompilationResult={lastCompilationResult}
-                hasCompilationErrors={hasCompilationErrors}
-                outputTabsHeaderRef={outputTabsHeaderRef}
-                parserMessagesContainerRef={parserMessagesContainerRef}
-                debugMessagesContainerRef={debugMessagesContainerRef}
-                onTabChange={setActiveOutputTab}
-                openOutputPanel={openOutputPanel}
-                onClose={() => setShowCompilationOutput(false)}
-                onClearCompilationOutput={handleClearCompilationOutput}
-                onParserMessagesClear={() => setParserPanelDismissed(true)}
-                onParserGoToLine={(line) => {
-                  logger.debug(`Go to line: ${line}`);
-                }}
-                onInsertSuggestion={(suggestion, line) => {
-                  insertSuggestion(suggestion, line);
-                }}
-                onRegistryClear={() => {}}
-                setDebugMessageFilter={setDebugMessageFilter}
-                setDebugViewMode={setDebugViewMode}
-                onCopyDebugMessages={() => {}}
-                onClearDebugMessages={() => setDebugMessages([])}
-              />
+      {/* Hidden file input used by File → Load Files */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".ino,.h"
+        multiple
+        onChange={handleHiddenFileInput}
+        className="hidden"
+      />
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden relative z-0">
+        {!isMobile ? (
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="h-full"
+            id="main-layout"
+          >
+            {/* Code Editor Panel */}
+            <ResizablePanel defaultSize={50} minSize={20} id="code-panel">
+              <ResizablePanelGroup
+                direction="vertical"
+                className="h-full"
+                id="code-layout"
+              >
+                <ResizablePanel defaultSize={97} minSize={30} id="editor-panel">
+                  <div className="h-full flex flex-col">
+                    {/* Sketch Tabs */}
+                    <SketchTabs
+                      tabs={tabs}
+                      activeTabId={activeTabId}
+                      modifiedTabId={null}
+                      onTabClick={handleTabClick}
+                      onTabClose={handleTabClose}
+                      onTabRename={handleTabRename}
+                      onTabAdd={handleTabAdd}
+                      onFilesLoaded={handleFilesLoaded}
+                      onFormatCode={formatCode}
+                      examplesMenu={
+                        <ExamplesMenu
+                          onLoadExample={handleLoadExample}
+                          backendReachable={backendReachable}
+                        />
+                      }
+                    />
+
+                    <div className="flex-1 min-h-0">
+                      <CodeEditor
+                        value={code}
+                        onChange={handleCodeChange}
+                        onCompileAndRun={handleCompileAndStart}
+                        onFormat={formatCode}
+                        editorRef={editorRef}
+                      />
+                    </div>
+                  </div>
+                </ResizablePanel>
+
+                {/* Combined Output Panel with Tabs: Compiler / Messages / IO-Registry */}
+                {(() => {
+                  const isSuccessState =
+                    lastCompilationResult === "success" &&
+                    !hasCompilationErrors;
+
+                  // Show output panel if:
+                  // - User has NOT explicitly closed it (showCompilationOutput)
+                  // User intent is PRIMARY - user can always close even with errors/messages
+                  // Auto-reopen happens via setShowCompilationOutput(true) in useEffect
+                  const shouldShowOutput = showCompilationOutput;
+
+                  return (
+                    <>
+                      {shouldShowOutput && (
+                        <ResizableHandle
+                          withHandle
+                          data-testid="vertical-resizer-output"
+                          onDragging={(isDragging) => {
+                            // Mark as manually resized as soon as user starts dragging
+                            if (isDragging) {
+                              outputPanelManuallyResizedRef.current = true;
+                            }
+                          }}
+                        />
+                      )}
+
+                      <ResizablePanel
+                        ref={outputPanelRef}
+                        defaultSize={Math.max(
+                          compilationPanelSize,
+                          outputPanelMinPercent,
+                        )}
+                        minSize={outputPanelMinPercent}
+                        id="output-under-editor"
+                        className={shouldShowOutput ? "" : "hidden"}
+                      >
+                          <OutputPanel
+                            activeOutputTab={activeOutputTab}
+                            showCompilationOutput={showCompilationOutput}
+                            isSuccessState={isSuccessState}
+                            isModified={isModified}
+                            compilationPanelSize={compilationPanelSize}
+                            outputPanelMinPercent={outputPanelMinPercent}
+                            debugMode={debugMode}
+                            debugViewMode={debugViewMode}
+                            debugMessageFilter={debugMessageFilter}
+
+                            cliOutput={cliOutput}
+                            parserMessages={parserMessages}
+                            ioRegistry={ioRegistry}
+                            debugMessages={debugMessages}
+                            lastCompilationResult={lastCompilationResult}
+                            hasCompilationErrors={hasCompilationErrors}
+
+                            outputTabsHeaderRef={outputTabsHeaderRef}
+                            parserMessagesContainerRef={parserMessagesContainerRef}
+                            debugMessagesContainerRef={debugMessagesContainerRef}
+
+                            onTabChange={handleOutputTabChange}
+                            openOutputPanel={(tab) => openOutputPanel(tab as any)}
+                            onClose={handleOutputCloseOrMinimize}
+
+                            onClearCompilationOutput={handleClearCompilationOutput}
+                            onParserMessagesClear={handleParserMessagesClear}
+                            onParserGoToLine={handleParserGoToLine}
+                            onInsertSuggestion={handleInsertSuggestion}
+                            onRegistryClear={handleRegistryClear}
+
+                            setDebugMessageFilter={handleSetDebugMessageFilter}
+                            setDebugViewMode={handleSetDebugViewMode}
+                            onCopyDebugMessages={handleCopyDebugMessages}
+                            onClearDebugMessages={handleClearDebugMessages}
+                          />
+
+                      </ResizablePanel>
+                    </>
+                  );
+                })()}
+              </ResizablePanelGroup>
+            </ResizablePanel>
+
+            <ResizableHandle withHandle data-testid="horizontal-resizer" />
+
+            {/* Right Panel - Output & Serial Monitor */}
+            <ResizablePanel defaultSize={50} minSize={20} id="output-panel">
+              <ResizablePanelGroup direction="vertical" id="output-layout">
+                <ResizablePanel defaultSize={50} minSize={20} id="serial-panel">
+                  <div className="h-full flex flex-col">
+                    {/* Static Serial Header (always full width) */}
+                    <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)]">
+                      <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
+                        <div className="flex items-center space-x-2 flex-shrink-0">
+                          <Monitor
+                            className="text-white opacity-95 h-5 w-5"
+                            strokeWidth={1.67}
+                            aria-hidden
+                          />
+                          <span className="sr-only">Serial Output</span>
+                          {debugMode && (simulationStatus === "running" || simulationStatus === "paused") && telemetryData.last ? (
+                            <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Events</span>
+                                <span className="text-sm font-mono text-cyan-400">
+                                  {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(1)} /s
+                                </span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Bytes</span>
+                                <span className="text-sm font-mono text-cyan-400">
+                                  {(telemetryData.last.serialBytesPerSecond ?? 0).toFixed(1)} /s
+                                </span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Dropped /s</span>
+                                <span className={clsx(
+                                  "text-sm font-mono",
+                                  (telemetryData.last.serialDroppedBytesPerSecond ?? 0) > 0
+                                    ? "text-red-400 font-semibold"
+                                    : "text-cyan-400"
+                                )}>
+                                  {(telemetryData.last.serialDroppedBytesPerSecond ?? 0).toFixed(1)}
+                                </span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Baudrate</span>
+                                <span className="text-sm font-mono text-cyan-400">
+                                  {baudRate}
+                                </span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Total Bytes</span>
+                                <span className="text-sm font-mono text-cyan-400">
+                                  {telemetryData.last.serialBytesTotal ?? 0}
+                                </span>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center gap-4 ml-auto">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+                            onClick={cycleSerialViewMode}
+                            data-testid="button-serial-view-toggle"
+                            aria-label={
+                              serialViewMode === "monitor"
+                                ? "Monitor only"
+                                : serialViewMode === "plotter"
+                                  ? "Plotter only"
+                                  : "Split view"
+                            }
+                            title={
+                              serialViewMode === "monitor"
+                                ? "Monitor only"
+                                : serialViewMode === "plotter"
+                                  ? "Plotter only"
+                                  : "Split view"
+                            }
+                          >
+                            {serialViewMode === "monitor" ? (
+                              <Terminal className="h-4 w-4" />
+                            ) : serialViewMode === "plotter" ? (
+                              <BarChart className="h-4 w-4" />
+                            ) : (
+                              <Columns className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={clsx(
+                              "h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+                              autoScrollEnabled
+                                ? "bg-background text-white hover:bg-green-600 hover:text-white"
+                                : "",
+                            )}
+                            onClick={() =>
+                              setAutoScrollEnabled(!autoScrollEnabled)
+                            }
+                            disabled={serialViewMode === "plotter"}
+                            title={
+                              autoScrollEnabled
+                                ? "Autoscroll on"
+                                : "Autoscroll off"
+                            }
+                            aria-label={
+                              autoScrollEnabled
+                                ? "Autoscroll on"
+                                : "Autoscroll off"
+                            }
+                            aria-pressed={autoScrollEnabled}
+                            data-testid="button-autoscroll"
+                          >
+                            <ChevronsDown
+                              className={clsx(
+                                "h-4 w-4",
+                                autoScrollEnabled
+                                  ? "text-white"
+                                  : "text-gray-400",
+                              )}
+                            />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+                            onClick={handleClearSerialOutput}
+                            aria-label="Clear serial output"
+                            title="Clear serial output"
+                            data-testid="button-clear-serial"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-h-0">
+                      {/* Serial area: SerialMonitor renders output area and parent renders static header above */}
+                      {showSerialMonitor && showSerialPlotter ? (
+                        <ResizablePanelGroup
+                          direction="horizontal"
+                          className="h-full"
+                          id="serial-split"
+                        >
+                          <ResizablePanel
+                            defaultSize={50}
+                            minSize={20}
+                            id="serial-monitor-panel"
+                          >
+                            <div className="h-full flex flex-col">
+                              <div className="flex-1 min-h-0">
+                                <SerialMonitor
+                                  output={renderedSerialOutput}
+                                  isConnected={isConnected}
+                                  isSimulationRunning={
+                                    simulationStatus !== "stopped"
+                                  }
+                                  onSendMessage={handleSerialSend}
+                                  onClear={handleClearSerialOutput}
+                                  showMonitor={showSerialMonitor}
+                                  autoScrollEnabled={autoScrollEnabled}
+                                />
+                              </div>
+                            </div>
+                          </ResizablePanel>
+
+                          <ResizableHandle
+                            withHandle
+                            data-testid="horizontal-resizer-serial"
+                          />
+
+                          <ResizablePanel
+                            defaultSize={50}
+                            minSize={20}
+                            id="serial-plot-panel"
+                          >
+                            <div className="h-full">
+                              <Suspense fallback={<LoadingPlaceholder />}>
+                                <SerialPlotter output={serialOutput} />
+                              </Suspense>
+                            </div>
+                          </ResizablePanel>
+                        </ResizablePanelGroup>
+                      ) : showSerialMonitor ? (
+                        <div className="h-full flex flex-col">
+                          <div className="flex-1 min-h-0">
+                            <SerialMonitor
+                              output={renderedSerialOutput}
+                              isConnected={isConnected}
+                              isSimulationRunning={simulationStatus !== "stopped"}
+                              onSendMessage={handleSerialSend}
+                              onClear={handleClearSerialOutput}
+                              showMonitor={showSerialMonitor}
+                              autoScrollEnabled={autoScrollEnabled}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-full">
+                          <Suspense fallback={<LoadingPlaceholder />}>
+                            <SerialPlotter output={serialOutput} />
+                          </Suspense>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Input area is rendered in the parent so it spans the whole serial frame */}
+                    <div className="p-3 flex-shrink-0">
+                      <div className="w-full">
+                        <InputGroup
+                          type="text"
+                          placeholder="Send to Arduino..."
+                          value={serialInputValue}
+                          onChange={(e) => setSerialInputValue(e.target.value)}
+                          onKeyDown={handleSerialInputKeyDown}
+                          onSubmit={handleSerialInputSend}
+                          disabled={
+                            !serialInputValue.trim() ||
+                            simulationStatus !== "running"
+                          }
+                          inputTestId="input-serial"
+                          buttonTestId="button-send-serial"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </ResizablePanel>
+
+                <ResizableHandle
+                  withHandle
+                  data-testid="vertical-resizer-board"
+                />
+
+                <ResizablePanel defaultSize={50} minSize={20} id="board-panel">
+                  <div className="h-full w-full flex flex-col gap-3 p-2">
+                    {pinMonitorVisible && (
+                      <PinMonitor pinStates={pinStates} batchStats={batchStats} />
+                    )}
+                    <div className="flex-1 min-h-0">
+                      <ArduinoBoard
+                        pinStates={pinStates}
+                        isSimulationRunning={simulationStatus !== "stopped"}
+                        simulationStatus={simulationStatus}
+                        txActive={txActivity}
+                        rxActive={rxActivity}
+                        onReset={handleReset}
+                        onPinToggle={handlePinToggle}
+                        analogPins={analogPinsUsed}
+                        onAnalogChange={handleAnalogChange}
+                      />
+                    </div>
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
             </ResizablePanel>
           </ResizablePanelGroup>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-      </main>
-
-      <MobileLayout
-        isMobile={isMobile}
-        mobilePanel={mobilePanel}
-        setMobilePanel={setMobilePanel}
-        headerHeight={headerHeight}
-        overlayZ={overlayZ}
-        codeSlot={codeSlot}
-        compileSlot={compileSlot}
-        serialSlot={serialSlot}
-        boardSlot={boardSlot}
-      />
+        ) : (
+          <MobileLayout
+            isMobile={isMobile}
+            mobilePanel={mobilePanel}
+            setMobilePanel={setMobilePanel}
+            headerHeight={headerHeight}
+            overlayZ={overlayZ}
+            codeSlot={codeSlot}
+            compileSlot={compileSlot}
+            serialSlot={serialSlot}
+            boardSlot={boardSlot}
+          />
+        )}
+      </div>
     </div>
   );
 }

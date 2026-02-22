@@ -17,6 +17,12 @@ export class MonacoEditor {
   ) {}
 
   async waitForReady(): Promise<void> {
+    // Wait for the editor element to appear in the DOM.  We intentionally
+    // keep this method lightweight: the caller usually follows up with a
+    // longer `expect.poll(getValue())` check, which is where we handle
+    // slow-loading sketches.  Adding heavyweight content polling here made
+    // the helper itself occasionally time out when the editor took over 30s
+    // to hydrate.
     await this.editor.waitFor({ state: "visible" });
   }
 
