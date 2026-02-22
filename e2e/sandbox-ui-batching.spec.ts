@@ -62,8 +62,6 @@ test.describe("Sandbox UI Batching Integration", () => {
 
     // Verifikation: Ist der Code im Editor? (Regex für Variablen + Zeilennummern)
     await monacoEditor.waitForReady();
-    // log current content to diagnose slow loading
-    console.log("Aktueller Editor-Inhalt:", await monacoEditor.getValue());
     // editor content may take a while to load; give it 30s
     await expect.poll(() => monacoEditor.getValue(), { timeout: 30000 }).toMatch(/\bpinMode\s*\(/i);
     await monacoEditor.verifyCodeContains("pinMode", { pin: 13, mode: "OUTPUT" });
