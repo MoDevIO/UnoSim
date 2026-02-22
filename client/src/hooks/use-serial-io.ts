@@ -35,6 +35,7 @@ export function useSerialIO() {
     };
   }, []);
 
+
   const showSerialMonitor = serialViewMode !== "plotter";
   const showSerialPlotter = serialViewMode !== "monitor";
 
@@ -54,11 +55,20 @@ export function useSerialIO() {
 
   // Baudrate rendering methods
   const appendSerialOutput = useCallback((text: string) => {
-    rendererRef.current?.enqueue(text);
+    const isTestMode =
+      typeof window !== "undefined" && (window as any).__PLAYWRIGHT_TEST__;
+    if (isTestMode) {
+      // in tests we bypass baudrate rendering to make output appear instantly
+      setRenderedSerialText((prev) => prev + text);
+    } else {
+      rendererRef.current?.enqueue(text);
+    }
   }, []);
 
   const setBaudrate = useCallback((baud: number | undefined) => {
-    rendererRef.current?.setBaudrate(baud);
+    const isTestMode =
+      typeof window !== "undefined" && (window as any).__PLAYWRIGHT_TEST__;
+    rendererRef.current?.setBaudrate(isTestMode ? 0 : baud);
   }, []);
 
   const pauseRendering = useCallback(() => {

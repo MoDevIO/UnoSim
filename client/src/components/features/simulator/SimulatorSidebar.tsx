@@ -12,6 +12,14 @@ type SimulatorSidebarProps = {
   simulationStatus: SimulationStatus | undefined;
   txActivity: number;
   rxActivity: number;
+  // telemetry info (useTelemetry hook)
+  telemetryData?: any;
+  rates?: {
+    serialOutputPerSecond: number;
+    serialBytesPerSecond: number;
+    serialDroppedBytesPerSecond: number;
+    serialBytesTotal: number;
+  };
   onReset: () => void;
   onPinToggle: (pin: number, newValue: number) => void;
   analogPins: number[];
@@ -36,10 +44,11 @@ export default function SimulatorSidebar({
   const isRunning = simulationStatus !== "stopped";
 
   return (
-    <div className={isMobile ? "h-full w-full" : "h-full w-full flex flex-col gap-3 p-2"}>
+    <div className={isMobile ? "h-full w-full" : "h-full w-full flex flex-col gap-3 p-2 overflow-y-auto"}>
       {pinMonitorVisible && (
         <div className={isMobile ? "" : ""}>
           <PinMonitor pinStates={pinStates} batchStats={batchStats} />
+      {/* telemetry display could be added here if desired */}
         </div>
       )}
 

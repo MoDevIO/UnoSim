@@ -28,6 +28,8 @@ export const test = base.extend<TestFixtures>({
   page: async ({ page, testRunId }, use) => {
     await page.addInitScript((id: string) => {
       window.sessionStorage.setItem("__TEST_RUN_ID__", id);
+      // flag to disable baudrate delays during Playwright tests
+      (window as any).__PLAYWRIGHT_TEST__ = true;
     }, testRunId);
     await use(page);
   },

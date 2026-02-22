@@ -114,6 +114,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
           break;
         }
 
+
         setRxActivity((prev) => prev + 1);
 
         const isNewlineOnly = text === "\n" || text === "\r\n";

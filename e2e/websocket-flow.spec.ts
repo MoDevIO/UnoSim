@@ -26,6 +26,11 @@ test.describe("WebSocket integration — happy path", () => {
       page.goto("/"),
     ]);
 
+    // debug: log all frames received by the client
+    ws.on('framereceived', (frame) => {
+      console.log(`[TEST WS RECEIVED] ${frame.payload}`);
+    });
+
     // Wait for the Monaco editor to appear (longer timeout to be resilient)
     await page.waitForSelector('.monaco-editor', { state: 'visible', timeout: 30000 });
     await monacoEditor.waitForReady();

@@ -1055,34 +1055,41 @@ export default function ArduinoSimulator() {
         onOutputPanelToggle={() => {}}
         showCompilationOutput={showCompilationOutput}
       />
-      <ResizablePanelGroup direction="horizontal" className="h-full">
-        {/* Left sidebar */}
-        <ResizablePanel defaultSize={30} minSize={20} id="sidebar-panel">
-          <SimulatorSidebar
-            pinMonitorVisible={pinMonitorVisible}
-            pinStates={pinStates}
-            batchStats={batchStats}
-            simulationStatus={simulationStatus}
-            txActivity={txActivity}
-            rxActivity={rxActivity}
-            telemetryData={telemetryData}
-            rates={rates}
-            onReset={handleReset}
-            onPinToggle={handlePinToggle}
-            analogPins={analogPinsUsed}
-            onAnalogChange={handleAnalogChange}
-          />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        {/* Right area: editor above, output below */}
-        <ResizablePanel defaultSize={70} minSize={40} id="right-panel">
-          <ResizablePanelGroup direction="vertical" className="h-full">
-            <ResizablePanel defaultSize={65} minSize={40} id="editor-panel">
-              {codeSlot}
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel ref={outputPanelRef} defaultSize={35} minSize={20} id="output-panel">
-              <OutputPanel
+      {/* ensure main area stretches */}
+      <main className="flex-1 flex flex-col">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          {/* Left sidebar */}
+          <ResizablePanel defaultSize={30} minSize={20} id="sidebar-panel">
+            <SimulatorSidebar
+              pinMonitorVisible={pinMonitorVisible}
+              pinStates={pinStates}
+              batchStats={batchStats}
+              simulationStatus={simulationStatus}
+              txActivity={txActivity}
+              rxActivity={rxActivity}
+              telemetryData={telemetryData}
+              rates={rates}
+              onReset={handleReset}
+              onPinToggle={handlePinToggle}
+              analogPins={analogPinsUsed}
+              onAnalogChange={handleAnalogChange}
+            />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          {/* Right area: editor above, serial + output below */}
+          <ResizablePanel defaultSize={70} minSize={40} id="right-panel">
+            <ResizablePanelGroup direction="vertical" className="h-full">
+              <ResizablePanel defaultSize={65} minSize={40} id="editor-panel">
+                {codeSlot}
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              {/* serial monitor panel */}
+              <ResizablePanel defaultSize={25} minSize={10} id="serial-panel">
+                {serialSlot}
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              <ResizablePanel ref={outputPanelRef} defaultSize={35} minSize={20} id="output-panel">
+                <OutputPanel
                 activeOutputTab={activeOutputTab}
                 showCompilationOutput={showCompilationOutput}
                 isSuccessState={lastCompilationResult === "success"}
@@ -1122,6 +1129,7 @@ export default function ArduinoSimulator() {
           </ResizablePanelGroup>
         </ResizablePanel>
       </ResizablePanelGroup>
+      </main>
 
       <MobileLayout
         isMobile={isMobile}
