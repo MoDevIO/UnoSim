@@ -7,7 +7,8 @@ describe("ArduinoCompiler - additional", () => {
     const compiler = await ArduinoCompiler.create();
     const res = await compiler.compile("int main() {}");
     expect(res.success).toBe(false);
-    expect(res.errors).toMatch(/Missing Arduino functions/);
+    expect(res.stderr).toMatch(/Missing Arduino functions/);
+    expect(res.errors).toHaveLength(0);
   });
 
   test("processes header includes and returns processedCode", async () => {

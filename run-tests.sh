@@ -1,155 +1,172 @@
 #!/bin/bash
 
+# ─────────────────────────────────────────────────────────────────
 # Konfiguration
-# E2E suite can take several minutes locally — increase timeout to avoid
-# spurious CI/local run failures during long Playwright runs.
+# ─────────────────────────────────────────────────────────────────
 TIMEOUT_SECS=600
 LOG_FILE="run-tests_output.log"
 WORKERS=1
 
-# UI / Styling
-# NOTE: TOTAL_STEPS must match the number of run_step / run_e2e_step invocations below
 TOTAL_STEPS=5
 STEP=0
 GREEN="\033[32m"
 YELLOW="\033[33m"
 RED="\033[31m"
+CYAN="\033[36m"
 BOLD="\033[1m"
+DIM="\033[2m"
 RESET="\033[0m"
 
-clear
-echo "🛡️  Starte vollständigen System-Check & Build..."
-rm -f "$LOG_FILE"
+ICO_OK="✔"
+ICO_FAIL="✘"
+ICO_RUN="◌"
+ICO_INFO="›"
+ICO_WARN="!"
 
-# Einfache Funktion für die Schritte
+div() { printf "${DIM}%s${RESET}\n" "────────────────────────────────────────────────"; }
+
+section() {
+    echo
+    printf "${CYAN}${BOLD}  %s${RESET}\n" "$1"
+    div
+}
+
+# ─────────────────────────────────────────────────────────────────
 run_step() {
-    local label="$1"
-    local command="$2"
+    local label="$1" command="$2" start dur
     STEP=$((STEP+1))
-
-    # fixed layout: ICON [i/n] LABEL(40) STATUS
-    local icon_run="⏳"
-    printf "%s [%d/%d] %-40s" "$icon_run" "$STEP" "$TOTAL_STEPS" "$label"
-    start_time=$(date +%s)
-
+    printf " ${YELLOW}${ICO_RUN}${RESET} [%d/%d] %-40s" "$STEP" "$TOTAL_STEPS" "$label"
+    start=$(date +%s)
     if eval "$command" >> "$LOG_FILE" 2>&1; then
-        end_time=$(date +%s)
-        duration=$((end_time - start_time))
-        # overwrite line with success
-        printf "\r${GREEN}✅${RESET} [%d/%d] %-40s %s (%ds)\n" "$STEP" "$TOTAL_STEPS" "$label" "OK" "$duration"
-        return 0
+        dur=$(( $(date +%s) - start ))
+        printf "\r ${GREEN}${ICO_OK}${RESET} [%d/%d] %-40s ${DIM}%ds${RESET}\n" "$STEP" "$TOTAL_STEPS" "$label" "$dur"
     else
-        printf "\r${RED}❌${RESET} [%d/%d] %-40s %s\n" "$STEP" "$TOTAL_STEPS" "$label" "FAILED"
+        printf "\r ${RED}${ICO_FAIL}${RESET} [%d/%d] %-40s ${RED}FAILED${RESET}\n" "$STEP" "$TOTAL_STEPS" "$label"
         return 1
     fi
 }
 
-# Special runner for background E2E step with timeout and live countdown
 run_e2e_step() {
-    local label="$1"
+    local label="$1" start dur pid
     STEP=$((STEP+1))
-    local icon_run="⏳"
-    printf "%s [%d/%d] %-40s" "$icon_run" "$STEP" "$TOTAL_STEPS" "$label"
-    start_time=$(date +%s)
-
+    printf " ${YELLOW}${ICO_RUN}${RESET} [%d/%d] %-40s" "$STEP" "$TOTAL_STEPS" "$label"
+    start=$(date +%s)
     npm run test:e2e >> "$LOG_FILE" 2>&1 &
-    local pid=$!
-
+    pid=$!
     for ((i=TIMEOUT_SECS; i>0; i--)); do
-        if ! kill -0 $pid 2>/dev/null; then break; fi
-        printf "\r%s [%d/%d] %-40s %s" "$icon_run" "$STEP" "$TOTAL_STEPS" "$label" "Running... ${i}s"
+        kill -0 "$pid" 2>/dev/null || break
+        printf "\r ${YELLOW}${ICO_RUN}${RESET} [%d/%d] %-40s ${DIM}%ds${RESET}" "$STEP" "$TOTAL_STEPS" "$label" "$i"
         sleep 1
     done
-
-    if kill -0 $pid 2>/dev/null; then
-        kill $pid
-        printf "\r${RED}❌${RESET} [%d/%d] %-40s %s\n" "$STEP" "$TOTAL_STEPS" "$label" "TIMEOUT"
+    if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid"
+        printf "\r ${RED}${ICO_FAIL}${RESET} [%d/%d] %-40s ${RED}TIMEOUT${RESET}\n" "$STEP" "$TOTAL_STEPS" "$label"
         return 1
+    fi
+    wait "$pid"; local rc=$?
+    dur=$(( $(date +%s) - start ))
+    if [ $rc -eq 0 ]; then
+        printf "\r ${GREEN}${ICO_OK}${RESET} [%d/%d] %-40s ${DIM}%ds${RESET}\n" "$STEP" "$TOTAL_STEPS" "$label" "$dur"
     else
-        wait $pid
-        if [ $? -eq 0 ]; then
-            end_time=$(date +%s)
-            duration=$((end_time - start_time))
-            printf "\r${GREEN}✅${RESET} [%d/%d] %-40s %s (%ds)\n" "$STEP" "$TOTAL_STEPS" "$label" "OK" "$duration"
-            return 0
-        else
-            printf "\r${RED}❌${RESET} [%d/%d] %-40s %s\n" "$STEP" "$TOTAL_STEPS" "$label" "FAILED"
-            return 1
-        fi
+        printf "\r ${RED}${ICO_FAIL}${RESET} [%d/%d] %-40s ${RED}FAILED${RESET}\n" "$STEP" "$TOTAL_STEPS" "$label"
+        return 1
     fi
 }
 
-# 1. Statische Analyse
-run_step "Linting/Check" "npm run check" || { echo "🛑 Abbruch bei Check"; exit 1; }
+# ─────────────────────────────────────────────────────────────────
+# Codeanalyse
+# ─────────────────────────────────────────────────────────────────
+print_group() {
+    local title="$1"; shift
+    local dirs=("$@")
+    local tmp total_loc=0 total_files=0
 
-# 1.1 Color-token check (forbid new raw hex in client/src)
-run_step "Color-token check" "npm run check:raw-hex" || { echo "🛑 Abbruch: Raw-hex check failed"; exit 1; }
+    tmp=$(mktemp)
+    for d in "${dirs[@]}"; do
+        [ -d "$d" ] || continue
+        find "$d" -type f \( \
+            -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.jsx" \
+            -o -name "*.css" -o -name "*.scss" -o -name "*.html" \
+            -o -name "*.py" -o -name "*.go" -o -name "*.c" \
+            -o -name "*.cpp" -o -name "*.h" \
+        \) | while read -r f; do
+            loc=$(wc -l < "$f")
+            printf "%d\t%s\n" "$loc" "${f#./}"
+        done >> "$tmp"
+    done
 
-# 2. Unit-Tests & Coverage
-run_step "Unit-Tests & Coverage" "npm run test:coverage" || { 
-    echo "${RED}🛑 Abbruch: Tests oder Coverage fehlgeschlagen.${RESET}"
-    echo "👉 Tipp: Prüfe ob 'npm install -D @vitest/coverage-v8' ausgeführt wurde."
-    exit 1 
+    sort -rn "$tmp" > "${tmp}.sorted"
+
+    printf "\n  ${BOLD}${CYAN}%s${RESET}\n" "$title"
+    printf "  ${DIM}%-55s %6s${RESET}\n" "Datei" "LOC"
+    printf "  ${DIM}%s${RESET}\n" "$(printf '%.0s─' {1..62})"
+
+    while IFS=$'\t' read -r loc file; do
+        [ -z "$file" ] && continue
+        printf "  %-55s %6d\n" "$file" "$loc"
+        total_loc=$((total_loc + loc))
+        total_files=$((total_files + 1))
+    done < "${tmp}.sorted"
+
+    printf "  ${DIM}%s${RESET}\n" "$(printf '%.0s─' {1..62})"
+    printf "  ${BOLD}%-55s %6d${RESET}  ${DIM}(%d Dateien)${RESET}\n" "GESAMT" "$total_loc" "$total_files"
+    rm -f "$tmp" "${tmp}.sorted"
 }
 
-# --- Vitest summary (parsen & anzeigen, damit Testzählung sauber ist) ---
-if grep -q "Test Files" "$LOG_FILE" || grep -q "^\s*Tests " "$LOG_FILE"; then
-  echo
-  echo "🧪 Vitest Zusammenfassung (aus Log):"
-  grep "Test Files" "$LOG_FILE" | tail -n1 || true
-  grep -E "^\s*Tests " "$LOG_FILE" | tail -n1 || true
-  echo
-fi
-
-# 3. E2E Tests
-echo "🚀 Starte E2E-Tests (Parallel: $WORKERS Worker)..."
-
-# Cleanup: Kill any existing dev servers on port 3000
-if lsof -i :3000 >/dev/null 2>&1; then
-    echo "🧹 Cleaning up port 3000..."
-    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
-    sleep 1
-fi
-
-run_e2e_step "E2E-Tests" || { echo "${RED}🛑 Abbruch: E2E fehlgeschlagen${RESET}"; tail -n 20 "$LOG_FILE"; exit 1; }
-
-# 4. Finaler Build
-echo "🏗️  Tests bestanden. Starte Produktions-Build..."
-
-run_step "Produktions-Build (Vite/Esbuild)" "npm run build" || {
-    echo "🛑 Build fehlgeschlagen! Siehe $LOG_FILE"
-    exit 1
+print_code_analysis() {
+    section "≡  Codeanalyse"
+    print_group "Backend   (server / shared)"      ./server  ./shared
+    print_group "Frontend  (client / e2e / tests)"  ./client  ./e2e  ./tests
+    echo
+    div
 }
 
-echo "🎉 ALLES ERLEDIGT! System geprüft und erfolgreich gebaut."
-echo -e "👉 Die Dateien befinden sich im ${BOLD}/dist${RESET} Ordner."
-
-# 5. Quellcode-Statistik
-echo "╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌"
-echo "📊 Quellcode-Statistik (eigene Dateien):"
+# ═════════════════════════════════════════════════════════════════
+# MAIN
+# ═════════════════════════════════════════════════════════════════
+clear
 echo
-# Aggregate into a temp file, then print sorted rows and a summary in MB
-TMP_AGG=$(mktemp)
-find ./src ./client ./server ./shared ./tests ./e2e \
-    -type f \
-    \( -name '*.js' -o -name '*.ts' -o -name '*.tsx' -o -name '*.jsx' -o -name '*.css' -o -name '*.scss' -o -name '*.html' -o -name '*.md' -o -name '*.py' -o -name '*.java' -o -name '*.go' -o -name '*.c' -o -name '*.cpp' -o -name '*.h' \) \
-    -exec bash -c 'ext="${1##*.}"; lines=$(wc -l < "$1"); size=$(stat -f%z "$1"); printf "%s %d %d\n" "$ext" "$lines" "$size"' _ {} \; > "$TMP_AGG"
+div
+printf "${BOLD}  System-Check & Build${RESET}   ${DIM}Log: %s${RESET}\n" "$LOG_FILE"
+div
+rm -f "$LOG_FILE"
 
-AGG_OUT=$(awk '{count[$1]++; loc[$1]+=$2; size[$1]+=$3; total_count++; total_loc+=$2; total_size+=$3} END {for (t in count) printf "%s %d %d %d\n", t, count[t], loc[t], size[t]; printf "__TOTAL__ %d %d %d\n", total_count, total_loc, total_size}' "$TMP_AGG")
+# 1+2 – Statische Analyse
+section "▸  Statische Analyse"
+run_step "Linting / Check"   "npm run check"          || { printf " ${RED}${ICO_FAIL} Abbruch.${RESET}\n\n"; exit 1; }
+run_step "Color-Token Check" "npm run check:raw-hex"   || { printf " ${RED}${ICO_FAIL} Abbruch.${RESET}\n\n"; exit 1; }
 
-# print header
-echo "| Typ | Anzahl | LOC | Bytes |"
-echo "|:----|------:|-----:|------:|"
+# 3 – Unit-Tests
+section "▸  Unit-Tests & Coverage"
+run_step "Unit-Tests & Coverage" "npm run test:coverage" || {
+    printf " ${RED}${ICO_FAIL} Abbruch: Tests/Coverage fehlgeschlagen.${RESET}\n"
+    printf " ${YELLOW}${ICO_WARN} Tipp: npm install -D @vitest/coverage-v8${RESET}\n\n"; exit 1
+}
+VSUM=$(grep "Test Files" "$LOG_FILE" | tail -n1)
+[ -n "$VSUM" ] && printf "  ${DIM}%s${RESET}\n" "$VSUM"
 
-# print sorted rows
-printf "%s\n" "$AGG_OUT" | grep -v '^__TOTAL__' | sort | awk '{printf "| %-3s | %5d | %6d | %8d |\n", $1, $2, $3, $4}'
+# 4 – E2E
+section "▸  E2E-Tests  (Workers: ${WORKERS})"
+if lsof -i :3000 >/dev/null 2>&1; then
+    printf " ${YELLOW}${ICO_WARN} Port 3000 belegt – bereinige...${RESET}\n"
+    lsof -ti :3000 | xargs kill -9 2>/dev/null || true; sleep 1
+fi
+run_e2e_step "E2E-Tests (Playwright)" || {
+    printf " ${RED}${ICO_FAIL} Abbruch: E2E fehlgeschlagen.${RESET}\n\n"
+    tail -n 20 "$LOG_FILE"; exit 1
+}
 
-# print total
-TOTAL_LINE=$(printf "%s\n" "$AGG_OUT" | grep '^__TOTAL__')
-TOTAL_FILES=$(printf "%s" "$TOTAL_LINE" | awk '{print $2}')
-TOTAL_LOC=$(printf "%s" "$TOTAL_LINE" | awk '{print $3}')
-TOTAL_BYTES=$(printf "%s" "$TOTAL_LINE" | awk '{print $4}')
-printf "\nSUMME:   %d Dateien, %d LOC, %.2f MB\n" "$TOTAL_FILES" "$TOTAL_LOC" "$(echo "$TOTAL_BYTES/1024/1024" | bc -l)"
+# 5 – Build
+section "▸  Produktions-Build"
+run_step "Vite / Esbuild Build" "npm run build" || {
+    printf " ${RED}${ICO_FAIL} Build fehlgeschlagen! Siehe %s${RESET}\n\n" "$LOG_FILE"; exit 1
+}
 
-rm -f "$TMP_AGG"
-echo "╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌"
+# Ergebnis
+echo
+div
+printf " ${GREEN}${BOLD}${ICO_OK}  Alles erledigt! Build-Artefakte: /dist${RESET}\n"
+div
+
+# Codeanalyse
+print_code_analysis

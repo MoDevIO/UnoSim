@@ -2,7 +2,7 @@
 
 import { spawn } from "child_process";
 import { writeFile, mkdir, rm } from "fs/promises";
-import { join } from "path";
+import { join, basename } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
 import { ParserMessage, IOPinRecord } from "@shared/schema";
@@ -10,13 +10,24 @@ import { CodeParser } from "@shared/code-parser";
 import { reservedNamesValidator } from "@shared/reserved-names-validator";
 // Removed unused mock imports to satisfy TypeScript
 
+export interface CompilationError {
+  file: string;
+  line: number;
+  column: number;
+  type: 'error' | 'warning';
+  message: string;
+}
+
 export interface CompilationResult {
   success: boolean;
   output: string;
-  errors?: string;
+  // raw stderr text for backwards compatibility and debugging
+  stderr?: string;
+  // structured list of errors/warnings from the compiler
+  errors: CompilationError[];
   binary?: Buffer;
   arduinoCliStatus: "idle" | "compiling" | "success" | "error";
-  gccStatus: "idle" | "compiling" | "success" | "error";
+  // gccStatus removed – it was deprecated and is no longer populated
   parserMessages?: ParserMessage[]; // Parser validation messages
   ioRegistry?: IOPinRecord[]; // I/O Registry for visualization
 }
@@ -82,9 +93,9 @@ export class ArduinoCompiler {
         return {
           success: false,
           output: "",
-          errors: `Missing Arduino functions: ${missingFunctions.join(" and ")}\n\nArduino sketches require:\n- void setup() { }\n- void loop() { }`,
+          stderr: `Missing Arduino functions: ${missingFunctions.join(" and ")}\n\nArduino sketches require:\n- void setup() { }\n- void loop() { }`,
+          errors: [],
           arduinoCliStatus: "error",
-          gccStatus: "idle",
           parserMessages: allParserMessages, // Include parser messages even on error
           ioRegistry, // Include I/O registry
         };
@@ -171,11 +182,11 @@ export class ArduinoCompiler {
       arduinoCliStatus = "compiling";
       const cliResult = await this.compileWithArduinoCli(
         sketchFile,
-        lineOffset,
       );
 
       let cliOutput = "";
       let cliErrors = "";
+      let parsedErrors: CompilationError[] = [];
 
       if (cliResult === null) {
         arduinoCliStatus = "error";
@@ -184,10 +195,25 @@ export class ArduinoCompiler {
         arduinoCliStatus = "error";
         cliOutput = "";
         cliErrors = cliResult.errors || "Compilation failed";
+        parsedErrors = cliResult.parsedErrors || [];
       } else {
         arduinoCliStatus = "success";
         cliOutput = cliResult.output || "";
         cliErrors = cliResult.errors || "";
+        parsedErrors = cliResult.parsedErrors || [];
+      }
+
+      // correct stderr text for offset so UI shows original line numbers
+      if (lineOffset > 0 && cliErrors) {
+        cliErrors = cliErrors.replace(/sketch\.ino:(\d+):/g, (_m, n) => {
+          const corrected = Math.max(1, parseInt(n, 10) - lineOffset);
+          return `sketch.ino:${corrected}:`;
+        });
+      }
+
+      // backstop: if the caller didn't supply parsedErrors, run parser ourselves
+      if (parsedErrors.length === 0 && cliErrors) {
+        parsedErrors = this.parseCompilerErrors(cliErrors, lineOffset);
       }
 
       // Kombinierte Ausgabe
@@ -207,9 +233,9 @@ export class ArduinoCompiler {
       return {
         success,
         output: combinedOutput,
-        errors: cliErrors || undefined,
+        stderr: cliErrors || undefined,
+        errors: parsedErrors,
         arduinoCliStatus,
-        gccStatus: "idle", // Nicht mehr verwendet in Compiler
         parserMessages: allParserMessages, // Include parser messages
         ioRegistry, // Include I/O registry
       };
@@ -217,10 +243,10 @@ export class ArduinoCompiler {
       return {
         success: false,
         output: "",
-        errors: `Compilation failed: ${error instanceof Error ? error.message : String(error)}`,
+        stderr: `Compilation failed: ${error instanceof Error ? error.message : String(error)}`,
+        errors: [],
         arduinoCliStatus:
           arduinoCliStatus === "compiling" ? "error" : arduinoCliStatus,
-        gccStatus: "idle",
         parserMessages: allParserMessages, // Include parser messages even on error
         ioRegistry, // Include I/O registry
       };
@@ -233,10 +259,67 @@ export class ArduinoCompiler {
     }
   }
 
+  // Parses stderr text into structured error objects.
+  // lineOffset can be provided to adjust line numbers when headers were
+  // inlined; callers should pass the same offset that was used during
+  // header embedding so that the final error objects refer to the original
+  // sketch lines.  This parameter is _used_ below to mutate parsed line
+  // numbers, satisfying the TypeScript checker.
+  private parseCompilerErrors(stderr: string, lineOffset: number = 0): CompilationError[] {
+    // match patterns like 'file:line:column: error: message' or
+    // 'file:line: error: message' (column optional)
+    // match patterns like 'file:line:column: error: message' or
+    // 'file:line: error: message' (column optional)
+    const regex = /^([^:]+):(\d+)(?::(\d+))?:\s+(warning|error):\s+(.*)$/gm;
+    const results: CompilationError[] = [];
+    const seen = new Set<string>();
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(stderr))) {
+      let [_, file, lineStr, colStr, type, message] = match;
+      // shorten to basename so frontend sees just the filename
+      file = basename(file);
+      let lineNum = parseInt(lineStr, 10);
+      if (lineOffset > 0) {
+        lineNum = Math.max(1, lineNum - lineOffset);
+      }
+      const colNum = colStr ? parseInt(colStr, 10) : 0;
+      const item: CompilationError = {
+        file,
+        line: lineNum,
+        column: colNum,
+        type: type as 'error' | 'warning',
+        message,
+      };
+      const key = `${file}:${lineNum}:${colNum}:${type}:${message}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        results.push(item);
+      }
+    }
+
+    // if nothing parsed but stderr is present, create generic entries per line
+    if (results.length === 0 && stderr.trim()) {
+      for (const line of stderr.split(/\r?\n/).filter((l) => l.trim())) {
+        results.push({
+          file: "",
+          line: 0,
+          column: 0,
+          type: "error",
+          message: line.trim(),
+        });
+      }
+    }
+
+    return results;
+  }
+
   private async compileWithArduinoCli(
     sketchFile: string,
-    lineOffset: number = 0,
-  ): Promise<{ success: boolean; output: string; errors?: string } | null> {
+  ): Promise<
+    | { success: boolean; output: string; errors?: string; parsedErrors?: CompilationError[] }
+    | null
+  > {
     return new Promise((resolve) => {
       // Arduino CLI expects the sketch DIRECTORY, not the file
       const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf("/"));
@@ -309,24 +392,13 @@ export class ArduinoCompiler {
             .replace(/Error during build: exit status \d+\s*/g, "")
             .trim();
 
-          // Correct line numbers if headers were embedded
-          if (lineOffset > 0) {
-            cleanedErrors = cleanedErrors.replace(
-              /sketch\.ino:(\d+):/g,
-              (_match, lineNum) => {
-                const correctedLine = Math.max(
-                  1,
-                  parseInt(lineNum) - lineOffset,
-                );
-                return `sketch.ino:${correctedLine}:`;
-              },
-            );
-          }
 
+          const structured = this.parseCompilerErrors(cleanedErrors || "");
           resolve({
             success: false,
             output: "",
             errors: cleanedErrors || "Compilation failed",
+            parsedErrors: structured,
           });
         }
       });

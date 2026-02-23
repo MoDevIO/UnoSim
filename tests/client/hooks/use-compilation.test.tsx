@@ -73,8 +73,8 @@ describe("useCompilation", () => {
 
     expect(result.current.compilationStatus).toBe("ready");
     expect(result.current.arduinoCliStatus).toBe("idle");
-    expect(result.current.gccStatus).toBe("idle");
     expect(result.current.hasCompilationErrors).toBe(false);
+    expect(result.current.compilerErrors).toEqual([]);
     expect(result.current.lastCompilationResult).toBeNull();
     expect(result.current.cliOutput).toBe("");
   });

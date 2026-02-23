@@ -24,7 +24,6 @@ export interface UseFileManagementParams {
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   setCompilationStatus: React.Dispatch<React.SetStateAction<any>>;
   setArduinoCliStatus: React.Dispatch<React.SetStateAction<any>>;
-  setGccStatus: React.Dispatch<React.SetStateAction<any>>;
   setLastCompilationResult: React.Dispatch<React.SetStateAction<"success" | "error" | null>>;
   setSimulationStatus: React.Dispatch<React.SetStateAction<any>>;
   setHasCompiledOnce: React.Dispatch<React.SetStateAction<boolean>>;
@@ -49,7 +48,6 @@ export function useFileManagement(params: UseFileManagementParams) {
     resetPinUI,
     setCompilationStatus,
     setArduinoCliStatus,
-    setGccStatus,
     setLastCompilationResult,
     setSimulationStatus,
     setHasCompiledOnce,
@@ -112,7 +110,6 @@ export function useFileManagement(params: UseFileManagementParams) {
         resetPinUI();
         setCompilationStatus("ready");
         setArduinoCliStatus("idle");
-        setGccStatus("idle");
         setLastCompilationResult(null);
         setSimulationStatus("stopped");
         setHasCompiledOnce(false);
@@ -137,7 +134,6 @@ export function useFileManagement(params: UseFileManagementParams) {
       resetPinUI,
       setCompilationStatus,
       setArduinoCliStatus,
-      setGccStatus,
       setLastCompilationResult,
       setSimulationStatus,
       setHasCompiledOnce,
@@ -174,7 +170,6 @@ export function useFileManagement(params: UseFileManagementParams) {
       });
       setCompilationStatus("ready");
       setArduinoCliStatus("idle");
-      setGccStatus("idle");
       setLastCompilationResult(null);
       setSimulationStatus("stopped");
       setHasCompiledOnce(false);
@@ -195,7 +190,6 @@ export function useFileManagement(params: UseFileManagementParams) {
       setIoRegistry,
       setCompilationStatus,
       setArduinoCliStatus,
-      setGccStatus,
       setLastCompilationResult,
       setSimulationStatus,
       setHasCompiledOnce,

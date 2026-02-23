@@ -307,9 +307,10 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("Compilation failed"),
       );
+      expect(result.errors).toHaveLength(0);
     });
 
     it("should handle writeFile errors", async () => {
@@ -322,9 +323,10 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("Compilation failed"),
       );
+      expect(result.errors).toHaveLength(0);
     });
 
     // CRITICAL: Test für Zeile 88
@@ -399,23 +401,26 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("setup() and loop()"),
       );
+      expect(result.errors).toHaveLength(0);
     });
 
     it("should fail when only setup() is missing", async () => {
       const code = `void loop() {}`;
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining("setup()"));
+      expect(result.stderr).toEqual(expect.stringContaining("setup()"));
+      expect(result.errors).toHaveLength(0);
     });
 
     it("should fail when only loop() is missing", async () => {
       const code = `void setup() {}`;
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining("loop()"));
+      expect(result.stderr).toEqual(expect.stringContaining("loop()"));
+      expect(result.errors).toHaveLength(0);
     });
   });
 
@@ -433,9 +438,12 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("Arduino CLI not available"),
       );
+      // spawn failure should produce a generic error entry
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain("Arduino CLI not available");
     });
 
     it("should handle arduino-cli compilation failure", async () => {
@@ -456,9 +464,13 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("expected semicolon"),
       );
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0].message).toContain("expected semicolon");
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0].message).toContain("expected semicolon");
     });
   });
 

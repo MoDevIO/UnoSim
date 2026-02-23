@@ -303,10 +303,9 @@ export default function ArduinoSimulator() {
     setCompilationStatus,
     arduinoCliStatus,
     setArduinoCliStatus,
-    gccStatus,
-    setGccStatus,
     hasCompilationErrors,
     setHasCompilationErrors,
+    compilerErrors,
     lastCompilationResult,
     setLastCompilationResult,
     cliOutput,
@@ -445,7 +444,6 @@ export default function ArduinoSimulator() {
     // Reset status when code actually changes
     // Reset both labels to idle when code changes
     if (arduinoCliStatus !== "idle") setArduinoCliStatus("idle");
-    if (gccStatus !== "idle") setGccStatus("idle");
     if (compilationStatus !== "ready") setCompilationStatus("ready");
 
     // Note: Simulation stopping on code change is now handled in handleCodeChange
@@ -559,7 +557,6 @@ export default function ArduinoSimulator() {
     appendRenderedText,
     setSerialOutput,
     setArduinoCliStatus,
-    setGccStatus,
     setCliOutput,
     setHasCompilationErrors,
     setLastCompilationResult,
@@ -772,7 +769,6 @@ export default function ArduinoSimulator() {
       resetPinUI();
       setCompilationStatus("ready");
       setArduinoCliStatus("idle");
-      setGccStatus("idle");
       setLastCompilationResult(null);
       setSimulationStatus("stopped");
       setHasCompiledOnce(false);
@@ -829,7 +825,6 @@ export default function ArduinoSimulator() {
     });
     setCompilationStatus("ready");
     setArduinoCliStatus("idle");
-    setGccStatus("idle");
     setLastCompilationResult(null);
     setSimulationStatus("stopped");
     setHasCompiledOnce(false);
@@ -1172,6 +1167,8 @@ export default function ArduinoSimulator() {
         <div className="flex-1 min-h-0 w-full">
           <CompilationOutput
             output={cliOutput}
+            errors={compilerErrors}
+            isSuccess={!hasCompilationErrors && compilationStatus === "success"}
             onClear={handleClearCompilationOutput}
           />
         </div>

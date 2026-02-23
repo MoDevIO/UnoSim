@@ -1,4 +1,13 @@
 import { useCallback, useRef, useState } from "react";
+
+// Local copy of the structured error type returned from backend
+export interface CompilationError {
+  file: string;
+  line: number;
+  column: number;
+  type: "error" | "warning";
+  message: string;
+}
 import type { RefObject, MutableRefObject } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -66,10 +75,10 @@ export interface UseCompileAndRunResult {
   setCompilationStatus: SetState<CompilationStatus>;
   arduinoCliStatus: CliStatus;
   setArduinoCliStatus: SetState<CliStatus>;
-  gccStatus: CliStatus;
-  setGccStatus: SetState<CliStatus>;
   hasCompilationErrors: boolean;
   setHasCompilationErrors: SetState<boolean>;
+  compilerErrors: CompilationError[];
+  setCompilerErrors: SetState<CompilationError[]>;
   lastCompilationResult: "success" | "error" | null;
   setLastCompilationResult: SetState<"success" | "error" | null>;
   cliOutput: string;
@@ -109,10 +118,11 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   // ------------------------------------------------------------
   const [compilationStatus, setCompilationStatus] = useState<"ready" | "compiling" | "success" | "error">("ready");
   const [arduinoCliStatus, setArduinoCliStatus] = useState<CliStatus>("idle");
-  const [gccStatus, setGccStatus] = useState<CliStatus>("idle");
+  // gccStatus removed - compiler results are tracked via errors array & flags
   const [hasCompilationErrors, setHasCompilationErrors] = useState(false);
   const [lastCompilationResult, setLastCompilationResult] = useState<"success" | "error" | null>(null);
   const [cliOutput, setCliOutput] = useState("");
+  const [compilerErrors, setCompilerErrors] = useState<CompilationError[]>([]);
 
   const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>("stopped");
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
@@ -231,19 +241,37 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         setArduinoCliStatus("success");
         setHasCompilationErrors(false);
         setLastCompilationResult("success");
+        setCompilerErrors([]);
         setCliOutput(data.output || "✓ Arduino-CLI Compilation succeeded.");
+        // debug message no longer includes gccStatus
         params.addDebugMessage({
           source: "server",
           type: "compilation_status",
-          data: JSON.stringify({ gccStatus: "success" }, null, 2),
+          data: JSON.stringify({ success: true }, null, 2),
           protocol: "http",
         });
       } else {
         setArduinoCliStatus("error");
         setHasCompilationErrors(true);
         setLastCompilationResult("error");
+        let errs: any[] = [];
+        let errText = "";
+        if (Array.isArray(data.errors)) {
+          errs = data.errors;
+          errText = errs
+            .map((e: any) =>
+              `${e.file}${e.line ? `:${e.line}` : ""}${e.column ? `:${e.column}` : ""} ${e.type}: ${e.message}`
+            )
+            .join("\n");
+        } else if (typeof data.errors === "string") {
+          errs = [
+            { file: "", line: 0, column: 0, type: "error", message: data.errors },
+          ];
+          errText = data.errors;
+        }
+        setCompilerErrors(errs);
         params.triggerErrorGlitch();
-        setCliOutput(data.errors || "✗ Arduino-CLI Compilation failed.");
+        setCliOutput(errText || "✗ Arduino-CLI Compilation failed.");
         params.addDebugMessage({
           source: "server",
           type: "compilation_error",
@@ -253,16 +281,13 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         params.addDebugMessage({
           source: "server",
           type: "compilation_status",
-          data: JSON.stringify({ gccStatus: "error" }, null, 2),
+          data: JSON.stringify({ success: false }, null, 2),
           protocol: "http",
         });
       }
-
-      if (data.parserMessages && Array.isArray(data.parserMessages)) {
-        params.setParserMessages(data.parserMessages);
-        if (data.parserMessages.length > 0) {
-          params.setParserPanelDismissed(false);
-        }
+      params.setParserMessages(data.parserMessages);
+      if (data.parserMessages.length > 0) {
+        params.setParserPanelDismissed(false);
       }
 
       params.toast({
@@ -553,10 +578,27 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
           if (data.success) {
             logger.info(`[CLIENT] Compile SUCCESS, output: ${data.output}`);
+            setCompilerErrors([]);
             setCliOutput(data.output || "✓ Arduino-CLI Compilation succeeded.");
           } else {
             logger.info(`[CLIENT] Compile FAILED, errors: ${data.errors}`);
-            setCliOutput(data.errors || "✗ Arduino-CLI Compilation failed.");
+            let errs: any[] = [];
+            let errText = "";
+            if (Array.isArray(data.errors)) {
+              errs = data.errors;
+              errText = errs
+                .map((e: any) =>
+                  `${e.file}${e.line ? `:${e.line}` : ""}${e.column ? `:${e.column}` : ""} ${e.type}: ${e.message}`
+                )
+                .join("\n");
+            } else if (typeof data.errors === "string") {
+              errs = [
+                { file: "", line: 0, column: 0, type: "error", message: data.errors },
+              ];
+              errText = data.errors;
+            }
+            setCompilerErrors(errs);
+            setCliOutput(errText || "✗ Arduino-CLI Compilation failed.");
           }
 
           if (data?.success) {
@@ -683,10 +725,10 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setCompilationStatus,
     arduinoCliStatus,
     setArduinoCliStatus,
-    gccStatus,
-    setGccStatus,
     hasCompilationErrors,
     setHasCompilationErrors,
+    compilerErrors,
+    setCompilerErrors,
     lastCompilationResult,
     setLastCompilationResult,
     cliOutput,
