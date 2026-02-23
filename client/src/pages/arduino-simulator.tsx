@@ -340,6 +340,8 @@ export default function ArduinoSimulator() {
     isBackendUnreachableError,
     triggerErrorGlitch,
     toast,
+    sendMessage,
+    sendMessageImmediate,
   });
 
   // now that compilation helpers exist we can initialise the full simulation

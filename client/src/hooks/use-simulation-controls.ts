@@ -16,7 +16,8 @@ export type UseSimulationControlsParams = {
   ensureBackendConnected: (reason: string) => boolean;
   sendMessage: (message: any) => void;
   /** Optional immediate sender for time-critical commands (stop) */
-  sendMessageImmediate?: (message: any) => void;
+  // return value indicates whether the message was actually sent (socket open)
+  sendMessageImmediate?: (message: any) => boolean;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   clearOutputs: () => void;
   addDebugMessage: (params: DebugMessageParams) => void;

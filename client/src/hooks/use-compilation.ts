@@ -10,26 +10,33 @@ export type UseCompileAndRunParams = CompileAndRunParams;
 export type UseCompilationParams = Omit<
   CompileAndRunParams,
   |
-    "sendMessage"
-    | "sendMessageImmediate"
-    | "serialEventQueueRef"
+    "serialEventQueueRef"
     | "pendingPinConflicts"
     | "setPendingPinConflicts"
     | "isModified"
     | "handleCompileAndStart"
     | "startSimulationRef"
 > & {
+  // original compile-only extras
   startSimulation?: () => void;
   setHasCompiledOnce?: SetState<boolean>;
+
+  // when provided by a caller (e.g. arduino-simulator page) the compile
+  // hook will use these to start the simulation over the network. this
+  // keeps the helper convenient for pure-compile scenarios while still
+  // allowing the integrated compile+run page to function correctly.
+  sendMessage?: (message: any) => void;
+  sendMessageImmediate?: (message: any) => boolean;
 };
 
 export function useCompilation(params: UseCompilationParams) {
   // merge passed compile params with harmless defaults for simulation fields
   const merged = useCompileAndRun({
     ...params,
-    sendMessage: () => {},
-    // @ts-ignore intentionally provide fallback
-    sendMessageImmediate: undefined,
+    sendMessage: params.sendMessage ?? (() => {}),
+    // @ts-ignore intentionally provide fallback; if caller passed
+    // immediate sender we forward it, otherwise undefined is fine.
+    sendMessageImmediate: params.sendMessageImmediate,
     serialEventQueueRef: { current: [] } as MutableRefObject<any>,
     pendingPinConflicts: [],
     setPendingPinConflicts: () => {},

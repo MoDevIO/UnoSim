@@ -55,6 +55,8 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
     ws.on("message", async (message) => {
       try {
+        // Debug: log raw incoming WS messages for E2E troubleshooting
+        try { console.info(`[WS-IN] ${message.toString()}`); } catch {}
         const data = JSON.parse(message.toString());
         const type = data.type;
 

@@ -50,7 +50,8 @@ export type CompileAndRunParams = {
 
   // simulation-specific inputs (some overlap allowed)
   sendMessage: (message: any) => void;
-  sendMessageImmediate?: (message: any) => void;
+  // changed to boolean return so callers know if the frame was actually sent
+  sendMessageImmediate?: (message: any) => boolean;
   serialEventQueueRef: MutableRefObject<Array<{ payload: any; receivedAt: number }>>;
   pendingPinConflicts: number[];
   setPendingPinConflicts: SetState<number[]>;
@@ -386,6 +387,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
   const startMutation = useMutation({
     mutationFn: async () => {
+      console.info("[CLIENT] startMutation invoked, simulationTimeout=", simulationTimeout);
       params.resetPinUI({ keepDetected: true });
       params.addDebugMessage({
         source: "frontend",
@@ -396,8 +398,16 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       // Use immediate send for start_simulation when available to ensure
       // WS frame is emitted deterministically for E2E tests and real-time control.
       if (typeof params.sendMessageImmediate === "function") {
-        params.sendMessageImmediate({ type: "start_simulation", timeout: simulationTimeout });
+        const sent = params.sendMessageImmediate({ type: "start_simulation", timeout: simulationTimeout });
+        console.info("[CLIENT] sendMessageImmediate returned", sent);
+        // If immediate send failed (socket not open) fall back to buffered send
+        if (!sent) {
+          console.info("[CLIENT] falling back to buffered send for start_simulation");
+          params.addDebugMessage({ source: "frontend", type: "start_simulation", data: "Immediate send failed, falling back to buffered send", protocol: "websocket" });
+          params.sendMessage({ type: "start_simulation", timeout: simulationTimeout });
+        }
       } else {
+        console.info("[CLIENT] using buffered send for start_simulation (no immediate available)");
         params.sendMessage({ type: "start_simulation", timeout: simulationTimeout });
       }
       return { success: true };

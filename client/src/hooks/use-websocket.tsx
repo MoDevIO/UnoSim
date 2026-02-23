@@ -110,20 +110,27 @@ export function useWebSocket() {
     if (!sent) {
       logger.warn(`Message not sent (not connected): ${message.type}`);
     }
+  // avoid unused var warning from TS
+  void sent;
   }, []);
   
   /**
    * Send a message immediately without buffering
    * Use for time-critical messages like stop_simulation
    */
-  const sendMessageImmediate = useCallback((message: WSMessage) => {
+  const sendMessageImmediate = useCallback((message: WSMessage): boolean => {
     const manager = getWebSocketManager();
     const sent = manager.sendImmediate(message);
     
     if (!sent) {
       logger.warn(`Immediate message not sent (not connected): ${message.type}`);
     }
+    return sent;
   }, []);
+  // reference it here so TS believes the variable has been read in this
+  // module; we actually return it from the hook but the compiler can be
+  // too clever and think it's unused otherwise.
+  void sendMessageImmediate;
 
   // Function to consume and clear the message queue
   const consumeMessages = useCallback(() => {
