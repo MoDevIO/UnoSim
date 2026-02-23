@@ -114,20 +114,20 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
             const timeoutValue = "timeout" in data ? data.timeout : undefined;
             logger.info(`[Simulation] Starting with timeout: ${timeoutValue}s`);
 
-            clientState.runner.runSketch(
-              lastCompiledCode,
-              (line: string, isComplete?: boolean) => {
+            const opts = {
+              code: lastCompiledCode,
+              onOutput: (line: string, isComplete?: boolean) => {
                 if (!gccSuccessSent) {
                   gccSuccessSent = true;
                   sendMessageToClient(ws, { type: "compilation_status", gccStatus: "success" });
                 }
                 sendMessageToClient(ws, { type: "serial_output", data: line, isComplete: isComplete ?? true });
               },
-              (err: string) => {
+              onError: (err: string) => {
                 logger.warn(`[Client WS][ERR]: ${err}`);
                 sendMessageToClient(ws, { type: "serial_output", data: "[ERR] " + err });
               },
-              (exitCode: number | null) => {
+              onExit: (exitCode: number | null) => {
                 setTimeout(() => {
                   try {
                     const cs = clientRunners.get(ws);
@@ -150,7 +150,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
                   }
                 }, 100);
               },
-              (compileErr: string) => {
+              onCompileError: (compileErr: string) => {
                 compileFailed = true;
                 sendMessageToClient(ws, { type: "compilation_error", data: compileErr });
                 sendMessageToClient(ws, { type: "compilation_status", gccStatus: "error" });
@@ -159,17 +159,17 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
                 if (cs) { cs.isRunning = false; cs.isPaused = false; }
                 logger.error(`[Client Compile Error]: ${compileErr}`);
               },
-              () => {
+              onCompileSuccess: () => {
                 if (!gccSuccessSent) {
                   gccSuccessSent = true;
                   sendMessageToClient(ws, { type: "compilation_status", gccStatus: "success" });
                 }
               },
-              (pin: number, type: "mode" | "value" | "pwm", value: number) => {
+              onPinState: (pin: number, type: "mode" | "value" | "pwm", value: number) => {
                 sendMessageToClient(ws, { type: "pin_state", pin, stateType: type, value });
               },
-              timeoutValue,
-              (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => {
+              timeoutSec: timeoutValue,
+              onIORegistry: (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => {
                 const message: any = { type: "io_registry", registry, reason };
                 if (baudrate !== undefined) message.baudrate = baudrate;
                 sendMessageToClient(ws, message);
@@ -187,11 +187,14 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
                   logger.warn(`Failed to save I/O Registry file: ${err instanceof Error ? err.message : String(err)}`);
                 }
               },
-              (metrics: any) => sendMessageToClient(ws, { type: "sim_telemetry", metrics }),
-              (batch: { states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }>; timestamp: number }) => {
+              onTelemetry: (metrics: any) => sendMessageToClient(ws, { type: "sim_telemetry", metrics }),
+              onPinStateBatch: (batch: { states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }>; timestamp: number }) => {
                 sendMessageToClient(ws, { type: "pin_state_batch", states: batch.states, timestamp: batch.timestamp });
               },
-            );
+              context: { sessionId: clientState.testRunId, label: data.label },
+            };
+
+            clientState.runner.runSketch(opts);
           }
             break;
 
