@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">37% </span>
+                <span class="strong">36.57% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>158/427</span>
+                <span class='fraction'>154/421</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">27.08% </span>
+                <span class="strong">27.65% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>26/96</span>
+                <span class='fraction'>26/94</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">39.74% </span>
+                <span class="strong">39.31% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>153/385</span>
+                <span class='fraction'>149/379</span>
             </div>
         
             
@@ -1821,19 +1821,8 @@
 <a name='L1756'></a><a href='#L1756'>1756</a>
 <a name='L1757'></a><a href='#L1757'>1757</a>
 <a name='L1758'></a><a href='#L1758'>1758</a>
-<a name='L1759'></a><a href='#L1759'>1759</a>
-<a name='L1760'></a><a href='#L1760'>1760</a>
-<a name='L1761'></a><a href='#L1761'>1761</a>
-<a name='L1762'></a><a href='#L1762'>1762</a>
-<a name='L1763'></a><a href='#L1763'>1763</a>
-<a name='L1764'></a><a href='#L1764'>1764</a>
-<a name='L1765'></a><a href='#L1765'>1765</a>
-<a name='L1766'></a><a href='#L1766'>1766</a>
-<a name='L1767'></a><a href='#L1767'>1767</a>
-<a name='L1768'></a><a href='#L1768'>1768</a>
-<a name='L1769'></a><a href='#L1769'>1769</a>
-<a name='L1770'></a><a href='#L1770'>1770</a>
-<a name='L1771'></a><a href='#L1771'>1771</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1759'></a><a href='#L1759'>1759</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2128,18 +2117,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2163,7 +2140,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2178,6 +2154,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2232,7 +2209,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3669,6 +3645,7 @@ import type {
   ParserMessage,
   IOPinRecord,
 } from "@shared/schema";
+import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import { isMac } from "@/lib/platform";
 &nbsp;
 // Lazy load SerialPlotter to defer recharts (~400KB) until needed
@@ -3898,21 +3875,9 @@ export default function ArduinoSimulator() {
 &nbsp;
   // placeholder for compilation-start callback
   const startSimulationRef = useRef&lt;(() =&gt; void) | null&gt;(null);
-  const startSimulation = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    startSimulationRef.current?.();</span>
-  }, []);
 &nbsp;
 &nbsp;
 &nbsp;
-  const setHasCompiledOnceRef = useRef&lt;
-    ((value: boolean | ((prev: boolean) =&gt; boolean)) =&gt; void) | null
-  &gt;(null);
-  const setHasCompiledOnceProxy = useCallback(
-<span class="fstat-no" title="function not covered" >    (v</span>alue: boolean | ((prev: boolean) =&gt; boolean)) =&gt; {
-<span class="cstat-no" title="statement not covered" >      setHasCompiledOnceRef.current?.(value);</span>
-    },
-    [],
-  );
 &nbsp;
   const {
     compilationStatus,
@@ -3943,10 +3908,9 @@ export default function ArduinoSimulator() {
     setParserPanelDismissed,
     resetPinUI,
     setIoRegistry,
-    setHasCompiledOnce: setHasCompiledOnceProxy,
     setIsModified,
     setDebugMessages,
-    addDebugMessage: <span class="fstat-no" title="function not covered" >(p</span>arams) =&gt;
+    addDebugMessage: <span class="fstat-no" title="function not covered" >(p</span>arams: DebugMessageParams) =&gt;
 <span class="cstat-no" title="statement not covered" >      addDebugMessage(</span>
         params.source,
         params.type,
@@ -3957,7 +3921,8 @@ export default function ArduinoSimulator() {
     isBackendUnreachableError,
     triggerErrorGlitch,
     toast,
-    startSimulation,
+    sendMessage,
+    sendMessageImmediate,
   });
 &nbsp;
   // now that compilation helpers exist we can initialise the full simulation
@@ -3983,7 +3948,7 @@ export default function ArduinoSimulator() {
     sendMessageImmediate,
     resetPinUI,
     clearOutputs,
-    addDebugMessage: <span class="fstat-no" title="function not covered" >(p</span>arams) =&gt;
+    addDebugMessage: <span class="fstat-no" title="function not covered" >(p</span>arams: DebugMessageParams) =&gt;
 <span class="cstat-no" title="statement not covered" >      addDebugMessage(</span>
         params.source,
         params.type,
@@ -4002,7 +3967,6 @@ export default function ArduinoSimulator() {
     startSimulationRef,
   });
 &nbsp;
-  setHasCompiledOnceRef.current = setHasCompiledOnce;
 &nbsp;
 &nbsp;
 &nbsp;
@@ -5380,7 +5344,7 @@ export default function ArduinoSimulator() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-22T17:51:51.055Z
+                at 2026-02-23T18:55:39.917Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
