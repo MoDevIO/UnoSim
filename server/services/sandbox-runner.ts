@@ -17,6 +17,7 @@ import { SketchFileBuilder } from "./sketch-file-builder";
 import { LocalCompiler } from "./local-compiler";
 import { PinStateBatcher, type PinStateBatch } from "./pin-state-batcher";
 import { SerialOutputBatcher } from "./serial-output-batcher";
+import type { RunSketchOptions } from "./run-sketch-types";
 
 enum SimulationState {
   STOPPED = "stopped",
@@ -350,27 +351,68 @@ export class SandboxRunner {
 
   // Note: Duplicate flushMessageQueue removed - using single implementation above
 
-  async runSketch(
-    code: string,
-    onOutput: (line: string, isComplete?: boolean) => void,
-    onError: (line: string) => void,
-    onExit: (code: number | null) => void,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onPinState?: (
-      pin: number,
-      type: "mode" | "value" | "pwm",
-      value: number,
-    ) => void,
-    timeoutSec?: number,
-    onIORegistry?: (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => void,
-    onTelemetry?: (metrics: any) => void,
-    onPinStateBatch?: (batch: PinStateBatch) => void,
-  ) {
+  async runSketch(...args: any[]) {
+    // Supports both new object-based signature and old positional args for backward compatibility.
+    // Normalize to RunSketchOptions object.
+    let opts: RunSketchOptions;
+    if (args.length === 1 && typeof args[0] === "object" && args[0] !== null && "code" in args[0]) {
+      opts = args[0] as RunSketchOptions;
+    } else {
+      const [
+        code,
+        onOutput,
+        onError,
+        onExit,
+        onCompileError,
+        onCompileSuccess,
+        onPinState,
+        timeoutSec,
+        onIORegistry,
+        onTelemetry,
+        onPinStateBatch,
+      ] = args as any[];
+
+      opts = {
+        code,
+        onOutput,
+        onError,
+        onExit,
+        onCompileError,
+        onCompileSuccess,
+        onPinState,
+        timeoutSec,
+        onIORegistry,
+        onTelemetry,
+        onPinStateBatch,
+      } as RunSketchOptions;
+    }
+
+    // Evidence logging required by Task B1
+    try {
+      console.info("[B1-Evidence] Payload:", JSON.stringify(opts, null, 2));
+    } catch (err) {
+      this.logger.warn(`Could not stringify runSketch options for evidence: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Extract stable variables for the rest of the method
+    const {
+      code,
+      onOutput,
+      onError,
+      onExit,
+      onCompileError,
+      onCompileSuccess,
+      onPinState,
+      timeoutSec,
+      onIORegistry,
+      onTelemetry,
+      onPinStateBatch,
+    } = opts as RunSketchOptions;
+
     // Lazy initialization: ensure Docker is checked and temp directory exists
     this.ensureDockerChecked();
     await this.ensureTempDir();
-    
+
     if (!this.transitionTo(SimulationState.STARTING)) {
       this.logger.warn(
         `runSketch ignored - invalid state: ${this.state}`,
