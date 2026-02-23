@@ -393,7 +393,13 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         data: JSON.stringify({ type: "start_simulation", timeout: simulationTimeout }, null, 2),
         protocol: "websocket",
       });
-      params.sendMessage({ type: "start_simulation", timeout: simulationTimeout });
+      // Use immediate send for start_simulation when available to ensure
+      // WS frame is emitted deterministically for E2E tests and real-time control.
+      if (typeof params.sendMessageImmediate === "function") {
+        params.sendMessageImmediate({ type: "start_simulation", timeout: simulationTimeout });
+      } else {
+        params.sendMessage({ type: "start_simulation", timeout: simulationTimeout });
+      }
       return { success: true };
     },
     onSuccess: () => {
