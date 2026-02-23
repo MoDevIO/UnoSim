@@ -64,6 +64,7 @@ import type {
   ParserMessage,
   IOPinRecord,
 } from "@shared/schema";
+import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import { isMac } from "@/lib/platform";
 
 // Lazy load SerialPlotter to defer recharts (~400KB) until needed
@@ -293,21 +294,9 @@ export default function ArduinoSimulator() {
 
   // placeholder for compilation-start callback
   const startSimulationRef = useRef<(() => void) | null>(null);
-  const startSimulation = useCallback(() => {
-    startSimulationRef.current?.();
-  }, []);
 
 
 
-  const setHasCompiledOnceRef = useRef<
-    ((value: boolean | ((prev: boolean) => boolean)) => void) | null
-  >(null);
-  const setHasCompiledOnceProxy = useCallback(
-    (value: boolean | ((prev: boolean) => boolean)) => {
-      setHasCompiledOnceRef.current?.(value);
-    },
-    [],
-  );
 
   const {
     compilationStatus,
@@ -338,10 +327,9 @@ export default function ArduinoSimulator() {
     setParserPanelDismissed,
     resetPinUI,
     setIoRegistry,
-    setHasCompiledOnce: setHasCompiledOnceProxy,
     setIsModified,
     setDebugMessages,
-    addDebugMessage: (params) =>
+    addDebugMessage: (params: DebugMessageParams) =>
       addDebugMessage(
         params.source,
         params.type,
@@ -352,7 +340,6 @@ export default function ArduinoSimulator() {
     isBackendUnreachableError,
     triggerErrorGlitch,
     toast,
-    startSimulation,
   });
 
   // now that compilation helpers exist we can initialise the full simulation
@@ -378,7 +365,7 @@ export default function ArduinoSimulator() {
     sendMessageImmediate,
     resetPinUI,
     clearOutputs,
-    addDebugMessage: (params) =>
+    addDebugMessage: (params: DebugMessageParams) =>
       addDebugMessage(
         params.source,
         params.type,
@@ -397,7 +384,6 @@ export default function ArduinoSimulator() {
     startSimulationRef,
   });
 
-  setHasCompiledOnceRef.current = setHasCompiledOnce;
 
 
 
