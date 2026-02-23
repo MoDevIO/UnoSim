@@ -191,7 +191,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
               onPinStateBatch: (batch: { states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }>; timestamp: number }) => {
                 sendMessageToClient(ws, { type: "pin_state_batch", states: batch.states, timestamp: batch.timestamp });
               },
-              context: { sessionId: clientState.testRunId, label: data.label },
+              context: { sessionId: clientState.testRunId, label: data.label || "default-ws" },
             };
 
             clientState.runner.runSketch(opts);
