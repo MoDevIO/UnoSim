@@ -194,7 +194,27 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
               context: { sessionId: clientState.testRunId, label: data.label || "default-ws" },
             };
 
-            clientState.runner.runSketch(opts);
+            // Log the consolidated payload for audit/evidence purposes
+            try {
+              console.info("[B1-Evidence] Payload:", JSON.stringify(opts, null, 2));
+            } catch (err) {
+              logger.warn(`Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`);
+            }
+
+            // Call the legacy positional signature to preserve exact runtime behavior
+            clientState.runner.runSketch(
+              lastCompiledCode,
+              opts.onOutput,
+              opts.onError,
+              opts.onExit,
+              opts.onCompileError,
+              opts.onCompileSuccess,
+              opts.onPinState,
+              opts.timeoutSec,
+              opts.onIORegistry,
+              opts.onTelemetry,
+              opts.onPinStateBatch,
+            );
           }
             break;
 
