@@ -10,10 +10,17 @@
 - Jede Arbeit im Working-Branch (feature/*, refactor/*, fix/*).
 - Pfad: Working-Branch -> dev -> main.
 - Vor Merge in dev: dev in Working-Branch ziehen und Konflikte lokal lösen.
+
 2.2 Test-Integrität:
+
 - Kompletter lokaler Test-Lauf (unit, integration, e2e) vor jedem Push.
 - Bestehende Tests sind unantastbare Spezifikationen (Immutability).
 - Test-Anpassungen erfordern technische Begründung und explizite User-Genehmigung.
+
+2.3 Commit-Etikette & Constraints:
+- Längenbeschränkung: Commit-Header dürfen maximal 100 Zeichen lang sein (wegen commitlint/husky).
+- Format: Nutze Conventional Commits (z. B. `feat(scope): ...` oder `refactor(scope): ...`).
+- Atomarität: Erst committen, dann Branchen wechseln. Ein fehlgeschlagener Commit-Hook muss sofort korrigiert werden; kein Branch-Wechsel mit "dirty" State ohne explizites Stashing.
 
 ## 3. Vorgehensweise für den Agenten (Pro Feature)
 1. Ist-Zustand (State/DOM/Props) vor Änderung.
