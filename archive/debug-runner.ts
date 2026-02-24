@@ -1,4 +1,4 @@
-import { SandboxRunner } from "./server/services/sandbox-runner.ts";
+import { SandboxRunner } from "../server/services/sandbox-runner.ts";
 
 (async () => {
   const runner = new SandboxRunner();
