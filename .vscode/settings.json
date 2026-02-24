@@ -17,7 +17,6 @@
     ".gitlab-ci.yml": false,
     "node_modules": false,
     "temp": false,
-    "run-tests.sh": false,
     "vitest.config.ts": false,
     "playwright.config.ts": false,
     "package.json": false,
