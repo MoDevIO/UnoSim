@@ -126,6 +126,8 @@ UNOWEBSIM_gitlab/
 logs/
 temp/
 *.log
+run-tests_output.log
+# test-results folder is already covered earlier but repeat for clarity
 test-results/
 
 # Measurement reports (werden bei Bedarf neu erzeugt)

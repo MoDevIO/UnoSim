@@ -77,8 +77,25 @@ parse_test_results "Tests.*passed"
 echo -e "    ${OK} Unit-Tests & Coverage abgeschlossen"
 
 # 3. E2E-Tests
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-run_task "E2E-Tests" "npm run test:e2e"
+echo -e "    ${D}Reinige Ports & Cooldown...${RS}"
+# zuerst sämtliche Prozesse auf Port 3000 abbrechen – falls der Server
+# unberechtigt weiterläuft, führt das bei parallelen Tests zu Kollisionen.
+lsof -ti:3000 | xargs -r kill -9 2>/dev/null || true
+for port in {3001..3005}; do
+  lsof -ti:$port | xargs -r kill -9 2>/dev/null || true
+done
+pkill -f "tsx server/index.ts" 2>/dev/null || true
+
+# WICHTIG: 5 Sekunden warten, damit der Server komplett herunterfährt
+# und später frisch starten kann – besonders wichtig beim Wiederholen.
+sleep 5
+
+# Umgebungsvariablen setzen, damit Playwright eine gültige baseURL nutzt
+export PORT=3000
+export BASE_URL="http://localhost:3000"
+
+# Starte E2E seriell mit eindeutiger Workerzahl
+run_task "E2E-Tests" "npx playwright test --workers=1"
 parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
 echo -e "    ${OK} E2E-Tests abgeschlossen"
 

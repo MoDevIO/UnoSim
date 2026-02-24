@@ -3,7 +3,7 @@ import { SandboxRunner } from "../../../server/services/sandbox-runner";
 
 // Skip only when SKIP_HEAVY_TESTS is explicitly set to a truthy value (default: run heavy/integration tests)
 const skipHeavy = process.env.SKIP_HEAVY_TESTS === "1" || process.env.SKIP_HEAVY_TESTS === "true";
-const maybeDescribe = skipHeavy ? describe.skip : describe;
+const maybeDescribe = describe;
 
 maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => {
   let runner: SandboxRunner;

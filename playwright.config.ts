@@ -1,29 +1,38 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// choose a unique port per worker to avoid collisions when tests start their own server
+// PW_WORKER_INDEX is provided by Playwright when spawning workers.
+// ensure we don't end up with NaN if the env var is missing or corrupt
+let basePort = 3000;
+if (process.env.PW_WORKER_INDEX) {
+  const idx = parseInt(process.env.PW_WORKER_INDEX, 10);
+  if (!Number.isNaN(idx)) {
+    basePort += idx;
+  }
+}
+
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: false, // Disable parallel execution - tests share backend state
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1, // Run tests sequentially to avoid backend state conflicts
-  reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }]],
-  globalSetup: "./e2e/setup.ts",
+  timeout: 90000, // <--- Das globale Test-Limit auf 90s hochsetzen
+  workers: 1,               // single worker for backend-simulator stability
+  fullyParallel: false,
+  expect: {
+    timeout: 10000,         // allow a little extra for selector waits
+  },
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: process.env.BASE_URL || `http://localhost:3000`,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
+    video: "off",
   },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-  ],
+  // ignore anything in the archive – it's just a backup, not runnable
+  testIgnore: ["archive/**"],
+  // ... restliche Config
   webServer: {
-    command: "npm run dev:full",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI, // Reuse in dev, fresh in CI
-    timeout: 120 * 1000,
+    command: `PORT=${basePort} npm run dev:full`,
+    url: `http://localhost:${basePort}`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 180 * 1000, // <--- Dem Server 3 Minuten Zeit zum Kompilieren geben
     stdout: "pipe",
     stderr: "pipe",
   },

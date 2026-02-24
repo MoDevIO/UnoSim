@@ -2,6 +2,8 @@
 
 import { spawn } from "child_process";
 import { writeFile, mkdir, rm } from "fs/promises";
+import { mkdtempSync } from "fs";
+import { tmpdir } from "os";
 import { join, basename } from "path";
 import { randomUUID } from "crypto";
 import { Logger } from "@shared/logger";
@@ -62,7 +64,13 @@ export class ArduinoCompiler {
     tempRoot?: string,
   ): Promise<CompilationResult> {
     const sketchId = randomUUID();
-    const baseTempDir = tempRoot || this.tempDir;
+
+    // use a unique temporary directory per-call to avoid state conflicts when
+    // multiple compilations run in parallel (e.g. workers=4 during tests).
+    // callers can still provide tempRoot for deterministic paths in unit tests.
+    const baseTempDir =
+      tempRoot || mkdtempSync(join(tmpdir(), "unowebsim-"));
+
     const sketchDir = join(baseTempDir, sketchId);
     const sketchFile = join(sketchDir, `${sketchId}.ino`);
 
@@ -255,6 +263,14 @@ export class ArduinoCompiler {
         await rm(sketchDir, { recursive: true, force: true });
       } catch (error) {
         this.logger.warn(`Failed to clean up temp directory: ${error}`);
+      }
+      // remove base temp folder if we created it ourselves
+      if (!tempRoot) {
+        try {
+          await rm(baseTempDir, { recursive: true, force: true });
+        } catch (error) {
+          this.logger.warn(`Failed to remove base temp directory: ${error}`);
+        }
       }
     }
   }

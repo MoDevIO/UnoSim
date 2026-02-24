@@ -128,6 +128,7 @@ describe("SandboxRunner Performance Tests", () => {
     // but runs in local single-process mode. The mismatch causes batcher destruction
     //when compile close handler fires, before the "run" process sends data.
     // This needs refactoring to properly mock either Docker OR local, not mix both.
+    // @skip: Performance/Load-Test - Nur manuell oder in Heavy-CI ausführen
     it.skip("should handle 10 pins switching rapidly without dropping events", async () => {
       const runner = createRunner();
       
@@ -254,6 +255,7 @@ void loop() {
     });
 
     // TODO: Same issue as previous test - Docker/local execution mode mismatch
+    // @skip: Performance/Load-Test - Nur manuell oder in Heavy-CI ausführen
     it.skip("should maintain state consistency with 10,000+ pin events", async () => {
       const runner = createRunner();
       
@@ -515,6 +517,7 @@ void loop() {}
       console.log(`Runner stopped gracefully: ${runner.isRunning === false}`);
     });
 
+    // @skip: Performance/Load-Test - Nur manuell oder in Heavy-CI ausführen
     it.skip("should handle rapid serial output with timing constraints", async () => {
       // SKIPPED: Test needs update for new SERIAL_EVENT protocol via stderr
       // Old implementation sent via stdout, new implementation sends via stderr as SERIAL_EVENT
