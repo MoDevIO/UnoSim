@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">36.57% </span>
+                <span class="strong">36.69% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>154/421</span>
+                <span class='fraction'>153/417</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">23.95% </span>
+                <span class="strong">24.3% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>69/288</span>
+                <span class='fraction'>70/288</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">39.31% </span>
+                <span class="strong">39.36% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>149/379</span>
+                <span class='fraction'>148/376</span>
             </div>
         
             
@@ -1818,10 +1818,7 @@
 <a name='L1753'></a><a href='#L1753'>1753</a>
 <a name='L1754'></a><a href='#L1754'>1754</a>
 <a name='L1755'></a><a href='#L1755'>1755</a>
-<a name='L1756'></a><a href='#L1756'>1756</a>
-<a name='L1757'></a><a href='#L1757'>1757</a>
-<a name='L1758'></a><a href='#L1758'>1758</a>
-<a name='L1759'></a><a href='#L1759'>1759</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1756'></a><a href='#L1756'>1756</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2138,7 +2135,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2267,7 +2263,6 @@
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2375,7 +2370,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2598,7 +2592,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -2650,7 +2643,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -2988,6 +2980,8 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3884,10 +3878,9 @@ export default function ArduinoSimulator() {
     setCompilationStatus,
     arduinoCliStatus,
     setArduinoCliStatus,
-    gccStatus,
-    setGccStatus,
     hasCompilationErrors,
     setHasCompilationErrors,
+    compilerErrors,
     lastCompilationResult,
     setLastCompilationResult,
     cliOutput,
@@ -4026,7 +4019,6 @@ export default function ArduinoSimulator() {
     // Reset status when code actually changes
     // Reset both labels to idle when code changes
     <span class="missing-if-branch" title="if path not taken" >I</span>if (arduinoCliStatus !== "idle") <span class="cstat-no" title="statement not covered" >setArduinoCliStatus("idle");</span>
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (gccStatus !== "idle") <span class="cstat-no" title="statement not covered" >setGccStatus("idle");</span>
     <span class="missing-if-branch" title="if path not taken" >I</span>if (compilationStatus !== "ready") <span class="cstat-no" title="statement not covered" >setCompilationStatus("ready");</span>
 &nbsp;
     // Note: Simulation stopping on code change is now handled in handleCodeChange
@@ -4140,7 +4132,6 @@ export default function ArduinoSimulator() {
     appendRenderedText,
     setSerialOutput,
     setArduinoCliStatus,
-    setGccStatus,
     setCliOutput,
     setHasCompilationErrors,
     setLastCompilationResult,
@@ -4353,7 +4344,6 @@ export default function ArduinoSimulator() {
 <span class="cstat-no" title="statement not covered" >      resetPinUI();</span>
 <span class="cstat-no" title="statement not covered" >      setCompilationStatus("ready");</span>
 <span class="cstat-no" title="statement not covered" >      setArduinoCliStatus("idle");</span>
-<span class="cstat-no" title="statement not covered" >      setGccStatus("idle");</span>
 <span class="cstat-no" title="statement not covered" >      setLastCompilationResult(null);</span>
 <span class="cstat-no" title="statement not covered" >      setSimulationStatus("stopped");</span>
 <span class="cstat-no" title="statement not covered" >      setHasCompiledOnce(false);</span>
@@ -4410,7 +4400,6 @@ export default function ArduinoSimulator() {
     });
 <span class="cstat-no" title="statement not covered" >    setCompilationStatus("ready");</span>
 <span class="cstat-no" title="statement not covered" >    setArduinoCliStatus("idle");</span>
-<span class="cstat-no" title="statement not covered" >    setGccStatus("idle");</span>
 <span class="cstat-no" title="statement not covered" >    setLastCompilationResult(null);</span>
 <span class="cstat-no" title="statement not covered" >    setSimulationStatus("stopped");</span>
 <span class="cstat-no" title="statement not covered" >    setHasCompiledOnce(false);</span>
@@ -4753,6 +4742,8 @@ export default function ArduinoSimulator() {
         &lt;div className="flex-1 min-h-0 w-full"&gt;
           &lt;CompilationOutput
             output={cliOutput}
+            errors={compilerErrors}
+            isSuccess={!hasCompilationErrors &amp;&amp; compilationStatus === "success"}
             onClear={handleClearCompilationOutput}
           /&gt;
         &lt;/div&gt;
@@ -5344,7 +5335,7 @@ export default function ArduinoSimulator() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-23T18:55:39.917Z
+                at 2026-02-25T10:51:17.502Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

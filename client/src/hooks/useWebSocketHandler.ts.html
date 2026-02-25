@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">18.12% </span>
+                <span class="strong">19.01% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>31/171</span>
+                <span class='fraction'>31/163</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">12.29% </span>
+                <span class="strong">12.93% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>15/122</span>
+                <span class='fraction'>15/116</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">29.16% </span>
+                <span class="strong">31.81% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>7/24</span>
+                <span class='fraction'>7/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">19.1% </span>
+                <span class="strong">20.13% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>30/157</span>
+                <span class='fraction'>30/149</span>
             </div>
         
             
@@ -425,19 +425,7 @@
 <a name='L360'></a><a href='#L360'>360</a>
 <a name='L361'></a><a href='#L361'>361</a>
 <a name='L362'></a><a href='#L362'>362</a>
-<a name='L363'></a><a href='#L363'>363</a>
-<a name='L364'></a><a href='#L364'>364</a>
-<a name='L365'></a><a href='#L365'>365</a>
-<a name='L366'></a><a href='#L366'>366</a>
-<a name='L367'></a><a href='#L367'>367</a>
-<a name='L368'></a><a href='#L368'>368</a>
-<a name='L369'></a><a href='#L369'>369</a>
-<a name='L370'></a><a href='#L370'>370</a>
-<a name='L371'></a><a href='#L371'>371</a>
-<a name='L372'></a><a href='#L372'>372</a>
-<a name='L373'></a><a href='#L373'>373</a>
-<a name='L374'></a><a href='#L374'>374</a>
-<a name='L375'></a><a href='#L375'>375</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L363'></a><a href='#L363'>363</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -447,8 +435,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -610,14 +596,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -629,9 +607,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -835,7 +811,6 @@ type UseWebSocketHandlerParams = {
   appendRenderedText: (text: string) =&gt; void;
   setSerialOutput: React.Dispatch&lt;React.SetStateAction&lt;OutputLine[]&gt;&gt;;
   setArduinoCliStatus: (v: any) =&gt; void;
-  setGccStatus: (v: any) =&gt; void;
   setCliOutput: React.Dispatch&lt;React.SetStateAction&lt;string&gt;&gt;;
   setHasCompilationErrors: React.Dispatch&lt;React.SetStateAction&lt;boolean&gt;&gt;;
   setLastCompilationResult: React.Dispatch&lt;React.SetStateAction&lt;"success" | "error" | null&gt;&gt;;
@@ -873,7 +848,6 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     appendRenderedText,
     setSerialOutput,
     setArduinoCliStatus,
-    setGccStatus,
     setCliOutput,
     setHasCompilationErrors,
     setLastCompilationResult,
@@ -982,14 +956,6 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
 <span class="cstat-no" title="statement not covered" >        if ((message as any).arduinoCliStatus !== undefined) {</span>
 <span class="cstat-no" title="statement not covered" >          setArduinoCliStatus((message as any).arduinoCliStatus);</span>
         }
-<span class="cstat-no" title="statement not covered" >        if ((message as any).gccStatus !== undefined) {</span>
-<span class="cstat-no" title="statement not covered" >          setGccStatus((message as any).gccStatus);</span>
-<span class="cstat-no" title="statement not covered" >          if ((message as any).gccStatus === "success" || (message as any).gccStatus === "error") {</span>
-<span class="cstat-no" title="statement not covered" >            setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >              setGccStatus("idle");</span>
-            }, 2000);
-          }
-        }
 <span class="cstat-no" title="statement not covered" >        if ((message as any).message) {</span>
 <span class="cstat-no" title="statement not covered" >          setCliOutput((message as any).message);</span>
         }
@@ -1003,12 +969,10 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
 <span class="cstat-no" title="statement not covered" >        setShowCompilationOutput(gccErrorState.showCompilationOutput);</span>
 <span class="cstat-no" title="statement not covered" >        setParserPanelDismissed(gccErrorState.parserPanelDismissed);</span>
 <span class="cstat-no" title="statement not covered" >        setActiveOutputTab(gccErrorState.activeOutputTab);</span>
-<span class="cstat-no" title="statement not covered" >        setGccStatus("error");</span>
+        // mark compilation error state; gccStatus no longer tracked
 <span class="cstat-no" title="statement not covered" >        setCompilationStatus("error");</span>
 <span class="cstat-no" title="statement not covered" >        setSimulationStatus("stopped");</span>
-<span class="cstat-no" title="statement not covered" >        setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >          setGccStatus("idle");</span>
-        }, 2000);
+        // no need to reset gccStatus
 <span class="cstat-no" title="statement not covered" >        break;</span>
       }
       case "simulation_status": {
@@ -1192,7 +1156,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-23T18:55:39.917Z
+                at 2026-02-25T10:51:17.502Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
