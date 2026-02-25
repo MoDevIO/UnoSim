@@ -52,6 +52,8 @@ export class SandboxRunner {
   private processController: IProcessController;
   private processKilled = false;
   private pauseStartTime: number | null = null;
+  // total time (ms) the simulation has spent paused during the current run
+  private totalPausedTime: number = 0;
   
   // Managers and helpers
   private logger = new Logger("SandboxRunner");
@@ -579,6 +581,7 @@ export class SandboxRunner {
 
     // Reset state
     this.pauseStartTime = null;
+    this.totalPausedTime = 0;
     this.registryManager.reset();
     this.registryManager.setBaudrate(this.baudrate);
       this.registryManager.enableWaitMode(300); // Reduced from 1500ms to 300ms - faster serial output
@@ -1083,8 +1086,10 @@ export class SandboxRunner {
     }
 
     try {
-      // Calculate pause duration before transition clears pauseStartTime
+        // Calculate pause duration before transition clears pauseStartTime
       const pauseDuration = Date.now() - (this.pauseStartTime || Date.now());
+      // accumulate so server knows total pause time (used for diagnostics if needed)
+      this.totalPausedTime += pauseDuration;
       
       // Send resume command with pause duration to adjust timing offset in C++
       if (!this.processKilled) {
@@ -1379,6 +1384,10 @@ export class SandboxRunner {
     this.processKilled = true;
     this.pendingCleanup = true;
     
+    // Reset timing counters to avoid leaks when stop() is called manually
+    this.pauseStartTime = null;
+    this.totalPausedTime = 0;
+
     // Stop and destroy PinStateBatcher
     if (this.pinStateBatcher) {
       this.pinStateBatcher.stop();

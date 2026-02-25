@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 
 const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
-const maybeDescribe = skipHeavy ? describe.skip : describe;
+const maybeDescribe = describe;
 
 maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
   let runner: SandboxRunner;
@@ -19,11 +19,14 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
   });
 
   it("should read pin value correctly BEFORE pause", async () => {
-    // Test that digitalRead works at all before pause
+    // Test that digitalRead works at all before pause.
+    // add BOOTED marker so onOutput fires immediately after start
     const code = `
       void setup() {
         Serial.begin(9600);
+        Serial.println("BOOTED");
         pinMode(2, INPUT);
+        Serial.println("START");
       }
       void loop() {
         int val = digitalRead(2);
@@ -34,52 +37,70 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
     `;
 
     const output: string[] = [];
-    let pinStateReceived = false;
 
     await new Promise<void>((resolve, reject) => {
+      // timers
       const timeout = setTimeout(() => {
         runner.stop();
+        process.stderr.write("[TEST] timeout reached, outputs seen:" + JSON.stringify(output) + "\n");
         reject(new Error("Timeout waiting for output"));
       }, 15000);
+      const healthTimer = setTimeout(() => {
+        console.error("[TEST] still waiting 10s, running=", runner.isRunning, "paused=", runner.isPaused, "output=", output);
+      }, 10000);
 
-      runner.runSketch(
-        code,
-        (line) => {
+      try {
+        // prepare callbacks first (avoid any race with runSketch)
+        let firstLine = true;
+        const onOutput = (line: string) => {
+          console.log("[OUT]", line);
           output.push(line);
-          // Check if we got at least one PIN2= output
-          const fullOutput = output.join("");
-          if (fullOutput.includes("PIN2=0") || fullOutput.includes("PIN2=1")) {
-            // Now set pin to HIGH
+          if (firstLine) {
+            firstLine = false;
+            // now that the sketch has produced output, process should exist
             runner.setPinValue(2, 1);
           }
-          // Wait for PIN2=1 to appear (after setting pin)
+          const fullOutput = output.join("");
           if (fullOutput.includes("PIN2=1")) {
             clearTimeout(timeout);
-            runner.stop();
-            resolve();
+            clearTimeout(healthTimer);
+            console.log("- Status before stop: running=", runner.isRunning, "paused=", runner.isPaused);
+            runner.stop().then(resolve).catch(reject);
           }
-        },
-        (err) => {
+        };
+
+        const onError = (err: string) => {
           // Ignore pin state messages
           if (err.includes("[[PIN_")) return;
           if (err.includes("[[STDIN_RECV")) return;
           console.error("Error:", err);
-        },
-        () => {}, // onExit
-        undefined, // onCompileError
-        undefined, // onCompileSuccess
-        (pin, type, value) => {
-          pinStateReceived = true;
-          console.log(`Pin state: pin=${pin}, type=${type}, value=${value}`);
-        },
-        10, // timeout
-      );
+        };
+
+        // start simulation after listeners are ready
+        runner.runSketch(
+          code,
+          onOutput,
+          onError,
+          () => {}, // onExit
+          undefined, // onCompileError
+          undefined, // onCompileSuccess
+          undefined,
+          10, // timeout
+        );
+
+      } catch (err) {
+        clearTimeout(timeout);
+        clearTimeout(healthTimer);
+        runner.stop();
+        reject(err);
+      }
     });
 
     const fullOutput = output.join("");
     expect(fullOutput).toContain("PIN2=1");
     console.log("✅ digitalRead works BEFORE pause");
-  });
+  }, 20000);
+
 
   it("should read pin value correctly AFTER pause/resume", async () => {
     const code = `

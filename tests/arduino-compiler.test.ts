@@ -45,8 +45,13 @@ describe("ArduinoCompiler", () => {
 
     expect(result.success).toBe(false);
     expect(result.arduinoCliStatus).toBe("error");
-    expect(result.errors).toBeTruthy();
-    expect(result.errors).toContain("sketch.ino");
+    // old string field is now `stderr`
+    expect(result.stderr).toBeTruthy();
+    expect(result.stderr).toContain("sketch.ino");
+    // parsed errors array should contain an object
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].file).toBe("sketch.ino");
+    expect(result.errors[0].message).toContain("expected ';'");
   });
 
   it("rejects invalid sketch missing setup or loop", async () => {
@@ -63,7 +68,7 @@ describe("ArduinoCompiler", () => {
     // should never call compileWithArduinoCli because validation fails early
     expect(compileSpy).not.toHaveBeenCalled();
     expect(result.success).toBe(false);
-    expect(result.errors).toContain("Missing Arduino functions");
+    expect(result.stderr).toContain("Missing Arduino functions");
     expect(result.arduinoCliStatus).toBe("error");
   });
 
@@ -78,7 +83,7 @@ describe("ArduinoCompiler", () => {
     const result = await compiler.compile(code);
 
     expect(result.success).toBe(false);
-    expect(result.errors).toContain("Arduino CLI not available");
+    expect(result.stderr).toContain("Arduino CLI not available");
     expect(result.arduinoCliStatus).toBe("error");
   });
 });

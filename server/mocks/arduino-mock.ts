@@ -96,7 +96,8 @@ static std::mutex cerrMutex;
 static std::atomic<bool> processIsPaused(false);
 static std::atomic<unsigned long> pausedTimeMs(0);
 static auto processStartTime = std::chrono::steady_clock::now();
-static unsigned long pauseTimeOffset = 0;
+// accumulated duration (ms) of all pauses — subtract when calculating elapsed time
+static unsigned long totalPausedTimeMs = 0;
 
 // Forward declaration
 void checkStdinForPinCommands();
@@ -328,13 +329,14 @@ unsigned long millis() {
         now - processStartTime
     ).count();
     
-    // Subtract any pause offsets that have been accumulated
-    return static_cast<unsigned long>(elapsed) - pauseTimeOffset;
+    // Subtract total paused time that has been accumulated
+    return static_cast<unsigned long>(elapsed) - totalPausedTimeMs;
 }
 
 unsigned long micros() {
     // If paused, return the frozen time value (in microseconds)
     if (processIsPaused.load()) {
+        // pausedTimeMs is stored in milliseconds, convert once
         return pausedTimeMs.load() * 1000UL;
     }
     
@@ -344,8 +346,8 @@ unsigned long micros() {
         now - processStartTime
     ).count();
     
-    // Subtract any pause offsets that have been accumulated
-    return static_cast<unsigned long>(elapsed) - (pauseTimeOffset * 1000UL);
+    // Subtract total paused time (converted to µs)
+    return static_cast<unsigned long>(elapsed) - (totalPausedTimeMs * 1000UL);
 }
 
 // Random Functions
@@ -857,19 +859,20 @@ void setExternalPinValue(int pin, int value) {
 
 // Helper functions for pause/resume timing
 void handlePauseTimeCommand() {
-    processIsPaused.store(true);
+    // compute current time while still running; only then flip pause flag
     unsigned long currentMs = millis();  // Get current time before freezing
     pausedTimeMs.store(currentMs);
+    processIsPaused.store(true);
     { std::lock_guard<std::mutex> lock(cerrMutex);
       std::cerr << "[[TIME_FROZEN:" << currentMs << "]]" << std::endl; }
 }
 
 void handleResumeTimeCommand(unsigned long pauseDurationMs) {
     processIsPaused.store(false);
-    // Adjust offset to account for the pause duration that elapsed in real time
-    pauseTimeOffset += pauseDurationMs;
+    // Accumulate total paused time so micros()/millis() can subtract it
+    totalPausedTimeMs += pauseDurationMs;
     { std::lock_guard<std::mutex> lock(cerrMutex);
-      std::cerr << "[[TIME_RESUMED:" << pauseTimeOffset << "]]" << std::endl; }
+      std::cerr << "[[TIME_RESUMED:" << totalPausedTimeMs << "]]" << std::endl; }
 }
 
 // Non-blocking check for stdin pin commands - called from delay() and txDelay()

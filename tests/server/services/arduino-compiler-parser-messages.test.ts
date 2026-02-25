@@ -305,7 +305,8 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       const result = await compiler.compile(code);
 
       expect(result.success).toBe(false);
-      expect(result.errors).toBeDefined();
+      expect(result.stderr).toBeDefined();
+      expect(result.stderr).not.toHaveLength(0);
 
       // Parser messages are present despite compiler error
       expect(result.parserMessages).toBeDefined();
@@ -314,9 +315,9 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       );
       expect(serialMessages.length).toBeGreaterThan(0);
 
-      // Serial warnings not in errors field
-      expect(result.errors).not.toContain("Serial.begin");
-      expect(result.errors).not.toContain("9600");
+      // Serial warnings not in stderr text
+      expect(result.stderr).not.toContain("Serial.begin");
+      expect(result.stderr).not.toContain("9600");
     });
 
     it("parserMessages on missing setup()/loop()", async () => {
@@ -330,14 +331,14 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       const result = await compiler.compile(code);
 
       expect(result.success).toBe(false);
-      expect(result.errors).toContain("setup()");
-      expect(result.errors).toContain("loop()");
+      expect(result.stderr).toContain("setup()");
+      expect(result.stderr).toContain("loop()");
 
       // Parser messages exist even with structural error
       expect(result.parserMessages).toBeDefined();
 
-      // Serial warnings not in error message
-      expect(result.errors).not.toContain("Serial.begin");
+      // Serial warnings not in stderr message
+      expect(result.stderr).not.toContain("Serial.begin");
     });
   });
 });

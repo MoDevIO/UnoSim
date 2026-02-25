@@ -79,9 +79,10 @@ describe("useBackendHealth", () => {
   it("should detect backend unreachable on fetch error", async () => {
     fetchSpy.mockRejectedValue(new Error("Network error"));
     
-    const { result } = renderHook(() => useBackendHealth(mockQueryClient));
-
+    let result: any;
     await act(async () => {
+      const hook = renderHook(() => useBackendHealth(mockQueryClient));
+      result = hook.result;
       vi.advanceTimersByTime(1000);
     });
 
@@ -94,9 +95,8 @@ describe("useBackendHealth", () => {
   it("should show toast when backend becomes unreachable", async () => {
     fetchSpy.mockRejectedValue(new Error("Connection refused"));
 
-    renderHook(() => useBackendHealth(mockQueryClient));
-
     await act(async () => {
+      renderHook(() => useBackendHealth(mockQueryClient));
       vi.advanceTimersByTime(1000);
     });
 
@@ -320,18 +320,20 @@ describe("useBackendHealth", () => {
     ).toBe(false);
   });
 
-  it("triggerErrorGlitch should show and hide glitch effect", () => {
+  it("triggerErrorGlitch should show and hide glitch effect", async () => {
     const { result } = renderHook(() => useBackendHealth(mockQueryClient));
 
     expect(result.current.showErrorGlitch).toBe(false);
 
-    act(() => {
+    // Fix: All state changes inside act
+    await act(async () => {
       result.current.triggerErrorGlitch(600);
     });
 
     expect(result.current.showErrorGlitch).toBe(true);
 
-    act(() => {
+    // Wait for effect to disappear using act timer advance
+    await act(async () => {
       vi.advanceTimersByTime(600);
     });
 

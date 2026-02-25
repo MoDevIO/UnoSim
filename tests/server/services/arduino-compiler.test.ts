@@ -7,6 +7,26 @@
  * - Lines 271-273: GCC Error without stderr
  */
 
+import { vi, expect, it, describe, beforeEach } from "vitest";
+
+// ESM-safe mock for filesystem helpers used by the compiler. We only override
+// the functions we care about; the rest of `fs` behaves normally.
+// we also provide a `default` export so imports like `import { mkdtempSync } from 'fs'`
+// still see a module with both named and default members.
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      mkdtempSync: vi.fn().mockReturnValue("/tmp/unowebsim-mock-dir"),
+    },
+    mkdtempSync: vi.fn().mockReturnValue("/tmp/unowebsim-mock-dir"),
+    rmSync: vi.fn(),
+    writeFileSync: vi.fn(),
+  };
+});
+
 import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
 import { spawn } from "child_process";
 import { writeFile, mkdir, rm } from "fs/promises";
@@ -58,9 +78,11 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // mocks defined at module level already ensure mkdtempSync is deterministic
+
     compiler = new ArduinoCompiler();
 
-    // Standard mocks
+    // Standard fs/promises mocks
     mockWriteFile.mockResolvedValue(undefined);
     mockMkdir.mockResolvedValue(undefined);
     mockRm.mockResolvedValue(undefined);
@@ -307,9 +329,10 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("Compilation failed"),
       );
+      expect(result.errors).toHaveLength(0);
     });
 
     it("should handle writeFile errors", async () => {
@@ -322,9 +345,10 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("Compilation failed"),
       );
+      expect(result.errors).toHaveLength(0);
     });
 
     // CRITICAL: Test für Zeile 88
@@ -348,6 +372,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
         },
       }));
 
+      // our implementation now performs two rm calls (sketchDir + baseDir)
       mockRm.mockRejectedValueOnce(new Error("Cleanup failure"));
 
       await compiler.compile(code);
@@ -355,6 +380,8 @@ describe("ArduinoCompiler - Full Coverage", () => {
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining("Cleanup failure"),
       );
+      // ensure rm was invoked at least once (cleanup attempted)
+      expect(mockRm).toHaveBeenCalled();
       warnSpy.mockRestore();
     });
   });
@@ -399,23 +426,26 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("setup() and loop()"),
       );
+      expect(result.errors).toHaveLength(0);
     });
 
     it("should fail when only setup() is missing", async () => {
       const code = `void loop() {}`;
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining("setup()"));
+      expect(result.stderr).toEqual(expect.stringContaining("setup()"));
+      expect(result.errors).toHaveLength(0);
     });
 
     it("should fail when only loop() is missing", async () => {
       const code = `void setup() {}`;
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(expect.stringContaining("loop()"));
+      expect(result.stderr).toEqual(expect.stringContaining("loop()"));
+      expect(result.errors).toHaveLength(0);
     });
   });
 
@@ -433,9 +463,12 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("Arduino CLI not available"),
       );
+      // spawn failure should produce a generic error entry
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain("Arduino CLI not available");
     });
 
     it("should handle arduino-cli compilation failure", async () => {
@@ -456,9 +489,13 @@ describe("ArduinoCompiler - Full Coverage", () => {
 
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
-      expect(result.errors).toEqual(
+      expect(result.stderr).toEqual(
         expect.stringContaining("expected semicolon"),
       );
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0].message).toContain("expected semicolon");
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0].message).toContain("expected semicolon");
     });
   });
 

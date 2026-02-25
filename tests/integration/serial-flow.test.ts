@@ -29,6 +29,7 @@ describe('Serial Output Flow Integration', () => {
   });
 
   test('Serial.print with delayed dots should arrive in separate chunks', async () => {
+    // increase timeout from default 5s to 15s since compilation+batching may exceed 5s
     const sketch = `
 void setup() {
   Serial.begin(9600);
@@ -56,7 +57,7 @@ void loop() {
     
     // Should contain dots (due to batching, they might arrive together)
     expect(fullOutput).toContain('.');
-  });
+  }, 15000);
 
   test('Serial.print with HEX conversion should format correctly', async () => {
     const sketch = `

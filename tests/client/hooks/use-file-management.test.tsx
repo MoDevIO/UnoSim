@@ -34,7 +34,6 @@ describe("useFileManagement", () => {
     baseParams.resetPinUI = vi.fn();
     baseParams.setCompilationStatus = vi.fn();
     baseParams.setArduinoCliStatus = vi.fn();
-    baseParams.setGccStatus = vi.fn();
     baseParams.setLastCompilationResult = vi.fn();
     baseParams.setSimulationStatus = vi.fn();
     baseParams.setHasCompiledOnce = vi.fn();

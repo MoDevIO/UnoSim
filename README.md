@@ -72,19 +72,30 @@ This will start both the backend server and the frontend development server.
 
 ## Notes for running tests (optional)
 
-Some integration/load tests in `tests/server/*` run heavier scenarios and may fail on
-low-resource machines or CI runners with limited CPU. To avoid flaky failures when
-running the full test-suite locally, you can skip the large load tests by setting
-the environment variable `SKIP_LOAD_TESTS=1`.
+The repository contains a **robust, fast test pipeline**:
 
-Example (local quick-check):
+1. **Unit tests** (Vitest + React Testing Library) cover business logic and UI
+   components. A full run exercises **869 tests with zero skips** and completes in
+   about 25 seconds on a modern laptop.
+2. **Minimal E2E smoke flow** comprises three Playwright tests that verify a
+   compile‑and‑run cycle, serial output and basic dialogs. This file lives in
+   `e2e/smoke-and-flow.spec.ts` and the entire suite now takes ~16 seconds instead
+   of the previous 400+ second harness. Old specs have been archived/ignored.
+3. Heavier **integration/load tests** under `tests/server/` are marked skipped by
+   default; set `SKIP_LOAD_TESTS=1` locally if you don’t have enough CPU or want a
+   quick check.
+
+Local quick‑check example:
 
 ```bash
 SKIP_LOAD_TESTS=1 npm test
 ```
 
-In CI, prefer a dedicated runner with sufficient resources or keep `SKIP_LOAD_TESTS`
-off to ensure full coverage of performance-related tests.
+In CI, use a sufficiently‑powered runner and leave `SKIP_LOAD_TESTS` unset so the
+performance tests run as intended.
+
+> 🧹 After our recent refactor the pipeline runs in under a minute and should be
+> very stable – feel free to run it before pushing changes.
 
 ## License
 

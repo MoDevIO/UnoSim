@@ -53,7 +53,8 @@ function fetchHttp(
 }
 
 const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
-const loadDescribe = skipHeavy ? describe.skip : describe;
+// Manual benchmarks; require a live dev server and are too heavy for CI
+const loadDescribe = describe.skip;
 
 loadDescribe("Load Test: 500 Concurrent Clients", () => {
   const API_BASE = "http://localhost:3000";

@@ -94,8 +94,8 @@ void loop() {
       const result = await compiler.compile(code);
 
       expect(result.success).toBe(false);
-      expect(result.errors).toContain("sketch.ino:6:");
-      expect(result.errors).toContain("undefinedFunction");
+      expect(result.stderr).toContain("sketch.ino:6:");
+      expect(result.stderr).toContain("undefinedFunction");
     });
 
     it("should report correct line number for recursive function error", async () => {
@@ -144,8 +144,8 @@ void rek()
       const result = await compiler.compile(code);
 
       expect(result.success).toBe(false);
-      expect(result.errors).toContain("sketch.ino:5:");
-      expect(result.errors).toContain("rek");
+      expect(result.stderr).toContain("sketch.ino:5:");
+      expect(result.stderr).toContain("rek");
     });
   });
 
@@ -197,8 +197,8 @@ void loop() {
 
       expect(result.success).toBe(false);
       // Should be corrected to line 5 (original line in user code)
-      expect(result.errors).toContain("sketch.ino:5:");
-      expect(result.errors).toContain("undefinedFunction");
+      expect(result.stderr).toContain("sketch.ino:5:");
+      expect(result.stderr).toContain("undefinedFunction");
     });
 
     it("should correct line numbers with multi-line header", async () => {
@@ -251,7 +251,7 @@ void loop() {
 
       expect(result.success).toBe(false);
       // Should be corrected to line 4
-      expect(result.errors).toContain("sketch.ino:4:");
+      expect(result.stderr).toContain("sketch.ino:4:");
     });
   });
 
@@ -310,7 +310,7 @@ void loop() {
 
       expect(result.success).toBe(false);
       // Should be corrected to line 9
-      expect(result.errors).toContain("sketch.ino:9:");
+      expect(result.stderr).toContain("sketch.ino:9:");
     });
 
     it("should handle multiple errors with different line numbers", async () => {
@@ -356,9 +356,9 @@ sketch.ino:12:3: error: use of undeclared identifier 'error3'\n`),
       const result = await compiler.compile(code, headers);
 
       expect(result.success).toBe(false);
-      expect(result.errors).toContain("sketch.ino:4:");
-      expect(result.errors).toContain("sketch.ino:5:");
-      expect(result.errors).toContain("sketch.ino:9:");
+      expect(result.stderr).toContain("sketch.ino:4:");
+      expect(result.stderr).toContain("sketch.ino:5:");
+      expect(result.stderr).toContain("sketch.ino:9:");
     });
   });
 
@@ -399,9 +399,9 @@ void loop() {
 
       expect(result.success).toBe(false);
       // Should not be negative, minimum is line 1
-      expect(result.errors).toMatch(/sketch\.ino:[1-9]\d*:/);
-      expect(result.errors).not.toMatch(/sketch\.ino:0:/);
-      expect(result.errors).not.toMatch(/sketch\.ino:-/);
+      expect(result.stderr).toMatch(/sketch\.ino:[1-9]\d*:/);
+      expect(result.stderr).not.toMatch(/sketch\.ino:0:/);
+      expect(result.stderr).not.toMatch(/sketch\.ino:-/);
     });
 
     it("should preserve errors without line numbers", async () => {
@@ -436,7 +436,7 @@ void loop() {
       const result = await compiler.compile(code);
 
       expect(result.success).toBe(false);
-      expect(result.errors).toContain("general compilation error");
+      expect(result.stderr).toContain("general compilation error");
     });
   });
 
@@ -479,7 +479,8 @@ void loop() {
       const result = await compiler.compile(code, headers);
 
       expect(result.success).toBe(true);
-      expect(result.errors).toBeUndefined();
+      expect(result.stderr).toBeUndefined();
+      expect(result.errors).toHaveLength(0);
     });
   });
 });

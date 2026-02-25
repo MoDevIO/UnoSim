@@ -480,6 +480,7 @@ void loop() {
   });
 
   describe("Test 3: Concurrency & Cleanup - Multi-Instance Stress", () => {
+    // @skip: Performance/Load-Test - Nur manuell oder in Heavy-CI ausführen
     it.skip("should handle 3 concurrent simulations with isolated temp directories", async () => {
       // NOTE: Skipped for speed optimization - concurrent testing adds significant overhead
       // The underlying concurrency logic is covered by other tests

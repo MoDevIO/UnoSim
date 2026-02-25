@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 
 const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
-const maybeDescribe = skipHeavy ? describe.skip : describe;
+const maybeDescribe = describe;
 
 maybeDescribe("Timing - delay() accuracy", () => {
   let runner: SandboxRunner;

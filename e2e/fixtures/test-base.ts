@@ -41,7 +41,7 @@ export const test = base.extend<TestFixtures>({
     const toggle = page.locator('[data-testid="button-simulate-toggle"]');
     await use(toggle);
   },
-  startSimulation: async ({ simulationToggle }, use) => {
+  startSimulation: async ({ simulationToggle, page }, use) => {
     await use(async () => {
       await expect(simulationToggle).toBeVisible();
       const currentLabel = await simulationToggle.getAttribute("aria-label");
@@ -60,6 +60,13 @@ export const test = base.extend<TestFixtures>({
           .then(() => true)
           .catch(() => false);
         if (didStart) {
+          // wait for compile round‑trip so UI has settled
+          await page.waitForResponse(
+            (resp) => resp.url().includes("/api/compile") && resp.status() === 200,
+            { timeout: 15000 }
+          ).catch(() => {});
+          // also ensure some running-state indicator present
+          await page.waitForSelector('text=Running', { timeout: 10000 }).catch(() => {});
           return;
         }
         await expect(simulationToggle).toBeEnabled({ timeout: 5000 });

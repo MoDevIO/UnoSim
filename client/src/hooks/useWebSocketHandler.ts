@@ -22,7 +22,6 @@ type UseWebSocketHandlerParams = {
   appendRenderedText: (text: string) => void;
   setSerialOutput: React.Dispatch<React.SetStateAction<OutputLine[]>>;
   setArduinoCliStatus: (v: any) => void;
-  setGccStatus: (v: any) => void;
   setCliOutput: React.Dispatch<React.SetStateAction<string>>;
   setHasCompilationErrors: React.Dispatch<React.SetStateAction<boolean>>;
   setLastCompilationResult: React.Dispatch<React.SetStateAction<"success" | "error" | null>>;
@@ -60,7 +59,6 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     appendRenderedText,
     setSerialOutput,
     setArduinoCliStatus,
-    setGccStatus,
     setCliOutput,
     setHasCompilationErrors,
     setLastCompilationResult,
@@ -169,14 +167,6 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
         if ((message as any).arduinoCliStatus !== undefined) {
           setArduinoCliStatus((message as any).arduinoCliStatus);
         }
-        if ((message as any).gccStatus !== undefined) {
-          setGccStatus((message as any).gccStatus);
-          if ((message as any).gccStatus === "success" || (message as any).gccStatus === "error") {
-            setTimeout(() => {
-              setGccStatus("idle");
-            }, 2000);
-          }
-        }
         if ((message as any).message) {
           setCliOutput((message as any).message);
         }
@@ -190,12 +180,10 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
         setShowCompilationOutput(gccErrorState.showCompilationOutput);
         setParserPanelDismissed(gccErrorState.parserPanelDismissed);
         setActiveOutputTab(gccErrorState.activeOutputTab);
-        setGccStatus("error");
+        // mark compilation error state; gccStatus no longer tracked
         setCompilationStatus("error");
         setSimulationStatus("stopped");
-        setTimeout(() => {
-          setGccStatus("idle");
-        }, 2000);
+        // no need to reset gccStatus
         break;
       }
       case "simulation_status": {

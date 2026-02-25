@@ -1,8 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Terminal, Trash2, CheckCircle2 } from "lucide-react";
 
+interface CompilationError {
+  file: string;
+  line: number;
+  column: number;
+  type: "error" | "warning";
+  message: string;
+}
+
 interface CompilationOutputProps {
-  output: string;
+  output?: string;
+  errors?: CompilationError[];
   onClear: () => void;
   isSuccess?: boolean;
   showSuccessMessage?: boolean;
@@ -11,6 +20,7 @@ interface CompilationOutputProps {
 
 export function CompilationOutput({
   output,
+  errors,
   onClear,
   isSuccess = false,
   showSuccessMessage = true,
@@ -60,16 +70,29 @@ export function CompilationOutput({
       )}
 
       <div className="flex-1 overflow-auto custom-scrollbar">
-        <div
-          className="console-output p-3 font-mono whitespace-pre-wrap"
-          data-testid="compilation-text"
-        >
-          {output || (
-            <div className="text-muted-foreground italic">
-              Compilation output will appear here...
-            </div>
-          )}
-        </div>
+        {errors && errors.length > 0 ? (
+          <div data-testid="compilation-errors" className="p-3 font-mono whitespace-pre-wrap">
+            {errors.map((e, idx) => (
+              <div
+                key={idx}
+                className={e.type === "error" ? "text-red-400" : "text-yellow-400"}
+              >
+                {e.file}{e.line ? `:${e.line}` : ""}{e.column ? `:${e.column}` : ""} {e.type}: {e.message}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="console-output p-3 font-mono whitespace-pre-wrap"
+            data-testid="compilation-text"
+          >
+            {output || (
+              <div className="text-muted-foreground italic">
+                Compilation output will appear here...
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
