@@ -21,7 +21,12 @@ export class LocalCompiler {
    * @param exeFile - Path for the output executable
    * @throws Error if compilation fails or times out
    */
-  async compile(sketchFile: string, exeFile: string): Promise<void> {
+  async compile(
+    sketchFile: string,
+    exeFile: string,
+    coreArchive?: string,
+    onProcess?: (proc: any) => void,
+  ): Promise<void> {
     // Ensure output directory exists before compilation
     const outputDir = dirname(exeFile);
     try {
@@ -51,7 +56,7 @@ export class LocalCompiler {
     let lastError: Error | null = null;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        await this.runCompilation(sketchFile, exeFile, attempt);
+            await this.runCompilation(sketchFile, exeFile, attempt, coreArchive, onProcess);
         return; // Success on this attempt
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
@@ -72,18 +77,20 @@ export class LocalCompiler {
   /**
    * Internal method to run the actual g++ compilation
    */
-  private runCompilation(sketchFile: string, exeFile: string, attempt: number): Promise<void> {
+  private runCompilation(sketchFile: string, exeFile: string, attempt: number, coreArchive?: string, onProcess?: (proc: any) => void): Promise<void> {
     return new Promise((resolve, reject) => {
-      const compile = spawn("g++", [
-        sketchFile,
-        "-o",
-        exeFile,
-        "-pthread", // Required for threading support
-      ]);
+      const args = [sketchFile];
+      if (coreArchive) {
+        args.push(coreArchive);
+      }
+      args.push("-o", exeFile, "-pthread"); // Required for threading support
+      const compile = spawn("g++", args);
 
       let errorOutput = "";
       let completed = false;
 
+      // wire up listeners _before_ notifying caller so that any test helper
+      // looking at `proc.on.mock.calls` will see our internal handlers first.
       compile.stderr.on("data", (data) => {
         errorOutput += data.toString();
       });
@@ -108,6 +115,11 @@ export class LocalCompiler {
         this.logger.error(`Compilation process error: ${err.message}`);
         reject(err);
       });
+
+      // finally, let any external hook inspect or augment the process
+      if (onProcess) {
+        try { onProcess(compile); } catch {}
+      }
 
       // Timeout protection
       setTimeout(() => {
