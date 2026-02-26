@@ -27,6 +27,40 @@ enum SimulationState {
   ERROR = "error",
 }
 
+// Gatekeeper to limit concurrent compiler tasks globally
+class CompileGatekeeper {
+  private static readonly MAX_CONCURRENT = 8;
+  private available = CompileGatekeeper.MAX_CONCURRENT;
+  private queue: Array<() => void> = [];
+  private logger = new Logger("CompileGatekeeper");
+
+  async acquire(): Promise<() => void> {
+    return new Promise<() => void>((resolve) => {
+      const grant = () => {
+        this.available--;
+        this.logger.debug(`slot granted, remaining=${this.available}`);
+        resolve(() => this.release());
+      };
+
+      if (this.available > 0) {
+        grant();
+      } else {
+        this.queue.push(grant);
+        this.logger.debug(`queued request, queueLength=${this.queue.length}`);
+      }
+    });
+  }
+
+  private release(): void {
+    this.available++;
+    this.logger.debug(`slot released, remaining=${this.available}`);
+    if (this.queue.length) {
+      const next = this.queue.shift()!;
+      next();
+    }
+  }
+}
+
 // Configuration
 const SANDBOX_CONFIG = {
   // Docker settings
@@ -403,7 +437,7 @@ export class SandboxRunner {
       onError,
       onExit,
       onCompileError,
-      onCompileSuccess,
+      
       onPinState,
       timeoutSec,
       onIORegistry,
@@ -491,15 +525,12 @@ export class SandboxRunner {
       },
     });
     this.serialOutputBatcher.start();
-    
     // Give RegistryManager reference to SerialOutputBatcher for telemetry
     this.registryManager.setSerialOutputBatcher(this.serialOutputBatcher);
     
-    const sketchId = randomUUID();
     try {
-      // Build sketch files using helper
-      const files = await this.fileBuilder.build(code, sketchId);
-      this.currentSketchDir = files.sketchDir;
+      // prepare environment (write files, validate code)
+      const files = await this.prepareEnvironment(code);
       this.processKilled = false;
 
       // If stop() was called during startup, cleanup and exit early
@@ -511,29 +542,8 @@ export class SandboxRunner {
       // Create wrapped callbacks for message queuing
       const wrapped = this.createWrappedCallbacks(onOutput, onError, onPinState);
 
-      // Choose execution path
-      const executionTimeout =
-        timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
-
-      if (this.dockerAvailable && this.dockerImageBuilt) {
-        await this.runInDocker(
-          files,
-          wrapped,
-          onCompileError,
-          onCompileSuccess,
-          onExit,
-          executionTimeout,
-        );
-      } else {
-        await this.runLocally(
-          files,
-          wrapped,
-          onCompileError,
-          onCompileSuccess,
-          onExit,
-          executionTimeout,
-        );
-      }
+      // Delegate compilation and process startup to helper
+      await this.setupSimulationProcess(files, wrapped, opts);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       this.logger.error(`Kompilierfehler oder Timeout: ${errorMessage}`);
@@ -592,6 +602,108 @@ export class SandboxRunner {
     this.totalOutputBytes = 0;
     this.onOutputCallback = onOutput;
     this.ioRegistryCallback = onIORegistry;
+  }
+
+  /**
+   * Prepare environment: write sketch files and perform basic validation.
+   */
+  private async prepareEnvironment(code: string): Promise<{ sketchDir: string; sketchFile: string; exeFile: string }> {
+    const sketchId = randomUUID();
+    const files = await this.fileBuilder.build(code, sketchId);
+    this.currentSketchDir = files.sketchDir;
+    return files;
+  }
+
+  /**
+   * Perform compilation for local execution; docker path compiles inside container.
+   * Errors bubble up so callers can handle onCompileError.
+   */
+  private static compileGatekeeper = new CompileGatekeeper();
+
+  private async performCompilation(
+    sketchFile: string,
+    exeFile: string,
+    opts: RunSketchOptions,
+  ): Promise<void> {
+    // enforce concurrency limit even when Docker path is chosen
+    const WAIT_TIMEOUT_MS = 30000;
+    let release: () => void;
+    try {
+      release = await Promise.race([
+        SandboxRunner.compileGatekeeper.acquire(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
+        ),
+      ]);
+    } catch (err) {
+      this.logger.error(`Gatekeeper wait failed: ${err instanceof Error ? err.message : String(err)}`);
+      // mark runner state error to prevent further activity
+      this.transitionTo(SimulationState.ERROR);
+      throw err;
+    }
+    try {
+      if (this.dockerAvailable && this.dockerImageBuilt) {
+        // Docker handles compilation internally
+        return;
+      }
+      await this.localCompiler.compile(sketchFile, exeFile);
+      if (opts.onCompileSuccess) opts.onCompileSuccess();
+      await this.localCompiler.makeExecutable(exeFile);
+    } finally {
+      try {
+        release();
+      } catch {
+        // should never happen, but don't let it bubble
+      }
+    }
+  }
+
+  /**
+   * Setup simulation process: compile if needed and spawn either local or docker container.
+   */
+  private async setupSimulationProcess(
+    files: { sketchDir: string; sketchFile: string; exeFile: string },
+    callbacks: any,
+    opts: RunSketchOptions,
+  ): Promise<void> {
+    const { onCompileError, onCompileSuccess, onExit, timeoutSec } = opts;
+    const executionTimeout =
+      timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
+
+    if (this.dockerAvailable && this.dockerImageBuilt) {
+      await this.runInDocker(
+        files,
+        callbacks,
+        onCompileError,
+        onCompileSuccess,
+        onExit,
+        executionTimeout,
+      );
+    } else {
+      try {
+        await this.performCompilation(files.sketchFile, files.exeFile, opts);
+        if (
+          this.pendingCleanup ||
+          this.processKilled ||
+          this.state === SimulationState.STOPPED
+        ) {
+          this.markTempDirForCleanup();
+          return;
+        }
+
+        this.processController.spawn(files.exeFile);
+        this.processStartTime = Date.now();
+        this.transitionTo(SimulationState.RUNNING);
+        this.setupLocalHandlers(callbacks, onExit, executionTimeout);
+      } catch (err) {
+        if (onCompileError) onCompileError(err instanceof Error ? err.message : String(err));
+        if (onExit) onExit(-1);
+        this.transitionTo(SimulationState.STOPPED);
+        this.processController.destroySockets();
+        this.markTempDirForCleanup();
+        throw err;
+      }
+    }
   }
 
   /**
@@ -693,58 +805,6 @@ export class SandboxRunner {
       onExit,
       executionTimeout || SANDBOX_CONFIG.maxExecutionTimeSec,
     );
-  }
-
-  /**
-   * Run sketch locally (fallback when Docker unavailable)
-   */
-  private async runLocally(
-    files: { sketchDir: string; sketchFile: string; exeFile: string },
-    callbacks: any,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onExit?: (code: number | null) => void,
-    executionTimeout?: number,
-  ): Promise<void> {
-    try {
-      // Compile using LocalCompiler
-      await this.localCompiler.compile(files.sketchFile, files.exeFile);
-
-      if (onCompileSuccess) {
-        onCompileSuccess();
-      }
-
-      // Make executable
-      await this.localCompiler.makeExecutable(files.exeFile);
-
-      // If stop() was called during compilation, cleanup and exit early
-      if (this.pendingCleanup || this.processKilled || this.state === SimulationState.STOPPED) {
-        this.markTempDirForCleanup();
-        return;
-      }
-
-      // Run the compiled executable via ProcessController
-      this.processController.spawn(files.exeFile);
-      this.processStartTime = Date.now();
-      this.transitionTo(SimulationState.RUNNING);
-
-      this.setupLocalHandlers(
-        callbacks,
-        onExit,
-        executionTimeout || SANDBOX_CONFIG.maxExecutionTimeSec,
-      );
-    } catch (err) {
-      if (onCompileError) {
-        onCompileError(err instanceof Error ? err.message : String(err));
-      }
-      if (onExit) {
-        onExit(-1);
-      }
-      this.transitionTo(SimulationState.STOPPED);
-      this.processController.destroySockets();
-      this.markTempDirForCleanup();
-      return;
-    }
   }
 
   /**
