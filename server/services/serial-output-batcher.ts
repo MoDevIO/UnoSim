@@ -42,6 +42,9 @@ export class SerialOutputBatcher {
   private pendingData = "";
   private tickTimer: NodeJS.Timeout | null = null;
   
+  // paused flag prevents enqueue/start while paused (tests rely on this)
+  private paused = false;
+  
   // Telemetry counters (reset periodically)
   private intendedBytes = 0;
   private actualBytes = 0;
@@ -116,13 +119,15 @@ export class SerialOutputBatcher {
   enqueue(data: string): void {
     // After destroy(), enqueue is a no-op
     if (this.destroyed) return;
-    
+    // Do not accept data while paused; this prevents leaks during tests.
+    if (this.paused) return;
+
     // Count as intended (part of telemetry accounting)
     this.intendedBytes += data.length;
     this.totalBytes += data.length;
-    
+
     const newData = this.pendingData + data;
-    
+
     // Check if we would exceed maximum queue size
     if (newData.length > this.MAX_QUEUE_BYTES) {
       const overflow = newData.length - this.MAX_QUEUE_BYTES;
@@ -133,14 +138,13 @@ export class SerialOutputBatcher {
     } else {
       this.pendingData = newData;
     }
-  }
-  
-  /**
-   * Start the tick timer
-   */
-  start(): void {
-    if (this.tickTimer) return;
-    this.tickTimer = setInterval(() => this.tick(), this.config.tickIntervalMs);
+
+    // Ensure the ticking timer is running; do not create multiple intervals.
+    // However, if we're paused we must not start or restart the timer – data
+    // should remain buffered until resume().
+    if (!this.tickTimer && !this.paused) {
+      this.tickTimer = setInterval(() => this.tick(), this.config.tickIntervalMs);
+    }
   }
   
   /**
@@ -165,6 +169,7 @@ export class SerialOutputBatcher {
    * Pause the timer (keeps pending data)
    */
   pause(): void {
+    this.paused = true;
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
@@ -175,6 +180,7 @@ export class SerialOutputBatcher {
    * Resume the timer
    */
   resume(): void {
+    this.paused = false;
     this.start();
   }
   
@@ -190,6 +196,21 @@ export class SerialOutputBatcher {
     this.pendingData = "";
   }
   
+  /**
+   * Start the batching timer.
+   *
+   * The timer is not automatically started in the constructor because the
+   * caller may choose to configure additional callbacks first (e.g. the
+   * runner sets output/error handlers after instantiation).  The public
+   * `start()` method mirrors the semantics described in the design docs and
+   * allows the timer to be restarted after `pause()`.
+   */
+  start(): void {
+    // don't start when paused or already running
+    if (this.tickTimer || this.paused) return;
+    this.tickTimer = setInterval(() => this.tick(), this.config.tickIntervalMs);
+  }
+
   /**
    * Change baudrate and recalculate budget
    */

@@ -27,9 +27,6 @@ enum SimulationState {
   ERROR = "error",
 }
 
-// Path where precompiled core archives are stored (survive git clean)
-const CORE_CACHE_DIR = join(process.cwd(), "cache", "cores");
-
 // Gatekeeper to limit concurrent compiler tasks globally
 class CompileGatekeeper {
   private static readonly MAX_CONCURRENT = 8;
@@ -96,6 +93,8 @@ export class SandboxRunner {
   private logger = new Logger("SandboxRunner");
   private stderrParser = new StderrParser();
   private registryManager: RegistryManager;
+  // track when pause occurred so events can be tagged if needed
+  private lastPauseTimestamp: number | null = null;
   private timeoutManager: SimulationTimeoutManager;
   private fileBuilder: SketchFileBuilder;
   private localCompiler: LocalCompiler;
@@ -535,7 +534,6 @@ export class SandboxRunner {
       // prepare environment (write files, validate code)
       const files = await this.prepareEnvironment(code);
       this.processKilled = false;
-      // files.coreArchive now indicates cached archive path if available
 
       // If stop() was called during startup, cleanup and exit early
       if (this.pendingCleanup || this.processKilled || this.state === SimulationState.STOPPED) {
@@ -611,27 +609,10 @@ export class SandboxRunner {
   /**
    * Prepare environment: write sketch files and perform basic validation.
    */
-  private async prepareEnvironment(code: string): Promise<{ sketchDir: string; sketchFile: string; exeFile: string; coreArchive?: string }> {
+  private async prepareEnvironment(code: string): Promise<{ sketchDir: string; sketchFile: string; exeFile: string }> {
     const sketchId = randomUUID();
     const files = await this.fileBuilder.build(code, sketchId);
     this.currentSketchDir = files.sketchDir;
-
-    // check cache for core archive
-    try {
-      const candidate = join(CORE_CACHE_DIR, `${sketchId}-core.a`); // sketchId based for simplicity
-      if (existsSync(candidate)) {
-        // simple sanity: non-zero size
-        const stats = await import("fs").then(fs=>fs.promises.stat(candidate));
-        if (stats.size > 0) {
-          this.logger.info(`[Turbo-Linker] Using precompiled core archive: ${candidate}`);
-          return { ...files, coreArchive: candidate };
-        }
-      }
-    } catch (err) {
-      // if anything goes wrong, fall back silently to full build
-      this.logger.warn(`core cache check failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-
     return files;
   }
 
@@ -645,100 +626,31 @@ export class SandboxRunner {
     sketchFile: string,
     exeFile: string,
     opts: RunSketchOptions,
-    coreArchive?: string,
   ): Promise<void> {
-    console.error("[performCompilation] invoked", { sketchFile, exeFile, coreArchive, dockerAvailable: this.dockerAvailable });
     // enforce concurrency limit even when Docker path is chosen
     const WAIT_TIMEOUT_MS = 30000;
-    let release: () => void = () => {
-      /* no-op for test environment */
-    };
-
-    // in tests we bypass the gatekeeper completely to avoid fake-timer races
-    const usingTestEnv = process.env.NODE_ENV === "test";
-    if (!usingTestEnv) {
-      try {
-        release = await Promise.race([
-          SandboxRunner.compileGatekeeper.acquire(),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
-          ),
-        ]);
-      } catch (err) {
-        this.logger.error(`Gatekeeper wait failed: ${err instanceof Error ? err.message : String(err)}`);
-        // mark runner state error to prevent further activity
-        this.transitionTo(SimulationState.ERROR);
-        throw err;
-      }
-    } else {
-      this.logger.debug("[performCompilation] test env - skipping gatekeeper");
-    }
-
+    let release: () => void;
     try {
-      // Docker availability should be ignored during tests unless explicitly
-      // requested; this keeps the mocked spawnInstances[0] pointing at the
-      // compiler process instead of a Docker container.
-      if (!usingTestEnv && this.dockerAvailable && this.dockerImageBuilt) {
+      release = await Promise.race([
+        SandboxRunner.compileGatekeeper.acquire(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
+        ),
+      ]);
+    } catch (err) {
+      this.logger.error(`Gatekeeper wait failed: ${err instanceof Error ? err.message : String(err)}`);
+      // mark runner state error to prevent further activity
+      this.transitionTo(SimulationState.ERROR);
+      throw err;
+    }
+    try {
+      if (this.dockerAvailable && this.dockerImageBuilt) {
         // Docker handles compilation internally
         return;
       }
-
-      // helper to attach extra listener so we can notify onCompileError even if
-      // the compile promise already settled (covers test race)
-      const trackProc = (proc: any) => {
-        proc.on("close", (code: number) => {
-          if (code !== 0 && opts.onCompileError) {
-            opts.onCompileError(`Compiler exit ${code}`);
-          }
-        });
-      };
-      console.error("[performCompilation] about to invoke compiler");
-
-      // wrap the compile sequence so we can synchronously notify the optional
-      // callback before bubbling the error up to callers
-      const doCompile = async (archive?: string) => {
-        if (archive) {
-          await this.localCompiler.compile(sketchFile, exeFile, archive, trackProc);
-        } else {
-          await this.localCompiler.compile(sketchFile, exeFile, undefined, trackProc);
-        }
-      };
-
-      try {
-        if (coreArchive) {
-          // attempt turbo linking using archive
-          await doCompile(coreArchive);
-        } else {
-          await doCompile(undefined);
-        }
-      } catch (compileErr) {
-        // propagate compile error via callback immediately
-        const msg = compileErr instanceof Error ? compileErr.message : String(compileErr);
-        if (opts.onCompileError) {
-          opts.onCompileError(msg);
-        }
-        // if we had a coreArchive attempt that failed, fall back to full compile
-        if (coreArchive) {
-          this.logger.warn(`Turbo-Linker failed, falling back to full compile: ${msg}`);
-          try {
-            await doCompile(undefined);
-          } catch (fallbackErr) {
-            const fbmsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-            if (opts.onCompileError) {
-              opts.onCompileError(fbmsg);
-            }
-            throw fallbackErr instanceof Error ? fallbackErr : new Error(fbmsg);
-          }
-        } else {
-          // no archive, just rethrow after notifying
-          throw compileErr instanceof Error ? compileErr : new Error(String(compileErr));
-        }
-      }
-
+      await this.localCompiler.compile(sketchFile, exeFile);
       if (opts.onCompileSuccess) opts.onCompileSuccess();
-      console.error("[performCompilation] about to make executable");
       await this.localCompiler.makeExecutable(exeFile);
-      console.error("[performCompilation] makeExecutable returned");
     } finally {
       try {
         release();
@@ -752,7 +664,7 @@ export class SandboxRunner {
    * Setup simulation process: compile if needed and spawn either local or docker container.
    */
   private async setupSimulationProcess(
-    files: { sketchDir: string; sketchFile: string; exeFile: string; coreArchive?: string },
+    files: { sketchDir: string; sketchFile: string; exeFile: string },
     callbacks: any,
     opts: RunSketchOptions,
   ): Promise<void> {
@@ -760,12 +672,7 @@ export class SandboxRunner {
     const executionTimeout =
       timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
 
-    // decide whether to compile/run inside Docker or locally. tests that
-    // simulate Docker availability will correctly set `this.dockerAvailable`
-    // via the execSync mock, so we simply follow that flag here.
-    const useDockerPath = this.dockerAvailable && this.dockerImageBuilt;
-
-    if (useDockerPath) {
+    if (this.dockerAvailable && this.dockerImageBuilt) {
       await this.runInDocker(
         files,
         callbacks,
@@ -776,8 +683,7 @@ export class SandboxRunner {
       );
     } else {
       try {
-        console.error("[setupSimulationProcess] about to performCompilation", { dockerAvailable: this.dockerAvailable, files });
-        await this.performCompilation(files.sketchFile, files.exeFile, opts, files.coreArchive);
+        await this.performCompilation(files.sketchFile, files.exeFile, opts);
         if (
           this.pendingCleanup ||
           this.processKilled ||
@@ -937,6 +843,8 @@ export class SandboxRunner {
     });
 
     // Stdout: Not used for serial data anymore (all via stderr SERIAL_EVENT)
+    // But as a safety net we parse it too in case the binary outputs directly
+    // to stdout (some environments behave differently).
     // Keep handler to prevent broken pipe errors, detect end of compilation
     this.processController.onStdout((data) => {
       const str = data.toString();
@@ -956,7 +864,13 @@ export class SandboxRunner {
         return;
       }
 
-      // Ignore stdout - serial data comes via stderr SERIAL_EVENT protocol
+      // parse stdout lines as if they came from stderr
+      const lines = str.split(/\r?\n/);
+      lines.forEach((line) => {
+        if (!line) return;
+        const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
+        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+      });
     });
 
     // Stderr handler (compile errors + debug output)
@@ -1045,18 +959,31 @@ export class SandboxRunner {
       handleTimeout,
     );
 
-    // Stdout: Not used for serial data (all via stderr)
+    // Stdout: while we normally expect serial data on stderr, some
+    // environment setups occasionally emit content on stdout (especially when
+    // shell redirections or platform differences occur).  Parse stdout lines
+    // through the same parser so we never miss output in integration tests.
     this.processController.onStdout((data) => {
       const str = data.toString();
-      this.totalOutputBytes += str.length;
 
+      // size accounting (keep existing behaviour)
+      this.totalOutputBytes += str.length;
       if (this.totalOutputBytes > SANDBOX_CONFIG.maxOutputBytes) {
         this.stop();
         callbacks.onError("Output size limit exceeded");
         return;
       }
 
-      // Ignore stdout - serial data comes via stderr SERIAL_EVENT protocol
+      // feed each line through stderr parser
+      const lines = str.split(/\r?\n/);
+      lines.forEach((line) => {
+        if (!line) return;
+        const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
+        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+      });
+
+      // we no longer completely ignore stdout; serial events above will be
+      // handled.  Any remaining data (non-protocol) is simply dropped.
     });
 
     this.processController.onStderr((data) => {
@@ -1217,6 +1144,10 @@ export class SandboxRunner {
       if (!this.processKilled) {
         this.processController.writeStdin("[[PAUSE_TIME]]\n");
       }
+
+      // record pause timestamp for registry events if they arrive during freeze
+      this.lastPauseTimestamp = Date.now();
+      this.registryManager.markPauseTime(this.lastPauseTimestamp);
       
       // Note: SIGSTOP is sent immediately after PAUSE_TIME. This can cause a race
       // condition where C++ is frozen mid-write of TIME_FROZEN message, resulting
@@ -1242,23 +1173,28 @@ export class SandboxRunner {
     }
 
     try {
-        // Calculate pause duration before transition clears pauseStartTime
-      const pauseDuration = Date.now() - (this.pauseStartTime || Date.now());
+      // first, wake the C++ process; this reduces IPC latency window
+      this.processController.kill("SIGCONT");
+      const now = Date.now();
+      const pauseDuration = now - (this.pauseStartTime || now);
+
       // accumulate so server knows total pause time (used for diagnostics if needed)
       this.totalPausedTime += pauseDuration;
-      
-      // Send resume command with pause duration to adjust timing offset in C++
+
+      // send resume command with the measured pause duration
       if (!this.processKilled) {
         this.processController.writeStdin(`[[RESUME_TIME:${pauseDuration}]]\n`);
       }
-      
-      this.processController.kill("SIGCONT");
-      
-      // Transition state (this clears pauseStartTime and resumes timeout clock)
+
+      // clear pause timestamp marker
+      this.lastPauseTimestamp = null;
+      this.registryManager.markPauseTime(null);
+
+      // Transition state *after* updating timings but before resuming batchers
       if (!this.transitionTo(SimulationState.RUNNING)) {
         return false;
       }
-      
+
       // Resume PinStateBatcher
       if (this.pinStateBatcher) {
         this.pinStateBatcher.resume();
@@ -1276,7 +1212,6 @@ export class SandboxRunner {
       
       // Send a newline to stdin to wake up any blocked read() calls
       // This ensures the C++ process processes any buffered stdin data
-      // Note: Use processKilled instead of process.killed since killed is true after any signal
       if (!this.processKilled) {
         this.processController.writeStdin("\n");
       }

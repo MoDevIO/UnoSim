@@ -89,6 +89,8 @@ export class RegistryManager {
     serialOutputEvents: 0, // track serial output events
     serialOutputBytes: 0, // bytes in current interval
     serialOutputBytesTotal: 0, // cumulative bytes since start
+    // timestamp at which the simulation was paused (if any)
+    pauseTimestamp: null as number | null,
     lastReportTime: Date.now(),
   };
 
@@ -145,6 +147,19 @@ export class RegistryManager {
    */
   pauseTelemetry(): void {
     this.stopTelemetry();
+  }
+
+  /**
+   * Inform the manager of the exact timestamp when the simulation was paused.
+   * This allows any subsequent events (e.g. those buffered in OS pipes) to be
+   * labelled with a correct 'pause' time rather than the later resume time.
+   *
+   * The current implementation simply stores the value for future use; the
+   * consuming code may choose how to apply it. See usages in
+   * SandboxRunner.pause()/resume().
+   */
+  markPauseTime(ts: number | null): void {
+    this.telemetry.pauseTimestamp = ts;
   }
 
   /**
@@ -337,6 +352,25 @@ export class RegistryManager {
     // Individual pin additions are not logged (20 per start is too noisy).
     this.registry.push(pinRecord);
     this.isDirty = true;
+    this.telemetry.incomingEvents++;
+  }
+
+  /**
+   * Telemetry-only: called when a pin value change is observed outside of the
+   * registry collection. These events do not mutate the registry itself.
+   */
+  updatePinValue(_pin: number, _value: number): void {
+    if (this.destroyed) return;
+    // count the incoming event for telemetry purposes
+    this.telemetry.incomingEvents++;
+    // no structural change, so nothing else to do
+  }
+
+  /**
+   * Telemetry-only counterpart for PWM changes.
+   */
+  updatePinPWM(_pin: number, _value: number): void {
+    if (this.destroyed) return;
     this.telemetry.incomingEvents++;
   }
 
