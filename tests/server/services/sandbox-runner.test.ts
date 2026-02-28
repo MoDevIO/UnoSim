@@ -10,6 +10,8 @@ vi.setConfig({ testTimeout: 2000 });
 
 // Mock child_process
 const spawnInstances: any[] = [];
+// allow runtime code to see the same array
+;(globalThis as any).spawnInstances = spawnInstances;
 
 vi.mock("child_process", () => {
   const spawnMock = vi.fn(() => {
@@ -200,7 +202,22 @@ describe("SandboxRunner", () => {
       expect(status.dockerImageBuilt).toBe(false);
       expect(status.mode).toBe("local-limited");
     });
-  });
+    it("should cache docker availability and skip execSync in test env", () => {
+      // ensure NODE_ENV test behaviour
+      process.env.NODE_ENV = 'test';
+      const runner = new SandboxRunner();
+      const status1 = runner.getSandboxStatus();
+      expect(execSync).not.toHaveBeenCalled();
+      expect(status1.dockerAvailable).toBe(false);
+
+      // second call should not invoke anything either
+      const status2 = runner.getSandboxStatus();
+      expect(execSync).not.toHaveBeenCalled();
+      expect(status2.dockerAvailable).toBe(false);
+
+      // restore env for other tests
+      process.env.NODE_ENV = undefined;
+    });  });
 
   describe("Local Fallback Execution", () => {
     beforeEach(() => {
