@@ -330,17 +330,9 @@ export class SandboxRunner {
     }
     this.dockerChecked = true;
 
-    // In a testing environment we do not want to invoke the real docker
-    // CLI because the mock suite intercepts `spawn` calls and counts them.
-    // Executing `execSync` would pollute those stats and slow the tests.
-    // Simply mark Docker as unavailable and skip the probe altogether.
-    if (process.env.NODE_ENV === 'test') {
-      this.dockerAvailable = false;
-      this.dockerImageBuilt = false;
-      this.logger.info("Docker check skipped in test environment");
-      return;
-    }
-
+    // Docker availability is determined lazily.  Tests may mock
+    // `checkDockerAvailability()` or stub this method if they wish to avoid
+    // hitting the real CLI.  The production code simply calls the helper.
     this.checkDockerAvailability();
   }
 
