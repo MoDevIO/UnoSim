@@ -1,15 +1,20 @@
-name: CI (Quality Gate)
+name: CI (Quality Gate & Coverage)
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, master]
   pull_request:
-    branches: [ main ]
+    branches: [main, master, develop]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build-and-test:
+    name: Lint, TypeCheck & Unit Tests
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -22,13 +27,48 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type Check (The Husky-Guard)
-        # Dies findet den "onSetti" Abbruch-Fehler sofort!
-        run: npm run check
+      - name: Static Analysis (Lint & TypeCheck)
+        run: |
+          npm run check
+          npm run lint
 
-      - name: Linting
-        run: npm run lint
+      - name: Run Tests with Coverage
+        # Ersetzt den normalen Test-Lauf, da Coverage alles abdeckt
+        run: npm run test:coverage
 
-      - name: Unit Tests
-        # Stellt sicher, dass das Refactoring die Logik nicht zerschossen hat
-        run: npm run test
+      - name: Deploy Coverage to GitHub Pages
+        # Nur bei Push auf Haupt-Branches ausführen
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./coverage/lcov-report
+          publish_branch: gh-pages
+
+  e2e-tests:
+    name: Playwright E2E
+    needs: build-and-test # WICHTIG: Startet erst, wenn Unit-Tests grün sind
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Arduino CLI & Core
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E Tests
+        run: npx playwright test
+      - name: Upload E2E Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
