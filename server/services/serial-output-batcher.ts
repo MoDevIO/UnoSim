@@ -68,6 +68,15 @@ export class SerialOutputBatcher {
   // This prevents unbounded buffering in pathological cases (e.g., data arriving
   // much faster than baudrate allows). Typical value: 100KB.
   private readonly MAX_QUEUE_BYTES = 100_000;
+
+  // Backpressure threshold (upper watermark in bytes). When the buffered
+  // data rises above this, the runner will pause the sketch.  We'll add
+  // a lower 'resume' watermark inside isOverloaded() to prevent thrashing.
+  // Start with 512 bytes to give some headroom for slow baud rates.
+  private readonly BACKPRESSURE_THRESHOLD = 512;
+
+  // internal flag used by hysteresis logic
+  private overloadedState = false;
   
   // Flag to prevent enqueue after destroy
   private destroyed = false;
@@ -119,13 +128,13 @@ export class SerialOutputBatcher {
   enqueue(data: string): void {
     // After destroy(), enqueue is a no-op
     if (this.destroyed) return;
-    // Do not accept data while paused; this prevents leaks during tests.
-    if (this.paused) return;
 
     // Count as intended (part of telemetry accounting)
     this.intendedBytes += data.length;
     this.totalBytes += data.length;
 
+    // even when paused we still accumulate data; it will be flushed when
+    // the caller resumes or when backpressure allows.  Do not drop anything.
     const newData = this.pendingData + data;
 
     // Check if we would exceed maximum queue size
@@ -209,6 +218,28 @@ export class SerialOutputBatcher {
     // don't start when paused or already running
     if (this.tickTimer || this.paused) return;
     this.tickTimer = setInterval(() => this.tick(), this.config.tickIntervalMs);
+  }
+
+  /**
+   * Return true when the current buffer has grown past the overload threshold.
+   * Used by SandboxRunner to implement backpressure. Simple getter keeps the
+   * knowledge encapsulated and allows the threshold to change easily.
+   */
+  isOverloaded(): boolean {
+    // Hysteresis: once we've declared overloaded we stay in that state until
+    // the buffer falls below a low-watermark (here 128 bytes).  This avoids
+    // stop‑and‑go behavior when pendingData hovers around the threshold.
+    const lowWatermark = 128;
+    if (this.overloadedState) {
+      if (this.pendingData.length < lowWatermark) {
+        this.overloadedState = false;
+      }
+    } else {
+      if (this.pendingData.length > this.BACKPRESSURE_THRESHOLD) {
+        this.overloadedState = true;
+      }
+    }
+    return this.overloadedState;
   }
 
   /**

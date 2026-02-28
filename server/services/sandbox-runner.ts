@@ -100,6 +100,8 @@ export class SandboxRunner {
   private localCompiler: LocalCompiler;
   private pinStateBatcher: PinStateBatcher | null = null;
   private serialOutputBatcher: SerialOutputBatcher | null = null;
+  // true when we have temporarily SIGSTOP'd the child due to batcher overload
+  private backpressurePaused = false;
   
   // Output buffers
   private outputBuffer = "";
@@ -334,6 +336,10 @@ export class SandboxRunner {
    * Check if Docker is available and the sandbox image is built
    */
   private checkDockerAvailability(): void {
+    if (this.dockerChecked && (this.dockerAvailable || this.dockerImageBuilt)) {
+      // already ran once and determined state; avoid re-spawning processes
+      return;
+    }
     try {
       // Check if docker command exists AND daemon is running
       execSync("docker --version", { stdio: "pipe", timeout: 2000 });
@@ -506,6 +512,27 @@ export class SandboxRunner {
         // Capture stable reference and ensure it's callable to avoid race conditions
         const out = this.outputCallback;
         if (typeof out !== 'function') return;
+
+        // If we were stopped for backpressure and the buffer is now below the
+        // threshold, resume the child process (but only if not globally paused).
+        // We defer the check to the next macrotask because the batcher clears
+        // pendingData *after* calling our callback; checking immediately would
+        // still see the old full value and never resume.
+        if (this.backpressurePaused) {
+          setTimeout(() => {
+            if (
+              this.backpressurePaused &&
+              this.serialOutputBatcher &&
+              !this.serialOutputBatcher.isOverloaded() &&
+              !this.isPaused &&
+              this.processController.hasProcess()
+            ) {
+              this.logger.info("Backpressure relieved, sending SIGCONT");
+              this.processController.kill("SIGCONT");
+              this.backpressurePaused = false;
+            }
+          }, 0);
+        }
 
         // Split batched data by newlines to preserve Serial.print() vs println() semantics.
         // Data from Serial.println() contains trailing \n, Serial.print() does not.
@@ -1090,6 +1117,21 @@ export class SandboxRunner {
         break;
 
       case "serial_event":
+        // Backpressure: if batcher exists and has already exceeded threshold,
+        // stop the child process immediately before enqueuing more data.  Do
+        // nothing if we're already paused globally or have already paused
+        // for backpressure.
+        if (
+          this.serialOutputBatcher &&
+          !this.backpressurePaused &&
+          !this.isPaused &&
+          this.baudrate > 300 && // don't throttle when baudrate is already very low
+          this.serialOutputBatcher.isOverloaded()
+        ) {
+          this.logger.info("Backpressure: buffer overloaded, sending SIGSTOP");
+          this.processController.kill("SIGSTOP");
+          this.backpressurePaused = true;
+        }
         // Route through SerialOutputBatcher for baudrate-based rate limiting
         if (this.serialOutputBatcher) {
           this.serialOutputBatcher.enqueue(parsed.data);
