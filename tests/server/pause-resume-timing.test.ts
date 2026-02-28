@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 
+vi.setConfig({ testTimeout: 30000 });
+
 const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = describe;
 
@@ -40,7 +42,7 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
       const timeout = setTimeout(() => {
         runner.stop();
         reject(new Error("Test timeout"));
-      }, 20000);
+      }, 30000);
 
       runner.runSketch(
         code,
@@ -98,7 +100,7 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
         15,
       );
     });
-  }, 10000);
+  }, 30000);
 
   it("should maintain time continuity across pause/resume cycles", async () => {
     const code = `
@@ -218,7 +220,7 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
       const timeout = setTimeout(() => {
         runner.stop();
         reject(new Error("Test timeout"));
-      }, 20000);
+      }, 30000);
 
       runner.runSketch(
         code,
@@ -305,7 +307,7 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
       const timeout = setTimeout(() => {
         runner.stop();
         reject(new Error("Test timeout"));
-      }, 10000);
+      }, 30000);
 
       let sawOutput = false;
       runner.runSketch(

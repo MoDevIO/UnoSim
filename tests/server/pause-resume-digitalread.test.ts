@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 
 const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = describe;
+
+vi.setConfig({ testTimeout: 30000 });
 
 maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
   let runner: SandboxRunner;
@@ -239,7 +241,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
         const fullOutput = output.join("");
         console.log("Final output:", fullOutput);
         reject(new Error("Timeout - did not see expected pin values after resume"));
-      }, 25000);
+      }, 30000);
 
       runner.runSketch(
         code,

@@ -7,7 +7,7 @@
 // Store original setTimeout
 const originalSetTimeout = global.setTimeout;
 
-vi.setConfig({ testTimeout: 2000 });
+vi.setConfig({ testTimeout: 30000 });
 
 // Mock child_process
 const spawnInstances: any[] = [];

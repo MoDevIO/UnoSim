@@ -42,6 +42,9 @@ export class SerialOutputBatcher {
   private pendingData = "";
   private tickTimer: NodeJS.Timeout | null = null;
   
+  // paused flag prevents enqueue/start while paused (tests rely on this)
+  private paused = false;
+  
   // Telemetry counters (reset periodically)
   private intendedBytes = 0;
   private actualBytes = 0;
@@ -65,6 +68,15 @@ export class SerialOutputBatcher {
   // This prevents unbounded buffering in pathological cases (e.g., data arriving
   // much faster than baudrate allows). Typical value: 100KB.
   private readonly MAX_QUEUE_BYTES = 100_000;
+
+  // Backpressure threshold (upper watermark in bytes). When the buffered
+  // data rises above this, the runner will pause the sketch.  We'll add
+  // a lower 'resume' watermark inside isOverloaded() to prevent thrashing.
+  // Start with 512 bytes to give some headroom for slow baud rates.
+  private readonly BACKPRESSURE_THRESHOLD = 512;
+
+  // internal flag used by hysteresis logic
+  private overloadedState = false;
   
   // Flag to prevent enqueue after destroy
   private destroyed = false;
@@ -116,13 +128,15 @@ export class SerialOutputBatcher {
   enqueue(data: string): void {
     // After destroy(), enqueue is a no-op
     if (this.destroyed) return;
-    
+
     // Count as intended (part of telemetry accounting)
     this.intendedBytes += data.length;
     this.totalBytes += data.length;
-    
+
+    // even when paused we still accumulate data; it will be flushed when
+    // the caller resumes or when backpressure allows.  Do not drop anything.
     const newData = this.pendingData + data;
-    
+
     // Check if we would exceed maximum queue size
     if (newData.length > this.MAX_QUEUE_BYTES) {
       const overflow = newData.length - this.MAX_QUEUE_BYTES;
@@ -133,14 +147,13 @@ export class SerialOutputBatcher {
     } else {
       this.pendingData = newData;
     }
-  }
-  
-  /**
-   * Start the tick timer
-   */
-  start(): void {
-    if (this.tickTimer) return;
-    this.tickTimer = setInterval(() => this.tick(), this.config.tickIntervalMs);
+
+    // Ensure the ticking timer is running; do not create multiple intervals.
+    // However, if we're paused we must not start or restart the timer – data
+    // should remain buffered until resume().
+    if (!this.tickTimer && !this.paused) {
+      this.tickTimer = setInterval(() => this.tick(), this.config.tickIntervalMs);
+    }
   }
   
   /**
@@ -165,6 +178,7 @@ export class SerialOutputBatcher {
    * Pause the timer (keeps pending data)
    */
   pause(): void {
+    this.paused = true;
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
@@ -175,6 +189,7 @@ export class SerialOutputBatcher {
    * Resume the timer
    */
   resume(): void {
+    this.paused = false;
     this.start();
   }
   
@@ -190,6 +205,60 @@ export class SerialOutputBatcher {
     this.pendingData = "";
   }
   
+  /**
+   * Start the batching timer.
+   *
+   * The timer is not automatically started in the constructor because the
+   * caller may choose to configure additional callbacks first (e.g. the
+   * runner sets output/error handlers after instantiation).  The public
+   * `start()` method mirrors the semantics described in the design docs and
+   * allows the timer to be restarted after `pause()`.
+   */
+  start(): void {
+    // don't start when paused or already running
+    if (this.tickTimer || this.paused) return;
+    this.tickTimer = setInterval(() => this.tick(), this.config.tickIntervalMs);
+  }
+
+  /**
+   * Return true when the current buffer has grown past the overload threshold.
+   * Used by SandboxRunner to implement backpressure. Simple getter keeps the
+   * knowledge encapsulated and allows the threshold to change easily.
+   */
+  isOverloaded(): boolean {
+    // Special-case: when the baudrate is so low that the C++ side applies its
+    // txDelay cap (e.g. 300 baud → 10 ms max delay), we intentionally disable
+    // backpressure.  Injecting 50 ms SIGSTOP pauses would defeat the cap and
+    // slow sketches instead of helping them.
+    if (this.config.baudrate <= 300) {
+      return false;
+    }
+
+    // Scale threshold for low-but-not-tiny bauds.  The original hardcoded
+    // BACKPRESSURE_THRESHOLD=512 bytes is fine for high-speed sketches, but a
+    // 1200‑baud sketch can easily accumulate several hundred bytes while the
+    // mock's txDelay cap is in effect.  Raising the limit to 1024 gives more
+    // headroom and avoids premature SIGSTOP storms.
+    const threshold = this.config.baudrate < 4800 ? 1024 : this.BACKPRESSURE_THRESHOLD;
+
+    // Hysteresis: once we've declared overloaded we stay in that state until
+    // the buffer falls below a low-watermark.  We keep the watermark at 128
+    // bytes (≈1/4 of the original threshold) so throttling behaviour remains
+    // snappy without toggling around the boundary.
+    const lowWatermark = 128;
+
+    if (this.overloadedState) {
+      if (this.pendingData.length < lowWatermark) {
+        this.overloadedState = false;
+      }
+    } else {
+      if (this.pendingData.length > threshold) {
+        this.overloadedState = true;
+      }
+    }
+    return this.overloadedState;
+  }
+
   /**
    * Change baudrate and recalculate budget
    */

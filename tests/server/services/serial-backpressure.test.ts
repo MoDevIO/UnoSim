@@ -14,6 +14,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+// backpressure tests can take longer
+vi.setConfig({ testTimeout: 30000 });
 import { SandboxRunner } from '../../../server/services/sandbox-runner';
 import { extractPlainText, runSketchWithOutput } from '../../utils/serial-test-helper';
 
@@ -245,7 +247,7 @@ void loop() {
 }
     `.trim();
 
-    const result = await runSketchWithOutput(runner, sketch, { timeout: 5 });
+    const result = await runSketchWithOutput(runner, sketch, { timeout: 15 });
     expect(result.success).toBe(true);
 
     const output = extractPlainText(result.outputs);

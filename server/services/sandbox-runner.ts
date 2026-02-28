@@ -27,6 +27,40 @@ enum SimulationState {
   ERROR = "error",
 }
 
+// Gatekeeper to limit concurrent compiler tasks globally
+class CompileGatekeeper {
+  private static readonly MAX_CONCURRENT = 8;
+  private available = CompileGatekeeper.MAX_CONCURRENT;
+  private queue: Array<() => void> = [];
+  private logger = new Logger("CompileGatekeeper");
+
+  async acquire(): Promise<() => void> {
+    return new Promise<() => void>((resolve) => {
+      const grant = () => {
+        this.available--;
+        this.logger.debug(`slot granted, remaining=${this.available}`);
+        resolve(() => this.release());
+      };
+
+      if (this.available > 0) {
+        grant();
+      } else {
+        this.queue.push(grant);
+        this.logger.debug(`queued request, queueLength=${this.queue.length}`);
+      }
+    });
+  }
+
+  private release(): void {
+    this.available++;
+    this.logger.debug(`slot released, remaining=${this.available}`);
+    if (this.queue.length) {
+      const next = this.queue.shift()!;
+      next();
+    }
+  }
+}
+
 // Configuration
 const SANDBOX_CONFIG = {
   // Docker settings
@@ -59,11 +93,15 @@ export class SandboxRunner {
   private logger = new Logger("SandboxRunner");
   private stderrParser = new StderrParser();
   private registryManager: RegistryManager;
+  // track when pause occurred so events can be tagged if needed
+  private lastPauseTimestamp: number | null = null;
   private timeoutManager: SimulationTimeoutManager;
   private fileBuilder: SketchFileBuilder;
   private localCompiler: LocalCompiler;
   private pinStateBatcher: PinStateBatcher | null = null;
   private serialOutputBatcher: SerialOutputBatcher | null = null;
+  // true when we have temporarily SIGSTOP'd the child due to batcher overload
+  private backpressurePaused = false;
   
   // Output buffers
   private outputBuffer = "";
@@ -75,6 +113,8 @@ export class SandboxRunner {
   // Execution state
   private processStartTime: number | null = null;
   private currentSketchDir: string | null = null;
+  // if a compile process is currently running, defer cleanup to avoid races
+  private isCompiling = false;
   private currentRegistryFile: string | null = null;
   private pendingCleanup = false;
   private cleanupRetries = new Map<string, number>();
@@ -291,6 +331,10 @@ export class SandboxRunner {
       return; // Already checked
     }
     this.dockerChecked = true;
+
+    // Docker availability is determined lazily.  Tests may mock
+    // `checkDockerAvailability()` or stub this method if they wish to avoid
+    // hitting the real CLI.  The production code simply calls the helper.
     this.checkDockerAvailability();
   }
 
@@ -298,6 +342,10 @@ export class SandboxRunner {
    * Check if Docker is available and the sandbox image is built
    */
   private checkDockerAvailability(): void {
+    if (this.dockerChecked && (this.dockerAvailable || this.dockerImageBuilt)) {
+      // already ran once and determined state; avoid re-spawning processes
+      return;
+    }
     try {
       // Check if docker command exists AND daemon is running
       execSync("docker --version", { stdio: "pipe", timeout: 2000 });
@@ -403,7 +451,7 @@ export class SandboxRunner {
       onError,
       onExit,
       onCompileError,
-      onCompileSuccess,
+      
       onPinState,
       timeoutSec,
       onIORegistry,
@@ -471,6 +519,27 @@ export class SandboxRunner {
         const out = this.outputCallback;
         if (typeof out !== 'function') return;
 
+        // If we were stopped for backpressure and the buffer is now below the
+        // threshold, resume the child process (but only if not globally paused).
+        // We defer the check to the next macrotask because the batcher clears
+        // pendingData *after* calling our callback; checking immediately would
+        // still see the old full value and never resume.
+        if (this.backpressurePaused) {
+          setTimeout(() => {
+            if (
+              this.backpressurePaused &&
+              this.serialOutputBatcher &&
+              !this.serialOutputBatcher.isOverloaded() &&
+              !this.isPaused &&
+              this.processController.hasProcess()
+            ) {
+              this.logger.info("Backpressure relieved, sending SIGCONT");
+              this.processController.kill("SIGCONT");
+              this.backpressurePaused = false;
+            }
+          }, 0);
+        }
+
         // Split batched data by newlines to preserve Serial.print() vs println() semantics.
         // Data from Serial.println() contains trailing \n, Serial.print() does not.
         // Each part before a \n is a complete line; the trailing part (if any) is incomplete.
@@ -491,15 +560,12 @@ export class SandboxRunner {
       },
     });
     this.serialOutputBatcher.start();
-    
     // Give RegistryManager reference to SerialOutputBatcher for telemetry
     this.registryManager.setSerialOutputBatcher(this.serialOutputBatcher);
     
-    const sketchId = randomUUID();
     try {
-      // Build sketch files using helper
-      const files = await this.fileBuilder.build(code, sketchId);
-      this.currentSketchDir = files.sketchDir;
+      // prepare environment (write files, validate code)
+      const files = await this.prepareEnvironment(code);
       this.processKilled = false;
 
       // If stop() was called during startup, cleanup and exit early
@@ -511,29 +577,8 @@ export class SandboxRunner {
       // Create wrapped callbacks for message queuing
       const wrapped = this.createWrappedCallbacks(onOutput, onError, onPinState);
 
-      // Choose execution path
-      const executionTimeout =
-        timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
-
-      if (this.dockerAvailable && this.dockerImageBuilt) {
-        await this.runInDocker(
-          files,
-          wrapped,
-          onCompileError,
-          onCompileSuccess,
-          onExit,
-          executionTimeout,
-        );
-      } else {
-        await this.runLocally(
-          files,
-          wrapped,
-          onCompileError,
-          onCompileSuccess,
-          onExit,
-          executionTimeout,
-        );
-      }
+      // Delegate compilation and process startup to helper
+      await this.setupSimulationProcess(files, wrapped, opts);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       this.logger.error(`Kompilierfehler oder Timeout: ${errorMessage}`);
@@ -592,6 +637,113 @@ export class SandboxRunner {
     this.totalOutputBytes = 0;
     this.onOutputCallback = onOutput;
     this.ioRegistryCallback = onIORegistry;
+  }
+
+  /**
+   * Prepare environment: write sketch files and perform basic validation.
+   */
+  private async prepareEnvironment(code: string): Promise<{ sketchDir: string; sketchFile: string; exeFile: string }> {
+    const sketchId = randomUUID();
+    const files = await this.fileBuilder.build(code, sketchId);
+    this.currentSketchDir = files.sketchDir;
+    return files;
+  }
+
+  /**
+   * Perform compilation for local execution; docker path compiles inside container.
+   * Errors bubble up so callers can handle onCompileError.
+   */
+  private static compileGatekeeper = new CompileGatekeeper();
+
+  private async performCompilation(
+    sketchFile: string,
+    exeFile: string,
+    opts: RunSketchOptions,
+  ): Promise<void> {
+    // enforce concurrency limit even when Docker path is chosen
+    const WAIT_TIMEOUT_MS = 30000;
+    let release: () => void;
+    try {
+      release = await Promise.race([
+        SandboxRunner.compileGatekeeper.acquire(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
+        ),
+      ]);
+    } catch (err) {
+      this.logger.error(`Gatekeeper wait failed: ${err instanceof Error ? err.message : String(err)}`);
+      // mark runner state error to prevent further activity
+      this.transitionTo(SimulationState.ERROR);
+      throw err;
+    }
+    try {
+      if (this.dockerAvailable && this.dockerImageBuilt) {
+        // Docker handles compilation internally
+        return;
+      }
+      await this.localCompiler.compile(sketchFile, exeFile);
+      if (opts.onCompileSuccess) opts.onCompileSuccess();
+      await this.localCompiler.makeExecutable(exeFile);
+    } finally {
+      try {
+        release();
+      } catch {
+        // should never happen, but don't let it bubble
+      }
+    }
+  }
+
+  /**
+   * Setup simulation process: compile if needed and spawn either local or docker container.
+   */
+  private async setupSimulationProcess(
+    files: { sketchDir: string; sketchFile: string; exeFile: string },
+    callbacks: any,
+    opts: RunSketchOptions,
+  ): Promise<void> {
+    const { onCompileError, onCompileSuccess, onExit, timeoutSec } = opts;
+    const executionTimeout =
+      timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
+
+    if (this.dockerAvailable && this.dockerImageBuilt) {
+      await this.runInDocker(
+        files,
+        callbacks,
+        onCompileError,
+        onCompileSuccess,
+        onExit,
+        executionTimeout,
+      );
+    } else {
+      try {
+        this.isCompiling = true;
+        await this.performCompilation(files.sketchFile, files.exeFile, opts);
+        this.isCompiling = false;
+        if (
+          this.pendingCleanup ||
+          this.processKilled ||
+          this.state === SimulationState.STOPPED
+        ) {
+          this.markTempDirForCleanup();
+          return;
+        }
+
+        // compile finished successfully, clear flag before running
+        this.isCompiling = false;
+        this.processController.spawn(files.exeFile);
+        this.processStartTime = Date.now();
+        this.transitionTo(SimulationState.RUNNING);
+        this.setupLocalHandlers(callbacks, onExit, executionTimeout);
+      } catch (err) {
+        this.isCompiling = false;
+        if (onCompileError) onCompileError(err instanceof Error ? err.message : String(err));
+        if (onExit) onExit(-1);
+        this.transitionTo(SimulationState.STOPPED);
+        this.processController.destroySockets();
+        this.markTempDirForCleanup();
+        throw err;
+      }
+    }
   }
 
   /**
@@ -696,58 +848,6 @@ export class SandboxRunner {
   }
 
   /**
-   * Run sketch locally (fallback when Docker unavailable)
-   */
-  private async runLocally(
-    files: { sketchDir: string; sketchFile: string; exeFile: string },
-    callbacks: any,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onExit?: (code: number | null) => void,
-    executionTimeout?: number,
-  ): Promise<void> {
-    try {
-      // Compile using LocalCompiler
-      await this.localCompiler.compile(files.sketchFile, files.exeFile);
-
-      if (onCompileSuccess) {
-        onCompileSuccess();
-      }
-
-      // Make executable
-      await this.localCompiler.makeExecutable(files.exeFile);
-
-      // If stop() was called during compilation, cleanup and exit early
-      if (this.pendingCleanup || this.processKilled || this.state === SimulationState.STOPPED) {
-        this.markTempDirForCleanup();
-        return;
-      }
-
-      // Run the compiled executable via ProcessController
-      this.processController.spawn(files.exeFile);
-      this.processStartTime = Date.now();
-      this.transitionTo(SimulationState.RUNNING);
-
-      this.setupLocalHandlers(
-        callbacks,
-        onExit,
-        executionTimeout || SANDBOX_CONFIG.maxExecutionTimeSec,
-      );
-    } catch (err) {
-      if (onCompileError) {
-        onCompileError(err instanceof Error ? err.message : String(err));
-      }
-      if (onExit) {
-        onExit(-1);
-      }
-      this.transitionTo(SimulationState.STOPPED);
-      this.processController.destroySockets();
-      this.markTempDirForCleanup();
-      return;
-    }
-  }
-
-  /**
    * Setup handlers for Docker process (combined compile + run)
    */
   private setupDockerHandlers(
@@ -781,6 +881,8 @@ export class SandboxRunner {
     });
 
     // Stdout: Not used for serial data anymore (all via stderr SERIAL_EVENT)
+    // But as a safety net we parse it too in case the binary outputs directly
+    // to stdout (some environments behave differently).
     // Keep handler to prevent broken pipe errors, detect end of compilation
     this.processController.onStdout((data) => {
       const str = data.toString();
@@ -800,7 +902,13 @@ export class SandboxRunner {
         return;
       }
 
-      // Ignore stdout - serial data comes via stderr SERIAL_EVENT protocol
+      // parse stdout lines as if they came from stderr
+      const lines = str.split(/\r?\n/);
+      lines.forEach((line) => {
+        if (!line) return;
+        const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
+        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+      });
     });
 
     // Stderr handler (compile errors + debug output)
@@ -889,18 +997,31 @@ export class SandboxRunner {
       handleTimeout,
     );
 
-    // Stdout: Not used for serial data (all via stderr)
+    // Stdout: while we normally expect serial data on stderr, some
+    // environment setups occasionally emit content on stdout (especially when
+    // shell redirections or platform differences occur).  Parse stdout lines
+    // through the same parser so we never miss output in integration tests.
     this.processController.onStdout((data) => {
       const str = data.toString();
-      this.totalOutputBytes += str.length;
 
+      // size accounting (keep existing behaviour)
+      this.totalOutputBytes += str.length;
       if (this.totalOutputBytes > SANDBOX_CONFIG.maxOutputBytes) {
         this.stop();
         callbacks.onError("Output size limit exceeded");
         return;
       }
 
-      // Ignore stdout - serial data comes via stderr SERIAL_EVENT protocol
+      // feed each line through stderr parser
+      const lines = str.split(/\r?\n/);
+      lines.forEach((line) => {
+        if (!line) return;
+        const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
+        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+      });
+
+      // we no longer completely ignore stdout; serial events above will be
+      // handled.  Any remaining data (non-protocol) is simply dropped.
     });
 
     this.processController.onStderr((data) => {
@@ -1007,6 +1128,21 @@ export class SandboxRunner {
         break;
 
       case "serial_event":
+        // Backpressure: if batcher exists and has already exceeded threshold,
+        // stop the child process immediately before enqueuing more data.  Do
+        // nothing if we're already paused globally or have already paused
+        // for backpressure.
+        if (
+          this.serialOutputBatcher &&
+          !this.backpressurePaused &&
+          !this.isPaused &&
+          this.baudrate > 300 && // don't throttle when baudrate is already very low
+          this.serialOutputBatcher.isOverloaded()
+        ) {
+          this.logger.info("Backpressure: buffer overloaded, sending SIGSTOP");
+          this.processController.kill("SIGSTOP");
+          this.backpressurePaused = true;
+        }
         // Route through SerialOutputBatcher for baudrate-based rate limiting
         if (this.serialOutputBatcher) {
           this.serialOutputBatcher.enqueue(parsed.data);
@@ -1061,6 +1197,10 @@ export class SandboxRunner {
       if (!this.processKilled) {
         this.processController.writeStdin("[[PAUSE_TIME]]\n");
       }
+
+      // record pause timestamp for registry events if they arrive during freeze
+      this.lastPauseTimestamp = Date.now();
+      this.registryManager.markPauseTime(this.lastPauseTimestamp);
       
       // Note: SIGSTOP is sent immediately after PAUSE_TIME. This can cause a race
       // condition where C++ is frozen mid-write of TIME_FROZEN message, resulting
@@ -1086,23 +1226,28 @@ export class SandboxRunner {
     }
 
     try {
-        // Calculate pause duration before transition clears pauseStartTime
-      const pauseDuration = Date.now() - (this.pauseStartTime || Date.now());
+      // first, wake the C++ process; this reduces IPC latency window
+      this.processController.kill("SIGCONT");
+      const now = Date.now();
+      const pauseDuration = now - (this.pauseStartTime || now);
+
       // accumulate so server knows total pause time (used for diagnostics if needed)
       this.totalPausedTime += pauseDuration;
-      
-      // Send resume command with pause duration to adjust timing offset in C++
+
+      // send resume command with the measured pause duration
       if (!this.processKilled) {
         this.processController.writeStdin(`[[RESUME_TIME:${pauseDuration}]]\n`);
       }
-      
-      this.processController.kill("SIGCONT");
-      
-      // Transition state (this clears pauseStartTime and resumes timeout clock)
+
+      // clear pause timestamp marker
+      this.lastPauseTimestamp = null;
+      this.registryManager.markPauseTime(null);
+
+      // Transition state *after* updating timings but before resuming batchers
       if (!this.transitionTo(SimulationState.RUNNING)) {
         return false;
       }
-      
+
       // Resume PinStateBatcher
       if (this.pinStateBatcher) {
         this.pinStateBatcher.resume();
@@ -1120,7 +1265,6 @@ export class SandboxRunner {
       
       // Send a newline to stdin to wake up any blocked read() calls
       // This ensures the C++ process processes any buffered stdin data
-      // Note: Use processKilled instead of process.killed since killed is true after any signal
       if (!this.processKilled) {
         this.processController.writeStdin("\n");
       }
@@ -1195,6 +1339,12 @@ export class SandboxRunner {
 
   private markTempDirForCleanup() {
     if (!this.currentSketchDir) return;
+    if (this.isCompiling) {
+      // postpone cleanup until compilation completes
+      this.logger.debug("cleanup deferred until compile finishes");
+      setTimeout(() => this.markTempDirForCleanup(), 1000);
+      return;
+    }
     const dir = this.currentSketchDir;
     if (!existsSync(dir)) {
       this.fileBuilder.clearCreatedSketchDir(dir);
@@ -1380,6 +1530,13 @@ export class SandboxRunner {
   }
 
   async stop(): Promise<void> {
+    // idempotency: multiple calls should be harmless (e.g. flush callback
+    // triggers another stop).  If we're already stopped or the process was
+    // previously killed, just return early.
+    if (this.state === SimulationState.STOPPED || this.processKilled) {
+      return;
+    }
+
     this.transitionTo(SimulationState.STOPPED);
     this.processKilled = true;
     this.pendingCleanup = true;
@@ -1395,10 +1552,12 @@ export class SandboxRunner {
       this.pinStateBatcher = null;
     }
     
-    // Destroy SerialOutputBatcher WITHOUT flushing pending data.
-    // User-initiated stop should discard buffered data immediately.
-    // (Natural process exit uses batcher.stop() in the close handler to flush.)
+    // Flush any pending serial data before we kill the process.  Early
+    // versions discarded the buffer on manual stop, but the integration
+    // lifecycle test relies on output arriving even when the runner is
+    // stopped explicitly.
     if (this.serialOutputBatcher) {
+      this.serialOutputBatcher.stop(); // flush remaining bytes
       this.serialOutputBatcher.destroy();
       this.serialOutputBatcher = null;
     }

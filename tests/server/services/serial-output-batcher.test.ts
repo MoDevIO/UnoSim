@@ -264,6 +264,30 @@ describe("SerialOutputBatcher", () => {
       expect(total.endsWith("\n")).toBe(true);
       expect(chunk).not.toContain("verworfen");
     });
+
+    // ─── Zusätzliche Backpressure-Szenarien ──────────────────────────────
+    it("T11: Bei 300 Baud wird niemals als overloaded betrachtet", () => {
+      batcher = new SerialOutputBatcher({
+        baudrate: 300,
+        tickIntervalMs: 50,
+        onChunk,
+      });
+      // künstlich genügend Daten im Puffer platzieren
+      (batcher as any).pendingData = "X".repeat(5000);
+      expect(batcher.isOverloaded()).toBe(false);
+    });
+
+    it("T12: Unter 4800 Baud erhöht sich das Backpressure-Limit auf 1024 Bytes", () => {
+      batcher = new SerialOutputBatcher({
+        baudrate: 1200,
+        tickIntervalMs: 50,
+        onChunk,
+      });
+      (batcher as any).pendingData = "X".repeat(600);
+      expect(batcher.isOverloaded()).toBe(false);
+      (batcher as any).pendingData = "X".repeat(1100);
+      expect(batcher.isOverloaded()).toBe(true);
+    });
   });
 
   describe("Burst-Toleranz", () => {
