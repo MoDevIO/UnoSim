@@ -226,16 +226,33 @@ export class SerialOutputBatcher {
    * knowledge encapsulated and allows the threshold to change easily.
    */
   isOverloaded(): boolean {
+    // Special-case: when the baudrate is so low that the C++ side applies its
+    // txDelay cap (e.g. 300 baud → 10 ms max delay), we intentionally disable
+    // backpressure.  Injecting 50 ms SIGSTOP pauses would defeat the cap and
+    // slow sketches instead of helping them.
+    if (this.config.baudrate <= 300) {
+      return false;
+    }
+
+    // Scale threshold for low-but-not-tiny bauds.  The original hardcoded
+    // BACKPRESSURE_THRESHOLD=512 bytes is fine for high-speed sketches, but a
+    // 1200‑baud sketch can easily accumulate several hundred bytes while the
+    // mock's txDelay cap is in effect.  Raising the limit to 1024 gives more
+    // headroom and avoids premature SIGSTOP storms.
+    const threshold = this.config.baudrate < 4800 ? 1024 : this.BACKPRESSURE_THRESHOLD;
+
     // Hysteresis: once we've declared overloaded we stay in that state until
-    // the buffer falls below a low-watermark (here 128 bytes).  This avoids
-    // stop‑and‑go behavior when pendingData hovers around the threshold.
+    // the buffer falls below a low-watermark.  We keep the watermark at 128
+    // bytes (≈1/4 of the original threshold) so throttling behaviour remains
+    // snappy without toggling around the boundary.
     const lowWatermark = 128;
+
     if (this.overloadedState) {
       if (this.pendingData.length < lowWatermark) {
         this.overloadedState = false;
       }
     } else {
-      if (this.pendingData.length > this.BACKPRESSURE_THRESHOLD) {
+      if (this.pendingData.length > threshold) {
         this.overloadedState = true;
       }
     }

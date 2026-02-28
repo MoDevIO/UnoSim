@@ -1,4 +1,3 @@
-import { spawn } from "child_process";
 import type { ChildProcess, SpawnOptions } from "child_process";
 
 /**
@@ -20,7 +19,11 @@ export type CloseCb = (code: number | null) => void;
 export type ErrorCb = (err: Error) => void;
 
 export interface IProcessController {
-  spawn(command: string, args?: string[] | undefined, options?: SpawnOptions | undefined): void;
+  /**
+   * Spawn a child process and return the underlying `ChildProcess` object
+   * (or null if spawn failed). Uses dynamic import so mocking works in tests.
+   */
+  spawn(command: string, args?: string[] | undefined, options?: SpawnOptions | undefined): Promise<import("child_process").ChildProcess | null>;
   onStdout(cb: StdDataCb): void;
   onStderr(cb: StdDataCb): void;
   onClose(cb: CloseCb): void;
@@ -43,23 +46,46 @@ export class ProcessController implements IProcessController {
   private closeListeners: CloseCb[] = [];
   private errorListeners: ErrorCb[] = [];
 
-  spawn(command: string, args: string[] = [], options?: SpawnOptions) {
+  async spawn(command: string, args: string[] = [], options?: SpawnOptions): Promise<import("child_process").ChildProcess | null> {
+    // dynamic import ensures test mocks of child_process are applied
+    const { spawn } = await import("child_process");
+    // debug logging of spawn attempts
+    process.stderr.write(`[DEBUG] ProcessController.spawn called: ${command} ${args ? args.join(' ') : ''}\n`);
     // Destroy any previous process reference
     // spawn with or without options depending on caller
     this.proc = options ? spawn(command, args, options) : spawn(command, args);
+    // if tests have registered a global spawnInstances array, record it
+    try {
+      const gs: any = (globalThis as any).spawnInstances;
+      if (Array.isArray(gs) && this.proc) {
+        gs.push(this.proc);
+      }
+    } catch {
+      /* ignore */
+    }
 
     // attach existing listeners (guard for nullability)
     if (this.proc && this.proc.stdout) {
       this.proc.stdout.on("data", (d: Buffer) => this.stdoutListeners.forEach((cb) => cb(d)));
     }
     if (this.proc && this.proc.stderr) {
-      this.proc.stderr.on("data", (d: Buffer) => this.stderrListeners.forEach((cb) => cb(d)));
+      this.proc.stderr.on("data", (d: Buffer) => {
+        if (process.env.NODE_ENV === "test") {
+          try {
+            process.stderr.write(`[DEBUG] wrapper stderr handler invoked with: ${d.toString()}\n`);
+          } catch {}
+        }
+        this.stderrListeners.forEach((cb) => cb(d));
+      });
     }
 
     if (this.proc) {
       this.proc.on("close", (code: number | null) => this.closeListeners.forEach((cb) => cb(code)));
       this.proc.on("error", (err: Error) => this.errorListeners.forEach((cb) => cb(err)));
     }
+
+    // return the underlying ChildProcess so callers can inspect it
+    return this.proc;
   }
 
   onStdout(cb: StdDataCb) {

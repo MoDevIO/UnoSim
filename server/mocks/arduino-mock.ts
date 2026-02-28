@@ -17,6 +17,8 @@ export const ARDUINO_MOCK_LINES = 427; // NOTE: approximate line count
 
 export const ARDUINO_MOCK_CODE = `
 // Simulated Arduino environment
+// PATCH: version bump comment
+// PATCH2: additional line to change hash
 #include <iostream>
 #include <string>
 #include <cmath>

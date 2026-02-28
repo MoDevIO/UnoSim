@@ -105,6 +105,14 @@
       "matchCommandLine": true
     },
     "git rev-parse": true,
-    "sendMessageImmediate\\\\": true
+    "sendMessageImmediate\\\\": true,
+    "/^node - <<'EOF'\nconst \\{ mkdirSync, existsSync \\} = require\\('fs'\\);\nconst \\{ join \\} = require\\('path'\\);\nconst CORE_CACHE_DIR = join\\(process\\.cwd\\(\\), 'cache', 'cores'\\);\nconsole\\.log\\('pre exists', existsSync\\(CORE_CACHE_DIR\\)\\);\ntry \\{ mkdirSync\\(CORE_CACHE_DIR, \\{ recursive:true \\}\\); \\} catch\\(e\\)\\{console\\.error\\('err',e\\);\\} \nconsole\\.log\\('post exists', existsSync\\(CORE_CACHE_DIR\\)\\);\nEOF$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^node - <<'EOF'\nconst \\{SandboxRunner\\} = require\\('\\./server/services/sandbox-runner\\.ts'\\);\nconst fs = require\\('fs'\\);\nconst \\{ join \\} = require\\('path'\\);\nconst CACHE_DIR = join\\(process\\.cwd\\(\\),'cache','cores'\\);\nfs\\.rmSync\\(CACHE_DIR,\\{recursive:true,force:true\\}\\);\nconsole\\.log\\('deleted'\\);\nconst runner=new SandboxRunner\\(\\);\nconsole\\.log\\('runner created'\\);\nrunner\\.runSketch\\('void setup\\(\\)\\{\\} void loop\\(\\)\\{\\}',\\(\\) =>\\{\\},\\(\\) =>\\{\\},\\(c\\)=>\\{console\\.log\\('exit',c\\);\n  setTimeout\\(\\(\\)=>\\{\n    console\\.log\\('exists after', fs\\.existsSync\\(CACHE_DIR\\), fs\\.readdirSync\\(join\\(process\\.cwd\\(\\),'cache'\\)\\)\\);\n  \\},100\\);\n\\}\\);\nEOF$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
   },
 }

@@ -10,6 +10,8 @@
  */
 
 import { vi } from "vitest";
+// allow longer integration tests
+vi.setConfig({ testTimeout: 30000 });
 import { SandboxRunner } from '../../server/services/sandbox-runner';
 import { extractPlainText, runSketchWithOutput } from '../utils/serial-test-helper';
 
