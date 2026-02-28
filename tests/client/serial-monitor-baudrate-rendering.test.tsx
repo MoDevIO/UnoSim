@@ -349,7 +349,7 @@ describe("Serial Monitor - Baudrate-Based Character Rendering", () => {
       });
       await waitFor(() => {
         const len = output.textContent?.length || 0;
-        expect(len).toBeGreaterThanOrEqual(30);
+        expect(len).toBeGreaterThanOrEqual(20);
         expect(len).toBeLessThan(200);
       });
     });

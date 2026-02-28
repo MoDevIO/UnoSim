@@ -58,6 +58,12 @@ test-results/
 .next/
 .cache/
 
+# our temporary compilation caches and scratch files
+/cache/
+undefined
+benchmark-cache.ts
+scripts/bench-sandbox.ts
+
 # Java / Maven / Gradle
 /target/
 
