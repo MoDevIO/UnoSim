@@ -113,6 +113,8 @@ export class SandboxRunner {
   // Execution state
   private processStartTime: number | null = null;
   private currentSketchDir: string | null = null;
+  // if a compile process is currently running, defer cleanup to avoid races
+  private isCompiling = false;
   private currentRegistryFile: string | null = null;
   private pendingCleanup = false;
   private cleanupRetries = new Map<string, number>();
@@ -714,7 +716,9 @@ export class SandboxRunner {
       );
     } else {
       try {
+        this.isCompiling = true;
         await this.performCompilation(files.sketchFile, files.exeFile, opts);
+        this.isCompiling = false;
         if (
           this.pendingCleanup ||
           this.processKilled ||
@@ -724,11 +728,14 @@ export class SandboxRunner {
           return;
         }
 
+        // compile finished successfully, clear flag before running
+        this.isCompiling = false;
         this.processController.spawn(files.exeFile);
         this.processStartTime = Date.now();
         this.transitionTo(SimulationState.RUNNING);
         this.setupLocalHandlers(callbacks, onExit, executionTimeout);
       } catch (err) {
+        this.isCompiling = false;
         if (onCompileError) onCompileError(err instanceof Error ? err.message : String(err));
         if (onExit) onExit(-1);
         this.transitionTo(SimulationState.STOPPED);
@@ -1332,6 +1339,12 @@ export class SandboxRunner {
 
   private markTempDirForCleanup() {
     if (!this.currentSketchDir) return;
+    if (this.isCompiling) {
+      // postpone cleanup until compilation completes
+      this.logger.debug("cleanup deferred until compile finishes");
+      setTimeout(() => this.markTempDirForCleanup(), 1000);
+      return;
+    }
     const dir = this.currentSketchDir;
     if (!existsSync(dir)) {
       this.fileBuilder.clearCreatedSketchDir(dir);
