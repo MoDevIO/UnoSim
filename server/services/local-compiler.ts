@@ -471,19 +471,19 @@ export class LocalCompiler {
       await import("fs/promises").then((fs) => fs.writeFile(src, ARDUINO_MOCK_CODE));
 
       const obj = join(tmp, "sim-core.o");
-      await new Promise<void>(async (res, rej) => {
-        const { spawn } = await import("child_process");
+      await new Promise<void>((res, rej) => {
+        const { spawn } = require("child_process");
         const proc = spawn("g++", ["-std=gnu++17", "-pthread", "-c", src, "-o", obj]);
         try { const gs: any = (globalThis as any).spawnInstances; if (Array.isArray(gs)) gs.push(proc); } catch {}
-        proc.on("close", (code) => (code === 0 ? res() : rej(new Error("g++ native core compile failed"))));
+        proc.on("close", (code: number | null) => (code === 0 ? res() : rej(new Error("g++ native core compile failed"))));
         proc.on("error", rej);
       });
 
-      await new Promise<void>(async (res, rej) => {
-        const { spawn } = await import("child_process");
+      await new Promise<void>((res, rej) => {
+        const { spawn } = require("child_process");
         const proc = spawn("ar", ["rcs", LocalCompiler.SIM_CACHE_PATH, obj]);
         try { const gs: any = (globalThis as any).spawnInstances; if (Array.isArray(gs)) gs.push(proc); } catch {}
-        proc.on("close", (code) => (code === 0 ? res() : rej(new Error("ar archiving failed"))));
+        proc.on("close", (code: number | null) => (code === 0 ? res() : rej(new Error("ar archiving failed"))));
         proc.on("error", rej);
       });
 

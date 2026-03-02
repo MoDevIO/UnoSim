@@ -41,9 +41,9 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         reject(new Error("timeout waiting for output"));
       }, 15000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           received.push(line);
           if (received.filter((l) => l.includes("HELLO")).length >= 3) {
             clearTimeout(timeout);
@@ -52,19 +52,16 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
             runner.stop().then(() => resolve()).catch(reject);
           }
         },
-        (err) => {
+        onError: (err) => {
           console.error("integration onError:", err);
           // ignore transient stderr markers used by runner internals
           if (err.includes("[[PIN_")) return;
         },
-        (exitCode) => {
+        onExit: (exitCode) => {
           console.error("integration onExit:", exitCode);
         },
-        undefined,
-        undefined,
-        undefined,
-        10,
-      );
+        timeoutSec: 10,
+      });
     });
   }, 15000);
 
@@ -88,9 +85,9 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         reject(new Error("timeout in pause/resume test"));
       }, 20000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           lines.push({ text: line, time: Date.now() });
 
           // Once we have a few lines, perform pause/resume checks
@@ -123,17 +120,14 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
             }, 400);
           }
         },
-        (err) => {
+        onError: (err) => {
           if (err.includes("[[PIN_")) return;
         },
-        () => {
+        onExit: () => {
           // onExit ignored here
         },
-        undefined,
-        undefined,
-        undefined,
-        15,
-      );
+        timeoutSec: 15,
+      });
     });
   }, 25000);
 
@@ -160,9 +154,9 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         }
       }, 15000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           captured.push(line);
 
           // Be resilient: stop shortly after the first serial output (avoids flaky timing)
@@ -172,13 +166,9 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
             }, 50);
           }
         },
-        (err) => {},
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        10,
-      );
+        onError: (err) => {},
+        timeoutSec: 10,
+      });
 
       // Poll for first output (max 2s) then ensure stop prevented further output
       const start = Date.now();
@@ -236,9 +226,9 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         resolve();
       };
 
-      const runPromise = runner.runSketch(
+      const runPromise = runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           if (!seen) {
             seen = true;
             // Immediately stop when first data arrives — replicate race window
@@ -247,13 +237,10 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
             setTimeout(runnerResolve, 300);
           }
         },
-        (err) => { console.error("race onError", err); },
-        (code) => { console.error("race onExit", code); },
-        undefined,
-        undefined,
-        undefined,
-        5,
-      );
+        onError: (err) => { console.error("race onError", err); },
+        onExit: (code) => { console.error("race onExit", code); },
+        timeoutSec: 5,
+      });
 
       // Safety: if no output observed in time, fail
       setTimeout(() => {
@@ -282,11 +269,11 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         reject(new Error("timeout waiting for non-zero exit"));
       }, 15000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        () => {},
-        () => {},
-        (exitCode) => {
+        onOutput: () => {},
+        onError: () => {},
+        onExit: (exitCode) => {
           try {
             // On some platforms/CI we have observed -1 instead of real code
             if (exitCode !== 42) {
@@ -299,11 +286,8 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
             reject(err);
           }
         },
-        undefined,
-        undefined,
-        undefined,
-        5,
-      );
+        timeoutSec: 5,
+      });
     });
   }, 15000);
 });

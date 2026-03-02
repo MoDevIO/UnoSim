@@ -583,35 +583,7 @@ describe("SerialOutputBatcher", () => {
       expect(telemetry.dropped).toBe(0);
     });
 
-    it.skip("T23: [OLD] Baud=300 proportional floor - DEPRECATED: Platform independent", () => {
-      batcher = new SerialOutputBatcher({
-        baudrate: 300,
-        tickIntervalMs: 50,
-        onChunk,
-      });
-
-      // At 300 baud: bytesPerTick = 1.5, burstBudget = 4.5
-      // Proportional floor: min(50, ceil(30 × 0.5)) = min(50, 15) = 15
-      // maxBudget = max(1, 4, 15) = 15
-      batcher.start();
-      batcher.enqueue("Hello World!\n"); // 14 bytes — fits in maxBudget of 15
-
-      vi.advanceTimersByTime(50);
-
-      const telemetry = batcher.getTelemetryAndReset();
-      expect(telemetry.actual).toBe(13); // "Hello World!\n" = 13 bytes, fits in budget of 15
-      expect(telemetry.dropped).toBe(0);
-
-      // Now send 30 bytes — exceeds remaining budget after refill
-      chunks = [];
-      batcher.enqueue("A".repeat(30));
-      vi.advanceTimersByTime(50);
-
-      const telemetry2 = batcher.getTelemetryAndReset();
-      // currentBudget was 15-14=1, refill from accumulator ~1-2 → budget ~2-3
-      // 30 > 3 → drops
-      expect(telemetry2.dropped).toBeGreaterThan(0);
-    });
+    // T23 removed - DEPRECATED old strategy test
   });
 
   describe("Low Baudrate - No Data Loss", () => {

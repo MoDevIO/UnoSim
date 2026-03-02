@@ -84,7 +84,7 @@ export async function waitForRunning(runner: SandboxRunner, timeout = 15000): Pr
  * @example
  * ```ts
  * const outputs: string[] = [];
- * runner.runSketch(sketch, (line) => outputs.push(line), ...);
+ * runner.runSketch({ code: sketch, onOutput: (line) => outputs.push(line), ... });
  * await waitForSerialOutput(outputs, 'Hello', 10000);
  * expect(extractPlainText(outputs)).toContain('Hello');
  * ```
@@ -174,16 +174,16 @@ export async function runSketchWithOutput(
       let compiled = false;
       let exited = false;
       
-      runner.runSketch(
-        sketch,
-        (line: string) => {
+      runner.runSketch({
+        code: sketch,
+        onOutput: (line: string) => {
           outputs.push(line);
         },
-        (error: string) => {
+        onError: (error: string) => {
           // onError - compilation or runtime errors
           resolve({ outputs, success: false, error });
         },
-        (code: number | null) => {
+        onExit: (code: number | null) => {
           // onExit
           exited = true;
           if (compiled || outputs.length > 0) {
@@ -191,20 +191,20 @@ export async function runSketchWithOutput(
           }
           // If neither condition met, wait for fallback timer
         },
-        (error: string) => {
+        onCompileError: (error: string) => {
           // onCompileError
           resolve({ outputs, success: false, error: `Compile: ${error}` });
         },
-        () => {
+        onCompileSuccess: () => {
           // onCompileSuccess
           compiled = true;
         },
-        () => {}, // onPinState
-        timeout, // timeoutSec
-        (registry, baudrate) => {
+        onPinState: () => {},
+        timeoutSec: timeout,
+        onIORegistry: (registry, baudrate) => {
           // onIORegistry - triggers message queue flush
-        }
-      );
+        },
+      });
       
       // Fallback timeout - resolve with whatever we have
       setTimeout(() => {

@@ -203,20 +203,20 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
               logger.warn(`Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`);
             }
 
-            // Call the legacy positional signature to preserve exact runtime behavior
-            clientState.runner.runSketch(
-              lastCompiledCode,
-              opts.onOutput,
-              opts.onError,
-              opts.onExit,
-              opts.onCompileError,
-              opts.onCompileSuccess,
-              opts.onPinState,
-              opts.timeoutSec,
-              opts.onIORegistry,
-              opts.onTelemetry,
-              opts.onPinStateBatch,
-            );
+            clientState.runner.runSketch({
+              code: lastCompiledCode,
+              onOutput: opts.onOutput,
+              onError: opts.onError,
+              onExit: opts.onExit,
+              onCompileError: opts.onCompileError,
+              onCompileSuccess: opts.onCompileSuccess,
+              onPinState: opts.onPinState,
+              timeoutSec: opts.timeoutSec,
+              onIORegistry: opts.onIORegistry,
+              onTelemetry: opts.onTelemetry,
+              onPinStateBatch: opts.onPinStateBatch,
+              context: opts.context,
+            });
           }
             break;
 
