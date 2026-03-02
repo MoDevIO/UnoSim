@@ -82,9 +82,12 @@ export class CompilationWorkerPool {
     // In development, workers are .ts; in production, they're .js after transpilation
     const isProduction = process.env.NODE_ENV === "production";
     const dirname = path.dirname(new URL(import.meta.url).pathname);
-    const workerScript = isProduction
-      ? path.join(dirname, "workers", "compile-worker.js")
-      : path.join(dirname, "workers", "compile-worker.ts");
+    
+    // Try .js first (production), fallback to .ts (development with tsx)
+    let workerScript = path.join(dirname, "workers", "compile-worker.js");
+    if (!fs.existsSync(workerScript)) {
+      workerScript = path.join(dirname, "workers", "compile-worker.ts");
+    }
 
     // Validate worker file exists
     if (!fs.existsSync(workerScript)) {
@@ -96,6 +99,8 @@ export class CompilationWorkerPool {
       }
       throw new Error(`Worker file not found: ${workerScript}`);
     }
+
+    this.logger.info(`[CompilationWorkerPool] Using worker script: ${workerScript}`);
 
     for (let i = 0; i < this.numWorkers; i++) {
       try {
