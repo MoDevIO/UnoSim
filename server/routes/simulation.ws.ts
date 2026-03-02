@@ -141,6 +141,8 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
               if (clientState.runner) {
                 await safeReleaseRunner(clientState, "missing-compiled-code");
               }
+              clientState.isRunning = false;
+              clientState.isPaused = false;
 
               sendMessageToClient(ws, { type: "serial_output", data: "[ERR] No compiled code available. Please compile first.\n" });
               sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
