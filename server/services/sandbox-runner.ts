@@ -1055,13 +1055,13 @@ export class SandboxRunner {
       // Only stop batchers if we were actually RUNNING (not during mock test setup)
       // In mock tests, close fires during setup before state reaches RUNNING
       if (wasRunning) {
+        this.flushBatchers();
+        
         if (this.serialOutputBatcher) {
-          this.serialOutputBatcher.stop();  // Flushes pending data
           this.serialOutputBatcher.destroy(); // Cleans up timer
           this.serialOutputBatcher = null;
         }
         if (this.pinStateBatcher) {
-          this.pinStateBatcher.stop();  // Flushes pending states
           this.pinStateBatcher.destroy(); // Cleans up timer
           this.pinStateBatcher = null;
         }

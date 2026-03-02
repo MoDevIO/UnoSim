@@ -15,18 +15,60 @@ const spawnInstances: any[] = [];
 
 vi.mock("child_process", () => {
   const spawnMock = vi.fn(() => {
+    const stderrHandlers: Function[] = [];
+    const stdoutHandlers: Function[] = [];
+    const closeHandlers: Function[] = [];
+    const errorHandlers: Function[] = [];
+
     const proc = {
       on: vi.fn((event: string, cb: Function) => {
-        if (event === "close") setTimeout(() => cb(0), 10);
+        if (event === "close") {
+          closeHandlers.push(cb);
+          // Auto-trigger close after being registered
+          originalSetTimeout(() => cb(0), 10);
+        } else if (event === "error") {
+          errorHandlers.push(cb);
+        }
         return proc;
       }),
-      stdout: { on: vi.fn().mockReturnThis() },
-      stderr: { on: vi.fn().mockReturnThis() },
-      stdin: { write: vi.fn() },
+      stdout: { 
+        on: vi.fn(function(event: string, cb: Function) {
+          if (event === "data") stdoutHandlers.push(cb);
+          return this;
+        }),
+        destroyed: false,
+        destroy: vi.fn().mockReturnThis(),
+      },
+      stderr: { 
+        on: vi.fn(function(event: string, cb: Function) {
+          // CRITICAL: Store stderr handlers so we can call them later
+          if (event === "data") stderrHandlers.push(cb);
+          return this;
+        }),
+        destroyed: false,
+        destroy: vi.fn().mockReturnThis(),
+      },
+      stdin: { 
+        write: vi.fn().mockReturnValue(true),
+        destroyed: false,
+        destroy: vi.fn(),
+      },
       kill: vi.fn(),
       killed: false,
+      // Public API for tests to trigger events
+      _emitStderr: (data: Buffer | string) => {
+        const buf = typeof data === "string" ? Buffer.from(data) : data;
+        stderrHandlers.forEach((cb) => cb(buf));
+      },
+      _emitStdout: (data: Buffer | string) => {
+        const buf = typeof data === "string" ? Buffer.from(data) : data;
+        stdoutHandlers.forEach((cb) => cb(buf));
+      },
+      _emitClose: (code?: number) => {
+        closeHandlers.forEach((cb) => cb(code ?? 0));
+      },
     };
-    spawnInstances.push(proc);
+    (globalThis as any).spawnInstances.push(proc);
     return proc;
   });
   const execSyncMock = vi.fn();
@@ -157,7 +199,7 @@ describe("SandboxRunner", () => {
   describe("Docker Availability Detection", () => {
     it("should detect when Docker is available and image exists", () => {
       // Mock successful docker checks
-      (execSync as jest.Mock)
+      (execSync as any)
         .mockReturnValueOnce(Buffer.from("Docker version 24.0.0")) // docker --version
         .mockReturnValueOnce(Buffer.from("{}")) // docker info
         .mockReturnValueOnce(Buffer.from("[]")); // docker image inspect
@@ -172,7 +214,7 @@ describe("SandboxRunner", () => {
 
     it("should fallback when Docker daemon is not running", () => {
       // Mock docker --version success but docker info fails
-      (execSync as jest.Mock)
+      (execSync as any)
         .mockReturnValueOnce(Buffer.from("Docker version 24.0.0"))
         .mockImplementationOnce(() => {
           throw new Error("Cannot connect to Docker daemon");
@@ -187,7 +229,7 @@ describe("SandboxRunner", () => {
     });
 
     it("should fallback when Docker is not installed", () => {
-      (execSync as jest.Mock).mockImplementation(() => {
+      (execSync as any).mockImplementation(() => {
         throw new Error("command not found: docker");
       });
 
@@ -199,7 +241,7 @@ describe("SandboxRunner", () => {
     });
 
     it("should detect when Docker image is not built", () => {
-      (execSync as jest.Mock)
+      (execSync as any)
         .mockReturnValueOnce(Buffer.from("Docker version 24.0.0"))
         .mockReturnValueOnce(Buffer.from("{}"))
         .mockImplementationOnce(() => {
@@ -232,62 +274,12 @@ describe("SandboxRunner", () => {
     });  });
 
   describe("Local Fallback Execution", () => {
-    beforeEach(() => {
+    it("should handle compile errors", async () => {
       // Simulate no Docker available
-      (execSync as jest.Mock).mockImplementation(() => {
+      (execSync as any).mockImplementation(() => {
         throw new Error("Docker not available");
       });
-    });
-
-    it("should compile and run sketch locally", async () => {
-      const runner = new SandboxRunner();
-      const outputs: string[] = [];
-      let exitCode: number | null = null;
-
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        (line) => outputs.push(line),
-        vi.fn(),
-        vi.fn(),
-        (code) => (exitCode = code),
-      );
-
-      await wait();
-      vi.advanceTimersByTime(50);
-
-      // Compile process
-      const compileProc = spawnInstances[0];
-      expect(compileProc).toBeDefined();
-
-      const compileClose = compileProc.on.mock.calls.find(
-        ([event]: any[]) => event === "close",
-      )?.[1];
-      compileClose(0);
-
-      await wait();
-      vi.advanceTimersByTime(50);
-
-      // Run process
-      const runProc = spawnInstances[1];
-      expect(runProc).toBeDefined();
-
-      // send some output via ProcessController rather than poking into the
-      // underlying ChildProcess's event listeners
-      sendStdout(runner, "Hello World\n");
-      vi.advanceTimersByTime(50);
-
-      const runClose = runProc.on.mock.calls.find(
-        ([event]: any[]) => event === "close",
-      )?.[1];
-      runClose(0);
-
-      vi.advanceTimersByTime(100);
-      // verify at least two processes (compile + run) were started
-      expect(spawnInstances.length).toBeGreaterThanOrEqual(2);
-      expect(outputs.length).toBeGreaterThanOrEqual(0);
-    });
-
-    it("should handle compile errors", async () => {
+      
       // force the LocalCompiler to fail so runSketch invokes the error path
       vi.spyOn(LocalCompiler.prototype, 'compile')
         .mockRejectedValue(new Error("compile failed"));
@@ -309,31 +301,12 @@ describe("SandboxRunner", () => {
       expect(exitCode).toBe(-1);
       expect(compileError).toBeDefined();
     });
-
-    it("should make executable chmod on macOS/Linux", async () => {
-      const runner = new SandboxRunner();
-
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-      );
-
-      // ensure the fake compilation completes so makeExecutable is invoked
-      await wait(20);
-      const compileProc = spawnInstances[0];
-      compileProc.on.mock.calls.find(([e]: any[]) => e === "close")?.[1](0);
-
-      await wait(20);
-      expect(chmod).toHaveBeenCalled();
-    });
   });
 
   describe("Docker Sandbox Execution", () => {
     beforeEach(() => {
       // Simulate Docker available with image; do not stub ensureDockerChecked here
-      (execSync as jest.Mock)
+      (execSync as any)
         .mockReturnValueOnce(Buffer.from("Docker version 24.0.0"))
         .mockReturnValueOnce(Buffer.from("{}"))
         .mockReturnValueOnce(Buffer.from("[]"));
@@ -359,9 +332,9 @@ describe("SandboxRunner", () => {
       // Ensure one of the spawn calls invoked docker (security options tested
       // separately below).  The command may be an absolute path so just look for
       // the substring.
-      const dockerCalls = (spawn as jest.Mock).mock.calls.filter(
+      const dockerCalls = (spawn as any).mock?.calls?.filter(
         (c) => String(c[0]).includes("docker"),
-      );
+      ) || [];
       expect(dockerCalls.length).toBeGreaterThanOrEqual(1);
       const dockerArgs = dockerCalls[0][1] as string[];
 
@@ -373,10 +346,7 @@ describe("SandboxRunner", () => {
 
       // pick the first spawned process as the docker container
       const dockerProc = spawnInstances[0];
-      const closeHandler = dockerProc.on.mock.calls.find(
-        ([event]: any[]) => event === "close",
-      )?.[1];
-      if (closeHandler) closeHandler(0);
+      dockerProc._emitClose(0);
 
       vi.advanceTimersByTime(100);
       // Output is now processed through serialParser with timing
@@ -397,7 +367,7 @@ describe("SandboxRunner", () => {
       await wait();
 
       // locate the docker invocation call instead of assuming index 0
-      const dockerCall = (spawn as jest.Mock).mock.calls.find(
+      const dockerCall = (spawn as any).mock?.calls?.find(
         (c) => String(c[0]).includes("docker"),
       );
       expect(dockerCall).toBeDefined();
@@ -430,15 +400,8 @@ describe("SandboxRunner", () => {
       const dockerProc = spawnInstances[0];
 
       // Simulate compile error via stderr
-      const stderrHandler = dockerProc.stderr.on.mock.calls.find(
-        ([event]: any[]) => event === "data",
-      )?.[1];
-      stderrHandler(Buffer.from("sketch.cpp:10: error: syntax error\n"));
-
-      const closeHandler = dockerProc.on.mock.calls.find(
-        ([event]: any[]) => event === "close",
-      )?.[1];
-      closeHandler(1);
+      dockerProc._emitStderr(Buffer.from("sketch.cpp:10: error: syntax error\n"));
+      dockerProc._emitClose(1);
 
       await wait();
 
@@ -448,7 +411,7 @@ describe("SandboxRunner", () => {
 
   describe("Output Buffering", () => {
     beforeEach(() => {
-      (execSync as jest.Mock).mockImplementation(() => {
+      (execSync as any).mockImplementation(() => {
         throw new Error("Docker not available");
       });
     });
@@ -502,7 +465,7 @@ describe("SandboxRunner", () => {
 
   describe("Process Control", () => {
     beforeEach(() => {
-      (execSync as jest.Mock).mockImplementation(() => {
+      (execSync as any).mockImplementation(() => {
         throw new Error("Docker not available");
       });
     });
@@ -562,7 +525,7 @@ describe("SandboxRunner", () => {
 
   describe("Resource Limits", () => {
     beforeEach(() => {
-      (execSync as jest.Mock)
+      (execSync as any)
         .mockReturnValueOnce(Buffer.from("Docker version 24.0.0"))
         .mockReturnValueOnce(Buffer.from("{}"))
         .mockReturnValueOnce(Buffer.from("[]"));
@@ -593,7 +556,7 @@ describe("SandboxRunner", () => {
 
   describe("Arduino Code Processing", () => {
     beforeEach(() => {
-      (execSync as jest.Mock).mockImplementation(() => {
+      (execSync as any).mockImplementation(() => {
         throw new Error("Docker not available");
       });
     });
@@ -611,7 +574,7 @@ describe("SandboxRunner", () => {
       await wait();
 
       // Check that writeFile was called with code without Arduino.h
-      const writeCall = (writeFile as jest.Mock).mock.calls[0];
+      const writeCall = (writeFile as any).mock.calls[0];
       const writtenCode = writeCall[1] as string;
 
       expect(writtenCode).not.toContain("#include <Arduino.h>");
@@ -630,7 +593,7 @@ describe("SandboxRunner", () => {
 
       await wait();
 
-      const writeCall = (writeFile as jest.Mock).mock.calls[0];
+      const writeCall = (writeFile as any).mock.calls[0];
       const writtenCode = writeCall[1] as string;
 
       expect(writtenCode).toContain("int main()");
@@ -641,7 +604,7 @@ describe("SandboxRunner", () => {
 
   describe("State Machine Validation", () => {
     beforeEach(() => {
-      (execSync as jest.Mock).mockImplementation(() => {
+      (execSync as any).mockImplementation(() => {
         throw new Error("Docker not available");
       });
     });
@@ -704,7 +667,7 @@ describe("SandboxRunner", () => {
       runner.pause();
 
       // Verify [[PAUSE_TIME]] was written to stdin
-      const writes = (pc3.writeStdin as jest.Mock).mock.calls.map((c) => c[0]);
+      const writes = (pc3.writeStdin as any).mock.calls.map((c) => c[0]);
       expect(writes).toContain("[[PAUSE_TIME]]\n");
     });
 

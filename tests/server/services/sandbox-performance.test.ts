@@ -14,16 +14,59 @@ const spawnInstances: any[] = [];
 
 vi.mock("child_process", () => {
   const spawnMock = vi.fn(() => {
+    // Create a proper mock that supports handler registration AND invocation
+    const stderrHandlers: Function[] = [];
+    const stdoutHandlers: Function[] = [];
+    const closeHandlers: Function[] = [];
+    const errorHandlers: Function[] = [];
+
     const proc = {
       on: vi.fn((event: string, cb: Function) => {
-        if (event === "close") setTimeout(() => cb(0), 10);
+        if (event === "close") {
+          closeHandlers.push(cb);
+          // Auto-trigger close after being registered
+          originalSetTimeout(() => cb(0), 10);
+        } else if (event === "error") {
+          errorHandlers.push(cb);
+        }
         return proc;
       }),
-      stdout: { on: vi.fn().mockReturnThis() },
-      stderr: { on: vi.fn().mockReturnThis() },
-      stdin: { write: vi.fn() },
+      stdout: { 
+        on: vi.fn(function(event: string, cb: Function) {
+          if (event === "data") stdoutHandlers.push(cb);
+          return this;
+        }),
+        destroyed: false,
+        destroy: vi.fn().mockReturnThis(),
+      },
+      stderr: { 
+        on: vi.fn(function(event: string, cb: Function) {
+          // CRITICAL: Store stderr handlers so we can call them later
+          if (event === "data") stderrHandlers.push(cb);
+          return this;
+        }),
+        destroyed: false,
+        destroy: vi.fn().mockReturnThis(),
+      },
+      stdin: { 
+        write: vi.fn().mockReturnValue(true),
+        destroyed: false,
+        destroy: vi.fn(),
+      },
       kill: vi.fn(),
       killed: false,
+      // Public API for tests to trigger data on streams
+      _emitStderr: (data: Buffer | string) => {
+        const buf = typeof data === "string" ? Buffer.from(data) : data;
+        stderrHandlers.forEach((cb) => cb(buf));
+      },
+      _emitStdout: (data: Buffer | string) => {
+        const buf = typeof data === "string" ? Buffer.from(data) : data;
+        stdoutHandlers.forEach((cb) => cb(buf));
+      },
+      _emitClose: (code?: number) => {
+        closeHandlers.forEach((cb) => cb(code ?? 0));
+      },
     };
     spawnInstances.push(proc);
     return proc;
@@ -78,15 +121,15 @@ describe("SandboxRunner Performance Tests", () => {
   beforeEach(() => {
     activeRunners = [];
     spawnInstances.length = 0;
-    (spawn as jest.Mock).mockClear();
-    (execSync as jest.Mock).mockClear();
+    (spawn as any).mockClear?.();
+    (execSync as any).mockClear?.();
 
     // Mock Docker not available for faster tests
-    (execSync as jest.Mock).mockImplementation(() => {
+    (execSync as any).mockImplementation?.(() => {
       throw new Error("Docker not available");
     });
 
-    vi.useFakeTimers();
+    vi.useFakeTimers({ now: Date.now() });
   });
 
   afterEach(async () => {
@@ -129,7 +172,7 @@ describe("SandboxRunner Performance Tests", () => {
     //when compile close handler fires, before the "run" process sends data.
     // This needs refactoring to properly mock either Docker OR local, not mix both.
     // @skip: Performance/Load-Test - Nur manuell oder in Heavy-CI ausführen
-    it.skip("should handle 10 pins switching rapidly without dropping events", async () => {
+    it("should handle 10 pins switching rapidly without dropping events", async () => {
       const runner = createRunner();
       
       const sketch = `
@@ -153,11 +196,11 @@ void loop() {
       let pinStateCallCount = 0;
       let pinStateBatchCallCount = 0;
 
-      runner.runSketch(
+      const runSketchPromise = runner.runSketch(
         sketch,
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
         undefined,
         undefined,
         (pin, type, value) => {
@@ -189,45 +232,67 @@ void loop() {
         },
       );
 
+      // Wait for runSketch to initialize and spawn processes
+      await vi.waitFor(() => spawnInstances.length >= 2, { timeout: 5000 });
       await wait();
-      jest.advanceTimersByTime(50);
 
+      // Now trigger the compile process close handler (indicates successful compilation)
       const compileProc = spawnInstances[0];
-      compileProc.on.mock.calls.find(([e]: any[]) => e === "close")?.[1](0);
+      const compileCloseHandler = compileProc.on.mock?.calls?.find(([e]: any[]) => e === "close")?.[1];
+      if (compileCloseHandler) {
+        compileCloseHandler(0); // Successful compile (exit code 0)
+      }
 
+      // Wait for process transition to RUNNING
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(100);
 
+      // Get the run process (after compile finishes)
       const runProc = spawnInstances[1];
-      const stderrHandler = runProc.stderr.on.mock.calls.find(
-        ([event]: any[]) => event === "data",
-      )?.[1];
+      
+      // Use the _emitStderr helper to send data through all registered stderr handlers
+      // This ensures the ProcessController wrapper gets called correctly
+      const stderrTrigger = (data: Buffer) => {
+        runProc._emitStderr(data);
+      };
 
       // Send registry first (so events aren't queued)
-      stderrHandler(Buffer.from("[[IO_REGISTRY_START]]\n"));
+      stderrTrigger(Buffer.from("[[IO_REGISTRY_START]]\n"));
       for (let pin = 2; pin <= 11; pin++) {
-        stderrHandler(Buffer.from(`[[IO_PIN:D${pin}:1:${pin}:1:]]\n`));
+        stderrTrigger(Buffer.from(`[[IO_PIN:D${pin}:1:${pin}:1:]]\n`));
       }
-      stderrHandler(Buffer.from("[[IO_REGISTRY_END]]\n"));
+      stderrTrigger(Buffer.from("[[IO_REGISTRY_END]]\n"));
 
-      jest.advanceTimersByTime(200); // Wait for registry processing
+      // Advance time to allow registry processing
+      vi.advanceTimersByTime(200);
 
       // Simulate rapid pin mode events
       for (let pin = 2; pin <= 11; pin++) {
-        stderrHandler(Buffer.from(`[[PIN_MODE:${pin}:1]]\n`));
+        stderrTrigger(Buffer.from(`[[PIN_MODE:${pin}:1]]\n`));
       }
 
-      jest.advanceTimersByTime(10);
+      vi.advanceTimersByTime(10);
 
       // Simulate rapid value changes (10 pins × 2 transitions × 100 cycles)
       for (let cycle = 0; cycle < 100; cycle++) {
         for (let pin = 2; pin <= 11; pin++) {
-          stderrHandler(Buffer.from(`[[PIN_VALUE:${pin}:1]]\n`));
-          stderrHandler(Buffer.from(`[[PIN_VALUE:${pin}:0]]\n`));
+          stderrTrigger(Buffer.from(`[[PIN_VALUE:${pin}:1]]\n`));
+          stderrTrigger(Buffer.from(`[[PIN_VALUE:${pin}:0]]\n`));
         }
       }
 
-      jest.advanceTimersByTime(100);
+      // Advance time to trigger batcher ticks (tickIntervalMs=50)
+      vi.advanceTimersByTime(150);
+      await wait();
+
+      // Trigger run process close to flush remaining batchers
+      const runCloseHandler = runProc.on.mock?.calls?.find(([e]: any[]) => e === "close")?.[1];
+      if (runCloseHandler) {
+        runCloseHandler(0);
+      }
+
+      // Advance one more time to ensure all timers are processed
+      vi.advanceTimersByTime(100);
 
       // Verify we received the mode events
       const modeEvents = pinEvents.filter(e => e.type === "mode");
@@ -256,7 +321,7 @@ void loop() {
 
     // TODO: Same issue as previous test - Docker/local execution mode mismatch
     // @skip: Performance/Load-Test - Nur manuell oder in Heavy-CI ausführen
-    it.skip("should maintain state consistency with 10,000+ pin events", async () => {
+    it("should maintain state consistency with 10,000+ pin events", async () => {
       const runner = createRunner();
       
       const sketch = `
@@ -275,11 +340,11 @@ void loop() {
       let registryUpdateCount = 0;
       let batchCount = 0;
 
-      runner.runSketch(
+      const runSketchPromise = runner.runSketch(
         sketch,
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
         undefined,
         undefined,
         undefined, // onPinState - not used, batched instead
@@ -299,28 +364,35 @@ void loop() {
         },
       );
 
+      // Wait for runSketch to initialize and spawn processes
+      await vi.waitFor(() => spawnInstances.length >= 2, { timeout: 5000 });
       await wait();
-      jest.advanceTimersByTime(50);
 
+      // Now trigger the compile process close handler
       const compileProc = spawnInstances[0];
-      compileProc.on.mock.calls.find(([e]: any[]) => e === "close")?.[1](0);
+      const compileCloseHandler = compileProc.on.mock?.calls?.find(([e]: any[]) => e === "close")?.[1];
+      if (compileCloseHandler) {
+        compileCloseHandler(0); // Successful compile
+      }
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(100);
 
       const runProc = spawnInstances[1];
-      const stderrHandler = runProc.stderr.on.mock.calls.find(
-        ([event]: any[]) => event === "data",
-      )?.[1];
+      
+      // Use the _emitStderr helper to call all registered stderr handlers
+      const stderrTrigger = (data: Buffer) => {
+        runProc._emitStderr(data);
+      };
 
       // Send registry
-      stderrHandler(Buffer.from("[[IO_REGISTRY_START]]\n"));
+      stderrTrigger(Buffer.from("[[IO_REGISTRY_START]]\n"));
       for (let pin = 2; pin <= 11; pin++) {
-        stderrHandler(Buffer.from(`[[IO_PIN:D${pin}:1:${pin}:1:]]\n`));
+        stderrTrigger(Buffer.from(`[[IO_PIN:D${pin}:1:${pin}:1:]]\n`));
       }
-      stderrHandler(Buffer.from("[[IO_REGISTRY_END]]\n"));
+      stderrTrigger(Buffer.from("[[IO_REGISTRY_END]]\n"));
 
-      jest.advanceTimersByTime(200);
+      vi.advanceTimersByTime(200);
 
       // Simulate 10,000+ pin value changes
       const eventCount = 10000;
@@ -330,12 +402,24 @@ void loop() {
         for (let i = 0; i < batchSize; i++) {
           const pin = 2 + (i % 10);
           const value = i % 2;
-          stderrHandler(Buffer.from(`[[PIN_VALUE:${pin}:${value}]]\n`));
+          stderrTrigger(Buffer.from(`[[PIN_VALUE:${pin}:${value}]]\n`));
         }
-        jest.advanceTimersByTime(1);
+        vi.advanceTimersByTime(1);
       }
 
-      jest.advanceTimersByTime(100);
+      // Advance time to trigger batcher ticks multiple times
+      for (let i = 0; i < 10; i++) {
+        vi.advanceTimersByTime(50);
+        await wait();
+      }
+
+      // Trigger run process close to flush remaining batchers
+      const runCloseHandler = runProc.on.mock?.calls?.find(([e]: any[]) => e === "close")?.[1];
+      if (runCloseHandler) {
+        runCloseHandler(0);
+      }
+
+      vi.advanceTimersByTime(100);
 
       // With batching and deduplication, we expect FAR fewer events than the raw 10,000
       // This is the INTENDED behavior - batching reduces overhead!
@@ -393,22 +477,22 @@ void loop() {
 
       runner.runSketch(
         sketch,
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
         undefined,
         undefined,
-        jest.fn(),
+        vi.fn(),
       );
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       const compileProc = spawnInstances[0];
       compileProc.on.mock.calls.find(([e]: any[]) => e === "close")?.[1](0);
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       captureMemory();
 
@@ -423,12 +507,12 @@ void loop() {
           stderrHandler(Buffer.from("[[PIN_VALUE:13:1]]\n"));
           stderrHandler(Buffer.from("[[PIN_VALUE:13:0]]\n"));
         }
-        jest.advanceTimersByTime(10);
+        vi.advanceTimersByTime(10);
         captureMemory();
       }
 
       await runner.stop();
-      jest.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
 
       // Capture final memory
       captureMemory();
@@ -454,7 +538,7 @@ void loop() {
     });
   });
 
-  describe("Serial Output Flood Protection", () => {
+    describe("Serial Output Flood Protection", () => {
     it("should enforce maxOutputBytes limit and stop gracefully", async () => {
       const runner = createRunner();
       
@@ -481,13 +565,13 @@ void loop() {}
       );
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       const compileProc = spawnInstances[0];
       compileProc.on.mock.calls.find(([e]: any[]) => e === "close")?.[1](0);
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       const runProc = spawnInstances[1];
       const stdoutHandler = runProc.stdout.on.mock.calls.find(
@@ -501,10 +585,10 @@ void loop() {}
       for (let i = 0; i < totalMB; i++) {
         const chunk = "X".repeat(chunkSize);
         stdoutHandler(Buffer.from(chunk));
-        jest.advanceTimersByTime(1);
+        vi.advanceTimersByTime(1);
       }
 
-      jest.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
       await wait(); // Allow async operations to complete
 
       // Verify that the runner stopped due to size limit
@@ -518,7 +602,7 @@ void loop() {}
     });
 
     // @skip: Performance/Load-Test - Nur manuell oder in Heavy-CI ausführen
-    it.skip("should handle rapid serial output with timing constraints", async () => {
+    it("should handle rapid serial output with timing constraints", async () => {
       // SKIPPED: Test needs update for new SERIAL_EVENT protocol via stderr
       // Old implementation sent via stdout, new implementation sends via stderr as SERIAL_EVENT
       const runner = createRunner();
@@ -537,46 +621,63 @@ void loop() {
       const outputTimestamps: number[] = [];
       const startTime = Date.now();
 
-      runner.runSketch(
+      const runSketchPromise = runner.runSketch(
         sketch,
         (line) => {
           outputs.push(line);
           outputTimestamps.push(Date.now() - startTime);
         },
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
       );
 
+      // Wait for runSketch to initialize and spawn processes
+      await vi.waitFor(() => spawnInstances.length >= 2, { timeout: 5000 });
       await wait();
-      jest.advanceTimersByTime(50);
 
       const compileProc = spawnInstances[0];
-      compileProc.on.mock.calls.find(([e]: any[]) => e === "close")?.[1](0);
-
-      await wait();
-      jest.advanceTimersByTime(50);
-
-      const runProc = spawnInstances[1];
-      const stdoutHandler = runProc.stdout.on.mock.calls.find(
-        ([event]: any[]) => event === "data",
-      )?.[1];
-      const stderrHandler = runProc.stderr.on.mock.calls.find(
-        ([event]: any[]) => event === "data",
-      )?.[1];
-
-      // Send registry to flush message queue (serialParser events are queued until registry)
-      stderrHandler(Buffer.from("[[IO_REGISTRY_START]]\n"));
-      stderrHandler(Buffer.from("[[IO_REGISTRY_END]]\n"));
-      jest.advanceTimersByTime(200); // Wait for registry debounce
-
-      // Simulate 1000 rapid prints
-      for (let i = 0; i < 1000; i++) {
-        stdoutHandler(Buffer.from("."));
-        jest.advanceTimersByTime(1);
+      const compileCloseHandler = compileProc.on.mock?.calls?.find(([e]: any[]) => e === "close")?.[1];
+      if (compileCloseHandler) {
+        compileCloseHandler(0);
       }
 
-      // Wait for serialParser to flush (20ms timeout)
-      jest.advanceTimersByTime(25);
+      await wait();
+      vi.advanceTimersByTime(100);
+
+      const runProc = spawnInstances[1];
+      
+      // Use the _emitStderr helper to call all registered stderr handlers
+      const stderrTrigger = (data: Buffer) => {
+        runProc._emitStderr(data);
+      };
+
+      // Send registry to flush message queue (serialParser events are queued until registry)
+      stderrTrigger(Buffer.from("[[IO_REGISTRY_START]]\n"));
+      stderrTrigger(Buffer.from("[[IO_REGISTRY_END]]\n"));
+      vi.advanceTimersByTime(200); // Wait for registry debounce
+
+      // Simulate 1000 rapid serial events via SERIAL_EVENT (new protocol on stderr)
+      // Format: [[SERIAL_EVENT:timestamp:base64_data]]
+      // "Hi\n" in base64 is "SGkK"
+      for (let i = 0; i < 1000; i++) {
+        const timestamp = 1000 + i; // Simple incrementing timestamp
+        stderrTrigger(Buffer.from(`[[SERIAL_EVENT:${timestamp}:SGkK]]\n`));
+        vi.advanceTimersByTime(1);
+      }
+
+      // Wait for serialOutputBatcher to flush (50ms tickIntervalMs)
+      for (let i = 0; i < 3; i++) {
+        vi.advanceTimersByTime(50);
+        await wait();
+      }
+
+      // Trigger run process close to flush remaining batchers
+      const runCloseHandler = runProc.on.mock?.calls?.find(([e]: any[]) => e === "close")?.[1];
+      if (runCloseHandler) {
+        runCloseHandler(0);
+      }
+
+      vi.advanceTimersByTime(100);
 
       // Calculate throughput
       const totalChars = outputs.reduce((sum, line) => sum + line.length, 0);
@@ -588,7 +689,7 @@ void loop() {
       console.log(`Throughput: ${charsPerSecond.toFixed(2)} chars/sec`);
       console.log(`Output events: ${outputs.length}`);
 
-      // Verify some output was received (serialParser batches with 20ms timer)
+      // Verify some output was received (serialOutputBatcher batches with 50ms timer)
       // We should get at least 1 flush event with multiple chars
       expect(outputs.length).toBeGreaterThan(0);
     });
@@ -613,9 +714,9 @@ void loop() {
 
       runner.runSketch(
         sketch,
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
         undefined,
         undefined,
         (pin, type, value) => {
@@ -628,13 +729,13 @@ void loop() {
       );
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       const compileProc = spawnInstances[0];
       compileProc.on.mock.calls.find(([e]: any[]) => e === "close")?.[1](0);
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       const runProc = spawnInstances[1];
       const stderrHandler = runProc.stderr.on.mock.calls.find(
@@ -645,10 +746,10 @@ void loop() {
       for (let i = 0; i < 100; i++) {
         eventSendTime = Date.now();
         stderrHandler(Buffer.from("[[PIN_VALUE:13:1]]\n"));
-        jest.advanceTimersByTime(1);
+        vi.advanceTimersByTime(1);
       }
 
-      jest.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
 
       if (eventLatencies.length > 0) {
         const avgLatency = eventLatencies.reduce((a, b) => a + b, 0) / eventLatencies.length;
@@ -683,12 +784,12 @@ void loop() {}
 
       runner.runSketch(
         sketch,
-        jest.fn(),
-        jest.fn(),
-        jest.fn(),
+        vi.fn(),
+        vi.fn(),
+        vi.fn(),
         undefined,
         undefined,
-        jest.fn(),
+        vi.fn(),
         undefined,
         (registry, baudrate) => {
           registryUpdates.push({
@@ -699,13 +800,13 @@ void loop() {}
       );
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       const compileProc = spawnInstances[0];
       compileProc.on.mock.calls.find(([e]: any[]) => e === "close")?.[1](0);
 
       await wait();
-      jest.advanceTimersByTime(50);
+      vi.advanceTimersByTime(50);
 
       const runProc = spawnInstances[1];
       const stderrHandler = runProc.stderr.on.mock.calls.find(
@@ -726,7 +827,7 @@ void loop() {}
         }
         stderrHandler(Buffer.from("[[IO_REGISTRY_END]]\n"));
 
-        jest.advanceTimersByTime(Math.ceil(200)); // Registry debounce time
+        vi.advanceTimersByTime(Math.ceil(200)); // Registry debounce time
 
         const initialUpdateCount = registryUpdates.length;
 
@@ -734,11 +835,11 @@ void loop() {}
         for (let i = 0; i < rate; i++) {
           stderrHandler(Buffer.from("[[PIN_VALUE:13:1]]\n"));
           if (msPerEvent >= 1) {
-            jest.advanceTimersByTime(Math.ceil(msPerEvent));
+            vi.advanceTimersByTime(Math.ceil(msPerEvent));
           }
         }
 
-        jest.advanceTimersByTime(50);
+        vi.advanceTimersByTime(50);
 
         const updatesAtThisRate = registryUpdates.length - initialUpdateCount;
 
