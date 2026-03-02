@@ -114,6 +114,39 @@ export class SandboxRunnerPool {
     }
   }
 
+  private clearRunnerListeners(runner: any): void {
+    const safeRemoveAll = (target: any, label: string) => {
+      if (!target || typeof target.removeAllListeners !== "function") {
+        return;
+      }
+
+      try {
+        target.removeAllListeners();
+      } catch (error) {
+        this.logger.debug(`[SandboxRunnerPool] Failed removeAllListeners on ${label}: ${error}`);
+      }
+    };
+
+    safeRemoveAll(runner, "runner");
+
+    const processController = runner.processController;
+    safeRemoveAll(processController, "processController");
+    safeRemoveAll(processController?.proc, "processController.proc");
+    safeRemoveAll(processController?.proc?.stdout, "processController.proc.stdout");
+    safeRemoveAll(processController?.proc?.stderr, "processController.proc.stderr");
+
+    safeRemoveAll(runner.registryManager, "registryManager");
+    safeRemoveAll(runner.serialOutputBatcher, "serialOutputBatcher");
+    safeRemoveAll(runner.pinStateBatcher, "pinStateBatcher");
+
+    if (processController) {
+      processController.stdoutListeners = [];
+      processController.stderrListeners = [];
+      processController.closeListeners = [];
+      processController.errorListeners = [];
+    }
+  }
+
   private async resetRunnerState(runner: SandboxRunner): Promise<void> {
     try {
       if (runner.isRunning) {
@@ -121,6 +154,8 @@ export class SandboxRunnerPool {
       }
 
       const r = runner as any;
+
+      this.clearRunnerListeners(r);
 
       r.state = "stopped";
       r.processKilled = false;
