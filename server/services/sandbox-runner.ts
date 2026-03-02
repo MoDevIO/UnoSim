@@ -948,17 +948,19 @@ export class SandboxRunner {
       // Messages may be queued if sketch exits before registry wait mode timeout
       this.flushMessageQueue();
       
-      // CRITICAL: Stop batchers to flush pending data before exit
-      // Only stop batchers when RUN phase exits, not during compile phase
-      // SerialOutputBatcher and PinStateBatcher may have pending data when sketch exits
+      // CRITICAL: Flush any buffered data in batchers before we tear them down.
+      // The explicit flush ensures that performance tests cannot lose data when
+      // the process terminates unexpectedly.  A helper method centralises the
+      // logic so it can also be called from other shutdown paths later if
+      // required.
       if (!isCompilePhase) {
+        this.flushBatchers();
+
         if (this.serialOutputBatcher) {
-          this.serialOutputBatcher.stop();
           this.serialOutputBatcher.destroy();
           this.serialOutputBatcher = null;
         }
         if (this.pinStateBatcher) {
-          this.pinStateBatcher.stop();
           this.pinStateBatcher.destroy();
           this.pinStateBatcher = null;
         }
@@ -1337,14 +1339,31 @@ export class SandboxRunner {
     }
   }
 
+  /**
+   * Attempts to remove the current sketch directory.  If a compile is still
+   * in progress we simply mark the request and return; the caller who finished
+   * the compile (success or error) will re‑invoke this method later.
+   *
+   * This is a defensive guard against the race observed in CI where the linker
+   * was still writing the executable while another path deleted the temp
+   * directory.  We check both the historic `isCompiling` flag and also ask the
+   * LocalCompiler whether it still has an active process.  Under no
+   * circumstances may we remove the directory while the compile phase is
+   * running.
+   */
   private markTempDirForCleanup() {
     if (!this.currentSketchDir) return;
-    if (this.isCompiling) {
-      // postpone cleanup until compilation completes
+
+    // if compile is in progress, defer permanently rather than spinning a
+    // timer.  `pendingCleanup` will be cleared once the cleanup actually
+    // happens, so redundant calls are harmless.
+    const compilerBusy = this.isCompiling || this.localCompiler.isBusy;
+    if (compilerBusy) {
       this.logger.debug("cleanup deferred until compile finishes");
-      setTimeout(() => this.markTempDirForCleanup(), 1000);
+      this.pendingCleanup = true;
       return;
     }
+
     const dir = this.currentSketchDir;
     if (!existsSync(dir)) {
       this.fileBuilder.clearCreatedSketchDir(dir);
@@ -1610,6 +1629,23 @@ export class SandboxRunner {
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
+    }
+  }
+
+
+  /**
+   * Flush any pending data held by the batchers without destroying them.
+   * Both batcher implementations already provide a `stop()` method that
+   * performs a flush; we reuse that behaviour here so the callbacks will be
+   * invoked with any buffered content before the caller nulls out the
+   * references.
+   */
+  private flushBatchers(): void {
+    if (this.serialOutputBatcher) {
+      this.serialOutputBatcher.stop();
+    }
+    if (this.pinStateBatcher) {
+      this.pinStateBatcher.stop();
     }
   }
 
