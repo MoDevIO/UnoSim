@@ -401,48 +401,8 @@ export class SandboxRunner {
 
   // Note: Duplicate flushMessageQueue removed - using single implementation above
 
-  async runSketch(...args: any[]) {
-    // Supports both new object-based signature and old positional args for backward compatibility.
-    // Normalize to RunSketchOptions object.
-    let opts: RunSketchOptions;
-    if (args.length === 1 && typeof args[0] === "object" && args[0] !== null && "code" in args[0]) {
-      opts = args[0] as RunSketchOptions;
-    } else {
-      const [
-        code,
-        onOutput,
-        onError,
-        onExit,
-        onCompileError,
-        onCompileSuccess,
-        onPinState,
-        timeoutSec,
-        onIORegistry,
-        onTelemetry,
-        onPinStateBatch,
-      ] = args as any[];
-
-      opts = {
-        code,
-        onOutput,
-        onError,
-        onExit,
-        onCompileError,
-        onCompileSuccess,
-        onPinState,
-        timeoutSec,
-        onIORegistry,
-        onTelemetry,
-        onPinStateBatch,
-      } as RunSketchOptions;
-    }
-
-    // Evidence logging required by Task B1
-    try {
-      console.info("[B1-Evidence] Payload:", JSON.stringify(opts, null, 2));
-    } catch (err) {
-      this.logger.warn(`Could not stringify runSketch options for evidence: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  async runSketch(options: RunSketchOptions) {
+    const opts = options;
 
     // Extract stable variables for the rest of the method
     const {
@@ -457,7 +417,7 @@ export class SandboxRunner {
       onIORegistry,
       onTelemetry,
       onPinStateBatch,
-    } = opts as RunSketchOptions;
+    } = opts;
 
     // Lazy initialization: ensure Docker is checked and temp directory exists
     this.ensureDockerChecked();
@@ -1055,13 +1015,13 @@ export class SandboxRunner {
       // Only stop batchers if we were actually RUNNING (not during mock test setup)
       // In mock tests, close fires during setup before state reaches RUNNING
       if (wasRunning) {
+        this.flushBatchers();
+        
         if (this.serialOutputBatcher) {
-          this.serialOutputBatcher.stop();  // Flushes pending data
           this.serialOutputBatcher.destroy(); // Cleans up timer
           this.serialOutputBatcher = null;
         }
         if (this.pinStateBatcher) {
-          this.pinStateBatcher.stop();  // Flushes pending states
           this.pinStateBatcher.destroy(); // Cleans up timer
           this.pinStateBatcher = null;
         }

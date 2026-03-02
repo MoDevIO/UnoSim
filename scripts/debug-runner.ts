@@ -3,8 +3,8 @@ import { SandboxRunner } from "../server/services/sandbox-runner.ts";
 (async () => {
   const runner = new SandboxRunner();
   console.log("initial state running=", runner.isRunning, "paused=", runner.isPaused);
-  runner.runSketch(
-    `
+  runner.runSketch({
+    code: `
       void setup() {
         Serial.begin(9600);
         Serial.println("BOOTED");
@@ -18,10 +18,10 @@ import { SandboxRunner } from "../server/services/sandbox-runner.ts";
         delay(100);
       }
     `,
-    (line) => { console.log("[RUNNER OUT]", line); },
-    (err) => { console.error("[RUNNER ERR]", err); },
-    (code) => { console.log("[RUNNER EXIT]", code); },
-  );
+    onOutput: (line) => { console.log("[RUNNER OUT]", line); },
+    onError: (err) => { console.error("[RUNNER ERR]", err); },
+    onExit: (code) => { console.log("[RUNNER EXIT]", code); },
+  });
   setTimeout(() => {
     console.log("[RUNNER] setting pin 2 to HIGH");
     runner.setPinValue(2, 1);

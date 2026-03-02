@@ -53,9 +53,9 @@ maybeDescribe("Timing - delay() accuracy", () => {
         reject(new Error("Timeout waiting for output"));
       }, 20000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           output.push(line);
           console.log(`Output: ${line}`);
           
@@ -74,12 +74,12 @@ maybeDescribe("Timing - delay() accuracy", () => {
             }
           }
         },
-        (err) => {
+        onError: (err) => {
           // Ignore pin state messages
           if (err.includes("[[PIN_")) return;
           console.error(`Error: ${err}`);
-        }
-      );
+        },
+      });
     });
 
     console.log("\n=== TIMING TEST RESULTS ===");
@@ -138,9 +138,9 @@ maybeDescribe("Timing - delay() accuracy", () => {
         reject(new Error("Timeout waiting for measurements"));
       }, 20000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           output.push(line);
           console.log(`Output: ${line}`);
           
@@ -159,11 +159,11 @@ maybeDescribe("Timing - delay() accuracy", () => {
             }
           }
         },
-        (err) => {
+        onError: (err) => {
           if (err.includes("[[PIN_")) return;
           console.error(`Error: ${err}`);
-        }
-      );
+        },
+      });
     });
 
     console.log("\n=== CONSECUTIVE DELAYS TEST ===");

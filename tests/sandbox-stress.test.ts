@@ -33,17 +33,17 @@ function runSketchHelper(
   callbacks: RunSketchCallbacks,
   timeoutSec?: number
 ) {
-  return runner.runSketch(
+  return runner.runSketch({
     code,
-    callbacks.onOutput || (() => {}),
-    callbacks.onError || (() => {}),
-    callbacks.onExit || (() => {}),
-    callbacks.onCompileError,
-    callbacks.onCompileSuccess,
-    callbacks.onPinState,
+    onOutput: callbacks.onOutput || (() => {}),
+    onError: callbacks.onError || (() => {}),
+    onExit: callbacks.onExit || (() => {}),
+    onCompileError: callbacks.onCompileError,
+    onCompileSuccess: callbacks.onCompileSuccess,
+    onPinState: callbacks.onPinState,
     timeoutSec,
-    callbacks.onIORegistry
-  );
+    onIORegistry: callbacks.onIORegistry,
+  });
 }
 
 // Store original setTimeout for non-test operations
