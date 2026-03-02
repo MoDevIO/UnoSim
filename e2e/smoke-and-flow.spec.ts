@@ -48,7 +48,9 @@ void loop() {
 
   // serial monitor shows LED ON or similar output
   const serial = page.locator('[data-testid="serial-output"]');
-  await expect(serial).toContainText(/LED/i, { timeout: 10000 });
+  // CI runners are slower; give them up to 30 seconds to start emitting
+  const serialTimeout = process.env.CI ? 30000 : 10000;
+  await expect(serial).toContainText(/LED/i, { timeout: serialTimeout });
 });
 
 // Test 3: dialog interactions
