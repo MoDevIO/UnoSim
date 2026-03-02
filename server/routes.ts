@@ -4,7 +4,7 @@ import type { CompilationResult } from "./services/arduino-compiler";
 import { createServer, type Server } from "http";
 import { createHash } from "crypto";
 import { storage } from "./storage";
-import { compiler } from "./services/arduino-compiler";
+import { getPooledCompiler } from "./services/pooled-compiler";
 import { SandboxRunner } from "./services/sandbox-runner";
 import { getSimulationRateLimiter } from "./services/rate-limiter";
 import { shouldSendSimulationEndMessage } from "./services/simulation-end";
@@ -171,8 +171,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delegate the /api/compile handler to the compiler module and inject
   // the compilation cache + lastCompiledCode setter so behaviour is
   // unchanged but implementation is modularized.
+  // 
+  // Use PooledCompiler which routes work through worker threads for parallelization
+  const pooledCompiler = getPooledCompiler();
   registerCompilerRoutes(app, {
-    compiler,
+    compiler: pooledCompiler,
     compilationCache,
     hashCode,
     CACHE_TTL,
