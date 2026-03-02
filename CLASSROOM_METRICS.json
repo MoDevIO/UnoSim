@@ -1,0 +1,98 @@
+{
+  "baseline": {
+    "date": "2026-03-02T13:34:09Z",
+    "environment": {
+      "platform": "macOS",
+      "nodeVersion": "TBD",
+      "npmVersion": "TBD",
+      "branch": "performance"
+    },
+    "typeScript": {
+      "errors": 0,
+      "status": "✅ PASS"
+    },
+    "testResults": {
+      "testFiles": {
+        "passed": 80,
+        "failed": 1,
+        "skipped": 3,
+        "total": 84
+      },
+      "tests": {
+        "passed": 881,
+        "failed": 1,
+        "skipped": 8,
+        "total": 890
+      },
+      "failedTest": {
+        "file": "tests/server/pause-resume-timing.test.ts",
+        "name": "should maintain time continuity across pause/resume cycles",
+        "error": "Test timed out in 30000ms",
+        "type": "EXISTING_BUG",
+        "note": "This is a pre-existing timing test failure. Not caused by optimization work."
+      },
+      "skippedTestFiles": 3,
+      "skippedTests": 8,
+      "note": "Skipped tests are intentional Performance/Load tests"
+    },
+    "runtime": {
+      "totalDurationSeconds": 70.54,
+      "transform": 3.69,
+      "setup": 6.46,
+      "import": 7.97,
+      "tests": 325.70,
+      "environment": 58.83
+    },
+    "recommendations": [
+      "⚠️ Pre-existing test failure in pause-resume-timing.test.ts must be fixed before production deployment",
+      "✅ 80 test files passing is a solid baseline for optimization work",
+      "📊 Test execution time of 70.54s is acceptable for local development"
+    ]
+  },
+  "phase0_targets": {
+    "description": "Target metrics after implementing Phase 0 optimizations",
+    "memory": {
+      "description": "Peak memory usage in parallel load scenario",
+      "baseline_estimate": "~45 MB per client (Docker + Batcher overhead)",
+      "target_200_clients": "< 7.5 GB total",
+      "optimization_leverage": "Runner-Pool (−20%), Worker-Pool queuing overhead reduction"
+    },
+    "cpu": {
+      "description": "CPU utilization under load",
+      "baseline_estimate": "~120% avg CPU with 200 clients",
+      "target": "< 85% with fair distribution across cores",
+      "optimization_leverage": "Worker-Pool prevents compilation queue saturation"
+    },
+    "compilation_latency": {
+      "description": "Time from compile request to completion",
+      "baseline_estimate": "~400 ms single, 2000+ ms p99 with queue",
+      "target_avg": "< 250 ms (with queue fairness)",
+      "target_p99": "< 1.200 ms",
+      "optimization_leverage": "Worker-Pool parallelization (−30% latency targeted)"
+    },
+    "websocket": {
+      "description": "Network overhead of WebSocket messages",
+      "baseline_estimate": "~2-3 KB per pin-state batch, 10 Hz = ~6 Mbps intranet",
+      "target": "< 1 Mbps with compression",
+      "optimization_leverage": "perMessageDeflate (−50% bandwidth targeted)"
+    },
+    "failure_rate": {
+      "description": "Percentage of client simulations that timeout or disconnect",
+      "baseline_estimate": "~15-25% (extrapolated from single-client stress tests)",
+      "target": "< 2%",
+      "measurement_method": "Load test with 200 clients, 10 min duration"
+    }
+  },
+  "next_steps": [
+    "1. ✅ TypeScript baseline: PASS (0 errors)",
+    "2. ✅ Test baseline: DOCUMENTED (881 passed, 1 pre-existing failure)",
+    "3. ⏭️ HALTING HERE: Awaiting user feedback on baseline before starting Phase 0.1",
+    "4. Once approved: Begin Phase 0.1 (Compilation-Worker-Pool) on feature/compilation-workers branch"
+  ],
+  "policy_notes": {
+    "ssot_compliance": "✅ COMPLIANT",
+    "working_branch": "performance (✅ correct)",
+    "clean_state": "✅ All changes committed",
+    "git_flow": "Ready for feature branches from this baseline"
+  }
+}
