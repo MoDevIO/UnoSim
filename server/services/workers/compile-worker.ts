@@ -19,7 +19,14 @@ let ArduinoCompiler: any = null;
 
 async function initializeCompiler() {
   try {
-    const module = await import("../arduino-compiler.js");
+    // Try .js first (production build), fallback to .ts (development with tsx)
+    let module;
+    try {
+      module = await import("../arduino-compiler.js");
+    } catch (jsErr) {
+      // In development mode with tsx, import the .ts file directly
+      module = await import("../arduino-compiler.ts");
+    }
     ArduinoCompiler = module.ArduinoCompiler;
     logger.debug("[Worker] ArduinoCompiler loaded");
   } catch (err) {

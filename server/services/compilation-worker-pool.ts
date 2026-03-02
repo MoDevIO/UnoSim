@@ -15,6 +15,8 @@
 
 import { Worker } from "worker_threads";
 import path from "path";
+import os from "os";
+import fs from "fs";
 import { Logger } from "@shared/logger";
 import type { CompilationResult } from "./arduino-compiler";
 
@@ -68,7 +70,7 @@ export class CompilationWorkerPool {
 
   constructor(numWorkers?: number) {
     // Use ~50% of available CPU cores, but at least 2 workers
-    this.numWorkers = numWorkers ?? Math.max(2, Math.floor(require("os").cpus().length * 0.5));
+    this.numWorkers = numWorkers ?? Math.max(2, Math.floor(os.cpus().length * 0.5));
     this.logger.info(`[CompilationWorkerPool] Initializing with ${this.numWorkers} workers`);
     this.initializeWorkers();
   }
@@ -85,7 +87,6 @@ export class CompilationWorkerPool {
       : path.join(dirname, "workers", "compile-worker.ts");
 
     // Validate worker file exists
-    const fs = require("fs");
     if (!fs.existsSync(workerScript)) {
       this.logger.error(`[CompilationWorkerPool] Worker file not found: ${workerScript}`);
       // In development mode, we can fall back to inline compilation or skip worker init
