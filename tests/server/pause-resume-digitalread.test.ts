@@ -79,16 +79,13 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
         };
 
         // start simulation after listeners are ready
-        runner.runSketch(
+        runner.runSketch({
           code,
           onOutput,
           onError,
-          () => {}, // onExit
-          undefined, // onCompileError
-          undefined, // onCompileSuccess
-          undefined,
-          10, // timeout
-        );
+          onExit: () => {},
+          timeoutSec: 10,
+        });
 
       } catch (err) {
         clearTimeout(timeout);
@@ -136,9 +133,9 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
         });
       }, 15000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           output.push(line);
           const fullOutput = output.join("");
           
@@ -183,19 +180,17 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
             });
           }
         },
-        (err) => {
+        onError: (err) => {
           stderrLines.push(`[STDERR] ${err}`);
         },
-        () => {
+        onExit: () => {
           stderrLines.push(`[TEST] Process exited`);
         },
-        undefined, // onCompileError
-        undefined, // onCompileSuccess
-        (pin, type, value) => {
+        onPinState: (pin, type, value) => {
           stderrLines.push(`[PIN_STATE] pin=${pin}, type=${type}, value=${value}`);
         },
-        30, // timeout
-      );
+        timeoutSec: 30,
+      });
     });
 
     // Print debug info BEFORE assertions
@@ -243,9 +238,9 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
         reject(new Error("Timeout - did not see expected pin values after resume"));
       }, 30000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           output.push(line);
           const fullOutput = output.join("");
           
@@ -285,7 +280,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
             resolve();
           }
         },
-        (err) => {
+        onError: (err) => {
           if (err.includes("[[PIN_")) return;
           if (err.includes("[[STDIN_RECV")) {
             console.log("📍 C++ stdin:", err);
@@ -293,14 +288,12 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
           }
           console.error("Stderr:", err);
         },
-        () => {},
-        undefined,
-        undefined,
-        (pin, type, value) => {
+        onExit: () => {},
+        onPinState: (pin, type, value) => {
           console.log(`📍 Pin: ${pin}=${value} (${type})`);
         },
-        30,
-      );
+        timeoutSec: 30,
+      });
     });
 
     const fullOutput = output.join("");

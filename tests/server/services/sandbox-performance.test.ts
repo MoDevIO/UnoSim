@@ -196,14 +196,12 @@ void loop() {
       let pinStateCallCount = 0;
       let pinStateBatchCallCount = 0;
 
-      const runSketchPromise = runner.runSketch(
-        sketch,
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-        undefined,
-        undefined,
-        (pin, type, value) => {
+      const runSketchPromise = runner.runSketch({
+        code: sketch,
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+        onPinState: (pin, type, value) => {
           // Still track individual events for mode changes (not batched)
           pinStateCallCount++;
           pinEvents.push({
@@ -213,10 +211,7 @@ void loop() {
             timestamp: Date.now() - startTime,
           });
         },
-        undefined, // timeoutSec
-        undefined, // onIORegistry
-        undefined, // onTelemetry
-        (batch) => {
+        onPinStateBatch: (batch) => {
           // Track batched pin state changes
           pinStateBatchCallCount++;
           batchCount++;
@@ -230,7 +225,7 @@ void loop() {
             });
           }
         },
-      );
+      });
 
       // Wait for runSketch to initialize and spawn processes
       await vi.waitFor(() => spawnInstances.length >= 2, { timeout: 5000 });
@@ -340,20 +335,15 @@ void loop() {
       let registryUpdateCount = 0;
       let batchCount = 0;
 
-      const runSketchPromise = runner.runSketch(
-        sketch,
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-        undefined,
-        undefined,
-        undefined, // onPinState - not used, batched instead
-        undefined, // timeoutSec
-        () => {
+      const runSketchPromise = runner.runSketch({
+        code: sketch,
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+        onIORegistry: () => {
           registryUpdateCount++;
         },
-        undefined, // onTelemetry
-        (batch) => {
+        onPinStateBatch: (batch) => {
           // Track batched pin state changes
           batchCount++;
           for (const state of batch.states) {
@@ -362,7 +352,7 @@ void loop() {
             }
           }
         },
-      );
+      });
 
       // Wait for runSketch to initialize and spawn processes
       await vi.waitFor(() => spawnInstances.length >= 2, { timeout: 5000 });
@@ -475,15 +465,13 @@ void loop() {
       // Capture initial memory
       captureMemory();
 
-      runner.runSketch(
-        sketch,
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-        undefined,
-        undefined,
-        vi.fn(),
-      );
+      runner.runSketch({
+        code: sketch,
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+        onPinState: vi.fn(),
+      });
 
       await wait();
       vi.advanceTimersByTime(50);
@@ -557,12 +545,12 @@ void loop() {}
       const errors: string[] = [];
       let exitCode: number | null = null;
 
-      runner.runSketch(
-        sketch,
-        (line) => outputs.push(line),
-        (error) => errors.push(error),
-        (code) => (exitCode = code),
-      );
+      runner.runSketch({
+        code: sketch,
+        onOutput: (line) => outputs.push(line),
+        onError: (error) => errors.push(error),
+        onExit: (code) => (exitCode = code),
+      });
 
       await wait();
       vi.advanceTimersByTime(50);
@@ -621,15 +609,15 @@ void loop() {
       const outputTimestamps: number[] = [];
       const startTime = Date.now();
 
-      const runSketchPromise = runner.runSketch(
-        sketch,
-        (line) => {
+      const runSketchPromise = runner.runSketch({
+        code: sketch,
+        onOutput: (line) => {
           outputs.push(line);
           outputTimestamps.push(Date.now() - startTime);
         },
-        vi.fn(),
-        vi.fn(),
-      );
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
 
       // Wait for runSketch to initialize and spawn processes
       await vi.waitFor(() => spawnInstances.length >= 2, { timeout: 5000 });
@@ -712,21 +700,19 @@ void loop() {
       const eventLatencies: number[] = [];
       let eventSendTime = 0;
 
-      runner.runSketch(
-        sketch,
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-        undefined,
-        undefined,
-        (pin, type, value) => {
+      runner.runSketch({
+        code: sketch,
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+        onPinState: (pin, type, value) => {
           const receiveTime = Date.now();
           const latency = receiveTime - eventSendTime;
           if (latency > 0 && latency < 10000) { // Filter out invalid measurements
             eventLatencies.push(latency);
           }
         },
-      );
+      });
 
       await wait();
       vi.advanceTimersByTime(50);
@@ -782,22 +768,19 @@ void loop() {}
       const registryUpdates: Array<{ timestamp: number; pinCount: number }> = [];
       let droppedEventCount = 0;
 
-      runner.runSketch(
-        sketch,
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-        undefined,
-        undefined,
-        vi.fn(),
-        undefined,
-        (registry, baudrate) => {
+      runner.runSketch({
+        code: sketch,
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+        onPinState: vi.fn(),
+        onIORegistry: (registry, baudrate) => {
           registryUpdates.push({
             timestamp: Date.now(),
             pinCount: registry.length,
           });
         },
-      );
+      });
 
       await wait();
       vi.advanceTimersByTime(50);

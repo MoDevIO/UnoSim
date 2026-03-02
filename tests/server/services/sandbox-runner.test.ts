@@ -288,13 +288,13 @@ describe("SandboxRunner", () => {
       let compileError: string | null = null;
       let exitCode: number | null = null;
 
-      runner.runSketch(
-        "invalid code",
-        vi.fn(),
-        vi.fn(),
-        (code) => (exitCode = code),
-        (err) => (compileError = err),
-      );
+      runner.runSketch({
+        code: "invalid code",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: (code) => (exitCode = code),
+        onCompileError: (err) => (compileError = err),
+      });
 
       await wait(20);
 
@@ -317,12 +317,12 @@ describe("SandboxRunner", () => {
       const outputs: string[] = [];
       let exitCode: number | null = null;
 
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        (line) => outputs.push(line),
-        vi.fn(),
-        (code) => (exitCode = code),
-      );
+      runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: (line) => outputs.push(line),
+        onError: vi.fn(),
+        onExit: (code) => (exitCode = code),
+      });
 
       await wait();
 
@@ -357,12 +357,12 @@ describe("SandboxRunner", () => {
     it("should apply security constraints to Docker", async () => {
       const runner = new SandboxRunner();
 
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-      );
+      runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
 
       await wait();
 
@@ -387,13 +387,13 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       let compileError: string | null = null;
 
-      runner.runSketch(
-        "invalid code",
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-        (err) => (compileError = err),
-      );
+      runner.runSketch({
+        code: "invalid code",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+        onCompileError: (err) => (compileError = err),
+      });
 
       await wait();
 
@@ -420,13 +420,13 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       const outputs: { line: string; complete: boolean }[] = [];
 
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        (line, isComplete) =>
+      runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: (line, isComplete) =>
           outputs.push({ line, complete: isComplete ?? true }),
-        vi.fn(),
-        vi.fn(),
-      );
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
 
       // ensure runner has initialized and batcher started
       await wait(50);
@@ -447,12 +447,12 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       const outputs: string[] = [];
 
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        (line) => outputs.push(line),
-        vi.fn(),
-        vi.fn(),
-      );
+      runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: (line) => outputs.push(line),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
 
       await wait(50);
       runner['state'] = "running";
@@ -535,12 +535,12 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       const errors: string[] = [];
 
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        vi.fn(),
-        (err) => errors.push(err),
-        vi.fn(),
-      );
+      runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: vi.fn(),
+        onError: (err) => errors.push(err),
+        onExit: vi.fn(),
+      });
 
       await wait(50);
 
@@ -564,12 +564,12 @@ describe("SandboxRunner", () => {
     it("should remove Arduino.h include", async () => {
       const runner = new SandboxRunner();
 
-      runner.runSketch(
-        "#include <Arduino.h>\nvoid setup(){} void loop(){}",
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-      );
+      runner.runSketch({
+        code: "#include <Arduino.h>\nvoid setup(){} void loop(){}",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
 
       await wait();
 
@@ -584,12 +584,12 @@ describe("SandboxRunner", () => {
     it("should add main() wrapper with setup and loop", async () => {
       const runner = new SandboxRunner();
 
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-      );
+      runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
 
       await wait();
 
@@ -674,12 +674,12 @@ describe("SandboxRunner", () => {
     it("should transition to STOPPED when stop() is called", async () => {
       const runner = new SandboxRunner();
 
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-      );
+      runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
 
       // we don't need a real process; simulate running state
       runner['state'] = "running";
@@ -694,12 +694,12 @@ describe("SandboxRunner", () => {
     it("should clear all timers on stop()", async () => {
       const runner = new SandboxRunner();
 
-      runner.runSketch(
-        "void setup(){} void loop(){}",
-        vi.fn(),
-        vi.fn(),
-        vi.fn(),
-      );
+      runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
 
       // simulate running then stop
       runner['state'] = "running";

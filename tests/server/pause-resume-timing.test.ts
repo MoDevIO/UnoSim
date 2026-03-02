@@ -44,9 +44,9 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
         reject(new Error("Test timeout"));
       }, 30000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           // Parse time values
           const match = line.match(/TIME:(\d+)/);
           if (match) {
@@ -89,16 +89,13 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
             }
           }
         },
-        (err) => {
+        onError: (err) => {
           if (err.includes("[[PIN_")) return;
           if (err.includes("[[STDIN_RECV")) return;
         },
-        () => {}, // onExit
-        undefined, // onCompileError
-        undefined, // onCompileSuccess
-        undefined, // onPinStateChange
-        15,
-      );
+        onExit: () => {},
+        timeoutSec: 15,
+      });
     });
   }, 30000);
 
@@ -126,9 +123,9 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
         reject(new Error("Test timeout"));
       }, 30000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           const match = line.match(/T:(\d+)/);
           if (match) {
             const value = parseInt(match[1]);
@@ -185,16 +182,13 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
             }, 300);
           }
         },
-        (err) => {
+        onError: (err) => {
           if (err.includes("[[PIN_")) return;
           if (err.includes("[[STDIN_RECV")) return;
         },
-        () => {}, // onExit
-        undefined,
-        undefined,
-        undefined,
-        20,
-      );
+        onExit: () => {},
+        timeoutSec: 20,
+      });
     });
   });
 
@@ -222,9 +216,9 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
         reject(new Error("Test timeout"));
       }, 30000);
 
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => {
+        onOutput: (line) => {
           try {
             const match = line.match(/USEC:(\d+)/);
             if (match) {
@@ -271,16 +265,13 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
             reject(err);
           }
         },
-        (err) => {
+        onError: (err) => {
           if (err.includes("[[PIN_")) return;
           if (err.includes("[[STDIN_RECV")) return;
         },
-        () => {}, // onExit
-        undefined,
-        undefined,
-        undefined,
-        15,
-      );
+        onExit: () => {},
+        timeoutSec: 15,
+      });
     });
   });
 
@@ -310,16 +301,13 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
       }, 30000);
 
       let sawOutput = false;
-      runner.runSketch(
+      runner.runSketch({
         code,
-        (line) => { sawOutput = true; },
-        () => {},
-        () => {},
-        undefined,
-        undefined,
-        undefined,
-        15,
-      );
+        onOutput: (line) => { sawOutput = true; },
+        onError: () => {},
+        onExit: () => {},
+        timeoutSec: 15,
+      });
 
       // wait for at least one output line (guaranteed running) before pausing
 
