@@ -6,7 +6,7 @@
  */
 
 import { chmod, mkdir, access, rm } from "fs/promises";
-import { existsSync, statSync } from "fs";
+import { existsSync, statSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
 import { Logger } from "@shared/logger";
 
@@ -16,6 +16,14 @@ export class LocalCompiler {
   private compileTimeoutMs = 20000; // 20 seconds
   // track the currently running compiler/CLI process so it can be killed
   private activeProc: import("child_process").ChildProcess | null = null;
+
+  /**
+   * Public helper so callers can detect if a compile process is currently
+   * running.  Used by SandboxRunner to prevent cleanup races.
+   */
+  get isBusy(): boolean {
+    return this.activeProc !== null;
+  }
 
   /**
    * Compiles a sketch file using g++
@@ -319,7 +327,7 @@ export class LocalCompiler {
         }
         if (attempt < 2) {
           this.logger.warn(`Compilation attempt ${attempt} failed, retrying... (${lastError.message})`);
-          await new Promise(r => setTimeout(r, 500)); // Wait before retry
+          await new Promise<void>(r => setTimeout(r, 500)); // Wait before retry
         }
       }
     }
@@ -333,7 +341,14 @@ export class LocalCompiler {
   private async runCompilation(sketchFile: string, exeFile: string, attempt: number, coreArchive?: string, onProcess?: (proc: any) => void): Promise<void> {
     const { spawn } = await import("child_process");
     this.logger.debug("[LocalCompiler] runCompilation spawning g++");
-    return new Promise((resolve, reject) => {
+    // guard against cases where the temp directory vanished mid-compile
+    const outDir = dirname(exeFile);
+    if (!existsSync(outDir)) {
+      this.logger.warn(`[LocalCompiler] output directory missing, recreating: ${outDir}`);
+      mkdirSync(outDir, { recursive: true });
+    }
+
+    return new Promise<void>((resolve, reject) => {
       const args = [sketchFile];
       if (coreArchive) {
         args.push(coreArchive);

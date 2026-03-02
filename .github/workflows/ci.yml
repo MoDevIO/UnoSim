@@ -2,9 +2,11 @@ name: CI (Quality Gate & Coverage)
 
 on:
   push:
-    branches: [main, master]
+    branches:
+      - '**'        # Triggert bei JEDEM Push auf JEDEN Branch
   pull_request:
-    branches: [main, master, develop]
+    branches:
+      - '**'        # Triggert bei JEDEM Pull Request
 
 permissions:
   contents: write
