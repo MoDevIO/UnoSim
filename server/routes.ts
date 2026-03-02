@@ -8,6 +8,7 @@ import { getPooledCompiler } from "./services/pooled-compiler";
 import { SandboxRunner } from "./services/sandbox-runner";
 import { getSimulationRateLimiter } from "./services/rate-limiter";
 import { shouldSendSimulationEndMessage } from "./services/simulation-end";
+import { getSandboxRunnerPool, initializeSandboxRunnerPool } from "./services/sandbox-runner-pool";
 import { insertSketchSchema } from "@shared/schema";
 import fs from "fs";
 import path from "path";
@@ -26,6 +27,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const logger = new Logger("Routes");
   const httpServer = createServer(app);
 
+  // Initialize SandboxRunnerPool for managing runner instances
+  await initializeSandboxRunnerPool();
+
   // Lightweight health endpoint for backend reachability checks
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
@@ -33,7 +37,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Test Reset Endpoint: Cleanup all running simulations for idempotent test isolation
   // Each E2E test can call this before starting to ensure a clean backend state
-  app.post("/api/test-reset", (_req, res) => {
+  app.post("/api/test-reset", async (_req, res) => {
     try {
       // Delegate cleanup to the WebSocket module which owns runner state
       if (!simulationApi) {
@@ -41,7 +45,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ status: "reset", message: "No active runners", cleanedTestRunIds: [], timestamp: new Date().toISOString() });
       }
 
-      const { cleanedUpCount, cleanedTestRunIds } = simulationApi.stopAllRunnersAndNotify();
+      const { cleanedUpCount, cleanedTestRunIds } = await simulationApi.stopAllRunnersAndNotify();
 
       logger.info(`[Test Reset] Cleaned up ${cleanedUpCount} client runner(s). TestRunIds: ${cleanedTestRunIds.join(", ") || "none"}`);
       res.json({ status: "reset", message: `Backend reset complete. Cleaned up ${cleanedUpCount} runner(s).`, cleanedTestRunIds, timestamp: new Date().toISOString() });
@@ -63,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   // Placeholder for simulation websocket API (populated when WS module is registered)
-  let simulationApi: { stopAllRunnersAndNotify: () => { cleanedUpCount: number; cleanedTestRunIds: string[] } } | null = null;
+  let simulationApi: { stopAllRunnersAndNotify: () => Promise<{ cleanedUpCount: number; cleanedTestRunIds: string[] }> } | null = null;
 
   // Helper function to generate code hash
   function hashCode(
@@ -191,12 +195,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // --- WebSocket handler (moved to modular WS file) ---
   // Register WS handlers and receive a small API back so other routes
   // (e.g. /api/test-reset) can operate on the same runner state.
+  const runnerPool = getSandboxRunnerPool();
   simulationApi = registerSimulationWebSocket(httpServer, {
     SandboxRunner,
     getSimulationRateLimiter,
     shouldSendSimulationEndMessage,
     getLastCompiledCode: () => lastCompiledCode,
     logger,
+    runnerPool,
   });
 
   // (WS implementation moved to server/routes/simulation.ws.ts)
