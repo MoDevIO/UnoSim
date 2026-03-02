@@ -27,7 +27,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const logger = new Logger("Routes");
   const httpServer = createServer(app);
 
-  // Initialize SandboxRunnerPool for managing runner instances
   await initializeSandboxRunnerPool();
 
   // Lightweight health endpoint for backend reachability checks

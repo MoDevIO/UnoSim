@@ -14,10 +14,11 @@ export type SimulationDeps = {
   shouldSendSimulationEndMessage: (compileFailed: boolean) => boolean;
   getLastCompiledCode: () => string | null;
   logger: Logger;
+  runnerPool?: ReturnType<typeof getSandboxRunnerPool>;
 };
 
 // Return type exposes a small API used by other modules (test-reset)
-export function registerSimulationWebSocket(httpServer: Server, deps: SimulationDeps & { runnerPool?: ReturnType<typeof getSandboxRunnerPool> }) {
+export function registerSimulationWebSocket(httpServer: Server, deps: SimulationDeps) {
   const { SandboxRunner, getSimulationRateLimiter, shouldSendSimulationEndMessage, getLastCompiledCode, logger, runnerPool } = deps;
   const pool = runnerPool ?? getSandboxRunnerPool();
 
@@ -53,6 +54,32 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
   function sendMessageToClient(ws: WebSocket, message: any) {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message));
+    }
+  }
+
+  async function safeReleaseRunner(
+    state: { runner: InstanceType<typeof SandboxRunner> | null; isRunning: boolean; isPaused: boolean },
+    reason: string,
+  ): Promise<void> {
+    if (!state.runner) {
+      return;
+    }
+
+    const runner = state.runner;
+    state.runner = null;
+    state.isRunning = false;
+    state.isPaused = false;
+
+    try {
+      await runner.stop();
+    } catch (error) {
+      logger.debug(`[SandboxRunnerPool] runner.stop() failed during ${reason}: ${error}`);
+    }
+
+    try {
+      await pool.releaseRunner(runner);
+    } catch (error) {
+      logger.warn(`[SandboxRunnerPool] releaseRunner failed during ${reason}: ${error}`);
     }
   }
 
@@ -95,9 +122,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
               const clientState = clientRunners.get(ws);
               if (clientState?.runner) {
-                clientState.runner.stop();
-                clientState.isRunning = false;
-                clientState.isPaused = false;
+                await safeReleaseRunner(clientState, "rate-limit");
               }
 
               sendMessageToClient(ws, {
@@ -114,10 +139,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
             const lastCompiledCode = getLastCompiledCode();
             if (!lastCompiledCode) {
               if (clientState.runner) {
-                await clientState.runner.stop();
-                // Release old runner back to pool
-                await pool.releaseRunner(clientState.runner);
-                clientState.runner = null;
+                await safeReleaseRunner(clientState, "missing-compiled-code");
               }
               clientState.isRunning = false;
               clientState.isPaused = false;
@@ -127,26 +149,23 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
               break;
             }
 
-            // Release old runner if exists
             if (clientState.runner) {
-              await clientState.runner.stop();
-              await pool.releaseRunner(clientState.runner);
+              await safeReleaseRunner(clientState, "start-replace-existing");
             }
 
-            // Acquire fresh runner from pool (not new instance)
             try {
               clientState.runner = await pool.acquireRunner();
               logger.debug(`[SandboxRunnerPool] Acquired runner for client. Pool stats: ${JSON.stringify(pool.getStats())}`);
-            } catch (acquireError) {
-              logger.error(`[SandboxRunnerPool] Failed to acquire runner: ${acquireError}`);
+            } catch (error) {
+              logger.error(`[SandboxRunnerPool] Failed to acquire runner: ${error}`);
               clientState.runner = null;
               clientState.isRunning = false;
+              clientState.isPaused = false;
               sendMessageToClient(ws, { type: "serial_output", data: "[ERR] Server overloaded. All runners busy. Please try again.\n" });
               sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
               break;
             }
 
-            // Note: tempDir handling is already configured internally in SandboxRunner
             clientState.isRunning = true;
             clientState.isPaused = false;
 
@@ -177,19 +196,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
                   try {
                     const cs = clientRunners.get(ws);
                     if (cs) {
-                      cs.isRunning = false;
-                      cs.isPaused = false;
-
-                      // Release runner back to pool when simulation ends
-                      if (cs.runner) {
-                        try {
-                          await pool.releaseRunner(cs.runner);
-                          logger.debug(`[SandboxRunnerPool] Released runner on exit. Pool stats: ${JSON.stringify(pool.getStats())}`);
-                        } catch (releaseErr) {
-                          logger.warn(`[SandboxRunnerPool] Error releasing runner on exit: ${releaseErr}`);
-                        }
-                        cs.runner = null;
-                      }
+                      await safeReleaseRunner(cs, "onExit");
                     }
 
                     if (!shouldSendSimulationEndMessage(compileFailed)) return;
@@ -212,17 +219,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
                 sendMessageToClient(ws, { type: "compilation_status", gccStatus: "error" });
                 sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
                 const cs = clientRunners.get(ws);
-                if (cs) { 
-                  cs.isRunning = false; 
-                  cs.isPaused = false;
-                  
-                  // Release runner back to pool on compile error
-                  if (cs.runner) {
-                    pool.releaseRunner(cs.runner).catch(err => {
-                      logger.warn(`[SandboxRunnerPool] Error releasing runner on compile error: ${err}`);
-                    });
-                    cs.runner = null;
-                  }
+                if (cs) {
+                  safeReleaseRunner(cs, "onCompileError").catch((error) => {
+                    logger.warn(`[SandboxRunnerPool] safeReleaseRunner failed in onCompileError: ${error}`);
+                  });
                 }
                 logger.error(`[Client Compile Error]: ${compileErr}`);
               },
@@ -288,9 +288,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
           case "code_changed": {
             const clientState = clientRunners.get(ws);
             if (clientState?.runner && (clientState?.isRunning || clientState?.isPaused)) {
-              clientState.runner.stop();
-              clientState.isRunning = false;
-              clientState.isPaused = false;
+              await safeReleaseRunner(clientState, "code_changed");
               sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
               sendMessageToClient(ws, { type: "serial_output", data: "--- Simulation stopped due to code change ---\n" });
             }
@@ -300,9 +298,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
           case "stop_simulation": {
             const clientState = clientRunners.get(ws);
             if (clientState?.runner) {
-              clientState.runner.stop();
-              clientState.isRunning = false;
-              clientState.isPaused = false;
+              await safeReleaseRunner(clientState, "stop_simulation");
             }
             sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
             sendMessageToClient(ws, { type: "serial_output", data: "--- Simulation stopped ---\n" });
@@ -364,12 +360,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     ws.on("close", async () => {
       const clientState = clientRunners.get(ws);
       if (clientState?.runner) {
-        await clientState.runner.stop();
-        // Release runner back to pool when client disconnects
-        await pool.releaseRunner(clientState.runner).catch(err => {
-          logger.warn(`[SandboxRunnerPool] Error releasing runner on client close: ${err}`);
-        });
-        clientState.runner = null;
+        await safeReleaseRunner(clientState, "ws-close");
       }
       clientRunners.delete(ws);
       const rateLimiter = getSimulationRateLimiter();
@@ -377,7 +368,11 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       logger.info(`Client disconnected. Remaining clients: ${wss.clients.size}`);
     });
 
-    ws.on("error", (error) => {
+    ws.on("error", async (error) => {
+      const clientState = clientRunners.get(ws);
+      if (clientState?.runner) {
+        await safeReleaseRunner(clientState, "ws-error");
+      }
       logger.error(`WebSocket error: ${error instanceof Error ? error.message : String(error)}`);
     });
   });
@@ -388,14 +383,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
     for (const [ws, clientState] of clientRunners.entries()) {
       if (clientState.runner) {
-        try { 
-          await clientState.runner.stop();
-          // Release runner back to pool during reset
-          await pool.releaseRunner(clientState.runner);
-        } catch (err) { 
-          logger.debug(`Failed to stop/release runner during reset: ${err}`);
-        }
-        clientState.runner = null;
+        await safeReleaseRunner(clientState, "test-reset");
       }
       clientState.isRunning = false;
       clientState.isPaused = false;

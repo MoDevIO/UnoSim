@@ -16,7 +16,7 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
   afterEach(async () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     if (runner.isRunning) {
-      runner.stop();
+      await runner.stop();
     }
   });
 
@@ -39,8 +39,8 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
     let isPaused = false;
 
     return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        runner.stop();
+      const timeout = setTimeout(async () => {
+        await runner.stop();
         reject(new Error("Test timeout"));
       }, 30000);
 
@@ -70,12 +70,13 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
                 setTimeout(() => {
                   // after resume we expect at least one *new* time value to arrive
                   const initialLen = timeValues.length;
-                  const check = () => {
+                  const check = async () => {
                     if (timeValues.length > initialLen) {
                       const afterResumeTime = timeValues[timeValues.length - 1];
                       // Time should resume and advance
                       expect(afterResumeTime).toBeGreaterThan(pauseTime);
-                      runner.stop();
+                      // Stop AFTER assertions complete to avoid listener cleanup race
+                      await runner.stop();
                       clearTimeout(timeout);
                       resolve();
                     } else {
@@ -118,8 +119,8 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
     let pausedInCycle = false;
 
     return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        runner.stop();
+      const timeout = setTimeout(async () => {
+        await runner.stop();
         reject(new Error("Test timeout"));
       }, 30000);
 
@@ -158,14 +159,14 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
               cycle++;
 
               if (cycle === 2) {
-                setTimeout(() => {
-                  runner.stop();
-                  clearTimeout(timeout);
-
+                // Capture readings snapshot BEFORE stop() to avoid race with listener cleanup
+                setTimeout(async () => {
                   // Verify time continuity: values should be non-decreasing
-                  for (let i = 1; i < timeReadings.length; i++) {
-                    const prev = timeReadings[i - 1];
-                    const curr = timeReadings[i];
+                  const capturedReadings = [...timeReadings];
+                  
+                  for (let i = 1; i < capturedReadings.length; i++) {
+                    const prev = capturedReadings[i - 1];
+                    const curr = capturedReadings[i];
                     // If both paused, should be same time
                     if (prev.isPaused && curr.isPaused) {
                       expect(curr.value).toBe(prev.value);
@@ -176,6 +177,9 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
                     }
                   }
 
+                  // Stop runner AFTER assertions complete
+                  await runner.stop();
+                  clearTimeout(timeout);
                   resolve();
                 }, 300);
               }
@@ -211,8 +215,8 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
     let isPaused = false;
 
     return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        runner.stop();
+      const timeout = setTimeout(async () => {
+        await runner.stop();
         reject(new Error("Test timeout"));
       }, 30000);
 
@@ -240,13 +244,15 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
                     expect(resumeTime).toBe(pauseTime);
                     runner.resume();
 
-                    setTimeout(() => {
+                    setTimeout(async () => {
                       try {
-                        runner.stop();
-                        clearTimeout(timeout);
-
+                        // Capture final value BEFORE stop to avoid race
                         const afterResumeTime = microValues[microValues.length - 1];
                         expect(afterResumeTime).toBeGreaterThan(pauseTime);
+                        
+                        // Stop AFTER assertions complete
+                        await runner.stop();
+                        clearTimeout(timeout);
                         resolve();
                       } catch (err) {
                         clearTimeout(timeout);
@@ -295,8 +301,8 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
     `;
 
     return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        runner.stop();
+      const timeout = setTimeout(async () => {
+        await runner.stop();
         reject(new Error("Test timeout"));
       }, 30000);
 
