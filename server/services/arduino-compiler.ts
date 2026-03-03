@@ -2,7 +2,7 @@
 
 import { spawn } from "child_process";
 import { writeFile, mkdir, rm } from "fs/promises";
-import { mkdtempSync } from "fs";
+import { mkdtempSync, renameSync } from "fs";
 import { tmpdir } from "os";
 import { join, basename } from "path";
 import { randomUUID } from "crypto";
@@ -10,6 +10,7 @@ import { Logger } from "@shared/logger";
 import { ParserMessage, IOPinRecord } from "@shared/schema";
 import { CodeParser } from "@shared/code-parser";
 import { reservedNamesValidator } from "@shared/reserved-names-validator";
+import { getCompileGatekeeper } from "./compile-gatekeeper";
 // Removed unused mock imports to satisfy TypeScript
 
 export interface CompilationError {
@@ -37,9 +38,63 @@ export interface CompilationResult {
 export class ArduinoCompiler {
   private tempDir = join(process.cwd(), "temp");
   private logger = new Logger("ArduinoCompiler");
+  private gatekeeper = getCompileGatekeeper();
 
-  constructor() {
-    //this.ensureTempDir();
+  /**
+   * Robust cleanup function that handles file locking on Windows/Unix.
+   * Uses rename-before-delete to work around EPERM and EBUSY errors.
+   */
+  private async robustCleanupDir(dirPath: string): Promise<void> {
+    const maxRetries = 3;
+    const retryDelayMs = 100;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Fast path: try direct deletion first
+        await rm(dirPath, { recursive: true, force: true });
+        this.logger.debug(`Successfully deleted ${dirPath}`);
+        return;
+      } catch (directError) {
+        this.logger.debug(
+          `Direct delete failed (attempt ${attempt + 1}/${maxRetries}): ${directError}`,
+        );
+
+        // If not the last attempt, try the rename-trick
+        if (attempt < maxRetries - 1) {
+          try {
+            // Rename to a trash path to work around file locks
+            const trashPath = `${dirPath}.trash.${Date.now()}.${Math.random().toString(36).substring(7)}`;
+            this.logger.debug(
+              `Attempting rename-before-delete: ${dirPath} -> ${trashPath}`,
+            );
+            renameSync(dirPath, trashPath);
+
+            // Try to delete the trash path in the background (non-blocking)
+            rm(trashPath, { recursive: true, force: true }).catch((trashError) => {
+              this.logger.warn(
+                `Failed to delete trash directory ${trashPath}: ${trashError}`,
+              );
+              // This is non-critical; we got the original dir out of the way
+            });
+            return;
+          } catch (renameError) {
+            this.logger.debug(`Rename-trick failed: ${renameError}`);
+            // Fall through to next retry or throw
+          }
+        }
+      }
+
+      // If not the last attempt, wait before retrying
+      if (attempt < maxRetries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    }
+
+    // Last resort: log a warning but don't throw
+    // The OS will clean up temp directories eventually
+    this.logger.warn(
+      `Failed to clean up ${dirPath} after ${maxRetries} attempts. It will be cleaned up by the OS.`,
+    );
   }
 
   static async create(): Promise<ArduinoCompiler> {
@@ -59,6 +114,24 @@ export class ArduinoCompiler {
   }
 
   async compile(
+    code: string,
+    headers?: Array<{ name: string; content: string }>,
+    tempRoot?: string,
+  ): Promise<CompilationResult> {
+    // GATEKEEPER: Acquire a compile slot to prevent race conditions
+    const release = await this.gatekeeper.acquire();
+
+    try {
+      return await this.compileInternal(code, headers, tempRoot);
+    } finally {
+      release();
+    }
+  }
+
+  /**
+   * Internal compile implementation (wrapped by compile with gatekeeper)
+   */
+  private async compileInternal(
     code: string,
     headers?: Array<{ name: string; content: string }>,
     tempRoot?: string,
@@ -260,14 +333,14 @@ export class ArduinoCompiler {
       };
     } finally {
       try {
-        await rm(sketchDir, { recursive: true, force: true });
+        await this.robustCleanupDir(sketchDir);
       } catch (error) {
-        this.logger.warn(`Failed to clean up temp directory: ${error}`);
+        this.logger.warn(`Failed to clean up sketch directory: ${error}`);
       }
       // remove base temp folder if we created it ourselves
       if (!tempRoot) {
         try {
-          await rm(baseTempDir, { recursive: true, force: true });
+          await this.robustCleanupDir(baseTempDir);
         } catch (error) {
           this.logger.warn(`Failed to remove base temp directory: ${error}`);
         }
@@ -367,7 +440,12 @@ export class ArduinoCompiler {
         this.logger.debug(`arduino-cli stderr: ${chunk.trim()}`);
       });
 
-      arduino.on("close", (code) => {
+      arduino.on("close", async (code) => {
+        // CRITICAL: Wait for Child processes (gcc, ar, etc.) to fully terminate
+        // arduino-cli may spawn subprocesses that outlive the main process.
+        // Cleaning up too early causes "fatal error: opening dependency file" errors.
+        await new Promise((r) => setTimeout(r, 150));
+
         if (code === 0) {
           const progSizeRegex =
             /(Sketch uses[^\n]*\.|Der Sketch verwendet[^\n]*\.)/;

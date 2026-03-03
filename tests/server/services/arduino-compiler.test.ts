@@ -372,14 +372,20 @@ describe("ArduinoCompiler - Full Coverage", () => {
         },
       }));
 
-      // our implementation now performs two rm calls (sketchDir + baseDir)
-      mockRm.mockRejectedValueOnce(new Error("Cleanup failure"));
+      // Make all rm calls fail to trigger the robust cleanup error logging
+      mockRm.mockRejectedValue(new Error("Permission denied"));
 
       await compiler.compile(code);
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Cleanup failure"),
-      );
+      // With robust cleanup, we should get a warning about failed cleanup
+      // The gatekeeper and retry logic mean we expect a "Failed to clean up" warning
+      expect(warnSpy).toHaveBeenCalled();
+      const warnCalls = warnSpy.mock.calls.map((call) => call[0] as string);
+      const hasCleanupWarning =
+        warnCalls.some((msg) => msg.includes("Failed to clean up")) ||
+        warnCalls.some((msg) => msg.includes("cleanup"));
+      expect(hasCleanupWarning).toBe(true);
+
       // ensure rm was invoked at least once (cleanup attempted)
       expect(mockRm).toHaveBeenCalled();
       warnSpy.mockRestore();

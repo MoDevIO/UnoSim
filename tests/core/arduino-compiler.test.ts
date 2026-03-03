@@ -1,4 +1,4 @@
-import { ArduinoCompiler } from "../server/services/arduino-compiler";
+import { ArduinoCompiler } from "../../server/services/arduino-compiler";
 
 describe("ArduinoCompiler", () => {
   afterEach(() => {

@@ -7,10 +7,16 @@
  * Communication:
  * - Receives: { type: "compile", task: { code, headers?, tempRoot? } }
  * - Sends: { type: "ready" } (startup) or { result: CompilationResult | error: string } (completion)
+ * 
+ * IMPORTANT: This worker runs in a separate thread. The worker pool controls
+ * concurrency, so we disable the per-compiler gatekeeper here.
  */
 
 import { parentPort } from "worker_threads";
 import { Logger } from "@shared/logger";
+
+// Disable the CompileGatekeeper in worker threads since the pool controls concurrency
+process.env.COMPILE_GATEKEEPER_DISABLED = "true";
 
 const logger = new Logger("compile-worker");
 
