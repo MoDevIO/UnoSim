@@ -6,6 +6,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import { getCompilationPool } from "./services/compilation-worker-pool";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -199,10 +200,55 @@ process.on("uncaughtException", (error) => {
   // ALWAYS serve the app on port 3000
   // this serves both the API and the client.
   const PORT = 3000;
-  server.listen(PORT, "0.0.0.0", () => {
+  const httpServer = server.listen(PORT, "0.0.0.0", () => {
     console.log(`[express] Server running at http://0.0.0.0:${PORT}`);
 
     // Start cleanup service for old temp files
     startCleanupService();
   });
+
+  // Graceful shutdown handler for worker pool and server
+  async function gracefulShutdown(signal: string) {
+    console.log(`[Shutdown] Received ${signal}, starting graceful shutdown...`);
+
+    const shutdownTimeout = setTimeout(() => {
+      console.error(`[Shutdown] Force shutdown after 10s timeout`);
+      process.exit(1);
+    }, 10000);
+
+    try {
+      // Close HTTP server (stop accepting new connections)
+      httpServer.close((err) => {
+        if (err) {
+          console.error(`[Shutdown] Server close error:`, err);
+        } else {
+          console.log(`[Shutdown] HTTP server closed`);
+        }
+      });
+
+      // Gracefully shutdown the worker pool
+      try {
+        const pool = getCompilationPool();
+        if (pool) {
+          console.log(`[Shutdown] Shutting down compilation worker pool...`);
+          await pool.shutdown();
+          console.log(`[Shutdown] Worker pool shut down complete`);
+        }
+      } catch (poolErr) {
+        console.error(`[Shutdown] Pool shutdown error:`, poolErr);
+      }
+
+      clearTimeout(shutdownTimeout);
+      console.log(`[Shutdown] Graceful shutdown complete`);
+      process.exit(0);
+    } catch (err) {
+      console.error(`[Shutdown] Unexpected error during shutdown:`, err);
+      clearTimeout(shutdownTimeout);
+      process.exit(1);
+    }
+  }
+
+  // Handle termination signals
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 })();
