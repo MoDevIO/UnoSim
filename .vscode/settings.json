@@ -114,6 +114,7 @@
       "approve": true,
       "matchCommandLine": true
     },
-    "tee": true
+    "tee": true,
+    "git fetch": true
   },
 }
