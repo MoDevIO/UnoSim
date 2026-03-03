@@ -150,3 +150,33 @@ Dieses Dokument dient als Wissensanker, wenn nach einem Git‑Reset auf den `dev
 ---
 
 *Ende der Session-Handover*
+
+# SESSION HANDOVER (Update: 03. März 2026)
+
+## Aktueller Status: "The Great Clean-up" ✅
+Die Codebase wurde von Altlasten befreit und die Test-Infrastruktur auf ein professionelles Niveau gehoben.
+
+### Erreichte Meilensteine
+1. **Pipeline-Stabilisierung:** Ein neues `./run-tests.sh` Script mit automatischem Server-Management, Health-Checks und radikaler Log-Filterung ist aktiv.
+2. **Cache-Vollständigkeit:** Der 3. Test für `cache-optimization.test.ts` (TTL-Eviction) wurde identifiziert und erfolgreich implementiert.
+3. **Repo-Hygiene:** Das Root-Verzeichnis wurde von ~30 Dateien auf 8 essentielle Bestandteile reduziert; Altlasten liegen in `/archive`.
+4. **Test-Konsolidierung:** E2E-Tests (Playwright) und Unit/Integration-Tests (Vitest) sind nun sauber getrennt (`/e2e` vs. `/tests/core` & `/tests/server`).
+
+---
+
+## Offene technische Positionen (Priorisiert) 🚩
+
+### 1. Der "Timing-Flake" im Serial-Monitor
+* **Symptom:** `serial-monitor-baudrate-rendering.test.tsx` schlägt gelegentlich fehl.
+* **Vermutung:** Durch die schnellere Test-Execution (weniger Datei-I/O) passen die `setTimeout`-Mocks nicht mehr perfekt zu den Render-Zyklen.
+* **Task:** `waitFor` statt fester Timeouts nutzen oder die Taktung des virtuellen Baudrate-Generators im Test stabilisieren.
+
+### 2. Dependency Injection für CACHE_TTL
+* **Kontext:** Der neue 3. Cache-Test prüft die Eviction. Aktuell ist der Wert im Code (5 Min) für schnelle Tests schwer zu handhaben.
+* **Task:** `CACHE_TTL` in `compiler.routes.ts` via Umgebungsvariable oder Constructor-Injection steuerbar machen.
+
+---
+
+## Masterplan Update
+Wir befinden uns jetzt am Übergang von **Phase 1 (Foundation)** zu **Phase 2 (Efficiency)**. 
+Der nächste große Block ist der **Compilation-Worker-Pool**, um die sequentielle Abarbeitung aufzubrechen.

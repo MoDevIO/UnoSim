@@ -1,7 +1,7 @@
 // sandbox-stress.test.ts
 // Phase 5 Stress Tests: Validate architectural robustness under extreme conditions
 
-import { SandboxRunner, SimulationState } from "../server/services/sandbox-runner";
+import { SandboxRunner, SimulationState } from "../../server/services/sandbox-runner";
 import { existsSync, readdirSync } from "fs";
 import { join } from "path";
 import { mkdir, rm } from "fs/promises";

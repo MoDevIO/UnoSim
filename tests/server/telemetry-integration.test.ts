@@ -1,5 +1,5 @@
-// telemetry-e2e-integration.test.ts
-// End-to-end integration tests for telemetry pipeline
+// telemetry-integration.test.ts
+// Integration tests for telemetry pipeline
 
 import { describe, it, expect, beforeEach, vi, fake } from "vitest";
 
