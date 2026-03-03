@@ -9,6 +9,8 @@
  */
 
 import { Logger } from "@shared/logger";
+import { mkdir, rm } from "fs/promises";
+import { join } from "path";
 
 export class CompileGatekeeper {
   private available: number;
@@ -16,6 +18,7 @@ export class CompileGatekeeper {
   private queue: Array<() => void> = [];
   private activeCompiles = 0;
   private logger = new Logger("CompileGatekeeper");
+  private readonly lockRootDir = process.env.BUILD_CACHE_LOCK_DIR || "/tmp/unowebsim/cache/locks";
 
   constructor(maxConcurrent?: number) {
     // In worker threads, disable gatekeeper since the worker pool controls concurrency
@@ -124,6 +127,37 @@ export class CompileGatekeeper {
       };
       checkEmpty();
     });
+  }
+
+  /**
+   * Acquire a named lock backed by the filesystem.
+   * Prevents cache stampede scenarios across worker threads/processes.
+   */
+  async acquireNamedLock(lockKey: string, timeoutMs: number = 30000): Promise<() => Promise<void>> {
+    const safeKey = lockKey.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const lockPath = join(this.lockRootDir, safeKey);
+    const startedAt = Date.now();
+
+    await mkdir(this.lockRootDir, { recursive: true });
+
+    while (Date.now() - startedAt < timeoutMs) {
+      try {
+        await mkdir(lockPath);
+        this.logger.debug(`Named lock acquired: ${safeKey}`);
+        return async () => {
+          await rm(lockPath, { recursive: true, force: true });
+          this.logger.debug(`Named lock released: ${safeKey}`);
+        };
+      } catch (error: any) {
+        if (error?.code !== "EEXIST") {
+          throw error;
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw new Error(`Timeout while waiting for named lock: ${safeKey}`);
   }
 }
 

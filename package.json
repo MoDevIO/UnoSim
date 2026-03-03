@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "DISABLE_RATE_LIMIT=true tsx server/index.ts --host",
-    "dev:full": "npm run dev",
+    "dev:full": "concurrently -n \"BACKEND,CLIENT\" -c \"bgBlue,bgMagenta\" \"npm run dev\" \"npm run dev:client\"",
     "dev:client": "vite",
     "preview": "vite preview",
     "build": "npm run build:client && npm run build:server && npm run build:copy-public",
@@ -86,6 +86,7 @@
     "@vitest/ui": "^4.0.18",
     "autoprefixer": "^10.4.20",
     "baseline-browser-mapping": "^2.9.19",
+    "concurrently": "^9.2.1",
     "esbuild": "^0.25.0",
     "eslint": "^10.0.1",
     "husky": "^9.1.7",

@@ -24,6 +24,10 @@ export interface CompilationTask {
   code: string;
   headers?: Array<{ name: string; content: string }>;
   tempRoot?: string;
+  fqbn?: string;
+  libraries?: string[];
+  sketchHash?: string;
+  coreFingerprint?: string;
 }
 
 export interface WorkerMessage {
@@ -109,7 +113,9 @@ export class CompilationWorkerPool {
 
     for (let i = 0; i < this.numWorkers; i++) {
       try {
-        const worker = new Worker(workerScript);
+        const worker = new Worker(workerScript, {
+          workerData: { workerId: i + 1 },
+        });
         const workerId = i;
 
         worker.on("message", (msg: WorkerMessage) => {

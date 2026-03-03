@@ -15,6 +15,7 @@
 import { CompilationWorkerPool, getCompilationPool, type CompilationTask } from "./compilation-worker-pool";
 import { ArduinoCompiler } from "./arduino-compiler";
 import type { CompilationResult } from "./arduino-compiler";
+import type { CompileRequestOptions } from "./arduino-compiler";
 
 export class PooledCompiler {
   private readonly pool: CompilationWorkerPool | null;
@@ -44,12 +45,13 @@ export class PooledCompiler {
     code: string,
     headers?: Array<{ name: string; content: string }>,
     tempRoot?: string,
+    options?: CompileRequestOptions,
   ): Promise<CompilationResult> {
     if (this.usePool && this.pool) {
-      const task: CompilationTask = { code, headers, tempRoot };
+      const task: CompilationTask = { code, headers, tempRoot, ...options };
       return await this.pool.compile(task);
     } else if (this.directCompiler) {
-      return await this.directCompiler.compile(code, headers, tempRoot);
+      return await this.directCompiler.compile(code, headers, tempRoot, options);
     } else {
       throw new Error("Neither pool nor direct compiler available");
     }

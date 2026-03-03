@@ -1,10 +1,11 @@
 import type { Express } from "express";
 import type { CompilationResult } from "../services/arduino-compiler";
+import type { CompileRequestOptions } from "../services/arduino-compiler";
 import type { Logger } from "@shared/logger";
 
 export type CompilerDeps = {
   compiler: {
-    compile: (code: string, headers?: any[], tempRoot?: string) => Promise<CompilationResult>;
+    compile: (code: string, headers?: any[], tempRoot?: string, options?: CompileRequestOptions) => Promise<CompilationResult>;
   };
   compilationCache: Map<string, { result: CompilationResult; timestamp: number }>;
   hashCode: (code: string, headers?: Array<{ name: string; content: string }>) => string;
@@ -20,7 +21,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
 
   app.post("/api/compile", async (req, res) => {
     try {
-      const { code, headers } = req.body;
+      const { code, headers, fqbn, libraries } = req.body;
       if (!code || typeof code !== "string") {
         return res.status(400).json({ error: "Code is required" });
       }
@@ -49,6 +50,10 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         code,
         headers,
         compileTempRoot,
+        {
+          fqbn,
+          libraries: Array.isArray(libraries) ? libraries : undefined,
+        },
       );
 
       if (result.success) {
