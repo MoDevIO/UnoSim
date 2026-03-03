@@ -98,8 +98,14 @@ describe("Core-Cache Locking Behavior", () => {
     expect(result1).toBeDefined();
     expect(result2).toBeDefined();
     // Both compilations should succeed
-    expect(result1.success).toBe(true);
-    expect(result2.success).toBe(true);
+    if (!result1.success) {
+      console.error("[Test] Compilation 1 failed with error:", result1.error);
+    }
+    if (!result2.success) {
+      console.error("[Test] Compilation 2 failed with error:", result2.error);
+    }
+    expect(result1.success).withContext(result1.error || "Unknown error in result1").toBe(true);
+    expect(result2.success).withContext(result2.error || "Unknown error in result2").toBe(true);
 
     // Timing validation: Worker 2 should be faster (uses existing core cache)
     // In CI/dev with slow arduino-cli: first ~5-10s, second ~1-3s
@@ -130,8 +136,14 @@ describe("Core-Cache Locking Behavior", () => {
     ]);
 
     // Both should succeed
-    expect(results[0].success).toBe(true);
-    expect(results[1].success).toBe(true);
+    if (!results[0].success) {
+      console.error("[Test] Parallel compilation 1 failed:", results[0].error);
+    }
+    if (!results[1].success) {
+      console.error("[Test] Parallel compilation 2 failed:", results[1].error);
+    }
+    expect(results[0].success).withContext(results[0].error || "Unknown error in parallel compile 1").toBe(true);
+    expect(results[1].success).withContext(results[1].error || "Unknown error in parallel compile 2").toBe(true);
 
     // In test environment, binaries may not be fully available,
     // but the important thing is that both compile() calls succeed
@@ -153,12 +165,15 @@ describe("Core-Cache Locking Behavior", () => {
       const elapsed = Date.now() - startedAt;
       times.push(elapsed);
 
-      expect(result.success).toBe(true);
+      if (!result.success) {
+        console.error(`[Test] Sequential compilation ${i + 1} failed:`, result.error);
+      }
+      expect(result.success).withContext(result.error || `Unknown error in sequential compile ${i + 1}`).toBe(true);
     }
 
-    // First compile should be slowest, but allow 500ms jitter for high-speed worker pool optimization
-    // At this speed (<2s), system jitter can make subsequent runs slightly slower
-    expect(times[0] + 500).toBeGreaterThanOrEqual(times[1]);
+    // First compile should be slowest, but allow 1000ms jitter for high-speed worker pool optimization
+    // At this speed (<4s), system jitter and worker initialization can make subsequent runs slightly slower
+    expect(times[0] + 1000).toBeGreaterThanOrEqual(times[1]);
     // Subsequent compiles should be faster (reusing cache)
     // Allow some variance in test environment
     console.log(`[Test] Sequential compile times: ${times.join("ms, ")}ms`);

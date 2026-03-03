@@ -470,11 +470,11 @@ describe("ArduinoCompiler - Full Coverage", () => {
       const result = await compiler.compile(code);
       expect(result.success).toBe(false);
       expect(result.stderr).toEqual(
-        expect.stringContaining("Arduino CLI not available"),
+        expect.stringContaining("Failed to execute arduino-cli"),
       );
       // spawn failure should produce a generic error entry
       expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].message).toContain("Arduino CLI not available");
+      expect(result.errors[0].message).toContain("Failed to execute arduino-cli");
     });
 
     it("should handle arduino-cli compilation failure", async () => {

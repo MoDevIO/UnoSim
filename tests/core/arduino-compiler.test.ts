@@ -75,7 +75,18 @@ describe("ArduinoCompiler", () => {
   it("handles arduino-cli not available (spawn error)", async () => {
     vi
       .spyOn(ArduinoCompiler.prototype, "compileWithArduinoCli")
-      .mockResolvedValue(null as any);
+      .mockResolvedValue({
+        success: false,
+        output: "",
+        errors: "Failed to execute arduino-cli: spawn arduino-cli ENOENT. Make sure arduino-cli is installed and in PATH.",
+        parsedErrors: [{
+          file: "system",
+          line: 0,
+          column: 0,
+          type: "error",
+          message: "Failed to execute arduino-cli: spawn arduino-cli ENOENT. Make sure arduino-cli is installed and in PATH.",
+        }],
+      } as any);
 
     const compiler = await ArduinoCompiler.create();
     const code = "void setup() {}\nvoid loop() {}";
@@ -83,7 +94,7 @@ describe("ArduinoCompiler", () => {
     const result = await compiler.compile(code);
 
     expect(result.success).toBe(false);
-    expect(result.stderr).toContain("Arduino CLI not available");
+    expect(result.stderr).toContain("Failed to execute arduino-cli");
     expect(result.arduinoCliStatus).toBe("error");
   });
 });

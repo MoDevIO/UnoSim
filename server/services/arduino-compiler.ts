@@ -431,10 +431,7 @@ export class ArduinoCompiler {
       let cliErrors = "";
       let parsedErrors: CompilationError[] = [];
 
-      if (cliResult === null) {
-        arduinoCliStatus = "error";
-        cliErrors = "Arduino CLI not available";
-      } else if (!cliResult.success) {
+      if (!cliResult.success) {
         arduinoCliStatus = "error";
         cliOutput = "";
         cliErrors = cliResult.errors || "Compilation failed";
@@ -480,14 +477,14 @@ export class ArduinoCompiler {
       }
 
       // Erfolg = arduino-cli erfolgreich (g++ Syntax-Check entfernt - wird in Runner gemacht)
-      const success = cliResult?.success ?? false;
+      const success = cliResult.success;
 
       return {
         success,
         output: combinedOutput,
         stderr: cliErrors || undefined,
         errors: parsedErrors,
-        binary: cliResult?.binary,
+        binary: cliResult.binary,
         arduinoCliStatus,
         parserMessages: allParserMessages, // Include parser messages
         ioRegistry, // Include I/O registry
@@ -582,10 +579,13 @@ export class ArduinoCompiler {
       buildPath?: string;
       buildCachePath?: string;
     },
-  ): Promise<
-    | { success: boolean; output: string; errors?: string; parsedErrors?: CompilationError[]; binary?: Buffer }
-    | null
-  > {
+  ): Promise<{
+    success: boolean;
+    output: string;
+    errors?: string;
+    parsedErrors?: CompilationError[];
+    binary?: Buffer;
+  }> {
     return new Promise((resolve) => {
       // Arduino CLI expects the sketch DIRECTORY, not the file
       const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf("/"));
@@ -697,9 +697,21 @@ export class ArduinoCompiler {
       });
 
       arduino.on("error", (err) => {
-        // LOG: Command spawn error
-        this.logger.error(`arduino-cli spawn error: ${err.message}`);
-        resolve(null);
+        // LOG: Command spawn error (e.g., arduino-cli not found)
+        const errorMessage = `Failed to execute arduino-cli: ${err.message}. Make sure arduino-cli is installed and in PATH.`;
+        this.logger.error(errorMessage);
+        resolve({
+          success: false,
+          output: "",
+          errors: errorMessage,
+          parsedErrors: [{
+            file: "system",
+            line: 0,
+            column: 0,
+            type: "error",
+            message: errorMessage,
+          }],
+        });
       });
     });
   }
