@@ -69,9 +69,14 @@ export class CompilationWorkerPool {
   };
 
   constructor(numWorkers?: number) {
-    // Use ~50% of available CPU cores, but at least 2 workers
-    this.numWorkers = numWorkers ?? Math.max(2, Math.floor(os.cpus().length * 0.5));
-    this.logger.info(`[CompilationWorkerPool] Initializing with ${this.numWorkers} workers`);
+    // CRITICAL: Limit to 4 workers to prevent race conditions in arduino-cli
+    // Each worker can spawn arduino-cli subprocesses that compete for temp/ directory access.
+    // More than 4 workers causes "fatal error: opening dependency file" failures.
+    const maxSafeWorkers = 4;
+    const recommendedWorkers = Math.max(2, Math.floor(os.cpus().length * 0.5));
+    this.numWorkers = numWorkers ?? Math.min(maxSafeWorkers, recommendedWorkers);
+    
+    this.logger.info(`[CompilationWorkerPool] Initializing with ${this.numWorkers} workers (max: ${maxSafeWorkers})`);
     this.initializeWorkers();
   }
 
