@@ -4,9 +4,9 @@ import type { SandboxRunner } from "../services/sandbox-runner";
 import type { IOPinRecord } from "@shared/schema";
 import type { Logger } from "@shared/logger";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
-import fs from "fs";
 import path from "path";
 import { constants as zlibConstants } from "zlib";
+import { writeFile, access } from "fs/promises";
 
 export type SimulationDeps = {
   SandboxRunner: typeof SandboxRunner;
@@ -242,17 +242,27 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
                 sendMessageToClient(ws, message);
                 logger.info(`[io_registry] ${registry.length} pins${baudrate !== undefined ? `, baud=${baudrate}` : ""}`);
 
-                try {
-                  const sketchDir = clientState?.runner?.getSketchDir();
-                  if (sketchDir && fs.existsSync(sketchDir)) {
+                // Async save without blocking — fire-and-forget with error handling
+                (async () => {
+                  try {
+                    const sketchDir = clientState?.runner?.getSketchDir();
+                    if (!sketchDir) return;
+                    
+                    // Non-blocking directory check
+                    try {
+                      await access(sketchDir);
+                    } catch {
+                      return; // Directory doesn't exist
+                    }
+                    
                     const registryFile = path.join(sketchDir, `io-registry-${Date.now()}.pending.json`);
-                    fs.writeFileSync(registryFile, JSON.stringify(registry, null, 2));
+                    await writeFile(registryFile, JSON.stringify(registry, null, 2));
                     logger.debug(`Registry saved: ${path.basename(registryFile)}`);
                     if (clientState.runner) clientState.runner.setRegistryFile(registryFile);
+                  } catch (err) {
+                    logger.warn(`Failed to save I/O Registry file: ${err instanceof Error ? err.message : String(err)}`);
                   }
-                } catch (err) {
-                  logger.warn(`Failed to save I/O Registry file: ${err instanceof Error ? err.message : String(err)}`);
-                }
+                })();
               },
               onTelemetry: (metrics: any) => sendMessageToClient(ws, { type: "sim_telemetry", metrics }),
               onPinStateBatch: (batch: { states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }>; timestamp: number }) => {

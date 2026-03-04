@@ -5,7 +5,7 @@ import type { IOPinRecord } from "@shared/schema";
 import type { PinStateBatcher } from "./pin-state-batcher";
 import type { SerialOutputBatcher, SerialOutputTelemetry } from "./serial-output-batcher";
 import { Logger } from "@shared/logger";
-import { appendFileSync } from "fs";
+import { createWriteStream, type WriteStream } from "fs";
 import { join } from "path";
 
 export interface RegistryUpdateCallback {
@@ -75,6 +75,7 @@ export class RegistryManager {
   private isDirty = false;
   private baudrate: number | undefined = undefined; // undefined = Serial.begin() not found in code
   private destroyed = false; // Prevent logging after destruction
+  private debugStream: WriteStream | null = null; // Non-blocking telemetry stream
   private readonly logger = new Logger("RegistryManager");
   private readonly onUpdateCallback?: RegistryUpdateCallback;
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
@@ -289,7 +290,11 @@ export class RegistryManager {
               bytesTotal: serialBytesTotal,
             },
           }) + "\n";
-          appendFileSync(debugPath, debugLine);
+          // Non-blocking write via stream
+          if (!this.debugStream) {
+            this.debugStream = createWriteStream(debugPath, { flags: "a" });
+          }
+          this.debugStream.write(debugLine);
         } catch {
           // Silently ignore file write errors
         }
@@ -556,6 +561,12 @@ export class RegistryManager {
     }
     
     this.stopTelemetry();
+
+    // Close debug stream if open
+    if (this.debugStream) {
+      this.debugStream.end();
+      this.debugStream = null;
+    }
 
     // Reset state without logging
     this.registry = [];

@@ -15,8 +15,9 @@
 import { parentPort } from "worker_threads";
 import { workerData } from "worker_threads";
 import { Logger } from "@shared/logger";
+import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { createHash } from "crypto";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync } from "fs";
 import { mkdir, open, readdir, rm, stat, unlink, utimes, writeFile } from "fs/promises";
 import { join } from "path";
 
@@ -32,7 +33,7 @@ const CORE_CACHE_LOCK_DIR = join(CORE_CACHE_DIR, "locks");
 const CORE_CACHE_META_DIR = join(CORE_CACHE_DIR, "meta");
 const CORE_METADATA_TTL_MS = 5 * 60 * 1000;
 const resolvedWorkerId = Number(workerData?.workerId || 1);
-const WORKER_BUILD_DIR = join(process.cwd(), "temp", "build", `worker_${resolvedWorkerId}`);
+const WORKER_BUILD_DIR = join(getFastTmpBaseDir(), "unowebsim-worker-build", `worker_${resolvedWorkerId}`);
 const BINARY_STORAGE_DIR = join(process.cwd(), "storage", "binaries");
 
 let cachedLibFingerprint: { value: string; expiresAt: number } | null = null;
@@ -40,6 +41,8 @@ let cachedCompilerVersion: { value: string; expiresAt: number } | null = null;
 
 // Dynamic import of ArduinoCompiler (ESM-aware)
 let ArduinoCompiler: any = null;
+let compilerSingleton: any = null;
+let workerDirsReady = false;
 
 async function initializeCompiler() {
   try {
@@ -52,11 +55,25 @@ async function initializeCompiler() {
       module = await import("../arduino-compiler.ts");
     }
     ArduinoCompiler = module.ArduinoCompiler;
+    if (!compilerSingleton) {
+      compilerSingleton = new ArduinoCompiler();
+    }
     logger.debug("[Worker] ArduinoCompiler loaded");
   } catch (err) {
     logger.error(`[Worker] Failed to load ArduinoCompiler: ${err instanceof Error ? err.message : String(err)}`);
     throw err;
   }
+}
+
+async function ensureWorkerDirs(): Promise<void> {
+  if (workerDirsReady) return;
+  await mkdir(WORKER_BUILD_DIR, { recursive: true });
+  await mkdir(HEX_CACHE_DIR, { recursive: true });
+  await mkdir(CORE_CACHE_DIR, { recursive: true });
+  await mkdir(CORE_CACHE_BUILD_PATH, { recursive: true });
+  await mkdir(CORE_CACHE_LOCK_DIR, { recursive: true });
+  await mkdir(CORE_CACHE_META_DIR, { recursive: true });
+  workerDirsReady = true;
 }
 
 async function execArduinoCliJson(args: string[]): Promise<any | null> {
@@ -256,17 +273,12 @@ async function cleanupCacheLru(): Promise<void> {
  */
 async function processCompileRequest(task: any) {
   try {
-    if (!ArduinoCompiler) {
+    if (!ArduinoCompiler || !compilerSingleton) {
       await initializeCompiler();
     }
 
-    const compiler = new ArduinoCompiler();
-    mkdirSync(WORKER_BUILD_DIR, { recursive: true });
-    await mkdir(HEX_CACHE_DIR, { recursive: true });
-    await mkdir(CORE_CACHE_DIR, { recursive: true });
-    await mkdir(CORE_CACHE_BUILD_PATH, { recursive: true });
-    await mkdir(CORE_CACHE_LOCK_DIR, { recursive: true });
-    await mkdir(CORE_CACHE_META_DIR, { recursive: true });
+    const compiler = compilerSingleton;
+    await ensureWorkerDirs();
 
     const requestStartedAt = process.hrtime.bigint();
     const fqbn = task.fqbn || process.env.ARDUINO_FQBN || "arduino:avr:uno";

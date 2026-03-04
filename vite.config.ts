@@ -19,6 +19,14 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist", "public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "monaco-editor": ["monaco-editor"],
+          "recharts": ["recharts"],
+        },
+      },
+    },
   },
   server: {
     host: true,

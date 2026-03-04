@@ -15,23 +15,27 @@ function startCleanupService() {
   const CLEANUP_INTERVAL_MS = 60 * 1000; // Check every minute
   const CLEANUP_AGE_MS = 5 * 60 * 1000; // Delete files/dirs older than 5 minutes
 
-  setInterval(() => {
+  setInterval(async () => {
     try {
       const tempDir = path.join(process.cwd(), "temp");
-      if (!fs.existsSync(tempDir)) return;
+      try {
+        await fs.promises.access(tempDir);
+      } catch {
+        return; // tempDir doesn't exist
+      }
 
-      const items = fs.readdirSync(tempDir);
+      const items = await fs.promises.readdir(tempDir);
       const now = Date.now();
       let deletedCount = 0;
 
       for (const item of items) {
         const itemPath = path.join(tempDir, item);
-        const stats = fs.statSync(itemPath);
+        const stats = await fs.promises.stat(itemPath);
         const age = now - stats.mtimeMs;
 
         // Delete old .cleanup.json files
         if (item.endsWith(".cleanup.json") && age > CLEANUP_AGE_MS) {
-          fs.unlinkSync(itemPath);
+          await fs.promises.unlink(itemPath);
           deletedCount++;
         }
         // Delete old .cleanup directories
@@ -40,7 +44,7 @@ function startCleanupService() {
           stats.isDirectory() &&
           age > CLEANUP_AGE_MS
         ) {
-          fs.rmSync(itemPath, { recursive: true, force: true });
+          await fs.promises.rm(itemPath, { recursive: true, force: true });
           deletedCount++;
         }
       }
