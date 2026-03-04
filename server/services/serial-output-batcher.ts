@@ -5,13 +5,16 @@
  * the WebSocket connection and simulate realistic Arduino serial behavior.
  * 
  * Key features:
+ * - Ring-Buffer (Uint8Array) for O(1) writes without string allocation overhead
  * - Tick-based batching (default 50ms = 20 batches/sec, like PinStateBatcher)
  * - Baudrate-based byte budget per tick
- * - "Tail wins" drop strategy (newest data is kept when budget exceeded)
+ * - FIFO drop strategy when buffer full (no unbounded growth)
  * - Burst tolerance for short spikes (e.g., setup() output)
  * - Telemetry tracking (intended/actual/dropped bytes)
  * - Newline-aware cutting (prefer line boundaries)
  */
+
+import { RingBuffer } from "@shared/utils/ring-buffer";
 
 export interface SerialOutputBatcherConfig {
   /** Baudrate in bits per second (e.g., 115200) */
@@ -39,7 +42,7 @@ export interface SerialOutputTelemetry {
 
 export class SerialOutputBatcher {
   private config: Required<SerialOutputBatcherConfig>;
-  private pendingData = "";
+  private pendingBuffer: RingBuffer; // Ring-Buffer instead of string accumulation
   private tickTimer: NodeJS.Timeout | null = null;
   
   // paused flag prevents enqueue/start while paused (tests rely on this)
@@ -89,6 +92,10 @@ export class SerialOutputBatcher {
       burstFactor: config.burstFactor ?? 3,
     };
     
+    // Initialize ring buffer with capacity equal to MAX_QUEUE_BYTES
+    // This prevents unbounded memory growth while allowing burst handling
+    this.pendingBuffer = new RingBuffer(this.MAX_QUEUE_BYTES);
+    
     this.updateBudget();
   }
   
@@ -133,19 +140,13 @@ export class SerialOutputBatcher {
     this.intendedBytes += data.length;
     this.totalBytes += data.length;
 
-    // even when paused we still accumulate data; it will be flushed when
-    // the caller resumes or when backpressure allows.  Do not drop anything.
-    const newData = this.pendingData + data;
-
-    // Check if we would exceed maximum queue size
-    if (newData.length > this.MAX_QUEUE_BYTES) {
-      const overflow = newData.length - this.MAX_QUEUE_BYTES;
-      // FIFO: Drop oldest bytes (from the beginning)
-      const dropped = overflow;
-      this.droppedBytes += dropped;
-      this.pendingData = newData.slice(overflow);
-    } else {
-      this.pendingData = newData;
+    // Write to ring buffer - it handles overflow internally via FIFO
+    const bytesWritten = this.pendingBuffer.write(data);
+    
+    // Track any bytes that couldn't fit (dropped due to ring buffer capacity)
+    if (bytesWritten < data.length) {
+      const bytesDropped = data.length - bytesWritten;
+      this.droppedBytes += bytesDropped;
     }
 
     // Ensure the ticking timer is running; do not create multiple intervals.
@@ -166,11 +167,11 @@ export class SerialOutputBatcher {
     }
     
     // Flush all remaining data without budget limit
-    if (this.pendingData.length > 0) {
-      this.config.onChunk(this.pendingData);
-      this.actualBytes += this.pendingData.length;
+    const remaining = this.pendingBuffer.readAll();
+    if (remaining.length > 0) {
+      this.config.onChunk(remaining);
+      this.actualBytes += remaining.length;
       this.chunks++;
-      this.pendingData = "";
     }
   }
   
@@ -202,7 +203,7 @@ export class SerialOutputBatcher {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
     }
-    this.pendingData = "";
+    this.pendingBuffer.clear();
   }
   
   /**
@@ -246,13 +247,14 @@ export class SerialOutputBatcher {
     // bytes (≈1/4 of the original threshold) so throttling behaviour remains
     // snappy without toggling around the boundary.
     const lowWatermark = 128;
+    const bufferSize = this.pendingBuffer.getSize();
 
     if (this.overloadedState) {
-      if (this.pendingData.length < lowWatermark) {
+      if (bufferSize < lowWatermark) {
         this.overloadedState = false;
       }
     } else {
-      if (this.pendingData.length > threshold) {
+      if (bufferSize > threshold) {
         this.overloadedState = true;
       }
     }
@@ -296,6 +298,7 @@ export class SerialOutputBatcher {
    * and completeness is more important than timing.
    * 
    * If bandwidth is insufficient for the data rate, output will be delayed but complete.
+   * Uses RingBuffer for O(1) operations without string allocation overhead.
    */
   private tick(): void {
     // Token bucket replenishment with fractional byte accumulation.
@@ -311,35 +314,37 @@ export class SerialOutputBatcher {
       this.maxBudget
     );
     
-    if (this.pendingData.length === 0) {
+    if (this.pendingBuffer.isEmpty()) {
       return;
     }
     
     // Use current accumulated budget (can be up to maxBudget for bursts)
     const budget = this.currentBudget;
+    const bufferSize = this.pendingBuffer.getSize();
     
-    if (this.pendingData.length <= budget) {
-      // All data fits in budget
-      const bytesToSend = this.pendingData.length;
-      this.config.onChunk(this.pendingData, false); // no truncation
-      this.actualBytes += bytesToSend;
-      this.currentBudget -= bytesToSend;
-      this.pendingData = "";
-      this.chunks++;
+    if (bufferSize <= budget) {
+      // All data fits in budget - extract and send everything
+      const dataToSend = this.pendingBuffer.readAll();
+      if (dataToSend.length > 0) {
+        this.config.onChunk(dataToSend, false); // no truncation
+        this.actualBytes += dataToSend.length;
+        this.chunks++;
+        this.currentBudget -= dataToSend.length;
+      }
     } else {
       // Data exceeds budget: send what fits, keep rest in buffer for next tick
-      // NO DROPS - just FIFO: send first N bytes that fit in budget
-      let dataToSend = this.pendingData.slice(0, budget);
-      this.pendingData = this.pendingData.slice(budget);
+      // Read up to budget bytes
+      let dataToSend = this.pendingBuffer.read(budget);
       
       // Try to cut at newline boundary to avoid sending truncated lines
       const lastNewlineIndex = dataToSend.lastIndexOf("\n");
       if (lastNewlineIndex !== -1 && lastNewlineIndex < dataToSend.length - 1) {
-        // There's a newline within budget-range (not at very end)
-        // Keep everything up to and including that newline, requeue the rest
+        // There's a newline within what we read (not at very end)
+        // Keep everything up to and including that newline, put back the rest
         const toRequeue = dataToSend.slice(lastNewlineIndex + 1);
         dataToSend = dataToSend.slice(0, lastNewlineIndex + 1);
-        this.pendingData = toRequeue + this.pendingData;
+        // Re-enqueue the bytes we're not using yet
+        this.pendingBuffer.write(toRequeue);
       }
       
       if (dataToSend.length > 0) {

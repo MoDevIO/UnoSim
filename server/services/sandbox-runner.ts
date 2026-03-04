@@ -73,6 +73,7 @@ export class SandboxRunner {
   
   // Output buffers
   private outputBuffer = "";
+  private outputBufferIndex = 0; // Index for reading from outputBuffer (avoids O(n²) slice cost)
   private totalOutputBytes = 0;
   private isSendingOutput = false;
   private flushTimer: NodeJS.Timeout | null = null;
@@ -622,6 +623,7 @@ export class SandboxRunner {
     this.registryManager.enableWaitMode(300); // Reduced from 1500ms to 300ms - faster serial output
     this.messageQueue = [];
     this.outputBuffer = "";
+    this.outputBufferIndex = 0;
     this.isSendingOutput = false;
     this.totalOutputBytes = 0;
     this.onOutputCallback = onOutput;
@@ -1477,14 +1479,15 @@ export class SandboxRunner {
       return;
     }
 
-    if (this.outputBuffer.length === 0) {
+    // Check if we've sent all characters (using index instead of slice to avoid O(n²))
+    if (this.outputBufferIndex >= this.outputBuffer.length) {
       this.isSendingOutput = false;
       return;
     }
 
     this.isSendingOutput = true;
-    const char = this.outputBuffer[0];
-    this.outputBuffer = this.outputBuffer.slice(1);
+    const char = this.outputBuffer[this.outputBufferIndex];
+    this.outputBufferIndex++;
 
     // Check output size limit for sent bytes
     this.totalOutputBytes += 1;
@@ -1580,6 +1583,7 @@ export class SandboxRunner {
     }
 
     this.outputBuffer = "";
+    this.outputBufferIndex = 0;
     this.isSendingOutput = false;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
