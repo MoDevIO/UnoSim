@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.66% </span>
+                <span class="strong">91.8% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>55/60</span>
+                <span class='fraction'>56/61</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.91% </span>
+                <span class="strong">97.95% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>47/48</span>
+                <span class='fraction'>48/49</span>
             </div>
         
             
@@ -231,7 +231,14 @@
 <a name='L166'></a><a href='#L166'>166</a>
 <a name='L167'></a><a href='#L167'>167</a>
 <a name='L168'></a><a href='#L168'>168</a>
-<a name='L169'></a><a href='#L169'>169</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -303,12 +310,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">45x</span>
 <span class="cline-any cline-yes">45x</span>
-<span class="cline-any cline-yes">51291x</span>
-<span class="cline-any cline-yes">51290x</span>
-<span class="cline-any cline-yes">51290x</span>
+<span class="cline-any cline-yes">51576x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">51575x</span>
+<span class="cline-any cline-yes">51575x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">51291x</span>
+<span class="cline-any cline-yes">51576x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -353,18 +361,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">111x</span>
-<span class="cline-any cline-yes">111x</span>
+<span class="cline-any cline-yes">107x</span>
+<span class="cline-any cline-yes">107x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">90x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">88x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">66x</span>
-<span class="cline-any cline-yes">66x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">74x</span>
+<span class="cline-any cline-yes">74x</span>
 <span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -396,10 +404,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">45x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { ChildProcess, SpawnOptions } from "child_process";
+import { Logger } from "@shared/logger";
+&nbsp;
+const logger = new Logger("ProcessController");
 &nbsp;
 /**
  * ProcessController
@@ -450,8 +461,8 @@ export class ProcessController implements IProcessController {
   async spawn(command: string, args: string[] = [], options?: SpawnOptions): Promise&lt;import("child_process").ChildProcess | null&gt; {
     // dynamic import ensures test mocks of child_process are applied
     const { spawn } = await import("child_process");
-    // debug logging of spawn attempts
-    process.stderr.write(`[DEBUG] ProcessController.spawn called: ${command} ${args ? args.join(' ') : <span class="branch-1 cbranch-no" title="branch not covered" >''}</span>\n`);
+    // debug logging of spawn attempts goes through policy logger
+    logger.debug(`ProcessController.spawn called: ${command} ${args ? args.join(' ') : <span class="branch-1 cbranch-no" title="branch not covered" >''}</span>`);
     // Destroy any previous process reference
     // spawn with or without options depending on caller
     this.proc = options ? <span class="branch-0 cbranch-no" title="branch not covered" >spawn(command, args, options) : s</span>pawn(command, args);
@@ -472,8 +483,9 @@ export class ProcessController implements IProcessController {
     <span class="missing-if-branch" title="else path not taken" >E</span>if (this.proc &amp;&amp; this.proc.stderr) {
       this.proc.stderr.on("data", (d: Buffer) =&gt; {
         if (process.env.NODE_ENV === "test") {
+          // convert low-level wrapper events into buffered debug logs
           try {
-            process.stderr.write(`[DEBUG] wrapper stderr handler invoked with: ${d.toString()}\n`);
+            logger.debug(`wrapper stderr handler invoked with: ${d.toString()}`);
           } catch {}
         }
         this.stderrListeners.forEach((cb) =&gt; cb(d));
@@ -574,7 +586,7 @@ export class ProcessController implements IProcessController {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-03T16:54:30.579Z
+                at 2026-03-04T11:25:24.393Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
