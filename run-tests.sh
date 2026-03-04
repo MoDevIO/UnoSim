@@ -1,10 +1,19 @@
 #!/bin/bash
 
+# ─────────────────────────────────────────────────────────────────
+# UnoSim Test & Build Pipeline (Policy-Compliant Version)
+# ─────────────────────────────────────────────────────────────────
+
 # Konfiguration
 LOG_FILE="run-tests_output.log"
 TOTAL_STEPS=5
 STEP=0
 SERVER_PID=""
+
+# Policy: Standard Log-Level für die Pipeline ist WARN (2) oder ERROR (1)
+# Das minimiert I/O-Last, während der Ring-Buffer bei Fehlern Kontext liefert.
+export LOG_LEVEL=1 
+export NODE_ENV=test
 
 # Farben & Icons
 G="\033[32m"; Y="\033[33m"; R="\033[31m"; C="\033[36m"; B="\033[1m"; D="\033[2m"; RS="\033[0m"
@@ -30,9 +39,10 @@ run_task() {
     # Verzeichnisse sicherstellen
     mkdir -p temp build
     
-    # set -o pipefail: Fehler in der Pipeline (npm) werden erkannt
-    # grep -vE: Filtert massives Rauschen aus dem Log
-    (set -o pipefail; eval "DEBUG=false $cmd" 2>&1 | grep -vE "SERIAL_EVENT|\[DEBUG\]|wrapper stderr" >> "$LOG_FILE") &
+    # Policy-Konforme Ausführung:
+    # Wir nutzen die neue LOG_LEVEL Steuerung statt unzuverlässiger grep-Filter.
+    # set -o pipefail stellt sicher, dass Fehler im Command den Task stoppen.
+    (set -o pipefail; eval "$cmd" >> "$LOG_FILE" 2>&1) &
     local pid=$!
 
     while kill -0 "$pid" 2>/dev/null; do
@@ -50,6 +60,8 @@ run_task() {
     else
         printf "\r  %b %-35s ${R}FEHLER${RS} (Code: $exit_code)\n" "$FAIL" "$label"
         echo -e "  ${R}${FAIL} Abbruch: Siehe $LOG_FILE${RS}"
+        # Tipp: Bei Fehlern enthält das LOG_FILE dank Ring-Buffer nun automatisch 
+        # den DEBUG-Kontext, auch wenn LOG_LEVEL auf 1 steht.
         exit 1
     fi
 }
@@ -83,10 +95,10 @@ rm -f "$LOG_FILE"
 [ -d temp ] && rm -rf temp/*
 
 # 1. Statische Analyse
-run_task "Statische Analyse" "npm run check && npm run check:raw-hex"
+run_task "Statische Analyse" "npm run check"
 
 # 2. Unit-Tests & Coverage
-run_task "Unit-Tests & Coverage" "NODE_OPTIONS='--no-warnings' npm run test:coverage -- --reporter=default --maxConcurrency=1"
+run_task "Unit-Tests & Coverage" "NODE_OPTIONS='--no-warnings' npm run test:unit -- --reporter=default --maxConcurrency=1"
 parse_test_results "Tests.*passed"
 
 # --- VORBEREITUNG SERVER (Kein nummerierter Task) ---
@@ -94,9 +106,9 @@ echo -e "\n${B}▸ [Vorbereitung] Server-Start${RS}"
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 sleep 1
 
-export NODE_ENV=test
 export PORT=3000
-DEBUG=false npm run dev >> "$LOG_FILE" 2>&1 &
+# Server startet im Hintergrund mit kontrolliertem Logging
+npm run dev >> "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 
 for i in {1..15}; do

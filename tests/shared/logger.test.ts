@@ -1,23 +1,25 @@
-import { Logger } from "../../shared/logger";
+import { Logger, setLogLevel } from "../../shared/logger";
 
 describe("Logger", () => {
   let logger: Logger;
-  let consoleSpy: ReturnType<typeof vi.spyOn>;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    // force DEBUG so all levels are emitted during tests
+    setLogLevel("DEBUG");
+
     logger = new Logger("TestSender");
-    consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    consoleSpy.mockRestore();
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
-  it("should log only the message for TEST level", () => {
-    const msg = "test message";
-    logger.test(msg);
-    expect(consoleSpy).toHaveBeenCalledWith(msg);
-  });
+  // legacy TEST level removed; focus on current levels
 
   it.each([
     ["info", "INFO"],
@@ -31,18 +33,20 @@ describe("Logger", () => {
 
     (logger as any)[methodName](msg);
 
-    expect(consoleSpy).toHaveBeenCalledWith(
+    const spy = level === "ERROR" ? errorSpy : logSpy;
+    expect(spy).toHaveBeenCalledWith(
       `[2025-01-01T00:00:00.000Z][${level}][TestSender] ${msg}`,
     );
 
     vi.useRealTimers();
   });
 
-  it('should suppress DEBUG logs in test environment', () => {
+  it('should suppress DEBUG logs in test environment when level < DEBUG', () => {
+    // set a stricter level and verify buffer behavior
+    setLogLevel("INFO");
     const msg = 'debug message';
     logger.debug(msg);
-    // DEBUG logs are suppressed in test environment
-    expect(consoleSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
   });
 
   describe("Logger - Browser Environment", () => {
@@ -64,31 +68,38 @@ describe("Logger", () => {
 
     it("should suppress DEBUG logs in browser production mode", () => {
       (global as any).process.env.NODE_ENV = "production";
+      // override log level to INFO so debug is filtered
+      setLogLevel("INFO");
       const browserLogger = new Logger("TestBrowser");
 
       browserLogger.debug("This should not appear");
 
-      expect(console.log).not.toHaveBeenCalled();
+      expect(logSpy).not.toHaveBeenCalled();
     });
 
-    it("should allow DEBUG logs in browser development mode", () => {
+    it("should buffer DEBUG logs even in browser development mode", () => {
       (global as any).process.env.NODE_ENV = "development";
+      setLogLevel("DEBUG");
       const browserLogger = new Logger("TestBrowser");
 
       browserLogger.debug("This should appear");
 
-      expect(console.log).toHaveBeenCalled();
+      // debug entries go to buffer, not console
+      expect(logSpy).not.toHaveBeenCalled();
     });
 
     it("should always allow INFO/WARN/ERROR in browser", () => {
       (global as any).process.env.NODE_ENV = "production";
+      setLogLevel("INFO");
       const browserLogger = new Logger("TestBrowser");
 
       browserLogger.info("Info message");
       browserLogger.warn("Warn message");
       browserLogger.error("Error message");
 
-      expect(console.log).toHaveBeenCalledTimes(3);
+      // error goes to console.error, so check both spies
+      expect(logSpy).toHaveBeenCalledTimes(2);
+      expect(errorSpy).toHaveBeenCalledTimes(1);
     });
   });
 });

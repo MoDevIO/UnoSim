@@ -1,4 +1,7 @@
 import type { ChildProcess, SpawnOptions } from "child_process";
+import { Logger } from "@shared/logger";
+
+const logger = new Logger("ProcessController");
 
 /**
  * ProcessController
@@ -49,8 +52,8 @@ export class ProcessController implements IProcessController {
   async spawn(command: string, args: string[] = [], options?: SpawnOptions): Promise<import("child_process").ChildProcess | null> {
     // dynamic import ensures test mocks of child_process are applied
     const { spawn } = await import("child_process");
-    // debug logging of spawn attempts
-    process.stderr.write(`[DEBUG] ProcessController.spawn called: ${command} ${args ? args.join(' ') : ''}\n`);
+    // debug logging of spawn attempts goes through policy logger
+    logger.debug(`ProcessController.spawn called: ${command} ${args ? args.join(' ') : ''}`);
     // Destroy any previous process reference
     // spawn with or without options depending on caller
     this.proc = options ? spawn(command, args, options) : spawn(command, args);
@@ -71,8 +74,9 @@ export class ProcessController implements IProcessController {
     if (this.proc && this.proc.stderr) {
       this.proc.stderr.on("data", (d: Buffer) => {
         if (process.env.NODE_ENV === "test") {
+          // convert low-level wrapper events into buffered debug logs
           try {
-            process.stderr.write(`[DEBUG] wrapper stderr handler invoked with: ${d.toString()}\n`);
+            logger.debug(`wrapper stderr handler invoked with: ${d.toString()}`);
           } catch {}
         }
         this.stderrListeners.forEach((cb) => cb(d));
