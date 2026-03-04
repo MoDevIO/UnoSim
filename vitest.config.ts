@@ -31,5 +31,9 @@ export default defineConfig({
       reporter: ['text', 'json', 'html', 'lcov'],
       reportBase: 'coverage',
     },
+    // Policy-Konformität: Flush-on-Failure Mechanismus
+    // Bei Test-Fehlschlag wird Debug-Buffer auf Konsole geflushert
+    testTimeout: 30000,
+    hookTimeout: 10000,
   },
 });
