@@ -291,30 +291,32 @@ export class SandboxRunner {
   }
 
   /**
-   * Lazy initialization: Check Docker availability only when needed
-   * This prevents blocking the constructor and freezing tests
+   * Lazy initialization: Check Docker availability only when needed.
+   * In production: runs asynchronously (non-blocking)
+   * In tests: can use synchronous mocks, but doesn't block server startup
    */
   private async ensureDockerChecked(): Promise<void> {
     if (this.dockerChecked) {
       return; // Already checked
     }
 
-    // Test-mode compatibility path: several legacy tests mock execSync and
-    // assert sync probe/caching behavior through getSandboxStatus().
+    // Test-mode: use synchronous version (for backward compatibility with test mocks)
     const hasMockedExecSync = typeof (execSync as any)?.mock !== "undefined";
     if (process.env.NODE_ENV === "test" || hasMockedExecSync) {
-      this.checkDockerAvailabilitySyncForTest();
+      try {
+        this.checkDockerAvailabilitySyncForTest();
+      } catch (err) {
+        this.logger.debug(`Docker check failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
       this.dockerChecked = true;
       return;
     }
 
+    // Production: async (non-blocking)
     if (this.dockerCheckPromise) {
       return this.dockerCheckPromise;
     }
 
-    // Docker availability is determined lazily.  Tests may mock
-    // `checkDockerAvailability()` or stub this method if they wish to avoid
-    // hitting the real CLI.  The production code simply calls the helper.
     this.dockerCheckPromise = this.checkDockerAvailability()
       .finally(() => {
         this.dockerChecked = true;
@@ -325,6 +327,7 @@ export class SandboxRunner {
   }
 
   private checkDockerAvailabilitySyncForTest(): void {
+    // Test-only synchronous version - safe because tests run fast
     try {
       execSync("docker --version", { stdio: "pipe", timeout: 2000 });
       execSync("docker info", { stdio: "pipe", timeout: 2000 });

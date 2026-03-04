@@ -279,12 +279,14 @@ export class LocalCompiler {
         // CLI failure is acceptable; we continue to native compile afterwards
         this.logger.warn(`arduino-cli step failed: ${err instanceof Error ? err.message : err}`);
       } finally {
-        // diagnostic: list build/core contents to prove CLI output
+        // diagnostic: list build/core contents to prove CLI output (non-blocking)
         try {
-          const { execSync } = await import("child_process");
+          const { execFile } = await import("child_process");
+          const { promisify } = await import("util");
           const coreDir = join(buildDir, "core");
-          const listing = execSync(`ls -R ${coreDir} 2>/dev/null || true`).toString();
-          console.log("CLI_BUILD_DIR_CONTENTS:\n" + listing);
+          const execFileAsync = promisify(execFile);
+          const { stdout } = await execFileAsync("sh", ["-c", `ls -R ${coreDir} 2>/dev/null || true`]).catch(() => ({ stdout: "" }));
+          console.log("CLI_BUILD_DIR_CONTENTS:\n" + stdout);
         } catch {}
         // if CLI produced a core.a, copy to cache
         try {
