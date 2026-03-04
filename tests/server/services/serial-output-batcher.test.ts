@@ -283,9 +283,12 @@ describe("SerialOutputBatcher", () => {
         tickIntervalMs: 50,
         onChunk,
       });
-      (batcher as any).pendingData = "X".repeat(600);
+      // Write 600 bytes to buffer - should not trigger overload
+      (batcher as any).pendingBuffer.write("X".repeat(600));
       expect(batcher.isOverloaded()).toBe(false);
-      (batcher as any).pendingData = "X".repeat(1100);
+      // Clear and write 1100 bytes - should trigger overload at threshold 1024
+      (batcher as any).pendingBuffer.clear();
+      (batcher as any).pendingBuffer.write("X".repeat(1100));
       expect(batcher.isOverloaded()).toBe(true);
     });
   });
