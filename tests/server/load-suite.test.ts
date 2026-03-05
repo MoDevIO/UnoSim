@@ -471,4 +471,4 @@ function createLoadTestSuite(
 createLoadTestSuite(50);
 createLoadTestSuite(100);
 createLoadTestSuite(200);
-createLoadTestSuite(500, describe.skip); // Skip the heavy 500-client test
+createLoadTestSuite(500); // Previously skipped — re-enabled with stub server (no external deps)

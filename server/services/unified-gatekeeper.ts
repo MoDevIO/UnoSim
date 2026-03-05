@@ -38,6 +38,7 @@ interface CompileSlotEntry {
 interface QueuedTask {
   priority: TaskPriority;
   resolver: (release: () => void) => void;
+  ownerId: string;
   owner: string;
   createdAt: number;
 }
@@ -73,6 +74,9 @@ export class UnifiedGatekeeper {
   private lockCheckInterval: NodeJS.Timeout | null = null;
   private readonly lockTTL = 60000; // 60 seconds default TTL
   private readonly checkIntervalMs = 5000; // Check for expired locks every 5 seconds
+  
+  // Queue size limit to prevent unbounded memory growth under extreme load
+  private readonly maxQueueSize = 500;
   
   private logger = new Logger("UnifiedGatekeeper");
   
@@ -175,12 +179,29 @@ export class UnifiedGatekeeper {
             this.availableSlots--;
             resolve(release);
           },
+          ownerId,
           owner,
           createdAt: Date.now(),
         };
 
-        this.compileQueue.push(queuedTask);
-        this.compileQueue.sort((a, b) => a.priority - b.priority); // Sort by priority
+        // Reject if queue is full to prevent unbounded memory growth
+        if (this.compileQueue.length >= this.maxQueueSize) {
+          reject(new Error(
+            `Compile queue full (${this.maxQueueSize} pending). ` +
+            `Try again later. Active: ${this.activeSlots.size}, Queued: ${this.compileQueue.length}`,
+          ));
+          return;
+        }
+
+        // Priority-aware insertion (O(n) instead of O(n log n) full sort)
+        let insertIdx = this.compileQueue.length;
+        for (let i = 0; i < this.compileQueue.length; i++) {
+          if (queuedTask.priority < this.compileQueue[i].priority) {
+            insertIdx = i;
+            break;
+          }
+        }
+        this.compileQueue.splice(insertIdx, 0, queuedTask);
         
         this.logger.debug(
           `⏳ Compile slot queued for ${owner} (queue: ${this.compileQueue.length}, active: ${this.activeSlots.size})`,
@@ -299,7 +320,25 @@ export class UnifiedGatekeeper {
           // Grant next queued task if any
           if (this.compileQueue.length > 0) {
             const task = this.compileQueue.shift()!;
-            task.resolver(this.createReleaseFunction(`${task.owner}-queued-${Date.now()}`, "compile"));
+            try {
+              // Use task.ownerId so activeSlots key matches the release function key
+              task.resolver(this.createReleaseFunction(task.ownerId, "compile"));
+            } catch (err) {
+              // If resolver throws, the slot was already incremented above
+              // but never decremented by the resolver — reclaim it
+              this.logger.error(
+                `Failed to grant queued slot to ${task.owner}: ${err instanceof Error ? err.message : String(err)}`,
+              );
+              // Slot remains available (already incremented), try next task
+              if (this.compileQueue.length > 0) {
+                const next = this.compileQueue.shift()!;
+                try {
+                  next.resolver(this.createReleaseFunction(next.ownerId, "compile"));
+                } catch {
+                  // Silently drop — slot stays available
+                }
+              }
+            }
           }
         }
       }

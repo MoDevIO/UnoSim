@@ -480,14 +480,13 @@ void loop() {
   });
 
   describe("Test 3: Concurrency & Cleanup - Multi-Instance Stress", () => {
-    // @skip: Performance/Load-Test - Nur manuell oder in Heavy-CI ausführen
+    // Skipped: Requires 2× real Arduino CLI compilations (~10s each) which exceeds
+    // any reasonable CI timeout. Concurrency isolation is covered by:
+    // - unified-gatekeeper semaphore tests (load-suite.test.ts)
+    // - temp directory isolation in cleanup test below
     it.skip("should handle 3 concurrent simulations with isolated temp directories", async () => {
-      // NOTE: Skipped for speed optimization - concurrent testing adds significant overhead
-      // The underlying concurrency logic is covered by other tests
-      // For production stress testing, enable this test
-      
-      // Reduce concurrent count for local testing and stress test optimization
-      const concurrentCount = 1; // Reduced to 1 for fast execution (skip concurrent for stress testing)
+      // Use concurrentCount=2 for CI stability while still testing concurrency isolation
+      const concurrentCount = 2;
       const runners = Array.from({ length: concurrentCount }, () => new SandboxRunner());
       activeRunners.push(...runners);
 
@@ -591,7 +590,7 @@ void loop() {
       });
 
       expect(remainingSketchDirs.length).toBe(0); // All sketch dirs should be cleaned/renamed
-    }, 15000); // Reduced from 10s (but test needs slightly more time for promise resolution)
+    }, 45000); // Needs time for 2 real Arduino compilations in parallel
 
     it("should cleanup temp directory after rapid start/stop cycles", async () => {
       const runner = new SandboxRunner();
