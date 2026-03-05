@@ -11,10 +11,11 @@
  */
 
 import { Logger } from "@shared/logger";
+import { cpus } from "os";
 
 // Priority levels for task queuing
 export enum TaskPriority {
-  HIGH = 0,    // System health checks, cleanup
+  HIGH = 0,    // System health checks, cleanup, user interactions
   NORMAL = 1,  // Regular compilations
   LOW = 2,     // Background work
 }
@@ -39,6 +40,24 @@ interface QueuedTask {
   resolver: (release: () => void) => void;
   owner: string;
   createdAt: number;
+}
+
+/**
+ * Calculate adaptive concurrency based on CPU count
+ * Formula: max(1, cpuCount - 1)
+ * Examples:
+ *   2-core (RasPi):  max(1, 2-1) = 1
+ *   4-core desktop:  max(1, 4-1) = 3
+ *   8-core workstation: max(1, 8-1) = 7
+ *   16-core server:  max(1, 16-1) = 15
+ */
+function calculateOptimalConcurrency(): number {
+  try {
+    const numCores = cpus().length;
+    return Math.max(1, numCores - 1);
+  } catch {
+    return 4; // Fallback default
+  }
 }
 
 export class UnifiedGatekeeper {
@@ -74,9 +93,23 @@ export class UnifiedGatekeeper {
       this.availableSlots = Infinity;
       this.logger.info("UnifiedGatekeeper in worker thread (pool-controlled)");
     } else {
-      this.maxCompileConcurrent = maxConcurrent || parseInt(process.env.COMPILE_MAX_CONCURRENT || "4", 10);
+      // Priority 1: Explicit env override
+      // Priority 2: Constructor parameter
+      // Priority 3: CPU-adaptive calculation
+      if (process.env.COMPILE_MAX_CONCURRENT) {
+        this.maxCompileConcurrent = parseInt(process.env.COMPILE_MAX_CONCURRENT, 10);
+      } else if (maxConcurrent) {
+        this.maxCompileConcurrent = maxConcurrent;
+      } else {
+        this.maxCompileConcurrent = calculateOptimalConcurrency();
+      }
+      
       this.availableSlots = this.maxCompileConcurrent;
-      this.logger.info(`UnifiedGatekeeper initialized: max ${this.maxCompileConcurrent} concurrent compiles`);
+      const numCores = cpus().length;
+      this.logger.info(
+        `UnifiedGatekeeper initialized: max ${this.maxCompileConcurrent} concurrent compiles ` +
+        `(${numCores} CPU cores detected, formula: max(1, cores-1))`,
+      );
     }
     
     // Start periodic lock expiration check
@@ -84,8 +117,15 @@ export class UnifiedGatekeeper {
   }
 
   /**
-   * Acquire a compile slot with timeout and priority support
-   * Returns a release function to be called when done
+   * Acquire a compile slot with HIGH priority (for user-initiated simulations)
+   * Ensures interactive tasks get prompt access
+   */
+  async acquireCompileSlotHighPriority(owner: string = "simulation-start"): Promise<() => void> {
+    return this.acquireCompileSlot(TaskPriority.HIGH, 30000, owner);
+  }
+
+  /**
+   * Acquire a compile slot (internal method used by all priorities)
    */
   async acquireCompileSlot(
     priority: TaskPriority = TaskPriority.NORMAL,

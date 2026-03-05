@@ -17,7 +17,6 @@ import { workerData } from "worker_threads";
 import { Logger } from "@shared/logger";
 import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { createHash } from "crypto";
-import { existsSync } from "fs";
 import { mkdir, open, readdir, rm, stat, unlink, utimes, writeFile } from "fs/promises";
 import { join } from "path";
 
@@ -209,14 +208,12 @@ async function cleanupCacheLru(): Promise<void> {
   const markerPath = join(BUILD_CACHE_DIR, ".cleanup-marker");
   const now = Date.now();
   try {
-    if (existsSync(markerPath)) {
-      const markerStat = await stat(markerPath);
-      if (now - markerStat.mtimeMs < 60_000) {
-        return;
-      }
+    const markerStat = await stat(markerPath);
+    if (now - markerStat.mtimeMs < 60_000) {
+      return;
     }
   } catch {
-    // continue cleanup if marker is not readable
+    // continue cleanup if marker doesn't exist
   }
 
   const maxBytes = Number(process.env.BUILD_CACHE_MAX_BYTES || 2 * 1024 * 1024 * 1024);
@@ -287,12 +284,37 @@ async function processCompileRequest(task: any) {
     const coreReadyMarker = join(CORE_CACHE_META_DIR, `${coreFingerprint}.ready`);
     const coreLockPath = join(CORE_CACHE_LOCK_DIR, `${coreFingerprint}.lock`);
     const sketchBuildPath = join(WORKER_BUILD_DIR, "build-output", sketchHash);
-    const hasInstantBinary =
-      existsSync(join(BINARY_STORAGE_DIR, `${sketchHash}.hex`)) ||
-      existsSync(join(BINARY_STORAGE_DIR, `${sketchHash}.elf`));
+    
+    // Check for binary existence asynchronously
+    let hasInstantBinary = false;
+    try {
+      await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.hex`));
+      hasInstantBinary = true;
+    } catch {
+      try {
+        await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.elf`));
+        hasInstantBinary = true;
+      } catch {
+        hasInstantBinary = false;
+      }
+    }
 
-    let coreCacheWarm = existsSync(coreReadyMarker);
-    const lockExists = existsSync(coreLockPath);
+    // Check core cache status asynchronously
+    let coreCacheWarm = false;
+    try {
+      await stat(coreReadyMarker);
+      coreCacheWarm = true;
+    } catch {
+      coreCacheWarm = false;
+    }
+    
+    let lockExists = false;
+    try {
+      await stat(coreLockPath);
+      lockExists = true;
+    } catch {
+      lockExists = false;
+    }
     if (lockExists) {
       logger.info(`[Worker ${resolvedWorkerId}] Core cache lock exists for ${coreFingerprint.slice(0, 12)}. Waiting...`);
     }
@@ -310,7 +332,13 @@ async function processCompileRequest(task: any) {
         logger.warn(`[Worker ${resolvedWorkerId}] Core cache lock timeout. Compiling without shared cache write.`);
       }
 
-      coreCacheWarm = existsSync(coreReadyMarker);
+      // Recheck cache warmth after lock attempt
+      try {
+        await stat(coreReadyMarker);
+        coreCacheWarm = true;
+      } catch {
+        coreCacheWarm = false;
+      }
     }
 
     if (hasInstantBinary) {
@@ -333,8 +361,14 @@ async function processCompileRequest(task: any) {
         hexCacheDir: HEX_CACHE_DIR,
       });
 
-      if (compileResult.success && acquiredCoreLock && !existsSync(coreReadyMarker)) {
-        await writeFile(coreReadyMarker, new Date().toISOString());
+      if (compileResult.success && acquiredCoreLock) {
+        // Mark core cache as ready
+        try {
+          await stat(coreReadyMarker);
+        } catch {
+          // File doesn't exist, create it
+          await writeFile(coreReadyMarker, new Date().toISOString());
+        }
       }
 
       if (compileResult.success && compileResult.binary) {

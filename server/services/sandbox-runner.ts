@@ -654,11 +654,12 @@ export class SandboxRunner {
     opts: RunSketchOptions,
   ): Promise<void> {
     // enforce concurrency limit even when Docker path is chosen
+    // Use HIGH priority for user-initiated simulations
     const WAIT_TIMEOUT_MS = 30000;
     let release: () => void;
     try {
       release = await Promise.race([
-        SandboxRunner.compileGatekeeper.acquire(),
+        SandboxRunner.compileGatekeeper.acquireHighPriority(),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
         ),

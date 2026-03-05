@@ -2,7 +2,7 @@
 
 import { spawn } from "child_process";
 import { writeFile, mkdir, rm, readFile, readdir, stat, utimes, rename } from "fs/promises";
-import { mkdtempSync, renameSync } from "fs";
+import { mkdtempSync } from "fs";
 import { join, basename } from "path";
 import { randomUUID, createHash } from "crypto";
 import { Logger } from "@shared/logger";
@@ -83,7 +83,7 @@ export class ArduinoCompiler {
             this.logger.debug(
               `Attempting rename-before-delete: ${dirPath} -> ${trashPath}`,
             );
-            renameSync(dirPath, trashPath);
+            await rename(dirPath, trashPath);
 
             // Try to delete the trash path in the background (non-blocking)
             rm(trashPath, { recursive: true, force: true }).catch((trashError) => {

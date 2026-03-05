@@ -32,7 +32,16 @@ export class CompileGatekeeper {
   }
 
   /**
-   * Acquire a compile slot.
+   * Acquire a compile slot with HIGH priority (for interactive simulations)
+   * Ensures user-initiated actions get prompt access
+   */
+  async acquireHighPriority(): Promise<() => void> {
+    const unified = getUnifiedGatekeeper(this.maxConcurrent);
+    return await unified.acquireCompileSlotHighPriority("simulation-start");
+  }
+
+  /**
+   * Acquire a compile slot with NORMAL priority (backward compatibility)
    * If no slots available, this returns a Promise that resolves when a slot becomes free.
    * 
    * Usage:
