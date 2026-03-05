@@ -1,28 +1,28 @@
 {
   "files.exclude": {
-    "vite.config.ts": false,
-    "vercel.json": false,
-    "test-vercel-build.sh": false,
-    "tsconfig.json": false,
-    "tailwind.config.ts": false,
-    "screenshot.png": false,
-    "README copy.md": false,
-    "postcss.config.js": false,
-    "package-lock.json": false,
-    "LICENSE": false,
-    "drizzle.config.ts": false,
-    "components.json": false,
-    "build.sh": false,
-    ".vercelignore": false,
-    ".gitlab-ci.yml": false,
-    "node_modules": false,
-    "temp": false,
-    "vitest.config.ts": false,
-    "playwright.config.ts": false,
-    "package.json": false,
-    "licenses.json": false,
-    "docker-compose.yml": false,
-    "commitlint.config.cjs": false
+    "vite.config.ts": true,
+    "vercel.json": true,
+    "test-vercel-build.sh": true,
+    "tsconfig.json": true,
+    "tailwind.config.ts": true,
+    "screenshot.png": true,
+    "README copy.md": true,
+    "postcss.config.js": true,
+    "package-lock.json": true,
+    "LICENSE": true,
+    "drizzle.config.ts": true,
+    "components.json": true,
+    "build.sh": true,
+    ".vercelignore": true,
+    ".gitlab-ci.yml": true,
+    "node_modules": true,
+    "temp": true,
+    "vitest.config.ts": true,
+    "playwright.config.ts": true,
+    "package.json": true,
+    "licenses.json": true,
+    "docker-compose.yml": true,
+    "commitlint.config.cjs": true
   },
   "chat.tools.terminal.autoApprove": {
     "npm ls": true,
@@ -115,6 +115,11 @@
       "matchCommandLine": true
     },
     "tee": true,
-    "git fetch": true
+    "git fetch": true,
+    "diff": true,
+    "/^echo \"=== GIT STATUS for build artifacts ===\" && git status --short build/ cache/ temp/ coverage/ screenshots/ storage/ playwright-report/ test-results/ archive/misc-20260121/ archive/typography/ archive/typography2/ 2>/dev/null \\| head -30 && echo \"=== DRIZZLE DEPS ===\" && grep -E \"drizzle\" node_modules/\\.package-lock\\.json 2>/dev/null \\| head -5 && echo \"=== DRIZZLE IN DEPS ===\" && node -e \"const p=require\\('\\./package\\.json'\\); console\\.log\\(JSON\\.stringify\\(Object\\.keys\\(\\{\\.\\.\\.p\\.dependencies,\\.\\.\\.p\\.devDependencies\\}\\)\\.filter\\(k=>k\\.includes\\('drizzle'\\)\\)\\)\\)\"$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
   },
 }

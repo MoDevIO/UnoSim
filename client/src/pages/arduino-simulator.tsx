@@ -22,7 +22,12 @@ import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
 
-import { CodeEditor } from "@/components/features/code-editor";
+// Lazy load CodeEditor to defer monaco-editor (~500KB) until needed
+const CodeEditor = lazy(() =>
+  import("@/components/features/code-editor").then((m) => ({
+    default: m.CodeEditor,
+  })),
+);
 import { SerialMonitor } from "@/components/features/serial-monitor";
 import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
@@ -1121,13 +1126,15 @@ export default function ArduinoSimulator() {
           }
         />
         <div className="flex-1 min-h-0 w-full">
-          <CodeEditor
-            value={code}
-            onChange={handleCodeChange}
-            onCompileAndRun={handleCompileAndStart}
-            onFormat={formatCode}
-            editorRef={editorRef}
-          />
+          <Suspense fallback={<LoadingPlaceholder />}>
+            <CodeEditor
+              value={code}
+              onChange={handleCodeChange}
+              onCompileAndRun={handleCompileAndStart}
+              onFormat={formatCode}
+              editorRef={editorRef}
+            />
+          </Suspense>
         </div>
       </>
     ),
@@ -1392,13 +1399,15 @@ export default function ArduinoSimulator() {
                     />
 
                     <div className="flex-1 min-h-0">
-                      <CodeEditor
-                        value={code}
-                        onChange={handleCodeChange}
-                        onCompileAndRun={handleCompileAndStart}
-                        onFormat={formatCode}
-                        editorRef={editorRef}
-                      />
+                      <Suspense fallback={<LoadingPlaceholder />}>
+                        <CodeEditor
+                          value={code}
+                          onChange={handleCodeChange}
+                          onCompileAndRun={handleCompileAndStart}
+                          onFormat={formatCode}
+                          editorRef={editorRef}
+                        />
+                      </Suspense>
                     </div>
                   </div>
                 </ResizablePanel>

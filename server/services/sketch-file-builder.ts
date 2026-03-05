@@ -9,6 +9,7 @@ import { join } from "path";
 import { mkdir, writeFile } from "fs/promises";
 import { ARDUINO_MOCK_CODE } from "../mocks/arduino-mock";
 import { Logger } from "@shared/logger";
+import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 
 export interface SketchBuildResult {
   sketchDir: string;
@@ -43,8 +44,7 @@ export class SketchFileBuilder {
       throw err;
     }
 
-    const hasSetup = /void\s+setup\s*\([^)]*\)/.test(code);
-    const hasLoop = /void\s+loop\s*\([^)]*\)/.test(code);
+    const { hasSetup, hasLoop } = detectSketchEntrypoints(code);
 
     if (!hasSetup && !hasLoop) {
       this.logger.warn(

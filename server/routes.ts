@@ -3,6 +3,7 @@ import type { CompilationResult } from "./services/arduino-compiler";
 
 import { createServer, type Server } from "http";
 import { createHash } from "crypto";
+import { readdir, stat } from "fs/promises";
 import { storage } from "./storage";
 import { getPooledCompiler } from "./services/pooled-compiler";
 import { SandboxRunner } from "./services/sandbox-runner";
@@ -10,7 +11,6 @@ import { getSimulationRateLimiter } from "./services/rate-limiter";
 import { shouldSendSimulationEndMessage } from "./services/simulation-end";
 import { getSandboxRunnerPool, initializeSandboxRunnerPool } from "./services/sandbox-runner-pool";
 import { insertSketchSchema } from "@shared/schema";
-import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -79,37 +79,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // --- Examples API endpoint ---
-  app.get("/api/examples", (_req, res) => {
+
+  // --- Examples API endpoint ---
+  app.get("/api/examples", async (_req, res) => {
     try {
       const publicCandidates = [
         path.resolve(__dirname, "..", "public"),
         path.resolve(__dirname, "public"),
       ];
-      const publicDir =
-        publicCandidates.find((candidate) => fs.existsSync(candidate)) ||
-        publicCandidates[0];
+      
+      // Find first existing public dir (async)
+      let publicDir = publicCandidates[0];
+      for (const candidate of publicCandidates) {
+        try {
+          await stat(candidate);
+          publicDir = candidate;
+          break;
+        } catch {
+          // Continue to next candidate
+        }
+      }
+      
       const examplesDir = path.resolve(publicDir, "examples");
       const exampleFiles: string[] = [];
 
-      // Recursively read all .ino and .h files from examples and subdirectories
-      function readExamplesRecursive(dir: string, basePath: string = ""): void {
-        const files = fs.readdirSync(dir);
+      // Recursively read all .ino and .h files from examples and subdirectories (async)
+      async function readExamplesRecursive(dir: string, basePath: string = ""): Promise<void> {
+        try {
+          const files = await readdir(dir);
 
-        for (const file of files) {
-          const fullPath = path.join(dir, file);
-          const stat = fs.statSync(fullPath);
-          const relativePath = basePath ? `${basePath}/${file}` : file;
+          for (const file of files) {
+            const fullPath = path.join(dir, file);
+            const s = await stat(fullPath);
+            const relativePath = basePath ? `${basePath}/${file}` : file;
 
-          if (stat.isDirectory()) {
-            // Recursively read subdirectories
-            readExamplesRecursive(fullPath, relativePath);
-          } else if (file.endsWith(".ino") || file.endsWith(".h")) {
-            exampleFiles.push(relativePath);
+            if (s.isDirectory()) {
+              // Recursively read subdirectories
+              await readExamplesRecursive(fullPath, relativePath);
+            } else if (file.endsWith(".ino") || file.endsWith(".h")) {
+              exampleFiles.push(relativePath);
+            }
           }
+        } catch (err) {
+          // Silently ignore directory read errors
+          logger.debug(`Error reading examples dir ${dir}: ${err}`);
         }
       }
 
-      readExamplesRecursive(examplesDir);
+      await readExamplesRecursive(examplesDir);
       exampleFiles.sort();
 
       res.json(exampleFiles);
@@ -118,7 +135,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch examples" });
     }
   });
-
   // --- Sketch CRUD routes (leicht gekürzt) ---
   app.get("/api/sketches", async (_req, res) => {
     try {

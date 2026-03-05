@@ -18,6 +18,7 @@ const logger = new Logger("ProcessController");
  */
 
 export type StdDataCb = (data: Buffer) => void;
+export type StdLineCb = (line: string) => void;
 export type CloseCb = (code: number | null) => void;
 export type ErrorCb = (err: Error) => void;
 
@@ -29,6 +30,8 @@ export interface IProcessController {
   spawn(command: string, args?: string[] | undefined, options?: SpawnOptions | undefined): Promise<import("child_process").ChildProcess | null>;
   onStdout(cb: StdDataCb): void;
   onStderr(cb: StdDataCb): void;
+  onStderrLine(cb: StdLineCb): void;
+  supportsStderrLineStreaming(): boolean;
   onClose(cb: CloseCb): void;
   onError(cb: ErrorCb): void;
   writeStdin(data: string): boolean;
@@ -46,17 +49,30 @@ export class ProcessController implements IProcessController {
   private proc: ChildProcess | null = null;
   private stdoutListeners: StdDataCb[] = [];
   private stderrListeners: StdDataCb[] = [];
+  private stderrLineListeners: StdLineCb[] = [];
   private closeListeners: CloseCb[] = [];
   private errorListeners: ErrorCb[] = [];
+  private stderrReadline: import("readline").Interface | null = null;
 
   async spawn(command: string, args: string[] = [], options?: SpawnOptions): Promise<import("child_process").ChildProcess | null> {
     // dynamic import ensures test mocks of child_process are applied
     const { spawn } = await import("child_process");
+    const { createInterface } = await import("readline");
     // debug logging of spawn attempts goes through policy logger
     logger.debug(`ProcessController.spawn called: ${command} ${args ? args.join(' ') : ''}`);
     // Destroy any previous process reference
     // spawn with or without options depending on caller
     this.proc = options ? spawn(command, args, options) : spawn(command, args);
+
+    // Cleanup stale readline interface from previous process, if any.
+    if (this.stderrReadline) {
+      try {
+        this.stderrReadline.close();
+      } catch {
+        // ignore
+      }
+      this.stderrReadline = null;
+    }
     // if tests have registered a global spawnInstances array, record it
     try {
       const gs: any = (globalThis as any).spawnInstances;
@@ -81,6 +97,21 @@ export class ProcessController implements IProcessController {
         }
         this.stderrListeners.forEach((cb) => cb(d));
       });
+
+      const stderrStream = this.proc.stderr as any;
+      const canUseReadline =
+        typeof stderrStream?.on === "function" &&
+        typeof stderrStream?.resume === "function";
+
+      if (canUseReadline) {
+        this.stderrReadline = createInterface({
+          input: this.proc.stderr,
+          crlfDelay: Infinity,
+        });
+        this.stderrReadline.on("line", (line: string) => {
+          this.stderrLineListeners.forEach((cb) => cb(line));
+        });
+      }
     }
 
     if (this.proc) {
@@ -102,6 +133,15 @@ export class ProcessController implements IProcessController {
   onStderr(cb: StdDataCb) {
     this.stderrListeners.push(cb);
     // Handled by the single stderr wrapper installed in spawn().
+  }
+
+  onStderrLine(cb: StdLineCb) {
+    this.stderrLineListeners.push(cb);
+    // Handled by readline interface installed in spawn().
+  }
+
+  supportsStderrLineStreaming(): boolean {
+    return this.stderrReadline !== null;
   }
 
   onClose(cb: CloseCb) {
@@ -134,6 +174,15 @@ export class ProcessController implements IProcessController {
   }
 
   destroySockets(): void {
+    try {
+      if (this.stderrReadline) {
+        this.stderrReadline.close();
+        this.stderrReadline = null;
+      }
+    } catch {
+      /* ignore */
+    }
+
     try {
       if (!this.proc) return;
       if (this.proc.stdin && !this.proc.stdin.destroyed) {

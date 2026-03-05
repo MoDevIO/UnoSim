@@ -15,23 +15,27 @@ function startCleanupService() {
   const CLEANUP_INTERVAL_MS = 60 * 1000; // Check every minute
   const CLEANUP_AGE_MS = 5 * 60 * 1000; // Delete files/dirs older than 5 minutes
 
-  setInterval(() => {
+  setInterval(async () => {
     try {
       const tempDir = path.join(process.cwd(), "temp");
-      if (!fs.existsSync(tempDir)) return;
+      try {
+        await fs.promises.access(tempDir);
+      } catch {
+        return; // tempDir doesn't exist
+      }
 
-      const items = fs.readdirSync(tempDir);
+      const items = await fs.promises.readdir(tempDir);
       const now = Date.now();
       let deletedCount = 0;
 
       for (const item of items) {
         const itemPath = path.join(tempDir, item);
-        const stats = fs.statSync(itemPath);
+        const stats = await fs.promises.stat(itemPath);
         const age = now - stats.mtimeMs;
 
         // Delete old .cleanup.json files
         if (item.endsWith(".cleanup.json") && age > CLEANUP_AGE_MS) {
-          fs.unlinkSync(itemPath);
+          await fs.promises.unlink(itemPath);
           deletedCount++;
         }
         // Delete old .cleanup directories
@@ -40,7 +44,7 @@ function startCleanupService() {
           stats.isDirectory() &&
           age > CLEANUP_AGE_MS
         ) {
-          fs.rmSync(itemPath, { recursive: true, force: true });
+          await fs.promises.rm(itemPath, { recursive: true, force: true });
           deletedCount++;
         }
       }
@@ -162,8 +166,26 @@ process.on("uncaughtException", (error) => {
   }
 });
 
+let isServerReady = false; // Flag to indicate server initialization complete
+
 (async () => {
   const server = await registerRoutes(app);
+
+  // Middleware to prevent requests during initialization
+  // Returns 503 (Service Unavailable) until Docker checks complete
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    // Always allow health and browser static requests
+    if (req.path === "/api/health" || req.path === "/" || req.path.startsWith("/assets/") || req.path.endsWith(".js") || req.path.endsWith(".css") || req.path.endsWith(".wasm")) {
+      return next();
+    }
+
+    // If not ready yet, return 503 Service Unavailable for other endpoints
+    if (!isServerReady) {
+      return res.status(503).json({ error: "Service Unavailable", message: "Server is initializing Docker checks..." });
+    }
+
+    next();
+  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -200,11 +222,48 @@ process.on("uncaughtException", (error) => {
   // ALWAYS serve the app on port 3000
   // this serves both the API and the client.
   const PORT = 3000;
-  const httpServer = server.listen(PORT, "0.0.0.0", () => {
+  const httpServer = server.listen(PORT, "0.0.0.0", async () => {
     console.log(`[express] Server running at http://0.0.0.0:${PORT}`);
+    console.log(`[startup] Warming up Docker checks asynchronously...`);
 
     // Start cleanup service for old temp files
     startCleanupService();
+
+    // Warm up Docker checks asynchronously without blocking requests
+    // This runs in the background and doesn't prevent incoming requests
+    try {
+      // Get any runner and warm it up (triggers lazy ensureDockerChecked)
+      const { getSandboxRunnerPool } = await import("./services/sandbox-runner-pool");
+      const pool = getSandboxRunnerPool();
+      
+      // Start warmup in background - don't await to avoid blocking
+      (async () => {
+        try {
+          const runner = await pool.acquireRunner();
+          // Just acquiring the runner will trigger ensureDockerChecked() if needed
+          pool.releaseRunner(runner);
+          isServerReady = true;
+          console.log(`[startup] Docker checks warm-up complete, server ready for production requests`);
+        } catch (err) {
+          console.warn(`[startup] Docker warmup failed (non-blocking):`, err);
+          // Still mark as ready even if warmup fails - requests will handle errors
+          isServerReady = true;
+        }
+      })();
+
+      // Also set isServerReady after a small delay as fallback (in case warmup is very fast)
+      // This is a safety net for non-Docker environments
+      setTimeout(() => {
+        if (!isServerReady) {
+          isServerReady = true;
+          console.log(`[startup] Timeout-based ready flag set (Docker checks may still be pending)`);
+        }
+      }, 2000); // 2 second timeout for warmup
+    } catch (err) {
+      console.error(`[startup] Failed to start Docker warmup:`, err);
+      // Still mark as ready to not break the server
+      isServerReady = true;
+    }
   });
 
   // Graceful shutdown handler for worker pool and server

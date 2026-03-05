@@ -5,8 +5,7 @@
  * Used as fallback when Docker is not available.
  */
 
-import { chmod, mkdir, access, rm } from "fs/promises";
-import { existsSync, statSync, mkdirSync } from "fs";
+import { chmod, mkdir, access, rm, stat } from "fs/promises";
 import { dirname, join } from "path";
 import { Logger } from "@shared/logger";
 
@@ -167,8 +166,13 @@ export class LocalCompiler {
         await this.ensureNativeCoreCache();
       }
       // if we don't already have an archive to link, use the sim cache
-      if (!nativeArchive && existsSync(simPath)) {
-        nativeArchive = simPath;
+      if (!nativeArchive) {
+        try {
+          await stat(simPath);
+          nativeArchive = simPath;
+        } catch {
+          // cache doesn't exist, skip
+        }
       }
       // if the supplied archive (e.g. from prepareEnvironment) is stale, forget it
       if (coreArchive) {
@@ -212,13 +216,12 @@ export class LocalCompiler {
     // a core.a in the sketch build directory - skip if we already have a cache or
     // if the CLI-feedback cache is present (bypass slow invocation).
     let skipCli = false;
-    if (!usingTestEnv && existsSync(LocalCompiler.CLI_CACHE_PATH)) {
-      if (typeof statSync === "function") {
-        try {
-          skipCli = statSync(LocalCompiler.CLI_CACHE_PATH).size > 0;
-        } catch {
-          skipCli = false;
-        }
+    if (!usingTestEnv) {
+      try {
+        const cliCacheStat = await stat(LocalCompiler.CLI_CACHE_PATH);
+        skipCli = cliCacheStat.size > 0;
+      } catch {
+        skipCli = false;
       }
     }
 
@@ -279,25 +282,54 @@ export class LocalCompiler {
         // CLI failure is acceptable; we continue to native compile afterwards
         this.logger.warn(`arduino-cli step failed: ${err instanceof Error ? err.message : err}`);
       } finally {
-        // diagnostic: list build/core contents to prove CLI output
+        // diagnostic: list build/core contents to prove CLI output (non-blocking)
         try {
-          const { execSync } = await import("child_process");
+          const { execFile } = await import("child_process");
+          const { promisify } = await import("util");
           const coreDir = join(buildDir, "core");
-          const listing = execSync(`ls -R ${coreDir} 2>/dev/null || true`).toString();
-          console.log("CLI_BUILD_DIR_CONTENTS:\n" + listing);
+          const execFileAsync = promisify(execFile);
+          const { stdout } = await execFileAsync("sh", ["-c", `ls -R ${coreDir} 2>/dev/null || true`]).catch(() => ({ stdout: "" }));
+          console.log("CLI_BUILD_DIR_CONTENTS:\n" + stdout);
         } catch {}
         // if CLI produced a core.a, copy to cache
         try {
           const fs = await import("fs");
           const suspect = join(buildDir, "core", "core.a");
-          if (fs.existsSync(suspect)) {
-            const cachePath = LocalCompiler.CLI_CACHE_PATH;
-            const needCopy = !fs.existsSync(cachePath) ||
-              (typeof fs.statSync === "function" && fs.statSync(suspect).mtimeMs > fs.statSync(cachePath).mtimeMs);
-            if (needCopy) {
-              await fs.promises.copyFile(suspect, cachePath);
-              const sizeKB = typeof fs.statSync === "function" ? (fs.statSync(cachePath).size / 1024).toFixed(1) : "0";
+          
+          // Check if suspect exists
+          try {
+            await stat(suspect);
+          } catch {
+            // suspect doesn't exist, skip
+            throw new Error("no suspect");
+          }
+          
+          const cachePath = LocalCompiler.CLI_CACHE_PATH;
+          let needCopy = false;
+          
+          // Check if cache exists and compare times
+          try {
+            const suspectStat = await stat(suspect);
+            const [cacheStat] = await Promise.allSettled([
+              stat(cachePath)
+            ]);
+            if (cacheStat.status === "fulfilled") {
+              needCopy = suspectStat.mtimeMs > cacheStat.value.mtimeMs;
+            } else {
+              needCopy = true;
+            }
+          } catch {
+            needCopy = true;
+          }
+          
+          if (needCopy) {
+            await fs.promises.copyFile(suspect, cachePath);
+            try {
+              const cacheStat = await stat(cachePath);
+              const sizeKB = (cacheStat.size / 1024).toFixed(1);
               this.logger.info(`[LocalCompiler] CLI cache saved (${sizeKB} KB)`);
+            } catch {
+              // ignore stat error
             }
           }
         } catch {}
@@ -343,9 +375,12 @@ export class LocalCompiler {
     this.logger.debug("[LocalCompiler] runCompilation spawning g++");
     // guard against cases where the temp directory vanished mid-compile
     const outDir = dirname(exeFile);
-    if (!existsSync(outDir)) {
+    try {
+      await access(outDir);
+    } catch {
+      // Directory doesn't exist or can't be accessed, create it
       this.logger.warn(`[LocalCompiler] output directory missing, recreating: ${outDir}`);
-      mkdirSync(outDir, { recursive: true });
+      await mkdir(outDir, { recursive: true });
     }
 
     return new Promise<void>((resolve, reject) => {
@@ -445,7 +480,17 @@ export class LocalCompiler {
   private async ensureNativeCoreCache(): Promise<void> {
     this.logger.debug(`[LocalCompiler] ensureNativeCoreCache called, SIM_CACHE_PATH=${LocalCompiler.SIM_CACHE_PATH}`);
     const hashFile = LocalCompiler.SIM_CACHE_PATH + ".hash";
-    if (existsSync(LocalCompiler.SIM_CACHE_PATH)) {
+    
+    // Check if cache exists
+    let cacheExists = false;
+    try {
+      await stat(LocalCompiler.SIM_CACHE_PATH);
+      cacheExists = true;
+    } catch {
+      cacheExists = false;
+    }
+    
+    if (cacheExists) {
       // check hash, rebuild if mismatched
       try {
         const existing = await import("fs/promises").then((fs) => fs.readFile(hashFile, "utf-8"));
@@ -512,10 +557,14 @@ export class LocalCompiler {
    */
   private async isNativeCacheStale(path: string): Promise<boolean> {
     try {
-      if (!existsSync(path)) {
+      // Check if cache file exists
+      try {
+        await stat(path);
+      } catch {
         this.logger.debug("[LocalCompiler] native cache missing, considered stale");
         return true;
       }
+      
       const hashFile = path + ".hash";
       const fs = await import("fs/promises");
       const existing = await fs.readFile(hashFile, "utf-8");

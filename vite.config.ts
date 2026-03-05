@@ -19,6 +19,25 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist", "public"),
     emptyOutDir: true,
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        pure_funcs: ["console.debug"],
+        drop_console: false,
+      },
+      mangle: true,
+      output: {
+        comments: false,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "monaco-editor": ["monaco-editor"],
+          "recharts": ["recharts"],
+        },
+      },
+    },
   },
   server: {
     host: true,

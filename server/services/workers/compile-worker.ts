@@ -15,8 +15,8 @@
 import { parentPort } from "worker_threads";
 import { workerData } from "worker_threads";
 import { Logger } from "@shared/logger";
+import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { createHash } from "crypto";
-import { existsSync, mkdirSync } from "fs";
 import { mkdir, open, readdir, rm, stat, unlink, utimes, writeFile } from "fs/promises";
 import { join } from "path";
 
@@ -32,7 +32,7 @@ const CORE_CACHE_LOCK_DIR = join(CORE_CACHE_DIR, "locks");
 const CORE_CACHE_META_DIR = join(CORE_CACHE_DIR, "meta");
 const CORE_METADATA_TTL_MS = 5 * 60 * 1000;
 const resolvedWorkerId = Number(workerData?.workerId || 1);
-const WORKER_BUILD_DIR = join(process.cwd(), "temp", "build", `worker_${resolvedWorkerId}`);
+const WORKER_BUILD_DIR = join(getFastTmpBaseDir(), "unowebsim-worker-build", `worker_${resolvedWorkerId}`);
 const BINARY_STORAGE_DIR = join(process.cwd(), "storage", "binaries");
 
 let cachedLibFingerprint: { value: string; expiresAt: number } | null = null;
@@ -40,6 +40,8 @@ let cachedCompilerVersion: { value: string; expiresAt: number } | null = null;
 
 // Dynamic import of ArduinoCompiler (ESM-aware)
 let ArduinoCompiler: any = null;
+let compilerSingleton: any = null;
+let workerDirsReady = false;
 
 async function initializeCompiler() {
   try {
@@ -52,11 +54,25 @@ async function initializeCompiler() {
       module = await import("../arduino-compiler.ts");
     }
     ArduinoCompiler = module.ArduinoCompiler;
+    if (!compilerSingleton) {
+      compilerSingleton = new ArduinoCompiler();
+    }
     logger.debug("[Worker] ArduinoCompiler loaded");
   } catch (err) {
     logger.error(`[Worker] Failed to load ArduinoCompiler: ${err instanceof Error ? err.message : String(err)}`);
     throw err;
   }
+}
+
+async function ensureWorkerDirs(): Promise<void> {
+  if (workerDirsReady) return;
+  await mkdir(WORKER_BUILD_DIR, { recursive: true });
+  await mkdir(HEX_CACHE_DIR, { recursive: true });
+  await mkdir(CORE_CACHE_DIR, { recursive: true });
+  await mkdir(CORE_CACHE_BUILD_PATH, { recursive: true });
+  await mkdir(CORE_CACHE_LOCK_DIR, { recursive: true });
+  await mkdir(CORE_CACHE_META_DIR, { recursive: true });
+  workerDirsReady = true;
 }
 
 async function execArduinoCliJson(args: string[]): Promise<any | null> {
@@ -192,14 +208,12 @@ async function cleanupCacheLru(): Promise<void> {
   const markerPath = join(BUILD_CACHE_DIR, ".cleanup-marker");
   const now = Date.now();
   try {
-    if (existsSync(markerPath)) {
-      const markerStat = await stat(markerPath);
-      if (now - markerStat.mtimeMs < 60_000) {
-        return;
-      }
+    const markerStat = await stat(markerPath);
+    if (now - markerStat.mtimeMs < 60_000) {
+      return;
     }
   } catch {
-    // continue cleanup if marker is not readable
+    // continue cleanup if marker doesn't exist
   }
 
   const maxBytes = Number(process.env.BUILD_CACHE_MAX_BYTES || 2 * 1024 * 1024 * 1024);
@@ -256,17 +270,12 @@ async function cleanupCacheLru(): Promise<void> {
  */
 async function processCompileRequest(task: any) {
   try {
-    if (!ArduinoCompiler) {
+    if (!ArduinoCompiler || !compilerSingleton) {
       await initializeCompiler();
     }
 
-    const compiler = new ArduinoCompiler();
-    mkdirSync(WORKER_BUILD_DIR, { recursive: true });
-    await mkdir(HEX_CACHE_DIR, { recursive: true });
-    await mkdir(CORE_CACHE_DIR, { recursive: true });
-    await mkdir(CORE_CACHE_BUILD_PATH, { recursive: true });
-    await mkdir(CORE_CACHE_LOCK_DIR, { recursive: true });
-    await mkdir(CORE_CACHE_META_DIR, { recursive: true });
+    const compiler = compilerSingleton;
+    await ensureWorkerDirs();
 
     const requestStartedAt = process.hrtime.bigint();
     const fqbn = task.fqbn || process.env.ARDUINO_FQBN || "arduino:avr:uno";
@@ -275,12 +284,37 @@ async function processCompileRequest(task: any) {
     const coreReadyMarker = join(CORE_CACHE_META_DIR, `${coreFingerprint}.ready`);
     const coreLockPath = join(CORE_CACHE_LOCK_DIR, `${coreFingerprint}.lock`);
     const sketchBuildPath = join(WORKER_BUILD_DIR, "build-output", sketchHash);
-    const hasInstantBinary =
-      existsSync(join(BINARY_STORAGE_DIR, `${sketchHash}.hex`)) ||
-      existsSync(join(BINARY_STORAGE_DIR, `${sketchHash}.elf`));
+    
+    // Check for binary existence asynchronously
+    let hasInstantBinary = false;
+    try {
+      await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.hex`));
+      hasInstantBinary = true;
+    } catch {
+      try {
+        await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.elf`));
+        hasInstantBinary = true;
+      } catch {
+        hasInstantBinary = false;
+      }
+    }
 
-    let coreCacheWarm = existsSync(coreReadyMarker);
-    const lockExists = existsSync(coreLockPath);
+    // Check core cache status asynchronously
+    let coreCacheWarm = false;
+    try {
+      await stat(coreReadyMarker);
+      coreCacheWarm = true;
+    } catch {
+      coreCacheWarm = false;
+    }
+    
+    let lockExists = false;
+    try {
+      await stat(coreLockPath);
+      lockExists = true;
+    } catch {
+      lockExists = false;
+    }
     if (lockExists) {
       logger.info(`[Worker ${resolvedWorkerId}] Core cache lock exists for ${coreFingerprint.slice(0, 12)}. Waiting...`);
     }
@@ -298,7 +332,13 @@ async function processCompileRequest(task: any) {
         logger.warn(`[Worker ${resolvedWorkerId}] Core cache lock timeout. Compiling without shared cache write.`);
       }
 
-      coreCacheWarm = existsSync(coreReadyMarker);
+      // Recheck cache warmth after lock attempt
+      try {
+        await stat(coreReadyMarker);
+        coreCacheWarm = true;
+      } catch {
+        coreCacheWarm = false;
+      }
     }
 
     if (hasInstantBinary) {
@@ -321,8 +361,14 @@ async function processCompileRequest(task: any) {
         hexCacheDir: HEX_CACHE_DIR,
       });
 
-      if (compileResult.success && acquiredCoreLock && !existsSync(coreReadyMarker)) {
-        await writeFile(coreReadyMarker, new Date().toISOString());
+      if (compileResult.success && acquiredCoreLock) {
+        // Mark core cache as ready
+        try {
+          await stat(coreReadyMarker);
+        } catch {
+          // File doesn't exist, create it
+          await writeFile(coreReadyMarker, new Date().toISOString());
+        }
       }
 
       if (compileResult.success && compileResult.binary) {

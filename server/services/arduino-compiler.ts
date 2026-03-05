@@ -2,13 +2,14 @@
 
 import { spawn } from "child_process";
 import { writeFile, mkdir, rm, readFile, readdir, stat, utimes, rename } from "fs/promises";
-import { mkdtempSync, renameSync } from "fs";
-import { tmpdir } from "os";
+import { mkdtempSync } from "fs";
 import { join, basename } from "path";
 import { randomUUID, createHash } from "crypto";
 import { Logger } from "@shared/logger";
 import { ParserMessage, IOPinRecord } from "@shared/schema";
 import { CodeParser } from "@shared/code-parser";
+import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
+import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { reservedNamesValidator } from "@shared/reserved-names-validator";
 import { getCompileGatekeeper } from "./compile-gatekeeper";
 // Removed unused mock imports to satisfy TypeScript
@@ -82,7 +83,7 @@ export class ArduinoCompiler {
             this.logger.debug(
               `Attempting rename-before-delete: ${dirPath} -> ${trashPath}`,
             );
-            renameSync(dirPath, trashPath);
+            await rename(dirPath, trashPath);
 
             // Try to delete the trash path in the background (non-blocking)
             rm(trashPath, { recursive: true, force: true }).catch((trashError) => {
@@ -264,7 +265,7 @@ export class ArduinoCompiler {
     // multiple compilations run in parallel (e.g. workers=4 during tests).
     // callers can still provide tempRoot for deterministic paths in unit tests.
     const baseTempDir =
-      tempRoot || mkdtempSync(join(tmpdir(), "unowebsim-"));
+      tempRoot || mkdtempSync(join(getFastTmpBaseDir(), "unowebsim-"));
 
     const sketchDir = join(baseTempDir, sketchId);
     const sketchFile = join(sketchDir, `${sketchId}.ino`);
@@ -288,8 +289,7 @@ export class ArduinoCompiler {
 
     try {
       // Validierung: setup() und loop()
-      const hasSetup = /void\s+setup\s*\(\s*\)/.test(code);
-      const hasLoop = /void\s+loop\s*\(\s*\)/.test(code);
+      const { hasSetup, hasLoop } = detectSketchEntrypoints(code);
 
       if (!hasSetup || !hasLoop) {
         const missingFunctions = [];

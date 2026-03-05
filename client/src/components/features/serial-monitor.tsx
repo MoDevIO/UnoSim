@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { OutputLine } from "@shared/schema";
 
@@ -11,6 +11,16 @@ interface SerialMonitorProps {
   showMonitor?: boolean;
   autoScrollEnabled?: boolean;
 }
+
+interface ProcessedLine {
+  text: string;
+  incomplete: boolean;
+}
+
+const ROW_HEIGHT = 21; // Approximate line height in pixels (text-ui-xs + line-height)
+const OVERSCAN_COUNT = 10; // Extra lines above/below viewport for smooth scrolling
+const ENABLE_VIRTUAL_SCROLL = true; // Feature flag for virtual scrolling
+const ENABLE_RAF_BATCHING = typeof process !== 'undefined' && process.env.NODE_ENV !== 'test'; // Disable rAF in tests
 
 // Simple ANSI escape code processor
 // NOTE: Backspace (\b) is handled separately in applyBackspaceAcrossLines for cross-line support
@@ -124,16 +134,41 @@ export function SerialMonitor({
 }: SerialMonitorProps) {
   void isConnected;
   const outputRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const lastScrollTopRef = useRef(0);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(600); // Default height
+  const rafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     // enable/disable autoscroll according to parent prop
     shouldAutoScrollRef.current = !!autoScrollEnabled;
   }, [autoScrollEnabled]);
 
+  // Measure container height for virtual scrolling
   useEffect(() => {
-    const lines: Array<{ text: string; incomplete: boolean }> = [];
+    if (!containerRef.current) return;
+    
+    // Check if ResizeObserver is available (not available in some test environments)
+    if (typeof ResizeObserver === 'undefined') {
+      setContainerHeight(600); // Fallback height for tests
+      return;
+    }
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height);
+      }
+    });
+    
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Process output lines with rAF batching
+  const processedLines = useMemo(() => {
+    const lines: ProcessedLine[] = [];
     let shouldClear = false;
 
     output.forEach((line) => {
@@ -190,33 +225,117 @@ export function SerialMonitor({
       }
     });
 
-    const el = outputRef.current;
-    if (!el) return;
-    el.innerHTML = "";
-    if (lines.length === 0) {
-      const placeholder = document.createElement("div");
-      placeholder.className = "text-muted-foreground italic";
-      placeholder.textContent = "Serial output will appear here...";
-      el.appendChild(placeholder);
-    } else {
-      lines.forEach((ln) => {
-        const div = document.createElement("div");
-        div.className = "text-foreground whitespace-pre-wrap break-words";
-        div.textContent = ln.text;
-        el.appendChild(div);
-      });
-    }
-
-    if (shouldAutoScrollRef.current && el) {
-      el.scrollTop = el.scrollHeight;
-      lastScrollTopRef.current = el.scrollTop;
-    }
+    return lines;
   }, [output]);
 
-  const handleScroll = () => {
+  // Calculate visible range for virtual scrolling
+  const { visibleLines, visibleStart, totalHeight, offsetY } = useMemo(() => {
+    if (!ENABLE_VIRTUAL_SCROLL || processedLines.length < 100) {
+      // Don't virtualize for small lists
+      return {
+        visibleLines: processedLines,
+        visibleStart: 0,
+        totalHeight: processedLines.length * ROW_HEIGHT,
+        offsetY: 0,
+      };
+    }
+
+    const visibleStart = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN_COUNT);
+    const visibleEnd = Math.min(
+      processedLines.length,
+      Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + OVERSCAN_COUNT
+    );
+
+    return {
+      visibleLines: processedLines.slice(visibleStart, visibleEnd),
+      visibleStart,
+      totalHeight: processedLines.length * ROW_HEIGHT,
+      offsetY: visibleStart * ROW_HEIGHT,
+    };
+  }, [processedLines, scrollTop, containerHeight]);
+
+  // Render visible lines with rAF batching (disabled in tests for synchronous rendering)
+  useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
+
+    const renderContent = () => {
+      el.innerHTML = "";
+
+      if (processedLines.length === 0) {
+        const placeholder = document.createElement("div");
+        placeholder.className = "text-muted-foreground italic";
+        placeholder.textContent = "Serial output will appear here...";
+        el.appendChild(placeholder);
+      } else if (ENABLE_VIRTUAL_SCROLL && processedLines.length >= 100) {
+        // Virtual scrolling mode (only for large outputs)
+        const viewport = document.createElement("div");
+        viewport.style.height = `${totalHeight}px`;
+        viewport.style.position = "relative";
+
+        const content = document.createElement("div");
+        content.style.transform = `translateY(${offsetY}px)`;
+        content.style.willChange = "transform";
+
+        visibleLines.forEach((ln) => {
+          const div = document.createElement("div");
+          div.className = "text-foreground whitespace-pre-wrap break-words";
+          div.style.height = `${ROW_HEIGHT}px`;
+          div.style.lineHeight = `${ROW_HEIGHT}px`;
+          div.textContent = ln.text;
+          content.appendChild(div);
+        });
+
+        viewport.appendChild(content);
+        el.appendChild(viewport);
+      } else {
+        // Standard rendering mode (for small outputs or when virtualization disabled)
+        processedLines.forEach((ln) => {
+          const div = document.createElement("div");
+          div.className = "text-foreground whitespace-pre-wrap break-words";
+          div.textContent = ln.text;
+          el.appendChild(div);
+        });
+      }
+
+      // Auto-scroll to bottom if enabled
+      if (shouldAutoScrollRef.current && el) {
+        el.scrollTop = el.scrollHeight;
+        lastScrollTopRef.current = el.scrollTop;
+      }
+    };
+
+    // Use rAF batching in production, immediate rendering in tests
+    if (ENABLE_RAF_BATCHING) {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+
+      rafIdRef.current = requestAnimationFrame(() => {
+        renderContent();
+        rafIdRef.current = null;
+      });
+    } else {
+      renderContent();
+    }
+  }, [visibleLines, visibleStart, totalHeight, offsetY, processedLines]);
+
+  // Cleanup rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const el = outputRef.current;
+    if (!el) return;
+
     const currentScrollTop = el.scrollTop;
+    setScrollTop(currentScrollTop); // Update scroll position for virtual scrolling
+
     const maxScrollTop = el.scrollHeight - el.clientHeight;
 
     if (currentScrollTop < lastScrollTopRef.current - 5) {
@@ -226,10 +345,10 @@ export function SerialMonitor({
       shouldAutoScrollRef.current = true;
     }
     lastScrollTopRef.current = currentScrollTop;
-  };
+  }, []);
 
   return (
-    <div className="h-full flex flex-col" data-testid="serial-monitor">
+    <div className="h-full flex flex-col" data-testid="serial-monitor" ref={containerRef}>
       <div className="flex-1 min-h-0">
         {showMonitor ? (
           <ScrollArea
