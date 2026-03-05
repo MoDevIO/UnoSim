@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">36.69% </span>
+                <span class="strong">37.38% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>153/417</span>
+                <span class='fraction'>157/420</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">27.65% </span>
+                <span class="strong">30.2% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>26/94</span>
+                <span class='fraction'>29/96</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">39.36% </span>
+                <span class="strong">39.94% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>148/376</span>
+                <span class='fraction'>151/378</span>
             </div>
         
             
@@ -1818,7 +1818,16 @@
 <a name='L1753'></a><a href='#L1753'>1753</a>
 <a name='L1754'></a><a href='#L1754'>1754</a>
 <a name='L1755'></a><a href='#L1755'>1755</a>
-<a name='L1756'></a><a href='#L1756'>1756</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1756'></a><a href='#L1756'>1756</a>
+<a name='L1757'></a><a href='#L1757'>1757</a>
+<a name='L1758'></a><a href='#L1758'>1758</a>
+<a name='L1759'></a><a href='#L1759'>1759</a>
+<a name='L1760'></a><a href='#L1760'>1760</a>
+<a name='L1761'></a><a href='#L1761'>1761</a>
+<a name='L1762'></a><a href='#L1762'>1762</a>
+<a name='L1763'></a><a href='#L1763'>1763</a>
+<a name='L1764'></a><a href='#L1764'>1764</a>
+<a name='L1765'></a><a href='#L1765'>1765</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1840,6 +1849,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1896,7 +1910,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2969,6 +2983,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -3163,6 +3179,8 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3597,7 +3615,12 @@ import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/button";
 &nbsp;
-import { CodeEditor } from "@/components/features/code-editor";
+// Lazy load CodeEditor to defer monaco-editor (~500KB) until needed
+const CodeEditor = lazy(() =&gt;
+  import("@/components/features/code-editor").then((m) =&gt; ({
+    default: m.CodeEditor,
+  })),
+);
 import { SerialMonitor } from "@/components/features/serial-monitor";
 import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
@@ -3650,8 +3673,8 @@ const SerialPlotter = lazy(<span class="fstat-no" title="function not covered" >
 );
 &nbsp;
 // Loading placeholder for lazy components
-const LoadingPlaceholder = <span class="fstat-no" title="function not covered" >() =&gt; (</span>
-<span class="cstat-no" title="statement not covered" >  &lt;div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground"&gt;</span>
+const LoadingPlaceholder = () =&gt; (
+  &lt;div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground"&gt;
     &lt;span className="text-ui-sm"&gt;Loading chart...&lt;/span&gt;
   &lt;/div&gt;
 );
@@ -4696,13 +4719,15 @@ export default function ArduinoSimulator() {
           }
         /&gt;
         &lt;div className="flex-1 min-h-0 w-full"&gt;
-          &lt;CodeEditor
-            value={code}
-            onChange={handleCodeChange}
-            onCompileAndRun={handleCompileAndStart}
-            onFormat={formatCode}
-            editorRef={editorRef}
-          /&gt;
+          &lt;Suspense fallback={&lt;LoadingPlaceholder /&gt;}&gt;
+            &lt;CodeEditor
+              value={code}
+              onChange={handleCodeChange}
+              onCompileAndRun={handleCompileAndStart}
+              onFormat={formatCode}
+              editorRef={editorRef}
+            /&gt;
+          &lt;/Suspense&gt;
         &lt;/div&gt;
       &lt;/&gt;
     ),
@@ -4967,13 +4992,15 @@ export default function ArduinoSimulator() {
                     /&gt;
 &nbsp;
                     &lt;div className="flex-1 min-h-0"&gt;
-                      &lt;CodeEditor
-                        value={code}
-                        onChange={handleCodeChange}
-                        onCompileAndRun={handleCompileAndStart}
-                        onFormat={formatCode}
-                        editorRef={editorRef}
-                      /&gt;
+                      &lt;Suspense fallback={&lt;LoadingPlaceholder /&gt;}&gt;
+                        &lt;CodeEditor
+                          value={code}
+                          onChange={handleCodeChange}
+                          onCompileAndRun={handleCompileAndStart}
+                          onFormat={formatCode}
+                          editorRef={editorRef}
+                        /&gt;
+                      &lt;/Suspense&gt;
                     &lt;/div&gt;
                   &lt;/div&gt;
                 &lt;/ResizablePanel&gt;
@@ -5335,7 +5362,7 @@ export default function ArduinoSimulator() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-04T11:25:24.393Z
+                at 2026-03-05T14:09:14.901Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
