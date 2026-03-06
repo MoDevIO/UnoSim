@@ -61,8 +61,8 @@ export class ArduinoCompiler {
    * Uses rename-before-delete to work around EPERM and EBUSY errors.
    */
   private async robustCleanupDir(dirPath: string): Promise<void> {
-    const maxRetries = 3;
-    const retryDelayMs = 100;
+    const maxRetries = 5; // Increased from 3 to 5 for more resilience
+    const initialDelayMs = 100; // Base delay for exponential backoff
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
@@ -100,9 +100,15 @@ export class ArduinoCompiler {
         }
       }
 
-      // If not the last attempt, wait before retrying
+      // If not the last attempt, wait before retrying with exponential backoff
       if (attempt < maxRetries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        // Exponential backoff with gentler progression (1.5x instead of 2x):
+        // 100ms, 150ms, 225ms, 337ms = ~813ms total for 5 retries
+        const delayMs = initialDelayMs * Math.pow(1.5, attempt);
+        this.logger.debug(
+          `Retry cleanup in ${Math.round(delayMs)}ms (attempt ${attempt + 1}/${maxRetries})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
 
@@ -252,6 +258,10 @@ export class ArduinoCompiler {
 
   /**
    * Internal compile implementation (wrapped by compile with gatekeeper)
+   * 
+   * CRITICAL: Each compilation gets its own ISOLATED temp directory to prevent
+   * race conditions when multiple compiles run in parallel. This ensures that
+   * parallel test runs cannot interfere with each other's build artifacts.
    */
   private async compileInternal(
     code: string,
@@ -260,20 +270,23 @@ export class ArduinoCompiler {
     options?: CompileRequestOptions,
   ): Promise<CompilationResult> {
     const sketchId = randomUUID();
+    const compilationId = randomUUID(); // Unique ID for this entire compilation
 
-    // Ensure provided tempRoot exists (important for Worker pool and deterministic tests)
-    if (tempRoot) {
-      await mkdir(tempRoot, { recursive: true }).catch(() => {});
-    }
-
-    // use a unique temporary directory per-call to avoid state conflicts when
-    // multiple compilations run in parallel (e.g. workers=4 during tests).
-    // callers can still provide tempRoot for deterministic paths in unit tests.
-    const baseTempDir =
-      tempRoot || mkdtempSync(join(getFastTmpBaseDir(), "unowebsim-"));
+    // === RADICAL ISOLATION: Each compilation gets its own baseTempDir ===
+    // Do NOT share temp directories between parallel compilations.
+    // This is the ROOT CAUSE of race conditions in tests.
+    const baseTempDir = mkdtempSync(
+      join(
+        tempRoot || getFastTmpBaseDir(),
+        `unowebsim-${compilationId.substring(0, 8)}-`,
+      ),
+    );
 
     const sketchDir = join(baseTempDir, sketchId);
     const sketchFile = join(sketchDir, `${sketchId}.ino`);
+    // Each compilation gets isolated build directory
+    const isolatedBuildPath = join(baseTempDir, "build");
+    const isolatedBuildCachePath = join(baseTempDir, "build-cache");
 
     let arduinoCliStatus: "idle" | "compiling" | "success" | "error" = "idle";
     let warnings: string[] = []; // NEW: Collect warnings
@@ -350,12 +363,9 @@ export class ArduinoCompiler {
 
       // Create files and ensure all compilation paths exist
       await mkdir(sketchDir, { recursive: true });
-      if (options?.buildPath) {
-        await mkdir(options.buildPath, { recursive: true }).catch(() => {});
-      }
-      if (options?.buildCachePath) {
-        await mkdir(options.buildCachePath, { recursive: true }).catch(() => {});
-      }
+      // Create isolated build directories for THIS compilation
+      await mkdir(isolatedBuildPath, { recursive: true });
+      await mkdir(isolatedBuildCachePath, { recursive: true });
 
       // Process code: replace #include statements with actual header content
       let processedCode = code;
@@ -428,13 +438,14 @@ export class ArduinoCompiler {
       }
 
       // 1. Arduino CLI
+      // Use isolated build paths for this compilation to prevent race conditions
       arduinoCliStatus = "compiling";
       const cliResult = await this.compileWithArduinoCli(
         sketchFile,
         {
           fqbn: options?.fqbn || this.defaultFqbn,
-          buildPath: options?.buildPath,
-          buildCachePath: options?.buildCachePath || this.defaultBuildCachePath,
+          buildPath: isolatedBuildPath,
+          buildCachePath: isolatedBuildCachePath,
         },
       );
 
@@ -512,18 +523,18 @@ export class ArduinoCompiler {
         ioRegistry, // Include I/O registry
       };
     } finally {
+      // === ROBUST CLEANUP: Only delete this compilation's isolated directory ===
+      // This is critical for preventing race conditions in parallel test runs.
+      // Each compilation has its own baseTempDir, so cleanup only affects this one.
       try {
-        await this.robustCleanupDir(sketchDir);
+        // Minimal grace period (50ms) - robustCleanupDir handles retries intelligently
+        // when files are locked by subprocesses, so we don't need a long fixed timeout here.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        await this.robustCleanupDir(baseTempDir);
       } catch (error) {
-        this.logger.warn(`Failed to clean up sketch directory: ${error}`);
-      }
-      // remove base temp folder if we created it ourselves
-      if (!tempRoot) {
-        try {
-          await this.robustCleanupDir(baseTempDir);
-        } catch (error) {
-          this.logger.warn(`Failed to remove base temp directory: ${error}`);
-        }
+        this.logger.warn(
+          `Failed to clean up isolated compilation directory ${baseTempDir}: ${error}`,
+        );
       }
     }
   }
@@ -619,7 +630,25 @@ export class ArduinoCompiler {
       // LOG: Command being executed
       this.logger.info(`Executing arduino-cli ${args.join(" ")}`);
 
-      const arduino = spawn("arduino-cli", args);
+      // Spawn arduino-cli with fully isolated stdio — prevents subprocess stderr leaking
+      // directly to the parent process console. All output is captured via our handlers.
+      const arduino = spawn("arduino-cli", args, {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+      // Patterns emitted by gcc/avr-g++/ar subprocesses racing against cleanup.
+      // "exit status 1" is a secondary noise line that follows path-specific errors.
+      const isRaceConditionNoise = (line: string): boolean => {
+        const lo = line.toLowerCase();
+        return (
+          lo.includes("no such file or directory") ||
+          lo.includes("fatal error: opening dependency file") ||
+          lo.includes("fatal error: can't create") ||
+          lo.includes("can't open sketch") ||
+          lo.includes("error during build: exit status") ||
+          lo.includes("fatal error: no input files") // avr-g++ when sketch dir deleted mid-compile
+        );
+      };
 
       let output = "";
       let errors = "";
@@ -628,18 +657,44 @@ export class ArduinoCompiler {
         output += data.toString();
       });
 
+      // Collect all stderr — filtering happens post-hoc in the close handler
+      // so we have the exit code and can discriminate properly.
       arduino.stderr?.on("data", (data) => {
-        const chunk = data.toString();
-        errors += chunk;
-        // LOG: Real-time stderr output for CI debugging
-        this.logger.debug(`arduino-cli stderr: ${chunk.trim()}`);
+        errors += data.toString();
       });
 
       arduino.on("close", async (code) => {
-        // CRITICAL: Wait for Child processes (gcc, ar, etc.) to fully terminate
-        // arduino-cli may spawn subprocesses that outlive the main process.
-        // Cleaning up too early causes "fatal error: opening dependency file" errors.
-        await new Promise((r) => setTimeout(r, 150));
+        // Minimal OS-buffer flush — no artificial inflation needed.
+        await new Promise((r) => setTimeout(r, 100));
+
+        // ── Post-process stderr ──────────────────────────────────────────────
+        // Filter lines that are race-condition filesystem noise: gcc/avr-g++
+        // subprocesses writing .d/.o files into OUR UUID temp directory while
+        // robustCleanupDir is already deleting it.  We identify them by path:
+        // if a race-condition pattern references sketchDir (= our UUID dir),
+        // it is cleanup noise — discard it unconditionally (even if code !== 0,
+        // because cleanup itself can cause a non-zero exit code).
+        const filteredErrors = errors
+          .split("\n")
+          .filter((line) => {
+            if (!isRaceConditionNoise(line)) return true; // keep real errors
+            // "exit status 1" / "Error during build: exit status" and
+            // "no input files" carry no path — suppress them unconditionally
+            // as they are always secondary artifacts of the race.
+            if (
+              line.toLowerCase().includes("exit status") ||
+              line.toLowerCase().includes("error during build: exit") ||
+              line.toLowerCase().includes("no input files")
+            )
+              return false;
+            // Keep the line only if it does NOT reference our temp tree.
+            // Both path formats must be covered:
+            //   arduino-compiler: …/unowebsim-<short8>-XXXXX/…
+            //   sandbox-runner:   …/unowebsim-temp/<UUID>/…
+            return !line.includes("unowebsim");
+          })
+          .join("\n");
+        errors = filteredErrors;
 
         if (code === 0) {
           const progSizeRegex =

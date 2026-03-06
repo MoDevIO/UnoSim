@@ -261,7 +261,13 @@ export class LocalCompiler {
         this.logger.debug(`spawning arduino-cli ${cliArgs.join(" ")}`);
         const { spawn } = await import("child_process");
         const cliProc = spawn("arduino-cli", cliArgs,
-          { stdio: ["ignore", "inherit", "inherit"] });
+          { stdio: ["ignore", "pipe", "pipe"] });
+        // Discard stdout/stderr — this is a cache-warming step, not user-facing compilation.
+        // Using "pipe" (not "inherit") prevents race-condition avr-g++ errors from
+        // leaking into the test/process output when the temp directory is cleaned up
+        // concurrently with this CLI invocation.
+        cliProc.stdout?.resume();
+        cliProc.stderr?.resume();
         this.activeProc = cliProc;
         try {
           const gs: any = (globalThis as any).spawnInstances;
