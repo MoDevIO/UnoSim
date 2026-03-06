@@ -13,26 +13,30 @@ if (process.env.PW_WORKER_INDEX) {
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 90000, // <--- Das globale Test-Limit auf 90s hochsetzen
-  workers: 1,               // single worker for backend-simulator stability
-  fullyParallel: false,
+  timeout: 90000, 
+  
+  // PARALLELISIERUNG AKTIVIERT
+  // Nutzt 4 Worker lokal, in der CI (GitHub Actions etc.) 2, um Überlastung zu vermeiden
+  workers: process.env.CI ? 2 : 4,               
+  fullyParallel: true, // Erlaubt Playwright, Tests innerhalb einer Datei parallel auszuführen
+
   expect: {
-    timeout: 10000,         // allow a little extra for selector waits
+    timeout: 10000,         
   },
   use: {
-    baseURL: process.env.BASE_URL || `http://localhost:3000`,
+    // Nutzt den dynamischen basePort für die Kommunikation mit dem Webserver
+    baseURL: process.env.BASE_URL || `http://localhost:${basePort}`,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "off",
   },
-  // ignore anything in the archive – it's just a backup, not runnable
-  testIgnore: ["archive/**"],
   // ... restliche Config
   webServer: {
+    // Übergibt den dynamischen Port an den Server-Startbefehl
     command: `PORT=${basePort} npm run dev:full`,
     url: `http://localhost:${basePort}`,
     reuseExistingServer: !process.env.CI,
-    timeout: 180 * 1000, // <--- Dem Server 3 Minuten Zeit zum Kompilieren geben
+    timeout: 180 * 1000, 
     stdout: "pipe",
     stderr: "pipe",
   },

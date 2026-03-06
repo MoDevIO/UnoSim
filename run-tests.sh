@@ -98,7 +98,7 @@ rm -f "$LOG_FILE"
 run_task "Statische Analyse" "npm run check"
 
 # 2. Unit-Tests & Coverage
-run_task "Unit-Tests & Coverage" "NODE_OPTIONS='--no-warnings' npm run test:unit -- --reporter=default --maxConcurrency=1"
+run_task "Unit-Tests & Coverage" "NODE_OPTIONS='--no-warnings' npm run test:unit -- --reporter=default --maxConcurrency=2"
 parse_test_results "Tests.*passed"
 
 # --- VORBEREITUNG SERVER (Kein nummerierter Task) ---
@@ -121,7 +121,7 @@ for i in {1..15}; do
 done
 
 # 3. E2E-Tests (Playwright)
-run_task "E2E-Tests (Playwright)" "npx playwright test --workers=1"
+run_task "E2E-Tests (Playwright)" "npx playwright test"
 parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
 
 # 4. Integration-Tests (Cache)
