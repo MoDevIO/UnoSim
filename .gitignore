@@ -1,141 +1,83 @@
-############################
-# 1. GENERAL ARTIFACTS    #
-############################
-
-# Temporary files from the operating system
-# Ignore macOS-specific files
+##################################
+# 1. SYSTEM & LOGS               #
+##################################
 .DS_Store
-# Ignore Windows-specific files
 Thumbs.db
-# Ignore system cache files
 *.bak
 *.swp
 *~
 *.log
-
-# Compressed files that are usually large and can be recreated
-*.tar.gz
-*.zip
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 ##################################
-# 2. DEPENDENCIES & MODULES      #
+# 2. DEPENDENCIES                #
 ##################################
-
-# Node.js / JavaScript
-# Ignore the folder containing all downloaded project dependencies.
-# This folder is too large and will be recreated by 'npm install'.
 /node_modules/
-
-# PHP / Composer
-# Ignore the Composer dependency folder.
 /vendor/
-
-# Python
-# Ignore virtual environments.
 .venv/
-/env/
 /venv/
 
 ##################################
-# 3. BUILD & COMPILATION TARGETS #
-
-# Test/Playwright reports (added by cleanup)
-playwright-report/
-test-results/
+# 3. BUILD & ARTIFACTS           #
 ##################################
-
-# Frontend (Vite, Webpack, etc.)
-# Ignore the final build output (the "finished" code for production).
+# Production builds
 /dist/
 /build/
-/temp/*
-!/temp/.gitkeep
-
-# Build caches
-# Ignore Vite or other build caches.
-.vite/
-# Ignore caches for Next.js/Gatsby/etc.
-.next/
-.cache/
-
-# our temporary compilation caches and scratch files
-/cache/
-undefined
-benchmark-cache.ts
-scripts/bench-sandbox.ts
-
-# Java / Maven / Gradle
 /target/
 
-##################################
-# 4. DEVELOPER TOOLS & EDITORS   #
-##################################
-
-
-# Local or temporary folders for individual tests
-.local/
-tem/
-
-##################################
-# 5. SENSITIVE DATA (SECURITY)   #
-##################################
-
-# Environment variables
-# ESSENTIAL: Ignore the file containing sensitive data (API keys, passwords).
-.env
-# Ignore local/test versions of the .env file.
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-##################################
-# 6. SERVER-SPECIFIC ARTIFACTS   #
-##################################
-
-# Public or temporary files potentially created on the server
-# If 'server/public' only contains auto-generated files, ignore:
-# server/public/
-# If 'server/public' contains hand-written assets (images, favicons), DO NOT ignore.
-
-# Ignore database files if they are kept locally (e.g., SQLite)
-*.sqlite
-*.db
-
-##################################
-# 7. TYPESCRIPT ARTIFACTS        #
-##################################
-
-# Ignoriere generierte JS-Dateien in TS-Projekten
-# (Verhindert das "Verschmutzen" der Quellordner)
-*.js
-*.js.map
-*.d.ts
-
-# Aber: Important configuration files SHOULD NOT be ignored
-!tailwind.config.js
-!postcss.config.js
-!jest.config.js
-
-# TypeScript build information
-# Caches created by TypeScript Compilern.
+# Local/Temp caches
+.cache/
+.vite/
+.next/
+/coverage/
 *.tsbuildinfo
 
-# Coverage reports (Vitest)
-/coverage/
-.vercel
+# Project specific temp folders (runtime artifacts)
+/temp/*
+!/temp/.gitkeep
+/cache/
+/test-results/
+/playwright-report/
+/screenshots/
+
+# Old archive folder (legacy, use /docs/archive instead)
+/archive/
+
+##################################
+# 4. COMPILER & TYPESCRIPT       #
+##################################
+# Ignore compiled JS only in source directories (not in root configs)
+client/src/**/*.js
+server/**/*.js
+shared/**/*.js
+!**/*.config.js
+!**/eslint.config.js
+!**/vite.config.js
+
+##################################
+# 5. ENVIRONMENT & SECURITY      #
+##################################
+.env
 .env*.local
+.vercel
 
-UNOWEBSIM_gitlab/
+##################################
+# 6. STORAGE & DB (SIMULATION)   #
+##################################
+*.sqlite
+*.db
+/storage/*.json
+!/storage/.gitkeep
 
-# Runtime artifacts
-logs/
-temp/
-*.log
-run-tests_output.log
-# test-results folder is already covered earlier but repeat for clarity
-test-results/
-
-# Measurement reports (werden bei Bedarf neu erzeugt)
+##################################
+# 7. DOCUMENTATION & REPORTS     #
+##################################
+# Temporary one-off reports are archived in /docs/archive/
+# Binary reports and benchmarks should not be committed
+*.csv
 font_size_report_*.md
-font_size_report_*.csv
+benchmark-*.json
+# but keep /docs/archive tracked since it contains organized archives
+
