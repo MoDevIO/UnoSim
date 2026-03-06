@@ -521,6 +521,17 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     if (!params.ensureBackendConnected("Simulation starten")) return;
     params.setDebugMessages([]);
 
+    // Reset I/O registry so old entries don't persist across recompilations
+    params.resetPinUI();
+    const freshPins: IOPinRecord[] = [];
+    for (let i = 0; i <= 13; i++) {
+      freshPins.push({ pin: String(i), defined: false, usedAt: [] });
+    }
+    for (let i = 0; i <= 5; i++) {
+      freshPins.push({ pin: `A${i}`, defined: false, usedAt: [] });
+    }
+    params.setIoRegistry(freshPins);
+
     let mainSketchCode: string = "";
     if (params.editorRef.current) {
       try {
@@ -647,6 +658,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     params.ensureBackendConnected,
     params.resetPinUI,
     params.setDebugMessages,
+    params.setIoRegistry,
     params.setIsModified,
     startSimulationInternal,
     params.tabs,

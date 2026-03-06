@@ -88,6 +88,7 @@ const LoadingPlaceholder = () => (
 
 // Logger import
 import { Logger } from "@shared/logger";
+import { CodeParser } from "@shared/code-parser";
 const logger = new Logger("ArduinoSimulator");
 
 export default function ArduinoSimulator() {
@@ -691,6 +692,49 @@ export default function ArduinoSimulator() {
       return newStates;
     });
   }, [detectedPinModes, simulationStatus]);
+
+  // Static IO analysis: populate ioRegistry from source code (always active, even during simulation)
+  useEffect(() => {
+    if (!code.trim()) return;
+    try {
+      const parser = new CodeParser();
+      const staticRegistry = parser.buildStaticIORegistry(code);
+      
+      // If simulation is running, merge with current registry to preserve runtime updates
+      if (simulationStatus === "running") {
+        setIoRegistry((prevRegistry) => {
+          const merged = new Map<string, IOPinRecord>();
+          
+          // Start with static registry (has line numbers from source code)
+          for (const rec of staticRegistry) {
+            merged.set(rec.pin, { ...rec });
+          }
+          
+          // Overlay runtime pinMode/defined state from previous registry
+          for (const prevRec of prevRegistry) {
+            const current = merged.get(prevRec.pin);
+            if (current) {
+              // Keep runtime pinMode if it differs from static (e.g., user interactions)
+              if (prevRec.defined && prevRec.pinMode !== current.pinMode) {
+                current.pinMode = prevRec.pinMode;
+                current.defined = prevRec.defined;
+              }
+            } else {
+              // Add pins that are only in runtime (shouldn't normally happen)
+              merged.set(prevRec.pin, { ...prevRec });
+            }
+          }
+          
+          return Array.from(merged.values());
+        });
+      } else {
+        // Simulation not running: use pure static registry
+        setIoRegistry(staticRegistry);
+      }
+    } catch {
+      // ignore parse errors — don't crash the UI
+    }
+  }, [code, simulationStatus]);
 
   // When simulation stops, flush any pending incomplete lines to make them visible
   useEffect(() => {
