@@ -6,12 +6,15 @@
  * 2. Cache Read-Write locking (multiple readers, single writer)
  * 3. TTL-based deadlock prevention (auto-release after timeout)
  * 4. Priority queuing (system checks prioritized over regular tasks)
+ * 5. Event-driven architecture (eliminates polling overhead)
  * 
  * Replaces the previous dual-gatekeeper pattern with atomic, deadlock-safe operations.
+ * Performance: O(1) event notification instead of O(n) polling overhead.
  */
 
 import { Logger } from "@shared/logger";
 import { cpus } from "os";
+import { EventEmitter } from "events";
 
 // Priority levels for task queuing
 export enum TaskPriority {
@@ -61,7 +64,7 @@ function calculateOptimalConcurrency(): number {
   }
 }
 
-export class UnifiedGatekeeper {
+export class UnifiedGatekeeper extends EventEmitter {
   private readonly maxCompileConcurrent: number;
   private availableSlots: number;
   private activeSlots: Map<string, CompileSlotEntry> = new Map();
@@ -89,6 +92,11 @@ export class UnifiedGatekeeper {
   };
 
   constructor(maxConcurrent?: number) {
+    super();
+    
+    // Allow unlimited event listeners for high-contention scenarios (200+ waiters)
+    this.setMaxListeners(0);
+    
     // In worker threads, disable gatekeeper since the worker pool controls concurrency
     const isWorkerThread = process.env.COMPILE_GATEKEEPER_DISABLED === "true";
     
@@ -230,6 +238,7 @@ export class UnifiedGatekeeper {
    * Acquire a cache lock (read or write)
    * Read locks: multiple readers allowed
    * Write locks: exclusive, no other locks allowed
+   * Uses event-driven approach - no polling overhead
    */
   async acquireCacheLock(
     key: string,
@@ -241,7 +250,10 @@ export class UnifiedGatekeeper {
     const ownerId = `${owner}-${Date.now()}-${Math.random()}`;
 
     return new Promise((resolve, reject) => {
-      const tryAcquire = () => {
+      let timeoutHandle: NodeJS.Timeout | null = null;
+      let eventListener: (() => void) | null = null;
+
+      const tryAcquire = (): boolean => {
         const locks = this.cacheLocks.get(key) || [];
         const now = Date.now();
 
@@ -263,8 +275,12 @@ export class UnifiedGatekeeper {
             this.cacheLocks.set(key, activeLocks);
             this.logger.debug(`✓ Read lock acquired for ${key} by ${owner}`);
             
+            // Cleanup
+            if (timeoutHandle) clearTimeout(timeoutHandle);
+            if (eventListener) this.off(`cache_lock_released:${key}`, eventListener);
+            
             resolve(this.createCacheLockReleaser(key, ownerId));
-            return;
+            return true;
           }
         } else {
           // Write lock: exclusive, no other locks allowed
@@ -279,32 +295,44 @@ export class UnifiedGatekeeper {
             this.cacheLocks.set(key, [entry]);
             this.logger.debug(`✓ Write lock acquired for ${key} by ${owner}`);
             
+            // Cleanup
+            if (timeoutHandle) clearTimeout(timeoutHandle);
+            if (eventListener) this.off(`cache_lock_released:${key}`, eventListener);
+            
             resolve(this.createCacheLockReleaser(key, ownerId));
-            return;
+            return true;
           }
         }
 
-        // Could not acquire, retry after short delay
-        setTimeout(tryAcquire, 25);
+        return false;
       };
 
-      const timeoutHandle = setTimeout(() => {
+      // Try immediate acquisition
+      if (tryAcquire()) {
+        return;
+      }
+
+      // Set up event-driven waiting (no polling)
+      const eventName = `cache_lock_released:${key}`;
+      eventListener = () => {
+        tryAcquire(); // Event fires when lock might be available
+      };
+      
+      this.on(eventName, eventListener);
+
+      // Timeout handling with cleanup
+      timeoutHandle = setTimeout(() => {
+        if (eventListener) {
+          this.off(eventName, eventListener);
+        }
         reject(new Error(`Cache lock timeout (${lockType}) for ${key} after ${timeoutMs}ms`));
       }, timeoutMs);
-
-      // Wrapper to clear timeout on success
-      const originalResolve = resolve;
-      resolve = (releaser: any) => {
-        clearTimeout(timeoutHandle);
-        originalResolve(releaser);
-      };
-
-      tryAcquire();
     });
   }
 
   /**
    * Release a compile slot
+   * Emits event for monitoring and triggers next queued task
    */
   private createReleaseFunction(ownerId: string, type: "compile" | "cache"): () => void {
     return () => {
@@ -316,6 +344,9 @@ export class UnifiedGatekeeper {
           this.logger.debug(
             `✓ Compile slot released (available: ${this.availableSlots}, active: ${this.activeSlots.size})`,
           );
+
+          // Emit event for monitoring (event-driven architecture)
+          this.emit("slot_released");
 
           // Grant next queued task if any
           if (this.compileQueue.length > 0) {
@@ -347,6 +378,7 @@ export class UnifiedGatekeeper {
 
   /**
    * Create a cache lock releaser function
+   * Emits event to wake up waiting tasks (event-driven, no polling)
    */
   private createCacheLockReleaser(key: string, ownerId: string): () => Promise<void> {
     return async () => {
@@ -359,6 +391,9 @@ export class UnifiedGatekeeper {
           this.cacheLocks.set(key, filteredLocks);
         }
         this.logger.debug(`✓ Lock released for ${key}`);
+        
+        // Emit event to wake up waiting tasks (O(1) notification instead of polling)
+        this.emit(`cache_lock_released:${key}`);
       }
     };
   }
@@ -366,6 +401,7 @@ export class UnifiedGatekeeper {
   /**
    * Monitor for expired locks and clean them up automatically
    * Prevents deadlocks caused by crashed processes
+   * Emits events to wake up waiting tasks
    */
   private startLockMonitoring(): void {
     if (this.lockCheckInterval) {
@@ -375,6 +411,7 @@ export class UnifiedGatekeeper {
     this.lockCheckInterval = setInterval(() => {
       const now = Date.now();
       let expiredCount = 0;
+      const releasedKeys = new Set<string>();
 
       // Check compile slots
       for (const [ownerId, slot] of this.activeSlots.entries()) {
@@ -383,6 +420,9 @@ export class UnifiedGatekeeper {
           this.availableSlots++;
           expiredCount++;
           this.logger.warn(`⚠ Compile slot TTL expired for ${slot.owner}, auto-releasing`);
+          
+          // Emit event to wake up queued tasks
+          this.emit("slot_released");
         }
       }
 
@@ -400,7 +440,13 @@ export class UnifiedGatekeeper {
 
         if (expiredInKey > 0) {
           this.logger.warn(`⚠ ${expiredInKey} cache lock(s) TTL expired for ${key}, auto-releasing`);
+          releasedKeys.add(key);
         }
+      }
+
+      // Emit events for all released cache locks (O(1) per key)
+      for (const key of releasedKeys) {
+        this.emit(`cache_lock_released:${key}`);
       }
 
       if (expiredCount > 0) {
@@ -411,13 +457,16 @@ export class UnifiedGatekeeper {
   }
 
   /**
-   * Gracefully stop lock monitoring
+   * Gracefully stop lock monitoring and cleanup event listeners
    */
   stopLockMonitoring(): void {
     if (this.lockCheckInterval) {
       clearInterval(this.lockCheckInterval);
       this.lockCheckInterval = null;
     }
+    
+    // Remove all event listeners to prevent memory leaks
+    this.removeAllListeners();
   }
 
   /**
@@ -459,6 +508,7 @@ export class UnifiedGatekeeper {
 
   /**
    * Reset gatekeeper state (for testing)
+   * Removes all event listeners to prevent memory leaks
    */
   reset(): void {
     this.activeSlots.clear();
@@ -471,6 +521,10 @@ export class UnifiedGatekeeper {
       expiredLocks: 0,
       deadlocksAvoided: 0,
     };
+    
+    // Remove all event listeners to prevent memory leaks
+    this.removeAllListeners();
+    
     this.logger.info("UnifiedGatekeeper reset");
   }
 }
