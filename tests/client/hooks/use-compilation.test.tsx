@@ -631,6 +631,9 @@ describe("useCompilation", () => {
   });
 
   it("handles editorRef.getValue() throwing error in handleCompileAndStart", async () => {
+    // Suppress intentional console.error from the hook's error-recovery path
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
     const params = buildParams();
     params.editorRef.current = {
       getValue: vi.fn().mockImplementation(() => {
@@ -669,6 +672,8 @@ describe("useCompilation", () => {
         expect.objectContaining({ code: "fallback code" }),
       );
     });
+
+    consoleSpy.mockRestore();
   });
 
   it("handles editorRef null in handleCompileAndStart with tabs fallback", async () => {
