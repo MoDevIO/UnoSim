@@ -19,24 +19,20 @@ import os from "os";
 import fs from "fs";
 import { Logger } from "@shared/logger";
 import type { CompilationResult } from "./arduino-compiler";
+import {
+  type CompileRequestPayload,
+  type AnyWorkerMessage,
+  type CompileRequestMessage,
+  createCompileRequest,
+  isReadyMessage,
+  isCompileResponse,
+} from "@shared/worker-protocol";
 
-export interface CompilationTask {
-  code: string;
-  headers?: Array<{ name: string; content: string }>;
-  tempRoot?: string;
-  fqbn?: string;
-  libraries?: string[];
-  sketchHash?: string;
-  coreFingerprint?: string;
-}
-
-export interface WorkerMessage {
-  type: "compile" | "ready" | "shutdown";
-  task?: CompilationTask;
-  taskId?: string;
-  result?: CompilationResult;
-  error?: string;
-}
+/**
+ * Type alias for backward compatibility
+ * @deprecated Use CompileRequestPayload from worker-protocol instead
+ */
+export type CompilationTask = CompileRequestPayload;
 
 /**
  * Statistic tracking for monitoring pool health
@@ -59,7 +55,7 @@ export class CompilationWorkerPool {
   private readonly workers: Worker[] = [];
   private readonly availableWorkers: Set<number> = new Set();
   private readonly queue: Array<{
-    task: CompilationTask;
+    task: CompileRequestPayload;
     resolve: (result: CompilationResult) => void;
     reject: (error: Error) => void;
     startTime: number;
@@ -118,8 +114,8 @@ export class CompilationWorkerPool {
         });
         const workerId = i;
 
-        worker.on("message", (msg: WorkerMessage) => {
-          if (msg.type === "ready") {
+        worker.on("message", (msg: AnyWorkerMessage) => {
+          if (isReadyMessage(msg)) {
             this.availableWorkers.add(workerId);
             this.logger.debug(`[Worker ${workerId}] Ready`);
             this.processQueue();
@@ -151,7 +147,7 @@ export class CompilationWorkerPool {
   /**
    * Enqueue a compilation task
    */
-  async compile(task: CompilationTask): Promise<CompilationResult> {
+  async compile(task: CompileRequestPayload): Promise<CompilationResult> {
     this.stats.totalTasks++;
 
     return new Promise((resolve, reject) => {
@@ -182,30 +178,41 @@ export class CompilationWorkerPool {
       const worker = this.workers[workerId];
 
       // Set up one-time message handler for this specific task
-      const messageHandler = (msg: WorkerMessage) => {
-        if (msg.error) {
-          this.stats.failedTasks++;
-          reject(new Error(msg.error));
-        } else if (msg.result) {
-          const compileTimeMs = Date.now() - startTime;
-          this.stats.completedTasks++;
-          this.stats.compileTimes.push(compileTimeMs);
-          this.logger.info(`[Worker ${workerId}] Compiled in ${compileTimeMs}ms`);
-          resolve(msg.result);
+      const messageHandler = (msg: AnyWorkerMessage) => {
+        if (isCompileResponse(msg)) {
+          const { payload } = msg;
+          
+          if (payload.error) {
+            this.stats.failedTasks++;
+            const errorMsg = payload.error.message || "Unknown worker error";
+            const error = new Error(errorMsg);
+            if (payload.error.stack) {
+              error.stack = payload.error.stack;
+            }
+            reject(error);
+          } else if (payload.result) {
+            const compileTimeMs = Date.now() - startTime;
+            this.stats.completedTasks++;
+            this.stats.compileTimes.push(compileTimeMs);
+            this.logger.info(`[Worker ${workerId}] Compiled in ${compileTimeMs}ms`);
+            resolve(payload.result);
+          } else {
+            // Malformed response
+            this.stats.failedTasks++;
+            reject(new Error("Worker returned malformed response"));
+          }
+          
+          // Clean up listener and mark worker as available
+          worker.off("message", messageHandler);
+          this.availableWorkers.add(workerId);
+          this.processQueue(); // Process next in queue
         }
-        // Clean up listener and mark worker as available
-        worker.off("message", messageHandler);
-        this.availableWorkers.add(workerId);
-        this.processQueue(); // Process next in queue
       };
 
       worker.on("message", messageHandler);
 
-      // Send compile task to worker
-      const message: WorkerMessage = {
-        type: "compile",
-        task,
-      };
+      // Send compile task to worker using strict protocol
+      const message: CompileRequestMessage = createCompileRequest(task);
       worker.postMessage(message);
     }
   }

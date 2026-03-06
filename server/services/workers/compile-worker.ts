@@ -16,6 +16,14 @@ import { parentPort } from "worker_threads";
 import { workerData } from "worker_threads";
 import { Logger } from "@shared/logger";
 import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
+import {
+  type CompileRequestPayload,
+  type AnyWorkerMessage,
+  createCompileResponse,
+  createReadyMessage,
+  createWorkerError,
+  isCompileRequest,
+} from "@shared/worker-protocol";
 import { createHash } from "crypto";
 import { mkdir, open, readdir, rm, stat, unlink, utimes, writeFile } from "fs/promises";
 import { join } from "path";
@@ -164,7 +172,7 @@ async function getCompilerVersion(): Promise<string> {
   return value;
 }
 
-function buildSketchHash(task: any, fqbn: string): string {
+function buildSketchHash(task: CompileRequestPayload, fqbn: string): string {
   const payload = JSON.stringify({
     code: task.code,
     fqbn,
@@ -172,7 +180,7 @@ function buildSketchHash(task: any, fqbn: string): string {
   return createHash("sha256").update(payload).digest("hex");
 }
 
-async function buildCoreFingerprint(task: any, fqbn: string): Promise<string> {
+async function buildCoreFingerprint(task: CompileRequestPayload, fqbn: string): Promise<string> {
   const [compilerVersion, installedLibFingerprint] = await Promise.all([
     getCompilerVersion(),
     getInstalledLibrariesFingerprint(),
@@ -266,9 +274,9 @@ async function cleanupCacheLru(): Promise<void> {
 }
 
 /**
- * Process incoming compilation requests
+ * Process incoming compilation requests with strict typing
  */
-async function processCompileRequest(task: any) {
+async function processCompileRequest(task: CompileRequestPayload) {
   try {
     if (!ArduinoCompiler || !compilerSingleton) {
       await initializeCompiler();
@@ -401,29 +409,30 @@ async function processCompileRequest(task: any) {
 }
 
 /**
- * Main message handler
+ * Main message handler with strict type safety
  */
 if (parentPort) {
-  parentPort.on("message", async (msg) => {
+  parentPort.on("message", async (msg: AnyWorkerMessage) => {
     try {
-      if (msg.type === "compile" && msg.task) {
-        const result = await processCompileRequest(msg.task);
-        parentPort!.postMessage({
-          type: "compile_result",
-          result,
-        });
+      if (isCompileRequest(msg)) {
+        const result = await processCompileRequest(msg.payload);
+        parentPort!.postMessage(
+          createCompileResponse({
+            result,
+          })
+        );
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      parentPort!.postMessage({
-        type: "compile_result",
-        error: errorMsg,
-      });
+      parentPort!.postMessage(
+        createCompileResponse({
+          error: createWorkerError(err),
+        })
+      );
     }
   });
 
   // Signal that worker is ready
-  parentPort.postMessage({ type: "ready" });
+  parentPort.postMessage(createReadyMessage());
   logger.debug("[Worker] Startup complete, waiting for tasks");
 } else {
   logger.error("[Worker] Not running in worker_threads context");
