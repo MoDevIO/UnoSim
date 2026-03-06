@@ -96,6 +96,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
         pin: z.string(),
         defined: z.boolean(),
         pinMode: z.number().optional(),
+        hasConflict: z.boolean().optional(),
         definedAt: z
           .object({
             line: z.number(),
@@ -176,6 +177,8 @@ export interface IOPinRecord {
   pin: string;
   defined: boolean;
   pinMode?: number; // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
+  /** Set to true when conflicting modes or a write-to-INPUT is detected at runtime */
+  hasConflict?: boolean;
   definedAt?: {
     line: number;
     loopContext?: {

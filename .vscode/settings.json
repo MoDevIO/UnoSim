@@ -135,6 +135,8 @@
     },
     "/bin/ls": true,
     "/usr/bin/git": true,
-    "test": true
+    "test": true,
+    "clear": true,
+    "printf": true
   },
 }

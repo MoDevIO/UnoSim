@@ -68,11 +68,15 @@ test("handles simulation_status message", async () => {
   messageQueue = [];
 
   const testQueryClient = new QueryClient();
-  const { rerender } = render(
-    <QueryClientProvider client={testQueryClient}>
-      <ArduinoSimulator />
-    </QueryClientProvider>
-  );
+  let rerender!: ReturnType<typeof render>["rerender"];
+  await act(async () => {
+    ({ rerender } = render(
+      <QueryClientProvider client={testQueryClient}>
+        <ArduinoSimulator />
+      </QueryClientProvider>
+    ));
+    await Promise.resolve();
+  });
 
   // Sanity-check: hook exposes empty queue initially
   const wsMock = (await import("@/hooks/use-websocket")).useWebSocket();
@@ -80,15 +84,18 @@ test("handles simulation_status message", async () => {
 
   // Push message AFTER mount and cause a re-render so the hook's
   // messageQueue dependency is observed by useWebSocketHandler.
-  act(() => {
+  await act(async () => {
     messageQueue = [{ type: "simulation_status", status: "running" }];
-  });
 
-  rerender(
-    <QueryClientProvider client={testQueryClient}>
-      <ArduinoSimulator />
-    </QueryClientProvider>
-  );
+    rerender(
+      <QueryClientProvider client={testQueryClient}>
+        <ArduinoSimulator />
+      </QueryClientProvider>
+    );
+
+    vi.runOnlyPendingTimers();
+    await Promise.resolve();
+  });
 
   await waitFor(() => {
     expect(document.querySelector('[data-testid="sim-status"]')?.textContent).toBe("running");

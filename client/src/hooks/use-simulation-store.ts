@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { telemetryStore } from "./use-telemetry-store";
 
 type PinMode = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
 export type PinStateType = "mode" | "value" | "pwm";
@@ -229,14 +230,9 @@ if (typeof window !== "undefined") {
     resetAllStores: async () => {
       // Reset simulation store
       simulationStore.resetToInitial();
-      
-      // Reset telemetry store (lazy import to avoid circular dependencies)
-      try {
-        const { telemetryStore } = await import('./use-telemetry-store');
-        telemetryStore.resetToInitial();
-      } catch (err) {
-        console.warn('[SIM_DEBUG] Could not reset telemetry store:', err);
-      }
+
+      // Reset telemetry store
+      telemetryStore.resetToInitial();
     },
   };
 }

@@ -19,6 +19,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist", "public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 5000, // Monaco editor (core + all language packs) ~4.2 MB minified
     minify: "terser",
     terserOptions: {
       compress: {
@@ -32,9 +33,17 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        manualChunks: {
-          "monaco-editor": ["monaco-editor"],
-          "recharts": ["recharts"],
+        manualChunks(id: string) {
+          if (id.includes("node_modules/monaco-editor")) {
+            // All monaco-editor modules go into one chunk (core + language packs).
+            // Monaco's language contribution files import Monaco core APIs, which
+            // creates circular Rollup chunk references when split — so we keep
+            // everything together. Reduces ~80 individual language files to 1 chunk.
+            return "monaco-editor";
+          }
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) {
+            return "recharts";
+          }
         },
       },
     },

@@ -347,6 +347,8 @@ export class RegistryManager {
 
   /**
    * Add a pin record to the registry (called for each [[IO_PIN:...]] marker)
+   * Deduplicates by pin name: if a record for the same pin already exists,
+   * its usedAt entries are merged and the most recent mode is kept.
    */
   addPin(pinRecord: IOPinRecord): void {
     if (this.destroyed) return;
@@ -354,8 +356,32 @@ export class RegistryManager {
       this.logger.warn("Received pin record while not collecting - ignoring");
       return;
     }
-    // Individual pin additions are not logged (20 per start is too noisy).
-    this.registry.push(pinRecord);
+
+    const existing = this.registry.find((p) => p.pin === pinRecord.pin);
+    if (existing) {
+      // Merge usedAt entries (avoid duplicates by operation string)
+      const incomingOps = pinRecord.usedAt ?? [];
+      if (!existing.usedAt) existing.usedAt = [];
+      for (const op of incomingOps) {
+        const alreadyTracked = existing.usedAt.some(
+          (u) => u.operation === op.operation && u.line === op.line,
+        );
+        if (!alreadyTracked) {
+          existing.usedAt.push(op);
+        }
+      }
+      // Prefer the incoming mode if it differs (last-write-wins)
+      if (pinRecord.pinMode !== undefined) {
+        if (existing.defined && existing.pinMode !== undefined && existing.pinMode !== pinRecord.pinMode) {
+          existing.hasConflict = true;
+        }
+        existing.pinMode = pinRecord.pinMode;
+      }
+      if (pinRecord.defined) existing.defined = true;
+    } else {
+      this.registry.push(pinRecord);
+    }
+
     this.isDirty = true;
     this.telemetry.incomingEvents++;
   }
@@ -364,11 +390,20 @@ export class RegistryManager {
    * Telemetry-only: called when a pin value change is observed outside of the
    * registry collection. These events do not mutate the registry itself.
    */
-  updatePinValue(_pin: number, _value: number): void {
+  updatePinValue(pin: number, _value: number): void {
     if (this.destroyed) return;
-    // count the incoming event for telemetry purposes
     this.telemetry.incomingEvents++;
-    // no structural change, so nothing else to do
+    // Conflict detection: any write to an INPUT-configured pin is flagged
+    const pinStr = pin >= 14 && pin <= 19 ? `A${pin - 14}` : String(pin);
+    const existing = this.registry.find((p) => p.pin === pinStr);
+    if (existing && existing.defined && existing.pinMode === 0 && !existing.hasConflict) {
+      existing.hasConflict = true;
+      this.logger.warn(
+        `Conflict: digitalWrite/analogWrite called on INPUT pin ${pinStr}`,
+      );
+      const nextHash = this.computeRegistryHash();
+      this.sendNow(nextHash, "pin-write-to-input-conflict");
+    }
   }
 
   /**
@@ -437,8 +472,18 @@ export class RegistryManager {
 
     if (existing) {
       const wasDefinedBefore = existing.defined;
+      const previousMode = existing.pinMode;
       existing.pinMode = mode;
       existing.defined = true;
+
+      // Conflict detection: mode changed on an already-defined pin
+      const conflictJustSet = wasDefinedBefore && previousMode !== undefined && previousMode !== mode;
+      if (conflictJustSet) {
+        existing.hasConflict = true;
+        this.logger.warn(
+          `Conflict: pin ${pinStr} mode changed from ${previousMode} to ${mode}`,
+        );
+      }
 
       // Track pinMode operation in usedAt
       const pinModeOp = `pinMode:${mode}`;
@@ -452,17 +497,19 @@ export class RegistryManager {
       }
       this.telemetry.incomingEvents++;
 
-      // Structural changes (defined: false -> true) must be sent immediately.
-      // If the pin was already defined, do not re-send the registry.
-      if (!wasDefinedBefore) {
+      // Structural changes must be sent immediately:
+      //   a) pin just became defined for the first time
+      //   b) a conflict was just detected (mode changed)
+      // Plain re-confirmation of the same mode is intentionally silent.
+      if (!wasDefinedBefore || conflictJustSet) {
         this.logger.debug(
           `Structural change: pin ${pinStr} marked as defined, sending immediately`,
         );
         this.logger.info(
-          `Registry send trigger: first-time pin use ${pinStr} (pinMode:${mode})`,
+          `Registry send trigger: first-time pin use OR conflict on ${pinStr} (pinMode:${mode})`,
         );
         const nextHash = this.computeRegistryHash();
-        this.sendNow(nextHash, "pin-defined-changed");
+        this.sendNow(nextHash, conflictJustSet ? "pin-mode-conflict" : "pin-defined-changed");
       }
     } else {
       // Create new pin record if not yet in registry
@@ -620,6 +667,7 @@ export class RegistryManager {
       pin: pin.pin,
       defined: pin.defined,
       pinMode: pin.pinMode,
+      hasConflict: pin.hasConflict ?? false,
       usedAt: pin.usedAt ? [...pin.usedAt] : [],
     }));
     normalized.sort((a, b) => a.pin.localeCompare(b.pin));

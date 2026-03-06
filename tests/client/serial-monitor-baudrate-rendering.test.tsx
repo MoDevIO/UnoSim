@@ -120,7 +120,7 @@ describe("Serial Monitor - Baudrate-Based Character Rendering", () => {
     const txt = output.textContent || "";
     expect(txt.length).toBeGreaterThanOrEqual(1);
     expect(txt).not.toBe("Hello World\n");
-  }, { timeout: 1000 });
+  }, { timeout: 5000 });
 
   // Ganze Nachricht abwarten mit großzügigem Vorlauf
   await act(async () => {

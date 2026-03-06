@@ -620,7 +620,7 @@ export class SandboxRunner {
     this.totalPausedTime = 0;
     this.registryManager.reset();
     this.registryManager.setBaudrate(this.baudrate);
-    this.registryManager.enableWaitMode(300); // Reduced from 1500ms to 300ms - faster serial output
+    this.registryManager.enableWaitMode(2000); // 2000ms: gives the binary time to emit IO_REGISTRY markers before serial output is released
     this.messageQueue = [];
     this.outputBuffer = "";
     this.outputBufferIndex = 0;

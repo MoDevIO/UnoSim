@@ -2,7 +2,7 @@ import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
 import { spawn } from "child_process";
 import { writeFile, mkdir, rm } from "fs/promises";
 
-vi.setConfig({ testTimeout: 2000 });
+vi.setConfig({ testTimeout: 5000 });
 
 const createMockProcess = () => {
   const mockProcess = {

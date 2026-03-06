@@ -519,7 +519,8 @@ describe("ParserOutput Component", () => {
     expect(pinModeCell).not.toBeNull();
   });
 
-  it("displays operations with line numbers", () => {
+  it("displays operations with line numbers", async () => {
+    const user = userEvent.setup();
     const ioRegistry: IOPinRecord[] = [
       {
         pin: 13,
@@ -541,8 +542,14 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    expect(screen.getByText("L5")).not.toBeNull();
-    expect(screen.getByText("L7")).not.toBeNull();
+    // Click the eye button to show all pins and line numbers
+    const toggleButton = screen.getByTitle("Show all pins");
+    await user.click(toggleButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("L5")).not.toBeNull();
+      expect(screen.getByText("L7")).not.toBeNull();
+    });
   });
 
   it("switches between tabs", async () => {

@@ -1,5 +1,7 @@
-import type { ParserMessage } from "./schema";
-import { randomUUID } from "crypto";
+import type { ParserMessage, IOPinRecord } from "./schema";
+
+// Works in both browser (Web Crypto API) and Node.js 19+
+const randomUUID = () => globalThis.crypto.randomUUID();
 
 type SeverityLevel = 1 | 2 | 3;
 
@@ -558,6 +560,480 @@ export class CodeParser {
     }
 
     return messages;
+  }
+
+  /**
+   * Build a static IO-Registry from source code analysis alone (no simulation).
+   *
+   * Detects:
+   *  - `pinMode(pin, MODE)` → defined, pinMode, usedAt with line
+   *  - `digitalRead(pin)`, `digitalWrite(pin, value)` → usedAt entry
+   *  - `analogRead(pin)`, `analogWrite(pin, value)` → usedAt entry
+   *  - Variable resolution: `const byte/int X = N`, `#define X N`
+   *  - For-loop ranges: `for (int i=start; i<end; i++) { pinMode(i, ...) }`
+   *
+   * Returns only pins that have at least one operation (no 20-pin skeleton).
+   */
+  buildStaticIORegistry(code: string): IOPinRecord[] {
+    const cleanCode = this.removeComments(code);
+
+    // ── Variable resolution ────────────────────────────────────────────
+    const varMap = new Map<string, number>();
+    const arrayMap = new Map<string, number[]>();
+    const structFieldMap = new Map<string, number>(); // key: `${var}.${field}`
+
+    // #define VAR VALUE
+    const defineRe = /#define\s+(\w+)\s+(\w+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = defineRe.exec(cleanCode)) !== null) {
+      const resolved = this.resolveToken(m[2], varMap);
+      if (resolved !== undefined) varMap.set(m[1], resolved);
+    }
+
+    // Variable assignments: const int/byte/uint8_t X = N;
+    const assignRe = /(?:const\s+)?(?:int|byte|uint8_t|unsigned\s+int)\s+(\w+)\s*=\s*(\w+)\s*;/g;
+    while ((m = assignRe.exec(cleanCode)) !== null) {
+      const resolved = this.resolveToken(m[2], varMap);
+      if (resolved !== undefined) varMap.set(m[1], resolved);
+    }
+
+    // Array assignments: const byte PINS[] = {8, 9, 10};
+    const arrayRe =
+      /(?:const\s+)?(?:int|byte|uint8_t|unsigned\s+int)\s+(\w+)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]*)\}\s*;/g;
+    while ((m = arrayRe.exec(cleanCode)) !== null) {
+      const name = m[1];
+      const values = m[2]
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .map((token) => this.resolveToken(token, varMap))
+        .filter((v): v is number => v !== undefined);
+      if (values.length > 0) arrayMap.set(name, values);
+    }
+
+    // Struct definitions + simple instance initialization:
+    // struct LedConfig { byte pin; }; LedConfig led = {12};
+    const structFieldOrderByType = new Map<string, string[]>();
+    const structDefRe = /struct\s+(\w+)\s*\{([\s\S]*?)\}\s*;/g;
+    while ((m = structDefRe.exec(cleanCode)) !== null) {
+      const structType = m[1];
+      const body = m[2];
+      const fieldNames: string[] = [];
+      const fieldRe = /(?:int|byte|uint8_t|unsigned\s+int)\s+(\w+)\s*;/g;
+      let fm: RegExpExecArray | null;
+      while ((fm = fieldRe.exec(body)) !== null) {
+        fieldNames.push(fm[1]);
+      }
+      if (fieldNames.length > 0) {
+        structFieldOrderByType.set(structType, fieldNames);
+      }
+    }
+
+    for (const [structType, fieldOrder] of structFieldOrderByType.entries()) {
+      const instanceRe = new RegExp(
+        `${structType}\\s+(\\w+)\\s*=\\s*\\{([^}]*)\\}\\s*;`,
+        "g",
+      );
+      let im: RegExpExecArray | null;
+      while ((im = instanceRe.exec(cleanCode)) !== null) {
+        const varName = im[1];
+        const values = im[2].split(",").map((v) => v.trim());
+        for (let idx = 0; idx < fieldOrder.length && idx < values.length; idx++) {
+          const resolved = this.resolveToken(values[idx], varMap);
+          if (resolved !== undefined) {
+            structFieldMap.set(`${varName}.${fieldOrder[idx]}`, resolved);
+          }
+        }
+      }
+    }
+
+    // ── Pin record accumulator (keyed by canonical pin string) ─────────
+    const pinMap = new Map<string, IOPinRecord>();
+
+    const getOrCreate = (pinStr: string): IOPinRecord => {
+      let rec = pinMap.get(pinStr);
+      if (!rec) {
+        rec = { pin: pinStr, defined: false, usedAt: [] };
+        pinMap.set(pinStr, rec);
+      }
+      return rec;
+    };
+
+    const pinToCanonical = (pin: number): string =>
+      pin >= 14 && pin <= 19 ? `A${pin - 14}` : String(pin);
+
+    // Helper: resolve a pin expression to pin number.
+    // Supports: literal/variable, array index (`PINS[1]`), struct field (`cfg.pin`),
+    // and loop variable substitution.
+    const resolvePin = (
+      expression: string,
+      loopCtx?: { varName: string; value: number },
+    ): number | undefined => {
+      const expr = expression.trim();
+
+      if (loopCtx && expr === loopCtx.varName) {
+        return loopCtx.value;
+      }
+
+      const arrayMatch = expr.match(/^(\w+)\s*\[\s*([^\]]+)\s*\]$/);
+      if (arrayMatch) {
+        const arrayName = arrayMatch[1];
+        const rawIndex = arrayMatch[2].trim();
+        let index: number | undefined;
+        if (loopCtx && rawIndex === loopCtx.varName) {
+          index = loopCtx.value;
+        } else if (/^\d+$/.test(rawIndex)) {
+          index = parseInt(rawIndex, 10);
+        } else {
+          index = this.resolveToken(rawIndex, varMap);
+        }
+
+        if (index === undefined) return undefined;
+        const arr = arrayMap.get(arrayName);
+        if (!arr || index < 0 || index >= arr.length) return undefined;
+        return arr[index];
+      }
+
+      if (/^\w+\.\w+$/.test(expr)) {
+        return structFieldMap.get(expr);
+      }
+
+      return this.resolveToken(expr, varMap);
+    };
+
+    // Helper: compute 1-based line number from character index in cleanCode
+    const lineAt = (index: number): number =>
+      cleanCode.substring(0, index).split("\n").length;
+
+    // ── Detect for-loops with variable pin (range expansion) ───────────
+    // Matches both: `for (...) { body }` and `for (...) singleStatement;`
+    const expandedLoopPinModeRanges: Array<{
+      loopVar: string;
+      startIndex: number;
+      endIndex: number;
+    }> = [];
+    const expandedLoopDigitalReadRanges: Array<{
+      loopVar: string;
+      startIndex: number;
+      endIndex: number;
+    }> = [];
+    const expandedLoopDigitalWriteRanges: Array<{
+      loopVar: string;
+      startIndex: number;
+      endIndex: number;
+    }> = [];
+    const loopRe =
+      /for\s*\(\s*(?:byte|int|unsigned|uint8_t)?\s*(\w+)\s*=\s*(\d+)\s*;\s*\1\s*(<|<=)\s*(\d+)\s*;[^)]*\)\s*(?:\{([^}]*)\}|([^;{]+;))/g;
+    while ((m = loopRe.exec(cleanCode)) !== null) {
+      const loopVar = m[1];
+      const start = parseInt(m[2], 10);
+      const cmp = m[3];
+      const endVal = parseInt(m[4], 10);
+      const body = m[5] ?? m[6]; // m[5] = braced body, m[6] = single-statement body
+      const last = cmp === "<=" ? endVal : endVal - 1;
+
+      // Check for pinMode(loopVar, MODE) in body (direct loop variable)
+      const pmInBody = new RegExp(
+        `pinMode\\s*\\(\\s*${loopVar}\\s*,\\s*(INPUT_PULLUP|INPUT|OUTPUT)\\s*\\)`,
+      );
+      const pmMatch = pmInBody.exec(body);
+      if (pmMatch) {
+        const mode =
+          pmMatch[1] === "INPUT" ? 0 : pmMatch[1] === "OUTPUT" ? 1 : 2;
+        const opLine = lineAt(m.index);
+        expandedLoopPinModeRanges.push({
+          loopVar,
+          startIndex: m.index,
+          endIndex: m.index + m[0].length,
+        });
+        for (let i = start; i <= last; i++) {
+          const rec = getOrCreate(pinToCanonical(i));
+          rec.defined = true;
+          rec.pinMode = mode;
+          if (!rec.usedAt) rec.usedAt = [];
+          rec.usedAt.push({ line: opLine, operation: `pinMode:${mode}` });
+        }
+      }
+
+      // Check for pinMode(array[loopVar], MODE) in body (array access with loop variable)
+      const pmArrayInBody = new RegExp(
+        `pinMode\\s*\\(\\s*(\\w+)\\[${loopVar}\\]\\s*,\\s*(INPUT_PULLUP|INPUT|OUTPUT)\\s*\\)`,
+      );
+      const pmArrayMatch = pmArrayInBody.exec(body);
+      if (pmArrayMatch) {
+        const arrayName = pmArrayMatch[1];
+        const mode =
+          pmArrayMatch[2] === "INPUT" ? 0 : pmArrayMatch[2] === "OUTPUT" ? 1 : 2;
+        const opLine = lineAt(m.index);
+        const arrayValues = arrayMap.get(arrayName);
+        if (arrayValues) {
+          expandedLoopPinModeRanges.push({
+            loopVar: `${arrayName}[${loopVar}]`,
+            startIndex: m.index,
+            endIndex: m.index + m[0].length,
+          });
+          for (let i = start; i <= last; i++) {
+            if (i < arrayValues.length) {
+              const pin = arrayValues[i];
+              if (pin !== undefined) {
+                const rec = getOrCreate(pinToCanonical(pin));
+                rec.defined = true;
+                rec.pinMode = mode;
+                if (!rec.usedAt) rec.usedAt = [];
+                rec.usedAt.push({ line: opLine, operation: `pinMode:${mode}` });
+              }
+            }
+          }
+        }
+      }
+
+      const drInBody = new RegExp(
+        `digitalRead\\s*\\(\\s*${loopVar}\\s*\\)`,
+      );
+      if (drInBody.test(body)) {
+        const opLine = lineAt(m.index);
+        expandedLoopDigitalReadRanges.push({
+          loopVar,
+          startIndex: m.index,
+          endIndex: m.index + m[0].length,
+        });
+        for (let i = start; i <= last; i++) {
+          const rec = getOrCreate(pinToCanonical(i));
+          if (!rec.usedAt) rec.usedAt = [];
+          if (
+            !rec.usedAt.some(
+              (u) => u.operation === "digitalRead" && u.line === opLine,
+            )
+          ) {
+            rec.usedAt.push({ line: opLine, operation: "digitalRead" });
+          }
+        }
+      }
+
+      // Check for digitalRead(array[loopVar]) in body
+      const drArrayInBody = new RegExp(
+        `digitalRead\\s*\\(\\s*(\\w+)\\[${loopVar}\\]\\s*\\)`,
+      );
+      const drArrayMatch = drArrayInBody.exec(body);
+      if (drArrayMatch) {
+        const arrayName = drArrayMatch[1];
+        const opLine = lineAt(m.index);
+        const arrayValues = arrayMap.get(arrayName);
+        if (arrayValues) {
+          expandedLoopDigitalReadRanges.push({
+            loopVar: `${arrayName}[${loopVar}]`,
+            startIndex: m.index,
+            endIndex: m.index + m[0].length,
+          });
+          for (let i = start; i <= last; i++) {
+            if (i < arrayValues.length) {
+              const pin = arrayValues[i];
+              if (pin !== undefined) {
+                const rec = getOrCreate(pinToCanonical(pin));
+                if (!rec.usedAt) rec.usedAt = [];
+                if (
+                  !rec.usedAt.some(
+                    (u) => u.operation === "digitalRead" && u.line === opLine,
+                  )
+                ) {
+                  rec.usedAt.push({ line: opLine, operation: "digitalRead" });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const dwInBody = new RegExp(
+        `digitalWrite\\s*\\(\\s*${loopVar}\\s*,`,
+      );
+      if (dwInBody.test(body)) {
+        const opLine = lineAt(m.index);
+        expandedLoopDigitalWriteRanges.push({
+          loopVar,
+          startIndex: m.index,
+          endIndex: m.index + m[0].length,
+        });
+        for (let i = start; i <= last; i++) {
+          const rec = getOrCreate(pinToCanonical(i));
+          if (!rec.usedAt) rec.usedAt = [];
+          if (
+            !rec.usedAt.some(
+              (u) => u.operation === "digitalWrite" && u.line === opLine,
+            )
+          ) {
+            rec.usedAt.push({ line: opLine, operation: "digitalWrite" });
+          }
+        }
+      }
+
+      // Check for digitalWrite(array[loopVar], ...) in body
+      const dwArrayInBody = new RegExp(
+        `digitalWrite\\s*\\(\\s*(\\w+)\\[${loopVar}\\]\\s*,`,
+      );
+      const dwArrayMatch = dwArrayInBody.exec(body);
+      if (dwArrayMatch) {
+        const arrayName = dwArrayMatch[1];
+        const opLine = lineAt(m.index);
+        const arrayValues = arrayMap.get(arrayName);
+        if (arrayValues) {
+          expandedLoopDigitalWriteRanges.push({
+            loopVar: `${arrayName}[${loopVar}]`,
+            startIndex: m.index,
+            endIndex: m.index + m[0].length,
+          });
+          for (let i = start; i <= last; i++) {
+            if (i < arrayValues.length) {
+              const pin = arrayValues[i];
+              if (pin !== undefined) {
+                const rec = getOrCreate(pinToCanonical(pin));
+                if (!rec.usedAt) rec.usedAt = [];
+                if (
+                  !rec.usedAt.some(
+                    (u) => u.operation === "digitalWrite" && u.line === opLine,
+                  )
+                ) {
+                  rec.usedAt.push({ line: opLine, operation: "digitalWrite" });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // ── Detect pinMode(pin, MODE) ──────────────────────────────────────
+    const pinModeRe =
+      /pinMode\s*\(\s*([^,\)]+?)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
+    while ((m = pinModeRe.exec(cleanCode)) !== null) {
+      const pinToken = m[1];
+      const isLoopVarPinModeAlreadyExpanded = expandedLoopPinModeRanges.some(
+        (range) =>
+          range.loopVar === pinToken &&
+          m!.index >= range.startIndex &&
+          m!.index < range.endIndex,
+      );
+      if (isLoopVarPinModeAlreadyExpanded) continue;
+
+      const pin = resolvePin(pinToken);
+      if (pin === undefined) continue;
+      const pinStr = pinToCanonical(pin);
+      const mode = m[2] === "INPUT" ? 0 : m[2] === "OUTPUT" ? 1 : 2;
+      const line = lineAt(m.index);
+
+      const rec = getOrCreate(pinStr);
+      // Conflict detection: mode change on already-defined pin
+      if (rec.defined && rec.pinMode !== undefined && rec.pinMode !== mode) {
+        rec.hasConflict = true;
+      }
+      rec.defined = true;
+      rec.pinMode = mode;
+      if (!rec.usedAt) rec.usedAt = [];
+      const opStr = `pinMode:${mode}`;
+      // Avoid duplicate usedAt for the exact same call site
+      if (!rec.usedAt.some((u) => u.operation === opStr && u.line === line)) {
+        rec.usedAt.push({ line, operation: opStr });
+      }
+    }
+
+    // ── Detect digitalRead(pin) ────────────────────────────────────────
+    const drRe = /digitalRead\s*\(\s*([^\)]+?)\s*\)/g;
+    while ((m = drRe.exec(cleanCode)) !== null) {
+      const pinToken = m[1].trim();
+      const isLoopVarDigitalReadAlreadyExpanded =
+        expandedLoopDigitalReadRanges.some(
+          (range) =>
+            range.loopVar === pinToken &&
+            m!.index >= range.startIndex &&
+            m!.index < range.endIndex,
+        );
+      if (isLoopVarDigitalReadAlreadyExpanded) continue;
+
+      const pin = resolvePin(pinToken);
+      if (pin === undefined) continue;
+      const rec = getOrCreate(pinToCanonical(pin));
+      if (!rec.usedAt) rec.usedAt = [];
+      const line = lineAt(m.index);
+      if (!rec.usedAt.some((u) => u.operation === "digitalRead" && u.line === line)) {
+        rec.usedAt.push({ line, operation: "digitalRead" });
+      }
+    }
+
+    // ── Detect digitalWrite(pin, value) ────────────────────────────────
+    const dwRe = /digitalWrite\s*\(\s*([^,]+?)\s*,/g;
+    while ((m = dwRe.exec(cleanCode)) !== null) {
+      const pinToken = m[1].trim();
+      const isLoopVarDigitalWriteAlreadyExpanded =
+        expandedLoopDigitalWriteRanges.some(
+          (range) =>
+            range.loopVar === pinToken &&
+            m!.index >= range.startIndex &&
+            m!.index < range.endIndex,
+        );
+      if (isLoopVarDigitalWriteAlreadyExpanded) continue;
+
+      const pin = resolvePin(pinToken);
+      if (pin === undefined) continue;
+      const rec = getOrCreate(pinToCanonical(pin));
+      if (!rec.usedAt) rec.usedAt = [];
+      const line = lineAt(m.index);
+      if (!rec.usedAt.some((u) => u.operation === "digitalWrite" && u.line === line)) {
+        rec.usedAt.push({ line, operation: "digitalWrite" });
+      }
+    }
+
+    // ── Detect analogRead(pin) ─────────────────────────────────────────
+    const arRe = /analogRead\s*\(\s*([^\)]+?)\s*\)/g;
+    while ((m = arRe.exec(cleanCode)) !== null) {
+      const pin = resolvePin(m[1]);
+      if (pin === undefined) continue;
+      const rec = getOrCreate(pinToCanonical(pin));
+      if (!rec.usedAt) rec.usedAt = [];
+      const line = lineAt(m.index);
+      if (!rec.usedAt.some((u) => u.operation === "analogRead" && u.line === line)) {
+        rec.usedAt.push({ line, operation: "analogRead" });
+      }
+    }
+
+    // ── Detect analogWrite(pin, value) ─────────────────────────────────
+    const awRe = /analogWrite\s*\(\s*([^,]+?)\s*,/g;
+    while ((m = awRe.exec(cleanCode)) !== null) {
+      const pin = resolvePin(m[1]);
+      if (pin === undefined) continue;
+      const rec = getOrCreate(pinToCanonical(pin));
+      if (!rec.usedAt) rec.usedAt = [];
+      const line = lineAt(m.index);
+      if (!rec.usedAt.some((u) => u.operation === "analogWrite" && u.line === line)) {
+        rec.usedAt.push({ line, operation: "analogWrite" });
+      }
+    }
+
+    return Array.from(pinMap.values());
+  }
+
+  /**
+   * Resolve a token to a numeric pin number.
+   * Handles: literal numbers, Ax analog pins, and variable references.
+   */
+  private resolveToken(
+    token: string,
+    varMap: Map<string, number>,
+  ): number | undefined {
+    // Analog pin notation: A0–A5
+    const aMatch = token.match(/^A(\d+)$/i);
+    if (aMatch) {
+      const idx = parseInt(aMatch[1], 10);
+      if (idx >= 0 && idx <= 5) return 14 + idx;
+      return undefined;
+    }
+    // Numeric literal
+    if (/^\d+$/.test(token)) {
+      const n = parseInt(token, 10);
+      if (n >= 0 && n <= 255) return n;
+      return undefined;
+    }
+    // Variable lookup
+    return varMap.get(token);
   }
 
   /**

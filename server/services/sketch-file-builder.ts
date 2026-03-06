@@ -99,18 +99,19 @@ int main() {
 
     if (hasLoop) {
       footer += `
+    // Send initial registry after setup() to capture pinMode calls
+    outputIORegistry();
+    Serial.flush();
+    
     // Run user's loop() function continuously
-    bool __registry_sent = false;
     while (1) {
         Serial.flush();
         loop();
         
-        // Send registry after first loop iteration
-        if (!__registry_sent) {
-            Serial.flush();
-            outputIORegistry();
-            __registry_sent = true;
-        }
+        // Send updated registry after each iteration to capture all operations
+        // The runner will use the last received registry
+        Serial.flush();
+        outputIORegistry();
         
         // Sleep 1ms to prevent 100% CPU usage (Arduino runs at ~16MHz, so 1ms is reasonable throttle)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

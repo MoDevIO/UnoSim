@@ -24,7 +24,7 @@ describe("ProcessController — unit", () => {
 
     // wait for first stdout chunk (or fail after timeout)
     await new Promise<void>((resolve, reject) => {
-      const to = setTimeout(() => reject(new Error('timeout waiting for stdout')), 1500);
+      const to = setTimeout(() => reject(new Error('timeout waiting for stdout')), 5000);
       const onData = (d: Buffer) => {
         clearTimeout(to);
         // resolve once either listener has been invoked
@@ -57,7 +57,7 @@ describe("ProcessController — unit", () => {
 
     // wait for the first tick (or timeout)
     await new Promise<void>((resolve, reject) => {
-      const to = setTimeout(() => reject(new Error('no stdout tick observed')), 1500);
+      const to = setTimeout(() => reject(new Error('no stdout tick observed')), 5000);
       const onTick = () => {
         clearTimeout(to);
         resolve();

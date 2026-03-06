@@ -216,7 +216,33 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       }
       case "io_registry": {
         const { registry, baudrate } = message as any;
-        setIoRegistry(registry);
+        
+        // Merge runtime registry with static registry (preserve static usedAt with line numbers)
+        setIoRegistry((prevRegistry) => {
+          const merged = new Map<string, IOPinRecord>();
+          
+          // Start with previous registry (contains static analysis with line numbers)
+          for (const rec of prevRegistry) {
+            merged.set(rec.pin, { ...rec });
+          }
+          
+          // Update with runtime pinMode/defined state
+          for (const runtimeRec of registry) {
+            const current = merged.get(runtimeRec.pin);
+            if (current) {
+              // Update pinMode and defined state from runtime
+              if (runtimeRec.defined !== undefined) current.defined = runtimeRec.defined;
+              if (runtimeRec.pinMode !== undefined) current.pinMode = runtimeRec.pinMode;
+              if (runtimeRec.hasConflict !== undefined) current.hasConflict = runtimeRec.hasConflict;
+              // Keep static usedAt (with line numbers), don't overwrite with runtime (line: 0)
+            } else {
+              // Add new pin from runtime (shouldn't normally happen with static parsing)
+              merged.set(runtimeRec.pin, { ...runtimeRec });
+            }
+          }
+          
+          return Array.from(merged.values());
+        });
 
         if (typeof baudrate === "number" && baudrate > 0) {
           setBaudRate(baudrate);
