@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">38.63% </span>
+                <span class="strong">35.41% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>34/88</span>
+                <span class='fraction'>34/96</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">20.83% </span>
+                <span class="strong">16.66% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/24</span>
+                <span class='fraction'>5/30</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">38.37% </span>
+                <span class="strong">35.1% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>33/86</span>
+                <span class='fraction'>33/94</span>
             </div>
         
             
@@ -330,7 +330,14 @@
 <a name='L265'></a><a href='#L265'>265</a>
 <a name='L266'></a><a href='#L266'>266</a>
 <a name='L267'></a><a href='#L267'>267</a>
-<a name='L268'></a><a href='#L268'>268</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -382,10 +389,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
@@ -517,6 +520,14 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -528,16 +539,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -618,24 +632,20 @@ import os from "os";
 import fs from "fs";
 import { Logger } from "@shared/logger";
 import type { CompilationResult } from "./arduino-compiler";
+import {
+  type CompileRequestPayload,
+  type AnyWorkerMessage,
+  type CompileRequestMessage,
+  createCompileRequest,
+  isReadyMessage,
+  isCompileResponse,
+} from "@shared/worker-protocol";
 &nbsp;
-export interface CompilationTask {
-  code: string;
-  headers?: Array&lt;{ name: string; content: string }&gt;;
-  tempRoot?: string;
-  fqbn?: string;
-  libraries?: string[];
-  sketchHash?: string;
-  coreFingerprint?: string;
-}
-&nbsp;
-export interface WorkerMessage {
-  type: "compile" | "ready" | "shutdown";
-  task?: CompilationTask;
-  taskId?: string;
-  result?: CompilationResult;
-  error?: string;
-}
+/**
+ * Type alias for backward compatibility
+ * @deprecated Use CompileRequestPayload from worker-protocol instead
+ */
+export type CompilationTask = CompileRequestPayload;
 &nbsp;
 /**
  * Statistic tracking for monitoring pool health
@@ -658,7 +668,7 @@ export class CompilationWorkerPool {
   private readonly workers: Worker[] = [];
   private readonly availableWorkers: Set&lt;number&gt; = new Set();
   private readonly queue: Array&lt;{
-    task: CompilationTask;
+    task: CompileRequestPayload;
     resolve: (result: CompilationResult) =&gt; void;
     reject: (error: Error) =&gt; void;
     startTime: number;
@@ -717,8 +727,8 @@ export class CompilationWorkerPool {
         });
         const workerId = i;
 &nbsp;
-        worker.on("message", <span class="fstat-no" title="function not covered" >(m</span>sg: WorkerMessage) =&gt; {
-<span class="cstat-no" title="statement not covered" >          if (msg.type === "ready") {</span>
+        worker.on("message", <span class="fstat-no" title="function not covered" >(m</span>sg: AnyWorkerMessage) =&gt; {
+<span class="cstat-no" title="statement not covered" >          if (isReadyMessage(msg)) {</span>
 <span class="cstat-no" title="statement not covered" >            this.availableWorkers.add(workerId);</span>
 <span class="cstat-no" title="statement not covered" >            this.logger.debug(`[Worker ${workerId}] Ready`);</span>
 <span class="cstat-no" title="statement not covered" >            this.processQueue();</span>
@@ -750,7 +760,7 @@ export class CompilationWorkerPool {
   /**
    * Enqueue a compilation task
    */
-  async <span class="fstat-no" title="function not covered" >compile(t</span>ask: CompilationTask): Promise&lt;CompilationResult&gt; {
+  async <span class="fstat-no" title="function not covered" >compile(t</span>ask: CompileRequestPayload): Promise&lt;CompilationResult&gt; {
 <span class="cstat-no" title="statement not covered" >    this.stats.totalTasks++;</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
@@ -781,30 +791,41 @@ export class CompilationWorkerPool {
       const worker = <span class="cstat-no" title="statement not covered" >this.workers[workerId];</span>
 &nbsp;
       // Set up one-time message handler for this specific task
-      const messageHandler = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(m</span>sg: WorkerMessage) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        if (msg.error) {</span>
-<span class="cstat-no" title="statement not covered" >          this.stats.failedTasks++;</span>
-<span class="cstat-no" title="statement not covered" >          reject(new Error(msg.error));</span>
-<span class="cstat-no" title="statement not covered" >        } else if (msg.result) {</span>
-          const compileTimeMs = <span class="cstat-no" title="statement not covered" >Date.now() - startTime;</span>
-<span class="cstat-no" title="statement not covered" >          this.stats.completedTasks++;</span>
-<span class="cstat-no" title="statement not covered" >          this.stats.compileTimes.push(compileTimeMs);</span>
-<span class="cstat-no" title="statement not covered" >          this.logger.info(`[Worker ${workerId}] Compiled in ${compileTimeMs}ms`);</span>
-<span class="cstat-no" title="statement not covered" >          resolve(msg.result);</span>
+      const messageHandler = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(m</span>sg: AnyWorkerMessage) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >        if (isCompileResponse(msg)) {</span>
+          const { payload } = <span class="cstat-no" title="statement not covered" >msg;</span>
+          
+<span class="cstat-no" title="statement not covered" >          if (payload.error) {</span>
+<span class="cstat-no" title="statement not covered" >            this.stats.failedTasks++;</span>
+            const errorMsg = <span class="cstat-no" title="statement not covered" >payload.error.message || "Unknown worker error";</span>
+            const error = <span class="cstat-no" title="statement not covered" >new Error(errorMsg);</span>
+<span class="cstat-no" title="statement not covered" >            if (payload.error.stack) {</span>
+<span class="cstat-no" title="statement not covered" >              error.stack = payload.error.stack;</span>
+            }
+<span class="cstat-no" title="statement not covered" >            reject(error);</span>
+<span class="cstat-no" title="statement not covered" >          } else if (payload.result) {</span>
+            const compileTimeMs = <span class="cstat-no" title="statement not covered" >Date.now() - startTime;</span>
+<span class="cstat-no" title="statement not covered" >            this.stats.completedTasks++;</span>
+<span class="cstat-no" title="statement not covered" >            this.stats.compileTimes.push(compileTimeMs);</span>
+<span class="cstat-no" title="statement not covered" >            this.logger.info(`[Worker ${workerId}] Compiled in ${compileTimeMs}ms`);</span>
+<span class="cstat-no" title="statement not covered" >            resolve(payload.result);</span>
+          } else {
+            // Malformed response
+<span class="cstat-no" title="statement not covered" >            this.stats.failedTasks++;</span>
+<span class="cstat-no" title="statement not covered" >            reject(new Error("Worker returned malformed response"));</span>
+          }
+          
+          // Clean up listener and mark worker as available
+<span class="cstat-no" title="statement not covered" >          worker.off("message", messageHandler);</span>
+<span class="cstat-no" title="statement not covered" >          this.availableWorkers.add(workerId);</span>
+<span class="cstat-no" title="statement not covered" >          this.processQueue(); // Process next in queue</span>
         }
-        // Clean up listener and mark worker as available
-<span class="cstat-no" title="statement not covered" >        worker.off("message", messageHandler);</span>
-<span class="cstat-no" title="statement not covered" >        this.availableWorkers.add(workerId);</span>
-<span class="cstat-no" title="statement not covered" >        this.processQueue(); // Process next in queue</span>
       };
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      worker.on("message", messageHandler);</span>
 &nbsp;
-      // Send compile task to worker
-      const message: WorkerMessage = <span class="cstat-no" title="statement not covered" >{</span>
-        type: "compile",
-        task,
-      };
+      // Send compile task to worker using strict protocol
+      const <span class="cstat-no" title="statement not covered" >message: CompileRequestMessage = createCompileRequest(task);</span>
 <span class="cstat-no" title="statement not covered" >      worker.postMessage(message);</span>
     }
   }
@@ -871,7 +892,7 @@ export function <span class="fstat-no" title="function not covered" >setCompilat
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-05T14:09:14.901Z
+                at 2026-03-06T08:39:54.118Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
