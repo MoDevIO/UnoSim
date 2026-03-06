@@ -132,6 +132,9 @@
     "/^python3 \\./temp/write-cli-test\\.py$/": {
       "approve": true,
       "matchCommandLine": true
-    }
+    },
+    "/bin/ls": true,
+    "/usr/bin/git": true,
+    "test": true
   },
 }
