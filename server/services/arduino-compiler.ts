@@ -261,6 +261,11 @@ export class ArduinoCompiler {
   ): Promise<CompilationResult> {
     const sketchId = randomUUID();
 
+    // Ensure provided tempRoot exists (important for Worker pool and deterministic tests)
+    if (tempRoot) {
+      await mkdir(tempRoot, { recursive: true }).catch(() => {});
+    }
+
     // use a unique temporary directory per-call to avoid state conflicts when
     // multiple compilations run in parallel (e.g. workers=4 during tests).
     // callers can still provide tempRoot for deterministic paths in unit tests.
@@ -343,8 +348,14 @@ export class ArduinoCompiler {
         };
       }
 
-      // Create files
+      // Create files and ensure all compilation paths exist
       await mkdir(sketchDir, { recursive: true });
+      if (options?.buildPath) {
+        await mkdir(options.buildPath, { recursive: true }).catch(() => {});
+      }
+      if (options?.buildCachePath) {
+        await mkdir(options.buildCachePath, { recursive: true }).catch(() => {});
+      }
 
       // Process code: replace #include statements with actual header content
       let processedCode = code;

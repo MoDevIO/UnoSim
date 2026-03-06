@@ -75,6 +75,7 @@ async function initializeCompiler() {
 async function ensureWorkerDirs(): Promise<void> {
   if (workerDirsReady) return;
   await mkdir(WORKER_BUILD_DIR, { recursive: true });
+  await mkdir(join(WORKER_BUILD_DIR, "build-output"), { recursive: true });
   await mkdir(HEX_CACHE_DIR, { recursive: true });
   await mkdir(CORE_CACHE_DIR, { recursive: true });
   await mkdir(CORE_CACHE_BUILD_PATH, { recursive: true });
