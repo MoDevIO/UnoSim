@@ -76,6 +76,13 @@ export class RegistryManager {
   private baudrate: number | undefined = undefined; // undefined = Serial.begin() not found in code
   private destroyed = false; // Prevent logging after destruction
   private debugStream: WriteStream | null = null; // Non-blocking telemetry stream
+  /**
+   * Anti-spam: tracks (pin, mode) pairs already sent via updatePinMode so that
+   * repeated calls (e.g. from loop()) never trigger a redundant WS message.
+   * Keyed as "<pinId>:<mode>" (e.g. "13:1").
+   * Reset on reset() / next program start.
+   */
+  private runtimeSentFingerprints = new Set<string>();
   private readonly logger = new Logger("RegistryManager");
   private readonly onUpdateCallback?: RegistryUpdateCallback;
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
@@ -428,6 +435,12 @@ export class RegistryManager {
    */
   updatePinMode(pin: number, mode: number): void {
     if (this.destroyed) return;
+    // ── Anti-spam: skip if this (pin, mode) was already sent ─────────────────
+    const fingerprint = `${pin}:${mode}`;
+    if (this.runtimeSentFingerprints.has(fingerprint)) {
+      this.telemetry.incomingEvents++;
+      return; // No new information – don't update registry or trigger WS send
+    }
     const pinStr = pin >= 14 && pin <= 19 ? `A${pin - 14}` : String(pin);
     const existing = this.registry.find((p) => p.pin === pinStr);
 
@@ -461,8 +474,12 @@ export class RegistryManager {
         this.logger.info(
           `Registry send trigger: first-time pin use ${pinStr} (pinMode:${mode})`,
         );
+        this.runtimeSentFingerprints.add(fingerprint);
         const nextHash = this.computeRegistryHash();
         this.sendNow(nextHash, "pin-defined-changed");
+      } else {
+        // Already defined but new mode (mode change) – mark as sent
+        this.runtimeSentFingerprints.add(fingerprint);
       }
     } else {
       // Create new pin record if not yet in registry
@@ -477,6 +494,7 @@ export class RegistryManager {
       this.logger.debug(
         `New pin record created: ${pinStr} with mode=${mode}, sending immediately`,
       );
+      this.runtimeSentFingerprints.add(fingerprint);
       const nextHash = this.computeRegistryHash();
       this.sendNow(nextHash, "pin-new-record");
     }
@@ -526,6 +544,7 @@ export class RegistryManager {
     this.registryHash = "";
     this.waitingForRegistry = false;
     this.isDirty = false;
+    this.runtimeSentFingerprints.clear(); // reset anti-spam state for new sketch run
 
     this.stopTelemetry();
 

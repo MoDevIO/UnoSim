@@ -39,6 +39,8 @@ export function ParserOutput({
     defaultTab,
   );
   const [showAllPins, setShowAllPins] = useState(false);
+  /** detailView: false = compact (✓/—), true = extended (line numbers). Eye-button toggle per SSOT. */
+  const [detailView, setDetailView] = useState(false);
   // PWM-capable pins on Arduino UNO
   const PWM_PINS = [3, 5, 6, 9, 10, 11];
 
@@ -70,31 +72,30 @@ export function ParserOutput({
     return labels[category] || category;
   };
 
+  // A pin is "programmed" if it appears in the static or runtime registry
+  const isPinProgrammed = React.useCallback(
+    (record: IOPinRecord): boolean =>
+      record.defined ||
+      (record.pinModeLines?.length ?? 0) > 0 ||
+      (record.digitalReadLines?.length ?? 0) > 0 ||
+      (record.digitalWriteLines?.length ?? 0) > 0 ||
+      (record.analogReadLines?.length ?? 0) > 0 ||
+      (record.analogWriteLines?.length ?? 0) > 0 ||
+      (record.usedAt?.length ?? 0) > 0,
+    [],
+  );
+
   // Filter pins: show only programmed pins by default, all pins if showAllPins is true
   const filteredRegistry = React.useMemo(() => {
-    if (showAllPins) {
-      return ioRegistry;
-    }
-    // Only show pins that have operations or are defined
-    return ioRegistry.filter((record) => {
-      const hasOperations = record.usedAt && record.usedAt.length > 0;
-      const hasPinMode =
-        record.defined ||
-        (record.usedAt?.some((u) => u.operation.includes("pinMode")) ?? false);
-      return hasOperations || hasPinMode;
-    });
-  }, [ioRegistry, showAllPins]);
+    if (showAllPins) return ioRegistry;
+    return ioRegistry.filter(isPinProgrammed);
+  }, [ioRegistry, showAllPins, isPinProgrammed]);
 
   // Count of programmed pins (pins with any operation)
-  const totalProgrammedPins = React.useMemo(() => {
-    return ioRegistry.filter((record) => {
-      const hasOperations = record.usedAt && record.usedAt.length > 0;
-      const hasPinMode =
-        record.defined ||
-        (record.usedAt?.some((u) => u.operation.includes("pinMode")) ?? false);
-      return hasOperations || hasPinMode;
-    }).length;
-  }, [ioRegistry]);
+  const totalProgrammedPins = React.useMemo(
+    () => ioRegistry.filter(isPinProgrammed).length,
+    [ioRegistry, isPinProgrammed],
+  );
 
   // Inline CSS to hide scrollbars while keeping scrolling functional
   const hideScrollbarStyle = `
@@ -298,19 +299,33 @@ export function ParserOutput({
                 ? `All pins (${ioRegistry.length})`
                 : `Programmed pins (${totalProgrammedPins})`}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAllPins(!showAllPins)}
-              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-3"
-              title={showAllPins ? "Hide empty pins" : "Show all pins"}
-            >
-              {showAllPins ? (
-                <Eye className="h-3.5 w-3.5" />
-              ) : (
-                <EyeOff className="h-3.5 w-3.5" />
-              )}
-            </Button>
+            <div className="flex items-center gap-1">
+              {/* Show-all toggle (text button) */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAllPins(!showAllPins)}
+                className="h-[var(--ui-button-height)] px-1.5 text-ui-xs text-muted-foreground hover:text-foreground"
+                title={showAllPins ? "Hide empty pins" : "Show all pins"}
+              >
+                {showAllPins ? "Used" : "All"}
+              </Button>
+              {/* Eye button: compact (✓/—) vs extended (line numbers) – SSOT eye-mode */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailView(!detailView)}
+                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+                title={detailView ? "Compact view (✓ / —)" : "Extended view (line numbers)"}
+                data-testid="io-registry-detail-toggle"
+              >
+                {detailView ? (
+                  <Eye className="h-3.5 w-3.5" />
+                ) : (
+                  <EyeOff className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-auto no-scrollbar">
@@ -360,35 +375,103 @@ export function ParserOutput({
                   </thead>
                   <tbody>
                     {filteredRegistry.map((record, idx) => {
-                      // Extract operations by type
+                      // ── Derive modes ─────────────────────────────────────
+                      // Prefer new static-parse fields (pinModeModes/Lines);
+                      // fall back to legacy usedAt for runtime-only pins.
                       const ops = record.usedAt || [];
-                      const digitalReads = ops.filter((u) =>
-                        u.operation.includes("digitalRead"),
+
+                      const pmModes: string[] =
+                        record.pinModeModes ??
+                        ops
+                          .filter((u) => u.operation.includes("pinMode"))
+                          .map((u) => {
+                            const m = u.operation.match(/pinMode:(\d+)/);
+                            const n = m ? parseInt(m[1]) : -1;
+                            return n === 0
+                              ? "INPUT"
+                              : n === 1
+                                ? "OUTPUT"
+                                : n === 2
+                                  ? "INPUT_PULLUP"
+                                  : "UNKNOWN";
+                          });
+                      const uniqueModes = [...new Set(pmModes)];
+
+                      // Conflict: TC9 (write on input) or TC11 (multi-mode)
+                      const hasConflict =
+                        record.conflict ?? uniqueModes.length > 1;
+
+                      // ── Helper: render an op cell ────────────────────────
+                      // newLines  = from static parse (has line numbers)
+                      // legacyOps = from runtime usedAt (line may be 0)
+                      const renderOpCell = (
+                        newLines: Array<number | "runtime"> | undefined,
+                        legacyOps: typeof ops,
+                      ) => {
+                        const hasNew = (newLines?.length ?? 0) > 0;
+                        const hasLegacy = legacyOps.length > 0;
+                        const isUsed = hasNew || hasLegacy;
+
+                        if (!isUsed)
+                          return (
+                            <span className="text-gray-400">—</span>
+                          );
+
+                        // Compact mode: just a checkmark
+                        if (!detailView)
+                          return (
+                            <span className="text-green-500 font-bold">
+                              ✓
+                            </span>
+                          );
+
+                        // Extended mode: line numbers
+                        const lines: Array<number | "runtime"> = hasNew
+                          ? newLines!
+                          : legacyOps.map((u) =>
+                              u.line > 0
+                                ? u.line
+                                : ("runtime" as const),
+                            );
+                        return (
+                          <div className="space-y-0.5 text-center">
+                            {lines.map((line, i) => (
+                              <div key={i} className="text-ui-xs">
+                                {line === "runtime" ? (
+                                  <span className="text-yellow-400 italic">
+                                    runtime
+                                  </span>
+                                ) : (
+                                  <span className="text-blue-400">
+                                    L{line}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      };
+
+                      const drCell = renderOpCell(
+                        record.digitalReadLines,
+                        ops.filter((u) => u.operation.includes("digitalRead")),
                       );
-                      const digitalWrites = ops.filter((u) =>
-                        u.operation.includes("digitalWrite"),
+                      const dwCell = renderOpCell(
+                        record.digitalWriteLines,
+                        ops.filter((u) =>
+                          u.operation.includes("digitalWrite"),
+                        ),
                       );
-                      const analogReads = ops.filter((u) =>
-                        u.operation.includes("analogRead"),
+                      const arCell = renderOpCell(
+                        record.analogReadLines,
+                        ops.filter((u) => u.operation.includes("analogRead")),
                       );
-                      const analogWrites = ops.filter((u) =>
-                        u.operation.includes("analogWrite"),
+                      const awCell = renderOpCell(
+                        record.analogWriteLines,
+                        ops.filter((u) =>
+                          u.operation.includes("analogWrite"),
+                        ),
                       );
-                      const pinModes = ops
-                        .filter((u) => u.operation.includes("pinMode"))
-                        .map((u) => {
-                          const match = u.operation.match(/pinMode:(\d+)/);
-                          const mode = match ? parseInt(match[1]) : -1;
-                          return mode === 0
-                            ? "INPUT"
-                            : mode === 1
-                              ? "OUTPUT"
-                              : mode === 2
-                                ? "INPUT_PULLUP"
-                                : "UNKNOWN";
-                        });
-                      const uniqueModes = [...new Set(pinModes)];
-                      const hasMultipleModes = uniqueModes.length > 1;
 
                       return (
                         <tr
@@ -427,38 +510,55 @@ export function ParserOutput({
                             </div>
                           </td>
 
-                          {/* pinMode Column */}
+                          {/* pinMode Column – always shows mode name; conflict indicator if needed */}
                           <td
                             className={clsx(
                               "px-2 py-1 text-center",
-                              hasMultipleModes && "border-2 border-red-500",
+                              hasConflict && "border-2 border-red-500",
                             )}
                           >
-                            {pinModes.length > 0 ? (
+                            {pmModes.length > 0 ? (
                               <div className="space-y-0.5 text-center">
                                 {uniqueModes.map((mode, i) => {
-                                  const count = pinModes.filter(
-                                    (m) => m === mode,
-                                  ).length;
                                   const modeColor =
                                     mode === "INPUT"
                                       ? "text-blue-400"
                                       : mode === "OUTPUT"
                                         ? "text-orange-400"
                                         : "text-green-400";
+                                  // In extended mode, also show line numbers per mode
+                                  const modeLines = detailView
+                                    ? record.pinModeLines?.filter(
+                                        (_, li) =>
+                                          record.pinModeModes?.[li] === mode,
+                                      )
+                                    : undefined;
                                   return (
                                     <div
                                       key={i}
-                                      className="flex items-center justify-center gap-1"
+                                      className="flex flex-col items-center"
                                     >
-                                      <span className={modeColor}>{mode}</span>
-                                      {hasMultipleModes && (
-                                        <span className="text-red-400">?</span>
-                                      )}
-                                      {count > 1 && (
-                                        <span className="text-yellow-400 text-ui-xs">
-                                          x{count}
+                                      <div className="flex items-center justify-center gap-1">
+                                        <span className={modeColor}>
+                                          {mode}
                                         </span>
+                                        {hasConflict && (
+                                          <span
+                                            className="text-red-400 font-bold"
+                                            title={record.conflictMessage}
+                                          >
+                                            !
+                                          </span>
+                                        )}
+                                      </div>
+                                      {modeLines && modeLines.length > 0 && (
+                                        <div className="text-ui-xs text-blue-400">
+                                          {modeLines.map((l) =>
+                                            l === "runtime"
+                                              ? "runtime"
+                                              : `L${l}`,
+                                          ).join(", ")}
+                                        </div>
                                       )}
                                     </div>
                                   );
@@ -483,8 +583,12 @@ export function ParserOutput({
                                       : "INPUT_PULLUP"}
                                 </span>
                               </div>
-                            ) : digitalReads.length > 0 ||
-                              digitalWrites.length > 0 ? (
+                            ) : (record.digitalReadLines?.length ?? 0) > 0 ||
+                              (record.digitalWriteLines?.length ?? 0) > 0 ||
+                              ops.some((u) =>
+                                u.operation.includes("digitalRead") ||
+                                u.operation.includes("digitalWrite"),
+                              ) ? (
                               <div
                                 className="flex items-center justify-center"
                                 title="pinMode() missing"
@@ -497,96 +601,16 @@ export function ParserOutput({
                           </td>
 
                           {/* digitalRead Column */}
-                          <td className="px-2 py-1 text-center">
-                            {digitalReads.length > 0 ? (
-                              <div className="space-y-0.5 text-center">
-                                {digitalReads.map((usage, i) => (
-                                  <div key={i} className="text-ui-xs">
-                                    {usage.line > 0 ? (
-                                      <span className="text-blue-400">
-                                        L{usage.line}
-                                      </span>
-                                    ) : (
-                                      <span className="text-green-500 font-bold">
-                                        ✓
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </td>
+                          <td className="px-2 py-1 text-center">{drCell}</td>
 
                           {/* digitalWrite Column */}
-                          <td className="px-2 py-1 text-center">
-                            {digitalWrites.length > 0 ? (
-                              <div className="space-y-0.5 text-center">
-                                {digitalWrites.map((usage, i) => (
-                                  <div key={i} className="text-ui-xs">
-                                    {usage.line > 0 ? (
-                                      <span className="text-blue-400">
-                                        L{usage.line}
-                                      </span>
-                                    ) : (
-                                      <span className="text-green-500 font-bold">
-                                        ✓
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </td>
+                          <td className="px-2 py-1 text-center">{dwCell}</td>
 
                           {/* analogRead Column */}
-                          <td className="px-2 py-1 text-center">
-                            {analogReads.length > 0 ? (
-                              <div className="space-y-0.5 text-center">
-                                {analogReads.map((usage, i) => (
-                                  <div key={i} className="text-ui-xs">
-                                    {usage.line > 0 ? (
-                                      <span className="text-blue-400">
-                                        L{usage.line}
-                                      </span>
-                                    ) : (
-                                      <span className="text-green-500 font-bold">
-                                        ✓
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </td>
+                          <td className="px-2 py-1 text-center">{arCell}</td>
 
                           {/* analogWrite Column */}
-                          <td className="px-2 py-1 text-center">
-                            {analogWrites.length > 0 ? (
-                              <div className="space-y-0.5 text-center">
-                                {analogWrites.map((usage, i) => (
-                                  <div key={i} className="text-ui-xs">
-                                    {usage.line > 0 ? (
-                                      <span className="text-blue-400">
-                                        L{usage.line}
-                                      </span>
-                                    ) : (
-                                      <span className="text-green-500 font-bold">
-                                        ✓
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </td>
+                          <td className="px-2 py-1 text-center">{awCell}</td>
                         </tr>
                       );
                     })}

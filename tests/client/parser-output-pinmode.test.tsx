@@ -519,10 +519,11 @@ describe("ParserOutput Component", () => {
     expect(pinModeCell).not.toBeNull();
   });
 
-  it("displays operations with line numbers", () => {
+  it("displays operations with line numbers", async () => {
+    const user = userEvent.setup();
     const ioRegistry: IOPinRecord[] = [
       {
-        pin: 13,
+        pin: "13",
         defined: true,
         pinMode: 1,
         usedAt: [
@@ -540,6 +541,10 @@ describe("ParserOutput Component", () => {
         defaultTab="registry"
       />,
     );
+
+    // Enable extended view (eye-button) to show line numbers (SSOT: detail-toggle)
+    const eyeButton = screen.getByTestId("io-registry-detail-toggle");
+    await user.click(eyeButton);
 
     expect(screen.getByText("L5")).not.toBeNull();
     expect(screen.getByText("L7")).not.toBeNull();
