@@ -299,33 +299,19 @@ export function ParserOutput({
                 ? `All pins (${ioRegistry.length})`
                 : `Programmed pins (${totalProgrammedPins})`}
             </span>
-            <div className="flex items-center gap-1">
-              {/* Show-all toggle (text button) */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAllPins(!showAllPins)}
-                className="h-[var(--ui-button-height)] px-1.5 text-ui-xs text-muted-foreground hover:text-foreground"
-                title={showAllPins ? "Hide empty pins" : "Show all pins"}
-              >
-                {showAllPins ? "Used" : "All"}
-              </Button>
-              {/* Eye button: compact (✓/—) vs extended (line numbers) – SSOT eye-mode */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDetailView(!detailView)}
-                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-                title={detailView ? "Compact view (✓ / —)" : "Extended view (line numbers)"}
-                data-testid="io-registry-detail-toggle"
-              >
-                {detailView ? (
-                  <Eye className="h-3.5 w-3.5" />
-                ) : (
-                  <EyeOff className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAllPins(!showAllPins)}
+              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-3"
+              title={showAllPins ? "Hide all pins" : "Show all pins"}
+            >
+              {showAllPins ? (
+                <Eye className="h-3.5 w-3.5" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5" />
+              )}
+            </Button>
           </div>
 
           <div className="flex-1 overflow-auto no-scrollbar">
@@ -472,6 +458,23 @@ export function ParserOutput({
                           u.operation.includes("analogWrite"),
                         ),
                       );
+                      const pinModes = ops
+                        .filter((u) => u.operation.includes("pinMode"))
+                        .map((u) => {
+                          const match = u.operation.match(/pinMode:(\d+)/);
+                          const mode = match ? parseInt(match[1]) : -1;
+                          return mode === 0
+                            ? "INPUT"
+                            : mode === 1
+                              ? "OUTPUT"
+                              : mode === 2
+                                ? "INPUT_PULLUP"
+                                : "UNKNOWN";
+                        });
+                      const uniqueModes = [...new Set(pinModes)];
+                      const hasMultipleModes = uniqueModes.length > 1;
+                      // Runtime conflict flag from RegistryManager
+                      const isConflict = hasMultipleModes || record.hasConflict === true;
 
                       return (
                         <tr
@@ -514,59 +517,80 @@ export function ParserOutput({
                           <td
                             className={clsx(
                               "px-2 py-1 text-center",
-                              hasConflict && "border-2 border-red-500",
+                              isConflict && "border-2 border-red-500",
                             )}
                           >
-                            {pmModes.length > 0 ? (
-                              <div className="space-y-0.5 text-center">
-                                {uniqueModes.map((mode, i) => {
-                                  const modeColor =
-                                    mode === "INPUT"
-                                      ? "text-blue-400"
-                                      : mode === "OUTPUT"
-                                        ? "text-orange-400"
-                                        : "text-green-400";
-                                  // In extended mode, also show line numbers per mode
-                                  const modeLines = detailView
-                                    ? record.pinModeLines?.filter(
-                                        (_, li) =>
-                                          record.pinModeModes?.[li] === mode,
-                                      )
-                                    : undefined;
-                                  return (
-                                    <div
-                                      key={i}
-                                      className="flex flex-col items-center"
-                                    >
-                                      <div className="flex items-center justify-center gap-1">
-                                        <span className={modeColor}>
-                                          {mode}
-                                        </span>
-                                        {hasConflict && (
-                                          <span
-                                            className="text-red-400 font-bold"
-                                            title={record.conflictMessage}
-                                          >
-                                            !
+                            {pinModes.length > 0 ? (
+                              showAllPins ? (
+                                <div className="space-y-0.5 text-center">
+                                  {ops
+                                    .filter((u) => u.operation.includes("pinMode"))
+                                    .map((usage, i) => {
+                                      const match = usage.operation.match(/pinMode:(\d+)/);
+                                      const mode = match ? parseInt(match[1]) : -1;
+                                      const modeText =
+                                        mode === 0
+                                          ? "INPUT"
+                                          : mode === 1
+                                            ? "OUTPUT"
+                                            : mode === 2
+                                              ? "INPUT_PULLUP"
+                                              : "?";
+                                      const modeColor =
+                                        mode === 0
+                                          ? "text-blue-400"
+                                          : mode === 1
+                                            ? "text-orange-400"
+                                            : "text-green-400";
+                                      return (
+                                        <div
+                                          key={i}
+                                          className="text-ui-xs flex items-center justify-center gap-1"
+                                        >
+                                          <span className={modeColor}>{modeText}</span>
+                                          {usage.line > 0 && (
+                                            <span className="text-blue-400">
+                                              L{usage.line}
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              ) : (
+                                <div className="space-y-0.5 text-center">
+                                  {uniqueModes.map((mode, i) => {
+                                    const count = pinModes.filter(
+                                      (m) => m === mode,
+                                    ).length;
+                                    const modeColor =
+                                      mode === "INPUT"
+                                        ? "text-blue-400"
+                                        : mode === "OUTPUT"
+                                          ? "text-orange-400"
+                                          : "text-green-400";
+                                    return (
+                                      <div
+                                        key={i}
+                                        className="flex items-center justify-center gap-1"
+                                      >
+                                        <span className={modeColor}>{mode}</span>
+                                        {isConflict && (
+                                          <span className="text-red-400">?</span>
+                                        )}
+                                        {count > 1 && (
+                                          <span className="text-yellow-400 text-ui-xs">
+                                            x{count}
                                           </span>
                                         )}
                                       </div>
-                                      {modeLines && modeLines.length > 0 && (
-                                        <div className="text-ui-xs text-blue-400">
-                                          {modeLines.map((l) =>
-                                            l === "runtime"
-                                              ? "runtime"
-                                              : `L${l}`,
-                                          ).join(", ")}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                                    );
+                                  })}
+                                </div>
+                              )
                             ) : record.defined &&
                               record.pinMode !== undefined ? (
-                              <div className="text-center">
+                              <div className="flex items-center justify-center gap-1">
                                 <span
                                   className={
                                     record.pinMode === 0
@@ -582,6 +606,9 @@ export function ParserOutput({
                                       ? "OUTPUT"
                                       : "INPUT_PULLUP"}
                                 </span>
+                                {record.hasConflict && (
+                                  <span className="text-red-400" title="Conflicting pin usage detected at runtime">?</span>
+                                )}
                               </div>
                             ) : (record.digitalReadLines?.length ?? 0) > 0 ||
                               (record.digitalWriteLines?.length ?? 0) > 0 ||
@@ -601,16 +628,112 @@ export function ParserOutput({
                           </td>
 
                           {/* digitalRead Column */}
-                          <td className="px-2 py-1 text-center">{drCell}</td>
+                          <td className="px-2 py-1 text-center">
+                            {digitalReads.length > 0 ? (
+                              showAllPins ? (
+                                <div className="space-y-0.5 text-center">
+                                  {digitalReads.map((usage, i) => (
+                                    <div key={i} className="text-ui-xs">
+                                      {usage.line > 0 ? (
+                                        <span className="text-blue-400">
+                                          L{usage.line}
+                                        </span>
+                                      ) : (
+                                        <span className="text-green-500 font-bold">
+                                          ✓
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-green-500 font-bold">✓</span>
+                              )
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
 
                           {/* digitalWrite Column */}
-                          <td className="px-2 py-1 text-center">{dwCell}</td>
+                          <td className="px-2 py-1 text-center">
+                            {digitalWrites.length > 0 ? (
+                              showAllPins ? (
+                                <div className="space-y-0.5 text-center">
+                                  {digitalWrites.map((usage, i) => (
+                                    <div key={i} className="text-ui-xs">
+                                      {usage.line > 0 ? (
+                                        <span className="text-blue-400">
+                                          L{usage.line}
+                                        </span>
+                                      ) : (
+                                        <span className="text-green-500 font-bold">
+                                          ✓
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-green-500 font-bold">✓</span>
+                              )
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
 
                           {/* analogRead Column */}
-                          <td className="px-2 py-1 text-center">{arCell}</td>
+                          <td className="px-2 py-1 text-center">
+                            {analogReads.length > 0 ? (
+                              showAllPins ? (
+                                <div className="space-y-0.5 text-center">
+                                  {analogReads.map((usage, i) => (
+                                    <div key={i} className="text-ui-xs">
+                                      {usage.line > 0 ? (
+                                        <span className="text-blue-400">
+                                          L{usage.line}
+                                        </span>
+                                      ) : (
+                                        <span className="text-green-500 font-bold">
+                                          ✓
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-green-500 font-bold">✓</span>
+                              )
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
 
                           {/* analogWrite Column */}
-                          <td className="px-2 py-1 text-center">{awCell}</td>
+                          <td className="px-2 py-1 text-center">
+                            {analogWrites.length > 0 ? (
+                              showAllPins ? (
+                                <div className="space-y-0.5 text-center">
+                                  {analogWrites.map((usage, i) => (
+                                    <div key={i} className="text-ui-xs">
+                                      {usage.line > 0 ? (
+                                        <span className="text-blue-400">
+                                          L{usage.line}
+                                        </span>
+                                      ) : (
+                                        <span className="text-green-500 font-bold">
+                                          ✓
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-green-500 font-bold">✓</span>
+                              )
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}

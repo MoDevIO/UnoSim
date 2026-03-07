@@ -136,9 +136,7 @@
     "/bin/ls": true,
     "/usr/bin/git": true,
     "test": true,
-    "/^node scripts/wait-for-backend\\.mjs$/": {
-      "approve": true,
-      "matchCommandLine": true
-    }
+    "clear": true,
+    "printf": true
   },
 }

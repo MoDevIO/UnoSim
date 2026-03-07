@@ -340,23 +340,23 @@ describe("useBackendHealth", () => {
     expect(result.current.showErrorGlitch).toBe(false);
   });
 
-  it("triggerErrorGlitch should use custom duration", () => {
+  it("triggerErrorGlitch should use custom duration", async () => {
     const { result } = renderHook(() => useBackendHealth(mockQueryClient));
 
-    act(() => {
+    await act(async () => {
       result.current.triggerErrorGlitch(1200);
     });
 
     expect(result.current.showErrorGlitch).toBe(true);
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(600);
     });
 
     // Still showing after 600ms
     expect(result.current.showErrorGlitch).toBe(true);
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(600);
     });
 
@@ -388,7 +388,7 @@ describe("useBackendHealth", () => {
 
     unmount();
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(200);
     });
 

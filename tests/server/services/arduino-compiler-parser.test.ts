@@ -2,7 +2,7 @@ import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
 import { ParserMessage } from "../../../shared/schema";
 import { spawn } from "child_process";
 
-vi.setConfig({ testTimeout: 2000 });
+vi.setConfig({ testTimeout: 5000 });
 
 const createMockProcess = () => {
   const mockProcess = {

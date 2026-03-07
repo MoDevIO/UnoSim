@@ -542,12 +542,14 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    // Enable extended view (eye-button) to show line numbers (SSOT: detail-toggle)
-    const eyeButton = screen.getByTestId("io-registry-detail-toggle");
-    await user.click(eyeButton);
+    // Click the eye button to show all pins and line numbers
+    const toggleButton = screen.getByTitle("Show all pins");
+    await user.click(toggleButton);
 
-    expect(screen.getByText("L5")).not.toBeNull();
-    expect(screen.getByText("L7")).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText("L5")).not.toBeNull();
+      expect(screen.getByText("L7")).not.toBeNull();
+    });
   });
 
   it("switches between tabs", async () => {

@@ -4,6 +4,7 @@
 .DS_Store
 Thumbs.db
 *.bak
+*.hex
 *.swp
 *~
 *.log
@@ -42,8 +43,8 @@ yarn-error.log*
 /playwright-report/
 /screenshots/
 
-# Old archive folder (legacy, use /docs/archive instead)
-/archive/
+# archive folder
+**/archive/
 
 ##################################
 # 4. COMPILER & TYPESCRIPT       #
