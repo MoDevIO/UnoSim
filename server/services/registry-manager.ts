@@ -59,6 +59,23 @@ function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
   return cleaned;
 }
 
+function mergeUsedAtEntries(
+  existing: IOPinRecord["usedAt"],
+  incoming: IOPinRecord["usedAt"],
+): IOPinRecord["usedAt"] {
+  const merged = [...(existing ?? []), ...(incoming ?? [])];
+  if (merged.length === 0) return undefined;
+
+  const unique = new Map<string, (typeof merged)[number]>();
+  for (const entry of merged) {
+    const key = `${entry.operation}@${entry.line}`;
+    if (!unique.has(key)) {
+      unique.set(key, entry);
+    }
+  }
+  return Array.from(unique.values());
+}
+
 /**
  * RegistryManager handles the collection and management of Arduino pin states.
  * It provides debouncing to minimize WebSocket traffic and change detection
@@ -324,7 +341,7 @@ export class RegistryManager {
     
     // ROBUSTNESS: Flush current registry state before clearing
     // This ensures any pins added via updatePinMode before IO_REGISTRY_START marker are sent
-    if (this.registry.length > 0 && this.isDirty) {
+    if (!this.waitingForRegistry && this.registry.length > 0 && this.isDirty) {
       const hasDefinedPins = this.registry.some((p) => p.defined);
       if (hasDefinedPins) {
         this.logger.info(
@@ -362,7 +379,18 @@ export class RegistryManager {
       return;
     }
     // Individual pin additions are not logged (20 per start is too noisy).
-    this.registry.push(pinRecord);
+    const existingIndex = this.registry.findIndex((p) => p.pin === pinRecord.pin);
+    if (existingIndex >= 0) {
+      const existing = this.registry[existingIndex];
+      this.registry[existingIndex] = {
+        ...existing,
+        ...pinRecord,
+        defined: existing.defined || pinRecord.defined,
+        usedAt: mergeUsedAtEntries(existing.usedAt, pinRecord.usedAt),
+      };
+    } else {
+      this.registry.push(pinRecord);
+    }
     this.isDirty = true;
     this.telemetry.incomingEvents++;
   }
@@ -475,8 +503,11 @@ export class RegistryManager {
           `Registry send trigger: first-time pin use ${pinStr} (pinMode:${mode})`,
         );
         this.runtimeSentFingerprints.add(fingerprint);
-        const nextHash = this.computeRegistryHash();
-        this.sendNow(nextHash, "pin-defined-changed");
+        this.isDirty = true;
+        if (!this.isCollecting && !this.waitingForRegistry) {
+          const nextHash = this.computeRegistryHash();
+          this.sendNow(nextHash, "pin-defined-changed");
+        }
       } else {
         // Already defined but new mode (mode change) – mark as sent
         this.runtimeSentFingerprints.add(fingerprint);
@@ -495,8 +526,10 @@ export class RegistryManager {
         `New pin record created: ${pinStr} with mode=${mode}, sending immediately`,
       );
       this.runtimeSentFingerprints.add(fingerprint);
-      const nextHash = this.computeRegistryHash();
-      this.sendNow(nextHash, "pin-new-record");
+      if (!this.isCollecting && !this.waitingForRegistry) {
+        const nextHash = this.computeRegistryHash();
+        this.sendNow(nextHash, "pin-new-record");
+      }
     }
   }
 
@@ -523,6 +556,12 @@ export class RegistryManager {
     this.waitTimer = setTimeout(() => {
       if (this.waitingForRegistry) {
         this.logger.warn("Registry wait timeout - releasing queue");
+        if (this.isDirty) {
+          const nextHash = this.computeRegistryHash();
+          if (nextHash !== this.registryHash) {
+            this.sendNow(nextHash, "wait-timeout-flush");
+          }
+        }
         this.waitingForRegistry = false;
       }
     }, timeoutMs);

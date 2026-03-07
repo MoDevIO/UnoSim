@@ -46,6 +46,20 @@ describe("RegistryManager", () => {
       expect(manager.getRegistry()).toHaveLength(1);
       expect(manager.getRegistry()[0].pin).toBe("12");
     });
+
+    it("should deduplicate repeated IO_PIN records by pin", () => {
+      manager.startCollection();
+      manager.addPin({ pin: "13", defined: true, pinMode: 1, usedAt: [] });
+      manager.addPin({ pin: "13", defined: true, pinMode: 1, usedAt: [] });
+      manager.addPin({ pin: "A0", defined: true, pinMode: 0, usedAt: [] });
+      manager.addPin({ pin: "A0", defined: true, pinMode: 0, usedAt: [] });
+      manager.finishCollection();
+
+      const registry = manager.getRegistry();
+      expect(registry).toHaveLength(2);
+      expect(registry.find((p) => p.pin === "13")).toBeDefined();
+      expect(registry.find((p) => p.pin === "A0")).toBeDefined();
+    });
   });
 
   describe("updatePinMode", () => {
@@ -173,6 +187,22 @@ describe("RegistryManager", () => {
       expect(updateCallback).toHaveBeenCalledTimes(1);
     });
 
+    it("should defer pin-new-record sends while collection is active", () => {
+      manager.startCollection();
+      manager.updatePinMode(12, 1);
+      manager.updatePinMode(11, 0);
+
+      // No immediate sends during active collection
+      expect(updateCallback).not.toHaveBeenCalled();
+
+      manager.finishCollection();
+
+      // Single batched send at end of collection
+      expect(updateCallback).toHaveBeenCalledTimes(1);
+      expect(updateCallback.mock.calls[0][2]).toBe("collection-complete");
+      expect(updateCallback.mock.calls[0][0]).toHaveLength(2);
+    });
+
     it("should not send if registry hash unchanged", () => {
       manager.startCollection();
       manager.addPin({ pin: "13", defined: true, pinMode: 1, usedAt: [] });
@@ -218,6 +248,68 @@ describe("RegistryManager", () => {
       manager.finishCollection();
 
       expect(manager.isWaiting()).toBe(false);
+    });
+
+    it("should suppress pin-new-record while waiting and send once on collection-complete", () => {
+      manager.enableWaitMode(1000);
+
+      manager.updatePinMode(14, 0); // A0 before IO_REGISTRY_START
+      manager.updatePinMode(0, 0);
+      manager.updatePinMode(1, 0);
+
+      // No immediate spam while waiting for registry sync
+      expect(updateCallback).not.toHaveBeenCalled();
+
+      manager.startCollection();
+      manager.addPin({ pin: "A0", defined: true, pinMode: 2, usedAt: [] });
+      manager.addPin({ pin: "0", defined: true, pinMode: 0, usedAt: [] });
+      manager.addPin({ pin: "1", defined: true, pinMode: 0, usedAt: [] });
+      manager.finishCollection();
+
+      expect(updateCallback).toHaveBeenCalledTimes(1);
+      expect(updateCallback.mock.calls[0][2]).toBe("collection-complete");
+    });
+
+    it("should flush dirty registry once when wait mode times out", () => {
+      manager.enableWaitMode(500);
+      manager.updatePinMode(13, 1);
+      manager.updatePinMode(12, 0);
+
+      expect(updateCallback).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(500);
+
+      expect(updateCallback).toHaveBeenCalledTimes(1);
+      expect(updateCallback.mock.calls[0][2]).toBe("wait-timeout-flush");
+    });
+
+    it("should suppress pins discovered during wait-mode even with long compilation delay", () => {
+      // Scenario: enableWaitMode(5000) called, but compilation takes ~1s
+      // PIN_MODE events may arrive before wait-timeout, then collection starts
+      manager.enableWaitMode(5000);
+      
+      // Fast PIN_MODE events arrive (wait still active)
+      manager.updatePinMode(14, 0); // A0
+      manager.updatePinMode(0, 0);
+      expect(updateCallback).not.toHaveBeenCalled();
+      
+      // Then collection starts
+      manager.startCollection();
+      manager.updatePinMode(1, 0);
+      
+      // Still nothing sent
+      expect(updateCallback).not.toHaveBeenCalled();
+      
+      // Collection completes with batched pins
+      manager.addPin({ pin: "A0", defined: true, pinMode: 0, usedAt: [] });
+      manager.addPin({ pin: "0", defined: true, pinMode: 0, usedAt: [] });
+      manager.addPin({ pin: "1", defined: true, pinMode: 0, usedAt: [] });
+      manager.finishCollection();
+      
+      // Exactly one send
+      expect(updateCallback).toHaveBeenCalledTimes(1);
+      expect(updateCallback.mock.calls[0][2]).toBe("collection-complete");
+      expect(updateCallback.mock.calls[0][0]).toHaveLength(3);
     });
   });
 
