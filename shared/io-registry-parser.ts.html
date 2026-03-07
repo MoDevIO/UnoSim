@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for server/services/serial-output-batcher.ts</title>
+    <title>Code coverage report for shared/io-registry-parser.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../prettify.css" />
-    <link rel="stylesheet" href="../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../sort-arrow-sprite.png);
+            background-image: url(../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">server/services</a> serial-output-batcher.ts</h1>
+        <h1><a href="../index.html">All files</a> / <a href="index.html">shared</a> io-registry-parser.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.23% </span>
+                <span class="strong">89.06% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>100/105</span>
+                <span class='fraction'>171/192</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">86.95% </span>
+                <span class="strong">76.98% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>40/46</span>
+                <span class='fraction'>97/126</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">92.85% </span>
+                <span class="strong">96.55% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>13/14</span>
+                <span class='fraction'>28/29</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.02% </span>
+                <span class="strong">92.94% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>98/101</span>
+                <span class='fraction'>145/156</span>
             </div>
         
             
@@ -423,7 +423,64 @@
 <a name='L358'></a><a href='#L358'>358</a>
 <a name='L359'></a><a href='#L359'>359</a>
 <a name='L360'></a><a href='#L360'>360</a>
-<a name='L361'></a><a href='#L361'>361</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a>
+<a name='L403'></a><a href='#L403'>403</a>
+<a name='L404'></a><a href='#L404'>404</a>
+<a name='L405'></a><a href='#L405'>405</a>
+<a name='L406'></a><a href='#L406'>406</a>
+<a name='L407'></a><a href='#L407'>407</a>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a>
+<a name='L413'></a><a href='#L413'>413</a>
+<a name='L414'></a><a href='#L414'>414</a>
+<a name='L415'></a><a href='#L415'>415</a>
+<a name='L416'></a><a href='#L416'>416</a>
+<a name='L417'></a><a href='#L417'>417</a>
+<a name='L418'></a><a href='#L418'>418</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -451,11 +508,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -468,237 +527,202 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
-<span class="cline-any cline-yes">103x</span>
-<span class="cline-any cline-yes">103x</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">103x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">104x</span>
-<span class="cline-any cline-yes">104x</span>
-<span class="cline-any cline-yes">104x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">104x</span>
-<span class="cline-any cline-yes">104x</span>
-<span class="cline-any cline-yes">104x</span>
-<span class="cline-any cline-yes">104x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2320x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2319x</span>
-<span class="cline-any cline-yes">2319x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2319x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2319x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2319x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">53x</span>
-<span class="cline-any cline-yes">52x</span>
-<span class="cline-any cline-yes">52x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">53x</span>
-<span class="cline-any cline-yes">53x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">92x</span>
-<span class="cline-any cline-yes">92x</span>
-<span class="cline-any cline-yes">31x</span>
-<span class="cline-any cline-yes">31x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">92x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">122x</span>
-<span class="cline-any cline-yes">8030x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1577x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1576x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1577x</span>
-<span class="cline-any cline-yes">1577x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1577x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1534x</span>
-<span class="cline-any cline-yes">29x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1576x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -707,12 +731,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -729,419 +748,571 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8030x</span>
-<span class="cline-any cline-yes">8030x</span>
-<span class="cline-any cline-yes">8030x</span>
-<span class="cline-any cline-yes">8030x</span>
-<span class="cline-any cline-yes">8030x</span>
-<span class="cline-any cline-yes">8030x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8030x</span>
-<span class="cline-any cline-yes">7679x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">351x</span>
-<span class="cline-any cline-yes">351x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">351x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">247x</span>
-<span class="cline-any cline-yes">247x</span>
-<span class="cline-any cline-yes">247x</span>
-<span class="cline-any cline-yes">247x</span>
-<span class="cline-any cline-yes">247x</span>
-<span class="cline-any cline-yes">247x</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">104x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">104x</span>
-<span class="cline-any cline-yes">104x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
 <span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">104x</span>
-<span class="cline-any cline-yes">70x</span>
-<span class="cline-any cline-yes">70x</span>
-<span class="cline-any cline-yes">70x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">104x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
- * Serial Output Batcher
- * 
- * Batches serial output with baudrate-based rate limiting to prevent overwhelming
- * the WebSocket connection and simulate realistic Arduino serial behavior.
- * 
- * Key features:
- * - Ring-Buffer (Uint8Array) for O(1) writes without string allocation overhead
- * - Tick-based batching (default 50ms = 20 batches/sec, like PinStateBatcher)
- * - Baudrate-based byte budget per tick
- * - FIFO drop strategy when buffer full (no unbounded growth)
- * - Burst tolerance for short spikes (e.g., setup() output)
- * - Telemetry tracking (intended/actual/dropped bytes)
- * - Newline-aware cutting (prefer line boundaries)
+ * io-registry-parser.ts
+ *
+ * Pure static parser for the Hybrid IO-Registry.
+ * Analyses Arduino/C++ source code and returns IOPinRecord[] for the
+ * 20 known hardware pins (0-13 digital, 14-19 = A0-A5 analog).
+ *
+ * Covers all 11 SSOT test cases:
+ *   TC1  – literal pin + literal mode
+ *   TC2  – A0-A5 alias resolution
+ *   TC3  – for-loop expansion (variable range)
+ *   TC4  – const int / variable resolution
+ *   TC5  – #define resolution
+ *   TC6  – static entry is created once (no per-call duplication)
+ *   TC7  – same pin used in read AND write → both columns filled
+ *   TC8  – dynamic pin (runtime() etc.) → NOT included (runtime only)
+ *   TC9  – conflict: INPUT/INPUT_PULLUP mode + digitalWrite → warning
+ *   TC10 – array index resolution (pins[1])
+ *   TC11 – multiple different pinMode modes → warning + both lines
  */
 &nbsp;
-import { RingBuffer } from "@shared/utils/ring-buffer";
+import type { IOPinRecord } from "./schema";
 &nbsp;
-export interface SerialOutputBatcherConfig {
-  /** Baudrate in bits per second (e.g., 115200) */
-  baudrate: number;
-  /** Tick interval in milliseconds (default: 50ms = 20 batches/sec) */
-  tickIntervalMs?: number;
-  /** Callback invoked with each batch. firstLineIncomplete=true if this chunk starts with a truncated line (due to drops). */
-  onChunk: (data: string, firstLineIncomplete?: boolean) =&gt; void;
-  /** Burst factor (default: 3 = 3× normal budget for short spikes) */
-  burstFactor?: number;
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+&nbsp;
+/** Built-in Arduino pin-name constants mapped to numeric IDs (0-19). */
+const BUILTIN_CONSTANTS: Record&lt;string, number&gt; = {
+  LED_BUILTIN: 13,
+  A0: 14, A1: 15, A2: 16, A3: 17, A4: 18, A5: 19,
+};
+&nbsp;
+/** Canonical mode name table. */
+const MODE_MAP: Record&lt;string, "INPUT" | "OUTPUT" | "INPUT_PULLUP"&gt; = {
+  INPUT: "INPUT",       "0": "INPUT",
+  OUTPUT: "OUTPUT",     "1": "OUTPUT",
+  INPUT_PULLUP: "INPUT_PULLUP", "2": "INPUT_PULLUP",
+};
+&nbsp;
+type OpName =
+  | "pinMode"
+  | "digitalRead"
+  | "digitalWrite"
+  | "analogRead"
+  | "analogWrite";
+&nbsp;
+interface CallEntry {
+  op: OpName;
+  pinId: number;
+  line: number;
+  mode?: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
 }
 &nbsp;
-export interface SerialOutputTelemetry {
-  /** Total bytes intended to send since last reset */
-  intended: number;
-  /** Total bytes actually sent since last reset */
-  actual: number;
-  /** Total bytes dropped since last reset */
-  dropped: number;
-  /** Number of chunks sent since last reset */
-  chunks: number;
-  /** Cumulative bytes intended since batcher start (never resets) */
-  totalBytes: number;
+// ─────────────────────────────────────────────────────────────────────────────
+// Comment stripping (position-preserving)
+// ─────────────────────────────────────────────────────────────────────────────
+&nbsp;
+/**
+ * Strip comments while preserving character positions (newlines kept intact).
+ * This allows line numbers in the stripped code to match the original source.
+ */
+function stripComments(code: string): string {
+  // Multi-line comments → spaces (preserve newlines for correct line counting)
+  let result = code.replace(/\/\*[\s\S]*?\*\//g, (m) =&gt;
+    m.replace(/[^\n]/g, " "),
+  );
+  // Single-line comments → spaces (preserve line length)
+  result = result.replace(/\/\/[^\n]*/g, (m) =&gt; " ".repeat(m.length));
+  return result;
 }
 &nbsp;
-export class SerialOutputBatcher {
-  private config: Required&lt;SerialOutputBatcherConfig&gt;;
-  private pendingBuffer: RingBuffer; // Ring-Buffer instead of string accumulation
-  private tickTimer: NodeJS.Timeout | null = null;
-  
-  // paused flag prevents enqueue/start while paused (tests rely on this)
-  private paused = false;
-  
-  // Telemetry counters (reset periodically)
-  private intendedBytes = 0;
-  private actualBytes = 0;
-  private droppedBytes = 0;
-  private chunks = 0;
-  
-  // Total bytes counter (never reset, accumulates over lifetime)
-  private totalBytes = 0;
-  
-  // Burst budget tracking
-  private currentBudget = 0;
-  private maxBudget = 0;
-  
-  // Fractional byte accumulator for low baudrates
-  // At baud=1: normalBudget per tick = 0.005 bytes, which rounds to 0.
-  // The accumulator carries over the fractional part so that after 200 ticks
-  // (10 seconds), 1 byte gets through — correctly simulating 0.1 bytes/s.
-  private budgetAccumulator = 0;
-  
-  // Maximum queue size before applying FIFO drops (for memory safety)
-  // This prevents unbounded buffering in pathological cases (e.g., data arriving
-  // much faster than baudrate allows). Typical value: 100KB.
-  private readonly MAX_QUEUE_BYTES = 100_000;
+/** 1-based line number for a character position in a string. */
+function lineAt(code: string, pos: number): number {
+  return code.slice(0, pos).split("\n").length;
+}
 &nbsp;
-  // Backpressure threshold (upper watermark in bytes). When the buffered
-  // data rises above this, the runner will pause the sketch.  We'll add
-  // a lower 'resume' watermark inside isOverloaded() to prevent thrashing.
-  // Start with 512 bytes to give some headroom for slow baud rates.
-  private readonly BACKPRESSURE_THRESHOLD = 512;
+// ─────────────────────────────────────────────────────────────────────────────
+// Symbol resolution
+// ─────────────────────────────────────────────────────────────────────────────
 &nbsp;
-  // internal flag used by hysteresis logic
-  private overloadedState = false;
-  
-  // Flag to prevent enqueue after destroy
-  private destroyed = false;
-  
-  constructor(config: SerialOutputBatcherConfig) {
-    this.config = {
-      baudrate: config.baudrate,
-      tickIntervalMs: config.tickIntervalMs ?? <span class="branch-1 cbranch-no" title="branch not covered" >50,</span>
-      onChunk: config.onChunk,
-      burstFactor: config.burstFactor ?? 3,
-    };
-    
-    // Initialize ring buffer with capacity equal to MAX_QUEUE_BYTES
-    // This prevents unbounded memory growth while allowing burst handling
-    this.pendingBuffer = new RingBuffer(this.MAX_QUEUE_BYTES);
-    
-    this.updateBudget();
+/**
+ * Build symbol table: name → pin ID (0-19).
+ * Handles: built-in constants, #define, const int/byte, plain int/byte.
+ */
+function buildSymbols(clean: string): Map&lt;string, number&gt; {
+  const syms = new Map&lt;string, number&gt;(Object.entries(BUILTIN_CONSTANTS));
+&nbsp;
+  // #define NAME VALUE
+  const defineRe = /^#define\s+([A-Za-z_]\w*)\s+([A-Za-z0-9_]+)/gm;
+  let m: RegExpExecArray | null;
+  while ((m = defineRe.exec(clean)) !== null) {
+    const v = resolveToken(m[2], syms);
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (v !== undefined) syms.set(m[1], v);
   }
-  
-  /**
-   * Calculate and update byte budget based on baudrate
-   */
-  private updateBudget(): void {
-    // Byte budget per tick = (baudrate / 10 bits per byte) × (tick interval in seconds)
-    const bytesPerSecond = this.config.baudrate / 10;
-    const bytesPerTick = bytesPerSecond * (this.config.tickIntervalMs / 1000);
-    const burstBudget = bytesPerTick * this.config.burstFactor;
-    
-    // maxBudget: determines initial burst capacity and max accumulation.
-    // For high bauds (≥ ~3333): burstBudget (3 × bytesPerTick) dominates naturally.
-    // For low bauds (&lt; 3333): a proportional floor ensures typical println() works.
-    //   - The floor = min(50, ceil(bytesPerSecond × 0.5)) = "half a second of output, max 50"
-    //   - At 300 baud: floor = min(50, 15) = 15 → covers "Hello World!\n" (14 bytes)
-    //   - At 1200 baud: floor = min(50, 60) = 50 → same as old MIN_BUDGET
-    //   - At baud=1: floor = min(50, 1) = 1 → nearly nothing (correct for 0.1 bytes/s)
-    // The old hardcoded MIN_BUDGET=50 gave baud=1 a 50-byte free pass, defeating rate limiting.
-    // This proportional approach fixes that while preserving setup() burst for standard bauds.
-    const proportionalFloor = Math.min(50, Math.ceil(bytesPerSecond * 0.5));
-    this.maxBudget = Math.max(1, Math.floor(burstBudget), proportionalFloor);
-    this.currentBudget = this.maxBudget; // Start with full burst budget
-    this.budgetAccumulator = 0;
+&nbsp;
+  // const int/byte NAME = VALUE;
+  const constRe =
+    /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z0-9_]+)\s*;/g;
+  while ((m = constRe.exec(clean)) !== null) {
+    const v = resolveToken(m[2], syms);
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (v !== undefined) syms.set(m[1], v);
   }
-  
-  /**
-   * Enqueue data for batching
-   * 
-   * If queue size would exceed MAX_QUEUE_BYTES (memory safety limit),
-   * drop oldest bytes using FIFO strategy (not "tail wins").
-   * 
-   * NOTE: We count ALL enqueued data as "intended" - even if it will later be dropped.
-   * The telemetry semantic is: actual + dropped = intended
-   */
-  enqueue(data: string): void {
-    // After destroy(), enqueue is a no-op
-    if (this.destroyed) return;
 &nbsp;
-    // Count as intended (part of telemetry accounting)
-    this.intendedBytes += data.length;
-    this.totalBytes += data.length;
+  // plain int/byte NAME = VALUE; (common in Arduino, e.g. int led = 12;)
+  const varRe =
+    /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z0-9_]+)\s*;/g;
+  while ((m = varRe.exec(clean)) !== null) {
+    if (syms.has(m[1])) continue; // already set by const variant
+    const v = resolveToken(m[2], syms);
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (v !== undefined) syms.set(m[1], v);
+  }
 &nbsp;
-    // Write to ring buffer - it handles overflow internally via FIFO
-    const bytesWritten = this.pendingBuffer.write(data);
-    
-    // Track any bytes that couldn't fit (dropped due to ring buffer capacity)
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (bytesWritten &lt; data.length) {
-      const bytesDropped = <span class="cstat-no" title="statement not covered" >data.length - bytesWritten;</span>
-<span class="cstat-no" title="statement not covered" >      this.droppedBytes += bytesDropped;</span>
-    }
+  return syms;
+}
 &nbsp;
-    // Ensure the ticking timer is running; do not create multiple intervals.
-    // However, if we're paused we must not start or restart the timer – data
-    // should remain buffered until resume().
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (!this.tickTimer &amp;&amp; !this.paused) {
-<span class="cstat-no" title="statement not covered" >      this.tickTimer = setInterval(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >t</span>his.tick(), t</span>his.config.tickIntervalMs);</span>
+/** Resolve a single token (numeric literal, A0-A5, or symbol) to a pin ID. */
+function resolveToken(
+  token: string,
+  syms: Map&lt;string, number&gt;,
+): number | undefined {
+  if (/^\d+$/.test(token)) return parseInt(token, 10);
+  const analogMatch = /^A(\d+)$/.exec(token);
+  if (analogMatch) {
+    const n = parseInt(analogMatch[1], 10);
+    return n &gt;= 0 &amp;&amp; n &lt;= 5 ? 14 + n : <span class="branch-1 cbranch-no" title="branch not covered" >undefined;</span>
+  }
+  return syms.get(token);
+}
+&nbsp;
+/**
+ * Build array table: `int arr[] = {a, b, c}` → arr → [pinId, pinId, …].
+ * Used to resolve array-index pin expressions like `pins[1]`.
+ */
+function buildArrays(
+  clean: string,
+  syms: Map&lt;string, number&gt;,
+): Map&lt;string, number[]&gt; {
+  const arrays = new Map&lt;string, number[]&gt;();
+  const re =
+    /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(clean)) !== null) {
+    const vals = m[2]
+      .split(",")
+      .map((v) =&gt; resolveToken(v.trim(), syms));
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (vals.every((v) =&gt; v !== undefined)) {
+      arrays.set(m[1], vals as number[]);
     }
   }
-  
-  /**
-   * Stop the timer and flush remaining data (without limit)
-   */
-  stop(): void {
-    if (this.tickTimer) {
-      clearInterval(this.tickTimer);
-      this.tickTimer = null;
-    }
-    
-    // Flush all remaining data without budget limit
-    const remaining = this.pendingBuffer.readAll();
-    if (remaining.length &gt; 0) {
-      this.config.onChunk(remaining);
-      this.actualBytes += remaining.length;
-      this.chunks++;
-    }
-  }
-  
-  /**
-   * Pause the timer (keeps pending data)
-   */
-  pause(): void {
-    this.paused = true;
-    <span class="missing-if-branch" title="else path not taken" >E</span>if (this.tickTimer) {
-      clearInterval(this.tickTimer);
-      this.tickTimer = null;
-    }
-  }
-  
-  /**
-   * Resume the timer
-   */
-  resume(): void {
-    this.paused = false;
-    this.start();
-  }
-  
-  /**
-   * Destroy the batcher (stop timer, discard data, no callbacks)
-   */
-  destroy(): void {
-    this.destroyed = true;
-    if (this.tickTimer) {
-      clearInterval(this.tickTimer);
-      this.tickTimer = null;
-    }
-    this.pendingBuffer.clear();
-  }
-  
-  /**
-   * Start the batching timer.
-   *
-   * The timer is not automatically started in the constructor because the
-   * caller may choose to configure additional callbacks first (e.g. the
-   * runner sets output/error handlers after instantiation).  The public
-   * `start()` method mirrors the semantics described in the design docs and
-   * allows the timer to be restarted after `pause()`.
-   */
-  start(): void {
-    // don't start when paused or already running
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (this.tickTimer || this.paused) <span class="cstat-no" title="statement not covered" >return;</span>
-    this.tickTimer = setInterval(() =&gt; this.tick(), this.config.tickIntervalMs);
-  }
+  return arrays;
+}
 &nbsp;
-  /**
-   * Return true when the current buffer has grown past the overload threshold.
-   * Used by SandboxRunner to implement backpressure. Simple getter keeps the
-   * knowledge encapsulated and allows the threshold to change easily.
-   */
-  isOverloaded(): boolean {
-    // Special-case: when the baudrate is so low that the C++ side applies its
-    // txDelay cap (e.g. 300 baud → 10 ms max delay), we intentionally disable
-    // backpressure.  Injecting 50 ms SIGSTOP pauses would defeat the cap and
-    // slow sketches instead of helping them.
-    if (this.config.baudrate &lt;= 300) {
-      return false;
+/**
+ * Resolve a pin expression (literal, symbol, or array-index) to a pin ID 0-19.
+ * Returns undefined if the expression is not statically resolvable (→ TC 8).
+ */
+function resolvePin(
+  expr: string,
+  syms: Map&lt;string, number&gt;,
+  arrays: Map&lt;string, number[]&gt;,
+): number | undefined {
+  const t = expr.trim();
+  // Array access: name[index]
+  const arrM = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/.exec(t);
+  if (arrM) {
+    const arr = arrays.get(arrM[1]);
+    const idx = parseInt(arrM[2], 10);
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (arr &amp;&amp; idx &lt; arr.length) {
+      const id = arr[idx];
+      return id &gt;= 0 &amp;&amp; id &lt;= 19 ? id : <span class="branch-1 cbranch-no" title="branch not covered" >undefined;</span>
     }
+<span class="cstat-no" title="statement not covered" >    return undefined;</span>
+  }
+  const n = resolveToken(t, syms);
+  return n !== undefined &amp;&amp; n &gt;= 0 &amp;&amp; n &lt;= 19 ? n : undefined;
+}
 &nbsp;
-    // Scale threshold for low-but-not-tiny bauds.  The original hardcoded
-    // BACKPRESSURE_THRESHOLD=512 bytes is fine for high-speed sketches, but a
-    // 1200‑baud sketch can easily accumulate several hundred bytes while the
-    // mock's txDelay cap is in effect.  Raising the limit to 1024 gives more
-    // headroom and avoids premature SIGSTOP storms.
-    const threshold = this.config.baudrate &lt; 4800 ? 1024 : this.BACKPRESSURE_THRESHOLD;
+// ─────────────────────────────────────────────────────────────────────────────
+// For-loop range detection
+// ─────────────────────────────────────────────────────────────────────────────
 &nbsp;
-    // Hysteresis: once we've declared overloaded we stay in that state until
-    // the buffer falls below a low-watermark.  We keep the watermark at 128
-    // bytes (≈1/4 of the original threshold) so throttling behaviour remains
-    // snappy without toggling around the boundary.
-    const lowWatermark = 128;
-    const bufferSize = this.pendingBuffer.getSize();
+interface LoopRange {
+  startPos: number;
+  endPos: number;
+  startLine: number;
+  variable: string;
+  values: number[];
+}
 &nbsp;
-    if (this.overloadedState) {
-      if (bufferSize &lt; lowWatermark) {
-        this.overloadedState = false;
-      }
-    } else {
-      if (bufferSize &gt; threshold) {
-        this.overloadedState = true;
+/**
+ * Find all for-loops with a numeric iteration variable over a statically
+ * determinable range, e.g. `for (int i = 2; i &lt; 4; i++)`.
+ */
+function findLoopRanges(
+  clean: string,
+  syms: Map&lt;string, number&gt;,
+): LoopRange[] {
+  const ranges: LoopRange[] = [];
+  const re =
+    /\bfor\s*\(\s*(?:(?:byte|int|uint8_t|short)\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([&lt;&gt;]=?)\s*([A-Za-z0-9_]+)\s*;[^)]*\)\s*\{/g;
+  let m: RegExpExecArray | null;
+&nbsp;
+  while ((m = re.exec(clean)) !== null) {
+    const variable = m[1];
+    const start = parseInt(m[2], 10);
+    const op = m[3];
+    const limitVal = resolveToken(m[4], syms) ?? <span class="branch-1 cbranch-no" title="branch not covered" >parseInt(m[4], 10);</span>
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (isNaN(limitVal)) <span class="cstat-no" title="statement not covered" >continue;</span>
+&nbsp;
+    const values: number[] = [];
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (op === "&lt;")
+      for (let i = start; i &lt; limitVal &amp;&amp; values.length &lt;= 20; i++)
+        values.push(i);
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (op === "&lt;=")
+<span class="cstat-no" title="statement not covered" >      for (let i = <span class="cstat-no" title="statement not covered" >start; i</span> &lt;= limitVal &amp;&amp; values.length &lt;= 20; i++)</span>
+<span class="cstat-no" title="statement not covered" >        values.push(i);</span>
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (op === "&gt;")
+<span class="cstat-no" title="statement not covered" >      for (let i = <span class="cstat-no" title="statement not covered" >start; i</span> &gt; limitVal &amp;&amp; values.length &lt;= 20; i--)</span>
+<span class="cstat-no" title="statement not covered" >        values.push(i);</span>
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (op === "&gt;=")
+<span class="cstat-no" title="statement not covered" >      for (let i = <span class="cstat-no" title="statement not covered" >start; i</span> &gt;= limitVal &amp;&amp; values.length &lt;= 20; i--)</span>
+<span class="cstat-no" title="statement not covered" >        values.push(i);</span>
+&nbsp;
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (values.length === 0 || values.length &gt; 20) <span class="cstat-no" title="statement not covered" >continue;</span>
+&nbsp;
+    // Find the matching closing brace of the loop body
+    let openBrace = m.index + m[0].length - 1;
+    while (openBrace &lt; clean.length &amp;&amp; clean[openBrace] !== "{") <span class="cstat-no" title="statement not covered" >openBrace++;</span>
+    let depth = 0;
+    let endPos = openBrace;
+    for (let i = openBrace; i &lt; clean.length; i++) {
+      if (clean[i] === "{") depth++;
+      else if (clean[i] === "}") {
+        depth--;
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (depth === 0) {
+          endPos = i;
+          break;
+        }
       }
     }
-    return this.overloadedState;
+&nbsp;
+    ranges.push({
+      startPos: m.index,
+      endPos,
+      startLine: lineAt(clean, m.index),
+      variable,
+      values,
+    });
   }
 &nbsp;
+  return ranges;
+}
+&nbsp;
+// ─────────────────────────────────────────────────────────────────────────────
+// Main exported function
+// ─────────────────────────────────────────────────────────────────────────────
+&nbsp;
+/**
+ * Statically parse an Arduino sketch and return an IOPinRecord[] for every pin
+ * usage found in the source code.
+ *
+ * – Populates `pinModeLines`, `digitalReadLines`, `digitalWriteLines`,
+ *   `analogReadLines`, `analogWriteLines` for the extended (eye-on) view.
+ * – Sets `conflict = true` for TC 9 (write on input-mode pin) and
+ *   TC 11 (same pin configured with multiple different modes).
+ * – Dynamically-resolved pins (TC 8) are silently skipped; they will be
+ *   filled in by the runtime path.
+ * – Populates legacy `pinMode`, `definedAt`, `usedAt` fields for backward
+ *   compatibility with the existing UI and runtime registry manager.
+ */
+export function parseStaticIORegistry(code: string): IOPinRecord[] {
+  const clean = stripComments(code);
+  const syms = buildSymbols(clean);
+  const arrays = buildArrays(clean, syms);
+  const loops = findLoopRanges(clean, syms);
+&nbsp;
+  const entries: CallEntry[] = [];
+&nbsp;
   /**
-   * Change baudrate and recalculate budget
+   * Regex captures:
+   *   [1] function name
+   *   [2] pin expression: array-index form OR simple token/number
+   *   [3] optional second argument (mode for pinMode, ignored otherwise)
    */
-  setBaudrate(baudrate: number): void {
-    this.config.baudrate = baudrate;
-    this.updateBudget();
-  }
-  
-  /**
-   * Get telemetry and reset counters (except totalBytes)
-   */
-  getTelemetryAndReset(): SerialOutputTelemetry {
-    const telemetry: SerialOutputTelemetry = {
-      intended: this.intendedBytes,
-      actual: this.actualBytes,
-      dropped: this.droppedBytes,
-      chunks: this.chunks,
-      totalBytes: this.totalBytes,
-    };
-    
-    // Reset periodic counters
-    this.intendedBytes = 0;
-    this.actualBytes = 0;
-    this.droppedBytes = 0;
-    this.chunks = 0;
-    
-    return telemetry;
-  }
-  
-  /**
-   * Tick handler: process pending data with budget limit
-   * 
-   * STRATEGY: No data is dropped. Instead, data is buffered and will be sent
-   * as the baudrate allows. This is correct for serial data where FIFO order matters
-   * and completeness is more important than timing.
-   * 
-   * If bandwidth is insufficient for the data rate, output will be delayed but complete.
-   * Uses RingBuffer for O(1) operations without string allocation overhead.
-   */
-  private tick(): void {
-    // Token bucket replenishment with fractional byte accumulation.
-    // At low baudrates, bytesPerTick &lt; 1 (e.g., baud=1 → 0.005 bytes/tick).
-    // We accumulate the fractional part and only grant whole bytes.
-    const bytesPerSecond = this.config.baudrate / 10;
-    const rawBytesPerTick = bytesPerSecond * (this.config.tickIntervalMs / 1000);
-    this.budgetAccumulator += rawBytesPerTick;
-    const wholeBytesToAdd = Math.floor(this.budgetAccumulator);
-    this.budgetAccumulator -= wholeBytesToAdd;
-    this.currentBudget = Math.min(
-      this.currentBudget + wholeBytesToAdd,
-      this.maxBudget
+  const callRe =
+    /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*((?:[A-Za-z_]\w*\s*\[\s*\d+\s*\])|(?:[A-Za-z_]\w*|\d+))(?:\s*,\s*([A-Za-z_]\w*|\d+))?/g;
+&nbsp;
+  let m: RegExpExecArray | null;
+  while ((m = callRe.exec(clean)) !== null) {
+    const op = m[1] as OpName;
+    const pinExpr = m[2].trim();
+    const secondArg = (m[3] ?? "").trim();
+    const callPos = m.index;
+    const callLine = lineAt(clean, callPos);
+&nbsp;
+    // ── Check for-loop variable expansion (TC 3) ──────────────────────────
+    const loop = loops.find(
+      (l) =&gt;
+        l.startPos &lt;= callPos &amp;&amp;
+        callPos &lt;= l.endPos &amp;&amp;
+        l.variable === pinExpr,
     );
-    
-    if (this.pendingBuffer.isEmpty()) {
-      return;
+&nbsp;
+    if (loop) {
+      for (const pinId of loop.values) {
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (pinId &lt; 0 || pinId &gt; 19) <span class="cstat-no" title="statement not covered" >continue;</span>
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (op === "pinMode") {
+          const mode = <span class="cstat-no" title="statement not covered" >MODE_MAP[secondArg];</span>
+<span class="cstat-no" title="statement not covered" >          if (!mode) <span class="cstat-no" title="statement not covered" >continue;</span></span>
+<span class="cstat-no" title="statement not covered" >          entries.push({ op, pinId, line: loop.startLine, mode });</span>
+        } else {
+          entries.push({ op, pinId, line: loop.startLine });
+        }
+      }
+      continue;
     }
-    
-    // Use current accumulated budget (can be up to maxBudget for bursts)
-    const budget = this.currentBudget;
-    const bufferSize = this.pendingBuffer.getSize();
-    
-    if (bufferSize &lt;= budget) {
-      // All data fits in budget - extract and send everything
-      const dataToSend = this.pendingBuffer.readAll();
-      <span class="missing-if-branch" title="else path not taken" >E</span>if (dataToSend.length &gt; 0) {
-        this.config.onChunk(dataToSend, false); // no truncation
-        this.actualBytes += dataToSend.length;
-        this.chunks++;
-        this.currentBudget -= dataToSend.length;
-      }
+&nbsp;
+    // ── Statically resolve pin expression ────────────────────────────────
+    const pinId = resolvePin(pinExpr, syms, arrays);
+    if (pinId === undefined) continue; // TC 8: dynamic → skip (runtime only)
+&nbsp;
+    if (op === "pinMode") {
+      const mode = MODE_MAP[secondArg];
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (!mode) <span class="cstat-no" title="statement not covered" >continue; // mode not statically resolvable</span>
+      entries.push({ op, pinId, line: callLine, mode });
     } else {
-      // Data exceeds budget: send what fits, keep rest in buffer for next tick
-      // Read up to budget bytes
-      let dataToSend = this.pendingBuffer.read(budget);
-      
-      // Try to cut at newline boundary to avoid sending truncated lines
-      const lastNewlineIndex = dataToSend.lastIndexOf("\n");
-      if (lastNewlineIndex !== -1 &amp;&amp; lastNewlineIndex &lt; dataToSend.length - 1) {
-        // There's a newline within what we read (not at very end)
-        // Keep everything up to and including that newline, put back the rest
-        const toRequeue = dataToSend.slice(lastNewlineIndex + 1);
-        dataToSend = dataToSend.slice(0, lastNewlineIndex + 1);
-        // Re-enqueue the bytes we're not using yet
-        this.pendingBuffer.write(toRequeue);
-      }
-      
-      if (dataToSend.length &gt; 0) {
-        this.config.onChunk(dataToSend, false); // data is complete, not truncated
-        this.actualBytes += dataToSend.length;
-        this.chunks++;
-      }
-      
-      // Deduct what we sent from budget
-      this.currentBudget = Math.max(0, this.currentBudget - dataToSend.length);
+      entries.push({ op, pinId, line: callLine });
     }
   }
+&nbsp;
+  // ── Aggregate entries by pinId ────────────────────────────────────────────
+  const pinMap = new Map&lt;number, CallEntry[]&gt;();
+  for (const entry of entries) {
+    if (!pinMap.has(entry.pinId)) pinMap.set(entry.pinId, []);
+    pinMap.get(entry.pinId)!.push(entry);
+  }
+&nbsp;
+  const records: IOPinRecord[] = [];
+&nbsp;
+  for (const [pinId, calls] of pinMap) {
+    const label = pinId &gt;= 14 ? `A${pinId - 14}` : String(pinId);
+&nbsp;
+    const pmCalls = calls.filter((c) =&gt; c.op === "pinMode");
+    const drCalls = calls.filter((c) =&gt; c.op === "digitalRead");
+    const dwCalls = calls.filter((c) =&gt; c.op === "digitalWrite");
+    const arCalls = calls.filter((c) =&gt; c.op === "analogRead");
+    const awCalls = calls.filter((c) =&gt; c.op === "analogWrite");
+&nbsp;
+    const allModes = pmCalls.map((c) =&gt; c.mode!);
+    const uniqueModes = [...new Set(allModes)] as Array&lt;
+      "INPUT" | "OUTPUT" | "INPUT_PULLUP"
+    &gt;;
+&nbsp;
+    // TC 11: same pin configured with multiple DIFFERENT modes → conflict
+    const pinModeConflict = uniqueModes.length &gt; 1;
+&nbsp;
+    // TC 9: pin set to INPUT/INPUT_PULLUP AND written via digital/analogWrite
+    const hasInputMode =
+      pmCalls.length &gt; 0 &amp;&amp;
+      uniqueModes.some((mm) =&gt; mm === "INPUT" || mm === "INPUT_PULLUP");
+    const hasWrite = dwCalls.length &gt; 0 || awCalls.length &gt; 0;
+    const operationConflict = hasInputMode &amp;&amp; hasWrite;
+&nbsp;
+    const conflict = pinModeConflict || operationConflict;
+&nbsp;
+    const record: IOPinRecord = {
+      pin: label,
+      pinId,
+      defined: calls.length &gt; 0,
+    };
+&nbsp;
+    if (conflict) {
+      record.conflict = true;
+      record.conflictMessage = pinModeConflict
+        ? `Multiple modes: ${uniqueModes.join(", ")}`
+        : `Write on ${uniqueModes
+            .filter((mm) =&gt; mm !== "OUTPUT")
+            .join("/")} pin`;
+    }
+&nbsp;
+    // ── New extended-view line arrays ────────────────────────────────────
+    if (pmCalls.length &gt; 0) {
+      record.pinModeLines = pmCalls.map((c) =&gt; c.line);
+      record.pinModeModes = pmCalls.map((c) =&gt; c.mode!);
+    }
+    if (drCalls.length &gt; 0)
+      record.digitalReadLines = drCalls.map((c) =&gt; c.line);
+    if (dwCalls.length &gt; 0)
+      record.digitalWriteLines = dwCalls.map((c) =&gt; c.line);
+    if (arCalls.length &gt; 0)
+      record.analogReadLines = arCalls.map((c) =&gt; c.line);
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (awCalls.length &gt; 0)
+<span class="cstat-no" title="statement not covered" >      record.analogWriteLines = awCalls.map(<span class="fstat-no" title="function not covered" >(c</span>) =&gt; <span class="cstat-no" title="statement not covered" >c.line)</span>;</span>
+&nbsp;
+    // ── Legacy fields (backward compat with runtime registry manager) ────
+    if (pmCalls.length &gt; 0) {
+      const lastMode = allModes[allModes.length - 1];
+      record.pinMode =
+        lastMode === "INPUT" ? 0 : lastMode === "OUTPUT" ? 1 : 2;
+      record.definedAt = { line: pmCalls[pmCalls.length - 1].line };
+    }
+&nbsp;
+    const nonPmCalls = [...drCalls, ...dwCalls, ...arCalls, ...awCalls];
+    if (nonPmCalls.length &gt; 0) {
+      record.usedAt = nonPmCalls.map((c) =&gt; ({
+        line: c.line,
+        operation: c.op,
+      }));
+    }
+&nbsp;
+    records.push(record);
+  }
+&nbsp;
+  // Sort by pinId (0 → 19)
+  return records.sort((a, b) =&gt; (a.pinId ?? <span class="branch-1 cbranch-no" title="branch not covered" >0) - (b</span>.pinId ?? <span class="branch-1 cbranch-no" title="branch not covered" >0))</span>;
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -1152,14 +1323,14 @@ export class SerialOutputBatcher {
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
                 at 2026-03-07T12:46:55.324Z
             </div>
-        <script src="../../prettify.js"></script>
+        <script src="../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../sorter.js"></script>
-        <script src="../../block-navigation.js"></script>
+        <script src="../sorter.js"></script>
+        <script src="../block-navigation.js"></script>
     </body>
 </html>
     

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">37.38% </span>
+                <span class="strong">38.17% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>157/420</span>
+                <span class='fraction'>163/427</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">24.3% </span>
+                <span class="strong">24.82% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>70/288</span>
+                <span class='fraction'>72/290</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">30.2% </span>
+                <span class="strong">31.31% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>29/96</span>
+                <span class='fraction'>31/99</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">39.94% </span>
+                <span class="strong">40.46% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>151/378</span>
+                <span class='fraction'>155/383</span>
             </div>
         
             
@@ -1827,7 +1827,19 @@
 <a name='L1762'></a><a href='#L1762'>1762</a>
 <a name='L1763'></a><a href='#L1763'>1763</a>
 <a name='L1764'></a><a href='#L1764'>1764</a>
-<a name='L1765'></a><a href='#L1765'>1765</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1765'></a><a href='#L1765'>1765</a>
+<a name='L1766'></a><a href='#L1766'>1766</a>
+<a name='L1767'></a><a href='#L1767'>1767</a>
+<a name='L1768'></a><a href='#L1768'>1768</a>
+<a name='L1769'></a><a href='#L1769'>1769</a>
+<a name='L1770'></a><a href='#L1770'>1770</a>
+<a name='L1771'></a><a href='#L1771'>1771</a>
+<a name='L1772'></a><a href='#L1772'>1772</a>
+<a name='L1773'></a><a href='#L1773'>1773</a>
+<a name='L1774'></a><a href='#L1774'>1774</a>
+<a name='L1775'></a><a href='#L1775'>1775</a>
+<a name='L1776'></a><a href='#L1776'>1776</a>
+<a name='L1777'></a><a href='#L1777'>1777</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1854,6 +1866,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2536,6 +2549,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3662,6 +3686,7 @@ import type {
   ParserMessage,
   IOPinRecord,
 } from "@shared/schema";
+import { parseStaticIORegistry } from "@shared/io-registry-parser";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import { isMac } from "@/lib/platform";
 &nbsp;
@@ -4301,6 +4326,17 @@ export default function ArduinoSimulator() {
       }
     }
   }, [simulationStatus]);
+&nbsp;
+  // ── Static IO-Registry: update from code whenever simulation is not running ─
+  // Runs 300 ms after the user stops typing to avoid parsing every keystroke.
+  // When the simulation starts, the WS `io_registry` messages take over.
+  useEffect(() =&gt; {
+    if (simulationStatus !== "stopped") return;
+    const timer = setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      setIoRegistry(parseStaticIORegistry(code));</span>
+    }, 300);
+    return () =&gt; clearTimeout(timer);
+  }, [code, simulationStatus]);
 &nbsp;
   // Tab management handlers
   const handleTabClick = <span class="fstat-no" title="function not covered" >(t</span>abId: string) =&gt; {
@@ -5362,7 +5398,7 @@ export default function ArduinoSimulator() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-07T12:15:25.345Z
+                at 2026-03-07T12:46:55.324Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
