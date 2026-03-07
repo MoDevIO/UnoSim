@@ -69,6 +69,7 @@ import type {
   ParserMessage,
   IOPinRecord,
 } from "@shared/schema";
+import { parseStaticIORegistry } from "@shared/io-registry-parser";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import { isMac } from "@/lib/platform";
 
@@ -708,6 +709,17 @@ export default function ArduinoSimulator() {
       }
     }
   }, [simulationStatus]);
+
+  // ── Static IO-Registry: update from code whenever simulation is not running ─
+  // Runs 300 ms after the user stops typing to avoid parsing every keystroke.
+  // When the simulation starts, the WS `io_registry` messages take over.
+  useEffect(() => {
+    if (simulationStatus !== "stopped") return;
+    const timer = setTimeout(() => {
+      setIoRegistry(parseStaticIORegistry(code));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [code, simulationStatus]);
 
   // Tab management handlers
   const handleTabClick = (tabId: string) => {

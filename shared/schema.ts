@@ -175,6 +175,19 @@ export type ParserMessage = {
 export interface IOPinRecord {
   pin: string;
   defined: boolean;
+  // ── Numeric pin id (0-13 digital, 14-19 = A0-A5). Optional for compat. ──
+  pinId?: number;
+  // ── Per-operation line arrays (for extended / eye-on view) ───────────────
+  pinModeLines?: Array<number | "runtime">;
+  pinModeModes?: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">;
+  digitalReadLines?: Array<number | "runtime">;
+  digitalWriteLines?: Array<number | "runtime">;
+  analogReadLines?: Array<number | "runtime">;
+  analogWriteLines?: Array<number | "runtime">;
+  // ── Conflict / warning flags (TC 9: write-on-input, TC 11: multi-mode) ───
+  conflict?: boolean;
+  conflictMessage?: string;
+  // ── Legacy fields (kept for runtime path + backward compat) ─────────────
   pinMode?: number; // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
   definedAt?: {
     line: number;
