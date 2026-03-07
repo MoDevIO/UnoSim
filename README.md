@@ -4,7 +4,7 @@
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/w/modevio/UnoSim?color=lightgreen&logo=git)](https://github.com/MoDevIO/UnoSim/commits)
 <br>
 [![Tests](https://img.shields.io/github/actions/workflow/status/MoDevIO/UnoSim/ci.yml?label=Tests)](https://github.com/MoDevIO/UnoSim/actions/workflows/ci.yml)
-[![Test Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMoDevIO%2FUnoSim%2Frefs%2Fheads%2Fgh-pages%2Fcoverage-summary.json&query=%24.statements.percent&suffix=%25&label=Test%20Coverage&color=purple)](https://modevio.github.io/UnoSim/)
+[![Test Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMoDevIO%2FUnoSim%2Frefs%2Fheads%2Fgh-pages%2Fcoverage-summary.json&query=%24.total.statements.pct&suffix=%25&label=Test%20Coverage&color=purple)](https://modevio.github.io/UnoSim/)
 <br>
 [![Issues](https://img.shields.io/github/issues-raw/MoDevIO/UnoSim?color=orange)](https://github.com/MoDevIO/UnoSim/issues)
 [![Pull Requests](https://img.shields.io/github/issues-pr-raw/MoDevIO/UnoSim?color=cyan)](https://github.com/MoDevIO/UnoSim/pulls)

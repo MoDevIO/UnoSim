@@ -44,26 +44,10 @@ jobs:
         # Ersetzt den normalen Test-Lauf, da Coverage alles abdeckt
         run: npm run test:coverage
 
-      - name: Generate coverage-summary.json for badge
+      - name: Copy coverage-summary.json for badge
         # Nur bei Push auf Haupt-Branches ausführen
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        run: |
-          node -e "
-          const fs = require('fs');
-          const src = 'coverage/coverage-summary.json';
-          if (!fs.existsSync(src)) { console.error('coverage-summary.json not found'); process.exit(1); }
-          const raw = JSON.parse(fs.readFileSync(src, 'utf-8'));
-          if (!raw.total) { console.error('coverage-summary.json missing .total key'); process.exit(1); }
-          const t = raw.total;
-          const out = {
-            statements: { percent: t.statements.pct },
-            lines:       { percent: t.lines.pct },
-            functions:   { percent: t.functions.pct },
-            branches:    { percent: t.branches.pct }
-          };
-          fs.writeFileSync('coverage/lcov-report/coverage-summary.json', JSON.stringify(out));
-          console.log('coverage-summary.json written:', JSON.stringify(out));
-          "
+        run: cp coverage/coverage-summary.json coverage/lcov-report/coverage-summary.json
 
       - name: Deploy Coverage to GitHub Pages
         # Nur bei Push auf Haupt-Branches ausführen
