@@ -77,6 +77,7 @@ export class SandboxRunner {
   private totalOutputBytes = 0;
   private isSendingOutput = false;
   private flushTimer: NodeJS.Timeout | null = null;
+  private stderrFallbackBuffer = ""; // Fallback buffer for unline-buffered stderr data
   
   // Execution state
   private processStartTime: number | null = null;
@@ -1033,13 +1034,13 @@ export class SandboxRunner {
     });
 
     const useFallbackParser = !this.processController.supportsStderrLineStreaming();
-    let stderrFallbackBuffer = "";
+    this.stderrFallbackBuffer = ""; // Reset buffer for this run
 
     this.processController.onStderr((data) => {
       if (useFallbackParser) {
-        stderrFallbackBuffer += data.toString();
-        const lines = stderrFallbackBuffer.split(/\r?\n/);
-        stderrFallbackBuffer = lines.pop() || "";
+        this.stderrFallbackBuffer += data.toString();
+        const lines = this.stderrFallbackBuffer.split(/\r?\n/);
+        this.stderrFallbackBuffer = lines.pop() || "";
 
         for (const line of lines) {
           if (!line) continue;
@@ -1062,6 +1063,16 @@ export class SandboxRunner {
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
         this.flushTimer = null;
+      }
+
+      // CRITICAL: Flush any remaining data in stderr fallback buffer to prevent line loss
+      if (this.stderrFallbackBuffer) {
+        const buffered = this.stderrFallbackBuffer;
+        this.stderrFallbackBuffer = "";
+        if (buffered.trim()) {
+          const parsed = this.stderrParser.parseStderrLine(buffered, this.processStartTime);
+          this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+        }
       }
 
       // CRITICAL: Flush message queue before exit to prevent losing queued output
