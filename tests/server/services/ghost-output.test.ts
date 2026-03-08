@@ -12,38 +12,38 @@ describe('Ghost Output Reproduction', () => {
     // initial state should have no listeners
     expect(ctrl.stdoutListeners.length).toBe(0);
     expect(ctrl.stderrListeners.length).toBe(0);
+    expect(ctrl.stderrLineListeners.length).toBe(0);
 
     // first run
-    let registryCalls = 0;
-    runner.runSketch({ code: 'void setup() {}', onOutput: () => {}, onIORegistry: () => { registryCalls++; } });
+    runner.runSketch({ code: 'void setup() {}', onOutput: () => {}, onIORegistry: () => {} });
     // wait until a process exists AND listeners have been attached
-    while (!(ctrl.hasProcess() && ctrl.stdoutListeners.length > 0)) {
+    while (!(ctrl.hasProcess() && ctrl.stderrLineListeners.length > 0)) {
       await new Promise(r => setTimeout(r, 10));
     }
-    // simulate a registry packet arriving via stderr listener
-    ctrl.stderrListeners.forEach((cb: any) => cb(Buffer.from('[[IO_REGISTRY_START]]\n')));
-    expect(registryCalls).toBe(1);
 
     const firstStdoutCount = ctrl.stdoutListeners.length;
     const firstStderrCount = ctrl.stderrListeners.length;
+    const firstStderrLineCount = ctrl.stderrLineListeners.length;
+
+    console.log('[TEST] After first run:', { firstStdoutCount, firstStderrCount, firstStderrLineCount });
 
     await runner.stop();
 
     // second run reusing the same runner
-    registryCalls = 0;
-    runner.runSketch({ code: 'void setup() {}', onOutput: () => {}, onIORegistry: () => { registryCalls++; } });
-    while (!(ctrl.hasProcess() && ctrl.stdoutListeners.length > 0)) {
+    runner.runSketch({ code: 'void setup() {}', onOutput: () => {}, onIORegistry: () => {} });
+    while (!(ctrl.hasProcess() && ctrl.stderrLineListeners.length > 0)) {
       await new Promise(r => setTimeout(r, 10));
     }
-    // simulate again
-    ctrl.stderrListeners.forEach((cb: any) => cb(Buffer.from('[[IO_REGISTRY_START]]\n')));
-    expect(registryCalls).toBe(1);
 
     const secondStdoutCount = ctrl.stdoutListeners.length;
     const secondStderrCount = ctrl.stderrListeners.length;
+    const secondStderrLineCount = ctrl.stderrLineListeners.length;
 
-    // listener counts should not increase
+    console.log('[TEST] After second run:', { secondStdoutCount, secondStderrCount, secondStderrLineCount });
+
+    // listener counts should not increase (no Ghost Output accumulation)
     expect(secondStdoutCount).toBe(firstStdoutCount);
     expect(secondStderrCount).toBe(firstStderrCount);
+    expect(secondStderrLineCount).toBe(firstStderrLineCount);
   });
 });

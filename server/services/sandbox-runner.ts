@@ -724,6 +724,8 @@ export class SandboxRunner {
 
         // compile finished successfully, clear flag before running
         this.isCompiling = false;
+        // Clear listeners from previous run before spawning new process
+        this.processController.clearListeners();
         await this.processController.spawn(files.exeFile);
         this.processStartTime = Date.now();
         this.transitionTo(SimulationState.RUNNING);
@@ -827,6 +829,8 @@ export class SandboxRunner {
       command: DockerCommandBuilder.buildCompileAndRunCommand(),
     });
 
+    // Clear listeners from previous run before spawning new process
+    this.processController.clearListeners();
     await this.processController.spawn("docker", dockerArgs);
     this.logger.info("🚀 Docker: Compile + Run in single container");
     this.processStartTime = Date.now();
