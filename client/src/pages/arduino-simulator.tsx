@@ -1180,6 +1180,8 @@ export default function ArduinoSimulator() {
               onGoToLine={(line) => {
                 logger.debug(`Go to line: ${line}`);
               }}
+              onInsertSuggestion={handleInsertSuggestion}
+              hideHeader={true}
             />
           </div>
         )}
