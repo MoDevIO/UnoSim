@@ -139,6 +139,10 @@
     "/^node scripts/wait-for-backend\\.mjs$/": {
       "approve": true,
       "matchCommandLine": true
+    },
+    "/^bash run-tests\\.sh 2>&1 \\| tail -50$/": {
+      "approve": true,
+      "matchCommandLine": true
     }
   },
 }

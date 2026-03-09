@@ -24,7 +24,7 @@ function getComputedTokenValue(tokenName: string): string {
     // Fallback values if CSS variables are not available
     if (tokenName === '--fs-label-sm') return '8'; // SVG pin labels
     if (tokenName === '--fs-label-lg') return '12'; // Dialog headers
-    logger.warn('getComputedTokenValue failed for', tokenName, e);
+    logger.warn(`getComputedTokenValue failed for '${tokenName}'`);
     return '8';
   }
 }
@@ -80,8 +80,6 @@ export function ArduinoBoard({
   const [rxBlink, setRxBlink] = useState(false);
   const [showPWMValues, setShowPWMValues] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
-  // Track typography scale changes so SVG labels re-render when zoom changes
-  const [typographyScale, setTypographyScale] = useState<number>(1);
   const { last: telemetry } = useTelemetryStore();
   const txTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rxTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -135,10 +133,9 @@ export function ArduinoBoard({
     const checkScaleChange = () => {
       try {
         const cs = getComputedStyle(document.documentElement);
-        const currentScale = parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1;
-        setTypographyScale(currentScale);
+        parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1; // Read but don't store - SVG re-renders on next polling cycle
       } catch (e) {
-        logger.warn("Failed to read --ui-font-scale", e);
+        logger.warn("Failed to read --ui-font-scale");
       }
     };
 
