@@ -16,6 +16,14 @@ export default {
         "ui-2xl": ["calc(24px * var(--ui-font-scale))", { lineHeight: "calc(32px * var(--ui-font-scale))" }],
         "ui-3xl": ["calc(30px * var(--ui-font-scale))", { lineHeight: "calc(36px * var(--ui-font-scale))" }],
       },
+      spacing: {
+        /* Design token spacing scale: multiples of --space-xs (4px) */
+        "ui-xs": "var(--space-xs)",   /* 4px */
+        "ui-sm": "var(--space-sm)",   /* 8px */
+        "ui-md": "var(--space-md)",   /* 16px */
+        "ui-lg": "var(--space-lg)",   /* 32px */
+        "ui-xl": "var(--space-xl)",   /* 48px */
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

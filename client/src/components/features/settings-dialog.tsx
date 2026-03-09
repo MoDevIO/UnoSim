@@ -145,7 +145,7 @@ export default function SettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         style={{
-          maxHeight: "calc(100vh - 4rem)",
+          maxHeight: "calc(100vh - var(--dialog-offset-top))",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -160,7 +160,7 @@ export default function SettingsDialog({
 
         <div
           className="grid gap-4 overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 12rem)" }}
+          style={{ maxHeight: "calc(100vh - var(--dialog-offset-content))" }}
         >
           {/* UI Font scale control */}
           <div className="rounded border p-3 bg-muted">

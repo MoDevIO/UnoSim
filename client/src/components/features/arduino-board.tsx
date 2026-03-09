@@ -51,7 +51,32 @@ interface ArduinoBoardProps {
 // SVG viewBox dimensions (from ArduinoUno.svg)
 const VIEWBOX_WIDTH = 285.2;
 const VIEWBOX_HEIGHT = 209;
-const SAFE_MARGIN = 4; // px gap to window edges
+
+/**
+ * Gets computed spacing token values at runtime
+ * Allows us to keep SVG scaling calculations using semantic variables
+ */
+function getComputedSpacingToken(tokenName: string): number {
+  try {
+    const root = document.documentElement;
+    const computedStyle = getComputedStyle(root);
+    const value = computedStyle.getPropertyValue(tokenName).trim();
+    // Convert rem to pixels (assuming 16px base)
+    if (value.includes('rem')) {
+      return parseFloat(value) * 16;
+    }
+    if (value.includes('px')) {
+      return parseFloat(value);
+    }
+    return parseFloat(value);
+  } catch (e) {
+    // Fallback values
+    if (tokenName === '--svg-safe-margin') return 4;
+    if (tokenName === '--svg-label-padding') return 2;
+    logger.warn(`getComputedSpacingToken failed for '${tokenName}'`);
+    return 4;
+  }
+}
 
 // PWM-capable pins on Arduino UNO
 const PWM_PINS = [3, 5, 6, 9, 10, 11];
@@ -570,7 +595,7 @@ export function ArduinoBoard({
             let translateY: number | undefined = undefined;
             let localX: number | undefined = undefined;
             let anchor: string | undefined = undefined;
-            const padding = 2; // px gap to avoid overlap
+            const padding = getComputedSpacingToken('--svg-label-padding'); // 2px from token
             const fontSize = parseFloat(getComputedTokenValue('--fs-label-sm'));
             if (cy < VIEWBOX_HEIGHT / 2) {
               // upper pins: place above and left-align inside frame
@@ -617,8 +642,8 @@ export function ArduinoBoard({
             let translateYAnal: number | undefined = undefined;
             let localXAnal: number | undefined = undefined;
             let anchorAnal: string | undefined = undefined;
-            const paddingAnal = 2;
-            const fontSizeAnal = 8;
+            const paddingAnal = getComputedSpacingToken('--svg-label-padding'); // 2px from token
+            const fontSizeAnal = parseFloat(getComputedTokenValue('--fs-label-sm'));
             if (cy < VIEWBOX_HEIGHT / 2) {
               translateYAnal =
                 cy - bb.height / 2 - fontSizeAnal / 2 - paddingAnal;
@@ -835,6 +860,7 @@ export function ArduinoBoard({
       const cw = el.clientWidth;
       const ch = el.clientHeight;
       if (cw > 0 && ch > 0) {
+        const SAFE_MARGIN = getComputedSpacingToken('--svg-safe-margin');
         const s = Math.min(
           (cw - SAFE_MARGIN * 2) / VIEWBOX_WIDTH,
           (ch - SAFE_MARGIN * 2) / VIEWBOX_HEIGHT,
@@ -1028,16 +1054,18 @@ function AnalogDialogPortal(props: {
       svgEl.querySelector<SVGGraphicsElement>(`#pin-${dialog.pin}-state`);
     if (!el) return null;
     const rect = (el as Element).getBoundingClientRect();
-    const dialogWidth = 220;
-    const dialogHeight = 84;
+    const dialogWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-width-small').trim()) || 220;
+    const dialogHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-height-small').trim()) || 84;
+    const pointerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-offset-pointer').trim()) || 6;
+    const viewportMargin = 8;
     let left = rect.left + rect.width / 2 - dialogWidth / 2;
     let top =
       dialog.placement === "below"
-        ? rect.bottom + 6
-        : rect.top - dialogHeight - 6;
+        ? rect.bottom + pointerOffset
+        : rect.top - dialogHeight - pointerOffset;
     // clamp to viewport
-    left = Math.max(8, Math.min(window.innerWidth - dialogWidth - 8, left));
-    top = Math.max(8, Math.min(window.innerHeight - dialogHeight - 8, top));
+    left = Math.max(viewportMargin, Math.min(window.innerWidth - dialogWidth - viewportMargin, left));
+    top = Math.max(viewportMargin, Math.min(window.innerHeight - dialogHeight - viewportMargin, top));
 
     return createPortal(
       <div
@@ -1048,13 +1076,13 @@ function AnalogDialogPortal(props: {
           width: dialogWidth,
           background: "rgba(20,20,20,0.95)",
           color: "var(--color-surface-muted)",
-          padding: 8,
+          padding: "var(--dialog-padding-inline)",
           borderRadius: 6,
           boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
           zIndex: 10000,
         }}
       >
-        <div style={{ fontSize: "var(--fs-label-lg)", marginBottom: 6 }}>
+        <div style={{ fontSize: "var(--fs-label-lg)", marginBottom: "var(--dialog-offset-pointer)" }}>
           {dialog.pin >= 14 && dialog.pin <= 19
             ? `A${dialog.pin - 14}`
             : dialog.pin}
@@ -1078,7 +1106,7 @@ function DialogInner(props: {
   useEffect(() => setVal(dialog.value), [dialog.value]);
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "center" }}>
         <input
           type="range"
           min={0}
@@ -1101,7 +1129,7 @@ function DialogInner(props: {
             background: "transparent",
             color: "var(--color-surface-muted)",
             border: "1px solid rgba(255,255,255,0.08)",
-            padding: "4px",
+            padding: "var(--space-xs)",
             borderRadius: 4,
           }}
         />
@@ -1110,8 +1138,8 @@ function DialogInner(props: {
         style={{
           display: "flex",
           justifyContent: "flex-end",
-          gap: 8,
-          marginTop: 8,
+          gap: "var(--space-sm)",
+          marginTop: "var(--space-sm)",
         }}
       >
         <Button

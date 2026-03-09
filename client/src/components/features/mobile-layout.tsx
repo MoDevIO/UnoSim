@@ -65,8 +65,8 @@ export const MobileLayout = React.memo(function MobileLayout({
       <div
         className="absolute inset-0 flex items-end justify-end p-8"
         style={{
-          paddingBottom: "env(safe-area-inset-bottom, 32px)",
-          paddingRight: "env(safe-area-inset-right, 32px)",
+          paddingBottom: "env(safe-area-inset-bottom, var(--ui-safe-area-bottom))",
+          paddingRight: "env(safe-area-inset-right, var(--ui-safe-area-right))",
         }}
       >
         <div className="pointer-events-auto sticky mr-4 mb-4" style={{ alignSelf: "flex-end" }}>
