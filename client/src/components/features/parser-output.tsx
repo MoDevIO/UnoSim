@@ -130,7 +130,7 @@ export function ParserOutput({
       >
         {/* Header with integrated tabs */}
         {!hideHeader && (
-          <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden">
+          <div className="bg-muted px-[var(--header-padding-x)] border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden">
             <div className="flex items-center space-x-2 flex-shrink-0">
               <AlertCircle
                 className="text-white opacity-95 h-5 w-5"

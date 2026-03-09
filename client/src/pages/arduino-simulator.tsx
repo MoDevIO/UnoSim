@@ -12,11 +12,11 @@ import React, {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Terminal,
-  Trash2,
   ChevronsDown,
   BarChart,
-  Monitor,
   Columns,
+  Monitor,
+  Trash2,
 } from "lucide-react";
 import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
@@ -1515,207 +1515,178 @@ export default function ArduinoSimulator() {
               <ResizablePanelGroup direction="vertical" id="output-layout">
                 <ResizablePanel defaultSize={50} minSize={20} id="serial-panel">
                   <div className="h-full flex flex-col">
-                    {/* Static Serial Header (always full width) */}
-                    <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)]">
-                      <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap">
-                        <div className="flex items-center space-x-2 flex-shrink-0">
-                          <Monitor
-                            className="text-white opacity-95 h-5 w-5"
-                            strokeWidth={1.67}
-                            aria-hidden
-                          />
-                          <span className="sr-only">Serial Output</span>
-                          {debugMode && (simulationStatus === "running" || simulationStatus === "paused") && telemetryData.last ? (
-                            <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4">
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Events</span>
-                                <span className="text-sm font-mono text-cyan-400">
-                                  {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(1)} /s
-                                </span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Serial Bytes</span>
-                                <span className="text-sm font-mono text-cyan-400">
-                                  {(telemetryData.last.serialBytesPerSecond ?? 0).toFixed(1)} /s
-                                </span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Dropped /s</span>
-                                <span className={clsx(
-                                  "text-sm font-mono",
-                                  (telemetryData.last.serialDroppedBytesPerSecond ?? 0) > 0
-                                    ? "text-red-400 font-semibold"
-                                    : "text-cyan-400"
-                                )}>
-                                  {(telemetryData.last.serialDroppedBytesPerSecond ?? 0).toFixed(1)}
-                                </span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Baudrate</span>
-                                <span className="text-sm font-mono text-cyan-400">
-                                  {baudRate}
-                                </span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Total Bytes</span>
-                                <span className="text-sm font-mono text-cyan-400">
-                                  {telemetryData.last.serialBytesTotal ?? 0}
-                                </span>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-4 ml-auto">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-                            onClick={cycleSerialViewMode}
-                            data-testid="button-serial-view-toggle"
-                            aria-label={
-                              serialViewMode === "monitor"
-                                ? "Monitor only"
-                                : serialViewMode === "plotter"
-                                  ? "Plotter only"
-                                  : "Split view"
-                            }
-                            title={
-                              serialViewMode === "monitor"
-                                ? "Monitor only"
-                                : serialViewMode === "plotter"
-                                  ? "Plotter only"
-                                  : "Split view"
-                            }
-                          >
-                            {serialViewMode === "monitor" ? (
-                              <Terminal className="h-4 w-4" />
-                            ) : serialViewMode === "plotter" ? (
-                              <BarChart className="h-4 w-4" />
-                            ) : (
-                              <Columns className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={clsx(
-                              "h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
-                              autoScrollEnabled
-                                ? "bg-background text-white hover:bg-green-600 hover:text-white"
-                                : "",
-                            )}
-                            onClick={() =>
-                              setAutoScrollEnabled(!autoScrollEnabled)
-                            }
-                            disabled={serialViewMode === "plotter"}
-                            title={
-                              autoScrollEnabled
-                                ? "Autoscroll on"
-                                : "Autoscroll off"
-                            }
-                            aria-label={
-                              autoScrollEnabled
-                                ? "Autoscroll on"
-                                : "Autoscroll off"
-                            }
-                            aria-pressed={autoScrollEnabled}
-                            data-testid="button-autoscroll"
-                          >
-                            <ChevronsDown
-                              className={clsx(
-                                "h-4 w-4",
-                                autoScrollEnabled
-                                  ? "text-white"
-                                  : "text-gray-400",
-                              )}
-                            />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-                            onClick={handleClearSerialOutput}
-                            aria-label="Clear serial output"
-                            title="Clear serial output"
-                            data-testid="button-clear-serial"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-
                     <div className="flex-1 min-h-0">
-                      {/* Serial area: SerialMonitor renders output area and parent renders static header above */}
-                      {showSerialMonitor && showSerialPlotter ? (
-                        <ResizablePanelGroup
-                          direction="horizontal"
-                          className="h-full"
-                          id="serial-split"
-                        >
-                          <ResizablePanel
-                            defaultSize={50}
-                            minSize={20}
-                            id="serial-monitor-panel"
-                          >
+                      {/* Serial area: Unified container with a single static header */}
+                      <div className="h-full flex flex-col">
+                        {/* Static Header for Serial Panel (Always visible regardless of Monitor/Plotter view) */}
+                        <div className="flex items-center justify-between px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b border-border flex-shrink-0">
+                          <div className="flex items-center gap-2">
+                            <Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} />
+                            <span className="font-semibold text-xs tracking-wide uppercase text-muted-foreground/80">Serial Output</span>
+                            {debugMode && (simulationStatus === "running" || simulationStatus === "paused") && telemetryData.last ? (
+                              <div className="flex items-center gap-3 ml-2 border-l border-muted-foreground/20 pl-4">
+                                <div className="flex flex-col leading-tight">
+                                  <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Events</span>
+                                  <span className="text-[11px] font-mono text-cyan-400">
+                                    {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(0)}/s
+                                  </span>
+                                </div>
+                                <div className="flex flex-col leading-tight">
+                                  <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Baud</span>
+                                  <span className="text-[11px] font-mono text-cyan-400">
+                                    {baudRate}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+                              onClick={cycleSerialViewMode}
+                              data-testid="button-serial-view-toggle"
+                              aria-label={
+                                serialViewMode === "monitor"
+                                  ? "Monitor only"
+                                  : serialViewMode === "plotter"
+                                    ? "Plotter only"
+                                    : "Split view"
+                              }
+                              title={
+                                serialViewMode === "monitor"
+                                  ? "Monitor only"
+                                  : serialViewMode === "plotter"
+                                    ? "Plotter only"
+                                    : "Split view"
+                              }
+                            >
+                              {serialViewMode === "monitor" ? (
+                                <Terminal className="h-4 w-4" />
+                              ) : serialViewMode === "plotter" ? (
+                                <BarChart className="h-4 w-4" />
+                              ) : (
+                                <Columns className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={clsx(
+                                "h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
+                                autoScrollEnabled
+                                  ? "text-cyan-400"
+                                  : "text-muted-foreground",
+                              )}
+                              onClick={() =>
+                                setAutoScrollEnabled(!autoScrollEnabled)
+                              }
+                              disabled={serialViewMode === "plotter"}
+                              title={
+                                autoScrollEnabled
+                                  ? "Autoscroll on"
+                                  : "Autoscroll off"
+                              }
+                              aria-label={
+                                autoScrollEnabled
+                                  ? "Autoscroll on"
+                                  : "Autoscroll off"
+                              }
+                              aria-pressed={autoScrollEnabled}
+                              data-testid="button-autoscroll"
+                            >
+                              <ChevronsDown
+                                className="h-4 w-4"
+                              />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+                              onClick={handleClearSerialOutput}
+                              aria-label="Clear serial output"
+                              title="Clear serial output"
+                              data-testid="button-clear-serial"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Content Area */}
+                        <div className="flex-1 min-h-0">
+                          {showSerialMonitor && showSerialPlotter ? (
+                            <ResizablePanelGroup
+                              direction="horizontal"
+                              className="h-full"
+                              id="serial-split"
+                            >
+                              <ResizablePanel
+                                defaultSize={50}
+                                minSize={20}
+                                id="serial-monitor-panel"
+                              >
+                                <div className="h-full flex flex-col">
+                                  <div className="flex-1 min-h-0">
+                                    <SerialMonitor
+                                      output={renderedSerialOutput}
+                                      isConnected={isConnected}
+                                      isSimulationRunning={
+                                        simulationStatus !== "stopped"
+                                      }
+                                      onSendMessage={handleSerialSend}
+                                      onClear={handleClearSerialOutput}
+                                      showMonitor={showSerialMonitor}
+                                      autoScrollEnabled={autoScrollEnabled}
+                                      showHeader={false}
+                                    />
+                                  </div>
+                                </div>
+                              </ResizablePanel>
+
+                              <ResizableHandle
+                                withHandle
+                                data-testid="horizontal-resizer-serial"
+                              />
+
+                              <ResizablePanel
+                                defaultSize={50}
+                                minSize={20}
+                                id="serial-plot-panel"
+                              >
+                                <div className="h-full">
+                                  <Suspense fallback={<LoadingPlaceholder />}>
+                                    <SerialPlotter output={serialOutput} />
+                                  </Suspense>
+                                </div>
+                              </ResizablePanel>
+                            </ResizablePanelGroup>
+                          ) : showSerialMonitor ? (
                             <div className="h-full flex flex-col">
                               <div className="flex-1 min-h-0">
                                 <SerialMonitor
                                   output={renderedSerialOutput}
                                   isConnected={isConnected}
-                                  isSimulationRunning={
-                                    simulationStatus !== "stopped"
-                                  }
+                                  isSimulationRunning={simulationStatus !== "stopped"}
                                   onSendMessage={handleSerialSend}
                                   onClear={handleClearSerialOutput}
                                   showMonitor={showSerialMonitor}
                                   autoScrollEnabled={autoScrollEnabled}
+                                  showHeader={false}
                                 />
                               </div>
                             </div>
-                          </ResizablePanel>
-
-                          <ResizableHandle
-                            withHandle
-                            data-testid="horizontal-resizer-serial"
-                          />
-
-                          <ResizablePanel
-                            defaultSize={50}
-                            minSize={20}
-                            id="serial-plot-panel"
-                          >
+                          ) : (
                             <div className="h-full">
                               <Suspense fallback={<LoadingPlaceholder />}>
                                 <SerialPlotter output={serialOutput} />
                               </Suspense>
                             </div>
-                          </ResizablePanel>
-                        </ResizablePanelGroup>
-                      ) : showSerialMonitor ? (
-                        <div className="h-full flex flex-col">
-                          <div className="flex-1 min-h-0">
-                            <SerialMonitor
-                              output={renderedSerialOutput}
-                              isConnected={isConnected}
-                              isSimulationRunning={simulationStatus !== "stopped"}
-                              onSendMessage={handleSerialSend}
-                              onClear={handleClearSerialOutput}
-                              showMonitor={showSerialMonitor}
-                              autoScrollEnabled={autoScrollEnabled}
-                            />
-                          </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="h-full">
-                          <Suspense fallback={<LoadingPlaceholder />}>
-                            <SerialPlotter output={serialOutput} />
-                          </Suspense>
-                        </div>
-                      )}
+                      </div>
                     </div>
-
-                    {/* Input area is rendered in the parent so it spans the whole serial frame */}
                     <div className="p-3 flex-shrink-0">
                       <div className="w-full">
                         <InputGroup
