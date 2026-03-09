@@ -17,7 +17,7 @@ interface ProcessedLine {
   incomplete: boolean;
 }
 
-const ROW_HEIGHT = 21; // Approximate line height in pixels (text-ui-xs + line-height)
+const ROW_HEIGHT = 20; // Exact line height in pixels (matches Monaco editor: 14px font + 20px line-height)
 const OVERSCAN_COUNT = 10; // Extra lines above/below viewport for smooth scrolling
 const ENABLE_VIRTUAL_SCROLL = true; // Feature flag for virtual scrolling
 const ENABLE_RAF_BATCHING = typeof process !== 'undefined' && process.env.NODE_ENV !== 'test'; // Disable rAF in tests
@@ -282,6 +282,7 @@ export function SerialMonitor({
           div.className = "text-foreground whitespace-pre-wrap break-words";
           div.style.height = `${ROW_HEIGHT}px`;
           div.style.lineHeight = `${ROW_HEIGHT}px`;
+          div.style.fontSize = "var(--fs-code-base)"; // Scales with global --ui-font-scale
           div.textContent = ln.text;
           content.appendChild(div);
         });
@@ -293,6 +294,8 @@ export function SerialMonitor({
         processedLines.forEach((ln) => {
           const div = document.createElement("div");
           div.className = "text-foreground whitespace-pre-wrap break-words";
+          div.style.fontSize = "var(--fs-code-base)"; // Scales with global --ui-font-scale
+          div.style.lineHeight = "var(--lh-code-base)"; // Scales with global --ui-font-scale
           div.textContent = ln.text;
           el.appendChild(div);
         });
@@ -356,7 +359,7 @@ export function SerialMonitor({
             viewportRef={outputRef}
             viewportTestId="serial-output"
             viewportProps={{ onScroll: handleScroll }}
-            viewportClassName="p-3 text-ui-xs font-mono"
+            viewportClassName="p-3 font-mono"
             thumbClassName="bg-status-success"
           />
         ) : (

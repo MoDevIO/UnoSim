@@ -7,6 +7,28 @@ import { Logger } from "@shared/logger";
 
 const logger = new Logger("ArduinoBoard");
 
+/**
+ * Helper function to get computed typography token values
+ * Reads CSS variables and returns the actual pixel value considering font scaling
+ */
+function getComputedTokenValue(tokenName: string): string {
+  try {
+    const root = document.documentElement;
+    const computedStyle = getComputedStyle(root);
+    // Get the CSS variable value (e.g., "8px * 1" or "calc(8px * var(--ui-font-scale))")
+    // The browser automatically computes this to the final value
+    const value = computedStyle.getPropertyValue(tokenName).trim();
+    // For SVG, remove 'px' suffix if present and return the numeric part
+    return value.replace(/px$/, '');
+  } catch (e) {
+    // Fallback values if CSS variables are not available
+    if (tokenName === '--fs-label-sm') return '8'; // SVG pin labels
+    if (tokenName === '--fs-label-lg') return '12'; // Dialog headers
+    logger.warn('getComputedTokenValue failed for', tokenName, e);
+    return '8';
+  }
+}
+
 interface PinState {
   pin: number;
   mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
@@ -58,6 +80,8 @@ export function ArduinoBoard({
   const [rxBlink, setRxBlink] = useState(false);
   const [showPWMValues, setShowPWMValues] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  // Track typography scale changes so SVG labels re-render when zoom changes
+  const [typographyScale, setTypographyScale] = useState<number>(1);
   const { last: telemetry } = useTelemetryStore();
   const txTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rxTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -104,7 +128,30 @@ export function ArduinoBoard({
     }
   }, [rxActive]);
 
+  // Monitor font scale changes from Settings and trigger SVG re-render
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+    
+    const checkScaleChange = () => {
+      try {
+        const cs = getComputedStyle(document.documentElement);
+        const currentScale = parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1;
+        setTypographyScale(currentScale);
+      } catch (e) {
+        logger.warn("Failed to read --ui-font-scale", e);
+      }
+    };
 
+    // Check immediately
+    checkScaleChange();
+    
+    // Poll for changes every 200ms (smooth enough for user experience)
+    pollInterval = setInterval(checkScaleChange, 200);
+    
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, []);
 
   // Load both SVGs once
   useEffect(() => {
@@ -462,7 +509,8 @@ export function ArduinoBoard({
           t = document.createElementNS("http://www.w3.org/2000/svg", "text");
           t.setAttribute("id", id);
           t.setAttribute("text-anchor", anchorOverride || "middle");
-          t.setAttribute("font-size", "8");
+          // Use scaled typography token which respects global --ui-font-scale
+          t.setAttribute("font-size", getComputedTokenValue('--fs-label-sm'));
           t.setAttribute("fill", fill);
           t.setAttribute("stroke", "var(--color-black)");
           t.setAttribute("stroke-width", "0.4");
@@ -471,11 +519,14 @@ export function ArduinoBoard({
           (t as any).style.pointerEvents = "none";
           svgEl.appendChild(t);
         } else {
+          // Update font-size on every call to respect zoom changes
+          t.setAttribute("font-size", getComputedTokenValue('--fs-label-sm'));
           if (anchorOverride) t.setAttribute("text-anchor", anchorOverride);
         }
         t.textContent = textValue;
         if (rotateLeft) {
-          const fontSize = 8; // match actual font-size attribute
+          // Get scaled font size from CSS token
+          const fontSize = parseFloat(getComputedTokenValue('--fs-label-sm'));
           const half = fontSize / 2;
           const translateY =
             typeof translateYOverride === "number" ? translateYOverride : y;
@@ -523,7 +574,7 @@ export function ArduinoBoard({
             let localX: number | undefined = undefined;
             let anchor: string | undefined = undefined;
             const padding = 2; // px gap to avoid overlap
-            const fontSize = 8;
+            const fontSize = parseFloat(getComputedTokenValue('--fs-label-sm'));
             if (cy < VIEWBOX_HEIGHT / 2) {
               // upper pins: place above and left-align inside frame
               translateY = cy - bb.height / 2 - fontSize / 2 - padding;
@@ -1006,7 +1057,7 @@ function AnalogDialogPortal(props: {
           zIndex: 10000,
         }}
       >
-        <div style={{ fontSize: 12, marginBottom: 6 }}>
+        <div style={{ fontSize: "var(--fs-label-lg)", marginBottom: 6 }}>
           {dialog.pin >= 14 && dialog.pin <= 19
             ? `A${dialog.pin - 14}`
             : dialog.pin}

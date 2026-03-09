@@ -1,0 +1,72 @@
+/**
+ * TYPOGRAPHY DESIGN TOKENS
+ * 
+ * These tokens are calculated based on the existing --ui-font-scale and --ui-font-base-size
+ * variables defined in index.css. They integrate seamlessly with the global zoom system.
+ * 
+ * When users change --ui-font-scale in Settings, ALL components using these tokens
+ * scale automatically without needing individual component logic.
+ * 
+ * Base values (before scaling):
+ * - --ui-font-base-size: 14px (Monaco editor baseline)
+ * - --ui-line-base: 20px (Monaco line height)
+ * - --ui-font-scale: 1 (user zoom multiplier: 0.8x to 1.5x)
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════
+     CALCULATED TYPOGRAPHY TOKENS (scale-aware)
+     ═══════════════════════════════════════════════════════════ */
+
+  /* Code/Editor baseline: 14px * user scale */
+  --fs-code-base: calc(var(--ui-font-base-size) * var(--ui-font-scale));
+  --lh-code-base: calc(var(--ui-line-base) * var(--ui-font-scale));
+
+  /* Dialog/Pin labels: 12px * user scale (3⁄4 of base 16px) */
+  --fs-label-lg: calc(12px * var(--ui-font-scale));
+  
+  /* SVG Pin annotations: 8px * user scale (1⁄2 of base 16px) */
+  --fs-label-sm: calc(8px * var(--ui-font-scale));
+
+  /* Utility: tight line height for labels */
+  --lh-tight: 1;
+
+  /* ═══════════════════════════════════════════════════════════
+     SEMANTIC FONT TOKENS (for future use)
+     ═══════════════════════════════════════════════════════════ */
+  --fs-body-base: var(--fs-code-base);     /* Aligns with editor base */
+  --fs-body-sm: calc(13px * var(--ui-font-scale));
+  --fs-body-xs: calc(12px * var(--ui-font-scale));
+
+  /* Display/Headings (not yet used in app, but ready for future use) */
+  --fs-display-3xl: calc(30px * var(--ui-font-scale));
+  --fs-display-2xl: calc(24px * var(--ui-font-scale));
+  --fs-display-xl: calc(18px * var(--ui-font-scale));
+  --fs-display-lg: calc(16px * var(--ui-font-scale));
+
+  /* ═══════════════════════════════════════════════════════════
+     FONT FAMILIES (constant, no scaling)
+     ═══════════════════════════════════════════════════════════ */
+  --font-code: "JetBrains Mono", Consolas, Monaco, monospace;
+  --font-sans: var(--font-sans, Inter, system-ui, sans-serif);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITY CLASSES (for CSS-based usage where needed)
+   ═══════════════════════════════════════════════════════════ */
+
+.text-code-base {
+  font-size: var(--fs-code-base);
+  line-height: var(--lh-code-base);
+  font-family: var(--font-code);
+}
+
+.text-label-lg {
+  font-size: var(--fs-label-lg);
+  line-height: var(--lh-tight);
+}
+
+.text-label-sm {
+  font-size: var(--fs-label-sm);
+  line-height: var(--lh-tight);
+}
