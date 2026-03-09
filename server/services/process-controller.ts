@@ -38,6 +38,7 @@ export interface IProcessController {
   kill(signal?: NodeJS.Signals | number): void;
   destroySockets(): void;
   hasProcess(): boolean;
+  clearListeners(): void;
 }
 
 /**
@@ -217,5 +218,13 @@ export class ProcessController implements IProcessController {
 
   hasProcess(): boolean {
     return !!this.proc;
+  }
+
+  clearListeners(): void {
+    this.stdoutListeners = [];
+    this.stderrListeners = [];
+    this.stderrLineListeners = [];
+    this.closeListeners = [];
+    this.errorListeners = [];
   }
 }
