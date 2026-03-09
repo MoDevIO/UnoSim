@@ -63,6 +63,26 @@
   --ui-safe-area-bottom: var(--space-lg);    /* 32px, respects safe-area-inset-bottom */
   --ui-safe-area-right: var(--space-lg);     /* 32px */
 
+  /* Header & Toolbar Layout */
+  --ui-header-height: 2.5rem;                /* 40px - main app header height */
+  --ui-toolbar-height: 2rem;                 /* 32px - compact toolbar height */
+  --header-padding-x: var(--space-sm);       /* 8px - horizontal padding inside header */
+  --header-padding-y: var(--space-xs);       /* 4px - vertical padding inside header */
+
+  /* Sidebar Layout (future-proof, ready for sidebar implementation) */
+  --ui-sidebar-width: 16rem;                 /* 256px - standard sidebar width */
+  --ui-sidebar-width-narrow: 12rem;          /* 192px - narrow sidebar variant */
+  --sidebar-padding: var(--space-md);        /* 16px - inner sidebar spacing */
+
+  /* Main Content Area */
+  --ui-main-content-height: calc(100vh - var(--ui-header-height)); /* Full height minus header */
+
+  /* Button/Interactive Components */
+  --btn-padding-y: var(--space-xs);          /* 4px - vertical button padding */
+  --btn-padding-x: var(--space-sm);          /* 8px - horizontal button padding */
+  --btn-gap-icon-text: 0.5rem;               /* 8px - gap between icon and text */
+  --btn-border-radius: 0.25rem;              /* 4px - subtle border radius */
+
   /* Dialog positioning */
   --dialog-offset-top: 4rem;                 /* 64px - dialog max-height offset */
   --dialog-offset-content: 12rem;            /* 192px - dialog content scroll offset */

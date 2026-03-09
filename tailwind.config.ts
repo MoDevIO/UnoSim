@@ -23,6 +23,10 @@ export default {
         "ui-md": "var(--space-md)",   /* 16px */
         "ui-lg": "var(--space-lg)",   /* 32px */
         "ui-xl": "var(--space-xl)",   /* 48px */
+        /* Layout spacing */
+        "header": "var(--ui-header-height)",
+        "toolbar": "var(--ui-toolbar-height)",
+        "sidebar": "var(--ui-sidebar-width)",
       },
       borderRadius: {
         lg: "var(--radius)",

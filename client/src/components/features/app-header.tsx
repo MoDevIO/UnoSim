@@ -147,7 +147,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     return (
       <header
         ref={headerRef}
-        className="app-navbar app-region-drag backdrop-blur shadow-lg bg-card border-b border-border px-4 py-2 relative flex items-center overflow-x-hidden overflow-y-hidden whitespace-nowrap w-full"
+        className="app-navbar app-region-drag backdrop-blur shadow-lg bg-card border-b border-border px-[var(--header-padding-x)] py-[var(--header-padding-y)] relative flex items-center overflow-x-hidden overflow-y-hidden whitespace-nowrap w-full h-[var(--ui-header-height)]"
       >
         {/* Left: Logo + Title */}
         <div
