@@ -912,7 +912,7 @@ export class SandboxRunner {
 
     // Raw stderr stream (always) for compile aggregation and optional fallback parsing.
     const useFallbackParser = !this.processController.supportsStderrLineStreaming();
-    let stderrFallbackBuffer = "";
+    this.stderrFallbackBuffer = ""; // Reset buffer for this run
 
     this.processController.onStderr((data) => {
       const chunk = data.toString();
@@ -922,9 +922,9 @@ export class SandboxRunner {
 
       // Fallback only when readline line-streaming is unavailable (mocked streams).
       if (useFallbackParser) {
-        stderrFallbackBuffer += chunk;
-        const lines = stderrFallbackBuffer.split(/\r?\n/);
-        stderrFallbackBuffer = lines.pop() || "";
+        this.stderrFallbackBuffer += chunk;
+        const lines = this.stderrFallbackBuffer.split(/\r?\n/);
+        this.stderrFallbackBuffer = lines.pop() || "";
 
         for (const line of lines) {
           if (!line) continue;
@@ -949,6 +949,16 @@ export class SandboxRunner {
       if (this.flushTimer) {
         clearTimeout(this.flushTimer);
         this.flushTimer = null;
+      }
+
+      // CRITICAL: Flush any remaining data in stderr fallback buffer to prevent line loss
+      if (this.stderrFallbackBuffer && useFallbackParser) {
+        const buffered = this.stderrFallbackBuffer;
+        this.stderrFallbackBuffer = "";
+        if (buffered.trim()) {
+          const parsed = this.stderrParser.parseStderrLine(buffered, this.processStartTime);
+          this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+        }
       }
 
       // CRITICAL: Flush message queue before exit to prevent losing queued output
