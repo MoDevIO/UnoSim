@@ -168,6 +168,9 @@ process.on("uncaughtException", (error) => {
 
 let isServerReady = false; // Flag to indicate server initialization complete
 
+// Ensure temp/ directory exists before any services try to write into it
+fs.mkdirSync(path.join(process.cwd(), "temp"), { recursive: true });
+
 (async () => {
   const server = await registerRoutes(app);
 

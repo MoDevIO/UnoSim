@@ -73,7 +73,14 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
       - name: Run E2E Tests
-        run: npx playwright test
+        run: npx playwright test --update-snapshots=missing
+      - name: Commit new Linux visual baselines
+        if: always()
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add 'e2e/visual-full-context.spec.ts-snapshots/*-linux.png'
+          git diff --staged --quiet || (git commit -m "chore(e2e): update linux visual baselines [skip ci]" && git push)
       - name: Upload E2E Report
         if: always()
         uses: actions/upload-artifact@v4

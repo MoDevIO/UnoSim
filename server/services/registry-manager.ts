@@ -320,7 +320,9 @@ export class RegistryManager {
           }) + "\n";
           // Non-blocking write via stream
           if (!this.debugStream) {
-            this.debugStream = createWriteStream(debugPath, { flags: "a" });
+            const stream = createWriteStream(debugPath, { flags: "a" });
+            stream.on("error", () => { this.debugStream = null; });
+            this.debugStream = stream;
           }
           this.debugStream.write(debugLine);
         } catch {
