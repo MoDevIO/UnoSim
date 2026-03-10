@@ -47,9 +47,13 @@ function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
     delete (cleaned as any).definedAt;
   }
   
-  // Filter out usedAt entries with line: 0
+  // Filter out usedAt entries with line: 0 that have no operation (true placeholders).
+  // Runtime entries always have line: 0 but carry a non-empty operation string
+  // (e.g. "pinMode:0") – those must be preserved so the client can detect conflicts.
   if (cleaned.usedAt && cleaned.usedAt.length > 0) {
-    cleaned.usedAt = cleaned.usedAt.filter(entry => entry.line !== 0);
+    cleaned.usedAt = cleaned.usedAt.filter(
+      entry => entry.line !== 0 || !!entry.operation,
+    );
     // Remove usedAt entirely if empty
     if (cleaned.usedAt.length === 0) {
       delete (cleaned as any).usedAt;
@@ -491,6 +495,22 @@ export class RegistryManager {
       if (!alreadyTracked) {
         existing.usedAt.push({ line: 0, operation: pinModeOp });
       }
+
+      // If the pin now has more than one distinct pinMode operation, flag conflict.
+      const distinctModes = new Set(
+        existing.usedAt
+          .filter(u => u.operation.startsWith("pinMode:"))
+          .map(u => u.operation),
+      );
+      if (distinctModes.size > 1) {
+        existing.conflict = true;
+        const modeNames = Array.from(distinctModes).map(op => {
+          const n = parseInt(op.split(":")[1], 10);
+          return n === 0 ? "INPUT" : n === 1 ? "OUTPUT" : "INPUT_PULLUP";
+        });
+        existing.conflictMessage = `Pin configured with multiple modes: ${modeNames.join(", ")}`;
+      }
+
       this.telemetry.incomingEvents++;
 
       // Structural changes (defined: false -> true) must be sent immediately.
@@ -509,8 +529,16 @@ export class RegistryManager {
           this.sendNow(nextHash, "pin-defined-changed");
         }
       } else {
-        // Already defined but new mode (mode change) – mark as sent
+        // Already defined but new mode (mode change) – mark as sent.
+        // If this new mode exposed a conflict, send the updated registry immediately.
         this.runtimeSentFingerprints.add(fingerprint);
+        if (existing.conflict) {
+          this.isDirty = true;
+          if (!this.isCollecting && !this.waitingForRegistry) {
+            const nextHash = this.computeRegistryHash();
+            this.sendNow(nextHash, "pin-conflict-detected");
+          }
+        }
       }
     } else {
       // Create new pin record if not yet in registry
