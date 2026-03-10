@@ -68,6 +68,7 @@ html, body {
   --ui-button-height: calc(var(--ui-button-base-height) * var(--ui-font-scale));
 
   /* Design tokens (CSS variable bridge for Tailwind semantic colors) */
+    --color-brand-primary: #00979d; /* Arduino original teal */
     --color-status-success: #22c55e; /* success (emerald-500) */
     --color-status-success-dark: #16a34a; /* darker success for hovers */
     --color-status-warning: #f97316; /* warning / amber */

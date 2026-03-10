@@ -147,6 +147,7 @@
     "/^bash run-tests\\.sh 2>&1 \\| tail -80$/": {
       "approve": true,
       "matchCommandLine": true
-    }
+    },
+    "g++": true
   },
 }

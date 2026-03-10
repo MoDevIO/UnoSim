@@ -187,6 +187,10 @@ export function CodeEditor({
       cursorStyle: "line",
       cursorWidth: 2,
       cursorSmoothCaretAnimation: "on",
+      // Prevent auto-indent and format-on-paste from mangling programmatically
+      // inserted code (e.g. via Playwright setValue / setEditorContent).
+      autoIndent: "none",
+      formatOnPaste: false,
     });
 
     editorRef.current = editor;
