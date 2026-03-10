@@ -378,6 +378,7 @@ export class RegistryManager {
    *
    * Checks:
    *   – Multiple distinct pinMode modes in usedAt  → TC11 / multi-mode conflict
+   *   – INPUT/INPUT_PULLUP mode + digitalWrite/analogWrite in usedAt  → TC9
    *   – OUTPUT mode combined with digitalRead/analogRead in usedAt  → TC9b
    */
   private detectConflictsForPin(pin: IOPinRecord): void {
@@ -393,6 +394,22 @@ export class RegistryManager {
         return n === 0 ? "INPUT" : n === 1 ? "OUTPUT" : "INPUT_PULLUP";
       });
       pin.conflictMessage = `Multiple modes: ${modeNames.join(", ")}`;
+      return;
+    }
+
+    // TC9: INPUT/INPUT_PULLUP + digitalWrite/analogWrite
+    const hasInput = ops.some(
+      (u) => u.operation === "pinMode:0" || u.operation === "pinMode:2",
+    );
+    const hasWrite = ops.some(
+      (u) => u.operation === "digitalWrite" || u.operation === "analogWrite",
+    );
+    if (hasInput && hasWrite && !pin.conflict) {
+      pin.conflict = true;
+      const inputModeName = ops.some((u) => u.operation === "pinMode:2")
+        ? "INPUT_PULLUP"
+        : "INPUT";
+      pin.conflictMessage = `Write on ${inputModeName} pin`;
       return;
     }
 
