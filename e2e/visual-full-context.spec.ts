@@ -351,4 +351,57 @@ void loop() {
     });
   });
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // Scenario 07 – I/O Registry: TC9 conflict markers (static analysis)
+  //
+  // Sketch:
+  //   void setup() { pinMode(0, INPUT); pinMode(1, INPUT); }
+  //   void loop()  { digitalWrite(0, HIGH); digitalWrite(1, HIGH); digitalWrite(2, HIGH); }
+  //
+  // Expected IO-Registry (static, no simulation):
+  //   Pin 0  (RX): INPUT mode set, then written → red border "INPUT!"
+  //   Pin 1  (TX): INPUT mode set, then written → red border "INPUT!"
+  //   Pin 2:       written without any pinMode   → red × marker (no mode defined)
+  // ────────────────────────────────────────────────────────────────────────────
+  test('07_io_registry_tc9_conflict_markers', async ({ page }) => {
+    const code = `void setup() {
+  pinMode(0, INPUT);
+  pinMode(1, INPUT);
+}
+
+void loop() {
+  digitalWrite(0, HIGH);
+  digitalWrite(1, HIGH);
+  digitalWrite(2, HIGH);
+}`;
+
+    await setCode(page, code);
+
+    // Static analysis fires with a 300 ms debounce – allow it to complete.
+    await page.waitForTimeout(1000);
+
+    // Open the I/O Registry tab.
+    await activateOutputTab(page, /i\/o registry|registry/i);
+
+    // Proof 1: pin 0 AND pin 1 must show the INPUT conflict marker (red border).
+    // The conflict cell renders with title "Write on INPUT pin".
+    await expect(
+      page.locator('[title*="Write on INPUT pin"]').first(),
+    ).toBeVisible({ timeout: 8000 });
+
+    // Proof 2: pin 2 must appear in the table (it has a digitalWrite but no
+    // pinMode – the UI renders it with a red × in the mode column).
+    await expect(
+      page.locator('td.font-mono', { hasText: /^2$/ }).first(),
+    ).toBeVisible({ timeout: 5000 });
+
+    await page.waitForTimeout(400);
+
+    const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
+    expect(snap).toMatchSnapshot('07_io_registry_tc9_conflict_markers.png', {
+      maxDiffPixels: 500,
+      threshold: 0.25,
+    });
+  });
+
 });
