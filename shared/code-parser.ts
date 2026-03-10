@@ -469,6 +469,48 @@ export class CodeParser {
 
     // SPI and I2C pin warnings removed - not necessary for simulation
 
+    // Warn when a pin is configured as OUTPUT and also read with digitalRead().
+    // Collect all literal pins that are declared OUTPUT via (possibly loop-based) pinMode.
+    const outputPins = new Set<number>();
+    for (const [pin, entry] of pinModeCalls.entries()) {
+      const pinNum = this.parsePinNumber(pin);
+      if (pinNum !== undefined && entry.modes.includes("OUTPUT")) {
+        outputPins.add(pinNum);
+      }
+    }
+    // Also include pins marked OUTPUT by loop expansion (getLoopPinModeCalls)
+    for (const { pin, mode } of this.getLoopPinModeCalls(uncommentedCode)) {
+      if (mode === "OUTPUT") outputPins.add(pin);
+    }
+
+    if (outputPins.size > 0) {
+      const digitalReadLiteralRe = /\bdigitalRead\s*\(\s*(\d+|A\d+)\s*\)/g;
+      const outputReadWarnedPins = new Set<number>();
+      while ((match = digitalReadLiteralRe.exec(uncommentedCode)) !== null) {
+        const pinNum = this.parsePinNumber(match[1]);
+        if (
+          pinNum !== undefined &&
+          outputPins.has(pinNum) &&
+          !outputReadWarnedPins.has(pinNum)
+        ) {
+          outputReadWarnedPins.add(pinNum);
+          const pinStr = pinNum >= 14 ? `A${pinNum - 14}` : String(pinNum);
+          const line = uncommentedCode
+            .substring(0, match.index)
+            .split("\n").length;
+          messages.push({
+            id: randomUUID(),
+            type: "warning",
+            category: "pins",
+            severity: 2 as SeverityLevel,
+            message: `Pin ${pinStr} is configured as OUTPUT but read with digitalRead(). Reading an OUTPUT pin may return unexpected values.`,
+            suggestion: `If you need to read the pin, use pinMode(${pinStr}, INPUT) or INPUT_PULLUP instead.`,
+            line,
+          });
+        }
+      }
+    }
+
     return messages;
   }
 

@@ -254,20 +254,19 @@ void loop() {
   });
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Scenario 05 – I/O Registry: pin mapping table
+  // Scenario 05 – I/O Registry: pin mapping table (static analysis, no simulation)
   // ────────────────────────────────────────────────────────────────────────────
   test('05_io_registry_mapping_context', async ({ page }) => {
     // Loop 1 covers pins 1-6 as INPUT.
     // Loop 2 covers pins 6-10 as OUTPUT.
     // Pin 6 therefore receives both INPUT (loop 1) and OUTPUT (loop 2)
     // → mode conflict → red conflict marker in the I/O Registry.
+    // The test validates the STATIC analysis path (no simulation required).
     const code = `void setup() {
-  Serial.begin(115200);
   // Loop 1: pins 1..6 as INPUT
   for (int i = 1; i <= 6; i++) pinMode(i, INPUT);
   // Loop 2: pins 6..10 as OUTPUT (pin 6 conflicts with loop 1)
   for (int i = 6; i <= 10; i++) pinMode(i, OUTPUT);
-  Serial.println("RegistryReady");
 }
 
 void loop() {
@@ -275,27 +274,20 @@ void loop() {
 }`;
 
     await setCode(page, code);
-    await startAndAwaitRunning(page);
 
-    // Proof: sketch confirmed running
-    const found = await waitForSerial(page, 'RegistryReady');
-    if (!found) throw new Error('Proof failed: "RegistryReady" never appeared in serial output');
+    // Static analysis runs with a 300 ms debounce – wait for it to complete.
+    await page.waitForTimeout(1000);
 
     // Activate the I/O Registry tab (outer output-panel tab value="registry")
     await activateOutputTab(page, /i\/o registry|registry/i);
 
-    // Proof: pin table must show mode data
-    // The table has header cells "pinMode", visible once the tab is rendered
-    await expect(page.locator('text=pinMode').first()).toBeVisible({ timeout: 8000 });
-
-    // Switch to the Messages tab so the PIN CONFLICTS warning is visible in the snapshot
-    await activateOutputTab(page, /messages/i);
-    await page.waitForTimeout(600);
-
-    // Proof: the parser must have detected the INPUT/OUTPUT conflict on pin 6
+    // Proof: pin 6 must show a "Multiple modes" conflict marker (title attribute
+    // set by the conflict indicator span in parser-output.tsx).
     await expect(
-      page.locator('text=/different modes|multiple pinMode|PIN.*conflict|conflict.*pin/i').first(),
+      page.locator('[title*="Multiple modes"]').first(),
     ).toBeVisible({ timeout: 8000 });
+
+    await page.waitForTimeout(400);
 
     const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
     expect(snap).toMatchSnapshot('05_io_registry_mapping_context.png', {

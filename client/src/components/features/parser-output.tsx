@@ -397,9 +397,16 @@ export function ParserOutput({
                           });
                       const uniqueModes = [...new Set(pmModes)];
 
-                      // Conflict: TC9 (write on input) or TC11 (multi-mode)
+                      // Conflict: TC9 (write on input), TC9b (read on output), TC11 (multi-mode)
+                      const hasOutputMode = uniqueModes.includes("OUTPUT");
+                      const hasRuntimeRead = ops.some(
+                        (u) =>
+                          u.operation === "digitalRead" ||
+                          u.operation === "analogRead",
+                      );
                       const hasConflict =
-                        record.conflict ?? uniqueModes.length > 1;
+                        record.conflict ??
+                        (uniqueModes.length > 1 || (hasOutputMode && hasRuntimeRead));
 
                       // ── Helper: render an op cell ────────────────────────
                       // newLines  = from static parse (has line numbers)

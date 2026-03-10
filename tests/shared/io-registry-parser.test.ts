@@ -360,4 +360,61 @@ describe("parseStaticIORegistry – edge cases", () => {
     expect(pin2!.pinModeModes).toContain("INPUT_PULLUP");
     expect(pin2!.pinMode).toBe(2);
   });
+
+  // ── TC3b: braceless for-loop ───────────────────────────────────────────────
+  it("TC3b: braceless for-loop expands to all pins; overlapping range creates conflict", () => {
+    // Loop 1: pins 1..6 as INPUT (braceless)
+    // Loop 2: pins 6..10 as OUTPUT (braceless)
+    // → pins 1-5: INPUT, pin 6: conflict INPUT+OUTPUT, pins 7-10: OUTPUT
+    const code = sketch([
+      "void setup() {",
+      "  for (int i = 1; i <= 6; i++) pinMode(i, INPUT);",
+      "  for (int i = 6; i <= 10; i++) pinMode(i, OUTPUT);",
+      "}",
+      "void loop() {}",
+    ]);
+    const registry = parseStaticIORegistry(code);
+
+    // Pins 1–5: INPUT only, no conflict
+    for (const n of [1, 2, 3, 4, 5]) {
+      const p = registry.find((r) => r.pin === String(n));
+      expect(p, `pin ${n} must be in registry`).toBeDefined();
+      expect(p!.pinModeModes).toContain("INPUT");
+      expect(p!.conflict).toBeFalsy();
+    }
+
+    // Pin 6: INPUT + OUTPUT → conflict
+    const pin6 = registry.find((r) => r.pin === "6");
+    expect(pin6, "pin 6 must be in registry").toBeDefined();
+    expect(pin6!.pinModeModes).toContain("INPUT");
+    expect(pin6!.pinModeModes).toContain("OUTPUT");
+    expect(pin6!.conflict).toBe(true);
+
+    // Pins 7–10: OUTPUT only, no conflict
+    for (const n of [7, 8, 9, 10]) {
+      const p = registry.find((r) => r.pin === String(n));
+      expect(p, `pin ${n} must be in registry`).toBeDefined();
+      expect(p!.pinModeModes).toContain("OUTPUT");
+      expect(p!.conflict).toBeFalsy();
+    }
+  });
+
+  // ── TC9b: OUTPUT + digitalRead conflict ───────────────────────────────────
+  it("TC9b: pinMode(OUTPUT) + digitalRead() on same pin → conflict", () => {
+    const code = sketch([
+      "void setup() {",
+      "  pinMode(5, OUTPUT);",
+      "}",
+      "void loop() {",
+      "  int val = digitalRead(5);",
+      "}",
+    ]);
+    const registry = parseStaticIORegistry(code);
+
+    const pin5 = registry.find((p) => p.pin === "5");
+    expect(pin5, "pin 5 must be in registry").toBeDefined();
+    expect(pin5!.pinModeModes).toContain("OUTPUT");
+    expect(pin5!.conflict).toBe(true);
+    expect(pin5!.conflictMessage).toBeTruthy();
+  });
 });
