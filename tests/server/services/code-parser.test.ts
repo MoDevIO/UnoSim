@@ -379,6 +379,57 @@ void loop()
         }),
       );
     });
+
+    it("should detect INPUT/OUTPUT conflict when for-loops use braces", () => {
+      // Pin 6 ends up in both ranges: INPUT (1..6) and OUTPUT (6..10)
+      const code = `
+void setup() {
+  for (int i = 1; i <= 6; i++) {
+    pinMode(i, INPUT);
+  }
+  for (int i = 6; i <= 10; i++) {
+    pinMode(i, OUTPUT);
+  }
+}
+void loop() {}
+      `;
+      const messages = parser.parseHardwareCompatibility(code);
+      const conflict = messages.find(
+        (m) => m.category === "pins" && m.message.includes("6") && /different modes/i.test(m.message),
+      );
+      expect(conflict).toBeDefined();
+    });
+
+    it("should detect INPUT/OUTPUT conflict when for-loops have no braces (braceless)", () => {
+      // Same test as above but without { } around loop bodies
+      const code = `
+void setup() {
+  for (int i = 1; i <= 6; i++) pinMode(i, INPUT);
+  for (int i = 6; i <= 10; i++) pinMode(i, OUTPUT);
+}
+void loop() {}
+      `;
+      const messages = parser.parseHardwareCompatibility(code);
+      const conflict = messages.find(
+        (m) => m.category === "pins" && m.message.includes("6") && /different modes/i.test(m.message),
+      );
+      expect(conflict).toBeDefined();
+    });
+
+    it("should detect conflict from for-loop using byte type and <= comparison (braceless)", () => {
+      const code = `
+void setup() {
+  for (byte i = 6; i <= 10; i++) pinMode(i, OUTPUT);
+  pinMode(6, INPUT);
+}
+void loop() {}
+      `;
+      const messages = parser.parseHardwareCompatibility(code);
+      const conflict = messages.find(
+        (m) => m.category === "pins" && m.message.includes("6") && /different modes/i.test(m.message),
+      );
+      expect(conflict).toBeDefined();
+    });
   });
 
   describe("parsePinConflicts", () => {

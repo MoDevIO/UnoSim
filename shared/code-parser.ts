@@ -195,28 +195,85 @@ export class CodeParser {
   }
 
   /**
-   * Detect pins configured in loops (e.g., for i=0; i<7 with pinMode(i, ...)
-   * Returns Set of numeric pin numbers that are likely configured by loop
+   * Extract all (pin, mode) pairs produced by for-loops containing
+   * `pinMode(loopVar, MODE)`.  Handles:
+   *   - Both braced bodies `{ ... }` and braceless single-statement bodies
+   *   - Both `<` and `<=` comparisons
+   *   - Type keywords: int, byte, uint8_t, unsigned int, unsigned, var, or none
    */
-  private getLoopConfiguredPins(code: string): Set<number> {
-    const configuredPins = new Set<number>();
+  private getLoopPinModeCalls(
+    code: string,
+  ): Array<{ pin: number; mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; line: number }> {
+    const results: Array<{ pin: number; mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; line: number }> =
+      [];
 
-    // Find for loops with pinMode calls using loop variable
-    // Pattern: for (type var = start; var < end; ...) { ... pinMode(var, ...) ... }
-    const loopRegex =
-      /for\s*\(\s*(?:byte|int|var)?\s*([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*<\s*(\d+)\s*;[^)]*\)\s*\{[^}]*pinMode\s*\(\s*\1\s*,/gi;
-    let match;
+    // Match the for-loop header, capturing: varName, start, operator, end
+    const forHeaderRe =
+      /for\s*\(\s*(?:(?:unsigned\s+int|uint8_t|unsigned|byte|int|var)\s+)?([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*(<=?)\s*(\d+)\s*;[^)]*\)/g;
 
-    while ((match = loopRegex.exec(code)) !== null) {
-      const startVal = parseInt(match[2], 10);
-      const endVal = parseInt(match[3], 10);
+    let forMatch: RegExpExecArray | null;
+    while ((forMatch = forHeaderRe.exec(code)) !== null) {
+      const varName = forMatch[1];
+      const startVal = parseInt(forMatch[2], 10);
+      const op = forMatch[3]; // '<' or '<='
+      const endVal = parseInt(forMatch[4], 10);
+      const lastVal = op === "<=" ? endVal : endVal - 1;
+      const forLine = code.substring(0, forMatch.index).split("\n").length;
 
-      // Add all pins that would be configured by this loop (start to end-1)
-      for (let i = startVal; i < endVal; i++) {
-        configuredPins.add(i);
+      // Skip leading whitespace after the closing ')' of the for-header
+      let pos = forMatch.index + forMatch[0].length;
+      while (pos < code.length && /[ \t\r\n]/.test(code[pos])) pos++;
+
+      let body: string;
+      if (code[pos] === "{") {
+        // Braced body: find the matching closing brace
+        let depth = 0;
+        let bodyStart = pos + 1;
+        let bodyEnd = -1;
+        for (let i = pos; i < code.length; i++) {
+          if (code[i] === "{") depth++;
+          else if (code[i] === "}") {
+            depth--;
+            if (depth === 0) {
+              bodyEnd = i;
+              break;
+            }
+          }
+        }
+        body = bodyEnd >= 0 ? code.substring(bodyStart, bodyEnd) : "";
+      } else {
+        // Braceless: single statement up to the very next semicolon
+        const semiIdx = code.indexOf(";", pos);
+        body = semiIdx >= 0 ? code.substring(pos, semiIdx) : "";
+      }
+
+      // Find all pinMode(varName, MODE) calls in the extracted body
+      const pinModeRe = new RegExp(
+        `\\bpinMode\\s*\\(\\s*${varName}\\s*,\\s*(INPUT_PULLUP|INPUT|OUTPUT)\\s*\\)`,
+        "g",
+      );
+      let pmMatch: RegExpExecArray | null;
+      while ((pmMatch = pinModeRe.exec(body)) !== null) {
+        const modeStr = pmMatch[1] as "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+        for (let pin = startVal; pin <= lastVal; pin++) {
+          results.push({ pin, mode: modeStr, line: forLine });
+        }
       }
     }
 
+    return results;
+  }
+
+  /**
+   * Detect pins configured in loops (e.g., for i=0; i<7 with pinMode(i, ...)
+   * Returns Set of numeric pin numbers that are likely configured by loop.
+   * Delegates to getLoopPinModeCalls so braceless and <= loops are covered.
+   */
+  private getLoopConfiguredPins(code: string): Set<number> {
+    const configuredPins = new Set<number>();
+    for (const { pin } of this.getLoopPinModeCalls(this.removeComments(code))) {
+      configuredPins.add(pin);
+    }
     return configuredPins;
   }
   parseHardwareCompatibility(code: string): ParserMessage[] {
@@ -273,6 +330,19 @@ export class CodeParser {
         pinModeCalls.set(pin, { modes: [mode], lines: [line] });
       } else {
         const entry = pinModeCalls.get(pin)!;
+        entry.modes.push(mode);
+        entry.lines.push(line);
+      }
+    }
+
+    // Expand for-loops containing pinMode(loopVar, MODE) — covers braced and
+    // braceless (single-statement) bodies, and both < / <= comparisons.
+    for (const { pin, mode, line } of this.getLoopPinModeCalls(uncommentedCode)) {
+      const key = String(pin);
+      if (!pinModeCalls.has(key)) {
+        pinModeCalls.set(key, { modes: [mode], lines: [line] });
+      } else {
+        const entry = pinModeCalls.get(key)!;
         entry.modes.push(mode);
         entry.lines.push(line);
       }

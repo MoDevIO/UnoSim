@@ -292,6 +292,11 @@ void loop() {
     await activateOutputTab(page, /messages/i);
     await page.waitForTimeout(600);
 
+    // Proof: the parser must have detected the INPUT/OUTPUT conflict on pin 6
+    await expect(
+      page.locator('text=/different modes|multiple pinMode|PIN.*conflict|conflict.*pin/i').first(),
+    ).toBeVisible({ timeout: 8000 });
+
     const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
     expect(snap).toMatchSnapshot('05_io_registry_mapping_context.png', {
       maxDiffPixels: 500,
