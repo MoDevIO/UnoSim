@@ -354,19 +354,19 @@ void loop() {
   // ────────────────────────────────────────────────────────────────────────────
   // Scenario 07 – I/O Registry: TC9 conflict markers (static analysis)
   //
-  // Sketch:
-  //   void setup() { pinMode(0, INPUT); pinMode(1, INPUT); }
+  // Sketch per updated screenshot:
+  //   void setup() { pinMode(0, INPUT); pinMode(1, OUTPUT); }
   //   void loop()  { digitalWrite(0, HIGH); digitalWrite(1, HIGH); digitalWrite(2, HIGH); }
   //
   // Expected IO-Registry (static, no simulation):
-  //   Pin 0  (RX): INPUT mode set, then written → red border "INPUT!"
-  //   Pin 1  (TX): INPUT mode set, then written → red border "INPUT!"
-  //   Pin 2:       written without any pinMode   → red × marker (no mode defined)
+  //   Pin 0  (RX): INPUT + write → conflict border "INPUT!"
+  //   Pin 1  (TX): OUTPUT + write → no conflict, shows OUTPUT mode
+  //   Pin 2:       write-only → red × (no mode defined)
   // ────────────────────────────────────────────────────────────────────────────
   test('07_io_registry_tc9_conflict_markers', async ({ page }) => {
     const code = `void setup() {
   pinMode(0, INPUT);
-  pinMode(1, INPUT);
+  pinMode(1, OUTPUT);
 }
 
 void loop() {
@@ -383,14 +383,18 @@ void loop() {
     // Open the I/O Registry tab.
     await activateOutputTab(page, /i\/o registry|registry/i);
 
-    // Proof 1: pin 0 AND pin 1 must show the INPUT conflict marker (red border).
-    // The conflict cell renders with title "Write on INPUT pin".
+    // Proof 1: conflict marker only exists for the INPUT pin (pin 0).
     await expect(
-      page.locator('[title*="Write on INPUT pin"]').first(),
+      page.locator('[title*="Write on INPUT pin"]').nth(0),
     ).toBeVisible({ timeout: 8000 });
+    // There should be exactly one such marker visible
+    const conflicts = await page.locator('[title*="Write on INPUT pin"]').count();
+    expect(conflicts).toBe(1);
 
-    // Proof 2: pin 2 must appear in the table (it has a digitalWrite but no
-    // pinMode – the UI renders it with a red × in the mode column).
+    // Proof 2: the table should show at least one OUTPUT cell (pin 1 uses OUTPUT).
+    await expect(page.locator('td', { hasText: /OUTPUT/ }).first()).toBeVisible({ timeout: 5000 });
+
+    // Proof 3: pin 2 must appear in the table (write-only, no mode → ×).
     await expect(
       page.locator('td.font-mono', { hasText: /^2$/ }).first(),
     ).toBeVisible({ timeout: 5000 });
