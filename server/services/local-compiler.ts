@@ -188,21 +188,30 @@ export class LocalCompiler {
     } else {
       const buildDir = join(dirname(sketchFile), "build");
       const sketchDir = dirname(sketchFile);
-      // ensure the CLI build path exists before invoking
+      // ensure the CLI build path AND key subdirectories exist before invoking
+      // arduino-cli / avr-gcc so they never fail trying to create them under
+      // parallel load on macOS.
       try {
-        await mkdir(buildDir, { recursive: true });
+        await mkdir(join(buildDir, "sketch"), { recursive: true });
+        await mkdir(join(buildDir, "core"), { recursive: true });
       } catch {}
 
       // create a minimal Arduino sketch for CLI in a fresh folder
       const cliTemp = join(sketchDir, "cli-temp");
+      let cliTempReady = false;
       try {
         const { writeFile } = await import("fs/promises");
         await mkdir(cliTemp, { recursive: true });
         // filename must match directory name for Arduino CLI
         const cliSketch = join(cliTemp, "cli-temp.ino");
         await writeFile(cliSketch, "void setup(){}\nvoid loop(){}\n");
+        cliTempReady = true;
       } catch {}
 
+      // Only invoke arduino-cli if the sketch directory was successfully prepared.
+      // Skipping prevents noisy "Can't open sketch" errors and avoids resource
+      // contention when multiple test workers run in parallel.
+      if (cliTempReady) {
       try {
         const cliArgs = [
           "compile",
@@ -214,8 +223,10 @@ export class LocalCompiler {
         ];
         this.logger.debug(`spawning arduino-cli ${cliArgs.join(" ")}`);
         const { spawn } = await import("child_process");
+        // use "pipe" for stdio so that arduino-cli output (including fatal
+        // errors from avr-gcc) does not pollute the test/server console.
         const cliProc = spawn("arduino-cli", cliArgs,
-          { stdio: ["ignore", "inherit", "inherit"] });
+          { stdio: ["ignore", "pipe", "pipe"] });
         this.activeProc = cliProc;
         try {
           const gs: any = (globalThis as any).spawnInstances;
@@ -236,15 +247,6 @@ export class LocalCompiler {
         // CLI failure is acceptable; we continue to native compile afterwards
         this.logger.warn(`arduino-cli step failed: ${err instanceof Error ? err.message : err}`);
       } finally {
-        // diagnostic: list build/core contents to prove CLI output (non-blocking)
-        try {
-          const { execFile } = await import("child_process");
-          const { promisify } = await import("util");
-          const coreDir = join(buildDir, "core");
-          const execFileAsync = promisify(execFile);
-          const { stdout } = await execFileAsync("sh", ["-c", `ls -R ${coreDir} 2>/dev/null || true`]).catch(() => ({ stdout: "" }));
-          console.log("CLI_BUILD_DIR_CONTENTS:\n" + stdout);
-        } catch {}
         // if CLI produced a core.a, copy to cache
         try {
           const fs = await import("fs");
@@ -292,6 +294,7 @@ export class LocalCompiler {
           await rm(cliTemp, { recursive: true, force: true });
         } catch {}
       }
+      } // end if (cliTempReady)
     }
 
     // Try compilation with retry logic for transient failures using g++
