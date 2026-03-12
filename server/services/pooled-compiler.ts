@@ -96,6 +96,4 @@ export function getPooledCompiler(): PooledCompiler {
   return pooledCompilerInstance;
 }
 
-export function setPooledCompiler(compiler: PooledCompiler): void {
-  pooledCompilerInstance = compiler;
-}
+// setPooledCompiler removed; not needed

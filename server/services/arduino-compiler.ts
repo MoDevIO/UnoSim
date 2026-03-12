@@ -728,4 +728,4 @@ export class ArduinoCompiler {
   }
 }
 
-export const compiler = new ArduinoCompiler();
+// singleton instance removed, not used anywhere

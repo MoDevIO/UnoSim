@@ -73,4 +73,5 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
 );
 InputGroup.displayName = "InputGroup";
 
-export default InputGroup;
+// default export removed; use named InputGroup export
+

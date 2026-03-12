@@ -1655,4 +1655,4 @@ export class SandboxRunner {
   }
 }
 
-export const sandboxRunner = new SandboxRunner();
+// sandboxRunner singleton removed; not used
