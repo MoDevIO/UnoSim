@@ -32,8 +32,8 @@ enum SimulationState {
 // Configuration
 const SANDBOX_CONFIG = {
   // Docker settings
-  dockerImage: "arduino-sandbox:latest",
-  useDocker: false, // Will be set based on availability
+  dockerImage: "unowebsim-sandbox:latest",
+  useDocker: true, // Will be set based on availability
 
   // Resource limits
   maxMemoryMB: 128, // Max 128MB RAM

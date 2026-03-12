@@ -74,10 +74,12 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Build Sandbox Image
-        run: npm run build:sandbox
+        run: |
+          docker build -t unowebsim-sandbox:latest .
+          docker images # Hilft beim Debuggen im Log zu sehen, ob das Image da ist
 
       - name: Run E2E Tests
-        run: npx playwright test --update-snapshots=missing --workers=2
+        run: npx playwright test --update-snapshots=missing --workers=1
       - name: Commit new Linux visual baselines
         if: always()
         run: |
