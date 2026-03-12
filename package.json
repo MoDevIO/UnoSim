@@ -29,6 +29,7 @@
     "test:load:50": "NODE_ENV=production LOG_LEVEL=info vitest run tests/server/load-suite.test.ts --testNamePattern='Load Test: 50 Concurrent Clients'",
     "test:load:200": "NODE_ENV=production LOG_LEVEL=info vitest run tests/server/load-suite.test.ts --testNamePattern='Load Test: 200 Concurrent Clients'",
     "lint": "echo \"no eslint config, skipping\"",
+    "build:sandbox": "docker build -t unowebsim-sandbox .",
     "prepare": "husky"
   },
   "dependencies": {
