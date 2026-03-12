@@ -31,28 +31,7 @@ export class LocalCompiler {
    * @param exeFile - Path for the output executable
    * @throws Error if compilation fails or times out
    */
-  private static readonly CORE_LIB_PATH = join(process.cwd(), "arduino-core", "core.a");
   private static readonly CLI_CACHE_PATH = join(process.cwd(), "cache", "cores", "uno-cli-feedback.a");
-  private static readonly SIM_CACHE_PATH = join(process.cwd(), "cache", "cores", "sim-native-core.a");
-
-  /**
-   * Check whether the given precompiled archive is stale in relation to the
-   * underlying Arduino core library. If the core library has been updated more
-   * recently than the archive we should rebuild instead of reusing it.
-   */
-  private async isArchiveStale(archive: string): Promise<boolean> {
-    try {
-      const [archStat, coreStat] = await Promise.all([
-        import("fs").then((fs) => fs.promises.stat(archive)),
-        import("fs").then((fs) => fs.promises.stat(LocalCompiler.CORE_LIB_PATH)),
-      ]);
-      return archStat.mtimeMs < coreStat.mtimeMs;
-    } catch {
-      // if we can't stat either file, assume it's not stale so we don't
-      // accidentally throw away a valid cache
-      return false;
-    }
-  }
 
   async compile(
     sketchFile: string,
@@ -158,34 +137,9 @@ export class LocalCompiler {
       return; // skip the real compilation path
     }
 
-    // make sure native cache exists and is up‑to‑date (rebuild if stale)
-    let nativeArchive = usingTestEnv ? undefined : coreArchive;
-    const simPath = LocalCompiler.SIM_CACHE_PATH;
-    if (!usingTestEnv) {
-      if (await this.isNativeCacheStale(simPath)) {
-        await this.ensureNativeCoreCache();
-      }
-      // if we don't already have an archive to link, use the sim cache
-      if (!nativeArchive) {
-        try {
-          await stat(simPath);
-          nativeArchive = simPath;
-        } catch {
-          // cache doesn't exist, skip
-        }
-      }
-      // if the supplied archive (e.g. from prepareEnvironment) is stale, forget it
-      if (coreArchive) {
-        const stale = await this.isArchiveStale(coreArchive);
-        if (stale) {
-          this.logger.info(
-            `[LocalCompiler] cache archive is stale, ignoring: ${coreArchive}`,
-          );
-          coreArchive = undefined;
-        }
-      }
-    }
-    // we will pass nativeArchive (if any) to g++ later
+    // The sketch is always self-contained (ARDUINO_MOCK_CODE + user code),
+    // so we never link a separate core archive alongside it (duplicate symbols).
+    // An explicit coreArchive may still be passed by callers that know they need it.
 
     // Ensure output directory exists before compilation
     const outputDir = dirname(exeFile);
@@ -234,21 +188,30 @@ export class LocalCompiler {
     } else {
       const buildDir = join(dirname(sketchFile), "build");
       const sketchDir = dirname(sketchFile);
-      // ensure the CLI build path exists before invoking
+      // ensure the CLI build path AND key subdirectories exist before invoking
+      // arduino-cli / avr-gcc so they never fail trying to create them under
+      // parallel load on macOS.
       try {
-        await mkdir(buildDir, { recursive: true });
+        await mkdir(join(buildDir, "sketch"), { recursive: true });
+        await mkdir(join(buildDir, "core"), { recursive: true });
       } catch {}
 
       // create a minimal Arduino sketch for CLI in a fresh folder
       const cliTemp = join(sketchDir, "cli-temp");
+      let cliTempReady = false;
       try {
         const { writeFile } = await import("fs/promises");
         await mkdir(cliTemp, { recursive: true });
         // filename must match directory name for Arduino CLI
         const cliSketch = join(cliTemp, "cli-temp.ino");
         await writeFile(cliSketch, "void setup(){}\nvoid loop(){}\n");
+        cliTempReady = true;
       } catch {}
 
+      // Only invoke arduino-cli if the sketch directory was successfully prepared.
+      // Skipping prevents noisy "Can't open sketch" errors and avoids resource
+      // contention when multiple test workers run in parallel.
+      if (cliTempReady) {
       try {
         const cliArgs = [
           "compile",
@@ -260,8 +223,10 @@ export class LocalCompiler {
         ];
         this.logger.debug(`spawning arduino-cli ${cliArgs.join(" ")}`);
         const { spawn } = await import("child_process");
+        // use "pipe" for stdio so that arduino-cli output (including fatal
+        // errors from avr-gcc) does not pollute the test/server console.
         const cliProc = spawn("arduino-cli", cliArgs,
-          { stdio: ["ignore", "inherit", "inherit"] });
+          { stdio: ["ignore", "pipe", "pipe"] });
         this.activeProc = cliProc;
         try {
           const gs: any = (globalThis as any).spawnInstances;
@@ -282,15 +247,6 @@ export class LocalCompiler {
         // CLI failure is acceptable; we continue to native compile afterwards
         this.logger.warn(`arduino-cli step failed: ${err instanceof Error ? err.message : err}`);
       } finally {
-        // diagnostic: list build/core contents to prove CLI output (non-blocking)
-        try {
-          const { execFile } = await import("child_process");
-          const { promisify } = await import("util");
-          const coreDir = join(buildDir, "core");
-          const execFileAsync = promisify(execFile);
-          const { stdout } = await execFileAsync("sh", ["-c", `ls -R ${coreDir} 2>/dev/null || true`]).catch(() => ({ stdout: "" }));
-          console.log("CLI_BUILD_DIR_CONTENTS:\n" + stdout);
-        } catch {}
         // if CLI produced a core.a, copy to cache
         try {
           const fs = await import("fs");
@@ -338,11 +294,7 @@ export class LocalCompiler {
           await rm(cliTemp, { recursive: true, force: true });
         } catch {}
       }
-    }
-
-    // after CLI stage, prefer nativeArchive for linking
-    if (nativeArchive) {
-      coreArchive = nativeArchive;
+      } // end if (cliTempReady)
     }
 
     // Try compilation with retry logic for transient failures using g++
@@ -473,114 +425,6 @@ export class LocalCompiler {
   }
 
   /**
-   * Build the sim-native core archive using g++ and ar if cache is missing.
-   * This compiles the shared Arduino mock code once for the host architecture
-   * and produces sim-native-core.a in the cache directory.
-   */
-  private async ensureNativeCoreCache(): Promise<void> {
-    this.logger.debug(`[LocalCompiler] ensureNativeCoreCache called, SIM_CACHE_PATH=${LocalCompiler.SIM_CACHE_PATH}`);
-    const hashFile = LocalCompiler.SIM_CACHE_PATH + ".hash";
-    
-    // Check if cache exists
-    let cacheExists = false;
-    try {
-      await stat(LocalCompiler.SIM_CACHE_PATH);
-      cacheExists = true;
-    } catch {
-      cacheExists = false;
-    }
-    
-    if (cacheExists) {
-      // check hash, rebuild if mismatched
-      try {
-        const existing = await import("fs/promises").then((fs) => fs.readFile(hashFile, "utf-8"));
-        const { ARDUINO_MOCK_CODE } = await import("../mocks/arduino-mock");
-        const crypto = await import("crypto");
-        const current = crypto.createHash("sha256").update(ARDUINO_MOCK_CODE).digest("hex");
-        if (existing === current) {
-          this.logger.debug("[LocalCompiler] native cache up-to-date, skipping build");
-          return;
-        }
-        this.logger.debug("[LocalCompiler] native cache hash mismatch, rebuilding");
-      } catch {
-        // missing hash file, rebuild
-        this.logger.debug("[LocalCompiler] no hash file, rebuilding native cache");
-      }
-    }
-    const tmp = join(process.cwd(), "cache", "cores", "sim-build");
-    this.logger.debug(`[LocalCompiler] creating temporary build dir: ${tmp}`);
-    try {
-      await mkdir(tmp, { recursive: true });
-      const src = join(tmp, "sim-core.cpp");
-      const { ARDUINO_MOCK_CODE } = await import("../mocks/arduino-mock");
-      await import("fs/promises").then((fs) => fs.writeFile(src, ARDUINO_MOCK_CODE));
-
-      const obj = join(tmp, "sim-core.o");
-      await new Promise<void>((res, rej) => {
-        const { spawn } = require("child_process");
-        const proc = spawn("g++", ["-std=gnu++17", "-pthread", "-c", src, "-o", obj]);
-        try { const gs: any = (globalThis as any).spawnInstances; if (Array.isArray(gs)) gs.push(proc); } catch {}
-        proc.on("close", (code: number | null) => (code === 0 ? res() : rej(new Error("g++ native core compile failed"))));
-        proc.on("error", rej);
-      });
-
-      await new Promise<void>((res, rej) => {
-        const { spawn } = require("child_process");
-        const proc = spawn("ar", ["rcs", LocalCompiler.SIM_CACHE_PATH, obj]);
-        try { const gs: any = (globalThis as any).spawnInstances; if (Array.isArray(gs)) gs.push(proc); } catch {}
-        proc.on("close", (code: number | null) => (code === 0 ? res() : rej(new Error("ar archiving failed"))));
-        proc.on("error", rej);
-      });
-
-      // after successful build write hash file using same mock code
-      try {
-        const fs = await import("fs/promises");
-        const crypto = await import("crypto");
-        const h = crypto.createHash("sha256").update(ARDUINO_MOCK_CODE).digest("hex");
-        await fs.writeFile(hashFile, h);
-        this.logger.debug(`[LocalCompiler] wrote native-cache hash to ${hashFile}`);
-      } catch (err) {
-        this.logger.warn(`[LocalCompiler] could not write hash file: ${err}`);
-      }
-    } catch (err) {
-      this.logger.warn(`[LocalCompiler] failed to build native core cache: ${err}`);
-    } finally {
-      try {
-        await rm(tmp, { recursive: true, force: true });
-      } catch {}
-    }
-  }
-
-  /**
-   * Return true if the native cache either doesn't exist or its hash differs
-   * from the current mock code.  Used to determine when to rebuild.
-   */
-  private async isNativeCacheStale(path: string): Promise<boolean> {
-    try {
-      // Check if cache file exists
-      try {
-        await stat(path);
-      } catch {
-        this.logger.debug("[LocalCompiler] native cache missing, considered stale");
-        return true;
-      }
-      
-      const hashFile = path + ".hash";
-      const fs = await import("fs/promises");
-      const existing = await fs.readFile(hashFile, "utf-8");
-      const { ARDUINO_MOCK_CODE } = await import("../mocks/arduino-mock");
-      const crypto = await import("crypto");
-      const current = crypto.createHash("sha256").update(ARDUINO_MOCK_CODE).digest("hex");
-      const stale = existing !== current;
-      this.logger.debug(`[LocalCompiler] native cache hash check: existing=${existing.slice(0,8)} current=${current.slice(0,8)} stale=${stale}`);
-      return stale;
-    } catch (err) {
-      this.logger.debug(`[LocalCompiler] native cache hash check error: ${err}`);
-      return true; // rebuild on any error
-    }
-  }
-
-  /**
    * Kill any active compiler/CLI process.
    */
   kill(): void {
@@ -594,3 +438,5 @@ export class LocalCompiler {
     }
   }
 }
+
+

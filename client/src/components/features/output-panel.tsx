@@ -88,7 +88,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
 
   return (
     <Tabs value={activeOutputTab} onValueChange={(v) => onTabChange(v as OutputTab)} className="h-full flex flex-col">
-      <div ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="flex items-center justify-start px-2 h-[var(--ui-header-height)] bg-muted border-b">
+      <div ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="flex items-center justify-start px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b">
         <TabsList className="h-auto flex gap-1 bg-transparent items-center">
           <TabsTrigger value="compiler" onDoubleClick={() => openOutputPanel("compiler")} className={clsx("h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center", {
             "text-gray-400": lastCompilationResult === null,

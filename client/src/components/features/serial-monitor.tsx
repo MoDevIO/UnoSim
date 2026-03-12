@@ -1,5 +1,7 @@
-import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo, ReactNode } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Trash2, Monitor } from "lucide-react";
 import type { OutputLine } from "@shared/schema";
 
 interface SerialMonitorProps {
@@ -10,6 +12,8 @@ interface SerialMonitorProps {
   onClear: () => void;
   showMonitor?: boolean;
   autoScrollEnabled?: boolean;
+  headerActions?: ReactNode;
+  showHeader?: boolean;
 }
 
 interface ProcessedLine {
@@ -131,6 +135,8 @@ export function SerialMonitor({
   onClear: _onClear,
   showMonitor = true,
   autoScrollEnabled = true,
+  headerActions,
+  showHeader = true,
 }: SerialMonitorProps) {
   void isConnected;
   const outputRef = useRef<HTMLDivElement | null>(null);
@@ -352,6 +358,29 @@ export function SerialMonitor({
 
   return (
     <div className="h-full flex flex-col" data-testid="serial-monitor" ref={containerRef}>
+      {/* Header - Consistent with other panel headers */}
+      {showHeader && (
+        <div className="flex items-center justify-between px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} />
+            <span className="font-semibold text-xs tracking-wide uppercase text-muted-foreground/80">Serial Monitor</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {headerActions}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+              onClick={() => _onClear()}
+              title="Clear serial output"
+            >
+              <Trash2 size={16} />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Content area - flex-1 for remaining space */}
       <div className="flex-1 min-h-0">
         {showMonitor ? (
           <ScrollArea

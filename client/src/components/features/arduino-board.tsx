@@ -917,7 +917,7 @@ export function ArduinoBoard({
   return (
     <div className="h-full flex flex-col bg-card border-t border-border">
       {/* Header */}
-      <div className="bg-muted px-4 border-b border-border flex items-center justify-between h-[var(--ui-header-height)] overflow-hidden">
+      <div className="bg-muted px-[var(--header-padding-x)] border-b border-border flex items-center justify-between h-[var(--ui-header-height)] overflow-hidden">
         <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
           <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
           <span className="sr-only">Arduino UNO Board</span>

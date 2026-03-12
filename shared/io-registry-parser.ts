@@ -197,8 +197,11 @@ function findLoopRanges(
   syms: Map<string, number>,
 ): LoopRange[] {
   const ranges: LoopRange[] = [];
+  // The opening brace (\{)? is made optional so that braceless single-statement
+  // loop bodies are also handled, e.g.:
+  //   for (int i = 1; i <= 6; i++) pinMode(i, INPUT);
   const re =
-    /\bfor\s*\(\s*(?:(?:byte|int|uint8_t|short)\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>]=?)\s*([A-Za-z0-9_]+)\s*;[^)]*\)\s*\{/g;
+    /\bfor\s*\(\s*(?:(?:byte|int|uint8_t|short)\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>]=?)\s*([A-Za-z0-9_]+)\s*;[^)]*\)\s*(\{)?/g;
   let m: RegExpExecArray | null;
 
   while ((m = re.exec(clean)) !== null) {
@@ -206,6 +209,7 @@ function findLoopRanges(
     const start = parseInt(m[2], 10);
     const op = m[3];
     const limitVal = resolveToken(m[4], syms) ?? parseInt(m[4], 10);
+    const hasBrace = !!m[5];
     if (isNaN(limitVal)) continue;
 
     const values: number[] = [];
@@ -224,20 +228,28 @@ function findLoopRanges(
 
     if (values.length === 0 || values.length > 20) continue;
 
-    // Find the matching closing brace of the loop body
-    let openBrace = m.index + m[0].length - 1;
-    while (openBrace < clean.length && clean[openBrace] !== "{") openBrace++;
-    let depth = 0;
-    let endPos = openBrace;
-    for (let i = openBrace; i < clean.length; i++) {
-      if (clean[i] === "{") depth++;
-      else if (clean[i] === "}") {
-        depth--;
-        if (depth === 0) {
-          endPos = i;
-          break;
+    let endPos: number;
+    if (hasBrace) {
+      // Braced body: find the matching closing brace
+      let openBrace = m.index + m[0].length - 1;
+      while (openBrace < clean.length && clean[openBrace] !== "{") openBrace++;
+      let depth = 0;
+      endPos = openBrace;
+      for (let i = openBrace; i < clean.length; i++) {
+        if (clean[i] === "{") depth++;
+        else if (clean[i] === "}") {
+          depth--;
+          if (depth === 0) {
+            endPos = i;
+            break;
+          }
         }
       }
+    } else {
+      // Braceless body: the single statement ends at the first ";" after the header
+      const bodyStart = m.index + m[0].length;
+      const semiPos = clean.indexOf(";", bodyStart);
+      endPos = semiPos >= 0 ? semiPos : clean.length;
     }
 
     ranges.push({
@@ -362,7 +374,13 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
     const hasWrite = dwCalls.length > 0 || awCalls.length > 0;
     const operationConflict = hasInputMode && hasWrite;
 
-    const conflict = pinModeConflict || operationConflict;
+    // TC 9b: pin set to OUTPUT AND read via digital/analogRead
+    const hasOutputMode =
+      pmCalls.length > 0 && uniqueModes.some((mm) => mm === "OUTPUT");
+    const hasRead = drCalls.length > 0 || arCalls.length > 0;
+    const outputReadConflict = hasOutputMode && hasRead;
+
+    const conflict = pinModeConflict || operationConflict || outputReadConflict;
 
     const record: IOPinRecord = {
       pin: label,
@@ -374,9 +392,11 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
       record.conflict = true;
       record.conflictMessage = pinModeConflict
         ? `Multiple modes: ${uniqueModes.join(", ")}`
-        : `Write on ${uniqueModes
-            .filter((mm) => mm !== "OUTPUT")
-            .join("/")} pin`;
+        : operationConflict
+          ? `Write on ${uniqueModes
+              .filter((mm) => mm !== "OUTPUT")
+              .join("/")} pin`
+          : `Read on OUTPUT pin`;
     }
 
     // ── New extended-view line arrays ────────────────────────────────────

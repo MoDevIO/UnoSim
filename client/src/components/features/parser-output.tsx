@@ -130,7 +130,7 @@ export function ParserOutput({
       >
         {/* Header with integrated tabs */}
         {!hideHeader && (
-          <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden">
+          <div className="bg-muted px-[var(--header-padding-x)] border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden">
             <div className="flex items-center space-x-2 flex-shrink-0">
               <AlertCircle
                 className="text-white opacity-95 h-5 w-5"
@@ -397,9 +397,26 @@ export function ParserOutput({
                           });
                       const uniqueModes = [...new Set(pmModes)];
 
-                      // Conflict: TC9 (write on input) or TC11 (multi-mode)
+                      // Conflict: TC9 (write on input), TC9b (read on output), TC11 (multi-mode)
+                      const hasOutputMode = uniqueModes.includes("OUTPUT");
+                      const hasInputMode =
+                        uniqueModes.includes("INPUT") ||
+                        uniqueModes.includes("INPUT_PULLUP");
+                      const hasRuntimeRead = ops.some(
+                        (u) =>
+                          u.operation === "digitalRead" ||
+                          u.operation === "analogRead",
+                      );
+                      const hasRuntimeWrite = ops.some(
+                        (u) =>
+                          u.operation === "digitalWrite" ||
+                          u.operation === "analogWrite",
+                      );
                       const hasConflict =
-                        record.conflict ?? uniqueModes.length > 1;
+                        record.conflict ??
+                        (uniqueModes.length > 1 ||
+                          (hasOutputMode && hasRuntimeRead) ||
+                          (hasInputMode && hasRuntimeWrite));
 
                       // ── Helper: render an op cell ────────────────────────
                       // newLines  = from static parse (has line numbers)

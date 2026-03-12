@@ -47,9 +47,13 @@ function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
     delete (cleaned as any).definedAt;
   }
   
-  // Filter out usedAt entries with line: 0
+  // Filter out usedAt entries with line: 0 that have no operation (true placeholders).
+  // Runtime entries always have line: 0 but carry a non-empty operation string
+  // (e.g. "pinMode:0") – those must be preserved so the client can detect conflicts.
   if (cleaned.usedAt && cleaned.usedAt.length > 0) {
-    cleaned.usedAt = cleaned.usedAt.filter(entry => entry.line !== 0);
+    cleaned.usedAt = cleaned.usedAt.filter(
+      entry => entry.line !== 0 || !!entry.operation,
+    );
     // Remove usedAt entirely if empty
     if (cleaned.usedAt.length === 0) {
       delete (cleaned as any).usedAt;
@@ -316,7 +320,9 @@ export class RegistryManager {
           }) + "\n";
           // Non-blocking write via stream
           if (!this.debugStream) {
-            this.debugStream = createWriteStream(debugPath, { flags: "a" });
+            const stream = createWriteStream(debugPath, { flags: "a" });
+            stream.on("error", () => { this.debugStream = null; });
+            this.debugStream = stream;
           }
           this.debugStream.write(debugLine);
         } catch {
@@ -366,6 +372,57 @@ export class RegistryManager {
     if (this.onTelemetryCallback && this.enableTelemetry) {
       this.stopTelemetry(); // Clear any previous heartbeat
       this.startHeartbeat();
+    }
+  }
+
+  /**
+   * Detect and annotate conflicts on a single pin record in-place.
+   *
+   * Checks:
+   *   – Multiple distinct pinMode modes in usedAt  → TC11 / multi-mode conflict
+   *   – INPUT/INPUT_PULLUP mode + digitalWrite/analogWrite in usedAt  → TC9
+   *   – OUTPUT mode combined with digitalRead/analogRead in usedAt  → TC9b
+   */
+  private detectConflictsForPin(pin: IOPinRecord): void {
+    const ops = pin.usedAt ?? [];
+
+    const pinModeOps = ops.filter((u) => u.operation.startsWith("pinMode:"));
+    const distinctModes = new Set(pinModeOps.map((u) => u.operation));
+
+    if (distinctModes.size > 1) {
+      pin.conflict = true;
+      const modeNames = Array.from(distinctModes).map((op) => {
+        const n = parseInt(op.split(":")[1], 10);
+        return n === 0 ? "INPUT" : n === 1 ? "OUTPUT" : "INPUT_PULLUP";
+      });
+      pin.conflictMessage = `Multiple modes: ${modeNames.join(", ")}`;
+      return;
+    }
+
+    // TC9: INPUT/INPUT_PULLUP + digitalWrite/analogWrite
+    const hasInput = ops.some(
+      (u) => u.operation === "pinMode:0" || u.operation === "pinMode:2",
+    );
+    const hasWrite = ops.some(
+      (u) => u.operation === "digitalWrite" || u.operation === "analogWrite",
+    );
+    if (hasInput && hasWrite && !pin.conflict) {
+      pin.conflict = true;
+      const inputModeName = ops.some((u) => u.operation === "pinMode:2")
+        ? "INPUT_PULLUP"
+        : "INPUT";
+      pin.conflictMessage = `Write on ${inputModeName} pin`;
+      return;
+    }
+
+    // TC9b: OUTPUT + digitalRead/analogRead
+    const hasOutput = ops.some((u) => u.operation === "pinMode:1");
+    const hasRead = ops.some(
+      (u) => u.operation === "digitalRead" || u.operation === "analogRead",
+    );
+    if (hasOutput && hasRead && !pin.conflict) {
+      pin.conflict = true;
+      pin.conflictMessage = "Read on OUTPUT pin";
     }
   }
 
@@ -424,6 +481,12 @@ export class RegistryManager {
       `Registry collection complete: ${this.registry.length} pins`,
     );
     this.isCollecting = false;
+
+    // Annotate conflicts now that all pins from the IO_REGISTRY burst are known
+    for (const pin of this.registry) {
+      this.detectConflictsForPin(pin);
+    }
+
     this.isDirty = true;
     const nextHash = this.computeRegistryHash();
     if (nextHash !== this.registryHash) {
@@ -491,6 +554,13 @@ export class RegistryManager {
       if (!alreadyTracked) {
         existing.usedAt.push({ line: 0, operation: pinModeOp });
       }
+
+      // Re-run conflict detection using the shared helper (covers multi-mode
+      // AND OUTPUT+digitalRead, consistent with finishCollection).
+      const hadConflict = existing.conflict;
+      this.detectConflictsForPin(existing);
+      const newConflict = existing.conflict && !hadConflict;
+
       this.telemetry.incomingEvents++;
 
       // Structural changes (defined: false -> true) must be sent immediately.
@@ -509,8 +579,16 @@ export class RegistryManager {
           this.sendNow(nextHash, "pin-defined-changed");
         }
       } else {
-        // Already defined but new mode (mode change) – mark as sent
+        // Already defined but new mode (mode change) – mark as sent.
+        // If this mode change introduced a new conflict, send immediately.
         this.runtimeSentFingerprints.add(fingerprint);
+        if (newConflict) {
+          this.isDirty = true;
+          if (!this.isCollecting && !this.waitingForRegistry) {
+            const nextHash = this.computeRegistryHash();
+            this.sendNow(nextHash, "pin-conflict-detected");
+          }
+        }
       }
     } else {
       // Create new pin record if not yet in registry

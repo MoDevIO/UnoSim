@@ -107,8 +107,11 @@ lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 sleep 1
 
 export PORT=3000
-# Server startet im Hintergrund mit kontrolliertem Logging
-npm run dev >> "$LOG_FILE" 2>&1 &
+# Server startet im Hintergrund mit kontrolliertem Logging.
+# NODE_ENV=development ensures the Vite middleware is active so E2E snapshots
+# render identically to standalone Playwright runs (serveStatic uses the dist
+# build which produces different font/CSS output and breaks snapshot assertions).
+NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 
 for i in {1..15}; do

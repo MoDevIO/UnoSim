@@ -32,7 +32,7 @@ export function CompilationOutput({
       data-testid="compilation-output"
     >
       {!hideHeader && (
-        <div className="bg-muted px-4 border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden">
+        <div className="bg-muted px-[var(--header-padding-x)] border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden">
           <div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap gap-2">
             <div className="flex items-center space-x-2 flex-shrink-0">
               {isSuccess && showSuccessMessage ? (
