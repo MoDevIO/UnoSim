@@ -15,7 +15,7 @@ const subscribe = (callback: () => void) => {
 
 const getSnapshot = (): boolean => debugModeState;
 
-export const debugModeStore = {
+const debugModeStore = {
   subscribe,
   getSnapshot,
   setDebugMode: (value: boolean) => {

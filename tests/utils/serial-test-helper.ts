@@ -43,7 +43,7 @@ export function extractPlainText(outputs: string[] | string): string {
  * @param timeout - Maximum time to wait in milliseconds (default: 15000ms)
  * @throws Error if runner doesn't reach RUNNING state within timeout
  */
-export async function waitForRunning(runner: SandboxRunner, timeout = 15000): Promise<void> {
+async function waitForRunning(runner: SandboxRunner, timeout = 15000): Promise<void> {
   const start = Date.now();
   
   while (Date.now() - start < timeout) {
@@ -89,7 +89,7 @@ export async function waitForRunning(runner: SandboxRunner, timeout = 15000): Pr
  * expect(extractPlainText(outputs)).toContain('Hello');
  * ```
  */
-export async function waitForSerialOutput(
+async function waitForSerialOutput(
   outputs: string[],
   target: string,
   timeout = 30000,

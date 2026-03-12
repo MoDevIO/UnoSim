@@ -135,7 +135,7 @@ function sanitize(message: string): string {
  * Flushes Debug-Buffer bei Fehler/Testfehlschlag
  * Wird von test-Setup und Error-Handler aufgerufen
  */
-export function flushDebugOnFailure(reason?: string): void {
+function flushDebugOnFailure(reason?: string): void {
   if (debugBuffer.size() === 0) return;
 
   const entries = debugBuffer.getAll();
@@ -257,6 +257,4 @@ export function setLogLevel(level: LogLevel): void {
   globalLogLevel = level;
 }
 
-export function getLogLevel(): LogLevel {
-  return globalLogLevel;
-}
+

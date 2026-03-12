@@ -61,9 +61,9 @@ export async function isServerRunning(): Promise<boolean> {
  * Cached sync server status (evaluated once at module load).
  * This is safe to use at the module level for describe.skip logic.
  */
-export const SERVER_AVAILABLE = isServerRunningSync();
+const SERVER_AVAILABLE = isServerRunningSync();
 
 /**
  * Helper to create conditional describe - skips if server not available.
  */
-export const describeIfServer = SERVER_AVAILABLE ? describe : describe.skip;
+const describeIfServer = SERVER_AVAILABLE ? describe : describe.skip;

@@ -183,7 +183,7 @@ const subscribe = (callback: () => void) => {
   return () => subscribers.delete(callback);
 };
 
-export const simulationStore = {
+const simulationStore = {
   subscribe,
   getSnapshot,
   setPinStates,

@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 
 const TooltipProvider = TooltipPrimitive.Provider;
 
-const Tooltip = TooltipPrimitive.Root;
+// Tooltip unused
 
-const TooltipTrigger = TooltipPrimitive.Trigger;
+// TooltipTrigger unused
 
 const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
@@ -27,4 +27,4 @@ const TooltipContent = React.forwardRef<
 ));
 TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
+export { /* Tooltip, TooltipTrigger, TooltipContent, */ TooltipProvider }; // tooltip components unused
