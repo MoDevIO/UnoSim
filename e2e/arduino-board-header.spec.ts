@@ -298,7 +298,7 @@ void loop() {
     digitalWrite(8, i % 2);
     digitalWrite(9, (i + 1) % 2);
   }
-  Serial.println("Update batch");
+  Serial.println("Update batch v2 - Debug");
   delay(100);
 }`;
 
