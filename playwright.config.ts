@@ -18,7 +18,7 @@ export default defineConfig({
   // PARALLELISIERUNG AKTIVIERT
   // Nutzt 4 Worker lokal, in der CI (GitHub Actions etc.) 2, um Überlastung zu vermeiden
   workers: process.env.CI ? 2 : 4,               
-  fullyParallel: true, // Erlaubt Playwright, Tests innerhalb einer Datei parallel auszuführen
+  fullyParallel: false, // Erlaubt Playwright, Tests innerhalb einer Datei parallel auszuführen
 
   expect: {
     timeout: 10000,         
