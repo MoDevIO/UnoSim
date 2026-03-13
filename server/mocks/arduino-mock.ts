@@ -11,7 +11,16 @@
  * 4. SerialClass: Added print/println overloads with decimals parameter for float/double.
  * 5. SerialClass: Added parseFloat(), readString(), setTimeout(), write(buf,len), readBytes(), readBytesUntil()
  * 6. SerialClass: Added print/println with format (DEC, HEX, OCT, BIN)
+ * 
+ * NOTE: Etappe 1 Modularisierung
+ * - Stateless type definitions extracted to arduino-types.ts
+ * - ARDUINO_TYPES_CODE exported separately for future consolidation (Etappe 2)
+ * - Current code maintains String, IOOperation, IOPinRecord definitions inline
+ *   for backward compatibility and injection safety
  */
+
+// Import type definitions for future consolidation (Etappe 2: Template string combining)
+// import { ARDUINO_TYPES_CODE } from "./arduino-types";
 
 // ARDUINO_MOCK_LINES not used anywhere, remove
 
