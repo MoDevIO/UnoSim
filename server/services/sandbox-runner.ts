@@ -1456,43 +1456,54 @@ export class SandboxRunner {
   }
 
   /**
-   * Attempts to remove the current sketch directory.  If a compile is still
-   * in progress we simply mark the request and return; the caller who finished
-   * the compile (success or error) will re‑invoke this method later.
+   * Check if compilation is currently in progress (blocks cleanup)
+   */
+  private isCompilationInProgress(): boolean {
+    return this.isCompiling || this.localCompiler.isBusy;
+  }
+
+  /**
+   * Check if a directory exists and is ready for cleanup
+   */
+  private canCleanup(dir: string): boolean {
+    return !!dir && existsSync(dir);
+  }
+
+  /**
+   * Clear temporary directory from tracking after successful cleanup
+   */
+  private clearTempDirTracking(dir: string): void {
+    this.fileBuilder.clearCreatedSketchDir(dir);
+    this.currentSketchDir = null;
+    this.pendingCleanup = false;
+  }
+
+  /**
+   * Attempts to remove the current sketch directory. If compilation is still
+   * in progress, defers cleanup; the compile finisher will retry later.
    *
-   * This is a defensive guard against the race observed in CI where the linker
-   * was still writing the executable while another path deleted the temp
-   * directory.  We check both the historic `isCompiling` flag and also ask the
-   * LocalCompiler whether it still has an active process.  Under no
-   * circumstances may we remove the directory while the compile phase is
-   * running.
+   * Defensive guard against race conditions where the linker writes the
+   * executable while cleanup tries to delete the temp directory.
    */
   private markTempDirForCleanup() {
     if (!this.currentSketchDir) return;
 
-    // if compile is in progress, defer permanently rather than spinning a
-    // timer.  `pendingCleanup` will be cleared once the cleanup actually
-    // happens, so redundant calls are harmless.
-    const compilerBusy = this.isCompiling || this.localCompiler.isBusy;
-    if (compilerBusy) {
+    // Defer if compile is still running
+    if (this.isCompilationInProgress()) {
       this.logger.debug("cleanup deferred until compile finishes");
       this.pendingCleanup = true;
       return;
     }
 
     const dir = this.currentSketchDir;
-    if (!existsSync(dir)) {
-      this.fileBuilder.clearCreatedSketchDir(dir);
-      this.currentSketchDir = null;
-      this.pendingCleanup = false;
+    if (!this.canCleanup(dir)) {
+      this.clearTempDirTracking(dir);
       return;
     }
 
     const cleaned = this.attemptCleanupDir(dir);
     if (cleaned) {
-      this.fileBuilder.clearCreatedSketchDir(dir);
-      this.currentSketchDir = null;
-      this.pendingCleanup = false;
+      this.clearTempDirTracking(dir);
     } else {
       this.scheduleCleanupRetry(dir);
     }
