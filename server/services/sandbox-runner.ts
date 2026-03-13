@@ -1,5 +1,4 @@
-// sandbox-runner.ts
-// The lean orchestrator for Arduino sketch simulation
+// Lean orchestrator for Arduino sketch simulation
 // Delegates execution flow to ExecutionManager, manages state transitions and process control
 
 import { execFile, execSync } from "child_process";
@@ -16,7 +15,7 @@ import { SketchFileBuilder } from "./sketch-file-builder";
 import { LocalCompiler } from "./local-compiler";
 import type { RunSketchOptions } from "./run-sketch-types";
 
-// Extraction modules (Sandbox Dekonstruktion)
+// Manager delegation imports
 import { DockerManager } from "./sandbox/docker-manager";
 import { StreamHandler } from "./sandbox/stream-handler";
 import { FilesystemHelper } from "./sandbox/filesystem-helper";
@@ -68,7 +67,7 @@ export class SandboxRunner {
       enableTelemetry: true,
     });
 
-    // Initialize extraction modules with proper dependencies
+    // Initialize managers with dependencies
     this.dockerManager = new DockerManager(
       this.processController,
       stderrParser,

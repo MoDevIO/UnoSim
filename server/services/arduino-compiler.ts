@@ -1,6 +1,5 @@
 //arduino-compiler.ts
 
-import { spawn } from "child_process";
 import { writeFile, mkdir, rm, readFile, readdir, stat, utimes, rename } from "fs/promises";
 import { mkdtempSync } from "fs";
 import { join, basename } from "path";
@@ -12,6 +11,7 @@ import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { reservedNamesValidator } from "@shared/reserved-names-validator";
 import { getCompileGatekeeper } from "./compile-gatekeeper";
+import { ProcessExecutor } from "./process-executor";
 // Removed unused mock imports to satisfy TypeScript
 
 export interface CompilationError {
@@ -50,6 +50,7 @@ export class ArduinoCompiler {
   private tempDir = join(process.cwd(), "temp");
   private logger = new Logger("ArduinoCompiler");
   private gatekeeper = getCompileGatekeeper();
+  private processExecutor = new ProcessExecutor();
   private readonly defaultFqbn = process.env.ARDUINO_FQBN || "arduino:avr:uno";
   private readonly defaultBuildCacheDir =
     process.env.ARDUINO_CACHE_DIR ||
@@ -671,121 +672,38 @@ export class ArduinoCompiler {
     parsedErrors?: CompilationError[];
     binary?: Buffer;
   }> {
-    return new Promise((resolve) => {
-      // Arduino CLI expects the sketch DIRECTORY, not the file
-      const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf("/"));
+    // Arduino CLI expects the sketch DIRECTORY, not the file
+    const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf("/"));
 
-      const args = [
-        "compile",
-        "--fqbn",
-        config.fqbn,
-        "--verbose",
-      ];
+    const args = [
+      "compile",
+      "--fqbn",
+      config.fqbn,
+      "--verbose",
+    ];
 
-      if (config.buildPath) {
-        args.push("--build-path", config.buildPath);
-      }
-      if (config.buildCachePath) {
-        args.push("--build-cache-path", config.buildCachePath);
-      }
-      args.push(sketchDir);
+    if (config.buildPath) {
+      args.push("--build-path", config.buildPath);
+    }
+    if (config.buildCachePath) {
+      args.push("--build-cache-path", config.buildCachePath);
+    }
+    args.push(sketchDir);
 
-      // LOG: Command being executed
-      this.logger.info(`Executing arduino-cli ${args.join(" ")}`);
+    // LOG: Command being executed
+    this.logger.info(`Executing arduino-cli ${args.join(" ")}`);
 
-      const arduino = spawn("arduino-cli", args);
-
-      let output = "";
-      let errors = "";
-
-      arduino.stdout?.on("data", (data) => {
-        output += data.toString();
+    try {
+      const result = await this.processExecutor.execute("arduino-cli", args, {
+        timeout: 60000, // 60s timeout for compilation
+        stdio: "pipe",
       });
 
-      arduino.stderr?.on("data", (data) => {
-        const chunk = data.toString();
-        errors += chunk;
-        // LOG: Real-time stderr output for CI debugging
-        this.logger.debug(`arduino-cli stderr: ${chunk.trim()}`);
-      });
-
-      arduino.on("close", async (code) => {
-        // CRITICAL: Wait for Child processes (gcc, ar, etc.) to fully terminate
-        // arduino-cli may spawn subprocesses that outlive the main process.
-        // Cleaning up too early causes "fatal error: opening dependency file" errors.
-        await new Promise((r) => setTimeout(r, 150));
-
-        if (code === 0) {
-          const progSizeRegex =
-            /(Sketch uses[^\n]*\.|Der Sketch verwendet[^\n]*\.)/;
-          const ramSizeRegex =
-            /(Global variables use[^\n]*\.|Globale Variablen verwenden[^\n]*\.)/;
-
-          const progSizeMatch = output.match(progSizeRegex);
-          const ramSizeMatch = output.match(ramSizeRegex);
-
-          let parsedOutput = "";
-          if (progSizeMatch && ramSizeMatch) {
-            parsedOutput = `${progSizeMatch[0]}\n${ramSizeMatch[0]}\n\nBoard: Arduino UNO`;
-          } else {
-            parsedOutput = `Board: Arduino UNO (Simulation)`;
-          }
-
-          const buildOutputDir = config.buildPath || sketchDir;
-          let binary: Buffer | undefined;
-          try {
-            const hexCandidates = (await readdir(buildOutputDir))
-              .filter((entry) => entry.endsWith(".hex"))
-              .sort();
-            const preferred = hexCandidates.find((entry) => !entry.includes("with_bootloader")) || hexCandidates[0];
-            if (preferred) {
-              binary = await readFile(join(buildOutputDir, preferred));
-            }
-          } catch (error) {
-            this.logger.debug(`[CompileCache] failed to read build hex output: ${error instanceof Error ? error.message : String(error)}`);
-          }
-
-          resolve({
-            success: true,
-            output: parsedOutput,
-            binary,
-          });
-        } else {
-          // Compilation failed (syntax error etc.)
-          // LOG: Full stderr and exit code on failure
-          this.logger.error(`arduino-cli compilation failed with exit code ${code}`);
-          this.logger.error(`Full stderr output:\n${errors}`);
-
-          // Bereinige Fehlermeldungen von Pfaden
-          const escapedPath = sketchFile.replace(
-            /[-\/\\^$*+?.()|[\]{}]/g,
-            "\\$&",
-          );
-          let cleanedErrors = errors
-            .replace(new RegExp(escapedPath, "g"), "sketch.ino")
-            .replace(
-              /\/[^\s:]+\/temp\/[a-f0-9-]+\/[a-f0-9-]+\.ino/gi,
-              "sketch.ino",
-            )
-            .replace(/Error during build: exit status \d+\s*/g, "")
-            .trim();
-
-
-          const structured = this.parseCompilerErrors(cleanedErrors || "");
-          resolve({
-            success: false,
-            output: "",
-            errors: cleanedErrors || "Compilation failed",
-            parsedErrors: structured,
-          });
-        }
-      });
-
-      arduino.on("error", (err) => {
-        // LOG: Command spawn error (e.g., arduino-cli not found)
-        const errorMessage = `Failed to execute arduino-cli: ${err.message}. Make sure arduino-cli is installed and in PATH.`;
+      // Check for spawn/execution errors
+      if (result.error) {
+        const errorMessage = `Failed to execute arduino-cli: ${result.error.message}. Make sure arduino-cli is installed and in PATH.`;
         this.logger.error(errorMessage);
-        resolve({
+        return {
           success: false,
           output: "",
           errors: errorMessage,
@@ -796,9 +714,83 @@ export class ArduinoCompiler {
             type: "error",
             message: errorMessage,
           }],
-        });
-      });
-    });
+        };
+      }
+
+      const output = result.stdout || "";
+      const errors = result.stderr || "";
+      const code = result.code;
+
+      if (code === 0) {
+        const progSizeRegex = /(Sketch uses[^\n]*\.|Der Sketch verwendet[^\n]*\.)/;
+        const ramSizeRegex = /(Global variables use[^\n]*\.|Globale Variablen verwenden[^\n]*\.)/;
+
+        const progSizeMatch = output.match(progSizeRegex);
+        const ramSizeMatch = output.match(ramSizeRegex);
+
+        let parsedOutput = "";
+        if (progSizeMatch && ramSizeMatch) {
+          parsedOutput = `${progSizeMatch[0]}\n${ramSizeMatch[0]}\n\nBoard: Arduino UNO`;
+        } else {
+          parsedOutput = `Board: Arduino UNO (Simulation)`;
+        }
+
+        const buildOutputDir = config.buildPath || sketchDir;
+        let binary: Buffer | undefined;
+        try {
+          const hexCandidates = (await readdir(buildOutputDir))
+            .filter((entry) => entry.endsWith(".hex"))
+            .sort();
+          const preferred = hexCandidates.find((entry) => !entry.includes("with_bootloader")) || hexCandidates[0];
+          if (preferred) {
+            binary = await readFile(join(buildOutputDir, preferred));
+          }
+        } catch (error) {
+          this.logger.debug(`[CompileCache] failed to read build hex output: ${error instanceof Error ? error.message : String(error)}`);
+        }
+
+        return {
+          success: true,
+          output: parsedOutput,
+          binary,
+        };
+      } else {
+        // Compilation failed (syntax error etc.)
+        this.logger.error(`arduino-cli compilation failed with exit code ${code}`);
+        this.logger.error(`Full stderr output:\n${errors}`);
+
+        // Clean up error messages
+        const escapedPath = sketchFile.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+        let cleanedErrors = errors
+          .replace(new RegExp(escapedPath, "g"), "sketch.ino")
+          .replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/[a-f0-9-]+\.ino/gi, "sketch.ino")
+          .replace(/Error during build: exit status \d+\s*/g, "")
+          .trim();
+
+        const structured = this.parseCompilerErrors(cleanedErrors || "");
+        return {
+          success: false,
+          output: "",
+          errors: cleanedErrors || "Compilation failed",
+          parsedErrors: structured,
+        };
+      }
+    } catch (error) {
+      const errorMessage = `Failed to execute arduino-cli: ${error instanceof Error ? error.message : String(error)}. Make sure arduino-cli is installed and in PATH.`;
+      this.logger.error(errorMessage);
+      return {
+        success: false,
+        output: "",
+        errors: errorMessage,
+        parsedErrors: [{
+          file: "system",
+          line: 0,
+          column: 0,
+          type: "error",
+          message: errorMessage,
+        }],
+      };
+    }
   }
 }
 
