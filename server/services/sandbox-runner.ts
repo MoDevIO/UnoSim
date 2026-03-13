@@ -1087,6 +1087,7 @@ export class SandboxRunner {
   /**
    * Delegate to StreamHandler for parsed line processing
    * Consolidates pin state, serial event, and registry management
+   * CRITICAL: Syncs backpressurePaused state after delegation
    */
   private delegateParsedLineToStreamHandler(
     parsed: any,
@@ -1110,6 +1111,10 @@ export class SandboxRunner {
     };
 
     this.streamHandler.handleParsedLine(parsed, streamState, callbacks);
+
+    // CRITICAL: Sync backpressurePaused state back from StreamHandler
+    // This flag can be modified during handleSerialEvent to manage backpressure
+    this.backpressurePaused = streamState.backpressurePaused;
   }
 
   pause(): boolean {
