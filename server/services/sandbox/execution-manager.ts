@@ -28,7 +28,7 @@ export enum SimulationState {
   ERROR = "error",
 }
 
-const SANDBOX_CONFIG = {
+export const SANDBOX_CONFIG = {
   dockerImage: process.env.DOCKER_SANDBOX_IMAGE ?? "unowebsim-sandbox:latest",
   useDocker: true,
   maxMemoryMB: 256,

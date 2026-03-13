@@ -20,10 +20,7 @@ import type { RunSketchOptions } from "./run-sketch-types";
 import { DockerManager } from "./sandbox/docker-manager";
 import { StreamHandler } from "./sandbox/stream-handler";
 import { FilesystemHelper } from "./sandbox/filesystem-helper";
-import { ExecutionManager, type ExecutionState, SimulationState } from "./sandbox/execution-manager";
-
-const DOCKER_IMAGE = process.env.DOCKER_SANDBOX_IMAGE ?? "unowebsim-sandbox:latest";
-const MAX_OUTPUT_BYTES = 100 * 1024 * 1024;
+import { ExecutionManager, type ExecutionState, SimulationState, SANDBOX_CONFIG } from "./sandbox/execution-manager";
 
 export class SandboxRunner {
   private readonly logger = new Logger("SandboxRunner");
@@ -187,7 +184,7 @@ export class SandboxRunner {
       execSync("docker info", { stdio: "pipe", timeout: 2000 });
       this.dockerAvailable = true;
       try {
-        execSync(`docker image inspect ${DOCKER_IMAGE}`, { stdio: "pipe", timeout: 2000 });
+        execSync(`docker image inspect ${SANDBOX_CONFIG.dockerImage}`, { stdio: "pipe", timeout: 2000 });
         this.dockerImageBuilt = true;
       } catch { this.dockerImageBuilt = false; }
     } catch { this.dockerAvailable = false; this.dockerImageBuilt = false; }
@@ -201,7 +198,7 @@ export class SandboxRunner {
     try {
       await Promise.all([run("docker", ["--version"]), run("docker", ["info"])]);
       this.dockerAvailable = true;
-      try { await run("docker", ["image", "inspect", DOCKER_IMAGE]); this.dockerImageBuilt = true; }
+      try { await run("docker", ["image", "inspect", SANDBOX_CONFIG.dockerImage]); this.dockerImageBuilt = true; }
       catch { this.dockerImageBuilt = false; }
     } catch { this.dockerAvailable = false; this.dockerImageBuilt = false; }
   }
@@ -279,7 +276,7 @@ export class SandboxRunner {
     s.isSendingOutput = true;
     const char = s.outputBuffer[s.outputBufferIndex++];
     s.totalOutputBytes++;
-    if (s.totalOutputBytes > MAX_OUTPUT_BYTES) { void this.stop(); return; }
+    if (s.totalOutputBytes > SANDBOX_CONFIG.maxOutputBytes) { void this.stop(); return; }
     onOutput(char, char === "\n");
     setTimeout(() => this.sendOutputWithDelay(onOutput), Math.max(1, 10_000 / s.baudrate));
   }
