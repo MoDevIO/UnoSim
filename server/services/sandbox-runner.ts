@@ -1188,6 +1188,52 @@ export class SandboxRunner {
   /**
    * Handle a parsed stderr line (common logic for both Docker and local)
    */
+  /**
+   * Handle pin state changes (mode, value, pwm) with optional batcher or fallback
+   */
+  private handlePinStateChange(
+    pin: number,
+    type: "mode" | "value" | "pwm",
+    value: number,
+    onPinState?: (pin: number, type: "mode" | "value" | "pwm", value: number) => void,
+  ): void {
+    if (this.pinStateBatcher) {
+      this.pinStateBatcher.enqueue(pin, type, value);
+    } else if (onPinState) {
+      // Fallback if batcher not initialized
+      onPinState(pin, type, value);
+    }
+  }
+
+  /**
+   * Handle serial output event with backpressure management
+   */
+  private handleSerialEvent(
+    data: string,
+    onOutput?: (line: string, isComplete?: boolean) => void,
+  ): void {
+    // Check backpressure: if batcher exists and overloaded, pause child process
+    if (
+      this.serialOutputBatcher &&
+      !this.backpressurePaused &&
+      !this.isPaused &&
+      this.baudrate > 300 && // don't throttle at very low baudrate
+      this.serialOutputBatcher.isOverloaded()
+    ) {
+      this.logger.info("Backpressure: buffer overloaded, sending SIGSTOP");
+      this.processController.kill("SIGSTOP");
+      this.backpressurePaused = true;
+    }
+
+    // Route through SerialOutputBatcher for rate limiting
+    if (this.serialOutputBatcher) {
+      this.serialOutputBatcher.enqueue(data);
+    } else if (onOutput) {
+      // Fallback if batcher not initialized
+      onOutput(data, true);
+    }
+  }
+
   private handleParsedLine(
     parsed: any,
     onPinState?: (pin: number, type: "mode" | "value" | "pwm", value: number) => void,
@@ -1209,55 +1255,19 @@ export class SandboxRunner {
 
       case "pin_mode":
         this.registryManager.updatePinMode(parsed.pin, parsed.mode);
-        if (this.pinStateBatcher) {
-          this.pinStateBatcher.enqueue(parsed.pin, "mode", parsed.mode);
-        } else if (onPinState) {
-          // Fallback if batcher not initialized
-          onPinState(parsed.pin, "mode", parsed.mode);
-        }
+        this.handlePinStateChange(parsed.pin, "mode", parsed.mode, onPinState);
         break;
 
       case "pin_value":
-        if (this.pinStateBatcher) {
-          this.pinStateBatcher.enqueue(parsed.pin, "value", parsed.value);
-        } else if (onPinState) {
-          // Fallback if batcher not initialized
-          onPinState(parsed.pin, "value", parsed.value);
-        }
+        this.handlePinStateChange(parsed.pin, "value", parsed.value, onPinState);
         break;
 
       case "pin_pwm":
-        if (this.pinStateBatcher) {
-          this.pinStateBatcher.enqueue(parsed.pin, "pwm", parsed.value);
-        } else if (onPinState) {
-          // Fallback if batcher not initialized
-          onPinState(parsed.pin, "pwm", parsed.value);
-        }
+        this.handlePinStateChange(parsed.pin, "pwm", parsed.value, onPinState);
         break;
 
       case "serial_event":
-        // Backpressure: if batcher exists and has already exceeded threshold,
-        // stop the child process immediately before enqueuing more data.  Do
-        // nothing if we're already paused globally or have already paused
-        // for backpressure.
-        if (
-          this.serialOutputBatcher &&
-          !this.backpressurePaused &&
-          !this.isPaused &&
-          this.baudrate > 300 && // don't throttle when baudrate is already very low
-          this.serialOutputBatcher.isOverloaded()
-        ) {
-          this.logger.info("Backpressure: buffer overloaded, sending SIGSTOP");
-          this.processController.kill("SIGSTOP");
-          this.backpressurePaused = true;
-        }
-        // Route through SerialOutputBatcher for baudrate-based rate limiting
-        if (this.serialOutputBatcher) {
-          this.serialOutputBatcher.enqueue(parsed.data);
-        } else if (onOutput) {
-          // Fallback if batcher not initialized (should not happen in normal flow)
-          onOutput(parsed.data, true);
-        }
+        this.handleSerialEvent(parsed.data, onOutput);
         break;
 
       case "ignored":
