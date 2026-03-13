@@ -137,7 +137,7 @@ describe("SandboxRunner Performance Tests", () => {
     for (const runner of activeRunners) {
       try {
         await runner.stop();
-      } catch (err) {
+      } catch {
         // Ignore cleanup errors
       }
     }
@@ -196,7 +196,7 @@ void loop() {
       let pinStateCallCount = 0;
       let pinStateBatchCallCount = 0;
 
-      const runSketchPromise = runner.runSketch({
+      void runner.runSketch({
         code: sketch,
         onOutput: vi.fn(),
         onError: vi.fn(),
@@ -335,7 +335,7 @@ void loop() {
       let registryUpdateCount = 0;
       let batchCount = 0;
 
-      const runSketchPromise = runner.runSketch({
+      void runner.runSketch({
         code: sketch,
         onOutput: vi.fn(),
         onError: vi.fn(),
@@ -543,13 +543,13 @@ void loop() {}
 
       const outputs: string[] = [];
       const errors: string[] = [];
-      let exitCode: number | null = null;
+      let _exitCode: number | null = null;
 
       runner.runSketch({
         code: sketch,
         onOutput: (line) => outputs.push(line),
         onError: (error) => errors.push(error),
-        onExit: (code) => (exitCode = code),
+        onExit: (code) => (_exitCode = code),
       });
 
       await wait();
@@ -609,7 +609,7 @@ void loop() {
       const outputTimestamps: number[] = [];
       const startTime = Date.now();
 
-      const runSketchPromise = runner.runSketch({
+      void runner.runSketch({
         code: sketch,
         onOutput: (line) => {
           outputs.push(line);
@@ -705,7 +705,7 @@ void loop() {
         onOutput: vi.fn(),
         onError: vi.fn(),
         onExit: vi.fn(),
-        onPinState: (pin, type, value) => {
+        onPinState: (_pin, _type, _value) => {
           const receiveTime = Date.now();
           const latency = receiveTime - eventSendTime;
           if (latency > 0 && latency < 10000) { // Filter out invalid measurements
@@ -774,7 +774,7 @@ void loop() {}
         onError: vi.fn(),
         onExit: vi.fn(),
         onPinState: vi.fn(),
-        onIORegistry: (registry, baudrate) => {
+        onIORegistry: (registry, _baudrate) => {
           registryUpdates.push({
             timestamp: Date.now(),
             pinCount: registry.length,

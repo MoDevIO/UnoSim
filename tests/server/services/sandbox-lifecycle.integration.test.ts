@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 
 // Skip only when SKIP_HEAVY_TESTS is explicitly set to a truthy value (default: run heavy/integration tests)
-const skipHeavy = process.env.SKIP_HEAVY_TESTS === "1" || process.env.SKIP_HEAVY_TESTS === "true";
+const _skipHeavy = process.env.SKIP_HEAVY_TESTS === "1" || process.env.SKIP_HEAVY_TESTS === "true";
 const maybeDescribe = describe;
 
 maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => {
@@ -16,7 +16,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
     // Ensure runner is stopped and cleaned up between tests
     try {
       if (runner && runner.isRunning) await runner.stop();
-    } catch (err) {
+    } catch {
       // swallow cleanup errors to not mask test results
     }
   });
@@ -225,7 +225,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
             }, 50);
           }
         },
-        onError: (err) => {},
+        onError: (_err) => {}, 
         timeoutSec: 10,
       });
 
@@ -285,9 +285,9 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         resolve();
       };
 
-      const runPromise = runner.runSketch({
+      void runner.runSketch({
         code,
-        onOutput: (line) => {
+        onOutput: (_line) => {
           if (!seen) {
             seen = true;
             // Immediately stop when first data arrives — replicate race window

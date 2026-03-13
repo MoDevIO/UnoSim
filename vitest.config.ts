@@ -33,6 +33,7 @@ export default defineConfig({
     },
     // Policy-Konformität: Flush-on-Failure Mechanismus
     // Bei Test-Fehlschlag wird Debug-Buffer auf Konsole geflushert
+    silent: false,
     testTimeout: 30000,
     hookTimeout: 10000,
   },

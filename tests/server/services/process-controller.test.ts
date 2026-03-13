@@ -25,7 +25,7 @@ describe("ProcessController — unit", () => {
     // wait for first stdout chunk (or fail after timeout)
     await new Promise<void>((resolve, reject) => {
       const to = setTimeout(() => reject(new Error('timeout waiting for stdout')), 1500);
-      const onData = (d: Buffer) => {
+      const onData = (_d: Buffer) => {
         clearTimeout(to);
         // resolve once either listener has been invoked
         resolve();
@@ -91,7 +91,7 @@ describe("ProcessController — unit", () => {
       const wrote = pc.writeStdin("after-exit\n");
       // writeStdin should be false because stdin/pipe no longer present
       expect(wrote).toBe(false);
-    } catch (err) {
+    } catch {
       ok = false;
     }
 

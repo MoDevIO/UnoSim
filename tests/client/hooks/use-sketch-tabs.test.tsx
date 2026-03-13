@@ -183,9 +183,9 @@ describe("useSketchTabs", () => {
   it("should not change activeTabId when deleting non-active tab", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tab1Id: string, tab2Id: string, tab3Id: string;
+    let _tab1Id: string, tab2Id: string, tab3Id: string;
     act(() => {
-      tab1Id = result.current.createTab("Tab1");
+      _tab1Id = result.current.createTab("Tab1");
       tab2Id = result.current.createTab("Tab2");
       tab3Id = result.current.createTab("Tab3");
     });
@@ -245,9 +245,9 @@ describe("useSketchTabs", () => {
   it("should allow setting activeTabId directly", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tabId: string;
+    let _tabId: string;
     act(() => {
-      tabId = result.current.createTab("Tab1");
+      _tabId = result.current.createTab("Tab1");
       result.current.setActiveTabId("custom-id");
     });
 
@@ -260,7 +260,7 @@ describe("useSketchTabs", () => {
     const selectTabRef = result.current.selectTab;
     const createTabRef = result.current.createTab;
     const updateTabRef = result.current.updateTab;
-    const deleteTabRef = result.current.deleteTab;
+    const _deleteTabRef = result.current.deleteTab;
     const renameTabRef = result.current.renameTab;
 
     rerender();

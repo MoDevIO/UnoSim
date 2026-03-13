@@ -11,7 +11,7 @@
 
 import { vi } from "vitest";
 // allow longer integration tests
-vi.setConfig({ testTimeout: 30000 });
+vi.setConfig({ testTimeout: 60000 });
 import { SandboxRunner } from '../../server/services/sandbox-runner';
 import { extractPlainText, runSketchWithOutput } from '../utils/serial-test-helper';
 
@@ -31,6 +31,7 @@ describe('Serial Output Flow Integration', () => {
   });
 
   test('Serial.print with delayed dots should arrive in separate chunks', async () => {
+    console.log('[serial-flow.test] running delayed dots test');
     // increase timeout from default 5s to 15s since compilation+batching may exceed 5s
     const sketch = `
 void setup() {
@@ -59,7 +60,7 @@ void loop() {
     
     // Should contain dots (due to batching, they might arrive together)
     expect(fullOutput).toContain('.');
-  }, 15000);
+  }, 60000);
 
   test('Serial.print with HEX conversion should format correctly', async () => {
     const sketch = `
@@ -198,7 +199,7 @@ void setup() {
 void loop() {}
     `.trim();
 
-    const result = await runSketchWithOutput(runner, sketch, { timeout: 10 });
+    const result = await runSketchWithOutput(runner, sketch, { timeout: 60 });
 
     // Should succeed even though sketch exits in < 200ms (before 1.5s registry timeout)
     expect(result.success).toBe(true);

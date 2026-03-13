@@ -56,9 +56,7 @@ export function useSketchAnalysis(code: string): SketchAnalysisResult {
 
     // analogRead(...) occurrences
     const areadRe = /analogRead\s*\(\s*([^\)]+)\s*\)/g;
-    let analogReadMatchCount = 0;
     while ((m = areadRe.exec(mainCode))) {
-      analogReadMatchCount++;
       const token = m[1].trim();
       const simple = token.match(/^(A\d+|\d+|\w+)$/i);
       if (!simple) continue;

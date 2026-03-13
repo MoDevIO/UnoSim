@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 
-const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = describe;
 
 vi.setConfig({ testTimeout: 30000 });
@@ -120,7 +120,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
     const stderrLines: string[] = [];
     let setupDone = false;
     let pausedOnce = false;
-    let resumedOnce = false;
+    let _resumedOnce = false;
     let pinSetAfterResume = false;
 
     const result = await new Promise<{success: boolean, output: string, stderr: string}>((resolve) => {
@@ -154,7 +154,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
             setTimeout(() => {
               const resumed = runner.resume();
               stderrLines.push(`[TEST] Resume called, result: ${resumed}`);
-              resumedOnce = true;
+              _resumedOnce = true;
               
               // Step 4: After resume, set pin to HIGH
               setTimeout(() => {

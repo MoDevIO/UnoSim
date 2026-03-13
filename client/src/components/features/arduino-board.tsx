@@ -20,7 +20,7 @@ function getComputedTokenValue(tokenName: string): string {
     const value = computedStyle.getPropertyValue(tokenName).trim();
     // For SVG, remove 'px' suffix if present and return the numeric part
     return value.replace(/px$/, '');
-  } catch (e) {
+  } catch {
     // Fallback values if CSS variables are not available
     if (tokenName === '--fs-label-sm') return '8'; // SVG pin labels
     if (tokenName === '--fs-label-lg') return '12'; // Dialog headers
@@ -69,7 +69,7 @@ function getComputedSpacingToken(tokenName: string): number {
       return parseFloat(value);
     }
     return parseFloat(value);
-  } catch (e) {
+  } catch {
     // Fallback values
     if (tokenName === '--svg-safe-margin') return 4;
     if (tokenName === '--svg-label-padding') return 2;
@@ -159,7 +159,7 @@ export function ArduinoBoard({
       try {
         const cs = getComputedStyle(document.documentElement);
         parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1; // Read but don't store - SVG re-renders on next polling cycle
-      } catch (e) {
+      } catch {
         logger.warn("Failed to read --ui-font-scale");
       }
     };
@@ -619,7 +619,7 @@ export function ArduinoBoard({
               localX,
               anchor,
             );
-          } catch (err) {
+          } catch {
             // ignore bbox errors
           }
         }
@@ -666,7 +666,7 @@ export function ArduinoBoard({
               localXAnal,
               anchorAnal,
             );
-          } catch (err) {}
+          } catch {}
         }
       }
     };
@@ -745,7 +745,7 @@ export function ArduinoBoard({
           sliderLen: rawLen,
           placement,
         });
-      } catch (err) {
+      } catch {
         // ignore
       }
     }
@@ -1091,7 +1091,7 @@ function AnalogDialogPortal(props: {
       </div>,
       document.body,
     );
-  } catch (err) {
+  } catch {
     return null;
   }
 }

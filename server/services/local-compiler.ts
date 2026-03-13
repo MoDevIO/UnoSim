@@ -146,7 +146,7 @@ export class LocalCompiler {
     try {
       await access(outputDir);
       this.logger.debug(`Output directory exists: ${outputDir}`);
-    } catch (err) {
+    } catch {
       this.logger.info(`Output directory missing, creating: ${outputDir}`);
       try {
         await mkdir(outputDir, { recursive: true, mode: 0o755 });
@@ -170,7 +170,7 @@ export class LocalCompiler {
     try {
       await rm(exeFile, { force: true });
       this.logger.debug(`Cleaned up stale executable: ${exeFile}`);
-    } catch (err) {
+    } catch {
       // Ignore - file might not exist yet
     }
 

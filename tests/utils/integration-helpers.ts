@@ -66,4 +66,4 @@ const SERVER_AVAILABLE = isServerRunningSync();
 /**
  * Helper to create conditional describe - skips if server not available.
  */
-const describeIfServer = SERVER_AVAILABLE ? describe : describe.skip;
+const _describeIfServer = SERVER_AVAILABLE ? describe : describe.skip;

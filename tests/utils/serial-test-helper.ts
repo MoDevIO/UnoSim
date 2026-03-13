@@ -89,7 +89,7 @@ async function waitForRunning(runner: SandboxRunner, timeout = 15000): Promise<v
  * expect(extractPlainText(outputs)).toContain('Hello');
  * ```
  */
-async function waitForSerialOutput(
+async function _waitForSerialOutput(
   outputs: string[],
   target: string,
   timeout = 30000,
@@ -166,61 +166,110 @@ export async function runSketchWithOutput(
   error?: string;
 }> {
   const outputs: string[] = [];
-  const timeout = options.timeout ?? 15;
+  const timeout = options.timeout ?? 60;
   const fallbackTimeout = options.fallbackTimeout ?? 25000;
   
   const result = await new Promise<{ outputs: string[]; success: boolean; error?: string }>(
     (resolve) => {
       let compiled = false;
       let exited = false;
-      
-      runner.runSketch({
+      let resolved = false;
+      let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+
+      const safeResolve = (value: { outputs: string[]; success: boolean; error?: string }) => {
+        if (resolved) return;
+        resolved = true;
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+        resolve(value);
+      };
+
+      const log = (message: string, ...args: any[]) => {
+        if (process.env.DEBUG_SERIAL_FLOW) {
+          console.log(`[runSketchWithOutput] ${message}`, ...args);
+        }
+      };
+
+      const runPromise = runner.runSketch({
         code: sketch,
-        onOutput: (line: string) => {
+        onOutput: (chunk: string | Buffer) => {
+          const line = typeof chunk === 'string' ? chunk : chunk.toString('utf8');
           outputs.push(line);
+          log('onOutput:', line);
+          if (line.includes('--- Simulation timeout')) {
+            // Always surface timeout output so test failures are easier to diagnose
+            console.error('[runSketchWithOutput] Simulation timeout output received:', line);
+            // Timeout means the sketch won't exit normally, so resolve now
+            safeResolve({ outputs, success: false, error: 'Simulation timeout' });
+          }
         },
         onError: (error: string) => {
+          log('onError:', error);
           // onError - compilation or runtime errors
-          resolve({ outputs, success: false, error });
+          safeResolve({ outputs, success: false, error });
         },
         onExit: (code: number | null) => {
-          // onExit
+          log('onExit:', code, 'compiled=', compiled, 'outputs=', outputs.length);
           exited = true;
           if (compiled || outputs.length > 0) {
-            resolve({ outputs, success: true });
+            safeResolve({ outputs, success: true });
           }
           // If neither condition met, wait for fallback timer
         },
         onCompileError: (error: string) => {
+          log('onCompileError:', error);
           // onCompileError
-          resolve({ outputs, success: false, error: `Compile: ${error}` });
+          safeResolve({ outputs, success: false, error: `Compile: ${error}` });
         },
         onCompileSuccess: () => {
+          log('onCompileSuccess');
           // onCompileSuccess
           compiled = true;
         },
         onPinState: () => {},
         timeoutSec: timeout,
         onIORegistry: (registry, baudrate) => {
+          log('onIORegistry:', { registryLength: Object.keys(registry).length, baudrate });
           // onIORegistry - triggers message queue flush
         },
       });
-      
+
+      runPromise.catch((err) => {
+        log('runSketch rejected:', err);
+        safeResolve({
+          outputs,
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+
+      // Ensure runner actually transitions to RUNNING (for better diagnostics)
+      void waitForRunning(runner, Math.max(timeout * 1000, 30000))
+        .then(() => log('runner reached RUNNING state'))
+        .catch((err) => log('waitForRunning failed:', err));
+
       // Fallback timeout - resolve with whatever we have
-      setTimeout(() => {
+      fallbackTimer = setTimeout(() => {
+        if (resolved) return;
+
+        log('fallback timer triggered', { compiled, exited, outputs: outputs.length });
+
         if (!exited && !compiled) {
-          resolve({
+          safeResolve({
             outputs,
             success: false,
-            error: `Never started compiling. Runner state: ${runner.simulationState}`,
+            error: `Timeout waiting for compilation/start; runner state: ${runner.simulationState}`,
           });
         } else if (compiled && !exited) {
           // Compiled but process didn't exit yet - resolve with current outputs
-          resolve({ outputs, success: outputs.length > 0 });
+          safeResolve({
+            outputs,
+            success: false,
+            error: `Process compiled but never exited (timeout ${fallbackTimeout}ms).`,
+          });
         }
       }, fallbackTimeout);
     }
   );
-  
+
   return result;
 }

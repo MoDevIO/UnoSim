@@ -56,16 +56,26 @@ export class ProcessController implements IProcessController {
   private closeListeners: CloseCb[] = [];
   private errorListeners: ErrorCb[] = [];
   private stderrReadline: import("readline").Interface | null = null;
+  private killTimer: NodeJS.Timeout | null = null;
 
   async spawn(command: string, args: string[] = [], options?: SpawnOptions): Promise<import("child_process").ChildProcess | null> {
     // dynamic import ensures test mocks of child_process are applied
     const { spawn } = await import("child_process");
     const { createInterface } = await import("readline");
+
+    // Ensure we always use pipes so we can drain output and prevent backpressure.
+    const spawnOptions: SpawnOptions = {
+      stdio: ["pipe", "pipe", "pipe"],
+      ...options,
+    };
+
     // debug logging of spawn attempts goes through policy logger
-    logger.debug(`ProcessController.spawn called: ${command} ${args ? args.join(' ') : ''}`);
+    logger.debug(`ProcessController.spawn called: ${command} ${args ? args.join(" ") : ""}`);
+    logger.debug(`ProcessController.spawn options: ${JSON.stringify(spawnOptions)}`);
+
     // Destroy any previous process reference
     // spawn with or without options depending on caller
-    this.proc = options ? spawn(command, args, options) : spawn(command, args);
+    this.proc = spawn(command, args, spawnOptions);
 
     // Cleanup stale readline interface from previous process, if any.
     if (this.stderrReadline) {
@@ -88,8 +98,11 @@ export class ProcessController implements IProcessController {
 
     // attach existing listeners (guard for nullability)
     if (this.proc && this.proc.stdout) {
-      this.proc.stdout.on("data", (d: Buffer) => this.stdoutListeners.forEach((cb) => cb(d)));
+      this.proc.stdout.on("data", (d: Buffer) => {
+        this.stdoutListeners.forEach((cb) => cb(d));
+      });
     }
+
     if (this.proc && this.proc.stderr) {
       this.proc.stderr.on("data", (d: Buffer) => {
         if (process.env.NODE_ENV === "test") {
@@ -117,8 +130,28 @@ export class ProcessController implements IProcessController {
       }
     }
 
+    // Ensure we don't hang due to child process backpressure (stdout/stderr not drained).
+    // If the process is still alive after 25s, force kill it and log a warning.
     if (this.proc) {
-      this.proc.on("close", (code: number | null) => this.closeListeners.forEach((cb) => cb(code)));
+      if (this.killTimer) {
+        clearTimeout(this.killTimer);
+      }
+      this.killTimer = setTimeout(() => {
+        if (!this.proc || this.proc.killed) return;
+        const pid = this.proc.pid;
+        logger.warn(`ProcessController: child process still alive after 25s, killing pid=${pid}`);
+        this.kill("SIGKILL");
+      }, 25000);
+    }
+
+    if (this.proc) {
+      this.proc.on("close", (code: number | null) => {
+        if (this.killTimer) {
+          clearTimeout(this.killTimer);
+          this.killTimer = null;
+        }
+        this.closeListeners.forEach((cb) => cb(code));
+      });
       this.proc.on("error", (err: Error) => this.errorListeners.forEach((cb) => cb(err)));
     }
 
@@ -168,28 +201,41 @@ export class ProcessController implements IProcessController {
 
   kill(signal?: NodeJS.Signals | number): void {
     try {
-      if (!this.proc) return;
+      if (!this.proc) {
+        logger.debug(`ProcessController.kill called but proc is null (signal=${signal})`);
+        return;
+      }
       const pid = this.proc.pid;
       if (pid == null) {
+        logger.debug(`ProcessController.kill: pid is null, sending ${signal}`);
         this.proc.kill(signal as any);
         return;
       }
+
+      logger.debug(`ProcessController.kill: sending ${signal} to pid=${pid}`);
+
       // For SIGSTOP / SIGCONT send to the entire process group (-pid).
       // This ensures all children of the process (e.g. sub-shells, avr-gcc)
       // receive the signal, not just the direct child.
       // On non-POSIX systems (Windows) fall back to the plain kill.
-      const isGroupSignal =
-        signal === "SIGSTOP" || signal === "SIGCONT";
+      const isGroupSignal = signal === "SIGSTOP" || signal === "SIGCONT";
       if (isGroupSignal) {
         try {
           process.kill(-pid, signal as NodeJS.Signals);
           return;
-        } catch {
+        } catch (err) {
+          logger.debug(`ProcessController.kill group signal failed: ${err}`);
           // group kill failed (e.g. process not a group leader) — fall through
         }
       }
-      this.proc.kill(signal as any);
-    } catch {
+
+      try {
+        this.proc.kill(signal as any);
+      } catch (err) {
+        logger.debug(`ProcessController.kill direct kill failed: ${err}`);
+      }
+    } catch (err) {
+      logger.debug(`ProcessController.kill outer error: ${err}`);
       // swallow errors — caller should handle state
     }
   }
@@ -207,7 +253,7 @@ export class ProcessController implements IProcessController {
     try {
       if (!this.proc) return;
       if (this.proc.stdin && !this.proc.stdin.destroyed) {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+         
         // @ts-ignore - Node typings: destroy may exist
         this.proc.stdin.destroy();
       }

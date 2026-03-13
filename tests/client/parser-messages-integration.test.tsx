@@ -7,7 +7,7 @@
  * 3. Serial warnings are displayed correctly
  */
 
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 // ...existing code...
 import { ParserOutput } from "../../client/src/components/features/parser-output";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";

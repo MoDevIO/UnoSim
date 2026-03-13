@@ -226,7 +226,7 @@ void loop() {
 
     // Proof: some warning content visible (parser message about Serial.begin)
     // The message container is inside the panel
-    const messagesPanel = page.locator('[data-testid="output-tabs-header"]')
+    const _messagesPanel = page.locator('[data-testid="output-tabs-header"]')
       .locator('..')
       .locator('[role="tabpanel"]')
       .first();

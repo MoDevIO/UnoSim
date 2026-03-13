@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vite
 // use fake timers globally for all tests in this file; individual beforeEach will
 // reconfigure as needed
 vi.useFakeTimers();
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { useSerialIO } from "@/hooks/use-serial-io";
 import { act } from "react";
 import React from "react";

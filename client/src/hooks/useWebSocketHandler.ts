@@ -329,7 +329,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
           processMessage(message);
         }
       }
-    } catch (err) {
+    } catch {
       // swallow - defensive
     }
   }, []);

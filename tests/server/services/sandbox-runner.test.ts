@@ -141,7 +141,7 @@ describe("SandboxRunner", () => {
     const pc: any = (runner as any).processController;
     pc.stdoutListeners.forEach((cb: Function) => cb(Buffer.from(data)));
   }
-  function sendStderr(runner: SandboxRunner, data: string | Buffer) {
+  function _sendStderr(runner: SandboxRunner, data: string | Buffer) {
     const pc: any = (runner as any).processController;
     pc.stderrListeners.forEach((cb: Function) => cb(Buffer.from(data)));
   }
@@ -167,7 +167,7 @@ describe("SandboxRunner", () => {
     for (const runner of activeRunners) {
       try {
         await runner.stop();
-      } catch (err) {
+      } catch {
         // Ignore cleanup errors
       }
     }
@@ -190,7 +190,7 @@ describe("SandboxRunner", () => {
   });
 
   // Helper to track runners for cleanup
-  const createRunner = (): SandboxRunner => {
+  const _createRunner = (): SandboxRunner => {
     const runner = new SandboxRunner();
     activeRunners.push(runner);
     return runner;

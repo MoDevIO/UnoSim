@@ -1,4 +1,4 @@
-import { afterEach, afterAll, onTestFailed, vi } from "vitest";
+import { afterEach, afterAll, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { initializeGlobalErrorHandlers, markTestAsFailed, setLogLevel } from "@shared/logger";
 
@@ -17,9 +17,9 @@ setLogLevel(logLevel as any);
 // Verhindert Debug-Buffer Belastung durch Test-Noise
 // ERROR und WARN gehen zur Konsole, DEBUG wird gepuffert
 let capturedLogs: Array<{ level: string; message: string }> = [];
-let originalConsoleLog = console.log;
+let _originalConsoleLog = console.log;
 let originalConsoleError = console.error;
-let originalConsoleWarn = console.warn;
+let _originalConsoleWarn = console.warn;
 
 vi.spyOn(console, "log").mockImplementation((...args) => {
   capturedLogs.push({ level: "LOG", message: String(args.join(" ")) });

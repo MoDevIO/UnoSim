@@ -1,3 +1,5 @@
+import { realpathSync } from "fs";
+
 /**
  * Docker Command Builder
  * 
@@ -27,6 +29,9 @@ export class DockerCommandBuilder {
    * @returns Array of command arguments for spawn
    */
   static buildSecureRunCommand(options: DockerRunOptions): string[] {
+    // Resolve symlinks so Docker Desktop on macOS gets the real path (e.g. /private/tmp not /tmp)
+    let realSketchDir = options.sketchDir;
+    try { realSketchDir = realpathSync(options.sketchDir); } catch { /* keep original */ }
     return [
       "run",
       "--rm", // Remove container after exit
@@ -46,7 +51,7 @@ export class DockerCommandBuilder {
       "--cap-drop",
       "ALL", // Drop all Linux capabilities
       "-v",
-      `${options.sketchDir}:/sandbox:rw`, // Mount sketch directory
+      `${realSketchDir}:/sandbox:rw`, // Mount sketch directory (realpath resolves macOS /tmp symlink)
       // Cache volume: only added when a host cache dir is configured
       ...(options.arduinoCacheDir
         ? [

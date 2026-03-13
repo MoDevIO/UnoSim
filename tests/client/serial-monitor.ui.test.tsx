@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { SerialMonitor, applyBackspaceAcrossLines } from "@/components/features/serial-monitor";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 

@@ -17,7 +17,6 @@ import type {
   Reporter,
   TestCase,
   TestResult,
-  TestStep,
   FullConfig,
   Suite,
   FullResult,
@@ -114,7 +113,7 @@ class RaceConditionReporter implements Reporter {
     });
   }
 
-  onEnd(result: FullResult): void {
+  onEnd(_result: FullResult): void {
     const total = this.detections.length;
     const flaky = this.detections.filter((d) => d.wasFlaky).length;
     const suppressed = this.detections.filter(

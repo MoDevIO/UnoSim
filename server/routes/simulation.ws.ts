@@ -19,7 +19,7 @@ export type SimulationDeps = {
 
 // Return type exposes a small API used by other modules (test-reset)
 export function registerSimulationWebSocket(httpServer: Server, deps: SimulationDeps) {
-  const { SandboxRunner, getSimulationRateLimiter, shouldSendSimulationEndMessage, getLastCompiledCode, logger, runnerPool } = deps;
+  const { getSimulationRateLimiter, shouldSendSimulationEndMessage, getLastCompiledCode, logger, runnerPool } = deps;
   const pool = runnerPool ?? getSandboxRunnerPool();
 
   const wss = new WebSocketServer({ 
@@ -145,7 +145,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
   }
 
   async function safeReleaseRunner(
-    state: { runner: InstanceType<typeof SandboxRunner> | null; isRunning: boolean; isPaused: boolean },
+    state: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean },
     reason: string,
   ): Promise<void> {
     if (!state.runner) {

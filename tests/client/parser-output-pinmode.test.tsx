@@ -365,7 +365,7 @@ describe("ParserOutput Component", () => {
   });
 
   it("displays registry tab with programmed pins", async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const ioRegistry: IOPinRecord[] = [
       {
         pin: 13,
