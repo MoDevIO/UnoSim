@@ -866,53 +866,45 @@ export class SandboxRunner {
   }
 
   /**
-   * Setup handlers for Docker process (combined compile + run)
+   * Setup and configure Docker process timeout
    */
-  private setupDockerHandlers(
+  private setupDockerTimeout(
+    executionTimeout: number | undefined,
     callbacks: any,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onExit?: (code: number | null) => void,
-    executionTimeout?: number,
   ): void {
-    let compileErrorBuffer = "";
-    let isCompilePhase = true;
-    let compileSuccessSent = false;
+    const timeoutSec = executionTimeout && executionTimeout > 0 ? executionTimeout : SANDBOX_CONFIG.maxExecutionTimeSec;
 
-    // Setup timeout
     const handleTimeout = () => {
-      // Ask controller to kill underlying process (no-op if none)
       this.processController.kill("SIGKILL");
-      callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
-      this.logger.info(`Docker timeout after ${executionTimeout}s`);
+      callbacks.onOutput(`--- Simulation timeout (${timeoutSec}s) ---`, true);
+      this.logger.info(`Docker timeout after ${timeoutSec}s`);
     };
 
-    this.timeoutManager.schedule(
-      executionTimeout && executionTimeout > 0 ? executionTimeout * 1000 : null,
-      handleTimeout,
-    );
+    this.timeoutManager.schedule(timeoutSec * 1000, handleTimeout);
+  }
 
-    // Error handler -> wired through ProcessController
-    this.processController.onError((err) => {
-      this.logger.error(`Docker process error: ${err.message}`);
-      callbacks.onError(`Docker process failed: ${err.message}`);
-    });
-
-    // Stdout: Not used for serial data anymore (all via stderr SERIAL_EVENT)
-    // But as a safety net we parse it too in case the binary outputs directly
-    // to stdout (some environments behave differently).
-    // Keep handler to prevent broken pipe errors, detect end of compilation
+  /**
+   * Setup Docker stdout handler (detects end of compile phase, parses output)
+   */
+  private setupStdoutHandler(
+    callbacks: any,
+    isCompilePhase: { value: boolean },
+    compileSuccessSent: { value: boolean },
+    onCompileSuccess?: () => void,
+  ): void {
     this.processController.onStdout((data) => {
       const str = data.toString();
 
-      if (isCompilePhase) {
-        isCompilePhase = false;
-        if (!compileSuccessSent && onCompileSuccess) {
-          compileSuccessSent = true;
+      // Detect end of compile phase
+      if (isCompilePhase.value) {
+        isCompilePhase.value = false;
+        if (!compileSuccessSent.value && onCompileSuccess) {
+          compileSuccessSent.value = true;
           onCompileSuccess();
         }
       }
 
+      // Check output size limit
       this.totalOutputBytes += str.length;
       if (this.totalOutputBytes > SANDBOX_CONFIG.maxOutputBytes) {
         this.stop();
@@ -920,7 +912,7 @@ export class SandboxRunner {
         return;
       }
 
-      // parse stdout lines as if they came from stderr
+      // Parse stdout lines (safety net for direct binary output)
       const lines = str.split(/\r?\n/);
       lines.forEach((line) => {
         if (!line) return;
@@ -928,18 +920,27 @@ export class SandboxRunner {
         this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
       });
     });
+  }
 
-    // Raw stderr stream (always) for compile aggregation and optional fallback parsing.
+  /**
+   * Setup Docker stderr handlers (raw + fallback + readline)
+   */
+  private setupStderrHandlers(
+    callbacks: any,
+    isCompilePhase: { value: boolean },
+    compileErrorBuffer: { value: string },
+  ): void {
     const useFallbackParser = !this.processController.supportsStderrLineStreaming();
-    this.stderrFallbackBuffer = ""; // Reset buffer for this run
+    this.stderrFallbackBuffer = "";
 
+    // Raw stderr stream for compile aggregation
     this.processController.onStderr((data) => {
       const chunk = data.toString();
-      if (isCompilePhase) {
-        compileErrorBuffer += chunk;
+      if (isCompilePhase.value) {
+        compileErrorBuffer.value += chunk;
       }
 
-      // Fallback only when readline line-streaming is unavailable (mocked streams).
+      // Fallback parsing when readline is unavailable
       if (useFallbackParser) {
         this.stderrFallbackBuffer += chunk;
         const lines = this.stderrFallbackBuffer.split(/\r?\n/);
@@ -953,68 +954,115 @@ export class SandboxRunner {
       }
     });
 
-    // Stderr line stream for O(n) parsing without manual global-buffer concatenation
+    // Readline-based stderr line stream (preferred when available)
     this.processController.onStderrLine((line) => {
       if (line.length === 0) return;
-
       const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
       this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
     });
+  }
 
-    // Close handler wired via ProcessController
+  /**
+   * Handle Docker process exit (cleanup, final parsing, callbacks)
+   */
+  private handleDockerExit(
+    callbacks: any,
+    isCompilePhase: { value: boolean },
+    compileErrorBuffer: { value: string },
+    useFallbackParser: boolean,
+    code: number | null,
+    onCompileError?: (error: string) => void,
+    onCompileSuccess?: () => void,
+    onExit?: (code: number | null) => void,
+  ): void {
+    this.transitionTo(SimulationState.STOPPED);
+
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+
+    // Flush any remaining data in stderr fallback buffer
+    if (this.stderrFallbackBuffer && useFallbackParser) {
+      const buffered = this.stderrFallbackBuffer;
+      this.stderrFallbackBuffer = "";
+      if (buffered.trim()) {
+        const parsed = this.stderrParser.parseStderrLine(buffered, this.processStartTime);
+        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+      }
+    }
+
+    // Flush message queue before exit
+    this.flushMessageQueue();
+
+    // Flush batchers if not still in compile phase
+    if (!isCompilePhase.value || code === 0) {
+      this.flushBatchers();
+
+      if (this.serialOutputBatcher) {
+        this.serialOutputBatcher.destroy();
+        this.serialOutputBatcher = null;
+      }
+      if (this.pinStateBatcher) {
+        this.pinStateBatcher.destroy();
+        this.pinStateBatcher = null;
+      }
+    }
+
+    // Report compile errors or success
+    if (code !== 0 && isCompilePhase.value && compileErrorBuffer.value && onCompileError) {
+      onCompileError(this.cleanCompilerErrors(compileErrorBuffer.value));
+    } else {
+      if (code === 0 && onCompileSuccess) {
+        onCompileSuccess();
+      }
+    }
+
+    // Call exit callback if process wasn't terminated by stop()
+    if (!this.processKilled && onExit) onExit(code);
+
+    // Schedule cleanup after Docker shutdown
+    this.markTempDirForCleanup();
+  }
+
+  /**
+   * Setup handlers for Docker process (combined compile + run)
+   */
+  private setupDockerHandlers(
+    callbacks: any,
+    onCompileError?: (error: string) => void,
+    onCompileSuccess?: () => void,
+    onExit?: (code: number | null) => void,
+    executionTimeout?: number,
+  ): void {
+    // Mutable state containers for closures
+    const compileErrorBuffer = { value: "" };
+    const isCompilePhase = { value: true };
+    const compileSuccessSent = { value: false };
+    const useFallbackParser = !this.processController.supportsStderrLineStreaming();
+
+    // Setup all handlers via dedicated functions
+    this.setupDockerTimeout(executionTimeout, callbacks);
+    
+    this.processController.onError((err) => {
+      this.logger.error(`Docker process error: ${err.message}`);
+      callbacks.onError(`Docker process failed: ${err.message}`);
+    });
+
+    this.setupStdoutHandler(callbacks, isCompilePhase, compileSuccessSent, onCompileSuccess);
+    this.setupStderrHandlers(callbacks, isCompilePhase, compileErrorBuffer);
+
     this.processController.onClose((code) => {
-      this.transitionTo(SimulationState.STOPPED);
-
-      if (this.flushTimer) {
-        clearTimeout(this.flushTimer);
-        this.flushTimer = null;
-      }
-
-      // CRITICAL: Flush any remaining data in stderr fallback buffer to prevent line loss
-      if (this.stderrFallbackBuffer && useFallbackParser) {
-        const buffered = this.stderrFallbackBuffer;
-        this.stderrFallbackBuffer = "";
-        if (buffered.trim()) {
-          const parsed = this.stderrParser.parseStderrLine(buffered, this.processStartTime);
-          this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
-        }
-      }
-
-      // CRITICAL: Flush message queue before exit to prevent losing queued output
-      // Messages may be queued if sketch exits before registry wait mode timeout
-      this.flushMessageQueue();
-      
-      // CRITICAL: Flush any buffered data in batchers before we tear them down.
-      // The explicit flush ensures that performance tests cannot lose data when
-      // the process terminates unexpectedly.  A helper method centralises the
-      // logic so it can also be called from other shutdown paths later if
-      // required.
-      // Always flush when code===0 (successful run) as safety net even if
-      // isCompilePhase is still true (e.g. g++ compiled without any stdout output).
-      if (!isCompilePhase || code === 0) {
-        this.flushBatchers();
-
-        if (this.serialOutputBatcher) {
-          this.serialOutputBatcher.destroy();
-          this.serialOutputBatcher = null;
-        }
-        if (this.pinStateBatcher) {
-          this.pinStateBatcher.destroy();
-          this.pinStateBatcher = null;
-        }
-      }
-
-      if (code !== 0 && isCompilePhase && compileErrorBuffer && onCompileError) {
-        onCompileError(this.cleanCompilerErrors(compileErrorBuffer));
-      } else {
-        if (code === 0 && !compileSuccessSent && onCompileSuccess) {
-          compileSuccessSent = true;
-          onCompileSuccess();
-        }
-      }
-
-      if (!this.processKilled && onExit) onExit(code);
-      this.markTempDirForCleanup();
+      this.handleDockerExit(
+        callbacks,
+        isCompilePhase,
+        compileErrorBuffer,
+        useFallbackParser,
+        code,
+        onCompileError,
+        onCompileSuccess,
+        onExit,
+      );
     });
   }
 
