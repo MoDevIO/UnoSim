@@ -51,8 +51,11 @@ export class ArduinoCompiler {
   private logger = new Logger("ArduinoCompiler");
   private gatekeeper = getCompileGatekeeper();
   private readonly defaultFqbn = process.env.ARDUINO_FQBN || "arduino:avr:uno";
-  private readonly defaultBinaryStorageDir = join(process.cwd(), "storage", "binaries");
-  private readonly defaultBuildCacheDir = process.env.BUILD_CACHE_DIR || "/tmp/unowebsim/cache";
+  private readonly defaultBuildCacheDir =
+    process.env.ARDUINO_CACHE_DIR ||
+    process.env.BUILD_CACHE_DIR ||
+    join(process.cwd(), "server", "arduino-cache");
+  private readonly defaultBinaryStorageDir = join(this.defaultBuildCacheDir, "binaries");
   private readonly defaultHexCacheDir = join(this.defaultBuildCacheDir, "hex-cache");
   private readonly defaultBuildCachePath = join(this.defaultBuildCacheDir, "build-cache");
 

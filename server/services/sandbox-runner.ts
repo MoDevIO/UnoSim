@@ -830,6 +830,9 @@ export class SandboxRunner {
       pidsLimit: 50,
       imageName: SANDBOX_CONFIG.dockerImage,
       command: DockerCommandBuilder.buildCompileAndRunCommand(),
+      // Forward the host cache dir so compiled artefacts survive container exit.
+      // Undefined when the env var is absent → no volume mapping (safe default).
+      arduinoCacheDir: process.env.ARDUINO_CACHE_DIR,
     });
 
     // Clear listeners from previous run before spawning new process
