@@ -18,7 +18,7 @@
     "check:raw-hex": "node scripts/check-raw-hex.cjs",
     "lint:colors": "npm run check:raw-hex",
     "test": "LOG_LEVEL=warn vitest run",
-    "test:fast": "LOG_LEVEL=warn vitest run --changedSince=HEAD",
+    "test:fast": "LOG_LEVEL=warn vitest run --exclude tests/server/load-suite.test.ts",
     "test:unit": "LOG_LEVEL=warn vitest run",
     "test:watch": "LOG_LEVEL=info vitest",
     "test:coverage": "LOG_LEVEL=warn vitest run --coverage",
