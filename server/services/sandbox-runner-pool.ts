@@ -159,7 +159,7 @@ class SandboxRunnerPool {
 
       r.state = "stopped";
       r.processKilled = false;
-      r.pauseStartTime = null;
+      r.executionState.pauseStartTime = null;  // Access private field directly
       r.totalPausedTime = 0;
       r.lastPauseTimestamp = null;
 
