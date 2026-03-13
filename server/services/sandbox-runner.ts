@@ -3,7 +3,7 @@
 
 import { execFile, execSync } from "child_process";
 import { ProcessController, type IProcessController } from "./process-controller";
-import { mkdir, rm } from "fs/promises";
+import { mkdir } from "fs/promises";
 import { existsSync, renameSync, rmSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
@@ -587,12 +587,14 @@ export class SandboxRunner {
       // Ensure any underlying process streams are destroyed
       this.processController.destroySockets();
 
-      // Cleanup on error
-      try {
-        await rm(this.currentSketchDir!, { recursive: true, force: true });
-      } catch {
-        this.logger.warn(`Could not delete temp directory: ${this.currentSketchDir}`);
-      }
+      // Route cleanup through the safe gatekeeper rather than calling rm()
+      // directly.  markTempDirForCleanup() checks whether the compiler still
+      // holds file handles (isCompiling / localCompiler.isBusy) and defers
+      // if necessary, preventing the "sketch.ino: No such file or directory"
+      // race where cc1plus opens the file after stop() already deleted it.
+      // setupSimulationProcess's own catch already called this method;
+      // calling it again is idempotent (directory rename/delete is guarded).
+      this.markTempDirForCleanup();
     }
   }
 
@@ -1583,6 +1585,11 @@ export class SandboxRunner {
     
     // Destroy registry manager to prevent post-test logging
     this.registryManager.destroy();
+
+    // Kill any in-progress compilation (and its sub-processes) so that
+    // compiler file handles are released before we remove the working
+    // directory below.  This is a no-op when no compile is running.
+    this.localCompiler.kill();
 
     // Ask controller to hard-kill underlying process and destroy streams
     this.processController.kill("SIGKILL");

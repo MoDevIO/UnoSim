@@ -39,6 +39,8 @@ export interface IProcessController {
   destroySockets(): void;
   hasProcess(): boolean;
   clearListeners(): void;
+  /** Returns the PID of the currently active child process, or null. */
+  getPid(): number | null;
 }
 
 /**
@@ -167,7 +169,25 @@ export class ProcessController implements IProcessController {
   kill(signal?: NodeJS.Signals | number): void {
     try {
       if (!this.proc) return;
-      // forward signal to the underlying process
+      const pid = this.proc.pid;
+      if (pid == null) {
+        this.proc.kill(signal as any);
+        return;
+      }
+      // For SIGSTOP / SIGCONT send to the entire process group (-pid).
+      // This ensures all children of the process (e.g. sub-shells, avr-gcc)
+      // receive the signal, not just the direct child.
+      // On non-POSIX systems (Windows) fall back to the plain kill.
+      const isGroupSignal =
+        signal === "SIGSTOP" || signal === "SIGCONT";
+      if (isGroupSignal) {
+        try {
+          process.kill(-pid, signal as NodeJS.Signals);
+          return;
+        } catch {
+          // group kill failed (e.g. process not a group leader) — fall through
+        }
+      }
       this.proc.kill(signal as any);
     } catch {
       // swallow errors — caller should handle state
@@ -218,6 +238,10 @@ export class ProcessController implements IProcessController {
 
   hasProcess(): boolean {
     return !!this.proc;
+  }
+
+  getPid(): number | null {
+    return this.proc?.pid ?? null;
   }
 
   clearListeners(): void {

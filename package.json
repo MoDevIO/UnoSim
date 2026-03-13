@@ -24,6 +24,7 @@
     "test:debug": "LOG_LEVEL=debug vitest run",
     "test:ci": "LOG_LEVEL=warn vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:ci": "playwright test && ./check-leaks.sh --cleanup",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:update": "npx playwright test --update-snapshots",
