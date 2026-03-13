@@ -10,11 +10,31 @@ interface SketchAnalysisResult {
   digitalPinsFromPinMode: number[];
 }
 
-// ─── Compiled pattern constants ───────────────────────────────────────────────
+// ─── Atomic regex patterns (reduced complexity) ─────────────────────────────
 
+/** Match "Ax" tokens (A0–A5). */
 const A_PIN_RE = /^A(\d+)$/i;
+
+/** Match numeric tokens (0–255). */
 const NUMERIC_RE = /^\d+$/;
+
+/** Match simple tokens (A\d, \d+, or alphanumeric). */
 const SIMPLE_TOKEN_RE = /^(A\d+|\d+|\w+)$/i;
+
+/** Match #define VAR Ax or #define VAR numeric. */
+const DEFINE_PIN_RE = /#define\s+(\w+)\s+(A\d|\d+)/g;
+
+/** Match int/const/uint8_t VAR = Ax or numeric assignment. */
+const ASSIGN_PIN_RE = /(?:int|const\s+int|uint8_t|byte)\s+(\w+)\s*=\s*(A\d|\d+)\s*;/g;
+
+/** Match analogRead(token) calls. */
+const ANALOG_READ_RE = /analogRead\s*\(\s*([^)]+)\s*\)/g;
+
+/** Match for-loop pattern with integer iteration. */
+const FOR_LOOP_RE = /for\s*\(\s*(?:byte|int|unsigned|uint8_t)?\s*(\w+)\s*=\s*(\d+)\s*;\s*\1\s*(<|<=)\s*(\d+)\s*;[^)]*\)\s*\{([\s\S]*?)\}/g;
+
+/** Match pinMode(pin, mode) calls. */
+const PIN_MODE_RE = /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
 
 // ─── Pin-token helpers ────────────────────────────────────────────────────────
 
@@ -83,19 +103,16 @@ function resolvePinMode(modeToken: string): PinMode {
 /** Extracts variable→pin mappings from #define macros and variable declarations. */
 function extractVarMap(code: string): Map<string, number> {
   const varMap = new Map<string, number>();
-  let m: RegExpExecArray | null;
 
   // #define VAR A0  or  #define VAR 0
-  const defineRe = /#define\s+(\w+)\s+(A\d|\d+)/g;
-  while ((m = defineRe.exec(code))) {
+  let m: RegExpExecArray | null = null;
+  while ((m = DEFINE_PIN_RE.exec(code))) {
     const p = parsePinToken(m[2]);
     if (p !== undefined) varMap.set(m[1], p);
   }
 
   // int sensorPin = A0;  or  const int s = 0;
-  const assignRe =
-    /(?:int|const\s+int|uint8_t|byte)\s+(\w+)\s*=\s*(A\d|\d+)\s*;/g;
-  while ((m = assignRe.exec(code))) {
+  while ((m = ASSIGN_PIN_RE.exec(code))) {
     const p = parsePinToken(m[2]);
     if (p !== undefined) varMap.set(m[1], p);
   }
@@ -109,10 +126,9 @@ function findAnalogReadPins(
   varMap: Map<string, number>,
 ): Set<number> {
   const pins = new Set<number>();
-  const re = /analogRead\s*\(\s*([^)]+)\s*\)/g;
-  let m: RegExpExecArray | null;
+  let m: RegExpExecArray | null = null;
 
-  while ((m = re.exec(code))) {
+  while ((m = ANALOG_READ_RE.exec(code))) {
     const token = m[1].trim();
     const simple = SIMPLE_TOKEN_RE.exec(token);
     if (!simple) continue;
@@ -125,11 +141,9 @@ function findAnalogReadPins(
 /** Finds analog pins iterated in for-loops and used in analogRead. */
 function findForLoopPins(code: string): Set<number> {
   const pins = new Set<number>();
-  const forLoopRe =
-    /for\s*\(\s*(?:byte|int|unsigned|uint8_t)?\s*(\w+)\s*=\s*(\d+)\s*;\s*\1\s*(<|<=)\s*(\d+)\s*;[^)]*\)\s*\{([\s\S]*?)\}/g;
-  let fm: RegExpExecArray | null;
+  let fm: RegExpExecArray | null = null;
 
-  while ((fm = forLoopRe.exec(code))) {
+  while ((fm = FOR_LOOP_RE.exec(code))) {
     const [, varName, startStr, cmp, endStr, body] = fm;
     const useRe = new RegExp(
       String.raw`analogRead\s*\(\s*${varName}\s*\)`,
@@ -155,11 +169,9 @@ interface PinModeResult {
 function findPinModePins(code: string): PinModeResult {
   const modes: Record<number, PinMode> = {};
   const pins = new Set<number>();
-  const re =
-    /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
-  let m: RegExpExecArray | null;
+  let m: RegExpExecArray | null = null;
 
-  while ((m = re.exec(code))) {
+  while ((m = PIN_MODE_RE.exec(code))) {
     const p = resolvePinModeToken(m[1]);
     if (p === undefined) continue;
     pins.add(p);
