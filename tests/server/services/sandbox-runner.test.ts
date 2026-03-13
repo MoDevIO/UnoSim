@@ -85,6 +85,7 @@ vi.mock("child_process", () => {
 
 vi.mock("fs/promises", () => {
   const mkdirMock = vi.fn().mockResolvedValue(undefined);
+  const mkdtempMock = vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir");
   const writeFileMock = vi.fn().mockResolvedValue(undefined);
   const rmMock = vi.fn().mockResolvedValue(undefined);
   const chmodMock = vi.fn().mockResolvedValue(undefined);
@@ -93,6 +94,7 @@ vi.mock("fs/promises", () => {
 
   return {
     mkdir: mkdirMock,
+    mkdtemp: mkdtempMock,
     writeFile: writeFileMock,
     rm: rmMock,
     chmod: chmodMock,
@@ -100,6 +102,7 @@ vi.mock("fs/promises", () => {
     access: accessMock,
     default: {
       mkdir: mkdirMock,
+      mkdtemp: mkdtempMock,
       writeFile: writeFileMock,
       rm: rmMock,
       chmod: chmodMock,
