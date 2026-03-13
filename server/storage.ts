@@ -1,7 +1,7 @@
 import { type Sketch, type InsertSketch } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-export interface IStorage {
+interface IStorage {
   getSketch(id: string): Promise<Sketch | undefined>;
   getSketchByName(name: string): Promise<Sketch | undefined>;
   createSketch(sketch: InsertSketch): Promise<Sketch>;

@@ -15,7 +15,7 @@ import type { CompilationResult } from "../server/services/arduino-compiler";
 /**
  * Commands that can be sent to worker threads
  */
-export enum WorkerCommand {
+enum WorkerCommand {
   COMPILE = "compile",
   READY = "ready",
   SHUTDOWN = "shutdown",
@@ -38,7 +38,7 @@ export interface CompileRequestPayload {
 /**
  * Compilation response payload sent from worker to main thread
  */
-export interface CompileResponsePayload {
+interface CompileResponsePayload {
   result?: CompilationResult;
   error?: WorkerError;
 }
@@ -46,7 +46,7 @@ export interface CompileResponsePayload {
 /**
  * Structured error object for worker errors
  */
-export interface WorkerError {
+interface WorkerError {
   message: string;
   code?: string;
   stack?: string;
@@ -56,7 +56,7 @@ export interface WorkerError {
  * Generic worker message envelope
  * T = payload type (CompileRequestPayload | CompileResponsePayload | void)
  */
-export interface WorkerMessage<T = void> {
+interface WorkerMessage<T = void> {
   type: WorkerCommand;
   taskId?: string;
   payload?: T;

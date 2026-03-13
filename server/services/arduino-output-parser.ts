@@ -9,7 +9,7 @@ const logger = new Logger("ArduinoOutputParser");
 /**
  * Parsed stderr output types (discriminated union for type safety)
  */
-export type ParsedStderrOutput =
+type ParsedStderrOutput =
   | { type: "serial_event"; timestamp: number; data: string }
   | { type: "registry_start" }
   | { type: "registry_end" }

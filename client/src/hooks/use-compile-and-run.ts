@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
 // Local copy of the structured error type returned from backend
-export interface CompilationError {
+interface CompilationError {
   file: string;
   line: number;
   column: number;
@@ -16,13 +16,13 @@ import type { IOPinRecord, ParserMessage } from "@shared/schema";
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 
 // status types
-export type CompilationStatus = "ready" | "compiling" | "success" | "error";
+type CompilationStatus = "ready" | "compiling" | "success" | "error";
 
 const logger = new Logger("useCompileAndRun");
 
 // reused helpers from previous hooks
-export type SimulationStatus = "running" | "stopped" | "paused";
-export type CliStatus = "idle" | "compiling" | "success" | "error";
+type SimulationStatus = "running" | "stopped" | "paused";
+type CliStatus = "idle" | "compiling" | "success" | "error";
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
 
@@ -69,7 +69,7 @@ export type CompileAndRunParams = {
   startSimulationRef?: MutableRefObject<(() => void) | null>;
 };
 
-export interface UseCompileAndRunResult {
+interface UseCompileAndRunResult {
   /* compilation state & helpers */
   compilationStatus: CompilationStatus;
   setCompilationStatus: SetState<CompilationStatus>;

@@ -11,7 +11,7 @@ import { ARDUINO_MOCK_CODE } from "../mocks/arduino-mock";
 import { Logger } from "@shared/logger";
 import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 
-export interface SketchBuildResult {
+interface SketchBuildResult {
   sketchDir: string;
   sketchFile: string;
   exeFile: string;

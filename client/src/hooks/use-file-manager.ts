@@ -1,8 +1,8 @@
 import { useRef, useCallback, useState } from "react";
 
-export type FileEntry = { name: string; content: string };
+type FileEntry = { name: string; content: string };
 
-export interface UseFileManagerOptions {
+interface UseFileManagerOptions {
   tabs?: Array<{ name: string; content: string }>;
   onFilesLoaded?: (files: FileEntry[], replaceAll: boolean) => void;
   toast?: (params: { title: string; description?: string; variant?: string }) => void;

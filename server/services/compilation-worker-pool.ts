@@ -37,7 +37,7 @@ export type CompilationTask = CompileRequestPayload;
 /**
  * Statistic tracking for monitoring pool health
  */
-export interface PoolStats {
+interface PoolStats {
   activeWorkers: number;
   totalTasks: number;
   completedTasks: number;

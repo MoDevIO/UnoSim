@@ -22,7 +22,7 @@ const logger = new Logger("WebSocketManager");
 export type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 
 // Event types emitted by the manager
-export interface WSManagerEvents {
+interface WSManagerEvents {
   stateChange: (state: ConnectionState) => void;
   message: (data: WSMessage) => void;
   error: (error: string) => void;

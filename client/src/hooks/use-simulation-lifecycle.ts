@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 
-export interface UseSimulationLifecycleOptions {
+interface UseSimulationLifecycleOptions {
   code: string;
   simulationStatus: string;
   setSimulationStatus: (s: any) => void;
