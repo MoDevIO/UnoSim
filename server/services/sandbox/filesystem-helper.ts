@@ -3,7 +3,7 @@
  * Extracted from Etappe C: Filesystem & Path Operations refactoring
  */
 
-import { existsSync, renameSync, rmSync } from "fs";
+import { existsSync, renameSync, rmSync } from "node:fs";
 import { Logger } from "@shared/logger";
 import type { SketchFileBuilder } from "../sketch-file-builder";
 import type { LocalCompiler } from "../local-compiler";
@@ -17,11 +17,11 @@ export interface FilesystemHelperState {
 }
 
 export class FilesystemHelper {
-  private logger = new Logger("FilesystemHelper");
+  private readonly logger = new Logger("FilesystemHelper");
 
   constructor(
-    private fileBuilder: SketchFileBuilder,
-    private localCompiler: LocalCompiler,
+    private readonly fileBuilder: SketchFileBuilder,
+    private readonly localCompiler: LocalCompiler,
   ) {}
 
   /**

@@ -24,22 +24,20 @@ export interface DockerHandlerState {
   flushTimer: NodeJS.Timeout | null;
 }
 
-export interface HandleParsedLineDelegate {
-  (parsed: any, callbacks: DockerManagerCallbacks): void;
-}
+export type HandleParsedLineDelegate = (parsed: any, callbacks: DockerManagerCallbacks) => void;
 
 export class DockerManager {
-  private logger = new Logger("DockerManager");
+  private readonly logger = new Logger("DockerManager");
   private readonly SANDBOX_CONFIG = {
     maxOutputBytes: 100 * 1024 * 1024, // Max 100MB output
     maxExecutionTimeSec: 60, // Max 60 seconds runtime
   };
 
   constructor(
-    private processController: IProcessController,
-    private stderrParser: ArduinoOutputParser,
-    private timeoutManager: SimulationTimeoutManager,
-    private handleParsedLine: HandleParsedLineDelegate,
+    private readonly processController: IProcessController,
+    private readonly stderrParser: ArduinoOutputParser,
+    private readonly timeoutManager: SimulationTimeoutManager,
+    private readonly handleParsedLine: HandleParsedLineDelegate,
   ) {}
 
   /**
@@ -142,6 +140,7 @@ export class DockerManager {
   /**
    * Handle Docker process exit (cleanup, final parsing, callbacks)
    */
+   
   handleDockerExit(
     callbacks: DockerManagerCallbacks,
     state: Partial<DockerHandlerState>,
@@ -178,10 +177,8 @@ export class DockerManager {
     // Report compile errors or success
     if (code !== 0 && isCompilePhase.value && compileErrorBuffer.value && onCompileError) {
       onCompileError(this.cleanCompilerErrors(compileErrorBuffer.value));
-    } else {
-      if (code === 0 && onCompileSuccess) {
+    } else if (code === 0 && onCompileSuccess) {
         onCompileSuccess();
-      }
     }
 
     // Call exit callback (guard: only if process wasn't terminated by stop())
@@ -191,6 +188,7 @@ export class DockerManager {
   /**
    * Setup all Docker handlers (timeout, stdout, stderr, close)
    */
+   
   setupDockerHandlers(
     callbacks: DockerManagerCallbacks,
     state: Partial<DockerHandlerState>,
@@ -232,13 +230,14 @@ export class DockerManager {
    * Clean up compiler error messages
    */
   private cleanCompilerErrors(errors: string): string {
-    return errors.replace(/\/sandbox\/sketch\.cpp/g, "sketch.ino").replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino").trim();
+    return errors.replaceAll("/sandbox/sketch.cpp", "sketch.ino").replaceAll(/\/[^\s:]+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino").trim();
   }
 
   /**
    * Complete Docker orchestration: spawn process and setup all handlers
    * This consolidates runInDocker + setupDockerHandlers into a single delegated call
    */
+   
   async runInDockerWithHandlers(
     dockerArgs: string[],
     callbacks: DockerManagerCallbacks,

@@ -25,9 +25,9 @@ export interface StreamHandlerState {
 }
 
 export class StreamHandler {
-  private logger = new Logger("StreamHandler");
+  private readonly logger = new Logger("StreamHandler");
 
-  constructor(private processController: IProcessController) {}
+  constructor(private readonly processController: IProcessController) {}
 
   /**
    * Handle pin state changes (mode, value, pwm) with optional batcher or fallback
