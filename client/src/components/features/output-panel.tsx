@@ -9,9 +9,9 @@ import clsx from "clsx";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 
-export type OutputTab = "compiler" | "messages" | "registry" | "debug";
+type OutputTab = "compiler" | "messages" | "registry" | "debug";
 
-export interface OutputPanelProps {
+interface OutputPanelProps {
   /* State */
   activeOutputTab: OutputTab;
   showCompilationOutput: boolean;

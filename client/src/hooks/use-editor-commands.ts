@@ -2,14 +2,14 @@ import { useCallback } from "react";
 import type { RefObject } from "react";
 import type { ToastFn } from "@/hooks/use-toast";
 
-export interface EditorCommandsOptions {
+interface EditorCommandsOptions {
   toast?: ToastFn;
   suppressAutoStopOnce?: () => void;
   code?: string;
   setCode?: React.Dispatch<React.SetStateAction<string>>;
 }
 
-export interface EditorCommandsAPI {
+interface EditorCommandsAPI {
   undo: () => void;
   redo: () => void;
   find: () => void;

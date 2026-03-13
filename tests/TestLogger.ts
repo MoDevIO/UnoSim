@@ -1,7 +1,7 @@
 // TestLogger.ts
 // Centralized logger for tests with log-level abstraction
 
-export type LogLevel = 'DEBUG' | 'INFO' | 'ERROR';
+type LogLevel = 'DEBUG' | 'INFO' | 'ERROR';
 
 const LOG_LEVEL: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'ERROR';
 

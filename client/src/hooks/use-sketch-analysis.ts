@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 
-export type PinMode = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+type PinMode = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
 
-export interface SketchAnalysisResult {
+interface SketchAnalysisResult {
   analogPins: number[]; // concrete Arduino pin numbers (A0 -> 14)
   varMap: Record<string, number>;
   detectedPinModes: Record<number, PinMode>;

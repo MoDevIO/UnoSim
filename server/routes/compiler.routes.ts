@@ -3,7 +3,7 @@ import type { CompilationResult } from "../services/arduino-compiler";
 import type { CompileRequestOptions } from "../services/arduino-compiler";
 import type { Logger } from "@shared/logger";
 
-export type CompilerDeps = {
+type CompilerDeps = {
   compiler: {
     compile: (code: string, headers?: any[], tempRoot?: string, options?: CompileRequestOptions) => Promise<CompilationResult>;
   };

@@ -8,7 +8,7 @@ import path from "path";
 import { constants as zlibConstants } from "zlib";
 import { writeFile, access } from "fs/promises";
 
-export type SimulationDeps = {
+type SimulationDeps = {
   SandboxRunner: typeof SandboxRunner;
   getSimulationRateLimiter: () => { checkLimit: (ws: WebSocket) => { allowed: boolean; retryAfter?: number }; removeClient: (ws: WebSocket) => void };
   shouldSendSimulationEndMessage: (compileFailed: boolean) => boolean;

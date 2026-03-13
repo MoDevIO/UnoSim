@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-export interface UsePinStateParams {
+interface UsePinStateParams {
   resetPinStates: () => void;
 }
 

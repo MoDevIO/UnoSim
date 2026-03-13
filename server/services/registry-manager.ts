@@ -8,11 +8,11 @@ import { Logger } from "@shared/logger";
 import { createWriteStream, type WriteStream } from "fs";
 import { join } from "path";
 
-export interface RegistryUpdateCallback {
+interface RegistryUpdateCallback {
   (registry: IOPinRecord[], baudrate: number | undefined, reason?: string): void;
 }
 
-export interface PerformanceMetrics {
+interface PerformanceMetrics {
   timestamp: number;
   intendedPinChangesPerSecond: number;
   actualPinChangesPerSecond: number;
@@ -26,11 +26,11 @@ export interface PerformanceMetrics {
   serialDroppedBytesPerSecond: number;
 }
 
-export interface TelemetryUpdateCallback {
+interface TelemetryUpdateCallback {
   (metrics: PerformanceMetrics): void;
 }
 
-export interface RegistryManagerConfig {
+interface RegistryManagerConfig {
   onUpdate?: RegistryUpdateCallback;
   onTelemetry?: TelemetryUpdateCallback;
   enableTelemetry?: boolean;

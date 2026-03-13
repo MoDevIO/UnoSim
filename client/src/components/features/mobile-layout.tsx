@@ -6,7 +6,7 @@ import clsx from "clsx";
 
 export type MobilePanel = "code" | "compile" | "serial" | "board" | null;
 
-export interface MobileLayoutProps {
+interface MobileLayoutProps {
   isMobile: boolean;
   mobilePanel: MobilePanel;
   setMobilePanel: React.Dispatch<React.SetStateAction<MobilePanel>>;

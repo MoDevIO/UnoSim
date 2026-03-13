@@ -1,6 +1,4 @@
-export type OutputTab = "compiler" | "messages" | "registry" | "debug";
-
-export interface GccCompilationErrorState {
+interface GccCompilationErrorState {
   cliOutput: string;
   hasCompilationErrors: true;
   lastCompilationResult: "error";

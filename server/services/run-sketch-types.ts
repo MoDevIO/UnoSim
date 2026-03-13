@@ -1,7 +1,7 @@
 import type { IOPinRecord } from "@shared/schema";
 import type { PinStateBatch } from "./pin-state-batcher";
 
-export interface RunSketchCallbacks {
+interface RunSketchCallbacks {
   onOutput: (line: string, isComplete?: boolean) => void;
   onError: (line: string) => void;
   onExit: (code: number | null) => void;
@@ -28,5 +28,3 @@ export interface RunSketchOptions extends RunSketchCallbacks {
   /** Optional tracing context for traceability */
   context?: { sessionId?: string; label?: string };
 }
-
-export type { IOPinRecord };

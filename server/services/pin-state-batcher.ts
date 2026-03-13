@@ -23,7 +23,7 @@ export interface PinStateBatch {
   timestamp: number;
 }
 
-export interface PinStateBatcherConfig {
+interface PinStateBatcherConfig {
   /** Tick interval in milliseconds (default: 50ms = 20 batches/sec) */
   tickIntervalMs?: number;
   /** Callback invoked with each batch */

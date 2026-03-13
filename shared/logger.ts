@@ -28,7 +28,7 @@
  *    - Flush erfolgt nur beim Fehler asynchron
  */
 
-export type LogLevel = "NONE" | "ERROR" | "WARN" | "INFO" | "DEBUG";
+type LogLevel = "NONE" | "ERROR" | "WARN" | "INFO" | "DEBUG";
 
 interface LogEntry {
   timestamp: string;

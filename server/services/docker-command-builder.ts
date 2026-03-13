@@ -7,7 +7,7 @@ import { realpathSync } from "fs";
  * security constraints and resource limits for Arduino sketch execution.
  */
 
-export interface DockerRunOptions {
+interface DockerRunOptions {
   sketchDir: string;
   memoryMB: number;
   cpuLimit: string;

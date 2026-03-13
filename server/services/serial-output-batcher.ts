@@ -16,7 +16,7 @@
 
 import { RingBuffer } from "@shared/utils/ring-buffer";
 
-export interface SerialOutputBatcherConfig {
+interface SerialOutputBatcherConfig {
   /** Baudrate in bits per second (e.g., 115200) */
   baudrate: number;
   /** Tick interval in milliseconds (default: 50ms = 20 batches/sec) */

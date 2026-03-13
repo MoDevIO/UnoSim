@@ -3,11 +3,8 @@ import { useRef, useEffect } from "react";
 import type { MutableRefObject } from "react";
 import type { SetState } from "./use-compile-and-run";
 
-// original alias kept for compatibility (rare external refs)
-export type UseCompileAndRunParams = CompileAndRunParams;
-
 // compilation-only parameters (simulation inputs are injected with no-ops)
-export type UseCompilationParams = Omit<
+type UseCompilationParams = Omit<
   CompileAndRunParams,
   |
     "serialEventQueueRef"
