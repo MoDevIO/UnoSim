@@ -1,7 +1,6 @@
 //arduino-compiler.ts
 
-import { writeFile, mkdir, rm, readFile, readdir, stat, utimes, rename } from "fs/promises";
-import { mkdtempSync } from "fs";
+import { writeFile, mkdir, rm, readFile, readdir, stat, utimes, rename, mkdtemp } from "fs/promises";
 import { join } from "path";
 import { randomUUID, createHash } from "crypto";
 import { Logger } from "@shared/logger";
@@ -466,7 +465,7 @@ export class ArduinoCompiler {
 
     // use a unique temporary directory per-call to avoid state conflicts
     const baseTempDir =
-      tempRoot || mkdtempSync(join(getFastTmpBaseDir(), "unowebsim-"));
+      tempRoot || (await mkdtemp(join(getFastTmpBaseDir(), "unowebsim-")));
 
     const sketchDir = join(baseTempDir, sketchId);
     const sketchFile = join(sketchDir, `${sketchId}.ino`);
