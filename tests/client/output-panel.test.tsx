@@ -1,12 +1,12 @@
-import React, { Profiler, useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { OutputPanel } from "../../client/src/components/features/output-panel";
 
 describe("OutputPanel — callback reference stability", () => {
   it("does not re-render when parent updates unrelated state while callbacks and data props are stable", () => {
     function Wrapper() {
-      const [count, setCount] = useState(0);
+      const [, setCount] = useState(0);
 
       // Stable (memoized) data props
       const parserMessages = useMemo(() => [], [] as any);

@@ -416,7 +416,7 @@ class WebSocketManager {
       if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
         try {
           this.ws.close(1000, "Client disconnect");
-        } catch (e) {
+        } catch {
           // Ignore close errors
         }
       }

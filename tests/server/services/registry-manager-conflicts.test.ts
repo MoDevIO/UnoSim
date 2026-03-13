@@ -14,7 +14,7 @@
  *  Case E – no-mode pin: write without any pinMode → NO conflict, no modes
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { RegistryManager } from "../../../server/services/registry-manager";
 import type { IOPinRecord } from "@shared/schema";
 

@@ -157,7 +157,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       if (ct.includes("application/json")) {
         try {
           return await response.json();
-        } catch (err) {
+        } catch {
           const txt = await response.text();
           return { success: response.ok, raw: txt } as any;
         }
@@ -228,7 +228,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       if (ct.includes("application/json")) {
         try {
           return await response.json();
-        } catch (err) {
+        } catch {
           const txt = await response.text();
           return { success: false, errors: txt, raw: txt } as any;
         }

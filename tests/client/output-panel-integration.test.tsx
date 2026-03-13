@@ -76,7 +76,7 @@ describe("OutputPanel Integration - Auto-Behavior Workflow", () => {
   const updatePanelState = (
     state: PanelState,
     result: CompileResult,
-    lastCompilationResult: "success" | "error" | null,
+    _lastCompilationResult: "success" | "error" | null,
   ): PanelState => {
     const hasErrors = !result.success && result.output.trim().length > 0;
     const hasMessages = result.parserMessages.length > 0;

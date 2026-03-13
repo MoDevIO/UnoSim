@@ -1,7 +1,7 @@
 // sandbox-stress.test.ts
 // Phase 5 Stress Tests: Validate architectural robustness under extreme conditions
 
-import { SandboxRunner, SimulationState } from "../../server/services/sandbox-runner";
+import { SandboxRunner } from "../../server/services/sandbox-runner";
 import { existsSync, readdirSync } from "fs";
 import { join } from "path";
 import { mkdir, rm } from "fs/promises";
@@ -23,7 +23,7 @@ const scaleMsLong = (value: number, min = 100) => // Reduced min (was 250)
   Math.max(min, Math.round(value * STRESS_SCALE));
 const scaleMsShort = (value: number, min = 1) => // Reduced min (was 5)
   Math.max(min, Math.round(value * STRESS_SCALE));
-const scaleTestMs = (value: number, min = 100) => // Reduced min (was 1000)
+const _scaleTestMs = (value: number, min = 100) => // Reduced min (was 1000)
   Math.max(min, Math.round(value * STRESS_SCALE));
 
 // Helper to call runSketch with object-style callbacks
@@ -119,7 +119,7 @@ describe("SandboxRunner Stress Tests - Phase 5", () => {
         const fullPath = join(tempDir, entry);
         await rm(fullPath, { recursive: true, force: true });
       }
-    } catch (error) {
+    } catch {
       // Cleanup failures are not critical for stress tests
     }
   });
@@ -792,14 +792,14 @@ void loop() {
       const sketch = `void setup() {} void loop() { delay(100); }`;
 
       // Start sketch (fire-and-forget to test STARTING state interruption)
-      let firstRunStarted = false;
+      let _firstRunStarted = false;
       runSketchHelper(
         runner,
         sketch,
         {
           onExit: () => {},
           onCompileError: (error) => {
-            firstRunStarted = true;
+            _firstRunStarted = true;
             console.log("Compilation failed on first run:", error);
           },
         },
@@ -816,7 +816,7 @@ void loop() {
 
       // Should transition cleanly to STOPPED
       // Verify by trying another run
-      let exitCalled = false;
+      let _exitCalled = false;
       await withTimeout(
         new Promise<void>((resolve) => {
           runSketchHelper(
@@ -824,7 +824,7 @@ void loop() {
             sketch,
             {
               onExit: () => {
-                exitCalled = true;
+                _exitCalled = true;
                 resolve();
               },
               onCompileError: (error) => {

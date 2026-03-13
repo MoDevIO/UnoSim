@@ -98,7 +98,7 @@ describe("useEditorCommands", () => {
     const ed = makeEditor();
     const ref = createRef(ed);
     const toast = buildToast();
-    const promptStub = vi.stubGlobal("prompt", vi.fn().mockReturnValue("5"));
+    const _promptStub = vi.stubGlobal("prompt", vi.fn().mockReturnValue("5"));
     const { result } = renderHook(() => useEditorCommands(ref, { toast }));
 
     act(() => {

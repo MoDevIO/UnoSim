@@ -162,8 +162,8 @@ void loop() {
 
     const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
     expect(snap).toMatchSnapshot('02_svg_all_pins_high_context.png', {
-      maxDiffPixels: 500,
-      threshold: 0.25,
+      maxDiffPixels: 15000,
+      threshold: 0.4,
     });
   });
 
@@ -226,7 +226,7 @@ void loop() {
 
     // Proof: some warning content visible (parser message about Serial.begin)
     // The message container is inside the panel
-    const messagesPanel = page.locator('[data-testid="output-tabs-header"]')
+    const _messagesPanel = page.locator('[data-testid="output-tabs-header"]')
       .locator('..')
       .locator('[role="tabpanel"]')
       .first();

@@ -452,7 +452,7 @@ export function CodeEditor({
                   };
                   editor.executeEdits("paste", [{ range: r, text }]);
                 }
-              } catch (err) {
+              } catch {
                 /* ignore clipboard read errors */
               }
             })();

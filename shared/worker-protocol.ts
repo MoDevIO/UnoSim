@@ -96,9 +96,6 @@ export type AnyWorkerMessage =
 /**
  * Type guard to check if a message is a compile request
  */
-export function isCompileRequest(msg: WorkerMessage<unknown>): msg is CompileRequestMessage {
-  return msg.type === WorkerCommand.COMPILE && msg.payload !== undefined;
-}
 
 /**
  * Type guard to check if a message is a compile response
@@ -131,38 +128,11 @@ export function createCompileRequest(
 /**
  * Helper to create a compile response message
  */
-export function createCompileResponse(
-  payload: CompileResponsePayload,
-  taskId?: string
-): CompileResponseMessage {
-  return {
-    type: WorkerCommand.COMPILE_RESULT,
-    payload,
-    taskId,
-  };
-}
 
 /**
  * Helper to create a ready message
  */
-export function createReadyMessage(): ReadyMessage {
-  return {
-    type: WorkerCommand.READY,
-  };
-}
 
 /**
  * Helper to create a structured worker error
  */
-export function createWorkerError(err: unknown): WorkerError {
-  if (err instanceof Error) {
-    return {
-      message: err.message,
-      code: (err as any).code,
-      stack: err.stack,
-    };
-  }
-  return {
-    message: String(err),
-  };
-}

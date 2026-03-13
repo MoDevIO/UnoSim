@@ -8,7 +8,7 @@ export const FONT_SCALES = [
   { label: "XXL", value: 1.5, px: 20 },
 ] as const;
 
-export const FONT_SCALE_KEY = "unoFontScale";
+const FONT_SCALE_KEY = "unoFontScale"; // internal only
 export const DEFAULT_FONT_SCALE = 1.0;
 
 export function getCurrentFontScale(): number {

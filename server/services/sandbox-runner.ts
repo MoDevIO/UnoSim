@@ -3,7 +3,7 @@
 
 import { execFile, execSync } from "child_process";
 import { ProcessController, type IProcessController } from "./process-controller";
-import { mkdir, rm } from "fs/promises";
+import { mkdir } from "fs/promises";
 import { existsSync, renameSync, rmSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
@@ -32,11 +32,11 @@ enum SimulationState {
 // Configuration
 const SANDBOX_CONFIG = {
   // Docker settings
-  dockerImage: "arduino-sandbox:latest",
-  useDocker: false, // Will be set based on availability
+  dockerImage: process.env.DOCKER_SANDBOX_IMAGE ?? "unowebsim-sandbox:latest",
+  useDocker: true, // Will be set based on availability
 
   // Resource limits
-  maxMemoryMB: 128, // Max 128MB RAM
+  maxMemoryMB: 256, // Max 256MB RAM
   maxCpuPercent: 50, // Max 50% of one CPU
   maxExecutionTimeSec: 60, // Max 60 seconds runtime
   maxOutputBytes: 100 * 1024 * 1024, // Max 100MB output
@@ -300,6 +300,18 @@ export class SandboxRunner {
   private async ensureDockerChecked(): Promise<void> {
     if (this.dockerChecked) {
       return; // Already checked
+    }
+
+    // FORCE_DOCKER=1: skip all checks and immediately mark Docker as available.
+    // Use this in CI / test environments where Docker is known to be running and
+    // the sandbox image is already built (e.g. macOS where the local binary
+    // execution is blocked by SIP / dyld policy).
+    if (process.env.FORCE_DOCKER === "1") {
+      this.dockerAvailable = true;
+      this.dockerImageBuilt = true;
+      this.dockerChecked = true;
+      this.logger.info("FORCE_DOCKER=1: skipping Docker availability check, treating Docker as available");
+      return;
     }
 
     // Test-mode: use synchronous version (for backward compatibility with test mocks)
@@ -587,12 +599,14 @@ export class SandboxRunner {
       // Ensure any underlying process streams are destroyed
       this.processController.destroySockets();
 
-      // Cleanup on error
-      try {
-        await rm(this.currentSketchDir!, { recursive: true, force: true });
-      } catch {
-        this.logger.warn(`Could not delete temp directory: ${this.currentSketchDir}`);
-      }
+      // Route cleanup through the safe gatekeeper rather than calling rm()
+      // directly.  markTempDirForCleanup() checks whether the compiler still
+      // holds file handles (isCompiling / localCompiler.isBusy) and defers
+      // if necessary, preventing the "sketch.ino: No such file or directory"
+      // race where cc1plus opens the file after stop() already deleted it.
+      // setupSimulationProcess's own catch already called this method;
+      // calling it again is idempotent (directory rename/delete is guarded).
+      this.markTempDirForCleanup();
     }
   }
 
@@ -727,6 +741,7 @@ export class SandboxRunner {
         this.isCompiling = false;
         // Clear listeners from previous run before spawning new process
         this.processController.clearListeners();
+
         await this.processController.spawn(files.exeFile);
         this.processStartTime = Date.now();
         this.transitionTo(SimulationState.RUNNING);
@@ -828,10 +843,14 @@ export class SandboxRunner {
       pidsLimit: 50,
       imageName: SANDBOX_CONFIG.dockerImage,
       command: DockerCommandBuilder.buildCompileAndRunCommand(),
+      // Forward the host cache dir so compiled artefacts survive container exit.
+      // Undefined when the env var is absent → no volume mapping (safe default).
+      arduinoCacheDir: process.env.ARDUINO_CACHE_DIR,
     });
 
     // Clear listeners from previous run before spawning new process
     this.processController.clearListeners();
+
     await this.processController.spawn("docker", dockerArgs);
     this.logger.info("🚀 Docker: Compile + Run in single container");
     this.processStartTime = Date.now();
@@ -970,7 +989,9 @@ export class SandboxRunner {
       // the process terminates unexpectedly.  A helper method centralises the
       // logic so it can also be called from other shutdown paths later if
       // required.
-      if (!isCompilePhase) {
+      // Always flush when code===0 (successful run) as safety net even if
+      // isCompilePhase is still true (e.g. g++ compiled without any stdout output).
+      if (!isCompilePhase || code === 0) {
         this.flushBatchers();
 
         if (this.serialOutputBatcher) {
@@ -1584,6 +1605,11 @@ export class SandboxRunner {
     // Destroy registry manager to prevent post-test logging
     this.registryManager.destroy();
 
+    // Kill any in-progress compilation (and its sub-processes) so that
+    // compiler file handles are released before we remove the working
+    // directory below.  This is a no-op when no compile is running.
+    this.localCompiler.kill();
+
     // Ask controller to hard-kill underlying process and destroy streams
     this.processController.kill("SIGKILL");
     this.processController.destroySockets();
@@ -1655,4 +1681,4 @@ export class SandboxRunner {
   }
 }
 
-export const sandboxRunner = new SandboxRunner();
+// sandboxRunner singleton removed; not used

@@ -1,1 +1,2 @@
-npm run test
+# Führt nur Tests aus, die Dateien betreffen, die sich seit dem letzten Push geändert haben
+npm run test:fast

@@ -8,7 +8,7 @@
 import { Logger } from "@shared/logger";
 import { getUnifiedGatekeeper, TaskPriority } from "./unified-gatekeeper";
 
-export class CompileGatekeeper {
+class CompileGatekeeper {
   private logger = new Logger("CompileGatekeeper");
   private readonly maxConcurrent: number;
 
@@ -95,6 +95,3 @@ export function getCompileGatekeeper(maxConcurrent?: number): CompileGatekeeper 
   return gatekeeperInstance;
 }
 
-export function resetCompileGatekeeper(): void {
-  gatekeeperInstance = null;
-}

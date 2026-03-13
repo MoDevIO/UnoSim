@@ -49,9 +49,9 @@ describe("MobileLayout component", () => {
 
     // Buttons exist via portal
     const codeBtn = screen.getByLabelText("Code Editor");
-    const compileBtn = screen.getByLabelText("Compilation Output");
-    const serialBtn = screen.getByLabelText("Serial Output");
-    const boardBtn = screen.getByLabelText("Arduino Board");
+    const _compileBtn = screen.getByLabelText("Compilation Output");
+    const _serialBtn = screen.getByLabelText("Serial Output");
+    const _boardBtn = screen.getByLabelText("Arduino Board");
 
     // click code button
     fireEvent.click(codeBtn);

@@ -2,11 +2,9 @@ name: CI (Quality Gate & Coverage)
 
 on:
   push:
-    branches:
-      - '**'        # Triggert bei JEDEM Push auf JEDEN Branch
+    branches: [ '**' ]
   pull_request:
-    branches:
-      - '**'        # Triggert bei JEDEM Pull Request
+    branches: [ '**' ]
 
 permissions:
   contents: write
@@ -14,8 +12,9 @@ permissions:
   id-token: write
 
 jobs:
+  # JOB 1: Schnellläufer (Unit Tests, Linting, TypeCheck)
   build-and-test:
-    name: Lint, TypeCheck & Unit Tests
+    name: Lint & Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,23 +28,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Neu: Auch Unit-Tests brauchen die Toolchain zum Kompilieren
+      - name: Cache Arduino Toolchain (Unit)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/bin/arduino-cli
+            ~/.arduino15
+          key: ${{ runner.os }}-arduino-unit-${{ hashFiles('package-lock.json') }}
+
       - name: Install Arduino CLI & Core
         run: |
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
-          arduino-cli core update-index
-          arduino-cli core install arduino:avr
+          if ! command -v arduino-cli &> /dev/null; then
+            curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          fi
+          arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
 
-      - name: Static Analysis (Lint & TypeCheck)
+      - name: Static Analysis & Unit Tests
+        env:
+          # Separater Pfad für Unit-Tests, um Seiteneffekte zu vermeiden
+          ARDUINO_CACHE_DIR: /tmp/arduino-unit-cache
         run: |
           npm run check
           npm run lint
-
-      - name: Run Tests with Coverage
-        # Ersetzt den normalen Test-Lauf, da Coverage alles abdeckt
-        run: npm run test:coverage
+          npm run test:coverage
 
       - name: Deploy Coverage to GitHub Pages
-        # Nur bei Push auf Haupt-Branches ausführen
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: peaceiris/actions-gh-pages@v3
         with:
@@ -53,27 +61,62 @@ jobs:
           publish_dir: ./coverage/lcov-report
           publish_branch: gh-pages
 
+  # JOB 2: Schwergewicht (Docker & E2E)
   e2e-tests:
     name: Playwright E2E
-    needs: build-and-test # WICHTIG: Startet erst, wenn Unit-Tests grün sind
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache E2E Assets (Arduino, Playwright, Sketches)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/bin/arduino-cli
+            ~/.arduino15
+            ~/.cache/ms-playwright
+            server/arduino-cache
+            storage/binaries
+          key: ${{ runner.os }}-e2e-turbo-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-e2e-turbo-
+
       - name: Install Arduino CLI & Core
         run: |
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
-          arduino-cli core update-index
-          arduino-cli core install arduino:avr
+          if ! command -v arduino-cli &> /dev/null; then
+            curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          fi
+          arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
+
+      - name: Build Sandbox Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: unowebsim-sandbox:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Run E2E Tests
-        run: npx playwright test --update-snapshots=missing
+        env:
+          ARDUINO_CACHE_DIR: ${{ github.workspace }}/server/arduino-cache
+        run: npx playwright test --update-snapshots=missing --workers=2
+
       - name: Commit new Linux visual baselines
         if: always()
         run: |
@@ -81,6 +124,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git add 'e2e/visual-full-context.spec.ts-snapshots/*-linux.png'
           git diff --staged --quiet || (git commit -m "chore(e2e): update linux visual baselines [skip ci]" && git push)
+
       - name: Upload E2E Report & Artifacts
         if: always()
         uses: actions/upload-artifact@v4

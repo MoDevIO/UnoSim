@@ -208,7 +208,7 @@ describe("RegistryManager", () => {
       manager.addPin({ pin: "13", defined: true, pinMode: 1, usedAt: [] });
       manager.finishCollection();
 
-      const firstRegistry = manager.getRegistry();
+      const _firstRegistry = manager.getRegistry();
       updateCallback.mockClear();
 
       // Try to send same registry again

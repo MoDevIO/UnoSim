@@ -604,4 +604,5 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   );
 };
 
-export default AppHeader;
+// default export removed; use named export AppHeader only
+

@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 
 const AlertDialog = AlertDialogPrimitive.Root;
 
-const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
+// AlertDialogTrigger unused, internal only
 
 const AlertDialogPortal = AlertDialogPrimitive.Portal;
 
@@ -126,9 +126,9 @@ AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName;
 
 export {
   AlertDialog,
-  AlertDialogPortal,
-  AlertDialogOverlay,
-  AlertDialogTrigger,
+  // AlertDialogPortal, // internal only
+  // AlertDialogOverlay, // internal only
+  // AlertDialogTrigger, // internal only
   AlertDialogContent,
   AlertDialogHeader,
   AlertDialogFooter,

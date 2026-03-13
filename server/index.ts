@@ -52,7 +52,7 @@ function startCleanupService() {
       if (deletedCount > 0) {
         console.log(`[Cleanup] Deleted ${deletedCount} old temp items`);
       }
-    } catch (err) {
+    } catch {
       // Silently handle cleanup errors
     }
   }, CLEANUP_INTERVAL_MS);

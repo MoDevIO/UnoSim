@@ -1,3 +1,5 @@
+import { realpathSync } from "fs";
+
 /**
  * Docker Command Builder
  * 
@@ -12,6 +14,11 @@ export interface DockerRunOptions {
   pidsLimit: number;
   imageName: string;
   command: string[];
+  /** Host path for the Arduino compiler cache. When set, the directory is
+   *  bind-mounted into the container at the same path and ARDUINO_CACHE_DIR
+   *  is forwarded as an environment variable so the compiler inside the
+   *  container writes artefacts to the persisted host location. */
+  arduinoCacheDir?: string;
 }
 
 export class DockerCommandBuilder {
@@ -22,6 +29,9 @@ export class DockerCommandBuilder {
    * @returns Array of command arguments for spawn
    */
   static buildSecureRunCommand(options: DockerRunOptions): string[] {
+    // Resolve symlinks so Docker Desktop on macOS gets the real path (e.g. /private/tmp not /tmp)
+    let realSketchDir = options.sketchDir;
+    try { realSketchDir = realpathSync(options.sketchDir); } catch { /* keep original */ }
     return [
       "run",
       "--rm", // Remove container after exit
@@ -41,7 +51,16 @@ export class DockerCommandBuilder {
       "--cap-drop",
       "ALL", // Drop all Linux capabilities
       "-v",
-      `${options.sketchDir}:/sandbox:rw`, // Mount sketch directory
+      `${realSketchDir}:/sandbox:rw`, // Mount sketch directory (realpath resolves macOS /tmp symlink)
+      // Cache volume: only added when a host cache dir is configured
+      ...(options.arduinoCacheDir
+        ? [
+            "-v",
+            `${options.arduinoCacheDir}:${options.arduinoCacheDir}`,
+            "-e",
+            `ARDUINO_CACHE_DIR=${options.arduinoCacheDir}`,
+          ]
+        : []),
       options.imageName,
       ...options.command, // Execution command
     ];

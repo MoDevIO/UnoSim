@@ -59,7 +59,7 @@ describe("SerialOutputBatcher - High-Frequency Output (Phase 7r1)", () => {
     batcher = new SerialOutputBatcher({
       baudrate: 115200,
       tickIntervalMs: 50,
-      onChunk: (data, firstLineIncomplete) => chunks.push(data),
+      onChunk: (data, _firstLineIncomplete) => chunks.push(data),
     });
 
     batcher.start();

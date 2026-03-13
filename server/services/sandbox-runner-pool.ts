@@ -14,7 +14,7 @@ interface QueueEntry {
   timeout: NodeJS.Timeout;
 }
 
-export class SandboxRunnerPool {
+class SandboxRunnerPool {
   private readonly numRunners: number;
   private readonly runners: PooledRunner[] = [];
   private readonly queue: QueueEntry[] = [];

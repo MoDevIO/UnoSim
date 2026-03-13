@@ -111,7 +111,7 @@ function createLoadTestSuite(
     let stubServer: http.Server;
     const testResults: TestResult[] = [];
 
-    beforeAll((done) => {
+    async function startStubServer() {
       stubServer = http.createServer((req, res) => {
         if (req.url?.startsWith("/api/sketches")) {
           res.writeHead(200, { "Content-Type": "application/json" });
@@ -124,13 +124,32 @@ function createLoadTestSuite(
           res.end();
         }
       });
-      stubServer.listen(0, () => {
-        API_BASE = `http://localhost:${(stubServer.address() as any).port}`;
-        setTimeout(done, 100);
+
+      await new Promise<void>((resolve, reject) => {
+        stubServer.once("error", reject);
+        stubServer.listen(0, () => {
+          API_BASE = `http://localhost:${(stubServer.address() as any).port}`;
+          resolve();
+        });
       });
+
+      // allow the server to settle after binding
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    async function stopStubServer() {
+      await new Promise<void>((resolve, reject) => {
+        stubServer.close((err) => (err ? reject(err) : resolve()));
+      });
+    }
+
+    beforeAll(async () => {
+      await startStubServer();
     });
 
-    afterAll((done) => stubServer.close(done));
+    afterAll(async () => {
+      await stopStubServer();
+    });
 
     async function simulateClient(clientId: number): Promise<ClientMetrics> {
       const metrics: ClientMetrics = {

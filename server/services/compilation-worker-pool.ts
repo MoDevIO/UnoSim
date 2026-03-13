@@ -269,6 +269,3 @@ export function getCompilationPool(): CompilationWorkerPool {
   return poolInstance;
 }
 
-export function setCompilationPool(pool: CompilationWorkerPool): void {
-  poolInstance = pool;
-}

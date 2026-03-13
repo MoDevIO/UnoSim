@@ -1,0 +1,6 @@
+{
+  "ignore": [
+    "server/services/workers/compile-worker.ts",
+    "tests/MockFactory.ts"
+  ]
+}

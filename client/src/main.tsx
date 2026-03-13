@@ -1,6 +1,5 @@
 import "./lib/monaco-error-suppressor"; // Geändert von @/lib/...
 // Monaco worker wiring to avoid fallback-to-main-thread warning
-// eslint-disable-next-line import/order
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { createRoot } from "react-dom/client";
 import App from "./App";

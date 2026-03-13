@@ -15,7 +15,7 @@ describe("SerialOutputBatcher", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     chunks = [];
-    onChunk = (data: string, firstLineIncomplete?: boolean) => chunks.push(data);
+    onChunk = (data: string, _firstLineIncomplete?: boolean) => chunks.push(data);
   });
 
   afterEach(() => {

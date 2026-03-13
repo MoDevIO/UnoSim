@@ -146,10 +146,18 @@ export class LocalCompiler {
     try {
       await access(outputDir);
       this.logger.debug(`Output directory exists: ${outputDir}`);
-    } catch (err) {
+    } catch {
       this.logger.info(`Output directory missing, creating: ${outputDir}`);
       try {
         await mkdir(outputDir, { recursive: true, mode: 0o755 });
+        // Confirm the directory is genuinely present and accessible after
+        // creation.  Under parallel load a concurrent cleanup could delete
+        // it between our mkdir() and this stat(), making the upcoming
+        // compile fail with a confusing error.
+        const dirStat = await stat(outputDir);
+        if (!dirStat.isDirectory()) {
+          throw new Error(`Created path is not a directory: ${outputDir}`);
+        }
         this.logger.debug(`Created output directory with proper permissions: ${outputDir}`);
       } catch (mkdirErr) {
         const msg = mkdirErr instanceof Error ? mkdirErr.message : String(mkdirErr);
@@ -162,7 +170,7 @@ export class LocalCompiler {
     try {
       await rm(exeFile, { force: true });
       this.logger.debug(`Cleaned up stale executable: ${exeFile}`);
-    } catch (err) {
+    } catch {
       // Ignore - file might not exist yet
     }
 
@@ -225,8 +233,10 @@ export class LocalCompiler {
         const { spawn } = await import("child_process");
         // use "pipe" for stdio so that arduino-cli output (including fatal
         // errors from avr-gcc) does not pollute the test/server console.
+        // detached: true creates a new process group so that kill(-pid)
+        // in LocalCompiler.kill() also terminates avr-gcc sub-processes.
         const cliProc = spawn("arduino-cli", cliArgs,
-          { stdio: ["ignore", "pipe", "pipe"] });
+          { stdio: ["ignore", "pipe", "pipe"], detached: true });
         this.activeProc = cliProc;
         try {
           const gs: any = (globalThis as any).spawnInstances;
@@ -279,13 +289,27 @@ export class LocalCompiler {
           }
           
           if (needCopy) {
-            await fs.promises.copyFile(suspect, cachePath);
+            // Write to a per-invocation temp file then atomically rename it
+            // into place.  This prevents a parallel worker from reading a
+            // partially written cache file.
+            const { randomUUID: _cacheUUID } = await import("crypto");
+            const tmpCachePath = cachePath + "." + _cacheUUID() + ".tmp";
             try {
-              const cacheStat = await stat(cachePath);
-              const sizeKB = (cacheStat.size / 1024).toFixed(1);
-              this.logger.info(`[LocalCompiler] CLI cache saved (${sizeKB} KB)`);
-            } catch {
-              // ignore stat error
+              await fs.promises.copyFile(suspect, tmpCachePath);
+              await fs.promises.rename(tmpCachePath, cachePath);
+              try {
+                const cacheStat = await stat(cachePath);
+                const sizeKB = (cacheStat.size / 1024).toFixed(1);
+                this.logger.info(`[LocalCompiler] CLI cache saved (${sizeKB} KB)`);
+              } catch {
+                // ignore stat error
+              }
+            } catch (writeErr) {
+              // Atomic write failed – clean up the temp file and continue
+              // without crashing (the cache is supplementary).
+              try { await rm(tmpCachePath, { force: true }); } catch {}
+              this.logger.warn(`[LocalCompiler] CLI cache write failed: ${
+                writeErr instanceof Error ? writeErr.message : writeErr}`);
             }
           }
         } catch {}
@@ -325,14 +349,35 @@ export class LocalCompiler {
   private async runCompilation(sketchFile: string, exeFile: string, attempt: number, coreArchive?: string, onProcess?: (proc: any) => void): Promise<void> {
     const { spawn } = await import("child_process");
     this.logger.debug("[LocalCompiler] runCompilation spawning g++");
-    // guard against cases where the temp directory vanished mid-compile
+
+    // If the output directory has vanished mid-flight a concurrent stop() /
+    // cleanup has raced with us.  Fail immediately rather than silently
+    // recreating the directory – recreating it would only mask the real
+    // lifecycle bug in the caller and produce confusing linker errors later.
     const outDir = dirname(exeFile);
     try {
       await access(outDir);
     } catch {
-      // Directory doesn't exist or can't be accessed, create it
-      this.logger.warn(`[LocalCompiler] output directory missing, recreating: ${outDir}`);
-      await mkdir(outDir, { recursive: true });
+      const raceErr = new Error(
+        `[RaceCondition] Output directory vanished before g++ spawn: ${outDir}`,
+      );
+      this.logger.error(raceErr.message);
+      throw raceErr;
+    }
+
+    // Verify the sketch file is still on disk immediately before we call
+    // spawn().  cc1plus opens it *after* g++ has already been exec'd, so a
+    // deletion between spawn() and cc1plus's first open() produces the
+    // cryptic "fatal error: sketch.ino: No such file or directory".  We
+    // detect the race here and abort with a clear diagnostic instead.
+    try {
+      await access(sketchFile);
+    } catch {
+      const raceErr = new Error(
+        `[RaceCondition] sketch file vanished before g++ spawn: ${sketchFile}`,
+      );
+      this.logger.error(raceErr.message);
+      throw raceErr;
     }
 
     return new Promise<void>((resolve, reject) => {
@@ -341,7 +386,9 @@ export class LocalCompiler {
         args.push(coreArchive);
       }
       args.push("-o", exeFile, "-pthread"); // Required for threading support
-      const compile = spawn("g++", args);
+      // detached: true creates a new process group so that kill(-pid) in
+      // LocalCompiler.kill() also terminates cc1plus sub-processes.
+      const compile = spawn("g++", args, { detached: true });
       this.activeProc = compile;
       try {
         const gs: any = (globalThis as any).spawnInstances;
@@ -425,16 +472,34 @@ export class LocalCompiler {
   }
 
   /**
-   * Kill any active compiler/CLI process.
+   * Kill any active compiler/CLI process and its entire process group.
+   *
+   * Because arduino-cli and g++ both spawn sub-processes (avr-gcc, cc1plus),
+   * a plain SIGKILL to the direct child leaves orphan processes that hold
+   * file handles on the sketch directory.  Using process.kill(-pid) sends
+   * SIGKILL to every process in the group, which is only possible when the
+   * child was spawned with { detached: true }.
    */
   kill(): void {
-    if (this.activeProc) {
-      try {
-        this.activeProc.kill("SIGKILL");
-      } catch {
-        /* ignore */
+    const proc = this.activeProc;
+    if (!proc) return;
+    // Clear the reference first to prevent re-entrant calls.
+    this.activeProc = null;
+    try {
+      if (proc.pid != null) {
+        try {
+          // Kill the entire process group (requires detached: true at spawn).
+          process.kill(-proc.pid, "SIGKILL");
+        } catch {
+          // Fallback: kill just the direct child when group-kill is unavailable
+          // (e.g. Windows, or process group already gone).
+          proc.kill("SIGKILL");
+        }
+      } else {
+        proc.kill("SIGKILL");
       }
-      this.activeProc = null;
+    } catch {
+      /* ignore */
     }
   }
 }

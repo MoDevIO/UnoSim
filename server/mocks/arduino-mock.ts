@@ -13,7 +13,7 @@
  * 6. SerialClass: Added print/println with format (DEC, HEX, OCT, BIN)
  */
 
-export const ARDUINO_MOCK_LINES = 427; // NOTE: approximate line count
+// ARDUINO_MOCK_LINES not used anywhere, remove
 
 export const ARDUINO_MOCK_CODE = `
 // Simulated Arduino environment
@@ -943,4 +943,4 @@ void serialInputReader() {
 }
 `;
 
-export const ARDUINO_MOCK_CODE_MINIMAL = ARDUINO_MOCK_CODE;
+// ARDUINO_MOCK_CODE_MINIMAL unused alias removed

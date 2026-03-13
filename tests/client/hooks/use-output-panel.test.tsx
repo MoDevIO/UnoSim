@@ -340,7 +340,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle malformed showCompileOutputChange event gracefully", async () => {
-    const initialValue = localStorage.getItem("unoShowCompileOutput");
+    const _initialValue = localStorage.getItem("unoShowCompileOutput");
     renderHook(() => callHook(defaultProps));
 
     act(() => {
@@ -736,7 +736,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle showCompileOutputChange event", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    renderHook(() => callHook(defaultProps));
 
     act(() => {
       const event = new CustomEvent("showCompileOutputChange", {

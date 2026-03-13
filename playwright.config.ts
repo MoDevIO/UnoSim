@@ -1,4 +1,8 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // choose a unique port per worker to avoid collisions when tests start their own server
 // PW_WORKER_INDEX is provided by Playwright when spawning workers.
@@ -15,6 +19,15 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 90000, 
   
+  // Global teardown: prints race-condition summary and runs leak check in CI
+  globalTeardown: path.resolve(__dirname, "e2e/global-teardown.ts"),
+
+  // Reporters: built-in list reporter + custom race-condition reporter
+  reporter: [
+    ["list"],
+    [path.resolve(__dirname, "e2e/race-condition-reporter.ts")],
+  ],
+
   // PARALLELISIERUNG AKTIVIERT
   // Nutzt 4 Worker lokal, in der CI (GitHub Actions etc.) 2, um Überlastung zu vermeiden
   workers: process.env.CI ? 2 : 4,               

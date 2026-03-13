@@ -1,2 +1,3 @@
 export const editor = {};
-export default {};
+// default export removed as unused
+

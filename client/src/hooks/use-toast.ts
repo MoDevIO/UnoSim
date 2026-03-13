@@ -15,6 +15,7 @@ type ToasterToast = ToastProps & {
   action?: ToastActionElement;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used via typeof in ActionType
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
   UPDATE_TOAST: "UPDATE_TOAST",
@@ -71,7 +72,7 @@ const addToRemoveQueue = (toastId: string) => {
   toastTimeouts.set(toastId, timeout);
 };
 
-export const reducer = (state: State, action: Action): State => {
+const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
       return {
@@ -216,4 +217,4 @@ function useToast() {
   };
 }
 
-export { useToast, toast };
+export { useToast };
