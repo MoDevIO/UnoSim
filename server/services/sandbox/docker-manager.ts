@@ -234,4 +234,52 @@ export class DockerManager {
   private cleanCompilerErrors(errors: string): string {
     return errors.replace(/\/sandbox\/sketch\.cpp/g, "sketch.ino").replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino").trim();
   }
+
+  /**
+   * Complete Docker orchestration: spawn process and setup all handlers
+   * This consolidates runInDocker + setupDockerHandlers into a single delegated call
+   */
+  async runInDockerWithHandlers(
+    dockerArgs: string[],
+    callbacks: DockerManagerCallbacks,
+    state: Partial<DockerHandlerState>,
+    flushBatchers: () => void,
+    flushMessageQueue: () => void,
+    processKilled: boolean,
+    onStateTransition: (state: "running" | "stopped") => void,
+    onCompileError?: (error: string) => void,
+    onCompileSuccess?: () => void,
+    onExit?: (code: number | null) => void,
+    executionTimeout?: number,
+  ): Promise<void> {
+    try {
+      // Clear listeners from previous run before spawning new process
+      this.processController.clearListeners();
+
+      // Spawn Docker process
+      await this.processController.spawn("docker", dockerArgs);
+      this.logger.info("🚀 Docker: Compile + Run in single container");
+      
+      // Record process start time and transition to running
+      state.processStartTime = Date.now();
+      onStateTransition("running");
+
+      // Setup all handlers for Docker process
+      this.setupDockerHandlers(
+        callbacks,
+        state,
+        flushBatchers,
+        flushMessageQueue,
+        processKilled,
+        onCompileError,
+        onCompileSuccess,
+        onExit,
+        executionTimeout,
+      );
+    } catch (err) {
+      this.logger.error(`Docker process spawn failed: ${err instanceof Error ? err.message : String(err)}`);
+      onStateTransition("stopped");
+      throw err;
+    }
+  }
 }

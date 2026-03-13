@@ -16,11 +16,15 @@ import { SimulationTimeoutManager } from "./simulation-timeout-manager";
 import { DockerCommandBuilder } from "./docker-command-builder";
 import { SketchFileBuilder } from "./sketch-file-builder";
 import { LocalCompiler } from "./local-compiler";
-
 import { PinStateBatcher, type PinStateBatch } from "./pin-state-batcher";
 import { SerialOutputBatcher } from "./serial-output-batcher";
 import type { RunSketchOptions } from "./run-sketch-types";
 import { getCompileGatekeeper } from "./compile-gatekeeper";
+
+// Extraction modules (Sandbox Dekonstruktion)
+import { DockerManager } from "./sandbox/docker-manager";
+import { StreamHandler } from "./sandbox/stream-handler";
+import { FilesystemHelper } from "./sandbox/filesystem-helper";
 
 enum SimulationState {
   STOPPED = "stopped",
@@ -61,15 +65,21 @@ export class SandboxRunner {
   private logger = new Logger("SandboxRunner");
   private stderrParser = new StderrParser();
   private registryManager: RegistryManager;
-  // track when pause occurred so events can be tagged if needed
   private lastPauseTimestamp: number | null = null;
   private timeoutManager: SimulationTimeoutManager;
   private fileBuilder: SketchFileBuilder;
   private localCompiler: LocalCompiler;
   private pinStateBatcher: PinStateBatcher | null = null;
   private serialOutputBatcher: SerialOutputBatcher | null = null;
-  // true when we have temporarily SIGSTOP'd the child due to batcher overload
   private backpressurePaused = false;
+
+  // Extraction modules (Sandbox Dekonstruktion)
+  // @ts-ignore - Used for delegation in future refactoring steps
+  private dockerManager: DockerManager;
+  // @ts-ignore - Used for delegation in future refactoring steps
+  private streamHandler: StreamHandler;
+  // @ts-ignore - Used for delegation in future refactoring steps
+  private filesystemHelper: FilesystemHelper;
   
   // Output buffers
   private outputBuffer = "";
@@ -143,6 +153,16 @@ export class SandboxRunner {
       },
       enableTelemetry: true,
     });
+
+    // Initialize extraction modules (Sandbox Dekonstruktion)
+    this.dockerManager = new DockerManager(
+      this.processController,
+      this.stderrParser,
+      this.timeoutManager,
+      (parsed, callbacks) => this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError),
+    );
+    this.streamHandler = new StreamHandler(this.processController);
+    this.filesystemHelper = new FilesystemHelper(this.fileBuilder, this.localCompiler);
   }
 
   get isRunning(): boolean {
@@ -715,14 +735,126 @@ export class SandboxRunner {
       timeoutSec !== undefined ? timeoutSec : SANDBOX_CONFIG.maxExecutionTimeSec;
 
     if (this.dockerAvailable && this.dockerImageBuilt) {
-      await this.runInDocker(
-        files,
-        callbacks,
-        onCompileError,
-        onCompileSuccess,
-        onExit,
-        executionTimeout,
-      );
+      const dockerArgs = DockerCommandBuilder.buildSecureRunCommand({
+        sketchDir: files.sketchDir,
+        memoryMB: SANDBOX_CONFIG.maxMemoryMB,
+        cpuLimit: "0.5",
+        pidsLimit: 50,
+        imageName: SANDBOX_CONFIG.dockerImage,
+        command: DockerCommandBuilder.buildCompileAndRunCommand(),
+        arduinoCacheDir: process.env.ARDUINO_CACHE_DIR,
+      });
+
+      try {
+        // Clear listeners from previous run
+        this.processController.clearListeners();
+
+        // Spawn Docker process
+        await this.processController.spawn("docker", dockerArgs);
+        this.logger.info("🚀 Docker: Compile + Run in single container");
+        this.processStartTime = Date.now();
+        this.transitionTo(SimulationState.RUNNING);
+
+        // Setup Docker handlers via delegated manager
+        const compileErrorBuffer = { value: "" };
+        const isCompilePhase = { value: true };
+        const compileSuccessSent = { value: false };
+        const useFallbackParser = !this.processController.supportsStderrLineStreaming();
+        this.stderrFallbackBuffer = "";
+
+        const dockerState: Partial<import("./sandbox/docker-manager").DockerHandlerState> = {
+          isCompilePhase,
+          compileErrorBuffer,
+          compileSuccessSent,
+          totalOutputBytes: this.totalOutputBytes,
+          processStartTime: this.processStartTime,
+          stderrFallbackBuffer: this.stderrFallbackBuffer,
+          flushTimer: this.flushTimer,
+        };
+
+        const dockerCallbacks = {
+          onOutput: callbacks.onOutput,
+          onPinState: callbacks.onPinState,
+          onError: callbacks.onError,
+        };
+
+        // Setup process error handler
+        this.processController.onError((err) => {
+          this.logger.error(`Docker process error: ${err.message}`);
+          callbacks.onError(`Docker process failed: ${err.message}`);
+        });
+
+        // Setup process close handler with delegation
+        this.processController.onClose((code) => {
+          this.transitionTo(SimulationState.STOPPED);
+
+          if (this.flushTimer) {
+            clearTimeout(this.flushTimer);
+            this.flushTimer = null;
+          }
+
+          // Flush any remaining data in stderr fallback buffer
+          if ((dockerState as any).stderrFallbackBuffer && useFallbackParser) {
+            const buffered = (dockerState as any).stderrFallbackBuffer;
+            (dockerState as any).stderrFallbackBuffer = "";
+            if (buffered.trim()) {
+              const parsed = this.stderrParser.parseStderrLine(buffered, this.processStartTime);
+              this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+            }
+          }
+
+          // Flush message queue before exit
+          this.flushMessageQueue();
+
+          // Flush batchers if not still in compile phase
+          if (!isCompilePhase.value || code === 0) {
+            this.flushBatchers();
+
+            if (this.serialOutputBatcher) {
+              this.serialOutputBatcher.destroy();
+              this.serialOutputBatcher = null;
+            }
+            if (this.pinStateBatcher) {
+              this.pinStateBatcher.destroy();
+              this.pinStateBatcher = null;
+            }
+          }
+
+          // Report compile errors or success
+          if (code !== 0 && isCompilePhase.value && compileErrorBuffer.value && onCompileError) {
+            onCompileError(this.cleanCompilerErrors(compileErrorBuffer.value));
+          } else {
+            if (code === 0 && onCompileSuccess) {
+              onCompileSuccess();
+            }
+          }
+
+          // Call exit callback if process wasn't terminated by stop()
+          if (!this.processKilled && onExit) onExit(code);
+
+          // Schedule cleanup after Docker shutdown
+          this.markTempDirForCleanup();
+        });
+
+        // Delegate to DockerManager for stdout/stderr handlers
+        this.dockerManager.setupDockerHandlers(
+          dockerCallbacks,
+          dockerState,
+          () => this.flushBatchers(),
+          () => this.flushMessageQueue(),
+          this.processKilled,
+          onCompileError,
+          onCompileSuccess,
+          undefined,
+          executionTimeout,
+        );
+      } catch (err) {
+        this.logger.error(`Docker process spawn failed: ${err instanceof Error ? err.message : String(err)}`);
+        this.transitionTo(SimulationState.STOPPED);
+        this.processController.destroySockets();
+        this.markTempDirForCleanup();
+        throw err;
+      }
     } else {
       try {
         this.isCompiling = true;
@@ -825,246 +957,7 @@ export class SandboxRunner {
     };
   }
 
-  /**
-   * Run sketch in Docker sandbox
-   */
-  private async runInDocker(
-    files: { sketchDir: string; sketchFile: string; exeFile: string },
-    callbacks: any,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onExit?: (code: number | null) => void,
-    executionTimeout?: number,
-  ): Promise<void> {
-    const dockerArgs = DockerCommandBuilder.buildSecureRunCommand({
-      sketchDir: files.sketchDir,
-      memoryMB: SANDBOX_CONFIG.maxMemoryMB,
-      cpuLimit: "0.5",
-      pidsLimit: 50,
-      imageName: SANDBOX_CONFIG.dockerImage,
-      command: DockerCommandBuilder.buildCompileAndRunCommand(),
-      // Forward the host cache dir so compiled artefacts survive container exit.
-      // Undefined when the env var is absent → no volume mapping (safe default).
-      arduinoCacheDir: process.env.ARDUINO_CACHE_DIR,
-    });
 
-    // Clear listeners from previous run before spawning new process
-    this.processController.clearListeners();
-
-    await this.processController.spawn("docker", dockerArgs);
-    this.logger.info("🚀 Docker: Compile + Run in single container");
-    this.processStartTime = Date.now();
-    this.transitionTo(SimulationState.RUNNING);
-
-    this.setupDockerHandlers(
-      callbacks,
-      onCompileError,
-      onCompileSuccess,
-      onExit,
-      executionTimeout || SANDBOX_CONFIG.maxExecutionTimeSec,
-    );
-  }
-
-  /**
-   * Setup and configure Docker process timeout
-   */
-  private setupDockerTimeout(
-    executionTimeout: number | undefined,
-    callbacks: any,
-  ): void {
-    const timeoutSec = executionTimeout && executionTimeout > 0 ? executionTimeout : SANDBOX_CONFIG.maxExecutionTimeSec;
-
-    const handleTimeout = () => {
-      this.processController.kill("SIGKILL");
-      callbacks.onOutput(`--- Simulation timeout (${timeoutSec}s) ---`, true);
-      this.logger.info(`Docker timeout after ${timeoutSec}s`);
-    };
-
-    this.timeoutManager.schedule(timeoutSec * 1000, handleTimeout);
-  }
-
-  /**
-   * Setup Docker stdout handler (detects end of compile phase, parses output)
-   */
-  private setupStdoutHandler(
-    callbacks: any,
-    isCompilePhase: { value: boolean },
-    compileSuccessSent: { value: boolean },
-    onCompileSuccess?: () => void,
-  ): void {
-    this.processController.onStdout((data) => {
-      const str = data.toString();
-
-      // Detect end of compile phase
-      if (isCompilePhase.value) {
-        isCompilePhase.value = false;
-        if (!compileSuccessSent.value && onCompileSuccess) {
-          compileSuccessSent.value = true;
-          onCompileSuccess();
-        }
-      }
-
-      // Check output size limit
-      this.totalOutputBytes += str.length;
-      if (this.totalOutputBytes > SANDBOX_CONFIG.maxOutputBytes) {
-        this.stop();
-        callbacks.onError("Output size limit exceeded");
-        return;
-      }
-
-      // Parse stdout lines (safety net for direct binary output)
-      const lines = str.split(/\r?\n/);
-      lines.forEach((line) => {
-        if (!line) return;
-        const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
-        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
-      });
-    });
-  }
-
-  /**
-   * Setup Docker stderr handlers (raw + fallback + readline)
-   */
-  private setupStderrHandlers(
-    callbacks: any,
-    isCompilePhase: { value: boolean },
-    compileErrorBuffer: { value: string },
-  ): void {
-    const useFallbackParser = !this.processController.supportsStderrLineStreaming();
-    this.stderrFallbackBuffer = "";
-
-    // Raw stderr stream for compile aggregation
-    this.processController.onStderr((data) => {
-      const chunk = data.toString();
-      if (isCompilePhase.value) {
-        compileErrorBuffer.value += chunk;
-      }
-
-      // Fallback parsing when readline is unavailable
-      if (useFallbackParser) {
-        this.stderrFallbackBuffer += chunk;
-        const lines = this.stderrFallbackBuffer.split(/\r?\n/);
-        this.stderrFallbackBuffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line) continue;
-          const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
-          this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
-        }
-      }
-    });
-
-    // Readline-based stderr line stream (preferred when available)
-    this.processController.onStderrLine((line) => {
-      if (line.length === 0) return;
-      const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
-      this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
-    });
-  }
-
-  /**
-   * Handle Docker process exit (cleanup, final parsing, callbacks)
-   */
-  private handleDockerExit(
-    callbacks: any,
-    isCompilePhase: { value: boolean },
-    compileErrorBuffer: { value: string },
-    useFallbackParser: boolean,
-    code: number | null,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onExit?: (code: number | null) => void,
-  ): void {
-    this.transitionTo(SimulationState.STOPPED);
-
-    if (this.flushTimer) {
-      clearTimeout(this.flushTimer);
-      this.flushTimer = null;
-    }
-
-    // Flush any remaining data in stderr fallback buffer
-    if (this.stderrFallbackBuffer && useFallbackParser) {
-      const buffered = this.stderrFallbackBuffer;
-      this.stderrFallbackBuffer = "";
-      if (buffered.trim()) {
-        const parsed = this.stderrParser.parseStderrLine(buffered, this.processStartTime);
-        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
-      }
-    }
-
-    // Flush message queue before exit
-    this.flushMessageQueue();
-
-    // Flush batchers if not still in compile phase
-    if (!isCompilePhase.value || code === 0) {
-      this.flushBatchers();
-
-      if (this.serialOutputBatcher) {
-        this.serialOutputBatcher.destroy();
-        this.serialOutputBatcher = null;
-      }
-      if (this.pinStateBatcher) {
-        this.pinStateBatcher.destroy();
-        this.pinStateBatcher = null;
-      }
-    }
-
-    // Report compile errors or success
-    if (code !== 0 && isCompilePhase.value && compileErrorBuffer.value && onCompileError) {
-      onCompileError(this.cleanCompilerErrors(compileErrorBuffer.value));
-    } else {
-      if (code === 0 && onCompileSuccess) {
-        onCompileSuccess();
-      }
-    }
-
-    // Call exit callback if process wasn't terminated by stop()
-    if (!this.processKilled && onExit) onExit(code);
-
-    // Schedule cleanup after Docker shutdown
-    this.markTempDirForCleanup();
-  }
-
-  /**
-   * Setup handlers for Docker process (combined compile + run)
-   */
-  private setupDockerHandlers(
-    callbacks: any,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onExit?: (code: number | null) => void,
-    executionTimeout?: number,
-  ): void {
-    // Mutable state containers for closures
-    const compileErrorBuffer = { value: "" };
-    const isCompilePhase = { value: true };
-    const compileSuccessSent = { value: false };
-    const useFallbackParser = !this.processController.supportsStderrLineStreaming();
-
-    // Setup all handlers via dedicated functions
-    this.setupDockerTimeout(executionTimeout, callbacks);
-    
-    this.processController.onError((err) => {
-      this.logger.error(`Docker process error: ${err.message}`);
-      callbacks.onError(`Docker process failed: ${err.message}`);
-    });
-
-    this.setupStdoutHandler(callbacks, isCompilePhase, compileSuccessSent, onCompileSuccess);
-    this.setupStderrHandlers(callbacks, isCompilePhase, compileErrorBuffer);
-
-    this.processController.onClose((code) => {
-      this.handleDockerExit(
-        callbacks,
-        isCompilePhase,
-        compileErrorBuffer,
-        useFallbackParser,
-        code,
-        onCompileError,
-        onCompileSuccess,
-        onExit,
-      );
-    });
-  }
 
   /**
    * Setup handlers for local process execution
