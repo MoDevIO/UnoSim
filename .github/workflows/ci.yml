@@ -12,8 +12,9 @@ permissions:
   id-token: write
 
 jobs:
+  # JOB 1: Schnellläufer (Unit Tests, Linting, TypeCheck)
   build-and-test:
-    name: Lint, TypeCheck & Unit Tests
+    name: Lint & Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,32 +28,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Toolchain-Cache (CLI & Cores) - Ändert sich selten
-      - name: Cache Arduino Toolchain
-        uses: actions/cache@v4
-        with:
-          path: |
-            /usr/local/bin/arduino-cli
-            ~/.arduino15
-          key: ${{ runner.os }}-arduino-toolchain-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-arduino-toolchain-
-
-      - name: Install Arduino CLI & Core
-        run: |
-          if ! command -v arduino-cli &> /dev/null; then
-            curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
-          fi
-          arduino-cli core update-index
-          arduino-cli core list | grep "arduino:avr" || arduino-cli core install arduino:avr
-
-      - name: Static Analysis
+      - name: Static Analysis & Unit Tests
         run: |
           npm run check
           npm run lint
-
-      - name: Run Tests with Coverage
-        run: npm run test:coverage
+          npm run test:coverage
 
       - name: Deploy Coverage to GitHub Pages
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
@@ -62,9 +42,9 @@ jobs:
           publish_dir: ./coverage/lcov-report
           publish_branch: gh-pages
 
+  # JOB 2: Schwergewicht (Docker & E2E) - LÄUFT JETZT PARALLEL ZU JOB 1
   e2e-tests:
     name: Playwright E2E
-    needs: build-and-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,24 +58,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 1. Toolchain-Cache wiederverwenden
-      - name: Cache Arduino Toolchain
+      # Turbo-Hebel 1: Docker Buildx für Layer-Caching vorbereiten
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Turbo-Hebel 2: Kombinierter Cache für Tooling, Browser und Sketche
+      - name: Cache E2E Assets (Arduino, Playwright, Sketches)
         uses: actions/cache@v4
         with:
           path: |
             /usr/local/bin/arduino-cli
             ~/.arduino15
-          key: ${{ runner.os }}-arduino-toolchain-${{ hashFiles('package-lock.json') }}
-
-      # 2. Sketch-Cache (Deine kompilierten Binaries)
-      # Wird invalidiert, wenn du die Compiler-Logik änderst
-      - name: Cache Compiled Sketches
-        uses: actions/cache@v4
-        with:
-          path: server/arduino-cache
-          key: arduino-sketches-${{ runner.os }}-${{ hashFiles('server/services/arduino-compiler.ts') }}
+            ~/.cache/ms-playwright
+            server/arduino-cache
+            storage/binaries
+          key: ${{ runner.os }}-e2e-turbo-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
           restore-keys: |
-            arduino-sketches-${{ runner.os }}-
+            ${{ runner.os }}-e2e-turbo-
 
       - name: Install Arduino CLI & Core
         run: |
@@ -107,12 +86,18 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
+      # Turbo-Hebel 3: Docker Build mit nativem GitHub Actions Cache (type=gha)
       - name: Build Sandbox Image
-        run: docker build -t unowebsim-sandbox:latest .
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: unowebsim-sandbox:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Run E2E Tests
         env:
-          # Nutzt deine neue zentrale Cache-Umgebungsvariable
           ARDUINO_CACHE_DIR: ${{ github.workspace }}/server/arduino-cache
         run: npx playwright test --update-snapshots=missing --workers=2
 
