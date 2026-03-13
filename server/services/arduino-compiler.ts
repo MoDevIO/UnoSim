@@ -2,7 +2,7 @@
 
 import { writeFile, mkdir, rm, readFile, readdir, stat, utimes, rename } from "fs/promises";
 import { mkdtempSync } from "fs";
-import { join, basename } from "path";
+import { join } from "path";
 import { randomUUID, createHash } from "crypto";
 import { Logger } from "@shared/logger";
 import { ParserMessage, IOPinRecord } from "@shared/schema";
@@ -12,15 +12,11 @@ import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { reservedNamesValidator } from "@shared/reserved-names-validator";
 import { getCompileGatekeeper } from "./compile-gatekeeper";
 import { ProcessExecutor } from "./process-executor";
+import { CompilationError, CompilerOutputParser } from "./compiler/compiler-output-parser";
 // Removed unused mock imports to satisfy TypeScript
 
-export interface CompilationError {
-  file: string;
-  line: number;
-  column: number;
-  type: 'error' | 'warning';
-  message: string;
-}
+// Re-export for backwards compatibility
+export type { CompilationError } from "./compiler/compiler-output-parser";
 
 export interface CompilationResult {
   success: boolean;
@@ -610,52 +606,7 @@ export class ArduinoCompiler {
   // sketch lines.  This parameter is _used_ below to mutate parsed line
   // numbers, satisfying the TypeScript checker.
   private parseCompilerErrors(stderr: string, lineOffset: number = 0): CompilationError[] {
-    // match patterns like 'file:line:column: error: message' or
-    // 'file:line: error: message' (column optional)
-    // match patterns like 'file:line:column: error: message' or
-    // 'file:line: error: message' (column optional)
-    const regex = /^([^:]+):(\d+)(?::(\d+))?:\s+(warning|error):\s+(.*)$/gm;
-    const results: CompilationError[] = [];
-    const seen = new Set<string>();
-
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(stderr))) {
-      let [_, file, lineStr, colStr, type, message] = match;
-      // shorten to basename so frontend sees just the filename
-      file = basename(file);
-      let lineNum = parseInt(lineStr, 10);
-      if (lineOffset > 0) {
-        lineNum = Math.max(1, lineNum - lineOffset);
-      }
-      const colNum = colStr ? parseInt(colStr, 10) : 0;
-      const item: CompilationError = {
-        file,
-        line: lineNum,
-        column: colNum,
-        type: type as 'error' | 'warning',
-        message,
-      };
-      const key = `${file}:${lineNum}:${colNum}:${type}:${message}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        results.push(item);
-      }
-    }
-
-    // if nothing parsed but stderr is present, create generic entries per line
-    if (results.length === 0 && stderr.trim()) {
-      for (const line of stderr.split(/\r?\n/).filter((l) => l.trim())) {
-        results.push({
-          file: "",
-          line: 0,
-          column: 0,
-          type: "error",
-          message: line.trim(),
-        });
-      }
-    }
-
-    return results;
+    return CompilerOutputParser.parseErrors(stderr, lineOffset);
   }
 
   private async compileWithArduinoCli(

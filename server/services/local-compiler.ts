@@ -8,20 +8,22 @@
 import { chmod, mkdir, access, rm, stat } from "fs/promises";
 import { dirname, join } from "path";
 import { Logger } from "@shared/logger";
+import { ProcessExecutor } from "./process-executor";
 
 export class LocalCompiler {
   private logger = new Logger("LocalCompiler");
-  // default compiler timeout; may be bumped when running under coverage
   private compileTimeoutMs = 20000; // 20 seconds
-  // track the currently running compiler/CLI process so it can be killed
-  private activeProc: import("child_process").ChildProcess | null = null;
+  private processExecutor: ProcessExecutor;
+
+  constructor() {
+    this.processExecutor = new ProcessExecutor();
+  }
 
   /**
-   * Public helper so callers can detect if a compile process is currently
-   * running.  Used by SandboxRunner to prevent cleanup races.
+   * Public helper so callers can detect if a compile process is currently running
    */
   get isBusy(): boolean {
-    return this.activeProc !== null;
+    return this.processExecutor.isBusy;
   }
 
   /**
@@ -52,89 +54,30 @@ export class LocalCompiler {
     }
     this.logger.debug(`[LocalCompiler] compile() invoked (testEnv=${usingTestEnv}, coverage=${coverageActive}) sketch=${sketchFile}`);
 
-    // Only stub compilation when running under unit tests where child_process
-    // has been mocked.  Integration tests also run with NODE_ENV=test but the
-    // real `spawn` implementation is available, so we should perform an actual
-    // g++ compile there.  Detect mocking by checking for a `mock` property on
-    // the imported function.
+    // In test environments with mocked spawn, run a lightweight fake compile
     const { spawn } = await import("child_process");
     const spawnIsMock = (spawn as any)?.mock !== undefined;
 
     if (usingTestEnv && spawnIsMock) {
-      // In the test harness we want exactly one "compile" spawn so that the
-      // runner tests can treat that process as the compileProc.  Earlier we
-      // removed this branch entirely which allowed CLI/g++ spawns to leak and
-      // upset spawnInstances indexes.  Here we spawn a lightweight fake process
-      // and wire up the handlers that the tests inspect (stderr data, close).
-      // Unlike the previous implementation we *wait* for the fake process to
-      // actually exit so that callers (SandboxRunner.performCompilation) can
-      // observe success or failure and react accordingly.  The tests simulate
-      // stderr/close events manually after the fact, so we can't resolve early.
-      const fake = spawn("echo", ["test"]);
-      this.activeProc = fake as any;
-      // disable the automatic close timer that the global mock inserts so
-      // the compiler promise only resolves when the test explicitly invokes
-      // the handler.  We achieve this by temporarily stubbing `setTimeout`
-      // while the close callback is registered.  The mock itself will still
-      // record the call in `fake.on.mock.calls`.
-      const realSetTimeout = global.setTimeout;
-      global.setTimeout = ((fn: any, t: number, ...args: any[]) => {
-        // spawnMock uses 10ms for the auto-close event; ignore those
-        if (t === 10) {
-          return {} as any;
-        }
-        return realSetTimeout(fn, t, ...args);
-      }) as any;
-
-      // log spawnInstances in case tests have extra processes unexpectedly
-      try {
-        const gs: any = (globalThis as any).spawnInstances;
-        if (Array.isArray(gs)) {
-        }
-      } catch {}
-      // return a promise that mirrors the child process lifecycle; the
-      // close handler is installed *before* notifying any external observer
-      // (trackProc) so that tests retrieving the first callback get our
-      // resolver rather than trackProc's listener.
-      await new Promise<void>((resolve, reject) => {
-        let stderrText = "";
-        if (fake.stderr && fake.stderr.on) {
-          fake.stderr.on("data", (d: Buffer) => {
-            stderrText += d.toString();
-          });
-        }
-        fake.on("close", (code: number) => {
-          this.activeProc = null;
-          if (code === 0) {
-            resolve();
-          } else {
-            const err = new Error(stderrText || `Compiler exit ${code}`);
-            (err as any).isCompilerError = true;
-            reject(err);
-          }
-        });
-        // now that our internal handlers are in place, allow the caller to
-        // instrument the process (trackProc) which will append its own close
-        // listener *after* ours.
-        if (onProcess) {
-          try { onProcess(fake); } catch {}
-        }
-        // restore the original timer implementation now that the close
-        // handler has been registered (spawnMock already invoked setTimeout)
-        global.setTimeout = realSetTimeout;
-        fake.on("error", (err: Error) => {
-          this.activeProc = null;
-          reject(err);
-        });
+      // Use ProcessExecutor to handle mocked spawn in tests
+      const result = await this.processExecutor.execute("echo", ["test"], {
+        timeout: this.compileTimeoutMs,
+        onProcess,
       });
-      // ensure executable permission is set during tests as soon as compile
-      // finishes so that downstream assertions don't race on async I/O
+
+      if (result.error) {
+        const err: any = new Error(result.stderr || `Compiler exit ${result.code}`);
+        err.isCompilerError = true;
+        throw err;
+      }
+
+      // Set executable permissions
       try {
         await this.makeExecutable(exeFile);
       } catch {
-        // ignore — tests don't care if chmod itself fails
+        // Ignore – tests don't care if chmod fails
       }
-      return; // skip the real compilation path
+      return; // Skip real compilation
     }
 
     // The sketch is always self-contained (ARDUINO_MOCK_CODE + user code),
@@ -220,46 +163,34 @@ export class LocalCompiler {
       // Skipping prevents noisy "Can't open sketch" errors and avoids resource
       // contention when multiple test workers run in parallel.
       if (cliTempReady) {
-      try {
-        const cliArgs = [
-          "compile",
-          "--fqbn",
-          "arduino:avr:uno",
-          "--build-path",
-          buildDir,
-          cliTemp, // run CLI in isolated directory
-        ];
-        this.logger.debug(`spawning arduino-cli ${cliArgs.join(" ")}`);
-        const { spawn } = await import("child_process");
-        // use "pipe" for stdio so that arduino-cli output (including fatal
-        // errors from avr-gcc) does not pollute the test/server console.
-        // detached: true creates a new process group so that kill(-pid)
-        // in LocalCompiler.kill() also terminates avr-gcc sub-processes.
-        const cliProc = spawn("arduino-cli", cliArgs,
-          { stdio: ["ignore", "pipe", "pipe"], detached: true });
-        this.activeProc = cliProc;
         try {
-          const gs: any = (globalThis as any).spawnInstances;
-          if (Array.isArray(gs)) gs.push(cliProc);
-        } catch {}
-        await new Promise<void>((res, rej) => {
-          cliProc.on("close", (code) => {
-            this.activeProc = null;
-            if (code === 0) res();
-            else rej(new Error(`arduino-cli exit ${code}`));
+          const cliArgs = [
+            "compile",
+            "--fqbn",
+            "arduino:avr:uno",
+            "--build-path",
+            buildDir,
+            cliTemp, // run CLI in isolated directory
+          ];
+          this.logger.debug(`spawning arduino-cli ${cliArgs.join(" ")}`);
+
+          // Use ProcessExecutor for safe, centralized process handling
+          const result = await this.processExecutor.execute("arduino-cli", cliArgs, {
+            timeout: this.compileTimeoutMs,
+            detached: true,
+            stdio: "pipe",
           });
-          cliProc.on("error", (err) => {
-            this.activeProc = null;
-            rej(err);
-          });
-        });
-      } catch (err) {
-        // CLI failure is acceptable; we continue to native compile afterwards
-        this.logger.warn(`arduino-cli step failed: ${err instanceof Error ? err.message : err}`);
-      } finally {
-        // if CLI produced a core.a, copy to cache
-        try {
-          const fs = await import("fs");
+
+          if (result.error) {
+            throw result.error;
+          }
+        } catch (err) {
+          // CLI failure is acceptable; we continue to native compile afterwards
+          this.logger.warn(`arduino-cli step failed: ${err instanceof Error ? err.message : err}`);
+        } finally {
+          // if CLI produced a core.a, copy to cache
+          try {
+            const fs = await import("fs");
           const suspect = join(buildDir, "core", "core.a");
           
           // Check if suspect exists
@@ -347,13 +278,9 @@ export class LocalCompiler {
    * Internal method to run the actual g++ compilation
    */
   private async runCompilation(sketchFile: string, exeFile: string, attempt: number, coreArchive?: string, onProcess?: (proc: any) => void): Promise<void> {
-    const { spawn } = await import("child_process");
     this.logger.debug("[LocalCompiler] runCompilation spawning g++");
 
-    // If the output directory has vanished mid-flight a concurrent stop() /
-    // cleanup has raced with us.  Fail immediately rather than silently
-    // recreating the directory – recreating it would only mask the real
-    // lifecycle bug in the caller and produce confusing linker errors later.
+    // Verify output directory exists
     const outDir = dirname(exeFile);
     try {
       await access(outDir);
@@ -365,11 +292,7 @@ export class LocalCompiler {
       throw raceErr;
     }
 
-    // Verify the sketch file is still on disk immediately before we call
-    // spawn().  cc1plus opens it *after* g++ has already been exec'd, so a
-    // deletion between spawn() and cc1plus's first open() produces the
-    // cryptic "fatal error: sketch.ino: No such file or directory".  We
-    // detect the race here and abort with a clear diagnostic instead.
+    // Verify sketch file exists before spawn
     try {
       await access(sketchFile);
     } catch {
@@ -380,75 +303,30 @@ export class LocalCompiler {
       throw raceErr;
     }
 
-    return new Promise<void>((resolve, reject) => {
-      const args = [sketchFile];
-      if (coreArchive) {
-        args.push(coreArchive);
-      }
-      args.push("-o", exeFile, "-pthread"); // Required for threading support
-      // detached: true creates a new process group so that kill(-pid) in
-      // LocalCompiler.kill() also terminates cc1plus sub-processes.
-      const compile = spawn("g++", args, { detached: true });
-      this.activeProc = compile;
-      try {
-        const gs: any = (globalThis as any).spawnInstances;
-        if (Array.isArray(gs)) gs.push(compile);
-      } catch {}
+    const args = [sketchFile];
+    if (coreArchive) {
+      args.push(coreArchive);
+    }
+    args.push("-o", exeFile, "-pthread");
 
-      let errorOutput = "";
-      let completed = false;
-
-      // wire up listeners _before_ notifying caller so that any test helper
-      // looking at `proc.on.mock.calls` will see our internal handlers first.
-      compile.stderr.on("data", (data) => {
-        errorOutput += data.toString();
-      });
-
-      const timer = setTimeout(() => {
-        if (!completed) {
-          compile.kill("SIGKILL");
-          const timeoutError = new Error(
-            `g++ compilation timeout after ${this.compileTimeoutMs / 1000}s`,
-          );
-          this.logger.error(timeoutError.message);
-          reject(timeoutError);
-        }
-      }, this.compileTimeoutMs);
-
-      const clearTimer = () => {
-        clearTimeout(timer);
-      };
-
-      compile.on("close", (code) => {
-        this.activeProc = null;
-        completed = true;
-        clearTimer();
-        if (code === 0) {
-          this.logger.info(`Compilation successful: ${exeFile}`);
-          resolve();
-        } else {
-          const cleanedError = this.cleanCompilerErrors(errorOutput);
-          const errorMsg = `Compiler error (Code ${code}, attempt ${attempt}): ${cleanedError}`;
-          this.logger.error(errorMsg);
-          const compileErr = new Error(cleanedError);
-          (compileErr as any).isCompilerError = true;
-          reject(compileErr);
-        }
-      });
-
-      compile.on("error", (err) => {
-        this.activeProc = null;
-        completed = true;
-        clearTimer();
-        this.logger.error(`Compilation process error: ${err.message}`);
-        reject(err);
-      });
-
-      // finally, let any external hook inspect or augment the process
-      if (onProcess) {
-        try { onProcess(compile); } catch {}
-      }
+    // Use ProcessExecutor for safe, unified compilation handling
+    const result = await this.processExecutor.execute("g++", args, {
+      timeout: this.compileTimeoutMs,
+      detached: true,
+      stdio: "pipe",
+      onProcess,
     });
+
+    if (result.error || result.code !== 0) {
+      const cleanedError = this.cleanCompilerErrors(result.stderr || "");
+      const errorMsg = `Compiler error (Code ${result.code}, attempt ${attempt}): ${cleanedError}`;
+      this.logger.error(errorMsg);
+      const compileErr = new Error(cleanedError);
+      (compileErr as any).isCompilerError = true;
+      throw compileErr;
+    }
+
+    this.logger.info(`Compilation successful: ${exeFile}`);
   }
 
   /**
@@ -472,35 +350,10 @@ export class LocalCompiler {
   }
 
   /**
-   * Kill any active compiler/CLI process and its entire process group.
-   *
-   * Because arduino-cli and g++ both spawn sub-processes (avr-gcc, cc1plus),
-   * a plain SIGKILL to the direct child leaves orphan processes that hold
-   * file handles on the sketch directory.  Using process.kill(-pid) sends
-   * SIGKILL to every process in the group, which is only possible when the
-   * child was spawned with { detached: true }.
+   * Kill any active compiler/CLI process
    */
   kill(): void {
-    const proc = this.activeProc;
-    if (!proc) return;
-    // Clear the reference first to prevent re-entrant calls.
-    this.activeProc = null;
-    try {
-      if (proc.pid != null) {
-        try {
-          // Kill the entire process group (requires detached: true at spawn).
-          process.kill(-proc.pid, "SIGKILL");
-        } catch {
-          // Fallback: kill just the direct child when group-kill is unavailable
-          // (e.g. Windows, or process group already gone).
-          proc.kill("SIGKILL");
-        }
-      } else {
-        proc.kill("SIGKILL");
-      }
-    } catch {
-      /* ignore */
-    }
+    this.processExecutor.kill("SIGKILL");
   }
 }
 

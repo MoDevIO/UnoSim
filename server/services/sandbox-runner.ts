@@ -1,7 +1,6 @@
 // Lean orchestrator for Arduino sketch simulation
 // Delegates execution flow to ExecutionManager, manages state transitions and process control
 
-import { execFile, execSync } from "child_process";
 import { ProcessController, type IProcessController } from "./process-controller";
 import { mkdir } from "fs/promises";
 import { existsSync } from "fs";
@@ -14,6 +13,7 @@ import { SimulationTimeoutManager } from "./simulation-timeout-manager";
 import { SketchFileBuilder } from "./sketch-file-builder";
 import { LocalCompiler } from "./local-compiler";
 import type { RunSketchOptions } from "./run-sketch-types";
+import { ProcessExecutor } from "./process-executor";
 
 // Manager delegation imports
 import { DockerManager } from "./sandbox/docker-manager";
@@ -34,11 +34,11 @@ export class SandboxRunner {
   private readonly filesystemHelper: FilesystemHelper;
   private readonly executionManager: ExecutionManager;
   private readonly executionState: ExecutionState;
+  private readonly processExecutor: ProcessExecutor;
 
   private dockerAvailable = false;
   private dockerImageBuilt = false;
   private dockerChecked = false;
-  private dockerCheckPromise: Promise<void> | null = null;
   private tempDirCreated = false;
 
   private get state(): SimulationState { return this.executionState?.state ?? SimulationState.STOPPED; }
@@ -50,6 +50,7 @@ export class SandboxRunner {
     this.timeoutManager = new SimulationTimeoutManager();
     this.fileBuilder = new SketchFileBuilder(this.tempDir);
     this.localCompiler = new LocalCompiler();
+    this.processExecutor = new ProcessExecutor();
     const stderrParser = new StderrParser();
     
     this.registryManager = new RegistryManager({
@@ -131,6 +132,12 @@ export class SandboxRunner {
       pendingCleanup: false,
       processController: this.processController,
     };
+
+    // Start docker check eagerly so getSandboxStatus() has cached results
+    this.ensureDockerChecked().catch(() => {
+      // Docker check failed, but we already have defaults set
+      // (dockerAvailable=false, dockerImageBuilt=false)
+    });
   }
 
   get isRunning(): boolean {
@@ -154,7 +161,7 @@ export class SandboxRunner {
 
 
   async runSketch(options: RunSketchOptions): Promise<void> {
-    void this.ensureDockerChecked();
+    await this.ensureDockerChecked();
     await this.ensureTempDir();
     this.executionState.dockerAvailable = this.dockerAvailable;
     this.executionState.dockerImageBuilt = this.dockerImageBuilt;
@@ -166,40 +173,61 @@ export class SandboxRunner {
     if (process.env.FORCE_DOCKER === "1") {
       this.dockerAvailable = true; this.dockerImageBuilt = true; this.dockerChecked = true; return;
     }
-    const hasMockedExecSync = (execSync as any)?.mock !== undefined;
-    if (process.env.NODE_ENV === "test" || hasMockedExecSync) {
-      try { this.checkDockerSync(); } catch { /* ignore */ }
-      this.dockerChecked = true; return;
-    }
-    this.dockerCheckPromise ??= this.checkDockerAsync()
-        .finally(() => { this.dockerChecked = true; this.dockerCheckPromise = null; });
-    return this.dockerCheckPromise;
-  }
-
-  private checkDockerSync(): void {
+    
+    // Always use async path; ProcessExecutor handles test mocking internally
     try {
-      const version = execSync("docker --version", { stdio: "pipe", timeout: 2000 });
-      if (!version?.toString()?.includes("Docker")) { this.dockerAvailable = false; return; }
-      execSync("docker info", { stdio: "pipe", timeout: 2000 });
-      this.dockerAvailable = true;
-      try {
-        execSync(`docker image inspect ${SANDBOX_CONFIG.dockerImage}`, { stdio: "pipe", timeout: 2000 });
-        this.dockerImageBuilt = true;
-      } catch { this.dockerImageBuilt = false; }
-    } catch { this.dockerAvailable = false; this.dockerImageBuilt = false; }
+      await this.checkDockerAsync();
+    } catch {
+      this.dockerAvailable = false;
+      this.dockerImageBuilt = false;
+    } finally {
+      this.dockerChecked = true;
+    }
   }
 
   private async checkDockerAsync(): Promise<void> {
-    const run = (cmd: string, args: string[]) =>
-      new Promise<void>((resolve, reject) =>
-        execFile(cmd, args, { timeout: 2000, windowsHide: true }, (err) => err ? reject(new Error(err.message)) : resolve()),
-      );
-    try {
-      await Promise.all([run("docker", ["--version"]), run("docker", ["info"])]);
-      this.dockerAvailable = true;
-      try { await run("docker", ["image", "inspect", SANDBOX_CONFIG.dockerImage]); this.dockerImageBuilt = true; }
-      catch { this.dockerImageBuilt = false; }
-    } catch { this.dockerAvailable = false; this.dockerImageBuilt = false; }
+    // Use ProcessExecutor for all Docker checks
+    // docker --version
+    const versionResult = await this.processExecutor.execute("docker", ["--version"], {
+      timeout: 2000,
+      stdio: "pipe",
+    });
+
+    if (versionResult.error || versionResult.code !== 0) {
+      this.dockerAvailable = false;
+      this.dockerImageBuilt = false;
+      return;
+    }
+
+    const versionOutput = versionResult.stdout || "";
+    if (!versionOutput.includes("Docker")) {
+      this.dockerAvailable = false;
+      this.dockerImageBuilt = false;
+      return;
+    }
+
+    // docker info
+    const infoResult = await this.processExecutor.execute("docker", ["info"], {
+      timeout: 2000,
+      stdio: "pipe",
+    });
+
+    if (infoResult.error || infoResult.code !== 0) {
+      this.dockerAvailable = false;
+      this.dockerImageBuilt = false;
+      return;
+    }
+
+    this.dockerAvailable = true;
+
+    // docker image inspect <image>
+    const imageName = SANDBOX_CONFIG.dockerImage;
+    const inspectResult = await this.processExecutor.execute("docker", ["image", "inspect", imageName], {
+      timeout: 2000,
+      stdio: "pipe",
+    });
+
+    this.dockerImageBuilt = inspectResult.code === 0;
   }
 
   private async ensureTempDir(): Promise<void> {
@@ -326,7 +354,7 @@ export class SandboxRunner {
   }
 
   getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean; mode: string } {
-    void this.ensureDockerChecked();
+    // Docker check is started in constructor, so just return cached values
     return {
       dockerAvailable: this.dockerAvailable,
       dockerImageBuilt: this.dockerImageBuilt,
