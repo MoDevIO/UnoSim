@@ -204,14 +204,15 @@ export class RegistryManager {
   }
   
   /**
-   * Calculate and return current performance metrics
+   * Calculate pin metrics from PinStateBatcher telemetry
    */
-  private getPerformanceMetrics(): PerformanceMetrics {
-    const now = Date.now();
-    const timeElapsedMs = now - this.telemetry.lastReportTime;
-    const timeElapsedSec = timeElapsedMs / 1000;
-
-    // Get pin change telemetry from PinStateBatcher
+  private getPinMetrics(timeElapsedSec: number): {
+    intendedPinChangesPerSecond: number;
+    actualPinChangesPerSecond: number;
+    droppedPinChangesPerSecond: number;
+    batchesPerSecond: number;
+    avgStatesPerBatch: number;
+  } {
     let intendedPinChangesPerSecond = 0;
     let actualPinChangesPerSecond = 0;
     let droppedPinChangesPerSecond = 0;
@@ -240,12 +241,31 @@ export class RegistryManager {
         : 0;
     }
 
-    // Get serial output telemetry from SerialOutputBatcher
+    return {
+      intendedPinChangesPerSecond,
+      actualPinChangesPerSecond,
+      droppedPinChangesPerSecond,
+      batchesPerSecond,
+      avgStatesPerBatch,
+    };
+  }
+
+  /**
+   * Calculate serial output metrics from SerialOutputBatcher telemetry
+   */
+  private getSerialMetrics(timeElapsedSec: number): {
+    serialOutputPerSecond: number;
+    serialBytesPerSecond: number;
+    serialIntendedBytesPerSecond: number;
+    serialDroppedBytesPerSecond: number;
+    serialBytesTotal: number;
+    batcherTelemetry: SerialOutputTelemetry | null;
+  } {
     let serialOutputPerSecond = 0;
     let serialBytesPerSecond = 0;
     let serialIntendedBytesPerSecond = 0;
     let serialDroppedBytesPerSecond = 0;
-    let serialBytesTotal = this.telemetry.serialOutputBytesTotal; // Fallback for no batcher
+    let serialBytesTotal = this.telemetry.serialOutputBytesTotal;
     let batcherTelemetry: SerialOutputTelemetry | null = null;
 
     if (this.serialOutputBatcher) {
@@ -274,6 +294,45 @@ export class RegistryManager {
       // Total bytes from batcher (cumulative, never reset)
       serialBytesTotal = batcherTelemetry.totalBytes;
     }
+
+    return {
+      serialOutputPerSecond,
+      serialBytesPerSecond,
+      serialIntendedBytesPerSecond,
+      serialDroppedBytesPerSecond,
+      serialBytesTotal,
+      batcherTelemetry,
+    };
+  }
+
+  /**
+   * Calculate and return current performance metrics
+   */
+  private getPerformanceMetrics(): PerformanceMetrics {
+    const now = Date.now();
+    const timeElapsedMs = now - this.telemetry.lastReportTime;
+    const timeElapsedSec = timeElapsedMs / 1000;
+
+    // Delegate to specialized metrics functions
+    const pinMetrics = this.getPinMetrics(timeElapsedSec);
+    const serialMetrics = this.getSerialMetrics(timeElapsedSec);
+
+    const {
+      intendedPinChangesPerSecond,
+      actualPinChangesPerSecond,
+      droppedPinChangesPerSecond,
+      batchesPerSecond,
+      avgStatesPerBatch,
+    } = pinMetrics;
+
+    const {
+      serialOutputPerSecond,
+      serialBytesPerSecond,
+      serialIntendedBytesPerSecond,
+      serialDroppedBytesPerSecond,
+      serialBytesTotal,
+      batcherTelemetry,
+    } = serialMetrics;
 
     const metrics: PerformanceMetrics = {
       timestamp: now,
@@ -522,16 +581,33 @@ export class RegistryManager {
   }
 
   /**
+   * Check if we should skip this pin mode update (anti-spam check)
+   */
+  private shouldSkipPinMode(pin: number, mode: number): boolean {
+    const fingerprint = `${pin}:${mode}`;
+    return this.runtimeSentFingerprints.has(fingerprint);
+  }
+
+  /**
+   * Track that we've sent this pin mode combination
+   */
+  private markPinModeSent(pin: number, mode: number): void {
+    const fingerprint = `${pin}:${mode}`;
+    this.runtimeSentFingerprints.add(fingerprint);
+  }
+
+  /**
    * Update a pin's mode at runtime (called when [[PIN_MODE:pin:mode]] is received)
    */
   updatePinMode(pin: number, mode: number): void {
     if (this.destroyed) return;
+
     // ── Anti-spam: skip if this (pin, mode) was already sent ─────────────────
-    const fingerprint = `${pin}:${mode}`;
-    if (this.runtimeSentFingerprints.has(fingerprint)) {
+    if (this.shouldSkipPinMode(pin, mode)) {
       this.telemetry.incomingEvents++;
       return; // No new information – don't update registry or trigger WS send
     }
+
     const pinStr = pin >= 14 && pin <= 19 ? `A${pin - 14}` : String(pin);
     const existing = this.registry.find((p) => p.pin === pinStr);
 
@@ -555,16 +631,15 @@ export class RegistryManager {
         existing.usedAt.push({ line: 0, operation: pinModeOp });
       }
 
-      // Re-run conflict detection using the shared helper (covers multi-mode
-      // AND OUTPUT+digitalRead, consistent with finishCollection).
+      // Re-run conflict detection using the shared helper
       const hadConflict = existing.conflict;
       this.detectConflictsForPin(existing);
       const newConflict = existing.conflict && !hadConflict;
 
       this.telemetry.incomingEvents++;
+      this.markPinModeSent(pin, mode);
 
       // Structural changes (defined: false -> true) must be sent immediately.
-      // If the pin was already defined, do not re-send the registry.
       if (!wasDefinedBefore) {
         this.logger.debug(
           `Structural change: pin ${pinStr} marked as defined, sending immediately`,
@@ -572,16 +647,13 @@ export class RegistryManager {
         this.logger.info(
           `Registry send trigger: first-time pin use ${pinStr} (pinMode:${mode})`,
         );
-        this.runtimeSentFingerprints.add(fingerprint);
         this.isDirty = true;
         if (!this.isCollecting && !this.waitingForRegistry) {
           const nextHash = this.computeRegistryHash();
           this.sendNow(nextHash, "pin-defined-changed");
         }
       } else {
-        // Already defined but new mode (mode change) – mark as sent.
-        // If this mode change introduced a new conflict, send immediately.
-        this.runtimeSentFingerprints.add(fingerprint);
+        // Already defined but new mode (mode change) – if new conflict, send immediately
         if (newConflict) {
           this.isDirty = true;
           if (!this.isCollecting && !this.waitingForRegistry) {
@@ -603,7 +675,7 @@ export class RegistryManager {
       this.logger.debug(
         `New pin record created: ${pinStr} with mode=${mode}, sending immediately`,
       );
-      this.runtimeSentFingerprints.add(fingerprint);
+      this.markPinModeSent(pin, mode);
       if (!this.isCollecting && !this.waitingForRegistry) {
         const nextHash = this.computeRegistryHash();
         this.sendNow(nextHash, "pin-new-record");
