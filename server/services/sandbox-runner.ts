@@ -155,6 +155,8 @@ export class SandboxRunner {
 
   private get pauseStartTime(): number | null { return this.executionState.pauseStartTime; }
 
+
+
   async runSketch(options: RunSketchOptions): Promise<void> {
     void this.ensureDockerChecked();
     await this.ensureTempDir();
@@ -248,7 +250,7 @@ export class SandboxRunner {
     return true;
   }
 
-  isPausedState(): boolean { return this.isPaused; }
+
 
   sendSerialInput(input: string): void {
     const s = this.executionState;
@@ -261,8 +263,6 @@ export class SandboxRunner {
 
   setRegistryFile(filePath: string): void { this.executionState.currentRegistryFile = filePath; }
   getSketchDir(): string | null { return this.executionState.currentSketchDir; }
-
-
 
   setPinValue(pin: number, value: number): void {
     const s = this.executionState;
