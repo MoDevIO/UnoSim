@@ -237,6 +237,203 @@ export class ArduinoCompiler {
     }
   }
 
+  /**
+   * Validates that the sketch contains required entry points (setup and loop).
+   * Returns { hasSetup, hasLoop } and error message if validation fails.
+   */
+  private validateSketchEntrypoints(code: string): {
+    valid: boolean;
+    hasSetup: boolean;
+    hasLoop: boolean;
+    errorMessage?: string;
+  } {
+    const { hasSetup, hasLoop } = detectSketchEntrypoints(code);
+
+    if (!hasSetup || !hasLoop) {
+      const missingFunctions = [];
+      if (!hasSetup) missingFunctions.push("setup()");
+      if (!hasLoop) missingFunctions.push("loop()");
+
+      return {
+        valid: false,
+        hasSetup,
+        hasLoop,
+        errorMessage: `Missing Arduino functions: ${missingFunctions.join(" and ")}\n\nArduino sketches require:\n- void setup() { }\n- void loop() { }`,
+      };
+    }
+
+    return { valid: true, hasSetup, hasLoop };
+  }
+
+  /**
+   * Checks both the instant binary cache and hex cache for a compiled sketch.
+   * Returns the first available cached binary, or null if no cache hit.
+   */
+  private async checkCacheHits(
+    sketchHash: string,
+    hexCacheDir: string,
+    compileStartedAt: bigint,
+  ): Promise<{ cached: boolean; binary: Buffer | null; cacheType: string }> {
+    // Check instant binary cache first (most recent)
+    const instantBinary = await this.readBinaryFromStorage(sketchHash);
+    if (instantBinary) {
+      const elapsedMs = Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000));
+      this.logger.info(`[Cache] Hit for hash ${sketchHash} (${elapsedMs}ms)`);
+      return { cached: true, binary: instantBinary, cacheType: "instant" };
+    }
+
+    // Check hex cache (persistent, shared across sessions)
+    const cachedBinary = await this.readHexFromCache(sketchHash, hexCacheDir);
+    if (cachedBinary) {
+      const elapsedMs = Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000));
+      this.logger.info(`[Cache] Hit for hash ${sketchHash} (${elapsedMs}ms)`);
+      return { cached: true, binary: cachedBinary, cacheType: "hex" };
+    }
+
+    return { cached: false, binary: null, cacheType: "none" };
+  }
+
+  /**
+   * Processes header includes by replacing #include statements with actual header content.
+   * Tracks line offset for later error correction.
+   * Returns { processedCode, lineOffset }.
+   */
+  private async processHeaderIncludes(
+    code: string,
+    headers?: Array<{ name: string; content: string }>,
+    sketchDir?: string,
+  ): Promise<{ processedCode: string; lineOffset: number }> {
+    let processedCode = code;
+    let lineOffset = 0;
+
+    if (!headers || headers.length === 0) {
+      return { processedCode, lineOffset };
+    }
+
+    this.logger.debug(`Processing ${headers.length} header includes`);
+
+    for (const header of headers) {
+      // Try to find includes with both the full name (header_1.h) and without extension (header_1)
+      const headerWithoutExt = header.name.replace(/\.[^/.]+$/, "");
+
+      // Search for both variants: #include "header_1.h" and #include "header_1"
+      const includeVariants = [`#include "${header.name}"`, `#include "${headerWithoutExt}"`];
+
+      let found = false;
+      for (const includeStatement of includeVariants) {
+        if (processedCode.includes(includeStatement)) {
+          this.logger.debug(`Found include for: ${header.name} (pattern: ${includeStatement})`);
+          
+          // Replace the #include with the actual header content
+          const replacement = `// --- Start of ${header.name} ---\n${header.content}\n// --- End of ${header.name} ---`;
+          processedCode = processedCode.replace(
+            new RegExp(
+              `#include\\s*"${includeStatement.split('"')[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
+              "g",
+            ),
+            replacement,
+          );
+
+          // Calculate line offset by counting newlines in replacement
+          const newlinesInReplacement = (replacement.match(/\n/g) || []).length;
+          lineOffset += newlinesInReplacement;
+
+          found = true;
+          this.logger.debug(`Replaced include for: ${header.name}, line offset now: ${lineOffset}`);
+          break;
+        }
+      }
+
+      if (!found) {
+        this.logger.debug(
+          `Include not found for: ${header.name} (tried: ${includeVariants.join(", ")})`,
+        );
+      }
+    }
+
+    // Write header files to disk as separate files
+    if (sketchDir) {
+      this.logger.debug(`Writing ${headers.length} header files to ${sketchDir}`);
+      for (const header of headers) {
+        const headerPath = join(sketchDir, header.name);
+        this.logger.debug(`Writing header: ${headerPath}`);
+        await writeFile(headerPath, header.content);
+      }
+    }
+
+    return { processedCode, lineOffset };
+  }
+
+  /**
+   * Handles successful compilation: writes caches and formats output.
+   */
+  private async handleCompilationSuccess(
+    sketchHash: string,
+    hexCacheDir: string,
+    cliResult: {
+      success: boolean;
+      output?: string;
+      errors?: string;
+      parsedErrors?: CompilationError[];
+      binary?: Buffer;
+    },
+  ): Promise<{ cliOutput: string; cliErrors: string; parsedErrors: CompilationError[] }> {
+    const cliOutput = cliResult.output || "";
+    let cliErrors = cliResult.errors || "";
+    const parsedErrors = cliResult.parsedErrors || [];
+
+    if (cliResult.binary) {
+      // Write to both instant cache and persistent hex cache
+      await this.writeHexToCache(sketchHash, hexCacheDir, cliResult.binary).catch((error) => {
+        this.logger.debug(
+          `[CompileCache] failed to write HEX cache: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+      await this.writeBinaryToStorage(sketchHash, cliResult.binary).catch((error) => {
+        this.logger.debug(
+          `[CompileCache] failed to write binary storage cache: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+      await this.runHexCacheCleanup(hexCacheDir);
+    }
+
+    return { cliOutput, cliErrors, parsedErrors };
+  }
+
+  /**
+   * Handles compilation errors: cleans error messages and parses them into structured errors.
+   */
+  private handleCompilationError(
+    cliErrors: string,
+    lineOffset: number,
+    cliResult: {
+      success: boolean;
+      output?: string;
+      errors?: string;
+      parsedErrors?: CompilationError[];
+      binary?: Buffer;
+    },
+  ): { cliOutput: string; cliErrors: string; parsedErrors: CompilationError[] } {
+    const cliOutput = "";
+    let cleanedErrors = cliErrors;
+    let parsedErrors = cliResult.parsedErrors || [];
+
+    // Correct stderr text for offset so UI shows original line numbers
+    if (lineOffset > 0 && cleanedErrors) {
+      cleanedErrors = cleanedErrors.replace(/sketch\.ino:(\d+):/g, (_m, n) => {
+        const corrected = Math.max(1, parseInt(n, 10) - lineOffset);
+        return `sketch.ino:${corrected}:`;
+      });
+    }
+
+    // Backstop: if the caller didn't supply parsedErrors, run parser ourselves
+    if (parsedErrors.length === 0 && cleanedErrors) {
+      parsedErrors = this.parseCompilerErrors(cleanedErrors, lineOffset);
+    }
+
+    return { cliOutput, cliErrors: cleanedErrors, parsedErrors };
+  }
+
   async compile(
     code: string,
     headers?: Array<{ name: string; content: string }>,
@@ -255,6 +452,7 @@ export class ArduinoCompiler {
 
   /**
    * Internal compile implementation (wrapped by compile with gatekeeper)
+   * Orchestrates compilation by delegating to helper functions for clarity.
    */
   private async compileInternal(
     code: string,
@@ -269,89 +467,56 @@ export class ArduinoCompiler {
       await mkdir(tempRoot, { recursive: true }).catch(() => {});
     }
 
-    // use a unique temporary directory per-call to avoid state conflicts when
-    // multiple compilations run in parallel (e.g. workers=4 during tests).
-    // callers can still provide tempRoot for deterministic paths in unit tests.
+    // use a unique temporary directory per-call to avoid state conflicts
     const baseTempDir =
       tempRoot || mkdtempSync(join(getFastTmpBaseDir(), "unowebsim-"));
 
     const sketchDir = join(baseTempDir, sketchId);
     const sketchFile = join(sketchDir, `${sketchId}.ino`);
 
-    let arduinoCliStatus: "idle" | "compiling" | "success" | "error" = "idle";
-    let warnings: string[] = []; // NEW: Collect warnings
-
-    // NEW: Parse code for issues
+    // Pre-compilation validation and parsing
     const parser = new CodeParser();
     const parserMessages = parser.parseAll(code);
-
-    // Check for reserved name conflicts
     const reservedNameMessages = reservedNamesValidator.validateReservedNames(code);
     const allParserMessages = [...parserMessages, ...reservedNameMessages];
-
-    // I/O Registry is now populated at runtime, not from static parsing
     const ioRegistry: any[] = [];
     const sketchHash = this.buildSketchHash(code, options);
     const hexCacheDir = options?.hexCacheDir || this.defaultHexCacheDir;
     const compileStartedAt = process.hrtime.bigint();
 
     try {
-      // Validierung: setup() und loop()
-      const { hasSetup, hasLoop } = detectSketchEntrypoints(code);
-
-      if (!hasSetup || !hasLoop) {
-        const missingFunctions = [];
-        if (!hasSetup) missingFunctions.push("setup()");
-        if (!hasLoop) missingFunctions.push("loop()");
-
+      // 1. Validate sketch has required entry points
+      const validation = this.validateSketchEntrypoints(code);
+      if (!validation.valid) {
         return {
           success: false,
           output: "",
-          stderr: `Missing Arduino functions: ${missingFunctions.join(" and ")}\n\nArduino sketches require:\n- void setup() { }\n- void loop() { }`,
+          stderr: validation.errorMessage,
           errors: [],
           arduinoCliStatus: "error",
-          parserMessages: allParserMessages, // Include parser messages even on error
-          ioRegistry, // Include I/O registry
+          parserMessages: allParserMessages,
+          ioRegistry,
         };
       }
 
-      // Serial.begin warnings are now ONLY in parserMessages, not in output
-      // The code-parser.ts handles all Serial configuration warnings
-      // No need to add them to the warnings array anymore
-
-      const instantBinary = await this.readBinaryFromStorage(sketchHash);
-      if (instantBinary) {
-        const elapsedMs = Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000));
-        this.logger.info(`[Cache] Hit for hash ${sketchHash} (${elapsedMs}ms)`);
+      // 2. Check both instant and hex caches
+      const cacheResult = await this.checkCacheHits(sketchHash, hexCacheDir, compileStartedAt);
+      if (cacheResult.cached && cacheResult.binary) {
+        const cacheTypeLabel =
+          cacheResult.cacheType === "instant" ? "Instant Hit" : "HEX cache hit";
         return {
           success: true,
-          output: `Board: Arduino UNO (Instant Hit in ${elapsedMs}ms)`,
+          output: `Board: Arduino UNO (${cacheTypeLabel} in ${Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000))}ms)`,
           stderr: undefined,
           errors: [],
-          binary: instantBinary,
+          binary: cacheResult.binary,
           arduinoCliStatus: "success",
           parserMessages: allParserMessages,
           ioRegistry,
         };
       }
 
-      const cachedBinary = await this.readHexFromCache(sketchHash, hexCacheDir);
-      if (cachedBinary) {
-        const elapsedMs = Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000));
-        this.logger.info(`[Cache] Hit for hash ${sketchHash} (${elapsedMs}ms)`);
-        return {
-          success: true,
-          output: `Board: Arduino UNO (HEX cache hit in ${elapsedMs}ms)`,
-          stderr: undefined,
-          errors: [],
-          binary: cachedBinary,
-          arduinoCliStatus: "success",
-          parserMessages: allParserMessages,
-          ioRegistry,
-        };
-      }
-
-      // Create files and ensure all compilation paths exist
+      // 3. Create directories and process headers
       await mkdir(sketchDir, { recursive: true });
       if (options?.buildPath) {
         await mkdir(options.buildPath, { recursive: true }).catch(() => {});
@@ -360,148 +525,56 @@ export class ArduinoCompiler {
         await mkdir(options.buildCachePath, { recursive: true }).catch(() => {});
       }
 
-      // Process code: replace #include statements with actual header content
-      let processedCode = code;
-      let lineOffset = 0; // Track how many lines were added by header insertion
-
-      if (headers && headers.length > 0) {
-        this.logger.debug(`Processing ${headers.length} header includes`);
-        for (const header of headers) {
-          // Try to find includes with both the full name (header_1.h) and without extension (header_1)
-          const headerWithoutExt = header.name.replace(/\.[^/.]+$/, ""); // Remove extension
-
-          // Search for both variants: #include "header_1.h" and #include "header_1"
-          const includeVariants = [
-            `#include "${header.name}"`,
-            `#include "${headerWithoutExt}"`,
-          ];
-
-          let found = false;
-          for (const includeStatement of includeVariants) {
-            if (processedCode.includes(includeStatement)) {
-              this.logger.debug(
-                `Found include for: ${header.name} (pattern: ${includeStatement})`,
-              );
-              // Replace the #include with the actual header content
-              const replacement = `// --- Start of ${header.name} ---\n${header.content}\n// --- End of ${header.name} ---`;
-              processedCode = processedCode.replace(
-                new RegExp(
-                  `#include\\s*"${includeStatement.split('"')[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
-                  "g",
-                ),
-                replacement,
-              );
-
-              // Calculate line offset by counting newlines: replacement newlines - 0 (original #include line stays as 1 line)
-              // The #include statement is replaced, so we count how many MORE lines we added
-              const newlinesInReplacement = (replacement.match(/\n/g) || [])
-                .length;
-              // Each #include is 1 line, replacement has newlinesInReplacement+1 lines
-              // So offset is: (newlinesInReplacement+1) - 1 = newlinesInReplacement
-              lineOffset += newlinesInReplacement;
-
-              found = true;
-              this.logger.debug(
-                `Replaced include for: ${header.name}, line offset now: ${lineOffset}`,
-              );
-              break;
-            }
-          }
-
-          if (!found) {
-            this.logger.debug(
-              `Include not found for: ${header.name} (tried: ${includeVariants.join(", ")})`,
-            );
-          }
-        }
-      }
-
+      const { processedCode, lineOffset } = await this.processHeaderIncludes(
+        code,
+        headers,
+        sketchDir,
+      );
       await writeFile(sketchFile, processedCode);
 
-      // Write header files to disk as separate files
-      if (headers && headers.length > 0) {
-        this.logger.debug(
-          `Writing ${headers.length} header files to ${sketchDir}`,
-        );
-        for (const header of headers) {
-          const headerPath = join(sketchDir, header.name);
-          this.logger.debug(`Writing header: ${headerPath}`);
-          await writeFile(headerPath, header.content);
-        }
-      }
+      // 4. Run Arduino CLI compilation
+      const cliResult = await this.compileWithArduinoCli(sketchFile, {
+        fqbn: options?.fqbn || this.defaultFqbn,
+        buildPath: options?.buildPath,
+        buildCachePath: options?.buildCachePath || this.defaultBuildCachePath,
+      });
 
-      // 1. Arduino CLI
-      arduinoCliStatus = "compiling";
-      const cliResult = await this.compileWithArduinoCli(
-        sketchFile,
-        {
-          fqbn: options?.fqbn || this.defaultFqbn,
-          buildPath: options?.buildPath,
-          buildCachePath: options?.buildCachePath || this.defaultBuildCachePath,
-        },
-      );
-
+      // 5. Handle result (success or error)
       let cliOutput = "";
       let cliErrors = "";
       let parsedErrors: CompilationError[] = [];
+      let arduinoCliStatus: "success" | "error" = "error";
 
-      if (!cliResult.success) {
-        arduinoCliStatus = "error";
-        cliOutput = "";
-        cliErrors = cliResult.errors || "Compilation failed";
-        parsedErrors = cliResult.parsedErrors || [];
-      } else {
+      if (cliResult.success) {
         arduinoCliStatus = "success";
-        cliOutput = cliResult.output || "";
-        cliErrors = cliResult.errors || "";
-        parsedErrors = cliResult.parsedErrors || [];
-        if (cliResult.binary) {
-          await this.writeHexToCache(sketchHash, hexCacheDir, cliResult.binary).catch((error) => {
-            this.logger.debug(`[CompileCache] failed to write HEX cache: ${error instanceof Error ? error.message : String(error)}`);
-          });
-          await this.writeBinaryToStorage(sketchHash, cliResult.binary).catch((error) => {
-            this.logger.debug(`[CompileCache] failed to write binary storage cache: ${error instanceof Error ? error.message : String(error)}`);
-          });
-          await this.runHexCacheCleanup(hexCacheDir);
-        }
+        const successResult = await this.handleCompilationSuccess(
+          sketchHash,
+          hexCacheDir,
+          cliResult,
+        );
+        cliOutput = successResult.cliOutput;
+        cliErrors = successResult.cliErrors;
+        parsedErrors = successResult.parsedErrors;
+      } else {
+        const errorResult = this.handleCompilationError(
+          cliResult.errors || "Compilation failed",
+          lineOffset,
+          cliResult,
+        );
+        cliOutput = errorResult.cliOutput;
+        cliErrors = errorResult.cliErrors;
+        parsedErrors = errorResult.parsedErrors;
       }
-
-      // correct stderr text for offset so UI shows original line numbers
-      if (lineOffset > 0 && cliErrors) {
-        cliErrors = cliErrors.replace(/sketch\.ino:(\d+):/g, (_m, n) => {
-          const corrected = Math.max(1, parseInt(n, 10) - lineOffset);
-          return `sketch.ino:${corrected}:`;
-        });
-      }
-
-      // backstop: if the caller didn't supply parsedErrors, run parser ourselves
-      if (parsedErrors.length === 0 && cliErrors) {
-        parsedErrors = this.parseCompilerErrors(cliErrors, lineOffset);
-      }
-
-      // Kombinierte Ausgabe
-      let combinedOutput = cliOutput;
-
-      // Add warnings to output
-      if (warnings.length > 0) {
-        const warningText = "\n\n" + warnings.join("\n");
-        combinedOutput = combinedOutput
-          ? combinedOutput + warningText
-          : warningText.trim();
-      }
-
-      // Erfolg = arduino-cli erfolgreich (g++ Syntax-Check entfernt - wird in Runner gemacht)
-      const success = cliResult.success;
 
       return {
-        success,
-        output: combinedOutput,
+        success: cliResult.success,
+        output: cliOutput,
         stderr: cliErrors || undefined,
         errors: parsedErrors,
         binary: cliResult.binary,
         arduinoCliStatus,
-        parserMessages: allParserMessages, // Include parser messages
-        ioRegistry, // Include I/O registry
+        parserMessages: allParserMessages,
+        ioRegistry,
       };
     } catch (error) {
       return {
@@ -509,10 +582,9 @@ export class ArduinoCompiler {
         output: "",
         stderr: `Compilation failed: ${error instanceof Error ? error.message : String(error)}`,
         errors: [],
-        arduinoCliStatus:
-          arduinoCliStatus === "compiling" ? "error" : arduinoCliStatus,
-        parserMessages: allParserMessages, // Include parser messages even on error
-        ioRegistry, // Include I/O registry
+        arduinoCliStatus: "error",
+        parserMessages: allParserMessages,
+        ioRegistry,
       };
     } finally {
       try {
@@ -520,7 +592,6 @@ export class ArduinoCompiler {
       } catch (error) {
         this.logger.warn(`Failed to clean up sketch directory: ${error}`);
       }
-      // remove base temp folder if we created it ourselves
       if (!tempRoot) {
         try {
           await this.robustCleanupDir(baseTempDir);
