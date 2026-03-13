@@ -28,7 +28,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Neu: Auch Unit-Tests brauchen die Toolchain zum Kompilieren
+      - name: Cache Arduino Toolchain (Unit)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/bin/arduino-cli
+            ~/.arduino15
+          key: ${{ runner.os }}-arduino-unit-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Arduino CLI & Core
+        run: |
+          if ! command -v arduino-cli &> /dev/null; then
+            curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          fi
+          arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
+
       - name: Static Analysis & Unit Tests
+        env:
+          # Separater Pfad für Unit-Tests, um Seiteneffekte zu vermeiden
+          ARDUINO_CACHE_DIR: /tmp/arduino-unit-cache
         run: |
           npm run check
           npm run lint
@@ -42,7 +61,7 @@ jobs:
           publish_dir: ./coverage/lcov-report
           publish_branch: gh-pages
 
-  # JOB 2: Schwergewicht (Docker & E2E) - LÄUFT JETZT PARALLEL ZU JOB 1
+  # JOB 2: Schwergewicht (Docker & E2E)
   e2e-tests:
     name: Playwright E2E
     runs-on: ubuntu-latest
@@ -58,11 +77,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Turbo-Hebel 1: Docker Buildx für Layer-Caching vorbereiten
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Turbo-Hebel 2: Kombinierter Cache für Tooling, Browser und Sketche
       - name: Cache E2E Assets (Arduino, Playwright, Sketches)
         uses: actions/cache@v4
         with:
@@ -86,7 +103,6 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
-      # Turbo-Hebel 3: Docker Build mit nativem GitHub Actions Cache (type=gha)
       - name: Build Sandbox Image
         uses: docker/build-push-action@v5
         with:

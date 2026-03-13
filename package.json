@@ -14,23 +14,24 @@
     "build:copy-public": "[ -d public ] && cp -r public dist/ || true",
     "build:sandbox": "docker build -t unowebsim-sandbox .",
     "start": "NODE_ENV=production node dist/index.js",
-    "check": "tsc",
+    "check": "tsc --noEmit",
     "check:raw-hex": "node scripts/check-raw-hex.cjs",
     "lint:colors": "npm run check:raw-hex",
     "test": "LOG_LEVEL=warn vitest run",
+    "test:fast": "LOG_LEVEL=warn vitest run --changedSince=main",
     "test:unit": "LOG_LEVEL=warn vitest run",
     "test:watch": "LOG_LEVEL=info vitest",
     "test:coverage": "LOG_LEVEL=warn vitest run --coverage",
     "test:debug": "LOG_LEVEL=debug vitest run",
     "test:ci": "LOG_LEVEL=warn vitest run",
-    "test:e2e": "playwright test",
-    "test:e2e:ci": "playwright test && ./check-leaks.sh --cleanup",
+    "test:e2e": "ARDUINO_CACHE_DIR=./server/arduino-cache playwright test",
+    "test:e2e:ci": "ARDUINO_CACHE_DIR=./server/arduino-cache playwright test && ./check-leaks.sh --cleanup",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:update": "npx playwright test --update-snapshots",
     "test:load:50": "NODE_ENV=production LOG_LEVEL=info vitest run tests/server/load-suite.test.ts --testNamePattern='Load Test: 50 Concurrent Clients'",
     "test:load:200": "NODE_ENV=production LOG_LEVEL=info vitest run tests/server/load-suite.test.ts --testNamePattern='Load Test: 200 Concurrent Clients'",
-    "lint": "echo \"no eslint config, skipping\"",
+    "lint": "eslint . --ext .ts,.tsx --fix",
     "prepare": "husky"
   },
   "dependencies": {
@@ -93,6 +94,7 @@
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0",
     "postcss": "^8.4.47",
+    "prettier": "^3.8.1",
     "tailwindcss": "^3.4.17",
     "terser": "^5.46.0",
     "tsx": "^4.20.5",
@@ -106,6 +108,11 @@
     "bufferutil": "^4.0.8"
   },
   "lint-staged": {
-    "*.{ts,tsx}": []
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ],
+    "*.json": [
+      "prettier --write"
+    ]
   }
 }
