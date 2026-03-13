@@ -159,7 +159,7 @@ export class SandboxRunner {
       this.processController,
       this.stderrParser,
       this.timeoutManager,
-      (parsed, callbacks) => this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError),
+      (parsed, callbacks) => this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError),
     );
     this.streamHandler = new StreamHandler(this.processController);
     this.filesystemHelper = new FilesystemHelper(this.fileBuilder, this.localCompiler);
@@ -799,7 +799,7 @@ export class SandboxRunner {
             (dockerState as any).stderrFallbackBuffer = "";
             if (buffered.trim()) {
               const parsed = this.stderrParser.parseStderrLine(buffered, this.processStartTime);
-              this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+              this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
             }
           }
 
@@ -998,7 +998,7 @@ export class SandboxRunner {
       lines.forEach((line) => {
         if (!line) return;
         const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
-        this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+        this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
       });
 
       // we no longer completely ignore stdout; serial events above will be
@@ -1017,7 +1017,7 @@ export class SandboxRunner {
         for (const line of lines) {
           if (!line) continue;
           const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
-          this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+          this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
         }
       }
     });
@@ -1025,7 +1025,7 @@ export class SandboxRunner {
     this.processController.onStderrLine((line) => {
       if (line.length === 0) return;
       const parsed = this.stderrParser.parseStderrLine(line, this.processStartTime);
-      this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+      this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
     });
 
     this.processController.onClose((code) => {
@@ -1043,7 +1043,7 @@ export class SandboxRunner {
         this.stderrFallbackBuffer = "";
         if (buffered.trim()) {
           const parsed = this.stderrParser.parseStderrLine(buffered, this.processStartTime);
-          this.handleParsedLine(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
+          this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError);
         }
       }
 
@@ -1084,100 +1084,33 @@ export class SandboxRunner {
   /**
    * Handle pin state changes (mode, value, pwm) with optional batcher or fallback
    */
-  private handlePinStateChange(
-    pin: number,
-    type: "mode" | "value" | "pwm",
-    value: number,
-    onPinState?: (pin: number, type: "mode" | "value" | "pwm", value: number) => void,
-  ): void {
-    if (this.pinStateBatcher) {
-      this.pinStateBatcher.enqueue(pin, type, value);
-    } else if (onPinState) {
-      // Fallback if batcher not initialized
-      onPinState(pin, type, value);
-    }
-  }
-
   /**
-   * Handle serial output event with backpressure management
+   * Delegate to StreamHandler for parsed line processing
+   * Consolidates pin state, serial event, and registry management
    */
-  private handleSerialEvent(
-    data: string,
-    onOutput?: (line: string, isComplete?: boolean) => void,
-  ): void {
-    // Check backpressure: if batcher exists and overloaded, pause child process
-    if (
-      this.serialOutputBatcher &&
-      !this.backpressurePaused &&
-      !this.isPaused &&
-      this.baudrate > 300 && // don't throttle at very low baudrate
-      this.serialOutputBatcher.isOverloaded()
-    ) {
-      this.logger.info("Backpressure: buffer overloaded, sending SIGSTOP");
-      this.processController.kill("SIGSTOP");
-      this.backpressurePaused = true;
-    }
-
-    // Route through SerialOutputBatcher for rate limiting
-    if (this.serialOutputBatcher) {
-      this.serialOutputBatcher.enqueue(data);
-    } else if (onOutput) {
-      // Fallback if batcher not initialized
-      onOutput(data, true);
-    }
-  }
-
-  private handleParsedLine(
+  private delegateParsedLineToStreamHandler(
     parsed: any,
     onPinState?: (pin: number, type: "mode" | "value" | "pwm", value: number) => void,
     onOutput?: (line: string, isComplete?: boolean) => void,
     onError?: (line: string) => void,
   ): void {
-    switch (parsed.type) {
-      case "registry_start":
-        this.registryManager.startCollection();
-        break;
+    const streamState: import("./sandbox/stream-handler").StreamHandlerState = {
+      pinStateBatcher: this.pinStateBatcher,
+      serialOutputBatcher: this.serialOutputBatcher,
+      backpressurePaused: this.backpressurePaused,
+      isPaused: this.isPaused,
+      baudrate: this.baudrate,
+      registryManager: this.registryManager,
+    };
 
-      case "registry_end":
-        this.registryManager.finishCollection();
-        break;
+    const callbacks: import("./sandbox/stream-handler").StreamHandlerCallbacks = {
+      onPinState,
+      onOutput,
+      onError,
+    };
 
-      case "registry_pin":
-        this.registryManager.addPin(parsed.pinRecord);
-        break;
-
-      case "pin_mode":
-        this.registryManager.updatePinMode(parsed.pin, parsed.mode);
-        this.handlePinStateChange(parsed.pin, "mode", parsed.mode, onPinState);
-        break;
-
-      case "pin_value":
-        this.handlePinStateChange(parsed.pin, "value", parsed.value, onPinState);
-        break;
-
-      case "pin_pwm":
-        this.handlePinStateChange(parsed.pin, "pwm", parsed.value, onPinState);
-        break;
-
-      case "serial_event":
-        this.handleSerialEvent(parsed.data, onOutput);
-        break;
-
-      case "ignored":
-        // Debug markers - do nothing
-        break;
-
-      case "text":
-        if (onError) {
-          this.logger.warn(`[STDERR]: ${parsed.line}`);
-          onError(parsed.line);
-        }
-        break;
-    }
+    this.streamHandler.handleParsedLine(parsed, streamState, callbacks);
   }
-
-  // Remove old compileAndRunInDocker method below
-  // Continue to next method
 
   pause(): boolean {
     // Guard: can only pause from RUNNING state
