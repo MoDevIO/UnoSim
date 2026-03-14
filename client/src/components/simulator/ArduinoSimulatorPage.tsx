@@ -51,10 +51,17 @@ import type {
   ParserMessage,
   IOPinRecord,
 } from "@shared/schema";
-import type { IncomingArduinoMessage, OutgoingArduinoMessage } from "@/types/websocket";
+import type { IncomingArduinoMessage } from "@/types/websocket";
 import { parseStaticIORegistry } from "@shared/io-registry-parser";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import { isMac } from "@/lib/platform";
+import {
+  ANIMATION_KEYFRAMES,
+  CSS_CLASSES,
+  getStatusInfo,
+  DIGITAL_PIN_COUNT,
+  ANALOG_PIN_COUNT,
+} from "./ArduinoSimulatorPage.styles";
 
 
 // Loading placeholder for lazy components
@@ -110,11 +117,11 @@ export default function ArduinoSimulator() {
   const [ioRegistry, setIoRegistry] = useState<IOPinRecord[]>(() => {
     const pins: IOPinRecord[] = [];
     // Digital pins 0-13
-    for (let i = 0; i <= 13; i++) {
+    for (let i = 0; i < DIGITAL_PIN_COUNT; i++) {
       pins.push({ pin: String(i), defined: false, usedAt: [] });
     }
     // Analog pins A0-A5
-    for (let i = 0; i <= 5; i++) {
+    for (let i = 0; i < ANALOG_PIN_COUNT; i++) {
       pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
     }
     return pins;
@@ -265,7 +272,7 @@ export default function ArduinoSimulator() {
   void lastMessage;
 
   // Wrapper for sendMessage that sends raw to backend
-  const sendMessage = useCallback((message: OutgoingArduinoMessage) => {
+  const sendMessage = useCallback((message: IncomingArduinoMessage) => {
     sendMessageRaw(message);
   }, [sendMessageRaw]);
 
@@ -1021,57 +1028,8 @@ export default function ArduinoSimulator() {
     clearSerialOutput();
   }, [clearSerialOutput]);
 
-  const getStatusInfo = () => {
-    switch (compilationStatus) {
-      case "compiling":
-        return { text: "Compiling...", className: "status-compiling" };
-      case "success":
-        return {
-          text: isModified
-            ? "Code Changed"
-            : "Compilation with Arduino-CLI complete",
-          className: isModified ? "status-modified" : "status-success",
-        };
-      case "error":
-        return { text: "Compilation Error", className: "status-error" };
-      default:
-        return { text: "Ready", className: "status-ready" };
-    }
-  };
-
-  function getStatusClass(
-    status:
-      | "idle"
-      | "compiling"
-      | "success"
-      | "error"
-      | "ready"
-      | "running"
-      | "stopped",
-  ): string {
-    switch (status) {
-      case "compiling":
-        return "text-yellow-500";
-      case "success":
-        return "text-green-500";
-      case "error":
-        return "text-red-500";
-      case "idle":
-        return "text-gray-500 italic";
-      case "ready":
-        return "text-gray-700";
-      case "running":
-        return "text-green-600";
-      case "stopped":
-        return "text-gray-600";
-      default:
-        return "";
-    }
-  }
-
-  // Replace 'Compilation Successful' with 'Successful' in status label
-  const statusInfo = getStatusInfo();
-  void getStatusClass;
+  // Status info helper (imported from styles file)
+  const statusInfo = getStatusInfo(compilationStatus as "compiling" | "success" | "error" | "ready", isModified);
   void statusInfo;
   const simControlBusy =
     compileMutation.isPending ||
@@ -1089,8 +1047,7 @@ export default function ArduinoSimulator() {
     (simulationStatus !== "running" && simulationStatus !== "paused") ||
     stopMutation.isPending;
 
-  const buttonsClassName =
-    "hover:bg-green-600 hover:text-white transition-colors";
+  const buttonsClassName = CSS_CLASSES.BUTTON_HOVER;
   void stopDisabled;
   void buttonsClassName;
 
@@ -1242,48 +1199,32 @@ export default function ArduinoSimulator() {
 
   return (
     <div
-      className={`h-screen flex flex-col bg-background text-foreground relative ${showErrorGlitch ? "overflow-hidden" : ""}`}
+      className={`${CSS_CLASSES.MAIN_CONTAINER} ${showErrorGlitch ? "overflow-hidden" : ""}`}
     >
+      {/* Global Styles for Animations */}
+      <style>{ANIMATION_KEYFRAMES}</style>
+      
       {/* Glitch overlay when compilation fails */}
       {showErrorGlitch && (
-        <div className="pointer-events-none absolute inset-0 z-50">
+        <div className={`${CSS_CLASSES.OVERLAY_ROOT} ${CSS_CLASSES.OVERLAY_Z_HIGH}`}>
           {/* Single red border flash */}
-          <div className="absolute inset-0 flex items-stretch justify-stretch">
-            <div className="absolute inset-0">
-              <div className="absolute inset-0 border-0 pointer-events-none">
-                <div className="absolute inset-0 rounded-none border-4 border-red-500 opacity-0 animate-border-flash" />
+          <div className={CSS_CLASSES.INNER_FLEX}>
+            <div className={CSS_CLASSES.INNER_ABS}>
+              <div className={CSS_CLASSES.BORDER_CONTAINER}>
+                <div className={CSS_CLASSES.GLITCH_BORDER} />
               </div>
             </div>
           </div>
-          <style>{`
-            @keyframes border-flash {
-              0% { opacity: 0; transform: scale(1); }
-              10% { opacity: 1; }
-              60% { opacity: 0.7; }
-              100% { opacity: 0; }
-            }
-            .animate-border-flash { animation: border-flash 0.6s ease-out both; }
-          `}</style>
         </div>
       )}
       {/* Blue breathing border when backend is unreachable */}
       {!backendReachable && (
-        <div className="pointer-events-none absolute inset-0 z-40">
-          <div className="absolute inset-0">
-            <div className="absolute inset-0 border-0 pointer-events-none">
-              <div className="absolute inset-0 rounded-none border-2 border-blue-400 opacity-80 animate-breathe-blue" />
+        <div className={`${CSS_CLASSES.OVERLAY_ROOT} ${CSS_CLASSES.OVERLAY_Z_MEDIUM}`}>
+          <div className={CSS_CLASSES.INNER_ABS}>
+            <div className={CSS_CLASSES.BORDER_CONTAINER}>
+              <div className={CSS_CLASSES.UNREACHABLE_BORDER} />
             </div>
           </div>
-          <style>{`
-            @keyframes breathe-blue {
-              0% { box-shadow: 0 0 0 0 rgba(37,99,235,0.06); opacity: 0.6; }
-              25% { box-shadow: 0 0 18px 6px rgba(37,99,235,0.10); opacity: 0.85; }
-              50% { box-shadow: 0 0 36px 12px rgba(37,99,235,0.16); opacity: 1; }
-              75% { box-shadow: 0 0 18px 6px rgba(37,99,235,0.10); opacity: 0.85; }
-              100% { box-shadow: 0 0 0 0 rgba(37,99,235,0.06); opacity: 0.6; }
-            }
-            .animate-breathe-blue { animation: breathe-blue 6s ease-in-out infinite; }
-          `}</style>
         </div>
       )}
       {/* Header/Toolbar */}
