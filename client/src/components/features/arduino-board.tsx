@@ -221,9 +221,10 @@ export function ArduinoBoard({
       setDebugMode(false);
     }
 
-    const handler = (ev: any) => {
+    const handler = (ev: Event) => {
       try {
-        const newValue = Boolean(ev?.detail?.value);
+        const customEv = ev as CustomEvent<{ value: boolean }>;
+        const newValue = Boolean(customEv?.detail?.value);
         setDebugMode(newValue);
       } catch {
         // ignore
@@ -425,9 +426,9 @@ export function ArduinoBoard({
           }
           // Dashed frame if analogRead is used, solid otherwise
           if (show && usedAsAnalog) {
-            (frame as any).style.strokeDasharray = "3,2";
+            (frame as unknown as SVGGraphicsElement).style.strokeDasharray = "3,2";
           } else {
-            (frame as any).style.strokeDasharray = "";
+            (frame as unknown as SVGGraphicsElement).style.strokeDasharray = "";
           }
         }
 
@@ -443,8 +444,8 @@ export function ArduinoBoard({
 
         if (click) {
           const clickable = isInput || usedAsAnalog;
-          click.style.pointerEvents = clickable ? "auto" : "none";
-          click.style.cursor = clickable ? "pointer" : "default";
+          (click as unknown as HTMLElement).style.pointerEvents = clickable ? "auto" : "none";
+          (click as unknown as HTMLElement).style.cursor = clickable ? "pointer" : "default";
         }
       }
 
@@ -586,7 +587,7 @@ export function ArduinoBoard({
           if (!stateEl && !frameEl) continue;
           try {
             // Prefer the frame center (yellow square) if available, otherwise fall back to circle center
-            const bb = (frameEl ?? (stateEl as any)).getBBox();
+            const bb = (frameEl ?? (stateEl as unknown as SVGGraphicsElement)).getBBox();
             const cx = bb.x + bb.width / 2;
             const cy = bb.y + bb.height / 2;
             const state = pinStates.find((p) => p.pin === pin);
@@ -632,7 +633,7 @@ export function ArduinoBoard({
           );
           if (!el && !frameEl) continue;
           try {
-            const bb = (frameEl ?? (el as any)).getBBox();
+            const bb = (frameEl ?? (el as unknown as SVGGraphicsElement)).getBBox();
             const cx = bb.x + bb.width / 2;
             const cy = bb.y + bb.height / 2;
             const pinNumber = 14 + i;
@@ -724,7 +725,7 @@ export function ArduinoBoard({
       if (!found) continue;
 
       try {
-        const bbox = (found as any).getBBox();
+        const bbox = (found as unknown as SVGGraphicsElement).getBBox();
         const cx = bbox.x + bbox.width / 2;
         const cy = bbox.y + bbox.height / 2;
         const leftPct = (cx / VIEWBOX_WIDTH) * 100;
