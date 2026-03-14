@@ -15,6 +15,7 @@
 
 import { Logger } from "@shared/logger";
 import type { WSMessage } from "@shared/schema";
+import { isArduinoMessage } from "@/types/websocket";
 
 const logger = new Logger("WebSocketManager");
 
@@ -318,8 +319,13 @@ class WebSocketManager {
   
   private handleMessage(event: MessageEvent): void {
     try {
-      const data = JSON.parse(event.data) as WSMessage;
-      this.emit("message", data);
+      const raw = JSON.parse(event.data);
+      if (!isArduinoMessage(raw)) {
+        logger.error(`Invalid WebSocket message schema: ${JSON.stringify(raw)}`);
+        return;
+      }
+
+      this.emit("message", raw);
     } catch (error) {
       logger.error(`Invalid WebSocket message: ${error}. Raw: ${event.data}`);
     }

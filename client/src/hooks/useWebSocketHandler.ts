@@ -3,17 +3,29 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { getWebSocketManager } from "@/lib/websocket-manager";
 import { Logger } from "@shared/logger";
 import { buildGccCompilationErrorState } from "@/lib/compilation-error-state";
-import type { ParserMessage, IOPinRecord, WSMessage } from "@shared/schema";
+import type { ParserMessage, IOPinRecord, OutputLine, WSMessage } from "@shared/schema";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
-import type { PinStateType } from "@/hooks/use-simulation-store";
+import type { PinState, PinStateType } from "@/hooks/use-simulation-store";
+import type {
+  IncomingArduinoMessage,
+  SerialPayload,
+  PinStatePayload,
+  PinStateBatchPayload,
+  IoRegistryPayload,
+  SimulationStatusPayload,
+  CompilationStatusPayload,
+  CompilationErrorPayload,
+  SimTelemetryPayload,
+} from "@/types/websocket";
 
 const logger = new Logger("useWebSocketHandler");
 
-type OutputLine = { text: string; complete: boolean };
+// NOTE: We intentionally keep OutputLine as a shared type from @shared/schema to
+// avoid duplicating the definition across components.
 
 type UseWebSocketHandlerParams = {
   // read-only state used inside the handler
-  simulationStatus: string;
+  simulationStatus: "running" | "stopped" | "paused";
 
   // callbacks / setters from parent scope
   addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http") => void;
@@ -21,23 +33,23 @@ type UseWebSocketHandlerParams = {
   appendSerialOutput: (text: string) => void;
   appendRenderedText: (text: string) => void;
   setSerialOutput: React.Dispatch<React.SetStateAction<OutputLine[]>>;
-  setArduinoCliStatus: (v: any) => void;
+  setArduinoCliStatus: React.Dispatch<React.SetStateAction<"idle" | "compiling" | "success" | "error">>;
   setCliOutput: React.Dispatch<React.SetStateAction<string>>;
   setHasCompilationErrors: React.Dispatch<React.SetStateAction<boolean>>;
   setLastCompilationResult: React.Dispatch<React.SetStateAction<"success" | "error" | null>>;
   setShowCompilationOutput: React.Dispatch<React.SetStateAction<boolean>>;
   setParserPanelDismissed: React.Dispatch<React.SetStateAction<boolean>>;
   setActiveOutputTab: React.Dispatch<React.SetStateAction<"compiler" | "messages" | "registry" | "debug">>;
-  setCompilationStatus: React.Dispatch<React.SetStateAction<any>>;
-  setSimulationStatus: React.Dispatch<React.SetStateAction<any>>;
+  setCompilationStatus: React.Dispatch<React.SetStateAction<"ready" | "compiling" | "success" | "error">>;
+  setSimulationStatus: React.Dispatch<React.SetStateAction<"running" | "stopped" | "paused">>;
 
   stopRendering: () => void;
   pauseRendering: () => void;
   resumeRendering: () => void;
 
-  serialEventQueueRef: React.MutableRefObject<Array<{ payload: any; receivedAt: number }>>;
+  serialEventQueueRef: React.MutableRefObject<Array<{ payload: IncomingArduinoMessage; receivedAt: number }>>;
 
-  setPinStates: React.Dispatch<React.SetStateAction<any[]>>;
+  setPinStates: React.Dispatch<React.SetStateAction<PinState[]>>;
   setAnalogPinsUsed: React.Dispatch<React.SetStateAction<number[]>>;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   enqueuePinEvent: (pin: number, stateType: PinStateType, value: number) => void;
@@ -89,23 +101,23 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     sendMessage: sendMessageRaw,
   } = useWebSocket();
 
-  const sendMessage = useCallback((message: WSMessage | any) => {
-    sendMessageRaw(message as any);
+  const sendMessage = useCallback((message: WSMessage) => {
+    sendMessageRaw(message);
   }, [sendMessageRaw]);
 
   // ─── Message handlers: extracted to reduce nesting depth and cognitive complexity ───
 
   /** Handle sim_telemetry messages. */
-  const handleSimTelemetry = (message: any) => {
+  const handleSimTelemetry = (message: SimTelemetryPayload) => {
     if (simulationStatus === "running") {
-      telemetryStore.pushTelemetry((message as any).metrics);
+      telemetryStore.pushTelemetry(message.metrics);
     }
   };
 
   /** Handle serial_output messages. */
-  const handleSerialOutput = (message: any) => {
-    let text = ((message as any).data ?? "").toString();
-    const isComplete = (message as any).isComplete ?? true;
+  const handleSerialOutput = (message: SerialPayload) => {
+    let text = (message.data ?? "").toString();
+    const isComplete = message.isComplete ?? true;
 
     // Skip timing control messages
     if (text.includes("[[TIME_RESUMED:") || text.includes("[[TIME_FROZEN:")) {
@@ -164,19 +176,19 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   };
 
   /** Handle compilation_status messages. */
-  const handleCompilationStatus = (message: any) => {
-    if ((message as any).arduinoCliStatus !== undefined) {
-      setArduinoCliStatus((message as any).arduinoCliStatus);
+  const handleCompilationStatus = (message: CompilationStatusPayload) => {
+    if (message.arduinoCliStatus !== undefined) {
+      setArduinoCliStatus(message.arduinoCliStatus);
     }
-    if ((message as any).message) {
-      setCliOutput((message as any).message);
+    if (message.message) {
+      setCliOutput(message.message);
     }
   };
 
   /** Handle compilation_error messages. */
-  const handleCompilationError = (message: any) => {
-    logger.info(`[WS] GCC Compilation Error detected: ${JSON.stringify((message as any).data)}`);
-    const gccErrorState = buildGccCompilationErrorState((message as any).data);
+  const handleCompilationError = (message: CompilationErrorPayload) => {
+    logger.info(`[WS] GCC Compilation Error detected: ${JSON.stringify(message.data)}`);
+    const gccErrorState = buildGccCompilationErrorState(message.data);
     setCliOutput(gccErrorState.cliOutput);
     setHasCompilationErrors(gccErrorState.hasCompilationErrors);
     setLastCompilationResult(gccErrorState.lastCompilationResult);
@@ -188,8 +200,8 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   };
 
   /** Handle simulation_status messages. */
-  const handleSimulationStatus = (message: any) => {
-    const { status } = message as any;
+  const handleSimulationStatus = (message: SimulationStatusPayload) => {
+    const { status } = message;
     setSimulationStatus(status);
 
     if (status === "stopped") {
@@ -209,21 +221,20 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   };
 
   /** Handle pin_state messages. */
-  const handlePinState = (message: any) => {
-    const { pin, stateType, value } = message as any;
+  const handlePinState = (message: PinStatePayload) => {
+    const { pin, stateType, value } = message;
     enqueuePinEvent(pin, stateType, value);
   };
 
   /** Handle pin_state_batch messages. */
-  const handlePinStateBatch = (message: any) => {
-    const { states } = message as any as { states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }> };
-    for (const { pin, stateType, value } of states) {
+  const handlePinStateBatch = (message: PinStateBatchPayload) => {
+    for (const { pin, stateType, value } of message.states) {
       enqueuePinEvent(pin, stateType, value);
     }
   };
 
   /** Extract analog pins from IO registry operations. */
-  const extractAnalogPinsFromRegistry = (registry: any[]) => {
+  const extractAnalogPinsFromRegistry = (registry: IOPinRecord[]) => {
     const analogPins = new Set<number>();
     for (const record of registry) {
       const usedOps = record.usedAt || [];
@@ -254,7 +265,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   };
 
   /** Update pin states from IO registry. */
-  const updatePinStatesFromRegistry = (registry: any[]) => {
+  const updatePinStatesFromRegistry = (registry: IOPinRecord[]) => {
     setPinStates((prev) => {
       const newStates = [...prev];
 
@@ -280,8 +291,8 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   };
 
   /** Handle io_registry messages. */
-  const handleIoRegistry = (message: any) => {
-    const { registry, baudrate } = message as any;
+  const handleIoRegistry = (message: IoRegistryPayload) => {
+    const { registry, baudrate } = message;
     setIoRegistry(registry);
 
     if (typeof baudrate === "number" && baudrate > 0) {
@@ -324,7 +335,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   // Helper: single message processor (used by both the mount-consumer and
   // the reactive consumer). Extracted so initial queued messages are handled
   // the same way as runtime messages and to avoid duplicated logic.
-  const processMessage = (message: any) => {
+  const processMessage = (message: IncomingArduinoMessage) => {
     switch (message.type) {
       case "sim_telemetry":
         handleSimTelemetry(message);

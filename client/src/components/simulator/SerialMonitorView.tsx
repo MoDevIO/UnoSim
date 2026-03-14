@@ -19,11 +19,14 @@ const LoadingPlaceholder = () => (
 
 export type SerialViewMode = "monitor" | "plotter" | "both";
 
+import type { OutputLine } from "@shared/schema";
+import type { TelemetryMetrics } from "@/hooks/use-telemetry-store";
+
 export interface SerialMonitorViewProps {
-  renderedSerialOutput: any[]; // match actual type from useSerialIO
-  serialOutput: any[];
+  renderedSerialOutput: OutputLine[];
+  serialOutput: OutputLine[];
   isConnected: boolean;
-  simulationStatus: string;
+  simulationStatus: "running" | "paused" | "stopped";
   handleSerialSend: (message: string) => void;
   handleClearSerialOutput: () => void;
   showSerialMonitor: boolean;
@@ -37,7 +40,7 @@ export interface SerialMonitorViewProps {
   handleSerialInputKeyDown: (e: React.KeyboardEvent) => void;
   handleSerialInputSend: () => void;
   debugMode: boolean;
-  telemetryData: any;
+  telemetryData: { last: TelemetryMetrics | null } | null;
   baudRate: number;
 }
 

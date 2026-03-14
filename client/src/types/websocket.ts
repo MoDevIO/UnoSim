@@ -1,0 +1,35 @@
+import { wsMessageSchema, type WSMessage } from "@shared/schema";
+
+export type IncomingArduinoMessage = WSMessage;
+
+export type OutgoingArduinoMessage = Extract<
+  WSMessage,
+  |
+    { type: "serial_input" }
+    | { type: "start_simulation" }
+    | { type: "pause_simulation" }
+    | { type: "resume_simulation" }
+    | { type: "stop_simulation" }
+    | { type: "code_changed" }
+    | { type: "set_pin_value" }
+>;
+
+export type SerialPayload = Extract<WSMessage, { type: "serial_output" }>;
+export type SerialInputPayload = Extract<WSMessage, { type: "serial_input" }>;
+export type CompilationStatusPayload = Extract<WSMessage, { type: "compilation_status" }>;
+export type CompilationErrorPayload = Extract<WSMessage, { type: "compilation_error" }>;
+export type SimulationStatusPayload = Extract<WSMessage, { type: "simulation_status" }>;
+export type PinStatePayload = Extract<WSMessage, { type: "pin_state" }>;
+export type PinStateBatchPayload = Extract<WSMessage, { type: "pin_state_batch" }>;
+export type IoRegistryPayload = Extract<WSMessage, { type: "io_registry" }>;
+export type SimTelemetryPayload = Extract<WSMessage, { type: "sim_telemetry" }>;
+export type HandshakePayload = Extract<WSMessage, { type: "handshake" }>;
+
+/**
+ * Type-guard for incoming socket messages.
+ *
+ * Useful when parsing untyped JSON from the WebSocket.
+ */
+export function isArduinoMessage(value: unknown): value is WSMessage {
+  return wsMessageSchema.safeParse(value).success;
+}
