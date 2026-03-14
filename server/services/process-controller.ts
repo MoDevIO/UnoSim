@@ -88,7 +88,8 @@ export class ProcessController implements IProcessController {
     }
     // if tests have registered a global spawnInstances array, record it
     try {
-      const gs: any = (globalThis as any).spawnInstances;
+      // TypeScript guard: check that globalThis.spawnInstances exists and is an array
+      const gs = (globalThis as Record<string, unknown>).spawnInstances;
       if (Array.isArray(gs) && this.proc) {
         gs.push(this.proc);
       }
@@ -114,10 +115,13 @@ export class ProcessController implements IProcessController {
         this.stderrListeners.forEach((cb) => cb(d));
       });
 
-      const stderrStream = this.proc.stderr as any;
+      // Type-safe stream handling: verify the stream has our expected methods
+      const stderrStream = this.proc.stderr as unknown;
       const canUseReadline =
-        typeof stderrStream?.on === "function" &&
-        typeof stderrStream?.resume === "function";
+        stderrStream !== null && 
+        typeof stderrStream === 'object' &&
+        typeof (stderrStream as Record<string, unknown>).on === "function" &&
+        typeof (stderrStream as Record<string, unknown>).resume === "function";
 
       if (canUseReadline) {
         this.stderrReadline = createInterface({
@@ -208,7 +212,14 @@ export class ProcessController implements IProcessController {
       const pid = this.proc.pid;
       if (pid == null) {
         logger.debug(`ProcessController.kill: pid is null, sending ${signal}`);
-        this.proc.kill(signal as any);
+        // Safe cast: signal is known to be NodeJS.Signals | number, which is what kill accepts
+        if (typeof signal === 'string') {
+          this.proc.kill(signal as NodeJS.Signals);
+        } else if (typeof signal === 'number') {
+          this.proc.kill(signal);
+        } else {
+          this.proc.kill();
+        }
         return;
       }
 
@@ -219,7 +230,7 @@ export class ProcessController implements IProcessController {
       // receive the signal, not just the direct child.
       // On non-POSIX systems (Windows) fall back to the plain kill.
       const isGroupSignal = signal === "SIGSTOP" || signal === "SIGCONT";
-      if (isGroupSignal) {
+      if (isGroupSignal && typeof signal === 'string') {
         try {
           process.kill(-pid, signal as NodeJS.Signals);
           return;
@@ -230,7 +241,13 @@ export class ProcessController implements IProcessController {
       }
 
       try {
-        this.proc.kill(signal as any);
+        if (typeof signal === 'string') {
+          this.proc.kill(signal as NodeJS.Signals);
+        } else if (typeof signal === 'number') {
+          this.proc.kill(signal);
+        } else {
+          this.proc.kill();
+        }
       } catch (err) {
         logger.debug(`ProcessController.kill direct kill failed: ${err}`);
       }

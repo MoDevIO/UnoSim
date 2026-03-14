@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
 import type { SandboxRunner } from "../services/sandbox-runner";
-import type { IOPinRecord } from "@shared/schema";
+import type { IOPinRecord, WSMessage } from "@shared/schema";
 import type { Logger } from "@shared/logger";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import path from "path";
@@ -68,7 +68,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     }
   >();
 
-  function sendMessageToClient(ws: WebSocket, message: any) {
+  function sendMessageToClient(ws: WebSocket, message: WSMessage): void {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message));
     }
@@ -260,8 +260,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       baudrate: number | undefined,
       reason?: string,
     ) => {
-      const message: any = { type: "io_registry", registry, reason };
+      const message: Extract<WSMessage, { type: "io_registry" }> = { type: "io_registry", registry };
       if (baudrate !== undefined) message.baudrate = baudrate;
+      if (reason !== undefined) message.reason = reason;
       sendMessageToClient(ws, message);
       logger.info(
         `[io_registry] ${registry.length} pins${baudrate !== undefined ? `, baud=${baudrate}` : ""}`,
@@ -291,7 +292,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       })();
     };
 
-    const onTelemetry = (metrics: any) =>
+    const onTelemetry = (metrics: { timestamp: number; intendedPinChangesPerSecond: number; actualPinChangesPerSecond: number; droppedPinChangesPerSecond: number; batchesPerSecond: number; avgStatesPerBatch: number; serialOutputPerSecond: number; serialBytesPerSecond: number; serialBytesTotal: number; serialIntendedBytesPerSecond: number; serialDroppedBytesPerSecond: number }) =>
       sendMessageToClient(ws, { type: "sim_telemetry", metrics });
 
     const onPinStateBatch = (batch: {
@@ -321,7 +322,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
    */
   async function handleStartSimulation(
     ws: WebSocket,
-    data: any,
+    data: Extract<WSMessage, { type: "start_simulation" }>,
     clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
   ): Promise<void> {
     // Rate limiting check
@@ -400,7 +401,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       const payload = {
         code: lastCompiledCode,
         timeoutSec: timeoutValue,
-        context: { sessionId: clientState.testRunId, label: data.label || "default-ws" },
+        context: { sessionId: clientState.testRunId, label: "default-ws" },
       };
       console.info("[B1-Evidence] Payload:", JSON.stringify(payload, null, 2));
     } catch (err) {
@@ -422,7 +423,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       onIORegistry: callbacks.onIORegistry,
       onTelemetry: callbacks.onTelemetry,
       onPinStateBatch: callbacks.onPinStateBatch,
-      context: { sessionId: clientState.testRunId, label: data.label || "default-ws" },
+      context: { sessionId: clientState.testRunId, label: "default-ws" },
     });
   }
 
@@ -494,7 +495,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
    */
   function handleSerialInput(
     _ws: WebSocket,
-    data: any,
+    data: Extract<WSMessage, { type: "serial_input" }>,
     clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
   ): void {
     if (clientState?.runner && clientState?.isRunning && !clientState.isPaused) {
@@ -507,7 +508,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
    */
   function handleSetPinValue(
     _ws: WebSocket,
-    data: any,
+    data: Extract<WSMessage, { type: "set_pin_value" }>,
     clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
   ): void {
     if (clientState?.runner && (clientState.isRunning || clientState.isPaused)) {

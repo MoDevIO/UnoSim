@@ -26,13 +26,13 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { useCompilation } from "@/hooks/use-compilation";
 import { useSimulation } from "@/hooks/use-simulation";
+import { useSimulatorActions } from "@/hooks/useSimulatorActions";
 import { usePinState } from "@/hooks/use-pin-state";
 import { useToast } from "@/hooks/use-toast";
 import { useBackendHealth } from "@/hooks/use-backend-health";
 import { useMobileLayout } from "@/hooks/use-mobile-layout";
 import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useDebugMode } from "@/hooks/use-debug-mode-store";
-import { useSketchTabs } from "@/hooks/use-sketch-tabs";
 import { useSerialIO } from "@/hooks/use-serial-io";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
@@ -40,6 +40,7 @@ import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { useFileManager } from "@/hooks/use-file-manager";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
+import { useFileSystem } from "@/hooks/useFileSystem";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -76,15 +77,25 @@ import { Logger } from "@shared/logger";
 const logger = new Logger("ArduinoSimulator");
 
 export default function ArduinoSimulator() {
-  const [currentSketch, setCurrentSketch] = useState<Sketch | null>(null);
-  const [code, setCode] = useState("");
   const editorRef = useRef<{
     getValue: () => string;
     insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
   } | null>(null);
 
-  // Sketch tabs management
-  const { tabs, setTabs, activeTabId, setActiveTabId } = useSketchTabs();
+  // File system orchestration (currentSketch, code, isModified state)
+  const {
+    code,
+    setCode,
+    isModified,
+    setIsModified,
+    tabs,
+    setTabs,
+    activeTabId,
+    setActiveTabId,
+    initializeDefaultSketch,
+  } = useFileSystem({ sketches: undefined });
+
+  // Sketch tabs management is now integrated via useFileSystem hook
 
   // CHANGED: Store OutputLine objects instead of plain strings
   const {
@@ -140,7 +151,6 @@ export default function ArduinoSimulator() {
       }
     },
   );
-  const [isModified, setIsModified] = useState(false);
 
   const {
     pinStates,
@@ -348,11 +358,12 @@ export default function ArduinoSimulator() {
     stopMutation,
     pauseMutation,
     resumeMutation,
-    handleStop,
-    handlePause,
-    handleResume,
-    handleReset,
+    handleStop: simHandleStop,
+    handlePause: simHandlePause,
+    handleResume: simHandleResume,
+    handleReset: simHandleReset,
     suppressAutoStopOnce,
+    handleStart: simHandleStart,
   } = useSimulation({
     ensureBackendConnected,
     sendMessage,
@@ -377,6 +388,27 @@ export default function ArduinoSimulator() {
     hasCompilationErrors,
     startSimulationRef,
   });
+
+  // Centralize simulator actions (start, stop, pause, resume, reset, compile & start)
+  // This extracts control logic into a reusable hook for better testability and modularity
+  const {
+    handleStart: _handleStart, // reserved for future use
+    handleStop,
+    handlePause,
+    handleResume,
+    handleReset,
+    handleCompileAndStart: actionsCompileAndStart,
+  } = useSimulatorActions({
+    onStart: simHandleStart,
+    onStop: simHandleStop,
+    onPause: simHandlePause,
+    onResume: simHandleResume,
+    onReset: simHandleReset,
+    onCompileAndStart: handleCompileAndStart,
+  });
+
+  // Use the memoized compile-and-start from actions for consistent behavior
+  const compileAndStartAction = actionsCompileAndStart;
 
 
 
@@ -448,25 +480,10 @@ export default function ArduinoSimulator() {
     }
   }, [serialOutput]);
 
-  // Load default sketch on mount
+  // File system initialization (default sketch loading)
   useEffect(() => {
-    if (sketches && sketches.length > 0 && !currentSketch) {
-      const defaultSketch = sketches[0];
-      setCurrentSketch(defaultSketch);
-      setCode(defaultSketch.content);
-
-      // Initialize tabs with the default sketch
-      const defaultTabId = "default-sketch";
-      setTabs([
-        {
-          id: defaultTabId,
-          name: "sketch.ino",
-          content: defaultSketch.content,
-        },
-      ]);
-      setActiveTabId(defaultTabId);
-    }
-  }, [sketches]);
+    initializeDefaultSketch(sketches);
+  }, [sketches, initializeDefaultSketch]);
 
   // Persist code changes to the active tab
   useEffect(() => {
@@ -477,7 +494,7 @@ export default function ArduinoSimulator() {
         ),
       );
     }
-  }, [code, activeTabId]);
+  }, [code, activeTabId, setTabs]);
 
   // NEW: Keyboard shortcuts (only for non-editor actions)
   useEffect(() => {
@@ -1237,7 +1254,7 @@ export default function ArduinoSimulator() {
         isStopping={stopMutation.isPending}
         isPausing={pauseMutation.isPending}
         isResuming={resumeMutation.isPending}
-        onSimulate={handleCompileAndStart}
+        onSimulate={compileAndStartAction}
         onStop={handleStop}
         onPause={handlePause}
         onResume={handleResume}

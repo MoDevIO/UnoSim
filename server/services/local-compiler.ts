@@ -7,8 +7,21 @@
 
 import { chmod, mkdir, access, rm, stat } from "fs/promises";
 import { dirname, join } from "path";
+import { ChildProcess } from "child_process";
 import { Logger } from "@shared/logger";
 import { ProcessExecutor } from "./process-executor";
+
+/**
+ * Custom error type for compiler-specific failures
+ */
+class CompilerError extends Error {
+  readonly isCompilerError = true;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "CompilerError";
+  }
+}
 
 export class LocalCompiler {
   private logger = new Logger("LocalCompiler");
@@ -31,7 +44,7 @@ export class LocalCompiler {
    * 
    * @param sketchFile - Path to the .cpp file
    * @param exeFile - Path for the output executable
-   * @throws Error if compilation fails or times out
+   * @throws CompilerError if compilation fails
    */
   private static readonly CLI_CACHE_PATH = join(process.cwd(), "cache", "cores", "uno-cli-feedback.a");
 
@@ -39,7 +52,7 @@ export class LocalCompiler {
     sketchFile: string,
     exeFile: string,
     coreArchive?: string,
-    onProcess?: (proc: any) => void,
+    onProcess?: (proc: ChildProcess) => void,
   ): Promise<void> {
     const usingTestEnv = process.env.NODE_ENV === "test";
     // detect if we're running in a coverage-instrumented process – Vitest/v8
@@ -56,7 +69,7 @@ export class LocalCompiler {
 
     // In test environments with mocked spawn, run a lightweight fake compile
     const { spawn } = await import("child_process");
-    const spawnIsMock = (spawn as any)?.mock !== undefined;
+    const spawnIsMock = (spawn as unknown as { mock?: object })?.mock !== undefined;
 
     if (usingTestEnv && spawnIsMock) {
       // Use ProcessExecutor to handle mocked spawn in tests
@@ -66,8 +79,7 @@ export class LocalCompiler {
       });
 
       if (result.error) {
-        const err: any = new Error(result.stderr || `Compiler exit ${result.code}`);
-        err.isCompilerError = true;
+        const err = new CompilerError(result.stderr || `Compiler exit ${result.code}`);
         throw err;
       }
 
@@ -260,7 +272,7 @@ export class LocalCompiler {
         return; // Success on this attempt
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
-        const isCompilerError = (lastError as any).isCompilerError === true;
+        const isCompilerError = lastError instanceof CompilerError;
         if (isCompilerError || attempt >= 2) {
           break;
         }
@@ -277,7 +289,7 @@ export class LocalCompiler {
   /**
    * Internal method to run the actual g++ compilation
    */
-  private async runCompilation(sketchFile: string, exeFile: string, attempt: number, coreArchive?: string, onProcess?: (proc: any) => void): Promise<void> {
+  private async runCompilation(sketchFile: string, exeFile: string, attempt: number, coreArchive?: string, onProcess?: (proc: ChildProcess) => void): Promise<void> {
     this.logger.debug("[LocalCompiler] runCompilation spawning g++");
 
     // Verify output directory exists
@@ -321,9 +333,7 @@ export class LocalCompiler {
       const cleanedError = this.cleanCompilerErrors(result.stderr || "");
       const errorMsg = `Compiler error (Code ${result.code}, attempt ${attempt}): ${cleanedError}`;
       this.logger.error(errorMsg);
-      const compileErr = new Error(cleanedError);
-      (compileErr as any).isCompilerError = true;
-      throw compileErr;
+      throw new CompilerError(cleanedError);
     }
 
     this.logger.info(`Compilation successful: ${exeFile}`);
