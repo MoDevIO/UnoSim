@@ -1,29 +1,21 @@
 /**
  * Shared Arduino Mock code for Compiler and Runner
- * * Differences between Compiler and Runner:
- * - Compiler: Only needs type definitions for syntax check (no implementation needed)
- * - Runner: Needs working implementations for real execution
- * * This file contains the complete Runner version that also works for Compiler.
- * * --- UPDATES ---
- * 1. String class: Added concat(char c) and a constructor for char to support char appending.
- * 2. SerialClass: Added explicit operator bool() to fix 'while (!Serial)' error.
- * 3. SerialClass: Implemented readStringUntil(char terminator).
- * 4. SerialClass: Added print/println overloads with decimals parameter for float/double.
- * 5. SerialClass: Added parseFloat(), readString(), setTimeout(), write(buf,len), readBytes(), readBytesUntil()
- * 6. SerialClass: Added print/println with format (DEC, HEX, OCT, BIN)
  * 
- * NOTE: Etappe 1 Modularisierung
- * - Stateless type definitions extracted to arduino-types.ts
- * - ARDUINO_TYPES_CODE exported separately for future consolidation (Etappe 2)
- * - Current code maintains String, IOOperation, IOPinRecord definitions inline
- *   for backward compatibility and injection safety
+ * Etappe 2: Template Assembly
+ * - Imports modular template strings (constants, String class, registry)
+ * - Assembles ARDUINO_MOCK_CODE using proper string concatenation
+ * - Maintains backward compatibility while improving modularity
  */
 
-// Import type definitions for future consolidation (Etappe 2: Template string combining)
-// import { ARDUINO_TYPES_CODE } from "./arduino-types";
+import {
+  ARDUINO_CONSTANTS_CODE,
+  ARDUINO_STRING_CLASS,
+  ARDUINO_REGISTRY_STRUCTURES,
+  ARDUINO_PIN_STATE_INIT,
+} from './arduino-mock/index';
 
-// ARDUINO_MOCK_LINES not used anywhere, remove
-
+// Assemble the complete ARDUINO_MOCK_CODE from modular template pieces
+// Uses string concatenation rather than template interpolation
 export const ARDUINO_MOCK_CODE = `
 // Simulated Arduino environment
 // PATCH: version bump comment
@@ -51,46 +43,7 @@ export const ARDUINO_MOCK_CODE = `
 #include <vector>    // For I/O Registry operations
 using namespace std;
 
-// Arduino specific types
-typedef bool boolean;
-#define byte uint8_t
-
-// Pin modes and states
-#define HIGH 0x1
-#define LOW  0x0
-#define INPUT 0x0
-#define OUTPUT 0x1
-#define INPUT_PULLUP 0x2
-#define LED_BUILTIN 13
-
-// Analog pins
-#define A0 14
-#define A1 15
-#define A2 16
-#define A3 17
-#define A4 18
-#define A5 19
-
-// Math constants
-#define PI 3.1415926535897932384626433832795
-#define HALF_PI 1.5707963267948966192313216916398
-#define TWO_PI 6.283185307179586476925286766559
-#define DEG_TO_RAD 0.017453292519943295769236907684886
-#define RAD_TO_DEG 57.295779513082320876798154814105
-
-// Number format constants for print()
-#define DEC 10
-#define HEX 16
-#define OCT 8
-#define BIN 2
-
-// Math functions
-#define abs(x) ((x)>0?(x):-(x))
-#define min(a,b) ((a)<(b)?(a):(b))
-#define max(a,b) ((a)>(b)?(a):(b))
-#define sq(x) ((x)*(x))
-#define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
-#define map(value, fromLow, fromHigh, toLow, toHigh) (toLow + (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow))
+` + ARDUINO_CONSTANTS_CODE + `
 
 // Random number generator (for runner)
 static std::mt19937 rng(std::time(nullptr));
@@ -113,82 +66,11 @@ static unsigned long totalPausedTimeMs = 0;
 // Forward declaration
 void checkStdinForPinCommands();
 
-// Arduino String class
-class String {
-private:
-    std::string str;
-public:
-    String() {}
-    String(const char* s) : str(s) {}
-    String(std::string s) : str(s) {}
-    String(char c) : str(1, c) {} // New: Constructor from char
-    String(int i) : str(std::to_string(i)) {}
-    String(long l) : str(std::to_string(l)) {}
-    String(float f) : str(std::to_string(f)) {}
-    String(double d) : str(std::to_string(d)) {}
-    
-    const char* c_str() const { return str.c_str(); }
-    int length() const { return str.length(); }
-    char charAt(int i) const { return (size_t)i < str.length() ? str[i] : 0; }
-    void concat(String s) { str += s.str; }
-    void concat(const char* s) { str += s; }
-    void concat(int i) { str += std::to_string(i); }
-    void concat(char c) { str += c; } // New: Concat char
-    int indexOf(char c) const { return str.find(c); }
-    int indexOf(String s) const { return str.find(s.str); }
-    String substring(int start) const { return String(str.substr(start).c_str()); }
-    String substring(int start, int end) const { return String(str.substr(start, end-start).c_str()); }
-    void replace(String from, String to) {
-        size_t pos = 0;
-        while ((pos = str.find(from.str, pos)) != std::string::npos) {
-            str.replace(pos, from.str.length(), to.str);
-            pos += to.str.length();
-        }
-    }
-    void toLowerCase() { for(auto& c : str) c = std::tolower(c); }
-    void toUpperCase() { for(auto& c : str) c = std::toupper(c); }
-    void trim() {
-        str.erase(0, str.find_first_not_of(" \\t\\n\\r"));
-        str.erase(str.find_last_not_of(" \\t\\n\\r") + 1);
-    }
-    int toInt() const { return std::stoi(str); }
-    float toFloat() const { return std::stof(str); }
-    
-    String operator+(const String& other) const { return String((str + other.str).c_str()); }
-    String operator+(const char* other) const { return String((str + other).c_str()); }
-    bool operator==(const String& other) const { return str == other.str; }
-    
-    friend std::ostream& operator<<(std::ostream& os, const String& s) {
-        return os << s.str;
-    }
-};
+` + ARDUINO_STRING_CLASS + `
 
-// Pin state tracking for visualization
-static int pinModes[20] = {0};   // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
-static std::atomic<int> pinValues[20];  // Thread-safe: Digital 0=LOW, 1=HIGH
+` + ARDUINO_PIN_STATE_INIT + `
 
-// Initialize atomic array (called before main)
-struct PinValuesInitializer {
-    PinValuesInitializer() {
-        for (int i = 0; i < 20; i++) {
-            pinValues[i].store(0);
-        }
-    }
-} pinValuesInit;
-
-// Runtime I/O Registry tracking
-struct IOOperation {
-    int line;
-    std::string operation;
-};
-
-struct IOPinRecord {
-    std::string pin;
-    bool defined;
-    int definedLine;
-    int pinMode;  // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
-    std::vector<IOOperation> operations;
-};
+` + ARDUINO_REGISTRY_STRUCTURES + `
 
 static std::map<int, IOPinRecord> ioRegistry;
 
