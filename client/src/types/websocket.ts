@@ -71,7 +71,10 @@ export function isHexResult(value: unknown): value is HexResult {
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof (value as any).success === "boolean"
+    (() => {
+      const maybe = value as { success?: unknown };
+      return typeof maybe.success === "boolean";
+    })()
   );
 }
 
@@ -79,6 +82,9 @@ export function isCompileResult(value: unknown): value is CompileResult {
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof (value as any).success === "boolean"
+    (() => {
+      const maybe = value as { success?: unknown };
+      return typeof maybe.success === "boolean";
+    })()
   );
 }

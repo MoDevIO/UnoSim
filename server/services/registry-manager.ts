@@ -40,13 +40,14 @@ interface RegistryManagerConfig {
  * Helper to clean up pin record by removing line: 0 from usedAt/definedAt
  */
 function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
-  const cleaned = { ...pin };
-  
+  // Use a mutable copy so we can delete optional fields safely
+  const cleaned: Partial<IOPinRecord> = { ...pin };
+
   // Remove definedAt if line is 0
   if (cleaned.definedAt?.line === 0) {
-    delete (cleaned as any).definedAt;
+    delete cleaned.definedAt;
   }
-  
+
   // Filter out usedAt entries with line: 0 that have no operation (true placeholders).
   // Runtime entries always have line: 0 but carry a non-empty operation string
   // (e.g. "pinMode:0") – those must be preserved so the client can detect conflicts.
@@ -56,11 +57,11 @@ function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
     );
     // Remove usedAt entirely if empty
     if (cleaned.usedAt.length === 0) {
-      delete (cleaned as any).usedAt;
+      delete cleaned.usedAt;
     }
   }
-  
-  return cleaned;
+
+  return cleaned as IOPinRecord;
 }
 
 function mergeUsedAtEntries(

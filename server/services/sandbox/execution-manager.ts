@@ -41,10 +41,50 @@ export const SANDBOX_CONFIG = {
 };
 
 // Type aliases for callbacks
+// Output / error / pin state callbacks (from sandbox runner to consumers)
 type OutputCallback = (line: string, isComplete?: boolean) => void;
 type PinStateCallback = (pin: number, type: "mode" | "value" | "pwm", value: number) => void;
 type ErrorCallback = (line: string) => void;
-type TelemetryCallback = (metrics: any) => void;
+
+export interface TelemetryMetrics {
+  timestamp: number;
+  intendedPinChangesPerSecond: number;
+  actualPinChangesPerSecond: number;
+  droppedPinChangesPerSecond: number;
+  batchesPerSecond: number;
+  avgStatesPerBatch: number;
+  serialOutputPerSecond: number;
+  serialBytesPerSecond: number;
+  serialBytesTotal: number;
+  serialIntendedBytesPerSecond: number;
+  serialDroppedBytesPerSecond: number;
+}
+
+type TelemetryCallback = (metrics: TelemetryMetrics) => void;
+
+type ProcessMessage =
+  | { type: "pinState"; data: { pin: number; stateType: "mode" | "value" | "pwm"; value: number } }
+  | { type: "output"; data: { line: string; isComplete?: boolean } }
+  | { type: "error"; data: { line: string } };
+
+type ParsedStderrOutput = ReturnType<InstanceType<typeof StderrParser>["parseStderrLine"]>;
+
+type DockerState = {
+  isCompilePhase: { value: boolean };
+  compileErrorBuffer: { value: string };
+  compileSuccessSent: { value: boolean };
+  totalOutputBytes: number;
+  processStartTime: number | null;
+  stderrFallbackBuffer: string;
+  flushTimer: NodeJS.Timeout | null;
+};
+
+interface ExecutionCallbacks {
+  onOutput: OutputCallback;
+  onError: ErrorCallback;
+  onPinState?: PinStateCallback;
+}
+
 type IORegistryCallback = (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => void;
 
 // Nullable type aliases
@@ -55,7 +95,7 @@ export interface ExecutionState {
   outputBufferIndex: number;
   isSendingOutput: boolean;
   totalOutputBytes: number;
-  messageQueue: Array<{ type: string; data: any }>;
+  messageQueue: ProcessMessage[];
   pauseStartTime: Nullable<number>;
   totalPausedTime: number;
   isCompiling: boolean;
@@ -321,7 +361,7 @@ export class ExecutionManager {
    */
   private async setupSimulationProcess(
     files: { sketchDir: string; sketchFile: string; exeFile: string },
-    callbacks: any,
+    callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
   ): Promise<void> {
@@ -342,7 +382,7 @@ export class ExecutionManager {
    */
   private async runDocker(
     files: { sketchDir: string; sketchFile: string; exeFile: string },
-    callbacks: any,
+    callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
     executionTimeout: number,
@@ -366,7 +406,7 @@ export class ExecutionManager {
       state.processStartTime = Date.now();
       this.transitionTo(state, SimulationState.RUNNING);
 
-      const dockerState = {
+      const dockerState: DockerState = {
         isCompilePhase: { value: true },
         compileErrorBuffer: { value: "" },
         compileSuccessSent: { value: false },
@@ -378,7 +418,7 @@ export class ExecutionManager {
 
       const dockerCallbacks = {
         onOutput: callbacks.onOutput,
-        onPinState: callbacks.onPinState,
+        onPinState: callbacks.onPinState ?? (() => {}),
         onError: callbacks.onError,
       };
 
@@ -394,9 +434,9 @@ export class ExecutionManager {
           state.flushTimer = null;
         }
 
-        const isCompilePhase = (dockerState as any).isCompilePhase?.value ?? false;
-        if (code !== 0 && isCompilePhase && (dockerState as any).compileErrorBuffer?.value && onCompileError) {
-          onCompileError(this.cleanCompilerErrors((dockerState as any).compileErrorBuffer.value));
+        const isCompilePhase = dockerState.isCompilePhase?.value ?? false;
+        if (code !== 0 && isCompilePhase && dockerState.compileErrorBuffer.value && onCompileError) {
+          onCompileError(this.cleanCompilerErrors(dockerState.compileErrorBuffer.value));
         } else if (code === 0 && onCompileSuccess) {
           onCompileSuccess();
         }
@@ -430,7 +470,7 @@ export class ExecutionManager {
    */
   private async runLocal(
     files: { sketchDir: string; sketchFile: string; exeFile: string },
-    callbacks: any,
+    callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
     executionTimeout: number,
@@ -467,7 +507,7 @@ export class ExecutionManager {
    * Setup event handlers for local process
    */
   private setupLocalHandlers(
-    callbacks: any,
+    callbacks: ExecutionCallbacks,
     onExit?: (code: number | null) => void,
     executionTimeout?: number,
     state?: ExecutionState,
@@ -617,7 +657,7 @@ export class ExecutionManager {
    * Delegate parsed line to StreamHandler
    */
   private delegateParsedLineToStreamHandler(
-    parsed: any,
+    parsed: ParsedStderrOutput,
     onPinState?: (pin: number, type: "mode" | "value" | "pwm", value: number) => void,
     onOutput?: (line: string, isComplete?: boolean) => void,
     onError?: (line: string) => void,

@@ -51,6 +51,7 @@ import type {
   ParserMessage,
   IOPinRecord,
 } from "@shared/schema";
+import type { IncomingArduinoMessage, OutgoingArduinoMessage } from "@/types/websocket";
 import { parseStaticIORegistry } from "@shared/io-registry-parser";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import { isMac } from "@/lib/platform";
@@ -70,7 +71,10 @@ const logger = new Logger("ArduinoSimulator");
 export default function ArduinoSimulator() {
   const [currentSketch, setCurrentSketch] = useState<Sketch | null>(null);
   const [code, setCode] = useState("");
-  const editorRef = useRef<{ getValue: () => string } | null>(null);
+  const editorRef = useRef<{
+    getValue: () => string;
+    insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
+  } | null>(null);
 
   // Sketch tabs management
   const { tabs, setTabs, activeTabId, setActiveTabId } = useSketchTabs();
@@ -202,7 +206,7 @@ export default function ArduinoSimulator() {
   const [rxActivity, setRxActivity] = useState(0);
   // Queue for incoming serial_events - use ref to avoid React batching issues
   const serialEventQueueRef = useRef<
-    Array<{ payload: any; receivedAt: number }>
+    Array<{ payload: IncomingArduinoMessage; receivedAt: number }>
   >([]);
   // Mobile layout (responsive design and panel management)
   const { isMobile, mobilePanel, setMobilePanel, headerHeight, overlayZ } = useMobileLayout();
@@ -261,7 +265,7 @@ export default function ArduinoSimulator() {
   void lastMessage;
 
   // Wrapper for sendMessage that sends raw to backend
-  const sendMessage = useCallback((message: any) => {
+  const sendMessage = useCallback((message: OutgoingArduinoMessage) => {
     sendMessageRaw(message);
   }, [sendMessageRaw]);
 
@@ -610,19 +614,19 @@ export default function ArduinoSimulator() {
       const newStates = [...prev];
 
       // Apply recorded pinMode(...) declarations (including analog-numbered pins)
-      for (const [pinStr, mode] of Object.entries(detectedPinModes)) {
+      for (const [pinStr, mode] of Object.entries(detectedPinModes) as [string, "INPUT" | "OUTPUT" | "INPUT_PULLUP"][]) {
         const pin = Number(pinStr);
         if (Number.isNaN(pin)) continue;
         const exists = newStates.find((p) => p.pin === pin);
         if (!exists) {
           newStates.push({
             pin,
-            mode: mode as any,
+            mode,
             value: 0,
             type: pin >= 14 && pin <= 19 ? "digital" : "digital",
           });
         } else {
-          exists.mode = mode as any;
+          exists.mode = mode;
           if (pin >= 14 && pin <= 19) exists.type = "digital";
         }
       }
@@ -649,17 +653,17 @@ export default function ArduinoSimulator() {
 
     setPinStates((prev) => {
       const newStates = [...prev];
-      for (const [pinStr, mode] of Object.entries(detectedPinModes)) {
+      for (const [pinStr, mode] of Object.entries(detectedPinModes) as [string, "INPUT" | "OUTPUT" | "INPUT_PULLUP"][]) {
         const pin = Number(pinStr);
         if (Number.isNaN(pin)) continue;
         const pinState = newStates.find((p) => p.pin === pin);
         if (pinState) {
-          pinState.mode = mode as any;
+          pinState.mode = mode;
         } else {
           // CREATE pin if it doesn't exist yet (io_registry might not have detected it)
           newStates.push({
             pin,
-            mode: mode as any,
+            mode,
             value: 0,
             type: pin >= 14 && pin <= 19 ? "digital" : "digital",
           });
@@ -887,12 +891,10 @@ export default function ArduinoSimulator() {
   }, []);
 
   const handleInsertSuggestion = useCallback((suggestion: string, line?: number) => {
-    if (
-      editorRef.current &&
-      typeof (editorRef.current as any).insertSuggestionSmartly === "function"
-    ) {
+    const insertSmartly = editorRef.current?.insertSuggestionSmartly;
+    if (insertSmartly) {
       suppressAutoStopOnce();
-      (editorRef.current as any).insertSuggestionSmartly(suggestion, line);
+      insertSmartly(suggestion, line);
       toast({
         title: "Suggestion inserted",
         description: "Code added to the appropriate location",
@@ -1458,7 +1460,7 @@ export default function ArduinoSimulator() {
                             debugMessagesContainerRef={debugMessagesContainerRef}
 
                             onTabChange={handleOutputTabChange}
-                            openOutputPanel={(tab) => openOutputPanel(tab as any)}
+                            openOutputPanel={(tab: "compiler" | "messages" | "registry" | "debug") => openOutputPanel(tab)}
                             onClose={handleOutputCloseOrMinimize}
 
                             onClearCompilationOutput={handleClearCompilationOutput}

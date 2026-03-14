@@ -3,11 +3,11 @@
  * Testet, dass der lineBuffer korrekt funktioniert
  */
 
+import { ARDUINO_MOCK_CODE } from "../../server/services/arduino-mock";
+
 describe("Serial.print() Buffering Behavior", () => {
   it("should verify the arduino-mock.ts contains flush() in delay()", () => {
-    const fs = require("fs");
-    const mockCode = fs.readFileSync("./server/services/arduino-mock.ts", "utf8");
-
+    const mockCode = ARDUINO_MOCK_CODE;
     // Verify that delay() calls Serial.flush()
     expect(mockCode).toContain("Serial.flush()");
     expect(mockCode).toContain("void delay(unsigned long ms)");
@@ -17,7 +17,8 @@ describe("Serial.print() Buffering Behavior", () => {
 
     // Verify that serialWrite buffers until newline
     expect(mockCode).toContain("lineBuffer += c");
-    expect(mockCode).toContain("if (c == '\\\\n')");
+    // The mock should flush on newline; allow either '\n' or '\\n' encoding.
+    expect(mockCode).toMatch(/if \(c == '\\?n'\)/);
   });
 
   it("should verify SERIAL_EVENT encoding preserves \\r", () => {
