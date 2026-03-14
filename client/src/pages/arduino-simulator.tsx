@@ -1,26 +1,8 @@
 //arduino-simulator.tsx
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  lazy,
-  Suspense,
-} from "react";
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Terminal,
-  ChevronsDown,
-  BarChart,
-  Columns,
-  Monitor,
-  Trash2,
-} from "lucide-react";
-import { InputGroup } from "@/components/ui/input-group";
-import { clsx } from "clsx";
-import { Button } from "@/components/ui/button";
 
 // Lazy load CodeEditor to defer monaco-editor (~500KB) until needed
 const CodeEditor = lazy(() =>
@@ -29,6 +11,7 @@ const CodeEditor = lazy(() =>
   })),
 );
 import { SerialMonitor } from "@/components/features/serial-monitor";
+import { SerialMonitorView } from "@/components/simulator/SerialMonitorView";
 import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
@@ -73,12 +56,6 @@ import { parseStaticIORegistry } from "@shared/io-registry-parser";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import { isMac } from "@/lib/platform";
 
-// Lazy load SerialPlotter to defer recharts (~400KB) until needed
-const SerialPlotter = lazy(() =>
-  import("@/components/features/serial-plotter").then((m) => ({
-    default: m.SerialPlotter,
-  })),
-);
 
 // Loading placeholder for lazy components
 const LoadingPlaceholder = () => (
@@ -1514,198 +1491,27 @@ export default function ArduinoSimulator() {
             <ResizablePanel defaultSize={50} minSize={20} id="output-panel">
               <ResizablePanelGroup direction="vertical" id="output-layout">
                 <ResizablePanel defaultSize={50} minSize={20} id="serial-panel">
-                  <div className="h-full flex flex-col">
-                    <div className="flex-1 min-h-0">
-                      {/* Serial area: Unified container with a single static header */}
-                      <div className="h-full flex flex-col">
-                        {/* Static Header for Serial Panel (Always visible regardless of Monitor/Plotter view) */}
-                        <div className="flex items-center justify-between px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b border-border flex-shrink-0">
-                          <div className="flex items-center gap-2">
-                            <Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} />
-                            <span className="font-semibold text-xs tracking-wide uppercase text-muted-foreground/80">Serial Output</span>
-                            {debugMode && (simulationStatus === "running" || simulationStatus === "paused") && telemetryData.last ? (
-                              <div className="flex items-center gap-3 ml-2 border-l border-muted-foreground/20 pl-4">
-                                <div className="flex flex-col leading-tight">
-                                  <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Events</span>
-                                  <span className="text-[11px] font-mono text-cyan-400">
-                                    {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(0)}/s
-                                  </span>
-                                </div>
-                                <div className="flex flex-col leading-tight">
-                                  <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Baud</span>
-                                  <span className="text-[11px] font-mono text-cyan-400">
-                                    {baudRate}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-                              onClick={cycleSerialViewMode}
-                              data-testid="button-serial-view-toggle"
-                              aria-label={
-                                serialViewMode === "monitor"
-                                  ? "Monitor only"
-                                  : serialViewMode === "plotter"
-                                    ? "Plotter only"
-                                    : "Split view"
-                              }
-                              title={
-                                serialViewMode === "monitor"
-                                  ? "Monitor only"
-                                  : serialViewMode === "plotter"
-                                    ? "Plotter only"
-                                    : "Split view"
-                              }
-                            >
-                              {serialViewMode === "monitor" ? (
-                                <Terminal className="h-4 w-4" />
-                              ) : serialViewMode === "plotter" ? (
-                                <BarChart className="h-4 w-4" />
-                              ) : (
-                                <Columns className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={clsx(
-                                "h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
-                                autoScrollEnabled
-                                  ? "text-cyan-400"
-                                  : "text-muted-foreground",
-                              )}
-                              onClick={() =>
-                                setAutoScrollEnabled(!autoScrollEnabled)
-                              }
-                              disabled={serialViewMode === "plotter"}
-                              title={
-                                autoScrollEnabled
-                                  ? "Autoscroll on"
-                                  : "Autoscroll off"
-                              }
-                              aria-label={
-                                autoScrollEnabled
-                                  ? "Autoscroll on"
-                                  : "Autoscroll off"
-                              }
-                              aria-pressed={autoScrollEnabled}
-                              data-testid="button-autoscroll"
-                            >
-                              <ChevronsDown
-                                className="h-4 w-4"
-                              />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-                              onClick={handleClearSerialOutput}
-                              aria-label="Clear serial output"
-                              title="Clear serial output"
-                              data-testid="button-clear-serial"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Content Area */}
-                        <div className="flex-1 min-h-0">
-                          {showSerialMonitor && showSerialPlotter ? (
-                            <ResizablePanelGroup
-                              direction="horizontal"
-                              className="h-full"
-                              id="serial-split"
-                            >
-                              <ResizablePanel
-                                defaultSize={50}
-                                minSize={20}
-                                id="serial-monitor-panel"
-                              >
-                                <div className="h-full flex flex-col">
-                                  <div className="flex-1 min-h-0">
-                                    <SerialMonitor
-                                      output={renderedSerialOutput}
-                                      isConnected={isConnected}
-                                      isSimulationRunning={
-                                        simulationStatus !== "stopped"
-                                      }
-                                      onSendMessage={handleSerialSend}
-                                      onClear={handleClearSerialOutput}
-                                      showMonitor={showSerialMonitor}
-                                      autoScrollEnabled={autoScrollEnabled}
-                                      showHeader={false}
-                                    />
-                                  </div>
-                                </div>
-                              </ResizablePanel>
-
-                              <ResizableHandle
-                                withHandle
-                                data-testid="horizontal-resizer-serial"
-                              />
-
-                              <ResizablePanel
-                                defaultSize={50}
-                                minSize={20}
-                                id="serial-plot-panel"
-                              >
-                                <div className="h-full">
-                                  <Suspense fallback={<LoadingPlaceholder />}>
-                                    <SerialPlotter output={serialOutput} />
-                                  </Suspense>
-                                </div>
-                              </ResizablePanel>
-                            </ResizablePanelGroup>
-                          ) : showSerialMonitor ? (
-                            <div className="h-full flex flex-col">
-                              <div className="flex-1 min-h-0">
-                                <SerialMonitor
-                                  output={renderedSerialOutput}
-                                  isConnected={isConnected}
-                                  isSimulationRunning={simulationStatus !== "stopped"}
-                                  onSendMessage={handleSerialSend}
-                                  onClear={handleClearSerialOutput}
-                                  showMonitor={showSerialMonitor}
-                                  autoScrollEnabled={autoScrollEnabled}
-                                  showHeader={false}
-                                />
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="h-full">
-                              <Suspense fallback={<LoadingPlaceholder />}>
-                                <SerialPlotter output={serialOutput} />
-                              </Suspense>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-3 flex-shrink-0">
-                      <div className="w-full">
-                        <InputGroup
-                          type="text"
-                          placeholder="Send to Arduino..."
-                          value={serialInputValue}
-                          onChange={(e) => setSerialInputValue(e.target.value)}
-                          onKeyDown={handleSerialInputKeyDown}
-                          onSubmit={handleSerialInputSend}
-                          disabled={
-                            !serialInputValue.trim() ||
-                            simulationStatus !== "running"
-                          }
-                          inputTestId="input-serial"
-                          buttonTestId="button-send-serial"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <SerialMonitorView
+                    renderedSerialOutput={renderedSerialOutput}
+                    serialOutput={serialOutput}
+                    isConnected={isConnected}
+                    simulationStatus={simulationStatus}
+                    handleSerialSend={handleSerialSend}
+                    handleClearSerialOutput={handleClearSerialOutput}
+                    showSerialMonitor={showSerialMonitor}
+                    showSerialPlotter={showSerialPlotter}
+                    serialViewMode={serialViewMode}
+                    cycleSerialViewMode={cycleSerialViewMode}
+                    autoScrollEnabled={autoScrollEnabled}
+                    setAutoScrollEnabled={setAutoScrollEnabled}
+                    serialInputValue={serialInputValue}
+                    setSerialInputValue={setSerialInputValue}
+                    handleSerialInputKeyDown={handleSerialInputKeyDown}
+                    handleSerialInputSend={handleSerialInputSend}
+                    debugMode={debugMode}
+                    telemetryData={telemetryData}
+                    baudRate={baudRate}
+                  />
                 </ResizablePanel>
 
                 <ResizableHandle
