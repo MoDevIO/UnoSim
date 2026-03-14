@@ -1,4 +1,4 @@
-import { wsMessageSchema, type WSMessage } from "@shared/schema";
+import { wsMessageSchema, type WSMessage, type ParserMessage, type IOPinRecord } from "@shared/schema";
 
 export type IncomingArduinoMessage = WSMessage;
 
@@ -30,6 +30,55 @@ export type HandshakePayload = Extract<WSMessage, { type: "handshake" }>;
  *
  * Useful when parsing untyped JSON from the WebSocket.
  */
+export interface CompilerError {
+  file: string;
+  line: number;
+  column: number;
+  type: "error" | "warning";
+  message: string;
+}
+
+export interface CompileConfig {
+  code: string;
+  headers?: Array<{ name: string; content: string }>;
+  fqbn?: string;
+  libraries?: string[];
+}
+
+export interface HexResult {
+  success: boolean;
+  raw?: string;
+  error?: string;
+}
+
+export interface CompileResult {
+  success: boolean;
+  output?: string;
+  stderr?: string;
+  errors?: CompilerError[] | string;
+  raw?: string;
+  parserMessages?: ParserMessage[];
+  ioRegistry?: IOPinRecord[];
+  arduinoCliStatus?: "idle" | "compiling" | "success" | "error";
+  cached?: boolean;
+}
+
 export function isArduinoMessage(value: unknown): value is WSMessage {
   return wsMessageSchema.safeParse(value).success;
+}
+
+export function isHexResult(value: unknown): value is HexResult {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as any).success === "boolean"
+  );
+}
+
+export function isCompileResult(value: unknown): value is CompileResult {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as any).success === "boolean"
+  );
 }

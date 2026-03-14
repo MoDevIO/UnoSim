@@ -1,19 +1,22 @@
 import { useCallback, useRef, useState } from "react";
-
-// Local copy of the structured error type returned from backend
-interface CompilationError {
-  file: string;
-  line: number;
-  column: number;
-  type: "error" | "warning";
-  message: string;
-}
 import type { RefObject, MutableRefObject } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Logger } from "@shared/logger";
-import type { IOPinRecord, ParserMessage } from "@shared/schema";
+import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
+import type { DebugMessage } from "@/hooks/use-debug-console";
+import {
+  isCompileResult,
+  isHexResult,
+} from "@/types/websocket";
+import type {
+  CompileConfig,
+  CompileResult,
+  CompilerError,
+  HexResult,
+  IncomingArduinoMessage,
+} from "@/types/websocket";
 
 // status types
 type CompilationStatus = "ready" | "compiling" | "success" | "error";
@@ -39,14 +42,14 @@ export type CompileAndRunParams = {
   tabs: Array<{ id: string; name: string; content: string }>;
   activeTabId: string | null;
   code: string;
-  setSerialOutput: SetState<any[]>;
+  setSerialOutput: SetState<OutputLine[]>;
   clearSerialOutput: () => void;
   setParserMessages: SetState<ParserMessage[]>;
   setParserPanelDismissed: SetState<boolean>;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   setIoRegistry: SetState<IOPinRecord[]>;
   setIsModified: SetState<boolean>;
-  setDebugMessages: SetState<any[]>;
+  setDebugMessages: SetState<DebugMessage[]>;
   addDebugMessage: (params: DebugMessageParams) => void;
   ensureBackendConnected: (reason: string) => boolean;
   isBackendUnreachableError: (error: unknown) => boolean;
@@ -58,10 +61,10 @@ export type CompileAndRunParams = {
   }) => void;
 
   // simulation-specific inputs (some overlap allowed)
-  sendMessage: (message: any) => void;
+  sendMessage: (message: IncomingArduinoMessage) => void;
   // changed to boolean return so callers know if the frame was actually sent
-  sendMessageImmediate?: (message: any) => boolean;
-  serialEventQueueRef: MutableRefObject<Array<{ payload: any; receivedAt: number }>>;
+  sendMessageImmediate?: (message: IncomingArduinoMessage) => boolean;
+  serialEventQueueRef: MutableRefObject<Array<{ payload: IncomingArduinoMessage; receivedAt: number }>>;
   pendingPinConflicts: number[];
   setPendingPinConflicts: SetState<number[]>;
   isModified?: boolean; // duplicated with compile side
@@ -77,13 +80,13 @@ interface UseCompileAndRunResult {
   setArduinoCliStatus: SetState<CliStatus>;
   hasCompilationErrors: boolean;
   setHasCompilationErrors: SetState<boolean>;
-  compilerErrors: CompilationError[];
-  setCompilerErrors: SetState<CompilationError[]>;
+  compilerErrors: CompilerError[];
+  setCompilerErrors: SetState<CompilerError[]>;
   lastCompilationResult: "success" | "error" | null;
   setLastCompilationResult: SetState<"success" | "error" | null>;
   cliOutput: string;
   setCliOutput: SetState<string>;
-  compileMutation: any;
+  compileMutation: UseMutationResult<CompileResult, unknown, CompileConfig, unknown>;
   handleCompile: () => void;
   handleCompileAndStart: () => void;
   handleClearCompilationOutput: () => void;
@@ -96,10 +99,10 @@ interface UseCompileAndRunResult {
   setHasCompiledOnce: SetState<boolean>;
   simulationTimeout: number;
   setSimulationTimeout: SetState<number>;
-  startMutation: any;
-  stopMutation: any;
-  pauseMutation: any;
-  resumeMutation: any;
+  startMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
+  stopMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
+  pauseMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
+  resumeMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
   handleStart: () => void;
   handleStop: () => void;
   handlePause: () => void;
@@ -122,7 +125,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   const [hasCompilationErrors, setHasCompilationErrors] = useState(false);
   const [lastCompilationResult, setLastCompilationResult] = useState<"success" | "error" | null>(null);
   const [cliOutput, setCliOutput] = useState("");
-  const [compilerErrors, setCompilerErrors] = useState<CompilationError[]>([]);
+  const [compilerErrors, setCompilerErrors] = useState<CompilerError[]>([]);
 
   const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>("stopped");
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
@@ -144,8 +147,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   }, [params]);
 
   // upload mutation used by compile success
-  const uploadMutation = useMutation({
-    mutationFn: async (payload: { code: string; headers?: Array<{ name: string; content: string }> }) => {
+  const uploadMutation = useMutation<HexResult, unknown, CompileConfig, unknown>({
+    mutationFn: async (payload: CompileConfig): Promise<HexResult> => {
       params.addDebugMessage({
         source: "frontend",
         type: "upload_request",
@@ -154,51 +157,51 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       });
       const response = await apiRequest("POST", "/api/upload", payload);
       const ct = (response.headers.get("content-type") || "").toLowerCase();
+
       if (ct.includes("application/json")) {
         try {
-          return await response.json();
+          const parsed = await response.json();
+          return isHexResult(parsed) ? parsed : { success: response.ok, raw: JSON.stringify(parsed) };
         } catch {
           const txt = await response.text();
-          return { success: response.ok, raw: txt } as any;
+          return { success: response.ok, raw: txt };
         }
       }
+
       const txt = await response.text();
-      return { success: response.ok, raw: txt } as any;
+      return { success: response.ok, raw: txt };
     },
     onSuccess: (data) => {
-      if (data && (data as any).success) {
+      if (data.success) {
         params.toast({
           title: "Upload started",
           description: "Upload initiated to connected device.",
         });
-      } else if (data && typeof (data as any).raw === "string") {
-        const txt = String((data as any).raw || "").trim();
-        if (txt.length === 0) {
-          params.toast({
-            title: "Upload started",
-            description: "Upload initiated to connected device.",
-          });
-        } else {
-          params.toast({ title: "Upload response", description: txt.slice(0, 200) });
-        }
-      } else {
-        params.toast({
-          title: "Upload failed",
-          description:
-            data && (data as any).error
-              ? (data as any).error
-              : "Upload did not succeed.",
-          variant: "destructive",
-        });
+        return;
       }
+
+      const txt = (data.raw ?? "").trim();
+      if (txt.length === 0) {
+        params.toast({
+          title: "Upload started",
+          description: "Upload initiated to connected device.",
+        });
+        return;
+      }
+
+      params.toast({
+        title: "Upload response",
+        description: txt.slice(0, 200),
+      });
     },
-    onError: (err) => {
+    onError: (err: unknown) => {
       const backendDown = params.isBackendUnreachableError(err);
+      const message = err instanceof Error ? err.message : String(err);
       params.toast({
         title: backendDown ? "Backend unreachable" : "Upload failed",
         description: backendDown
           ? "API server unreachable. Please check the backend or reload."
-          : (err as Error)?.message || "Upload failed",
+          : message || "Upload failed",
         variant: "destructive",
       });
     },
@@ -211,8 +214,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   });
 
   // simple compile mutation (callbacks moved to handlers above)
-  const compileMutation = useMutation({
-    mutationFn: async (payload: { code: string; headers?: Array<{ name: string; content: string }> }) => {
+  const compileMutation = useMutation<CompileResult, unknown, CompileConfig, unknown>({
+    mutationFn: async (payload: CompileConfig): Promise<CompileResult> => {
       setArduinoCliStatus("compiling");
       setLastCompilationResult(null);
       params.addDebugMessage({
@@ -223,16 +226,21 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       });
       const response = await apiRequest("POST", "/api/compile", payload);
       const ct = (response.headers.get("content-type") || "").toLowerCase();
+
       if (ct.includes("application/json")) {
         try {
-          return await response.json();
+          const parsed = await response.json();
+          return isCompileResult(parsed)
+            ? parsed
+            : { success: false, errors: JSON.stringify(parsed), raw: JSON.stringify(parsed) };
         } catch {
           const txt = await response.text();
-          return { success: false, errors: txt, raw: txt } as any;
+          return { success: false, errors: txt, raw: txt };
         }
       }
+
       const txt = await response.text();
-      return { success: false, errors: txt, raw: txt } as any;
+      return { success: false, errors: txt, raw: txt };
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -241,7 +249,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         handleCompileError(data);
       }
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       setArduinoCliStatus("error");
       params.triggerErrorGlitch();
       const backendDown = params.isBackendUnreachableError(error);
@@ -261,7 +269,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
    * Handle successful compilation: update state, show toast, handle upload queue
    */
   const handleCompileSuccess = useCallback(
-    (data: any) => {
+    (data: CompileResult) => {
       setArduinoCliStatus("success");
       setHasCompilationErrors(false);
       setLastCompilationResult("success");
@@ -273,8 +281,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         data: JSON.stringify({ success: true }, null, 2),
         protocol: "http",
       });
-      params.setParserMessages(data.parserMessages);
-      if (data.parserMessages.length > 0) {
+      params.setParserMessages(data.parserMessages ?? []);
+      if (data.parserMessages && data.parserMessages.length > 0) {
         params.setParserPanelDismissed(false);
       }
       params.toast({
@@ -305,24 +313,23 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
    * Handle compilation errors: extract error details, show toast
    */
   const handleCompileError = useCallback(
-    (data: any) => {
+    (data: CompileResult) => {
       setArduinoCliStatus("error");
       setHasCompilationErrors(true);
       setLastCompilationResult("error");
-      let errs: any[] = [];
+      let errs: CompilerError[] = [];
       let errText = "";
+
       if (Array.isArray(data.errors)) {
         errs = data.errors;
         errText = errs
-          .map(
-            (e: any) =>
-              `${e.file}${e.line ? `:${e.line}` : ""}${e.column ? `:${e.column}` : ""} ${e.type}: ${e.message}`,
-          )
+          .map((e) => `${e.file}${e.line ? `:${e.line}` : ""}${e.column ? `:${e.column}` : ""} ${e.type}: ${e.message}`)
           .join("\n");
       } else if (typeof data.errors === "string") {
         errs = [{ file: "", line: 0, column: 0, type: "error", message: data.errors }];
         errText = data.errors;
       }
+
       setCompilerErrors(errs);
       params.triggerErrorGlitch();
       setCliOutput(errText || "✗ Arduino-CLI Compilation failed.");
@@ -339,7 +346,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         protocol: "http",
       });
       params.setParserMessages(data.parserMessages ?? []);
-      if (data.parserMessages?.length > 0) {
+      if (data.parserMessages && data.parserMessages.length > 0) {
         params.setParserPanelDismissed(false);
       }
       params.toast({
@@ -467,10 +474,11 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         }
       } catch {}
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
       params.toast({
         title: "Start Failed",
-        description: error.message || "Could not start simulation",
+        description: message || "Could not start simulation",
         variant: "destructive",
       });
       if (params.isModified && hasCompiledOnce) {
