@@ -1,5 +1,6 @@
 import { useCompileAndRun, CompileAndRunParams } from "./use-compile-and-run";
 import type { MutableRefObject } from "react";
+import type { IncomingArduinoMessage } from "@/types/websocket";
 
 export type SimulationStatus = "running" | "stopped" | "paused";
 
@@ -14,15 +15,15 @@ export type DebugMessageParams = {
 
 export type UseSimulationControlsParams = {
   ensureBackendConnected: (reason: string) => boolean;
-  sendMessage: (message: any) => void;
+  sendMessage: (message: IncomingArduinoMessage) => void;
   /** Optional immediate sender for time-critical commands (stop) */
   // return value indicates whether the message was actually sent (socket open)
-  sendMessageImmediate?: (message: any) => boolean;
+  sendMessageImmediate?: (message: IncomingArduinoMessage) => boolean;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   clearOutputs: () => void;
   addDebugMessage: (params: DebugMessageParams) => void;
   serialEventQueueRef: MutableRefObject<
-    Array<{ payload: any; receivedAt: number }>
+    Array<{ payload: IncomingArduinoMessage; receivedAt: number }>
   >;
   toast: (args: {
     title: string;

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useCallback } from "react";
+import type { IncomingArduinoMessage } from "@/types/websocket";
 
 interface UseSimulationLifecycleOptions {
   code: string;
-  simulationStatus: string;
-  setSimulationStatus: (s: any) => void;
-  sendMessage: (msg: any) => void;
+  simulationStatus: "running" | "stopped" | "paused";
+  setSimulationStatus: (s: "running" | "stopped" | "paused") => void;
+  sendMessage: (msg: IncomingArduinoMessage) => void;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   clearOutputs?: () => void;
   handlePause?: () => void;
