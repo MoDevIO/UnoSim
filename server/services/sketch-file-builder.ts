@@ -7,7 +7,7 @@
 
 import { join } from "path";
 import { mkdir, writeFile } from "fs/promises";
-import { ARDUINO_MOCK_CODE } from "../mocks/arduino-mock";
+import { ARDUINO_MOCK_CODE } from "./arduino-mock";
 import { Logger } from "@shared/logger";
 import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 

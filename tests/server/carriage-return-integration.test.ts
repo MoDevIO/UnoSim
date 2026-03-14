@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ARDUINO_MOCK_CODE } from "../../server/mocks/arduino-mock";
+import { ARDUINO_MOCK_CODE } from "../../server/services/arduino-mock";
 
 describe("Carriage Return Integration Test", () => {
   it("should verify arduino-mock.ts preserves \\r in serial buffer", () => {

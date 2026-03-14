@@ -12,7 +12,7 @@ import {
   ARDUINO_STRING_CLASS,
   ARDUINO_REGISTRY_STRUCTURES,
   ARDUINO_PIN_STATE_INIT,
-} from './arduino-mock/index';
+} from '../mocks/arduino-mock/index';
 
 // Assemble the complete ARDUINO_MOCK_CODE from modular template pieces
 // Uses string concatenation rather than template interpolation

@@ -6,7 +6,7 @@
 describe("Serial.print() Buffering Behavior", () => {
   it("should verify the arduino-mock.ts contains flush() in delay()", () => {
     const fs = require("fs");
-    const mockCode = fs.readFileSync("./server/mocks/arduino-mock.ts", "utf8");
+    const mockCode = fs.readFileSync("./server/services/arduino-mock.ts", "utf8");
 
     // Verify that delay() calls Serial.flush()
     expect(mockCode).toContain("Serial.flush()");
