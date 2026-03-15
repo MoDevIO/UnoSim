@@ -34,7 +34,8 @@ import { useMobileLayout } from "@/hooks/use-mobile-layout";
 import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useDebugMode } from "@/hooks/use-debug-mode-store";
 import { useSerialIO } from "@/hooks/use-serial-io";
-import { useOutputPanel } from "@/hooks/use-output-panel";
+import { useSimulatorOutputPanel } from "@/hooks/useSimulatorOutputPanel";
+import { useSimulatorEffects } from "@/hooks/useSimulatorEffects";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
@@ -53,7 +54,6 @@ import type {
   IOPinRecord,
 } from "@shared/schema";
 import type { IncomingArduinoMessage } from "@/types/websocket";
-import { parseStaticIORegistry } from "@shared/io-registry-parser";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import { isMac } from "@/lib/platform";
 import {
@@ -413,7 +413,7 @@ export default function ArduinoSimulator() {
 
 
 
-  // Output panel sizing and management
+  // Use centralized output panel hook for all output-related state and callbacks
   const {
     outputPanelRef,
     outputTabsHeaderRef,
@@ -422,7 +422,12 @@ export default function ArduinoSimulator() {
     outputPanelMinPercent,
     outputPanelManuallyResizedRef,
     openOutputPanel,
-  } = useOutputPanel(
+    handleOutputTabChange,
+    handleOutputCloseOrMinimize,
+    handleParserMessagesClear,
+    handleParserGoToLine,
+    handleRegistryClear,
+  } = useSimulatorOutputPanel({
     hasCompilationErrors,
     cliOutput,
     parserMessages,
@@ -433,27 +438,9 @@ export default function ArduinoSimulator() {
     setParserPanelDismissed,
     setActiveOutputTab,
     code,
-  );
+  });
 
-  // Auto-switch output tab based on errors and messages
-  useEffect(() => {
-    if (hasCompilationErrors) {
-      setActiveOutputTab("compiler");
-    } else if (parserMessages.length > 0 && !parserPanelDismissed) {
-      setActiveOutputTab("messages");
-    }
-  }, [hasCompilationErrors, parserMessages.length, parserPanelDismissed]);
-
-  // Auto-scroll debug console to latest message
-  useEffect(() => {
-    if (activeOutputTab === "debug" && debugMessagesContainerRef.current) {
-      requestAnimationFrame(() => {
-        debugMessagesContainerRef.current?.scrollTo(0, debugMessagesContainerRef.current.scrollHeight);
-      });
-    }
-  }, [debugMessages, activeOutputTab]);
-
-  // Fetch default sketch
+  // Fetch default sketch (must come before useSimulatorEffects which uses it)
   const { data: sketches } = useQuery<Sketch[]>({
     queryKey: ["/api/sketches"],
     retry: 3,
@@ -461,40 +448,33 @@ export default function ArduinoSimulator() {
     enabled: backendReachable, // Only query if backend is reachable
   });
 
-  // Upload mutation (used by Compile → Upload)
-  // Ref to skip stopping simulation when a suggestion is inserted
-  // suppression flag moved into `useSimulationLifecycle` — no longer needed here
-
-  useEffect(() => {
-    // Reset status when code actually changes
-    // Reset both labels to idle when code changes
-    if (arduinoCliStatus !== "idle") setArduinoCliStatus("idle");
-    if (compilationStatus !== "ready") setCompilationStatus("ready");
-
-    // Note: Simulation stopping on code change is now handled in handleCodeChange
-  }, [code]);
-
-  useEffect(() => {
-    if (serialOutput.length === 0) {
-      // Serial output is empty
-    }
-  }, [serialOutput]);
-
-  // File system initialization (default sketch loading)
-  useEffect(() => {
-    initializeDefaultSketch(sketches);
-  }, [sketches, initializeDefaultSketch]);
-
-  // Persist code changes to the active tab
-  useEffect(() => {
-    if (activeTabId && tabs.length > 0) {
-      setTabs((prevTabs) =>
-        prevTabs.map((tab) =>
-          tab.id === activeTabId ? { ...tab, content: code } : tab,
-        ),
-      );
-    }
-  }, [code, activeTabId, setTabs]);
+  // Consolidate all simulator effects (state sync, initialization, pin management, etc.)
+  useSimulatorEffects({
+    code,
+    compilationStatus,
+    hasCompilationErrors,
+    parserMessages,
+    parserPanelDismissed,
+    setCompilationStatus,
+    setActiveOutputTab,
+    setIoRegistry,
+    setSerialOutput,
+    simulationStatus,
+    setPinStates,
+    analogPinsUsed,
+    detectedPinModes,
+    serialOutput,
+    arduinoCliStatus,
+    tabs,
+    activeTabId,
+    setTabs,
+    sketches,
+    initializeDefaultSketch,
+    debugMessages,
+    debugMessagesContainerRef,
+    activeOutputTab,
+    serialEventQueueRef,
+  });
 
   // NEW: Keyboard shortcuts (only for non-editor actions)
   useEffect(() => {
@@ -627,103 +607,6 @@ export default function ArduinoSimulator() {
     setPendingPinConflicts,
     setAnalogPinsUsed,
   ]);
-
-  // When the simulation starts, apply recorded pinMode declarations and
-  // populate any detected analog pins so they become clickable and show
-  // their frames only while the simulation is running.
-  useEffect(() => {
-    if (simulationStatus !== "running") return;
-
-    setPinStates((prev) => {
-      const newStates = [...prev];
-
-      // Apply recorded pinMode(...) declarations (including analog-numbered pins)
-      for (const [pinStr, mode] of Object.entries(detectedPinModes) as [string, "INPUT" | "OUTPUT" | "INPUT_PULLUP"][]) {
-        const pin = Number(pinStr);
-        if (Number.isNaN(pin)) continue;
-        const exists = newStates.find((p) => p.pin === pin);
-        if (!exists) {
-          newStates.push({
-            pin,
-            mode,
-            value: 0,
-            type: pin >= 14 && pin <= 19 ? "digital" : "digital",
-          });
-        } else {
-          exists.mode = mode;
-          if (pin >= 14 && pin <= 19) exists.type = "digital";
-        }
-      }
-
-      // Ensure detected analog pins are present (as analog) if not already
-      for (const pin of analogPinsUsed) {
-        if (pin < 14 || pin > 19) continue;
-        const exists = newStates.find((p) => p.pin === pin);
-        if (!exists) {
-          newStates.push({ pin, mode: "INPUT", value: 0, type: "analog" });
-        }
-      }
-
-      return newStates;
-    });
-  }, [simulationStatus, analogPinsUsed, detectedPinModes]);
-
-  // Apply detectedPinModes after io_registry has been processed.
-  // This ensures that client-side parsed modes override server modes.
-  useEffect(() => {
-    if (Object.keys(detectedPinModes).length === 0) {
-      return;
-    }
-
-    setPinStates((prev) => {
-      const newStates = [...prev];
-      for (const [pinStr, mode] of Object.entries(detectedPinModes) as [string, "INPUT" | "OUTPUT" | "INPUT_PULLUP"][]) {
-        const pin = Number(pinStr);
-        if (Number.isNaN(pin)) continue;
-        const pinState = newStates.find((p) => p.pin === pin);
-        if (pinState) {
-          pinState.mode = mode;
-        } else {
-          // CREATE pin if it doesn't exist yet (io_registry might not have detected it)
-          newStates.push({
-            pin,
-            mode,
-            value: 0,
-            type: pin >= 14 && pin <= 19 ? "digital" : "digital",
-          });
-        }
-      }
-      return newStates;
-    });
-  }, [detectedPinModes, simulationStatus]);
-
-  // When simulation stops, flush any pending incomplete lines to make them visible
-  useEffect(() => {
-    if (simulationStatus === "stopped" && serialOutput.length > 0) {
-      const lastLine = serialOutput[serialOutput.length - 1];
-      if (lastLine && !lastLine.complete) {
-        // Mark last incomplete line as complete so it displays
-        setSerialOutput((prev) => {
-          if (prev.length === 0) return prev;
-          return [
-            ...prev.slice(0, -1),
-            { ...prev[prev.length - 1], complete: true },
-          ];
-        });
-      }
-    }
-  }, [simulationStatus]);
-
-  // ── Static IO-Registry: update from code whenever simulation is not running ─
-  // Runs 300 ms after the user stops typing to avoid parsing every keystroke.
-  // When the simulation starts, the WS `io_registry` messages take over.
-  useEffect(() => {
-    if (simulationStatus !== "stopped") return;
-    const timer = setTimeout(() => {
-      setIoRegistry(parseStaticIORegistry(code));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [code, simulationStatus]);
 
   // Tab management handlers
   const handleTabClick = (tabId: string) => {
@@ -887,33 +770,38 @@ export default function ArduinoSimulator() {
     );
   };
 
-  /* OutputPanel callbacks (stabilized with useCallback per Anti‑Flicker rules) */
-  const handleOutputTabChange = useCallback((v: "compiler" | "messages" | "registry" | "debug") => {
-    setActiveOutputTab(v);
-  }, [setActiveOutputTab]);
+  const handleSerialSend = (message: string) => {
+    if (!ensureBackendConnected("Serial senden")) return;
 
-  const handleOutputCloseOrMinimize = useCallback(() => {
-    const currentSize = outputPanelRef.current?.getSize?.() ?? 0;
-    const isMinimized = currentSize <= outputPanelMinPercent + 1;
-
-    if (isMinimized) {
-      setShowCompilationOutput(false);
-      setParserPanelDismissed(true);
-      outputPanelManuallyResizedRef.current = false;
-    } else {
-      setCompilationPanelSize(3);
-      outputPanelManuallyResizedRef.current = false;
-      if (outputPanelRef.current?.resize) {
-        outputPanelRef.current.resize(outputPanelMinPercent);
-      }
+    if (simulationStatus !== "running") {
+      toast({
+        title:
+          simulationStatus === "paused"
+            ? "Simulation paused"
+            : "Simulation not running",
+        description:
+          simulationStatus === "paused"
+            ? "Resume the simulation to send serial input."
+            : "Start the simulation to send serial input.",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [outputPanelMinPercent, setShowCompilationOutput, setParserPanelDismissed, setCompilationPanelSize]);
 
-  const handleParserMessagesClear = useCallback(() => setParserPanelDismissed(true), [setParserPanelDismissed]);
-  const handleParserGoToLine = useCallback((line: number) => {
-    logger.debug(`Go to line: ${line}`);
-  }, []);
+    // Trigger TX LED blink when client sends data
+    setTxActivity((prev) => prev + 1);
 
+    sendMessage({
+      type: "serial_input",
+      data: message,
+    });
+  };
+
+  const handleClearSerialOutput = useCallback(() => {
+    clearSerialOutput();
+  }, [clearSerialOutput]);
+
+  // Remaining handlers for OutputPanel integration
   const handleInsertSuggestion = useCallback((suggestion: string, line?: number) => {
     const insertSmartly = editorRef.current?.insertSuggestionSmartly;
     if (insertSmartly) {
@@ -927,8 +815,6 @@ export default function ArduinoSimulator() {
       console.error("insertSuggestionSmartly method not available on editor");
     }
   }, [suppressAutoStopOnce, toast]);
-
-  const handleRegistryClear = useCallback(() => {}, []);
 
   const handleSetDebugMessageFilter = useCallback((v: string) => setDebugMessageFilter(v.toLowerCase()), [setDebugMessageFilter]);
   const handleSetDebugViewMode = useCallback((m: "table" | "tiles") => setDebugViewMode(m), [setDebugViewMode]);
@@ -1013,37 +899,6 @@ export default function ArduinoSimulator() {
       return newStates;
     });
   };
-
-  const handleSerialSend = (message: string) => {
-    if (!ensureBackendConnected("Serial senden")) return;
-
-    if (simulationStatus !== "running") {
-      toast({
-        title:
-          simulationStatus === "paused"
-            ? "Simulation paused"
-            : "Simulation not running",
-        description:
-          simulationStatus === "paused"
-            ? "Resume the simulation to send serial input."
-            : "Start the simulation to send serial input.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Trigger TX LED blink when client sends data
-    setTxActivity((prev) => prev + 1);
-
-    sendMessage({
-      type: "serial_input",
-      data: message,
-    });
-  };
-
-  const handleClearSerialOutput = useCallback(() => {
-    clearSerialOutput();
-  }, [clearSerialOutput]);
 
   // Status info helper (imported from styles file)
   const statusInfo = getStatusInfo(compilationStatus as "compiling" | "success" | "error" | "ready", isModified);
