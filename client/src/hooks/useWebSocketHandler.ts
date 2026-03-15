@@ -23,7 +23,7 @@ const logger = new Logger("useWebSocketHandler");
 // NOTE: We intentionally keep OutputLine as a shared type from @shared/schema to
 // avoid duplicating the definition across components.
 
-type UseWebSocketHandlerParams = {
+export type UseWebSocketHandlerParams = {
   // read-only state used inside the handler
   simulationStatus: "running" | "stopped" | "paused";
 

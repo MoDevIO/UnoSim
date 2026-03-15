@@ -77,6 +77,22 @@ export function useOutputPanel(
     return () => document.removeEventListener("showCompileOutputChange", handler);
   }, [setShowCompilationOutput]);
 
+  useEffect(() => {
+    const handler: EventListener = (ev) => {
+      try {
+        const custom = ev as CustomEvent<{ tab?: "compiler" | "messages" | "registry" | "debug" }>;
+        const tab = custom?.detail?.tab;
+        if (!tab) return;
+        setActiveOutputTab(tab);
+        setShowCompilationOutput(true);
+      } catch {
+        // ignore invalid payloads
+      }
+    };
+    document.addEventListener("setOutputTab", handler);
+    return () => document.removeEventListener("setOutputTab", handler);
+  }, [setActiveOutputTab, setShowCompilationOutput]);
+
   // Persist showCompilationOutput state to localStorage whenever it changes
   useEffect(() => {
     try {

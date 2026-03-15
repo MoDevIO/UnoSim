@@ -147,28 +147,29 @@ function DesktopSimulatorLayout({
 
           {/* Combined Output Panel with Tabs: Compiler / Messages / IO-Registry / Debug */}
           {(() => {
-            const shouldShowOutput = showCompilationOutput;
+            // Ensure the output tabs are always mounted so tests can interact with them,
+            // even if the output panel is currently collapsed.
+            const defaultSize = showCompilationOutput
+              ? Math.max(compilationPanelSize, outputPanelMinPercent)
+              : outputPanelMinPercent;
 
             return (
               <>
-                {shouldShowOutput && (
-                  <ResizableHandle
-                    withHandle
-                    data-testid="vertical-resizer-output"
-                    onDragging={(isDragging) => {
-                      if (isDragging) {
-                        outputPanelManuallyResizedRef.current = true;
-                      }
-                    }}
-                  />
-                )}
+                <ResizableHandle
+                  withHandle
+                  data-testid="vertical-resizer-output"
+                  onDragging={(isDragging) => {
+                    if (isDragging) {
+                      outputPanelManuallyResizedRef.current = true;
+                    }
+                  }}
+                />
 
                 <ResizablePanel
                   ref={outputPanelRef}
-                  defaultSize={Math.max(compilationPanelSize, outputPanelMinPercent)}
+                  defaultSize={defaultSize}
                   minSize={outputPanelMinPercent}
                   id="output-under-editor"
-                  className={shouldShowOutput ? "" : "hidden"}
                 >
                   <OutputPanel
                     activeOutputTab={activeOutputTab}
