@@ -9,13 +9,13 @@ import type { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RegistryManager } from "../registry-manager";
 import { Logger } from "@shared/logger";
 
-export interface StreamHandlerCallbacks {
+interface StreamHandlerCallbacks {
   onPinState?: (pin: number, type: "mode" | "value" | "pwm", value: number) => void;
   onOutput?: (line: string, isComplete?: boolean) => void;
   onError?: (line: string) => void;
 }
 
-export interface StreamHandlerState {
+interface StreamHandlerState {
   pinStateBatcher: PinStateBatcher | null;
   serialOutputBatcher: SerialOutputBatcher | null;
   backpressurePaused: boolean;

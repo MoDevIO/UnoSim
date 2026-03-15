@@ -1,6 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { parseStaticIORegistry } from "@shared/io-registry-parser";
-import type { ParserMessage, IOPinRecord, Sketch } from "@shared/schema";
+import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
+import type { ToastFn } from "@/hooks/use-toast";
+import type { DebugMessage } from "@/hooks/use-debug-console";
+import type { IncomingArduinoMessage } from "@/types/websocket";
+import type { PinState } from "@/hooks/use-simulation-store";
+import type { SketchTab } from "@/hooks/use-sketch-tabs";
+import type { OutputLine, ParserMessage, IOPinRecord, Sketch } from "@shared/schema";
 
 interface UseSimulatorEffectsProps {
   // Code and compilation
@@ -14,34 +20,49 @@ interface UseSimulatorEffectsProps {
   // Setters
   setCompilationStatus: (status: "ready" | "compiling" | "success" | "error") => void;
   setActiveOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") => void;
-  setIoRegistry: (registry: IOPinRecord[] | ((prev: IOPinRecord[]) => IOPinRecord[])) => void;
-  setSerialOutput: (output: any[] | ((prev: any[]) => any[])) => void;
+  setIoRegistry: Dispatch<SetStateAction<IOPinRecord[]>>;
+  setSerialOutput: Dispatch<SetStateAction<OutputLine[]>>;
 
   // Simulation state
   simulationStatus: "stopped" | "running" | "paused";
 
   // Pin state
-  setPinStates: (states: any[] | ((prev: any[]) => any[])) => void;
+  setPinStates: Dispatch<SetStateAction<PinState[]>>;
   analogPinsUsed: number[];
   detectedPinModes: Record<string, "INPUT" | "OUTPUT" | "INPUT_PULLUP">;
 
   // Serial output
-  serialOutput: any[];
+  serialOutput: OutputLine[];
   arduinoCliStatus: string;
 
   // Tabs and file system
-  tabs: Array<{ id: string; content: string }>;
+  tabs: SketchTab[];
   activeTabId: string | null;
-  setTabs: (tabs: any[] | ((prev: any[]) => any[])) => void;
+  setTabs: Dispatch<SetStateAction<SketchTab[]>>;
   sketches?: Sketch[];
   initializeDefaultSketch?: (sketches: Sketch[] | undefined) => void;
 
   // Debug
-  debugMessages: any[];
-  debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
+  debugMessages: DebugMessage[];
+  debugMessagesContainerRef: RefObject<HTMLDivElement>;
+
+  // Keyboard shortcuts
+  isMac: boolean;
+  compileMutationIsPending: boolean;
+  startMutationIsPending: boolean;
+  handleCompile: () => void;
+  handleStop: () => void;
+  handleCompileAndStart: () => void;
+  toast: ToastFn;
+  setDebugMode: (enabled: boolean) => void;
+
+  // Sketch analysis sync
+  setDetectedPinModes: (modes: Record<string, "INPUT" | "OUTPUT" | "INPUT_PULLUP">) => void;
+  setPendingPinConflicts: Dispatch<SetStateAction<number[]>>;
+  setAnalogPinsUsed: (pins: number[]) => void;
 
   // Refs
-  serialEventQueueRef: React.RefObject<any[]>;
+  serialEventQueueRef: RefObject<Array<{ payload: IncomingArduinoMessage; receivedAt: number }>>;
 }
 
 export function useSimulatorEffects({
@@ -69,10 +90,118 @@ export function useSimulatorEffects({
   debugMessagesContainerRef,
   activeOutputTab,
   serialEventQueueRef,
+  isMac,
+  compileMutationIsPending,
+  startMutationIsPending,
+  handleCompile,
+  handleStop,
+  handleCompileAndStart,
+  toast,
+  setDebugMode,
+  setDetectedPinModes,
+  setPendingPinConflicts,
+  setAnalogPinsUsed,
 }: UseSimulatorEffectsProps) {
   // Mark serialEventQueueRef and activeOutputTab as intentionally used
   void serialEventQueueRef;
   void activeOutputTab;
+
+  // Synchronize sketch analysis results (pins/modes/conflicts)
+  const {
+    analogPins,
+    detectedPinModes: analyzedDetectedPinModes,
+    pendingPinConflicts,
+  } = useSketchAnalysis(code);
+
+  useEffect(() => {
+    setDetectedPinModes(analyzedDetectedPinModes);
+    setPendingPinConflicts(pendingPinConflicts);
+    setAnalogPinsUsed(analogPins);
+  }, [
+    analyzedDetectedPinModes,
+    pendingPinConflicts,
+    analogPins,
+    setDetectedPinModes,
+    setPendingPinConflicts,
+    setAnalogPinsUsed,
+  ]);
+
+  // Keyboard shortcuts and global hotkeys
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore key events originating from input-like elements
+      const tgt = e.target as HTMLElement | null;
+      const ignoreTarget =
+        tgt &&
+        (tgt.tagName === "INPUT" ||
+          tgt.tagName === "TEXTAREA" ||
+          tgt.isContentEditable);
+      if (ignoreTarget) return;
+
+      // Toggle debug mode (Cmd/Ctrl + D)
+      const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
+      if (
+        isModifierPressed &&
+        !e.altKey &&
+        !e.shiftKey &&
+        (e.key === "d" || e.key === "D")
+      ) {
+        e.preventDefault();
+        const currentValue = window.localStorage.getItem("unoDebugMode") === "1";
+        const newValue = !currentValue;
+        try {
+          window.localStorage.setItem("unoDebugMode", newValue ? "1" : "0");
+          setDebugMode(newValue);
+          const ev = new CustomEvent("debugModeChange", { detail: { value: newValue } });
+          document.dispatchEvent(ev);
+          toast({
+            title: newValue ? "Debug Mode Enabled" : "Debug Mode Disabled",
+            description: newValue
+              ? "Telemetry displays are now visible"
+              : "Telemetry displays are now hidden",
+          });
+        } catch (err) {
+          console.error("Failed to toggle debug mode:", err);
+        }
+      }
+
+      // F5: Compile only
+      if (e.key === "F5") {
+        e.preventDefault();
+        if (!compileMutationIsPending) {
+          handleCompile();
+        }
+      }
+
+      // Escape: Stop simulation
+      if (e.key === "Escape" && simulationStatus === "running") {
+        e.preventDefault();
+        handleStop();
+      }
+
+      // Meta/Ctrl + U: Compile & Start
+      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === "u") {
+        e.preventDefault();
+        if (!compileMutationIsPending && !startMutationIsPending) {
+          handleCompileAndStart();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [
+    isMac,
+    compileMutationIsPending,
+    startMutationIsPending,
+    simulationStatus,
+    handleCompile,
+    handleStop,
+    handleCompileAndStart,
+    toast,
+    setDebugMode,
+  ]);
+
   // Auto-switch output tab based on errors and messages
   useEffect(() => {
     if (hasCompilationErrors) {

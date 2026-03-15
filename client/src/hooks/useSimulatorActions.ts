@@ -14,7 +14,7 @@ import { useCallback } from "react";
 /**
  * Actions that can be performed on the simulator
  */
-export interface SimulatorActions {
+interface SimulatorActions {
   /** Start a previously compiled sketch or return early if already running */
   handleStart: () => void;
   
@@ -37,7 +37,7 @@ export interface SimulatorActions {
 /**
  * Parameters required by useSimulatorActions
  */
-export interface UseSimulatorActionsParams {
+interface UseSimulatorActionsParams {
   // Action implementations from parent hooks (useCompileAndRun, useSimulation, etc.)
   onStart: () => void;
   onStop: () => void;

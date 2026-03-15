@@ -23,7 +23,7 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
     ref,
   ) => {
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (onKeyDown) onKeyDown(e as any);
+      if (onKeyDown) onKeyDown(e);
       if (e.key === "Enter") {
         e.preventDefault();
         if (!disabled && onSubmit) onSubmit();

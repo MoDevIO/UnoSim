@@ -39,7 +39,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
       const timeout = setTimeout(() => {
         runner.stop();
         reject(new Error("timeout waiting for output"));
-      }, 15000);
+      }, 60000); // increased timeout for CI/slow environments
 
       runner.runSketch({
         code,

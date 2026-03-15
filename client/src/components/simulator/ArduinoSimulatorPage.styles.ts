@@ -61,9 +61,9 @@ export const CSS_CLASSES = {
 /**
  * Status message info and styling helper
  */
-export type CompilationStatusType = "compiling" | "success" | "error" | "ready";
+type CompilationStatusType = "compiling" | "success" | "error" | "ready";
 
-export interface StatusInfo {
+interface StatusInfo {
   text: string;
   className: string;
 }
@@ -90,42 +90,5 @@ export function getStatusInfo(
   }
 }
 
-export type StatusClassType =
-  | "idle"
-  | "compiling"
-  | "success"
-  | "error"
-  | "ready"
-  | "running"
-  | "stopped";
-
-/**
- * Map status enum to Tailwind color classes for visual feedback
- */
-export function getStatusClass(status: StatusClassType): string {
-  switch (status) {
-    case "compiling":
-      return "text-yellow-500";
-    case "success":
-      return "text-green-500";
-    case "error":
-      return "text-red-500";
-    case "idle":
-      return "text-gray-500 italic";
-    case "ready":
-      return "text-gray-700";
-    case "running":
-      return "text-green-600";
-    case "stopped":
-      return "text-gray-600";
-    default:
-      return "";
-  }
-}
-
-/**
- * Constants for IO Registry initialization (20 Arduino pins: 0–13 digital + A0–A5 analog)
- */
-export const INITIAL_IO_REGISTRY_SIZE = 20;
 export const DIGITAL_PIN_COUNT = 14; // Pins 0–13
 export const ANALOG_PIN_COUNT = 6;   // Pins A0–A5

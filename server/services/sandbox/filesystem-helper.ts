@@ -8,7 +8,7 @@ import { Logger } from "@shared/logger";
 import type { SketchFileBuilder } from "../sketch-file-builder";
 import type { LocalCompiler } from "../local-compiler";
 
-export interface FilesystemHelperState {
+interface FilesystemHelperState {
   currentSketchDir: string | null;
   isCompiling: boolean;
   pendingCleanup: boolean;

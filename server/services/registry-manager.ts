@@ -119,7 +119,7 @@ export class RegistryManager {
     serialOutputEvents: 0, // track serial output events
     serialOutputBytes: 0, // bytes in current interval
     serialOutputBytesTotal: 0, // cumulative bytes since start
-    // timestamp at which the simulation was paused (if any)
+    // timestamp at which the simulation was paused (if present)
     pauseTimestamp: null as number | null,
     lastReportTime: Date.now(),
   };
@@ -181,7 +181,7 @@ export class RegistryManager {
 
   /**
    * Inform the manager of the exact timestamp when the simulation was paused.
-   * This allows any subsequent events (e.g. those buffered in OS pipes) to be
+   * This allows subsequent events (e.g. those buffered in OS pipes) to be
    * labelled with a correct 'pause' time rather than the later resume time.
    *
    * The current implementation simply stores the value for future use; the
@@ -397,7 +397,7 @@ export class RegistryManager {
   /**
    * Start collecting registry data (called when [[IO_REGISTRY_START]] marker is received)
    * 
-   * NEW: Implements "Initial Sync Flush" to ensure any runtime pin definitions (e.g., from updatePinMode)
+   * NEW: Implements "Initial Sync Flush" to ensure runtime pin definitions (e.g., from updatePinMode)
    * are sent to clients before the registry is cleared. This prevents losing pin definitions that arrive
    * before the IO_REGISTRY_START marker.
    */
@@ -406,7 +406,7 @@ export class RegistryManager {
     // Collection start (not logged individually — too noisy).
     
     // ROBUSTNESS: Flush current registry state before clearing
-    // This ensures any pins added via updatePinMode before IO_REGISTRY_START marker are sent
+    // This ensures pins added via updatePinMode before IO_REGISTRY_START marker are sent
     if (!this.waitingForRegistry && this.registry.length > 0 && this.isDirty) {
       const hasDefinedPins = this.registry.some((p) => p.defined);
       if (hasDefinedPins) {
@@ -430,7 +430,7 @@ export class RegistryManager {
     this.telemetry.lastReportTime = Date.now();
     
     if (this.onTelemetryCallback && this.enableTelemetry) {
-      this.stopTelemetry(); // Clear any previous heartbeat
+      this.stopTelemetry(); // Clear previous heartbeat
       this.startHeartbeat();
     }
   }
@@ -752,7 +752,7 @@ export class RegistryManager {
   }
 
   /**
-   * Destroy the manager and prevent any further logging or callbacks
+   * Destroy the manager and prevent further logging or callbacks
    * This is called during test teardown to prevent "log after tests are done" errors
    */
   destroy(): void {
@@ -794,10 +794,10 @@ export class RegistryManager {
 
   /**
    * Immediately send the registry via callback
-   * Cancels any pending throttle timer to ensure structural changes reach UI immediately
+   * Cancels pending throttle timer to ensure structural changes reach UI immediately
    */
   private sendNow(hash: string, reason?: string): void {
-    // Cancel any pending throttle timer to ensure immediate send
+    // Cancel pending throttle timer to ensure immediate send
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;

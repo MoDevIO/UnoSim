@@ -1,19 +1,19 @@
 import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
-
-type BatchStats = { lastBatchMs: number; lastBatchSize: number; lastFrameAt: number };
+import type { PinState, BatchStats } from "@/hooks/use-simulation-store";
+import type { TelemetryMetrics } from "@/hooks/use-telemetry-store";
 
 type SimulationStatus = "running" | "stopped" | "paused";
 
 type SimulatorSidebarProps = {
   pinMonitorVisible: boolean;
-  pinStates: any[];
+  pinStates: PinState[];
   batchStats: BatchStats;
   simulationStatus: SimulationStatus | undefined;
   txActivity: number;
   rxActivity: number;
   // telemetry info (useTelemetry hook)
-  telemetryData?: any;
+  telemetryData?: { last: TelemetryMetrics | null } | null;
   rates?: {
     serialOutputPerSecond: number;
     serialBytesPerSecond: number;

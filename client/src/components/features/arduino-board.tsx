@@ -539,7 +539,7 @@ export function ArduinoBoard({
           t.setAttribute("stroke-width", "0.4");
           t.setAttribute("paint-order", "stroke");
           t.setAttribute("dominant-baseline", "middle");
-          (t as any).style.pointerEvents = "none";
+          t.setAttribute("style", "pointer-events: none;");
           svgEl.appendChild(t);
         } else {
           // Update font-size on every call to respect zoom changes
@@ -574,7 +574,11 @@ export function ArduinoBoard({
       // Remove/hide any existing label nodes when labels are disabled
       if (!showLabels) {
         const existing = svgEl.querySelectorAll('text[id^="pin-"][id$="-val"]');
-        existing.forEach((n) => ((n as SVGTextElement).style.display = "none"));
+        existing.forEach((n) => {
+          if (n instanceof SVGElement) {
+            n.setAttribute("style", "display: none;");
+          }
+        });
       } else {
         // PWM pins 3,5,6,9,10,11
         for (const pin of PWM_PINS) {

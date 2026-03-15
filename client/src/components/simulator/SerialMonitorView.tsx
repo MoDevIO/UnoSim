@@ -22,7 +22,7 @@ export type SerialViewMode = "monitor" | "plotter" | "both";
 import type { OutputLine } from "@shared/schema";
 import type { TelemetryMetrics } from "@/hooks/use-telemetry-store";
 
-export interface SerialMonitorViewProps {
+interface SerialMonitorViewProps {
   renderedSerialOutput: OutputLine[];
   serialOutput: OutputLine[];
   isConnected: boolean;

@@ -1,7 +1,7 @@
 import React from "react";
 import { AppHeader } from "@/components/features/app-header";
 
-export interface SimulationControlsProps {
+interface SimulationControlsProps {
   isMobile: boolean;
   simulationStatus: "idle" | "running" | "compiling" | "stopped" | "paused";
   simulateDisabled: boolean;

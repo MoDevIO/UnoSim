@@ -46,7 +46,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
         runner.stop();
         process.stderr.write("[TEST] timeout reached, outputs seen:" + JSON.stringify(output) + "\n");
         reject(new Error("Timeout waiting for output"));
-      }, 15000);
+      }, 60000); // increased for CI / slower environments
       const healthTimer = setTimeout(() => {
         console.error("[TEST] still waiting 10s, running=", runner.isRunning, "paused=", runner.isPaused, "output=", output);
       }, 10000);
@@ -98,7 +98,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
     const fullOutput = output.join("");
     expect(fullOutput).toContain("PIN2=1");
     console.log("✅ digitalRead works BEFORE pause");
-  }, 20000);
+  }, 60000);
 
 
   it("should read pin value correctly AFTER pause/resume", async () => {

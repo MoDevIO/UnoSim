@@ -19,7 +19,7 @@ import { useFileManager } from "./use-file-manager";
 /**
  * File system state and operations
  */
-export interface FileSystemState {
+interface FileSystemState {
   /** Currently active sketch */
   currentSketch: Sketch | null;
   /** Code content in the editor */
@@ -31,7 +31,7 @@ export interface FileSystemState {
 /**
  * File system operations
  */
-export interface FileSystemOperations {
+interface FileSystemOperations {
   /** Set the active sketch */
   setCurrentSketch: Dispatch<SetStateAction<Sketch | null>>;
   /** Update the code content */
@@ -45,7 +45,7 @@ export interface FileSystemOperations {
 /**
  * Return type for useFileSystem hook
  */
-export interface UseFileSystemResult extends FileSystemState, FileSystemOperations {
+interface UseFileSystemResult extends FileSystemState, FileSystemOperations {
   /** Access to sketch tabs management */
   tabs: ReturnType<typeof useSketchTabs>["tabs"];
   activeTabId: ReturnType<typeof useSketchTabs>["activeTabId"];
@@ -61,7 +61,7 @@ export interface UseFileSystemResult extends FileSystemState, FileSystemOperatio
 /**
  * Parameters for useFileSystem
  */
-export interface UseFileSystemParams {
+interface UseFileSystemParams {
   /** Sketches available from the sketch tabs hook result */
   sketches: Sketch[] | undefined;
 }

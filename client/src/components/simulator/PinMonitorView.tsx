@@ -2,9 +2,9 @@ import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
 import type { BatchStats, PinState } from "@/hooks/use-simulation-store";
 
-export type SimulationStatus = "running" | "stopped" | "paused";
+type SimulationStatus = "running" | "stopped" | "paused";
 
-export type PinMonitorViewProps = {
+type PinMonitorViewProps = {
   pinMonitorVisible: boolean;
   pinStates: PinState[];
   batchStats: BatchStats;

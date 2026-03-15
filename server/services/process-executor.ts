@@ -11,7 +11,7 @@
 
 import { Logger } from "@shared/logger";
 
-export interface ExecutionOptions {
+interface ExecutionOptions {
   timeout?: number;          // ms, 0 = no timeout
   detached?: boolean;        // process group for killing subprocesses
   stdio?: "pipe" | "ignore" | "inherit";
@@ -19,7 +19,7 @@ export interface ExecutionOptions {
   onProcess?: (proc: any) => void;  // for process lifecycle hooks (tests)
 }
 
-export interface ExecutionResult {
+interface ExecutionResult {
   code: number;
   stdout?: string;
   stderr?: string;

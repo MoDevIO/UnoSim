@@ -1,5 +1,6 @@
 import { useCompileAndRun, CompileAndRunParams } from "./use-compile-and-run";
 import type { MutableRefObject } from "react";
+import type { UseMutationResult } from "@tanstack/react-query";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 
 export type SimulationStatus = "running" | "stopped" | "paused";
@@ -38,9 +39,27 @@ export type UseSimulationControlsParams = {
   startSimulationRef: MutableRefObject<(() => void) | null>;
 };
 
+type UseSimulationControlsResult = {
+  simulationStatus: SimulationStatus;
+  setSimulationStatus: SetState<SimulationStatus>;
+  hasCompiledOnce: boolean;
+  setHasCompiledOnce: SetState<boolean>;
+  simulationTimeout: number;
+  setSimulationTimeout: SetState<number>;
+  startMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
+  stopMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
+  pauseMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
+  resumeMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
+  handleStart: () => void;
+  handleStop: () => void;
+  handlePause: () => void;
+  handleResume: () => void;
+  handleReset: () => void;
+};
+
 export function useSimulationControls(
   params: UseSimulationControlsParams,
-) {
+): UseSimulationControlsResult {
   // delegate to unified hook, supplying no-op placeholders for the compile
   // side so that tests which only define simulation props don't crash.
   const merged = useCompileAndRun({
@@ -123,5 +142,5 @@ export function useSimulationControls(
     handlePause: merged.handlePause,
     handleResume: merged.handleResume,
     handleReset,
-  } as any;
+  };
 }

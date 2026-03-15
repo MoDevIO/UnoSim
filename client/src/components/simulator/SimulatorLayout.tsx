@@ -6,7 +6,10 @@
  * in a reusable, testable component.
  */
 
-import React, { ReactNode } from "react";
+import React, { type ReactNode } from "react";
+import type { ParserMessage, IOPinRecord } from "@shared/schema";
+import type { DebugMessage } from "@/hooks/use-debug-console";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -23,7 +26,7 @@ export interface DesktopLayoutProps {
   editorSlot: ReactNode;
 
   // Output panel (compilation, messages, registry, debug)
-  outputPanelRef: React.RefObject<any>;
+  outputPanelRef: React.RefObject<ImperativePanelHandle>;
   outputTabsHeaderRef: React.RefObject<HTMLDivElement>;
   parserMessagesContainerRef: React.RefObject<HTMLDivElement>;
   debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
@@ -39,9 +42,9 @@ export interface DesktopLayoutProps {
   debugMessageFilter: string;
   
   cliOutput: string;
-  parserMessages: any[];
-  ioRegistry: any[];
-  debugMessages: any[];
+  parserMessages: ParserMessage[];
+  ioRegistry: IOPinRecord[];
+  debugMessages: DebugMessage[];
   lastCompilationResult: string | null;
   hasCompilationErrors: boolean;
   

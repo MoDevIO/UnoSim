@@ -7,7 +7,7 @@ import type { ToastFn } from "@/hooks/use-toast";
  * Provides direct access to editor commands and state operations.
  * Methods are optional since the actual ref implementation may only expose a subset.
  */
-export interface EditorAPI {
+interface EditorAPI {
   undo?: () => void;
   redo?: () => void;
   find?: () => void;

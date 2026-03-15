@@ -8,13 +8,13 @@ import type { ArduinoOutputParser } from "../arduino-output-parser";
 import { Logger } from "@shared/logger";
 import type { SimulationTimeoutManager } from "../simulation-timeout-manager";
 
-export interface DockerManagerCallbacks {
+interface DockerManagerCallbacks {
   onOutput: (line: string, isComplete?: boolean) => void;
   onPinState: (pin: number, type: "mode" | "value" | "pwm", value: number) => void;
   onError: (line: string) => void;
 }
 
-export interface DockerHandlerState {
+interface DockerHandlerState {
   isCompilePhase: { value: boolean };
   compileErrorBuffer: { value: string };
   compileSuccessSent: { value: boolean };
@@ -24,7 +24,7 @@ export interface DockerHandlerState {
   flushTimer: NodeJS.Timeout | null;
 }
 
-export type HandleParsedLineDelegate = (parsed: any, callbacks: DockerManagerCallbacks) => void;
+type HandleParsedLineDelegate = (parsed: unknown, callbacks: DockerManagerCallbacks) => void;
 
 export class DockerManager {
   private readonly logger = new Logger("DockerManager");

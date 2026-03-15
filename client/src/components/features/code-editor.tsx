@@ -51,13 +51,28 @@ function formatCode(code: string): string {
   return formatted;
 }
 
+interface CodeEditorAPI {
+  getValue: () => string;
+  undo?: () => void;
+  redo?: () => void;
+  find?: () => void;
+  selectAll?: () => void;
+  copy?: () => void;
+  cut?: () => void;
+  paste?: () => void;
+  goToLine?: (line: number) => void;
+  insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
+  insertTextAtLine?: (line: number | undefined, text: string) => void;
+  formatCode?: () => void;
+}
+
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   onCompileAndRun?: () => void;
   onFormat?: () => void;
   readOnly?: boolean;
-  editorRef?: React.MutableRefObject<{ getValue: () => string } | null>;
+  editorRef?: React.MutableRefObject<CodeEditorAPI | null>;
 }
 
 export function CodeEditor({
@@ -471,7 +486,7 @@ export function CodeEditor({
             editor.revealPositionInCenter({ lineNumber: line, column: 1 });
           } catch {}
         },
-      } as any;
+      };
     }
 
     // Set up change listener with null check

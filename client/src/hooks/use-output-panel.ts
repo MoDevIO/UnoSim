@@ -13,7 +13,12 @@ export function useOutputPanel(
   setActiveOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") => void,
   code: string,
 ) {
-  const outputPanelRef = useRef<any>(null);
+  interface OutputPanelAPI {
+    getSize?: () => number;
+    resize?: (percent: number) => void;
+  }
+
+  const outputPanelRef = useRef<OutputPanelAPI | null>(null);
   const outputTabsHeaderRef = useRef<HTMLDivElement | null>(null);
   const [outputPanelMinPercent, setOutputPanelMinPercent] = useState<number>(3);
   const [compilationPanelSize, setCompilationPanelSize] = useState(3);
@@ -47,9 +52,10 @@ export function useOutputPanel(
   );
 
   useEffect(() => {
-    const handler = (ev: any) => {
+    const handler: EventListener = (ev) => {
       try {
-        const newValue = Boolean(ev?.detail?.value);
+        const custom = ev as CustomEvent<{ value?: unknown }>;
+        const newValue = Boolean(custom?.detail?.value);
         setShowCompilationOutput(newValue);
         // Reset manual resize flag when toggling panel visibility (update both ref and state)
         outputPanelManuallyResizedRef.current = false;
@@ -67,15 +73,8 @@ export function useOutputPanel(
         // ignore
       }
     };
-    document.addEventListener(
-      "showCompileOutputChange",
-      handler as EventListener,
-    );
-    return () =>
-      document.removeEventListener(
-        "showCompileOutputChange",
-        handler as EventListener,
-      );
+    document.addEventListener("showCompileOutputChange", handler);
+    return () => document.removeEventListener("showCompileOutputChange", handler);
   }, [setShowCompilationOutput]);
 
   // Persist showCompilationOutput state to localStorage whenever it changes
