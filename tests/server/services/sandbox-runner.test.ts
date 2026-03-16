@@ -865,4 +865,14 @@ describe("SandboxRunner", () => {
       expect(runner.isRunning).toBe(false);
     });
   });
+
+  describe("Type helper sanity", () => {
+    it("should allow creating partial SandboxRunner mocks", () => {
+      const mock: PartialMock<SandboxRunner> = {
+        runSketch: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn(),
+      };
+      expect(mock.runSketch).toBeDefined();
+    });
+  });
 });
