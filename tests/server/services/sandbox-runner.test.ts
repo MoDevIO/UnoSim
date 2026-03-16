@@ -3,15 +3,66 @@
  * Tests für sichere Code-Ausführung mit Docker-Sandbox
  */
 
+import type { Mock } from "vitest";
+
 // Store original setTimeout
 const originalSetTimeout = global.setTimeout;
 
 vi.setConfig({ testTimeout: 2000 });
 
-// Mock child_process
-const spawnInstances: any[] = [];
-// allow runtime code to see the same array
-;(globalThis as any).spawnInstances = spawnInstances;
+// --- Test helper types ----------------------------------------------------
+
+type PartialMock<T> = {
+  [P in keyof T]?: T[P] extends (...args: any[]) => any
+    ? Mock<ReturnType<T[P]>, Parameters<T[P]>> | T[P]
+    : T[P] extends object
+    ? PartialMock<T[P]> | T[P]
+    : T[P];
+};
+
+type DockerMockConfig = Partial<{
+  infoFail: boolean;
+  infoError: string;
+  infoOutput: string;
+  versionFail: boolean;
+  versionOutput: string;
+  inspectFail: boolean;
+  inspectError: string;
+  inspectOutput: string;
+}>;
+
+type MockedChildProcess = {
+  on: (event: string, cb: (...args: any[]) => void) => any;
+  stdout: { on: (event: string, cb: (data: Buffer) => void) => any; destroyed: boolean; destroy: () => any };
+  stderr: { on: (event: string, cb: (data: Buffer) => void) => any; destroyed: boolean; destroy: () => any };
+  stdin: { write: (data: any) => boolean; destroyed: boolean; destroy: () => void };
+  kill: (...args: any[]) => void;
+  killed: boolean;
+  _emitStderr: (data: Buffer | string) => void;
+  _emitStdout: (data: Buffer | string) => void;
+  _emitClose: (code?: number) => void;
+};
+
+type SandboxRunnerTestGlobals = {
+  spawnInstances: MockedChildProcess[];
+  dockerMockConfig: DockerMockConfig;
+  setDockerMockConfig: (config: Partial<DockerMockConfig>) => void;
+  clearDockerMockConfig: () => void;
+};
+
+const testGlobals = globalThis as unknown as SandboxRunnerTestGlobals;
+
+// Mock-objects shared between tests
+const spawnInstances: MockedChildProcess[] = [];
+// Ensure global helpers exist for the mocked ProcessExecutor
+testGlobals.spawnInstances = spawnInstances;
+testGlobals.dockerMockConfig = testGlobals.dockerMockConfig ?? {};
+testGlobals.setDockerMockConfig = (config) => {
+  testGlobals.dockerMockConfig = { ...testGlobals.dockerMockConfig, ...config };
+};
+testGlobals.clearDockerMockConfig = () => {
+  testGlobals.dockerMockConfig = {};
+};
 
 vi.mock("child_process", () => {
   const spawnMock = vi.fn(() => {
@@ -68,7 +119,7 @@ vi.mock("child_process", () => {
         closeHandlers.forEach((cb) => cb(code ?? 0));
       },
     };
-    (globalThis as any).spawnInstances.push(proc);
+    testGlobals.spawnInstances.push(proc);
     return proc;
   });
   const execSyncMock = vi.fn();
@@ -135,7 +186,7 @@ vi.mock("../../../server/services/process-executor", () => {
   const ProcessExecutorClass = class {
     async execute(command: string, args: string[], options?: any) {
       // Check for test configuration
-      const testConfig = (globalThis as any).dockerMockConfig || {};
+      const testConfig: DockerMockConfig = testGlobals.dockerMockConfig ?? {};
       
       // Mock docker commands for tests
       if (command === "docker") {
@@ -176,13 +227,10 @@ vi.mock("../../../server/services/process-executor", () => {
 });
 
 // Global helper to configure docker mock responses for tests
-(globalThis as any).setDockerMockConfig = (config: any) => {
-  (globalThis as any).dockerMockConfig = config;
-};
+// (Uses typed helper functions defined above.)
+// Note: We mutate the shared global config object for tests.
 
-(globalThis as any).clearDockerMockConfig = () => {
-  (globalThis as any).dockerMockConfig = {};
-};
+// These are already set up via `testGlobals` above.
 
 import { spawn, execSync } from "child_process";
 import { mkdir, writeFile, rm, chmod, rename } from "fs/promises";
@@ -190,18 +238,38 @@ import { existsSync, renameSync } from "fs";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 import { LocalCompiler } from "../../../server/services/local-compiler";
 
+// Typed aliases to avoid `as any` for common mocks
+const spawnMock = spawn as unknown as Mock<any, any[]>;
+const execSyncMock = execSync as unknown as Mock<any, any[]>;
+const mkdirMock = mkdir as unknown as Mock<any, any[]>;
+const writeFileMock = writeFile as unknown as Mock<any, any[]>;
+const rmMock = rm as unknown as Mock<any, any[]>;
+const chmodMock = chmod as unknown as Mock<any, any[]>;
+const renameMock = rename as unknown as Mock<any, any[]>;
+
+type SandboxRunnerWithEnsureDocker = SandboxRunner & {
+  ensureDockerChecked: () => Promise<void>;
+};
+
+type SandboxRunnerWithController = SandboxRunner & {
+  processController: {
+    stdoutListeners: Array<(buf: Buffer) => void>;
+    stderrListeners: Array<(buf: Buffer) => void>;
+  };
+};
+
 describe("SandboxRunner", () => {
   const wait = (ms = 10) =>
     new Promise((resolve) => originalSetTimeout(resolve, ms));
 
   // helper to fire data through the ProcessController wrapper
   function sendStdout(runner: SandboxRunner, data: string | Buffer) {
-    const pc: any = (runner as any).processController;
-    pc.stdoutListeners.forEach((cb: Function) => cb(Buffer.from(data)));
+    const pc = (runner as unknown as SandboxRunnerWithController).processController;
+    pc.stdoutListeners.forEach((cb: (buf: Buffer) => void) => cb(Buffer.from(data)));
   }
   function _sendStderr(runner: SandboxRunner, data: string | Buffer) {
-    const pc: any = (runner as any).processController;
-    pc.stderrListeners.forEach((cb: Function) => cb(Buffer.from(data)));
+    const pc = (runner as unknown as SandboxRunnerWithController).processController;
+    pc.stderrListeners.forEach((cb: (buf: Buffer) => void) => cb(Buffer.from(data)));
   }
 
   let activeRunners: SandboxRunner[] = [];
@@ -209,13 +277,13 @@ describe("SandboxRunner", () => {
   beforeEach(() => {
     activeRunners = [];
     spawnInstances.length = 0;
-    (mkdir as any).mockClear();
-    (writeFile as any).mockClear();
-    (rm as any).mockClear();
-    (chmod as any).mockClear();
-    (rename as any).mockClear();
-    (spawn as any).mockClear();
-    (execSync as any).mockClear();
+    mkdirMock.mockClear();
+    writeFileMock.mockClear();
+    rmMock.mockClear();
+    chmodMock.mockClear();
+    renameMock.mockClear();
+    spawnMock.mockClear();
+    execSyncMock.mockClear();
 
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
   });
@@ -257,7 +325,7 @@ describe("SandboxRunner", () => {
   describe("Docker Availability Detection", () => {
     afterEach(() => {
       // Clear docker mock config after each test
-      (globalThis as any).clearDockerMockConfig();
+      testGlobals.clearDockerMockConfig();
     });
 
     it("should detect when Docker is available and image exists", async () => {
@@ -265,7 +333,7 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       
       // Explicitly wait for docker checks to complete
-      await (runner as any).ensureDockerChecked();
+      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
       
       const status = runner.getSandboxStatus();
 
@@ -276,12 +344,12 @@ describe("SandboxRunner", () => {
 
     it("should fallback when Docker daemon is not running", async () => {
       // Configure mock to fail on docker info
-      (globalThis as any).setDockerMockConfig({ infoFail: true });
+      testGlobals.setDockerMockConfig({ infoFail: true });
 
       const runner = new SandboxRunner();
       
       // Explicitly wait for docker checks
-      await (runner as any).ensureDockerChecked();
+      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
       
       const status = runner.getSandboxStatus();
 
@@ -292,11 +360,11 @@ describe("SandboxRunner", () => {
 
     it("should fallback when Docker is not installed", async () => {
       // Configure mock to fail on docker version
-      (globalThis as any).setDockerMockConfig({ versionFail: true });
+      testGlobals.setDockerMockConfig({ versionFail: true });
 
       const runner = new SandboxRunner();
       
-      await (runner as any).ensureDockerChecked();
+      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
       
       const status = runner.getSandboxStatus();
 
@@ -306,11 +374,11 @@ describe("SandboxRunner", () => {
 
     it("should detect when Docker image is not built", async () => {
       // Configure mock to fail on docker image inspect
-      (globalThis as any).setDockerMockConfig({ inspectFail: true });
+      testGlobals.setDockerMockConfig({ inspectFail: true });
 
       const runner = new SandboxRunner();
       
-      await (runner as any).ensureDockerChecked();
+      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
       
       const status = runner.getSandboxStatus();
 
@@ -325,7 +393,7 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       
       // Explicitly wait for initial docker checks
-      await (runner as any).ensureDockerChecked();
+      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
       
       const status1 = runner.getSandboxStatus();
       expect(status1.dockerAvailable).toBe(true); // Default mock returns success
@@ -341,7 +409,7 @@ describe("SandboxRunner", () => {
   describe("Local Fallback Execution", () => {
     it("should handle compile errors", async () => {
       // Simulate no Docker available
-      (globalThis as any).setDockerMockConfig({ versionFail: true });
+      testGlobals.setDockerMockConfig({ versionFail: true });
       
       // force the LocalCompiler to fail so runSketch invokes the error path
       vi.spyOn(LocalCompiler.prototype, 'compile')
@@ -365,7 +433,7 @@ describe("SandboxRunner", () => {
         });
       } catch (e) {
         // Expected to throw, capture error
-        compileError = (e as any).message || String(e);
+        compileError = e instanceof Error ? e.message : String(e);
       }
 
       // Wait a bit for async callbacks
@@ -385,7 +453,7 @@ describe("SandboxRunner", () => {
 
     afterEach(() => {
       // Clear docker mock config after each test
-      (globalThis as any).clearDockerMockConfig();
+      testGlobals.clearDockerMockConfig();
     });
 
     it("should use single Docker container for compile+run", async () => {
@@ -435,7 +503,7 @@ describe("SandboxRunner", () => {
       await wait();
 
       // locate the docker invocation call instead of assuming index 0
-      const dockerCall = (spawn as any).mock?.calls?.find(
+      const dockerCall = spawnMock.mock?.calls?.find(
         (c) => String(c[0]).includes("docker"),
       );
       expect(dockerCall).toBeDefined();
@@ -484,11 +552,11 @@ describe("SandboxRunner", () => {
   describe("Output Buffering", () => {
     beforeEach(() => {
       // Simulate Docker not available
-      (globalThis as any).setDockerMockConfig({ versionFail: true });
+      testGlobals.setDockerMockConfig({ versionFail: true });
     });
 
     afterEach(() => {
-      (globalThis as any).clearDockerMockConfig();
+      testGlobals.clearDockerMockConfig();
     });
 
     it("should buffer incomplete lines", async () => {
@@ -541,16 +609,16 @@ describe("SandboxRunner", () => {
   describe("Process Control", () => {
     beforeEach(() => {
       // Simulate Docker not available
-      (globalThis as any).setDockerMockConfig({ versionFail: true });
+      testGlobals.setDockerMockConfig({ versionFail: true });
     });
 
     afterEach(() => {
-      (globalThis as any).clearDockerMockConfig();
+      testGlobals.clearDockerMockConfig();
     });
 
     it("should stop running process", async () => {
       const runner = new SandboxRunner();
-      const pc: any = (runner as any).processController;
+      const pc = (runner as unknown as SandboxRunnerWithController).processController;
       vi.spyOn(pc, 'hasProcess').mockReturnValue(true);
       vi.spyOn(pc, 'kill');
 
@@ -571,7 +639,7 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
 
       // Manually set currentSketchDir to simulate a running sketch
-      (runner as any).currentSketchDir = "/temp/test-dir-uuid";
+      (runner as unknown as Record<string, unknown>).currentSketchDir = "/temp/test-dir-uuid";
 
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(renameSync).mockImplementation(() => {});
@@ -590,8 +658,8 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
 
       // configure runner state to appear running with a process attached
-      runner['state'] = (SandboxRunner as any).prototype['simulationState'] === undefined ? "running" : "running"; // just ensure property exists
-      const pc: any = (runner as any).processController;
+      runner['state'] = ((SandboxRunner as unknown as { prototype: Record<string, unknown> }).prototype['simulationState'] === undefined ? "running" : "running"); // just ensure property exists
+      const pc = (runner as unknown as SandboxRunnerWithController).processController;
       vi.spyOn(pc, 'hasProcess').mockReturnValue(true);
       vi.spyOn(pc, 'writeStdin');
 
@@ -608,7 +676,7 @@ describe("SandboxRunner", () => {
 
     afterEach(() => {
       // Clear docker mock config after each test
-      (globalThis as any).clearDockerMockConfig();
+      testGlobals.clearDockerMockConfig();
     });
 
     it("should enforce output size limit", async () => {
@@ -629,9 +697,9 @@ describe("SandboxRunner", () => {
       await wait(50);
 
       // simulate huge data directly via controller listener
-      const pc: any = (runner as any).processController;
+      const pc = (runner as unknown as SandboxRunnerWithController).processController;
       const largeOutput = "x".repeat(101 * 1024 * 1024);
-      pc.stdoutListeners.forEach((cb: Function) => cb(Buffer.from(largeOutput)));
+      pc.stdoutListeners.forEach((cb: (buf: Buffer) => void) => cb(Buffer.from(largeOutput)));
 
       await wait(20);
       expect(errors.length).toBeGreaterThan(0);
@@ -641,11 +709,11 @@ describe("SandboxRunner", () => {
   describe("Arduino Code Processing", () => {
     beforeEach(() => {
       // Simulate Docker not available
-      (globalThis as any).setDockerMockConfig({ versionFail: true });
+      testGlobals.setDockerMockConfig({ versionFail: true });
     });
 
     afterEach(() => {
-      (globalThis as any).clearDockerMockConfig();
+      testGlobals.clearDockerMockConfig();
     });
 
     it("should remove Arduino.h include", async () => {
@@ -661,7 +729,7 @@ describe("SandboxRunner", () => {
       await wait();
 
       // Check that writeFile was called with code without Arduino.h
-      const writeCall = (writeFile as any).mock.calls[0];
+      const writeCall = writeFileMock.mock.calls[0];
       const writtenCode = writeCall[1] as string;
 
       expect(writtenCode).not.toContain("#include <Arduino.h>");
@@ -680,7 +748,7 @@ describe("SandboxRunner", () => {
 
       await wait();
 
-      const writeCall = (writeFile as any).mock.calls[0];
+      const writeCall = writeFileMock.mock.calls[0];
       const writtenCode = writeCall[1] as string;
 
       expect(writtenCode).toContain("int main()");
@@ -692,11 +760,11 @@ describe("SandboxRunner", () => {
   describe("State Machine Validation", () => {
     beforeEach(() => {
       // Simulate Docker not available
-      (globalThis as any).setDockerMockConfig({ versionFail: true });
+      testGlobals.setDockerMockConfig({ versionFail: true });
     });
 
     afterEach(() => {
-      (globalThis as any).clearDockerMockConfig();
+      testGlobals.clearDockerMockConfig();
     });
 
     it("should only allow pause() in RUNNING state", async () => {
@@ -707,7 +775,7 @@ describe("SandboxRunner", () => {
 
       // force running state with active process
       runner['state'] = "running";
-      const pc1: any = (runner as any).processController;
+      const pc1 = (runner as unknown as SandboxRunnerWithController).processController;
       vi.spyOn(pc1, 'hasProcess').mockReturnValue(true);
       vi.spyOn(pc1, 'kill');
 
@@ -725,7 +793,7 @@ describe("SandboxRunner", () => {
 
       // force PAUSED state with a process present
       runner['state'] = "paused";
-      const pc: any = (runner as any).processController;
+      const pc = (runner as unknown as SandboxRunnerWithController).processController;
       vi.spyOn(pc, 'hasProcess').mockReturnValue(true);
 
       // set pause timing artificially
@@ -750,14 +818,14 @@ describe("SandboxRunner", () => {
 
       // force running state
       runner['state'] = "running";
-      const pc3: any = (runner as any).processController;
+      const pc3 = (runner as unknown as SandboxRunnerWithController).processController;
       vi.spyOn(pc3, 'hasProcess').mockReturnValue(true);
       vi.spyOn(pc3, 'writeStdin');
 
       runner.pause();
 
       // Verify [[PAUSE_TIME]] was written to stdin
-      const writes = (pc3.writeStdin as any).mock.calls.map((c) => c[0]);
+      const writes = (pc3.writeStdin as unknown as Mock<any, any[]>).mock.calls.map((c) => c[0]);
       expect(writes).toContain("[[PAUSE_TIME]]\n");
     });
 
