@@ -23,7 +23,7 @@ class CompileGatekeeper {
       );
     } else {
       this.maxConcurrent =
-        maxConcurrent || parseInt(process.env.COMPILE_MAX_CONCURRENT || "4", 10);
+        maxConcurrent || Number.parseInt(process.env.COMPILE_MAX_CONCURRENT || "4", 10);
 
       this.logger.info(
         `CompileGatekeeper initialized with max ${this.maxConcurrent} concurrent compiles`,

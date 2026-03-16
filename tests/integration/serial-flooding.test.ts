@@ -95,7 +95,7 @@ void loop() {
     const regex = /(\d{6}):/g;
     let match;
     while ((match = regex.exec(fullOutput)) !== null) {
-      lineNumbers.push(parseInt(match[1], 10));
+      lineNumbers.push(Number.parseInt(match[1], 10));
     }
 
     log(`[T-FLOOD-01] Total received lines: ${lineNumbers.length}`);
@@ -182,7 +182,7 @@ void loop() {
     
     // Check for gaps 
     let gaps = 0;
-    const numbers = lines.map(l => parseInt(l.trim(), 10)).filter(n => !isNaN(n));
+    const numbers = lines.map(l => Number.parseInt(l.trim(), 10)).filter(n => !Number.isNaN(n));
     for (let i = 1; i < numbers.length; i++) {
       if (numbers[i] !== numbers[i-1] + 1) {
         gaps++;
@@ -243,7 +243,7 @@ void loop() {
     const regex = /(\d{6}):/g;
     let match;
     while ((match = regex.exec(fullOutput)) !== null) {
-      lineNumbers.push(parseInt(match[1], 10));
+      lineNumbers.push(Number.parseInt(match[1], 10));
     }
 
     let totalMissing = 0;

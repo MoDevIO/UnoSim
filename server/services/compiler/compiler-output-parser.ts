@@ -42,11 +42,11 @@ export class CompilerOutputParser {
       let [_, file, lineStr, colStr, type, message] = match;
       // shorten to basename so frontend sees just the filename
       file = basename(file);
-      let lineNum = parseInt(lineStr, 10);
+      let lineNum = Number.parseInt(lineStr, 10);
       if (lineOffset > 0) {
         lineNum = Math.max(1, lineNum - lineOffset);
       }
-      const colNum = colStr ? parseInt(colStr, 10) : 0;
+      const colNum = colStr ? Number.parseInt(colStr, 10) : 0;
       const item: CompilationError = {
         file,
         line: lineNum,

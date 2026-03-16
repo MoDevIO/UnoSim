@@ -62,7 +62,7 @@ maybeDescribe("Timing - delay() accuracy", () => {
           // Parse "Elapsed: 1000ms" pattern
           const match = line.match(/Elapsed:\s*(\d+)ms/);
           if (match) {
-            const elapsed = parseInt(match[1], 10);
+            const elapsed = Number.parseInt(match[1], 10);
             measurements.push(elapsed);
             console.log(`Measured delay: ${elapsed}ms`);
             
@@ -147,7 +147,7 @@ maybeDescribe("Timing - delay() accuracy", () => {
           // Parse "Delay N: 500ms" pattern
           const match = line.match(/Delay\s+\d+:\s*(\d+)ms/);
           if (match) {
-            const elapsed = parseInt(match[1], 10);
+            const elapsed = Number.parseInt(match[1], 10);
             measurements.push(elapsed);
             console.log(`Measured delay: ${elapsed}ms`);
             

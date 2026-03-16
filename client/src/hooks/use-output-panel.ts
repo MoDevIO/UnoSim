@@ -240,7 +240,7 @@ export function useOutputPanel(
       // Enforce absolute minimum height (px) equal to the header height (plus 0 gap target).
       // The panel is the bottom panel; keeping it at header height keeps the header near the bottom edge.
       const absoluteMinPx = headerHeight;
-      const currentMinPx = parseInt(panelNode.style.minHeight || "0", 10);
+      const currentMinPx = Number.parseInt(panelNode.style.minHeight || "0", 10);
       if (Number.isNaN(currentMinPx) || currentMinPx !== absoluteMinPx) {
         panelNode.style.minHeight = `${absoluteMinPx}px`;
       }

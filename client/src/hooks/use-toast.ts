@@ -168,7 +168,7 @@ function toast({ ...props }: Toast) {
         if (stored === "infinite") {
           duration = Infinity;
         } else {
-          const ms = parseInt(stored, 10);
+          const ms = Number.parseInt(stored, 10);
           if (!Number.isNaN(ms)) duration = ms;
         }
       }

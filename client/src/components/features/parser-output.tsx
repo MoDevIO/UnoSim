@@ -386,7 +386,7 @@ export function ParserOutput({
                           .filter((u) => u.operation.includes("pinMode"))
                           .map((u) => {
                             const m = u.operation.match(/pinMode:(\d+)/);
-                            const n = m ? parseInt(m[1]) : -1;
+                            const n = m ? Number.parseInt(m[1]) : -1;
                             return n === 0
                               ? "INPUT"
                               : n === 1
@@ -517,7 +517,7 @@ export function ParserOutput({
                               })()}
                               {/* PWM tilde prefix if numeric pin and PWM-capable */}
                               {(() => {
-                                const n = parseInt(String(record.pin), 10);
+                                const n = Number.parseInt(String(record.pin), 10);
                                 return !Number.isNaN(n) &&
                                   PWM_PINS.includes(n) ? (
                                   <span className="text-yellow-400">~</span>

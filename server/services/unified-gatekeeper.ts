@@ -109,7 +109,7 @@ export class UnifiedGatekeeper extends EventEmitter {
       // Priority 2: Constructor parameter
       // Priority 3: CPU-adaptive calculation
       if (process.env.COMPILE_MAX_CONCURRENT) {
-        this.maxCompileConcurrent = parseInt(process.env.COMPILE_MAX_CONCURRENT, 10);
+        this.maxCompileConcurrent = Number.parseInt(process.env.COMPILE_MAX_CONCURRENT, 10);
       } else if (maxConcurrent) {
         this.maxCompileConcurrent = maxConcurrent;
       } else {

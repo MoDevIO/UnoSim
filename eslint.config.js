@@ -1,6 +1,7 @@
 // eslint.config.js
 import tsParser from "@typescript-eslint/parser";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
+import unicorn from "eslint-plugin-unicorn";
 
 export default [
   {
@@ -15,6 +16,7 @@ export default [
     },
     plugins: {
       "@typescript-eslint": tsPlugin,
+      unicorn,
     },
     rules: {
       "@typescript-eslint/no-unused-vars": ["warn", {
@@ -22,6 +24,7 @@ export default [
         varsIgnorePattern: "^_",
         caughtErrorsIgnorePattern: "^_",
       }],
+      "unicorn/prefer-number-properties": "error",
     },
   },
 ];

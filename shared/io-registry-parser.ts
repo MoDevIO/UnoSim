@@ -119,10 +119,10 @@ function resolveToken(
   token: string,
   syms: Map<string, number>,
 ): number | undefined {
-  if (/^\d+$/.test(token)) return parseInt(token, 10);
+  if (/^\d+$/.test(token)) return Number.parseInt(token, 10);
   const analogMatch = /^A(\d+)$/.exec(token);
   if (analogMatch) {
-    const n = parseInt(analogMatch[1], 10);
+    const n = Number.parseInt(analogMatch[1], 10);
     return n >= 0 && n <= 5 ? 14 + n : undefined;
   }
   return syms.get(token);
@@ -165,7 +165,7 @@ function resolvePin(
   const arrM = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/.exec(t);
   if (arrM) {
     const arr = arrays.get(arrM[1]);
-    const idx = parseInt(arrM[2], 10);
+    const idx = Number.parseInt(arrM[2], 10);
     if (arr && idx < arr.length) {
       const id = arr[idx];
       return id >= 0 && id <= 19 ? id : undefined;
@@ -206,11 +206,11 @@ function findLoopRanges(
 
   while ((m = re.exec(clean)) !== null) {
     const variable = m[1];
-    const start = parseInt(m[2], 10);
+    const start = Number.parseInt(m[2], 10);
     const op = m[3];
-    const limitVal = resolveToken(m[4], syms) ?? parseInt(m[4], 10);
+    const limitVal = resolveToken(m[4], syms) ?? Number.parseInt(m[4], 10);
     const hasBrace = !!m[5];
-    if (isNaN(limitVal)) continue;
+    if (Number.isNaN(limitVal)) continue;
 
     const values: number[] = [];
     if (op === "<")

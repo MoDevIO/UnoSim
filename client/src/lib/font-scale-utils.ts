@@ -15,8 +15,8 @@ export function getCurrentFontScale(): number {
   try {
     const stored = window.localStorage.getItem(FONT_SCALE_KEY);
     if (!stored) return DEFAULT_FONT_SCALE;
-    const parsed = parseFloat(stored);
-    return isNaN(parsed) ? DEFAULT_FONT_SCALE : parsed;
+    const parsed = Number.parseFloat(stored);
+    return Number.isNaN(parsed) ? DEFAULT_FONT_SCALE : parsed;
   } catch {
     return DEFAULT_FONT_SCALE;
   }

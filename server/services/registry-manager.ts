@@ -452,7 +452,7 @@ export class RegistryManager {
     if (distinctModes.size > 1) {
       pin.conflict = true;
       const modeNames = Array.from(distinctModes).map((op) => {
-        const n = parseInt(op.split(":")[1], 10);
+        const n = Number.parseInt(op.split(":")[1], 10);
         return n === 0 ? "INPUT" : n === 1 ? "OUTPUT" : "INPUT_PULLUP";
       });
       pin.conflictMessage = `Multiple modes: ${modeNames.join(", ")}`;

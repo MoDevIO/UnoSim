@@ -59,10 +59,10 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
   // Helper function to convert pin strings to numbers (A0-A5 → 14-19, digital → as-is)
   const pinToNumber = (pinStr: string): number | null => {
     if (/^\d+$/.test(pinStr)) {
-      return parseInt(pinStr, 10);
+      return Number.parseInt(pinStr, 10);
     }
     if (/^A\d+$/i.test(pinStr)) {
-      const analogIndex = parseInt(pinStr.slice(1), 10);
+      const analogIndex = Number.parseInt(pinStr.slice(1), 10);
       if (analogIndex >= 0 && analogIndex <= 5) {
         return 14 + analogIndex; // A0->14, A1->15, ..., A5->19
       }

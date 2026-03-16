@@ -214,9 +214,9 @@ export class CodeParser {
     let forMatch: RegExpExecArray | null;
     while ((forMatch = forHeaderRe.exec(code)) !== null) {
       const varName = forMatch[1];
-      const startVal = parseInt(forMatch[2], 10);
+      const startVal = Number.parseInt(forMatch[2], 10);
       const op = forMatch[3]; // '<' or '<='
-      const endVal = parseInt(forMatch[4], 10);
+      const endVal = Number.parseInt(forMatch[4], 10);
       const lastVal = op === "<=" ? endVal : endVal - 1;
       const forLine = code.substring(0, forMatch.index).split("\n").length;
 
@@ -599,7 +599,7 @@ export class CodeParser {
     const arrayRegex = /\[\s*(\d{4,})\s*\]/;
     const arrayMatch = code.match(arrayRegex);
     if (arrayMatch) {
-      const arraySize = parseInt(arrayMatch[1]);
+      const arraySize = Number.parseInt(arrayMatch[1]);
       if (arraySize > 1000) {
         messages.push({
           id: randomUUID(),
@@ -702,14 +702,14 @@ export class CodeParser {
   private parsePinNumber(pinStr: string): number | undefined {
     if (/^A\d+$/.test(pinStr)) {
       // Analog pin (A0-A5 map to 14-19 internally)
-      const analogNum = parseInt(pinStr.substring(1));
+      const analogNum = Number.parseInt(pinStr.substring(1));
       if (analogNum >= 0 && analogNum <= 5) {
         return 14 + analogNum;
       }
     } else {
       // Digital pin
-      const digitalNum = parseInt(pinStr);
-      if (!isNaN(digitalNum) && digitalNum >= 0 && digitalNum <= 19) {
+      const digitalNum = Number.parseInt(pinStr);
+      if (!Number.isNaN(digitalNum) && digitalNum >= 0 && digitalNum <= 19) {
         return digitalNum;
       }
     }

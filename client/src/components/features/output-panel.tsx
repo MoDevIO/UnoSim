@@ -123,7 +123,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
               const digitalWrites = ops.filter((u) => u.operation.includes("digitalWrite"));
               const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
                 const match = u.operation.match(/pinMode:(\d+)/);
-                const mode = match ? parseInt(match[1]) : -1;
+                const mode = match ? Number.parseInt(match[1]) : -1;
                 return mode === 0 ? "INPUT" : mode === 1 ? "OUTPUT" : mode === 2 ? "INPUT_PULLUP" : "UNKNOWN";
               });
               const uniqueModes = [...new Set(pinModes)];
@@ -140,7 +140,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 const digitalWrites = ops.filter((u) => u.operation.includes("digitalWrite"));
                 const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
                   const match = u.operation.match(/pinMode:(\d+)/);
-                  const mode = match ? parseInt(match[1]) : -1;
+                  const mode = match ? Number.parseInt(match[1]) : -1;
                   return mode === 0 ? "INPUT" : mode === 1 ? "OUTPUT" : mode === 2 ? "INPUT_PULLUP" : "UNKNOWN";
                 });
                 const uniqueModes = [...new Set(pinModes)];

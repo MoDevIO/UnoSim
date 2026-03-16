@@ -41,7 +41,7 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
         onOutput: (line) => {
           const match = line.match(/TIME:(\d+)/);
           if (match) {
-            const t = parseInt(match[1]);
+            const t = Number.parseInt(match[1]);
             timeValues.push(t);
 
             if (timeValues.length === 5) {
@@ -95,7 +95,7 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
         onOutput: (line) => {
           const match = line.match(/T:(\d+)/);
           if (match) {
-            timeReadings.push({ value: parseInt(match[1]), isPaused: runner.isPaused });
+            timeReadings.push({ value: Number.parseInt(match[1]), isPaused: runner.isPaused });
           }
 
           if (timeReadings.length > 0 && timeReadings.length % 4 === 0 && cycle < 2 && !pausedInCycle) {

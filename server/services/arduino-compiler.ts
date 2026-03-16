@@ -417,7 +417,7 @@ export class ArduinoCompiler {
     // Correct stderr text for offset so UI shows original line numbers
     if (lineOffset > 0 && cleanedErrors) {
       cleanedErrors = cleanedErrors.replace(/sketch\.ino:(\d+):/g, (_m, n) => {
-        const corrected = Math.max(1, parseInt(n, 10) - lineOffset);
+        const corrected = Math.max(1, Number.parseInt(n, 10) - lineOffset);
         return `sketch.ino:${corrected}:`;
       });
     }

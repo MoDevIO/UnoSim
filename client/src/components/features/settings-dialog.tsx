@@ -197,7 +197,7 @@ export default function SettingsDialog({
                     } catch {}
                     try {
                       const ev = new CustomEvent("uiFontScaleChange", {
-                        detail: { value: parseFloat(v) },
+                        detail: { value: Number.parseFloat(v) },
                       });
                       document.dispatchEvent(ev);
                     } catch {}
@@ -406,7 +406,7 @@ function ToastDurationControl() {
       const v = window.localStorage.getItem(TOAST_DURATION_KEY);
       if (v === null) return DEFAULT_TOAST_SECONDS * 2; // slider steps are 0.5s, so value = seconds*2
       if (v === "infinite") return 21;
-      const ms = parseInt(v, 10);
+      const ms = Number.parseInt(v, 10);
       if (Number.isNaN(ms)) return DEFAULT_TOAST_SECONDS * 2;
       const computed = Math.round((ms / 1000) * 2);
       if (computed < 1) return 1;

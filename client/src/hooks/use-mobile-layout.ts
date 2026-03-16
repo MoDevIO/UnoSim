@@ -98,7 +98,7 @@ export function useMobileLayout() {
       let z = 0;
       if (hdr) {
         const zStr = getComputedStyle(hdr as HTMLElement).zIndex;
-        const zNum = parseInt(zStr || "", 10);
+        const zNum = Number.parseInt(zStr || "", 10);
         z = Number.isFinite(zNum) ? zNum : 0;
       }
       const chosenZ = z > 0 ? Math.max(z - 1, 5) : 30;

@@ -63,12 +63,12 @@ function getComputedSpacingToken(tokenName: string): number {
     const value = computedStyle.getPropertyValue(tokenName).trim();
     // Convert rem to pixels (assuming 16px base)
     if (value.includes('rem')) {
-      return parseFloat(value) * 16;
+      return Number.parseFloat(value) * 16;
     }
     if (value.includes('px')) {
-      return parseFloat(value);
+      return Number.parseFloat(value);
     }
-    return parseFloat(value);
+    return Number.parseFloat(value);
   } catch {
     // Fallback values
     if (tokenName === '--svg-safe-margin') return 4;
@@ -158,7 +158,7 @@ export function ArduinoBoard({
     const checkScaleChange = () => {
       try {
         const cs = getComputedStyle(document.documentElement);
-        parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1; // Read but don't store - SVG re-renders on next polling cycle
+        Number.parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1; // Read but don't store - SVG re-renders on next polling cycle
       } catch {
         logger.warn("Failed to read --ui-font-scale");
       }
@@ -549,7 +549,7 @@ export function ArduinoBoard({
         t.textContent = textValue;
         if (rotateLeft) {
           // Get scaled font size from CSS token
-          const fontSize = parseFloat(getComputedTokenValue('--fs-label-sm'));
+          const fontSize = Number.parseFloat(getComputedTokenValue('--fs-label-sm'));
           const half = fontSize / 2;
           const translateY =
             typeof translateYOverride === "number" ? translateYOverride : y;
@@ -601,7 +601,7 @@ export function ArduinoBoard({
             let localX: number | undefined = undefined;
             let anchor: string | undefined = undefined;
             const padding = getComputedSpacingToken('--svg-label-padding'); // 2px from token
-            const fontSize = parseFloat(getComputedTokenValue('--fs-label-sm'));
+            const fontSize = Number.parseFloat(getComputedTokenValue('--fs-label-sm'));
             if (cy < VIEWBOX_HEIGHT / 2) {
               // upper pins: place above and left-align inside frame
               translateY = cy - bb.height / 2 - fontSize / 2 - padding;
@@ -648,7 +648,7 @@ export function ArduinoBoard({
             let localXAnal: number | undefined = undefined;
             let anchorAnal: string | undefined = undefined;
             const paddingAnal = getComputedSpacingToken('--svg-label-padding'); // 2px from token
-            const fontSizeAnal = parseFloat(getComputedTokenValue('--fs-label-sm'));
+            const fontSizeAnal = Number.parseFloat(getComputedTokenValue('--fs-label-sm'));
             if (cy < VIEWBOX_HEIGHT / 2) {
               translateYAnal =
                 cy - bb.height / 2 - fontSizeAnal / 2 - paddingAnal;
@@ -793,10 +793,10 @@ export function ArduinoBoard({
 
         let pin: number | undefined;
         if (digitalMatch) {
-          pin = parseInt(digitalMatch[1], 10);
+          pin = Number.parseInt(digitalMatch[1], 10);
         } else if (analogMatch) {
           // A0-A5 map to pins 14-19
-          pin = 14 + parseInt(analogMatch[1], 10);
+          pin = 14 + Number.parseInt(analogMatch[1], 10);
         }
 
         if (pin !== undefined) {
@@ -1059,9 +1059,9 @@ function AnalogDialogPortal(props: {
       svgEl.querySelector<SVGGraphicsElement>(`#pin-${dialog.pin}-state`);
     if (!el) return null;
     const rect = (el as Element).getBoundingClientRect();
-    const dialogWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-width-small').trim()) || 220;
-    const dialogHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-height-small').trim()) || 84;
-    const pointerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-offset-pointer').trim()) || 6;
+    const dialogWidth = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-width-small').trim()) || 220;
+    const dialogHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-height-small').trim()) || 84;
+    const pointerOffset = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-offset-pointer').trim()) || 6;
     const viewportMargin = 8;
     let left = rect.left + rect.width / 2 - dialogWidth / 2;
     let top =

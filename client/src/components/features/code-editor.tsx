@@ -159,9 +159,9 @@ export function CodeEditor({
       try {
         const cs = getComputedStyle(document.documentElement);
         const baseFs =
-          parseFloat(cs.getPropertyValue("--ui-font-base-size")) || 16;
-        const baseLh = parseFloat(cs.getPropertyValue("--ui-line-base")) || 20;
-        const scale = parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1;
+          Number.parseFloat(cs.getPropertyValue("--ui-font-base-size")) || 16;
+        const baseLh = Number.parseFloat(cs.getPropertyValue("--ui-line-base")) || 20;
+        const scale = Number.parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1;
         const fs = baseFs * scale;
         const lh = baseLh * scale;
         return { fs, lh };

@@ -105,7 +105,7 @@ void loop() {
     const deltaRegex = /\[(\d+) ms delta\]/g;
     let match;
     while ((match = deltaRegex.exec(output)) !== null) {
-      deltas.push(parseInt(match[1], 10));
+      deltas.push(Number.parseInt(match[1], 10));
     }
 
     log(`[T-BP-01] Time deltas (ms): ${deltas.join(', ')}`);
@@ -178,7 +178,7 @@ void loop() {
     const regex = /(\d{6})/g;
     let match;
     while ((match = regex.exec(output)) !== null) {
-      const num = parseInt(match[1], 10);
+      const num = Number.parseInt(match[1], 10);
       // Avoid END marker
       if (num < 10000) {
         lineNumbers.push(num);
