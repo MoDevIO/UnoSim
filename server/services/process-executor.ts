@@ -109,7 +109,7 @@ function validateCommand(command: string, args: string[]): void {
 }
 
 export class ProcessExecutor {
-  private logger = new Logger("ProcessExecutor");
+  private readonly logger = new Logger("ProcessExecutor");
   private activeProcess: ChildProcess | null = null;
   private activeTimeout: NodeJS.Timeout | null = null;
 

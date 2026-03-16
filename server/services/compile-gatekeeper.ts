@@ -9,7 +9,7 @@ import { Logger } from "@shared/logger";
 import { getUnifiedGatekeeper, TaskPriority } from "./unified-gatekeeper";
 
 class CompileGatekeeper {
-  private logger = new Logger("CompileGatekeeper");
+  private readonly logger = new Logger("CompileGatekeeper");
   private readonly maxConcurrent: number;
 
   constructor(maxConcurrent?: number) {

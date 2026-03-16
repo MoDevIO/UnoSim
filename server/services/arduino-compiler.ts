@@ -42,10 +42,10 @@ export interface CompileRequestOptions {
 }
 
 export class ArduinoCompiler {
-  private tempDir = join(process.cwd(), "temp");
-  private logger = new Logger("ArduinoCompiler");
-  private gatekeeper = getCompileGatekeeper();
-  private processExecutor = new ProcessExecutor();
+  private readonly tempDir = join(process.cwd(), "temp");
+  private readonly logger = new Logger("ArduinoCompiler");
+  private readonly gatekeeper = getCompileGatekeeper();
+  private readonly processExecutor = new ProcessExecutor();
   private readonly defaultFqbn = process.env.ARDUINO_FQBN || "arduino:avr:uno";
   private readonly defaultBuildCacheDir =
     process.env.ARDUINO_CACHE_DIR ||

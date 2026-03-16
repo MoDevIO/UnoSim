@@ -61,7 +61,7 @@ export class CompilationWorkerPool {
     startTime: number;
   }> = [];
 
-  private stats = {
+  private readonly stats = {
     totalTasks: 0,
     completedTasks: 0,
     failedTasks: 0,

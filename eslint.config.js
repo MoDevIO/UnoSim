@@ -1,7 +1,11 @@
 // eslint.config.js
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import tsParser from "@typescript-eslint/parser";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 import unicorn from "eslint-plugin-unicorn";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default [
   {
@@ -11,6 +15,10 @@ export default [
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parser: tsParser,
+      parserOptions: {
+        project: ["./tsconfig.json", "./tsconfig.eslint.json"],
+        tsconfigRootDir: __dirname,
+      },
       ecmaVersion: "latest",
       sourceType: "module",
     },
@@ -24,6 +32,7 @@ export default [
         varsIgnorePattern: "^_",
         caughtErrorsIgnorePattern: "^_",
       }],
+      "@typescript-eslint/prefer-readonly": "error",
       "unicorn/prefer-number-properties": "error",
       "unicorn/prefer-at": "error",
       "unicorn/prefer-string-slice": "error",

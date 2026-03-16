@@ -67,11 +67,11 @@ function calculateOptimalConcurrency(): number {
 export class UnifiedGatekeeper extends EventEmitter {
   private readonly maxCompileConcurrent: number;
   private availableSlots: number;
-  private activeSlots: Map<string, CompileSlotEntry> = new Map();
+  private readonly activeSlots: Map<string, CompileSlotEntry> = new Map();
   private compileQueue: QueuedTask[] = [];
   
   // Cache locks: key -> [lock entries]
-  private cacheLocks: Map<string, CacheLockEntry[]> = new Map();
+  private readonly cacheLocks: Map<string, CacheLockEntry[]> = new Map();
   
   // Lock monitoring
   private lockCheckInterval: NodeJS.Timeout | null = null;
@@ -81,7 +81,7 @@ export class UnifiedGatekeeper extends EventEmitter {
   // Queue size limit to prevent unbounded memory growth under extreme load
   private readonly maxQueueSize = 500;
   
-  private logger = new Logger("UnifiedGatekeeper");
+  private readonly logger = new Logger("UnifiedGatekeeper");
   
   // Statistics
   private stats = {

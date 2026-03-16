@@ -35,9 +35,9 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 
 export class SimulationRateLimiter {
   private static instance: SimulationRateLimiter | null = null;
-  private clientLimits = new Map<WebSocket, RateLimitEntry>();
-  private config: RateLimitConfig;
-  private cleanupInterval: NodeJS.Timeout;
+  private readonly clientLimits = new Map<WebSocket, RateLimitEntry>();
+  private readonly config: RateLimitConfig;
+  private readonly cleanupInterval: NodeJS.Timeout;
 
   private constructor(config: Partial<RateLimitConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };

@@ -24,9 +24,9 @@ class CompilerError extends Error {
 }
 
 export class LocalCompiler {
-  private logger = new Logger("LocalCompiler");
+  private readonly logger = new Logger("LocalCompiler");
   private compileTimeoutMs = 20000; // 20 seconds
-  private processExecutor: ProcessExecutor;
+  private readonly processExecutor: ProcessExecutor;
 
   constructor() {
     this.processExecutor = new ProcessExecutor();

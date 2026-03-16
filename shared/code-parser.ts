@@ -56,7 +56,7 @@ interface PinModeEntry {
  * Specialized analyzer for pin mode conflicts and hardware compatibility
  */
 class PinCompatibilityChecker {
-  constructor(private uncommentedCode: string) {}
+  constructor(private readonly uncommentedCode: string) {}
 
   /**
    * Extract all pins configured with pinMode calls (direct and loop-based)
@@ -181,7 +181,7 @@ class PinCompatibilityChecker {
  * Specialized analyzer for performance issues
  */
 class PerformanceAnalyzer {
-  constructor(private uncommentedCode: string, private fullCode: string) {}
+  constructor(private readonly uncommentedCode: string, private readonly fullCode: string) {}
 
   /**
    * Check for infinite loops and recursion

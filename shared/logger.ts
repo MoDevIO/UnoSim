@@ -39,7 +39,7 @@ interface LogEntry {
 
 class RingBuffer {
   private buffer: LogEntry[] = [];
-  private maxSize: number = 200;
+  private readonly maxSize: number = 200;
   private writeIndex: number = 0;
 
   /**
@@ -158,7 +158,7 @@ function flushDebugOnFailure(reason?: string): void {
 
 // ============ LOGGER CLASS ============
 export class Logger {
-  private context: string;
+  private readonly context: string;
 
   /**
    * Initialisiert Logger mit forciertem Kontext-String

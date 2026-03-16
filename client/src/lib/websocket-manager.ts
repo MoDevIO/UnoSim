@@ -58,7 +58,7 @@ class WebSocketManager {
   private bufferFlushTimeout: ReturnType<typeof setTimeout> | null = null;
   
   // Event listeners
-  private listeners: Map<keyof WSManagerEvents, Set<Function>> = new Map();
+  private readonly listeners: Map<keyof WSManagerEvents, Set<Function>> = new Map();
   
   // Prevent duplicate connection attempts
   private isConnecting = false;

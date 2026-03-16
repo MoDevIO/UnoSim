@@ -14,7 +14,7 @@ interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private sketches: Map<string, Sketch>;
+  private readonly sketches: Map<string, Sketch>;
 
   constructor() {
     this.sketches = new Map();

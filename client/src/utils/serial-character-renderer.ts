@@ -18,8 +18,8 @@ export class SerialCharacterRenderer {
   private baudrate: number | undefined;
   private lastCharTime: number = 0;
   private rafId: number | null = null;
-  private onChar: (char: string) => void;
-  private static MAX_QUEUE_SIZE = 50000; // ~50KB safety limit
+  private readonly onChar: (char: string) => void;
+  private static readonly MAX_QUEUE_SIZE = 50000; // ~50KB safety limit
 
   constructor(onChar: (char: string) => void) {
     this.onChar = onChar;

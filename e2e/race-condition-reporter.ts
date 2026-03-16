@@ -64,12 +64,12 @@ interface RaceDetection {
 // ---------------------------------------------------------------------------
 
 class RaceConditionReporter implements Reporter {
-  private detections: RaceDetection[] = [];
+  private readonly detections: RaceDetection[] = [];
   /**
    * Map from test-id → array of all result statuses seen, so we can
    * determine "flakiness" (test passed on a retry after earlier failures).
    */
-  private testHistory = new Map<string, TestResult["status"][]>();
+  private readonly testHistory = new Map<string, TestResult["status"][]>();
 
   onBegin(_config: FullConfig, _suite: Suite): void {
     // nothing to do on begin

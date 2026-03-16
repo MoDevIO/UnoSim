@@ -18,10 +18,10 @@ interface SketchBuildResult {
 }
 
 export class SketchFileBuilder {
-  private logger = new Logger("SketchFileBuilder");
-  private createdSketchDirs = new Set<string>();
+  private readonly logger = new Logger("SketchFileBuilder");
+  private readonly createdSketchDirs = new Set<string>();
 
-  constructor(private tempDir: string) {}
+  constructor(private readonly tempDir: string) {}
 
   /**
    * Builds a complete sketch file with Arduino mock and user code

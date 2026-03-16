@@ -5,7 +5,7 @@ import type { IOPinRecord } from "@shared/schema";
 import type { PinStateBatcher } from "./pin-state-batcher";
 import type { SerialOutputBatcher, SerialOutputTelemetry } from "./serial-output-batcher";
 import { Logger } from "@shared/logger";
-import { pinModeToString } from "@shared/utils/arduino-utils";
+import { computePinConflict, ensurePinModeOperation } from "./utils/pin-validator";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { join } from "node:path";
 
@@ -105,7 +105,7 @@ export class RegistryManager {
    * Keyed as "<pinId>:<mode>" (e.g. "13:1").
    * Reset on reset() / next program start.
    */
-  private runtimeSentFingerprints = new Set<string>();
+  private readonly runtimeSentFingerprints = new Set<string>();
   private readonly logger = new Logger("RegistryManager");
   private readonly onUpdateCallback?: RegistryUpdateCallback;
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
@@ -114,7 +114,7 @@ export class RegistryManager {
   private serialOutputBatcher: SerialOutputBatcher | null = null; // Reference to SerialOutputBatcher for telemetry
   
   // Telemetry tracking
-  private telemetry = {
+  private readonly telemetry = {
     incomingEvents: 0,
     sentBatches: 0,
     serialOutputEvents: 0, // track serial output events
@@ -445,46 +445,9 @@ export class RegistryManager {
    *   – OUTPUT mode combined with digitalRead/analogRead in usedAt  → TC9b
    */
   private detectConflictsForPin(pin: IOPinRecord): void {
-    const ops = pin.usedAt ?? [];
-
-    const pinModeOps = ops.filter((u) => u.operation.startsWith("pinMode:"));
-    const distinctModes = new Set(pinModeOps.map((u) => u.operation));
-
-    if (distinctModes.size > 1) {
-      pin.conflict = true;
-      const modeNames = Array.from(distinctModes).map((op) => {
-        const n = Number.parseInt(op.split(":")[1], 10);
-        return pinModeToString(n);
-      });
-      pin.conflictMessage = `Multiple modes: ${modeNames.join(", ")}`;
-      return;
-    }
-
-    // TC9: INPUT/INPUT_PULLUP + digitalWrite/analogWrite
-    const hasInput = ops.some(
-      (u) => u.operation === "pinMode:0" || u.operation === "pinMode:2",
-    );
-    const hasWrite = ops.some(
-      (u) => u.operation === "digitalWrite" || u.operation === "analogWrite",
-    );
-    if (hasInput && hasWrite && !pin.conflict) {
-      pin.conflict = true;
-      const inputModeName = ops.some((u) => u.operation === "pinMode:2")
-        ? "INPUT_PULLUP"
-        : "INPUT";
-      pin.conflictMessage = `Write on ${inputModeName} pin`;
-      return;
-    }
-
-    // TC9b: OUTPUT + digitalRead/analogRead
-    const hasOutput = ops.some((u) => u.operation === "pinMode:1");
-    const hasRead = ops.some(
-      (u) => u.operation === "digitalRead" || u.operation === "analogRead",
-    );
-    if (hasOutput && hasRead && !pin.conflict) {
-      pin.conflict = true;
-      pin.conflictMessage = "Read on OUTPUT pin";
-    }
+    const conflictInfo = computePinConflict(pin);
+    pin.conflict = conflictInfo.conflict;
+    pin.conflictMessage = conflictInfo.conflict ? conflictInfo.conflictMessage : undefined;
   }
 
   /**
@@ -604,83 +567,63 @@ export class RegistryManager {
   updatePinMode(pin: number, mode: number): void {
     if (this.destroyed) return;
 
-    // ── Anti-spam: skip if this (pin, mode) was already sent ─────────────────
+    // Anti-spam: skip if this (pin, mode) was already sent
     if (this.shouldSkipPinMode(pin, mode)) {
       this.telemetry.incomingEvents++;
-      return; // No new information – don't update registry or trigger WS send
+      return;
     }
 
     const pinStr = pin >= 14 && pin <= 19 ? `A${pin - 14}` : String(pin);
     const existing = this.registry.find((p) => p.pin === pinStr);
+    const isNewRecord = !existing;
+    const wasDefinedBefore = existing?.defined ?? false;
 
     this.logger.debug(
-      `updatePinMode: pin=${pin} (${pinStr}), mode=${mode}, existing=${!!existing}, wasDefinedBefore=${existing?.defined || false}`,
+      `updatePinMode: pin=${pin} (${pinStr}), mode=${mode}, existing=${!!existing}, wasDefinedBefore=${wasDefinedBefore}`,
     );
 
-    if (existing) {
-      const wasDefinedBefore = existing.defined;
-      existing.pinMode = mode;
-      existing.defined = true;
+    // Create or update registry record
+    const record: IOPinRecord = existing
+      ? existing
+      : ({ pin: pinStr, defined: true, pinMode: mode, usedAt: [] } as IOPinRecord);
 
-      // Track pinMode operation in usedAt
-      const pinModeOp = `pinMode:${mode}`;
-      if (!existing.usedAt) existing.usedAt = [];
+    record.pinMode = mode;
+    record.defined = true;
 
-      const alreadyTracked = existing.usedAt.some(
-        (u) => u.operation === pinModeOp,
-      );
-      if (!alreadyTracked) {
-        existing.usedAt.push({ line: 0, operation: pinModeOp });
-      }
+    // Ensure the mode operation is tracked for conflict detection
+    ensurePinModeOperation(record, mode);
 
-      // Re-run conflict detection using the shared helper
-      const hadConflict = existing.conflict;
-      this.detectConflictsForPin(existing);
-      const newConflict = existing.conflict && !hadConflict;
+    const hadConflict = Boolean(record.conflict);
+    const conflictInfo = computePinConflict(record);
+    record.conflict = conflictInfo.conflict;
+    record.conflictMessage = conflictInfo.conflict ? conflictInfo.conflictMessage : undefined;
 
-      this.telemetry.incomingEvents++;
-      this.markPinModeSent(pin, mode);
+    if (!existing) {
+      this.registry.push(record);
+    }
 
-      // Structural changes (defined: false -> true) must be sent immediately.
-      if (!wasDefinedBefore) {
-        this.logger.debug(
-          `Structural change: pin ${pinStr} marked as defined, sending immediately`,
-        );
-        this.logger.info(
-          `Registry send trigger: first-time pin use ${pinStr} (pinMode:${mode})`,
-        );
-        this.isDirty = true;
-        if (!this.isCollecting && !this.waitingForRegistry) {
-          const nextHash = this.computeRegistryHash();
-          this.sendNow(nextHash, "pin-defined-changed");
-        }
-      } else {
-        // Already defined but new mode (mode change) – if new conflict, send immediately
-        if (newConflict) {
-          this.isDirty = true;
-          if (!this.isCollecting && !this.waitingForRegistry) {
-            const nextHash = this.computeRegistryHash();
-            this.sendNow(nextHash, "pin-conflict-detected");
-          }
-        }
-      }
-    } else {
-      // Create new pin record if not yet in registry
-      this.registry.push({
-        pin: pinStr,
-        defined: true,
-        pinMode: mode,
-        usedAt: [{ line: 0, operation: `pinMode:${mode}` }],
-      });
-      this.isDirty = true;
-      this.telemetry.incomingEvents++;
+    this.telemetry.incomingEvents++;
+    this.markPinModeSent(pin, mode);
+    this.isDirty = true;
+
+    // Send on first-time definition or when a new conflict appears
+    if (!wasDefinedBefore) {
       this.logger.debug(
-        `New pin record created: ${pinStr} with mode=${mode}, sending immediately`,
+        `Structural change: pin ${pinStr} marked as defined, sending immediately`,
       );
-      this.markPinModeSent(pin, mode);
+      this.logger.info(
+        `Registry send trigger: first-time pin use ${pinStr} (pinMode:${mode})`,
+      );
       if (!this.isCollecting && !this.waitingForRegistry) {
         const nextHash = this.computeRegistryHash();
-        this.sendNow(nextHash, "pin-new-record");
+        const reason = isNewRecord ? "pin-new-record" : "pin-defined-changed";
+        this.sendNow(nextHash, reason);
+      }
+    } else if (conflictInfo.conflict && !hadConflict) {
+      this.isDirty = true;
+      if (!this.isCollecting && !this.waitingForRegistry) {
+        const nextHash = this.computeRegistryHash();
+        this.sendNow(nextHash, "pin-conflict-detected");
       }
     }
   }
