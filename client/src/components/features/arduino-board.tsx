@@ -4,6 +4,7 @@ import { Cpu, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { usePinPollingEngine } from "@/hooks/usePinPollingEngine";
+import { onCustomEvent, offCustomEvent } from "@/utils/event-utils";
 import { Logger } from "@shared/logger";
 
 const logger = new Logger("ArduinoBoard");
@@ -180,12 +181,8 @@ export function ArduinoBoard({
         // ignore
       }
     };
-    document.addEventListener("arduinoColorChange", onColor as EventListener);
-    return () =>
-      document.removeEventListener(
-        "arduinoColorChange",
-        onColor as EventListener,
-      );
+    onCustomEvent(document, "arduinoColorChange", onColor);
+    return () => offCustomEvent(document, "arduinoColorChange", onColor);
   }, []);
 
   // Listen for debug mode changes
@@ -206,9 +203,8 @@ export function ArduinoBoard({
         // ignore
       }
     };
-    document.addEventListener("debugModeChange", handler as EventListener);
-    return () =>
-      document.removeEventListener("debugModeChange", handler as EventListener);
+    onCustomEvent(document, "debugModeChange", handler);
+    return () => offCustomEvent(document, "debugModeChange", handler);
   }, []);
 
   // Stable reference to ALL current state for polling - updated on every render

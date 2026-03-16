@@ -9,14 +9,25 @@
  * - Test mockability
  */
 
+import { ChildProcess } from "node:child_process";
 import { Logger } from "@shared/logger";
+
+/**
+ * Extend globalThis for test process tracking
+ * Note: spawnInstances is an implementation detail for test cleanup support
+ */
+declare global {
+  interface Global {
+    spawnInstances?: ChildProcess[];
+  }
+}
 
 interface ExecutionOptions {
   timeout?: number;          // ms, 0 = no timeout
   detached?: boolean;        // process group for killing subprocesses
   stdio?: "pipe" | "ignore" | "inherit";
   onData?: (data: Buffer) => void;  // for stdout/stderr capture
-  onProcess?: (proc: any) => void;  // for process lifecycle hooks (tests)
+  onProcess?: (proc: ChildProcess) => void;  // for process lifecycle hooks (tests)
 }
 
 interface ExecutionResult {
@@ -99,7 +110,7 @@ function validateCommand(command: string, args: string[]): void {
 
 export class ProcessExecutor {
   private logger = new Logger("ProcessExecutor");
-  private activeProcess: any = null;
+  private activeProcess: ChildProcess | null = null;
   private activeTimeout: NodeJS.Timeout | null = null;
 
   /**
@@ -132,10 +143,10 @@ export class ProcessExecutor {
       this.activeProcess = proc;
 
       // Track in global spawnInstances for test cleanup (Vitest pattern)
-      try {
-        const gs: any = (globalThis as any).spawnInstances;
-        if (Array.isArray(gs)) gs.push(proc);
-      } catch {}
+      const spawnInstances = (globalThis as any).spawnInstances as ChildProcess[] | undefined;
+      if (spawnInstances && Array.isArray(spawnInstances)) {
+        spawnInstances.push(proc);
+      }
 
       // Allow caller to instrument the process (test mocks)
       if (onProcess) {
@@ -222,14 +233,16 @@ export class ProcessExecutor {
   /**
    * Kill any active process (for cleanup during stop())
    */
-  kill(signal: string = "SIGKILL"): void {
+  kill(signal: string | number = "SIGKILL"): void {
     if (this.activeProcess && this.activeProcess.pid) {
       try {
-        if (this.activeProcess._isDetached) {
+        // Check if this is a detached process (has own process group)
+        const isDetached = (this.activeProcess as any)._isDetached;
+        if (isDetached) {
           // Kill process group
-          process.kill(-this.activeProcess.pid, signal);
+          process.kill(-this.activeProcess.pid, signal as any);
         } else {
-          this.activeProcess.kill(signal);
+          this.activeProcess.kill(signal as any);
         }
         this.logger.info(`Killed process with signal ${signal}`);
       } catch (err) {

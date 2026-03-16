@@ -7,6 +7,7 @@ import type { IProcessController } from "../process-controller";
 import type { PinStateBatcher } from "../pin-state-batcher";
 import type { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RegistryManager } from "../registry-manager";
+import type { ParsedStderrOutput } from "../arduino-output-parser";
 import { Logger } from "@shared/logger";
 
 interface StreamHandlerCallbacks {
@@ -78,7 +79,7 @@ export class StreamHandler {
    * Dispatches to appropriate handler based on message type
    */
   handleParsedLine(
-    parsed: any,
+    parsed: ParsedStderrOutput,
     state: StreamHandlerState,
     callbacks: StreamHandlerCallbacks,
   ): void {

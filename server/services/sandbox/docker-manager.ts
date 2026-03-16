@@ -4,7 +4,7 @@
  */
 
 import type { IProcessController } from "../process-controller";
-import type { ArduinoOutputParser } from "../arduino-output-parser";
+import type { ArduinoOutputParser, ParsedStderrOutput } from "../arduino-output-parser";
 import { Logger } from "@shared/logger";
 import type { SimulationTimeoutManager } from "../simulation-timeout-manager";
 
@@ -24,7 +24,7 @@ interface DockerHandlerState {
   flushTimer: NodeJS.Timeout | null;
 }
 
-type HandleParsedLineDelegate = (parsed: unknown, callbacks: DockerManagerCallbacks) => void;
+type HandleParsedLineDelegate = (parsed: ParsedStderrOutput, callbacks: DockerManagerCallbacks) => void;
 
 export class DockerManager {
   private readonly logger = new Logger("DockerManager");
