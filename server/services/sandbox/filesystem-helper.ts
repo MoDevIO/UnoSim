@@ -54,7 +54,7 @@ export class FilesystemHelper {
     if (state.currentRegistryFile && existsSync(state.currentRegistryFile)) {
       try {
         // Rename .pending.json to .cleanup.json
-        const cleanupFile = state.currentRegistryFile.replace(".pending.json", ".cleanup.json");
+        const cleanupFile = state.currentRegistryFile.replaceAll(".pending.json", ".cleanup.json");
         renameSync(state.currentRegistryFile, cleanupFile);
         this.logger.debug(`Marked registry for cleanup: ${cleanupFile}`);
         state.currentRegistryFile = null;

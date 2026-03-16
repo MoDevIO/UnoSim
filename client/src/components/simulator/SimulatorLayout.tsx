@@ -23,77 +23,77 @@ import { OutputPanel } from "@/components/features/output-panel";
  */
 export interface DesktopLayoutProps {
   // Editor panel (code slot)
-  editorSlot: ReactNode;
+  readonly editorSlot: ReactNode;
 
   // Output panel (compilation, messages, registry, debug)
-  outputPanelRef: React.RefObject<ImperativePanelHandle>;
-  outputTabsHeaderRef: React.RefObject<HTMLDivElement>;
-  parserMessagesContainerRef: React.RefObject<HTMLDivElement>;
-  debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
+  readonly outputPanelRef: React.RefObject<ImperativePanelHandle>;
+  readonly outputTabsHeaderRef: React.RefObject<HTMLDivElement>;
+  readonly parserMessagesContainerRef: React.RefObject<HTMLDivElement>;
+  readonly debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
   
-  activeOutputTab: "compiler" | "messages" | "registry" | "debug";
-  showCompilationOutput: boolean;
-  isSuccessState: boolean;
-  isModified: boolean;
-  compilationPanelSize: number;
-  outputPanelMinPercent: number;
-  debugMode: boolean;
-  debugViewMode: "table" | "tiles";
-  debugMessageFilter: string;
+  readonly activeOutputTab: "compiler" | "messages" | "registry" | "debug";
+  readonly showCompilationOutput: boolean;
+  readonly isSuccessState: boolean;
+  readonly isModified: boolean;
+  readonly compilationPanelSize: number;
+  readonly outputPanelMinPercent: number;
+  readonly debugMode: boolean;
+  readonly debugViewMode: "table" | "tiles";
+  readonly debugMessageFilter: string;
   
-  cliOutput: string;
-  parserMessages: ParserMessage[];
-  ioRegistry: IOPinRecord[];
-  debugMessages: DebugMessage[];
-  lastCompilationResult: string | null;
-  hasCompilationErrors: boolean;
+  readonly cliOutput: string;
+  readonly parserMessages: ParserMessage[];
+  readonly ioRegistry: IOPinRecord[];
+  readonly debugMessages: DebugMessage[];
+  readonly lastCompilationResult: string | null;
+  readonly hasCompilationErrors: boolean;
   
-  onOutputTabChange: (tab: "compiler" | "messages" | "registry" | "debug") => void;
-  onOutputClose: () => void;
-  onClearCompilationOutput: () => void;
-  onParserMessagesClear: () => void;
-  onParserGoToLine: (line: number) => void;
-  onInsertSuggestion: (suggestion: string, line?: number) => void;
-  onRegistryClear: () => void;
-  setDebugMessageFilter: (filter: string) => void;
-  setDebugViewMode: (mode: "table" | "tiles") => void;
-  onCopyDebugMessages: () => void;
-  onClearDebugMessages: () => void;
-  openOutputPanel: (tab: "compiler" | "messages" | "registry" | "debug") => void;
-  outputPanelManuallyResizedRef: React.MutableRefObject<boolean>;
+  readonly onOutputTabChange: (tab: "compiler" | "messages" | "registry" | "debug") => void;
+  readonly onOutputClose: () => void;
+  readonly onClearCompilationOutput: () => void;
+  readonly onParserMessagesClear: () => void;
+  readonly onParserGoToLine: (line: number) => void;
+  readonly onInsertSuggestion: (suggestion: string, line?: number) => void;
+  readonly onRegistryClear: () => void;
+  readonly setDebugMessageFilter: (filter: string) => void;
+  readonly setDebugViewMode: (mode: "table" | "tiles") => void;
+  readonly onCopyDebugMessages: () => void;
+  readonly onClearDebugMessages: () => void;
+  readonly openOutputPanel: (tab: "compiler" | "messages" | "registry" | "debug") => void;
+  readonly outputPanelManuallyResizedRef: React.MutableRefObject<boolean>;
 
   // Serial monitor & board panels
-  serialSlot: ReactNode;
-  boardSlot: ReactNode;
+  readonly serialSlot: ReactNode;
+  readonly boardSlot: ReactNode;
 }
 
 /**
  * Mobile layout props
  */
 export interface MobileLayoutPropsT {
-  isMobile: boolean;
-  mobilePanel: "compile" | "serial" | "board";
-  setMobilePanel: (panel: "compile" | "serial" | "board") => void;
-  headerHeight: number;
-  overlayZ: number;
-  codeSlot: ReactNode;
-  compileSlot: ReactNode;
-  serialSlot: ReactNode;
-  boardSlot: ReactNode;
+  readonly isMobile: boolean;
+  readonly mobilePanel: "compile" | "serial" | "board";
+  readonly setMobilePanel: (panel: "compile" | "serial" | "board") => void;
+  readonly headerHeight: number;
+  readonly overlayZ: number;
+  readonly codeSlot: ReactNode;
+  readonly compileSlot: ReactNode;
+  readonly serialSlot: ReactNode;
+  readonly boardSlot: ReactNode;
 }
 
 /**
  * Combined layout props (either desktop or mobile)
  */
 export interface SimulatorLayoutProps extends DesktopLayoutProps {
-  isMobile: boolean;
-  mobilePanel: "code" | "compile" | "serial" | "board" | null;
-  setMobilePanel: React.Dispatch<React.SetStateAction<"code" | "compile" | "serial" | "board" | null>>;
-  headerHeight: number;
-  overlayZ: number;
-  codeSlot: ReactNode;
-  compileSlot: ReactNode;
-  editorSlot: ReactNode;
+  readonly isMobile: boolean;
+  readonly mobilePanel: "code" | "compile" | "serial" | "board" | null;
+  readonly setMobilePanel: React.Dispatch<React.SetStateAction<"code" | "compile" | "serial" | "board" | null>>;
+  readonly headerHeight: number;
+  readonly overlayZ: number;
+  readonly codeSlot: ReactNode;
+  readonly compileSlot: ReactNode;
+  readonly editorSlot: ReactNode;
 }
 
 /**
@@ -173,11 +173,8 @@ function DesktopSimulatorLayout({
                 >
                   <OutputPanel
                     activeOutputTab={activeOutputTab}
-                    showCompilationOutput={showCompilationOutput}
                     isSuccessState={isSuccessState}
                     isModified={isModified}
-                    compilationPanelSize={compilationPanelSize}
-                    outputPanelMinPercent={outputPanelMinPercent}
                     debugMode={debugMode}
                     debugViewMode={debugViewMode}
                     debugMessageFilter={debugMessageFilter}

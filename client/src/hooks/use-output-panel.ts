@@ -295,11 +295,11 @@ export function useOutputPanel(
         });
       });
     };
-    window.addEventListener("resize", handleResize);
+    globalThis.addEventListener("resize", handleResize);
     globalThis.addEventListener("uiFontScaleChange", handleUiScale);
     document.addEventListener("uiFontScaleChange", handleUiScale);
     return () => {
-      window.removeEventListener("resize", handleResize);
+      globalThis.removeEventListener("resize", handleResize);
       globalThis.removeEventListener("uiFontScaleChange", handleUiScale);
       document.removeEventListener("uiFontScaleChange", handleUiScale);
     };

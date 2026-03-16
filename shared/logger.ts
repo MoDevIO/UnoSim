@@ -84,9 +84,9 @@ let globalLogLevel: LogLevel = determineLogLevel();
 const debugBuffer = new RingBuffer();
 
 function determineLogLevel(): LogLevel {
-  if (typeof process === "undefined") return "WARN";
+  if (globalThis.process === undefined) return "WARN";
   
-  const env = process.env;
+  const env = globalThis.process.env;
   const level = env.LOG_LEVEL || (env.NODE_ENV === "test" ? "WARN" : "INFO");
   
   if (!["NONE", "ERROR", "WARN", "INFO", "DEBUG"].includes(level)) {
@@ -206,7 +206,7 @@ export class Logger {
         }
       } catch (err) {
         // Fehlertoleranz für geschlossene Streams
-        if (typeof process !== "undefined" && process.env?.NODE_ENV !== "test") {
+        if (globalThis.process !== undefined && globalThis.process.env?.NODE_ENV !== "test") {
           console.error("Logger error:", err);
         }
       }
@@ -233,7 +233,7 @@ export class Logger {
 // ============ GLOBALE FEHLERBEHANDLUNG ============
 // Registriert globale Handler für Prozess-Fehler und Test-Fehlschlag
 export function initializeGlobalErrorHandlers(): void {
-  if (typeof process === "undefined") return;
+  if (globalThis.process === undefined) return;
 
   process.on("uncaughtException", (error: Error) => {
     // note: processError variable removed – we no longer track it separately

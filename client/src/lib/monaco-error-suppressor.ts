@@ -19,14 +19,14 @@ log("Module loaded");
 // First, patch the global error handler used by Monaco itself
 // This prevents the error from being thrown in the first place
 declare global {
-  interface Window {
+  interface GlobalThis {
     __MONACO_EDITOR_ERROR_HANDLER__?: {
       onUnexpectedError: (error: unknown) => void;
     };
   }
 }
 
-window.__MONACO_EDITOR_ERROR_HANDLER__ = {
+(globalThis as any).__MONACO_EDITOR_ERROR_HANDLER__ = {
   onUnexpectedError: (error: unknown) => {
     let message = "";
     let stack = "";

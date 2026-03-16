@@ -1,30 +1,21 @@
 import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
 import type { PinState, BatchStats } from "@/hooks/use-simulation-store";
-import type { TelemetryMetrics } from "@/hooks/use-telemetry-store";
 
 type SimulationStatus = "running" | "stopped" | "paused";
 
 type SimulatorSidebarProps = {
-  pinMonitorVisible: boolean;
-  pinStates: PinState[];
-  batchStats: BatchStats;
-  simulationStatus: SimulationStatus | undefined;
-  txActivity: number;
-  rxActivity: number;
-  // telemetry info (useTelemetry hook)
-  telemetryData?: { last: TelemetryMetrics | null } | null;
-  rates?: {
-    serialOutputPerSecond: number;
-    serialBytesPerSecond: number;
-    serialDroppedBytesPerSecond: number;
-    serialBytesTotal: number;
-  };
+  readonly pinMonitorVisible: boolean;
+  readonly pinStates: PinState[];
+  readonly batchStats: BatchStats;
+  readonly simulationStatus: SimulationStatus | undefined;
+  readonly txActivity: number;
+  readonly rxActivity: number;
   onReset: () => void;
   onPinToggle: (pin: number, newValue: number) => void;
-  analogPins: number[];
+  readonly analogPins: number[];
   onAnalogChange: (pin: number, newValue: number) => void;
-  isMobile?: boolean;
+  readonly isMobile?: boolean;
 };
 
 export default function SimulatorSidebar({

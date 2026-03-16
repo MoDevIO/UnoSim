@@ -47,19 +47,19 @@ interface Tab {
 }
 
 interface SketchTabsProps {
-  tabs: Tab[];
-  activeTabId: string | null;
-  modifiedTabId: string | null;
-  onTabClick: (tabId: string) => void;
-  onTabClose: (tabId: string) => void;
-  onTabRename: (tabId: string, newName: string) => void;
-  onTabAdd: () => void;
-  onFilesLoaded?: (
+  readonly tabs: Tab[];
+  readonly activeTabId: string | null;
+  readonly modifiedTabId: string | null;
+  readonly onTabClick: (tabId: string) => void;
+  readonly onTabClose: (tabId: string) => void;
+  readonly onTabRename: (tabId: string, newName: string) => void;
+  readonly onTabAdd: () => void;
+  readonly onFilesLoaded?: (
     files: Array<{ name: string; content: string }>,
     replaceAll: boolean,
   ) => void;
-  onFormatCode?: () => void;
-  examplesMenu?: React.ReactNode;
+  readonly onFormatCode?: () => void;
+  readonly examplesMenu?: React.ReactNode;
 }
 
 export function SketchTabs({
@@ -106,10 +106,10 @@ export function SketchTabs({
     checkScroll();
     const container = tabsContainerRef.current;
     container?.addEventListener("scroll", checkScroll);
-    window.addEventListener("resize", checkScroll);
+    globalThis.addEventListener("resize", checkScroll);
     return () => {
       container?.removeEventListener("scroll", checkScroll);
-      window.removeEventListener("resize", checkScroll);
+      globalThis.removeEventListener("resize", checkScroll);
     };
   }, [tabs]);
 

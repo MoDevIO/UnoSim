@@ -67,12 +67,12 @@ interface CodeEditorAPI {
 }
 
 interface CodeEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  onCompileAndRun?: () => void;
-  onFormat?: () => void;
-  readOnly?: boolean;
-  editorRef?: React.MutableRefObject<CodeEditorAPI | null>;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly onCompileAndRun?: () => void;
+  readonly onFormat?: () => void;
+  readonly readOnly?: boolean;
+  readonly editorRef?: React.MutableRefObject<CodeEditorAPI | null>;
 }
 
 export function CodeEditor({

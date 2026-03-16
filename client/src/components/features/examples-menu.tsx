@@ -15,8 +15,8 @@ interface Example {
 }
 
 interface ExamplesMenuProps {
-  onLoadExample: (filename: string, content: string) => void;
-  backendReachable?: boolean;
+  readonly onLoadExample: (filename: string, content: string) => void;
+  readonly backendReachable?: boolean;
 }
 
 const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
@@ -294,8 +294,8 @@ export function ExamplesMenu({
 }
 
 interface ExamplesTreeProps {
-  examples: Example[];
-  onLoadExample: (example: Example) => void;
+  readonly examples: Example[];
+  readonly onLoadExample: (example: Example) => void;
 }
 
 function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {

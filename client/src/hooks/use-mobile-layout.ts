@@ -79,7 +79,7 @@ export function useMobileLayout() {
             const r = el.getBoundingClientRect();
             // must be near the top and reasonably small (not full-page)
             if (r.top < -5 || r.top > 48) return false;
-            if (r.height < 24 || r.height > window.innerHeight / 2)
+            if (r.height < 24 || r.height > globalThis.innerHeight / 2)
               return false;
             return true;
           }) || null;
@@ -90,7 +90,7 @@ export function useMobileLayout() {
       let h = 40;
       if (hdr) {
         const rect = (hdr as HTMLElement).getBoundingClientRect();
-        if (rect.height > 0 && rect.height < window.innerHeight / 2)
+        if (rect.height > 0 && rect.height < globalThis.innerHeight / 2)
           h = Math.ceil(rect.height);
       }
       setHeaderHeight(h);
@@ -109,18 +109,18 @@ export function useMobileLayout() {
     };
 
     measure();
-    window.addEventListener("resize", measure);
+    globalThis.addEventListener("resize", measure);
     const hdr = document.querySelector("header");
     if (hdr) {
       const obs = new MutationObserver(measure);
       obs.observe(hdr, { attributes: true, childList: true, subtree: true });
       return () => {
-        window.removeEventListener("resize", measure);
+        globalThis.removeEventListener("resize", measure);
         obs.disconnect();
       };
     }
     return () => {
-      window.removeEventListener("resize", measure);
+      globalThis.removeEventListener("resize", measure);
     };
   }, [isClient]);
 

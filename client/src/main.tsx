@@ -89,13 +89,13 @@ setupFontScaleShortcuts();
 
 
 // E2E TEST HOOK: Add a global setEditorContent function for Playwright
-if (typeof window !== "undefined") {
-  window.setEditorContent = async function (code: string, maxRetries: number = 50) {
+if (typeof globalThis.window !== "undefined") {
+  (globalThis as any).setEditorContent = async function (code: string, maxRetries: number = 50) {
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
     let lastErr: unknown;
     for (let i = 0; i < maxRetries; ++i) {
       try {
-        const editor = window.__MONACO_EDITOR__;
+        const editor = (globalThis as any).__MONACO_EDITOR__;
         if (editor && typeof editor.setValue === "function") {
           editor.focus?.();
           editor.setValue(code);

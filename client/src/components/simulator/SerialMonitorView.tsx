@@ -20,28 +20,29 @@ const LoadingPlaceholder = () => (
 export type SerialViewMode = "monitor" | "plotter" | "both";
 
 import type { OutputLine } from "@shared/schema";
+import type { RuntimeSimulationStatus } from "@shared/types/arduino.types";
 import type { TelemetryMetrics } from "@/hooks/use-telemetry-store";
 
 interface SerialMonitorViewProps {
-  renderedSerialOutput: OutputLine[];
-  serialOutput: OutputLine[];
-  isConnected: boolean;
-  simulationStatus: "running" | "paused" | "stopped";
-  handleSerialSend: (message: string) => void;
-  handleClearSerialOutput: () => void;
-  showSerialMonitor: boolean;
-  showSerialPlotter: boolean;
-  serialViewMode: SerialViewMode;
-  cycleSerialViewMode: () => void;
-  autoScrollEnabled: boolean;
-  setAutoScrollEnabled: (value: boolean) => void;
-  serialInputValue: string;
-  setSerialInputValue: (value: string) => void;
-  handleSerialInputKeyDown: (e: React.KeyboardEvent) => void;
-  handleSerialInputSend: () => void;
-  debugMode: boolean;
-  telemetryData: { last: TelemetryMetrics | null } | null;
-  baudRate: number;
+  readonly renderedSerialOutput: OutputLine[];
+  readonly serialOutput: OutputLine[];
+  readonly isConnected: boolean;
+  readonly simulationStatus: RuntimeSimulationStatus;
+  readonly handleSerialSend: (message: string) => void;
+  readonly handleClearSerialOutput: () => void;
+  readonly showSerialMonitor: boolean;
+  readonly showSerialPlotter: boolean;
+  readonly serialViewMode: SerialViewMode;
+  readonly cycleSerialViewMode: () => void;
+  readonly autoScrollEnabled: boolean;
+  readonly setAutoScrollEnabled: (value: boolean) => void;
+  readonly serialInputValue: string;
+  readonly setSerialInputValue: (value: string) => void;
+  readonly handleSerialInputKeyDown: (e: React.KeyboardEvent) => void;
+  readonly handleSerialInputSend: () => void;
+  readonly debugMode: boolean;
+  readonly telemetryData: { last: TelemetryMetrics | null } | null;
+  readonly baudRate: number;
 }
 
 export function SerialMonitorView(props: SerialMonitorViewProps) {

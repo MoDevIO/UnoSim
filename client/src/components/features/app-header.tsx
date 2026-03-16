@@ -2,6 +2,7 @@ import React from "react";
 import { Cpu, Loader2, Play, Square, Pause } from "lucide-react";
 import clsx from "clsx";
 import { Button } from "@/components/ui/button";
+import type { SimulationStatus } from "@shared/types/arduino.types";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -18,42 +19,42 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface AppHeaderProps {
-  isMobile?: boolean;
-  simulationStatus: "idle" | "running" | "compiling" | "stopped" | "paused";
-  simulateDisabled: boolean;
-  isCompiling: boolean;
-  isStarting: boolean;
-  isStopping: boolean;
-  isPausing: boolean;
-  isResuming: boolean;
-  onSimulate: () => void;
-  onStop: () => void;
-  onPause: () => void;
-  onResume: () => void;
-  board: string;
-  baudRate: number;
-  simulationTimeout: number;
-  onTimeoutChange: (timeout: number) => void;
-  isMac: boolean;
-  onFileAdd: () => void;
-  onFileRename: () => void;
-  onFormatCode: () => void;
-  onLoadFiles: () => void;
-  onDownloadAllFiles: () => void;
-  onSettings: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  onCut: () => void;
-  onCopy: () => void;
-  onPaste: () => void;
-  onSelectAll: () => void;
-  onGoToLine: () => void;
-  onFind: () => void;
-  onCompile: () => void;
-  onCompileAndStart: () => void;
-  onOutputPanelToggle: () => void;
-  showCompilationOutput: boolean;
-  rightSlot?: React.ReactNode;
+  readonly isMobile?: boolean;
+  readonly simulationStatus: SimulationStatus;
+  readonly simulateDisabled: boolean;
+  readonly isCompiling: boolean;
+  readonly isStarting: boolean;
+  readonly isStopping: boolean;
+  readonly isPausing: boolean;
+  readonly isResuming: boolean;
+  readonly onSimulate: () => void;
+  readonly onStop: () => void;
+  readonly onPause: () => void;
+  readonly onResume: () => void;
+  readonly board: string;
+  readonly baudRate: number;
+  readonly simulationTimeout: number;
+  readonly onTimeoutChange: (timeout: number) => void;
+  readonly isMac: boolean;
+  readonly onFileAdd: () => void;
+  readonly onFileRename: () => void;
+  readonly onFormatCode: () => void;
+  readonly onLoadFiles: () => void;
+  readonly onDownloadAllFiles: () => void;
+  readonly onSettings: () => void;
+  readonly onUndo: () => void;
+  readonly onRedo: () => void;
+  readonly onCut: () => void;
+  readonly onCopy: () => void;
+  readonly onPaste: () => void;
+  readonly onSelectAll: () => void;
+  readonly onGoToLine: () => void;
+  readonly onFind: () => void;
+  readonly onCompile: () => void;
+  readonly onCompileAndStart: () => void;
+  readonly onOutputPanelToggle: () => void;
+  readonly showCompilationOutput: boolean;
+  readonly rightSlot?: React.ReactNode;
 }
 
 /**
@@ -367,7 +368,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <DropdownMenuContent className="w-56">
                 <DropdownMenuItem
                   onSelect={() => {
-                    window.open(
+                    globalThis.open(
                       "https://github.com/MoDevIO/UnoSim",
                       "_blank",
                       "noopener",

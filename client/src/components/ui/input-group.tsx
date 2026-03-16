@@ -4,9 +4,9 @@ import { SendHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface InputGroupProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  onSubmit?: () => void;
-  inputTestId?: string;
-  buttonTestId?: string;
+  readonly onSubmit?: () => void;
+  readonly inputTestId?: string;
+  readonly buttonTestId?: string;
 }
 
 export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(

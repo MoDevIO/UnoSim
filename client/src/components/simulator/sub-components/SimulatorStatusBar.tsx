@@ -9,21 +9,21 @@ import { AlertCircle, CheckCircle, Clock } from "lucide-react";
 
 export interface SimulatorStatusBarProps {
   /** Current compilation status: idle, compiling, success, error */
-  compilationStatus?: "idle" | "compiling" | "success" | "error";
+  readonly compilationStatus?: "idle" | "compiling" | "success" | "error";
   /** Human-readable compilation status message */
-  statusMessage?: string;
+  readonly statusMessage?: string;
   /** Whether last compilation was successful */
-  hasCompiledOnce?: boolean;
+  readonly hasCompiledOnce?: boolean;
   /** Current Arduino CLI status for multi-stage compiles */
-  arduinoCliStatus?: "idle" | "compiling" | "success" | "error";
+  readonly arduinoCliStatus?: "idle" | "compiling" | "success" | "error";
   /** GCC status if using local compiler */
-  gccStatus?: "idle" | "compiling" | "success" | "error";
+  readonly gccStatus?: "idle" | "compiling" | "success" | "error";
   /** Error details to display */
-  lastError?: string | null;
+  readonly lastError?: string | null;
   /** Whether simulation is currently running */
-  isSimulationRunning?: boolean;
+  readonly isSimulationRunning?: boolean;
   /** Whether simulation is paused */
-  isSimulationPaused?: boolean;
+  readonly isSimulationPaused?: boolean;
 }
 
 /**

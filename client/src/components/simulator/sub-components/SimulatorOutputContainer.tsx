@@ -11,35 +11,35 @@ import type { TelemetryMetrics } from "@/hooks/use-telemetry-store";
 import type { PinState, BatchStats } from "@/hooks/use-simulation-store";
 
 interface SimulatorOutputContainerProps {
-  renderedSerialOutput: OutputLine[];
-  serialOutput: OutputLine[];
-  isConnected: boolean;
-  simulationStatus: "running" | "stopped" | "paused";
-  handleSerialSend: (message: string) => void;
-  handleClearSerialOutput: () => void;
-  showSerialMonitor: boolean;
-  showSerialPlotter: boolean;
-  serialViewMode: SerialViewMode;
-  cycleSerialViewMode: () => void;
-  autoScrollEnabled: boolean;
-  setAutoScrollEnabled: (enabled: boolean) => void;
-  serialInputValue: string;
-  setSerialInputValue: (value: string) => void;
-  handleSerialInputKeyDown: (e: React.KeyboardEvent) => void;
-  handleSerialInputSend: () => void;
-  debugMode: boolean;
-  telemetryData: { last: TelemetryMetrics | null } | null;
-  baudRate: number;
+  readonly renderedSerialOutput: OutputLine[];
+  readonly serialOutput: OutputLine[];
+  readonly isConnected: boolean;
+  readonly simulationStatus: "running" | "stopped" | "paused";
+  readonly handleSerialSend: (message: string) => void;
+  readonly handleClearSerialOutput: () => void;
+  readonly showSerialMonitor: boolean;
+  readonly showSerialPlotter: boolean;
+  readonly serialViewMode: SerialViewMode;
+  readonly cycleSerialViewMode: () => void;
+  readonly autoScrollEnabled: boolean;
+  readonly setAutoScrollEnabled: (enabled: boolean) => void;
+  readonly serialInputValue: string;
+  readonly setSerialInputValue: (value: string) => void;
+  readonly handleSerialInputKeyDown: (e: React.KeyboardEvent) => void;
+  readonly handleSerialInputSend: () => void;
+  readonly debugMode: boolean;
+  readonly telemetryData: { last: TelemetryMetrics | null } | null;
+  readonly baudRate: number;
 
-  pinMonitorVisible: boolean;
-  pinStates: PinState[];
-  batchStats: BatchStats;
-  txActivity: number;
-  rxActivity: number;
-  handleReset: () => void;
-  handlePinToggle: (pin: number, newValue: number) => void;
-  analogPinsUsed: number[];
-  handleAnalogChange: (pin: number, newValue: number) => void;
+  readonly pinMonitorVisible: boolean;
+  readonly pinStates: PinState[];
+  readonly batchStats: BatchStats;
+  readonly txActivity: number;
+  readonly rxActivity: number;
+  readonly handleReset: () => void;
+  readonly handlePinToggle: (pin: number, newValue: number) => void;
+  readonly analogPinsUsed: number[];
+  readonly handleAnalogChange: (pin: number, newValue: number) => void;
 }
 
 export default function SimulatorOutputContainer({

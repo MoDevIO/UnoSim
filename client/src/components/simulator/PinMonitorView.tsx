@@ -5,17 +5,17 @@ import type { BatchStats, PinState } from "@/hooks/use-simulation-store";
 type SimulationStatus = "running" | "stopped" | "paused";
 
 type PinMonitorViewProps = {
-  pinMonitorVisible: boolean;
-  pinStates: PinState[];
-  batchStats: BatchStats;
-  simulationStatus: SimulationStatus;
-  txActivity: number;
-  rxActivity: number;
-  onReset: () => void;
-  onPinToggle: (pin: number, newValue: number) => void;
-  analogPins: number[];
-  onAnalogChange: (pin: number, newValue: number) => void;
-  isMobile?: boolean;
+  readonly pinMonitorVisible: boolean;
+  readonly pinStates: PinState[];
+  readonly batchStats: BatchStats;
+  readonly simulationStatus: SimulationStatus;
+  readonly txActivity: number;
+  readonly rxActivity: number;
+  readonly onReset: () => void;
+  readonly onPinToggle: (pin: number, newValue: number) => void;
+  readonly analogPins: number[];
+  readonly onAnalogChange: (pin: number, newValue: number) => void;
+  readonly isMobile?: boolean;
 };
 
 export function PinMonitorView({

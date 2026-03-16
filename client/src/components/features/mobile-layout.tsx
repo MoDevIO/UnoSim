@@ -7,23 +7,23 @@ import clsx from "clsx";
 export type MobilePanel = "code" | "compile" | "serial" | "board" | null;
 
 interface MobileLayoutProps {
-  isMobile: boolean;
-  mobilePanel: MobilePanel;
-  setMobilePanel: React.Dispatch<React.SetStateAction<MobilePanel>>;
-  headerHeight: number;
-  overlayZ: number;
+  readonly isMobile: boolean;
+  readonly mobilePanel: MobilePanel;
+  readonly setMobilePanel: React.Dispatch<React.SetStateAction<MobilePanel>>;
+  readonly headerHeight: number;
+  readonly overlayZ: number;
 
   // slots
-  codeSlot?: React.ReactNode;
-  compileSlot?: React.ReactNode;
-  serialSlot?: React.ReactNode;
-  boardSlot?: React.ReactNode;
+  readonly codeSlot?: React.ReactNode;
+  readonly compileSlot?: React.ReactNode;
+  readonly serialSlot?: React.ReactNode;
+  readonly boardSlot?: React.ReactNode;
 
-  portalContainer?: HTMLElement | null;
-  className?: string;
-  testId?: string;
-  onOpenPanel?: (panel: MobilePanel) => void;
-  onClosePanel?: () => void;
+  readonly portalContainer?: HTMLElement | null;
+  readonly className?: string;
+  readonly testId?: string;
+  readonly onOpenPanel?: (panel: MobilePanel) => void;
+  readonly onClosePanel?: () => void;
 }
 
 export const MobileLayout = React.memo(function MobileLayout({

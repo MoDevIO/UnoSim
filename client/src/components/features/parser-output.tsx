@@ -15,14 +15,14 @@ import { useState } from "react";
 import * as React from "react";
 
 interface ParserOutputProps {
-  messages: ParserMessage[];
-  ioRegistry?: IOPinRecord[];
-  onClear: () => void;
-  onGoToLine?: (line: number) => void;
-  onInsertSuggestion?: (suggestion: string, line?: number) => void;
-  hideHeader?: boolean;
-  defaultTab?: "messages" | "registry";
-  messagesContainerRef?: React.RefObject<HTMLDivElement>;
+  readonly messages: ParserMessage[];
+  readonly ioRegistry?: IOPinRecord[];
+  readonly onClear: () => void;
+  readonly onGoToLine?: (line: number) => void;
+  readonly onInsertSuggestion?: (suggestion: string, line?: number) => void;
+  readonly hideHeader?: boolean;
+  readonly defaultTab?: "messages" | "registry";
+  readonly messagesContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function ParserOutput({

@@ -5,15 +5,15 @@ import { Trash2, Monitor } from "lucide-react";
 import type { OutputLine } from "@shared/schema";
 
 interface SerialMonitorProps {
-  output: OutputLine[];
-  isConnected: boolean;
-  isSimulationRunning: boolean;
-  onSendMessage: (message: string) => void;
-  onClear: () => void;
-  showMonitor?: boolean;
-  autoScrollEnabled?: boolean;
-  headerActions?: ReactNode;
-  showHeader?: boolean;
+  readonly output: OutputLine[];
+  readonly isConnected: boolean;
+  readonly isSimulationRunning: boolean;
+  readonly onSendMessage: (message: string) => void;
+  readonly onClear: () => void;
+  readonly showMonitor?: boolean;
+  readonly autoScrollEnabled?: boolean;
+  readonly headerActions?: ReactNode;
+  readonly showHeader?: boolean;
 }
 
 interface ProcessedLine {
@@ -157,7 +157,7 @@ export function SerialMonitor({
     if (!containerRef.current) return;
     
     // Check if ResizeObserver is available (not available in some test environments)
-    if (typeof ResizeObserver === 'undefined') {
+    if (globalThis.ResizeObserver === undefined) {
       setContainerHeight(600); // Fallback height for tests
       return;
     }

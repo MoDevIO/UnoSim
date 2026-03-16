@@ -14,46 +14,41 @@ type OutputTab = "compiler" | "messages" | "registry" | "debug";
 
 interface OutputPanelProps {
   /* State */
-  activeOutputTab: OutputTab;
-  showCompilationOutput: boolean;
-  isSuccessState: boolean;
-  isModified: boolean;
-  compilationPanelSize: number;
-  outputPanelMinPercent: number;
-  debugMode: boolean;
-  debugViewMode: "table" | "tiles";
-  debugMessageFilter: string;
+  readonly activeOutputTab: OutputTab;
+  readonly isSuccessState: boolean;
+  readonly isModified: boolean;
+  readonly debugMode: boolean;
+  readonly debugViewMode: "table" | "tiles";
+  readonly debugMessageFilter: string;
 
   /* Data */
-  cliOutput: string;
-  parserMessages: ParserMessage[];
-  ioRegistry: IOPinRecord[];
-  debugMessages: DebugMessage[];
-  lastCompilationResult: string | null;
-  hasCompilationErrors: boolean;
+  readonly cliOutput: string;
+  readonly parserMessages: ParserMessage[];
+  readonly ioRegistry: IOPinRecord[];
+  readonly debugMessages: DebugMessage[];
+  readonly lastCompilationResult: string | null;
+  readonly hasCompilationErrors: boolean;
 
   /* Refs */
-  outputTabsHeaderRef: React.RefObject<HTMLDivElement>;
-  parserMessagesContainerRef: React.RefObject<HTMLDivElement>;
-  debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
+  readonly outputTabsHeaderRef: React.RefObject<HTMLDivElement>;
+  readonly parserMessagesContainerRef: React.RefObject<HTMLDivElement>;
+  readonly debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
 
   /* Actions */
-  onTabChange: (tab: OutputTab) => void;
-  openOutputPanel: (tab: OutputTab) => void;
-  onClose: () => void;
-  getOutputPanelSize?: () => number;
-  resizeOutputPanel?: (percent: number) => void;
+  readonly onTabChange: (tab: OutputTab) => void;
+  readonly openOutputPanel: (tab: OutputTab) => void;
+  readonly onClose: () => void;
 
-  onClearCompilationOutput: () => void;
-  onParserMessagesClear: () => void;
-  onParserGoToLine: (line: number) => void;
-  onInsertSuggestion: (suggestion: string, line?: number) => void;
-  onRegistryClear?: () => void;
+  readonly onClearCompilationOutput: () => void;
+  readonly onParserMessagesClear: () => void;
+  readonly onParserGoToLine: (line: number) => void;
+  readonly onInsertSuggestion: (suggestion: string, line?: number) => void;
+  readonly onRegistryClear?: () => void;
 
-  setDebugMessageFilter: (s: string) => void;
-  setDebugViewMode: (m: "table" | "tiles") => void;
-  onCopyDebugMessages: () => void;
-  onClearDebugMessages: () => void;
+  readonly setDebugMessageFilter: (s: string) => void;
+  readonly setDebugViewMode: (m: "table" | "tiles") => void;
+  readonly onCopyDebugMessages: () => void;
+  readonly onClearDebugMessages: () => void;
 }
 
 export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelProps) {

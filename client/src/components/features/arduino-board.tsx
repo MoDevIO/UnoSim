@@ -6,6 +6,7 @@ import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { usePinPollingEngine } from "@/hooks/usePinPollingEngine";
 import { onCustomEvent, offCustomEvent } from "@/utils/event-utils";
 import { Logger } from "@shared/logger";
+import type { RuntimeSimulationStatus } from "@shared/types/arduino.types";
 
 const logger = new Logger("ArduinoBoard");
 
@@ -17,15 +18,15 @@ export interface PinState {
 }
 
 interface ArduinoBoardProps {
-  pinStates?: PinState[];
-  isSimulationRunning?: boolean;
-  simulationStatus?: "running" | "paused" | "stopped";
-  txActive?: number; // TX activity counter (changes trigger blink)
-  rxActive?: number; // RX activity counter (changes trigger blink)
-  onReset?: () => void; // Callback when reset button is clicked
-  onPinToggle?: (pin: number, newValue: number) => void; // Callback when an INPUT pin is clicked
-  analogPins?: number[]; // array of internal pin numbers for analog pins (14..19)
-  onAnalogChange?: (pin: number, value: number) => void;
+  readonly pinStates?: PinState[];
+  readonly isSimulationRunning?: boolean;
+  readonly simulationStatus?: RuntimeSimulationStatus;
+  readonly txActive?: number; // TX activity counter (changes trigger blink)
+  readonly rxActive?: number; // RX activity counter (changes trigger blink)
+  readonly onReset?: () => void; // Callback when reset button is clicked
+  readonly onPinToggle?: (pin: number, newValue: number) => void; // Callback when an INPUT pin is clicked
+  readonly analogPins?: number[]; // array of internal pin numbers for analog pins (14..19)
+  readonly onAnalogChange?: (pin: number, value: number) => void;
 }
 
 // SVG viewBox dimensions (from ArduinoUno.svg)
@@ -625,8 +626,8 @@ function AnalogDialogPortal(props: {
         ? rect.bottom + pointerOffset
         : rect.top - dialogHeight - pointerOffset;
     // clamp to viewport
-    left = Math.max(viewportMargin, Math.min(window.innerWidth - dialogWidth - viewportMargin, left));
-    top = Math.max(viewportMargin, Math.min(window.innerHeight - dialogHeight - viewportMargin, top));
+    left = Math.max(viewportMargin, Math.min(globalThis.innerWidth - dialogWidth - viewportMargin, left));
+    top = Math.max(viewportMargin, Math.min(globalThis.innerHeight - dialogHeight - viewportMargin, top));
 
     return createPortal(
       <div

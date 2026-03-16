@@ -3,8 +3,8 @@ import type { BatchStats, PinState } from "@/hooks/use-simulation-store";
 import { clsx } from "clsx";
 
 interface PinMonitorProps {
-  pinStates: PinState[];
-  batchStats?: BatchStats;
+  readonly pinStates: PinState[];
+  readonly batchStats?: BatchStats;
 }
 
 const PWM_ALPHA = 0.2; // smoothing factor
