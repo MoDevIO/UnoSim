@@ -178,7 +178,7 @@ describe("useSerialIO", () => {
 
   it("should bypass renderer in test mode", () => {
     // simulate Playwright environment flag
-    (window as any).__PLAYWRIGHT_TEST__ = true;
+    (globalThis as any).__PLAYWRIGHT_TEST__ = true;
 
     const { result } = renderHook(() => useSerialIO());
 
@@ -189,7 +189,7 @@ describe("useSerialIO", () => {
     // in test mode output should appear immediately
     expect(result.current.renderedSerialText).toBe("LED ON");
 
-    delete (window as any).__PLAYWRIGHT_TEST__;
+    delete (globalThis as any).__PLAYWRIGHT_TEST__;
   });
 
   it("should maintain callback reference stability", () => {

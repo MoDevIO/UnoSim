@@ -1,12 +1,12 @@
 import { WebSocketServer, WebSocket } from "ws";
-import type { Server } from "http";
+import type { Server } from "node:http";
 import type { SandboxRunner } from "../services/sandbox-runner";
 import type { IOPinRecord, WSMessage } from "@shared/schema";
 import type { Logger } from "@shared/logger";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
-import path from "path";
-import { constants as zlibConstants } from "zlib";
-import { writeFile, access } from "fs/promises";
+import path from "node:path";
+import { constants as zlibConstants } from "node:zlib";
+import { writeFile, access } from "node:fs/promises";
 
 type SimulationDeps = {
   SandboxRunner: typeof SandboxRunner;
@@ -107,7 +107,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       .join('');
 
     // The isComplete flag for the WebSocket message is based on the last line
-    const lastLine = bufferState.lines[bufferState.lines.length - 1];
+    const lastLine = bufferState.lines.at(-1);
     const finalIsComplete = lastLine?.isComplete ?? true;
 
     bufferState.lines = [];
@@ -403,7 +403,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
         timeoutSec: timeoutValue,
         context: { sessionId: clientState.testRunId, label: "default-ws" },
       };
-      console.info("[B1-Evidence] Payload:", JSON.stringify(payload, null, 2));
+      logger.debug(`[B1-Evidence] Payload: ${JSON.stringify(payload, null, 2)}`);
     } catch (err) {
       logger.warn(
         `Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`,
@@ -541,9 +541,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     ws.on("message", async (message) => {
       try {
         // Debug: log raw incoming WS messages for E2E troubleshooting
-        try {
-          console.info(`[WS-IN] ${message.toString()}`);
-        } catch {}
+        logger.debug(`[WS-IN] ${message.toString()}`);
         const data = JSON.parse(message.toString());
         const type = data.type;
         const clientState = clientRunners.get(ws);

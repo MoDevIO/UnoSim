@@ -14,10 +14,10 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
-import { rm, mkdir } from "fs/promises";
-import { mkdtempSync, rmSync } from "fs";
-import { join } from "path";
-import { tmpdir } from "os";
+import { rm, mkdir } from "node:fs/promises";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { ArduinoCompiler } from "../../server/services/arduino-compiler";
 
 // Standard Blink sketch for testing

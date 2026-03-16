@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { ARDUINO_MOCK_CODE } from "../../server/services/arduino-mock";
 
 describe("Carriage Return Integration Test", () => {
-  it("should verify arduino-mock.ts preserves \\r in serial buffer", () => {
+  it(String.raw`should verify arduino-mock.ts preserves \r in serial buffer`, () => {
     /**
      * Test that the C++ mock code:
      * 1. Buffers serial output until \n or flush()
@@ -13,8 +13,8 @@ describe("Carriage Return Integration Test", () => {
     const mockCode = ARDUINO_MOCK_CODE;
 
     // Verify that serialWrite only flushes on \n, not on \r
-    expect(mockCode).toContain("if (c == '\\n')");
-    expect(mockCode).not.toContain("if (c == '\\r')");
+    expect(mockCode).toContain(String.raw`if (c == '\n')`);
+    expect(mockCode).not.toContain(String.raw`if (c == '\r')`);
 
     // Verify that delay() calls Serial.flush()
     expect(mockCode).toContain("Serial.flush()");
@@ -28,7 +28,7 @@ describe("Carriage Return Integration Test", () => {
     expect(mockCode).toContain("SERIAL_EVENT");
   });
 
-  it("should verify \\r character is preserved in Base64 encoding", () => {
+  it(String.raw`should verify \r character is preserved in Base64 encoding`, () => {
     /**
      * Test that \r (ASCII 13, 0x0D) is correctly preserved when Base64 encoded.
      * The Base64 encoding should work for all characters including control characters.
@@ -80,7 +80,7 @@ describe("Carriage Return Integration Test", () => {
 
     // All components are in place:
     expect(mockCode).toContain("lineBuffer"); // ✓ Buffer accumulates
-    expect(mockCode).toContain("if (c == '\\n')"); // ✓ Only flush on \n
+    expect(mockCode).toContain(String.raw`if (c == '\n')`); // ✓ Only flush on \n
     expect(mockCode).toContain("Serial.flush()"); // ✓ delay() flushes
     expect(mockCode).toContain("base64_encode"); // ✓ Preserves \r
 
@@ -88,15 +88,15 @@ describe("Carriage Return Integration Test", () => {
     expect(true).toBe(true);
   });
 
-  it("should verify frontend does not strip \\r in arduino-simulator.tsx", () => {
+  it(String.raw`should verify frontend does not strip \r in arduino-simulator.tsx`, () => {
     /**
      * Critical: Serial output should preserve \r so SerialMonitor can process it.
      * With the new SerialOutputBatcher, data comes as plain serial_output,
      * not as wrapped JSON events.
      */
 
-    const fs = require("fs");
-    const path = require("path");
+    const fs = require("node:fs");
+    const path = require("node:path");
 
     const simulatorPath = path.join(
       __dirname,
@@ -114,7 +114,7 @@ describe("Carriage Return Integration Test", () => {
     expect(simulatorCode.includes("serial_output") || hookCode.includes("serial_output")).toBe(true);
   });
 
-  it("should verify SerialMonitor handles \\r correctly", () => {
+  it(String.raw`should verify SerialMonitor handles \r correctly`, () => {
     /**
      * Test that serial-monitor.tsx has the logic to handle \r:
      * - Split on \r
@@ -122,8 +122,8 @@ describe("Carriage Return Integration Test", () => {
      * - Overwrite previous line
      */
 
-    const fs = require("fs");
-    const path = require("path");
+    const fs = require("node:fs");
+    const path = require("node:path");
 
     const monitorPath = path.join(
       __dirname,

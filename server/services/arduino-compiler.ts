@@ -1,8 +1,8 @@
 //arduino-compiler.ts
 
-import { writeFile, mkdir, rm, readFile, readdir, stat, utimes, rename, mkdtemp } from "fs/promises";
-import { join } from "path";
-import { randomUUID, createHash } from "crypto";
+import { writeFile, mkdir, rm, readFile, readdir, stat, utimes, rename, mkdtemp } from "node:fs/promises";
+import { join } from "node:path";
+import { randomUUID, createHash } from "node:crypto";
 import { Logger } from "@shared/logger";
 import { ParserMessage, IOPinRecord } from "@shared/schema";
 import { CodeParser } from "@shared/code-parser";
@@ -78,7 +78,7 @@ export class ArduinoCompiler {
         if (attempt < maxRetries - 1) {
           try {
             // Rename to a trash path to work around file locks
-            const trashPath = `${dirPath}.trash.${Date.now()}.${Math.random().toString(36).substring(7)}`;
+            const trashPath = `${dirPath}.trash.${Date.now()}.${Math.random().toString(36).slice(7)}`;
             this.logger.debug(
               `Attempting rename-before-delete: ${dirPath} -> ${trashPath}`,
             );
@@ -324,7 +324,7 @@ export class ArduinoCompiler {
           const replacement = `// --- Start of ${header.name} ---\n${header.content}\n// --- End of ${header.name} ---`;
           processedCode = processedCode.replace(
             new RegExp(
-              `#include\\s*"${includeStatement.split('"')[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
+              String.raw`#include\s*"${includeStatement.split('"')[1].replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}"`,
               "g",
             ),
             replacement,
@@ -623,7 +623,7 @@ export class ArduinoCompiler {
     binary?: Buffer;
   }> {
     // Arduino CLI expects the sketch DIRECTORY, not the file
-    const sketchDir = sketchFile.substring(0, sketchFile.lastIndexOf("/"));
+    const sketchDir = sketchFile.slice(0, Math.max(0, sketchFile.lastIndexOf("/")));
 
     const args = [
       "compile",
@@ -710,7 +710,7 @@ export class ArduinoCompiler {
         this.logger.error(`Full stderr output:\n${errors}`);
 
         // Clean up error messages
-        const escapedPath = sketchFile.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+        const escapedPath = sketchFile.replace(/[-\/\\^$*+?.()|[\]{}]/g, String.raw`\$&`);
         let cleanedErrors = errors
           .replace(new RegExp(escapedPath, "g"), "sketch.ino")
           .replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/[a-f0-9-]+\.ino/gi, "sketch.ino")

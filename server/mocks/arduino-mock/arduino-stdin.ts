@@ -14,7 +14,7 @@
  *  - `keepReading` (ARDUINO_GLOBALS)
  */
 
-export const ARDUINO_STDIN_HANDLER = `
+export const ARDUINO_STDIN_HANDLER = String.raw`
 // Global buffer for stdin reading (used by checkStdinForPinCommands)
 static char stdinBuffer[256];
 static size_t stdinBufPos = 0;
@@ -69,10 +69,10 @@ void checkStdinForPinCommands() {
         ssize_t n = read(STDIN_FILENO, &c, 1);
         if (n <= 0) break;
         
-        if (c == '\\n' || c == '\\r') {
+        if (c == '\n' || c == '\r') {
             // End of line - process buffer
             if (stdinBufPos > 0) {
-                stdinBuffer[stdinBufPos] = '\\0';
+                stdinBuffer[stdinBufPos] = '\0';
                 
                 // Check for pause/resume commands
                 if (sscanf(stdinBuffer, "[[PAUSE_TIME]]") == 0 && 

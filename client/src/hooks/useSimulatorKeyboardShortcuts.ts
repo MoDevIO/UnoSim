@@ -31,11 +31,11 @@ export function useSimulatorKeyboardShortcuts({
       if (isModifierPressed && !e.altKey && !e.shiftKey && (e.key === "d" || e.key === "D")) {
         e.preventDefault();
 
-        const currentValue = window.localStorage.getItem("unoDebugMode") === "1";
+        const currentValue = globalThis.localStorage.getItem("unoDebugMode") === "1";
         const newValue = !currentValue;
 
         try {
-          window.localStorage.setItem("unoDebugMode", newValue ? "1" : "0");
+          globalThis.localStorage.setItem("unoDebugMode", newValue ? "1" : "0");
           setDebugMode(newValue);
 
           const ev = new CustomEvent("debugModeChange", { detail: { value: newValue } });
@@ -93,7 +93,7 @@ export function useSimulatorKeyboardShortcuts({
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    globalThis.addEventListener("keydown", handleKeyDown);
+    return () => globalThis.removeEventListener("keydown", handleKeyDown);
   }, [compilePending, startPending, simulationStatus, isMac, handleCompile, handleCompileAndStart, handleStop]);
 }

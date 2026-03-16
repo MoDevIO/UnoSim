@@ -137,7 +137,7 @@ export class SimulationRateLimiter {
         continue;
       }
 
-      const lastActivity = entry.timestamps[entry.timestamps.length - 1] || 0;
+      const lastActivity = entry.timestamps.at(-1) || 0;
       if (now - lastActivity > 10 * 60 * 1000) {
         entriesToDelete.push(ws);
       }

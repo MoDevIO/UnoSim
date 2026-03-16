@@ -147,10 +147,10 @@ export function useSimulatorEffects({
         (e.key === "d" || e.key === "D")
       ) {
         e.preventDefault();
-        const currentValue = window.localStorage.getItem("unoDebugMode") === "1";
+        const currentValue = globalThis.localStorage.getItem("unoDebugMode") === "1";
         const newValue = !currentValue;
         try {
-          window.localStorage.setItem("unoDebugMode", newValue ? "1" : "0");
+          globalThis.localStorage.setItem("unoDebugMode", newValue ? "1" : "0");
           setDebugMode(newValue);
           const ev = new CustomEvent("debugModeChange", { detail: { value: newValue } });
           document.dispatchEvent(ev);
@@ -330,13 +330,13 @@ export function useSimulatorEffects({
   // Flush pending incomplete lines when simulation stops
   useEffect(() => {
     if (simulationStatus === "stopped" && serialOutput.length > 0) {
-      const lastLine = serialOutput[serialOutput.length - 1];
+      const lastLine = serialOutput.at(-1);
       if (lastLine && !lastLine.complete) {
         setSerialOutput((prev) => {
           if (prev.length === 0) return prev;
           return [
             ...prev.slice(0, -1),
-            { ...prev[prev.length - 1], complete: true },
+            { ...prev.at(-1)!, complete: true },
           ];
         });
       }

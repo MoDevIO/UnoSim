@@ -5,14 +5,14 @@
  */
 
 // Store original setTimeout
-const originalSetTimeout = global.setTimeout;
+const originalSetTimeout = globalThis.setTimeout;
 
 vi.setConfig({ testTimeout: 30000 });
 
 // Mock child_process
 const spawnInstances: any[] = [];
 
-vi.mock("child_process", () => {
+vi.mock("node:child_process", () => {
   const spawnMock = vi.fn(() => {
     // Create a proper mock that supports handler registration AND invocation
     const stderrHandlers: Function[] = [];
@@ -106,7 +106,7 @@ vi.mock("../../../server/services/process-executor", () => {
   return { ProcessExecutor: ProcessExecutorClass, default: ProcessExecutorClass };
 });
 
-vi.mock("fs/promises", () => {
+vi.mock("node:fs/promises", () => {
   const mkdirMock = vi.fn().mockResolvedValue(undefined);
   const mkdtempMock = vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir");
   const writeFileMock = vi.fn().mockResolvedValue(undefined);
@@ -135,7 +135,7 @@ vi.mock("fs/promises", () => {
   };
 });
 
-import { spawn, execSync } from "child_process";
+import { spawn, execSync } from "node:child_process";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 
 describe("SandboxRunner Performance Tests", () => {
@@ -294,7 +294,7 @@ void loop() {
 
       // Get the run process (created after compile finishes)
       // If only 1 spawn exists, it's local execution mode (g++ was compile), use it as run process
-      const runProc = spawnInstances[spawnInstances.length - 1] || spawnInstances[0];
+      const runProc = spawnInstances.at(-1) || spawnInstances[0];
       
       // Use the _emitStderr helper to send data through all registered stderr handlers
       // This ensures the ProcessController wrapper gets called correctly
@@ -425,7 +425,7 @@ void loop() {
       vi.advanceTimersByTime(100);
       waitForSpawns(1); // Ensure at least 1 spawn for run process
 
-      const runProc = spawnInstances[spawnInstances.length - 1] || spawnInstances[0];
+      const runProc = spawnInstances.at(-1) || spawnInstances[0];
       
       // Use the _emitStderr helper to call all registered stderr handlers
       const stderrTrigger = (data: Buffer) => {
@@ -543,7 +543,7 @@ void loop() {
       vi.advanceTimersByTime(50);
       captureMemory();
 
-      const runProc = spawnInstances[spawnInstances.length - 1] || spawnInstances[0];
+      const runProc = spawnInstances.at(-1) || spawnInstances[0];
       const stderrHandler = runProc.stderr?.on?.mock?.calls?.find(
         ([event]: any[]) => event === "data",
       )?.[1];
@@ -567,7 +567,7 @@ void loop() {
       // Analyze memory growth
       const initialHeap = memorySnapshots[0].heapUsed;
       const peakHeap = Math.max(...memorySnapshots.map(s => s.heapUsed));
-      const finalHeap = memorySnapshots[memorySnapshots.length - 1].heapUsed;
+      const finalHeap = memorySnapshots.at(-1).heapUsed;
 
       const peakGrowth = ((peakHeap - initialHeap) / initialHeap) * 100;
       const finalGrowth = ((finalHeap - initialHeap) / initialHeap) * 100;
@@ -625,7 +625,7 @@ void loop() {}
 
       vi.advanceTimersByTime(100);
 
-      const runProc = spawnInstances[spawnInstances.length - 1] || spawnInstances[0];
+      const runProc = spawnInstances.at(-1) || spawnInstances[0];
       const stdoutHandler = runProc.stdout?.on?.mock?.calls?.find(
         ([event]: any[]) => event === "data",
       )?.[1];
@@ -696,7 +696,7 @@ void loop() {
 
       vi.advanceTimersByTime(100);
 
-      const runProc = spawnInstances[spawnInstances.length - 1];
+      const runProc = spawnInstances.at(-1);
       
       // Create stderr trigger function to emit data through all registered handlers
       const stderrTrigger = (data: Buffer) => {
@@ -737,7 +737,7 @@ void loop() {
 
       // Calculate throughput
       const totalChars = outputs.reduce((sum, line) => sum + line.length, 0);
-      const durationMs = outputTimestamps[outputTimestamps.length - 1] || 1;
+      const durationMs = outputTimestamps.at(-1) || 1;
       const charsPerSecond = (totalChars / durationMs) * 1000;
 
       console.log(`Total characters received: ${totalChars}`);
@@ -801,7 +801,7 @@ void loop() {
 
       vi.advanceTimersByTime(100);
 
-      const runProc = spawnInstances[spawnInstances.length - 1];
+      const runProc = spawnInstances.at(-1);
       const stderrHandler = runProc?.stderr?.on?.mock?.calls?.find(
         ([event]: any[]) => event === "data",
       )?.[1];
@@ -875,7 +875,7 @@ void loop() {}
 
       vi.advanceTimersByTime(100);
 
-      const runProc = spawnInstances[spawnInstances.length - 1];
+      const runProc = spawnInstances.at(-1);
       const stderrHandler = runProc?.stderr?.on?.mock?.calls?.find(
         ([event]: any[]) => event === "data",
       )?.[1];

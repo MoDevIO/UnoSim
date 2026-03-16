@@ -154,7 +154,7 @@ export class ArduinoOutputParser {
       /^[A-Za-z0-9+/=:]{1,}\]\]$/.test(line) ||                // timestamp:base64 tail + ]]
       /^\d+:[A-Za-z0-9+/=]+/.test(line)                        // timestamp:base64 (no brackets)
     ) {
-      logger.debug(`Ignoring protocol fragment: ${line.substring(0, 80)}...`);
+      logger.debug(`Ignoring protocol fragment: ${line.slice(0, 80)}...`);
       return { type: "ignored" };
     }
 
@@ -218,8 +218,8 @@ export class ArduinoOutputParser {
               // Skip metadata like _count
               const atIndex = opMatch.lastIndexOf("@");
               if (atIndex > 0) {
-                const operation = opMatch.substring(0, atIndex);
-                const lineStr = opMatch.substring(atIndex + 1);
+                const operation = opMatch.slice(0, Math.max(0, atIndex));
+                const lineStr = opMatch.slice(Math.max(0, atIndex + 1));
                 usedAt.push({
                   line: Number.parseInt(lineStr) || 0,
                   operation,

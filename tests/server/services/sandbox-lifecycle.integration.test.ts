@@ -86,7 +86,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
     // in state T (stopped).  Falls back to a simple truthy result on macOS.
     async function isProcessStopped(pid: number): Promise<boolean> {
       try {
-        const { readFile } = await import("fs/promises");
+        const { readFile } = await import("node:fs/promises");
         const status = await readFile(`/proc/${pid}/status`, "utf8");
         // State line looks like: "State:\tT (stopped)"
         return /^State:\s*T/m.test(status);

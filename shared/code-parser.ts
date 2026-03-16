@@ -1,5 +1,5 @@
 import type { ParserMessage } from "./schema";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 
 type SeverityLevel = 1 | 2 | 3;
 
@@ -69,7 +69,7 @@ class PinCompatibilityChecker {
     while ((match = pinModeWithModeRegex.exec(this.uncommentedCode)) !== null) {
       const pin = match[1];
       const mode = match[2] as "INPUT" | "OUTPUT" | "INPUT_PULLUP";
-      const line = this.uncommentedCode.substring(0, match.index).split("\n").length;
+      const line = this.uncommentedCode.slice(0, Math.max(0, match.index)).split("\n").length;
 
       if (!result.has(pin)) {
         result.set(pin, { modes: [mode], lines: [line] });
@@ -158,7 +158,7 @@ class PinCompatibilityChecker {
         ) {
           outputReadWarnedPins.add(pinNum);
           const pinStr = pinNum >= 14 ? `A${pinNum - 14}` : String(pinNum);
-          const line = uncommentedCode.substring(0, match.index).split("\n").length;
+          const line = uncommentedCode.slice(0, Math.max(0, match.index)).split("\n").length;
           messages.push({
             id: randomUUID(),
             type: "warning",
@@ -269,10 +269,10 @@ class PerformanceAnalyzer {
       }
 
       // Extract function body
-      const functionBody = this.uncommentedCode.substring(functionStart, functionEnd + 1);
+      const functionBody = this.uncommentedCode.slice(functionStart, functionEnd + 1);
 
       // Check if function calls itself (recursive)
-      const functionCallRegex = new RegExp(`\\b${functionName}\\s*\\(`, "g");
+      const functionCallRegex = new RegExp(String.raw`\b${functionName}\s*\(`, "g");
       const calls = functionBody.match(functionCallRegex);
       if (calls && calls.length > 1) {
         messages.push({
@@ -282,7 +282,7 @@ class PerformanceAnalyzer {
           severity: 2 as SeverityLevel,
           message: `Recursive function '${functionName}' detected. Deep recursion may cause stack overflow on Arduino.`,
           suggestion: "// Use iterative approach instead",
-          line: this.findLineInFull(new RegExp(`\\b${functionName}\\s*\\(`)),
+          line: this.findLineInFull(new RegExp(String.raw`\b${functionName}\s*\(`)),
         });
       }
     }
@@ -293,7 +293,7 @@ class PerformanceAnalyzer {
   private findLineInFull(pattern: RegExp): number | undefined {
     const match = pattern.exec(this.fullCode);
     if (!match) return undefined;
-    const upToMatch = this.fullCode.substring(0, match.index);
+    const upToMatch = this.fullCode.slice(0, Math.max(0, match.index));
     return upToMatch.split("\n").length;
   }
 }
@@ -360,7 +360,7 @@ export class CodeParser {
           suggestion: "Serial.begin(115200);",
           line: this.findLineNumber(
             code,
-            new RegExp(`Serial\\s*\\.\\s*begin\\s*\\(\\s*${baudRateMatch[1]}`),
+            new RegExp(String.raw`Serial\s*\.\s*begin\s*\(\s*${baudRateMatch[1]}`),
           ),
         });
       }
@@ -503,7 +503,7 @@ export class CodeParser {
       const op = forMatch[3]; // '<' or '<='
       const endVal = Number.parseInt(forMatch[4], 10);
       const lastVal = op === "<=" ? endVal : endVal - 1;
-      const forLine = code.substring(0, forMatch.index).split("\n").length;
+      const forLine = code.slice(0, Math.max(0, forMatch.index)).split("\n").length;
 
       // Skip leading whitespace after the closing ')' of the for-header
       let pos = forMatch.index + forMatch[0].length;
@@ -525,16 +525,16 @@ export class CodeParser {
             }
           }
         }
-        body = bodyEnd >= 0 ? code.substring(bodyStart, bodyEnd) : "";
+        body = bodyEnd >= 0 ? code.slice(bodyStart, bodyEnd) : "";
       } else {
         // Braceless: single statement up to the very next semicolon
         const semiIdx = code.indexOf(";", pos);
-        body = semiIdx >= 0 ? code.substring(pos, semiIdx) : "";
+        body = semiIdx >= 0 ? code.slice(pos, semiIdx) : "";
       }
 
       // Find all pinMode(varName, MODE) calls in the extracted body
       const pinModeRe = new RegExp(
-        `\\bpinMode\\s*\\(\\s*${varName}\\s*,\\s*(INPUT_PULLUP|INPUT|OUTPUT)\\s*\\)`,
+        String.raw`\bpinMode\s*\(\s*${varName}\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)`,
         "g",
       );
       let pmMatch: RegExpExecArray | null;
@@ -586,7 +586,7 @@ export class CodeParser {
           suggestion: `// Use PWM pin instead: analogWrite(3, value);`,
           line: this.findLineNumber(
             code,
-            new RegExp(`analogWrite\\s*\\(\\s*${pinStr}`),
+            new RegExp(String.raw`analogWrite\s*\(\s*${pinStr}`),
           ),
         });
       }
@@ -634,7 +634,7 @@ export class CodeParser {
             suggestion: `pinMode(${pinStr}, INPUT);`,
             line: this.findLineNumber(
               code,
-              new RegExp(`digital(?:Read|Write)\\s*\\(\\s*${pinStr}`),
+              new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`),
             ),
           });
         }
@@ -660,7 +660,7 @@ export class CodeParser {
             suggestion: `pinMode(${usedVar}, INPUT);`,
             line: this.findLineNumber(
               code,
-              new RegExp(`digital(?:Read|Write)\\s*\\(\\s*${usedVar}`),
+              new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${usedVar}`),
             ),
           });
           break;
@@ -797,7 +797,7 @@ export class CodeParser {
   private parsePinNumber(pinStr: string): number | undefined {
     if (/^A\d+$/.test(pinStr)) {
       // Analog pin (A0-A5 map to 14-19 internally)
-      const analogNum = Number.parseInt(pinStr.substring(1));
+      const analogNum = Number.parseInt(pinStr.slice(1));
       if (analogNum >= 0 && analogNum <= 5) {
         return 14 + analogNum;
       }
@@ -822,7 +822,7 @@ export class CodeParser {
     const match = regex.exec(code);
     if (!match) return undefined;
 
-    const upToMatch = code.substring(0, match.index);
+    const upToMatch = code.slice(0, Math.max(0, match.index));
     const lineNumber = upToMatch.split("\n").length;
     return lineNumber;
   }

@@ -104,7 +104,7 @@ export function useArduinoSimulatorPage() {
   const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(
     () => {
       try {
-        const stored = window.localStorage.getItem("unoShowCompileOutput");
+        const stored = globalThis.localStorage.getItem("unoShowCompileOutput");
         return stored === null ? true : stored === "1";
       } catch {
         return true;
@@ -160,7 +160,7 @@ export function useArduinoSimulatorPage() {
   // Helper to request the global Settings dialog to open (App listens for this event)
   const openSettings = () => {
     try {
-      window.dispatchEvent(new CustomEvent("open-settings"));
+      globalThis.dispatchEvent(new CustomEvent("open-settings"));
     } catch {}
   };
 

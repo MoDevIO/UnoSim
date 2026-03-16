@@ -76,10 +76,10 @@ const scheduleFlush = () => {
     notify();
   };
 
-  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-    rafId = window.requestAnimationFrame(flush);
+  if (typeof globalThis.window !== "undefined" && typeof globalThis.requestAnimationFrame === "function") {
+    rafId = globalThis.requestAnimationFrame(flush);
   } else {
-    rafId = window.setTimeout(flush, 16) as unknown as number;
+    rafId = globalThis.setTimeout(flush, 16) as unknown as number;
   }
 };
 
@@ -216,8 +216,8 @@ const simulationStore = {
 };
 
 // DEBUG: Export for E2E tests to inspect and reset store state
-if (typeof window !== "undefined") {
-  (window as any).__SIM_DEBUG__ = {
+if (typeof globalThis.window !== "undefined") {
+  (globalThis as any).__SIM_DEBUG__ = {
     getState: () => snapshot,
     resetToInitial: () => {
       simulationStore.resetToInitial();

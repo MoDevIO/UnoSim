@@ -2,9 +2,9 @@
 // Delegates execution flow to ExecutionManager, manages state transitions and process control
 
 import { ProcessController, type IProcessController } from "./process-controller";
-import { mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import { join } from "path";
+import { mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { Logger } from "@shared/logger";
 import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { ArduinoOutputParser as StderrParser } from "./arduino-output-parser";

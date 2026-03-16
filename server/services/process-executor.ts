@@ -116,7 +116,7 @@ export class ProcessExecutor {
     const { timeout = 20000, detached = false, stdio = "pipe", onData, onProcess } = options;
 
     // Dynamic import for test mockability
-    const { spawn } = await import("child_process");
+    const { spawn } = await import("node:child_process");
 
     return new Promise((resolve) => {
       let stdout = "";

@@ -54,7 +54,7 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
         })
         .join('');
       
-      const lastLine = bufferState.lines[bufferState.lines.length - 1];
+      const lastLine = bufferState.lines.at(-1);
       const finalIsComplete = lastLine?.isComplete ?? true;
       
       bufferState.lines = [];
@@ -128,7 +128,7 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
         })
         .join('');
       
-      const lastLine = bufferState.lines[bufferState.lines.length - 1];
+      const lastLine = bufferState.lines.at(-1);
       const finalIsComplete = lastLine?.isComplete ?? true;
       
       bufferState.lines = [];
@@ -203,7 +203,7 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
         })
         .join('');
       
-      const lastLine = bufferState.lines[bufferState.lines.length - 1];
+      const lastLine = bufferState.lines.at(-1);
       const finalIsComplete = lastLine?.isComplete ?? true;
       
       bufferState.lines = [];
@@ -274,7 +274,7 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
         })
         .join('');
       
-      const lastLine = bufferState.lines[bufferState.lines.length - 1];
+      const lastLine = bufferState.lines.at(-1);
       const finalIsComplete = lastLine?.isComplete ?? true;
       
       bufferState.lines = [];
@@ -343,7 +343,7 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
         })
         .join('');
       
-      const lastLine = bufferState.lines[bufferState.lines.length - 1];
+      const lastLine = bufferState.lines.at(-1);
       const finalIsComplete = lastLine?.isComplete ?? true;
       
       bufferState.lines = [];

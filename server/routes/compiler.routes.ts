@@ -14,7 +14,7 @@ type CompilerDeps = {
   logger: Logger;
 };
 
-import path from "path";
+import path from "node:path";
 
 export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
   const { compiler, compilationCache, hashCode, CACHE_TTL, setLastCompiledCode, logger } = deps;

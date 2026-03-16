@@ -7,7 +7,7 @@
  * - Fallback generic error parsing when regex doesn't match
  */
 
-import { basename } from "path";
+import { basename } from "node:path";
 
 export interface CompilationError {
   file: string;

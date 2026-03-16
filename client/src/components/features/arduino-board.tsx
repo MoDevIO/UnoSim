@@ -95,7 +95,7 @@ export function ArduinoBoard({
   const [svgContent, setSvgContent] = useState<string>("");
   const [boardColor, setBoardColor] = useState<string>(() => {
     try {
-      return window.localStorage.getItem("unoBoardColor") || "var(--color-brand-primary)";
+      return globalThis.localStorage.getItem("unoBoardColor") || "var(--color-brand-primary)";
     } catch {
       return "var(--color-brand-primary)";
     }
@@ -197,7 +197,7 @@ export function ArduinoBoard({
           | undefined;
         const color =
           detail?.color ||
-          window.localStorage.getItem("unoBoardColor") ||
+          globalThis.localStorage.getItem("unoBoardColor") ||
           "var(--color-brand-primary)";
         setBoardColor(color);
       } catch {
@@ -215,7 +215,7 @@ export function ArduinoBoard({
   // Listen for debug mode changes
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem("unoDebugMode") === "1";
+      const stored = globalThis.localStorage.getItem("unoDebugMode") === "1";
       setDebugMode(stored);
     } catch {
       setDebugMode(false);
@@ -262,7 +262,6 @@ export function ArduinoBoard({
 
   // Single stable polling loop for ALL SVG updates - runs ONCE, never restarts
   useEffect(() => {
-    console.log("[ArduinoBoard] Starting stable polling loop");
     const performAllUpdates = () => {
       // Check overlay ref INSIDE the callback to handle late mounting
       const overlay = overlayRef.current;

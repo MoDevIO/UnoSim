@@ -35,7 +35,7 @@ describe("useBackendHealth", () => {
     });
 
     // Mock fetch for health check
-    fetchSpy = vi.spyOn(global, "fetch");
+    fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValue({
       ok: true,
       status: 200,

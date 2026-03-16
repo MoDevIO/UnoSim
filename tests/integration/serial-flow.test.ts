@@ -143,10 +143,10 @@ void loop() {
   });
 
   test('Control characters should pass through correctly', async () => {
-    const sketch = `
+    const sketch = String.raw`
 void setup() {
   Serial.begin(9600);
-  Serial.print("AB\\b");
+  Serial.print("AB\b");
   Serial.println();
 }
 

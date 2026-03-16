@@ -5,8 +5,9 @@ import type { IOPinRecord } from "@shared/schema";
 import type { PinStateBatcher } from "./pin-state-batcher";
 import type { SerialOutputBatcher, SerialOutputTelemetry } from "./serial-output-batcher";
 import { Logger } from "@shared/logger";
-import { createWriteStream, type WriteStream } from "fs";
-import { join } from "path";
+import { pinModeToString } from "@shared/utils/arduino-utils";
+import { createWriteStream, type WriteStream } from "node:fs";
+import { join } from "node:path";
 
 interface RegistryUpdateCallback {
   (registry: IOPinRecord[], baudrate: number | undefined, reason?: string): void;
@@ -453,7 +454,7 @@ export class RegistryManager {
       pin.conflict = true;
       const modeNames = Array.from(distinctModes).map((op) => {
         const n = Number.parseInt(op.split(":")[1], 10);
-        return n === 0 ? "INPUT" : n === 1 ? "OUTPUT" : "INPUT_PULLUP";
+        return pinModeToString(n);
       });
       pin.conflictMessage = `Multiple modes: ${modeNames.join(", ")}`;
       return;

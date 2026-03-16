@@ -218,14 +218,14 @@ describe("ArduinoOutputParser", () => {
       // This is the exact pattern from the user's bug report:
       // A SERIAL_EVENT was split by concurrent stderr writes, producing
       // "4579:WzAwMDAwMl0gWFhY...Cg==]]" as a standalone line
-      const base64 = Buffer.from("[000002] " + "X".repeat(120) + "\\n").toString("base64");
+      const base64 = Buffer.from("[000002] " + "X".repeat(120) + String.raw`\n`).toString("base64");
       const fragment = `4579:${base64}]]`;
       const result = parser.parseStderrLine(fragment, processStartTime);
       expect(result.type).toBe("ignored");
     });
 
     it("T-PF-02: should ignore timestamp:base64 without brackets", () => {
-      const base64 = Buffer.from("Hello World\\n").toString("base64");
+      const base64 = Buffer.from(String.raw`Hello World\n`).toString("base64");
       const fragment = `1234:${base64}`;
       const result = parser.parseStderrLine(fragment, processStartTime);
       expect(result.type).toBe("ignored");

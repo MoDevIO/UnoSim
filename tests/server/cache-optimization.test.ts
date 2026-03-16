@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import http from "http";
-import { createHash } from "crypto";
+import http from "node:http";
+import { createHash } from "node:crypto";
 
 /**
  * Cache Optimization Test (Self-Contained)

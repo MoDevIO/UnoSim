@@ -13,8 +13,8 @@
  */
 
 import { Logger } from "@shared/logger";
-import { cpus } from "os";
-import { EventEmitter } from "events";
+import { cpus } from "node:os";
+import { EventEmitter } from "node:events";
 
 // Priority levels for task queuing
 export enum TaskPriority {

@@ -6,7 +6,7 @@
  * dependencies on global simulation state.
  */
 
-export const ARDUINO_TYPES_CODE = `
+export const ARDUINO_TYPES_CODE = String.raw`
 // Arduino String class - stateless helper
 class String {
 private:
@@ -42,8 +42,8 @@ public:
     void toLowerCase() { for(auto& c : str) c = std::tolower(c); }
     void toUpperCase() { for(auto& c : str) c = std::toupper(c); }
     void trim() {
-        str.erase(0, str.find_first_not_of(" \\t\\n\\r"));
-        str.erase(str.find_last_not_of(" \\t\\n\\r") + 1);
+        str.erase(0, str.find_first_not_of(" \t\n\r"));
+        str.erase(str.find_last_not_of(" \t\n\r") + 1);
     }
     int toInt() const { return std::stoi(str); }
     float toFloat() const { return std::stof(str); }

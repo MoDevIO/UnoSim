@@ -4,9 +4,9 @@ import { Logger } from "@shared/logger";
 const logger = new Logger("MobileLayout");
 
 export function useMobileLayout() {
-  const isClient = typeof window !== "undefined";
+  const isClient = typeof globalThis.window !== "undefined";
   const mqQuery = "(max-width: 768px)";
-  const initialIsMobile = isClient ? window.matchMedia(mqQuery).matches : false;
+  const initialIsMobile = isClient ? globalThis.matchMedia(mqQuery).matches : false;
   const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile);
   const [mobilePanel, setMobilePanel] = useState<"code" | "compile" | "serial" | "board" | null>(
     initialIsMobile ? "code" : null,
@@ -17,7 +17,7 @@ export function useMobileLayout() {
   // Media query listener for responsive layout
   useEffect(() => {
     if (!isClient) return;
-    const mq = window.matchMedia(mqQuery);
+    const mq = globalThis.matchMedia(mqQuery);
     const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
       const matches = "matches" in e ? e.matches : mq.matches;
       setIsMobile(matches);

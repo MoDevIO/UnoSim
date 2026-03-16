@@ -13,10 +13,10 @@
  * (200 parallel requests sequentially → 4–8 workers process in parallel)
  */
 
-import { Worker } from "worker_threads";
-import path from "path";
-import os from "os";
-import fs from "fs";
+import { Worker } from "node:worker_threads";
+import path from "node:path";
+import os from "node:os";
+import fs from "node:fs";
 import { Logger } from "@shared/logger";
 import type { CompilationResult } from "./arduino-compiler";
 import {

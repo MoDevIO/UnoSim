@@ -212,9 +212,9 @@ export function CodeEditor({
     editorRef.current = editor;
 
     // E2E TEST HOOK: Expose the editor instance globally for Playwright
-    if (typeof window !== "undefined") {
+    if (typeof globalThis.window !== "undefined") {
       // Only expose the first editor (or last, if multiple)
-      (window as any).__MONACO_EDITOR__ = editor;
+      (globalThis as any).__MONACO_EDITOR__ = editor;
     }
 
     // Ensure Monaco re-measures and layouts after CSS has fully applied.
@@ -560,7 +560,7 @@ export function CodeEditor({
     };
 
     // Keep listening for scale changes (some emit on document, others on window)
-    window.addEventListener("uiFontScaleChange", onScale);
+    globalThis.addEventListener("uiFontScaleChange", onScale);
     document.addEventListener("uiFontScaleChange", onScale);
     const handlePaste = (e: ClipboardEvent) => {
       e.preventDefault();
@@ -590,7 +590,7 @@ export function CodeEditor({
         const endColumn =
           lines.length === 1
             ? selection.startColumn + text.length
-            : lines[lines.length - 1].length + 1;
+            : lines.at(-1)!.length + 1;
 
         editor.setPosition({
           lineNumber: endLineNumber,
@@ -611,7 +611,7 @@ export function CodeEditor({
         domNode.removeEventListener("paste", handlePaste);
       }
       document.removeEventListener("uiFontScaleChange", onScale);
-      window.removeEventListener("uiFontScaleChange", onScale);
+      globalThis.removeEventListener("uiFontScaleChange", onScale);
       editor.dispose();
     };
   }, []);

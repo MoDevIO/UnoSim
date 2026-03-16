@@ -12,7 +12,7 @@ export interface DebugMessage {
 export function useDebugConsole(activeOutputTab: string) {
   const [debugMode, setDebugMode] = useState<boolean>(() => {
     try {
-      return window.localStorage.getItem("unoDebugMode") === "1";
+      return globalThis.localStorage.getItem("unoDebugMode") === "1";
     } catch {
       return false;
     }

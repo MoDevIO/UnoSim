@@ -7,6 +7,7 @@ import { ParserOutput } from "@/components/features/parser-output";
 import { X, LayoutGrid, Table } from "lucide-react";
 import clsx from "clsx";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
+import { pinModeToString } from "@shared/utils/arduino-utils";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 
 type OutputTab = "compiler" | "messages" | "registry" | "debug";
@@ -124,7 +125,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
               const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
                 const match = u.operation.match(/pinMode:(\d+)/);
                 const mode = match ? Number.parseInt(match[1]) : -1;
-                return mode === 0 ? "INPUT" : mode === 1 ? "OUTPUT" : mode === 2 ? "INPUT_PULLUP" : "UNKNOWN";
+                return pinModeToString(mode);
               });
               const uniqueModes = [...new Set(pinModes)];
               const hasMultipleModes = uniqueModes.length > 1;
@@ -141,7 +142,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
                   const match = u.operation.match(/pinMode:(\d+)/);
                   const mode = match ? Number.parseInt(match[1]) : -1;
-                  return mode === 0 ? "INPUT" : mode === 1 ? "OUTPUT" : mode === 2 ? "INPUT_PULLUP" : "UNKNOWN";
+                  return pinModeToString(mode);
                 });
                 const uniqueModes = [...new Set(pinModes)];
                 const hasMultipleModes = uniqueModes.length > 1;

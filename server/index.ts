@@ -3,9 +3,9 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 import { getCompilationPool } from "./services/compilation-worker-pool";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

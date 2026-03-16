@@ -21,7 +21,7 @@ describe("Serial.print() Buffering Behavior", () => {
     expect(mockCode).toMatch(/if \(c == '\\?n'\)/);
   });
 
-  it("should verify SERIAL_EVENT encoding preserves \\r", () => {
+  it(String.raw`should verify SERIAL_EVENT encoding preserves \r`, () => {
     // Test that \r would be preserved in base64 encoding
     const testString = "\rCurrent value: 0      ";
     const base64 = Buffer.from(testString).toString("base64");

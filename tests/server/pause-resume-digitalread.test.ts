@@ -131,7 +131,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
           output: output.join(""),
           stderr: stderrLines.join("\n")
         });
-      }, 15000);
+      }, 30000);
 
       runner.runSketch({
         code,

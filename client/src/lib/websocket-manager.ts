@@ -129,14 +129,14 @@ class WebSocketManager {
     // Clean up any existing connection
     this.cleanupConnection();
     
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    let wsUrl = `${protocol}//${window.location.host}/ws`;
+    const protocol = globalThis.location.protocol === "https:" ? "wss:" : "ws:";
+    let wsUrl = `${protocol}//${globalThis.location.host}/ws`;
     
     // Check for testRunId from sessionStorage (E2E test isolation)
     // or use previously set testRunId
-    if (!this.testRunId && typeof window !== "undefined") {
+    if (!this.testRunId && typeof globalThis.window !== "undefined") {
       try {
-        const storedTestRunId = window.sessionStorage?.getItem("__TEST_RUN_ID__");
+        const storedTestRunId = globalThis.sessionStorage?.getItem("__TEST_RUN_ID__");
         if (storedTestRunId) {
           this.testRunId = storedTestRunId;
           logger.debug(`[Test Isolation] Loaded testRunId from sessionStorage: ${this.testRunId}`);
@@ -457,6 +457,6 @@ class WebSocketManager {
 export const getWebSocketManager = (): WebSocketManager => WebSocketManager.getInstance();
 
 // Export for debugging in browser console
-if (typeof window !== "undefined") {
-  (window as any).__wsManager = getWebSocketManager;
+if (typeof globalThis.window !== "undefined") {
+  (globalThis as any).__wsManager = getWebSocketManager;
 }

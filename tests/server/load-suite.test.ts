@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import http from "http";
+import http from "node:http";
 
 /**
  * Parametrisierte Load-Test Suite (Konsolidiert 4 Dateien → 1)

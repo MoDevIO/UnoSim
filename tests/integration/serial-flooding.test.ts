@@ -52,7 +52,7 @@ describe('Serial Output Flooding', () => {
    * We verify: numbered lines have GAPS (missing numbers = dropped lines).
    */
   test('T-FLOOD-01: Long strings cause drops (200-char lines for 2s)', async () => {
-    const sketch = `
+    const sketch = String.raw`
 void setup() {
   Serial.begin(115200);
 }
@@ -78,7 +78,7 @@ void loop() {
   for (size_t i = prefixLen; i < 200; i++) {
     buf[i] = 'X';
   }
-  buf[200] = '\\0';
+  buf[200] = '\0';
   Serial.println(buf);
   counter++;
 }
@@ -99,7 +99,7 @@ void loop() {
     }
 
     log(`[T-FLOOD-01] Total received lines: ${lineNumbers.length}`);
-    log(`[T-FLOOD-01] First line: ${lineNumbers[0]}, Last line: ${lineNumbers[lineNumbers.length - 1]}`);
+    log(`[T-FLOOD-01] First line: ${lineNumbers[0]}, Last line: ${lineNumbers.at(-1)}`);
     log(`[T-FLOOD-01] Total bytes received: ${fullOutput.length}`);
     
     // There must be some output
@@ -118,11 +118,11 @@ void loop() {
 
     log(`[T-FLOOD-01] Gaps detected: ${gaps}`);
     log(`[T-FLOOD-01] Total missing lines: ${totalMissing}`);
-    log(`[T-FLOOD-01] Last counter value: ${lineNumbers[lineNumbers.length - 1]}`);
+    log(`[T-FLOOD-01] Last counter value: ${lineNumbers.at(-1)}`);
     
     // The last counter value shows how many lines the C++ mock produced.
     // With txDelay of 10ms, that's ~200 lines in 2 seconds.
-    const totalProduced = lineNumbers[lineNumbers.length - 1] + 1;
+    const totalProduced = lineNumbers.at(-1) + 1;
     const dropRate = totalMissing / totalProduced;
     
     log(`[T-FLOOD-01] Total produced by C++: ~${totalProduced}`);
@@ -206,7 +206,7 @@ void loop() {
    * Expected drops: ~77% of data
    */
   test('T-FLOOD-03: Extreme flooding with 500-char lines', async () => {
-    const sketch = `
+    const sketch = String.raw`
 void setup() {
   Serial.begin(115200);
 }
@@ -228,7 +228,7 @@ void loop() {
   for (size_t i = prefixLen; i < 500; i++) {
     buf[i] = 'X';
   }
-  buf[500] = '\\0';
+  buf[500] = '\0';
   Serial.println(buf);
   counter++;
 }
@@ -254,7 +254,7 @@ void loop() {
       }
     }
 
-    const totalProduced = lineNumbers.length > 0 ? lineNumbers[lineNumbers.length - 1] + 1 : 0;
+    const totalProduced = lineNumbers.length > 0 ? lineNumbers.at(-1) + 1 : 0;
     const dropRate = totalProduced > 0 ? totalMissing / totalProduced : 0;
 
     log(`[T-FLOOD-03] Lines received: ${lineNumbers.length}`);

@@ -108,7 +108,7 @@ export function SimulatorStatusBar({
           className="text-red-600 truncate max-w-xs cursor-help"
           title={lastError}
         >
-          {lastError.substring(0, 50)}
+          {lastError.slice(0, 50)}
           {lastError.length > 50 ? "..." : ""}
         </div>
       )}

@@ -56,7 +56,7 @@ export function useSerialIO() {
   // Baudrate rendering methods
   const appendSerialOutput = useCallback((text: string) => {
     const isTestMode =
-      typeof window !== "undefined" && (window as any).__PLAYWRIGHT_TEST__;
+      typeof globalThis.window !== "undefined" && (globalThis as any).__PLAYWRIGHT_TEST__;
     if (isTestMode) {
       // in tests we bypass baudrate rendering to make output appear instantly
       setRenderedSerialText((prev) => prev + text);
@@ -67,7 +67,7 @@ export function useSerialIO() {
 
   const setBaudrate = useCallback((baud: number | undefined) => {
     const isTestMode =
-      typeof window !== "undefined" && (window as any).__PLAYWRIGHT_TEST__;
+      typeof globalThis.window !== "undefined" && (globalThis as any).__PLAYWRIGHT_TEST__;
     rendererRef.current?.setBaudrate(isTestMode ? 0 : baud);
   }, []);
 

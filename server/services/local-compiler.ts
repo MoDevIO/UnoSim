@@ -5,9 +5,9 @@
  * Used as fallback when Docker is not available.
  */
 
-import { chmod, mkdir, access, rm, stat } from "fs/promises";
-import { dirname, join } from "path";
-import { ChildProcess } from "child_process";
+import { chmod, mkdir, access, rm, stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { ChildProcess } from "node:child_process";
 import { Logger } from "@shared/logger";
 import { ProcessExecutor } from "./process-executor";
 
@@ -68,7 +68,7 @@ export class LocalCompiler {
     this.logger.debug(`[LocalCompiler] compile() invoked (testEnv=${usingTestEnv}, coverage=${coverageActive}) sketch=${sketchFile}`);
 
     // In test environments with mocked spawn, run a lightweight fake compile
-    const { spawn } = await import("child_process");
+    const { spawn } = await import("node:child_process");
     const spawnIsMock = (spawn as unknown as { mock?: object })?.mock !== undefined;
 
     if (usingTestEnv && spawnIsMock) {
@@ -163,7 +163,7 @@ export class LocalCompiler {
       const cliTemp = join(sketchDir, "cli-temp");
       let cliTempReady = false;
       try {
-        const { writeFile } = await import("fs/promises");
+        const { writeFile } = await import("node:fs/promises");
         await mkdir(cliTemp, { recursive: true });
         // filename must match directory name for Arduino CLI
         const cliSketch = join(cliTemp, "cli-temp.ino");
@@ -202,7 +202,7 @@ export class LocalCompiler {
         } finally {
           // if CLI produced a core.a, copy to cache
           try {
-            const fs = await import("fs");
+            const fs = await import("node:fs");
           const suspect = join(buildDir, "core", "core.a");
           
           // Check if suspect exists
@@ -235,7 +235,7 @@ export class LocalCompiler {
             // Write to a per-invocation temp file then atomically rename it
             // into place.  This prevents a parallel worker from reading a
             // partially written cache file.
-            const { randomUUID: _cacheUUID } = await import("crypto");
+            const { randomUUID: _cacheUUID } = await import("node:crypto");
             const tmpCachePath = cachePath + "." + _cacheUUID() + ".tmp";
             try {
               await fs.promises.copyFile(suspect, tmpCachePath);

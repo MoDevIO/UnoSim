@@ -6,7 +6,7 @@
 import type { Mock } from "vitest";
 
 // Store original setTimeout
-const originalSetTimeout = global.setTimeout;
+const originalSetTimeout = globalThis.setTimeout;
 
 vi.setConfig({ testTimeout: 2000 });
 
@@ -64,7 +64,7 @@ testGlobals.clearDockerMockConfig = () => {
   testGlobals.dockerMockConfig = {};
 };
 
-vi.mock("child_process", () => {
+vi.mock("node:child_process", () => {
   const spawnMock = vi.fn(() => {
     const stderrHandlers: Function[] = [];
     const stdoutHandlers: Function[] = [];
@@ -134,7 +134,7 @@ vi.mock("child_process", () => {
   };
 });
 
-vi.mock("fs/promises", () => {
+vi.mock("node:fs/promises", () => {
   const mkdirMock = vi.fn().mockResolvedValue(undefined);
   const mkdtempMock = vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir");
   const writeFileMock = vi.fn().mockResolvedValue(undefined);
@@ -163,7 +163,7 @@ vi.mock("fs/promises", () => {
   };
 });
 
-vi.mock("fs", () => {
+vi.mock("node:fs", () => {
   const existsSyncMock = vi.fn().mockReturnValue(true);
   const renameSyncMock = vi.fn();
   const rmSyncMock = vi.fn();
@@ -232,9 +232,9 @@ vi.mock("../../../server/services/process-executor", () => {
 
 // These are already set up via `testGlobals` above.
 
-import { spawn, execSync } from "child_process";
-import { mkdir, writeFile, rm, chmod, rename } from "fs/promises";
-import { existsSync, renameSync } from "fs";
+import { spawn, execSync } from "node:child_process";
+import { mkdir, writeFile, rm, chmod, rename } from "node:fs/promises";
+import { existsSync, renameSync } from "node:fs";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 import { LocalCompiler } from "../../../server/services/local-compiler";
 

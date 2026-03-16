@@ -50,24 +50,24 @@ describe("Logger", () => {
   });
 
   describe("Logger - Browser Environment", () => {
-    const originalWindow = global.window;
-    const originalProcess = global.process;
+    const originalWindow = globalThis.window;
+    const originalProcess = globalThis.process;
 
     beforeEach(() => {
       // Simulate browser environment
-      (global as any).window = {};
-      (global as any).process = { env: {} };
+      (globalThis as any).window = {};
+      (globalThis as any).process = { env: {} };
       vi.spyOn(console, "log").mockImplementation(() => {});
     });
 
     afterEach(() => {
-      (global as any).window = originalWindow;
-      (global as any).process = originalProcess;
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).process = originalProcess;
       vi.restoreAllMocks();
     });
 
     it("should suppress DEBUG logs in browser production mode", () => {
-      (global as any).process.env.NODE_ENV = "production";
+      (globalThis as any).process.env.NODE_ENV = "production";
       // override log level to INFO so debug is filtered
       setLogLevel("INFO");
       const browserLogger = new Logger("TestBrowser");
@@ -78,7 +78,7 @@ describe("Logger", () => {
     });
 
     it("should buffer DEBUG logs even in browser development mode", () => {
-      (global as any).process.env.NODE_ENV = "development";
+      (globalThis as any).process.env.NODE_ENV = "development";
       setLogLevel("DEBUG");
       const browserLogger = new Logger("TestBrowser");
 
@@ -89,7 +89,7 @@ describe("Logger", () => {
     });
 
     it("should always allow INFO/WARN/ERROR in browser", () => {
-      (global as any).process.env.NODE_ENV = "production";
+      (globalThis as any).process.env.NODE_ENV = "production";
       setLogLevel("INFO");
       const browserLogger = new Logger("TestBrowser");
 

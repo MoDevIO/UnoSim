@@ -1,4 +1,4 @@
-import type { ChildProcess, SpawnOptions } from "child_process";
+import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { Logger } from "@shared/logger";
 
 const logger = new Logger("ProcessController");
@@ -27,7 +27,7 @@ export interface IProcessController {
    * Spawn a child process and return the underlying `ChildProcess` object
    * (or null if spawn failed). Uses dynamic import so mocking works in tests.
    */
-  spawn(command: string, args?: string[] | undefined, options?: SpawnOptions | undefined): Promise<import("child_process").ChildProcess | null>;
+  spawn(command: string, args?: string[] | undefined, options?: SpawnOptions | undefined): Promise<import("node:child_process").ChildProcess | null>;
   onStdout(cb: StdDataCb): void;
   onStderr(cb: StdDataCb): void;
   onStderrLine(cb: StdLineCb): void;
@@ -55,13 +55,13 @@ export class ProcessController implements IProcessController {
   private stderrLineListeners: StdLineCb[] = [];
   private closeListeners: CloseCb[] = [];
   private errorListeners: ErrorCb[] = [];
-  private stderrReadline: import("readline").Interface | null = null;
+  private stderrReadline: import("node:readline").Interface | null = null;
   private killTimer: NodeJS.Timeout | null = null;
 
-  async spawn(command: string, args: string[] = [], options?: SpawnOptions): Promise<import("child_process").ChildProcess | null> {
+  async spawn(command: string, args: string[] = [], options?: SpawnOptions): Promise<import("node:child_process").ChildProcess | null> {
     // dynamic import ensures test mocks of child_process are applied
-    const { spawn } = await import("child_process");
-    const { createInterface } = await import("readline");
+    const { spawn } = await import("node:child_process");
+    const { createInterface } = await import("node:readline");
 
     // Ensure we always use pipes so we can drain output and prevent backpressure.
     const spawnOptions: SpawnOptions = {

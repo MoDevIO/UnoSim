@@ -1,5 +1,5 @@
-import { existsSync } from "fs";
-import { tmpdir } from "os";
+import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 export function getFastTmpBaseDir(): string {
   if (process.platform === "linux" && existsSync("/dev/shm")) {

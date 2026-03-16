@@ -20,7 +20,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
   // Pin Monitor visibility state (persisted to localStorage)
   const [pinMonitorVisible, setPinMonitorVisible] = useState<boolean>(() => {
     try {
-      return window.localStorage.getItem("unoPinMonitorVisible") === "1";
+      return globalThis.localStorage.getItem("unoPinMonitorVisible") === "1";
     } catch {
       return false; // Hidden by default
     }

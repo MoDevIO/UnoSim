@@ -25,6 +25,10 @@ export default [
         caughtErrorsIgnorePattern: "^_",
       }],
       "unicorn/prefer-number-properties": "error",
+      "unicorn/prefer-at": "error",
+      "unicorn/prefer-string-slice": "error",
+      "unicorn/prefer-node-protocol": "error",
+      "unicorn/prefer-string-raw": "error",
     },
   },
 ];

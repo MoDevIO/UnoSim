@@ -51,7 +51,7 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
               // Wir warten 500ms in der "echten" Welt
               setTimeout(() => {
                 // In dieser Zeit darf millis() in der Simulation nicht signifikant steigen
-                const currentVal = timeValues[timeValues.length - 1];
+                const currentVal = timeValues.at(-1);
                 try {
                   expect(currentVal).toBeLessThanOrEqual(valAtPause + 20);
                   runner.resume();

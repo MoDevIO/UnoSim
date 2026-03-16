@@ -17,7 +17,7 @@ describe("ProcessController — unit", () => {
 
     // Spawn a short-lived node process that writes after a small delay so
     // listeners (pre- and post-spawn) are already registered when data arrives.
-    pc.spawn("node", ["-e", `setTimeout(()=>{ process.stdout.write('PC-HELLO\\n'); }, 40); setTimeout(()=>process.exit(0), 120);`]);
+    pc.spawn("node", ["-e", String.raw`setTimeout(()=>{ process.stdout.write('PC-HELLO\n'); }, 40); setTimeout(()=>process.exit(0), 120);`]);
 
     // listener added AFTER spawn should still receive data
     pc.onStdout((d) => { b += d.toString(); });
@@ -53,7 +53,7 @@ describe("ProcessController — unit", () => {
     pc.onClose(() => { closed = true; });
 
     // long-running process that emits every 25ms (give listener time to attach)
-    pc.spawn("node", ["-e", `setInterval(()=>process.stdout.write('TICK\\n'), 25);`]);
+    pc.spawn("node", ["-e", String.raw`setInterval(()=>process.stdout.write('TICK\n'), 25);`]);
 
     // wait for the first tick (or timeout)
     await new Promise<void>((resolve, reject) => {

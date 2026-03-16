@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { applyBackspaceAcrossLines } from "../../client/src/components/features/serial-monitor";
 
 describe("Control Characters Examples and Handling", () => {
@@ -58,22 +58,22 @@ describe("Control Characters Examples and Handling", () => {
   it("serial-monitor contains handlers for control chars", () => {
     const monitorCode = fs.readFileSync(monitorPath, "utf8");
     // Backspace handling
-    expect(monitorCode).toContain("\\b");
+    expect(monitorCode).toContain(String.raw`\b`);
     // Tab expansion
-    expect(monitorCode).toContain("\\t");
+    expect(monitorCode).toContain(String.raw`\t`);
     // ESC[K clear-line handling
-    expect(monitorCode).toContain("\\x1b\\[K");
+    expect(monitorCode).toContain(String.raw`\x1b\[K`);
     // Bell marker
-    expect(monitorCode.includes("\\x07") || monitorCode.includes("␇")).toBe(
+    expect(monitorCode.includes(String.raw`\x07`) || monitorCode.includes("␇")).toBe(
       true,
     );
     // Form feed / vertical tab
-    expect(monitorCode.includes("\\f") || monitorCode.includes("\\v")).toBe(
+    expect(monitorCode.includes(String.raw`\f`) || monitorCode.includes(String.raw`\v`)).toBe(
       true,
     );
   });
 
-  it("simulator should preserve \\r (regression guard)", () => {
+  it(String.raw`simulator should preserve \r (regression guard)`, () => {
     const simCode = fs.readFileSync(simulatorPath, "utf8");
     const hookPath = path.join(__dirname, "../../client/src/hooks/useWebSocketHandler.ts");
     const hookCode = fs.existsSync(hookPath) ? fs.readFileSync(hookPath, "utf8") : "";
@@ -85,7 +85,7 @@ describe("Control Characters Examples and Handling", () => {
     expect(simCode.includes("serial_output") || hookCode.includes("serial_output")).toBe(true);
   });
 
-  describe("backspace (\\b) behavior", () => {
+  describe(String.raw`backspace (\b) behavior`, () => {
     /**
      * Simulates what the serial monitor does: processes incoming serial chunks
      * and builds up the display lines.
@@ -104,9 +104,9 @@ describe("Control Characters Examples and Handling", () => {
         );
         if (result !== null) {
           // No backspace handling was needed, add as new line or append
-          if (lines.length > 0 && lines[lines.length - 1].incomplete) {
-            lines[lines.length - 1].text += result;
-            lines[lines.length - 1].incomplete = !chunk.complete;
+          if (lines.length > 0 && lines.at(-1).incomplete) {
+            lines.at(-1).text += result;
+            lines.at(-1).incomplete = !chunk.complete;
           } else {
             lines.push({ text: result, incomplete: !chunk.complete });
           }
@@ -164,9 +164,9 @@ describe("Control Characters Examples and Handling", () => {
       // Phase 3: Send backspace + Y
       result = applyBackspaceAcrossLines(lines, "\bY", true);
       if (result !== null) {
-        if (lines.length > 0 && lines[lines.length - 1].incomplete) {
-          lines[lines.length - 1].text += result;
-          lines[lines.length - 1].incomplete = false;
+        if (lines.length > 0 && lines.at(-1).incomplete) {
+          lines.at(-1).text += result;
+          lines.at(-1).incomplete = false;
         } else {
           lines.push({ text: result, incomplete: false });
         }
@@ -212,7 +212,7 @@ describe("Control Characters Examples and Handling", () => {
         lines.push({ text: result, incomplete: true });
       }
       expect(lines.map((l) => l.text).join("")).toBe("Counting: 1");
-      expect(lines[lines.length - 1].incomplete).toBe(true);
+      expect(lines.at(-1).incomplete).toBe(true);
 
       // Chunk 2: "\b" alone (must not mark as complete!)
       result = applyBackspaceAcrossLines(lines, "\b", false); // Still incomplete
@@ -221,13 +221,13 @@ describe("Control Characters Examples and Handling", () => {
       }
       // After backspace: last char removed, still incomplete
       expect(lines.map((l) => l.text).join("")).toBe("Counting: ");
-      expect(lines[lines.length - 1].incomplete).toBe(true);
+      expect(lines.at(-1).incomplete).toBe(true);
 
       // Chunk 3: "2"
       result = applyBackspaceAcrossLines(lines, "2", false);
       if (result !== null) {
-        lines[lines.length - 1].text += result;
-        lines[lines.length - 1].incomplete = true;
+        lines.at(-1).text += result;
+        lines.at(-1).incomplete = true;
       }
       expect(lines.map((l) => l.text).join("")).toBe("Counting: 2");
 
@@ -241,8 +241,8 @@ describe("Control Characters Examples and Handling", () => {
       // Chunk 5: "3\n" complete
       result = applyBackspaceAcrossLines(lines, "3\n", true);
       if (result !== null) {
-        lines[lines.length - 1].text += result;
-        lines[lines.length - 1].incomplete = false;
+        lines.at(-1).text += result;
+        lines.at(-1).incomplete = false;
       }
       expect(lines.map((l) => l.text).join("")).toBe("Counting: 3\n");
     });

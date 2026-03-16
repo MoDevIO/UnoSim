@@ -89,9 +89,9 @@ export function applyBackspaceAcrossLines(
     if (
       backspaceCount > 0 &&
       lines.length > 0 &&
-      lines[lines.length - 1].incomplete
+      lines.at(-1)!.incomplete
     ) {
-      const lastLine = lines[lines.length - 1];
+      const lastLine = lines.at(-1)!;
       lastLine.text = lastLine.text.slice(
         0,
         Math.max(0, lastLine.text.length - backspaceCount),
@@ -101,11 +101,11 @@ export function applyBackspaceAcrossLines(
   }
 
   // If there's still text to process and we have an incomplete line, append to it
-  if (text && lines.length > 0 && lines[lines.length - 1].incomplete) {
+  if (text && lines.length > 0 && lines.at(-1)!.incomplete) {
     const cleanText = processAnsiCodes(text);
     if (cleanText) {
-      lines[lines.length - 1].text += cleanText;
-      lines[lines.length - 1].incomplete = !isComplete;
+      lines.at(-1)!.text += cleanText;
+      lines.at(-1)!.incomplete = !isComplete;
     }
     return null; // already handled
   }
@@ -208,8 +208,8 @@ export function SerialMonitor({
         const parts = text.split("\r");
         const cleanParts = parts.map((p) => processAnsiCodes(p));
         if (cleanParts.length > 1) {
-          const finalText = cleanParts[cleanParts.length - 1];
-          if (lines.length > 0 && !lines[lines.length - 1].incomplete) {
+          const finalText = cleanParts.at(-1)!;
+          if (lines.length > 0 && !lines.at(-1)!.incomplete) {
             lines.push({ text: finalText, incomplete: !line.complete });
           } else {
             if (lines.length > 0) {

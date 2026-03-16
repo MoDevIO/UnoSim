@@ -20,13 +20,13 @@ const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
 async function setCode(page: import('@playwright/test').Page, code: string) {
   // Prefer the E2E hook exposed by main.tsx (uses editor.setValue internally).
   const ok = await page.evaluate(async (c: string) => {
-    const fn = (window as any).setEditorContent;
+    const fn = (globalThis as any).setEditorContent;
     if (typeof fn === 'function') {
       await fn(c);
       return true;
     }
     // Fallback: direct model.setValue via window.__MONACO_EDITOR__
-    const editor = (window as any).__MONACO_EDITOR__;
+    const editor = (globalThis as any).__MONACO_EDITOR__;
     if (editor && typeof editor.setValue === 'function') {
       editor.setValue(c);
       return true;

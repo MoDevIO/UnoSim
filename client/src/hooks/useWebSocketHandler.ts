@@ -148,20 +148,20 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       const newLines = [...prev];
 
       if (isComplete) {
-        if (newLines.length > 0 && !newLines[newLines.length - 1].complete) {
+        if (newLines.length > 0 && !newLines.at(-1)!.complete) {
           newLines[newLines.length - 1] = {
-            text: newLines[newLines.length - 1].text + text,
+            text: newLines.at(-1)!.text + text,
             complete: true,
           };
         } else if (text.length > 0) {
           newLines.push({ text, complete: true });
         }
       } else {
-        if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
+        if (newLines.length === 0 || newLines.at(-1)!.complete) {
           newLines.push({ text, complete: false });
         } else {
           newLines[newLines.length - 1] = {
-            text: newLines[newLines.length - 1].text + text,
+            text: newLines.at(-1)!.text + text,
             complete: false,
           };
         }

@@ -26,7 +26,7 @@ declare global {
   }
 }
 
-(window as Window).__MONACO_EDITOR_ERROR_HANDLER__ = {
+window.__MONACO_EDITOR_ERROR_HANDLER__ = {
   onUnexpectedError: (error: unknown) => {
     let message = "";
     let stack = "";
@@ -83,7 +83,7 @@ const isMonacoHitTestError = (args: unknown[]): boolean => {
 
   if (isError) {
     log("Detected Monaco hitTest error:", {
-      message: message.substring(0, 150),
+      message: message.slice(0, 150),
     });
   }
 
@@ -107,8 +107,8 @@ console.warn = function (...args: unknown[]) {
 };
 
 // Intercept uncaught errors at the earliest point
-const originalErrorHandler = window.onerror;
-window.onerror = function (message, source, lineno, colno, error) {
+const originalErrorHandler = globalThis.onerror;
+globalThis.onerror = function (message, source, lineno, colno, error) {
   const errorMessage = String(message) || "";
   const errorStack = error?.stack || "";
 
@@ -128,7 +128,7 @@ window.onerror = function (message, source, lineno, colno, error) {
 };
 
 // Capture errors before they bubble up
-window.addEventListener(
+globalThis.addEventListener(
   "error",
   (event: ErrorEvent) => {
     if (isMonacoHitTestError([event.error])) {
@@ -144,7 +144,7 @@ window.addEventListener(
 );
 
 // Handle unhandled promise rejections
-window.addEventListener(
+globalThis.addEventListener(
   "unhandledrejection",
   (event: PromiseRejectionEvent) => {
     const reason = event.reason;

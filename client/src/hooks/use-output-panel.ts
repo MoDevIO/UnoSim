@@ -62,7 +62,7 @@ export function useOutputPanel(
         setOutputPanelManuallyResized(false);
         // Persist to localStorage
         try {
-          window.localStorage.setItem(
+          globalThis.localStorage.setItem(
             "unoShowCompileOutput",
             newValue ? "1" : "0",
           );
@@ -96,7 +96,7 @@ export function useOutputPanel(
   // Persist showCompilationOutput state to localStorage whenever it changes
   useEffect(() => {
     try {
-      window.localStorage.setItem(
+      globalThis.localStorage.setItem(
         "unoShowCompileOutput",
         showCompilationOutput ? "1" : "0",
       );
@@ -296,11 +296,11 @@ export function useOutputPanel(
       });
     };
     window.addEventListener("resize", handleResize);
-    window.addEventListener("uiFontScaleChange", handleUiScale);
+    globalThis.addEventListener("uiFontScaleChange", handleUiScale);
     document.addEventListener("uiFontScaleChange", handleUiScale);
     return () => {
       window.removeEventListener("resize", handleResize);
-      window.removeEventListener("uiFontScaleChange", handleUiScale);
+      globalThis.removeEventListener("uiFontScaleChange", handleUiScale);
       document.removeEventListener("uiFontScaleChange", handleUiScale);
     };
   }, [enforceOutputPanelFloor]);

@@ -15,7 +15,7 @@
  *  - `String` class (ARDUINO_STRING_CLASS)
  */
 
-export const ARDUINO_SERIAL_CLASS = `
+export const ARDUINO_SERIAL_CLASS = String.raw`
 // Serial class with working implementation
 class SerialClass {
 private:
@@ -128,12 +128,12 @@ private:
         applyBackpressure(s.length());
         
         for (char c : s) {
-            if (c == '\\b' || c == '\\r') {
+            if (c == '\b' || c == '\r') {
                 // Flush pending content BEFORE the control character
                 flushLineBuffer();
                 // Add backspace to buffer - it will be sent with the next char(s)
                 lineBuffer += c;
-            } else if (c == '\\n') {
+            } else if (c == '\n') {
                 lineBuffer += c;
                 flushLineBuffer();
             } else {
@@ -146,10 +146,10 @@ private:
         // Apply backpressure for single character
         applyBackpressure(1);
         
-        if (c == '\\b' || c == '\\r') {
+        if (c == '\b' || c == '\r') {
             flushLineBuffer();
             lineBuffer += c;
-        } else if (c == '\\n') {
+        } else if (c == '\n') {
             lineBuffer += c;
             flushLineBuffer();
         } else {
@@ -329,49 +329,49 @@ public:
 
     template<typename T> void println(T v) { 
         std::ostringstream oss;
-        oss << v << "\\n";
+        oss << v << "\n";
         serialWrite(oss.str());
     }
     
     // Special overload for byte/uint8_t (otherwise printed as char)
     void println(byte v) { 
         std::ostringstream oss;
-        oss << (int)v << "\\n";
+        oss << (int)v << "\n";
         serialWrite(oss.str());
     }
     
     // println with base format (DEC, HEX, OCT, BIN)
     void println(int v, int base) { 
-        serialWrite(formatNumber(v, base) + "\\n");
+        serialWrite(formatNumber(v, base) + "\n");
     }
     void println(long v, int base) { 
-        serialWrite(formatNumber(v, base) + "\\n");
+        serialWrite(formatNumber(v, base) + "\n");
     }
     void println(unsigned int v, int base) { 
-        serialWrite(formatNumber(v, base) + "\\n");
+        serialWrite(formatNumber(v, base) + "\n");
     }
     void println(unsigned long v, int base) { 
-        serialWrite(formatNumber(v, base) + "\\n");
+        serialWrite(formatNumber(v, base) + "\n");
     }
     void println(byte v, int base) { 
-        serialWrite(formatNumber(v, base) + "\\n");
+        serialWrite(formatNumber(v, base) + "\n");
     }
     
     // Overload for floating-point with decimal places
     void println(float v, int decimals) {
         std::ostringstream oss;
-        oss << std::fixed << std::setprecision(decimals) << v << "\\n";
+        oss << std::fixed << std::setprecision(decimals) << v << "\n";
         serialWrite(oss.str());
     }
     
     void println(double v, int decimals) {
         std::ostringstream oss;
-        oss << std::fixed << std::setprecision(decimals) << v << "\\n";
+        oss << std::fixed << std::setprecision(decimals) << v << "\n";
         serialWrite(oss.str());
     }
     
     void println() { 
-        serialWrite("\\n");
+        serialWrite("\n");
     }
 
     // parseInt() - Reads next integer from Serial Input

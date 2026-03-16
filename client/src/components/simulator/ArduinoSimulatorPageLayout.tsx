@@ -155,7 +155,7 @@ export function ArduinoSimulatorPageLayout({
             return;
           }
           const current = tabs.find((t) => t.id === activeTabId);
-          const newName = window.prompt(
+          const newName = globalThis.prompt(
             "Rename file",
             current?.name || "untitled.ino",
           );

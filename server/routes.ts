@@ -1,9 +1,9 @@
 import type { Express } from "express";
 import type { CompilationResult } from "./services/arduino-compiler";
 
-import { createServer, type Server } from "http";
-import { createHash } from "crypto";
-import { readdir, stat } from "fs/promises";
+import { createServer, type Server } from "node:http";
+import { createHash } from "node:crypto";
+import { readdir, stat } from "node:fs/promises";
 import { storage } from "./storage";
 import { getPooledCompiler } from "./services/pooled-compiler";
 import { SandboxRunner } from "./services/sandbox-runner";
@@ -11,8 +11,8 @@ import { getSimulationRateLimiter } from "./services/rate-limiter";
 import { shouldSendSimulationEndMessage } from "./services/simulation-end";
 import { getSandboxRunnerPool, initializeSandboxRunnerPool } from "./services/sandbox-runner-pool";
 import { insertSketchSchema } from "@shared/schema";
-import path from "path";
-import { fileURLToPath } from "url";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { Logger } from "@shared/logger"; // Pfad ggf. anpassen
 

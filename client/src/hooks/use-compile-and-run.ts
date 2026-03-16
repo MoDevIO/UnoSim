@@ -429,7 +429,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
   const startMutation = useMutation({
     mutationFn: async () => {
-      console.info("[CLIENT] startMutation invoked, simulationTimeout=", simulationTimeout);
+      logger.debug(`[CLIENT] startMutation invoked, simulationTimeout=${simulationTimeout}`);
       params.resetPinUI({ keepDetected: true });
       params.addDebugMessage({
         source: "frontend",
@@ -441,15 +441,15 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       // WS frame is emitted deterministically for E2E tests and real-time control.
       if (typeof params.sendMessageImmediate === "function") {
         const sent = params.sendMessageImmediate({ type: "start_simulation", timeout: simulationTimeout });
-        console.info("[CLIENT] sendMessageImmediate returned", sent);
+        logger.debug(`[CLIENT] sendMessageImmediate returned ${String(sent)}`);
         // If immediate send failed (socket not open) fall back to buffered send
         if (!sent) {
-          console.info("[CLIENT] falling back to buffered send for start_simulation");
+          logger.debug("[CLIENT] falling back to buffered send for start_simulation");
           params.addDebugMessage({ source: "frontend", type: "start_simulation", data: "Immediate send failed, falling back to buffered send", protocol: "websocket" });
           params.sendMessage({ type: "start_simulation", timeout: simulationTimeout });
         }
       } else {
-        console.info("[CLIENT] using buffered send for start_simulation (no immediate available)");
+        logger.debug("[CLIENT] using buffered send for start_simulation (no immediate available)");
         params.sendMessage({ type: "start_simulation", timeout: simulationTimeout });
       }
       return { success: true };

@@ -76,11 +76,11 @@ function setupFontScaleShortcuts() {
     }
   };
   
-  window.addEventListener("keydown", handleKeyDown);
+  globalThis.addEventListener("keydown", handleKeyDown);
   
   // Cleanup function for HMR
   return () => {
-    window.removeEventListener("keydown", handleKeyDown);
+    globalThis.removeEventListener("keydown", handleKeyDown);
   };
 }
 

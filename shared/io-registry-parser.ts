@@ -415,10 +415,10 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
 
     // ── Legacy fields (backward compat with runtime registry manager) ────
     if (pmCalls.length > 0) {
-      const lastMode = allModes[allModes.length - 1];
+      const lastMode = allModes.at(-1);
       record.pinMode =
         lastMode === "INPUT" ? 0 : lastMode === "OUTPUT" ? 1 : 2;
-      record.definedAt = { line: pmCalls[pmCalls.length - 1].line };
+      record.definedAt = { line: pmCalls.at(-1)!.line };
     }
 
     const nonPmCalls = [...drCalls, ...dwCalls, ...arCalls, ...awCalls];
