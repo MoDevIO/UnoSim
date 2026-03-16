@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import type { PinMode } from "@shared/types/arduino.types";
 
 interface UsePinStateParams {
   resetPinStates: () => void;
@@ -11,7 +12,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
   // Detected explicit pinMode(...) declarations found during parsing.
   // We store modes for pins so that we can apply them when the simulation starts.
   const [detectedPinModes, setDetectedPinModes] = useState<
-    Record<number, "INPUT" | "OUTPUT" | "INPUT_PULLUP">
+    Record<number, PinMode>
   >({});
 
   // Pins that have a detected pinMode(...) declaration which conflicts with analogRead usage
@@ -28,7 +29,9 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
 
   // Listen for pin monitor visibility change events from settings dialog
   useEffect(() => {
-    const handler = (ev: any) => {
+    type BoolDetailEvent = CustomEvent<{ value: boolean }>;
+
+    const handler = (ev: BoolDetailEvent) => {
       try {
         const newValue = Boolean(ev?.detail?.value);
         setPinMonitorVisible(newValue);
@@ -36,6 +39,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
         // ignore
       }
     };
+
     document.addEventListener("pinMonitorVisibleChange", handler as EventListener);
     return () =>
       document.removeEventListener("pinMonitorVisibleChange", handler as EventListener);

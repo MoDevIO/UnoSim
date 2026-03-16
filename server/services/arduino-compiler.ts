@@ -475,7 +475,7 @@ export class ArduinoCompiler {
     const parserMessages = parser.parseAll(code);
     const reservedNameMessages = reservedNamesValidator.validateReservedNames(code);
     const allParserMessages = [...parserMessages, ...reservedNameMessages];
-    const ioRegistry: any[] = [];
+    const ioRegistry: IOPinRecord[] = [];
     const sketchHash = this.buildSketchHash(code, options);
     const hexCacheDir = options?.hexCacheDir || this.defaultHexCacheDir;
     const compileStartedAt = process.hrtime.bigint();

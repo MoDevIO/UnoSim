@@ -20,6 +20,7 @@
  */
 
 import type { IOPinRecord } from "./schema";
+import type { PinMode } from "@shared/types/arduino.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -32,7 +33,7 @@ const BUILTIN_CONSTANTS: Record<string, number> = {
 };
 
 /** Canonical mode name table. */
-const MODE_MAP: Record<string, "INPUT" | "OUTPUT" | "INPUT_PULLUP"> = {
+const MODE_MAP: Record<string, PinMode> = {
   INPUT: "INPUT",       "0": "INPUT",
   OUTPUT: "OUTPUT",     "1": "OUTPUT",
   INPUT_PULLUP: "INPUT_PULLUP", "2": "INPUT_PULLUP",
@@ -49,7 +50,7 @@ interface CallEntry {
   op: OpName;
   pinId: number;
   line: number;
-  mode?: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+  mode?: PinMode;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

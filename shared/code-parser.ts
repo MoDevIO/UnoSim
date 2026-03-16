@@ -1,4 +1,5 @@
 import type { ParserMessage } from "./schema";
+import type { PinMode } from "@shared/types/arduino.types";
 import { randomUUID } from "node:crypto";
 
 type SeverityLevel = 1 | 2 | 3;
@@ -42,12 +43,12 @@ const PARSER_PATTERNS = {
 
 interface PinModeCall {
   pin: number;
-  mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+  mode: PinMode;
   line: number;
 }
 
 interface PinModeEntry {
-  modes: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">;
+  modes: Array<PinMode>;
   lines: number[];
 }
 

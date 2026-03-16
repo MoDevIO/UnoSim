@@ -240,7 +240,7 @@ export function initializeGlobalErrorHandlers(): void {
     flushDebugOnFailure(`Uncaught Exception: ${error.message}`);
   });
 
-  process.on("unhandledRejection", (reason: any) => {
+  process.on("unhandledRejection", (reason: unknown) => {
     flushDebugOnFailure(`Unhandled Rejection: ${String(reason)}`);
   });
 }

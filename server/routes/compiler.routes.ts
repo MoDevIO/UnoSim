@@ -3,12 +3,14 @@ import type { CompilationResult } from "../services/arduino-compiler";
 import type { CompileRequestOptions } from "../services/arduino-compiler";
 import type { Logger } from "@shared/logger";
 
+type CompilerHeader = { name: string; content: string };
+
 type CompilerDeps = {
   compiler: {
-    compile: (code: string, headers?: any[], tempRoot?: string, options?: CompileRequestOptions) => Promise<CompilationResult>;
+    compile: (code: string, headers?: CompilerHeader[], tempRoot?: string, options?: CompileRequestOptions) => Promise<CompilationResult>;
   };
   compilationCache: Map<string, { result: CompilationResult; timestamp: number }>;
-  hashCode: (code: string, headers?: Array<{ name: string; content: string }>) => string;
+  hashCode: (code: string, headers?: CompilerHeader[]) => string;
   CACHE_TTL: number;
   setLastCompiledCode: (code: string | null) => void;
   logger: Logger;
