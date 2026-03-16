@@ -515,8 +515,7 @@ export class ExecutionManager {
     if (!state) return;
 
     const handleTimeout = () => {
-      state.processController.kill("SIGKILL");
-      callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
+      this.handleExecutionTimeout(executionTimeout, state, callbacks);
     };
 
     this.timeoutManager.schedule(executionTimeout && executionTimeout > 0 ? executionTimeout * 1000 : null, handleTimeout);
@@ -543,15 +542,7 @@ export class ExecutionManager {
 
     state.processController.onStderr((data) => {
       if (useFallbackParser) {
-        state.stderrFallbackBuffer += data.toString();
-        const lines = state.stderrFallbackBuffer.split(/\r?\n/);
-        state.stderrFallbackBuffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line) continue;
-          const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime);
-          this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError, state);
-        }
+        this.handleStderrFallbackData(data, state, callbacks);
       }
     });
 
@@ -727,6 +718,37 @@ export class ExecutionManager {
     }
     if (state.pinStateBatcher) {
       state.pinStateBatcher.stop();
+    }
+  }
+
+  /**
+   * Handle execution timeout by killing process and notifying output
+   */
+  private handleExecutionTimeout(
+    executionTimeout: number | undefined,
+    state: ExecutionState,
+    callbacks: ExecutionCallbacks,
+  ): void {
+    state.processController.kill("SIGKILL");
+    callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
+  }
+
+  /**
+   * Process buffered stderr data in fallback mode
+   */
+  private handleStderrFallbackData(
+    data: Buffer,
+    state: ExecutionState,
+    callbacks: ExecutionCallbacks,
+  ): void {
+    state.stderrFallbackBuffer += data.toString();
+    const lines = state.stderrFallbackBuffer.split(/\r?\n/);
+    state.stderrFallbackBuffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line) continue;
+      const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime);
+      this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError, state);
     }
   }
 
