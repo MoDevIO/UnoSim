@@ -3,6 +3,301 @@ import { randomUUID } from "crypto";
 
 type SeverityLevel = 1 | 2 | 3;
 
+/**
+ * Centralized patterns and constants for Arduino code parsing
+ * Extracted to reduce cognitive complexity and enable reuse
+ */
+const PARSER_PATTERNS = {
+  // Serial configuration patterns
+  SERIAL_USAGE: /Serial\s*\.\s*(print|println|write|read|available|peek|readString|readBytes|parseInt|parseFloat|find|findUntil)/,
+  SERIAL_BEGIN: /Serial\s*\.\s*begin\s*\(\s*\d+\s*\)/,
+  SERIAL_BEGIN_EXTRACT: /Serial\s*\.\s*begin\s*\(\s*(\d+)\s*\)/,
+  SERIAL_WHILE_NOT: /while\s*\(\s*!\s*Serial\s*\)/,
+  SERIAL_READ: /Serial\s*\.\s*read\s*\(\s*\)/,
+  SERIAL_AVAILABLE: /Serial\s*\.\s*available\s*\(\s*\)/,
+
+  // Structure patterns
+  SETUP_FUNCTION: /void\s+setup\s*\(\s*\)/,
+  SETUP_ANY: /void\s+setup\s*\([^)]*\)/,
+  LOOP_FUNCTION: /void\s+loop\s*\(\s*\)/,
+  LOOP_ANY: /void\s+loop\s*\([^)]*\)/,
+
+  // Pin-related patterns
+  FOR_LOOP_HEADER: /for\s*\(\s*(?:(?:unsigned\s+int|uint8_t|unsigned|byte|int|var)\s+)?([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*(<=?)\s*(\d+)\s*;[^)]*\)/g,
+  PIN_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,/g,
+  PIN_MODE_WITH_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g,
+  PIN_MODE_VAR: /pinMode\s*\(\s*([a-zA-Z_]\w*)\s*,/g,
+  ANALOG_WRITE: /analogWrite\s*\(\s*(\d+|A\d+)\s*,/g,
+  DIGITAL_READ_WRITE: /digital(?:Read|Write)\s*\(\s*(\d+|A\d+|[a-zA-Z_]\w*)/g,
+  DIGITAL_READ_LITERAL: /\bdigitalRead\s*\(\s*(\d+|A\d+)\s*\)/g,
+  DIGITAL_WRITE_READ: /(?:digital(?:Write|Read)|pinMode)\s*\(\s*(\d+|A\d+)/gi,
+  ANALOG_READ_WRITE: /analog(?:Read|Write)\s*\(\s*(\d+|A\d+)/gi,
+
+  // Performance patterns
+  WHILE_TRUE: /while\s*\(\s*true\s*\)/,
+  FOR_NO_EXIT: /for\s*\(\s*[^;]+;\s*;\s*[^)]+\)/,
+  LARGE_ARRAY: /\[\s*(\d{4,})\s*\]/,
+  FUNCTION_DEF: /(?:void|int|bool|byte|long|float|double|char|String|unsigned\s+int|unsigned\s+long)\s+(\w+)\s*\([^)]*\)\s*\{/g,
+} as const;
+
+interface PinModeCall {
+  pin: number;
+  mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+  line: number;
+}
+
+interface PinModeEntry {
+  modes: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">;
+  lines: number[];
+}
+
+/**
+ * Specialized analyzer for pin mode conflicts and hardware compatibility
+ */
+class PinCompatibilityChecker {
+  constructor(private uncommentedCode: string) {}
+
+  /**
+   * Extract all pins configured with pinMode calls (direct and loop-based)
+   */
+  getPinModeInfo(getLoopPinModeCalls: (code: string) => PinModeCall[]): Map<string, PinModeEntry> {
+    const result = new Map<string, PinModeEntry>();
+
+    // Direct pinMode() calls
+    const pinModeWithModeRegex = PARSER_PATTERNS.PIN_MODE_WITH_MODE;
+    let match;
+    while ((match = pinModeWithModeRegex.exec(this.uncommentedCode)) !== null) {
+      const pin = match[1];
+      const mode = match[2] as "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+      const line = this.uncommentedCode.substring(0, match.index).split("\n").length;
+
+      if (!result.has(pin)) {
+        result.set(pin, { modes: [mode], lines: [line] });
+      } else {
+        const entry = result.get(pin)!;
+        entry.modes.push(mode);
+        entry.lines.push(line);
+      }
+    }
+
+    // Loop-based pinMode() calls
+    for (const { pin, mode, line } of getLoopPinModeCalls(this.uncommentedCode)) {
+      const key = String(pin);
+      if (!result.has(key)) {
+        result.set(key, { modes: [mode], lines: [line] });
+      } else {
+        const entry = result.get(key)!;
+        entry.modes.push(mode);
+        entry.lines.push(line);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Check for conflicting pin mode declarations
+   */
+  checkPinModeConflicts(
+    pinModeCalls: Map<string, PinModeEntry>,
+  ): ParserMessage[] {
+    const messages: ParserMessage[] = [];
+
+    for (const [pin, entry] of pinModeCalls.entries()) {
+      if (entry.modes.length < 2) continue;
+
+      const uniqueModes = Array.from(new Set(entry.modes));
+      const line = entry.lines[1];
+
+      if (uniqueModes.length > 1) {
+        messages.push({
+          id: randomUUID(),
+          type: "warning",
+          category: "pins",
+          severity: 2 as SeverityLevel,
+          message: `Pin ${pin} has multiple pinMode() calls with different modes: ${uniqueModes.join(", ")}.`,
+          suggestion: `Use a single pinMode(${pin}, <MODE>) call in setup().`,
+          line,
+        });
+      } else {
+        messages.push({
+          id: randomUUID(),
+          type: "warning",
+          category: "pins",
+          severity: 2 as SeverityLevel,
+          message: `Pin ${pin} has pinMode() called multiple times (${entry.modes.length}x).`,
+          suggestion: `Remove duplicate pinMode(${pin}, ${uniqueModes[0]}) calls.`,
+          line,
+        });
+      }
+    }
+
+    return messages;
+  }
+
+  /**
+   * Check for OUTPUT pins being read with digitalRead()
+   */
+  checkOutputPinsReadAsInput(
+    uncommentedCode: string,
+    outputPins: Set<number>,
+    parsePinNumber: (pin: string) => number | undefined,
+  ): ParserMessage[] {
+    const messages: ParserMessage[] = [];
+
+    if (outputPins.size > 0) {
+      const digitalReadLiteralRe = PARSER_PATTERNS.DIGITAL_READ_LITERAL;
+      const outputReadWarnedPins = new Set<number>();
+      let match;
+      while ((match = digitalReadLiteralRe.exec(uncommentedCode)) !== null) {
+        const pinNum = parsePinNumber(match[1]);
+        if (
+          pinNum !== undefined &&
+          outputPins.has(pinNum) &&
+          !outputReadWarnedPins.has(pinNum)
+        ) {
+          outputReadWarnedPins.add(pinNum);
+          const pinStr = pinNum >= 14 ? `A${pinNum - 14}` : String(pinNum);
+          const line = uncommentedCode.substring(0, match.index).split("\n").length;
+          messages.push({
+            id: randomUUID(),
+            type: "warning",
+            category: "pins",
+            severity: 2 as SeverityLevel,
+            message: `Pin ${pinStr} is configured as OUTPUT but read with digitalRead(). Reading an OUTPUT pin may return unexpected values.`,
+            suggestion: `If you need to read the pin, use pinMode(${pinStr}, INPUT) or INPUT_PULLUP instead.`,
+            line,
+          });
+        }
+      }
+    }
+
+    return messages;
+  }
+}
+
+/**
+ * Specialized analyzer for performance issues
+ */
+class PerformanceAnalyzer {
+  constructor(private uncommentedCode: string, private fullCode: string) {}
+
+  /**
+   * Check for infinite loops and recursion
+   */
+  analyzeComplexity(): ParserMessage[] {
+    const messages: ParserMessage[] = [];
+
+    // Check for while (true)
+    if (PARSER_PATTERNS.WHILE_TRUE.test(this.fullCode)) {
+      messages.push({
+        id: randomUUID(),
+        type: "warning",
+        category: "performance",
+        severity: 2 as SeverityLevel,
+        message:
+          "Infinite while(true) loop detected. This may freeze the simulator.",
+        suggestion: "delay(100);",
+        line: this.findLineInFull(PARSER_PATTERNS.WHILE_TRUE),
+      });
+    }
+
+    // Check for for loops without exit condition
+    if (PARSER_PATTERNS.FOR_NO_EXIT.test(this.fullCode)) {
+      messages.push({
+        id: randomUUID(),
+        type: "warning",
+        category: "performance",
+        severity: 2 as SeverityLevel,
+        message:
+          "for loop without exit condition detected. This creates an infinite loop.",
+        suggestion: "for (int i = 0; i < 10; i++) { }",
+        line: this.findLineInFull(PARSER_PATTERNS.FOR_NO_EXIT),
+      });
+    }
+
+    return messages;
+  }
+
+  /**
+   * Check for large arrays and recursion
+   */
+  analyzeLargeArraysAndRecursion(): ParserMessage[] {
+    const messages: ParserMessage[] = [];
+
+    // Check for large arrays
+    const arrayRegex = PARSER_PATTERNS.LARGE_ARRAY;
+    const arrayMatch = this.fullCode.match(arrayRegex);
+    if (arrayMatch) {
+      const arraySize = Number.parseInt(arrayMatch[1], 10);
+      if (arraySize > 1000) {
+        messages.push({
+          id: randomUUID(),
+          type: "warning",
+          category: "performance",
+          severity: 2 as SeverityLevel,
+          message: `Large array of ${arraySize} elements detected. This may cause memory issues on Arduino.`,
+          suggestion: `// Use smaller array size: int array[100];`,
+          line: this.findLineInFull(arrayRegex),
+        });
+      }
+    }
+
+    // Check for recursion
+    const functionDefinitionRegex = PARSER_PATTERNS.FUNCTION_DEF;
+    let match;
+    while ((match = functionDefinitionRegex.exec(this.uncommentedCode)) !== null) {
+      const functionName = match[1];
+      const functionStart = match.index;
+
+      // Find the end of this function by counting braces
+      let braceCount = 0;
+      let foundOpenBrace = false;
+      let functionEnd = functionStart;
+
+      for (let i = functionStart; i < this.uncommentedCode.length; i++) {
+        if (this.uncommentedCode[i] === "{") {
+          braceCount++;
+          foundOpenBrace = true;
+        } else if (this.uncommentedCode[i] === "}") {
+          braceCount--;
+          if (foundOpenBrace && braceCount === 0) {
+            functionEnd = i;
+            break;
+          }
+        }
+      }
+
+      // Extract function body
+      const functionBody = this.uncommentedCode.substring(functionStart, functionEnd + 1);
+
+      // Check if function calls itself (recursive)
+      const functionCallRegex = new RegExp(`\\b${functionName}\\s*\\(`, "g");
+      const calls = functionBody.match(functionCallRegex);
+      if (calls && calls.length > 1) {
+        messages.push({
+          id: randomUUID(),
+          type: "warning",
+          category: "performance",
+          severity: 2 as SeverityLevel,
+          message: `Recursive function '${functionName}' detected. Deep recursion may cause stack overflow on Arduino.`,
+          suggestion: "// Use iterative approach instead",
+          line: this.findLineInFull(new RegExp(`\\b${functionName}\\s*\\(`)),
+        });
+      }
+    }
+
+    return messages;
+  }
+
+  private findLineInFull(pattern: RegExp): number | undefined {
+    const match = pattern.exec(this.fullCode);
+    if (!match) return undefined;
+    const upToMatch = this.fullCode.substring(0, match.index);
+    return upToMatch.split("\n").length;
+  }
+}
+
 export class CodeParser {
   /**
    * Parse Serial configuration issues
@@ -14,9 +309,7 @@ export class CodeParser {
     const uncommentedCode = this.removeComments(code);
 
     // Check if Serial is actually used (print, println, read, write, available, etc.)
-    const serialUsageRegex =
-      /Serial\s*\.\s*(print|println|write|read|available|peek|readString|readBytes|parseInt|parseFloat|find|findUntil)/;
-    const isSerialUsed = serialUsageRegex.test(uncommentedCode);
+    const isSerialUsed = PARSER_PATTERNS.SERIAL_USAGE.test(uncommentedCode);
 
     // Only check Serial.begin if Serial is actually being used
     if (!isSerialUsed) {
@@ -24,10 +317,8 @@ export class CodeParser {
     }
 
     // Check if Serial.begin exists at all
-    const serialBeginExists = /Serial\s*\.\s*begin\s*\(\s*\d+\s*\)/.test(code);
-    const serialBeginActive = /Serial\s*\.\s*begin\s*\(\s*\d+\s*\)/.test(
-      uncommentedCode,
-    );
+    const serialBeginExists = PARSER_PATTERNS.SERIAL_BEGIN.test(code);
+    const serialBeginActive = PARSER_PATTERNS.SERIAL_BEGIN.test(uncommentedCode);
 
     if (!serialBeginActive) {
       if (serialBeginExists) {
@@ -57,7 +348,7 @@ export class CodeParser {
     } else {
       // Check baudrate
       const baudRateMatch = uncommentedCode.match(
-        /Serial\s*\.\s*begin\s*\(\s*(\d+)\s*\)/,
+        PARSER_PATTERNS.SERIAL_BEGIN_EXTRACT,
       );
       if (baudRateMatch && baudRateMatch[1] !== "115200") {
         messages.push({
@@ -76,7 +367,7 @@ export class CodeParser {
     }
 
     // Check for while (!Serial) antipattern
-    if (/while\s*\(\s*!\s*Serial\s*\)/.test(uncommentedCode)) {
+    if (PARSER_PATTERNS.SERIAL_WHILE_NOT.test(uncommentedCode)) {
       messages.push({
         id: randomUUID(),
         type: "warning",
@@ -85,7 +376,7 @@ export class CodeParser {
         message:
           "while (!Serial) loop detected. This blocks the simulator - not recommended.",
         suggestion: "// while (!Serial) { }",
-        line: this.findLineNumber(code, /while\s*\(\s*!\s*Serial\s*\)/),
+        line: this.findLineNumber(code, PARSER_PATTERNS.SERIAL_WHILE_NOT),
       });
     }
 
@@ -94,11 +385,11 @@ export class CodeParser {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       // Check if line has Serial.read() but not preceded by Serial.available check
-      if (/Serial\s*\.\s*read\s*\(\s*\)/.test(line)) {
+      if (PARSER_PATTERNS.SERIAL_READ.test(line)) {
         // Look back to see if there's an available check nearby
         let hasAvailableCheck = false;
         for (let j = Math.max(0, i - 3); j <= i; j++) {
-          if (/Serial\s*\.\s*available\s*\(\s*\)/.test(lines[j])) {
+          if (PARSER_PATTERNS.SERIAL_AVAILABLE.test(lines[j])) {
             hasAvailableCheck = true;
             break;
           }
@@ -113,7 +404,7 @@ export class CodeParser {
             message:
               "Serial.read() used without checking Serial.available(). This may return -1 when no data is available.",
             suggestion: "if (Serial.available()) { }",
-            line: this.findLineNumber(code, /Serial\s*\.\s*read\s*\(\s*\)/),
+            line: this.findLineNumber(code, PARSER_PATTERNS.SERIAL_READ),
           });
           break; // Only report once
         }
@@ -130,11 +421,10 @@ export class CodeParser {
     const messages: ParserMessage[] = [];
 
     // Check for void setup() with proper signatures
-    const setupRegex = /void\s+setup\s*\(\s*\)/;
-    const setupMatch = setupRegex.test(code);
+    const setupMatch = PARSER_PATTERNS.SETUP_FUNCTION.test(code);
 
     // Check for any setup() function (even with wrong signature)
-    const anySetup = /void\s+setup\s*\([^)]*\)/.test(code);
+    const anySetup = PARSER_PATTERNS.SETUP_ANY.test(code);
 
     if (!setupMatch && anySetup) {
       // setup() exists but has parameters
@@ -146,7 +436,7 @@ export class CodeParser {
         message:
           "setup() has parameters, but Arduino setup() should have no parameters.",
         suggestion: "void setup()",
-        line: this.findLineNumber(code, /void\s+setup\s*\(/),
+        line: this.findLineNumber(code, PARSER_PATTERNS.SETUP_ANY),
       });
     } else if (!setupMatch) {
       messages.push({
@@ -161,11 +451,10 @@ export class CodeParser {
     }
 
     // Check for void loop()
-    const loopRegex = /void\s+loop\s*\(\s*\)/;
-    const loopMatch = loopRegex.test(code);
+    const loopMatch = PARSER_PATTERNS.LOOP_FUNCTION.test(code);
 
     // Check for any loop() function
-    const anyLoop = /void\s+loop\s*\([^)]*\)/.test(code);
+    const anyLoop = PARSER_PATTERNS.LOOP_ANY.test(code);
 
     if (!loopMatch && anyLoop) {
       // loop() exists but has parameters
@@ -177,7 +466,7 @@ export class CodeParser {
         message:
           "loop() has parameters, but Arduino loop() should have no parameters.",
         suggestion: "void loop()",
-        line: this.findLineNumber(code, /void\s+loop\s*\(/),
+        line: this.findLineNumber(code, PARSER_PATTERNS.LOOP_ANY),
       });
     } else if (!loopMatch) {
       messages.push({
@@ -201,15 +490,11 @@ export class CodeParser {
    *   - Both `<` and `<=` comparisons
    *   - Type keywords: int, byte, uint8_t, unsigned int, unsigned, var, or none
    */
-  private getLoopPinModeCalls(
-    code: string,
-  ): Array<{ pin: number; mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; line: number }> {
-    const results: Array<{ pin: number; mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; line: number }> =
-      [];
+  private getLoopPinModeCalls(code: string): PinModeCall[] {
+    const results: PinModeCall[] = [];
 
     // Match the for-loop header, capturing: varName, start, operator, end
-    const forHeaderRe =
-      /for\s*\(\s*(?:(?:unsigned\s+int|uint8_t|unsigned|byte|int|var)\s+)?([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*(<=?)\s*(\d+)\s*;[^)]*\)/g;
+    const forHeaderRe = PARSER_PATTERNS.FOR_LOOP_HEADER;
 
     let forMatch: RegExpExecArray | null;
     while ((forMatch = forHeaderRe.exec(code)) !== null) {
@@ -278,12 +563,14 @@ export class CodeParser {
   }
   parseHardwareCompatibility(code: string): ParserMessage[] {
     const messages: ParserMessage[] = [];
+    const uncommentedCode = this.removeComments(code);
+    const pinChecker = new PinCompatibilityChecker(uncommentedCode);
 
     // Valid PWM pins on Arduino UNO: 3, 5, 6, 9, 10, 11
     const PWM_PINS = [3, 5, 6, 9, 10, 11];
 
     // Check for analogWrite on non-PWM pins
-    const analogWriteRegex = /analogWrite\s*\(\s*(\d+|A\d+)\s*,/g;
+    const analogWriteRegex = PARSER_PATTERNS.ANALOG_WRITE;
     let match;
     while ((match = analogWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
@@ -307,93 +594,31 @@ export class CodeParser {
 
     // Check for pinMode declarations
     const pinModeSet = new Set<string>();
-    const pinModeRegex = /pinMode\s*\(\s*(\d+|A\d+)\s*,/g;
+    const pinModeRegex = PARSER_PATTERNS.PIN_MODE;
     while ((match = pinModeRegex.exec(code)) !== null) {
       pinModeSet.add(match[1]);
     }
 
-    // Detect multiple pinMode calls for the same pin
-    const uncommentedCode = this.removeComments(code);
-    const pinModeWithModeRegex =
-      /pinMode\s*\(\s*(\d+|A\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
-    const pinModeCalls = new Map<
-      string,
-      { modes: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">; lines: number[] }
-    >();
+    // Get all pin mode information
+    const pinModeCalls = pinChecker.getPinModeInfo((c) => this.getLoopPinModeCalls(c));
 
-    while ((match = pinModeWithModeRegex.exec(uncommentedCode)) !== null) {
-      const pin = match[1];
-      const mode = match[2] as "INPUT" | "OUTPUT" | "INPUT_PULLUP";
-      const line = uncommentedCode.substring(0, match.index).split("\n").length;
+    // Check for pin mode conflicts
+    messages.push(...pinChecker.checkPinModeConflicts(pinModeCalls));
 
-      if (!pinModeCalls.has(pin)) {
-        pinModeCalls.set(pin, { modes: [mode], lines: [line] });
-      } else {
-        const entry = pinModeCalls.get(pin)!;
-        entry.modes.push(mode);
-        entry.lines.push(line);
-      }
-    }
-
-    // Expand for-loops containing pinMode(loopVar, MODE) — covers braced and
-    // braceless (single-statement) bodies, and both < / <= comparisons.
-    for (const { pin, mode, line } of this.getLoopPinModeCalls(uncommentedCode)) {
-      const key = String(pin);
-      if (!pinModeCalls.has(key)) {
-        pinModeCalls.set(key, { modes: [mode], lines: [line] });
-      } else {
-        const entry = pinModeCalls.get(key)!;
-        entry.modes.push(mode);
-        entry.lines.push(line);
-      }
-    }
-
-    for (const [pin, entry] of pinModeCalls.entries()) {
-      if (entry.modes.length < 2) continue;
-
-      const uniqueModes = Array.from(new Set(entry.modes));
-      const line = entry.lines[1];
-
-      if (uniqueModes.length > 1) {
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "pins",
-          severity: 2 as SeverityLevel,
-          message: `Pin ${pin} has multiple pinMode() calls with different modes: ${uniqueModes.join(", ")}.`,
-          suggestion: `Use a single pinMode(${pin}, <MODE>) call in setup().`,
-          line,
-        });
-      } else {
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "pins",
-          severity: 2 as SeverityLevel,
-          message: `Pin ${pin} has pinMode() called multiple times (${entry.modes.length}x).`,
-          suggestion: `Remove duplicate pinMode(${pin}, ${uniqueModes[0]}) calls.`,
-          line,
-        });
-      }
-    }
-
-    // Also detect pins configured in loops
+    // Get pins configured in loops
     const loopConfiguredPins = this.getLoopConfiguredPins(code);
 
     // Check for digitalRead/digitalWrite without pinMode
-    const digitalReadWriteRegex =
-      /digital(?:Read|Write)\s*\(\s*(\d+|A\d+|[a-zA-Z_]\w*)/g;
+    const digitalReadWriteRegex = PARSER_PATTERNS.DIGITAL_READ_WRITE;
     const warnedPins = new Set<string>();
     const usedVariables = new Set<string>();
 
     while ((match = digitalReadWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
-      usedVariables.add(pinStr); // Track all variable/pin references
+      usedVariables.add(pinStr);
 
       if (/^\d+/.test(pinStr) || /^A\d+/.test(pinStr)) {
-        // Literal pin number
         const pin = this.parsePinNumber(pinStr);
-        // Only warn if not explicitly configured with pinMode AND not in a loop range
         if (
           !pinModeSet.has(pinStr) &&
           (pin === undefined || !loopConfiguredPins.has(pin)) &&
@@ -416,17 +641,15 @@ export class CodeParser {
       }
     }
 
-    // Check if variable pins are used with pinMode - warn if there's a mismatch
-    const pinModeVarRegex = /pinMode\s*\(\s*([a-zA-Z_]\w*)\s*,/g;
+    // Check variable pins
+    const pinModeVarRegex = PARSER_PATTERNS.PIN_MODE_VAR;
     const pinModeVariables = new Set<string>();
-    while ((match = pinModeVarRegex.exec(this.removeComments(code))) !== null) {
+    while ((match = pinModeVarRegex.exec(uncommentedCode)) !== null) {
       pinModeVariables.add(match[1]);
     }
 
-    // Warn if digitalRead/digitalWrite uses variables not covered by pinMode
     for (const usedVar of usedVariables) {
       if (!/^\d+/.test(usedVar) && !/^A\d+/.test(usedVar)) {
-        // It's a variable
         if (!pinModeVariables.has(usedVar)) {
           messages.push({
             id: randomUUID(),
@@ -440,20 +663,16 @@ export class CodeParser {
               new RegExp(`digital(?:Read|Write)\\s*\\(\\s*${usedVar}`),
             ),
           });
-          break; // Only warn once per unique variable
+          break;
         }
       }
     }
 
-    // Handle dynamic pin usage (e.g., digitalRead(i)) where pin numbers are not literals.
-    // Only warn if NO pinMode calls exist at all. If pinMode is called (even in a loop),
-    // we assume pins are being configured dynamically.
-    const hasPinModeCalls = /pinMode\s*\(\s*[^,)]+\s*,/.test(
-      this.removeComments(code),
-    );
+    // Handle dynamic pin usage
+    const hasPinModeCalls = /pinMode\s*\(\s*[^,)]+\s*,/.test(uncommentedCode);
     if (!hasPinModeCalls) {
       const dynamicDigitalUse = /digital(?:Read|Write)\s*\(\s*[^0-9A\s][^,)]*/;
-      if (dynamicDigitalUse.test(this.removeComments(code))) {
+      if (dynamicDigitalUse.test(uncommentedCode)) {
         messages.push({
           id: randomUUID(),
           type: "warning",
@@ -467,10 +686,7 @@ export class CodeParser {
       }
     }
 
-    // SPI and I2C pin warnings removed - not necessary for simulation
-
-    // Warn when a pin is configured as OUTPUT and also read with digitalRead().
-    // Collect all literal pins that are declared OUTPUT via (possibly loop-based) pinMode.
+    // Check for OUTPUT pins being read as input
     const outputPins = new Set<number>();
     for (const [pin, entry] of pinModeCalls.entries()) {
       const pinNum = this.parsePinNumber(pin);
@@ -478,38 +694,17 @@ export class CodeParser {
         outputPins.add(pinNum);
       }
     }
-    // Also include pins marked OUTPUT by loop expansion (getLoopPinModeCalls)
     for (const { pin, mode } of this.getLoopPinModeCalls(uncommentedCode)) {
       if (mode === "OUTPUT") outputPins.add(pin);
     }
 
-    if (outputPins.size > 0) {
-      const digitalReadLiteralRe = /\bdigitalRead\s*\(\s*(\d+|A\d+)\s*\)/g;
-      const outputReadWarnedPins = new Set<number>();
-      while ((match = digitalReadLiteralRe.exec(uncommentedCode)) !== null) {
-        const pinNum = this.parsePinNumber(match[1]);
-        if (
-          pinNum !== undefined &&
-          outputPins.has(pinNum) &&
-          !outputReadWarnedPins.has(pinNum)
-        ) {
-          outputReadWarnedPins.add(pinNum);
-          const pinStr = pinNum >= 14 ? `A${pinNum - 14}` : String(pinNum);
-          const line = uncommentedCode
-            .substring(0, match.index)
-            .split("\n").length;
-          messages.push({
-            id: randomUUID(),
-            type: "warning",
-            category: "pins",
-            severity: 2 as SeverityLevel,
-            message: `Pin ${pinStr} is configured as OUTPUT but read with digitalRead(). Reading an OUTPUT pin may return unexpected values.`,
-            suggestion: `If you need to read the pin, use pinMode(${pinStr}, INPUT) or INPUT_PULLUP instead.`,
-            line,
-          });
-        }
-      }
-    }
+    messages.push(
+      ...pinChecker.checkOutputPinsReadAsInput(
+        uncommentedCode,
+        outputPins,
+        (p) => this.parsePinNumber(p),
+      ),
+    );
 
     return messages;
   }
@@ -522,8 +717,7 @@ export class CodeParser {
 
     // Find all pins used in digitalWrite/digitalRead/pinMode
     const digitalPins = new Set<number>();
-    const digitalRegex =
-      /(?:digital(?:Write|Read)|pinMode)\s*\(\s*(\d+|A\d+)/gi;
+    const digitalRegex = PARSER_PATTERNS.DIGITAL_WRITE_READ;
     let match;
     while ((match = digitalRegex.exec(code)) !== null) {
       const pin = this.parsePinNumber(match[1]);
@@ -534,7 +728,7 @@ export class CodeParser {
 
     // Find all pins used in analogRead/analogWrite
     const analogPins = new Set<number>();
-    const analogRegex = /analog(?:Read|Write)\s*\(\s*(\d+|A\d+)/gi;
+    const analogRegex = PARSER_PATTERNS.ANALOG_READ_WRITE;
     while ((match = analogRegex.exec(code)) !== null) {
       const pin = this.parsePinNumber(match[1]);
       if (pin !== undefined) {
@@ -564,112 +758,13 @@ export class CodeParser {
    * Parse performance issues
    */
   parsePerformance(code: string): ParserMessage[] {
-    const messages: ParserMessage[] = [];
-
-    // Check for while (true) loops
-    if (/while\s*\(\s*true\s*\)/.test(code)) {
-      messages.push({
-        id: randomUUID(),
-        type: "warning",
-        category: "performance",
-        severity: 2 as SeverityLevel,
-        message:
-          "Infinite while(true) loop detected. This may freeze the simulator.",
-        suggestion: "delay(100);",
-        line: this.findLineNumber(code, /while\s*\(\s*true\s*\)/),
-      });
-    }
-
-    // Check for for loops without exit condition
-    const forLoopRegex = /for\s*\(\s*[^;]+;\s*;\s*[^)]+\)/;
-    if (forLoopRegex.test(code)) {
-      messages.push({
-        id: randomUUID(),
-        type: "warning",
-        category: "performance",
-        severity: 2 as SeverityLevel,
-        message:
-          "for loop without exit condition detected. This creates an infinite loop.",
-        suggestion: "for (int i = 0; i < 10; i++) { }",
-        line: this.findLineNumber(code, forLoopRegex),
-      });
-    }
-
-    // Check for large arrays
-    const arrayRegex = /\[\s*(\d{4,})\s*\]/;
-    const arrayMatch = code.match(arrayRegex);
-    if (arrayMatch) {
-      const arraySize = Number.parseInt(arrayMatch[1]);
-      if (arraySize > 1000) {
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "performance",
-          severity: 2 as SeverityLevel,
-          message: `Large array of ${arraySize} elements detected. This may cause memory issues on Arduino.`,
-          suggestion: `// Use smaller array size: int array[100];`,
-          line: this.findLineNumber(code, arrayRegex),
-        });
-      }
-    }
-
-    // Check for recursion
-    // Match function definitions: return_type function_name(params) { ... }
-    // Exclude keywords like if, for, while, switch
-    const functionDefinitionRegex =
-      /(?:void|int|bool|byte|long|float|double|char|String|unsigned\s+int|unsigned\s+long)\s+(\w+)\s*\([^)]*\)\s*\{/g;
     const uncommentedCode = this.removeComments(code);
+    const analyzer = new PerformanceAnalyzer(uncommentedCode, code);
 
-    let match;
-    while ((match = functionDefinitionRegex.exec(uncommentedCode)) !== null) {
-      const functionName = match[1];
-      const functionStart = match.index;
-
-      // Find the end of this function by counting braces
-      let braceCount = 0;
-      let foundOpenBrace = false;
-      let functionEnd = functionStart;
-
-      for (let i = functionStart; i < uncommentedCode.length; i++) {
-        if (uncommentedCode[i] === "{") {
-          braceCount++;
-          foundOpenBrace = true;
-        } else if (uncommentedCode[i] === "}") {
-          braceCount--;
-          if (foundOpenBrace && braceCount === 0) {
-            functionEnd = i;
-            break;
-          }
-        }
-      }
-
-      // Extract function body
-      const functionBody = uncommentedCode.substring(
-        functionStart,
-        functionEnd + 1,
-      );
-
-      // Check if function calls itself (recursive)
-      const functionCallRegex = new RegExp(`\\b${functionName}\\s*\\(`, "g");
-      // Count calls - there should be the definition itself, so if we find more than 1, it's recursive
-      const calls = functionBody.match(functionCallRegex);
-      if (calls && calls.length > 1) {
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "performance",
-          severity: 2 as SeverityLevel,
-          message: `Recursive function '${functionName}' detected. Deep recursion may cause stack overflow on Arduino.`,
-          suggestion: "// Use iterative approach instead",
-          line: this.findLineNumber(
-            code,
-            new RegExp(`\\b${functionName}\\s*\\(`),
-          ),
-        });
-      }
-    }
-
-    return messages;
+    return [
+      ...analyzer.analyzeComplexity(),
+      ...analyzer.analyzeLargeArraysAndRecursion(),
+    ];
   }
 
   /**
