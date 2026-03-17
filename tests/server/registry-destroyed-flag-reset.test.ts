@@ -8,8 +8,12 @@ describe('RegistryManager destroyed flag reset after simulation', () => {
   let updateCallback: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    telemetryCallback = vi.fn<(metrics: any) => void>();
-    updateCallback = vi.fn<(_registry: any, _baudrate?: number, _reason?: string) => void>();
+    telemetryCallback = vi.fn() as unknown as (metrics: any) => void;
+    updateCallback = vi.fn() as unknown as (
+      registry: any[],
+      baudrate: number | undefined,
+      reason?: string,
+    ) => void;
 
     manager = new RegistryManager({
       onTelemetry: telemetryCallback,
@@ -36,7 +40,7 @@ describe('RegistryManager destroyed flag reset after simulation', () => {
   });
 
   it('should reset destroyed flag when reset() is called', () => {
-    const batcher = new PinStateBatcher('test');
+    const batcher = new PinStateBatcher({ onBatch: () => {} });
     manager.setPinStateBatcher(batcher);
     
     // Now destroy the manager
@@ -47,7 +51,7 @@ describe('RegistryManager destroyed flag reset after simulation', () => {
     manager.reset();
     
     // Now we should be able to start a new heartbeat
-    const batcher2 = new PinStateBatcher('test2');
+    const batcher2 = new PinStateBatcher({ onBatch: () => {} });
     manager.setPinStateBatcher(batcher2);
     
     // Give the heartbeat a chance to fire
@@ -62,7 +66,7 @@ describe('RegistryManager destroyed flag reset after simulation', () => {
   });
 
   it('should fire heartbeat on consecutive simulations', () => {
-    const batcher1 = new PinStateBatcher('test1');
+    const batcher1 = new PinStateBatcher({ onBatch: () => {} });
     manager.setPinStateBatcher(batcher1);
     
     let firstSimulationCallCount = 0;
@@ -82,7 +86,7 @@ setTimeout(() => {
         telemetryCallback.mockClear();
         
         // Start second simulation
-        const batcher2 = new PinStateBatcher('test2');
+const batcher2 = new PinStateBatcher({ onBatch: () => {} });
         manager.setPinStateBatcher(batcher2);
         
         // Wait for second heartbeat to fire
