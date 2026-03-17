@@ -26,6 +26,7 @@ import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
+import { parseStaticIORegistry } from "@shared/io-registry-parser";
 
 import type {
   Sketch,
@@ -501,6 +502,14 @@ export function useArduinoSimulatorPage() {
     setPendingPinConflicts,
     setAnalogPinsUsed,
   ]);
+
+  // Populate I/O registry from static code analysis whenever code changes or compilation completes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIoRegistry(parseStaticIORegistry(code));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [code, compilationStatus, setIoRegistry]);
 
   const { handleSerialSend, handleSerialInputKeyDown, handleClearSerialOutput } =
     useSimulatorSerialPanel({
