@@ -1,5 +1,4 @@
-import { useCallback, useRef } from "react";
-import type { ImperativePanelHandle } from "react-resizable-panels";
+import { useCallback } from "react";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import type { ParserMessage } from "@shared/schema";
 
@@ -28,14 +27,13 @@ export function useSimulatorOutputPanel({
   setActiveOutputTab,
   code,
 }: UseSimulatorOutputPanelProps) {
-  const outputPanelRef = useRef<ImperativePanelHandle | null>(null);
-  const outputTabsHeaderRef = useRef<HTMLDivElement | null>(null);
-  const outputPanelManuallyResizedRef = useRef(false);
-
   const {
+    outputPanelRef,
+    outputTabsHeaderRef,
     compilationPanelSize,
     setCompilationPanelSize,
     outputPanelMinPercent,
+    outputPanelManuallyResizedRef,
     openOutputPanel,
   } = useOutputPanel(
     hasCompilationErrors,

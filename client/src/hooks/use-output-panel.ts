@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 import type { ParserMessage } from "@shared/schema";
 
 export function useOutputPanel(
@@ -13,12 +14,7 @@ export function useOutputPanel(
   setActiveOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") => void,
   code: string,
 ) {
-  interface OutputPanelAPI {
-    getSize?: () => number;
-    resize?: (percent: number) => void;
-  }
-
-  const outputPanelRef = useRef<OutputPanelAPI | null>(null);
+  const outputPanelRef = useRef<ImperativePanelHandle | null>(null);
   const outputTabsHeaderRef = useRef<HTMLDivElement | null>(null);
   const [outputPanelMinPercent, setOutputPanelMinPercent] = useState<number>(3);
   const [compilationPanelSize, setCompilationPanelSize] = useState(3);
