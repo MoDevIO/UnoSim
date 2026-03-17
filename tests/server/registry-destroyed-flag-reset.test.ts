@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RegistryManager } from '../../server/services/registry-manager';
 import { PinStateBatcher } from '../../server/services/pin-state-batcher';
-import { Logger } from '@shared/logger';
 
 describe('RegistryManager destroyed flag reset after simulation', () => {
   let manager: RegistryManager;
@@ -9,9 +8,9 @@ describe('RegistryManager destroyed flag reset after simulation', () => {
   let updateCallback: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    telemetryCallback = vi.fn();
-    updateCallback = vi.fn();
-    
+    telemetryCallback = vi.fn<(metrics: any) => void>();
+    updateCallback = vi.fn<(_registry: any, _baudrate?: number, _reason?: string) => void>();
+
     manager = new RegistryManager({
       onTelemetry: telemetryCallback,
       onUpdate: updateCallback,
