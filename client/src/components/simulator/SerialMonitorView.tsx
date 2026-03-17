@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
 import { SerialMonitor } from "@/components/features/serial-monitor";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
 const SerialPlotter = lazy(() =>
   import("@/components/features/serial-plotter").then((m) => ({
@@ -155,22 +160,32 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
           {/* Content Area */}
           <div className="flex-1 min-h-0">
             {showSerialMonitor && showSerialPlotter ? (
-              <div className="h-full">
-                <div className="h-full flex flex-col">
-                  <div className="flex-1 min-h-0">
-                    <SerialMonitor
-                      output={renderedSerialOutput}
-                      isConnected={isConnected}
-                      isSimulationRunning={simulationStatus !== "stopped"}
-                      onSendMessage={handleSerialSend}
-                      onClear={handleClearSerialOutput}
-                      showMonitor={showSerialMonitor}
-                      autoScrollEnabled={autoScrollEnabled}
-                      showHeader={false}
-                    />
+              <ResizablePanelGroup direction="horizontal" className="h-full" id="serial-split">
+                <ResizablePanel defaultSize={50} minSize={20} id="serial-monitor-panel">
+                  <div className="h-full flex flex-col">
+                    <div className="flex-1 min-h-0">
+                      <SerialMonitor
+                        output={renderedSerialOutput}
+                        isConnected={isConnected}
+                        isSimulationRunning={simulationStatus !== "stopped"}
+                        onSendMessage={handleSerialSend}
+                        onClear={handleClearSerialOutput}
+                        showMonitor={showSerialMonitor}
+                        autoScrollEnabled={autoScrollEnabled}
+                        showHeader={false}
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle data-testid="horizontal-resizer-serial" />
+                <ResizablePanel defaultSize={50} minSize={20} id="serial-plot-panel">
+                  <div className="h-full">
+                    <React.Suspense fallback={<LoadingPlaceholder />}>
+                      <SerialPlotter output={serialOutput} />
+                    </React.Suspense>
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
             ) : showSerialMonitor ? (
               <div className="h-full flex flex-col">
                 <div className="flex-1 min-h-0">
