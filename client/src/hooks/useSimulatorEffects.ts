@@ -343,12 +343,11 @@ export function useSimulatorEffects({
     }
   }, [simulationStatus, serialOutput, setSerialOutput]);
 
-  // Static IO-Registry: update from code when simulation is not running
+  // Static IO-Registry: update from code whenever the code changes
   useEffect(() => {
-    if (simulationStatus !== "stopped") return;
     const timer = setTimeout(() => {
       setIoRegistry(parseStaticIORegistry(code));
     }, 300);
     return () => clearTimeout(timer);
-  }, [code, simulationStatus, setIoRegistry]);
+  }, [code, compilationStatus, setIoRegistry]);
 }
