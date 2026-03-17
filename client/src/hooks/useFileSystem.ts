@@ -93,12 +93,28 @@ export function useFileSystem(params: UseFileSystemParams): UseFileSystemResult 
       if (availableSketches && availableSketches.length > 0 && !currentSketch) {
         const defaultSketch = availableSketches[0];
         setCurrentSketch(defaultSketch);
+
+        // Ensure the default sketch is visible as a tab (so the user can’t accidentally close it)
+        setTabs((prevTabs) => {
+          if (prevTabs.length > 0) return prevTabs;
+
+          const tabId = `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+          setActiveTabId(tabId);
+          return [
+            {
+              id: tabId,
+              name: defaultSketch.name,
+              content: defaultSketch.content,
+            },
+          ];
+        });
+
         if (!code && defaultSketch.content) {
           setCode(defaultSketch.content);
         }
       }
     },
-    [currentSketch, code],
+    [currentSketch, code, setActiveTabId, setTabs, setCode],
   );
 
   // Initialize on sketch load

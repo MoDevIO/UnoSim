@@ -428,19 +428,6 @@ export function useArduinoSimulatorPageCore() {
   }, [initializeDefaultSketch, sketches]);
 
 
-  // Keyboard shortcuts (F5 / Escape / ⌘+U / Debug toggle)
-  useSimulatorKeyboardShortcuts({
-    isMac,
-    simulationStatus,
-    compilePending: compileMutation.isPending,
-    startPending: startMutation.isPending,
-    handleCompile,
-    handleCompileAndStart,
-    handleStop,
-    setDebugMode,
-    toast,
-  });
-
   // editor commands moved to hook
   const {
     undo,
@@ -457,6 +444,21 @@ export function useArduinoSimulatorPageCore() {
     suppressAutoStopOnce,
     code,
     setCode,
+  });
+
+  // Keyboard shortcuts (F5 / Escape / ⌘+U / Debug toggle / Format / New file)
+  useSimulatorKeyboardShortcuts({
+    isMac,
+    simulationStatus,
+    compilePending: compileMutation.isPending,
+    startPending: startMutation.isPending,
+    handleCompile,
+    handleCompileAndStart,
+    handleStop,
+    handleFormatCode: formatCode,
+    handleNewFile: handleTabAdd,
+    setDebugMode,
+    toast,
   });
 
   // WebSocket message handling moved to `useSimulatorWebSocketBridge` (extracts the large parameter list from the main hook)

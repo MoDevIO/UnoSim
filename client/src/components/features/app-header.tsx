@@ -183,6 +183,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => onFileAdd()}>
                   New File
+                  <DropdownMenuShortcut>
+                    {isMac ? "⇧⌥⌘N" : "Ctrl+Alt+Shift+N"}
+                  </DropdownMenuShortcut>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onFileRename()}>
                   Rename

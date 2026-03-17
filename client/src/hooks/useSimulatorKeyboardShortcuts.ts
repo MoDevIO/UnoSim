@@ -9,6 +9,8 @@ export type UseSimulatorKeyboardShortcutsOptions = {
   handleCompile: () => void;
   handleCompileAndStart: () => void;
   handleStop: () => void;
+  handleFormatCode: () => void;
+  handleNewFile: () => void;
   setDebugMode: (value: boolean) => void;
   toast: ToastFn;
 };
@@ -21,15 +23,18 @@ export function useSimulatorKeyboardShortcuts({
   handleCompile,
   handleCompileAndStart,
   handleStop,
+  handleFormatCode,
+  handleNewFile,
   setDebugMode,
   toast,
 }: UseSimulatorKeyboardShortcutsOptions) {
   // Debug mode toggle (⌘+D / Ctrl+D)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
+      const isModifierPressed = e.metaKey || e.ctrlKey;
       if (isModifierPressed && !e.altKey && !e.shiftKey && (e.key === "d" || e.key === "D")) {
         e.preventDefault();
+        e.stopImmediatePropagation();
 
         const currentValue = globalThis.localStorage.getItem("unoDebugMode") === "1";
         const newValue = !currentValue;
@@ -53,20 +58,16 @@ export function useSimulatorKeyboardShortcuts({
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => document.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [isMac, setDebugMode, toast]);
 
   // Application-level hotkeys (F5, Escape, ⌘/Ctrl+U)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const tgt = e.target as HTMLElement | null;
-      const ignoreTarget =
-        tgt &&
-        (tgt.tagName === "INPUT" ||
-          tgt.tagName === "TEXTAREA" ||
-          tgt.isContentEditable);
-      if (ignoreTarget) return;
+      // Always allow global shortcuts, even when focus is inside an editor/input.
+      // (Avoid blocking them for the main editor textarea etc.)
+      const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
 
       // F5: Compile only
       if (e.key === "F5") {
@@ -85,15 +86,53 @@ export function useSimulatorKeyboardShortcuts({
       }
 
       // Meta/Ctrl + U: Compile and start
-      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === "u") {
+      if (isModifierPressed && e.key.toLowerCase() === "u") {
         e.preventDefault();
         if (!compilePending && !startPending) {
           handleCompileAndStart();
         }
+        return;
       }
+
+      // Meta/Ctrl + Shift + F: Format code
+      if (isModifierPressed && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        handleFormatCode();
+        return;
+      }
+
+      // Meta/Ctrl + Alt + Shift + N: New file (less likely to be caught by browser menu shortcuts)
+      if (
+        isModifierPressed &&
+        e.altKey &&
+        e.shiftKey &&
+        (e.key === "n" || e.key === "N" || e.code === "KeyN")
+      ) {
+        e.preventDefault();
+        handleNewFile();
+        return;
+      }
+
+      const tgt = e.target as HTMLElement | null;
+      const ignoreTarget =
+        tgt &&
+        (tgt.tagName === "INPUT" ||
+          tgt.tagName === "TEXTAREA" ||
+          tgt.isContentEditable);
+      if (ignoreTarget) return;
     };
 
-    globalThis.addEventListener("keydown", handleKeyDown);
-    return () => globalThis.removeEventListener("keydown", handleKeyDown);
-  }, [compilePending, startPending, simulationStatus, isMac, handleCompile, handleCompileAndStart, handleStop]);
+    globalThis.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => globalThis.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [
+    compilePending,
+    startPending,
+    simulationStatus,
+    isMac,
+    handleCompile,
+    handleCompileAndStart,
+    handleStop,
+    handleFormatCode,
+    handleNewFile,
+  ]);
 }
