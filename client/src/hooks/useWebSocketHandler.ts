@@ -109,9 +109,13 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
 
   /** Handle sim_telemetry messages. */
   const handleSimTelemetry = (message: SimTelemetryPayload) => {
-    if (simulationStatus === "running") {
-      telemetryStore.pushTelemetry(message.metrics);
-    }
+    // Push telemetry unconditionally: the server only sends sim_telemetry
+    // while the simulation is running, so the status guard is unnecessary.
+    // Dropping it avoids a timing issue where React batches the
+    // simulation_status: running message together with the first telemetry
+    // packet — causing the status to still read "stopped" when the handler
+    // runs and silently discarding the data.
+    telemetryStore.pushTelemetry(message.metrics);
   };
 
   /** Handle serial_output messages. */

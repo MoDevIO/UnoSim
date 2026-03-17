@@ -82,14 +82,16 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             <div className="flex items-center gap-2">
               <Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} />
               <span className="font-semibold text-xs tracking-wide uppercase text-muted-foreground/80">Serial Output</span>
-              {debugMode && (simulationStatus === "running" || simulationStatus === "paused") && telemetryData?.last ? (
+              {debugMode && (simulationStatus === "running" || simulationStatus === "paused") ? (
                 <div className="flex items-center gap-3 ml-2 border-l border-muted-foreground/20 pl-4">
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Events</span>
-                    <span className="text-[11px] font-mono text-cyan-400">
-                      {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(0)}/s
-                    </span>
-                  </div>
+                  {telemetryData?.last ? (
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Events</span>
+                      <span className="text-[11px] font-mono text-cyan-400">
+                        {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(0)}/s
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex flex-col leading-tight">
                     <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Baud</span>
                     <span className="text-[11px] font-mono text-cyan-400">{baudRate}</span>
