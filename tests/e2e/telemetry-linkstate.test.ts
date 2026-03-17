@@ -129,7 +129,7 @@ void loop() {
     const debugLogs: string[] = [];
     runner.runSketch({
       code,
-      onOutput: (line) => {
+      onOutput: (_line) => {
         // Ignore serial output
       },
       onTelemetry: (metrics) => {

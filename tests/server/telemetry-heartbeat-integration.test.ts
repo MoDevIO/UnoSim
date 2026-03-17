@@ -5,7 +5,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SandboxRunner } from '../../server/services/sandbox-runner';
 import { RegistryManager } from '../../server/services/registry-manager';
 import { PinStateBatcher } from '../../server/services/pin-state-batcher';
-import { SerialOutputBatcher } from '../../server/services/serial-output-batcher';
 
 describe('Telemetry Heartbeat Integration', () => {
   let runner: SandboxRunner;
@@ -133,7 +132,7 @@ void loop() {
 
     const registry = new RegistryManager({
       enableTelemetry: true,
-      onTelemetry: (metrics) => {
+      onTelemetry: (_metrics) => {
         console.log(`   Step 1: RegistryManager.onTelemetryCallback fired`);
       },
     });
@@ -145,7 +144,7 @@ void loop() {
     } as unknown as PinStateBatcher);
 
     // Simulate what SandboxRunner does
-    const onTelemetry = (metrics: any) => {
+    const onTelemetry = (_metrics: any) => {
       console.log(`   Step 2: SandboxRunner.onTelemetry wrapper called`);
       executionStateCallbackCalled = true;
     };

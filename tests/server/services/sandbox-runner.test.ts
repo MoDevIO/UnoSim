@@ -184,23 +184,23 @@ vi.mock("node:fs", () => {
 // Real sandbox execution tests don't use this - they use the real ProcessExecutor with mocked spawn
 vi.mock("../../../server/services/process-executor", () => {
   const ProcessExecutorClass = class {
-    async execute(command: string, args: string[], options?: any) {
+    async execute(command: string, _args: string[], _options?: any) {
       // Check for test configuration
       const testConfig: DockerMockConfig = testGlobals.dockerMockConfig ?? {};
       
       // Mock docker commands for tests
       if (command === "docker") {
-        if (args[0] === "--version") {
+        if (_args[0] === "--version") {
           if (testConfig.versionFail) {
             return { code: 127, stdout: "", stderr: "command not found: docker", error: new Error("command not found: docker") };
           }
           return { code: 0, stdout: testConfig.versionOutput || "Docker version 24.0.0", stderr: "" };
-        } else if (args[0] === "info") {
+        } else if (_args[0] === "info") {
           if (testConfig.infoFail) {
             return { code: 1, stdout: "", stderr: testConfig.infoError || "Cannot connect to Docker daemon" };
           }
           return { code: 0, stdout: testConfig.infoOutput || "{}", stderr: "" };
-        } else if (args[0] === "image" && args[1] === "inspect") {
+        } else if (_args[0] === "image" && _args[1] === "inspect") {
           if (testConfig.inspectFail) {
             return { code: 1, stdout: "", stderr: testConfig.inspectError || "No such image", error: new Error(testConfig.inspectError || "No such image") };
           }
@@ -211,7 +211,7 @@ vi.mock("../../../server/services/process-executor", () => {
       return { code: 0, stdout: "", stderr: "" };
     }
 
-    kill(signal?: string) {
+    kill(_signal?: string) {
       // Mock implementation
     }
 
@@ -465,14 +465,14 @@ describe("SandboxRunner", () => {
       // (which would use Docker if available, or fallback to local if not)
       
       const outputs: string[] = [];
-      let exitCode: number | null = null;
+      let _exitCode: number | null = null;
 
       // Start sketch execution (will use Docker if available, local if not)
-      const sketchPromise = runner.runSketch({
+      const _sketchPromise = runner.runSketch({
         code: "void setup(){} void loop(){}",
         onOutput: (line) => outputs.push(line),
         onError: vi.fn(),
-        onExit: (code) => (exitCode = code),
+        onExit: (code) => (_exitCode = code),
       });
 
       // Give time for sketch execution to start
@@ -493,7 +493,7 @@ describe("SandboxRunner", () => {
       // Wait for docker checks
       vi.advanceTimersByTime(50);
 
-      const sketchPromise = runner.runSketch({
+      const _sketchPromise = runner.runSketch({
         code: "void setup(){} void loop(){}",
         onOutput: vi.fn(),
         onError: vi.fn(),
@@ -527,7 +527,7 @@ describe("SandboxRunner", () => {
 
       let compileError: string | null = null;
 
-      const sketchPromise = runner.runSketch({
+      const _sketchPromise = runner.runSketch({
         code: "invalid code",
         onOutput: vi.fn(),
         onError: vi.fn(),
@@ -687,7 +687,7 @@ describe("SandboxRunner", () => {
 
       const errors: string[] = [];
 
-      const sketchPromise = runner.runSketch({
+      const _sketchPromise = runner.runSketch({
         code: "void setup(){} void loop(){}",
         onOutput: vi.fn(),
         onError: (err) => errors.push(err),

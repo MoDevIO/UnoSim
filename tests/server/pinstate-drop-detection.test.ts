@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { PinStateBatcher } from '../../server/services/pin-state-batcher';
 
 describe('PinStateBatcher - dropped pin state detection', () => {

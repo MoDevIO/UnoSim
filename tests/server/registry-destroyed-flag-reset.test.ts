@@ -69,7 +69,7 @@ describe('RegistryManager destroyed flag reset after simulation', () => {
     
     return new Promise<void>((resolve) => {
       // Wait for first heartbeat to fire
-      const timer1 = setTimeout(() => {
+setTimeout(() => {
         firstSimulationCallCount = telemetryCallback.mock.calls.length;
         expect(firstSimulationCallCount).toBeGreaterThan(0);
         

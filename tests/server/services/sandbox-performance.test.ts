@@ -86,7 +86,7 @@ vi.mock("node:child_process", () => {
 // Mock ProcessExecutor - required because SandboxRunner uses it for docker checks
 vi.mock("../../../server/services/process-executor", () => {
   const ProcessExecutorClass = class {
-    async execute(command: string, args: string[], options?: any) {
+    async execute(command: string, _args: string[], _options?: any) {
       // Docker is NOT available in performance tests (we use local spawning)
       if (command === "docker") {
         // Always return failure for docker commands - tests use local mode
@@ -100,7 +100,7 @@ vi.mock("../../../server/services/process-executor", () => {
       // Other commands (g++, arduino-cli, etc.) - return success with empty output
       return { code: 0, stdout: "", stderr: "" };
     }
-    kill(signal?: string) {}
+    kill(_signal?: string) {}
     get isBusy() { return false; }
   };
   return { ProcessExecutor: ProcessExecutorClass, default: ProcessExecutorClass };
