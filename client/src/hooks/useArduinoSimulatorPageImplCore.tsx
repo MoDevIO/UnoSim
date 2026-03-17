@@ -1,4 +1,4 @@
-// arduino-simulator.tsx
+//arduino-simulator.tsx
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
@@ -14,8 +14,6 @@ import { useBackendHealth } from "@/hooks/use-backend-health";
 import { useMobileLayout } from "@/hooks/use-mobile-layout";
 import { useDebugMode } from "@/hooks/use-debug-mode-store";
 import { useSerialIO } from "@/hooks/use-serial-io";
-import { useSimulatorSerialPanel } from "@/hooks/useSimulatorSerialPanel";
-import { useSimulatorPinControls } from "@/hooks/useSimulatorPinControls";
 import { useSimulatorUIState } from "@/hooks/useSimulatorUIState";
 import { useSimulatorKeyboardShortcuts } from "@/hooks/useSimulatorKeyboardShortcuts";
 import { useSimulatorWebSocketBridge } from "@/hooks/useSimulatorWebSocketBridge";
@@ -26,6 +24,7 @@ import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
+import { useSimulatorEffects } from "@/hooks/useSimulatorEffects";
 
 import type {
   Sketch,
@@ -42,7 +41,9 @@ import {
   ANALOG_PIN_COUNT,
 } from "@/components/simulator/ArduinoSimulatorPage.styles";
 
-export function useArduinoSimulatorPage() {
+
+
+export function useArduinoSimulatorPageCore() {
   const editorRef = useRef<{
     getValue: () => string;
     insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
@@ -104,7 +105,7 @@ export function useArduinoSimulatorPage() {
   const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(
     () => {
       try {
-        const stored = globalThis.localStorage.getItem("unoShowCompileOutput");
+        const stored = window.localStorage.getItem("unoShowCompileOutput");
         return stored === null ? true : stored === "1";
       } catch {
         return true;
@@ -160,10 +161,19 @@ export function useArduinoSimulatorPage() {
   // Helper to request the global Settings dialog to open (App listens for this event)
   const openSettings = () => {
     try {
-      globalThis.dispatchEvent(new CustomEvent("open-settings"));
+      window.dispatchEvent(new CustomEvent("open-settings"));
     } catch {}
   };
 
+  const handleSerialInputSend = () => {
+    if (!serialInputValue.trim()) return;
+    handleSerialSend(serialInputValue);
+    setSerialInputValue("");
+  };
+
+  const handleSerialInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSerialInputSend();
+  };
 
   // RX/TX LED activity counters (increment on activity for change detection)
   const [txActivity, setTxActivity] = useState(0);
@@ -210,9 +220,11 @@ export function useArduinoSimulatorPage() {
 
 
 
+
   const {
     compilationStatus,
     setCompilationStatus,
+    arduinoCliStatus,
     setArduinoCliStatus,
     hasCompilationErrors,
     setHasCompilationErrors,
@@ -316,6 +328,7 @@ export function useArduinoSimulatorPage() {
 
   // Use the memoized compile-and-start from actions for consistent behavior
   const compileAndStartAction = actionsCompileAndStart;
+
 
 
 
@@ -502,22 +515,75 @@ export function useArduinoSimulatorPage() {
     setAnalogPinsUsed,
   ]);
 
-  const { handleSerialSend, handleSerialInputKeyDown, handleClearSerialOutput } =
-    useSimulatorSerialPanel({
-      sendMessage,
-      simulationStatus,
-      toast,
-      setTxActivity,
-      serialInputValue,
-      setSerialInputValue,
-      clearSerialOutput,
-      ensureBackendConnected,
-    });
+  // Side effects (IO registry parsing, pin analysis, parser tab sync, etc.)
+  useSimulatorEffects({
+    code,
+    compilationStatus,
+    hasCompilationErrors,
+    parserMessages,
+    parserPanelDismissed,
+    setCompilationStatus,
+    setActiveOutputTab,
+    setIoRegistry,
+    setSerialOutput,
+    simulationStatus,
+    setPinStates,
+    analogPinsUsed,
+    detectedPinModes: _detectedPinModes,
+    serialOutput,
+    arduinoCliStatus,
+    tabs,
+    activeTabId,
+    setTabs,
+    sketches,
+    initializeDefaultSketch,
+    debugMessages,
+    debugMessagesContainerRef,
+    activeOutputTab,
+    serialEventQueueRef,
+    isMac,
+    compileMutationIsPending: compileMutation.isPending,
+    startMutationIsPending: startMutation.isPending,
+    handleCompile,
+    handleStop,
+    handleCompileAndStart,
+    toast,
+    setDebugMode,
+    setDetectedPinModes,
+    setPendingPinConflicts,
+    setAnalogPinsUsed,
+  });
 
-  const handleSerialInputSend = () => {
-    if (!serialInputValue.trim()) return;
-    handleSerialSend(serialInputValue);
+  const handleSerialSend = (message: string) => {
+    if (!ensureBackendConnected("Serial senden")) return;
+
+    if (simulationStatus !== "running") {
+      toast({
+        title:
+          simulationStatus === "paused"
+            ? "Simulation paused"
+            : "Simulation not running",
+        description:
+          simulationStatus === "paused"
+            ? "Resume the simulation to send serial input."
+            : "Start the simulation to send serial input.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Trigger TX LED blink when client sends data
+    setTxActivity((prev) => prev + 1);
+
+    sendMessage({
+      type: "serial_input",
+      data: message,
+    });
   };
+
+  const handleClearSerialOutput = useCallback(() => {
+    clearSerialOutput();
+  }, [clearSerialOutput]);
 
   // Remaining handlers for OutputPanel integration
   const handleInsertSuggestion = useCallback((suggestion: string, line?: number) => {
@@ -534,13 +600,71 @@ export function useArduinoSimulatorPage() {
     }
   }, [suppressAutoStopOnce, toast]);
 
-  // Pin control handlers are extracted into a dedicated hook for better separation of concerns.
-  const { handlePinToggle, handleAnalogChange } = useSimulatorPinControls({
-    sendMessage,
-    simulationStatus,
-    toast,
-    setPinStates,
-  });
+  // Toggle INPUT pin value (called when user clicks on an INPUT pin square)
+  const handlePinToggle = (pin: number, newValue: number) => {
+    if (simulationStatus === "stopped") {
+      toast({
+        title: "Simulation not active",
+        description: "Start the simulation to change pin values.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (simulationStatus === "paused") {
+      // Pin changes are allowed during pause - send and update
+    }
+
+    // Send the new pin value to the server
+    sendMessage({ type: "set_pin_value", pin, value: newValue });
+
+    // Update local pin state immediately for responsive UI
+    setPinStates((prev) => {
+      const newStates = [...prev];
+      const existingIndex = newStates.findIndex((p) => p.pin === pin);
+      if (existingIndex >= 0) {
+        newStates[existingIndex] = {
+          ...newStates[existingIndex],
+          value: newValue,
+        };
+      }
+      return newStates;
+    });
+  };
+
+  // Handle analog slider changes (0..1023)
+  const handleAnalogChange = (pin: number, newValue: number) => {
+    if (simulationStatus === "stopped") {
+      toast({
+        title: "Simulation not active",
+        description: "Start the simulation to change pin values.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (simulationStatus === "paused") {
+      // Pin changes are allowed during pause - send and update
+    }
+
+    sendMessage({ type: "set_pin_value", pin, value: newValue });
+
+    // Update local pin state immediately for responsive UI
+    setPinStates((prev) => {
+      const newStates = [...prev];
+      const existingIndex = newStates.findIndex((p) => p.pin === pin);
+      if (existingIndex >= 0) {
+        newStates[existingIndex] = {
+          ...newStates[existingIndex],
+          value: newValue,
+          type: "analog",
+        };
+      } else {
+        newStates.push({ pin, mode: "INPUT", value: newValue, type: "analog" });
+      }
+      return newStates;
+    });
+  };
 
   const {
     outputPanelRef,
@@ -570,6 +694,7 @@ export function useArduinoSimulatorPage() {
     ioRegistry,
     cliOutput,
     hasCompilationErrors,
+    compilationStatus,
     lastCompilationResult,
     handleClearCompilationOutput,
     handleInsertSuggestion,
@@ -716,4 +841,4 @@ export function useArduinoSimulatorPage() {
   return state;
 }
 
-export type ArduinoSimulatorPageState = ReturnType<typeof useArduinoSimulatorPage>;
+export type ArduinoSimulatorPageState = ReturnType<typeof useArduinoSimulatorPageCore>;

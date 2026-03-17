@@ -1,14 +1,12 @@
-import React, { lazy, useMemo, Suspense } from "react";
+import React, { lazy, useMemo, Suspense, useCallback } from "react";
 
 import { SerialMonitor } from "@/components/features/serial-monitor";
-import { CompilationOutput } from "@/components/features/compilation-output";
-import { ParserOutput } from "@/components/features/parser-output";
 import { SketchTabs } from "@/components/features/sketch-tabs";
 import { ExamplesMenu } from "@/components/features/examples-menu";
+import { OutputPanel } from "@/components/features/output-panel";
 import { useSimulatorOutputPanel } from "@/hooks/useSimulatorOutputPanel";
+import type { ToastFn } from "@/hooks/use-toast";
 import type { ParserMessage, IOPinRecord, OutputLine } from "@shared/schema";
-import type { CompilerError } from "@/types/websocket";
-
 const CodeEditor = lazy(() =>
   import("@/components/features/code-editor").then((m) => ({
     default: m.CodeEditor,
@@ -45,12 +43,12 @@ export interface UseSimulatorUIStateParams {
   setParserPanelDismissed: (value: boolean) => void;
   ioRegistry: IOPinRecord[];
   cliOutput: string;
-  compilerErrors: CompilerError[] | undefined;
   hasCompilationErrors: boolean;
-  compilationStatus: "ready" | "compiling" | "success" | "error";
   lastCompilationResult: string | null;
   handleClearCompilationOutput: () => void;
   handleInsertSuggestion: (suggestion: string, line?: number) => void;
+  isModified: boolean;
+  toast: ToastFn;
 
   renderedSerialOutput: OutputLine[];
   isConnected: boolean;
@@ -122,13 +120,13 @@ export function useSimulatorUIState({
   parserMessages,
   ioRegistry,
   cliOutput,
-  compilerErrors,
   hasCompilationErrors,
-  compilationStatus,
   lastCompilationResult,
   handleClearCompilationOutput,
   handleInsertSuggestion,
   renderedSerialOutput,
+  isModified,
+  toast,
   isConnected,
   simulationStatus,
   handleSerialSend,
@@ -224,42 +222,88 @@ export function useSimulatorUIState({
     ],
   );
 
+  const handleCopyDebugMessages = useCallback(() => {
+    const filtered = debugMessages.filter(
+      (m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter,
+    );
+    const text = filtered
+      .map(
+        (m) =>
+          `[${m.timestamp.toLocaleTimeString()}] ${m.sender.toUpperCase()} (${m.type}): ${m.content}`,
+      )
+      .join("\n");
+    if (text) {
+      navigator.clipboard.writeText(text).catch(() => {});
+      toast({ title: "Copied to clipboard", description: `${filtered.length} messages` });
+    }
+  }, [debugMessages, debugMessageFilter, toast]);
+
+  const handleClearDebugMessages = useCallback(
+    () => setDebugMessages([]),
+    [setDebugMessages],
+  );
+
+  const isSuccessState = lastCompilationResult === "success" && !hasCompilationErrors;
+
   const compileSlot = useMemo(
     () => (
-      <>
-        {!parserPanelDismissed && parserMessages.length > 0 && (
-          <div className="flex-1 min-h-0 border-b border-gray-200">
-            <ParserOutput
-              messages={parserMessages}
-              ioRegistry={ioRegistry}
-              onClear={() => setParserPanelDismissed(true)}
-              onGoToLine={handleParserGoToLine}
-              onInsertSuggestion={handleInsertSuggestion}
-              hideHeader={true}
-            />
-          </div>
-        )}
-        <div className="flex-1 min-h-0 w-full">
-          <CompilationOutput
-            output={cliOutput}
-            errors={compilerErrors}
-            isSuccess={!hasCompilationErrors && compilationStatus === "success"}
-            onClear={handleClearCompilationOutput}
-          />
-        </div>
-      </>
+      <OutputPanel
+        activeOutputTab={activeOutputTab}
+        isSuccessState={isSuccessState}
+        isModified={isModified}
+        debugMode={debugMode}
+        debugViewMode={debugViewMode}
+        debugMessageFilter={debugMessageFilter}
+        cliOutput={cliOutput}
+        parserMessages={parserMessages}
+        ioRegistry={ioRegistry}
+        debugMessages={debugMessages}
+        lastCompilationResult={lastCompilationResult}
+        hasCompilationErrors={hasCompilationErrors}
+        outputTabsHeaderRef={outputTabsHeaderRef}
+        parserMessagesContainerRef={debugMessagesContainerRef}
+        debugMessagesContainerRef={debugMessagesContainerRef}
+        onTabChange={handleOutputTabChange}
+        openOutputPanel={openOutputPanel}
+        onClose={handleOutputCloseOrMinimize}
+        onClearCompilationOutput={handleClearCompilationOutput}
+        onParserMessagesClear={handleParserMessagesClear}
+        onParserGoToLine={handleParserGoToLine}
+        onInsertSuggestion={handleInsertSuggestion}
+        onRegistryClear={handleRegistryClear}
+        setDebugMessageFilter={setDebugMessageFilter}
+        setDebugViewMode={setDebugViewMode}
+        onCopyDebugMessages={handleCopyDebugMessages}
+        onClearDebugMessages={handleClearDebugMessages}
+      />
     ),
     [
-      parserPanelDismissed,
+      activeOutputTab,
+      isSuccessState,
+      isModified,
+      debugMode,
+      debugViewMode,
+      debugMessageFilter,
+      cliOutput,
       parserMessages,
       ioRegistry,
-      cliOutput,
-      handleClearCompilationOutput,
-      compilerErrors,
+      debugMessages,
+      lastCompilationResult,
       hasCompilationErrors,
-      compilationStatus,
+      outputTabsHeaderRef,
+      debugMessagesContainerRef,
+      handleOutputTabChange,
+      openOutputPanel,
+      handleOutputCloseOrMinimize,
+      handleClearCompilationOutput,
+      handleParserMessagesClear,
       handleParserGoToLine,
       handleInsertSuggestion,
+      handleRegistryClear,
+      setDebugMessageFilter,
+      setDebugViewMode,
+      handleCopyDebugMessages,
+      handleClearDebugMessages,
     ],
   );
 
