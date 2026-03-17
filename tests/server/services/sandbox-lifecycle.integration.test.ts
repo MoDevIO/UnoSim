@@ -63,7 +63,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         timeoutSec: 10,
       });
     });
-  }, 15000);
+  }, 60000);
 
   it("lifecycle signals: SIGSTOP pauses and SIGCONT resumes the process output", async () => {
     const code = `

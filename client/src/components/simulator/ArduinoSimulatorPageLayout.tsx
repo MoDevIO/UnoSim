@@ -219,7 +219,9 @@ export function ArduinoSimulatorPageLayout({
                 id="code-layout"
               >
                 <ResizablePanel defaultSize={97} minSize={30} id="editor-panel">
-                  {codeSlot}
+                  <div className="h-full flex flex-col">
+                    {codeSlot}
+                  </div>
                 </ResizablePanel>
 
                 <ResizableHandle

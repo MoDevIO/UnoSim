@@ -694,7 +694,6 @@ export function useArduinoSimulatorPageCore() {
     ioRegistry,
     cliOutput,
     hasCompilationErrors,
-    compilationStatus,
     lastCompilationResult,
     handleClearCompilationOutput,
     handleInsertSuggestion,
