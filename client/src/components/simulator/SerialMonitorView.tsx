@@ -1,4 +1,4 @@
-import React, { lazy } from "react";
+import React, { lazy, useState, useEffect, useRef } from "react";
 import { Terminal, ChevronsDown, BarChart, Columns, Monitor, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InputGroup } from "@/components/ui/input-group";
@@ -73,6 +73,64 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
     baudRate,
   } = props;
 
+  const lastTelemetry = telemetryData?.last;
+  const serialTelegramsPerSecond = lastTelemetry?.serialOutputPerSecond ?? 0;
+  const serialBytesPerSecond = lastTelemetry?.serialBytesPerSecond ?? 0;
+  const [fallbackSerialTelemetry, setFallbackSerialTelemetry] = useState({
+    telegramsPerSecond: 0,
+    bytesPerTelegram: 0,
+  });
+
+  const serialEventsRef = useRef<Array<{ ts: number; bytes: number }>>([]);
+  const lastSerialIndexRef = useRef(0);
+
+  // Track received serial_output messages to compute a local per-second rate.
+  // Use whichever output list is actually being rendered (renderedSerialOutput
+  // usually contains the visible text).
+  useEffect(() => {
+    const now = Date.now();
+    const source = serialOutput.length > 0 ? serialOutput : renderedSerialOutput;
+
+    // Reset when output is cleared
+    if (source.length < lastSerialIndexRef.current) {
+      lastSerialIndexRef.current = 0;
+      serialEventsRef.current = [];
+    }
+
+    for (let i = lastSerialIndexRef.current; i < source.length; i += 1) {
+      const bytes = source[i]?.text?.length ?? 0;
+      serialEventsRef.current.push({ ts: now, bytes });
+    }
+    lastSerialIndexRef.current = source.length;
+
+    // Keep only last 2 seconds of history
+    const cutoff = now - 2000;
+    serialEventsRef.current = serialEventsRef.current.filter((e) => e.ts >= cutoff);
+  }, [serialOutput, renderedSerialOutput]);
+
+  // Update fallback telemetry once per second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const windowStart = now - 1000;
+      const window = serialEventsRef.current.filter((e) => e.ts >= windowStart);
+      const count = window.length;
+      const totalBytes = window.reduce((acc, e) => acc + e.bytes, 0);
+      setFallbackSerialTelemetry({
+        telegramsPerSecond: count,
+        bytesPerTelegram: count > 0 ? totalBytes / count : 0,
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const effectiveTelegramsPerSecond =
+    serialTelegramsPerSecond > 0 ? serialTelegramsPerSecond : fallbackSerialTelemetry.telegramsPerSecond;
+  const effectiveBytesPerTelegram =
+    serialTelegramsPerSecond > 0 
+      ? (serialBytesPerSecond / serialTelegramsPerSecond) 
+      : fallbackSerialTelemetry.bytesPerTelegram;
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0">
@@ -84,17 +142,21 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
               <span className="font-semibold text-xs tracking-wide uppercase text-muted-foreground/80">Serial Output</span>
               {debugMode && (simulationStatus === "running" || simulationStatus === "paused") ? (
                 <div className="flex items-center gap-3 ml-2 border-l border-muted-foreground/20 pl-4">
-                  {telemetryData?.last ? (
-                    <div className="flex flex-col leading-tight">
-                      <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Events</span>
-                      <span className="text-[11px] font-mono text-cyan-400">
-                        {(telemetryData.last.serialOutputPerSecond ?? 0).toFixed(0)}/s
-                      </span>
-                    </div>
-                  ) : null}
                   <div className="flex flex-col leading-tight">
                     <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Baud</span>
                     <span className="text-[11px] font-mono text-cyan-400">{baudRate}</span>
+                  </div>
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Tel/s</span>
+                    <span className="text-[11px] font-mono text-cyan-400">
+                      {effectiveTelegramsPerSecond.toFixed(0)}/s
+                    </span>
+                  </div>
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Bytes/Telegramm</span>
+                    <span className="text-[11px] font-mono text-cyan-400">
+                      {effectiveBytesPerTelegram.toFixed(0)} B
+                    </span>
                   </div>
                 </div>
               ) : null}

@@ -292,8 +292,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       })();
     };
 
-    const onTelemetry = (metrics: { timestamp: number; intendedPinChangesPerSecond: number; actualPinChangesPerSecond: number; droppedPinChangesPerSecond: number; batchesPerSecond: number; avgStatesPerBatch: number; serialOutputPerSecond: number; serialBytesPerSecond: number; serialBytesTotal: number; serialIntendedBytesPerSecond: number; serialDroppedBytesPerSecond: number }) =>
+    const onTelemetry = (metrics: { timestamp: number; intendedPinChangesPerSecond: number; actualPinChangesPerSecond: number; droppedPinChangesPerSecond: number; batchesPerSecond: number; avgStatesPerBatch: number; serialOutputPerSecond: number; serialBytesPerSecond: number; serialBytesTotal: number; serialIntendedBytesPerSecond: number; serialDroppedBytesPerSecond: number }) => {
       sendMessageToClient(ws, { type: "sim_telemetry", metrics });
+    };
 
     const onPinStateBatch = (batch: {
       states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }>;

@@ -99,6 +99,7 @@ export class RegistryManager {
   private baudrate: number | undefined = undefined; // undefined = Serial.begin() not found in code
   private destroyed = false; // Prevent logging after destruction
   private debugStream: WriteStream | null = null; // Non-blocking telemetry stream
+  private telemetryPaused = false; // Used to keep telemetry heartbeat paused when requested
   /**
    * Anti-spam: tracks (pin, mode) pairs already sent via updatePinMode so that
    * repeated calls (e.g. from loop()) never trigger a redundant WS message.
@@ -129,8 +130,11 @@ export class RegistryManager {
     this.onUpdateCallback = config.onUpdate;
     this.onTelemetryCallback = config.onTelemetry;
     this.enableTelemetry = config.enableTelemetry ?? false;
-    
-    // Telemetry heartbeat starts only when simulation is running
+
+    // Do NOT start heartbeat here. The telemetry callback (onTelemetry) requires
+    // executionState.telemetryCallback to be set first, which happens later in
+    // ExecutionManager.runSketch(). The heartbeat will start when the first
+    // batcher is attached (setPinStateBatcher/setSerialOutputBatcher).
   }
   
   /**
@@ -138,6 +142,12 @@ export class RegistryManager {
    */
   setPinStateBatcher(batcher: PinStateBatcher | null): void {
     this.pinStateBatcher = batcher;
+
+    // Start telemetry heartbeat when the first batcher is attached.
+    // This ensures we have metrics even if no IO_REGISTRY markers were emitted.
+    if (batcher && this.enableTelemetry && this.onTelemetryCallback && !this.telemetryPaused) {
+      this.startHeartbeat();
+    }
   }
   
   /**
@@ -145,13 +155,23 @@ export class RegistryManager {
    */
   setSerialOutputBatcher(batcher: SerialOutputBatcher | null): void {
     this.serialOutputBatcher = batcher;
+
+    if (batcher && this.enableTelemetry && this.onTelemetryCallback && !this.telemetryPaused) {
+      this.startHeartbeat();
+    }
   }
   
   /**
    * Start 1-second heartbeat for telemetry reporting
    */
   private startHeartbeat(): void {
-    if (this.heartbeatInterval) return;
+    if (this.heartbeatInterval) {
+      return;
+    }
+    if (this.telemetryPaused) {
+      return;
+    }
+
     this.heartbeatInterval = setInterval(() => {
       if (!this.destroyed) {
         const metrics = this.getPerformanceMetrics();
@@ -177,6 +197,7 @@ export class RegistryManager {
    * Stops sending telemetry data while paused
    */
   pauseTelemetry(): void {
+    this.telemetryPaused = true;
     this.stopTelemetry();
   }
 
@@ -198,6 +219,7 @@ export class RegistryManager {
    * Resets counters and restarts the heartbeat
    */
   resumeTelemetry(): void {
+    this.telemetryPaused = false;
     if (this.onTelemetryCallback && this.enableTelemetry) {
       // Reset timestamp for fresh start after pause
       this.telemetry.lastReportTime = Date.now();
@@ -680,6 +702,11 @@ export class RegistryManager {
     this.isDirty = false;
     this.runtimeSentFingerprints.clear(); // reset anti-spam state for new sketch run
 
+    // Ensure telemetry is enabled for the next run.
+    // `pauseTelemetry()` sets `telemetryPaused` to true, which must be cleared
+    // on reset so that subsequent simulations can restart the heartbeat.
+    this.telemetryPaused = false;
+    this.destroyed = false; // Reset destroyed flag so heartbeat can run in next simulation
     this.stopTelemetry();
 
     if (this.debounceTimer) {
