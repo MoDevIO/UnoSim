@@ -45,7 +45,7 @@ export async function setupTestEnvironment(): Promise<TestEnvironment> {
       sandboxRunner
         .runSketch({
           ...rest,
-          onOutput: (line, isComplete) => {
+          onOutput: (line) => {
             onOutput?.(line);
           },
           onError: (_line) => {
