@@ -615,6 +615,58 @@ export class CodeParser {
     return messages;
   }
 
+  private checkVariablePinUsage(code: string, uncommentedCode: string): ParserMessage[] {
+    const messages: ParserMessage[] = [];
+
+    // Identify pins configured via variable names
+    const pinModeVarRegex = PARSER_PATTERNS.PIN_MODE_VAR;
+    const pinModeVariables = new Set<string>();
+    let match;
+    while ((match = pinModeVarRegex.exec(uncommentedCode)) !== null) {
+      pinModeVariables.add(match[1]);
+    }
+
+    // Check if variable pins are used without pinMode and for dynamic usage
+    const digitalReadWriteRegex = PARSER_PATTERNS.DIGITAL_READ_WRITE;
+    let foundUnconfiguredVariable = false;
+    while ((match = digitalReadWriteRegex.exec(code)) !== null) {
+      const pinStr = match[1];
+      if (!/^\d+/.test(pinStr) && !/^A\d+/.test(pinStr)) {
+        if (!pinModeVariables.has(pinStr) && !foundUnconfiguredVariable) {
+          messages.push({
+            id: randomUUID(),
+            type: "warning",
+            category: "hardware",
+            severity: 2 as SeverityLevel,
+            message: `Variable '${pinStr}' used in digitalRead/digitalWrite but no pinMode() call found for this variable.`,
+            suggestion: `pinMode(${pinStr}, INPUT);`,
+            line: this.findLineNumber(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
+          });
+          foundUnconfiguredVariable = true;
+        }
+      }
+    }
+
+    // Check for dynamic pin usage without any pinMode configuration
+    const hasPinModeCalls = /pinMode\s*\(\s*[^,)]+\s*,/.test(uncommentedCode);
+    if (!hasPinModeCalls && !foundUnconfiguredVariable) {
+      const dynamicDigitalUse = /digital(?:Read|Write)\s*\(\s*[^0-9A\s][^,)]*/;
+      if (dynamicDigitalUse.test(uncommentedCode)) {
+        messages.push({
+          id: randomUUID(),
+          type: "warning",
+          category: "hardware",
+          severity: 2 as SeverityLevel,
+          message: "digitalRead/digitalWrite uses variable pins without any pinMode() calls. Configure pinMode for the pins being read/written.",
+          suggestion: "pinMode(<pin>, INPUT);",
+          line: this.findLineNumber(code, /digital(?:Read|Write)\s*\(/),
+        });
+      }
+    }
+
+    return messages;
+  }
+
   parseHardwareCompatibility(code: string): ParserMessage[] {
     const messages: ParserMessage[] = [];
     const uncommentedCode = this.removeComments(code);
@@ -637,50 +689,7 @@ export class CodeParser {
     const loopConfiguredPins = this.getLoopConfiguredPins(code);
     messages.push(...this.checkDigitalIOSetup(code, pinModeSet, loopConfiguredPins));
 
-    // Check for variable pin usage (non-literal pins)
-    const pinModeVarRegex = PARSER_PATTERNS.PIN_MODE_VAR;
-    const pinModeVariables = new Set<string>();
-    while ((match = pinModeVarRegex.exec(uncommentedCode)) !== null) {
-      pinModeVariables.add(match[1]);
-    }
-
-    const digitalReadWriteRegex = PARSER_PATTERNS.DIGITAL_READ_WRITE;
-    const usedVariables = new Set<string>();
-    while ((match = digitalReadWriteRegex.exec(code)) !== null) {
-      const pinStr = match[1];
-      if (!/^\d+/.test(pinStr) && !/^A\d+/.test(pinStr)) {
-        usedVariables.add(pinStr);
-        if (!pinModeVariables.has(pinStr)) {
-          messages.push({
-            id: randomUUID(),
-            type: "warning",
-            category: "hardware",
-            severity: 2 as SeverityLevel,
-            message: `Variable '${pinStr}' used in digitalRead/digitalWrite but no pinMode() call found for this variable.`,
-            suggestion: `pinMode(${pinStr}, INPUT);`,
-            line: this.findLineNumber(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
-          });
-          break;
-        }
-      }
-    }
-
-    // Check dynamic pin usage
-    const hasPinModeCalls = /pinMode\s*\(\s*[^,)]+\s*,/.test(uncommentedCode);
-    if (!hasPinModeCalls) {
-      const dynamicDigitalUse = /digital(?:Read|Write)\s*\(\s*[^0-9A\s][^,)]*/;
-      if (dynamicDigitalUse.test(uncommentedCode)) {
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "hardware",
-          severity: 2 as SeverityLevel,
-          message: "digitalRead/digitalWrite uses variable pins without any pinMode() calls. Configure pinMode for the pins being read/written.",
-          suggestion: "pinMode(<pin>, INPUT);",
-          line: this.findLineNumber(code, /digital(?:Read|Write)\s*\(/),
-        });
-      }
-    }
+    messages.push(...this.checkVariablePinUsage(code, uncommentedCode));
 
     // Check OUTPUT pins being read
     const outputPins = new Set<number>();
