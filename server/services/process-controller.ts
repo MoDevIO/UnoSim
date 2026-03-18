@@ -113,7 +113,7 @@ export class ProcessController implements IProcessController {
   }
 
   private _setupStderrHandling(createInterface: (options: any) => import("node:readline").Interface): void {
-    if (!this.proc || !this.proc.stderr) return;
+    if (!this.proc?.stderr) return;
 
     this.proc.stderr.on("data", (d: Buffer) => {
       if (process.env.NODE_ENV === "test") {

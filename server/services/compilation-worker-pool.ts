@@ -263,9 +263,7 @@ export class CompilationWorkerPool {
 let poolInstance: CompilationWorkerPool | null = null;
 
 export function getCompilationPool(): CompilationWorkerPool {
-  if (!poolInstance) {
-    poolInstance = new CompilationWorkerPool();
-  }
+  poolInstance ??= new CompilationWorkerPool();
   return poolInstance;
 }
 

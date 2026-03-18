@@ -212,7 +212,7 @@ export function CodeEditor({
     editorRef.current = editor;
 
     // E2E TEST HOOK: Expose the editor instance globally for Playwright
-    if (typeof globalThis.window !== "undefined") {
+    if (globalThis.window !== undefined) {
       // Only expose the first editor (or last, if multiple)
       (globalThis as any).__MONACO_EDITOR__ = editor;
     }

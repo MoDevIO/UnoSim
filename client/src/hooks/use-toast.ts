@@ -162,7 +162,7 @@ function toast({ ...props }: Toast) {
   // Allow overriding the default via localStorage (set by Settings dialog)
   let duration = (props as any).duration ?? DEFAULT_TOAST_DURATION;
   try {
-    if (typeof globalThis.window !== "undefined") {
+    if (globalThis.window !== undefined) {
       const stored = globalThis.localStorage.getItem("unoToastDuration");
       if (stored !== null) {
         if (stored === "infinite") {

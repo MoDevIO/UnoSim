@@ -134,7 +134,7 @@ class WebSocketManager {
     
     // Check for testRunId from sessionStorage (E2E test isolation)
     // or use previously set testRunId
-    if (!this.testRunId && typeof globalThis.window !== "undefined") {
+    if (!this.testRunId && globalThis.window !== undefined) {
       try {
         const storedTestRunId = globalThis.sessionStorage?.getItem("__TEST_RUN_ID__");
         if (storedTestRunId) {
@@ -457,6 +457,6 @@ class WebSocketManager {
 export const getWebSocketManager = (): WebSocketManager => WebSocketManager.getInstance();
 
 // Export for debugging in browser console
-if (typeof globalThis.window !== "undefined") {
+if (globalThis.window !== undefined) {
   (globalThis as any).__wsManager = getWebSocketManager;
 }
