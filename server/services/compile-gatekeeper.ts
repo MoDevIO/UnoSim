@@ -89,9 +89,7 @@ class CompileGatekeeper {
 let gatekeeperInstance: CompileGatekeeper | null = null;
 
 export function getCompileGatekeeper(maxConcurrent?: number): CompileGatekeeper {
-  if (!gatekeeperInstance) {
-    gatekeeperInstance = new CompileGatekeeper(maxConcurrent);
-  }
+  gatekeeperInstance ??= new CompileGatekeeper(maxConcurrent);
   return gatekeeperInstance;
 }
 
