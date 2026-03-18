@@ -14,6 +14,20 @@ interface DockerManagerCallbacks {
   onError: (line: string) => void;
 }
 
+interface DockerProcessConfig {
+  flushBatchers: () => void;
+  flushMessageQueue: () => void;
+  processKilled: boolean;
+  executionTimeout?: number;
+  onStateTransition?: (state: "running" | "stopped") => void;
+}
+
+interface DockerEventHandlers {
+  onCompileError?: (error: string) => void;
+  onCompileSuccess?: () => void;
+  onExit?: (code: number | null) => void;
+}
+
 interface DockerHandlerState {
   isCompilePhase: { value: boolean };
   compileErrorBuffer: { value: string };
@@ -145,12 +159,8 @@ export class DockerManager {
     callbacks: DockerManagerCallbacks,
     state: Partial<DockerHandlerState>,
     code: number | null,
-    flushBatchers: () => void,
-    flushMessageQueue: () => void,
-    processKilled: boolean,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onExit?: (code: number | null) => void,
+    config: DockerProcessConfig,
+    handlers: DockerEventHandlers,
   ): void {
     const isCompilePhase = state.isCompilePhase as { value: boolean };
     const compileErrorBuffer = state.compileErrorBuffer as { value: string };
@@ -167,22 +177,22 @@ export class DockerManager {
     }
 
     // Flush message queue before exit
-    flushMessageQueue();
+    config.flushMessageQueue();
 
     // Flush batchers if not still in compile phase
     if (!isCompilePhase.value || code === 0) {
-      flushBatchers();
+      config.flushBatchers();
     }
 
     // Report compile errors or success
-    if (code !== 0 && isCompilePhase.value && compileErrorBuffer.value && onCompileError) {
-      onCompileError(this.cleanCompilerErrors(compileErrorBuffer.value));
-    } else if (code === 0 && onCompileSuccess) {
-        onCompileSuccess();
+    if (code !== 0 && isCompilePhase.value && compileErrorBuffer.value && handlers.onCompileError) {
+      handlers.onCompileError(this.cleanCompilerErrors(compileErrorBuffer.value));
+    } else if (code === 0 && handlers.onCompileSuccess) {
+        handlers.onCompileSuccess();
     }
 
     // Call exit callback (guard: only if process wasn't terminated by stop())
-    if (!processKilled && onExit) onExit(code);
+    if (!config.processKilled && handlers.onExit) handlers.onExit(code);
   }
 
   /**
@@ -192,23 +202,18 @@ export class DockerManager {
   setupDockerHandlers(
     callbacks: DockerManagerCallbacks,
     state: Partial<DockerHandlerState>,
-    flushBatchers: () => void,
-    flushMessageQueue: () => void,
-    processKilled: boolean,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onExit?: (code: number | null) => void,
-    executionTimeout?: number,
+    config: DockerProcessConfig,
+    handlers: DockerEventHandlers,
   ): void {
     // Setup all handlers via dedicated functions
-    this.setupDockerTimeout(executionTimeout, callbacks);
+    this.setupDockerTimeout(config.executionTimeout, callbacks);
 
     this.processController.onError((err) => {
       this.logger.error(`Docker process error: ${err.message}`);
       callbacks.onError(`Docker process failed: ${err.message}`);
     });
 
-    this.setupStdoutHandler(callbacks, state, onCompileSuccess);
+    this.setupStdoutHandler(callbacks, state, handlers.onCompileSuccess);
     this.setupStderrHandlers(callbacks, state);
 
     this.processController.onClose((code) => {
@@ -216,12 +221,8 @@ export class DockerManager {
         callbacks,
         state,
         code,
-        flushBatchers,
-        flushMessageQueue,
-        processKilled,
-        onCompileError,
-        onCompileSuccess,
-        onExit,
+        config,
+        handlers,
       );
     });
   }
@@ -242,14 +243,8 @@ export class DockerManager {
     dockerArgs: string[],
     callbacks: DockerManagerCallbacks,
     state: Partial<DockerHandlerState>,
-    flushBatchers: () => void,
-    flushMessageQueue: () => void,
-    processKilled: boolean,
-    onStateTransition: (state: "running" | "stopped") => void,
-    onCompileError?: (error: string) => void,
-    onCompileSuccess?: () => void,
-    onExit?: (code: number | null) => void,
-    executionTimeout?: number,
+    config: DockerProcessConfig,
+    handlers: DockerEventHandlers,
   ): Promise<void> {
     try {
       // Clear listeners from previous run before spawning new process
@@ -261,23 +256,18 @@ export class DockerManager {
       
       // Record process start time and transition to running
       state.processStartTime = Date.now();
-      onStateTransition("running");
+      config.onStateTransition?.("running");
 
       // Setup all handlers for Docker process
       this.setupDockerHandlers(
         callbacks,
         state,
-        flushBatchers,
-        flushMessageQueue,
-        processKilled,
-        onCompileError,
-        onCompileSuccess,
-        onExit,
-        executionTimeout,
+        config,
+        handlers,
       );
     } catch (err) {
       this.logger.error(`Docker process spawn failed: ${err instanceof Error ? err.message : String(err)}`);
-      onStateTransition("stopped");
+      config.onStateTransition?.("stopped");
       throw err;
     }
   }

@@ -448,13 +448,17 @@ export class ExecutionManager {
       this.dockerManager.setupDockerHandlers(
         dockerCallbacks,
         dockerState,
-        () => this.flushBatchers(state),
-        () => this.flushMessageQueue(state),
-        state.processKilled,
-        onCompileError,
-        onCompileSuccess,
-        undefined,
-        executionTimeout,
+        {
+          flushBatchers: () => this.flushBatchers(state),
+          flushMessageQueue: () => this.flushMessageQueue(state),
+          processKilled: state.processKilled,
+          executionTimeout,
+        },
+        {
+          onCompileError,
+          onCompileSuccess,
+          onExit,
+        },
       );
     } catch (err) {
       this.logger.error(`Docker process spawn failed: ${err instanceof Error ? err.message : String(err)}`);
