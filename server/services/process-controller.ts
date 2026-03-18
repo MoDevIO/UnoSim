@@ -104,63 +104,73 @@ export class ProcessController implements IProcessController {
       });
     }
 
-    if (this.proc && this.proc.stderr) {
-      this.proc.stderr.on("data", (d: Buffer) => {
-        if (process.env.NODE_ENV === "test") {
-          // convert low-level wrapper events into buffered debug logs
-          try {
-            logger.debug(`wrapper stderr handler invoked with: ${d.toString()}`);
-          } catch {}
-        }
-        this.stderrListeners.forEach((cb) => cb(d));
-      });
-
-      // Type-safe stream handling: verify the stream has our expected methods
-      const stderrStream = this.proc.stderr as unknown;
-      const canUseReadline =
-        stderrStream !== null && 
-        typeof stderrStream === 'object' &&
-        typeof (stderrStream as Record<string, unknown>).on === "function" &&
-        typeof (stderrStream as Record<string, unknown>).resume === "function";
-
-      if (canUseReadline) {
-        this.stderrReadline = createInterface({
-          input: this.proc.stderr,
-          crlfDelay: Infinity,
-        });
-        this.stderrReadline.on("line", (line: string) => {
-          this.stderrLineListeners.forEach((cb) => cb(line));
-        });
-      }
-    }
-
-    // Ensure we don't hang due to child process backpressure (stdout/stderr not drained).
-    // If the process is still alive after 25s, force kill it and log a warning.
-    if (this.proc) {
-      if (this.killTimer) {
-        clearTimeout(this.killTimer);
-      }
-      this.killTimer = setTimeout(() => {
-        if (!this.proc || this.proc.killed) return;
-        const pid = this.proc.pid;
-        logger.warn(`ProcessController: child process still alive after 25s, killing pid=${pid}`);
-        this.kill("SIGKILL");
-      }, 25000);
-    }
-
-    if (this.proc) {
-      this.proc.on("close", (code: number | null) => {
-        if (this.killTimer) {
-          clearTimeout(this.killTimer);
-          this.killTimer = null;
-        }
-        this.closeListeners.forEach((cb) => cb(code));
-      });
-      this.proc.on("error", (err: Error) => this.errorListeners.forEach((cb) => cb(err)));
-    }
+    this._setupStderrHandling(createInterface);
+    this._setupKillTimer();
+    this._setupProcessEventListeners();
 
     // return the underlying ChildProcess so callers can inspect it
     return this.proc;
+  }
+
+  private _setupStderrHandling(createInterface: (options: any) => import("node:readline").Interface): void {
+    if (!this.proc || !this.proc.stderr) return;
+
+    this.proc.stderr.on("data", (d: Buffer) => {
+      if (process.env.NODE_ENV === "test") {
+        // convert low-level wrapper events into buffered debug logs
+        try {
+          logger.debug(`wrapper stderr handler invoked with: ${d.toString()}`);
+        } catch {}
+      }
+      this.stderrListeners.forEach((cb) => cb(d));
+    });
+
+    // Type-safe stream handling: verify the stream has our expected methods
+    const stderrStream = this.proc.stderr as unknown;
+    const canUseReadline =
+      stderrStream !== null && 
+      typeof stderrStream === 'object' &&
+      typeof (stderrStream as Record<string, unknown>).on === "function" &&
+      typeof (stderrStream as Record<string, unknown>).resume === "function";
+
+    if (canUseReadline) {
+      this.stderrReadline = createInterface({
+        input: this.proc.stderr,
+        crlfDelay: Infinity,
+      });
+      this.stderrReadline.on("line", (line: string) => {
+        this.stderrLineListeners.forEach((cb) => cb(line));
+      });
+    }
+  }
+
+  private _setupKillTimer(): void {
+    // Ensure we don't hang due to child process backpressure (stdout/stderr not drained).
+    // If the process is still alive after 25s, force kill it and log a warning.
+    if (!this.proc) return;
+    
+    if (this.killTimer) {
+      clearTimeout(this.killTimer);
+    }
+    this.killTimer = setTimeout(() => {
+      if (!this.proc || this.proc.killed) return;
+      const pid = this.proc.pid;
+      logger.warn(`ProcessController: child process still alive after 25s, killing pid=${pid}`);
+      this.kill("SIGKILL");
+    }, 25000);
+  }
+
+  private _setupProcessEventListeners(): void {
+    if (!this.proc) return;
+
+    this.proc.on("close", (code: number | null) => {
+      if (this.killTimer) {
+        clearTimeout(this.killTimer);
+        this.killTimer = null;
+      }
+      this.closeListeners.forEach((cb) => cb(code));
+    });
+    this.proc.on("error", (err: Error) => this.errorListeners.forEach((cb) => cb(err)));
   }
 
   onStdout(cb: StdDataCb) {
@@ -214,7 +224,7 @@ export class ProcessController implements IProcessController {
         logger.debug(`ProcessController.kill: pid is null, sending ${signal}`);
         // Safe cast: signal is known to be NodeJS.Signals | number, which is what kill accepts
         if (typeof signal === 'string') {
-          this.proc.kill(signal as NodeJS.Signals);
+          this.proc.kill(signal);
         } else if (typeof signal === 'number') {
           this.proc.kill(signal);
         } else {
@@ -232,7 +242,7 @@ export class ProcessController implements IProcessController {
       const isGroupSignal = signal === "SIGSTOP" || signal === "SIGCONT";
       if (isGroupSignal && typeof signal === 'string') {
         try {
-          process.kill(-pid, signal as NodeJS.Signals);
+          process.kill(-pid, signal);
           return;
         } catch (err) {
           logger.debug(`ProcessController.kill group signal failed: ${err}`);
@@ -242,7 +252,7 @@ export class ProcessController implements IProcessController {
 
       try {
         if (typeof signal === 'string') {
-          this.proc.kill(signal as NodeJS.Signals);
+          this.proc.kill(signal);
         } else if (typeof signal === 'number') {
           this.proc.kill(signal);
         } else {
