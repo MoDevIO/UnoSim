@@ -624,23 +624,8 @@ export class ArduinoCompiler {
   }> {
     // Arduino CLI expects the sketch DIRECTORY, not the file
     const sketchDir = sketchFile.slice(0, Math.max(0, sketchFile.lastIndexOf("/")));
+    const args = this._buildCompileArgs(config, sketchDir);
 
-    const args = [
-      "compile",
-      "--fqbn",
-      config.fqbn,
-      "--verbose",
-    ];
-
-    if (config.buildPath) {
-      args.push("--build-path", config.buildPath);
-    }
-    if (config.buildCachePath) {
-      args.push("--build-cache-path", config.buildCachePath);
-    }
-    args.push(sketchDir);
-
-    // LOG: Command being executed
     this.logger.info(`Executing arduino-cli ${args.join(" ")}`);
 
     try {
@@ -672,58 +657,9 @@ export class ArduinoCompiler {
       const code = result.code;
 
       if (code === 0) {
-        const progSizeRegex = /(Sketch uses[^\n]*\.|Der Sketch verwendet[^\n]*\.)/;
-        const ramSizeRegex = /(Global variables use[^\n]*\.|Globale Variablen verwenden[^\n]*\.)/;
-
-        const progSizeMatch = output.match(progSizeRegex);
-        const ramSizeMatch = output.match(ramSizeRegex);
-
-        let parsedOutput = "";
-        if (progSizeMatch && ramSizeMatch) {
-          parsedOutput = `${progSizeMatch[0]}\n${ramSizeMatch[0]}\n\nBoard: Arduino UNO`;
-        } else {
-          parsedOutput = `Board: Arduino UNO (Simulation)`;
-        }
-
-        const buildOutputDir = config.buildPath || sketchDir;
-        let binary: Buffer | undefined;
-        try {
-          const hexCandidates = (await readdir(buildOutputDir))
-            .filter((entry) => entry.endsWith(".hex"))
-            .sort();
-          const preferred = hexCandidates.find((entry) => !entry.includes("with_bootloader")) || hexCandidates[0];
-          if (preferred) {
-            binary = await readFile(join(buildOutputDir, preferred));
-          }
-        } catch (error) {
-          this.logger.debug(`[CompileCache] failed to read build hex output: ${error instanceof Error ? error.message : String(error)}`);
-        }
-
-        return {
-          success: true,
-          output: parsedOutput,
-          binary,
-        };
+        return await this._handleSuccessfulCompile(output, config, sketchDir);
       } else {
-        // Compilation failed (syntax error etc.)
-        this.logger.error(`arduino-cli compilation failed with exit code ${code}`);
-        this.logger.error(`Full stderr output:\n${errors}`);
-
-        // Clean up error messages
-        const escapedPath = sketchFile.replace(/[-\/\\^$*+?.()|[\]{}]/g, String.raw`\$&`);
-        let cleanedErrors = errors
-          .replace(new RegExp(escapedPath, "g"), "sketch.ino")
-          .replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/[a-f0-9-]+\.ino/gi, "sketch.ino")
-          .replace(/Error during build: exit status \d+\s*/g, "")
-          .trim();
-
-        const structured = this.parseCompilerErrors(cleanedErrors || "");
-        return {
-          success: false,
-          output: "",
-          errors: cleanedErrors || "Compilation failed",
-          parsedErrors: structured,
-        };
+        return this._handleFailedCompile(errors, sketchFile);
       }
     } catch (error) {
       const errorMessage = `Failed to execute arduino-cli: ${error instanceof Error ? error.message : String(error)}. Make sure arduino-cli is installed and in PATH.`;
@@ -741,6 +677,112 @@ export class ArduinoCompiler {
         }],
       };
     }
+  }
+
+  private _buildCompileArgs(
+    config: {
+      fqbn: string;
+      buildPath?: string;
+      buildCachePath?: string;
+    },
+    sketchDir: string,
+  ): string[] {
+    const args = [
+      "compile",
+      "--fqbn",
+      config.fqbn,
+      "--verbose",
+    ];
+
+    if (config.buildPath) {
+      args.push("--build-path", config.buildPath);
+    }
+    if (config.buildCachePath) {
+      args.push("--build-cache-path", config.buildCachePath);
+    }
+    args.push(sketchDir);
+    return args;
+  }
+
+  private async _handleSuccessfulCompile(
+    output: string,
+    config: { buildPath?: string },
+    sketchDir: string,
+  ): Promise<{
+    success: boolean;
+    output: string;
+    errors?: string;
+    parsedErrors?: CompilationError[];
+    binary?: Buffer;
+  }> {
+    const progSizeRegex = /(Sketch uses[^\n]*\.|Der Sketch verwendet[^\n]*\.)/;
+    const ramSizeRegex = /(Global variables use[^\n]*\.|Globale Variablen verwenden[^\n]*\.)/;
+
+    const progSizeMatch = output.match(progSizeRegex);
+    const ramSizeMatch = output.match(ramSizeRegex);
+
+    let parsedOutput = "";
+    if (progSizeMatch && ramSizeMatch) {
+      parsedOutput = `${progSizeMatch[0]}\n${ramSizeMatch[0]}\n\nBoard: Arduino UNO`;
+    } else {
+      parsedOutput = `Board: Arduino UNO (Simulation)`;
+    }
+
+    const buildOutputDir = config.buildPath || sketchDir;
+    const binary = await this._discoverBuildBinary(buildOutputDir);
+
+    return {
+      success: true,
+      output: parsedOutput,
+      binary,
+    };
+  }
+
+  private async _discoverBuildBinary(buildOutputDir: string): Promise<Buffer | undefined> {
+    try {
+      const hexCandidates = (await readdir(buildOutputDir))
+        .filter((entry) => entry.endsWith(".hex"))
+        .sort();
+      const preferred = hexCandidates.find((entry) => !entry.includes("with_bootloader")) || hexCandidates[0];
+      if (preferred) {
+        return await readFile(join(buildOutputDir, preferred));
+      }
+    } catch (error) {
+      this.logger.debug(`[CompileCache] failed to read build hex output: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return undefined;
+  }
+
+  private _handleFailedCompile(
+    errors: string,
+    sketchFile: string,
+  ): {
+    success: boolean;
+    output: string;
+    errors: string;
+    parsedErrors: CompilationError[];
+    binary?: Buffer;
+  } {
+    this.logger.error(`arduino-cli compilation failed`);
+    this.logger.error(`Full stderr output:\n${errors}`);
+
+    const cleanedErrors = this._cleanCompilerErrors(errors, sketchFile);
+    const structured = this.parseCompilerErrors(cleanedErrors || "");
+    return {
+      success: false,
+      output: "",
+      errors: cleanedErrors || "Compilation failed",
+      parsedErrors: structured,
+    };
+  }
+
+  private _cleanCompilerErrors(errors: string, sketchFile: string): string {
+    const escapedPath = sketchFile.replace(/[-\/\\^$*+?.()|[\]{}]/g, String.raw`\$&`);
+    return errors
+      .replace(new RegExp(escapedPath, "g"), "sketch.ino")
+      .replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/[a-f0-9-]+\.ino/gi, "sketch.ino")
+      .replace(/Error during build: exit status \d+\s*/g, "")
+      .trim();
   }
 }
 
