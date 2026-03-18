@@ -69,7 +69,7 @@ class PinCompatibilityChecker {
     let match;
     while ((match = pinModeWithModeRegex.exec(this.uncommentedCode)) !== null) {
       const pin = match[1];
-      const mode = match[2] as "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+      const mode = match[2] as PinMode;
       const line = this.uncommentedCode.slice(0, Math.max(0, match.index)).split("\n").length;
 
       if (!result.has(pin)) {
@@ -512,15 +512,15 @@ export class CodeParser {
     return semiIdx >= 0 ? code.slice(pos, semiIdx) : "";
   }
 
-  private findPinModesInLoopBody(body: string, varName: string): Array<{ mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP" }> {
+  private findPinModesInLoopBody(body: string, varName: string): Array<{ mode: PinMode }> {
     const pinModeRe = new RegExp(
       String.raw`\bpinMode\s*\(\s*${varName}\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)`,
       "g",
     );
-    const modes: Array<{ mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP" }> = [];
+    const modes: Array<{ mode: PinMode }> = [];
     let pmMatch: RegExpExecArray | null;
     while ((pmMatch = pinModeRe.exec(body)) !== null) {
-      modes.push({ mode: pmMatch[1] as "INPUT" | "OUTPUT" | "INPUT_PULLUP" });
+      modes.push({ mode: pmMatch[1] as PinMode });
     }
     return modes;
   }
