@@ -9,7 +9,32 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**", "public/**"],
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      "coverage/**",
+      "public/**",
+      "build/**",
+      ".next/**",
+      "out/**",
+      "test-results/**",
+      "playwright-report/**",
+      "*.min.js",
+      "*.min.css",
+      "full_test_output.log",
+      "temp/**",
+      "*.sqlite",
+      "*.db",
+      ".vscode/**",
+      ".idea/**",
+      ".DS_Store",
+      "*.swp",
+      "*.swo",
+      "*~",
+      ".env",
+      ".env.local",
+      ".env.*.local",
+    ],
   },
   {
     files: ["**/*.ts", "**/*.tsx"],
