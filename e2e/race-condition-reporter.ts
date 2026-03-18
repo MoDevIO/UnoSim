@@ -116,14 +116,10 @@ class RaceConditionReporter implements Reporter {
   onEnd(_result: FullResult): void {
     const total = this.detections.length;
     const flaky = this.detections.filter((d) => d.wasFlaky).length;
-    const suppressed = this.detections.filter(
-      (d) => d.finalStatus === "passed",
-    ).length;
+    const suppressed = this.detections.filter((d) => d.finalStatus === "passed").length;
 
-    // Persist summary for global teardown
     this._writeSummary({ total, flaky, suppressed, detections: this.detections });
 
-    // Console output
     const HR = "─".repeat(60);
     console.log(`\n${HR}`);
     console.log("  RACE CONDITION STABILITY REPORT");
@@ -137,8 +133,7 @@ class RaceConditionReporter implements Reporter {
       console.log(`      Flaky (failed then passed) : ${flaky}`);
       console.log("");
       for (const d of this.detections) {
-        const icon = d.wasFlaky ? "🔀" : d.finalStatus === "passed" ? "⚠️ " : "❌";
-        const label = d.wasFlaky ? " [FLAKY + STABILITY_WARNING]" : " [STABILITY_WARNING]";
+        const { icon, label } = this._getDetectionDisplay(d);
         console.log(`  ${icon}  ${d.testTitle}${label}`);
         console.log(`        ${d.triggerLine.trim()}`);
       }
@@ -156,11 +151,19 @@ class RaceConditionReporter implements Reporter {
 
     console.log(HR + "\n");
 
-    // Signal suite failure by overriding the process exit code when above threshold.
-    // Playwright does not let reporters change FullResult, so we use process.exitCode.
     if (total > RACE_CONDITION_THRESHOLD) {
       process.exitCode = 1;
     }
+  }
+
+  private _getDetectionDisplay(d: RaceDetection): { icon: string; label: string } {
+    if (d.wasFlaky) {
+      return { icon: "🔀", label: " [FLAKY + STABILITY_WARNING]" };
+    }
+    if (d.finalStatus === "passed") {
+      return { icon: "⚠️ ", label: " [STABILITY_WARNING]" };
+    }
+    return { icon: "❌", label: " [STABILITY_WARNING]" };
   }
 
   // -------------------------------------------------------------------------
