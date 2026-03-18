@@ -99,7 +99,9 @@ vi.mock("../../../server/services/process-executor", () => {
       // Other commands (g++, arduino-cli, etc.) - return success with empty output
       return { code: 0, stdout: "", stderr: "" };
     }
-    kill(_signal?: string) {}
+    kill(_signal?: string) {
+      // Mock test: no-op for test mock object
+    }
     get isBusy() { return false; }
   };
   return { ProcessExecutor: ProcessExecutorClass, default: ProcessExecutorClass };

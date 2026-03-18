@@ -324,7 +324,10 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       if (Array.isArray(data.errors)) {
         errs = data.errors;
         errText = errs
-          .map((e) => `${e.file}${e.line ? `:${e.line}` : ""}${e.column ? `:${e.column}` : ""} ${e.type}: ${e.message}`)
+          .map((e) => {
+            const location = `${e.file}${e.line ? `:${e.line}` : ""}${e.column ? `:${e.column}` : ""}`;
+            return `${location} ${e.type}: ${e.message}`;
+          })
           .join("\n");
       } else if (typeof data.errors === "string") {
         errs = [{ file: "", line: 0, column: 0, type: "error", message: data.errors }];
@@ -598,9 +601,10 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     const payload = buildCompilePayload(mainSketchCode);
     logger.info(`[CLIENT] Compile & Start with ${payload.headers.length} headers`);
     logger.info(`[CLIENT] Code length: ${mainSketchCode.length} bytes`);
-    logger.info(
-      `[CLIENT] Main code from: ${params.editorRef.current ? "editor" : params.tabs[0]?.content ? "tabs" : "state"}`,
-    );
+    
+    // Determine code source
+    const codeSource = params.editorRef.current ? "editor" : params.tabs[0]?.content ? "tabs" : "state";
+    logger.info(`[CLIENT] Main code from: ${codeSource}`);
     logger.info(
       `[CLIENT] Tabs: ${params.tabs
         .map((t) => `${t.name}(${t.content.length}b)`)
