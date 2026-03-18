@@ -491,58 +491,59 @@ export class CodeParser {
    *   - Both `<` and `<=` comparisons
    *   - Type keywords: int, byte, uint8_t, unsigned int, unsigned, var, or none
    */
+  private extractLoopBodyFromCode(code: string, forMatch: RegExpExecArray): string {
+    let pos = forMatch.index + forMatch[0].length;
+    while (pos < code.length && /[ \t\r\n]/.test(code[pos])) pos++;
+
+    if (code[pos] === "{") {
+      let depth = 0;
+      let bodyStart = pos + 1;
+      for (let i = pos; i < code.length; i++) {
+        if (code[i] === "{") depth++;
+        else if (code[i] === "}") {
+          depth--;
+          if (depth === 0) return code.slice(bodyStart, i);
+        }
+      }
+      return "";
+    }
+
+    const semiIdx = code.indexOf(";", pos);
+    return semiIdx >= 0 ? code.slice(pos, semiIdx) : "";
+  }
+
+  private findPinModesInLoopBody(body: string, varName: string): Array<{ mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP" }> {
+    const pinModeRe = new RegExp(
+      String.raw`\bpinMode\s*\(\s*${varName}\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)`,
+      "g",
+    );
+    const modes: Array<{ mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP" }> = [];
+    let pmMatch: RegExpExecArray | null;
+    while ((pmMatch = pinModeRe.exec(body)) !== null) {
+      modes.push({ mode: pmMatch[1] as "INPUT" | "OUTPUT" | "INPUT_PULLUP" });
+    }
+    return modes;
+  }
+
   private getLoopPinModeCalls(code: string): PinModeCall[] {
     const results: PinModeCall[] = [];
-
-    // Match the for-loop header, capturing: varName, start, operator, end
     const forHeaderRe = PARSER_PATTERNS.FOR_LOOP_HEADER;
 
     let forMatch: RegExpExecArray | null;
     while ((forMatch = forHeaderRe.exec(code)) !== null) {
       const varName = forMatch[1];
       const startVal = Number.parseInt(forMatch[2], 10);
-      const op = forMatch[3]; // '<' or '<='
+      const op = forMatch[3];
       const endVal = Number.parseInt(forMatch[4], 10);
       const lastVal = op === "<=" ? endVal : endVal - 1;
       const forLine = code.slice(0, Math.max(0, forMatch.index)).split("\n").length;
 
-      // Skip leading whitespace after the closing ')' of the for-header
-      let pos = forMatch.index + forMatch[0].length;
-      while (pos < code.length && /[ \t\r\n]/.test(code[pos])) pos++;
+      const body = this.extractLoopBodyFromCode(code, forMatch);
+      const modes = this.findPinModesInLoopBody(body, varName);
 
-      let body: string;
-      if (code[pos] === "{") {
-        // Braced body: find the matching closing brace
-        let depth = 0;
-        let bodyStart = pos + 1;
-        let bodyEnd = -1;
-        for (let i = pos; i < code.length; i++) {
-          if (code[i] === "{") depth++;
-          else if (code[i] === "}") {
-            depth--;
-            if (depth === 0) {
-              bodyEnd = i;
-              break;
-            }
-          }
-        }
-        body = bodyEnd >= 0 ? code.slice(bodyStart, bodyEnd) : "";
-      } else {
-        // Braceless: single statement up to the very next semicolon
-        const semiIdx = code.indexOf(";", pos);
-        body = semiIdx >= 0 ? code.slice(pos, semiIdx) : "";
-      }
-
-      // Find all pinMode(varName, MODE) calls in the extracted body
-      const pinModeRe = new RegExp(
-        String.raw`\bpinMode\s*\(\s*${varName}\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)`,
-        "g",
-      );
-      let pmMatch: RegExpExecArray | null;
-      while ((pmMatch = pinModeRe.exec(body)) !== null) {
-        const modeStr = pmMatch[1] as "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+      for (const { mode } of modes) {
         for (let pin = startVal; pin <= lastVal; pin++) {
-          results.push({ pin, mode: modeStr, line: forLine });
+          results.push({ pin, mode, line: forLine });
         }
       }
     }
@@ -562,21 +563,16 @@ export class CodeParser {
     }
     return configuredPins;
   }
-  parseHardwareCompatibility(code: string): ParserMessage[] {
+
+  private checkAnalogWritePWM(code: string): ParserMessage[] {
     const messages: ParserMessage[] = [];
-    const uncommentedCode = this.removeComments(code);
-    const pinChecker = new PinCompatibilityChecker(uncommentedCode);
-
-    // Valid PWM pins on Arduino UNO: 3, 5, 6, 9, 10, 11
     const PWM_PINS = [3, 5, 6, 9, 10, 11];
-
-    // Check for analogWrite on non-PWM pins
     const analogWriteRegex = PARSER_PATTERNS.ANALOG_WRITE;
     let match;
+    
     while ((match = analogWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
       const pin = this.parsePinNumber(pinStr);
-
       if (pin !== undefined && !PWM_PINS.includes(pin)) {
         messages.push({
           id: randomUUID(),
@@ -585,46 +581,24 @@ export class CodeParser {
           severity: 2 as SeverityLevel,
           message: `analogWrite(${pinStr}, ...) used on pin ${pin}, which doesn't support PWM on Arduino UNO. PWM pins: 3, 5, 6, 9, 10, 11.`,
           suggestion: `// Use PWM pin instead: analogWrite(3, value);`,
-          line: this.findLineNumber(
-            code,
-            new RegExp(String.raw`analogWrite\s*\(\s*${pinStr}`),
-          ),
+          line: this.findLineNumber(code, new RegExp(String.raw`analogWrite\s*\(\s*${pinStr}`)),
         });
       }
     }
+    return messages;
+  }
 
-    // Check for pinMode declarations
-    const pinModeSet = new Set<string>();
-    const pinModeRegex = PARSER_PATTERNS.PIN_MODE;
-    while ((match = pinModeRegex.exec(code)) !== null) {
-      pinModeSet.add(match[1]);
-    }
-
-    // Get all pin mode information
-    const pinModeCalls = pinChecker.getPinModeInfo((c) => this.getLoopPinModeCalls(c));
-
-    // Check for pin mode conflicts
-    messages.push(...pinChecker.checkPinModeConflicts(pinModeCalls));
-
-    // Get pins configured in loops
-    const loopConfiguredPins = this.getLoopConfiguredPins(code);
-
-    // Check for digitalRead/digitalWrite without pinMode
+  private checkDigitalIOSetup(code: string, pinModeSet: Set<string>, loopConfiguredPins: Set<number>): ParserMessage[] {
+    const messages: ParserMessage[] = [];
     const digitalReadWriteRegex = PARSER_PATTERNS.DIGITAL_READ_WRITE;
     const warnedPins = new Set<string>();
-    const usedVariables = new Set<string>();
+    let match;
 
     while ((match = digitalReadWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
-      usedVariables.add(pinStr);
-
       if (/^\d+/.test(pinStr) || /^A\d+/.test(pinStr)) {
         const pin = this.parsePinNumber(pinStr);
-        if (
-          !pinModeSet.has(pinStr) &&
-          (pin === undefined || !loopConfiguredPins.has(pin)) &&
-          !warnedPins.has(pinStr)
-        ) {
+        if (!pinModeSet.has(pinStr) && (pin === undefined || !loopConfiguredPins.has(pin)) && !warnedPins.has(pinStr)) {
           warnedPins.add(pinStr);
           messages.push({
             id: randomUUID(),
@@ -633,43 +607,65 @@ export class CodeParser {
             severity: 2 as SeverityLevel,
             message: `Pin ${pinStr} used with digitalRead/digitalWrite but pinMode() was not called for this pin.`,
             suggestion: `pinMode(${pinStr}, INPUT);`,
-            line: this.findLineNumber(
-              code,
-              new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`),
-            ),
+            line: this.findLineNumber(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
           });
         }
       }
     }
+    return messages;
+  }
 
-    // Check variable pins
+  parseHardwareCompatibility(code: string): ParserMessage[] {
+    const messages: ParserMessage[] = [];
+    const uncommentedCode = this.removeComments(code);
+    const pinChecker = new PinCompatibilityChecker(uncommentedCode);
+
+    // Check analogWrite on non-PWM pins
+    messages.push(...this.checkAnalogWritePWM(code));
+
+    // Collect pinMode information
+    const pinModeSet = new Set<string>();
+    const pinModeRegex = PARSER_PATTERNS.PIN_MODE;
+    let match;
+    while ((match = pinModeRegex.exec(code)) !== null) {
+      pinModeSet.add(match[1]);
+    }
+
+    const pinModeCalls = pinChecker.getPinModeInfo((c) => this.getLoopPinModeCalls(c));
+    messages.push(...pinChecker.checkPinModeConflicts(pinModeCalls));
+
+    const loopConfiguredPins = this.getLoopConfiguredPins(code);
+    messages.push(...this.checkDigitalIOSetup(code, pinModeSet, loopConfiguredPins));
+
+    // Check for variable pin usage (non-literal pins)
     const pinModeVarRegex = PARSER_PATTERNS.PIN_MODE_VAR;
     const pinModeVariables = new Set<string>();
     while ((match = pinModeVarRegex.exec(uncommentedCode)) !== null) {
       pinModeVariables.add(match[1]);
     }
 
-    for (const usedVar of usedVariables) {
-      if (!/^\d+/.test(usedVar) && !/^A\d+/.test(usedVar)) {
-        if (!pinModeVariables.has(usedVar)) {
+    const digitalReadWriteRegex = PARSER_PATTERNS.DIGITAL_READ_WRITE;
+    const usedVariables = new Set<string>();
+    while ((match = digitalReadWriteRegex.exec(code)) !== null) {
+      const pinStr = match[1];
+      if (!/^\d+/.test(pinStr) && !/^A\d+/.test(pinStr)) {
+        usedVariables.add(pinStr);
+        if (!pinModeVariables.has(pinStr)) {
           messages.push({
             id: randomUUID(),
             type: "warning",
             category: "hardware",
             severity: 2 as SeverityLevel,
-            message: `Variable '${usedVar}' used in digitalRead/digitalWrite but no pinMode() call found for this variable.`,
-            suggestion: `pinMode(${usedVar}, INPUT);`,
-            line: this.findLineNumber(
-              code,
-              new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${usedVar}`),
-            ),
+            message: `Variable '${pinStr}' used in digitalRead/digitalWrite but no pinMode() call found for this variable.`,
+            suggestion: `pinMode(${pinStr}, INPUT);`,
+            line: this.findLineNumber(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
           });
           break;
         }
       }
     }
 
-    // Handle dynamic pin usage
+    // Check dynamic pin usage
     const hasPinModeCalls = /pinMode\s*\(\s*[^,)]+\s*,/.test(uncommentedCode);
     if (!hasPinModeCalls) {
       const dynamicDigitalUse = /digital(?:Read|Write)\s*\(\s*[^0-9A\s][^,)]*/;
@@ -679,33 +675,23 @@ export class CodeParser {
           type: "warning",
           category: "hardware",
           severity: 2 as SeverityLevel,
-          message:
-            "digitalRead/digitalWrite uses variable pins without any pinMode() calls. Configure pinMode for the pins being read/written.",
+          message: "digitalRead/digitalWrite uses variable pins without any pinMode() calls. Configure pinMode for the pins being read/written.",
           suggestion: "pinMode(<pin>, INPUT);",
           line: this.findLineNumber(code, /digital(?:Read|Write)\s*\(/),
         });
       }
     }
 
-    // Check for OUTPUT pins being read as input
+    // Check OUTPUT pins being read
     const outputPins = new Set<number>();
     for (const [pin, entry] of pinModeCalls.entries()) {
       const pinNum = this.parsePinNumber(pin);
-      if (pinNum !== undefined && entry.modes.includes("OUTPUT")) {
-        outputPins.add(pinNum);
-      }
+      if (pinNum !== undefined && entry.modes.includes("OUTPUT")) outputPins.add(pinNum);
     }
     for (const { pin, mode } of this.getLoopPinModeCalls(uncommentedCode)) {
       if (mode === "OUTPUT") outputPins.add(pin);
     }
-
-    messages.push(
-      ...pinChecker.checkOutputPinsReadAsInput(
-        uncommentedCode,
-        outputPins,
-        (p) => this.parsePinNumber(p),
-      ),
-    );
+    messages.push(...pinChecker.checkOutputPinsReadAsInput(uncommentedCode, outputPins, (p) => this.parsePinNumber(p)));
 
     return messages;
   }
