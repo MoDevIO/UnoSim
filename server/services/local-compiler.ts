@@ -54,6 +54,26 @@ export class LocalCompiler {
     coreArchive?: string,
     onProcess?: (proc: ChildProcess) => void,
   ): Promise<void> {
+    const config = this._detectEnvironmentConfig();
+    this.logger.debug(`[LocalCompiler] compile() invoked (testEnv=${config.usingTestEnv}, coverage=${config.coverageActive}) sketch=${sketchFile}`);
+
+    // In test environments with mocked spawn, run lightweight fake compile
+    if (config.usingTestEnv && config.spawnIsMock) {
+      await this._handleMockCompilation(exeFile, onProcess);
+      return;
+    }
+
+    // Real compilation: setup, CLI, then g++
+    await this.setupOutputDirectory(exeFile);
+    await this._checkAndRunArduinoCli(sketchFile, config.usingTestEnv, config.coverageActive);
+    await this._compileWithRetry(sketchFile, exeFile, coreArchive, onProcess);
+  }
+
+  private _detectEnvironmentConfig(): {
+    usingTestEnv: boolean;
+    coverageActive: boolean;
+    spawnIsMock: boolean;
+  } {
     const usingTestEnv = process.env.NODE_ENV === "test";
     const coverageActive = !!process.env.NODE_V8_COVERAGE || !!process.env.VITEST_COVERAGE;
 
@@ -62,34 +82,30 @@ export class LocalCompiler {
       this.compileTimeoutMs = 60000;
     }
 
-    this.logger.debug(`[LocalCompiler] compile() invoked (testEnv=${usingTestEnv}, coverage=${coverageActive}) sketch=${sketchFile}`);
-
-    // In test environments with mocked spawn, run lightweight fake compile
-    const { spawn } = await import("node:child_process");
+    const { spawn } = require("node:child_process");
     const spawnIsMock = (spawn as unknown as { mock?: object })?.mock !== undefined;
 
-    if (usingTestEnv && spawnIsMock) {
-      const result = await this.processExecutor.execute("echo", ["test"], {
-        timeout: this.compileTimeoutMs,
-        onProcess,
-      });
+    return { usingTestEnv, coverageActive, spawnIsMock };
+  }
 
-      if (result.error) {
-        throw new CompilerError(result.stderr || `Compiler exit ${result.code}`);
-      }
+  private async _handleMockCompilation(exeFile: string, onProcess?: (proc: ChildProcess) => void): Promise<void> {
+    const result = await this.processExecutor.execute("echo", ["test"], {
+      timeout: this.compileTimeoutMs,
+      onProcess,
+    });
 
-      try {
-        await this.makeExecutable(exeFile);
-      } catch {
-        // Ignore – tests don't care if chmod fails
-      }
-      return;
+    if (result.error) {
+      throw new CompilerError(result.stderr || `Compiler exit ${result.code}`);
     }
 
-    // Real compilation: setup, CLI, then g++
-    await this.setupOutputDirectory(exeFile);
-    
-    // Conditionally run arduino-cli
+    try {
+      await this.makeExecutable(exeFile);
+    } catch {
+      // Ignore – tests don't care if chmod fails
+    }
+  }
+
+  private async _checkAndRunArduinoCli(sketchFile: string, usingTestEnv: boolean, coverageActive: boolean): Promise<void> {
     let skipCli = false;
     if (!usingTestEnv) {
       try {
@@ -108,8 +124,14 @@ export class LocalCompiler {
       await this.runArduinoCli(sketchDir, buildDir, coverageActive);
       await this.updateCliCache(buildDir);
     }
+  }
 
-    // Retry compilation with retry logic for transient failures
+  private async _compileWithRetry(
+    sketchFile: string,
+    exeFile: string,
+    coreArchive?: string,
+    onProcess?: (proc: ChildProcess) => void,
+  ): Promise<void> {
     let lastError: Error | null = null;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
