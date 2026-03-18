@@ -22,6 +22,106 @@ const LoadingPlaceholder = () => (
   </div>
 );
 
+// View mode labels and icons
+const SERIAL_VIEW_LABELS: Record<SerialViewMode, string> = {
+  monitor: "Monitor only",
+  plotter: "Plotter only",
+  both: "Split view",
+};
+
+const getSerialViewIcon = (mode: SerialViewMode) => {
+  switch (mode) {
+    case "monitor":
+      return <Terminal className="h-4 w-4" />;
+    case "plotter":
+      return <BarChart className="h-4 w-4" />;
+    case "both":
+      return <Columns className="h-4 w-4" />;
+  }
+};
+
+interface SerialContentAreaProps {
+  showSerialMonitor: boolean;
+  showSerialPlotter: boolean;
+  serialOutput: OutputLine[];
+  renderedSerialOutput: OutputLine[];
+  isConnected: boolean;
+  simulationStatus: RuntimeSimulationStatus;
+  handleSerialSend: (message: string) => void;
+  handleClearSerialOutput: () => void;
+  autoScrollEnabled: boolean;
+}
+
+const SerialContentArea = ({
+  showSerialMonitor,
+  showSerialPlotter,
+  serialOutput,
+  renderedSerialOutput,
+  isConnected,
+  simulationStatus,
+  handleSerialSend,
+  handleClearSerialOutput,
+  autoScrollEnabled,
+}: SerialContentAreaProps) => {
+  if (showSerialMonitor && showSerialPlotter) {
+    return (
+      <ResizablePanelGroup direction="horizontal" className="h-full" id="serial-split">
+        <ResizablePanel defaultSize={50} minSize={20} id="serial-monitor-panel">
+          <div className="h-full flex flex-col">
+            <div className="flex-1 min-h-0">
+              <SerialMonitor
+                output={renderedSerialOutput}
+                isConnected={isConnected}
+                isSimulationRunning={simulationStatus !== "stopped"}
+                onSendMessage={handleSerialSend}
+                onClear={handleClearSerialOutput}
+                showMonitor={showSerialMonitor}
+                autoScrollEnabled={autoScrollEnabled}
+                showHeader={false}
+              />
+            </div>
+          </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle data-testid="horizontal-resizer-serial" />
+        <ResizablePanel defaultSize={50} minSize={20} id="serial-plot-panel">
+          <div className="h-full">
+            <React.Suspense fallback={<LoadingPlaceholder />}>
+              <SerialPlotter output={serialOutput} />
+            </React.Suspense>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    );
+  }
+
+  if (showSerialMonitor) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="flex-1 min-h-0">
+          <SerialMonitor
+            output={renderedSerialOutput}
+            isConnected={isConnected}
+            isSimulationRunning={simulationStatus !== "stopped"}
+            onSendMessage={handleSerialSend}
+            onClear={handleClearSerialOutput}
+            showMonitor={showSerialMonitor}
+            autoScrollEnabled={autoScrollEnabled}
+            showHeader={false}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full">
+      <React.Suspense fallback={<LoadingPlaceholder />}>
+        <SerialPlotter output={serialOutput} />
+      </React.Suspense>
+    </div>
+  );
+};
+
 export type SerialViewMode = "monitor" | "plotter" | "both";
 
 import type { OutputLine } from "@shared/schema";
@@ -168,28 +268,10 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
                 className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
                 onClick={cycleSerialViewMode}
                 data-testid="button-serial-view-toggle"
-                aria-label={
-                  serialViewMode === "monitor"
-                    ? "Monitor only"
-                    : serialViewMode === "plotter"
-                    ? "Plotter only"
-                    : "Split view"
-                }
-                title={
-                  serialViewMode === "monitor"
-                    ? "Monitor only"
-                    : serialViewMode === "plotter"
-                    ? "Plotter only"
-                    : "Split view"
-                }
+                aria-label={SERIAL_VIEW_LABELS[serialViewMode]}
+                title={SERIAL_VIEW_LABELS[serialViewMode]}
               >
-                {serialViewMode === "monitor" ? (
-                  <Terminal className="h-4 w-4" />
-                ) : serialViewMode === "plotter" ? (
-                  <BarChart className="h-4 w-4" />
-                ) : (
-                  <Columns className="h-4 w-4" />
-                )}
+                {getSerialViewIcon(serialViewMode)}
               </Button>
               <Button
                 variant="ghost"
@@ -223,55 +305,17 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
 
           {/* Content Area */}
           <div className="flex-1 min-h-0">
-            {showSerialMonitor && showSerialPlotter ? (
-              <ResizablePanelGroup direction="horizontal" className="h-full" id="serial-split">
-                <ResizablePanel defaultSize={50} minSize={20} id="serial-monitor-panel">
-                  <div className="h-full flex flex-col">
-                    <div className="flex-1 min-h-0">
-                      <SerialMonitor
-                        output={renderedSerialOutput}
-                        isConnected={isConnected}
-                        isSimulationRunning={simulationStatus !== "stopped"}
-                        onSendMessage={handleSerialSend}
-                        onClear={handleClearSerialOutput}
-                        showMonitor={showSerialMonitor}
-                        autoScrollEnabled={autoScrollEnabled}
-                        showHeader={false}
-                      />
-                    </div>
-                  </div>
-                </ResizablePanel>
-                <ResizableHandle withHandle data-testid="horizontal-resizer-serial" />
-                <ResizablePanel defaultSize={50} minSize={20} id="serial-plot-panel">
-                  <div className="h-full">
-                    <React.Suspense fallback={<LoadingPlaceholder />}>
-                      <SerialPlotter output={serialOutput} />
-                    </React.Suspense>
-                  </div>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            ) : showSerialMonitor ? (
-              <div className="h-full flex flex-col">
-                <div className="flex-1 min-h-0">
-                  <SerialMonitor
-                    output={renderedSerialOutput}
-                    isConnected={isConnected}
-                    isSimulationRunning={simulationStatus !== "stopped"}
-                    onSendMessage={handleSerialSend}
-                    onClear={handleClearSerialOutput}
-                    showMonitor={showSerialMonitor}
-                    autoScrollEnabled={autoScrollEnabled}
-                    showHeader={false}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="h-full">
-                <React.Suspense fallback={<LoadingPlaceholder />}>
-                  <SerialPlotter output={serialOutput} />
-                </React.Suspense>
-              </div>
-            )}
+            <SerialContentArea
+              showSerialMonitor={showSerialMonitor}
+              showSerialPlotter={showSerialPlotter}
+              serialOutput={serialOutput}
+              renderedSerialOutput={renderedSerialOutput}
+              isConnected={isConnected}
+              simulationStatus={simulationStatus}
+              handleSerialSend={handleSerialSend}
+              handleClearSerialOutput={handleClearSerialOutput}
+              autoScrollEnabled={autoScrollEnabled}
+            />
           </div>
         </div>
       </div>
