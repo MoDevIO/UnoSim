@@ -72,24 +72,24 @@ class PinCompatibilityChecker {
       const mode = match[2] as PinMode;
       const line = this.uncommentedCode.slice(0, Math.max(0, match.index)).split("\n").length;
 
-      if (!result.has(pin)) {
-        result.set(pin, { modes: [mode], lines: [line] });
-      } else {
+      if (result.has(pin)) {
         const entry = result.get(pin)!;
         entry.modes.push(mode);
         entry.lines.push(line);
+      } else {
+        result.set(pin, { modes: [mode], lines: [line] });
       }
     }
 
     // Loop-based pinMode() calls
     for (const { pin, mode, line } of getLoopPinModeCalls(this.uncommentedCode)) {
       const key = String(pin);
-      if (!result.has(key)) {
-        result.set(key, { modes: [mode], lines: [line] });
-      } else {
+      if (result.has(key)) {
         const entry = result.get(key)!;
         entry.modes.push(mode);
         entry.lines.push(line);
+      } else {
+        result.set(key, { modes: [mode], lines: [line] });
       }
     }
 
