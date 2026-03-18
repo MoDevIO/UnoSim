@@ -302,9 +302,7 @@ class SandboxRunnerPool {
 let poolInstance: SandboxRunnerPool | null = null;
 
 export function getSandboxRunnerPool(): SandboxRunnerPool {
-  if (!poolInstance) {
-    poolInstance = new SandboxRunnerPool(5);
-  }
+  poolInstance ??= new SandboxRunnerPool(5);
   return poolInstance;
 }
 

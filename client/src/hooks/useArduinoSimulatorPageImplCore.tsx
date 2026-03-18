@@ -105,7 +105,7 @@ export function useArduinoSimulatorPageCore() {
   const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(
     () => {
       try {
-        const stored = window.localStorage.getItem("unoShowCompileOutput");
+        const stored = globalThis.localStorage?.getItem("unoShowCompileOutput");
         return stored === null ? true : stored === "1";
       } catch {
         return true;

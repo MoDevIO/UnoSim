@@ -605,9 +605,7 @@ export class RegistryManager {
     );
 
     // Create or update registry record
-    const record: IOPinRecord = existing
-      ? existing
-      : ({ pin: pinStr, defined: true, pinMode: mode, usedAt: [] } as IOPinRecord);
+    const record: IOPinRecord = existing ?? { pin: pinStr, defined: true, pinMode: mode, usedAt: [] };
 
     record.pinMode = mode;
     record.defined = true;

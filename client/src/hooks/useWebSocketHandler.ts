@@ -327,7 +327,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
           const pinKey = pinMatch[1];
           const isReplaced = usageWarnings.some((m) => {
             const newMatch = m.message.match(/Pin\s+(\S+)\s+is/);
-            return newMatch && newMatch[1] === pinKey;
+            return newMatch?.[1] === pinKey;
           });
           return !isReplaced;
         });

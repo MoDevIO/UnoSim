@@ -234,7 +234,7 @@ export class ProcessExecutor {
    * Kill any active process (for cleanup during stop())
    */
   kill(signal: string | number = "SIGKILL"): void {
-    if (this.activeProcess && this.activeProcess.pid) {
+    if (this.activeProcess?.pid) {
       try {
         // Check if this is a detached process (has own process group)
         const isDetached = (this.activeProcess as any)._isDetached;

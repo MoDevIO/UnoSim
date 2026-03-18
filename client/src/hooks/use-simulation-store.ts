@@ -76,7 +76,7 @@ const scheduleFlush = () => {
     notify();
   };
 
-  if (typeof globalThis.window !== "undefined" && typeof globalThis.requestAnimationFrame === "function") {
+  if (globalThis.window !== undefined && typeof globalThis.requestAnimationFrame === "function") {
     rafId = globalThis.requestAnimationFrame(flush);
   } else {
     rafId = globalThis.setTimeout(flush, 16) as unknown as number;
@@ -216,7 +216,7 @@ const simulationStore = {
 };
 
 // DEBUG: Export for E2E tests to inspect and reset store state
-if (typeof globalThis.window !== "undefined") {
+if (globalThis.window !== undefined) {
   (globalThis as any).__SIM_DEBUG__ = {
     getState: () => snapshot,
     resetToInitial: () => {
