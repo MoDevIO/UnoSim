@@ -2,13 +2,14 @@
 // Integration test: Verify telemetry heartbeat fires and reaches WebSocket
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { TelemetryMetrics } from '../../server/services/sandbox/execution-manager';
 import { SandboxRunner } from '../../server/services/sandbox-runner';
 import { RegistryManager } from '../../server/services/registry-manager';
 import { PinStateBatcher } from '../../server/services/pin-state-batcher';
 
 describe('Telemetry Heartbeat Integration', () => {
   let runner: SandboxRunner;
-  let telemetryMetrics: any[] = [];
+  let telemetryMetrics: TelemetryMetrics[] = [];
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -132,7 +133,7 @@ void loop() {
 
     const registry = new RegistryManager({
       enableTelemetry: true,
-      onTelemetry: (_metrics) => {
+      onTelemetry: (_metrics: TelemetryMetrics) => {
         console.log(`   Step 1: RegistryManager.onTelemetryCallback fired`);
       },
     });
@@ -144,17 +145,25 @@ void loop() {
     } as unknown as PinStateBatcher);
 
     // Simulate what SandboxRunner does
-    const onTelemetry = (_metrics: any) => {
+    const onTelemetry = (_metrics: TelemetryMetrics) => {
       console.log(`   Step 2: SandboxRunner.onTelemetry wrapper called`);
       executionStateCallbackCalled = true;
     };
 
     // Manually call to test the path
-    const mockMetrics = {
+    const mockMetrics: TelemetryMetrics = {
       timestamp: Date.now(),
-      serialOutputPerSecond: 5,
+      intendedPinChangesPerSecond: 0,
       actualPinChangesPerSecond: 10,
-    } as any;
+      droppedPinChangesPerSecond: 0,
+      batchesPerSecond: 0,
+      avgStatesPerBatch: 0,
+      serialOutputPerSecond: 5,
+      serialBytesPerSecond: 0,
+      serialBytesTotal: 0,
+      serialIntendedBytesPerSecond: 0,
+      serialDroppedBytesPerSecond: 0,
+    };
 
     onTelemetry(mockMetrics);
     console.log(`   Step 3: WS handler would send sim_telemetry message`);

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { IOPinRecord } from '@shared/schema';
+import type { TelemetryMetrics } from '../../server/services/sandbox/execution-manager';
 import { RegistryManager } from '../../server/services/registry-manager';
 import { PinStateBatcher } from '../../server/services/pin-state-batcher';
 
@@ -8,12 +10,12 @@ describe('RegistryManager destroyed flag reset after simulation', () => {
   let updateCallback: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    telemetryCallback = vi.fn() as unknown as (metrics: any) => void;
-    updateCallback = vi.fn() as unknown as (
-      registry: any[],
+    telemetryCallback = vi.fn<(metrics: TelemetryMetrics) => void>();
+    updateCallback = vi.fn<(
+      registry: IOPinRecord[],
       baudrate: number | undefined,
       reason?: string,
-    ) => void;
+    ) => void>();
 
     manager = new RegistryManager({
       onTelemetry: telemetryCallback,
