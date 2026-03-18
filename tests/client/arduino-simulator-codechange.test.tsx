@@ -80,17 +80,20 @@ test("handles simulation_status message", async () => {
 
   // Push message AFTER mount and cause a re-render so the hook's
   // messageQueue dependency is observed by useWebSocketHandler.
-  act(() => {
+  await act(async () => {
     messageQueue = [{ type: "simulation_status", status: "running" }];
+    rerender(
+      <QueryClientProvider client={testQueryClient}>
+        <ArduinoSimulator />
+      </QueryClientProvider>
+    );
   });
-
-  rerender(
-    <QueryClientProvider client={testQueryClient}>
-      <ArduinoSimulator />
-    </QueryClientProvider>
-  );
 
   await waitFor(() => {
     expect(document.querySelector('[data-testid="sim-status"]')?.textContent).toBe("running");
   });
+
+  // Flush any pending async state updates so React doesn't warn about
+  // out-of-act() updates caused by internal effects on ArduinoSimulatorPage.
+  await act(async () => {});
 });

@@ -27,7 +27,7 @@ describe('Serial Output Flow Integration', () => {
       await runner.stop();
     }
     // Short delay to allow cleanup
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 50));
   });
 
   test('Serial.print with delayed dots should arrive in separate chunks', async () => {
