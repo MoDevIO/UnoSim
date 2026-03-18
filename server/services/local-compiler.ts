@@ -55,83 +55,41 @@ export class LocalCompiler {
     onProcess?: (proc: ChildProcess) => void,
   ): Promise<void> {
     const usingTestEnv = process.env.NODE_ENV === "test";
-    // detect if we're running in a coverage-instrumented process – Vitest/v8
     const coverageActive = !!process.env.NODE_V8_COVERAGE || !!process.env.VITEST_COVERAGE;
+
     if (coverageActive) {
-      // slow instrumentation may cause Arduino CLI or g++ to take longer and
-      // occasionally expose races in the temporary build directory.  in
-      // coverage mode we simply skip the CLI step (which is the most flaky)
-      // and give the compile a much larger timeout to avoid spurious kills.
       this.logger.debug("[LocalCompiler] coverage mode detected – skipping Arduino CLI and extending timeout");
-      this.compileTimeoutMs = 60000; // 60 seconds
+      this.compileTimeoutMs = 60000;
     }
+
     this.logger.debug(`[LocalCompiler] compile() invoked (testEnv=${usingTestEnv}, coverage=${coverageActive}) sketch=${sketchFile}`);
 
-    // In test environments with mocked spawn, run a lightweight fake compile
+    // In test environments with mocked spawn, run lightweight fake compile
     const { spawn } = await import("node:child_process");
     const spawnIsMock = (spawn as unknown as { mock?: object })?.mock !== undefined;
 
     if (usingTestEnv && spawnIsMock) {
-      // Use ProcessExecutor to handle mocked spawn in tests
       const result = await this.processExecutor.execute("echo", ["test"], {
         timeout: this.compileTimeoutMs,
         onProcess,
       });
 
       if (result.error) {
-        const err = new CompilerError(result.stderr || `Compiler exit ${result.code}`);
-        throw err;
+        throw new CompilerError(result.stderr || `Compiler exit ${result.code}`);
       }
 
-      // Set executable permissions
       try {
         await this.makeExecutable(exeFile);
       } catch {
         // Ignore – tests don't care if chmod fails
       }
-      return; // Skip real compilation
+      return;
     }
 
-    // The sketch is always self-contained (ARDUINO_MOCK_CODE + user code),
-    // so we never link a separate core archive alongside it (duplicate symbols).
-    // An explicit coreArchive may still be passed by callers that know they need it.
-
-    // Ensure output directory exists before compilation
-    const outputDir = dirname(exeFile);
-    try {
-      await access(outputDir);
-      this.logger.debug(`Output directory exists: ${outputDir}`);
-    } catch {
-      this.logger.info(`Output directory missing, creating: ${outputDir}`);
-      try {
-        await mkdir(outputDir, { recursive: true, mode: 0o755 });
-        // Confirm the directory is genuinely present and accessible after
-        // creation.  Under parallel load a concurrent cleanup could delete
-        // it between our mkdir() and this stat(), making the upcoming
-        // compile fail with a confusing error.
-        const dirStat = await stat(outputDir);
-        if (!dirStat.isDirectory()) {
-          throw new Error(`Created path is not a directory: ${outputDir}`);
-        }
-        this.logger.debug(`Created output directory with proper permissions: ${outputDir}`);
-      } catch (mkdirErr) {
-        const msg = mkdirErr instanceof Error ? mkdirErr.message : String(mkdirErr);
-        this.logger.error(`Failed to create output directory: ${msg}`);
-        throw mkdirErr;
-      }
-    }
-
-    // Ensure output directory is writable by removing any stale exe file
-    try {
-      await rm(exeFile, { force: true });
-      this.logger.debug(`Cleaned up stale executable: ${exeFile}`);
-    } catch {
-      // Ignore - file might not exist yet
-    }
-
-    // first run through arduino-cli to give users real error output and produce
-    // a core.a in the sketch build directory - skip if we already have a cache or
-    // if the CLI-feedback cache is present (bypass slow invocation).
+    // Real compilation: setup, CLI, then g++
+    await this.setupOutputDirectory(exeFile);
+    
+    // Conditionally run arduino-cli
     let skipCli = false;
     if (!usingTestEnv) {
       try {
@@ -144,145 +102,32 @@ export class LocalCompiler {
 
     if (skipCli) {
       this.logger.debug("[LocalCompiler] skipping arduino-cli because CLI cache exists");
-    } else if (coverageActive) {
-      // don't bother calling arduino-cli under coverage; it has caused
-      // intermittent file-system races that make the whole pipeline fragile.
-      this.logger.debug("[LocalCompiler] coverage mode – bypassing arduino-cli step");
     } else {
       const buildDir = join(dirname(sketchFile), "build");
       const sketchDir = dirname(sketchFile);
-      // ensure the CLI build path AND key subdirectories exist before invoking
-      // arduino-cli / avr-gcc so they never fail trying to create them under
-      // parallel load on macOS.
-      try {
-        await mkdir(join(buildDir, "sketch"), { recursive: true });
-        await mkdir(join(buildDir, "core"), { recursive: true });
-      } catch {}
-
-      // create a minimal Arduino sketch for CLI in a fresh folder
-      const cliTemp = join(sketchDir, "cli-temp");
-      let cliTempReady = false;
-      try {
-        const { writeFile } = await import("node:fs/promises");
-        await mkdir(cliTemp, { recursive: true });
-        // filename must match directory name for Arduino CLI
-        const cliSketch = join(cliTemp, "cli-temp.ino");
-        await writeFile(cliSketch, "void setup(){}\nvoid loop(){}\n");
-        cliTempReady = true;
-      } catch {}
-
-      // Only invoke arduino-cli if the sketch directory was successfully prepared.
-      // Skipping prevents noisy "Can't open sketch" errors and avoids resource
-      // contention when multiple test workers run in parallel.
-      if (cliTempReady) {
-        try {
-          const cliArgs = [
-            "compile",
-            "--fqbn",
-            "arduino:avr:uno",
-            "--build-path",
-            buildDir,
-            cliTemp, // run CLI in isolated directory
-          ];
-          this.logger.debug(`spawning arduino-cli ${cliArgs.join(" ")}`);
-
-          // Use ProcessExecutor for safe, centralized process handling
-          const result = await this.processExecutor.execute("arduino-cli", cliArgs, {
-            timeout: this.compileTimeoutMs,
-            detached: true,
-            stdio: "pipe",
-          });
-
-          if (result.error) {
-            throw result.error;
-          }
-        } catch (err) {
-          // CLI failure is acceptable; we continue to native compile afterwards
-          this.logger.warn(`arduino-cli step failed: ${err instanceof Error ? err.message : err}`);
-        } finally {
-          // if CLI produced a core.a, copy to cache
-          try {
-            const fs = await import("node:fs");
-          const suspect = join(buildDir, "core", "core.a");
-          
-          // Check if suspect exists
-          try {
-            await stat(suspect);
-          } catch {
-            // suspect doesn't exist, skip
-            throw new Error("no suspect");
-          }
-          
-          const cachePath = LocalCompiler.CLI_CACHE_PATH;
-          let needCopy = false;
-          
-          // Check if cache exists and compare times
-          try {
-            const suspectStat = await stat(suspect);
-            const [cacheStat] = await Promise.allSettled([
-              stat(cachePath)
-            ]);
-            if (cacheStat.status === "fulfilled") {
-              needCopy = suspectStat.mtimeMs > cacheStat.value.mtimeMs;
-            } else {
-              needCopy = true;
-            }
-          } catch {
-            needCopy = true;
-          }
-          
-          if (needCopy) {
-            // Write to a per-invocation temp file then atomically rename it
-            // into place.  This prevents a parallel worker from reading a
-            // partially written cache file.
-            const { randomUUID: _cacheUUID } = await import("node:crypto");
-            const tmpCachePath = cachePath + "." + _cacheUUID() + ".tmp";
-            try {
-              await fs.promises.copyFile(suspect, tmpCachePath);
-              await fs.promises.rename(tmpCachePath, cachePath);
-              try {
-                const cacheStat = await stat(cachePath);
-                const sizeKB = (cacheStat.size / 1024).toFixed(1);
-                this.logger.info(`[LocalCompiler] CLI cache saved (${sizeKB} KB)`);
-              } catch {
-                // ignore stat error
-              }
-            } catch (writeErr) {
-              // Atomic write failed – clean up the temp file and continue
-              // without crashing (the cache is supplementary).
-              try { await rm(tmpCachePath, { force: true }); } catch {}
-              this.logger.warn(`[LocalCompiler] CLI cache write failed: ${
-                writeErr instanceof Error ? writeErr.message : writeErr}`);
-            }
-          }
-        } catch {}
-        // cleanup temporary CLI sketch folder
-        try {
-          await rm(cliTemp, { recursive: true, force: true });
-        } catch {}
-      }
-      } // end if (cliTempReady)
+      await this.runArduinoCli(sketchDir, buildDir, coverageActive);
+      await this.updateCliCache(buildDir);
     }
 
-    // Try compilation with retry logic for transient failures using g++
+    // Retry compilation with retry logic for transient failures
     let lastError: Error | null = null;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-            await this.runCompilation(sketchFile, exeFile, attempt, coreArchive, onProcess);
-        return; // Success on this attempt
+        await this.runCompilation(sketchFile, exeFile, attempt, coreArchive, onProcess);
+        await this.makeExecutable(exeFile);
+        return; // Success
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
-        const isCompilerError = lastError instanceof CompilerError;
-        if (isCompilerError || attempt >= 2) {
+        if (lastError instanceof CompilerError || attempt >= 2) {
           break;
         }
         if (attempt < 2) {
           this.logger.warn(`Compilation attempt ${attempt} failed, retrying... (${lastError.message})`);
-          await new Promise<void>(r => setTimeout(r, 500)); // Wait before retry
+          await new Promise<void>(r => setTimeout(r, 500));
         }
       }
     }
-    
+
     if (lastError) throw lastError;
   }
 
@@ -345,6 +190,146 @@ export class LocalCompiler {
   async makeExecutable(exeFile: string): Promise<void> {
     await chmod(exeFile, 0o755);
     this.logger.debug(`Made executable: ${exeFile}`);
+  }
+
+  /**
+   * Sets up output directory: checks existence, creates if needed, removes stale exe
+   */
+  private async setupOutputDirectory(exeFile: string): Promise<void> {
+    const outputDir = dirname(exeFile);
+    try {
+      await access(outputDir);
+      this.logger.debug(`Output directory exists: ${outputDir}`);
+    } catch {
+      this.logger.info(`Output directory missing, creating: ${outputDir}`);
+      try {
+        await mkdir(outputDir, { recursive: true, mode: 0o755 });
+        const dirStat = await stat(outputDir);
+        if (!dirStat.isDirectory()) {
+          throw new Error(`Created path is not a directory: ${outputDir}`);
+        }
+        this.logger.debug(`Created output directory with proper permissions: ${outputDir}`);
+      } catch (mkdirErr) {
+        const msg = mkdirErr instanceof Error ? mkdirErr.message : String(mkdirErr);
+        this.logger.error(`Failed to create output directory: ${msg}`);
+        throw mkdirErr;
+      }
+    }
+
+    try {
+      await rm(exeFile, { force: true });
+      this.logger.debug(`Cleaned up stale executable: ${exeFile}`);
+    } catch {
+      // Ignore - file might not exist yet
+    }
+  }
+
+  /**
+   * Executes Arduino CLI compilation step
+   * Returns void on success, logs warnings on failure (not fatal)
+   */
+  private async runArduinoCli(sketchDir: string, buildDir: string, coverageActive: boolean): Promise<void> {
+    if (coverageActive) {
+      this.logger.debug("[LocalCompiler] coverage mode – bypassing arduino-cli step");
+      return;
+    }
+
+    // Ensure the CLI build path and key subdirectories exist
+    try {
+      await mkdir(join(buildDir, "sketch"), { recursive: true });
+      await mkdir(join(buildDir, "core"), { recursive: true });
+    } catch {}
+
+    // Create minimal Arduino sketch for CLI in fresh folder
+    const cliTemp = join(sketchDir, "cli-temp");
+    let cliTempReady = false;
+    try {
+      const { writeFile } = await import("node:fs/promises");
+      await mkdir(cliTemp, { recursive: true });
+      const cliSketch = join(cliTemp, "cli-temp.ino");
+      await writeFile(cliSketch, "void setup(){}\nvoid loop(){}\n");
+      cliTempReady = true;
+    } catch {}
+
+    if (!cliTempReady) return;
+
+    try {
+      const cliArgs = [
+        "compile",
+        "--fqbn",
+        "arduino:avr:uno",
+        "--build-path",
+        buildDir,
+        cliTemp,
+      ];
+      this.logger.debug(`spawning arduino-cli ${cliArgs.join(" ")}`);
+
+      const result = await this.processExecutor.execute("arduino-cli", cliArgs, {
+        timeout: this.compileTimeoutMs,
+        detached: true,
+        stdio: "pipe",
+      });
+
+      if (result.error) {
+        throw result.error;
+      }
+    } catch (err) {
+      this.logger.warn(`arduino-cli step failed: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      try {
+        await rm(cliTemp, { recursive: true, force: true });
+      } catch {}
+    }
+  }
+
+  /**
+   * Updates CLI cache with core.a if it's newer than cached version
+   */
+  private async updateCliCache(buildDir: string): Promise<void> {
+    try {
+      const suspect = join(buildDir, "core", "core.a");
+
+      // Check if suspect exists
+      try {
+        await stat(suspect);
+      } catch {
+        return;
+      }
+
+      const cachePath = LocalCompiler.CLI_CACHE_PATH;
+      const suspectStat = await stat(suspect);
+      let needCopy = false;
+
+      // Check if cache exists and compare times
+      try {
+        const [cacheStat] = await Promise.allSettled([stat(cachePath)]);
+        if (cacheStat.status === "fulfilled") {
+          needCopy = suspectStat.mtimeMs > cacheStat.value.mtimeMs;
+        } else {
+          needCopy = true;
+        }
+      } catch {
+        needCopy = true;
+      }
+
+      if (needCopy) {
+        const { randomUUID: _cacheUUID } = await import("node:crypto");
+        const tmpCachePath = cachePath + "." + _cacheUUID() + ".tmp";
+        try {
+          const fs = await import("node:fs");
+          await fs.promises.copyFile(suspect, tmpCachePath);
+          await fs.promises.rename(tmpCachePath, cachePath);
+          const newCacheStat = await stat(cachePath);
+          const sizeKB = (newCacheStat.size / 1024).toFixed(1);
+          this.logger.info(`[LocalCompiler] CLI cache saved (${sizeKB} KB)`);
+        } catch (writeErr) {
+          const tmpCachePath = cachePath + "." + _cacheUUID() + ".tmp";
+          try { await rm(tmpCachePath, { force: true }); } catch {}
+          this.logger.warn(`[LocalCompiler] CLI cache write failed: ${
+            writeErr instanceof Error ? writeErr.message : writeErr}`);
+        }
+      }
+    } catch {}
   }
 
   /**
