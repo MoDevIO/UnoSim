@@ -18,7 +18,7 @@ vi.mock("node:child_process", () => {
     const stderrHandlers: Function[] = [];
     const stdoutHandlers: Function[] = [];
     const closeHandlers: Function[] = [];
-    const errorHandlers: Function[] = [];
+    const _errorHandlers: Function[] = [];
 
     const proc = {
       on: vi.fn((event: string, cb: Function) => {
@@ -27,7 +27,7 @@ vi.mock("node:child_process", () => {
           // Auto-trigger close after being registered
           originalSetTimeout(() => cb(0), 10);
         } else if (event === "error") {
-          errorHandlers.push(cb);
+          _errorHandlers.push(cb);
         }
         return proc;
       }),

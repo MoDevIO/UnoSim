@@ -16,34 +16,34 @@ setLogLevel(logLevel as any);
 // ============ CONSOLE MOCKING ============
 // Verhindert Debug-Buffer Belastung durch Test-Noise
 // ERROR und WARN gehen zur Konsole, DEBUG wird gepuffert
-let capturedLogs: Array<{ level: string; message: string }> = [];
+let _capturedLogs: Array<{ level: string; message: string }> = [];
 let _originalConsoleLog = console.log;
 let originalConsoleError = console.error;
 let _originalConsoleWarn = console.warn;
 
 vi.spyOn(console, "log").mockImplementation((...args) => {
-  capturedLogs.push({ level: "LOG", message: String(args.join(" ")) });
+  _capturedLogs.push({ level: "LOG", message: String(args.join(" ")) });
   // Deaktivieren Sie diese Zeile, um CI Logs freizunehmen, falls nötig
   // originalConsoleLog(...args);
 });
 
 vi.spyOn(console, "info").mockImplementation((...args) => {
-  capturedLogs.push({ level: "INFO", message: String(args.join(" ")) });
+  _capturedLogs.push({ level: "INFO", message: String(args.join(" ")) });
 });
 
 vi.spyOn(console, "error").mockImplementation((...args) => {
-  capturedLogs.push({ level: "ERROR", message: String(args.join(" ")) });
+  _capturedLogs.push({ level: "ERROR", message: String(args.join(" ")) });
   // Fehler sollten sichtbar sein
   originalConsoleError(...args);
 });
 
 vi.spyOn(console, "warn").mockImplementation((...args) => {
-  capturedLogs.push({ level: "WARN", message: String(args.join(" ")) });
+  _capturedLogs.push({ level: "WARN", message: String(args.join(" ")) });
 });
 
 afterEach(() => {
   // Logs zurücksetzen
-  capturedLogs = [];
+  _capturedLogs = [];
   vi.clearAllMocks();
 });
 
@@ -59,5 +59,5 @@ afterEach((ctx) => {
 
 afterAll(() => {
   // Optional: Cleanup nach allen Tests
-  capturedLogs = [];
+  _capturedLogs = [];
 });

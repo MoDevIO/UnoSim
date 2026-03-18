@@ -20,6 +20,7 @@ import type {
 
 // status types
 type CompilationStatus = "ready" | "compiling" | "success" | "error";
+type CompilationResultType = "success" | "error" | null;
 
 const logger = new Logger("useCompileAndRun");
 
@@ -82,8 +83,8 @@ interface UseCompileAndRunResult {
   setHasCompilationErrors: SetState<boolean>;
   compilerErrors: CompilerError[];
   setCompilerErrors: SetState<CompilerError[]>;
-  lastCompilationResult: "success" | "error" | null;
-  setLastCompilationResult: SetState<"success" | "error" | null>;
+  lastCompilationResult: CompilationResultType;
+  setLastCompilationResult: SetState<CompilationResultType>;
   cliOutput: string;
   setCliOutput: SetState<string>;
   compileMutation: UseMutationResult<CompileResult, unknown, CompileConfig, unknown>;
@@ -119,11 +120,11 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   // ------------------------------------------------------------
   // shared state (compile + simulation)
   // ------------------------------------------------------------
-  const [compilationStatus, setCompilationStatus] = useState<"ready" | "compiling" | "success" | "error">("ready");
+  const [compilationStatus, setCompilationStatus] = useState<CompilationStatus>("ready");
   const [arduinoCliStatus, setArduinoCliStatus] = useState<CliStatus>("idle");
   // gccStatus removed - compiler results are tracked via errors array & flags
   const [hasCompilationErrors, setHasCompilationErrors] = useState(false);
-  const [lastCompilationResult, setLastCompilationResult] = useState<"success" | "error" | null>(null);
+  const [lastCompilationResult, setLastCompilationResult] = useState<CompilationResultType>(null);
   const [cliOutput, setCliOutput] = useState("");
   const [compilerErrors, setCompilerErrors] = useState<CompilerError[]>([]);
 

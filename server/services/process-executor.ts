@@ -63,7 +63,7 @@ const ALLOWED_COMMANDS: Record<string, { allowedArgs?: RegExp[] }> = {
       /^[a-zA-Z0-9._\-/]+$/, // Paths and valid arg values
     ],
   },
-  "g\+\+": {
+  "g++": {
     // g++ is less restricted but still validated
     allowedArgs: [
       /^-[a-z]+$/i, // Flags like -o, -pthread
@@ -101,7 +101,7 @@ function validateCommand(command: string, args: string[]): void {
     }
     if (!isAllowed) {
       // Reject suspicious arguments
-      if (/[;&|`$\(\)<>{}]/.test(arg)) {
+      if (/[;&|`$(){}]/.test(arg)) {
         throw new Error(`Argument contains shell metacharacters: ${arg}`);
       }
     }

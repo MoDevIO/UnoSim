@@ -144,7 +144,14 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       // Only add a final newline if:
       // 1. isComplete=true (this line had a newline originally)
       // 2. text doesn't already end with newline (server already added it)
-      const textForRenderer = isNewlineOnly ? "\n" : (isComplete && !isNewlineOnly && !text.endsWith('\n') ? text + "\n" : text);
+      let textForRenderer: string;
+      if (isNewlineOnly) {
+        textForRenderer = "\n";
+      } else if (isComplete && !isNewlineOnly && !text.endsWith('\n')) {
+        textForRenderer = text + "\n";
+      } else {
+        textForRenderer = text;
+      }
       appendSerialOutput(textForRenderer);
     }
 

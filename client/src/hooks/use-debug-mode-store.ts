@@ -21,7 +21,7 @@ const debugModeStore = {
   setDebugMode: (value: boolean) => {
     debugModeState = value;
     try {
-      if (typeof globalThis.window !== "undefined") {
+      if (globalThis.window !== undefined) {
         globalThis.localStorage.setItem("unoDebugMode", value ? "1" : "0");
       }
     } catch {
@@ -33,7 +33,7 @@ const debugModeStore = {
   // Initialize from localStorage on first access
   initFromStorage: () => {
     try {
-      if (typeof globalThis.window !== "undefined") {
+      if (globalThis.window !== undefined) {
         debugModeState = globalThis.localStorage.getItem("unoDebugMode") === "1";
       }
     } catch {
@@ -43,7 +43,7 @@ const debugModeStore = {
 };
 
 // Initialize when module first loads (in browser)
-if (typeof globalThis.window !== "undefined") {
+if (globalThis.window !== undefined) {
   debugModeStore.initFromStorage();
 
   // Listen for external events (used by Playwright tests) so that
