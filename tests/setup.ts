@@ -20,23 +20,23 @@ let _originalConsoleLog = console.log;
 let originalConsoleError = console.error;
 let _originalConsoleWarn = console.warn;
 
-vi.spyOn(console, "log").mockImplementation((...args) => {
+vi.spyOn(console, "log").mockImplementation((..._args) => {
   // Log collection removed - use vi.spyOn for assertion if needed
   // Deaktivieren Sie diese Zeile, um CI Logs freizunehmen, falls nötig
-  // originalConsoleLog(...args);
+  // originalConsoleLog(..._args);
 });
 
-vi.spyOn(console, "info").mockImplementation((...args) => {
+vi.spyOn(console, "info").mockImplementation((..._args) => {
   // Info log collection removed
 });
 
-vi.spyOn(console, "error").mockImplementation((...args) => {
+vi.spyOn(console, "error").mockImplementation((..._args) => {
   // Error log collected by vi.spyOn
   // Fehler sollten sichtbar sein
-  originalConsoleError(...args);
+  originalConsoleError(..._args);
 });
 
-vi.spyOn(console, "warn").mockImplementation((...args) => {
+vi.spyOn(console, "warn").mockImplementation((..._args) => {
   // Warn log collection removed
 });
 
