@@ -613,10 +613,13 @@ export class RegistryManager {
     // Ensure the mode operation is tracked for conflict detection
     ensurePinModeOperation(record, mode);
 
-    const hadConflict = Boolean(record.conflict);
-    const conflictInfo = computePinConflict(record);
-    record.conflict = conflictInfo.conflict;
-    record.conflictMessage = conflictInfo.conflict ? conflictInfo.conflictMessage : undefined;
+    // Validate and detect conflicts
+    const { shouldSend, reason } = this.validateAndDetectConflicts(
+      record,
+      isNewRecord,
+      wasDefinedBefore,
+      pinStr,
+    );
 
     if (!existing) {
       this.registry.push(record);
@@ -626,26 +629,38 @@ export class RegistryManager {
     this.markPinModeSent(pin, mode);
     this.isDirty = true;
 
-    // Send on first-time definition or when a new conflict appears
-    if (!wasDefinedBefore) {
-      this.logger.debug(
-        `Structural change: pin ${pinStr} marked as defined, sending immediately`,
-      );
-      this.logger.info(
-        `Registry send trigger: first-time pin use ${pinStr} (pinMode:${mode})`,
-      );
-      if (!this.isCollecting && !this.waitingForRegistry) {
-        const nextHash = this.computeRegistryHash();
-        const reason = isNewRecord ? "pin-new-record" : "pin-defined-changed";
-        this.sendNow(nextHash, reason);
-      }
-    } else if (conflictInfo.conflict && !hadConflict) {
-      this.isDirty = true;
-      if (!this.isCollecting && !this.waitingForRegistry) {
-        const nextHash = this.computeRegistryHash();
-        this.sendNow(nextHash, "pin-conflict-detected");
-      }
+    // Send based on validation result
+    if (shouldSend && !this.isCollecting && !this.waitingForRegistry) {
+      const nextHash = this.computeRegistryHash();
+      this.sendNow(nextHash, reason);
     }
+  }
+
+  private validateAndDetectConflicts(
+    record: IOPinRecord,
+    isNewRecord: boolean,
+    wasDefinedBefore: boolean,
+    pinStr: string,
+  ): { shouldSend: boolean; reason: string } {
+    const hadConflict = Boolean(record.conflict);
+    const conflictInfo = computePinConflict(record);
+    record.conflict = conflictInfo.conflict;
+    record.conflictMessage = conflictInfo.conflict ? conflictInfo.conflictMessage : undefined;
+
+    // Send on first-time definition
+    if (!wasDefinedBefore) {
+      this.logger.debug(`Structural change: pin ${pinStr} marked as defined, sending immediately`);
+      this.logger.info(`Registry send trigger: first-time pin use ${pinStr} (pinMode:${record.pinMode})`);
+      return { shouldSend: true, reason: isNewRecord ? "pin-new-record" : "pin-defined-changed" };
+    }
+
+    // Send on new conflict detection
+    if (conflictInfo.conflict && !hadConflict) {
+      this.isDirty = true;
+      return { shouldSend: true, reason: "pin-conflict-detected" };
+    }
+
+    return { shouldSend: false, reason: "" };
   }
 
 
