@@ -535,9 +535,7 @@ export class UnifiedGatekeeper extends EventEmitter {
 let unifiedGatekeeperInstance: UnifiedGatekeeper | null = null;
 
 export function getUnifiedGatekeeper(maxConcurrent?: number): UnifiedGatekeeper {
-  if (!unifiedGatekeeperInstance) {
-    unifiedGatekeeperInstance = new UnifiedGatekeeper(maxConcurrent);
-  }
+  unifiedGatekeeperInstance ??= new UnifiedGatekeeper(maxConcurrent);
   return unifiedGatekeeperInstance;
 }
 

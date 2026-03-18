@@ -1,6 +1,6 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 
-import type { ToastOptions } from "@/hooks/use-toast";
+import type { ToastFn } from "@/hooks/use-toast";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { SimulationStatus } from "@/hooks/use-simulation-controls";
 import type { PinState } from "@/hooks/use-simulation-store";
@@ -8,7 +8,7 @@ import type { PinState } from "@/hooks/use-simulation-store";
 export function useSimulatorPinControls(params: {
   sendMessage: (message: IncomingArduinoMessage) => void;
   simulationStatus: SimulationStatus;
-  toast: (options: ToastOptions) => { id: string; dismiss: () => void; update: (options: ToastOptions) => void };
+  toast: ToastFn;
   setPinStates: Dispatch<SetStateAction<PinState[]>>;
 }) {
   const { sendMessage, simulationStatus, toast, setPinStates } = params;

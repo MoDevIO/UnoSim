@@ -89,7 +89,7 @@ setupFontScaleShortcuts();
 
 
 // E2E TEST HOOK: Add a global setEditorContent function for Playwright
-if (typeof globalThis.window !== "undefined") {
+if (globalThis.window !== undefined) {
   (globalThis as any).setEditorContent = async function (code: string, maxRetries: number = 50) {
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
     let lastErr: unknown;

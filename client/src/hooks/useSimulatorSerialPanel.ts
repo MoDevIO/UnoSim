@@ -1,13 +1,13 @@
 import { useCallback, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 
-import type { ToastOptions } from "@/hooks/use-toast";
+import type { ToastFn } from "@/hooks/use-toast";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { SimulationStatus } from "@/hooks/use-simulation-controls";
 
 export function useSimulatorSerialPanel(params: {
   sendMessage: (message: IncomingArduinoMessage) => void;
   simulationStatus: SimulationStatus;
-  toast: (options: ToastOptions) => { id: string; dismiss: () => void; update: (options: ToastOptions) => void };
+  toast: ToastFn;
   setTxActivity: Dispatch<SetStateAction<number>>;
   serialInputValue: string;
   setSerialInputValue: Dispatch<SetStateAction<string>>;
