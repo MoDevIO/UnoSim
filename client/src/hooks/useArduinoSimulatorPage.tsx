@@ -103,7 +103,7 @@ export function useArduinoSimulatorPage() {
   const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(
     () => {
       try {
-        const stored = globalThis.localStorage.getItem("unoShowCompileOutput");
+        const stored = globalThis.localStorage?.getItem("unoShowCompileOutput");
         return stored === null ? true : stored === "1";
       } catch {
         return true;
@@ -146,7 +146,7 @@ export function useArduinoSimulatorPage() {
   // Serial view mode state handled by useSerialIO
 
   // Selected board and baud rate (moved to Tools menu)
-  const [board, _setBoard] = useState<string>("Arduino UNO");
+  const [board] = useState<string>("Arduino UNO");
   const [baudRate, setBaudRate] = useState<number>(115200);
 
   // Serial input box state handled by useSerialIO

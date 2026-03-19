@@ -24,6 +24,23 @@ type CompilationResultType = "success" | "error" | null;
 
 const logger = new Logger("useCompileAndRun");
 
+/** Resets Arduino CLI status to idle after the standard 2-second delay. */
+function scheduleCliIdle(setArduinoCliStatus: (s: "idle" | "compiling" | "success" | "error") => void) {
+  setTimeout(() => {
+    setArduinoCliStatus("idle");
+  }, 2000);
+}
+
+/** Determines where the current code came from (fixes S3776 — extracted from handleCompileAndStart). */
+function determineCodeSource(
+  editorRef: { current: { getValue: () => string } | null },
+  tabs: Array<{ content: string }>,
+): "editor" | "tabs" | "state" {
+  if (editorRef.current) return "editor";
+  if (tabs[0]?.content) return "tabs";
+  return "state";
+}
+
 // reused helpers from previous hooks
 type SimulationStatus = "running" | "stopped" | "paused";
 type CliStatus = "idle" | "compiling" | "success" | "error";
@@ -604,13 +621,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     logger.info(`[CLIENT] Compile & Start with ${payload.headers.length} headers`);
     logger.info(`[CLIENT] Code length: ${mainSketchCode.length} bytes`);
     
-    // Determine code source (editor > tabs > state)
-    const determineCodeSource = (): "editor" | "tabs" | "state" => {
-      if (params.editorRef.current) return "editor";
-      if (params.tabs[0]?.content) return "tabs";
-      return "state";
-    };
-    const codeSource = determineCodeSource();
+    // Determine code source (editor > tabs > state) — helper is module-level (fixes S3776)
+    const codeSource = determineCodeSource(params.editorRef, params.tabs);
     logger.info(`[CLIENT] Main code from: ${codeSource}`);
     logger.info(
       `[CLIENT] Tabs: ${params.tabs
@@ -634,9 +646,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
           setCompilationStatus("success");
           setHasCompiledOnce(true);
           params.setIsModified(false);
-          setTimeout(() => {
-            setArduinoCliStatus("idle");
-          }, 2000);
+          scheduleCliIdle(setArduinoCliStatus);
         } else {
           handleCompileError(data);
           setCompilationStatus("error");
@@ -645,9 +655,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
             description: "Simulation will not start due to compilation errors.",
             variant: "destructive",
           });
-          setTimeout(() => {
-            setArduinoCliStatus("idle");
-          }, 2000);
+          scheduleCliIdle(setArduinoCliStatus);
         }
       },
       onError: () => {
@@ -658,9 +666,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
           description: "Simulation will not start due to compilation errors.",
           variant: "destructive",
         });
-        setTimeout(() => {
-          setArduinoCliStatus("idle");
-        }, 2000);
+        scheduleCliIdle(setArduinoCliStatus);
       },
     });
   }, [

@@ -89,7 +89,6 @@ export function useSimulatorEffects({
   debugMessages,
   debugMessagesContainerRef,
   activeOutputTab,
-  serialEventQueueRef,
   isMac,
   compileMutationIsPending,
   startMutationIsPending,
@@ -102,14 +101,6 @@ export function useSimulatorEffects({
   setPendingPinConflicts,
   setAnalogPinsUsed,
 }: UseSimulatorEffectsProps) {
-  // Track refs used internally
-  if (serialEventQueueRef.current === undefined) {
-    // Noop - just ensuring variable is used
-  }
-  if (activeOutputTab === undefined) {
-    // Noop - just ensuring variable is used
-  }
-
   // Synchronize sketch analysis results (pins/modes/conflicts)
   const {
     analogPins,
