@@ -536,11 +536,8 @@ export function ArduinoBoard({
             title={showPWMValues ? "Hide I/O values" : "Show I/O values"}
             aria-label={showPWMValues ? "Hide I/O values" : "Show I/O values"}
           >
-            {showPWMValues ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {showPWMValues && <EyeOff className="h-4 w-4" />}
+            {!showPWMValues && <Eye className="h-4 w-4" />}
           </Button>
         </div>
       </div>
