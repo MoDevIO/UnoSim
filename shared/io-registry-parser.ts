@@ -270,6 +270,131 @@ function findLoopRanges(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Detect conflicts in pin mode and operation assignments.
+ * Returns { pinModeConflict, operationConflict, outputReadConflict, hasInputMode, hasOutputMode }
+ */
+function detectPinConflicts(
+  pmCalls: CallEntry[],
+  drCalls: CallEntry[],
+  dwCalls: CallEntry[],
+  arCalls: CallEntry[],
+  awCalls: CallEntry[],
+): {
+  pinModeConflict: boolean;
+  operationConflict: boolean;
+  outputReadConflict: boolean;
+  uniqueModes: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">;
+} {
+  const allModes = pmCalls.map((c) => c.mode!);
+  const uniqueModes = [...new Set(allModes)] as Array<
+    "INPUT" | "OUTPUT" | "INPUT_PULLUP"
+  >;
+
+  // TC 11: same pin configured with multiple DIFFERENT modes
+  const pinModeConflict = uniqueModes.length > 1;
+
+  // TC 9: pin set to INPUT/INPUT_PULLUP AND written via digital/analogWrite
+  const hasInputMode =
+    pmCalls.length > 0 &&
+    uniqueModes.some((mm) => mm === "INPUT" || mm === "INPUT_PULLUP");
+  const hasWrite = dwCalls.length > 0 || awCalls.length > 0;
+  const operationConflict = hasInputMode && hasWrite;
+
+  // TC 9b: pin set to OUTPUT AND read via digital/analogRead
+  const hasOutputMode =
+    pmCalls.length > 0 && uniqueModes.some((mm) => mm === "OUTPUT");
+  const hasRead = drCalls.length > 0 || arCalls.length > 0;
+  const outputReadConflict = hasOutputMode && hasRead;
+
+  return {
+    pinModeConflict,
+    operationConflict,
+    outputReadConflict,
+    uniqueModes,
+  };
+}
+
+/**
+ * Generate conflict message based on detected conflict type.
+ */
+function generateConflictMessage(
+  pinModeConflict: boolean,
+  operationConflict: boolean,
+  outputReadConflict: boolean,
+  uniqueModes: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">,
+): string {
+  if (pinModeConflict) {
+    return `Multiple modes: ${uniqueModes.join(", ")}`;
+  }
+  if (operationConflict) {
+    return `Write on ${uniqueModes
+      .filter((mm) => mm !== "OUTPUT")
+      .join("/")} pin`;
+  }
+  if (outputReadConflict) {
+    return "Read on OUTPUT pin";
+  }
+  return "";
+}
+
+/**
+ * Populate extended-view line arrays in IOPinRecord.
+ */
+function populateLineArrays(
+  record: IOPinRecord,
+  pmCalls: CallEntry[],
+  drCalls: CallEntry[],
+  dwCalls: CallEntry[],
+  arCalls: CallEntry[],
+  awCalls: CallEntry[],
+): void {
+  if (pmCalls.length > 0) {
+    record.pinModeLines = pmCalls.map((c) => c.line);
+    record.pinModeModes = pmCalls.map((c) => c.mode!);
+  }
+  if (drCalls.length > 0) {
+    record.digitalReadLines = drCalls.map((c) => c.line);
+  }
+  if (dwCalls.length > 0) {
+    record.digitalWriteLines = dwCalls.map((c) => c.line);
+  }
+  if (arCalls.length > 0) {
+    record.analogReadLines = arCalls.map((c) => c.line);
+  }
+  if (awCalls.length > 0) {
+    record.analogWriteLines = awCalls.map((c) => c.line);
+  }
+}
+
+/**
+ * Populate legacy fields for backward compatibility with runtime registry.
+ */
+function populateLegacyFields(
+  record: IOPinRecord,
+  pmCalls: CallEntry[],
+  drCalls: CallEntry[],
+  dwCalls: CallEntry[],
+  arCalls: CallEntry[],
+  awCalls: CallEntry[],
+): void {
+  if (pmCalls.length > 0) {
+    const allModes = pmCalls.map((c) => c.mode!);
+    const lastMode = allModes.at(-1);
+    record.pinMode =
+      lastMode === "INPUT" ? 0 : lastMode === "OUTPUT" ? 1 : 2;
+    record.definedAt = { line: pmCalls.at(-1)!.line };
+  }
+
+  const nonPmCalls = [...drCalls, ...dwCalls, ...arCalls, ...awCalls];
+  if (nonPmCalls.length > 0) {
+    record.usedAt = nonPmCalls.map((c) => ({
+      line: c.line,
+      operation: c.op,
+    }));
+  }
+}
+
+/**
  * Statically parse an Arduino sketch and return an IOPinRecord[] for every pin
  * usage found in the source code.
  *
@@ -358,28 +483,18 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
     const arCalls = calls.filter((c) => c.op === "analogRead");
     const awCalls = calls.filter((c) => c.op === "analogWrite");
 
-    const allModes = pmCalls.map((c) => c.mode!);
-    const uniqueModes = [...new Set(allModes)] as Array<
-      "INPUT" | "OUTPUT" | "INPUT_PULLUP"
-    >;
+    const conflicts = detectPinConflicts(
+      pmCalls,
+      drCalls,
+      dwCalls,
+      arCalls,
+      awCalls,
+    );
 
-    // TC 11: same pin configured with multiple DIFFERENT modes → conflict
-    const pinModeConflict = uniqueModes.length > 1;
-
-    // TC 9: pin set to INPUT/INPUT_PULLUP AND written via digital/analogWrite
-    const hasInputMode =
-      pmCalls.length > 0 &&
-      uniqueModes.some((mm) => mm === "INPUT" || mm === "INPUT_PULLUP");
-    const hasWrite = dwCalls.length > 0 || awCalls.length > 0;
-    const operationConflict = hasInputMode && hasWrite;
-
-    // TC 9b: pin set to OUTPUT AND read via digital/analogRead
-    const hasOutputMode =
-      pmCalls.length > 0 && uniqueModes.some((mm) => mm === "OUTPUT");
-    const hasRead = drCalls.length > 0 || arCalls.length > 0;
-    const outputReadConflict = hasOutputMode && hasRead;
-
-    const conflict = pinModeConflict || operationConflict || outputReadConflict;
+    const conflict =
+      conflicts.pinModeConflict ||
+      conflicts.operationConflict ||
+      conflicts.outputReadConflict;
 
     const record: IOPinRecord = {
       pin: label,
@@ -389,44 +504,31 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
 
     if (conflict) {
       record.conflict = true;
-      record.conflictMessage = pinModeConflict
-        ? `Multiple modes: ${uniqueModes.join(", ")}`
-        : operationConflict
-          ? `Write on ${uniqueModes
-              .filter((mm) => mm !== "OUTPUT")
-              .join("/")} pin`
-          : `Read on OUTPUT pin`;
+      record.conflictMessage = generateConflictMessage(
+        conflicts.pinModeConflict,
+        conflicts.operationConflict,
+        conflicts.outputReadConflict,
+        conflicts.uniqueModes,
+      );
     }
 
-    // ── New extended-view line arrays ────────────────────────────────────
-    if (pmCalls.length > 0) {
-      record.pinModeLines = pmCalls.map((c) => c.line);
-      record.pinModeModes = pmCalls.map((c) => c.mode!);
-    }
-    if (drCalls.length > 0)
-      record.digitalReadLines = drCalls.map((c) => c.line);
-    if (dwCalls.length > 0)
-      record.digitalWriteLines = dwCalls.map((c) => c.line);
-    if (arCalls.length > 0)
-      record.analogReadLines = arCalls.map((c) => c.line);
-    if (awCalls.length > 0)
-      record.analogWriteLines = awCalls.map((c) => c.line);
+    populateLineArrays(
+      record,
+      pmCalls,
+      drCalls,
+      dwCalls,
+      arCalls,
+      awCalls,
+    );
 
-    // ── Legacy fields (backward compat with runtime registry manager) ────
-    if (pmCalls.length > 0) {
-      const lastMode = allModes.at(-1);
-      record.pinMode =
-        lastMode === "INPUT" ? 0 : lastMode === "OUTPUT" ? 1 : 2;
-      record.definedAt = { line: pmCalls.at(-1)!.line };
-    }
-
-    const nonPmCalls = [...drCalls, ...dwCalls, ...arCalls, ...awCalls];
-    if (nonPmCalls.length > 0) {
-      record.usedAt = nonPmCalls.map((c) => ({
-        line: c.line,
-        operation: c.op,
-      }));
-    }
+    populateLegacyFields(
+      record,
+      pmCalls,
+      drCalls,
+      dwCalls,
+      arCalls,
+      awCalls,
+    );
 
     records.push(record);
   }
