@@ -36,6 +36,51 @@ function preprocessSvg(content: string): string {
   return content.replace(/<\?xml[^?]*\?>/g, "");
 }
 
+/**
+ * Parse pin number from a click-area element id (e.g. "pin-5-click", "pin-A2-click")
+ */
+function parsePinFromElement(el: Element): number | undefined {
+  const digitalMatch = el.id.match(/^pin-(\d+)-click$/);
+  if (digitalMatch) return Number.parseInt(digitalMatch[1], 10);
+  const analogMatch = el.id.match(/^pin-A(\d+)-click$/);
+  if (analogMatch) return 14 + Number.parseInt(analogMatch[1], 10);
+  return undefined;
+}
+
+type SliderPosition = {
+  pin: number;
+  leftPct: number;
+  topPct: number;
+  value: number;
+  sliderLen: number;
+  placement: "above" | "below";
+};
+
+/**
+ * Derive dialog placement from slider info and y-position.
+ * Extracted to fix S3358 (nested ternary).
+ */
+function getAnalogDialogPlacement(
+  info: SliderPosition | undefined,
+  topPct: number,
+): "above" | "below" {
+  if (info) return info.placement;
+  return topPct < 50 ? "below" : "above";
+}
+
+/**
+ * Read a CSS custom property from :root and parse it as a number (px or raw).
+ */
+function getCssNumber(prop: string, fallback: number): number {
+  try {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(prop).trim();
+    const n = Number.parseFloat(raw);
+    return Number.isNaN(n) ? fallback : n;
+  } catch {
+    return fallback;
+  }
+}
+
 // SVG viewBox dimensions (from ArduinoUno.svg)
 const VIEWBOX_WIDTH = 285.2;
 const VIEWBOX_HEIGHT = 209;
@@ -65,7 +110,6 @@ function getComputedSpacingToken(tokenName: string): number {
     return 4;
   }
 }
-
 export function ArduinoBoard({
   pinStates = [],
   isSimulationRunning = false,
@@ -352,54 +396,23 @@ export function ArduinoBoard({
 
       // Check for pin click
       const pinClick = target.closest('[id^="pin-"][id$="-click"]');
-      // debug logs removed
       if (pinClick && onPinToggle) {
-        // Match both digital pins (0-13) and analog pins (A0-A5)
-        const digitalMatch = pinClick.id.match(/pin-(\d+)-click/);
-        const analogMatch = pinClick.id.match(/pin-A(\d+)-click/);
-
-        let pin: number | undefined;
-        if (digitalMatch) {
-          pin = Number.parseInt(digitalMatch[1], 10);
-        } else if (analogMatch) {
-          // A0-A5 map to pins 14-19
-          pin = 14 + Number.parseInt(analogMatch[1], 10);
-        }
+        const pin = parsePinFromElement(pinClick);
 
         if (pin !== undefined) {
           const state = pinStates.find((p) => p.pin === pin);
-          // debug logs removed
-          // Determine if this analog pin was detected from code (analogRead)
           const usedAsAnalog = analogPins.includes(pin);
-          // Only open the analog dialog when this pin was actually used by analogRead
+
           if (pin >= 14 && pin <= 19 && onAnalogChange && usedAsAnalog) {
-            // Find slider position info if available
             const info = sliderPositions.find((s) => s.pin === pin);
             const val = state ? state.value : 0;
             const leftPct = info ? info.leftPct : 50;
             const topPct = info ? info.topPct : 50;
-            const placement = info
-              ? info.placement
-              : topPct < 50
-                ? "below"
-                : "above";
-            // Open dialog
-            setAnalogDialog({
-              open: true,
-              pin,
-              value: val,
-              leftPct,
-              topPct,
-              placement,
-            });
-          } else if (
-            state &&
-            (state.mode === "INPUT" || state.mode === "INPUT_PULLUP")
-          ) {
+            const placement = getAnalogDialogPlacement(info, topPct);
+            setAnalogDialog({ open: true, pin, value: val, leftPct, topPct, placement });
+          } else if (state && (state.mode === "INPUT" || state.mode === "INPUT_PULLUP")) {
             const newValue = state.value > 0 ? 0 : 1;
-            logger.debug(
-              `[ArduinoBoard] Pin ${pin} clicked, toggling to ${newValue}`,
-            );
+            logger.debug(`[ArduinoBoard] Pin ${pin} clicked, toggling to ${newValue}`);
             onPinToggle(pin, newValue);
           }
         }
@@ -413,14 +426,7 @@ export function ArduinoBoard({
         onReset();
       }
     },
-    [
-      onPinToggle,
-      onReset,
-      pinStates,
-      sliderPositions,
-      onAnalogChange,
-      analogPins,
-    ],
+    [onPinToggle, onReset, pinStates, sliderPositions, onAnalogChange, analogPins],
   );
 
   // Compute scale to fit both width and height
@@ -634,10 +640,10 @@ function AnalogDialogPortal(props: {
       svgEl.querySelector<SVGGraphicsElement>(`#pin-A${idx}-state`) ||
       svgEl.querySelector<SVGGraphicsElement>(`#pin-${dialog.pin}-state`);
     if (!el) return null;
-    const rect = (el as Element).getBoundingClientRect();
-    const dialogWidth = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-width-small').trim()) || 220;
-    const dialogHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-height-small').trim()) || 84;
-    const pointerOffset = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-offset-pointer').trim()) || 6;
+    const rect = el.getBoundingClientRect();
+    const dialogWidth = getCssNumber('--dialog-width-small', 220);
+    const dialogHeight = getCssNumber('--dialog-height-small', 84);
+    const pointerOffset = getCssNumber('--dialog-offset-pointer', 6);
     const viewportMargin = 8;
     let left = rect.left + rect.width / 2 - dialogWidth / 2;
     let top =
