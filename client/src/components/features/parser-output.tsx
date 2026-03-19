@@ -14,6 +14,9 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import * as React from "react";
 
+// Type alias for severity levels (S4323 - avoid union types)
+type SeverityLevel = 1 | 2 | 3;
+
 // Helper to convert pin mode number to label
 function getPinModeLabel(modeNum: number): string {
   switch (modeNum) {
@@ -128,7 +131,7 @@ export function ParserOutput({
     .no-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
   `;
 
-  const getSeverityIcon = (severity: 1 | 2 | 3) => {
+  const getSeverityIcon = (severity: SeverityLevel) => {
     switch (severity) {
       case 1:
         return <Info className="w-4 h-4 text-blue-400" />;
@@ -139,7 +142,7 @@ export function ParserOutput({
     }
   };
 
-  const getSeverityLabel = (severity: 1 | 2 | 3): string => {
+  const getSeverityLabel = (severity: SeverityLevel): string => {
     switch (severity) {
       case 1:
         return "Info";
@@ -150,7 +153,7 @@ export function ParserOutput({
     }
   };
 
-  const getSeverityColor = (severity: 1 | 2 | 3): string => {
+  const getSeverityColor = (severity: SeverityLevel): string => {
     switch (severity) {
       case 1:
         return "rgb(96 165 250)"; // blue-400
@@ -159,6 +162,105 @@ export function ParserOutput({
       case 3:
         return "rgb(248 113 113)"; // red-400
     }
+  };
+
+  /**
+   * Helper to render the pinmode cell with proper fallbacks.
+   * Reduces cognitive complexity by centralizing the nested ternary logic.
+   */
+  const renderPinModeCell = (
+    record: IOPinRecord,
+    pmModes: string[],
+    uniqueModes: string[],
+    hasConflict: boolean,
+    detailView: boolean,
+    ops: Array<{ operation: string }>,
+  ): JSX.Element => {
+    // If we have extracted modes from extended registry
+    if (pmModes.length > 0) {
+      return (
+        <div className="space-y-0.5 text-center">
+          {uniqueModes.map((mode) => {
+            const modeColor =
+              mode === "INPUT"
+                ? "text-blue-400"
+                : mode === "OUTPUT"
+                  ? "text-orange-400"
+                  : "text-green-400";
+            const modeLines = detailView
+              ? record.pinModeLines?.filter(
+                  (_, li) => record.pinModeModes?.[li] === mode,
+                )
+              : undefined;
+            return (
+              <div
+                key={`mode-${mode}-${record.pin}`}
+                className="flex flex-col items-center"
+              >
+                <div className="flex items-center justify-center gap-1">
+                  <span className={modeColor}>{mode}</span>
+                  {hasConflict && (
+                    <span
+                      className="text-red-400 font-bold"
+                      title={record.conflictMessage}
+                    >
+                      !
+                    </span>
+                  )}
+                </div>
+                {modeLines && modeLines.length > 0 && (
+                  <div className="text-ui-xs text-blue-400">
+                    {modeLines
+                      .map((l) => (l === "runtime" ? "runtime" : `L${l}`))
+                      .join(", ")}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // If record has legacy pinMode defined
+    if (record.defined && record.pinMode !== undefined) {
+      const modeColor =
+        record.pinMode === 0
+          ? "text-blue-400"
+          : record.pinMode === 1
+            ? "text-orange-400"
+            : "text-green-400";
+      const modeLabel = getPinModeLabel(record.pinMode);
+      return (
+        <div className="text-center">
+          <span className={modeColor}>{modeLabel}</span>
+        </div>
+      );
+    }
+
+    // If digital operations exist but no mode defined
+    const hasDigitalOps = ops.some(
+      (u) =>
+        u.operation.includes("digitalRead") ||
+        u.operation.includes("digitalWrite"),
+    );
+    if (
+      (record.digitalReadLines?.length ?? 0) > 0 ||
+      (record.digitalWriteLines?.length ?? 0) > 0 ||
+      hasDigitalOps
+    ) {
+      return (
+        <div
+          className="flex items-center justify-center"
+          title="pinMode() missing"
+        >
+          <X className="w-4 h-4 text-red-500" />
+        </div>
+      );
+    }
+
+    // Default: no mode info
+    return <span className="text-gray-400">—</span>;
   };
 
   const totalErrors = messages.filter((m) => m.severity === 3).length;
@@ -487,8 +589,8 @@ export function ParserOutput({
                             );
                         return (
                           <div className="space-y-0.5 text-center">
-                            {lines.map((line, i) => (
-                              <div key={i} className="text-ui-xs">
+                            {lines.map((line) => (
+                              <div key={`line-${line}`} className="text-ui-xs">
                                 {line === "runtime" ? (
                                   <span className="text-yellow-400 italic">
                                     runtime
@@ -569,86 +671,13 @@ export function ParserOutput({
                               hasConflict && "border-2 border-red-500",
                             )}
                           >
-                            {pmModes.length > 0 ? (
-                              <div className="space-y-0.5 text-center">
-                                {uniqueModes.map((mode, i) => {
-                                  const modeColor =
-                                    mode === "INPUT"
-                                      ? "text-blue-400"
-                                      : mode === "OUTPUT"
-                                        ? "text-orange-400"
-                                        : "text-green-400";
-                                  // In extended mode, also show line numbers per mode
-                                  const modeLines = detailView
-                                    ? record.pinModeLines?.filter(
-                                        (_, li) =>
-                                          record.pinModeModes?.[li] === mode,
-                                      )
-                                    : undefined;
-                                  return (
-                                    <div
-                                      key={i}
-                                      className="flex flex-col items-center"
-                                    >
-                                      <div className="flex items-center justify-center gap-1">
-                                        <span className={modeColor}>
-                                          {mode}
-                                        </span>
-                                        {hasConflict && (
-                                          <span
-                                            className="text-red-400 font-bold"
-                                            title={record.conflictMessage}
-                                          >
-                                            !
-                                          </span>
-                                        )}
-                                      </div>
-                                      {modeLines && modeLines.length > 0 && (
-                                        <div className="text-ui-xs text-blue-400">
-                                          {modeLines.map((l) =>
-                                            l === "runtime"
-                                              ? "runtime"
-                                              : `L${l}`,
-                                          ).join(", ")}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : record.defined &&
-                              record.pinMode !== undefined ? (
-                              <div className="text-center">
-                                <span
-                                  className={
-                                    record.pinMode === 0
-                                      ? "text-blue-400"
-                                      : record.pinMode === 1
-                                        ? "text-orange-400"
-                                        : "text-green-400"
-                                  }
-                                >
-                                  {record.pinMode === 0
-                                    ? "INPUT"
-                                    : record.pinMode === 1
-                                      ? "OUTPUT"
-                                      : "INPUT_PULLUP"}
-                                </span>
-                              </div>
-                            ) : (record.digitalReadLines?.length ?? 0) > 0 ||
-                              (record.digitalWriteLines?.length ?? 0) > 0 ||
-                              ops.some((u) =>
-                                u.operation.includes("digitalRead") ||
-                                u.operation.includes("digitalWrite"),
-                              ) ? (
-                              <div
-                                className="flex items-center justify-center"
-                                title="pinMode() missing"
-                              >
-                                <X className="w-4 h-4 text-red-500" />
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">—</span>
+                            {renderPinModeCell(
+                              record,
+                              pmModes,
+                              uniqueModes,
+                              hasConflict,
+                              detailView,
+                              ops,
                             )}
                           </td>
 
