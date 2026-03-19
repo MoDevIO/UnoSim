@@ -195,7 +195,7 @@ interface LoopRange {
 
 /**
  * Generate loop values based on operator and limits.
- * Helper to reduce cognitive complexity in findLoopRanges.
+ * Uses data-driven approach to reduce cognitive complexity.
  */
 function generateLoopValues(
   start: number,
@@ -203,20 +203,35 @@ function generateLoopValues(
   limitVal: number,
 ): number[] {
   const values: number[] = [];
-  if (op === "<") {
-    for (let i = start; i < limitVal && values.length <= 20; i++)
-      values.push(i);
-  } else if (op === "<=") {
-    for (let i = start; i <= limitVal && values.length <= 20; i++)
-      values.push(i);
-  } else if (op === ">") {
-    for (let i = start; i > limitVal && values.length <= 20; i--)
-      values.push(i);
-  } else if (op === ">=") {
-    for (let i = start; i >= limitVal && values.length <= 20; i--)
-      values.push(i);
+  const compareFunc = getComparisonFunction(op);
+  if (!compareFunc) return values;
+
+  const direction = op === ">" || op === ">=" ? -1 : 1;
+  let i = start;
+  while (values.length <= 20) {
+    if (!compareFunc(i, limitVal)) break;
+    values.push(i);
+    i += direction;
   }
   return values;
+}
+
+/**
+ * Get comparison function for a given operator string.
+ */
+function getComparisonFunction(op: string): ((a: number, b: number) => boolean) | null {
+  switch (op) {
+    case "<":
+      return (a, b) => a < b;
+    case "<=":
+      return (a, b) => a <= b;
+    case ">":
+      return (a, b) => a > b;
+    case ">=":
+      return (a, b) => a >= b;
+    default:
+      return null;
+  }
 }
 
 /**
@@ -356,6 +371,46 @@ function generateConflictMessage(
 }
 
 /**
+ * Process an expanded for-loop variable and add entries to the list.
+ */
+function processLoopExpansion(
+  loop: LoopRange,
+  op: OpName,
+  secondArg: string,
+  entries: CallEntry[],
+): void {
+  for (const pinId of loop.values) {
+    if (pinId < 0 || pinId > 19) continue;
+    if (op === "pinMode") {
+      const mode = MODE_MAP[secondArg];
+      if (!mode) continue;
+      entries.push({ op, pinId, line: loop.startLine, mode });
+    } else {
+      entries.push({ op, pinId, line: loop.startLine });
+    }
+  }
+}
+
+/**
+ * Process a statically-resolved pin and add entry to the list.
+ */
+function processStaticPin(
+  pinId: number,
+  op: OpName,
+  secondArg: string,
+  callLine: number,
+  entries: CallEntry[],
+): void {
+  if (op === "pinMode") {
+    const mode = MODE_MAP[secondArg];
+    if (!mode) return;
+    entries.push({ op, pinId, line: callLine, mode });
+  } else {
+    entries.push({ op, pinId, line: callLine });
+  }
+}
+
+/**
  * Process a single function call and add entries to the entries list.
  * Handles for-loop expansion and static pin resolution.
  */
@@ -376,16 +431,7 @@ function processCallExpression(
   );
 
   if (loop) {
-    for (const pinId of loop.values) {
-      if (pinId < 0 || pinId > 19) continue;
-      if (op === "pinMode") {
-        const mode = MODE_MAP[secondArg];
-        if (!mode) continue;
-        entries.push({ op, pinId, line: loop.startLine, mode });
-      } else {
-        entries.push({ op, pinId, line: loop.startLine });
-      }
-    }
+    processLoopExpansion(loop, op, secondArg, entries);
     return;
   }
 
@@ -393,13 +439,7 @@ function processCallExpression(
   const pinId = resolvePin(pinExpr, syms, arrays);
   if (pinId === undefined) return; // TC 8: dynamic → skip (runtime only)
 
-  if (op === "pinMode") {
-    const mode = MODE_MAP[secondArg];
-    if (!mode) return; // mode not statically resolvable
-    entries.push({ op, pinId, line: callLine, mode });
-  } else {
-    entries.push({ op, pinId, line: callLine });
-  }
+  processStaticPin(pinId, op, secondArg, callLine, entries);
 }
 
 /**
