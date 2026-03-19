@@ -82,7 +82,7 @@ export class LocalCompiler {
       this.compileTimeoutMs = 60000;
     }
 
-    const spawnIsMock = (spawn as unknown as { mock?: object })?.mock !== undefined;
+    const spawnIsMock = typeof (spawn as any).mock !== 'undefined';
 
     return { usingTestEnv, coverageActive, spawnIsMock };
   }

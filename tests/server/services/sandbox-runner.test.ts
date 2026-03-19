@@ -237,13 +237,13 @@ import { SandboxRunner } from "../../../server/services/sandbox-runner";
 import { LocalCompiler } from "../../../server/services/local-compiler";
 
 // Typed aliases to avoid `as any` for common mocks
-const spawnMock = spawn as unknown as Mock<any, any[]>;
-const execSyncMock = execSync as unknown as Mock<any, any[]>;
-const mkdirMock = mkdir as unknown as Mock<any, any[]>;
-const writeFileMock = writeFile as unknown as Mock<any, any[]>;
-const rmMock = rm as unknown as Mock<any, any[]>;
-const chmodMock = chmod as unknown as Mock<any, any[]>;
-const renameMock = rename as unknown as Mock<any, any[]>;
+const spawnMock = vi.mocked(spawn);
+const execSyncMock = vi.mocked(execSync);
+const mkdirMock = vi.mocked(mkdir);
+const writeFileMock = vi.mocked(writeFile);
+const rmMock = vi.mocked(rm);
+const chmodMock = vi.mocked(chmod);
+const renameMock = vi.mocked(rename);
 
 type SandboxRunnerWithEnsureDocker = SandboxRunner & {
   ensureDockerChecked: () => Promise<void>;
