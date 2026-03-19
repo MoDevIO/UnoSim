@@ -23,6 +23,16 @@ const logger = new Logger("useWebSocketHandler");
 // NOTE: We intentionally keep OutputLine as a shared type from @shared/schema to
 // avoid duplicating the definition across components.
 
+// ─── Regex patterns (extracted to module level) ────────────────────────────
+/** Match "Pin Xx is..." messages (e.g., "Pin 13 is...") – S5843 fix (use .exec()) */
+const PIN_MESSAGE_RE = /Pin\s+(\S+)\s+is/;
+
+/** Extract pin key from Arduino parser message (e.g., "Pin 13 is..." → "13") */
+function extractPinKeyFromMessage(msg: string): string | null {
+  const match = PIN_MESSAGE_RE.exec(msg);
+  return match?.[1] ?? null;
+}
+
 export type UseWebSocketHandlerParams = {
   // read-only state used inside the handler
   simulationStatus: "running" | "stopped" | "paused";
@@ -314,12 +324,6 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     const analogPinsFromRegistry = extractAnalogPinsFromRegistry(registry);
     updateAnalogPinsUsed(analogPinsFromRegistry);
     updatePinStatesFromRegistry(registry);
-
-    // Helper: extract pin key from message (e.g., "Pin 13 is..." → "13")
-    const extractPinKeyFromMessage = (msg: string): string | null => {
-      const match = msg.match(/Pin\s+(\S+)\s+is/);
-      return match?.[1] ?? null;
-    };
 
     // Parser messages handling
     const usageWarnings: ParserMessage[] = [];
