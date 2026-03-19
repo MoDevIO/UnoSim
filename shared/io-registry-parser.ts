@@ -55,6 +55,8 @@ type OpName =
   | "analogRead"
   | "analogWrite";
 
+type PinModeType = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+
 interface CallEntry {
   op: OpName;
   pinId: number;
@@ -192,6 +194,48 @@ interface LoopRange {
 }
 
 /**
+ * Generate loop values based on operator and limits.
+ * Helper to reduce cognitive complexity in findLoopRanges.
+ */
+function generateLoopValues(
+  start: number,
+  op: string,
+  limitVal: number,
+): number[] {
+  const values: number[] = [];
+  if (op === "<") {
+    for (let i = start; i < limitVal && values.length <= 20; i++)
+      values.push(i);
+  } else if (op === "<=") {
+    for (let i = start; i <= limitVal && values.length <= 20; i++)
+      values.push(i);
+  } else if (op === ">") {
+    for (let i = start; i > limitVal && values.length <= 20; i--)
+      values.push(i);
+  } else if (op === ">=") {
+    for (let i = start; i >= limitVal && values.length <= 20; i--)
+      values.push(i);
+  }
+  return values;
+}
+
+/**
+ * Find matching closing brace in a string starting from a given position.
+ * Helper to reduce cognitive complexity in findLoopRanges.
+ */
+function findMatchingBrace(str: string, openPos: number): number {
+  let depth = 0;
+  for (let i = openPos; i < str.length; i++) {
+    if (str[i] === "{") depth++;
+    else if (str[i] === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return openPos;
+}
+
+/**
  * Find all for-loops with a numeric iteration variable over a statically
  * determinable range, e.g. `for (int i = 2; i < 4; i++)`.
  */
@@ -213,39 +257,16 @@ function findLoopRanges(
     const hasBrace = !!m[5];
     if (Number.isNaN(limitVal)) continue;
 
-    const values: number[] = [];
-    if (op === "<")
-      for (let i = start; i < limitVal && values.length <= 20; i++)
-        values.push(i);
-    if (op === "<=")
-      for (let i = start; i <= limitVal && values.length <= 20; i++)
-        values.push(i);
-    if (op === ">")
-      for (let i = start; i > limitVal && values.length <= 20; i--)
-        values.push(i);
-    if (op === ">=")
-      for (let i = start; i >= limitVal && values.length <= 20; i--)
-        values.push(i);
-
+    const values = generateLoopValues(start, op, limitVal);
     if (values.length === 0 || values.length > 20) continue;
 
     let endPos: number;
     if (hasBrace) {
       // Braced body: find the matching closing brace
       let openBrace = m.index + m[0].length - 1;
-      while (openBrace < clean.length && clean[openBrace] !== "{") openBrace++;
-      let depth = 0;
-      endPos = openBrace;
-      for (let i = openBrace; i < clean.length; i++) {
-        if (clean[i] === "{") depth++;
-        else if (clean[i] === "}") {
-          depth--;
-          if (depth === 0) {
-            endPos = i;
-            break;
-          }
-        }
-      }
+      while (openBrace < clean.length && clean[openBrace] !== "{")
+        openBrace++;
+      endPos = findMatchingBrace(clean, openBrace);
     } else {
       // Braceless body: the single statement ends at the first ";" after the header
       const bodyStart = m.index + m[0].length;
@@ -283,12 +304,10 @@ function detectPinConflicts(
   pinModeConflict: boolean;
   operationConflict: boolean;
   outputReadConflict: boolean;
-  uniqueModes: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">;
+  uniqueModes: PinModeType[];
 } {
   const allModes = pmCalls.map((c) => c.mode!);
-  const uniqueModes = [...new Set(allModes)] as Array<
-    "INPUT" | "OUTPUT" | "INPUT_PULLUP"
-  >;
+  const uniqueModes = [...new Set(allModes)] as PinModeType[];
 
   // TC 11: same pin configured with multiple DIFFERENT modes
   const pinModeConflict = uniqueModes.length > 1;
@@ -296,13 +315,13 @@ function detectPinConflicts(
   // TC 9: pin set to INPUT/INPUT_PULLUP AND written via digital/analogWrite
   const hasInputMode =
     pmCalls.length > 0 &&
-    uniqueModes.some((mm) => mm === "INPUT" || mm === "INPUT_PULLUP");
+    (uniqueModes.includes("INPUT") || uniqueModes.includes("INPUT_PULLUP"));
   const hasWrite = dwCalls.length > 0 || awCalls.length > 0;
   const operationConflict = hasInputMode && hasWrite;
 
   // TC 9b: pin set to OUTPUT AND read via digital/analogRead
   const hasOutputMode =
-    pmCalls.length > 0 && uniqueModes.some((mm) => mm === "OUTPUT");
+    pmCalls.length > 0 && uniqueModes.includes("OUTPUT");
   const hasRead = drCalls.length > 0 || arCalls.length > 0;
   const outputReadConflict = hasOutputMode && hasRead;
 
@@ -321,20 +340,66 @@ function generateConflictMessage(
   pinModeConflict: boolean,
   operationConflict: boolean,
   outputReadConflict: boolean,
-  uniqueModes: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">,
+  uniqueModes: PinModeType[],
 ): string {
   if (pinModeConflict) {
     return `Multiple modes: ${uniqueModes.join(", ")}`;
   }
   if (operationConflict) {
-    return `Write on ${uniqueModes
-      .filter((mm) => mm !== "OUTPUT")
-      .join("/")} pin`;
+    const nonOutputModes = uniqueModes.filter((mm) => mm !== "OUTPUT");
+    return `Write on ${nonOutputModes.join("/")} pin`;
   }
   if (outputReadConflict) {
     return "Read on OUTPUT pin";
   }
   return "";
+}
+
+/**
+ * Process a single function call and add entries to the entries list.
+ * Handles for-loop expansion and static pin resolution.
+ */
+function processCallExpression(
+  op: OpName,
+  pinExpr: string,
+  secondArg: string,
+  callPos: number,
+  callLine: number,
+  loops: LoopRange[],
+  syms: Map<string, number>,
+  arrays: Map<string, number[]>,
+  entries: CallEntry[],
+): void {
+  // ── Check for-loop variable expansion (TC 3) ──────────────────────────
+  const loop = loops.find(
+    (l) => l.startPos <= callPos && callPos <= l.endPos && l.variable === pinExpr,
+  );
+
+  if (loop) {
+    for (const pinId of loop.values) {
+      if (pinId < 0 || pinId > 19) continue;
+      if (op === "pinMode") {
+        const mode = MODE_MAP[secondArg];
+        if (!mode) continue;
+        entries.push({ op, pinId, line: loop.startLine, mode });
+      } else {
+        entries.push({ op, pinId, line: loop.startLine });
+      }
+    }
+    return;
+  }
+
+  // ── Statically resolve pin expression ────────────────────────────────
+  const pinId = resolvePin(pinExpr, syms, arrays);
+  if (pinId === undefined) return; // TC 8: dynamic → skip (runtime only)
+
+  if (op === "pinMode") {
+    const mode = MODE_MAP[secondArg];
+    if (!mode) return; // mode not statically resolvable
+    entries.push({ op, pinId, line: callLine, mode });
+  } else {
+    entries.push({ op, pinId, line: callLine });
+  }
 }
 
 /**
@@ -380,8 +445,7 @@ function populateLegacyFields(
   if (pmCalls.length > 0) {
     const allModes = pmCalls.map((c) => c.mode!);
     const lastMode = allModes.at(-1);
-    record.pinMode =
-      lastMode === "INPUT" ? 0 : lastMode === "OUTPUT" ? 1 : 2;
+    record.pinMode = convertModeToNumeric(lastMode);
     record.definedAt = { line: pmCalls.at(-1)!.line };
   }
 
@@ -392,6 +456,71 @@ function populateLegacyFields(
       operation: c.op,
     }));
   }
+}
+
+/**
+ * Convert PinMode string to numeric representation for legacy compatibility.
+ */
+function convertModeToNumeric(mode: PinMode | undefined): number {
+  switch (mode) {
+    case "INPUT":
+      return 0;
+    case "OUTPUT":
+      return 1;
+    case "INPUT_PULLUP":
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Build a single IOPinRecord from aggregated call entries for a pin.
+ */
+function buildPinRecord(
+  pinId: number,
+  calls: CallEntry[],
+  pmCalls: CallEntry[],
+  drCalls: CallEntry[],
+  dwCalls: CallEntry[],
+  arCalls: CallEntry[],
+  awCalls: CallEntry[],
+): IOPinRecord {
+  const label = pinId >= 14 ? `A${pinId - 14}` : String(pinId);
+
+  const conflicts = detectPinConflicts(
+    pmCalls,
+    drCalls,
+    dwCalls,
+    arCalls,
+    awCalls,
+  );
+
+  const conflict =
+    conflicts.pinModeConflict ||
+    conflicts.operationConflict ||
+    conflicts.outputReadConflict;
+
+  const record: IOPinRecord = {
+    pin: label,
+    pinId,
+    defined: calls.length > 0,
+  };
+
+  if (conflict) {
+    record.conflict = true;
+    record.conflictMessage = generateConflictMessage(
+      conflicts.pinModeConflict,
+      conflicts.operationConflict,
+      conflicts.outputReadConflict,
+      conflicts.uniqueModes,
+    );
+  }
+
+  populateLineArrays(record, pmCalls, drCalls, dwCalls, arCalls, awCalls);
+  populateLegacyFields(record, pmCalls, drCalls, dwCalls, arCalls, awCalls);
+
+  return record;
 }
 
 /**
@@ -430,39 +559,17 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
     const callPos = m.index;
     const callLine = lineAt(clean, callPos);
 
-    // ── Check for-loop variable expansion (TC 3) ──────────────────────────
-    const loop = loops.find(
-      (l) =>
-        l.startPos <= callPos &&
-        callPos <= l.endPos &&
-        l.variable === pinExpr,
+    processCallExpression(
+      op,
+      pinExpr,
+      secondArg,
+      callPos,
+      callLine,
+      loops,
+      syms,
+      arrays,
+      entries,
     );
-
-    if (loop) {
-      for (const pinId of loop.values) {
-        if (pinId < 0 || pinId > 19) continue;
-        if (op === "pinMode") {
-          const mode = MODE_MAP[secondArg];
-          if (!mode) continue;
-          entries.push({ op, pinId, line: loop.startLine, mode });
-        } else {
-          entries.push({ op, pinId, line: loop.startLine });
-        }
-      }
-      continue;
-    }
-
-    // ── Statically resolve pin expression ────────────────────────────────
-    const pinId = resolvePin(pinExpr, syms, arrays);
-    if (pinId === undefined) continue; // TC 8: dynamic → skip (runtime only)
-
-    if (op === "pinMode") {
-      const mode = MODE_MAP[secondArg];
-      if (!mode) continue; // mode not statically resolvable
-      entries.push({ op, pinId, line: callLine, mode });
-    } else {
-      entries.push({ op, pinId, line: callLine });
-    }
   }
 
   // ── Aggregate entries by pinId ────────────────────────────────────────────
@@ -475,54 +582,15 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
   const records: IOPinRecord[] = [];
 
   for (const [pinId, calls] of pinMap) {
-    const label = pinId >= 14 ? `A${pinId - 14}` : String(pinId);
-
     const pmCalls = calls.filter((c) => c.op === "pinMode");
     const drCalls = calls.filter((c) => c.op === "digitalRead");
     const dwCalls = calls.filter((c) => c.op === "digitalWrite");
     const arCalls = calls.filter((c) => c.op === "analogRead");
     const awCalls = calls.filter((c) => c.op === "analogWrite");
 
-    const conflicts = detectPinConflicts(
-      pmCalls,
-      drCalls,
-      dwCalls,
-      arCalls,
-      awCalls,
-    );
-
-    const conflict =
-      conflicts.pinModeConflict ||
-      conflicts.operationConflict ||
-      conflicts.outputReadConflict;
-
-    const record: IOPinRecord = {
-      pin: label,
+    const record = buildPinRecord(
       pinId,
-      defined: calls.length > 0,
-    };
-
-    if (conflict) {
-      record.conflict = true;
-      record.conflictMessage = generateConflictMessage(
-        conflicts.pinModeConflict,
-        conflicts.operationConflict,
-        conflicts.outputReadConflict,
-        conflicts.uniqueModes,
-      );
-    }
-
-    populateLineArrays(
-      record,
-      pmCalls,
-      drCalls,
-      dwCalls,
-      arCalls,
-      awCalls,
-    );
-
-    populateLegacyFields(
-      record,
+      calls,
       pmCalls,
       drCalls,
       dwCalls,
