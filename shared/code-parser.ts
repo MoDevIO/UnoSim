@@ -39,6 +39,17 @@ const PARSER_PATTERNS = {
   FOR_NO_EXIT: /for\s*\(\s*[^;]+;\s*;\s*[^)]+\)/,
   LARGE_ARRAY: /\[\s*(\d{4,})\s*\]/,
   FUNCTION_DEF: /(?:void|int|bool|byte|long|float|double|char|String|unsigned\s+int|unsigned\s+long)\s+(\w+)\s*\([^)]*\)\s*\{/g,
+
+  // Comment patterns (consolidated from inline)
+  COMMENT_SINGLE_LINE: /\/\/.*$/gm,
+  COMMENT_MULTI_LINE: /\/\*[\s\S]*?\*\//g,
+
+  // Additional pin patterns (consolidated from inline)
+  PIN_MODE_ANY: /pinMode\s*\(\s*[^,)]+\s*,/,
+  DIGITAL_DYNAMIC_PIN: /digital(?:Read|Write)\s*\(\s*[^0-9A\s][^,)]*/,
+  
+  // Utility patterns
+  ANALOG_PIN_FORMAT: /^A\d+$/,
 } as const;
 
 interface PinModeCall {
@@ -648,10 +659,9 @@ export class CodeParser {
     }
 
     // Check for dynamic pin usage without any pinMode configuration
-    const hasPinModeCalls = /pinMode\s*\(\s*[^,)]+\s*,/.test(uncommentedCode);
+    const hasPinModeCalls = PARSER_PATTERNS.PIN_MODE_ANY.test(uncommentedCode);
     if (!hasPinModeCalls && !foundUnconfiguredVariable) {
-      const dynamicDigitalUse = /digital(?:Read|Write)\s*\(\s*[^0-9A\s][^,)]*/;
-      if (dynamicDigitalUse.test(uncommentedCode)) {
+      if (PARSER_PATTERNS.DIGITAL_DYNAMIC_PIN.test(uncommentedCode)) {
         messages.push({
           id: randomUUID(),
           type: "warning",
@@ -659,7 +669,7 @@ export class CodeParser {
           severity: 2 as SeverityLevel,
           message: "digitalRead/digitalWrite uses variable pins without any pinMode() calls. Configure pinMode for the pins being read/written.",
           suggestion: "pinMode(<pin>, INPUT);",
-          line: this.findLineNumber(code, /digital(?:Read|Write)\s*\(/),
+          line: this.findLineNumber(code, PARSER_PATTERNS.DIGITAL_READ_WRITE),
         });
       }
     }
@@ -781,9 +791,9 @@ export class CodeParser {
    */
   private removeComments(code: string): string {
     // Remove single-line comments
-    let result = code.replace(/\/\/.*$/gm, "");
+    let result = code.replace(PARSER_PATTERNS.COMMENT_SINGLE_LINE, "");
     // Remove multi-line comments
-    result = result.replace(/\/\*[\s\S]*?\*\//g, "");
+    result = result.replace(PARSER_PATTERNS.COMMENT_MULTI_LINE, "");
     return result;
   }
 
@@ -791,7 +801,7 @@ export class CodeParser {
    * Parse pin number from string (e.g., "13" or "A0")
    */
   private parsePinNumber(pinStr: string): number | undefined {
-    if (/^A\d+$/.test(pinStr)) {
+    if (PARSER_PATTERNS.ANALOG_PIN_FORMAT.test(pinStr)) {
       // Analog pin (A0-A5 map to 14-19 internally)
       const analogNum = Number.parseInt(pinStr.slice(1));
       if (analogNum >= 0 && analogNum <= 5) {

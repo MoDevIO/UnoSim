@@ -171,7 +171,9 @@ export function ArduinoBoard({
         setSvgContent(main);
         setOverlaySvgContent(overlay);
       })
-      .catch((err) => console.error("Failed to load Arduino SVGs:", err));
+      .catch(() => {
+        // Silently handle SVG loading failure
+      });
   }, []);
 
   // Listen for color changes from settings dialog (custom event)

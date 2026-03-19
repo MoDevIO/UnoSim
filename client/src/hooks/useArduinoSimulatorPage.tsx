@@ -537,7 +537,7 @@ export function useArduinoSimulatorPage() {
         description: "Code added to the appropriate location",
       });
     } else {
-      console.error("insertSuggestionSmartly method not available on editor");
+      // insertSuggestionSmartly method not available on editor
     }
   }, [suppressAutoStopOnce, toast]);
 
