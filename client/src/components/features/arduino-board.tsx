@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import { Cpu, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,79 @@ import { Logger } from "@shared/logger";
 import type { RuntimeSimulationStatus } from "@shared/types/arduino.types";
 
 const logger = new Logger("ArduinoBoard");
+
+type TelemetryData = {
+  intendedPinChangesPerSecond: number;
+  droppedPinChangesPerSecond: number;
+  batchesPerSecond: number;
+  avgStatesPerBatch: number;
+};
+
+/** Displays live telemetry metrics in the board header (debug mode). */
+const TelemetryMetrics = memo(function TelemetryMetrics({
+  telemetry,
+}: {
+  telemetry: TelemetryData | null;
+}) {
+  return (
+    <div
+      className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4"
+      data-testid="telemetry-metrics"
+    >
+      {telemetry ? (
+        <>
+          <div className="flex flex-col" data-testid="telemetry-pin-changes">
+            <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Pin Changes</span>
+            <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-pin-changes-value">
+              {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
+              {telemetry.droppedPinChangesPerSecond > 0 && (
+                <span className="ml-1 text-amber-400/80" data-testid="telemetry-dropped">
+                  ({telemetry.droppedPinChangesPerSecond.toFixed(0)} dropped)
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="flex flex-col" data-testid="telemetry-batching">
+            <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Batching</span>
+            <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-batching-value">
+              {telemetry.batchesPerSecond.toFixed(0)} bat/s ·{" "}
+              {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
+            </span>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col" data-testid="telemetry-loading">
+          <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Metrics</span>
+          <span className="text-sm font-mono text-cyan-400/50">…</span>
+        </div>
+      )}
+    </div>
+  );
+});
+
+/** Eye/EyeOff toggle button for I/O value visibility. */
+const VisibilityToggle = memo(function VisibilityToggle({
+  showPWMValues,
+  onToggle,
+}: {
+  showPWMValues: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center ml-3">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+        onClick={onToggle}
+        title={showPWMValues ? "Hide I/O values" : "Show I/O values"}
+        aria-label={showPWMValues ? "Hide I/O values" : "Show I/O values"}
+      >
+        {showPWMValues ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </Button>
+    </div>
+  );
+});
 
 export interface PinState {
   pin: number;
@@ -457,43 +530,31 @@ export function ArduinoBoard({
     };
   }, [svgContent]);
 
-  // Modify main SVG (static, just styles)
-  const getModifiedSvg = (): string => {
+  // Derived SVG strings (memoized to avoid recomputation on every render)
+  const modifiedSvg = useMemo(() => {
     if (!svgContent) return "";
     let modified = preprocessSvg(svgContent);
-    
-    // Replace the default board color (brand-primary token) in the SVG with the chosen color.
     try {
       const DEFAULT_BOARD_HEX = '#0f7391';
       modified = modified.replace(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
-    } catch {
-      // Ignore regex errors
-    }
-    
-    // Apply opacity based on simulation status
+    } catch { /* ignore regex errors */ }
     const opacity = simulationStatus === "running" ? 1 : 0.35;
-    modified = modified.replace(
+    return modified.replace(
       /<svg([^>]*)>/,
       `<svg$1 style="width: 100%; height: 100%; display: block; opacity: ${opacity};" preserveAspectRatio="xMidYMid meet">`,
     );
-    return modified;
-  };
+  }, [svgContent, boardColor, simulationStatus]);
 
-  // Modify overlay SVG (interactive, with click handlers)
-  const getOverlaySvg = (): string => {
+  const overlaySvg = useMemo(() => {
     if (!overlaySvgContent) return "";
-    let modified = preprocessSvg(overlaySvgContent);
-    
-    // Add cursor pointer class for click areas
-    modified = modified.replaceAll('class="click-area"', 'class="click-area cursor-pointer"');
-
-    // Position absolutely and fill space
-    modified = modified.replace(
-      /<svg([^>]*)>/,
-      `<svg$1 style="width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0;" preserveAspectRatio="xMidYMid meet">`,
-    );
+    const modified = preprocessSvg(overlaySvgContent)
+      .replaceAll('class="click-area"', 'class="click-area cursor-pointer"')
+      .replace(
+        /<svg([^>]*)>/,
+        `<svg$1 style="width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0;" preserveAspectRatio="xMidYMid meet">`,
+      );
     return modified;
-  };
+  }, [overlaySvgContent]);
 
   return (
     <div className="h-full flex flex-col bg-card border-t border-border">
@@ -503,49 +564,13 @@ export function ArduinoBoard({
           <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
           <span className="sr-only">Arduino UNO Board</span>
           {debugMode && isSimulationRunning && (
-            <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4" data-testid="telemetry-metrics">
-              {telemetry ? (
-                <>
-                  <div className="flex flex-col" data-testid="telemetry-pin-changes">
-                    <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Pin Changes</span>
-                    <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-pin-changes-value">
-                      {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
-                      {telemetry.droppedPinChangesPerSecond > 0 && (
-                        <span className="ml-1 text-amber-400/80" data-testid="telemetry-dropped">
-                          ({telemetry.droppedPinChangesPerSecond.toFixed(0)} dropped)
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex flex-col" data-testid="telemetry-batching">
-                    <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Batching</span>
-                    <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-batching-value">
-                      {telemetry.batchesPerSecond.toFixed(0)} bat/s · {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col" data-testid="telemetry-loading">
-                  <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Metrics</span>
-                  <span className="text-sm font-mono text-cyan-400/50">…</span>
-                </div>
-              )}
-            </div>
+            <TelemetryMetrics telemetry={telemetry} />
           )}
         </div>
-        <div className="flex items-center ml-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-            onClick={() => setShowPWMValues(!showPWMValues)}
-            title={showPWMValues ? "Hide I/O values" : "Show I/O values"}
-            aria-label={showPWMValues ? "Hide I/O values" : "Show I/O values"}
-          >
-            {showPWMValues && <EyeOff className="h-4 w-4" />}
-            {!showPWMValues && <Eye className="h-4 w-4" />}
-          </Button>
-        </div>
+        <VisibilityToggle
+          showPWMValues={showPWMValues}
+          onToggle={() => setShowPWMValues(!showPWMValues)}
+        />
       </div>
 
       {/* Board Visualization */}
@@ -583,14 +608,14 @@ export function ArduinoBoard({
               {/* Main SVG - static background */}
               <div
                 style={{ position: "relative", width: "100%", height: "100%" }}
-                dangerouslySetInnerHTML={{ __html: getModifiedSvg() }}
+                dangerouslySetInnerHTML={{ __html: modifiedSvg }}
               />
               {/* Overlay SVG - dynamic visualization and click handling */}
               <div
                 ref={overlayRef}
                 className="arduino-overlay absolute inset-0 w-full h-full"
                 onClick={handleOverlayClick}
-                dangerouslySetInnerHTML={{ __html: getOverlaySvg() }}
+                dangerouslySetInnerHTML={{ __html: overlaySvg }}
               />
               {/* analog dialog is rendered as a portal to avoid affecting layout */}
               <AnalogDialogPortal
