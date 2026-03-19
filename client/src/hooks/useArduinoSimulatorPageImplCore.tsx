@@ -159,7 +159,7 @@ export function useArduinoSimulatorPageCore() {
   // Helper to request the global Settings dialog to open (App listens for this event)
   const openSettings = () => {
     try {
-      window.dispatchEvent(new CustomEvent("open-settings"));
+      globalThis.window?.dispatchEvent(new CustomEvent("open-settings"));
     } catch {}
   };
 
