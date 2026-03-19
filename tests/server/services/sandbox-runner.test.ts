@@ -260,13 +260,22 @@ describe("SandboxRunner", () => {
   const wait = (ms = 10) =>
     new Promise((resolve) => originalSetTimeout(resolve, ms));
 
+  // Type-safe helpers for accessing test-only properties
+  function getProcessController(runner: SandboxRunner): SandboxRunnerWithController['processController'] {
+    return (runner as unknown as SandboxRunnerWithController).processController;
+  }
+
+  function getEnsureDockerChecked(runner: SandboxRunner): () => Promise<void> {
+    return (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked;
+  }
+
   // helper to fire data through the ProcessController wrapper
   function sendStdout(runner: SandboxRunner, data: string | Buffer) {
-    const pc = (runner as unknown as SandboxRunnerWithController).processController;
+    const pc = getProcessController(runner);
     pc.stdoutListeners.forEach((cb: (buf: Buffer) => void) => cb(Buffer.from(data)));
   }
   function _sendStderr(runner: SandboxRunner, data: string | Buffer) {
-    const pc = (runner as unknown as SandboxRunnerWithController).processController;
+    const pc = getProcessController(runner);
     pc.stderrListeners.forEach((cb: (buf: Buffer) => void) => cb(Buffer.from(data)));
   }
 
@@ -331,7 +340,7 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       
       // Explicitly wait for docker checks to complete
-      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
+      await getEnsureDockerChecked(runner)();
       
       const status = runner.getSandboxStatus();
 
@@ -347,7 +356,7 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       
       // Explicitly wait for docker checks
-      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
+      await getEnsureDockerChecked(runner)();
       
       const status = runner.getSandboxStatus();
 
@@ -362,7 +371,7 @@ describe("SandboxRunner", () => {
 
       const runner = new SandboxRunner();
       
-      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
+      await getEnsureDockerChecked(runner)();
       
       const status = runner.getSandboxStatus();
 
@@ -376,7 +385,7 @@ describe("SandboxRunner", () => {
 
       const runner = new SandboxRunner();
       
-      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
+      await getEnsureDockerChecked(runner)();
       
       const status = runner.getSandboxStatus();
 
@@ -391,7 +400,7 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       
       // Explicitly wait for initial docker checks
-      await (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked();
+      await getEnsureDockerChecked(runner)();
       
       const status1 = runner.getSandboxStatus();
       expect(status1.dockerAvailable).toBe(true); // Default mock returns success
@@ -616,7 +625,7 @@ describe("SandboxRunner", () => {
 
     it("should stop running process", async () => {
       const runner = new SandboxRunner();
-      const pc = (runner as unknown as SandboxRunnerWithController).processController;
+      const pc = getProcessController(runner);
       vi.spyOn(pc, 'hasProcess').mockReturnValue(true);
       vi.spyOn(pc, 'kill');
 
@@ -657,7 +666,7 @@ describe("SandboxRunner", () => {
 
       // configure runner state to appear running with a process attached
       runner['state'] = "running"; // just ensure property exists
-      const pc = (runner as unknown as SandboxRunnerWithController).processController;
+      const pc = getProcessController(runner);
       vi.spyOn(pc, 'hasProcess').mockReturnValue(true);
       vi.spyOn(pc, 'writeStdin');
 
@@ -695,7 +704,7 @@ describe("SandboxRunner", () => {
       await wait(50);
 
       // simulate huge data directly via controller listener
-      const pc = (runner as unknown as SandboxRunnerWithController).processController;
+      const pc = getProcessController(runner);
       const largeOutput = "x".repeat(101 * 1024 * 1024);
       pc.stdoutListeners.forEach((cb: (buf: Buffer) => void) => cb(Buffer.from(largeOutput)));
 
