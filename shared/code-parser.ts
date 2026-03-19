@@ -189,6 +189,237 @@ class PinCompatibilityChecker {
 }
 
 /**
+ * Specialized analyzer for Serial configuration issues
+ */
+class SerialConfigurationParser {
+  constructor(private readonly code: string) {}
+
+  parse(): ParserMessage[] {
+    const messages: ParserMessage[] = [];
+    const uncommentedCode = removeCommentsHelper(this.code);
+
+    // Check if Serial is used
+    const isSerialUsed = PARSER_PATTERNS.SERIAL_USAGE.test(uncommentedCode);
+    if (!isSerialUsed) return messages;
+
+    // Check Serial.begin
+    const serialBeginExists = PARSER_PATTERNS.SERIAL_BEGIN.test(this.code);
+    const serialBeginActive = PARSER_PATTERNS.SERIAL_BEGIN.test(uncommentedCode);
+
+    if (!serialBeginActive) {
+      messages.push({
+        id: randomUUID(),
+        type: "warning",
+        category: "serial",
+        severity: 2 as SeverityLevel,
+        message: serialBeginExists
+          ? "Serial.begin() is commented out! Serial output may not work correctly."
+          : "Serial.begin(115200) is missing in setup(). Serial output may not work correctly.",
+        suggestion: "Serial.begin(115200);",
+        line: findLineNumberHelper(this.code, /Serial\s*\.\s*begin/),
+      });
+    } else {
+      const baudRateMatch = uncommentedCode.match(PARSER_PATTERNS.SERIAL_BEGIN_EXTRACT);
+      if (baudRateMatch && baudRateMatch[1] !== "115200") {
+        messages.push({
+          id: randomUUID(),
+          type: "warning",
+          category: "serial",
+          severity: 2 as SeverityLevel,
+          message: `Serial.begin(${baudRateMatch[1]}) uses wrong baud rate. This simulator expects Serial.begin(115200).`,
+          suggestion: "Serial.begin(115200);",
+          line: findLineNumberHelper(
+            this.code,
+            new RegExp(String.raw`Serial\s*\.\s*begin\s*\(\s*${baudRateMatch[1]}`),
+          ),
+        });
+      }
+    }
+
+    // Check for while (!Serial) antipattern
+    if (PARSER_PATTERNS.SERIAL_WHILE_NOT.test(uncommentedCode)) {
+      messages.push({
+        id: randomUUID(),
+        type: "warning",
+        category: "serial",
+        severity: 2 as SeverityLevel,
+        message: "while (!Serial) loop detected. This blocks the simulator - not recommended.",
+        suggestion: "// while (!Serial) { }",
+        line: findLineNumberHelper(this.code, PARSER_PATTERNS.SERIAL_WHILE_NOT),
+      });
+    }
+
+    // Check for Serial.read() without Serial.available() check
+    const lines = uncommentedCode.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (PARSER_PATTERNS.SERIAL_READ.test(line)) {
+        let hasAvailableCheck = false;
+        for (let j = Math.max(0, i - 3); j <= i; j++) {
+          if (PARSER_PATTERNS.SERIAL_AVAILABLE.test(lines[j])) {
+            hasAvailableCheck = true;
+            break;
+          }
+        }
+        if (!hasAvailableCheck) {
+          messages.push({
+            id: randomUUID(),
+            type: "warning",
+            category: "serial",
+            severity: 2 as SeverityLevel,
+            message: "Serial.read() used without checking Serial.available(). This may return -1 when no data is available.",
+            suggestion: "if (Serial.available()) { }",
+            line: findLineNumberHelper(this.code, PARSER_PATTERNS.SERIAL_READ),
+          });
+          break;
+        }
+      }
+    }
+
+    return messages;
+  }
+}
+
+/**
+ * Specialized analyzer for structure (setup/loop) issues
+ */
+class StructureParser {
+  constructor(private readonly code: string) {}
+
+  parse(): ParserMessage[] {
+    const messages: ParserMessage[] = [];
+
+    const setupMatch = PARSER_PATTERNS.SETUP_FUNCTION.test(this.code);
+    const anySetup = PARSER_PATTERNS.SETUP_ANY.test(this.code);
+
+    if (!setupMatch && anySetup) {
+      messages.push({
+        id: randomUUID(),
+        type: "warning",
+        category: "structure",
+        severity: 2 as SeverityLevel,
+        message: "setup() has parameters, but Arduino setup() should have no parameters.",
+        suggestion: "void setup()",
+        line: findLineNumberHelper(this.code, PARSER_PATTERNS.SETUP_ANY),
+      });
+    } else if (!setupMatch) {
+      messages.push({
+        id: randomUUID(),
+        type: "error",
+        category: "structure",
+        severity: 3 as SeverityLevel,
+        message: "Missing void setup() function. Every Arduino program needs setup().",
+        suggestion: "void setup() { }",
+      });
+    }
+
+    const loopMatch = PARSER_PATTERNS.LOOP_FUNCTION.test(this.code);
+    const anyLoop = PARSER_PATTERNS.LOOP_ANY.test(this.code);
+
+    if (!loopMatch && anyLoop) {
+      messages.push({
+        id: randomUUID(),
+        type: "warning",
+        category: "structure",
+        severity: 2 as SeverityLevel,
+        message: "loop() has parameters, but Arduino loop() should have no parameters.",
+        suggestion: "void loop()",
+        line: findLineNumberHelper(this.code, PARSER_PATTERNS.LOOP_ANY),
+      });
+    } else if (!loopMatch) {
+      messages.push({
+        id: randomUUID(),
+        type: "error",
+        category: "structure",
+        severity: 3 as SeverityLevel,
+        message: "Missing void loop() function. Every Arduino program needs loop().",
+        suggestion: "void loop() { }",
+      });
+    }
+
+    return messages;
+  }
+}
+
+/**
+ * Helper function to remove comments (used by sub-parsers)
+ */
+function removeCommentsHelper(code: string): string {
+  let result = code.replace(PARSER_PATTERNS.COMMENT_SINGLE_LINE, "");
+  result = result.replace(PARSER_PATTERNS.COMMENT_MULTI_LINE, "");
+  return result;
+}
+
+/**
+ * Helper function to find line numbers (used by sub-parsers)
+ */
+function findLineNumberHelper(
+  code: string,
+  pattern: RegExp | string,
+): number | undefined {
+  const regex = typeof pattern === "string" ? new RegExp(pattern) : pattern;
+  const match = regex.exec(code);
+  if (!match) return undefined;
+  const upToMatch = code.slice(0, Math.max(0, match.index));
+  return upToMatch.split("\n").length;
+}
+
+/**
+ * Analyzer for pin conflicts (same pin used as digital and analog)
+ */
+class PinConflictAnalyzer {
+  constructor(private readonly code: string) {}
+
+  analyze(): ParserMessage[] {
+    const messages: ParserMessage[] = [];
+    const digitalPins = new Set<number>();
+    const digitalRegex = PARSER_PATTERNS.DIGITAL_WRITE_READ;
+    let match;
+
+    while ((match = digitalRegex.exec(this.code)) !== null) {
+      const pin = parsePinNumberHelper(match[1]);
+      if (pin !== undefined) digitalPins.add(pin);
+    }
+
+    const analogPins = new Set<number>();
+    const analogRegex = PARSER_PATTERNS.ANALOG_READ_WRITE;
+    while ((match = analogRegex.exec(this.code)) !== null) {
+      const pin = parsePinNumberHelper(match[1]);
+      if (pin !== undefined) analogPins.add(pin);
+    }
+
+    for (const pin of digitalPins) {
+      if (analogPins.has(pin)) {
+        const pinStr = pin >= 14 ? `A${pin - 14}` : `${pin}`;
+        messages.push({
+          id: randomUUID(),
+          type: "warning",
+          category: "hardware",
+          severity: 2 as SeverityLevel,
+          message: `Pin ${pinStr} used as both digital and analog. This may be unintended.`,
+          suggestion: `// Use separate pins for digital and analog`,
+        });
+      }
+    }
+    return messages;
+  }
+}
+
+/**
+ * Helper function for parsing pin numbers (used by sub-parsers)
+ */
+function parsePinNumberHelper(pinStr: string): number | undefined {
+  if (PARSER_PATTERNS.ANALOG_PIN_FORMAT.test(pinStr)) {
+    const analogNum = Number.parseInt(pinStr.slice(1));
+    if (analogNum >= 0 && analogNum <= 5) return 14 + analogNum;
+  } else {
+    const digitalNum = Number.parseInt(pinStr);
+    if (!Number.isNaN(digitalNum) && digitalNum >= 0 && digitalNum <= 19) return digitalNum;
+  }
+  return undefined;
+}
+
+/**
  * Specialized analyzer for performance issues
  */
 class PerformanceAnalyzer {
@@ -315,184 +546,16 @@ export class CodeParser {
    * Parse Serial configuration issues
    */
   parseSerialConfiguration(code: string): ParserMessage[] {
-    const messages: ParserMessage[] = [];
-
-    // Remove comments to check active code
-    const uncommentedCode = this.removeComments(code);
-
-    // Check if Serial is actually used (print, println, read, write, available, etc.)
-    const isSerialUsed = PARSER_PATTERNS.SERIAL_USAGE.test(uncommentedCode);
-
-    // Only check Serial.begin if Serial is actually being used
-    if (!isSerialUsed) {
-      return messages; // No Serial usage, no warnings needed
-    }
-
-    // Check if Serial.begin exists at all
-    const serialBeginExists = PARSER_PATTERNS.SERIAL_BEGIN.test(code);
-    const serialBeginActive = PARSER_PATTERNS.SERIAL_BEGIN.test(uncommentedCode);
-
-    if (!serialBeginActive) {
-      if (serialBeginExists) {
-        // Serial.begin exists but is commented out
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "serial",
-          severity: 2 as SeverityLevel,
-          message:
-            "Serial.begin() is commented out! Serial output may not work correctly.",
-          suggestion: "Serial.begin(115200);",
-          line: this.findLineNumber(code, /Serial\s*\.\s*begin/),
-        });
-      } else {
-        // Serial.begin missing entirely
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "serial",
-          severity: 2 as SeverityLevel,
-          message:
-            "Serial.begin(115200) is missing in setup(). Serial output may not work correctly.",
-          suggestion: "Serial.begin(115200);",
-        });
-      }
-    } else {
-      // Check baudrate
-      const baudRateMatch = uncommentedCode.match(
-        PARSER_PATTERNS.SERIAL_BEGIN_EXTRACT,
-      );
-      if (baudRateMatch && baudRateMatch[1] !== "115200") {
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "serial",
-          severity: 2 as SeverityLevel,
-          message: `Serial.begin(${baudRateMatch[1]}) uses wrong baud rate. This simulator expects Serial.begin(115200).`,
-          suggestion: "Serial.begin(115200);",
-          line: this.findLineNumber(
-            code,
-            new RegExp(String.raw`Serial\s*\.\s*begin\s*\(\s*${baudRateMatch[1]}`),
-          ),
-        });
-      }
-    }
-
-    // Check for while (!Serial) antipattern
-    if (PARSER_PATTERNS.SERIAL_WHILE_NOT.test(uncommentedCode)) {
-      messages.push({
-        id: randomUUID(),
-        type: "warning",
-        category: "serial",
-        severity: 2 as SeverityLevel,
-        message:
-          "while (!Serial) loop detected. This blocks the simulator - not recommended.",
-        suggestion: "// while (!Serial) { }",
-        line: this.findLineNumber(code, PARSER_PATTERNS.SERIAL_WHILE_NOT),
-      });
-    }
-
-    // Check for Serial.read() without Serial.available() check
-    const lines = uncommentedCode.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      // Check if line has Serial.read() but not preceded by Serial.available check
-      if (PARSER_PATTERNS.SERIAL_READ.test(line)) {
-        // Look back to see if there's an available check nearby
-        let hasAvailableCheck = false;
-        for (let j = Math.max(0, i - 3); j <= i; j++) {
-          if (PARSER_PATTERNS.SERIAL_AVAILABLE.test(lines[j])) {
-            hasAvailableCheck = true;
-            break;
-          }
-        }
-
-        if (!hasAvailableCheck) {
-          messages.push({
-            id: randomUUID(),
-            type: "warning",
-            category: "serial",
-            severity: 2 as SeverityLevel,
-            message:
-              "Serial.read() used without checking Serial.available(). This may return -1 when no data is available.",
-            suggestion: "if (Serial.available()) { }",
-            line: this.findLineNumber(code, PARSER_PATTERNS.SERIAL_READ),
-          });
-          break; // Only report once
-        }
-      }
-    }
-
-    return messages;
+    const parser = new SerialConfigurationParser(code);
+    return parser.parse();
   }
 
   /**
    * Parse structure issues (setup/loop)
    */
   parseStructure(code: string): ParserMessage[] {
-    const messages: ParserMessage[] = [];
-
-    // Check for void setup() with proper signatures
-    const setupMatch = PARSER_PATTERNS.SETUP_FUNCTION.test(code);
-
-    // Check for any setup() function (even with wrong signature)
-    const anySetup = PARSER_PATTERNS.SETUP_ANY.test(code);
-
-    if (!setupMatch && anySetup) {
-      // setup() exists but has parameters
-      messages.push({
-        id: randomUUID(),
-        type: "warning",
-        category: "structure",
-        severity: 2 as SeverityLevel,
-        message:
-          "setup() has parameters, but Arduino setup() should have no parameters.",
-        suggestion: "void setup()",
-        line: this.findLineNumber(code, PARSER_PATTERNS.SETUP_ANY),
-      });
-    } else if (!setupMatch) {
-      messages.push({
-        id: randomUUID(),
-        type: "error",
-        category: "structure",
-        severity: 3 as SeverityLevel,
-        message:
-          "Missing void setup() function. Every Arduino program needs setup().",
-        suggestion: "void setup() { }",
-      });
-    }
-
-    // Check for void loop()
-    const loopMatch = PARSER_PATTERNS.LOOP_FUNCTION.test(code);
-
-    // Check for any loop() function
-    const anyLoop = PARSER_PATTERNS.LOOP_ANY.test(code);
-
-    if (!loopMatch && anyLoop) {
-      // loop() exists but has parameters
-      messages.push({
-        id: randomUUID(),
-        type: "warning",
-        category: "structure",
-        severity: 2 as SeverityLevel,
-        message:
-          "loop() has parameters, but Arduino loop() should have no parameters.",
-        suggestion: "void loop()",
-        line: this.findLineNumber(code, PARSER_PATTERNS.LOOP_ANY),
-      });
-    } else if (!loopMatch) {
-      messages.push({
-        id: randomUUID(),
-        type: "error",
-        category: "structure",
-        severity: 3 as SeverityLevel,
-        message:
-          "Missing void loop() function. Every Arduino program needs loop().",
-        suggestion: "void loop() { }",
-      });
-    }
-
-    return messages;
+    const parser = new StructureParser(code);
+    return parser.parse();
   }
 
   /**
@@ -569,7 +632,7 @@ export class CodeParser {
    */
   private getLoopConfiguredPins(code: string): Set<number> {
     const configuredPins = new Set<number>();
-    for (const { pin } of this.getLoopPinModeCalls(this.removeComments(code))) {
+    for (const { pin } of this.getLoopPinModeCalls(removeCommentsHelper(code))) {
       configuredPins.add(pin);
     }
     return configuredPins;
@@ -583,7 +646,7 @@ export class CodeParser {
     
     while ((match = analogWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
-      const pin = this.parsePinNumber(pinStr);
+      const pin = parsePinNumberHelper(pinStr);
       if (pin !== undefined && !PWM_PINS.includes(pin)) {
         messages.push({
           id: randomUUID(),
@@ -592,7 +655,7 @@ export class CodeParser {
           severity: 2 as SeverityLevel,
           message: `analogWrite(${pinStr}, ...) used on pin ${pin}, which doesn't support PWM on Arduino UNO. PWM pins: 3, 5, 6, 9, 10, 11.`,
           suggestion: `// Use PWM pin instead: analogWrite(3, value);`,
-          line: this.findLineNumber(code, new RegExp(String.raw`analogWrite\s*\(\s*${pinStr}`)),
+          line: findLineNumberHelper(code, new RegExp(String.raw`analogWrite\s*\(\s*${pinStr}`)),
         });
       }
     }
@@ -608,7 +671,7 @@ export class CodeParser {
     while ((match = digitalReadWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
       if (/^\d+/.test(pinStr) || /^A\d+/.test(pinStr)) {
-        const pin = this.parsePinNumber(pinStr);
+        const pin = parsePinNumberHelper(pinStr);
         if (!pinModeSet.has(pinStr) && (pin === undefined || !loopConfiguredPins.has(pin)) && !warnedPins.has(pinStr)) {
           warnedPins.add(pinStr);
           messages.push({
@@ -618,7 +681,7 @@ export class CodeParser {
             severity: 2 as SeverityLevel,
             message: `Pin ${pinStr} used with digitalRead/digitalWrite but pinMode() was not called for this pin.`,
             suggestion: `pinMode(${pinStr}, INPUT);`,
-            line: this.findLineNumber(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
+            line: findLineNumberHelper(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
           });
         }
       }
@@ -651,7 +714,7 @@ export class CodeParser {
             severity: 2 as SeverityLevel,
             message: `Variable '${pinStr}' used in digitalRead/digitalWrite but no pinMode() call found for this variable.`,
             suggestion: `pinMode(${pinStr}, INPUT);`,
-            line: this.findLineNumber(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
+            line: findLineNumberHelper(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
           });
           foundUnconfiguredVariable = true;
         }
@@ -669,7 +732,7 @@ export class CodeParser {
           severity: 2 as SeverityLevel,
           message: "digitalRead/digitalWrite uses variable pins without any pinMode() calls. Configure pinMode for the pins being read/written.",
           suggestion: "pinMode(<pin>, INPUT);",
-          line: this.findLineNumber(code, PARSER_PATTERNS.DIGITAL_READ_WRITE),
+          line: findLineNumberHelper(code, PARSER_PATTERNS.DIGITAL_READ_WRITE),
         });
       }
     }
@@ -679,7 +742,7 @@ export class CodeParser {
 
   parseHardwareCompatibility(code: string): ParserMessage[] {
     const messages: ParserMessage[] = [];
-    const uncommentedCode = this.removeComments(code);
+    const uncommentedCode = removeCommentsHelper(code);
     const pinChecker = new PinCompatibilityChecker(uncommentedCode);
 
     // Check analogWrite on non-PWM pins
@@ -704,13 +767,13 @@ export class CodeParser {
     // Check OUTPUT pins being read
     const outputPins = new Set<number>();
     for (const [pin, entry] of pinModeCalls.entries()) {
-      const pinNum = this.parsePinNumber(pin);
+      const pinNum = parsePinNumberHelper(pin);
       if (pinNum !== undefined && entry.modes.includes("OUTPUT")) outputPins.add(pinNum);
     }
     for (const { pin, mode } of this.getLoopPinModeCalls(uncommentedCode)) {
       if (mode === "OUTPUT") outputPins.add(pin);
     }
-    messages.push(...pinChecker.checkOutputPinsReadAsInput(uncommentedCode, outputPins, (p) => this.parsePinNumber(p)));
+    messages.push(...pinChecker.checkOutputPinsReadAsInput(uncommentedCode, outputPins, parsePinNumberHelper));
 
     return messages;
   }
@@ -719,52 +782,15 @@ export class CodeParser {
    * Parse pin conflicts (same pin used as digital and analog)
    */
   parsePinConflicts(code: string): ParserMessage[] {
-    const messages: ParserMessage[] = [];
-
-    // Find all pins used in digitalWrite/digitalRead/pinMode
-    const digitalPins = new Set<number>();
-    const digitalRegex = PARSER_PATTERNS.DIGITAL_WRITE_READ;
-    let match;
-    while ((match = digitalRegex.exec(code)) !== null) {
-      const pin = this.parsePinNumber(match[1]);
-      if (pin !== undefined) {
-        digitalPins.add(pin);
-      }
-    }
-
-    // Find all pins used in analogRead/analogWrite
-    const analogPins = new Set<number>();
-    const analogRegex = PARSER_PATTERNS.ANALOG_READ_WRITE;
-    while ((match = analogRegex.exec(code)) !== null) {
-      const pin = this.parsePinNumber(match[1]);
-      if (pin !== undefined) {
-        analogPins.add(pin);
-      }
-    }
-
-    // Find conflicts
-    for (const pin of digitalPins) {
-      if (analogPins.has(pin)) {
-        const pinStr = pin >= 14 ? `A${pin - 14}` : `${pin}`;
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "hardware",
-          severity: 2 as SeverityLevel,
-          message: `Pin ${pinStr} used as both digital (digitalWrite/digitalRead) and analog (analogRead/analogWrite). This may be unintended.`,
-          suggestion: `// Use separate pins for digital and analog`,
-        });
-      }
-    }
-
-    return messages;
+    const analyzer = new PinConflictAnalyzer(code);
+    return analyzer.analyze();
   }
 
   /**
    * Parse performance issues
    */
   parsePerformance(code: string): ParserMessage[] {
-    const uncommentedCode = this.removeComments(code);
+    const uncommentedCode = removeCommentsHelper(code);
     const analyzer = new PerformanceAnalyzer(uncommentedCode, code);
 
     return [
@@ -786,50 +812,4 @@ export class CodeParser {
     ];
   }
 
-  /**
-   * Remove comments from code (both single-line and multi-line)
-   */
-  private removeComments(code: string): string {
-    // Remove single-line comments
-    let result = code.replace(PARSER_PATTERNS.COMMENT_SINGLE_LINE, "");
-    // Remove multi-line comments
-    result = result.replace(PARSER_PATTERNS.COMMENT_MULTI_LINE, "");
-    return result;
-  }
-
-  /**
-   * Parse pin number from string (e.g., "13" or "A0")
-   */
-  private parsePinNumber(pinStr: string): number | undefined {
-    if (PARSER_PATTERNS.ANALOG_PIN_FORMAT.test(pinStr)) {
-      // Analog pin (A0-A5 map to 14-19 internally)
-      const analogNum = Number.parseInt(pinStr.slice(1));
-      if (analogNum >= 0 && analogNum <= 5) {
-        return 14 + analogNum;
-      }
-    } else {
-      // Digital pin
-      const digitalNum = Number.parseInt(pinStr);
-      if (!Number.isNaN(digitalNum) && digitalNum >= 0 && digitalNum <= 19) {
-        return digitalNum;
-      }
-    }
-    return undefined;
-  }
-
-  /**
-   * Find line number where pattern occurs
-   */
-  private findLineNumber(
-    code: string,
-    pattern: RegExp | string,
-  ): number | undefined {
-    const regex = typeof pattern === "string" ? new RegExp(pattern) : pattern;
-    const match = regex.exec(code);
-    if (!match) return undefined;
-
-    const upToMatch = code.slice(0, Math.max(0, match.index));
-    const lineNumber = upToMatch.split("\n").length;
-    return lineNumber;
-  }
 }

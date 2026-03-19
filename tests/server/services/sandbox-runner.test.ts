@@ -266,7 +266,8 @@ describe("SandboxRunner", () => {
   }
 
   function getEnsureDockerChecked(runner: SandboxRunner): () => Promise<void> {
-    return (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked;
+    const ensureDockerChecked = (runner as unknown as SandboxRunnerWithEnsureDocker).ensureDockerChecked;
+    return ensureDockerChecked.bind(runner);
   }
 
   // helper to fire data through the ProcessController wrapper
