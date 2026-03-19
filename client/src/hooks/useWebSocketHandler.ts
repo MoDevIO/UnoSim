@@ -315,6 +315,12 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     updateAnalogPinsUsed(analogPinsFromRegistry);
     updatePinStatesFromRegistry(registry);
 
+    // Helper: extract pin key from message (e.g., "Pin 13 is..." → "13")
+    const extractPinKeyFromMessage = (msg: string): string | null => {
+      const match = msg.match(/Pin\s+(\S+)\s+is/);
+      return match?.[1] ?? null;
+    };
+
     // Parser messages handling
     const usageWarnings: ParserMessage[] = [];
     if (usageWarnings.length > 0) {
@@ -322,13 +328,11 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
         const cleanedPrev = prev.filter((existing) => {
           if (existing.category !== "pins") return true;
           if (!existing.message.includes("pinMode() was never called")) return true;
-          const pinMatch = existing.message.match(/Pin\s+(\S+)\s+is/);
-          if (!pinMatch) return true;
-          const pinKey = pinMatch[1];
-          const isReplaced = usageWarnings.some((m) => {
-            const newMatch = m.message.match(/Pin\s+(\S+)\s+is/);
-            return newMatch?.[1] === pinKey;
-          });
+          const pinKey = extractPinKeyFromMessage(existing.message);
+          if (!pinKey) return true;
+          const isReplaced = usageWarnings.some((m) =>
+            extractPinKeyFromMessage(m.message) === pinKey,
+          );
           return !isReplaced;
         });
 

@@ -322,11 +322,10 @@ export class ArduinoCompiler {
           
           // Replace the #include with the actual header content
           const replacement = `// --- Start of ${header.name} ---\n${header.content}\n// --- End of ${header.name} ---`;
+          const escapedInclude = includeStatement.split('"')[1].replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+          const patternString = String.raw`#include\s*"${escapedInclude}"`;
           processedCode = processedCode.replace(
-            new RegExp(
-              String.raw`#include\s*"${includeStatement.split('"')[1].replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}"`,
-              "g",
-            ),
+            new RegExp(patternString, "g"),
             replacement,
           );
 
@@ -742,7 +741,7 @@ export class ArduinoCompiler {
     try {
       const hexCandidates = (await readdir(buildOutputDir))
         .filter((entry) => entry.endsWith(".hex"))
-        .sort();
+        .sort((a, b) => a.localeCompare(b));
       const preferred = hexCandidates.find((entry) => !entry.includes("with_bootloader")) || hexCandidates[0];
       if (preferred) {
         return await readFile(join(buildOutputDir, preferred));

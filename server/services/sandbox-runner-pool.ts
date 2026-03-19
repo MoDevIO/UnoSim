@@ -141,13 +141,15 @@ class SandboxRunnerPool {
     );
 
     if (this.queue.length > 0) {
-      const entry = this.queue.shift()!;
-      clearTimeout(entry.timeout);
-      pooledRunner.inUse = true;
-      entry.resolve(runner);
-      this.logger.debug(
-        `[SandboxRunnerPool] Queued request granted (queue: ${this.queue.length} remaining)`,
-      );
+      const entry = this.queue.shift();
+      if (entry) {
+        clearTimeout(entry.timeout);
+        pooledRunner.inUse = true;
+        entry.resolve(runner);
+        this.logger.debug(
+          `[SandboxRunnerPool] Queued request granted (queue: ${this.queue.length} remaining)`,
+        );
+      }
     }
   }
 

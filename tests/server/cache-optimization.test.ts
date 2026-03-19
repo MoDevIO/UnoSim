@@ -61,6 +61,11 @@ function fetchHttp(
   });
 }
 
+function hashCode(code: string, headers?: unknown): string {
+  const payload = JSON.stringify({ code, headers: headers || [] });
+  return createHash("sha256").update(payload).digest("hex");
+}
+
 describe("Compilation Cache Optimization", () => {
   let API_BASE: string;
   let stubServer: http.Server;
@@ -69,13 +74,8 @@ describe("Compilation Cache Optimization", () => {
   const CACHE_TTL_MS = 200; // Short TTL for testing (200ms)
   const compilationCache = new Map<
     string,
-    { output: string; cachedAt: number; headers?: any }
+    { output: string; cachedAt: number; headers?: unknown }
   >();
-
-  function hashCode(code: string, headers?: any): string {
-    const payload = JSON.stringify({ code, headers: headers || [] });
-    return createHash("sha256").update(payload).digest("hex");
-  }
 
   beforeAll(async () => {
     await new Promise<void>((resolve) => {

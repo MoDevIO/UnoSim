@@ -153,7 +153,7 @@ export function useEditorCommands(
     let formatted = code;
 
     // 1. replace tabs with spaces
-    formatted = formatted.replace(/\t/g, "  ");
+    formatted = formatted.replaceAll("\t", "  ");
 
     // 2. collapse multiple spaces into two
     formatted = formatted.replace(/ {2,}/g, "  ");

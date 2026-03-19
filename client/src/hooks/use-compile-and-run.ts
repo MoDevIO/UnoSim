@@ -325,7 +325,9 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         errs = data.errors;
         errText = errs
           .map((e) => {
-            const location = `${e.file}${e.line ? `:${e.line}` : ""}${e.column ? `:${e.column}` : ""}`;
+            const lineStr = e.line ? `:${e.line}` : "";
+            const columnStr = e.column ? `:${e.column}` : "";
+            const location = `${e.file}${lineStr}${columnStr}`;
             return `${location} ${e.type}: ${e.message}`;
           })
           .join("\n");
@@ -602,12 +604,13 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     logger.info(`[CLIENT] Compile & Start with ${payload.headers.length} headers`);
     logger.info(`[CLIENT] Code length: ${mainSketchCode.length} bytes`);
     
-    // Determine code source
-    const codeSource = params.editorRef.current 
-      ? "editor" 
-      : params.tabs[0]?.content 
-        ? "tabs" 
-        : "state";
+    // Determine code source (editor > tabs > state)
+    const determineCodeSource = (): "editor" | "tabs" | "state" => {
+      if (params.editorRef.current) return "editor";
+      if (params.tabs[0]?.content) return "tabs";
+      return "state";
+    };
+    const codeSource = determineCodeSource();
     logger.info(`[CLIENT] Main code from: ${codeSource}`);
     logger.info(
       `[CLIENT] Tabs: ${params.tabs

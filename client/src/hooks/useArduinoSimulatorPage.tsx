@@ -37,8 +37,6 @@ import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import { isMac } from "@/lib/platform";
 import {
-  CSS_CLASSES,
-  getStatusInfo,
   DIGITAL_PIN_COUNT,
   ANALOG_PIN_COUNT,
 } from "@/components/simulator/ArduinoSimulatorPage.styles";
@@ -185,12 +183,10 @@ export function useArduinoSimulatorPage() {
   
   const {
     isConnected,
-    lastMessage,
+    lastMessage: _lastMessage,
     sendMessage: sendMessageRaw,
     sendMessageImmediate,
   } = useWebSocket();
-  // Mark some hook values as intentionally read to avoid TS unused-local errors
-  void lastMessage;
 
   // Wrapper for sendMessage that sends raw to backend
   const sendMessage = useCallback((message: IncomingArduinoMessage) => {
@@ -610,9 +606,8 @@ export function useArduinoSimulatorPage() {
     toast,
   });
 
-  // Status info helper (imported from styles file)
-  const statusInfo = getStatusInfo(compilationStatus as "compiling" | "success" | "error" | "ready", isModified);
-  void statusInfo;
+  // Status info can be computed dynamically when needed per getStatusInfo
+
   const simControlBusy =
     compileMutation.isPending ||
     startMutation.isPending ||
@@ -632,14 +627,6 @@ export function useArduinoSimulatorPage() {
       setShowCompilationOutput(true);
     }
   }, [simulationStatus, setShowCompilationOutput]);
-
-  const stopDisabled =
-    (simulationStatus !== "running" && simulationStatus !== "paused") ||
-    stopMutation.isPending;
-
-  const buttonsClassName = CSS_CLASSES.BUTTON_HOVER;
-  void stopDisabled;
-  void buttonsClassName;
 
   const state = {
     showErrorGlitch,

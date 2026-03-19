@@ -23,7 +23,7 @@ import type { IOPinRecord } from "./schema";
 import type { PinMode } from "@shared/types/arduino.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Constants
+// Constants & Regex Patterns
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Built-in Arduino pin-name constants mapped to numeric IDs (0-19). */
@@ -38,6 +38,15 @@ const MODE_MAP: Record<string, PinMode> = {
   OUTPUT: "OUTPUT",     "1": "OUTPUT",
   INPUT_PULLUP: "INPUT_PULLUP", "2": "INPUT_PULLUP",
 };
+
+// Regex patterns for symbol resolution (S6353: use \w instead of [A-Za-z0-9_])
+const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
+const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
+const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
+const ARRAY_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
+const FOR_LOOP_PATTERN = /\bfor\s*\(\s*(?:(?:byte|int|uint8_t|short)\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>]=?)\s*(\w+)\s*;[^)]*\)\s*(\{)?/g;
+const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/;
+const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*((?:[A-Za-z_]\w*\s*\[\s*\d+\s*\])|(?:[A-Za-z_]\w*|\d+))(?:\s*,\s*([A-Za-z_]\w*|\d+))?/g;
 
 type OpName =
   | "pinMode"
@@ -63,11 +72,11 @@ interface CallEntry {
  */
 function stripComments(code: string): string {
   // Multi-line comments → spaces (preserve newlines for correct line counting)
-  let result = code.replace(/\/\*[\s\S]*?\*\//g, (m) =>
-    m.replace(/[^\n]/g, " "),
+  let result = code.replaceAll(/\/\*[\s\S]*?\*\//g, (m) =>
+    m.replaceAll(/[^\n]/g, " "),
   );
   // Single-line comments → spaces (preserve line length)
-  result = result.replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
+  result = result.replaceAll(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
   return result;
 }
 
@@ -88,25 +97,20 @@ function buildSymbols(clean: string): Map<string, number> {
   const syms = new Map<string, number>(Object.entries(BUILTIN_CONSTANTS));
 
   // #define NAME VALUE
-  const defineRe = /^#define\s+([A-Za-z_]\w*)\s+([A-Za-z0-9_]+)/gm;
   let m: RegExpExecArray | null;
-  while ((m = defineRe.exec(clean)) !== null) {
+  while ((m = DEFINE_PATTERN.exec(clean)) !== null) {
     const v = resolveToken(m[2], syms);
     if (v !== undefined) syms.set(m[1], v);
   }
 
   // const int/byte NAME = VALUE;
-  const constRe =
-    /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z0-9_]+)\s*;/g;
-  while ((m = constRe.exec(clean)) !== null) {
+  while ((m = CONST_PATTERN.exec(clean)) !== null) {
     const v = resolveToken(m[2], syms);
     if (v !== undefined) syms.set(m[1], v);
   }
 
   // plain int/byte NAME = VALUE; (common in Arduino, e.g. int led = 12;)
-  const varRe =
-    /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z0-9_]+)\s*;/g;
-  while ((m = varRe.exec(clean)) !== null) {
+  while ((m = VAR_PATTERN.exec(clean)) !== null) {
     if (syms.has(m[1])) continue; // already set by const variant
     const v = resolveToken(m[2], syms);
     if (v !== undefined) syms.set(m[1], v);
@@ -138,10 +142,8 @@ function buildArrays(
   syms: Map<string, number>,
 ): Map<string, number[]> {
   const arrays = new Map<string, number[]>();
-  const re =
-    /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(clean)) !== null) {
+  while ((m = ARRAY_PATTERN.exec(clean)) !== null) {
     const vals = m[2]
       .split(",")
       .map((v) => resolveToken(v.trim(), syms));
@@ -163,7 +165,7 @@ function resolvePin(
 ): number | undefined {
   const t = expr.trim();
   // Array access: name[index]
-  const arrM = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/.exec(t);
+  const arrM = ARRAY_ACCESS_PATTERN.exec(t);
   if (arrM) {
     const arr = arrays.get(arrM[1]);
     const idx = Number.parseInt(arrM[2], 10);
@@ -201,11 +203,9 @@ function findLoopRanges(
   // The opening brace (\{)? is made optional so that braceless single-statement
   // loop bodies are also handled, e.g.:
   //   for (int i = 1; i <= 6; i++) pinMode(i, INPUT);
-  const re =
-    /\bfor\s*\(\s*(?:(?:byte|int|uint8_t|short)\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>]=?)\s*([A-Za-z0-9_]+)\s*;[^)]*\)\s*(\{)?/g;
   let m: RegExpExecArray | null;
 
-  while ((m = re.exec(clean)) !== null) {
+  while ((m = FOR_LOOP_PATTERN.exec(clean)) !== null) {
     const variable = m[1];
     const start = Number.parseInt(m[2], 10);
     const op = m[3];
@@ -296,11 +296,9 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
    *   [2] pin expression: array-index form OR simple token/number
    *   [3] optional second argument (mode for pinMode, ignored otherwise)
    */
-  const callRe =
-    /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*((?:[A-Za-z_]\w*\s*\[\s*\d+\s*\])|(?:[A-Za-z_]\w*|\d+))(?:\s*,\s*([A-Za-z_]\w*|\d+))?/g;
 
   let m: RegExpExecArray | null;
-  while ((m = callRe.exec(clean)) !== null) {
+  while ((m = FUNCTION_CALL_PATTERN.exec(clean)) !== null) {
     const op = m[1] as OpName;
     const pinExpr = m[2].trim();
     const secondArg = (m[3] ?? "").trim();

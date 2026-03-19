@@ -14,6 +14,20 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import * as React from "react";
 
+// Helper to convert pin mode number to label
+function getPinModeLabel(modeNum: number): string {
+  switch (modeNum) {
+    case 0:
+      return "INPUT";
+    case 1:
+      return "OUTPUT";
+    case 2:
+      return "INPUT_PULLUP";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 interface ParserOutputProps {
   readonly messages: ParserMessage[];
   readonly ioRegistry?: IOPinRecord[];
@@ -72,15 +86,26 @@ export function ParserOutput({
     return labels[category] || category;
   };
 
+  // Helper: check if a pin has any mode operations
+  const hasPinModeInfo = (record: IOPinRecord): boolean =>
+    record.defined || (record.pinModeLines?.length ?? 0) > 0;
+
+  // Helper: check if a pin has any read operations
+  const hasReadOperations = (record: IOPinRecord): boolean =>
+    (record.digitalReadLines?.length ?? 0) > 0 ||
+    (record.analogReadLines?.length ?? 0) > 0;
+
+  // Helper: check if a pin has any write operations
+  const hasWriteOperations = (record: IOPinRecord): boolean =>
+    (record.digitalWriteLines?.length ?? 0) > 0 ||
+    (record.analogWriteLines?.length ?? 0) > 0;
+
   // A pin is "programmed" if it appears in the static or runtime registry
   const isPinProgrammed = React.useCallback(
     (record: IOPinRecord): boolean =>
-      record.defined ||
-      (record.pinModeLines?.length ?? 0) > 0 ||
-      (record.digitalReadLines?.length ?? 0) > 0 ||
-      (record.digitalWriteLines?.length ?? 0) > 0 ||
-      (record.analogReadLines?.length ?? 0) > 0 ||
-      (record.analogWriteLines?.length ?? 0) > 0 ||
+      hasPinModeInfo(record) ||
+      hasReadOperations(record) ||
+      hasWriteOperations(record) ||
       (record.usedAt?.length ?? 0) > 0,
     [],
   );
@@ -104,16 +129,36 @@ export function ParserOutput({
   `;
 
   const getSeverityIcon = (severity: 1 | 2 | 3) => {
-    if (severity === 1) return <Info className="w-4 h-4 text-blue-400" />;
-    if (severity === 2)
-      return <AlertTriangle className="w-4 h-4 text-yellow-400" />;
-    return <AlertCircle className="w-4 h-4 text-red-400" />;
+    switch (severity) {
+      case 1:
+        return <Info className="w-4 h-4 text-blue-400" />;
+      case 2:
+        return <AlertTriangle className="w-4 h-4 text-yellow-400" />;
+      case 3:
+        return <AlertCircle className="w-4 h-4 text-red-400" />;
+    }
   };
 
   const getSeverityLabel = (severity: 1 | 2 | 3): string => {
-    if (severity === 1) return "Info";
-    if (severity === 2) return "Warning";
-    return "Error";
+    switch (severity) {
+      case 1:
+        return "Info";
+      case 2:
+        return "Warning";
+      case 3:
+        return "Error";
+    }
+  };
+
+  const getSeverityColor = (severity: 1 | 2 | 3): string => {
+    switch (severity) {
+      case 1:
+        return "rgb(96 165 250)"; // blue-400
+      case 2:
+        return "rgb(250 204 21)"; // yellow-400
+      case 3:
+        return "rgb(248 113 113)"; // red-400
+    }
   };
 
   const totalErrors = messages.filter((m) => m.severity === 3).length;
@@ -221,12 +266,7 @@ export function ParserOutput({
                         key={message.id}
                         className="p-2 bg-muted/50 rounded border-l-2 cursor-pointer hover:bg-muted/70 transition-colors"
                         style={{
-                          borderLeftColor:
-                            message.severity === 1
-                              ? "rgb(96 165 250)" // blue-400
-                              : message.severity === 2
-                                ? "rgb(250 204 21)" // yellow-400
-                                : "rgb(248 113 113)", // red-400
+                          borderLeftColor: getSeverityColor(message.severity),
                         }}
                         onClick={() =>
                           message.line !== undefined &&
@@ -385,15 +425,10 @@ export function ParserOutput({
                         ops
                           .filter((u) => u.operation.includes("pinMode"))
                           .map((u) => {
-                            const m = u.operation.match(/pinMode:(\d+)/);
+                            const pinModeRe = /pinMode:(\d+)/;
+                            const m = pinModeRe.exec(u.operation);
                             const n = m ? Number.parseInt(m[1]) : -1;
-                            return n === 0
-                              ? "INPUT"
-                              : n === 1
-                                ? "OUTPUT"
-                                : n === 2
-                                  ? "INPUT_PULLUP"
-                                  : "UNKNOWN";
+                            return getPinModeLabel(n);
                           });
                       const uniqueModes = [...new Set(pmModes)];
 

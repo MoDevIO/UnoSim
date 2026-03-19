@@ -78,10 +78,10 @@ describe('WebSocket Telemetry Message Format', () => {
     // Verify frontend state would update
     expect(telemetryHistory.length).toBe(1);
     expect(lastHeartbeatAt).toBeDefined();
-    expect(lastHeartbeatAt! > 0).toBe(true);
+    expect(lastHeartbeatAt && lastHeartbeatAt > 0).toBe(true);
 
     // Verify Link State would be STABLE (less than 2 seconds old)
-    const timeSinceHeartbeat = Date.now() - lastHeartbeatAt!;
+    const timeSinceHeartbeat = Date.now() - (lastHeartbeatAt ?? 0);
     const linkStateStable = timeSinceHeartbeat < 2000;
     expect(linkStateStable).toBe(true);
 
@@ -102,7 +102,7 @@ describe('WebSocket Telemetry Message Format', () => {
     const delayedTimestamp = Date.now() - 3000;
     pushTelemetry(delayedTimestamp);
 
-    const timeSinceHeartbeat = Date.now() - lastHeartbeatAt!;
+    const timeSinceHeartbeat = Date.now() - (lastHeartbeatAt ?? 0);
     const linkStateStable = timeSinceHeartbeat < 2000;
 
     console.log(`\n⚠️ DELAYED PACKET TEST:`);

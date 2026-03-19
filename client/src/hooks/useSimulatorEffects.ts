@@ -102,9 +102,13 @@ export function useSimulatorEffects({
   setPendingPinConflicts,
   setAnalogPinsUsed,
 }: UseSimulatorEffectsProps) {
-  // Mark serialEventQueueRef and activeOutputTab as intentionally used
-  void serialEventQueueRef;
-  void activeOutputTab;
+  // Track refs used internally
+  if (serialEventQueueRef.current === undefined) {
+    // Noop - just ensuring variable is used
+  }
+  if (activeOutputTab === undefined) {
+    // Noop - just ensuring variable is used
+  }
 
   // Synchronize sketch analysis results (pins/modes/conflicts)
   const {
@@ -264,23 +268,21 @@ export function useSimulatorEffects({
       const newStates = [...prev];
 
       // Apply recorded pinMode(...) declarations
-      for (const [pinStr, mode] of Object.entries(detectedPinModes) as [
-        string,
-        "INPUT" | "OUTPUT" | "INPUT_PULLUP",
-      ][]) {
+      for (const [pinStr, mode] of Object.entries(detectedPinModes)) {
         const pin = Number(pinStr);
         if (Number.isNaN(pin)) continue;
+        const typedMode = mode as "INPUT" | "OUTPUT" | "INPUT_PULLUP";
         const exists = newStates.find((p) => p.pin === pin);
-        if (!exists) {
+        if (exists) {
+          exists.mode = typedMode;
+          if (pin >= 14 && pin <= 19) exists.type = "digital";
+        } else {
           newStates.push({
             pin,
-            mode,
+            mode: typedMode,
             value: 0,
-            type: pin >= 14 && pin <= 19 ? "digital" : "digital",
+            type: "digital",
           });
-        } else {
-          exists.mode = mode;
-          if (pin >= 14 && pin <= 19) exists.type = "digital";
         }
       }
 

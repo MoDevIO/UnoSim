@@ -39,7 +39,8 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
       runner.runSketch({
         code,
         onOutput: (line) => {
-          const match = line.match(/TIME:(\d+)/);
+          const matchRe = /TIME:(\d+)/;
+          const match = matchRe.exec(line);
           if (match) {
             const t = Number.parseInt(match[1]);
             timeValues.push(t);
@@ -93,7 +94,8 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
       runner.runSketch({
         code,
         onOutput: (line) => {
-          const match = line.match(/T:(\d+)/);
+          const timeRe = /T:(\d+)/;
+          const match = timeRe.exec(line);
           if (match) {
             timeReadings.push({ value: Number.parseInt(match[1]), isPaused: runner.isPaused });
           }
@@ -118,19 +120,17 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
                       if (prev.isPaused && curr.isPaused) {
                         // Während Pause: Max 50ms Drift erlaubt
                         expect(curr.value).toBeLessThanOrEqual(prev.value + 50);
-                      } else {
+                      } else if (!prev.isPaused && !curr.isPaused) {
                         // Wir vergleichen nur, wenn wir mindestens zwei aufeinanderfolgende 
                         // Events im gleichen Status ('running') haben.
-                        if (!prev.isPaused && !curr.isPaused) {
-                          // Falls die Zeit im Worker mal kurz "springt" (Event-Reordering in CI),
-                          // loggen wir das nur, anstatt den Test zu killen, SOLANGE der Wert
-                          // sich im plausiblen Bereich bewegt.
-                          if (curr.value < prev.value - 50) {
-                            console.warn(`CI Jitter detected: Time jumped from ${prev.value} to ${curr.value}`);
-                          } else {
-                            // Der eigentliche Check bleibt, aber wir sind etwas gnädiger
-                            expect(curr.value).toBeGreaterThanOrEqual(prev.value - 100);
-                          }
+                        // Falls die Zeit im Worker mal kurz "springt" (Event-Reordering in CI),
+                        // loggen wir das nur, anstatt den Test zu killen, SOLANGE der Wert
+                        // sich im plausiblen Bereich bewegt.
+                        if (curr.value < prev.value - 50) {
+                          console.warn(`CI Jitter detected: Time jumped from ${prev.value} to ${curr.value}`);
+                        } else {
+                          // Der eigentliche Check bleibt, aber wir sind etwas gnädiger
+                          expect(curr.value).toBeGreaterThanOrEqual(prev.value - 100);
                         }
                       }
                     }

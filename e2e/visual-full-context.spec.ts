@@ -58,8 +58,8 @@ async function waitForSerial(
   const serial = page.locator('[data-testid="serial-output"]');
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const content = await serial.textContent().catch(() => '');
-    if (content && content.includes(text)) return true;
+    const content = await serial.textContent().catch(() => null);
+    if (content?.includes(text)) return true;
     await page.waitForTimeout(500);
   }
   return false;
@@ -340,7 +340,7 @@ void loop() {
     expect(snap).toMatchSnapshot('06_debug_active_full_context.png', {
       // loosened for CI to tolerate dynamic timestamps / debug info
       maxDiffPixels: 15000,
-      threshold: 0.40,
+      threshold: 0.4,
     });
   });
 

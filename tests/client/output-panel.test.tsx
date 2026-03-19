@@ -6,7 +6,7 @@ import { OutputPanel } from "../../client/src/components/features/output-panel";
 describe("OutputPanel — callback reference stability", () => {
   it("does not re-render when parent updates unrelated state while callbacks and data props are stable", () => {
     function Wrapper() {
-      const [, setCount] = useState(0);
+      const [_count, setCount] = useState(0);
 
       // Stable (memoized) data props
       const parserMessages = useMemo(() => [], [] as any);

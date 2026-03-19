@@ -118,7 +118,8 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
               const digitalReads = ops.filter((u) => u.operation.includes("digitalRead"));
               const digitalWrites = ops.filter((u) => u.operation.includes("digitalWrite"));
               const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
-                const match = u.operation.match(/pinMode:(\d+)/);
+                const pinModeRe = /pinMode:(\d+)/;
+                const match = pinModeRe.exec(u.operation);
                 const mode = match ? Number.parseInt(match[1]) : -1;
                 return pinModeToString(mode);
               });
@@ -135,7 +136,8 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 const digitalReads = ops.filter((u) => u.operation.includes("digitalRead"));
                 const digitalWrites = ops.filter((u) => u.operation.includes("digitalWrite"));
                 const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
-                  const match = u.operation.match(/pinMode:(\d+)/);
+                  const pinModeRe = /pinMode:(\d+)/;
+                  const match = pinModeRe.exec(u.operation);
                   const mode = match ? Number.parseInt(match[1]) : -1;
                   return pinModeToString(mode);
                 });
@@ -178,7 +180,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
         <ParserOutput
           messages={parserMessages}
           ioRegistry={ioRegistry}
-          messagesContainerRef={parserMessagesContainerRef as React.RefObject<HTMLDivElement>}
+          messagesContainerRef={parserMessagesContainerRef as unknown as React.RefObject<HTMLDivElement>}
           onClear={onParserMessagesClear}
           onGoToLine={onParserGoToLine}
           onInsertSuggestion={onInsertSuggestion}
@@ -198,7 +200,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 <span className="text-ui-xs text-muted-foreground whitespace-nowrap">Filter:</span>
                 <select value={debugMessageFilter} onChange={(e) => setDebugMessageFilter(e.target.value.toLowerCase())} className="flex-1 px-2 py-1 text-ui-xs bg-background border border-muted-foreground/20 rounded text-foreground min-w-0 max-w-xs">
                   <option value="">All Types</option>
-                  {Array.from(new Set(debugMessages.map((m) => m.type))).sort().map((type) => (
+                  {Array.from(new Set(debugMessages.map((m) => m.type))).sort((a, b) => a.localeCompare(b)).map((type) => (
                     <option key={type} value={type.toLowerCase()}>
                       {type}
                     </option>

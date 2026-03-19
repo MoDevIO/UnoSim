@@ -1,6 +1,5 @@
 import type { Express } from "express";
-import type { CompilationResult } from "../services/arduino-compiler";
-import type { CompileRequestOptions } from "../services/arduino-compiler";
+import type { CompilationResult, CompileRequestOptions } from "../services/arduino-compiler";
 import type { Logger } from "@shared/logger";
 
 type CompilerHeader = { name: string; content: string };

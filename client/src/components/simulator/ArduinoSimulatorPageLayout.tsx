@@ -14,88 +14,91 @@ import {
 } from "@/components/simulator/ArduinoSimulatorPage.styles";
 import type { ArduinoSimulatorPageState } from "@/hooks/useArduinoSimulatorPage";
 
-export function ArduinoSimulatorPageLayout({
-  showErrorGlitch,
-  backendReachable,
-  isMobile,
-  simulationStatus,
-  simulateDisabled,
-  compileMutation,
-  startMutation,
-  stopMutation,
-  pauseMutation,
-  resumeMutation,
-  compileAndStartAction,
-  handleStop,
-  handlePause,
-  handleResume,
-  board,
-  baudRate,
-  simulationTimeout,
-  setSimulationTimeout,
-  isMac,
-  handleTabAdd,
-  activeTabId,
-  tabs,
-  handleTabRename,
-  toast,
-  formatCode,
-  onLoadFiles,
-  downloadAllFiles,
-  openSettings,
-  undo,
-  redo,
-  cut,
-  copy,
-  paste,
-  selectAll,
-  goToLine,
-  find,
-  handleCompile,
-  handleCompileAndStart,
-  setShowCompilationOutput,
-  showCompilationOutput,
-  setParserPanelDismissed,
-  debugMode,
-  batchStats,
-  renderedSerialOutput,
-  serialOutput,
-  isConnected,
-  handleSerialSend,
-  handleClearSerialOutput,
-  showSerialMonitor,
-  showSerialPlotter,
-  serialViewMode,
-  cycleSerialViewMode,
-  autoScrollEnabled,
-  setAutoScrollEnabled,
-  serialInputValue,
-  setSerialInputValue,
-  handleSerialInputKeyDown,
-  handleSerialInputSend,
-  telemetryData,
-  txActivity,
-  rxActivity,
-  handleReset,
-  handlePinToggle,
-  analogPinsUsed,
-  handleAnalogChange,
-  mobilePanel,
-  setMobilePanel,
-  headerHeight,
-  overlayZ,
-  codeSlot,
-  compileSlot,
-  serialSlot,
-  fileInputRef,
-  handleHiddenFileInput,
-  pinMonitorVisible,
-  pinStates,
-  outputPanelRef,
-  compilationPanelSize,
-  outputPanelMinPercent,
-  outputPanelManuallyResizedRef,
-}: ArduinoSimulatorPageState) {
+export function ArduinoSimulatorPageLayout(
+  props: Readonly<ArduinoSimulatorPageState>,
+) {
+  const {
+    showErrorGlitch,
+    backendReachable,
+    isMobile,
+    simulationStatus,
+    simulateDisabled,
+    compileMutation,
+    startMutation,
+    stopMutation,
+    pauseMutation,
+    resumeMutation,
+    compileAndStartAction,
+    handleStop,
+    handlePause,
+    handleResume,
+    board,
+    baudRate,
+    simulationTimeout,
+    setSimulationTimeout,
+    isMac,
+    handleTabAdd,
+    activeTabId,
+    tabs,
+    handleTabRename,
+    toast,
+    formatCode,
+    onLoadFiles,
+    downloadAllFiles,
+    openSettings,
+    undo,
+    redo,
+    cut,
+    copy,
+    paste,
+    selectAll,
+    goToLine,
+    find,
+    handleCompile,
+    handleCompileAndStart,
+    setShowCompilationOutput,
+    showCompilationOutput,
+    setParserPanelDismissed,
+    debugMode,
+    batchStats,
+    renderedSerialOutput,
+    serialOutput,
+    isConnected,
+    handleSerialSend,
+    handleClearSerialOutput,
+    showSerialMonitor,
+    showSerialPlotter,
+    serialViewMode,
+    cycleSerialViewMode,
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    serialInputValue,
+    setSerialInputValue,
+    handleSerialInputKeyDown,
+    handleSerialInputSend,
+    telemetryData,
+    txActivity,
+    rxActivity,
+    handleReset,
+    handlePinToggle,
+    analogPinsUsed,
+    handleAnalogChange,
+    mobilePanel,
+    setMobilePanel,
+    headerHeight,
+    overlayZ,
+    codeSlot,
+    compileSlot,
+    serialSlot,
+    fileInputRef,
+    handleHiddenFileInput,
+    pinMonitorVisible,
+    pinStates,
+    outputPanelRef,
+    compilationPanelSize,
+    outputPanelMinPercent,
+    outputPanelManuallyResizedRef,
+  } = props;
   return (
     <div
       className={`${CSS_CLASSES.MAIN_CONTAINER} ${showErrorGlitch ? "overflow-hidden" : ""}`}
@@ -159,7 +162,7 @@ export function ArduinoSimulatorPageLayout({
             "Rename file",
             current?.name || "untitled.ino",
           );
-          if (newName && newName.trim()) {
+          if (newName?.trim()) {
             handleTabRename(activeTabId, newName.trim());
           }
         }}
@@ -205,7 +208,33 @@ export function ArduinoSimulatorPageLayout({
       />
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative z-0">
-        {!isMobile ? (
+        {isMobile ? (
+          <MobileLayout
+            isMobile={isMobile}
+            mobilePanel={mobilePanel}
+            setMobilePanel={setMobilePanel}
+            headerHeight={headerHeight}
+            overlayZ={overlayZ}
+            codeSlot={codeSlot}
+            compileSlot={compileSlot}
+            serialSlot={serialSlot}
+            boardSlot={
+              <PinMonitorView
+                pinMonitorVisible={pinMonitorVisible}
+                pinStates={pinStates}
+                batchStats={batchStats}
+                simulationStatus={simulationStatus}
+                txActivity={txActivity}
+                rxActivity={rxActivity}
+                onReset={handleReset}
+                onPinToggle={handlePinToggle}
+                analogPins={analogPinsUsed}
+                onAnalogChange={handleAnalogChange}
+                isMobile={isMobile}
+              />
+            }
+          />
+        ) : (
           <ResizablePanelGroup
             direction="horizontal"
             className="h-full"
@@ -280,32 +309,6 @@ export function ArduinoSimulatorPageLayout({
               handleAnalogChange={handleAnalogChange}
             />
           </ResizablePanelGroup>
-        ) : (
-          <MobileLayout
-            isMobile={isMobile}
-            mobilePanel={mobilePanel}
-            setMobilePanel={setMobilePanel}
-            headerHeight={headerHeight}
-            overlayZ={overlayZ}
-            codeSlot={codeSlot}
-            compileSlot={compileSlot}
-            serialSlot={serialSlot}
-            boardSlot={
-              <PinMonitorView
-                pinMonitorVisible={pinMonitorVisible}
-                pinStates={pinStates}
-                batchStats={batchStats}
-                simulationStatus={simulationStatus}
-                txActivity={txActivity}
-                rxActivity={rxActivity}
-                onReset={handleReset}
-                onPinToggle={handlePinToggle}
-                analogPins={analogPinsUsed}
-                onAnalogChange={handleAnalogChange}
-                isMobile={isMobile}
-              />
-            }
-          />
         )}
       </div>
     </div>

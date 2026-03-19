@@ -180,7 +180,7 @@ function createLoadTestSuite(
         });
         if (!compileResponse.ok)
           throw new Error(`Compile failed: ${compileResponse.status}`);
-        const compileData = (await compileResponse.json()) as any;
+        const compileData = (await compileResponse.json()) as unknown;
         if (!compileData.success) throw new Error(`Compilation failed`);
         metrics.compileTime = Date.now() - compileStart;
 
@@ -299,11 +299,12 @@ function createLoadTestSuite(
         mainTest.avgFetchTime !== undefined &&
         mainTest.avgCompileTime !== undefined &&
         mainTest.avgStartSimTime !== undefined;
-      const total = hasOperationTimes
-        ? mainTest.avgFetchTime! +
-          mainTest.avgCompileTime! +
-          mainTest.avgStartSimTime!
-        : 1;
+      const total =
+        hasOperationTimes
+          ? (mainTest.avgFetchTime ?? 0) +
+            (mainTest.avgCompileTime ?? 0) +
+            (mainTest.avgStartSimTime ?? 0)
+          : 1;
 
       const scalabilityTests = testResults.slice(1);
       const baseTest = scalabilityTests.find((r) => r.totalClients === 5);
@@ -381,21 +382,25 @@ function createLoadTestSuite(
       if (hasOperationTimes) {
         output += "\n⚙️  Operation Breakdown:\n\n";
 
+        const avgFetchTime = mainTest.avgFetchTime ?? 0;
+        const avgCompileTime = mainTest.avgCompileTime ?? 0;
+        const avgStartSimTime = mainTest.avgStartSimTime ?? 0;
+
         const opData = [
           [
             "Fetch Sketches",
-            `${mainTest.avgFetchTime!.toFixed(2)}ms`,
-            `${((mainTest.avgFetchTime! / total) * 100).toFixed(1)}%`,
+            `${avgFetchTime.toFixed(2)}ms`,
+            `${((avgFetchTime / total) * 100).toFixed(1)}%`,
           ],
           [
             "Compilation",
-            `${mainTest.avgCompileTime!.toFixed(2)}ms`,
-            `${((mainTest.avgCompileTime! / total) * 100).toFixed(1)}%`,
+            `${avgCompileTime.toFixed(2)}ms`,
+            `${((avgCompileTime / total) * 100).toFixed(1)}%`,
           ],
           [
             "Start Simulation",
-            `${mainTest.avgStartSimTime!.toFixed(2)}ms`,
-            `${((mainTest.avgStartSimTime! / total) * 100).toFixed(1)}%`,
+            `${avgStartSimTime.toFixed(2)}ms`,
+            `${((avgStartSimTime / total) * 100).toFixed(1)}%`,
           ],
         ];
 
@@ -428,12 +433,16 @@ function createLoadTestSuite(
         const p95TimeMs = res.p95.toFixed(0);
         const throughputCs = res.throughput.toFixed(2);
         const successRate = res.successRate.toFixed(1);
-        const status =
-          res.avgTime < 2500
-            ? "✓ Good"
-            : res.avgTime < 8000
-              ? "⚠ Fair"
-              : "✗ Poor";
+        
+        // Determine performance status based on average time
+        let status: string;
+        if (res.avgTime < 2500) {
+          status = "✓ Good";
+        } else if (res.avgTime < 8000) {
+          status = "⚠ Fair";
+        } else {
+          status = "✗ Poor";
+        }
 
         const clientsCell = res.totalClients.toString().padEnd(7);
         const avgTimeCell = `${avgTimeMs} ms`.padEnd(10);

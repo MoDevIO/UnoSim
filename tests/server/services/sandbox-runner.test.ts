@@ -69,7 +69,7 @@ vi.mock("node:child_process", () => {
     const stderrHandlers: Function[] = [];
     const stdoutHandlers: Function[] = [];
     const closeHandlers: Function[] = [];
-    const errorHandlers: Function[] = [];
+    // Note: errorHandlers not used but kept for future error handling
 
     const proc = {
       on: vi.fn((event: string, cb: Function) => {
@@ -77,8 +77,6 @@ vi.mock("node:child_process", () => {
           closeHandlers.push(cb);
           // Auto-trigger close after being registered
           originalSetTimeout(() => cb(0), 10);
-        } else if (event === "error") {
-          errorHandlers.push(cb);
         }
         return proc;
       }),
@@ -658,7 +656,7 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
 
       // configure runner state to appear running with a process attached
-      runner['state'] = ((SandboxRunner as unknown as { prototype: Record<string, unknown> }).prototype['simulationState'] === undefined ? "running" : "running"); // just ensure property exists
+      runner['state'] = "running"; // just ensure property exists
       const pc = (runner as unknown as SandboxRunnerWithController).processController;
       vi.spyOn(pc, 'hasProcess').mockReturnValue(true);
       vi.spyOn(pc, 'writeStdin');

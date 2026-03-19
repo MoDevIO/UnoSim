@@ -7,7 +7,7 @@
 
 import { chmod, mkdir, access, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { ChildProcess } from "node:child_process";
+import { ChildProcess, spawn } from "node:child_process";
 import { Logger } from "@shared/logger";
 import { ProcessExecutor } from "./process-executor";
 
@@ -82,7 +82,6 @@ export class LocalCompiler {
       this.compileTimeoutMs = 60000;
     }
 
-    const { spawn } = require("node:child_process");
     const spawnIsMock = (spawn as unknown as { mock?: object })?.mock !== undefined;
 
     return { usingTestEnv, coverageActive, spawnIsMock };

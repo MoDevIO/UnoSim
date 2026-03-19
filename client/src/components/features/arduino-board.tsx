@@ -29,6 +29,13 @@ interface ArduinoBoardProps {
   readonly onAnalogChange?: (pin: number, value: number) => void;
 }
 
+/**
+ * Helper to clean up XML declarations and apply consistent SVG styles
+ */
+function preprocessSvg(content: string): string {
+  return content.replace(/<\?xml[^?]*\?>/g, "");
+}
+
 // SVG viewBox dimensions (from ArduinoUno.svg)
 const VIEWBOX_WIDTH = 285.2;
 const VIEWBOX_HEIGHT = 209;
@@ -136,7 +143,8 @@ export function ArduinoBoard({
     const checkScaleChange = () => {
       try {
         const cs = getComputedStyle(document.documentElement);
-        Number.parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1; // Read but don't store - SVG re-renders on next polling cycle
+        // Read but don't store - SVG re-renders on next polling cycle
+        cs.getPropertyValue("--ui-font-scale");
       } catch {
         logger.warn("Failed to read --ui-font-scale");
       }
@@ -442,33 +450,36 @@ export function ArduinoBoard({
   }, [svgContent]);
 
   // Modify main SVG (static, just styles)
-  const getModifiedSvg = () => {
+  const getModifiedSvg = (): string => {
     if (!svgContent) return "";
-    let modified = svgContent;
-    modified = modified.replace(/<\?xml[^?]*\?>/g, "");
+    let modified = preprocessSvg(svgContent);
+    
     // Replace the default board color (brand-primary token) in the SVG with the chosen color.
-    // We replace hex occurrences case-insensitively; avoid embedding raw hex in source.
     try {
-      const DEFAULT_BOARD_HEX = '#' + '0f7391';
+      const DEFAULT_BOARD_HEX = '#0f7391';
       modified = modified.replace(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
-    } catch {}
+    } catch {
+      // Ignore regex errors
+    }
+    
+    // Apply opacity based on simulation status
+    const opacity = simulationStatus === "running" ? 1 : 0.35;
     modified = modified.replace(
       /<svg([^>]*)>/,
-      `<svg$1 style="width: 100%; height: 100%; display: block; opacity: ${simulationStatus === "running" ? 1 : 0.35};" preserveAspectRatio="xMidYMid meet">`,
+      `<svg$1 style="width: 100%; height: 100%; display: block; opacity: ${opacity};" preserveAspectRatio="xMidYMid meet">`,
     );
     return modified;
   };
 
-  // Modify overlay SVG
-  const getOverlaySvg = () => {
+  // Modify overlay SVG (interactive, with click handlers)
+  const getOverlaySvg = (): string => {
     if (!overlaySvgContent) return "";
-    let modified = overlaySvgContent;
-    modified = modified.replace(/<\?xml[^?]*\?>/g, "");
+    let modified = preprocessSvg(overlaySvgContent);
+    
+    // Add cursor pointer class for click areas
+    modified = modified.replaceAll('class="click-area"', 'class="click-area cursor-pointer"');
 
-    // Ensure click areas carry a Tailwind utility for cursor (picked up by JIT)
-    // and keep original `click-area` class so SVG styles remain functional.
-    modified = modified.replace(/class="click-area"/g, 'class="click-area cursor-pointer"');
-
+    // Position absolutely and fill space
     modified = modified.replace(
       /<svg([^>]*)>/,
       `<svg$1 style="width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0;" preserveAspectRatio="xMidYMid meet">`,
