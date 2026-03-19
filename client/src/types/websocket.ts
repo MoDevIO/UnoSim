@@ -53,7 +53,8 @@ export function isArduinoMessage(value: unknown): value is WSMessage {
   return wsMessageSchema.safeParse(value).success;
 }
 
-export function isHexResult(value: unknown): value is HexResult {
+// Helper to check if value is an object with a success boolean property
+function hasSuccessProperty(value: unknown): boolean {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -64,13 +65,10 @@ export function isHexResult(value: unknown): value is HexResult {
   );
 }
 
+export function isHexResult(value: unknown): value is HexResult {
+  return hasSuccessProperty(value);
+}
+
 export function isCompileResult(value: unknown): value is CompileResult {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (() => {
-      const maybe = value as { success?: unknown };
-      return typeof maybe.success === "boolean";
-    })()
-  );
+  return hasSuccessProperty(value);
 }
