@@ -146,7 +146,7 @@ export function useArduinoSimulatorPageCore() {
   // Serial view mode state handled by useSerialIO
 
   // Selected board and baud rate (moved to Tools menu)
-  const [board, _setBoard] = useState<string>("Arduino UNO");
+  const [board] = useState<string>("Arduino UNO");
   const [baudRate, setBaudRate] = useState<number>(115200);
 
   // Serial input box state handled by useSerialIO

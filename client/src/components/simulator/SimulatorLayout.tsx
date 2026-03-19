@@ -18,6 +18,16 @@ import {
 import { MobileLayout } from "@/components/features/mobile-layout";
 import { OutputPanel } from "@/components/features/output-panel";
 
+// ─── Type Aliases (S4323/S6754 - avoid inline union types) ────────────────────
+/** Output panel tab types */
+type OutputTab = "compiler" | "messages" | "registry" | "debug";
+
+/** Debug view mode types */
+type DebugViewMode = "table" | "tiles";
+
+/** Mobile panel types */
+type MobilePanel = "code" | "compile" | "serial" | "board" | null;
+
 /**
  * Layout props for desktop ResizablePanel configuration
  */
@@ -31,14 +41,14 @@ export interface DesktopLayoutProps {
   readonly parserMessagesContainerRef: React.RefObject<HTMLDivElement>;
   readonly debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
   
-  readonly activeOutputTab: "compiler" | "messages" | "registry" | "debug";
+  readonly activeOutputTab: OutputTab;
   readonly showCompilationOutput: boolean;
   readonly isSuccessState: boolean;
   readonly isModified: boolean;
   readonly compilationPanelSize: number;
   readonly outputPanelMinPercent: number;
   readonly debugMode: boolean;
-  readonly debugViewMode: "table" | "tiles";
+  readonly debugViewMode: DebugViewMode;
   readonly debugMessageFilter: string;
   
   readonly cliOutput: string;
@@ -48,7 +58,7 @@ export interface DesktopLayoutProps {
   readonly lastCompilationResult: string | null;
   readonly hasCompilationErrors: boolean;
   
-  readonly onOutputTabChange: (tab: "compiler" | "messages" | "registry" | "debug") => void;
+  readonly onOutputTabChange: (tab: OutputTab) => void;
   readonly onOutputClose: () => void;
   readonly onClearCompilationOutput: () => void;
   readonly onParserMessagesClear: () => void;
@@ -56,10 +66,10 @@ export interface DesktopLayoutProps {
   readonly onInsertSuggestion: (suggestion: string, line?: number) => void;
   readonly onRegistryClear: () => void;
   readonly setDebugMessageFilter: (filter: string) => void;
-  readonly setDebugViewMode: (mode: "table" | "tiles") => void;
+  readonly setDebugViewMode: (mode: DebugViewMode) => void;
   readonly onCopyDebugMessages: () => void;
   readonly onClearDebugMessages: () => void;
-  readonly openOutputPanel: (tab: "compiler" | "messages" | "registry" | "debug") => void;
+  readonly openOutputPanel: (tab: OutputTab) => void;
   readonly outputPanelManuallyResizedRef: React.MutableRefObject<boolean>;
 
   // Serial monitor & board panels
@@ -87,8 +97,8 @@ export interface MobileLayoutPropsT {
  */
 export interface SimulatorLayoutProps extends DesktopLayoutProps {
   readonly isMobile: boolean;
-  readonly mobilePanel: "code" | "compile" | "serial" | "board" | null;
-  readonly setMobilePanel: React.Dispatch<React.SetStateAction<"code" | "compile" | "serial" | "board" | null>>;
+  readonly mobilePanel: MobilePanel;
+  readonly setMobilePanel: React.Dispatch<React.SetStateAction<MobilePanel>>;
   readonly headerHeight: number;
   readonly overlayZ: number;
   readonly codeSlot: ReactNode;
