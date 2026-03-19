@@ -603,7 +603,11 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     logger.info(`[CLIENT] Code length: ${mainSketchCode.length} bytes`);
     
     // Determine code source
-    const codeSource = params.editorRef.current ? "editor" : params.tabs[0]?.content ? "tabs" : "state";
+    const codeSource = params.editorRef.current 
+      ? "editor" 
+      : params.tabs[0]?.content 
+        ? "tabs" 
+        : "state";
     logger.info(`[CLIENT] Main code from: ${codeSource}`);
     logger.info(
       `[CLIENT] Tabs: ${params.tabs
