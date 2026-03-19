@@ -163,26 +163,57 @@ const VIEWBOX_HEIGHT = 209;
  * Allows us to keep SVG scaling calculations using semantic variables
  */
 function getComputedSpacingToken(tokenName: string): number {
-  try {
-    const root = document.documentElement;
-    const computedStyle = getComputedStyle(root);
-    const value = computedStyle.getPropertyValue(tokenName).trim();
-    // Convert rem to pixels (assuming 16px base)
-    if (value.includes('rem')) {
-      return Number.parseFloat(value) * 16;
-    }
-    if (value.includes('px')) {
-      return Number.parseFloat(value);
-    }
-    return Number.parseFloat(value);
-  } catch {
-    // Fallback values
-    if (tokenName === '--svg-safe-margin') return 4;
-    if (tokenName === '--svg-label-padding') return 2;
-    logger.warn(`getComputedSpacingToken failed for '${tokenName}'`);
-    return 4;
-  }
+  const FALLBACKS: Record<string, number> = {
+    '--svg-safe-margin': 4,
+    '--svg-label-padding': 2,
+  };
+  return getCssNumber(tokenName, FALLBACKS[tokenName] ?? 4);
 }
+/** Manages board color state, including persistence and custom event subscription. */
+function useBoardColor(): string {
+  const [boardColor, setBoardColor] = useState<string>(() => {
+    try {
+      return globalThis.localStorage.getItem("unoBoardColor") || "var(--color-brand-primary)";
+    } catch {
+      return "var(--color-brand-primary)";
+    }
+  });
+
+  useEffect(() => {
+    const onColor = (e: Event) => {
+      const detail = (e as CustomEvent<{ color?: string }>).detail;
+      const color = detail?.color || globalThis.localStorage.getItem("unoBoardColor") || "var(--color-brand-primary)";
+      setBoardColor(color);
+    };
+    onCustomEvent(document, "arduinoColorChange", onColor);
+    return () => offCustomEvent(document, "arduinoColorChange", onColor);
+  }, []);
+
+  return boardColor;
+}
+
+/** Manages debug mode state, including localStorage init and custom event subscription. */
+function useDebugMode(): boolean {
+  const [debugMode, setDebugMode] = useState<boolean>(() => {
+    try {
+      return globalThis.localStorage.getItem("unoDebugMode") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const newValue = Boolean((ev as CustomEvent<{ value: boolean }>).detail?.value);
+      setDebugMode(newValue);
+    };
+    onCustomEvent(document, "debugModeChange", handler);
+    return () => offCustomEvent(document, "debugModeChange", handler);
+  }, []);
+
+  return debugMode;
+}
+
 export function ArduinoBoard({
   pinStates = [],
   isSimulationRunning = false,
@@ -195,18 +226,12 @@ export function ArduinoBoard({
   onAnalogChange,
 }: ArduinoBoardProps) {
   const [svgContent, setSvgContent] = useState<string>("");
-  const [boardColor, setBoardColor] = useState<string>(() => {
-    try {
-      return globalThis.localStorage.getItem("unoBoardColor") || "var(--color-brand-primary)";
-    } catch {
-      return "var(--color-brand-primary)";
-    }
-  });
+  const boardColor = useBoardColor();
   const [overlaySvgContent, setOverlaySvgContent] = useState<string>("");
   const [txBlink, setTxBlink] = useState(false);
   const [rxBlink, setRxBlink] = useState(false);
   const [showPWMValues, setShowPWMValues] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
+  const debugMode = useDebugMode();
   const { last: telemetry } = useTelemetryStore();
   const txTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rxTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -291,48 +316,6 @@ export function ArduinoBoard({
       .catch(() => {
         // Silently handle SVG loading failure
       });
-  }, []);
-
-  // Listen for color changes from settings dialog (custom event)
-  useEffect(() => {
-    const onColor = (e: Event) => {
-      try {
-        const detail = (e as CustomEvent).detail as
-          | { color?: string }
-          | undefined;
-        const color =
-          detail?.color ||
-          globalThis.localStorage.getItem("unoBoardColor") ||
-          "var(--color-brand-primary)";
-        setBoardColor(color);
-      } catch {
-        // ignore
-      }
-    };
-    onCustomEvent(document, "arduinoColorChange", onColor);
-    return () => offCustomEvent(document, "arduinoColorChange", onColor);
-  }, []);
-
-  // Listen for debug mode changes
-  useEffect(() => {
-    try {
-      const stored = globalThis.localStorage.getItem("unoDebugMode") === "1";
-      setDebugMode(stored);
-    } catch {
-      setDebugMode(false);
-    }
-
-    const handler = (ev: Event) => {
-      try {
-        const customEv = ev as CustomEvent<{ value: boolean }>;
-        const newValue = Boolean(customEv?.detail?.value);
-        setDebugMode(newValue);
-      } catch {
-        // ignore
-      }
-    };
-    onCustomEvent(document, "debugModeChange", handler);
-    return () => offCustomEvent(document, "debugModeChange", handler);
   }, []);
 
   // Stable reference to ALL current state for polling - updated on every render
