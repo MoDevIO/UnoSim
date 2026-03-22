@@ -127,6 +127,29 @@ function hasControlChars(text: string) {
   };
 }
 
+/**
+ * Handles carriage-return overwrite logic for a single output line.
+ * Returns true if the line was fully handled (caller should skip normal processing).
+ */
+function processCarriageReturnLine(
+  lines: ProcessedLine[],
+  text: string,
+  lineComplete: boolean,
+): boolean {
+  const parts = text.split("\r");
+  const cleanParts = parts.map((p) => processAnsiCodes(p));
+  if (cleanParts.length <= 1) return false;
+  const finalText = cleanParts.at(-1)!;
+  if (lines.length > 0 && !lines.at(-1)!.incomplete) {
+    lines.push({ text: finalText, incomplete: !lineComplete });
+  } else if (lines.length > 0) {
+    lines[lines.length - 1] = { text: finalText, incomplete: !lineComplete };
+  } else {
+    lines.push({ text: finalText, incomplete: !lineComplete });
+  }
+  return true;
+}
+
 export function SerialMonitor({
   output,
   isConnected,
@@ -205,22 +228,7 @@ export function SerialMonitor({
       text = backspaceResult;
 
       if (controls.hasCarriageReturn) {
-        const parts = text.split("\r");
-        const cleanParts = parts.map((p) => processAnsiCodes(p));
-        if (cleanParts.length > 1) {
-          const finalText = cleanParts.at(-1)!;
-          if (lines.length > 0 && !lines.at(-1)!.incomplete) {
-            lines.push({ text: finalText, incomplete: !line.complete });
-          } else {
-            if (lines.length > 0) {
-              lines[lines.length - 1] = {
-                text: finalText,
-                incomplete: !line.complete,
-              };
-            } else {
-              lines.push({ text: finalText, incomplete: !line.complete });
-            }
-          }
+        if (processCarriageReturnLine(lines, text, line.complete ?? true)) {
           return;
         }
       }
