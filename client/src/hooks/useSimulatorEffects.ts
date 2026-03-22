@@ -65,6 +65,10 @@ interface UseSimulatorEffectsProps {
   serialEventQueueRef: RefObject<Array<{ payload: IncomingArduinoMessage; receivedAt: number }>>;
 }
 
+function isInputElement(el: HTMLElement | null): boolean {
+  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+}
+
 export function useSimulatorEffects({
   code,
   compilationStatus,
@@ -123,49 +127,39 @@ export function useSimulatorEffects({
 
   // Keyboard shortcuts and global hotkeys
   useEffect(() => {
+    const handleDebugToggle = (e: KeyboardEvent) => {
+      e.preventDefault();
+      const currentValue = globalThis.localStorage.getItem("unoDebugMode") === "1";
+      const newValue = !currentValue;
+      try {
+        globalThis.localStorage.setItem("unoDebugMode", newValue ? "1" : "0");
+        setDebugMode(newValue);
+        document.dispatchEvent(new CustomEvent("debugModeChange", { detail: { value: newValue } }));
+        toast({
+          title: newValue ? "Debug Mode Enabled" : "Debug Mode Disabled",
+          description: newValue
+            ? "Telemetry displays are now visible"
+            : "Telemetry displays are now hidden",
+        });
+      } catch (err) {
+        console.error("Failed to toggle debug mode:", err);
+      }
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore key events originating from input-like elements
-      const tgt = e.target as HTMLElement | null;
-      const ignoreTarget =
-        tgt &&
-        (tgt.tagName === "INPUT" ||
-          tgt.tagName === "TEXTAREA" ||
-          tgt.isContentEditable);
-      if (ignoreTarget) return;
+      if (isInputElement(e.target as HTMLElement | null)) return;
+
+      const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
 
       // Toggle debug mode (Cmd/Ctrl + D)
-      const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
-      if (
-        isModifierPressed &&
-        !e.altKey &&
-        !e.shiftKey &&
-        (e.key === "d" || e.key === "D")
-      ) {
-        e.preventDefault();
-        const currentValue = globalThis.localStorage.getItem("unoDebugMode") === "1";
-        const newValue = !currentValue;
-        try {
-          globalThis.localStorage.setItem("unoDebugMode", newValue ? "1" : "0");
-          setDebugMode(newValue);
-          const ev = new CustomEvent("debugModeChange", { detail: { value: newValue } });
-          document.dispatchEvent(ev);
-          toast({
-            title: newValue ? "Debug Mode Enabled" : "Debug Mode Disabled",
-            description: newValue
-              ? "Telemetry displays are now visible"
-              : "Telemetry displays are now hidden",
-          });
-        } catch (err) {
-          console.error("Failed to toggle debug mode:", err);
-        }
+      if (isModifierPressed && !e.altKey && !e.shiftKey && (e.key === "d" || e.key === "D")) {
+        handleDebugToggle(e);
       }
 
       // F5: Compile only
       if (e.key === "F5") {
         e.preventDefault();
-        if (!compileMutationIsPending) {
-          handleCompile();
-        }
+        if (!compileMutationIsPending) handleCompile();
       }
 
       // Escape: Stop simulation
@@ -175,11 +169,9 @@ export function useSimulatorEffects({
       }
 
       // Meta/Ctrl + U: Compile & Start
-      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === "u") {
+      if (isModifierPressed && e.key.toLowerCase() === "u") {
         e.preventDefault();
-        if (!compileMutationIsPending && !startMutationIsPending) {
-          handleCompileAndStart();
-        }
+        if (!compileMutationIsPending && !startMutationIsPending) handleCompileAndStart();
       }
     };
 
@@ -262,15 +254,14 @@ export function useSimulatorEffects({
       for (const [pinStr, mode] of Object.entries(detectedPinModes)) {
         const pin = Number(pinStr);
         if (Number.isNaN(pin)) continue;
-        const typedMode = mode as "INPUT" | "OUTPUT" | "INPUT_PULLUP";
         const exists = newStates.find((p) => p.pin === pin);
         if (exists) {
-          exists.mode = typedMode;
+          exists.mode = mode;
           if (pin >= 14 && pin <= 19) exists.type = "digital";
         } else {
           newStates.push({
             pin,
-            mode: typedMode,
+            mode,
             value: 0,
             type: "digital",
           });
@@ -298,10 +289,7 @@ export function useSimulatorEffects({
 
     setPinStates((prev) => {
       const newStates = [...prev];
-      for (const [pinStr, mode] of Object.entries(detectedPinModes) as [
-        string,
-        "INPUT" | "OUTPUT" | "INPUT_PULLUP",
-      ][]) {
+      for (const [pinStr, mode] of Object.entries(detectedPinModes)) {
         const pin = Number(pinStr);
         if (Number.isNaN(pin)) continue;
         const pinState = newStates.find((p) => p.pin === pin);
@@ -312,7 +300,7 @@ export function useSimulatorEffects({
             pin,
             mode,
             value: 0,
-            type: pin >= 14 && pin <= 19 ? "digital" : "digital",
+            type: "digital",
           });
         }
       }
