@@ -39,7 +39,7 @@ export function useSimulatorOutputPanel({
     hasCompilationErrors,
     cliOutput,
     parserMessages,
-    lastCompilationResult === "success" ? "success" : (lastCompilationResult === "error" ? "error" : null),
+    lastCompilationResult === "success" ? "success" : lastCompilationResult === "error" ? "error" : null,
     parserMessagesContainerRef,
     showCompilationOutput,
     setShowCompilationOutput,

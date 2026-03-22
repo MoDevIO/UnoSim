@@ -449,9 +449,10 @@ export function ArduinoBoard({
     setSliderPositions((prev) => {
       if (prev.length === 0) return prev;
 
+      const pinMap = new Map(pinStates.map((p) => [p.pin, p]));
       let changed = false;
       const updated = prev.map((slider) => {
-        const pinState = pinStates.find((p) => p.pin === slider.pin);
+        const pinState = pinMap.get(slider.pin);
         const newValue = pinState?.value ?? 0;
         if (newValue !== slider.value) {
           changed = true;

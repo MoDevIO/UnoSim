@@ -57,11 +57,12 @@ export function PinMonitor({ pinStates, batchStats }: PinMonitorProps) {
         {displayStates.map((state) => {
           const isHigh = state.type !== "pwm" && state.value > 0;
           const isPwm = state.type === "pwm";
-          const displayValue = isPwm
-            ? Math.round(state.displayValue)
-            : state.value > 0
-              ? "HIGH"
-              : "LOW";
+          let displayValue: number | string;
+          if (isPwm) {
+            displayValue = Math.round(state.displayValue);
+          } else {
+            displayValue = state.value > 0 ? "HIGH" : "LOW";
+          }
 
           return (
             <div

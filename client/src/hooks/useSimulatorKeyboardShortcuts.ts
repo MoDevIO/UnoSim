@@ -110,7 +110,6 @@ export function useSimulatorKeyboardShortcuts({
       ) {
         e.preventDefault();
         handleNewFile();
-        return;
       }
     };
 

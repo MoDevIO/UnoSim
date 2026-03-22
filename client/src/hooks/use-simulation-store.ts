@@ -95,6 +95,15 @@ const applyEvents = (current: PinState[], events: PinEvent[]): PinState[] => {
   return nextStates;
 };
 
+function buildNewPinState(pin: number, stateType: PinStateType, value: number): PinState {
+  return {
+    pin,
+    mode: stateType === "mode" ? modeMap[value] || "INPUT" : "OUTPUT",
+    value: stateType === "value" || stateType === "pwm" ? value : 0,
+    type: stateType === "pwm" ? "pwm" : pin >= 14 && pin <= 19 ? "analog" : "digital",
+  };
+}
+
 const applyEventToState = (
   states: PinState[],
   indexByPin: Map<number, number>,
@@ -128,17 +137,7 @@ const applyEventToState = (
     return;
   }
 
-  states.push({
-    pin,
-    mode: stateType === "mode" ? modeMap[value] || "INPUT" : "OUTPUT",
-    value: stateType === "value" || stateType === "pwm" ? value : 0,
-    type:
-      stateType === "pwm"
-        ? "pwm"
-        : pin >= 14 && pin <= 19
-          ? "analog"
-          : "digital",
-  });
+  states.push(buildNewPinState(pin, stateType, value));
   indexByPin.set(pin, states.length - 1);
 };
 
@@ -205,7 +204,7 @@ const simulationStore = {
    * Hard reset for complete state wipe (rarely needed)
    */
   resetToEmpty: () => {
-    snapshot = JSON.parse(JSON.stringify(initialSnapshot));
+    snapshot = structuredClone(initialSnapshot);
     pendingEvents.clear();
     if (rafId !== null) {
       cancelAnimationFrame(rafId);

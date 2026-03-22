@@ -4,6 +4,30 @@ import { Logger } from "@shared/logger";
 
 const logger = new Logger("CodeEditor");
 
+/**
+ * Find the location of `void functionName()` in source lines.
+ * Returns 1-indexed startLine and openBraceLine, or -1 if not found.
+ */
+function findFunctionInLines(
+  lines: string[],
+  functionName: string,
+): { startLine: number; openBraceLine: number } {
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(`void ${functionName}()`)) {
+      const startLine = i + 1;
+      let openBraceLine = startLine;
+      for (let j = i; j < Math.min(i + 3, lines.length); j++) {
+        if (lines[j].includes("{")) {
+          openBraceLine = j + 1;
+          break;
+        }
+      }
+      return { startLine, openBraceLine };
+    }
+  }
+  return { startLine: -1, openBraceLine: -1 };
+}
+
 // Formatting function
 function formatCode(code: string): string {
   let formatted = code;
@@ -343,25 +367,9 @@ export function CodeEditor({
               text.includes("pinMode") ||
               text.includes("void setup");
 
-            let targetFunctionName = isSetupSuggestion ? "setup" : "loop";
-
-            // Find the target function (setup or loop)
-            let functionStartLine = -1;
-            let functionOpenBraceIndex = -1;
-
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i].includes(`void ${targetFunctionName}()`)) {
-                functionStartLine = i + 1; // 1-indexed for Monaco
-                // Find the opening brace
-                for (let j = i; j < Math.min(i + 3, lines.length); j++) {
-                  if (lines[j].includes("{")) {
-                    functionOpenBraceIndex = j + 1;
-                    break;
-                  }
-                }
-                break;
-              }
-            }
+            const targetFunctionName = isSetupSuggestion ? "setup" : "loop";
+            const { startLine: functionStartLine, openBraceLine: functionOpenBraceIndex } =
+              findFunctionInLines(lines, targetFunctionName);
 
             // If function not found, just insert at current position
             if (functionStartLine === -1) {

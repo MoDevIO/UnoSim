@@ -36,7 +36,7 @@ export function PinMonitorView({
   return (
     <div className={isMobile ? "h-full w-full" : "h-full w-full flex flex-col gap-3 p-2 overflow-y-auto"}>
       {pinMonitorVisible && (
-        <div className={isMobile ? "" : ""}>
+        <div>
           <PinMonitor pinStates={pinStates} batchStats={batchStats} />
         </div>
       )}

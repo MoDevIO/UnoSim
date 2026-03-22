@@ -582,17 +582,26 @@ export class ArduinoCompiler {
         ioRegistry,
       };
     } finally {
+      await this._cleanupSketchDirs(sketchDir, baseTempDir, tempRoot);
+    }
+  }
+
+  /** Remove sketch-specific temporary directories created during compilation. */
+  private async _cleanupSketchDirs(
+    sketchDir: string,
+    baseTempDir: string,
+    tempRoot?: string,
+  ): Promise<void> {
+    try {
+      await this.robustCleanupDir(sketchDir);
+    } catch (error) {
+      this.logger.warn(`Failed to clean up sketch directory: ${error}`);
+    }
+    if (!tempRoot) {
       try {
-        await this.robustCleanupDir(sketchDir);
+        await this.robustCleanupDir(baseTempDir);
       } catch (error) {
-        this.logger.warn(`Failed to clean up sketch directory: ${error}`);
-      }
-      if (!tempRoot) {
-        try {
-          await this.robustCleanupDir(baseTempDir);
-        } catch (error) {
-          this.logger.warn(`Failed to remove base temp directory: ${error}`);
-        }
+        this.logger.warn(`Failed to remove base temp directory: ${error}`);
       }
     }
   }

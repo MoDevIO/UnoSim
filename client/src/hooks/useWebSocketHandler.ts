@@ -322,7 +322,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
             pin: pinNum,
             mode: "INPUT",
             value: 0,
-            type: pinNum >= 14 && pinNum <= 19 ? "digital" : "digital",
+            type: "digital",
           });
         }
       }
