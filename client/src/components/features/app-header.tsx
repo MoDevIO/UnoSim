@@ -57,6 +57,450 @@ interface AppHeaderProps {
   readonly rightSlot?: React.ReactNode;
 }
 
+// ─── Module-level helpers (keep AppHeader CC below 15) ───────────────────────
+
+function _computeHeaderCenter(
+  headerEl: HTMLElement,
+  leftEl: HTMLElement,
+  centerEl: HTMLElement,
+): number {
+  const headerRect = headerEl.getBoundingClientRect();
+  const leftRect = leftEl.getBoundingClientRect();
+  const centerRect = centerEl.getBoundingClientRect();
+  const gap = 12;
+  const leftEdge = leftRect.left - headerRect.left;
+  const minCenter = leftEdge + leftRect.width + gap + centerRect.width / 2;
+  return Math.max(headerRect.width / 2, minCenter);
+}
+
+function _getSimulateAction(
+  status: SimulationStatus,
+  onStop: () => void,
+  onResume: () => void,
+  onSimulate: () => void,
+): () => void {
+  if (status === "running") return onStop;
+  if (status === "paused") return onResume;
+  return onSimulate;
+}
+
+function _getSimulateAriaLabel(status: SimulationStatus): string {
+  if (status === "running") return "Stop Simulation";
+  if (status === "paused") return "Resume Simulation";
+  return "Start Simulation";
+}
+
+function _getSimulateText(status: SimulationStatus): string {
+  if (status === "running") return "Stop";
+  if (status === "paused") return "Resume";
+  return "Start";
+}
+
+function _getDesktopSimulateButtonClass(
+  status: SimulationStatus,
+  disabled: boolean,
+): string {
+  return clsx(
+    "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
+    "!text-white font-medium transition-colors",
+    {
+      "!bg-status-warning hover:!bg-accent-amber": status === "running" && !disabled,
+      "!bg-status-success hover:!bg-status-success-dark":
+        (status === "stopped" || status === "paused") && !disabled,
+      "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
+    },
+  );
+}
+
+function _getMobileSimulateButtonClass(
+  status: SimulationStatus,
+  disabled: boolean,
+): string {
+  return clsx(
+    "h-[var(--ui-button-height)] px-6 pr-12 flex items-center justify-center gap-2 relative",
+    "!text-white font-medium transition-colors whitespace-nowrap",
+    {
+      "!bg-orange-600 hover:!bg-orange-700": status === "running" && !disabled,
+      "!bg-green-600 hover:!bg-green-700":
+        (status === "stopped" || status === "paused") && !disabled,
+      "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
+    },
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+interface _PauseButtonProps {
+  readonly isPausing: boolean;
+  readonly simulateDisabled: boolean;
+  readonly isLoading: boolean;
+  readonly onPause: () => void;
+}
+
+function _PauseButton({ isPausing, simulateDisabled, isLoading, onPause }: _PauseButtonProps) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!simulateDisabled && !isLoading) onPause();
+  };
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!simulateDisabled && !isLoading) onPause();
+    }
+  };
+  return (
+    <div
+      className="absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center cursor-pointer bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10"
+      onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      role="button"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      aria-label="Pause Simulation"
+      title="Pause"
+    >
+      {isPausing ? (
+        <Loader2 className="h-3 w-3 animate-spin text-orange-900" />
+      ) : (
+        <Pause className="h-3 w-3 text-orange-900" />
+      )}
+    </div>
+  );
+}
+
+interface _DesktopSimulateIconProps {
+  readonly isLoading: boolean;
+  readonly isRunning: boolean;
+}
+
+function _DesktopSimulateIcon({ isLoading, isRunning }: _DesktopSimulateIconProps) {
+  return (
+    <div className="relative w-4 h-4">
+      <Play
+        className={clsx("absolute inset-0 m-auto h-4 w-4 transition-all duration-200", {
+          "opacity-100 scale-100": !isLoading && !isRunning,
+          "opacity-0 scale-75": isLoading || isRunning,
+        })}
+      />
+      <Square
+        className={clsx("absolute inset-0 m-auto h-4 w-4 transition-all duration-200", {
+          "opacity-100 scale-100": !isLoading && isRunning,
+          "opacity-0 scale-75": isLoading || !isRunning,
+        })}
+      />
+      <Loader2
+        className={clsx("absolute inset-0 m-auto h-4 w-4 transition-opacity duration-150", {
+          "opacity-100": isLoading,
+          "opacity-0": !isLoading,
+        })}
+      />
+    </div>
+  );
+}
+
+interface _MobileSimulateContentProps {
+  readonly isLoading: boolean;
+  readonly isRunning: boolean;
+  readonly text: string;
+}
+
+function _MobileSimulateContent({ isLoading, isRunning, text }: _MobileSimulateContentProps) {
+  return (
+    <div
+      className={clsx("flex items-center gap-2", {
+        "absolute left-1/2 -translate-x-1/2": !isRunning,
+      })}
+    >
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+      ) : isRunning ? (
+        <Square className="h-4 w-4 flex-shrink-0" />
+      ) : (
+        <Play className="h-4 w-4 flex-shrink-0" />
+      )}
+      <span>{text}</span>
+    </div>
+  );
+}
+
+interface _DesktopMenuBarProps {
+  readonly isMac: boolean;
+  readonly board: string;
+  readonly baudRate: number;
+  readonly simulationTimeout: number;
+  readonly showCompilationOutput: boolean;
+  readonly onFileAdd: () => void;
+  readonly onFileRename: () => void;
+  readonly onFormatCode: () => void;
+  readonly onLoadFiles: () => void;
+  readonly onDownloadAllFiles: () => void;
+  readonly onSettings: () => void;
+  readonly onUndo: () => void;
+  readonly onRedo: () => void;
+  readonly onCut: () => void;
+  readonly onCopy: () => void;
+  readonly onPaste: () => void;
+  readonly onSelectAll: () => void;
+  readonly onGoToLine: () => void;
+  readonly onFind: () => void;
+  readonly onCompile: () => void;
+  readonly onCompileAndStart: () => void;
+  readonly onOutputPanelToggle: () => void;
+  readonly onTimeoutChange: (timeout: number) => void;
+}
+
+function _DesktopMenuBar({
+  isMac,
+  board,
+  baudRate,
+  simulationTimeout,
+  showCompilationOutput,
+  onFileAdd,
+  onFileRename,
+  onFormatCode,
+  onLoadFiles,
+  onDownloadAllFiles,
+  onSettings,
+  onUndo,
+  onRedo,
+  onCut,
+  onCopy,
+  onPaste,
+  onSelectAll,
+  onGoToLine,
+  onFind,
+  onCompile,
+  onCompileAndStart,
+  onOutputPanelToggle,
+  onTimeoutChange,
+}: _DesktopMenuBarProps) {
+  return (
+    <nav
+      className="app-menu no-drag flex items-center gap-0 flex-shrink-0"
+      role="menubar"
+      aria-label="Application menu"
+    >
+      {/* File Menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
+            File
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56">
+          <DropdownMenuLabel>File</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onFileAdd()}>
+            New File
+            <DropdownMenuShortcut>
+              {isMac ? "⇧⌥⌘N" : "Ctrl+Alt+Shift+N"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onFileRename()}>
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onFormatCode()}>
+            Format Code
+            <DropdownMenuShortcut>
+              {isMac ? "⇧⌘F" : "Ctrl+Shift+F"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onLoadFiles()}>
+            Load Files
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onDownloadAllFiles()}>
+            Download All Files
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onSettings()}>
+            Settings
+            <DropdownMenuShortcut>
+              {isMac ? "⌘," : "Ctrl+,"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Edit Menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
+            Edit
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56">
+          <DropdownMenuLabel>Edit</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onUndo()}>
+            Undo
+            <DropdownMenuShortcut>
+              {isMac ? "⌘Z" : "Ctrl+Z"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onRedo()}>
+            Redo
+            <DropdownMenuShortcut>
+              {isMac ? "⇧⌘Z" : "Ctrl+Y"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onCut()}>
+            Cut
+            <DropdownMenuShortcut>
+              {isMac ? "⌘X" : "Ctrl+X"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onCopy()}>
+            Copy
+            <DropdownMenuShortcut>
+              {isMac ? "⌘C" : "Ctrl+C"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onPaste()}>
+            Paste
+            <DropdownMenuShortcut>
+              {isMac ? "⌘V" : "Ctrl+V"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onSelectAll()}>
+            Select All
+            <DropdownMenuShortcut>
+              {isMac ? "⌘A" : "Ctrl+A"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onGoToLine()}>
+            Go to Line…
+            <DropdownMenuShortcut>
+              {isMac ? "⌘G" : "Ctrl+G"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onFind()}>
+            Find
+            <DropdownMenuShortcut>
+              {isMac ? "⌘F" : "Ctrl+F"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Sketch Menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
+            Sketch
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56">
+          <DropdownMenuItem onSelect={() => onCompile()}>
+            Compile
+            <DropdownMenuShortcut>F5</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onCompileAndStart()}>
+            Compile/Upload
+            <DropdownMenuShortcut>
+              {isMac ? "⌘U" : "Ctrl+U"}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onOutputPanelToggle()}>
+            <div className="flex items-center justify-between w-full">
+              <span>Output Panel</span>
+              {showCompilationOutput && (
+                <span className="text-ui-xs">✓</span>
+              )}
+            </div>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Tools Menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
+            Tools
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56">
+          <DropdownMenuLabel>Tools</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="cursor-default"
+            onSelect={(e) => e.preventDefault()}
+          >
+            <div className="flex items-center justify-between w-full">
+              <span>Board:</span>
+              <span className="text-ui-xs text-muted-foreground">
+                {board}
+              </span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="cursor-default"
+            onSelect={(e) => e.preventDefault()}
+          >
+            <div className="flex items-center justify-between w-full">
+              <span>Baud Rate:</span>
+              <span className="text-ui-xs text-muted-foreground">
+                {baudRate}
+              </span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="w-full text-left">
+              Timeout
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuRadioGroup
+                value={String(simulationTimeout)}
+                onValueChange={(v) => onTimeoutChange(Number(v))}
+              >
+                <DropdownMenuRadioItem value="5">5s</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="10">10s</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="30">30s</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="60">60s</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="120">2min</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="300">5min</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="600">10min</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="0">∞</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Help Menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
+            Help
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56">
+          <DropdownMenuItem
+            onSelect={() => {
+              globalThis.open(
+                "https://github.com/MoDevIO/UnoSim",
+                "_blank",
+                "noopener",
+              );
+            }}
+          >
+            Github
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </nav>
+  );
+}
+
 /**
  * Unified App Header Component
  * 
@@ -124,24 +568,22 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     if (!headerEl || !leftEl || !centerEl) return;
 
     const computeCenter = () => {
-      const headerRect = headerEl.getBoundingClientRect();
-      const leftRect = leftEl.getBoundingClientRect();
-      const centerRect = centerEl.getBoundingClientRect();
-      const gap = 12;
-      const leftEdge = leftRect.left - headerRect.left;
-      const minCenter =
-        leftEdge + leftRect.width + gap + centerRect.width / 2;
-      const target = Math.max(headerRect.width / 2, minCenter);
-      setCenterLeft(target);
+      setCenterLeft(_computeHeaderCenter(headerEl, leftEl, centerEl));
     };
 
     computeCenter();
-    const observer = new ResizeObserver(() => computeCenter());
+    const observer = new ResizeObserver(computeCenter);
     observer.observe(headerEl);
     observer.observe(leftEl);
     observer.observe(centerEl);
     return () => observer.disconnect();
   }, [isMobile]);
+
+  const simulateAction = _getSimulateAction(simulationStatus, onStop, onResume, onSimulate);
+  const simulateLabel = _getSimulateAriaLabel(simulationStatus);
+  const simulateText = _getSimulateText(simulationStatus);
+  const isRunning = simulationStatus === "running";
+  const pauseProps = { isPausing, simulateDisabled, isLoading, onPause };
 
   // Desktop Header
   if (!isMobile) {
@@ -166,223 +608,31 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </div>
 
           {/* Menu Bar */}
-          <nav
-            className="app-menu no-drag flex items-center gap-0 flex-shrink-0"
-            role="menubar"
-            aria-label="Application menu"
-          >
-            {/* File Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-                  File
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuLabel>File</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onFileAdd()}>
-                  New File
-                  <DropdownMenuShortcut>
-                    {isMac ? "⇧⌥⌘N" : "Ctrl+Alt+Shift+N"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onFileRename()}>
-                  Rename
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onFormatCode()}>
-                  Format Code
-                  <DropdownMenuShortcut>
-                    {isMac ? "⇧⌘F" : "Ctrl+Shift+F"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onLoadFiles()}>
-                  Load Files
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onDownloadAllFiles()}>
-                  Download All Files
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onSettings()}>
-                  Settings
-                  <DropdownMenuShortcut>
-                    {isMac ? "⌘," : "Ctrl+,"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Edit Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-                  Edit
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuLabel>Edit</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onUndo()}>
-                  Undo
-                  <DropdownMenuShortcut>
-                    {isMac ? "⌘Z" : "Ctrl+Z"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onRedo()}>
-                  Redo
-                  <DropdownMenuShortcut>
-                    {isMac ? "⇧⌘Z" : "Ctrl+Y"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onCut()}>
-                  Cut
-                  <DropdownMenuShortcut>
-                    {isMac ? "⌘X" : "Ctrl+X"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onCopy()}>
-                  Copy
-                  <DropdownMenuShortcut>
-                    {isMac ? "⌘C" : "Ctrl+C"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onPaste()}>
-                  Paste
-                  <DropdownMenuShortcut>
-                    {isMac ? "⌘V" : "Ctrl+V"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onSelectAll()}>
-                  Select All
-                  <DropdownMenuShortcut>
-                    {isMac ? "⌘A" : "Ctrl+A"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onGoToLine()}>
-                  Go to Line…
-                  <DropdownMenuShortcut>
-                    {isMac ? "⌘G" : "Ctrl+G"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onFind()}>
-                  Find
-                  <DropdownMenuShortcut>
-                    {isMac ? "⌘F" : "Ctrl+F"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Sketch Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-                  Sketch
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuItem onSelect={() => onCompile()}>
-                  Compile
-                  <DropdownMenuShortcut>F5</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onCompileAndStart()}>
-                  Compile/Upload
-                  <DropdownMenuShortcut>
-                    {isMac ? "⌘U" : "Ctrl+U"}
-                  </DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onOutputPanelToggle()}>
-                  <div className="flex items-center justify-between w-full">
-                    <span>Output Panel</span>
-                    {showCompilationOutput && (
-                      <span className="text-ui-xs">✓</span>
-                    )}
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Tools Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-                  Tools
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuLabel>Tools</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="cursor-default"
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span>Board:</span>
-                    <span className="text-ui-xs text-muted-foreground">
-                      {board}
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="cursor-default"
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span>Baud Rate:</span>
-                    <span className="text-ui-xs text-muted-foreground">
-                      {baudRate}
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="w-full text-left">
-                    Timeout
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuRadioGroup
-                      value={String(simulationTimeout)}
-                      onValueChange={(v) => onTimeoutChange(Number(v))}
-                    >
-                      <DropdownMenuRadioItem value="5">5s</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="10">10s</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="30">30s</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="60">60s</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="120">2min</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="300">5min</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="600">10min</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="0">∞</DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Help Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-                  Help
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuItem
-                  onSelect={() => {
-                    globalThis.open(
-                      "https://github.com/MoDevIO/UnoSim",
-                      "_blank",
-                      "noopener",
-                    );
-                  }}
-                >
-                  Github
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </nav>
+          <_DesktopMenuBar
+            isMac={isMac}
+            board={board}
+            baudRate={baudRate}
+            simulationTimeout={simulationTimeout}
+            showCompilationOutput={showCompilationOutput}
+            onFileAdd={onFileAdd}
+            onFileRename={onFileRename}
+            onFormatCode={onFormatCode}
+            onLoadFiles={onLoadFiles}
+            onDownloadAllFiles={onDownloadAllFiles}
+            onSettings={onSettings}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            onCut={onCut}
+            onCopy={onCopy}
+            onPaste={onPaste}
+            onSelectAll={onSelectAll}
+            onGoToLine={onGoToLine}
+            onFind={onFind}
+            onCompile={onCompile}
+            onCompileAndStart={onCompileAndStart}
+            onOutputPanelToggle={onOutputPanelToggle}
+            onTimeoutChange={onTimeoutChange}
+          />
         </div>
 
         <div className="flex-1" />
@@ -397,106 +647,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           }}
         >
           <Button
-            onClick={
-              simulationStatus === "running"
-                ? onStop
-                : simulationStatus === "paused"
-                  ? onResume
-                  : onSimulate
-            }
+            onClick={simulateAction}
             disabled={simulateDisabled}
-            className={clsx(
-              "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
-              "!text-white font-medium transition-colors",
-              {
-                "!bg-status-warning hover:!bg-accent-amber":
-                  simulationStatus === "running" && !simulateDisabled,
-                "!bg-status-success hover:!bg-status-success-dark":
-                  (simulationStatus === "stopped" || simulationStatus === "paused") &&
-                  !simulateDisabled,
-                "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500":
-                  simulateDisabled,
-              },
-            )}
+            className={_getDesktopSimulateButtonClass(simulationStatus, simulateDisabled)}
             data-testid="button-simulate-toggle"
-            aria-label={
-              simulationStatus === "running"
-                ? "Stop Simulation"
-                : simulationStatus === "paused"
-                  ? "Resume Simulation"
-                  : "Start Simulation"
-            }
+            aria-label={simulateLabel}
           >
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
-              <div className="relative w-4 h-4">
-                <Play
-                  className={clsx(
-                    "absolute inset-0 m-auto h-4 w-4 transition-all duration-200",
-                    {
-                      "opacity-100 scale-100": !isLoading && simulationStatus !== "running",
-                      "opacity-0 scale-75": isLoading || simulationStatus === "running",
-                    },
-                  )}
-                />
-                <Square
-                  className={clsx(
-                    "absolute inset-0 m-auto h-4 w-4 transition-all duration-200",
-                    {
-                      "opacity-100 scale-100": !isLoading && simulationStatus === "running",
-                      "opacity-0 scale-75": isLoading || simulationStatus !== "running",
-                    },
-                  )}
-                />
-                <Loader2
-                  className={clsx(
-                    "absolute inset-0 m-auto h-4 w-4 transition-opacity duration-150",
-                    { "opacity-100": isLoading, "opacity-0": !isLoading },
-                  )}
-                />
-              </div>
-              <span className="font-semibold leading-none">
-                {simulationStatus === "running"
-                  ? "Stop"
-                  : simulationStatus === "paused"
-                    ? "Resume"
-                    : "Start"}
-              </span>
+              <_DesktopSimulateIcon isLoading={isLoading} isRunning={isRunning} />
+              <span className="font-semibold leading-none">{simulateText}</span>
             </div>
-            {simulationStatus === "running" && (
-              <div
-                className="absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center cursor-pointer bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!simulateDisabled && !isLoading) {
-                    onPause();
-                  }
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!simulateDisabled && !isLoading) {
-                      onPause();
-                    }
-                  }
-                }}
-                aria-label="Pause Simulation"
-                title="Pause"
-              >
-                {isPausing ? (
-                  <Loader2 className="h-3 w-3 animate-spin text-orange-900" />
-                ) : (
-                  <Pause className="h-3 w-3 text-orange-900" />
-                )}
-              </div>
-            )}
+            {isRunning && <_PauseButton {...pauseProps} />}
           </Button>
         </div>
 
@@ -516,92 +677,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     >
       <div className="flex items-center gap-2">
         <Button
-          onClick={
-            simulationStatus === "running"
-              ? onStop
-              : simulationStatus === "paused"
-                ? onResume
-                : onSimulate
-          }
+          onClick={simulateAction}
           disabled={simulateDisabled}
-          className={clsx(
-            "h-[var(--ui-button-height)] px-6 pr-12 flex items-center justify-center gap-2 relative",
-            "!text-white font-medium transition-colors whitespace-nowrap",
-            {
-              "!bg-orange-600 hover:!bg-orange-700":
-                simulationStatus === "running" && !simulateDisabled,
-              "!bg-green-600 hover:!bg-green-700":
-                (simulationStatus === "stopped" || simulationStatus === "paused") &&
-                !simulateDisabled,
-              "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500":
-                simulateDisabled,
-            },
-          )}
+          className={_getMobileSimulateButtonClass(simulationStatus, simulateDisabled)}
           data-testid="button-simulate-toggle-mobile"
-          aria-label={
-            simulationStatus === "running"
-              ? "Stop Simulation"
-              : simulationStatus === "paused"
-                ? "Resume Simulation"
-                : "Start Simulation"
-          }
+          aria-label={simulateLabel}
         >
-          <div
-            className={clsx("flex items-center gap-2", {
-              "absolute left-1/2 -translate-x-1/2":
-                simulationStatus !== "running",
-            })}
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-            ) : simulationStatus === "running" ? (
-              <Square className="h-4 w-4 flex-shrink-0" />
-            ) : (
-              <Play className="h-4 w-4 flex-shrink-0" />
-            )}
-            <span>
-              {simulationStatus === "running"
-                ? "Stop"
-                : simulationStatus === "paused"
-                  ? "Resume"
-                  : "Start"}
-            </span>
-          </div>
-          {simulationStatus === "running" && (
-            <div
-              className="absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center cursor-pointer bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!simulateDisabled && !isLoading) {
-                  onPause();
-                }
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!simulateDisabled && !isLoading) {
-                    onPause();
-                  }
-                }
-              }}
-              aria-label="Pause Simulation"
-              title="Pause"
-            >
-              {isPausing ? (
-                <Loader2 className="h-3 w-3 animate-spin text-orange-900" />
-              ) : (
-                <Pause className="h-3 w-3 text-orange-900" />
-              )}
-            </div>
-          )}
+          <_MobileSimulateContent isLoading={isLoading} isRunning={isRunning} text={simulateText} />
+          {isRunning && <_PauseButton {...pauseProps} />}
         </Button>
       </div>
     </header>
