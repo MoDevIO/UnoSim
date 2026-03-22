@@ -33,6 +33,28 @@ function extractPinKeyFromMessage(msg: string): string | null {
   return match?.[1] ?? null;
 }
 
+/**
+ * Merge incoming parser warnings into existing messages.
+ * Replaces stale "pinMode() was never called" messages for the same pin,
+ * deduplicates, and returns the new array (or the original if nothing changed).
+ * Extracted to fix S2004 (nesting depth) in useWebSocketHandler.
+ */
+function mergeParserWarnings(
+  prev: ParserMessage[],
+  usageWarnings: ParserMessage[],
+): ParserMessage[] {
+  const cleanedPrev = prev.filter((existing) => {
+    if (existing.category !== "pins") return true;
+    if (!existing.message.includes("pinMode() was never called")) return true;
+    const pinKey = extractPinKeyFromMessage(existing.message);
+    if (!pinKey) return true;
+    return !usageWarnings.some((m) => extractPinKeyFromMessage(m.message) === pinKey);
+  });
+  const existingKeys = new Set(cleanedPrev.map((m) => `${m.category}:${m.message}`));
+  const newMessages = usageWarnings.filter((m) => !existingKeys.has(`${m.category}:${m.message}`));
+  return newMessages.length > 0 ? [...cleanedPrev, ...newMessages] : cleanedPrev;
+}
+
 export type UseWebSocketHandlerParams = {
   // read-only state used inside the handler
   simulationStatus: "running" | "stopped" | "paused";
@@ -177,15 +199,13 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
         } else if (text.length > 0) {
           newLines.push({ text, complete: true });
         }
+      } else if (newLines.length === 0 || newLines.at(-1)!.complete) {
+        newLines.push({ text, complete: false });
       } else {
-        if (newLines.length === 0 || newLines.at(-1)!.complete) {
-          newLines.push({ text, complete: false });
-        } else {
-          newLines[newLines.length - 1] = {
-            text: newLines.at(-1)!.text + text,
-            complete: false,
-          };
-        }
+        newLines[newLines.length - 1] = {
+          text: newLines.at(-1)!.text + text,
+          complete: false,
+        };
       }
 
       if (newLines.length > MAX_SERIAL_LINES) {
@@ -329,24 +349,9 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     const usageWarnings: ParserMessage[] = [];
     if (usageWarnings.length > 0) {
       setParserMessages((prev) => {
-        const cleanedPrev = prev.filter((existing) => {
-          if (existing.category !== "pins") return true;
-          if (!existing.message.includes("pinMode() was never called")) return true;
-          const pinKey = extractPinKeyFromMessage(existing.message);
-          if (!pinKey) return true;
-          const isReplaced = usageWarnings.some((m) =>
-            extractPinKeyFromMessage(m.message) === pinKey,
-          );
-          return !isReplaced;
-        });
-
-        const existingMessages = new Set(cleanedPrev.map((m) => `${m.category}:${m.message}`));
-        const newMessages = usageWarnings.filter((m) => !existingMessages.has(`${m.category}:${m.message}`));
-        if (newMessages.length > 0) {
-          setParserPanelDismissed(false);
-          return [...cleanedPrev, ...newMessages];
-        }
-        return cleanedPrev;
+        const updated = mergeParserWarnings(prev, usageWarnings);
+        if (updated !== prev) setParserPanelDismissed(false);
+        return updated;
       });
     }
   };
