@@ -149,5 +149,9 @@
       "matchCommandLine": true
     },
     "g++": true
+  },
+  "sonarlint.connectedMode.project": {
+    "connectionId": "http-localhost-9000",
+    "projectKey": "unowebsim"
   }
 }
