@@ -110,6 +110,20 @@ function getPinModeLabel(modeNum: number): string {
   }
 }
 
+/** Returns tailwind color class for a named pin mode string. Fixes S3358 (nested ternary). */
+function getPinModeColor(mode: string): string {
+  if (mode === "INPUT") return "text-blue-400";
+  if (mode === "OUTPUT") return "text-orange-400";
+  return "text-green-400";
+}
+
+/** Returns tailwind color class for a numeric pin mode value. Fixes S3358 (nested ternary). */
+function getPinModeLegacyColor(pinMode: number): string {
+  if (pinMode === 0) return "text-blue-400";
+  if (pinMode === 1) return "text-orange-400";
+  return "text-green-400";
+}
+
 /** Renders the pinMode cell with proper fallbacks. Module-level = no re-creation on render (fixes S6481). */
 function renderPinModeCell(
   record: IOPinRecord,
@@ -123,12 +137,7 @@ function renderPinModeCell(
     return (
       <div className="space-y-0.5 text-center">
         {uniqueModes.map((mode) => {
-          const modeColor =
-            mode === "INPUT"
-              ? "text-blue-400"
-              : mode === "OUTPUT"
-                ? "text-orange-400"
-                : "text-green-400";
+          const modeColor = getPinModeColor(mode);
           const modeLines = showDetail
             ? record.pinModeLines?.filter(
                 (_, li) => record.pinModeModes?.[li] === mode,
@@ -154,8 +163,7 @@ function renderPinModeCell(
     );
   }
   if (record.defined && record.pinMode !== undefined) {
-    const modeColor =
-      record.pinMode === 0 ? "text-blue-400" : record.pinMode === 1 ? "text-orange-400" : "text-green-400";
+    const modeColor = getPinModeLegacyColor(record.pinMode);
     return (
       <div className="text-center">
         <span className={modeColor}>{getPinModeLabel(record.pinMode)}</span>

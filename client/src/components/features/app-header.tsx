@@ -112,6 +112,12 @@ function _getDesktopSimulateButtonClass(
   );
 }
 
+function getMobileSimulateIcon(isLoading: boolean, isRunning: boolean): JSX.Element {
+  if (isLoading) return <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />;
+  if (isRunning) return <Square className="h-4 w-4 flex-shrink-0" />;
+  return <Play className="h-4 w-4 flex-shrink-0" />;
+}
+
 function _getMobileSimulateButtonClass(
   status: SimulationStatus,
   disabled: boolean,
@@ -211,19 +217,14 @@ interface MobileSimulateContentProps {
 }
 
 function MobileSimulateContent({ isLoading, isRunning, text }: MobileSimulateContentProps) {
+  const icon = getMobileSimulateIcon(isLoading, isRunning);
   return (
     <div
       className={clsx("flex items-center gap-2", {
         "absolute left-1/2 -translate-x-1/2": !isRunning,
       })}
     >
-      {isLoading ? (
-        <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-      ) : isRunning ? (
-        <Square className="h-4 w-4 flex-shrink-0" />
-      ) : (
-        <Play className="h-4 w-4 flex-shrink-0" />
-      )}
+      {icon}
       <span>{text}</span>
     </div>
   );

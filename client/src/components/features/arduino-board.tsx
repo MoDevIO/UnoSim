@@ -605,7 +605,15 @@ export function ArduinoBoard({
               <div
                 ref={overlayRef}
                 className="arduino-overlay absolute inset-0 w-full h-full"
+                role="application"
+                tabIndex={0}
+                aria-label="Arduino board interactive overlay. Click pins to toggle their state."
                 onClick={handleOverlayClick}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    handleOverlayClick(e as unknown as React.MouseEvent);
+                  }
+                }}
                 dangerouslySetInnerHTML={{ __html: overlaySvg }}
               />
               {/* analog dialog is rendered as a portal to avoid affecting layout */}
@@ -631,73 +639,92 @@ export function ArduinoBoard({
   );
 }
 
-// Portal render function placed after component to keep JSX smaller
-function AnalogDialogPortal(props: {
+interface AnalogDialogPortalProps {
+  readonly dialog:
+    | {
+        open: true;
+        pin: number;
+        value: number;
+        leftPct: number;
+        topPct: number;
+        placement: "above" | "below";
+      }
+    | null;
+  readonly overlayRef: React.RefObject<HTMLDivElement> | null;
+  readonly onClose: () => void;
+  readonly onConfirm: (pin: number, value: number) => void;
+}
+
+function getAnalogDialogCoordinates(
+  overlayRef: React.RefObject<HTMLDivElement> | null,
   dialog: {
     open: true;
     pin: number;
-    value: number;
-    leftPct: number;
-    topPct: number;
     placement: "above" | "below";
-  } | null;
-  overlayRef: React.RefObject<HTMLDivElement> | null;
-  onClose: () => void;
-  onConfirm: (pin: number, value: number) => void;
-}) {
-  const { dialog, overlayRef, onClose, onConfirm } = props;
-  if (!dialog || !overlayRef?.current) return null;
+  },
+) {
+  if (!overlayRef?.current) return null;
 
-  try {
-    const svgEl = overlayRef.current.querySelector("svg");
-    if (!svgEl) return null;
-    const idx = dialog.pin - 14;
-    const el =
-      svgEl.querySelector<SVGGraphicsElement>(`#pin-A${idx}-state`) ||
-      svgEl.querySelector<SVGGraphicsElement>(`#pin-${dialog.pin}-state`);
-    if (!el) return null;
-    const rect = el.getBoundingClientRect();
-    const dialogWidth = getCssNumber('--dialog-width-small', 220);
-    const dialogHeight = getCssNumber('--dialog-height-small', 84);
-    const pointerOffset = getCssNumber('--dialog-offset-pointer', 6);
-    const viewportMargin = 8;
-    let left = rect.left + rect.width / 2 - dialogWidth / 2;
-    let top =
-      dialog.placement === "below"
-        ? rect.bottom + pointerOffset
-        : rect.top - dialogHeight - pointerOffset;
-    // clamp to viewport
-    left = Math.max(viewportMargin, Math.min(globalThis.innerWidth - dialogWidth - viewportMargin, left));
-    top = Math.max(viewportMargin, Math.min(globalThis.innerHeight - dialogHeight - viewportMargin, top));
+  const svgEl = overlayRef.current.querySelector("svg");
+  if (!svgEl) return null;
 
-    return createPortal(
-      <div
-        style={{
-          position: "fixed",
-          left,
-          top,
-          width: dialogWidth,
-          background: "rgba(20,20,20,0.95)",
-          color: "var(--color-surface-muted)",
-          padding: "var(--dialog-padding-inline)",
-          borderRadius: 6,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
-          zIndex: 10000,
-        }}
-      >
-        <div style={{ fontSize: "var(--fs-label-lg)", marginBottom: "var(--dialog-offset-pointer)" }}>
-          {dialog.pin >= 14 && dialog.pin <= 19
-            ? `A${dialog.pin - 14}`
-            : dialog.pin}
-        </div>
-        <DialogInner dialog={dialog} onClose={onClose} onConfirm={onConfirm} />
-      </div>,
-      document.body,
-    );
-  } catch {
-    return null;
-  }
+  const idx = dialog.pin - 14;
+  const el =
+    svgEl.querySelector<SVGGraphicsElement>(`#pin-A${idx}-state`) ||
+    svgEl.querySelector<SVGGraphicsElement>(`#pin-${dialog.pin}-state`);
+  if (!el) return null;
+
+  const rect = el.getBoundingClientRect();
+  const dialogWidth = getCssNumber("--dialog-width-small", 220);
+  const dialogHeight = getCssNumber("--dialog-height-small", 84);
+  const pointerOffset = getCssNumber("--dialog-offset-pointer", 6);
+  const viewportMargin = 8;
+
+  let left = rect.left + rect.width / 2 - dialogWidth / 2;
+  let top =
+    dialog.placement === "below"
+      ? rect.bottom + pointerOffset
+      : rect.top - dialogHeight - pointerOffset;
+
+  left = Math.max(viewportMargin, Math.min(globalThis.innerWidth - dialogWidth - viewportMargin, left));
+  top = Math.max(viewportMargin, Math.min(globalThis.innerHeight - dialogHeight - viewportMargin, top));
+
+  const pinLabel = dialog.pin >= 14 && dialog.pin <= 19 ? `A${dialog.pin - 14}` : `${dialog.pin}`;
+
+  return { left, top, dialogWidth, dialogHeight, pinLabel };
 }
+
+function AnalogDialogPortal(props: AnalogDialogPortalProps) {
+  const { dialog, overlayRef, onClose, onConfirm } = props;
+  if (!dialog) return null;
+
+  const coords = getAnalogDialogCoordinates(overlayRef, dialog);
+  if (!coords) return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        left: coords.left,
+        top: coords.top,
+        width: coords.dialogWidth,
+        background: "rgba(20,20,20,0.95)",
+        color: "var(--color-surface-muted)",
+        padding: "var(--dialog-padding-inline)",
+        borderRadius: 6,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+        zIndex: 10000,
+      }}
+    >
+      <div style={{ fontSize: "var(--fs-label-lg)", marginBottom: "var(--dialog-offset-pointer)" }}>
+        {coords.pinLabel}
+      </div>
+      <DialogInner dialog={dialog} onClose={onClose} onConfirm={onConfirm} />
+    </div>,
+    document.body,
+  );
+}
+
 
 function DialogInner(props: {
   readonly dialog: { open: true; pin: number; value: number };
