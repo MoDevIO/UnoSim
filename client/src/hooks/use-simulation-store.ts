@@ -95,12 +95,17 @@ const applyEvents = (current: PinState[], events: PinEvent[]): PinState[] => {
   return nextStates;
 };
 
+function getPinType(pin: number, stateType: PinStateType): "digital" | "analog" | "pwm" {
+  if (stateType === "pwm") return "pwm";
+  return pin >= 14 && pin <= 19 ? "analog" : "digital";
+}
+
 function buildNewPinState(pin: number, stateType: PinStateType, value: number): PinState {
   return {
     pin,
     mode: stateType === "mode" ? modeMap[value] || "INPUT" : "OUTPUT",
     value: stateType === "value" || stateType === "pwm" ? value : 0,
-    type: stateType === "pwm" ? "pwm" : pin >= 14 && pin <= 19 ? "analog" : "digital",
+    type: getPinType(pin, stateType),
   };
 }
 

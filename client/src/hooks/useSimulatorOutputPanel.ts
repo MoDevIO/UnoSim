@@ -27,6 +27,10 @@ export function useSimulatorOutputPanel({
   setActiveOutputTab,
   code,
 }: UseSimulatorOutputPanelProps) {
+  const compilationState: "success" | "error" | null =
+    lastCompilationResult === "success" || lastCompilationResult === "error"
+      ? lastCompilationResult
+      : null;
   const {
     outputPanelRef,
     outputTabsHeaderRef,
@@ -39,7 +43,7 @@ export function useSimulatorOutputPanel({
     hasCompilationErrors,
     cliOutput,
     parserMessages,
-    lastCompilationResult === "success" ? "success" : lastCompilationResult === "error" ? "error" : null,
+    compilationState,
     parserMessagesContainerRef,
     showCompilationOutput,
     setShowCompilationOutput,

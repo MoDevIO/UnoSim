@@ -106,7 +106,7 @@ interface ArduinoBoardProps {
  * Helper to clean up XML declarations and apply consistent SVG styles
  */
 function preprocessSvg(content: string): string {
-  return content.replace(/<\?xml[^?]*\?>/g, "");
+  return content.replaceAll(/<\?xml[^?]*\?>/g, "");
 }
 
 /**
@@ -527,7 +527,7 @@ export function ArduinoBoard({
     let modified = preprocessSvg(svgContent);
     try {
       const DEFAULT_BOARD_HEX = '#0f7391';
-      modified = modified.replace(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
+      modified = modified.replaceAll(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
     } catch { /* ignore regex errors */ }
     const opacity = simulationStatus === "running" ? 1 : 0.35;
     return modified.replace(
@@ -646,7 +646,7 @@ function AnalogDialogPortal(props: {
   onConfirm: (pin: number, value: number) => void;
 }) {
   const { dialog, overlayRef, onClose, onConfirm } = props;
-  if (!dialog || !overlayRef || !overlayRef.current) return null;
+  if (!dialog || !overlayRef?.current) return null;
 
   try {
     const svgEl = overlayRef.current.querySelector("svg");

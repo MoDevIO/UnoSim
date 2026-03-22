@@ -33,13 +33,13 @@ function formatCode(code: string): string {
   let formatted = code;
 
   // 1. Normalize line endings
-  formatted = formatted.replace(/\r\n/g, "\n");
+  formatted = formatted.replaceAll(/\r\n/g, "\n");
 
   // 2. Add newlines after opening braces
-  formatted = formatted.replace(/\{\s*/g, "{\n");
+  formatted = formatted.replaceAll(/\{\s*/g, "{\n");
 
   // 3. Add newlines before closing braces
-  formatted = formatted.replace(/\s*\}/g, "\n}");
+  formatted = formatted.replaceAll(/\s*\}/g, "\n}");
 
   // 4. Indent blocks (simple 2-space indentation)
   const lines = formatted.split("\n");
@@ -65,7 +65,7 @@ function formatCode(code: string): string {
   formatted = indentedLines.join("\n");
 
   // 5. Remove multiple consecutive blank lines
-  formatted = formatted.replace(/\n{3,}/g, "\n\n");
+  formatted = formatted.replaceAll(/\n{3,}/g, "\n\n");
 
   // 6. Ensure newline at end of file
   if (!formatted.endsWith("\n")) {
@@ -134,22 +134,26 @@ export function CodeEditor({
             "type",
           ],
           [
-            /\b(setup|loop|pinMode|digitalWrite|digitalRead|analogRead|analogWrite|delay|millis|Serial|if|else|for|while|do|switch|case|break|continue|return|HIGH|LOW|INPUT|OUTPUT|LED_BUILTIN)\b/,
+            /\b(setup|loop|pinMode|digitalWrite|digitalRead|analogRead|analogWrite|delay|millis|Serial)\b/,
+            "keyword",
+          ],
+          [
+            /\b(if|else|for|while|do|switch|case|break|continue|return|HIGH|LOW|INPUT|OUTPUT|LED_BUILTIN)\b/,
             "keyword",
           ],
           [/\b\d+\b/, "number"],
-          [/[{}()\[\]]/, "bracket"],
+          [/[{}()[\]]/,  "bracket"],
           [/[<>]=?/, "operator"],
           [/[+\-*/%=!&|^~]/, "operator"],
           [/[;,.]/, "delimiter"],
-          [/\b[a-zA-Z_][a-zA-Z0-9_]*(?=\s*\()/, "function"],
+          [/\b[a-zA-Z_]\w*(?=\s*\()/, "function"],
         ],
 
         // comment state for multiline comments
         comment: [
           [/\*\//, "comment.block", "@pop"],
-          [/[^\/*]+/, "comment.block"],
-          [/[\/*]/, "comment.block"],
+          [/[^/*]+/, "comment.block"],
+          [/[/*]/, "comment.block"],
         ],
       },
     });
@@ -433,9 +437,7 @@ export function CodeEditor({
             const sel = editor.getSelection();
             if (model && sel && !sel.isEmpty()) {
               const text = model.getValueInRange(sel);
-              try {
-                navigator.clipboard.writeText(text).catch(() => {});
-              } catch {}
+              navigator.clipboard.writeText(text).catch(() => {});
             }
           } catch {}
         },
@@ -447,9 +449,7 @@ export function CodeEditor({
             if (model && sel && !sel.isEmpty()) {
               const text = model.getValueInRange(sel);
               // try clipboard write (async) but not await to avoid blocking
-              try {
-                navigator.clipboard.writeText(text).catch(() => {});
-              } catch {}
+              navigator.clipboard.writeText(text).catch(() => {});
               editor.executeEdits("cut", [{ range: sel, text: "" }]);
             }
           } catch {}
@@ -511,7 +511,7 @@ export function CodeEditor({
     // Use onKeyDown instead of addCommand to avoid accidental deletion
     const keydownDisposable = editor.onKeyDown((e) => {
       // Check if Ctrl/Cmd + Shift + F (Format)
-      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const isMac = navigator.userAgent.includes("Mac");
       const isFormatKey =
         (isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.code === "KeyF";
 
@@ -647,7 +647,7 @@ export function CodeEditor({
 
   // Global keyboard shortcut for Cmd+U (Compile & Run) - works even when editor is not focused
   useEffect(() => {
-    const isMac = navigator.platform.toUpperCase().includes("MAC");
+    const isMac = navigator.userAgent.includes("Mac");
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const isCompileKey = (isMac ? e.metaKey : e.ctrlKey) && e.code === "KeyU";

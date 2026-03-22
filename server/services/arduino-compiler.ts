@@ -78,7 +78,7 @@ export class ArduinoCompiler {
         if (attempt < maxRetries - 1) {
           try {
             // Rename to a trash path to work around file locks
-            const trashPath = `${dirPath}.trash.${Date.now()}.${Math.random().toString(36).slice(7)}`;
+            const trashPath = `${dirPath}.trash.${randomUUID()}`;
             this.logger.debug(
               `Attempting rename-before-delete: ${dirPath} -> ${trashPath}`,
             );
@@ -322,9 +322,9 @@ export class ArduinoCompiler {
           
           // Replace the #include with the actual header content
           const replacement = `// --- Start of ${header.name} ---\n${header.content}\n// --- End of ${header.name} ---`;
-          const escapedInclude = includeStatement.split('"')[1].replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+          const escapedInclude = includeStatement.split('"')[1].replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
           const patternString = String.raw`#include\s*"${escapedInclude}"`;
-          processedCode = processedCode.replace(
+          processedCode = processedCode.replaceAll(
             new RegExp(patternString, "g"),
             replacement,
           );
@@ -415,7 +415,7 @@ export class ArduinoCompiler {
 
     // Correct stderr text for offset so UI shows original line numbers
     if (lineOffset > 0 && cleanedErrors) {
-      cleanedErrors = cleanedErrors.replace(/sketch\.ino:(\d+):/g, (_m, n) => {
+      cleanedErrors = cleanedErrors.replaceAll(/sketch\.ino:(\d+):/g, (_m, n) => {
         const corrected = Math.max(1, Number.parseInt(n, 10) - lineOffset);
         return `sketch.ino:${corrected}:`;
       });
@@ -726,8 +726,8 @@ export class ArduinoCompiler {
     const progSizeRegex = /(Sketch uses[^\n]*\.|Der Sketch verwendet[^\n]*\.)/;
     const ramSizeRegex = /(Global variables use[^\n]*\.|Globale Variablen verwenden[^\n]*\.)/;
 
-    const progSizeMatch = output.match(progSizeRegex);
-    const ramSizeMatch = output.match(ramSizeRegex);
+    const progSizeMatch = progSizeRegex.exec(output);
+    const ramSizeMatch = ramSizeRegex.exec(output);
 
     let parsedOutput = "";
     if (progSizeMatch && ramSizeMatch) {
@@ -785,11 +785,11 @@ export class ArduinoCompiler {
   }
 
   private _cleanCompilerErrors(errors: string, sketchFile: string): string {
-    const escapedPath = sketchFile.replace(/[-\/\\^$*+?.()|[\]{}]/g, String.raw`\$&`);
+    const escapedPath = sketchFile.replaceAll(/[-/\\^$*+?.()|[\]{}]/g, String.raw`\$&`);
     return errors
-      .replace(new RegExp(escapedPath, "g"), "sketch.ino")
-      .replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/[a-f0-9-]+\.ino/gi, "sketch.ino")
-      .replace(/Error during build: exit status \d+\s*/g, "")
+      .replaceAll(new RegExp(escapedPath, "g"), "sketch.ino")
+      .replaceAll(/\/[^\s:/]+\/temp\/[a-f0-9-]+\/[a-f0-9-]+\.ino/gi, "sketch.ino")
+      .replaceAll(/Error during build: exit status \d+\s*/g, "")
       .trim();
   }
 }
