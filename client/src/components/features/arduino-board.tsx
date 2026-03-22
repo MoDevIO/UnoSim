@@ -113,9 +113,9 @@ function preprocessSvg(content: string): string {
  * Parse pin number from a click-area element id (e.g. "pin-5-click", "pin-A2-click")
  */
 function parsePinFromElement(el: Element): number | undefined {
-  const digitalMatch = el.id.match(/^pin-(\d+)-click$/);
+  const digitalMatch = /^pin-(\d+)-click$/.exec(el.id);
   if (digitalMatch) return Number.parseInt(digitalMatch[1], 10);
-  const analogMatch = el.id.match(/^pin-A(\d+)-click$/);
+  const analogMatch = /^pin-A(\d+)-click$/.exec(el.id);
   if (analogMatch) return 14 + Number.parseInt(analogMatch[1], 10);
   return undefined;
 }
@@ -169,6 +169,84 @@ function getComputedSpacingToken(tokenName: string): number {
   };
   return getCssNumber(tokenName, FALLBACKS[tokenName] ?? 4);
 }
+/**
+ * Compute slider positions for all analog pins from the overlay SVG element.
+ * Extracted to reduce Cognitive Complexity of the slider-positions useEffect (S3776).
+ */
+function computeSliderPositionsFromSvg(
+  svgEl: SVGSVGElement,
+  analogPins: number[],
+): SliderPosition[] {
+  const positions: SliderPosition[] = [];
+  for (const pin of analogPins) {
+    if (pin < 14 || pin > 19) continue;
+    const idx = pin - 14;
+    const candidates = [
+      `pin-A${idx}-state`,
+      `pin-A${idx}-frame`,
+      `pin-A${idx}-click`,
+      `pin-${pin}-state`,
+      `pin-${pin}-frame`,
+      `pin-${pin}-click`,
+    ];
+    let found: SVGGraphicsElement | null = null;
+    for (const id of candidates) {
+      const el = svgEl.querySelector<SVGGraphicsElement>(`#${id}`);
+      if (el) { found = el; break; }
+    }
+    if (!found) continue;
+    try {
+      const bbox = found.getBBox();
+      const cx = bbox.x + bbox.width / 2;
+      const cy = bbox.y + bbox.height / 2;
+      const leftPct = (cx / VIEWBOX_WIDTH) * 100;
+      const topPct = (cy / VIEWBOX_HEIGHT) * 100;
+      const rawLen = Math.max(16, Math.min(80, bbox.width * 3));
+      const placement: "above" | "below" = cy < VIEWBOX_HEIGHT / 2 ? "below" : "above";
+      positions.push({ pin, leftPct, topPct, value: 0, sliderLen: rawLen, placement });
+    } catch {
+      // ignore
+    }
+  }
+  return positions;
+}
+
+/**
+ * Dispatch a click on a pin element: opens analog dialog for analog pins,
+ * or toggles value for digital INPUT pins.
+ * Extracted to reduce Cognitive Complexity of handleOverlayClick (S3776).
+ */
+function dispatchPinClick(
+  pin: number,
+  pinStates: PinState[],
+  analogPins: number[],
+  sliderPositions: SliderPosition[],
+  onPinToggle: (pin: number, newValue: number) => void,
+  onAnalogChange: ((pin: number, value: number) => void) | undefined,
+  onOpenAnalogDialog: (
+    pin: number,
+    value: number,
+    leftPct: number,
+    topPct: number,
+    placement: "above" | "below",
+  ) => void,
+): void {
+  const state = pinStates.find((p) => p.pin === pin);
+  const usedAsAnalog = analogPins.includes(pin);
+  if (pin >= 14 && pin <= 19 && onAnalogChange != null && usedAsAnalog) {
+    const info = sliderPositions.find((s) => s.pin === pin);
+    const val = state?.value ?? 0;
+    const leftPct = info?.leftPct ?? 50;
+    const topPct = info?.topPct ?? 50;
+    const placement = getAnalogDialogPlacement(info, topPct);
+    onOpenAnalogDialog(pin, val, leftPct, topPct, placement);
+  } else if (state && (state.mode === "INPUT" || state.mode === "INPUT_PULLUP")) {
+    const newValue = state.value > 0 ? 0 : 1;
+    logger.debug(`[ArduinoBoard] Pin ${pin} clicked, toggling to ${newValue}`);
+    onPinToggle(pin, newValue);
+  }
+}
+
 /** Manages board color state, including persistence and custom event subscription. */
 function useBoardColor(): string {
   const [boardColor, setBoardColor] = useState<string>(() => {
@@ -358,71 +436,12 @@ export function ArduinoBoard({
       setSliderPositions([]);
       return;
     }
-
     const svgEl = overlay.querySelector<SVGSVGElement>("svg");
     if (!svgEl) {
       setSliderPositions([]);
       return;
     }
-
-    const positions: Array<{
-      pin: number;
-      leftPct: number;
-      topPct: number;
-      value: number;
-      sliderLen: number;
-      placement: "above" | "below";
-    }> = [];
-    for (const pin of analogPins) {
-      if (pin < 14 || pin > 19) continue;
-      const idx = pin - 14;
-      // Try several candidate element ids to find the pin position
-      const candidates = [
-        `pin-A${idx}-state`,
-        `pin-A${idx}-frame`,
-        `pin-A${idx}-click`,
-        `pin-${pin}-state`,
-        `pin-${pin}-frame`,
-        `pin-${pin}-click`,
-      ];
-      let found: SVGGraphicsElement | null = null;
-      for (const id of candidates) {
-        const el = svgEl.querySelector<SVGGraphicsElement>(`#${id}`);
-        if (el) {
-          found = el;
-          break;
-        }
-      }
-      if (!found) continue;
-
-      try {
-        const bbox = found.getBBox();
-        const cx = bbox.x + bbox.width / 2;
-        const cy = bbox.y + bbox.height / 2;
-        const leftPct = (cx / VIEWBOX_WIDTH) * 100;
-        const topPct = (cy / VIEWBOX_HEIGHT) * 100;
-        // Note: We read pinStates directly but don't depend on it to avoid re-renders
-        // The slider value will be updated separately when pinStates changes
-        const value = 0; // Default value, will be updated by a separate effect
-        // Compute slider visual length (in viewBox pixels) and clamp to reasonable size
-        const rawLen = Math.max(16, Math.min(80, bbox.width * 3));
-        // Placement: if pin is in upper half, place slider below; otherwise above
-        const placement: "above" | "below" =
-          cy < VIEWBOX_HEIGHT / 2 ? "below" : "above";
-        positions.push({
-          pin,
-          leftPct,
-          topPct,
-          value,
-          sliderLen: rawLen,
-          placement,
-        });
-      } catch {
-        // ignore
-      }
-    }
-
-    setSliderPositions(positions);
+    setSliderPositions(computeSliderPositionsFromSvg(svgEl, analogPins));
   }, [overlaySvgContent, analogPins]);
 
   // Update slider values when pinStates changes (without triggering re-calculation of positions)
@@ -454,23 +473,11 @@ export function ArduinoBoard({
       const pinClick = target.closest('[id^="pin-"][id$="-click"]');
       if (pinClick && onPinToggle) {
         const pin = parsePinFromElement(pinClick);
-
         if (pin !== undefined) {
-          const state = pinStates.find((p) => p.pin === pin);
-          const usedAsAnalog = analogPins.includes(pin);
-
-          if (pin >= 14 && pin <= 19 && onAnalogChange && usedAsAnalog) {
-            const info = sliderPositions.find((s) => s.pin === pin);
-            const val = state ? state.value : 0;
-            const leftPct = info ? info.leftPct : 50;
-            const topPct = info ? info.topPct : 50;
-            const placement = getAnalogDialogPlacement(info, topPct);
-            setAnalogDialog({ open: true, pin, value: val, leftPct, topPct, placement });
-          } else if (state && (state.mode === "INPUT" || state.mode === "INPUT_PULLUP")) {
-            const newValue = state.value > 0 ? 0 : 1;
-            logger.debug(`[ArduinoBoard] Pin ${pin} clicked, toggling to ${newValue}`);
-            onPinToggle(pin, newValue);
-          }
+          dispatchPinClick(
+            pin, pinStates, analogPins, sliderPositions, onPinToggle, onAnalogChange,
+            (p, v, l, t, pl) => setAnalogDialog({ open: true, pin: p, value: v, leftPct: l, topPct: t, placement: pl }),
+          );
         }
         return;
       }
