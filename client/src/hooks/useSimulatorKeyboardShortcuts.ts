@@ -112,14 +112,6 @@ export function useSimulatorKeyboardShortcuts({
         handleNewFile();
         return;
       }
-
-      const tgt = e.target as HTMLElement | null;
-      const ignoreTarget =
-        tgt &&
-        (tgt.tagName === "INPUT" ||
-          tgt.tagName === "TEXTAREA" ||
-          tgt.isContentEditable);
-      if (ignoreTarget) return;
     };
 
     globalThis.addEventListener("keydown", handleKeyDown, { capture: true });
