@@ -11,10 +11,10 @@ type SimulatorSidebarProps = {
   readonly simulationStatus: SimulationStatus | undefined;
   readonly txActivity: number;
   readonly rxActivity: number;
-  onReset: () => void;
-  onPinToggle: (pin: number, newValue: number) => void;
+  readonly onReset: () => void;
+  readonly onPinToggle: (pin: number, newValue: number) => void;
   readonly analogPins: number[];
-  onAnalogChange: (pin: number, newValue: number) => void;
+  readonly onAnalogChange: (pin: number, newValue: number) => void;
   readonly isMobile?: boolean;
 };
 

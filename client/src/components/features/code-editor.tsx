@@ -33,13 +33,13 @@ function formatCode(code: string): string {
   let formatted = code;
 
   // 1. Normalize line endings
-  formatted = formatted.replaceAll(/\r\n/g, "\n");
+  formatted = formatted.replaceAll('\r\n', '\n');
 
   // 2. Add newlines after opening braces
   formatted = formatted.replaceAll(/\{\s*/g, "{\n");
 
   // 3. Add newlines before closing braces
-  formatted = formatted.replaceAll(/\s*\}/g, "\n}");
+  formatted = formatted.replaceAll(/[ \t\n\r]*\}/g, "\n}");
 
   // 4. Indent blocks (simple 2-space indentation)
   const lines = formatted.split("\n");
@@ -152,7 +152,7 @@ export function CodeEditor({
         // comment state for multiline comments
         comment: [
           [/\*\//, "comment.block", "@pop"],
-          [/[^/*]+/, "comment.block"],
+          [/[^*]+/, "comment.block"],
           [/[/*]/, "comment.block"],
         ],
       },

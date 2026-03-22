@@ -700,9 +700,9 @@ function AnalogDialogPortal(props: {
 }
 
 function DialogInner(props: {
-  dialog: { open: true; pin: number; value: number };
-  onClose: () => void;
-  onConfirm: (pin: number, value: number) => void;
+  readonly dialog: { open: true; pin: number; value: number };
+  readonly onClose: () => void;
+  readonly onConfirm: (pin: number, value: number) => void;
 }) {
   const { dialog, onClose, onConfirm } = props;
   const [val, setVal] = useState<number>(dialog.value);
