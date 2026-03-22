@@ -18,7 +18,7 @@ import * as React from "react";
 type SeverityLevel = 1 | 2 | 3;
 
 // Module-level constants (not re-created on every render)
-const PWM_PINS = [3, 5, 6, 9, 10, 11];
+const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
 
 const HIDE_SCROLLBAR_STYLE = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -69,7 +69,7 @@ function getRxTxBadge(pin: string): JSX.Element | null {
 /** Returns a PWM tilde element for PWM-capable pins, or null. Fixes S1940 IIFE anti-pattern. */
 function getPwmTilde(pin: string): JSX.Element | null {
   const n = Number.parseInt(pin, 10);
-  return !Number.isNaN(n) && PWM_PINS.includes(n)
+  return !Number.isNaN(n) && PWM_PINS.has(n)
     ? <span className="text-yellow-400">~</span>
     : null;
 }

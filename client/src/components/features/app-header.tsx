@@ -130,14 +130,14 @@ function _getMobileSimulateButtonClass(
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-interface _PauseButtonProps {
+interface PauseButtonProps {
   readonly isPausing: boolean;
   readonly simulateDisabled: boolean;
   readonly isLoading: boolean;
   readonly onPause: () => void;
 }
 
-function _PauseButton({ isPausing, simulateDisabled, isLoading, onPause }: _PauseButtonProps) {
+function PauseButton({ isPausing, simulateDisabled, isLoading, onPause }: PauseButtonProps) {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -174,12 +174,12 @@ function _PauseButton({ isPausing, simulateDisabled, isLoading, onPause }: _Paus
   );
 }
 
-interface _DesktopSimulateIconProps {
+interface DesktopSimulateIconProps {
   readonly isLoading: boolean;
   readonly isRunning: boolean;
 }
 
-function _DesktopSimulateIcon({ isLoading, isRunning }: _DesktopSimulateIconProps) {
+function DesktopSimulateIcon({ isLoading, isRunning }: DesktopSimulateIconProps) {
   return (
     <div className="relative w-4 h-4">
       <Play
@@ -204,13 +204,13 @@ function _DesktopSimulateIcon({ isLoading, isRunning }: _DesktopSimulateIconProp
   );
 }
 
-interface _MobileSimulateContentProps {
+interface MobileSimulateContentProps {
   readonly isLoading: boolean;
   readonly isRunning: boolean;
   readonly text: string;
 }
 
-function _MobileSimulateContent({ isLoading, isRunning, text }: _MobileSimulateContentProps) {
+function MobileSimulateContent({ isLoading, isRunning, text }: MobileSimulateContentProps) {
   return (
     <div
       className={clsx("flex items-center gap-2", {
@@ -229,7 +229,7 @@ function _MobileSimulateContent({ isLoading, isRunning, text }: _MobileSimulateC
   );
 }
 
-interface _DesktopMenuBarProps {
+interface DesktopMenuBarProps {
   readonly isMac: boolean;
   readonly board: string;
   readonly baudRate: number;
@@ -255,7 +255,7 @@ interface _DesktopMenuBarProps {
   readonly onTimeoutChange: (timeout: number) => void;
 }
 
-function _DesktopMenuBar({
+function DesktopMenuBar({
   isMac,
   board,
   baudRate,
@@ -279,7 +279,7 @@ function _DesktopMenuBar({
   onCompileAndStart,
   onOutputPanelToggle,
   onTimeoutChange,
-}: _DesktopMenuBarProps) {
+}: DesktopMenuBarProps) {
   return (
     <nav
       className="app-menu no-drag flex items-center gap-0 flex-shrink-0"
@@ -608,7 +608,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </div>
 
           {/* Menu Bar */}
-          <_DesktopMenuBar
+          <DesktopMenuBar
             isMac={isMac}
             board={board}
             baudRate={baudRate}
@@ -654,10 +654,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             aria-label={simulateLabel}
           >
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
-              <_DesktopSimulateIcon isLoading={isLoading} isRunning={isRunning} />
+              <DesktopSimulateIcon isLoading={isLoading} isRunning={isRunning} />
               <span className="font-semibold leading-none">{simulateText}</span>
             </div>
-            {isRunning && <_PauseButton {...pauseProps} />}
+            {isRunning && <PauseButton {...pauseProps} />}
           </Button>
         </div>
 
@@ -683,8 +683,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           data-testid="button-simulate-toggle-mobile"
           aria-label={simulateLabel}
         >
-          <_MobileSimulateContent isLoading={isLoading} isRunning={isRunning} text={simulateText} />
-          {isRunning && <_PauseButton {...pauseProps} />}
+          <MobileSimulateContent isLoading={isLoading} isRunning={isRunning} text={simulateText} />
+          {isRunning && <PauseButton {...pauseProps} />}
         </Button>
       </div>
     </header>
