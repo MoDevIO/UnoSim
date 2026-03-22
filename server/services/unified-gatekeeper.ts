@@ -235,6 +235,18 @@ export class UnifiedGatekeeper extends EventEmitter {
   }
 
   /**
+   * Clean up timeout and event listener after a cache lock is acquired or timed out.
+   */
+  private _cleanupLockWaiter(
+    key: string,
+    timeoutHandle: NodeJS.Timeout | null,
+    eventListener: (() => void) | null,
+  ): void {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    if (eventListener) this.off(`cache_lock_released:${key}`, eventListener);
+  }
+
+  /**
    * Acquire a cache lock (read or write)
    * Read locks: multiple readers allowed
    * Write locks: exclusive, no other locks allowed
@@ -274,34 +286,24 @@ export class UnifiedGatekeeper extends EventEmitter {
             activeLocks.push(entry);
             this.cacheLocks.set(key, activeLocks);
             this.logger.debug(`✓ Read lock acquired for ${key} by ${owner}`);
-            
-            // Cleanup
-            if (timeoutHandle) clearTimeout(timeoutHandle);
-            if (eventListener) this.off(`cache_lock_released:${key}`, eventListener);
-            
+            this._cleanupLockWaiter(key, timeoutHandle, eventListener);
             resolve(this.createCacheLockReleaser(key, ownerId));
             return true;
           }
-        } else {
+        } else if (activeLocks.length === 0) {
           // Write lock: exclusive, no other locks allowed
-          if (activeLocks.length === 0) {
-            const entry: CacheLockEntry = {
-              key,
-              lockType: "write",
-              acquiredAt: now,
-              expiresAt: now + this.lockTTL,
-              owner: ownerId,
-            };
-            this.cacheLocks.set(key, [entry]);
-            this.logger.debug(`✓ Write lock acquired for ${key} by ${owner}`);
-            
-            // Cleanup
-            if (timeoutHandle) clearTimeout(timeoutHandle);
-            if (eventListener) this.off(`cache_lock_released:${key}`, eventListener);
-            
-            resolve(this.createCacheLockReleaser(key, ownerId));
-            return true;
-          }
+          const entry: CacheLockEntry = {
+            key,
+            lockType: "write",
+            acquiredAt: now,
+            expiresAt: now + this.lockTTL,
+            owner: ownerId,
+          };
+          this.cacheLocks.set(key, [entry]);
+          this.logger.debug(`✓ Write lock acquired for ${key} by ${owner}`);
+          this._cleanupLockWaiter(key, timeoutHandle, eventListener);
+          resolve(this.createCacheLockReleaser(key, ownerId));
+          return true;
         }
 
         return false;
@@ -331,6 +333,31 @@ export class UnifiedGatekeeper extends EventEmitter {
   }
 
   /**
+   * Grant the next task from the compile queue a slot.
+   * Called after a slot is released to wake up a waiting requester.
+   */
+  private _grantNextQueuedSlot(): void {
+    if (this.compileQueue.length === 0) return;
+    const task = this.compileQueue.shift()!;
+    try {
+      task.resolver(this.createReleaseFunction(task.ownerId, "compile"));
+    } catch (err) {
+      this.logger.error(
+        `Failed to grant queued slot to ${task.owner}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      // Slot remains available (already incremented above), try next task
+      if (this.compileQueue.length > 0) {
+        const next = this.compileQueue.shift()!;
+        try {
+          next.resolver(this.createReleaseFunction(next.ownerId, "compile"));
+        } catch {
+          // Silently drop — slot stays available
+        }
+      }
+    }
+  }
+
+  /**
    * Release a compile slot
    * Emits event for monitoring and triggers next queued task
    */
@@ -344,33 +371,8 @@ export class UnifiedGatekeeper extends EventEmitter {
           this.logger.debug(
             `✓ Compile slot released (available: ${this.availableSlots}, active: ${this.activeSlots.size})`,
           );
-
-          // Emit event for monitoring (event-driven architecture)
           this.emit("slot_released");
-
-          // Grant next queued task if any
-          if (this.compileQueue.length > 0) {
-            const task = this.compileQueue.shift()!;
-            try {
-              // Use task.ownerId so activeSlots key matches the release function key
-              task.resolver(this.createReleaseFunction(task.ownerId, "compile"));
-            } catch (err) {
-              // If resolver throws, the slot was already incremented above
-              // but never decremented by the resolver — reclaim it
-              this.logger.error(
-                `Failed to grant queued slot to ${task.owner}: ${err instanceof Error ? err.message : String(err)}`,
-              );
-              // Slot remains available (already incremented), try next task
-              if (this.compileQueue.length > 0) {
-                const next = this.compileQueue.shift()!;
-                try {
-                  next.resolver(this.createReleaseFunction(next.ownerId, "compile"));
-                } catch {
-                  // Silently drop — slot stays available
-                }
-              }
-            }
-          }
+          this._grantNextQueuedSlot();
         }
       }
     };
