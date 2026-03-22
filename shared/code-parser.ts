@@ -199,14 +199,16 @@ class SerialConfigurationParser {
     const uncommentedCode = removeCommentsHelper(this.code);
 
     // Check if Serial is used
-    const isSerialUsed = PARSER_PATTERNS.SERIAL_USAGE.test(uncommentedCode);
-    if (!isSerialUsed) return messages;
+    if (!PARSER_PATTERNS.SERIAL_USAGE.test(uncommentedCode)) return messages;
 
     // Check Serial.begin
     const serialBeginExists = PARSER_PATTERNS.SERIAL_BEGIN.test(this.code);
     const serialBeginActive = PARSER_PATTERNS.SERIAL_BEGIN.test(uncommentedCode);
 
-    if (!serialBeginActive) {
+    if (serialBeginActive) {
+      const baudMsg = this._detectBaudRateMismatch(uncommentedCode);
+      if (baudMsg) messages.push(baudMsg);
+    } else {
       messages.push({
         id: randomUUID(),
         type: "warning",
@@ -218,22 +220,6 @@ class SerialConfigurationParser {
         suggestion: "Serial.begin(115200);",
         line: findLineNumberHelper(this.code, /Serial\s*\.\s*begin/),
       });
-    } else {
-      const baudRateMatch = uncommentedCode.match(PARSER_PATTERNS.SERIAL_BEGIN_EXTRACT);
-      if (baudRateMatch && baudRateMatch[1] !== "115200") {
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "serial",
-          severity: 2 as SeverityLevel,
-          message: `Serial.begin(${baudRateMatch[1]}) uses wrong baud rate. This simulator expects Serial.begin(115200).`,
-          suggestion: "Serial.begin(115200);",
-          line: findLineNumberHelper(
-            this.code,
-            new RegExp(String.raw`Serial\s*\.\s*begin\s*\(\s*${baudRateMatch[1]}`),
-          ),
-        });
-      }
     }
 
     // Check for while (!Serial) antipattern
@@ -250,33 +236,54 @@ class SerialConfigurationParser {
     }
 
     // Check for Serial.read() without Serial.available() check
-    const lines = uncommentedCode.split("\n");
+    const readMsg = this._detectSerialReadWithoutAvailable(uncommentedCode.split("\n"));
+    if (readMsg) messages.push(readMsg);
+
+    return messages;
+  }
+
+  private _detectBaudRateMismatch(uncommentedCode: string): ParserMessage | null {
+    const baudRateMatch = PARSER_PATTERNS.SERIAL_BEGIN_EXTRACT.exec(uncommentedCode);
+    if (baudRateMatch && baudRateMatch[1] !== "115200") {
+      return {
+        id: randomUUID(),
+        type: "warning",
+        category: "serial",
+        severity: 2 as SeverityLevel,
+        message: `Serial.begin(${baudRateMatch[1]}) uses wrong baud rate. This simulator expects Serial.begin(115200).`,
+        suggestion: "Serial.begin(115200);",
+        line: findLineNumberHelper(
+          this.code,
+          new RegExp(String.raw`Serial\s*\.\s*begin\s*\(\s*${baudRateMatch[1]}`),
+        ),
+      };
+    }
+    return null;
+  }
+
+  private _detectSerialReadWithoutAvailable(lines: string[]): ParserMessage | null {
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (PARSER_PATTERNS.SERIAL_READ.test(line)) {
-        let hasAvailableCheck = false;
-        for (let j = Math.max(0, i - 3); j <= i; j++) {
-          if (PARSER_PATTERNS.SERIAL_AVAILABLE.test(lines[j])) {
-            hasAvailableCheck = true;
-            break;
-          }
-        }
-        if (!hasAvailableCheck) {
-          messages.push({
-            id: randomUUID(),
-            type: "warning",
-            category: "serial",
-            severity: 2 as SeverityLevel,
-            message: "Serial.read() used without checking Serial.available(). This may return -1 when no data is available.",
-            suggestion: "if (Serial.available()) { }",
-            line: findLineNumberHelper(this.code, PARSER_PATTERNS.SERIAL_READ),
-          });
+      if (!PARSER_PATTERNS.SERIAL_READ.test(lines[i])) continue;
+      let hasAvailableCheck = false;
+      for (let j = Math.max(0, i - 3); j <= i; j++) {
+        if (PARSER_PATTERNS.SERIAL_AVAILABLE.test(lines[j])) {
+          hasAvailableCheck = true;
           break;
         }
       }
+      if (!hasAvailableCheck) {
+        return {
+          id: randomUUID(),
+          type: "warning",
+          category: "serial",
+          severity: 2 as SeverityLevel,
+          message: "Serial.read() used without checking Serial.available(). This may return -1 when no data is available.",
+          suggestion: "if (Serial.available()) { }",
+          line: findLineNumberHelper(this.code, PARSER_PATTERNS.SERIAL_READ),
+        };
+      }
     }
-
-    return messages;
+    return null;
   }
 }
 
@@ -345,8 +352,8 @@ class StructureParser {
  * Helper function to remove comments (used by sub-parsers)
  */
 function removeCommentsHelper(code: string): string {
-  let result = code.replace(PARSER_PATTERNS.COMMENT_SINGLE_LINE, "");
-  result = result.replace(PARSER_PATTERNS.COMMENT_MULTI_LINE, "");
+  let result = code.replaceAll(PARSER_PATTERNS.COMMENT_SINGLE_LINE, "");
+  result = result.replaceAll(PARSER_PATTERNS.COMMENT_MULTI_LINE, "");
   return result;
 }
 
@@ -470,7 +477,7 @@ class PerformanceAnalyzer {
 
     // Check for large arrays
     const arrayRegex = PARSER_PATTERNS.LARGE_ARRAY;
-    const arrayMatch = this.fullCode.match(arrayRegex);
+    const arrayMatch = arrayRegex.exec(this.fullCode);
     if (arrayMatch) {
       const arraySize = Number.parseInt(arrayMatch[1], 10);
       if (arraySize > 1000) {
@@ -491,28 +498,10 @@ class PerformanceAnalyzer {
     let match;
     while ((match = functionDefinitionRegex.exec(this.uncommentedCode)) !== null) {
       const functionName = match[1];
-      const functionStart = match.index;
-
-      // Find the end of this function by counting braces
-      let braceCount = 0;
-      let foundOpenBrace = false;
-      let functionEnd = functionStart;
-
-      for (let i = functionStart; i < this.uncommentedCode.length; i++) {
-        if (this.uncommentedCode[i] === "{") {
-          braceCount++;
-          foundOpenBrace = true;
-        } else if (this.uncommentedCode[i] === "}") {
-          braceCount--;
-          if (foundOpenBrace && braceCount === 0) {
-            functionEnd = i;
-            break;
-          }
-        }
-      }
+      const functionEnd = this._findFunctionBodyEnd(match.index);
 
       // Extract function body
-      const functionBody = this.uncommentedCode.slice(functionStart, functionEnd + 1);
+      const functionBody = this.uncommentedCode.slice(match.index, functionEnd + 1);
 
       // Check if function calls itself (recursive)
       const functionCallRegex = new RegExp(String.raw`\b${functionName}\s*\(`, "g");
@@ -531,6 +520,21 @@ class PerformanceAnalyzer {
     }
 
     return messages;
+  }
+
+  private _findFunctionBodyEnd(functionStart: number): number {
+    let braceCount = 0;
+    let foundOpenBrace = false;
+    for (let i = functionStart; i < this.uncommentedCode.length; i++) {
+      if (this.uncommentedCode[i] === "{") {
+        braceCount++;
+        foundOpenBrace = true;
+      } else if (this.uncommentedCode[i] === "}") {
+        braceCount--;
+        if (foundOpenBrace && braceCount === 0) return i;
+      }
+    }
+    return functionStart;
   }
 
   private findLineInFull(pattern: RegExp): number | undefined {
