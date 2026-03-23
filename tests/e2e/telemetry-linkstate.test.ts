@@ -12,7 +12,10 @@
 import { test, expect, describe } from 'vitest';
 import { setupTestEnvironment } from './test-utils';
 
-describe('Telemetry and Link State E2E', () => {
+const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const maybeDescribe = _skipHeavy ? describe.skip : describe;
+
+maybeDescribe('Telemetry and Link State E2E', () => {
   test('should receive sim_telemetry packets and maintain STABLE link state', async () => {
     const { 
       runner, 

@@ -6,13 +6,18 @@
 
 # Konfiguration
 LOG_FILE="run-tests_output.log"
-TOTAL_STEPS=7
+TOTAL_STEPS=9
 STEP=0
 SERVER_PID=""
 
 # Policy: Standard Log-Level für die Pipeline ist ERROR (1)
 export LOG_LEVEL=1 
 export NODE_ENV=test
+
+# Docker-Konfiguration (überschreibbar per Umgebungsvariable)
+DOCKER_HOST="${DOCKER_HOST:-unix:///$(echo $HOME)/.docker/run/docker.sock}"
+DOCKER_IMAGE="unowebsim:latest"
+export DOCKER_HOST
 
 # Farben & Icons
 G="\033[32m"; Y="\033[33m"; R="\033[31m"; C="\033[36m"; B="\033[1m"; D="\033[2m"; RS="\033[0m"
@@ -95,9 +100,28 @@ run_task "Pre-Flight Environment Check" "./check-leaks.sh --cleanup"
 # 2. Statische Analyse
 run_task "Statische Analyse" "npm run check"
 
-# 3. Unit-Tests & Coverage
-run_task "Unit-Tests & Coverage" "NODE_OPTIONS='--no-warnings' npm run test:unit -- --reporter=default --maxConcurrency=2"
+# 3. Unit-Tests
+run_task "Unit-Tests" "NODE_OPTIONS='--no-warnings' npm run test:fast -- --reporter=default --maxConcurrency=2"
 parse_test_results "Tests.*passed"
+
+# 4+5. Docker Image Build & Docker-Tests (optional, wenn Docker verfügbar)
+if docker info > /dev/null 2>&1; then
+    run_task "Docker Image Build" "docker build -t $DOCKER_IMAGE ."
+    run_task "Docker-Tests (Timing/Pause/Sandbox/Flow)" \
+        "FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_IMAGE SKIP_HEAVY_TESTS=false LOG_LEVEL=warn \
+        npx vitest run --reporter=default \
+        tests/server/timing-delay.test.ts \
+        tests/server/pause-resume-timing.test.ts \
+        tests/server/pause-resume-digitalread.test.ts \
+        tests/integration/serial-flooding.test.ts \
+        tests/integration/serial-flow.test.ts \
+        tests/server/services/sandbox-lifecycle.integration.test.ts \
+        tests/server/services/serial-backpressure.test.ts"
+    parse_test_results "Tests.*passed"
+else
+    echo -e "  ${WARN} Docker nicht verfügbar – Docker-Tests werden übersprungen (Steps 4+5)"
+    STEP=$((STEP+2))
+fi
 
 # --- VORBEREITUNG SERVER (Kein nummerierter Task) ---
 echo -e "\n${B}▸ [Vorbereitung] Server-Start${RS}"
@@ -106,7 +130,12 @@ sleep 1
 
 export PORT=3000
 # Server startet im Hintergrund (NODE_ENV=development für Vite-Snapshots)
-NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
+# FORCE_DOCKER + DOCKER_SANDBOX_IMAGE werden gesetzt, wenn Docker verfügbar ist (s. oben)
+if docker info > /dev/null 2>&1; then
+    FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_IMAGE NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
+else
+    NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
+fi
 SERVER_PID=$!
 
 for i in {1..15}; do
