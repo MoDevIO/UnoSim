@@ -78,8 +78,7 @@ test("handles simulation_status message", async () => {
   const wsMock = (await import("@/hooks/use-websocket")).useWebSocket();
   expect(wsMock.messageQueue.length).toBe(0);
 
-  // Push message AFTER mount and cause a re-render so the hook's
-  // messageQueue dependency is observed by useWebSocketHandler.
+  // Push message AFTER mount and trigger re-render in act()
   await act(async () => {
     messageQueue = [{ type: "simulation_status", status: "running" }];
     rerender(
@@ -87,13 +86,27 @@ test("handles simulation_status message", async () => {
         <ArduinoSimulator />
       </QueryClientProvider>
     );
+    vi.runOnlyPendingTimers();
   });
 
-  await waitFor(() => {
-    expect(document.querySelector('[data-testid="sim-status"]')?.textContent).toBe("running");
+  // Flush timers multiple times to settle child component effects
+  await act(async () => {
+    vi.runOnlyPendingTimers();
   });
 
-  // Flush any pending async state updates so React doesn't warn about
-  // out-of-act() updates caused by internal effects on ArduinoSimulatorPage.
-  await act(async () => {});
+  await act(async () => {
+    vi.runOnlyPendingTimers();
+  });
+
+  // Test the assertion
+  await act(async () => {
+    await waitFor(() => {
+      expect(document.querySelector('[data-testid="sim-status"]')?.textContent).toBe("running");
+    });
+  });
+
+  // Final timer flush
+  await act(async () => {
+    vi.runOnlyPendingTimers();
+  });
 });

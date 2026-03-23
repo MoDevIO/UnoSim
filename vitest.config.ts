@@ -16,6 +16,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    environmentOptions: {
+      jsdom: {
+        // Use in-memory storage instead of file-based to avoid --localstorage-file warning
+        // This ensures localStorage is not persisted to disk during tests
+        url: 'http://localhost',
+        storageQuota: 10000000, // 10MB quota
+        pretendToBeVisual: true,
+      },
+    },
     setupFiles: ['./tests/setup.ts'],
     threads: false,
     exclude: [

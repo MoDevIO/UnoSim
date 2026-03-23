@@ -118,7 +118,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -135,6 +135,9 @@ describe("useCompilation", () => {
     expect(result.current.hasCompilationErrors).toBe(false);
     expect(params.setSerialOutput).toHaveBeenCalledWith([]);
     expect(params.setIoRegistry).toHaveBeenCalled();
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("shows toast when compiling without code", () => {
@@ -176,7 +179,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -191,6 +194,9 @@ describe("useCompilation", () => {
       { type: "error", message: "Syntax error" },
     ]);
     expect(params.setParserPanelDismissed).toHaveBeenCalledWith(false);
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("handles backend unreachable during compile", async () => {
@@ -206,7 +212,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -220,6 +226,9 @@ describe("useCompilation", () => {
         variant: "destructive",
       }),
     );
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("compiles with multiple tabs as headers", async () => {
@@ -247,7 +256,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -265,6 +274,9 @@ describe("useCompilation", () => {
       name: "header2.h",
       content: "header 2",
     });
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("handleCompileAndStart starts simulation on success", async () => {
@@ -288,18 +300,27 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompileAndStart();
+      vi.runOnlyPendingTimers();
     });
 
-    await waitFor(() => {
-      expect(params.startSimulation).toHaveBeenCalled();
+    // Run only pending timers to process Promise.resolve() microtasks and wait for assertions
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      await waitFor(() => {
+        expect(params.startSimulation).toHaveBeenCalled();
+      });
     });
 
     expect(result.current.compilationStatus).toBe("success");
     expect(params.setHasCompiledOnce).toHaveBeenCalledWith(true);
     expect(params.setIsModified).toHaveBeenCalledWith(false);
 
+    // Flush all pending state updates including component effects
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+    });
     vi.useRealTimers();
   });
 
@@ -324,12 +345,17 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompileAndStart();
+      vi.runOnlyPendingTimers();
     });
 
-    await waitFor(() => {
-      expect(result.current.compilationStatus).toBe("error");
+    // Run only pending timers to process Promise.resolve() microtasks and wait for assertions
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      await waitFor(() => {
+        expect(result.current.compilationStatus).toBe("error");
+      });
     });
 
     expect(params.startSimulation).not.toHaveBeenCalled();
@@ -340,6 +366,10 @@ describe("useCompilation", () => {
       }),
     );
 
+    // Flush all pending state updates including component effects
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+    });
     vi.useRealTimers();
   });
 
@@ -380,7 +410,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -390,6 +420,9 @@ describe("useCompilation", () => {
 
     expect(params.setSerialOutput).toHaveBeenCalledWith([]);
     expect(params.setParserMessages).toHaveBeenCalledWith([]);
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("adds debug messages during compilation", async () => {
@@ -412,7 +445,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -426,6 +459,9 @@ describe("useCompilation", () => {
         type: "compile_request",
       }),
     );
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("calls compileMutation.mutate when handleCompile is invoked", async () => {
@@ -448,7 +484,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -459,6 +495,9 @@ describe("useCompilation", () => {
         expect.objectContaining({ code: expect.any(String) }),
       );
     });
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("handles network error by showing toast", async () => {
@@ -473,7 +512,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -488,6 +527,9 @@ describe("useCompilation", () => {
       },
       { timeout: 3000 },
     );
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("getMainSketchCode gets value from editor when available", async () => {
@@ -511,7 +553,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -521,6 +563,9 @@ describe("useCompilation", () => {
 
     const callArgs = (apiRequest as any).mock.calls[0][2];
     expect(callArgs.code).toBe("editor code");
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("getMainSketchCode falls back to first tab content", async () => {
@@ -545,7 +590,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -555,6 +600,9 @@ describe("useCompilation", () => {
 
     const callArgs = (apiRequest as any).mock.calls[0][2];
     expect(callArgs.code).toBe("tab code");
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("shows toast notification on successful compilation", async () => {
@@ -577,7 +625,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -591,6 +639,9 @@ describe("useCompilation", () => {
         description: "Your sketch has been compiled successfully",
       }),
     );
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("shows toast notification on failed compilation", async () => {
@@ -613,7 +664,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompile();
     });
 
@@ -628,6 +679,9 @@ describe("useCompilation", () => {
         variant: "destructive",
       }),
     );
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("handles editorRef.getValue() throwing error in handleCompileAndStart", async () => {
@@ -657,7 +711,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompileAndStart();
     });
 
@@ -669,6 +723,9 @@ describe("useCompilation", () => {
         expect.objectContaining({ code: "fallback code" }),
       );
     });
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("handles editorRef null in handleCompileAndStart with tabs fallback", async () => {
@@ -694,7 +751,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompileAndStart();
     });
 
@@ -705,6 +762,9 @@ describe("useCompilation", () => {
         expect.objectContaining({ code: "tab content" }),
       );
     });
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("handles editorRef null and empty tabs with code fallback", async () => {
@@ -731,7 +791,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompileAndStart();
     });
 
@@ -742,6 +802,9 @@ describe("useCompilation", () => {
         expect.objectContaining({ code: "code fallback" }),
       );
     });
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("handles compile and start success calling startSimulation", async () => {
@@ -764,7 +827,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompileAndStart();
     });
 
@@ -774,6 +837,9 @@ describe("useCompilation", () => {
 
     expect(params.setHasCompiledOnce).toHaveBeenCalledWith(true);
     expect(params.setIsModified).toHaveBeenCalledWith(false);
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("handles compile and start failure without calling startSimulation", async () => {
@@ -797,7 +863,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompileAndStart();
     });
 
@@ -812,6 +878,9 @@ describe("useCompilation", () => {
     });
 
     expect(params.startSimulation).not.toHaveBeenCalled();
+
+    // Flush pending effects
+    await act(async () => {});
   });
 
   it("handles compile and start API error", async () => {
@@ -826,7 +895,7 @@ describe("useCompilation", () => {
 
     const { result } = renderHook(() => useCompilation(params), { wrapper });
 
-    act(() => {
+    await act(async () => {
       result.current.handleCompileAndStart();
     });
 
@@ -841,5 +910,8 @@ describe("useCompilation", () => {
     });
 
     expect(params.startSimulation).not.toHaveBeenCalled();
+
+    // Flush pending effects
+    await act(async () => {});
   });
 });

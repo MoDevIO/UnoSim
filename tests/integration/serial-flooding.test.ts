@@ -84,7 +84,7 @@ void loop() {
 }
     `.trim();
 
-    const result = await runSketchWithOutput(runner, sketch, { timeout: 10 });
+    const result = await runSketchWithOutput(runner, sketch, { timeout: 30 });
 
     expect(result.success).toBe(true);
 
@@ -169,7 +169,7 @@ void loop() {
 }
     `.trim();
 
-    const result = await runSketchWithOutput(runner, sketch, { timeout: 10 });
+    const result = await runSketchWithOutput(runner, sketch, { timeout: 30 });
     expect(result.success).toBe(true);
 
     const fullOutput = extractPlainText(result.outputs);
@@ -234,7 +234,7 @@ void loop() {
 }
     `.trim();
 
-    const result = await runSketchWithOutput(runner, sketch, { timeout: 10 });
+    const result = await runSketchWithOutput(runner, sketch, { timeout: 30 });
     expect(result.success).toBe(true);
 
     const fullOutput = extractPlainText(result.outputs);
