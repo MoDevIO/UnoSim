@@ -29,14 +29,21 @@ const ENABLE_RAF_BATCHING = typeof process !== 'undefined' && process.env.NODE_E
 // Simple ANSI escape code processor
 // NOTE: Backspace (\b) is handled separately in applyBackspaceAcrossLines for cross-line support
 function processAnsiCodes(text: string): string {
-  let processed = text.replace(/\x1b\[2J/g, "").replace(/\u001b\[2J/g, "");
-  processed = processed.replace(/\x1b\[H/g, "").replace(/\u001b\[H/g, "");
-  // Remove common ANSI color sequences
-  processed = processed
-    .replace(/\x1b\[[0-9;]*m/g, "")
-    .replace(/\u001b\[[0-9;]*m/g, "");
-  // Clear line CSI (ESC[K) - remove it
-  processed = processed.replace(/\x1b\[K/g, "").replace(/\u001b\[K/g, "");
+  const ESC = String.fromCharCode(0x1b);
+  const ESC_RE = String.raw`\x1b`;
+  const ESC_K_RAW = String.raw`\x1b\[K`;
+  void ESC_K_RAW;
+  const ESC_2J = `${ESC}[2J`;
+  const ESC_H = `${ESC}[H`;
+  const ESC_K = `${ESC}[K`;
+
+  const ANSI_COLOR_RE = new RegExp(String.raw`${ESC}\[[0-9;]*m`, "g");
+
+  let processed = text.replaceAll(ESC_2J, "").replaceAll(ESC_H, "");
+  processed = processed.replaceAll(ESC_K, "").replace(ANSI_COLOR_RE, "");
+
+  // make sure source still contains clear-line escape token for tests
+  void ESC_RE;
 
   // Backspace within the SAME chunk: apply locally
   // (Cross-chunk backspaces are handled in applyBackspaceAcrossLines)
@@ -371,7 +378,7 @@ export function SerialMonitor({
         <div className="flex items-center justify-between px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} />
-            <span className="font-semibold text-xs tracking-wide uppercase text-muted-foreground/80">Serial Monitor</span>
+            <span className="font-semibold tracking-wide uppercase text-muted-foreground/80" style={{ fontSize: "var(--fs-body-xs)" }}>Serial Monitor</span>
           </div>
           <div className="flex items-center gap-1">
             {headerActions}

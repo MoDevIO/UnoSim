@@ -25,14 +25,15 @@ const TelemetryMetrics = memo(function TelemetryMetrics({
 }) {
   return (
     <div
-      className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4"
+      className="ml-4 flex items-center gap-4 text-muted-foreground border-l border-muted-foreground/30 pl-4"
+      style={{ fontSize: "var(--fs-body-xs)" }}
       data-testid="telemetry-metrics"
     >
       {telemetry ? (
         <>
-          <div className="flex flex-col" data-testid="telemetry-pin-changes">
-            <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Pin Changes</span>
-            <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-pin-changes-value">
+          <div className="flex flex-col leading-tight" data-testid="telemetry-pin-changes">
+            <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Pin Changes</span>
+            <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }} data-testid="telemetry-pin-changes-value">
               {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
               {telemetry.droppedPinChangesPerSecond > 0 && (
                 <span className="ml-1 text-amber-400/80" data-testid="telemetry-dropped">
@@ -41,18 +42,18 @@ const TelemetryMetrics = memo(function TelemetryMetrics({
               )}
             </span>
           </div>
-          <div className="flex flex-col" data-testid="telemetry-batching">
-            <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Batching</span>
-            <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-batching-value">
+          <div className="flex flex-col leading-tight" data-testid="telemetry-batching">
+            <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Batching</span>
+            <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }} data-testid="telemetry-batching-value">
               {telemetry.batchesPerSecond.toFixed(0)} bat/s ·{" "}
               {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
             </span>
           </div>
         </>
       ) : (
-        <div className="flex flex-col" data-testid="telemetry-loading">
-          <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Metrics</span>
-          <span className="text-sm font-mono text-cyan-400/50">…</span>
+        <div className="flex flex-col leading-tight" data-testid="telemetry-loading">
+          <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Metrics</span>
+          <span className="font-mono text-cyan-400/50" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>…</span>
         </div>
       )}
     </div>

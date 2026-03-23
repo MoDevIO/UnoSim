@@ -239,22 +239,22 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
           <div className="flex items-center justify-between px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
               <Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} />
-              <span className="font-semibold text-xs tracking-wide uppercase text-muted-foreground/80">Serial Output</span>
+              <span className="font-semibold tracking-wide uppercase text-muted-foreground/80" style={{ fontSize: "var(--fs-body-xs)" }}>Serial Output</span>
               {debugMode && (simulationStatus === "running" || simulationStatus === "paused") ? (
                 <div className="flex items-center gap-3 ml-2 border-l border-muted-foreground/20 pl-4">
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Baud</span>
-                    <span className="text-[11px] font-mono text-cyan-400">{baudRate}</span>
+                    <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Baud</span>
+                    <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>{baudRate}</span>
                   </div>
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Tel/s</span>
-                    <span className="text-[11px] font-mono text-cyan-400">
+                    <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Tel/s</span>
+                    <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>
                       {effectiveTelegramsPerSecond.toFixed(0)}/s
                     </span>
                   </div>
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[9px] uppercase tracking-wider text-cyan-500/50">Bytes/Telegramm</span>
-                    <span className="text-[11px] font-mono text-cyan-400">
+                    <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Bytes/Telegramm</span>
+                    <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>
                       {effectiveBytesPerTelegram.toFixed(0)} B
                     </span>
                   </div>

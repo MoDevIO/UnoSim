@@ -8,18 +8,27 @@ const FADE_OUT_MS = 200;
 
 /**
  * Helper function to get computed typography token values
- * Reads CSS variables and returns the actual pixel value considering font scaling
+ * Reads CSS variables and returns the actual pixel value considering font scaling.
+ * Handles calc() expressions by reading --ui-font-scale directly and multiplying.
  */
 function getComputedTokenValue(tokenName: string): string {
+  const BASE_SIZES: Record<string, number> = {
+    '--fs-label-sm': 8,
+    '--fs-label-lg': 12,
+  };
   try {
-    const root = document.documentElement;
-    const computedStyle = getComputedStyle(root);
+    const computedStyle = getComputedStyle(document.documentElement);
+    // Read --ui-font-scale (stored as plain number e.g. "1" or "1.25")
+    const scaleStr = computedStyle.getPropertyValue('--ui-font-scale').trim();
+    const scale = Number.parseFloat(scaleStr) || 1;
+    const base = BASE_SIZES[tokenName];
+    if (base !== undefined) return String(base * scale);
+    // Fallback: try to parse the raw value (works for plain px values)
     const value = computedStyle.getPropertyValue(tokenName).trim();
-    return value.replace(/px$/, '');
+    const n = Number.parseFloat(value.replace(/px$/, ''));
+    return Number.isNaN(n) ? '8' : String(n);
   } catch {
-    if (tokenName === '--fs-label-sm') return '8';
-    if (tokenName === '--fs-label-lg') return '12';
-    return '8';
+    return String(BASE_SIZES[tokenName] ?? 8);
   }
 }
 
@@ -282,7 +291,9 @@ export function usePinPollingEngine({
     const frameEl = svgEl.querySelector<SVGRectElement>(`#${frameElId}`);
     if (!stateEl && !frameEl) return;
     try {
-      const refEl = (frameEl instanceof SVGGraphicsElement ? frameEl : stateEl) as SVGGraphicsElement | null;
+      // Prefer stateEl (circle, always visible) over frameEl (rect, may be display:none)
+      // getBBox() returns {0,0,0,0} for display:none elements in many browsers
+      const refEl = (stateEl instanceof SVGGraphicsElement ? stateEl : frameEl) as SVGGraphicsElement | null;
       if (!refEl) return;
       const bb = refEl.getBBox();
       const cy = bb.y + bb.height / 2;
