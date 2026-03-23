@@ -2,6 +2,39 @@ import { afterEach, afterAll, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { initializeGlobalErrorHandlers, markTestAsFailed, setLogLevel } from "@shared/logger";
 
+// ============ WARNING SUPPRESSION ============
+// Suppress Node.js deprecation warnings about localstorage-file
+// These warnings come from jsdom and don't impact test results
+const originalWarn = process.emitWarning;
+process.emitWarning = function(warning: any, ...args: any[]) {
+  if (typeof warning === 'string' && warning.includes('localstorage-file')) {
+    return; // Suppress this warning
+  }
+  if (warning?.message?.includes?.('localstorage-file')) {
+    return; // Suppress this warning
+  }
+  return originalWarn.apply(process, [warning, ...args]);
+};
+
+// ============ LOCALSTORAGE INITIALIZATION ============
+// Initialize in-memory localStorage to prevent jsdom warnings about localstorage-file
+// This is safe for tests since we're using jsdom which provides its own storage
+try {
+  if (typeof globalThis.localStorage === 'undefined') {
+    const memoryStorage: Record<string, string> = {};
+    globalThis.localStorage = {
+      getItem: (key: string) => memoryStorage[key] ?? null,
+      setItem: (key: string, value: string) => { memoryStorage[key] = value; },
+      removeItem: (key: string) => { delete memoryStorage[key]; },
+      clear: () => { Object.keys(memoryStorage).forEach(key => delete memoryStorage[key]); },
+      key: (index: number) => Object.keys(memoryStorage)[index] ?? null,
+      length: Object.keys(memoryStorage).length,
+    } as any;
+  }
+} catch (_e) {
+  // localStorage may already be initialized, that's fine
+}
+
 // ============ POLICY: GLOBALE ERROR-HANDLER ============
 // Initialisiert Logger mit Flush-on-Failure Mechanismus
 initializeGlobalErrorHandlers();
