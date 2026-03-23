@@ -1,2 +1,22 @@
-# Führt nur Tests aus, die Dateien betreffen, die sich seit dem letzten Push geändert haben
-npm run test:fast
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Starte Qualitäts-Checks vor dem Push..."
+
+# 1. Schnelle Tests ausführen (nur geänderte Dateien)
+npm run test:fast || exit 1
+
+# 2. Statische Code-Analyse mit SonarQube
+echo "📡 Starte SonarQube Scan..."
+
+# Prüfen, ob der Token in der Shell verfügbar ist
+if [ -z "$SONAR_TOKEN" ]; then
+  echo "❌ Fehler: SONAR_TOKEN Umgebungsvariable fehlt!"
+  echo "Bitte 'export SONAR_TOKEN=\"dein_token\"' in ~/.zshrc hinzufügen."
+  exit 1
+fi
+
+# Scanner mit dem Token aus der Umgebungsvariable starten
+sonar-scanner -Dsonar.token=$SONAR_TOKEN || exit 1
+
+echo "✅ Alle Checks bestanden. Push wird fortgesetzt..."
