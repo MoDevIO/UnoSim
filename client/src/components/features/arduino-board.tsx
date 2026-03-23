@@ -604,6 +604,7 @@ export function ArduinoBoard({
               />
               {/* Overlay SVG - dynamic visualization and click handling */}
               <button
+                type="button"
                 ref={overlayRef as React.Ref<HTMLButtonElement>}
                 className="arduino-overlay absolute inset-0 w-full h-full"
                 aria-label="Arduino board interactive overlay. Click pins to toggle their state."
@@ -613,7 +614,7 @@ export function ArduinoBoard({
                     handleOverlayClick(e as unknown as React.MouseEvent);
                   }
                 }}
-                style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+                style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "block", width: "100%", height: "100%" }}
               >
                 <div dangerouslySetInnerHTML={{ __html: overlaySvg }} />
               </button>
