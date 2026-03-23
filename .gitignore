@@ -45,6 +45,9 @@ storage/binaries/
 /test-results/
 /playwright-report/
 /screenshots/
+.scannerwork/
+.scannerwork/*
+/scannerwork/
 
 # Old archive folder (legacy, use /docs/archive instead)
 /archive/

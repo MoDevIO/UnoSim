@@ -87,7 +87,11 @@ test("handles simulation_status message", async () => {
         <ArduinoSimulator />
       </QueryClientProvider>
     );
+    vi.runOnlyPendingTimers();
   });
+
+  // Run only pending timers to process Promise.resolve() microtasks
+  vi.runOnlyPendingTimers();
 
   await waitFor(() => {
     expect(document.querySelector('[data-testid="sim-status"]')?.textContent).toBe("running");
@@ -95,5 +99,7 @@ test("handles simulation_status message", async () => {
 
   // Flush any pending async state updates so React doesn't warn about
   // out-of-act() updates caused by internal effects on ArduinoSimulatorPage.
-  await act(async () => {});
+  await act(async () => {
+    vi.runOnlyPendingTimers();
+  });
 });
