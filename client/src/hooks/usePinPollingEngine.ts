@@ -55,7 +55,7 @@ function getComputedSpacingToken(tokenName: string): number {
 }
 
 interface UsePinPollingEngineProps {
-  overlayRef: React.RefObject<HTMLDivElement>;
+  overlayRef: React.RefObject<HTMLElement>;
   stateRef: React.MutableRefObject<{
     pinStates: PinState[];
     isSimulationRunning: boolean;
