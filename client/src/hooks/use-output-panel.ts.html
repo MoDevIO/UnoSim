@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">77.58% </span>
+                <span class="strong">75.4% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>135/174</span>
+                <span class='fraction'>141/187</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">58.94% </span>
+                <span class="strong">57.73% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>56/95</span>
+                <span class='fraction'>56/97</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.09% </span>
+                <span class="strong">85.29% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>27/31</span>
+                <span class='fraction'>29/34</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">79.24% </span>
+                <span class="strong">76.92% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>126/159</span>
+                <span class='fraction'>130/169</span>
             </div>
         
             
@@ -439,7 +439,25 @@
 <a name='L374'></a><a href='#L374'>374</a>
 <a name='L375'></a><a href='#L375'>375</a>
 <a name='L376'></a><a href='#L376'>376</a>
-<a name='L377'></a><a href='#L377'>377</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -492,6 +510,7 @@
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-yes">7x</span>
@@ -509,14 +528,23 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">43x</span>
+<span class="cline-any cline-yes">43x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">82x</span>
+<span class="cline-any cline-yes">43x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">43x</span>
 <span class="cline-any cline-yes">43x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -816,21 +844,25 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useState, useRef, useCallback, useEffect } from "react";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 import type { ParserMessage } from "@shared/schema";
+&nbsp;
+type CompilationResultType = "success" | "error" | null;
+type OutputTabType = "compiler" | "messages" | "registry" | "debug";
 &nbsp;
 export function useOutputPanel(
   hasCompilationErrors: boolean,
   cliOutput: string,
   parserMessages: ParserMessage[],
-  lastCompilationResult: "success" | "error" | null,
+  lastCompilationResult: CompilationResultType,
   parserMessagesContainerRef: React.RefObject&lt;HTMLDivElement&gt;,
   showCompilationOutput: boolean,
   setShowCompilationOutput: (value: boolean | ((prev: boolean) =&gt; boolean)) =&gt; void,
   setParserPanelDismissed: (value: boolean) =&gt; void,
-  setActiveOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") =&gt; void,
+  setActiveOutputTab: (tab: OutputTabType) =&gt; void,
   code: string,
 ) {
-  const outputPanelRef = useRef&lt;any&gt;(null);
+  const outputPanelRef = useRef&lt;ImperativePanelHandle | null&gt;(null);
   const outputTabsHeaderRef = useRef&lt;HTMLDivElement | null&gt;(null);
   const [outputPanelMinPercent, setOutputPanelMinPercent] = useState&lt;number&gt;(3);
   const [compilationPanelSize, setCompilationPanelSize] = useState(3);
@@ -839,7 +871,7 @@ export function useOutputPanel(
 &nbsp;
   // Helper function to open the output panel (via double-click on tabs)
   const openOutputPanel = useCallback(
-    (targetTab: "compiler" | "messages" | "registry" | "debug") =&gt; {
+    (targetTab: OutputTabType) =&gt; {
       // Mark as manually resized FIRST before showing panel (update both state and ref)
       outputPanelManuallyResizedRef.current = true;
       setOutputPanelManuallyResized(true);
@@ -864,16 +896,17 @@ export function useOutputPanel(
   );
 &nbsp;
   useEffect(() =&gt; {
-    const handler = (ev: any) =&gt; {
+    const handler: EventListener = (ev) =&gt; {
       try {
-        const newValue = Boolean(ev?.detail?.value);
+        const custom = ev as CustomEvent&lt;{ value?: unknown }&gt;;
+        const newValue = Boolean(custom?.detail?.value);
         setShowCompilationOutput(newValue);
         // Reset manual resize flag when toggling panel visibility (update both ref and state)
         outputPanelManuallyResizedRef.current = false;
         setOutputPanelManuallyResized(false);
         // Persist to localStorage
         try {
-          window.localStorage.setItem(
+          globalThis.localStorage.setItem(
             "unoShowCompileOutput",
             newValue ? "1" : "0",
           );
@@ -884,21 +917,30 @@ export function useOutputPanel(
         // ignore
       }
     };
-    document.addEventListener(
-      "showCompileOutputChange",
-      handler as EventListener,
-    );
-    return () =&gt;
-      document.removeEventListener(
-        "showCompileOutputChange",
-        handler as EventListener,
-      );
+    document.addEventListener("showCompileOutputChange", handler);
+    return () =&gt; document.removeEventListener("showCompileOutputChange", handler);
   }, [setShowCompilationOutput]);
+&nbsp;
+  useEffect(() =&gt; {
+    const handler: EventListener = <span class="fstat-no" title="function not covered" >(e</span>v) =&gt; {
+<span class="cstat-no" title="statement not covered" >      try {</span>
+        const custom = <span class="cstat-no" title="statement not covered" >ev as CustomEvent&lt;{ tab?: "compiler" | "messages" | "registry" | "debug" }&gt;;</span>
+        const tab = <span class="cstat-no" title="statement not covered" >custom?.detail?.tab;</span>
+<span class="cstat-no" title="statement not covered" >        if (!tab) <span class="cstat-no" title="statement not covered" >return;</span></span>
+<span class="cstat-no" title="statement not covered" >        setActiveOutputTab(tab);</span>
+<span class="cstat-no" title="statement not covered" >        setShowCompilationOutput(true);</span>
+      } catch {
+        // ignore invalid payloads
+      }
+    };
+    document.addEventListener("setOutputTab", handler);
+    return () =&gt; document.removeEventListener("setOutputTab", handler);
+  }, [setActiveOutputTab, setShowCompilationOutput]);
 &nbsp;
   // Persist showCompilationOutput state to localStorage whenever it changes
   useEffect(() =&gt; {
     try {
-      window.localStorage.setItem(
+      globalThis.localStorage.setItem(
         "unoShowCompileOutput",
         showCompilationOutput ? "1" : "0",
       );
@@ -1042,7 +1084,7 @@ export function useOutputPanel(
       // Enforce absolute minimum height (px) equal to the header height (plus 0 gap target).
       // The panel is the bottom panel; keeping it at header height keeps the header near the bottom edge.
       const absoluteMinPx = <span class="cstat-no" title="statement not covered" >headerHeight;</span>
-      const currentMinPx = <span class="cstat-no" title="statement not covered" >parseInt(panelNode.style.minHeight || "0", 10);</span>
+      const currentMinPx = <span class="cstat-no" title="statement not covered" >Number.parseInt(panelNode.style.minHeight || "0", 10);</span>
       <span class="missing-if-branch" title="if path not taken" >I</span>if (Number.isNaN(currentMinPx) || <span class="branch-1 cbranch-no" title="branch not covered" >currentMinPx !== absoluteMinPx) {</span>
 <span class="cstat-no" title="statement not covered" >        panelNode.style.minHeight = `${absoluteMinPx}px`;</span>
       }
@@ -1097,12 +1139,12 @@ export function useOutputPanel(
         });
       });
     };
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("uiFontScaleChange", handleUiScale);
+    globalThis.addEventListener("resize", handleResize);
+    globalThis.addEventListener("uiFontScaleChange", handleUiScale);
     document.addEventListener("uiFontScaleChange", handleUiScale);
     return () =&gt; {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("uiFontScaleChange", handleUiScale);
+      globalThis.removeEventListener("resize", handleResize);
+      globalThis.removeEventListener("uiFontScaleChange", handleUiScale);
       document.removeEventListener("uiFontScaleChange", handleUiScale);
     };
   }, [enforceOutputPanelFloor]);
@@ -1198,7 +1240,7 @@ export function useOutputPanel(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-07T12:46:55.324Z
+                at 2026-03-23T12:07:00.167Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

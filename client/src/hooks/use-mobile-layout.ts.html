@@ -204,18 +204,18 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">49x</span>
-<span class="cline-any cline-yes">49x</span>
-<span class="cline-any cline-yes">49x</span>
-<span class="cline-any cline-yes">49x</span>
-<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-yes">50x</span>
+<span class="cline-any cline-yes">50x</span>
+<span class="cline-any cline-yes">50x</span>
+<span class="cline-any cline-yes">50x</span>
+<span class="cline-any cline-yes">50x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">49x</span>
-<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-yes">50x</span>
+<span class="cline-any cline-yes">50x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-yes">50x</span>
 <span class="cline-any cline-yes">37x</span>
 <span class="cline-any cline-yes">37x</span>
 <span class="cline-any cline-yes">37x</span>
@@ -238,7 +238,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-yes">50x</span>
 <span class="cline-any cline-yes">37x</span>
 <span class="cline-any cline-yes">37x</span>
 <span class="cline-any cline-yes">37x</span>
@@ -252,7 +252,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-yes">50x</span>
 <span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -265,17 +265,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">123x</span>
+<span class="cline-any cline-yes">125x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">123x</span>
+<span class="cline-any cline-yes">125x</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">123x</span>
-<span class="cline-any cline-yes">123x</span>
+<span class="cline-any cline-yes">125x</span>
+<span class="cline-any cline-yes">125x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">123x</span>
+<span class="cline-any cline-yes">125x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -324,7 +324,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-yes">50x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -339,9 +339,9 @@ import { Logger } from "@shared/logger";
 const logger = new Logger("MobileLayout");
 &nbsp;
 export function useMobileLayout() {
-  const isClient = typeof window !== "undefined";
+  const isClient = typeof globalThis.window !== "undefined";
   const mqQuery = "(max-width: 768px)";
-  const initialIsMobile = isClient ? window.matchMedia(mqQuery).matches : <span class="branch-1 cbranch-no" title="branch not covered" >false;</span>
+  const initialIsMobile = isClient ? globalThis.matchMedia(mqQuery).matches : <span class="branch-1 cbranch-no" title="branch not covered" >false;</span>
   const [isMobile, setIsMobile] = useState&lt;boolean&gt;(initialIsMobile);
   const [mobilePanel, setMobilePanel] = useState&lt;"code" | "compile" | "serial" | "board" | null&gt;(
     initialIsMobile ? "code" : null,
@@ -352,7 +352,7 @@ export function useMobileLayout() {
   // Media query listener for responsive layout
   useEffect(() =&gt; {
     <span class="missing-if-branch" title="if path not taken" >I</span>if (!isClient) <span class="cstat-no" title="statement not covered" >return;</span>
-    const mq = window.matchMedia(mqQuery);
+    const mq = globalThis.matchMedia(mqQuery);
     const onChange = (e: MediaQueryListEvent | MediaQueryList) =&gt; {
       const matches = "matches" in e ? e.matches : <span class="branch-1 cbranch-no" title="branch not covered" >mq.matches;</span>
       setIsMobile(matches);
@@ -414,7 +414,7 @@ export function useMobileLayout() {
             const r = <span class="cstat-no" title="statement not covered" >el.getBoundingClientRect();</span>
             // must be near the top and reasonably small (not full-page)
 <span class="cstat-no" title="statement not covered" >            if (r.top &lt; -5 || r.top &gt; 48) <span class="cstat-no" title="statement not covered" >return false;</span></span>
-<span class="cstat-no" title="statement not covered" >            if (r.height &lt; 24 || r.height &gt; window.innerHeight / 2)</span>
+<span class="cstat-no" title="statement not covered" >            if (r.height &lt; 24 || r.height &gt; globalThis.innerHeight / 2)</span>
 <span class="cstat-no" title="statement not covered" >              return false;</span>
 <span class="cstat-no" title="statement not covered" >            return true;</span>
           }) || null;
@@ -425,7 +425,7 @@ export function useMobileLayout() {
       let h = 40;
       if (hdr) {
         const rect = (hdr as HTMLElement).getBoundingClientRect();
-        <span class="missing-if-branch" title="else path not taken" >E</span>if (rect.height &gt; 0 &amp;&amp; rect.height &lt; window.innerHeight / 2)
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (rect.height &gt; 0 &amp;&amp; rect.height &lt; globalThis.innerHeight / 2)
           h = Math.ceil(rect.height);
       }
       setHeaderHeight(h);
@@ -433,7 +433,7 @@ export function useMobileLayout() {
       let z = 0;
       if (hdr) {
         const zStr = getComputedStyle(hdr as HTMLElement).zIndex;
-        const zNum = parseInt(zStr || "", 10);
+        const zNum = Number.parseInt(zStr || "", 10);
         z = Number.isFinite(zNum) ? zNum : 0;
       }
       const chosenZ = z &gt; 0 ? Math.max(z - 1, 5) : 30;
@@ -444,18 +444,18 @@ export function useMobileLayout() {
     };
 &nbsp;
     measure();
-    window.addEventListener("resize", measure);
+    globalThis.addEventListener("resize", measure);
     const hdr = document.querySelector("header");
     if (hdr) {
       const obs = new MutationObserver(measure);
       obs.observe(hdr, { attributes: true, childList: true, subtree: true });
       return () =&gt; {
-        window.removeEventListener("resize", measure);
+        globalThis.removeEventListener("resize", measure);
         obs.disconnect();
       };
     }
     return () =&gt; {
-      window.removeEventListener("resize", measure);
+      globalThis.removeEventListener("resize", measure);
     };
   }, [isClient]);
 &nbsp;
@@ -475,7 +475,7 @@ export function useMobileLayout() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-07T12:46:55.324Z
+                at 2026-03-23T12:07:00.167Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

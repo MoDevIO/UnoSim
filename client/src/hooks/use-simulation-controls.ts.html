@@ -189,7 +189,27 @@
 <a name='L124'></a><a href='#L124'>124</a>
 <a name='L125'></a><a href='#L125'>125</a>
 <a name='L126'></a><a href='#L126'>126</a>
-<a name='L127'></a><a href='#L127'>127</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -233,7 +253,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">59x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">63x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -267,7 +307,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">59x</span>
+<span class="cline-any cline-yes">63x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -282,7 +322,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">59x</span>
+<span class="cline-any cline-yes">63x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -297,7 +337,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">59x</span>
+<span class="cline-any cline-yes">63x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -317,6 +357,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useCompileAndRun, CompileAndRunParams } from "./use-compile-and-run";
 import type { MutableRefObject } from "react";
+import type { UseMutationResult } from "@tanstack/react-query";
+import type { IncomingArduinoMessage } from "@/types/websocket";
 &nbsp;
 export type SimulationStatus = "running" | "stopped" | "paused";
 &nbsp;
@@ -331,15 +373,15 @@ export type DebugMessageParams = {
 &nbsp;
 export type UseSimulationControlsParams = {
   ensureBackendConnected: (reason: string) =&gt; boolean;
-  sendMessage: (message: any) =&gt; void;
+  sendMessage: (message: IncomingArduinoMessage) =&gt; void;
   /** Optional immediate sender for time-critical commands (stop) */
   // return value indicates whether the message was actually sent (socket open)
-  sendMessageImmediate?: (message: any) =&gt; boolean;
+  sendMessageImmediate?: (message: IncomingArduinoMessage) =&gt; boolean;
   resetPinUI: (opts?: { keepDetected?: boolean }) =&gt; void;
   clearOutputs: () =&gt; void;
   addDebugMessage: (params: DebugMessageParams) =&gt; void;
   serialEventQueueRef: MutableRefObject&lt;
-    Array&lt;{ payload: any; receivedAt: number }&gt;
+    Array&lt;{ payload: IncomingArduinoMessage; receivedAt: number }&gt;
   &gt;;
   toast: (args: {
     title: string;
@@ -354,9 +396,27 @@ export type UseSimulationControlsParams = {
   startSimulationRef: MutableRefObject&lt;(() =&gt; void) | null&gt;;
 };
 &nbsp;
+type UseSimulationControlsResult = {
+  simulationStatus: SimulationStatus;
+  setSimulationStatus: SetState&lt;SimulationStatus&gt;;
+  hasCompiledOnce: boolean;
+  setHasCompiledOnce: SetState&lt;boolean&gt;;
+  simulationTimeout: number;
+  setSimulationTimeout: SetState&lt;number&gt;;
+  startMutation: UseMutationResult&lt;{ success: boolean }, unknown, void, unknown&gt;;
+  stopMutation: UseMutationResult&lt;{ success: boolean }, unknown, void, unknown&gt;;
+  pauseMutation: UseMutationResult&lt;{ success: boolean }, unknown, void, unknown&gt;;
+  resumeMutation: UseMutationResult&lt;{ success: boolean }, unknown, void, unknown&gt;;
+  handleStart: () =&gt; void;
+  handleStop: () =&gt; void;
+  handlePause: () =&gt; void;
+  handleResume: () =&gt; void;
+  handleReset: () =&gt; void;
+};
+&nbsp;
 export function useSimulationControls(
   params: UseSimulationControlsParams,
-) {
+): UseSimulationControlsResult {
   // delegate to unified hook, supplying no-op placeholders for the compile
   // side so that tests which only define simulation props don't crash.
   const merged = useCompileAndRun({
@@ -439,7 +499,7 @@ export function useSimulationControls(
     handlePause: merged.handlePause,
     handleResume: merged.handleResume,
     handleReset,
-  } as any;
+  };
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -448,7 +508,7 @@ export function useSimulationControls(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-07T12:46:55.324Z
+                at 2026-03-23T12:07:00.167Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>14/14</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>14/14</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
@@ -156,9 +156,7 @@
 <a name='L91'></a><a href='#L91'>91</a>
 <a name='L92'></a><a href='#L92'>92</a>
 <a name='L93'></a><a href='#L93'>93</a>
-<a name='L94'></a><a href='#L94'>94</a>
-<a name='L95'></a><a href='#L95'>95</a>
-<a name='L96'></a><a href='#L96'>96</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L94'></a><a href='#L94'>94</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -189,11 +187,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">74x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">70x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">74x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -207,9 +203,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">70x</span>
-<span class="cline-any cline-yes">70x</span>
-<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">74x</span>
+<span class="cline-any cline-yes">74x</span>
+<span class="cline-any cline-yes">45x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
@@ -222,18 +218,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">40x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">70x</span>
+<span class="cline-any cline-yes">74x</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">70x</span>
+<span class="cline-any cline-yes">74x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -257,12 +253,10 @@
 import { useRef, useEffect } from "react";
 import type { MutableRefObject } from "react";
 import type { SetState } from "./use-compile-and-run";
-&nbsp;
-// original alias kept for compatibility (rare external refs)
-export type UseCompileAndRunParams = CompileAndRunParams;
+import type { IncomingArduinoMessage } from "@/types/websocket";
 &nbsp;
 // compilation-only parameters (simulation inputs are injected with no-ops)
-export type UseCompilationParams = Omit&lt;
+type UseCompilationParams = Omit&lt;
   CompileAndRunParams,
   |
     "serialEventQueueRef"
@@ -280,19 +274,19 @@ export type UseCompilationParams = Omit&lt;
   // hook will use these to start the simulation over the network. this
   // keeps the helper convenient for pure-compile scenarios while still
   // allowing the integrated compile+run page to function correctly.
-  sendMessage?: (message: any) =&gt; void;
-  sendMessageImmediate?: (message: any) =&gt; boolean;
+  sendMessage?: (message: IncomingArduinoMessage) =&gt; void;
+  sendMessageImmediate?: (message: IncomingArduinoMessage) =&gt; boolean;
 };
 &nbsp;
 export function useCompilation(params: UseCompilationParams) {
   // merge passed compile params with harmless defaults for simulation fields
+  const emptyQueueRef = useRef&lt;Array&lt;{ payload: IncomingArduinoMessage; receivedAt: number }&gt;&gt;([]);
+&nbsp;
   const merged = useCompileAndRun({
     ...params,
     sendMessage: params.sendMessage ?? (() =&gt; {}),
-    // @ts-ignore intentionally provide fallback; if caller passed
-    // immediate sender we forward it, otherwise undefined is fine.
     sendMessageImmediate: params.sendMessageImmediate,
-    serialEventQueueRef: { current: [] } as MutableRefObject&lt;any&gt;,
+    serialEventQueueRef: emptyQueueRef,
     pendingPinConflicts: [],
     setPendingPinConflicts: <span class="fstat-no" title="function not covered" >() =&gt; {</span>},
     isModified: false,
@@ -346,7 +340,7 @@ export function useCompilation(params: UseCompilationParams) {
     handleCompileAndStart,
     handleClearCompilationOutput: merged.handleClearCompilationOutput,
     clearOutputs: merged.clearOutputs,
-  } as any;
+  };
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -355,7 +349,7 @@ export function useCompilation(params: UseCompilationParams) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-07T12:46:55.324Z
+                at 2026-03-23T12:07:00.167Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

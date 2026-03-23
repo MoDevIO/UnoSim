@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14.91% </span>
+                <span class="strong">14.67% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>27/181</span>
+                <span class='fraction'>27/184</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">4.28% </span>
+                <span class="strong">4.16% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>3/70</span>
+                <span class='fraction'>3/72</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14.68% </span>
+                <span class="strong">14.44% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>26/177</span>
+                <span class='fraction'>26/180</span>
             </div>
         
             
@@ -519,25 +519,19 @@
 <a name='L454'></a><a href='#L454'>454</a>
 <a name='L455'></a><a href='#L455'>455</a>
 <a name='L456'></a><a href='#L456'>456</a>
-<a name='L457'></a><a href='#L457'>457</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L457'></a><a href='#L457'>457</a>
+<a name='L458'></a><a href='#L458'>458</a>
+<a name='L459'></a><a href='#L459'>459</a>
+<a name='L460'></a><a href='#L460'>460</a>
+<a name='L461'></a><a href='#L461'>461</a>
+<a name='L462'></a><a href='#L462'>462</a>
+<a name='L463'></a><a href='#L463'>463</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -563,6 +557,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -840,6 +847,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -992,6 +1004,7 @@
 &nbsp;
 import { Logger } from "@shared/logger";
 import type { WSMessage } from "@shared/schema";
+import { isArduinoMessage } from "@/types/websocket";
 &nbsp;
 const logger = new Logger("WebSocketManager");
 &nbsp;
@@ -999,7 +1012,7 @@ const logger = new Logger("WebSocketManager");
 export type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 &nbsp;
 // Event types emitted by the manager
-export interface WSManagerEvents {
+interface WSManagerEvents {
   stateChange: (state: ConnectionState) =&gt; void;
   message: (data: WSMessage) =&gt; void;
   error: (error: string) =&gt; void;
@@ -1034,7 +1047,7 @@ class WebSocketManager {
   private bufferFlushTimeout: ReturnType&lt;typeof setTimeout&gt; | null = null;
   
   // Event listeners
-  private listeners: Map&lt;keyof WSManagerEvents, Set&lt;Function&gt;&gt; = new Map();
+  private readonly listeners: Map&lt;keyof WSManagerEvents, Set&lt;Function&gt;&gt; = new Map();
   
   // Prevent duplicate connection attempts
   private isConnecting = false;
@@ -1105,14 +1118,14 @@ class WebSocketManager {
     // Clean up any existing connection
 <span class="cstat-no" title="statement not covered" >    this.cleanupConnection();</span>
     
-    const protocol = <span class="cstat-no" title="statement not covered" >window.location.protocol === "https:" ? "wss:" : "ws:";</span>
-    let wsUrl = <span class="cstat-no" title="statement not covered" >`${protocol}//${window.location.host}/ws`;</span>
+    const protocol = <span class="cstat-no" title="statement not covered" >globalThis.location.protocol === "https:" ? "wss:" : "ws:";</span>
+    let wsUrl = <span class="cstat-no" title="statement not covered" >`${protocol}//${globalThis.location.host}/ws`;</span>
     
     // Check for testRunId from sessionStorage (E2E test isolation)
     // or use previously set testRunId
-<span class="cstat-no" title="statement not covered" >    if (!this.testRunId &amp;&amp; typeof window !== "undefined") {</span>
+<span class="cstat-no" title="statement not covered" >    if (!this.testRunId &amp;&amp; globalThis.window !== undefined) {</span>
 <span class="cstat-no" title="statement not covered" >      try {</span>
-        const storedTestRunId = <span class="cstat-no" title="statement not covered" >window.sessionStorage?.getItem("__TEST_RUN_ID__");</span>
+        const storedTestRunId = <span class="cstat-no" title="statement not covered" >globalThis.sessionStorage?.getItem("__TEST_RUN_ID__");</span>
 <span class="cstat-no" title="statement not covered" >        if (storedTestRunId) {</span>
 <span class="cstat-no" title="statement not covered" >          this.testRunId = storedTestRunId;</span>
 <span class="cstat-no" title="statement not covered" >          logger.debug(`[Test Isolation] Loaded testRunId from sessionStorage: ${this.testRunId}`);</span>
@@ -1295,8 +1308,13 @@ class WebSocketManager {
   
   private <span class="fstat-no" title="function not covered" >handleMessage(e</span>vent: MessageEvent): void {
 <span class="cstat-no" title="statement not covered" >    try {</span>
-      const data = <span class="cstat-no" title="statement not covered" >JSON.parse(event.data) as WSMessage;</span>
-<span class="cstat-no" title="statement not covered" >      this.emit("message", data);</span>
+      const raw = <span class="cstat-no" title="statement not covered" >JSON.parse(event.data);</span>
+<span class="cstat-no" title="statement not covered" >      if (!isArduinoMessage(raw)) {</span>
+<span class="cstat-no" title="statement not covered" >        logger.error(`Invalid WebSocket message schema: ${JSON.stringify(raw)}`);</span>
+<span class="cstat-no" title="statement not covered" >        return;</span>
+      }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >      this.emit("message", raw);</span>
     } catch (error) {
 <span class="cstat-no" title="statement not covered" >      logger.error(`Invalid WebSocket message: ${error}. Raw: ${event.data}`);</span>
     }
@@ -1393,7 +1411,7 @@ class WebSocketManager {
 <span class="cstat-no" title="statement not covered" >      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {</span>
 <span class="cstat-no" title="statement not covered" >        try {</span>
 <span class="cstat-no" title="statement not covered" >          this.ws.close(1000, "Client disconnect");</span>
-        } catch (e) {
+        } catch {
           // Ignore close errors
         }
       }
@@ -1428,8 +1446,8 @@ class WebSocketManager {
 export const getWebSocketManager = (): WebSocketManager =&gt; WebSocketManager.getInstance();
 &nbsp;
 // Export for debugging in browser console
-<span class="missing-if-branch" title="else path not taken" >E</span>if (typeof window !== "undefined") {
-  (window as any).__wsManager = getWebSocketManager;
+<span class="missing-if-branch" title="else path not taken" >E</span>if (globalThis.window !== undefined) {
+  (globalThis as any).__wsManager = getWebSocketManager;
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -1438,7 +1456,7 @@ export const getWebSocketManager = (): WebSocketManager =&gt; WebSocketManager.g
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-07T12:46:55.324Z
+                at 2026-03-23T12:07:00.167Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -148,7 +148,11 @@
 <a name='L83'></a><a href='#L83'>83</a>
 <a name='L84'></a><a href='#L84'>84</a>
 <a name='L85'></a><a href='#L85'>85</a>
-<a name='L86'></a><a href='#L86'>86</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -156,19 +160,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -177,7 +182,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
@@ -186,6 +193,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">14x</span>
@@ -193,7 +201,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -207,7 +215,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -220,7 +228,7 @@
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -234,8 +242,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useState, useEffect, useCallback } from "react";
+import type { PinMode } from "@shared/types/arduino.types";
 &nbsp;
-export interface UsePinStateParams {
+interface UsePinStateParams {
   resetPinStates: () =&gt; void;
 }
 &nbsp;
@@ -246,7 +255,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
   // Detected explicit pinMode(...) declarations found during parsing.
   // We store modes for pins so that we can apply them when the simulation starts.
   const [detectedPinModes, setDetectedPinModes] = useState&lt;
-    Record&lt;number, "INPUT" | "OUTPUT" | "INPUT_PULLUP"&gt;
+    Record&lt;number, PinMode&gt;
   &gt;({});
 &nbsp;
   // Pins that have a detected pinMode(...) declaration which conflicts with analogRead usage
@@ -255,7 +264,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
   // Pin Monitor visibility state (persisted to localStorage)
   const [pinMonitorVisible, setPinMonitorVisible] = useState&lt;boolean&gt;(() =&gt; {
     try {
-      return window.localStorage.getItem("unoPinMonitorVisible") === "1";
+      return globalThis.localStorage.getItem("unoPinMonitorVisible") === "1";
     } catch {
 <span class="cstat-no" title="statement not covered" >      return false; // Hidden by default</span>
     }
@@ -263,7 +272,9 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
 &nbsp;
   // Listen for pin monitor visibility change events from settings dialog
   useEffect(() =&gt; {
-    const handler = (ev: any) =&gt; {
+    type BoolDetailEvent = CustomEvent&lt;{ value: boolean }&gt;;
+&nbsp;
+    const handler = (ev: BoolDetailEvent) =&gt; {
       try {
         const newValue = Boolean(ev?.detail?.value);
         setPinMonitorVisible(newValue);
@@ -271,6 +282,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
         // ignore
       }
     };
+&nbsp;
     document.addEventListener("pinMonitorVisibleChange", handler as EventListener);
     return () =&gt;
       document.removeEventListener("pinMonitorVisibleChange", handler as EventListener);
@@ -294,10 +306,10 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
   // Helper function to convert pin strings to numbers (A0-A5 → 14-19, digital → as-is)
   const pinToNumber = (pinStr: string): number | null =&gt; {
     if (/^\d+$/.test(pinStr)) {
-      return parseInt(pinStr, 10);
+      return Number.parseInt(pinStr, 10);
     }
     if (/^A\d+$/i.test(pinStr)) {
-      const analogIndex = parseInt(pinStr.slice(1), 10);
+      const analogIndex = Number.parseInt(pinStr.slice(1), 10);
       if (analogIndex &gt;= 0 &amp;&amp; analogIndex &lt;= 5) {
         return 14 + analogIndex; // A0-&gt;14, A1-&gt;15, ..., A5-&gt;19
       }
@@ -325,7 +337,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-07T12:46:55.324Z
+                at 2026-03-23T12:07:00.167Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
