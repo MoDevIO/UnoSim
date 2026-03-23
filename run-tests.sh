@@ -30,6 +30,15 @@ cleanup() {
     if [ -n "$SERVER_PID" ]; then
         kill "$SERVER_PID" 2>/dev/null
     fi
+    # Docker-Container aufräumen: alle laufenden unowebsim-Container stoppen und entfernen
+    if docker info > /dev/null 2>&1; then
+        local containers
+        containers=$(docker ps -aq --filter "ancestor=$DOCKER_IMAGE" 2>/dev/null)
+        if [ -n "$containers" ]; then
+            echo "$containers" | xargs docker stop --time 5 > /dev/null 2>&1 || true
+            echo "$containers" | xargs docker rm -f > /dev/null 2>&1 || true
+        fi
+    fi
 }
 trap cleanup EXIT
 
