@@ -78,9 +78,7 @@ class WebSocketManager {
    * Get the singleton instance
    */
   public static getInstance(): WebSocketManager {
-    if (!WebSocketManager.instance) {
-      WebSocketManager.instance = new WebSocketManager();
-    }
+    WebSocketManager.instance ??= new WebSocketManager();
     return WebSocketManager.instance;
   }
   
@@ -151,7 +149,8 @@ class WebSocketManager {
       wsUrl += `?testRunId=${encodeURIComponent(this.testRunId)}`;
     }
     
-    logger.info(`Connecting to WebSocket: ${wsUrl}${this.testRunId ? ` [testRunId: ${this.testRunId}]` : ""}`);
+    const testRunSuffix = this.testRunId ? ` [testRunId: ${this.testRunId}]` : "";
+    logger.info(`Connecting to WebSocket: ${wsUrl}${testRunSuffix}`);
     
     try {
       this.ws = new WebSocket(wsUrl);
@@ -197,11 +196,9 @@ class WebSocketManager {
     }
     
     // Schedule flush if not already scheduled
-    if (!this.bufferFlushTimeout) {
-      this.bufferFlushTimeout = setTimeout(() => {
-        this.flushBuffer();
-      }, CONFIG.BUFFER_FLUSH_INTERVAL_MS);
-    }
+    this.bufferFlushTimeout ??= setTimeout(() => {
+      this.flushBuffer();
+    }, CONFIG.BUFFER_FLUSH_INTERVAL_MS);
     
     return true;
   }
@@ -346,7 +343,7 @@ class WebSocketManager {
   }
   
   private handleError(event: Event): void {
-    logger.error(`WebSocket error: ${event}`);
+    logger.error(`WebSocket error: ${event.type}`);
     this.emit("error", "WebSocket connection error");
   }
   

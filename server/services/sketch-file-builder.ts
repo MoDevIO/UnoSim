@@ -53,7 +53,7 @@ export class SketchFileBuilder {
     }
 
     const footer = this.buildFooter(hasSetup, hasLoop);
-    const cleanedCode = code.replace(/#include\s*[<"]Arduino\.h[>"]/g, "");
+    const cleanedCode = code.replaceAll(/#include\s*[<"]Arduino\.h[>"]/g, "");
 
     const combined = `${ARDUINO_MOCK_CODE}\n\n// --- User code follows ---\n${cleanedCode}\n\n// --- Footer ---\n${footer}`;
 

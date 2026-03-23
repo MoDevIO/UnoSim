@@ -51,9 +51,7 @@ export class SimulationRateLimiter {
   }
 
   static getInstance(config?: Partial<RateLimitConfig>): SimulationRateLimiter {
-    if (!SimulationRateLimiter.instance) {
-      SimulationRateLimiter.instance = new SimulationRateLimiter(config);
-    }
+    SimulationRateLimiter.instance ??= new SimulationRateLimiter(config);
     return SimulationRateLimiter.instance;
   }
 

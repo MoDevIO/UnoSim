@@ -520,15 +520,24 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     const url = req.url || "";
     const urlParams = new URLSearchParams(url.split("?")[1] || "");
     const testRunId = urlParams.get("testRunId") || undefined;
+    const testRunIdSuffix = testRunId ? ` [testRunId: ${testRunId}]` : "";
 
-    logger.info(`New WebSocket client connected${testRunId ? ` [testRunId: ${testRunId}]` : ""}. Total clients: ${wss.clients.size}`);
+    logger.info(`New WebSocket client connected${testRunIdSuffix}. Total clients: ${wss.clients.size}`);
 
     clientRunners.set(ws, { runner: null, isRunning: false, isPaused: false, testRunId });
 
     const clientState = clientRunners.get(ws);
+    let simStatus: "paused" | "running" | "stopped";
+    if (clientState?.isPaused) {
+      simStatus = "paused";
+    } else if (clientState?.isRunning) {
+      simStatus = "running";
+    } else {
+      simStatus = "stopped";
+    }
     sendMessageToClient(ws, {
       type: "simulation_status",
-      status: clientState?.isPaused ? "paused" : clientState?.isRunning ? "running" : "stopped",
+      status: simStatus,
     });
 
     if (testRunId) {

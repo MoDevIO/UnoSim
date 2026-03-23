@@ -36,7 +36,7 @@ export const MobileLayout = React.memo(function MobileLayout({
   compileSlot,
   serialSlot,
   boardSlot,
-  portalContainer = typeof document !== "undefined" ? document.body : null,
+  portalContainer = typeof document === "undefined" ? null : document.body,
   className,
   testId = "mobile-layout",
   onOpenPanel,

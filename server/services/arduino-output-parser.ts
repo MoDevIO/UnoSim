@@ -71,9 +71,7 @@ export class ArduinoOutputParser {
     }
 
     // Priority 2: Registry pin data
-    const registryPinMatch = line.match(
-      ArduinoOutputParser.PATTERNS.registryPin,
-    );
+    const registryPinMatch = ArduinoOutputParser.PATTERNS.registryPin.exec(line);
     if (registryPinMatch) {
       const pinRecord = this.parseRegistryPin(registryPinMatch);
       if (pinRecord) {
@@ -82,7 +80,7 @@ export class ArduinoOutputParser {
     }
 
     // Priority 3: Pin state changes
-    const pinModeMatch = line.match(ArduinoOutputParser.PATTERNS.pinMode);
+    const pinModeMatch = ArduinoOutputParser.PATTERNS.pinMode.exec(line);
     if (pinModeMatch) {
       return {
         type: "pin_mode",
@@ -91,7 +89,7 @@ export class ArduinoOutputParser {
       };
     }
 
-    const pinValueMatch = line.match(ArduinoOutputParser.PATTERNS.pinValue);
+    const pinValueMatch = ArduinoOutputParser.PATTERNS.pinValue.exec(line);
     if (pinValueMatch) {
       return {
         type: "pin_value",
@@ -100,7 +98,7 @@ export class ArduinoOutputParser {
       };
     }
 
-    const pinPwmMatch = line.match(ArduinoOutputParser.PATTERNS.pinPwm);
+    const pinPwmMatch = ArduinoOutputParser.PATTERNS.pinPwm.exec(line);
     if (pinPwmMatch) {
       return {
         type: "pin_pwm",
@@ -110,9 +108,7 @@ export class ArduinoOutputParser {
     }
 
     // Priority 4: Serial events
-    const serialEventMatch = line.match(
-      ArduinoOutputParser.PATTERNS.serialEvent,
-    );
+    const serialEventMatch = ArduinoOutputParser.PATTERNS.serialEvent.exec(line);
     if (serialEventMatch) {
       const parsed = this.parseSerialEvent(
         serialEventMatch[1],
@@ -151,7 +147,7 @@ export class ArduinoOutputParser {
       line === "]]" ||
       line === "[[" ||
       (/^\[\[.{0,50}$/.test(line) && !line.includes("]]")) ||  // Partial [[... without closing
-      /^[A-Za-z0-9+/=:]{1,}\]\]$/.test(line) ||                // timestamp:base64 tail + ]]
+      /^[A-Za-z0-9+/=:]+\]\]$/.test(line) ||                // timestamp:base64 tail + ]]
       /^\d+:[A-Za-z0-9+/=]+/.test(line)                        // timestamp:base64 (no brackets)
     ) {
       logger.debug(`Ignoring protocol fragment: ${line.slice(0, 80)}...`);

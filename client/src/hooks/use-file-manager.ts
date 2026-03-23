@@ -33,7 +33,7 @@ export function useFileManager({ tabs = [], onFilesLoaded, toast }: UseFileManag
         (element as any).style.display = "none";
         document.body.appendChild(element);
         (element as any).click();
-        document.body.removeChild(element);
+        element.remove();
       }, index * 200);
     });
 

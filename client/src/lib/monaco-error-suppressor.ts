@@ -135,7 +135,6 @@ globalThis.addEventListener(
       );
       event.preventDefault();
       event.stopImmediatePropagation();
-      return;
     }
   },
   true,

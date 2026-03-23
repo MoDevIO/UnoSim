@@ -94,7 +94,7 @@ export function ExamplesMenu({
 
   // Global shortcut Meta+E to toggle examples menu
   useEffect(() => {
-    const isMac = navigator.platform.toUpperCase().includes("MAC");
+    const isMac = /Mac|Macintosh/.test(navigator.userAgent);
     const onKey = (e: KeyboardEvent) => {
       const isExamplesKey =
         (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && e.code === "KeyE";
@@ -122,11 +122,11 @@ export function ExamplesMenu({
     }
 
     const getVisibleItems = () => {
-      const all = Array.from(
-        document.querySelectorAll(
+      const all = Array.from<HTMLElement>(
+        document.querySelectorAll<HTMLElement>(
           '[data-role="example-folder"], [data-role="example-item"]',
         ),
-      ) as HTMLElement[];
+      );
       return all.filter(
         (el) =>
           !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
@@ -164,10 +164,10 @@ export function ExamplesMenu({
 
     // Handle mouse movement - clear keyboard highlight and re-enable hover
     const onMouseMove = (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest(
+      const target = (e.target as HTMLElement).closest<HTMLElement>(
         '[data-role="example-folder"], [data-role="example-item"]',
-      ) as HTMLElement;
-      if (target && target.getAttribute("data-keyboard-focused") === "true") {
+      );
+      if (target?.getAttribute("data-keyboard-focused") === "true") {
         clearHighlight();
         focusedIndexRef.current = -1;
       }

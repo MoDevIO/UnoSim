@@ -2,5 +2,5 @@ projectKey=unowebsim
 serverUrl=http://localhost:9000
 serverVersion=26.3.0.120487
 dashboardUrl=http://localhost:9000/dashboard?id=unowebsim
-ceTaskId=34720d4f-df92-4240-b409-88b95ee1fe73
-ceTaskUrl=http://localhost:9000/api/ce/task?id=34720d4f-df92-4240-b409-88b95ee1fe73
+ceTaskId=50157f18-1353-43ba-aefa-306dd2dc8993
+ceTaskUrl=http://localhost:9000/api/ce/task?id=50157f18-1353-43ba-aefa-306dd2dc8993

@@ -359,9 +359,9 @@ export class LocalCompiler {
    */
   private cleanCompilerErrors(errors: string): string {
     return errors
-      .replace(/\/sandbox\/sketch\.cpp/g, "sketch.ino") // Docker path
-      .replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino") // Local temp path
-      .replace(/sketch\.cpp/g, "sketch.ino") // Generic .cpp references
+      .replaceAll(/\/sandbox\/sketch\.cpp/g, "sketch.ino") // Docker path
+      .replaceAll(/\/[^\s:]+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino") // Local temp path
+      .replaceAll(/sketch\.cpp/g, "sketch.ino") // Generic .cpp references
       .trim();
   }
 

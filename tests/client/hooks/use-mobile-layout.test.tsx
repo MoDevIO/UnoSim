@@ -255,26 +255,24 @@ describe("useMobileLayout", () => {
     expect(document.body.style.overflow).toBe("scroll");
   });
 
-  it("should use addListener fallback for older browsers", () => {
-    const addListener = vi.fn();
-    const removeListener = vi.fn();
+  it("should use addEventListener for media query changes", () => {
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
 
     matchMediaMock.mockReturnValue({
       matches: false,
       media: "(max-width: 768px)",
-      addEventListener: undefined,
-      removeEventListener: undefined,
-      addListener,
-      removeListener,
+      addEventListener,
+      removeEventListener,
     });
 
     const { unmount } = renderHook(() => useMobileLayout());
 
-    expect(addListener).toHaveBeenCalled();
+    expect(addEventListener).toHaveBeenCalledWith("change", expect.any(Function));
 
     unmount();
 
-    expect(removeListener).toHaveBeenCalled();
+    expect(removeEventListener).toHaveBeenCalledWith("change", expect.any(Function));
   });
 
   it("should not open code panel when switching to mobile if a panel is already open", () => {

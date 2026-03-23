@@ -61,17 +61,17 @@ function processAnsiCodes(text: string): string {
 
   // Expand tabs to 4 spaces
   if (processed.includes("\t")) {
-    processed = processed.replace(/\t/g, "    ");
+    processed = processed.replaceAll("\t", "    ");
   }
 
   // Bell character: replace with visible marker (so it's not silently dropped)
   if (processed.includes("\x07")) {
-    processed = processed.replace(/\x07/g, "␇");
+    processed = processed.replaceAll("\x07", "␇");
   }
 
   // Form feed and vertical tab => normalize to newline
   if (processed.includes("\f") || processed.includes("\v")) {
-    processed = processed.replace(/\f/g, "\n").replace(/\v/g, "\n");
+    processed = processed.replaceAll("\f", "\n").replaceAll("\v", "\n");
   }
 
   return processed;

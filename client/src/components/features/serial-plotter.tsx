@@ -45,7 +45,7 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
         if (!part) return;
 
         // Check if format is "Name:Value"
-        const namedMatch = part.match(/^(.+):(-?\d+(?:\.\d+)?)$/);
+        const namedMatch = /^(.+):(-?\d+(?:\.\d+)?)$/.exec(part);
         if (namedMatch) {
           const baseName = namedMatch[1].trim();
           const value = Number(namedMatch[2]);
@@ -69,7 +69,7 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
           hasValidValue = true;
         } else {
           // Fallback: try to parse as plain number
-          const match = part.match(/^-?\d+(?:\.\d+)?$/);
+          const match = /^-?\d+(?:\.\d+)?$/.exec(part);
           if (match) {
             const value = Number(match[0]);
             const seriesName = `series${unnamedIndex}`;
@@ -138,7 +138,7 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
             <Legend />
             {seriesKeys.map((key, idx) => {
               // Extract the stable index from the internal key
-              const match = key.match(/^series_(\d+)_\d+$/);
+              const match = /^series_(\d+)_\d+$/.exec(key);
               const stableIndex = match ? Number(match[1]) : null;
 
               // Get display name from the map
