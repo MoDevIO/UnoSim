@@ -198,6 +198,10 @@ void loop() {
     });
     // ─────────────────────────────────────────────────────────────────────────
 
+    // Force the Compiler tab open to ensure consistent UI state across environments
+    await activateOutputTab(page, 'Compiler');
+    await page.waitForTimeout(300);
+
     await page.waitForTimeout(1500);
 
     const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
