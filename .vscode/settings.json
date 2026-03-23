@@ -1,28 +1,28 @@
 {
   "files.exclude": {
-    "vite.config.ts": false,
-    "vercel.json": false,
-    "test-vercel-build.sh": false,
-    "tsconfig.json": false,
-    "tailwind.config.ts": false,
-    "screenshot.png": false,
-    "README copy.md": false,
-    "postcss.config.js": false,
-    "package-lock.json": false,
-    "LICENSE": false,
-    "drizzle.config.ts": false,
-    "components.json": false,
-    "build.sh": false,
-    ".vercelignore": false,
-    ".gitlab-ci.yml": false,
-    "node_modules": false,
-    "temp": false,
-    "vitest.config.ts": false,
-    "playwright.config.ts": false,
-    "package.json": false,
-    "licenses.json": false,
-    "docker-compose.yml": false,
-    "commitlint.config.cjs": false
+    "vite.config.ts": true,
+    "vercel.json": true,
+    "test-vercel-build.sh": true,
+    "tsconfig.json": true,
+    "tailwind.config.ts": true,
+    "screenshot.png": true,
+    "README copy.md": true,
+    "postcss.config.js": true,
+    "package-lock.json": true,
+    "LICENSE": true,
+    "drizzle.config.ts": true,
+    "components.json": true,
+    "build.sh": true,
+    ".vercelignore": true,
+    ".gitlab-ci.yml": true,
+    "node_modules": true,
+    "temp": true,
+    "vitest.config.ts": true,
+    "playwright.config.ts": true,
+    "package.json": true,
+    "licenses.json": true,
+    "docker-compose.yml": true,
+    "commitlint.config.cjs": true
   },
   "chat.tools.terminal.autoApprove": {
     "npm ls": true,
@@ -150,4 +150,8 @@
     },
     "g++": true
   },
+  "sonarlint.connectedMode.project": {
+    "connectionId": "http-localhost-9000",
+    "projectKey": "unowebsim"
+  }
 }

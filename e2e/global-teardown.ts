@@ -11,9 +11,9 @@
  *     processes that survived the test run (only in CI or when LEAK_CHECK=1).
  */
 
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
-import { execFileSync } from "child_process";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 
 // ---------------------------------------------------------------------------
 // Constants

@@ -14,15 +14,188 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import * as React from "react";
 
+// Type alias for severity levels (S4323 - avoid union types)
+type SeverityLevel = 1 | 2 | 3;
+
+// Module-level constants (not re-created on every render)
+const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
+
+const HIDE_SCROLLBAR_STYLE = `
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
+`;
+
+// Module-level pure helpers — fix S6481 (no re-creation on render)
+function getSeverityIcon(severity: SeverityLevel): JSX.Element {
+  switch (severity) {
+    case 1:
+      return <Info className="w-4 h-4 text-blue-400" />;
+    case 2:
+      return <AlertTriangle className="w-4 h-4 text-yellow-400" />;
+    case 3:
+      return <AlertCircle className="w-4 h-4 text-red-400" />;
+  }
+}
+
+function getSeverityLabel(severity: SeverityLevel): string {
+  switch (severity) {
+    case 1:
+      return "Info";
+    case 2:
+      return "Warning";
+    case 3:
+      return "Error";
+  }
+}
+
+function getSeverityColor(severity: SeverityLevel): string {
+  switch (severity) {
+    case 1:
+      return "rgb(96 165 250)"; // blue-400
+    case 2:
+      return "rgb(250 204 21)"; // yellow-400
+    case 3:
+      return "rgb(248 113 113)"; // red-400
+  }
+}
+
+/** Returns an RX/TX badge element for pin 0/1, or null. Fixes S1940 IIFE anti-pattern. */
+function getRxTxBadge(pin: string): JSX.Element | null {
+  if (pin === "0") return <span className="text-blue-400 text-ui-xs font-semibold">RX</span>;
+  if (pin === "1") return <span className="text-red-400 text-ui-xs font-semibold">TX</span>;
+  return null;
+}
+
+/** Returns a PWM tilde element for PWM-capable pins, or null. Fixes S1940 IIFE anti-pattern. */
+function getPwmTilde(pin: string): JSX.Element | null {
+  const n = Number.parseInt(pin, 10);
+  return !Number.isNaN(n) && PWM_PINS.has(n)
+    ? <span className="text-yellow-400">~</span>
+    : null;
+}
+
+// Module-level pure pin-operation helpers (fix S6481 — no useCallback needed)
+function hasPinModeInfo(record: IOPinRecord): boolean {
+  return record.defined || (record.pinModeLines?.length ?? 0) > 0;
+}
+
+function hasReadOperations(record: IOPinRecord): boolean {
+  return (record.digitalReadLines?.length ?? 0) > 0 || (record.analogReadLines?.length ?? 0) > 0;
+}
+
+function hasWriteOperations(record: IOPinRecord): boolean {
+  return (record.digitalWriteLines?.length ?? 0) > 0 || (record.analogWriteLines?.length ?? 0) > 0;
+}
+
+function isPinProgrammed(record: IOPinRecord): boolean {
+  return (
+    hasPinModeInfo(record) ||
+    hasReadOperations(record) ||
+    hasWriteOperations(record) ||
+    (record.usedAt?.length ?? 0) > 0
+  );
+}
+
+// Helper to convert pin mode number to label
+function getPinModeLabel(modeNum: number): string {
+  switch (modeNum) {
+    case 0:
+      return "INPUT";
+    case 1:
+      return "OUTPUT";
+    case 2:
+      return "INPUT_PULLUP";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+/** Returns tailwind color class for a named pin mode string. Fixes S3358 (nested ternary). */
+function getPinModeColor(mode: string): string {
+  if (mode === "INPUT") return "text-blue-400";
+  if (mode === "OUTPUT") return "text-orange-400";
+  return "text-green-400";
+}
+
+/** Returns tailwind color class for a numeric pin mode value. Fixes S3358 (nested ternary). */
+function getPinModeLegacyColor(pinMode: number): string {
+  if (pinMode === 0) return "text-blue-400";
+  if (pinMode === 1) return "text-orange-400";
+  return "text-green-400";
+}
+
+/** Renders the pinMode cell with proper fallbacks. Module-level = no re-creation on render (fixes S6481). */
+function renderPinModeCell(
+  record: IOPinRecord,
+  pmModes: string[],
+  uniqueModes: string[],
+  hasConflict: boolean,
+  showDetail: boolean,
+  ops: Array<{ operation: string }>,
+): JSX.Element {
+  if (pmModes.length > 0) {
+    return (
+      <div className="space-y-0.5 text-center">
+        {uniqueModes.map((mode) => {
+          const modeColor = getPinModeColor(mode);
+          const modeLines = showDetail
+            ? record.pinModeLines?.filter(
+                (_, li) => record.pinModeModes?.[li] === mode,
+              )
+            : undefined;
+          return (
+            <div key={`mode-${mode}-${record.pin}`} className="flex flex-col items-center">
+              <div className="flex items-center justify-center gap-1">
+                <span className={modeColor}>{mode}</span>
+                {hasConflict && (
+                  <span className="text-red-400 font-bold" title={record.conflictMessage}>!</span>
+                )}
+              </div>
+              {modeLines && modeLines.length > 0 && (
+                <div className="text-ui-xs text-blue-400">
+                  {modeLines.map((l) => (l === "runtime" ? "runtime" : `L${l}`)).join(", ")}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  if (record.defined && record.pinMode !== undefined) {
+    const modeColor = getPinModeLegacyColor(record.pinMode);
+    return (
+      <div className="text-center">
+        <span className={modeColor}>{getPinModeLabel(record.pinMode)}</span>
+      </div>
+    );
+  }
+  const hasDigitalOps = ops.some(
+    (u) => u.operation.includes("digitalRead") || u.operation.includes("digitalWrite"),
+  );
+  if (
+    (record.digitalReadLines?.length ?? 0) > 0 ||
+    (record.digitalWriteLines?.length ?? 0) > 0 ||
+    hasDigitalOps
+  ) {
+    return (
+      <div className="flex items-center justify-center" title="pinMode() missing">
+        <X className="w-4 h-4 text-red-500" />
+      </div>
+    );
+  }
+  return <span className="text-gray-400">—</span>;
+}
+
 interface ParserOutputProps {
-  messages: ParserMessage[];
-  ioRegistry?: IOPinRecord[];
-  onClear: () => void;
-  onGoToLine?: (line: number) => void;
-  onInsertSuggestion?: (suggestion: string, line?: number) => void;
-  hideHeader?: boolean;
-  defaultTab?: "messages" | "registry";
-  messagesContainerRef?: React.RefObject<HTMLDivElement>;
+  readonly messages: ParserMessage[];
+  readonly ioRegistry?: IOPinRecord[];
+  readonly onClear: () => void;
+  readonly onGoToLine?: (line: number) => void;
+  readonly onInsertSuggestion?: (suggestion: string, line?: number) => void;
+  readonly hideHeader?: boolean;
+  readonly defaultTab?: "messages" | "registry";
+  readonly messagesContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function ParserOutput({
@@ -41,10 +214,6 @@ export function ParserOutput({
   const [showAllPins, setShowAllPins] = useState(false);
   /** detailView: false = compact (✓/—), true = extended (line numbers). Eye-button toggle per SSOT. */
   const [detailView, setDetailView] = useState(false);
-  // PWM-capable pins on Arduino UNO
-  const PWM_PINS = [3, 5, 6, 9, 10, 11];
-
-  // Check for I/O registry problems is handled by the I/O Registry tab display
 
   // Do NOT auto-switch tabs - let user control which tab they want to see
   // Previously this auto-switched to registry when no messages, but that was confusing
@@ -72,49 +241,17 @@ export function ParserOutput({
     return labels[category] || category;
   };
 
-  // A pin is "programmed" if it appears in the static or runtime registry
-  const isPinProgrammed = React.useCallback(
-    (record: IOPinRecord): boolean =>
-      record.defined ||
-      (record.pinModeLines?.length ?? 0) > 0 ||
-      (record.digitalReadLines?.length ?? 0) > 0 ||
-      (record.digitalWriteLines?.length ?? 0) > 0 ||
-      (record.analogReadLines?.length ?? 0) > 0 ||
-      (record.analogWriteLines?.length ?? 0) > 0 ||
-      (record.usedAt?.length ?? 0) > 0,
-    [],
-  );
-
   // Filter pins: show only programmed pins by default, all pins if showAllPins is true
   const filteredRegistry = React.useMemo(() => {
     if (showAllPins) return ioRegistry;
     return ioRegistry.filter(isPinProgrammed);
-  }, [ioRegistry, showAllPins, isPinProgrammed]);
+  }, [ioRegistry, showAllPins]);
 
   // Count of programmed pins (pins with any operation)
   const totalProgrammedPins = React.useMemo(
     () => ioRegistry.filter(isPinProgrammed).length,
-    [ioRegistry, isPinProgrammed],
+    [ioRegistry],
   );
-
-  // Inline CSS to hide scrollbars while keeping scrolling functional
-  const hideScrollbarStyle = `
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    .no-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
-  `;
-
-  const getSeverityIcon = (severity: 1 | 2 | 3) => {
-    if (severity === 1) return <Info className="w-4 h-4 text-blue-400" />;
-    if (severity === 2)
-      return <AlertTriangle className="w-4 h-4 text-yellow-400" />;
-    return <AlertCircle className="w-4 h-4 text-red-400" />;
-  };
-
-  const getSeverityLabel = (severity: 1 | 2 | 3): string => {
-    if (severity === 1) return "Info";
-    if (severity === 2) return "Warning";
-    return "Error";
-  };
 
   const totalErrors = messages.filter((m) => m.severity === 3).length;
   const totalWarnings = messages.filter((m) => m.severity === 2).length;
@@ -196,7 +333,7 @@ export function ParserOutput({
           value="messages"
           className="flex-1 flex flex-col overflow-hidden m-0 data-[state=inactive]:hidden"
         >
-          <style>{hideScrollbarStyle}</style>
+          <style>{HIDE_SCROLLBAR_STYLE}</style>
           {messages.length === 0 ? (
             <div className="text-muted-foreground p-4 text-center text-ui-xs">
               No parser messages
@@ -221,12 +358,7 @@ export function ParserOutput({
                         key={message.id}
                         className="p-2 bg-muted/50 rounded border-l-2 cursor-pointer hover:bg-muted/70 transition-colors"
                         style={{
-                          borderLeftColor:
-                            message.severity === 1
-                              ? "rgb(96 165 250)" // blue-400
-                              : message.severity === 2
-                                ? "rgb(250 204 21)" // yellow-400
-                                : "rgb(248 113 113)", // red-400
+                          borderLeftColor: getSeverityColor(message.severity),
                         }}
                         onClick={() =>
                           message.line !== undefined &&
@@ -329,7 +461,7 @@ export function ParserOutput({
           </div>
 
           <div className="flex-1 overflow-auto no-scrollbar">
-            <style>{hideScrollbarStyle}</style>
+            <style>{HIDE_SCROLLBAR_STYLE}</style>
             {filteredRegistry.length === 0 ? (
               <div className="text-muted-foreground p-4 text-center text-ui-xs">
                 {showAllPins ? (
@@ -385,15 +517,10 @@ export function ParserOutput({
                         ops
                           .filter((u) => u.operation.includes("pinMode"))
                           .map((u) => {
-                            const m = u.operation.match(/pinMode:(\d+)/);
-                            const n = m ? parseInt(m[1]) : -1;
-                            return n === 0
-                              ? "INPUT"
-                              : n === 1
-                                ? "OUTPUT"
-                                : n === 2
-                                  ? "INPUT_PULLUP"
-                                  : "UNKNOWN";
+                            const pinModeRe = /pinMode:(\d+)/;
+                            const m = pinModeRe.exec(u.operation);
+                            const n = m ? Number.parseInt(m[1]) : -1;
+                            return getPinModeLabel(n);
                           });
                       const uniqueModes = [...new Set(pmModes)];
 
@@ -452,8 +579,8 @@ export function ParserOutput({
                             );
                         return (
                           <div className="space-y-0.5 text-center">
-                            {lines.map((line, i) => (
-                              <div key={i} className="text-ui-xs">
+                            {lines.map((line) => (
+                              <div key={`line-${line}`} className="text-ui-xs">
                                 {line === "runtime" ? (
                                   <span className="text-yellow-400 italic">
                                     runtime
@@ -499,30 +626,9 @@ export function ParserOutput({
                           <td className="px-2 py-1 text-right font-mono font-semibold text-cyan-400">
                             <div className="flex items-center justify-end gap-2">
                               {/* RX/TX prefix for pin 0/1 */}
-                              {(() => {
-                                const pinStr = String(record.pin);
-                                if (pinStr === "0")
-                                  return (
-                                    <span className="text-blue-400 text-ui-xs font-semibold">
-                                      RX
-                                    </span>
-                                  );
-                                if (pinStr === "1")
-                                  return (
-                                    <span className="text-red-400 text-ui-xs font-semibold">
-                                      TX
-                                    </span>
-                                  );
-                                return null;
-                              })()}
+                              {getRxTxBadge(String(record.pin))}
                               {/* PWM tilde prefix if numeric pin and PWM-capable */}
-                              {(() => {
-                                const n = parseInt(String(record.pin), 10);
-                                return !Number.isNaN(n) &&
-                                  PWM_PINS.includes(n) ? (
-                                  <span className="text-yellow-400">~</span>
-                                ) : null;
-                              })()}
+                              {getPwmTilde(String(record.pin))}
                               <span>{record.pin}</span>
                             </div>
                           </td>
@@ -534,86 +640,13 @@ export function ParserOutput({
                               hasConflict && "border-2 border-red-500",
                             )}
                           >
-                            {pmModes.length > 0 ? (
-                              <div className="space-y-0.5 text-center">
-                                {uniqueModes.map((mode, i) => {
-                                  const modeColor =
-                                    mode === "INPUT"
-                                      ? "text-blue-400"
-                                      : mode === "OUTPUT"
-                                        ? "text-orange-400"
-                                        : "text-green-400";
-                                  // In extended mode, also show line numbers per mode
-                                  const modeLines = detailView
-                                    ? record.pinModeLines?.filter(
-                                        (_, li) =>
-                                          record.pinModeModes?.[li] === mode,
-                                      )
-                                    : undefined;
-                                  return (
-                                    <div
-                                      key={i}
-                                      className="flex flex-col items-center"
-                                    >
-                                      <div className="flex items-center justify-center gap-1">
-                                        <span className={modeColor}>
-                                          {mode}
-                                        </span>
-                                        {hasConflict && (
-                                          <span
-                                            className="text-red-400 font-bold"
-                                            title={record.conflictMessage}
-                                          >
-                                            !
-                                          </span>
-                                        )}
-                                      </div>
-                                      {modeLines && modeLines.length > 0 && (
-                                        <div className="text-ui-xs text-blue-400">
-                                          {modeLines.map((l) =>
-                                            l === "runtime"
-                                              ? "runtime"
-                                              : `L${l}`,
-                                          ).join(", ")}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : record.defined &&
-                              record.pinMode !== undefined ? (
-                              <div className="text-center">
-                                <span
-                                  className={
-                                    record.pinMode === 0
-                                      ? "text-blue-400"
-                                      : record.pinMode === 1
-                                        ? "text-orange-400"
-                                        : "text-green-400"
-                                  }
-                                >
-                                  {record.pinMode === 0
-                                    ? "INPUT"
-                                    : record.pinMode === 1
-                                      ? "OUTPUT"
-                                      : "INPUT_PULLUP"}
-                                </span>
-                              </div>
-                            ) : (record.digitalReadLines?.length ?? 0) > 0 ||
-                              (record.digitalWriteLines?.length ?? 0) > 0 ||
-                              ops.some((u) =>
-                                u.operation.includes("digitalRead") ||
-                                u.operation.includes("digitalWrite"),
-                              ) ? (
-                              <div
-                                className="flex items-center justify-center"
-                                title="pinMode() missing"
-                              >
-                                <X className="w-4 h-4 text-red-500" />
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">—</span>
+                            {renderPinModeCell(
+                              record,
+                              pmModes,
+                              uniqueModes,
+                              hasConflict,
+                              detailView,
+                              ops,
                             )}
                           </td>
 

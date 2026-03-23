@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "client/src",
+    "server",
+    "shared",
+    "tests",
+    "archive",
+    "e2e",
+    "*.config.ts"
+  ]
+}

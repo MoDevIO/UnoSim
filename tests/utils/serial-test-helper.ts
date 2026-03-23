@@ -109,7 +109,7 @@ async function _waitForSerialOutput(
     if (debug) {
       const elapsed = Date.now() - start;
       if (elapsed > 5000 && Date.now() - lastLog > 2000) {
-        const preview = currentOutput.substring(0, 100);
+        const preview = currentOutput.slice(0, 100);
         console.log(
           `[waitForSerialOutput] Still waiting for "${target}" after ${(elapsed / 1000).toFixed(1)}s. ` +
           `Current buffer (${currentOutput.length} chars): "${preview}${currentOutput.length > 100 ? '...' : ''}"`

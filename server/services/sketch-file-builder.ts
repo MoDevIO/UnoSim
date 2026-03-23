@@ -5,9 +5,9 @@
  * with the Arduino mock implementation and generating appropriate main() wrappers.
  */
 
-import { join } from "path";
-import { mkdir, writeFile } from "fs/promises";
-import { ARDUINO_MOCK_CODE } from "../mocks/arduino-mock";
+import { join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { ARDUINO_MOCK_CODE } from "./arduino-mock";
 import { Logger } from "@shared/logger";
 import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 
@@ -18,10 +18,10 @@ interface SketchBuildResult {
 }
 
 export class SketchFileBuilder {
-  private logger = new Logger("SketchFileBuilder");
-  private createdSketchDirs = new Set<string>();
+  private readonly logger = new Logger("SketchFileBuilder");
+  private readonly createdSketchDirs = new Set<string>();
 
-  constructor(private tempDir: string) {}
+  constructor(private readonly tempDir: string) {}
 
   /**
    * Builds a complete sketch file with Arduino mock and user code

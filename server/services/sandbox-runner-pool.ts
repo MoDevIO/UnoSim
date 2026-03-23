@@ -1,6 +1,8 @@
 import { SandboxRunner } from "./sandbox-runner";
 import { RegistryManager } from "./registry-manager";
 import { Logger } from "@shared/logger";
+import type { IOPinRecord } from "@shared/schema";
+import type { ExecutionState, TelemetryMetrics } from "./sandbox/execution-manager";
 
 interface PooledRunner {
   runner: SandboxRunner;
@@ -13,6 +15,41 @@ interface QueueEntry {
   reject: (error: Error) => void;
   timeout: NodeJS.Timeout;
 }
+
+// Useful internal type for accessing private runner fields safely
+type SandboxRunnerInternal = {
+  state: string;
+  processKilled: boolean;
+  executionState: ExecutionState;
+  processController?: {
+    proc?: {
+      stdout?: unknown;
+      stderr?: unknown;
+    };
+    stdoutListeners?: unknown[];
+    stderrListeners?: unknown[];
+    closeListeners?: unknown[];
+    errorListeners?: unknown[];
+    removeAllListeners?: () => void;
+  } | null;
+  pinStateBatcher?: { pause: () => void; resume: () => void } | null;
+  serialOutputBatcher?: { pause: () => void; resume: () => void } | null;
+  registryManager?: { destroy: () => void } | null;
+  flushMessageQueue?: () => void;
+  onOutputCallback?: ((line: string, isComplete?: boolean) => void) | null;
+  outputCallback?: ((line: string, isComplete?: boolean) => void) | null;
+  errorCallback?: ((line: string) => void) | null;
+  telemetryCallback?: ((metrics: TelemetryMetrics) => void) | null;
+  pinStateCallback?: ((pin: number, type: string, value: number) => void) | null;
+  ioRegistryCallback?:
+    | ((registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => void)
+    | null;
+  timeoutManager?: { clear: () => void };
+  fileBuilder?: { reset: () => void };
+  flushTimer?: NodeJS.Timeout | null;
+  // keep object extensible as we access other internal fields in reset logic
+  [key: string]: unknown;
+};
 
 class SandboxRunnerPool {
   private readonly numRunners: number;
@@ -104,24 +141,31 @@ class SandboxRunnerPool {
     );
 
     if (this.queue.length > 0) {
-      const entry = this.queue.shift()!;
-      clearTimeout(entry.timeout);
-      pooledRunner.inUse = true;
-      entry.resolve(runner);
-      this.logger.debug(
-        `[SandboxRunnerPool] Queued request granted (queue: ${this.queue.length} remaining)`,
-      );
+      const entry = this.queue.shift();
+      if (entry) {
+        clearTimeout(entry.timeout);
+        pooledRunner.inUse = true;
+        entry.resolve(runner);
+        this.logger.debug(
+          `[SandboxRunnerPool] Queued request granted (queue: ${this.queue.length} remaining)`,
+        );
+      }
     }
   }
 
-  private clearRunnerListeners(runner: any): void {
-    const safeRemoveAll = (target: any, label: string) => {
-      if (!target || typeof target.removeAllListeners !== "function") {
+  private clearRunnerListeners(runner: SandboxRunnerInternal): void {
+    const safeRemoveAll = (target: unknown, label: string) => {
+      if (!target || typeof target !== "object" || target === null) {
+        return;
+      }
+
+      const maybe = target as { removeAllListeners?: unknown };
+      if (typeof maybe.removeAllListeners !== "function") {
         return;
       }
 
       try {
-        target.removeAllListeners();
+        (maybe.removeAllListeners as () => void)();
       } catch (error) {
         this.logger.debug(`[SandboxRunnerPool] Failed removeAllListeners on ${label}: ${error}`);
       }
@@ -153,13 +197,13 @@ class SandboxRunnerPool {
         await runner.stop();
       }
 
-      const r = runner as any;
+      const r = runner as unknown as SandboxRunnerInternal;
 
       this.clearRunnerListeners(r);
 
       r.state = "stopped";
       r.processKilled = false;
-      r.pauseStartTime = null;
+      r.executionState.pauseStartTime = null; // Access private field directly
       r.totalPausedTime = 0;
       r.lastPauseTimestamp = null;
 
@@ -200,13 +244,13 @@ class SandboxRunnerPool {
       }
 
       r.registryManager = new RegistryManager({
-        onUpdate: (registry: any, baudrate: any, reason: any) => {
+        onUpdate: (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => {
           if (r.ioRegistryCallback) {
             r.ioRegistryCallback(registry, baudrate, reason);
           }
           r.flushMessageQueue?.();
         },
-        onTelemetry: (metrics: any) => {
+        onTelemetry: (metrics: TelemetryMetrics) => {
           if (r.telemetryCallback) {
             r.telemetryCallback(metrics);
           }
@@ -260,9 +304,7 @@ class SandboxRunnerPool {
 let poolInstance: SandboxRunnerPool | null = null;
 
 export function getSandboxRunnerPool(): SandboxRunnerPool {
-  if (!poolInstance) {
-    poolInstance = new SandboxRunnerPool(5);
-  }
+  poolInstance ??= new SandboxRunnerPool(5);
   return poolInstance;
 }
 

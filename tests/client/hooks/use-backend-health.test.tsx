@@ -35,7 +35,7 @@ describe("useBackendHealth", () => {
     });
 
     // Mock fetch for health check
-    fetchSpy = vi.spyOn(global, "fetch");
+    fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValue({
       ok: true,
       status: 200,
@@ -340,23 +340,23 @@ describe("useBackendHealth", () => {
     expect(result.current.showErrorGlitch).toBe(false);
   });
 
-  it("triggerErrorGlitch should use custom duration", () => {
+  it("triggerErrorGlitch should use custom duration", async () => {
     const { result } = renderHook(() => useBackendHealth(mockQueryClient));
 
-    act(() => {
+    await act(async () => {
       result.current.triggerErrorGlitch(1200);
     });
 
     expect(result.current.showErrorGlitch).toBe(true);
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(600);
     });
 
     // Still showing after 600ms
     expect(result.current.showErrorGlitch).toBe(true);
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(600);
     });
 

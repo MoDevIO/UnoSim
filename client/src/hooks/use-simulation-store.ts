@@ -76,10 +76,10 @@ const scheduleFlush = () => {
     notify();
   };
 
-  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-    rafId = window.requestAnimationFrame(flush);
+  if (globalThis.window !== undefined && typeof globalThis.requestAnimationFrame === "function") {
+    rafId = globalThis.requestAnimationFrame(flush);
   } else {
-    rafId = window.setTimeout(flush, 16) as unknown as number;
+    rafId = globalThis.setTimeout(flush, 16) as unknown as number;
   }
 };
 
@@ -94,6 +94,20 @@ const applyEvents = (current: PinState[], events: PinEvent[]): PinState[] => {
 
   return nextStates;
 };
+
+function getPinType(pin: number, stateType: PinStateType): "digital" | "analog" | "pwm" {
+  if (stateType === "pwm") return "pwm";
+  return pin >= 14 && pin <= 19 ? "analog" : "digital";
+}
+
+function buildNewPinState(pin: number, stateType: PinStateType, value: number): PinState {
+  return {
+    pin,
+    mode: stateType === "mode" ? modeMap[value] || "INPUT" : "OUTPUT",
+    value: stateType === "value" || stateType === "pwm" ? value : 0,
+    type: getPinType(pin, stateType),
+  };
+}
 
 const applyEventToState = (
   states: PinState[],
@@ -128,17 +142,7 @@ const applyEventToState = (
     return;
   }
 
-  states.push({
-    pin,
-    mode: stateType === "mode" ? modeMap[value] || "INPUT" : "OUTPUT",
-    value: stateType === "value" || stateType === "pwm" ? value : 0,
-    type:
-      stateType === "pwm"
-        ? "pwm"
-        : pin >= 14 && pin <= 19
-          ? "analog"
-          : "digital",
-  });
+  states.push(buildNewPinState(pin, stateType, value));
   indexByPin.set(pin, states.length - 1);
 };
 
@@ -205,7 +209,7 @@ const simulationStore = {
    * Hard reset for complete state wipe (rarely needed)
    */
   resetToEmpty: () => {
-    snapshot = JSON.parse(JSON.stringify(initialSnapshot));
+    snapshot = structuredClone(initialSnapshot);
     pendingEvents.clear();
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
@@ -216,8 +220,8 @@ const simulationStore = {
 };
 
 // DEBUG: Export for E2E tests to inspect and reset store state
-if (typeof window !== "undefined") {
-  (window as any).__SIM_DEBUG__ = {
+if (globalThis.window !== undefined) {
+  (globalThis as any).__SIM_DEBUG__ = {
     getState: () => snapshot,
     resetToInitial: () => {
       simulationStore.resetToInitial();

@@ -15,6 +15,7 @@
 
 import { Logger } from "@shared/logger";
 import type { WSMessage } from "@shared/schema";
+import { isArduinoMessage } from "@/types/websocket";
 
 const logger = new Logger("WebSocketManager");
 
@@ -57,7 +58,7 @@ class WebSocketManager {
   private bufferFlushTimeout: ReturnType<typeof setTimeout> | null = null;
   
   // Event listeners
-  private listeners: Map<keyof WSManagerEvents, Set<Function>> = new Map();
+  private readonly listeners: Map<keyof WSManagerEvents, Set<Function>> = new Map();
   
   // Prevent duplicate connection attempts
   private isConnecting = false;
@@ -128,14 +129,14 @@ class WebSocketManager {
     // Clean up any existing connection
     this.cleanupConnection();
     
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    let wsUrl = `${protocol}//${window.location.host}/ws`;
+    const protocol = globalThis.location.protocol === "https:" ? "wss:" : "ws:";
+    let wsUrl = `${protocol}//${globalThis.location.host}/ws`;
     
     // Check for testRunId from sessionStorage (E2E test isolation)
     // or use previously set testRunId
-    if (!this.testRunId && typeof window !== "undefined") {
+    if (!this.testRunId && globalThis.window !== undefined) {
       try {
-        const storedTestRunId = window.sessionStorage?.getItem("__TEST_RUN_ID__");
+        const storedTestRunId = globalThis.sessionStorage?.getItem("__TEST_RUN_ID__");
         if (storedTestRunId) {
           this.testRunId = storedTestRunId;
           logger.debug(`[Test Isolation] Loaded testRunId from sessionStorage: ${this.testRunId}`);
@@ -318,8 +319,13 @@ class WebSocketManager {
   
   private handleMessage(event: MessageEvent): void {
     try {
-      const data = JSON.parse(event.data) as WSMessage;
-      this.emit("message", data);
+      const raw = JSON.parse(event.data);
+      if (!isArduinoMessage(raw)) {
+        logger.error(`Invalid WebSocket message schema: ${JSON.stringify(raw)}`);
+        return;
+      }
+
+      this.emit("message", raw);
     } catch (error) {
       logger.error(`Invalid WebSocket message: ${error}. Raw: ${event.data}`);
     }
@@ -451,6 +457,6 @@ class WebSocketManager {
 export const getWebSocketManager = (): WebSocketManager => WebSocketManager.getInstance();
 
 // Export for debugging in browser console
-if (typeof window !== "undefined") {
-  (window as any).__wsManager = getWebSocketManager;
+if (globalThis.window !== undefined) {
+  (globalThis as any).__wsManager = getWebSocketManager;
 }

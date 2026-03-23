@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
-import path from "path";
-import { fileURLToPath } from "url";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ensure we don't end up with NaN if the env var is missing or corrupt
 let basePort = 3000;
 if (process.env.PW_WORKER_INDEX) {
-  const idx = parseInt(process.env.PW_WORKER_INDEX, 10);
+  const idx = Number.parseInt(process.env.PW_WORKER_INDEX, 10);
   if (!Number.isNaN(idx)) {
     basePort += idx;
   }

@@ -4,9 +4,9 @@ import { Logger } from "@shared/logger";
 const logger = new Logger("MobileLayout");
 
 export function useMobileLayout() {
-  const isClient = typeof window !== "undefined";
+  const isClient = typeof globalThis.window !== "undefined";
   const mqQuery = "(max-width: 768px)";
-  const initialIsMobile = isClient ? window.matchMedia(mqQuery).matches : false;
+  const initialIsMobile = isClient ? globalThis.matchMedia(mqQuery).matches : false;
   const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile);
   const [mobilePanel, setMobilePanel] = useState<"code" | "compile" | "serial" | "board" | null>(
     initialIsMobile ? "code" : null,
@@ -17,7 +17,7 @@ export function useMobileLayout() {
   // Media query listener for responsive layout
   useEffect(() => {
     if (!isClient) return;
-    const mq = window.matchMedia(mqQuery);
+    const mq = globalThis.matchMedia(mqQuery);
     const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
       const matches = "matches" in e ? e.matches : mq.matches;
       setIsMobile(matches);
@@ -79,7 +79,7 @@ export function useMobileLayout() {
             const r = el.getBoundingClientRect();
             // must be near the top and reasonably small (not full-page)
             if (r.top < -5 || r.top > 48) return false;
-            if (r.height < 24 || r.height > window.innerHeight / 2)
+            if (r.height < 24 || r.height > globalThis.innerHeight / 2)
               return false;
             return true;
           }) || null;
@@ -90,7 +90,7 @@ export function useMobileLayout() {
       let h = 40;
       if (hdr) {
         const rect = (hdr as HTMLElement).getBoundingClientRect();
-        if (rect.height > 0 && rect.height < window.innerHeight / 2)
+        if (rect.height > 0 && rect.height < globalThis.innerHeight / 2)
           h = Math.ceil(rect.height);
       }
       setHeaderHeight(h);
@@ -98,7 +98,7 @@ export function useMobileLayout() {
       let z = 0;
       if (hdr) {
         const zStr = getComputedStyle(hdr as HTMLElement).zIndex;
-        const zNum = parseInt(zStr || "", 10);
+        const zNum = Number.parseInt(zStr || "", 10);
         z = Number.isFinite(zNum) ? zNum : 0;
       }
       const chosenZ = z > 0 ? Math.max(z - 1, 5) : 30;
@@ -109,18 +109,18 @@ export function useMobileLayout() {
     };
 
     measure();
-    window.addEventListener("resize", measure);
+    globalThis.addEventListener("resize", measure);
     const hdr = document.querySelector("header");
     if (hdr) {
       const obs = new MutationObserver(measure);
       obs.observe(hdr, { attributes: true, childList: true, subtree: true });
       return () => {
-        window.removeEventListener("resize", measure);
+        globalThis.removeEventListener("resize", measure);
         obs.disconnect();
       };
     }
     return () => {
-      window.removeEventListener("resize", measure);
+      globalThis.removeEventListener("resize", measure);
     };
   }, [isClient]);
 

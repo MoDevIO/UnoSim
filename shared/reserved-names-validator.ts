@@ -1,5 +1,5 @@
 import type { ParserMessage } from "./schema";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 
 type SeverityLevel = 1 | 2 | 3;
 
@@ -290,7 +290,7 @@ class ReservedNamesValidator {
     name: string,
     startIndex?: number,
   ): number {
-    const searchCode = startIndex !== undefined ? code.substring(0, startIndex + name.length) : code.substring(0, code.indexOf(name) + name.length);
+    const searchCode = startIndex !== undefined ? code.slice(0, Math.max(0, startIndex + name.length)) : code.slice(0, Math.max(0, code.indexOf(name) + name.length));
     return (searchCode.match(/\n/g) || []).length + 1;
   }
 }

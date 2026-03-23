@@ -150,8 +150,8 @@ handleStateEnter(PAUSED, RUNNING) // → pauseStartTime = now
 
 ### Adding a New Pin Type (e.g., Analog Read)
 
-**Step 1: Update Arduino Mock** (`server/mocks/arduino-mock.cpp`)
-```cpp
+**Step 1: Update Arduino Mock** (`server/services/arduino-mock.ts`)
+```ts
 // Add new marker format
 int analogRead(int pin) {
     fprintf(stderr, "[[ANALOG_READ:%d:%d]]\n", pin, value);

@@ -2,6 +2,24 @@ import { useCallback } from "react";
 import type { RefObject } from "react";
 import type { ToastFn } from "@/hooks/use-toast";
 
+/**
+ * Monaco Editor imperative API surface exposed via ref forwarding.
+ * Provides direct access to editor commands and state operations.
+ * Methods are optional since the actual ref implementation may only expose a subset.
+ */
+interface EditorAPI {
+  undo?: () => void;
+  redo?: () => void;
+  find?: () => void;
+  selectAll?: () => void;
+  copy?: () => void;
+  cut?: () => void;
+  paste?: () => void;
+  goToLine?: (lineNumber: number) => void;
+  getValue?: () => string;
+  insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
+}
+
 interface EditorCommandsOptions {
   toast?: ToastFn;
   suppressAutoStopOnce?: () => void;
@@ -27,14 +45,14 @@ interface EditorCommandsAPI {
 }
 
 export function useEditorCommands(
-  editorRef: RefObject<any>,
+  editorRef: RefObject<EditorAPI>,
   opts: EditorCommandsOptions = {},
 ): EditorCommandsAPI {
   const { toast, suppressAutoStopOnce, code, setCode } = opts;
 
   const runCmd = useCallback(
     (cmd: "undo" | "redo" | "find" | "selectAll") => {
-      const ed = editorRef.current as any;
+      const ed = editorRef.current;
       if (!ed) {
         toast?.({ title: "No active editor", description: "Open the main editor first." });
         return;
@@ -53,7 +71,7 @@ export function useEditorCommands(
   );
 
   const copy = useCallback(() => {
-    const ed = editorRef.current as any;
+    const ed = editorRef.current;
     if (!ed || typeof ed.copy !== "function") {
       toast?.({ title: "Command not available", description: "Copy not supported." });
       return;
@@ -66,7 +84,7 @@ export function useEditorCommands(
   }, [editorRef, toast]);
 
   const cut = useCallback(() => {
-    const ed = editorRef.current as any;
+    const ed = editorRef.current;
     if (!ed || typeof ed.cut !== "function") {
       toast?.({ title: "Command not available", description: "Cut not supported." });
       return;
@@ -79,7 +97,7 @@ export function useEditorCommands(
   }, [editorRef, toast]);
 
   const paste = useCallback(() => {
-    const ed = editorRef.current as any;
+    const ed = editorRef.current;
     if (!ed || typeof ed.paste !== "function") {
       toast?.({ title: "Command not available", description: "Paste not supported." });
       return;
@@ -92,7 +110,7 @@ export function useEditorCommands(
   }, [editorRef, toast]);
 
   const goToLine = useCallback(() => {
-    const ed = editorRef.current as any;
+    const ed = editorRef.current;
     if (!ed || typeof ed.goToLine !== "function") {
       toast?.({ title: "Command not available", description: "Go to line not supported." });
       return;
@@ -113,7 +131,7 @@ export function useEditorCommands(
 
   const insertSuggestion = useCallback(
     (suggestion: string, line?: number) => {
-      const ed = editorRef.current as any;
+      const ed = editorRef.current;
       if (!ed || typeof ed.insertSuggestionSmartly !== "function") {
         console.error("insertSuggestionSmartly method not available on editor");
         return;
@@ -135,7 +153,7 @@ export function useEditorCommands(
     let formatted = code;
 
     // 1. replace tabs with spaces
-    formatted = formatted.replace(/\t/g, "  ");
+    formatted = formatted.replaceAll("\t", "  ");
 
     // 2. collapse multiple spaces into two
     formatted = formatted.replace(/ {2,}/g, "  ");

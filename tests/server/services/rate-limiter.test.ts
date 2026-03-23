@@ -192,7 +192,7 @@ describe("SimulationRateLimiter", () => {
   });
 
   it("should clear interval on destroy", () => {
-    const clearIntervalSpy = vi.spyOn(global, "clearInterval");
+    const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
     
     rateLimiter.destroy();
 

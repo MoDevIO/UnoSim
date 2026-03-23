@@ -13,10 +13,10 @@
  * (200 parallel requests sequentially → 4–8 workers process in parallel)
  */
 
-import { Worker } from "worker_threads";
-import path from "path";
-import os from "os";
-import fs from "fs";
+import { Worker } from "node:worker_threads";
+import path from "node:path";
+import os from "node:os";
+import fs from "node:fs";
 import { Logger } from "@shared/logger";
 import type { CompilationResult } from "./arduino-compiler";
 import {
@@ -61,7 +61,7 @@ export class CompilationWorkerPool {
     startTime: number;
   }> = [];
 
-  private stats = {
+  private readonly stats = {
     totalTasks: 0,
     completedTasks: 0,
     failedTasks: 0,
@@ -263,9 +263,7 @@ export class CompilationWorkerPool {
 let poolInstance: CompilationWorkerPool | null = null;
 
 export function getCompilationPool(): CompilationWorkerPool {
-  if (!poolInstance) {
-    poolInstance = new CompilationWorkerPool();
-  }
+  poolInstance ??= new CompilationWorkerPool();
   return poolInstance;
 }
 

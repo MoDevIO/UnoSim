@@ -1,35 +1,90 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import { Cpu, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
+import { usePinPollingEngine } from "@/hooks/usePinPollingEngine";
+import { onCustomEvent, offCustomEvent } from "@/utils/event-utils";
 import { Logger } from "@shared/logger";
+import type { RuntimeSimulationStatus } from "@shared/types/arduino.types";
 
 const logger = new Logger("ArduinoBoard");
 
-/**
- * Helper function to get computed typography token values
- * Reads CSS variables and returns the actual pixel value considering font scaling
- */
-function getComputedTokenValue(tokenName: string): string {
-  try {
-    const root = document.documentElement;
-    const computedStyle = getComputedStyle(root);
-    // Get the CSS variable value (e.g., "8px * 1" or "calc(8px * var(--ui-font-scale))")
-    // The browser automatically computes this to the final value
-    const value = computedStyle.getPropertyValue(tokenName).trim();
-    // For SVG, remove 'px' suffix if present and return the numeric part
-    return value.replace(/px$/, '');
-  } catch {
-    // Fallback values if CSS variables are not available
-    if (tokenName === '--fs-label-sm') return '8'; // SVG pin labels
-    if (tokenName === '--fs-label-lg') return '12'; // Dialog headers
-    logger.warn(`getComputedTokenValue failed for '${tokenName}'`);
-    return '8';
-  }
-}
+type TelemetryData = {
+  intendedPinChangesPerSecond: number;
+  droppedPinChangesPerSecond: number;
+  batchesPerSecond: number;
+  avgStatesPerBatch: number;
+};
 
-interface PinState {
+/** Displays live telemetry metrics in the board header (debug mode). */
+const TelemetryMetrics = memo(function TelemetryMetrics({
+  telemetry,
+}: {
+  telemetry: TelemetryData | null;
+}) {
+  return (
+    <div
+      className="ml-4 flex items-center gap-4 text-muted-foreground border-l border-muted-foreground/30 pl-4"
+      style={{ fontSize: "var(--fs-body-xs)" }}
+      data-testid="telemetry-metrics"
+    >
+      {telemetry ? (
+        <>
+          <div className="flex flex-col leading-tight" data-testid="telemetry-pin-changes">
+            <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Pin Changes</span>
+            <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }} data-testid="telemetry-pin-changes-value">
+              {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
+              {telemetry.droppedPinChangesPerSecond > 0 && (
+                <span className="ml-1 text-amber-400/80" data-testid="telemetry-dropped">
+                  ({telemetry.droppedPinChangesPerSecond.toFixed(0)} dropped)
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="flex flex-col leading-tight" data-testid="telemetry-batching">
+            <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Batching</span>
+            <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }} data-testid="telemetry-batching-value">
+              {telemetry.batchesPerSecond.toFixed(0)} bat/s ·{" "}
+              {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
+            </span>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col leading-tight" data-testid="telemetry-loading">
+          <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Metrics</span>
+          <span className="font-mono text-cyan-400/50" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>…</span>
+        </div>
+      )}
+    </div>
+  );
+});
+
+/** Eye/EyeOff toggle button for I/O value visibility. */
+const VisibilityToggle = memo(function VisibilityToggle({
+  showPWMValues,
+  onToggle,
+}: {
+  showPWMValues: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center ml-3">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+        onClick={onToggle}
+        title={showPWMValues ? "Hide I/O values" : "Show I/O values"}
+        aria-label={showPWMValues ? "Hide I/O values" : "Show I/O values"}
+      >
+        {showPWMValues ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </Button>
+    </div>
+  );
+});
+
+export interface PinState {
   pin: number;
   mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
   value: number; // analog: 0-1023, pwm: 0-255, digital: 0 or 1
@@ -37,15 +92,67 @@ interface PinState {
 }
 
 interface ArduinoBoardProps {
-  pinStates?: PinState[];
-  isSimulationRunning?: boolean;
-  simulationStatus?: "running" | "paused" | "stopped";
-  txActive?: number; // TX activity counter (changes trigger blink)
-  rxActive?: number; // RX activity counter (changes trigger blink)
-  onReset?: () => void; // Callback when reset button is clicked
-  onPinToggle?: (pin: number, newValue: number) => void; // Callback when an INPUT pin is clicked
-  analogPins?: number[]; // array of internal pin numbers for analog pins (14..19)
-  onAnalogChange?: (pin: number, value: number) => void;
+  readonly pinStates?: PinState[];
+  readonly isSimulationRunning?: boolean;
+  readonly simulationStatus?: RuntimeSimulationStatus;
+  readonly txActive?: number; // TX activity counter (changes trigger blink)
+  readonly rxActive?: number; // RX activity counter (changes trigger blink)
+  readonly onReset?: () => void; // Callback when reset button is clicked
+  readonly onPinToggle?: (pin: number, newValue: number) => void; // Callback when an INPUT pin is clicked
+  readonly analogPins?: number[]; // array of internal pin numbers for analog pins (14..19)
+  readonly onAnalogChange?: (pin: number, value: number) => void;
+}
+
+/**
+ * Helper to clean up XML declarations and apply consistent SVG styles
+ */
+function preprocessSvg(content: string): string {
+  return content.replaceAll(/<\?xml[^?]*\?>/g, "");
+}
+
+/**
+ * Parse pin number from a click-area element id (e.g. "pin-5-click", "pin-A2-click")
+ */
+function parsePinFromElement(el: Element): number | undefined {
+  const digitalMatch = /^pin-(\d+)-click$/.exec(el.id);
+  if (digitalMatch) return Number.parseInt(digitalMatch[1], 10);
+  const analogMatch = /^pin-A(\d+)-click$/.exec(el.id);
+  if (analogMatch) return 14 + Number.parseInt(analogMatch[1], 10);
+  return undefined;
+}
+
+type SliderPosition = {
+  pin: number;
+  leftPct: number;
+  topPct: number;
+  value: number;
+  sliderLen: number;
+  placement: "above" | "below";
+};
+
+/**
+ * Derive dialog placement from slider info and y-position.
+ * Extracted to fix S3358 (nested ternary).
+ */
+function getAnalogDialogPlacement(
+  info: SliderPosition | undefined,
+  topPct: number,
+): "above" | "below" {
+  if (info) return info.placement;
+  return topPct < 50 ? "below" : "above";
+}
+
+/**
+ * Read a CSS custom property from :root and parse it as a number (px or raw).
+ */
+function getCssNumber(prop: string, fallback: number): number {
+  try {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(prop).trim();
+    const n = Number.parseFloat(raw);
+    return Number.isNaN(n) ? fallback : n;
+  } catch {
+    return fallback;
+  }
 }
 
 // SVG viewBox dimensions (from ArduinoUno.svg)
@@ -57,29 +164,134 @@ const VIEWBOX_HEIGHT = 209;
  * Allows us to keep SVG scaling calculations using semantic variables
  */
 function getComputedSpacingToken(tokenName: string): number {
-  try {
-    const root = document.documentElement;
-    const computedStyle = getComputedStyle(root);
-    const value = computedStyle.getPropertyValue(tokenName).trim();
-    // Convert rem to pixels (assuming 16px base)
-    if (value.includes('rem')) {
-      return parseFloat(value) * 16;
+  const FALLBACKS: Record<string, number> = {
+    '--svg-safe-margin': 4,
+    '--svg-label-padding': 2,
+  };
+  return getCssNumber(tokenName, FALLBACKS[tokenName] ?? 4);
+}
+/**
+ * Compute slider positions for all analog pins from the overlay SVG element.
+ * Extracted to reduce Cognitive Complexity of the slider-positions useEffect (S3776).
+ */
+function computeSliderPositionsFromSvg(
+  svgEl: SVGSVGElement,
+  analogPins: number[],
+): SliderPosition[] {
+  const positions: SliderPosition[] = [];
+  for (const pin of analogPins) {
+    if (pin < 14 || pin > 19) continue;
+    const idx = pin - 14;
+    const candidates = [
+      `pin-A${idx}-state`,
+      `pin-A${idx}-frame`,
+      `pin-A${idx}-click`,
+      `pin-${pin}-state`,
+      `pin-${pin}-frame`,
+      `pin-${pin}-click`,
+    ];
+    let found: SVGGraphicsElement | null = null;
+    for (const id of candidates) {
+      const el = svgEl.querySelector<SVGGraphicsElement>(`#${id}`);
+      if (el) { found = el; break; }
     }
-    if (value.includes('px')) {
-      return parseFloat(value);
+    if (!found) continue;
+    try {
+      const bbox = found.getBBox();
+      const cx = bbox.x + bbox.width / 2;
+      const cy = bbox.y + bbox.height / 2;
+      const leftPct = (cx / VIEWBOX_WIDTH) * 100;
+      const topPct = (cy / VIEWBOX_HEIGHT) * 100;
+      const rawLen = Math.max(16, Math.min(80, bbox.width * 3));
+      const placement: "above" | "below" = cy < VIEWBOX_HEIGHT / 2 ? "below" : "above";
+      positions.push({ pin, leftPct, topPct, value: 0, sliderLen: rawLen, placement });
+    } catch {
+      // ignore
     }
-    return parseFloat(value);
-  } catch {
-    // Fallback values
-    if (tokenName === '--svg-safe-margin') return 4;
-    if (tokenName === '--svg-label-padding') return 2;
-    logger.warn(`getComputedSpacingToken failed for '${tokenName}'`);
-    return 4;
+  }
+  return positions;
+}
+
+/**
+ * Dispatch a click on a pin element: opens analog dialog for analog pins,
+ * or toggles value for digital INPUT pins.
+ * Extracted to reduce Cognitive Complexity of handleOverlayClick (S3776).
+ */
+function dispatchPinClick(
+  pin: number,
+  pinStates: PinState[],
+  analogPins: number[],
+  sliderPositions: SliderPosition[],
+  onPinToggle: (pin: number, newValue: number) => void,
+  onAnalogChange: ((pin: number, value: number) => void) | undefined,
+  onOpenAnalogDialog: (
+    pin: number,
+    value: number,
+    leftPct: number,
+    topPct: number,
+    placement: "above" | "below",
+  ) => void,
+): void {
+  const state = pinStates.find((p) => p.pin === pin);
+  const usedAsAnalog = analogPins.includes(pin);
+  if (pin >= 14 && pin <= 19 && onAnalogChange != null && usedAsAnalog) {
+    const info = sliderPositions.find((s) => s.pin === pin);
+    const val = state?.value ?? 0;
+    const leftPct = info?.leftPct ?? 50;
+    const topPct = info?.topPct ?? 50;
+    const placement = getAnalogDialogPlacement(info, topPct);
+    onOpenAnalogDialog(pin, val, leftPct, topPct, placement);
+  } else if (state && (state.mode === "INPUT" || state.mode === "INPUT_PULLUP")) {
+    const newValue = state.value > 0 ? 0 : 1;
+    logger.debug(`[ArduinoBoard] Pin ${pin} clicked, toggling to ${newValue}`);
+    onPinToggle(pin, newValue);
   }
 }
 
-// PWM-capable pins on Arduino UNO
-const PWM_PINS = [3, 5, 6, 9, 10, 11];
+/** Manages board color state, including persistence and custom event subscription. */
+function useBoardColor(): string {
+  const [boardColor, setBoardColor] = useState<string>(() => {
+    try {
+      return globalThis.localStorage.getItem("unoBoardColor") || "var(--color-brand-primary)";
+    } catch {
+      return "var(--color-brand-primary)";
+    }
+  });
+
+  useEffect(() => {
+    const onColor = (e: Event) => {
+      const detail = (e as CustomEvent<{ color?: string }>).detail;
+      const color = detail?.color || globalThis.localStorage.getItem("unoBoardColor") || "var(--color-brand-primary)";
+      setBoardColor(color);
+    };
+    onCustomEvent(document, "arduinoColorChange", onColor);
+    return () => offCustomEvent(document, "arduinoColorChange", onColor);
+  }, []);
+
+  return boardColor;
+}
+
+/** Manages debug mode state, including localStorage init and custom event subscription. */
+function useDebugMode(): boolean {
+  const [debugMode, setDebugMode] = useState<boolean>(() => {
+    try {
+      return globalThis.localStorage.getItem("unoDebugMode") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const newValue = Boolean((ev as CustomEvent<{ value: boolean }>).detail?.value);
+      setDebugMode(newValue);
+    };
+    onCustomEvent(document, "debugModeChange", handler);
+    return () => offCustomEvent(document, "debugModeChange", handler);
+  }, []);
+
+  return debugMode;
+}
 
 export function ArduinoBoard({
   pinStates = [],
@@ -93,18 +305,12 @@ export function ArduinoBoard({
   onAnalogChange,
 }: ArduinoBoardProps) {
   const [svgContent, setSvgContent] = useState<string>("");
-  const [boardColor, setBoardColor] = useState<string>(() => {
-    try {
-      return window.localStorage.getItem("unoBoardColor") || "var(--color-brand-primary)";
-    } catch {
-      return "var(--color-brand-primary)";
-    }
-  });
+  const boardColor = useBoardColor();
   const [overlaySvgContent, setOverlaySvgContent] = useState<string>("");
   const [txBlink, setTxBlink] = useState(false);
   const [rxBlink, setRxBlink] = useState(false);
   const [showPWMValues, setShowPWMValues] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
+  const debugMode = useDebugMode();
   const { last: telemetry } = useTelemetryStore();
   const txTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rxTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -158,7 +364,8 @@ export function ArduinoBoard({
     const checkScaleChange = () => {
       try {
         const cs = getComputedStyle(document.documentElement);
-        parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1; // Read but don't store - SVG re-renders on next polling cycle
+        // Read but don't store - SVG re-renders on next polling cycle
+        cs.getPropertyValue("--ui-font-scale");
       } catch {
         logger.warn("Failed to read --ui-font-scale");
       }
@@ -185,53 +392,9 @@ export function ArduinoBoard({
         setSvgContent(main);
         setOverlaySvgContent(overlay);
       })
-      .catch((err) => console.error("Failed to load Arduino SVGs:", err));
-  }, []);
-
-  // Listen for color changes from settings dialog (custom event)
-  useEffect(() => {
-    const onColor = (e: Event) => {
-      try {
-        const detail = (e as CustomEvent).detail as
-          | { color?: string }
-          | undefined;
-        const color =
-          detail?.color ||
-          window.localStorage.getItem("unoBoardColor") ||
-          "var(--color-brand-primary)";
-        setBoardColor(color);
-      } catch {
-        // ignore
-      }
-    };
-    document.addEventListener("arduinoColorChange", onColor as EventListener);
-    return () =>
-      document.removeEventListener(
-        "arduinoColorChange",
-        onColor as EventListener,
-      );
-  }, []);
-
-  // Listen for debug mode changes
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem("unoDebugMode") === "1";
-      setDebugMode(stored);
-    } catch {
-      setDebugMode(false);
-    }
-
-    const handler = (ev: any) => {
-      try {
-        const newValue = Boolean(ev?.detail?.value);
-        setDebugMode(newValue);
-      } catch {
-        // ignore
-      }
-    };
-    document.addEventListener("debugModeChange", handler as EventListener);
-    return () =>
-      document.removeEventListener("debugModeChange", handler as EventListener);
+      .catch(() => {
+        // Silently handle SVG loading failure
+      });
   }, []);
 
   // Stable reference to ALL current state for polling - updated on every render
@@ -255,428 +418,16 @@ export function ArduinoBoard({
   };
 
   // Fade-Out tracking for LEDs
-  const FADE_OUT_MS = 200;
   const pinIsOnRef = useRef<Map<number, boolean>>(new Map());
   const pinTurnedOffAtRef = useRef<Map<number, number>>(new Map());
 
-  // Single stable polling loop for ALL SVG updates - runs ONCE, never restarts
-  useEffect(() => {
-    console.log("[ArduinoBoard] Starting stable polling loop");
-    const performAllUpdates = () => {
-      // Check overlay ref INSIDE the callback to handle late mounting
-      const overlay = overlayRef.current;
-      if (!overlay) return;
-
-      const svgEl = overlay.querySelector("svg");
-      if (!svgEl) return;
-
-      const { pinStates, isSimulationRunning, txBlink, rxBlink, analogPins } =
-        stateRef.current;
-
-      // Helper to check if pin is INPUT (using stateRef.current pinStates)
-      const isPinInputLocal = (pin: number): boolean => {
-        const state = pinStates.find((p) => p.pin === pin);
-        return (
-          state !== undefined &&
-          (state.mode === "INPUT" || state.mode === "INPUT_PULLUP")
-        );
-      };
-
-      // Helper to get pin color with fade-out effect
-      const getPinColor = (pin: number): string => {
-        const state = pinStates.find((p) => p.pin === pin);
-        if (!state) return "transparent";
-
-        const isPWM = PWM_PINS.includes(pin);
-        const isHigh = state.value > 0;
-
-        // Calculate brightness with fade-out
-        let brightness = 0;
-        if (isHigh) {
-          // LED is ON → full brightness
-          brightness = 1.0;
-        } else {
-          // LED is OFF → calculate fade-out
-          const turnedOffAt = pinTurnedOffAtRef.current.get(pin);
-          if (turnedOffAt) {
-            const timeSinceTurnedOff = Date.now() - turnedOffAt;
-            if (timeSinceTurnedOff < FADE_OUT_MS) {
-              // Still fading out
-              brightness = 1.0 - (timeSinceTurnedOff / FADE_OUT_MS);
-            } else {
-              // Fade complete
-              brightness = 0;
-            }
-          }
-        }
-
-        if (brightness <= 0) {
-          return "var(--color-black)";
-        }
-
-        // Apply brightness to red color
-        const intensity = Math.round(brightness * 255);
-
-        if (state.type === "digital") {
-          return `rgb(${intensity}, 0, 0)`;
-        } else if (isPWM) {
-          // PWM: Combine PWM value with fade brightness
-          const pwmIntensity = Math.round((state.value / 255) * intensity);
-          return `rgb(${pwmIntensity}, 0, 0)`;
-        } else if (state.value >= 255) {
-          return `rgb(${intensity}, 0, 0)`;
-        }
-        return "var(--color-black)";
-      };
-
-      // Update digital pins 0-13
-      for (let pin = 0; pin <= 13; pin++) {
-        const frame = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-frame`);
-        const state = svgEl.querySelector<SVGCircleElement>(
-          `#pin-${pin}-state`,
-        );
-        const click = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-click`);
-
-        const isInput = isPinInputLocal(pin);
-
-        // Track state changes for fade-out effect
-        const pinState = pinStates.find((p) => p.pin === pin);
-        const isHigh = pinState && pinState.value > 0;
-        const wasOn = pinIsOnRef.current.get(pin) ?? false;
-        if (wasOn !== isHigh) {
-          pinIsOnRef.current.set(pin, isHigh ?? false);
-          if (!isHigh) {
-            // Pin turned OFF → start fade-out
-            pinTurnedOffAtRef.current.set(pin, Date.now());
-          }
-        }
-
-        const color = getPinColor(pin);
-
-        if (frame) {
-          frame.style.display = isSimulationRunning && isInput ? "block" : "none";
-          // Use SVG native filter for glow instead of CSS drop-shadow
-          if (isSimulationRunning && isInput) {
-            frame.setAttribute('filter', 'url(#glow-yellow)');
-          } else {
-            frame.removeAttribute('filter');
-          }
-        }
-
-        if (state) {
-          if (color === "transparent" || color === "var(--color-black)") {
-            state.setAttribute("fill", "var(--color-black)");
-            state.removeAttribute('filter');
-          } else {
-            state.setAttribute("fill", color);
-            // pin states are red/pwm → use red glow filter for consistent appearance
-            state.setAttribute('filter', 'url(#glow-red)');
-          }
-        }
-
-        if (click) {
-          click.style.pointerEvents = isInput ? "auto" : "none";
-          click.style.cursor = isInput ? "pointer" : "default";
-        }
-      }
-
-      // Update analog pins A0-A5
-      for (let i = 0; i <= 5; i++) {
-        const pinId = `A${i}`;
-        const pinNumber = 14 + i;
-
-        const frame = svgEl.querySelector<SVGRectElement>(
-          `#pin-${pinId}-frame`,
-        );
-        const state = svgEl.querySelector<SVGCircleElement>(
-          `#pin-${pinId}-state`,
-        );
-        const click = svgEl.querySelector<SVGRectElement>(
-          `#pin-${pinId}-click`,
-        );
-
-        const isInput = isPinInputLocal(pinNumber);
-
-        // Track state changes for fade-out effect (when used as digital)
-        const pinState = pinStates.find((p) => p.pin === pinNumber);
-        const isHigh = pinState && pinState.value > 0;
-        const wasOn = pinIsOnRef.current.get(pinNumber) ?? false;
-        if (wasOn !== isHigh) {
-          pinIsOnRef.current.set(pinNumber, isHigh ?? false);
-          if (!isHigh) {
-            // Pin turned OFF → start fade-out
-            pinTurnedOffAtRef.current.set(pinNumber, Date.now());
-          }
-        }
-
-        const usedAsAnalog = analogPins.includes(pinNumber);
-        const color = getPinColor(pinNumber);
-
-        if (frame) {
-          // Show frame if:
-          // - Simulation is running AND
-          // - (Pin is INPUT mode OR pin is detected as used with analogRead)
-          const show = isSimulationRunning && (isInput || usedAsAnalog);
-          frame.style.display = show ? "block" : "none";
-          if (show) {
-            frame.setAttribute('filter', 'url(#glow-yellow)');
-          } else {
-            frame.removeAttribute('filter');
-          }
-          // Dashed frame if analogRead is used, solid otherwise
-          if (show && usedAsAnalog) {
-            (frame as any).style.strokeDasharray = "3,2";
-          } else {
-            (frame as any).style.strokeDasharray = "";
-          }
-        }
-
-        if (state) {
-          if (color === "transparent" || color === "var(--color-black)") {
-            state.setAttribute("fill", "var(--color-black)");
-            state.removeAttribute('filter');
-          } else {
-            state.setAttribute("fill", color);
-            state.setAttribute('filter', 'url(#glow-red)');
-          }
-        }
-
-        if (click) {
-          const clickable = isInput || usedAsAnalog;
-          click.style.pointerEvents = clickable ? "auto" : "none";
-          click.style.cursor = clickable ? "pointer" : "default";
-        }
-      }
-
-      // Update ALL LEDs
-      const ledOn = svgEl.querySelector<SVGRectElement>("#led-on");
-      const ledL = svgEl.querySelector<SVGRectElement>("#led-l");
-      const ledTx = svgEl.querySelector<SVGRectElement>("#led-tx");
-      const ledRx = svgEl.querySelector<SVGRectElement>("#led-rx");
-
-      if (ledOn) {
-        if (isSimulationRunning) {
-          ledOn.setAttribute("fill", "var(--color-led-green)");
-          ledOn.setAttribute("fill-opacity", "1");
-          ledOn.style.filter = "url(#glow-green)";
-        } else {
-          ledOn.setAttribute("fill", "transparent");
-          ledOn.setAttribute("fill-opacity", "0");
-          ledOn.style.filter = "none";
-        }
-      }
-
-      const pin13State = pinStates.find((p) => p.pin === 13);
-      const pin13On = pin13State && pin13State.value > 0;
-      if (ledL) {
-        if (pin13On) {
-          ledL.setAttribute("fill", "var(--color-led-yellow)");
-          ledL.setAttribute("fill-opacity", "1");
-          ledL.style.filter = "url(#glow-yellow)";
-        } else {
-          ledL.setAttribute("fill", "transparent");
-          ledL.setAttribute("fill-opacity", "0");
-          ledL.style.filter = "none";
-        }
-      }
-
-      if (ledTx) {
-        if (txBlink) {
-          ledTx.setAttribute("fill", "var(--color-led-yellow)");
-          ledTx.setAttribute("fill-opacity", "1");
-          ledTx.style.filter = "url(#glow-yellow)";
-        } else {
-          ledTx.setAttribute("fill", "transparent");
-          ledTx.setAttribute("fill-opacity", "0");
-          ledTx.style.filter = "none";
-        }
-      }
-
-      if (ledRx) {
-        if (rxBlink) {
-          ledRx.setAttribute("fill", "var(--color-led-yellow)");
-          ledRx.setAttribute("fill-opacity", "1");
-          ledRx.style.filter = "url(#glow-yellow)";
-        } else {
-          ledRx.setAttribute("fill", "transparent");
-          ledRx.setAttribute("fill-opacity", "0");
-          ledRx.style.filter = "none";
-        }
-      }
-
-      // Update numeric I/O labels (PWM pins and analog A0-A5)
-      // Only show when requested via the header button
-      const showLabels = !!stateRef.current.showPWMValues;
-
-      // Helper to create/update text nodes
-      // rotateLeft: if true, the label will be rotated -90deg around (x,y)
-      // Helper to create/update text nodes
-      // rotateLeft: if true, the label will be rotated -90deg around (translateX, translateY)
-      // translateYOverride: optional - if provided, use this Y for the translate before rotation (useful to place label edge-aligned)
-      // localXOverride: optional - when rotated, this sets the local x coordinate (useful to left-align inside frame)
-      // anchorOverride: optional - sets the text-anchor attribute (e.g. 'start' for left-aligned)
-      const ensureText = (
-        id: string,
-        x: number,
-        y: number,
-        textValue: string,
-        fill = "var(--color-white)",
-        rotateLeft = false,
-        translateYOverride?: number,
-        localXOverride?: number,
-        anchorOverride?: string,
-      ) => {
-        let t = svgEl.querySelector<SVGTextElement>(`#${id}`);
-        if (!t) {
-          t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          t.setAttribute("id", id);
-          t.setAttribute("text-anchor", anchorOverride || "middle");
-          // Use scaled typography token which respects global --ui-font-scale
-          t.setAttribute("font-size", getComputedTokenValue('--fs-label-sm'));
-          t.setAttribute("fill", fill);
-          t.setAttribute("stroke", "var(--color-black)");
-          t.setAttribute("stroke-width", "0.4");
-          t.setAttribute("paint-order", "stroke");
-          t.setAttribute("dominant-baseline", "middle");
-          (t as any).style.pointerEvents = "none";
-          svgEl.appendChild(t);
-        } else {
-          // Update font-size on every call to respect zoom changes
-          t.setAttribute("font-size", getComputedTokenValue('--fs-label-sm'));
-          if (anchorOverride) t.setAttribute("text-anchor", anchorOverride);
-        }
-        t.textContent = textValue;
-        if (rotateLeft) {
-          // Get scaled font size from CSS token
-          const fontSize = parseFloat(getComputedTokenValue('--fs-label-sm'));
-          const half = fontSize / 2;
-          const translateY =
-            typeof translateYOverride === "number" ? translateYOverride : y;
-          const localX =
-            typeof localXOverride === "number" ? localXOverride : half;
-          // translate to chosen point then rotate; text local x controls lateral placement, local y is 0
-          t.setAttribute(
-            "transform",
-            `translate(${x} ${translateY}) rotate(-90)`,
-          );
-          t.setAttribute("x", String(localX));
-          t.setAttribute("y", "0");
-        } else {
-          // no horizontal offset for non-rotated labels by default (callers can adjust x)
-          t.setAttribute("x", String(x));
-          t.setAttribute("y", String(y));
-          t.removeAttribute("transform");
-        }
-        t.style.display = textValue && showLabels ? "block" : "none";
-      };
-
-      // Remove/hide any existing label nodes when labels are disabled
-      if (!showLabels) {
-        const existing = svgEl.querySelectorAll('text[id^="pin-"][id$="-val"]');
-        existing.forEach((n) => ((n as SVGTextElement).style.display = "none"));
-      } else {
-        // PWM pins 3,5,6,9,10,11
-        for (const pin of PWM_PINS) {
-          const stateEl = svgEl.querySelector<SVGCircleElement>(
-            `#pin-${pin}-state`,
-          );
-          const frameEl = svgEl.querySelector<SVGRectElement>(
-            `#pin-${pin}-frame`,
-          );
-          if (!stateEl && !frameEl) continue;
-          try {
-            // Prefer the frame center (yellow square) if available, otherwise fall back to circle center
-            const bb = (frameEl ?? (stateEl as any)).getBBox();
-            const cx = bb.x + bb.width / 2;
-            const cy = bb.y + bb.height / 2;
-            const state = pinStates.find((p) => p.pin === pin);
-            const valStr = state ? String(state.value) : "";
-            // Place label either above (upper pins) or below (lower pins) the frame, and align inside the frame
-            let translateY: number | undefined = undefined;
-            let localX: number | undefined = undefined;
-            let anchor: string | undefined = undefined;
-            const padding = getComputedSpacingToken('--svg-label-padding'); // 2px from token
-            const fontSize = parseFloat(getComputedTokenValue('--fs-label-sm'));
-            if (cy < VIEWBOX_HEIGHT / 2) {
-              // upper pins: place above and left-align inside frame
-              translateY = cy - bb.height / 2 - fontSize / 2 - padding;
-              localX = -bb.width / 2 + padding;
-              anchor = "start";
-            } else {
-              // lower pins: place below and right-align inside frame
-              translateY = cy + bb.height / 2 + fontSize / 2 + padding;
-              localX = bb.width / 2 - padding;
-              anchor = "end";
-            }
-            ensureText(
-              `pin-${pin}-val`,
-              cx,
-              cy,
-              valStr,
-              "var(--color-white)",
-              true,
-              translateY,
-              localX,
-              anchor,
-            );
-          } catch {
-            // ignore bbox errors
-          }
-        }
-
-        // Analog pins A0-A5 (pins 14-19)
-        for (let i = 0; i <= 5; i++) {
-          const el = svgEl.querySelector<SVGCircleElement>(`#pin-A${i}-state`);
-          const frameEl = svgEl.querySelector<SVGRectElement>(
-            `#pin-A${i}-frame`,
-          );
-          if (!el && !frameEl) continue;
-          try {
-            const bb = (frameEl ?? (el as any)).getBBox();
-            const cx = bb.x + bb.width / 2;
-            const cy = bb.y + bb.height / 2;
-            const pinNumber = 14 + i;
-            const state = pinStates.find((p) => p.pin === pinNumber);
-            const valStr = state ? String(state.value) : "";
-            // Place analog pin label above (upper half) or below (lower half) and align inside the frame
-            let translateYAnal: number | undefined = undefined;
-            let localXAnal: number | undefined = undefined;
-            let anchorAnal: string | undefined = undefined;
-            const paddingAnal = getComputedSpacingToken('--svg-label-padding'); // 2px from token
-            const fontSizeAnal = parseFloat(getComputedTokenValue('--fs-label-sm'));
-            if (cy < VIEWBOX_HEIGHT / 2) {
-              translateYAnal =
-                cy - bb.height / 2 - fontSizeAnal / 2 - paddingAnal;
-              localXAnal = -bb.width / 2 + paddingAnal;
-              anchorAnal = "start";
-            } else {
-              translateYAnal =
-                cy + bb.height / 2 + fontSizeAnal / 2 + paddingAnal;
-              localXAnal = bb.width / 2 - paddingAnal;
-              anchorAnal = "end";
-            }
-            ensureText(
-              `pin-A${i}-val`,
-              cx,
-              cy,
-              valStr,
-              "var(--color-white)",
-              true,
-              translateYAnal,
-              localXAnal,
-              anchorAnal,
-            );
-          } catch {}
-        }
-      }
-    };
-
-    // Stable 10ms polling - interval NEVER restarts, reads current state from ref
-    const intervalId = setInterval(performAllUpdates, 10);
-    performAllUpdates();
-
-    return () => clearInterval(intervalId);
-  }, []); // Empty dep array - polling loop never restarts, reads from stateRef which is always current
+  // Use the polling engine hook for all SVG updates
+  usePinPollingEngine({
+    overlayRef,
+    stateRef,
+    pinIsOnRef,
+    pinTurnedOffAtRef,
+  });
 
   // Compute slider positions for analog pins using SVG bbox (percent of viewBox)
   useEffect(() => {
@@ -686,71 +437,12 @@ export function ArduinoBoard({
       setSliderPositions([]);
       return;
     }
-
     const svgEl = overlay.querySelector<SVGSVGElement>("svg");
     if (!svgEl) {
       setSliderPositions([]);
       return;
     }
-
-    const positions: Array<{
-      pin: number;
-      leftPct: number;
-      topPct: number;
-      value: number;
-      sliderLen: number;
-      placement: "above" | "below";
-    }> = [];
-    for (const pin of analogPins) {
-      if (pin < 14 || pin > 19) continue;
-      const idx = pin - 14;
-      // Try several candidate element ids to find the pin position
-      const candidates = [
-        `pin-A${idx}-state`,
-        `pin-A${idx}-frame`,
-        `pin-A${idx}-click`,
-        `pin-${pin}-state`,
-        `pin-${pin}-frame`,
-        `pin-${pin}-click`,
-      ];
-      let found: SVGGraphicsElement | null = null;
-      for (const id of candidates) {
-        const el = svgEl.querySelector<SVGGraphicsElement>(`#${id}`);
-        if (el) {
-          found = el;
-          break;
-        }
-      }
-      if (!found) continue;
-
-      try {
-        const bbox = (found as any).getBBox();
-        const cx = bbox.x + bbox.width / 2;
-        const cy = bbox.y + bbox.height / 2;
-        const leftPct = (cx / VIEWBOX_WIDTH) * 100;
-        const topPct = (cy / VIEWBOX_HEIGHT) * 100;
-        // Note: We read pinStates directly but don't depend on it to avoid re-renders
-        // The slider value will be updated separately when pinStates changes
-        const value = 0; // Default value, will be updated by a separate effect
-        // Compute slider visual length (in viewBox pixels) and clamp to reasonable size
-        const rawLen = Math.max(16, Math.min(80, bbox.width * 3));
-        // Placement: if pin is in upper half, place slider below; otherwise above
-        const placement: "above" | "below" =
-          cy < VIEWBOX_HEIGHT / 2 ? "below" : "above";
-        positions.push({
-          pin,
-          leftPct,
-          topPct,
-          value,
-          sliderLen: rawLen,
-          placement,
-        });
-      } catch {
-        // ignore
-      }
-    }
-
-    setSliderPositions(positions);
+    setSliderPositions(computeSliderPositionsFromSvg(svgEl, analogPins));
   }, [overlaySvgContent, analogPins]);
 
   // Update slider values when pinStates changes (without triggering re-calculation of positions)
@@ -758,9 +450,10 @@ export function ArduinoBoard({
     setSliderPositions((prev) => {
       if (prev.length === 0) return prev;
 
+      const pinMap = new Map(pinStates.map((p) => [p.pin, p]));
       let changed = false;
       const updated = prev.map((slider) => {
-        const pinState = pinStates.find((p) => p.pin === slider.pin);
+        const pinState = pinMap.get(slider.pin);
         const newValue = pinState?.value ?? 0;
         if (newValue !== slider.value) {
           changed = true;
@@ -780,56 +473,13 @@ export function ArduinoBoard({
 
       // Check for pin click
       const pinClick = target.closest('[id^="pin-"][id$="-click"]');
-      // debug logs removed
       if (pinClick && onPinToggle) {
-        // Match both digital pins (0-13) and analog pins (A0-A5)
-        const digitalMatch = pinClick.id.match(/pin-(\d+)-click/);
-        const analogMatch = pinClick.id.match(/pin-A(\d+)-click/);
-
-        let pin: number | undefined;
-        if (digitalMatch) {
-          pin = parseInt(digitalMatch[1], 10);
-        } else if (analogMatch) {
-          // A0-A5 map to pins 14-19
-          pin = 14 + parseInt(analogMatch[1], 10);
-        }
-
+        const pin = parsePinFromElement(pinClick);
         if (pin !== undefined) {
-          const state = pinStates.find((p) => p.pin === pin);
-          // debug logs removed
-          // Determine if this analog pin was detected from code (analogRead)
-          const usedAsAnalog = analogPins.includes(pin);
-          // Only open the analog dialog when this pin was actually used by analogRead
-          if (pin >= 14 && pin <= 19 && onAnalogChange && usedAsAnalog) {
-            // Find slider position info if available
-            const info = sliderPositions.find((s) => s.pin === pin);
-            const val = state ? state.value : 0;
-            const leftPct = info ? info.leftPct : 50;
-            const topPct = info ? info.topPct : 50;
-            const placement = info
-              ? info.placement
-              : topPct < 50
-                ? "below"
-                : "above";
-            // Open dialog
-            setAnalogDialog({
-              open: true,
-              pin,
-              value: val,
-              leftPct,
-              topPct,
-              placement,
-            });
-          } else if (
-            state &&
-            (state.mode === "INPUT" || state.mode === "INPUT_PULLUP")
-          ) {
-            const newValue = state.value > 0 ? 0 : 1;
-            logger.debug(
-              `[ArduinoBoard] Pin ${pin} clicked, toggling to ${newValue}`,
-            );
-            onPinToggle(pin, newValue);
-          }
+          dispatchPinClick(
+            pin, pinStates, analogPins, sliderPositions, onPinToggle, onAnalogChange,
+            (p, v, l, t, pl) => setAnalogDialog({ open: true, pin: p, value: v, leftPct: l, topPct: t, placement: pl }),
+          );
         }
         return;
       }
@@ -841,14 +491,7 @@ export function ArduinoBoard({
         onReset();
       }
     },
-    [
-      onPinToggle,
-      onReset,
-      pinStates,
-      sliderPositions,
-      onAnalogChange,
-      analogPins,
-    ],
+    [onPinToggle, onReset, pinStates, sliderPositions, onAnalogChange, analogPins],
   );
 
   // Compute scale to fit both width and height
@@ -879,40 +522,31 @@ export function ArduinoBoard({
     };
   }, [svgContent]);
 
-  // Modify main SVG (static, just styles)
-  const getModifiedSvg = () => {
+  // Derived SVG strings (memoized to avoid recomputation on every render)
+  const modifiedSvg = useMemo(() => {
     if (!svgContent) return "";
-    let modified = svgContent;
-    modified = modified.replace(/<\?xml[^?]*\?>/g, "");
-    // Replace the default board color (brand-primary token) in the SVG with the chosen color.
-    // We replace hex occurrences case-insensitively; avoid embedding raw hex in source.
+    let modified = preprocessSvg(svgContent);
     try {
-      const DEFAULT_BOARD_HEX = '#' + '0f7391';
-      modified = modified.replace(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
-    } catch {}
-    modified = modified.replace(
+      const DEFAULT_BOARD_HEX = '#0f7391';
+      modified = modified.replaceAll(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
+    } catch { /* ignore regex errors */ }
+    const opacity = simulationStatus === "running" ? 1 : 0.35;
+    return modified.replace(
       /<svg([^>]*)>/,
-      `<svg$1 style="width: 100%; height: 100%; display: block; opacity: ${simulationStatus === "running" ? 1 : 0.35};" preserveAspectRatio="xMidYMid meet">`,
+      `<svg$1 style="width: 100%; height: 100%; display: block; opacity: ${opacity};" preserveAspectRatio="xMidYMid meet">`,
     );
-    return modified;
-  };
+  }, [svgContent, boardColor, simulationStatus]);
 
-  // Modify overlay SVG
-  const getOverlaySvg = () => {
+  const overlaySvg = useMemo(() => {
     if (!overlaySvgContent) return "";
-    let modified = overlaySvgContent;
-    modified = modified.replace(/<\?xml[^?]*\?>/g, "");
-
-    // Ensure click areas carry a Tailwind utility for cursor (picked up by JIT)
-    // and keep original `click-area` class so SVG styles remain functional.
-    modified = modified.replace(/class="click-area"/g, 'class="click-area cursor-pointer"');
-
-    modified = modified.replace(
-      /<svg([^>]*)>/,
-      `<svg$1 style="width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0;" preserveAspectRatio="xMidYMid meet">`,
-    );
+    const modified = preprocessSvg(overlaySvgContent)
+      .replaceAll('class="click-area"', 'class="click-area cursor-pointer"')
+      .replace(
+        /<svg([^>]*)>/,
+        `<svg$1 style="width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0;" preserveAspectRatio="xMidYMid meet">`,
+      );
     return modified;
-  };
+  }, [overlaySvgContent]);
 
   return (
     <div className="h-full flex flex-col bg-card border-t border-border">
@@ -921,44 +555,14 @@ export function ArduinoBoard({
         <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
           <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
           <span className="sr-only">Arduino UNO Board</span>
-          {debugMode && telemetry && isSimulationRunning && (
-            <div className="ml-4 flex items-center gap-4 text-xs text-muted-foreground border-l border-muted-foreground/30 pl-4" data-testid="telemetry-metrics">
-              <div className="flex flex-col" data-testid="telemetry-pin-changes">
-                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Pin Changes</span>
-                <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-pin-changes-value">
-                  {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
-                  {telemetry.droppedPinChangesPerSecond > 0 && (
-                    <span className="ml-1 text-amber-400/80" data-testid="telemetry-dropped">
-                      ({telemetry.droppedPinChangesPerSecond.toFixed(0)} dropped)
-                    </span>
-                  )}
-                </span>
-              </div>
-              <div className="flex flex-col" data-testid="telemetry-batching">
-                <span className="text-[10px] uppercase tracking-wider text-cyan-500/50">Batching</span>
-                <span className="text-sm font-mono text-cyan-400" data-testid="telemetry-batching-value">
-                  {telemetry.batchesPerSecond.toFixed(0)} bat/s · {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
-                </span>
-              </div>
-            </div>
+          {debugMode && isSimulationRunning && (
+            <TelemetryMetrics telemetry={telemetry} />
           )}
         </div>
-        <div className="flex items-center ml-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-            onClick={() => setShowPWMValues(!showPWMValues)}
-            title={showPWMValues ? "Hide I/O values" : "Show I/O values"}
-            aria-label={showPWMValues ? "Hide I/O values" : "Show I/O values"}
-          >
-            {showPWMValues ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
+        <VisibilityToggle
+          showPWMValues={showPWMValues}
+          onToggle={() => setShowPWMValues(!showPWMValues)}
+        />
       </div>
 
       {/* Board Visualization */}
@@ -996,14 +600,22 @@ export function ArduinoBoard({
               {/* Main SVG - static background */}
               <div
                 style={{ position: "relative", width: "100%", height: "100%" }}
-                dangerouslySetInnerHTML={{ __html: getModifiedSvg() }}
+                dangerouslySetInnerHTML={{ __html: modifiedSvg }}
               />
               {/* Overlay SVG - dynamic visualization and click handling */}
               <div
                 ref={overlayRef}
                 className="arduino-overlay absolute inset-0 w-full h-full"
+                role="application"
+                tabIndex={0}
+                aria-label="Arduino board interactive overlay. Click pins to toggle their state."
                 onClick={handleOverlayClick}
-                dangerouslySetInnerHTML={{ __html: getOverlaySvg() }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    handleOverlayClick(e as unknown as React.MouseEvent);
+                  }
+                }}
+                dangerouslySetInnerHTML={{ __html: overlaySvg }}
               />
               {/* analog dialog is rendered as a portal to avoid affecting layout */}
               <AnalogDialogPortal
@@ -1028,78 +640,97 @@ export function ArduinoBoard({
   );
 }
 
-// Portal render function placed after component to keep JSX smaller
-function AnalogDialogPortal(props: {
+interface AnalogDialogPortalProps {
+  readonly dialog:
+    | {
+        open: true;
+        pin: number;
+        value: number;
+        leftPct: number;
+        topPct: number;
+        placement: "above" | "below";
+      }
+    | null;
+  readonly overlayRef: React.RefObject<HTMLDivElement> | null;
+  readonly onClose: () => void;
+  readonly onConfirm: (pin: number, value: number) => void;
+}
+
+function getAnalogDialogCoordinates(
+  overlayRef: React.RefObject<HTMLDivElement> | null,
   dialog: {
     open: true;
     pin: number;
-    value: number;
-    leftPct: number;
-    topPct: number;
     placement: "above" | "below";
-  } | null;
-  overlayRef: React.RefObject<HTMLDivElement> | null;
-  onClose: () => void;
-  onConfirm: (pin: number, value: number) => void;
-}) {
-  const { dialog, overlayRef, onClose, onConfirm } = props;
-  if (!dialog || !overlayRef || !overlayRef.current) return null;
+  },
+) {
+  if (!overlayRef?.current) return null;
 
-  try {
-    const svgEl = overlayRef.current.querySelector("svg");
-    if (!svgEl) return null;
-    const idx = dialog.pin - 14;
-    const el =
-      svgEl.querySelector<SVGGraphicsElement>(`#pin-A${idx}-state`) ||
-      svgEl.querySelector<SVGGraphicsElement>(`#pin-${dialog.pin}-state`);
-    if (!el) return null;
-    const rect = (el as Element).getBoundingClientRect();
-    const dialogWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-width-small').trim()) || 220;
-    const dialogHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-height-small').trim()) || 84;
-    const pointerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dialog-offset-pointer').trim()) || 6;
-    const viewportMargin = 8;
-    let left = rect.left + rect.width / 2 - dialogWidth / 2;
-    let top =
-      dialog.placement === "below"
-        ? rect.bottom + pointerOffset
-        : rect.top - dialogHeight - pointerOffset;
-    // clamp to viewport
-    left = Math.max(viewportMargin, Math.min(window.innerWidth - dialogWidth - viewportMargin, left));
-    top = Math.max(viewportMargin, Math.min(window.innerHeight - dialogHeight - viewportMargin, top));
+  const svgEl = overlayRef.current.querySelector("svg");
+  if (!svgEl) return null;
 
-    return createPortal(
-      <div
-        style={{
-          position: "fixed",
-          left,
-          top,
-          width: dialogWidth,
-          background: "rgba(20,20,20,0.95)",
-          color: "var(--color-surface-muted)",
-          padding: "var(--dialog-padding-inline)",
-          borderRadius: 6,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
-          zIndex: 10000,
-        }}
-      >
-        <div style={{ fontSize: "var(--fs-label-lg)", marginBottom: "var(--dialog-offset-pointer)" }}>
-          {dialog.pin >= 14 && dialog.pin <= 19
-            ? `A${dialog.pin - 14}`
-            : dialog.pin}
-        </div>
-        <DialogInner dialog={dialog} onClose={onClose} onConfirm={onConfirm} />
-      </div>,
-      document.body,
-    );
-  } catch {
-    return null;
-  }
+  const idx = dialog.pin - 14;
+  const el =
+    svgEl.querySelector<SVGGraphicsElement>(`#pin-A${idx}-state`) ||
+    svgEl.querySelector<SVGGraphicsElement>(`#pin-${dialog.pin}-state`);
+  if (!el) return null;
+
+  const rect = el.getBoundingClientRect();
+  const dialogWidth = getCssNumber("--dialog-width-small", 220);
+  const dialogHeight = getCssNumber("--dialog-height-small", 84);
+  const pointerOffset = getCssNumber("--dialog-offset-pointer", 6);
+  const viewportMargin = 8;
+
+  let left = rect.left + rect.width / 2 - dialogWidth / 2;
+  let top =
+    dialog.placement === "below"
+      ? rect.bottom + pointerOffset
+      : rect.top - dialogHeight - pointerOffset;
+
+  left = Math.max(viewportMargin, Math.min(globalThis.innerWidth - dialogWidth - viewportMargin, left));
+  top = Math.max(viewportMargin, Math.min(globalThis.innerHeight - dialogHeight - viewportMargin, top));
+
+  const pinLabel = dialog.pin >= 14 && dialog.pin <= 19 ? `A${dialog.pin - 14}` : `${dialog.pin}`;
+
+  return { left, top, dialogWidth, dialogHeight, pinLabel };
 }
 
+function AnalogDialogPortal(props: AnalogDialogPortalProps) {
+  const { dialog, overlayRef, onClose, onConfirm } = props;
+  if (!dialog) return null;
+
+  const coords = getAnalogDialogCoordinates(overlayRef, dialog);
+  if (!coords) return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        left: coords.left,
+        top: coords.top,
+        width: coords.dialogWidth,
+        background: "rgba(20,20,20,0.95)",
+        color: "var(--color-surface-muted)",
+        padding: "var(--dialog-padding-inline)",
+        borderRadius: 6,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+        zIndex: 10000,
+      }}
+    >
+      <div style={{ fontSize: "var(--fs-label-lg)", marginBottom: "var(--dialog-offset-pointer)" }}>
+        {coords.pinLabel}
+      </div>
+      <DialogInner dialog={dialog} onClose={onClose} onConfirm={onConfirm} />
+    </div>,
+    document.body,
+  );
+}
+
+
 function DialogInner(props: {
-  dialog: { open: true; pin: number; value: number };
-  onClose: () => void;
-  onConfirm: (pin: number, value: number) => void;
+  readonly dialog: { open: true; pin: number; value: number };
+  readonly onClose: () => void;
+  readonly onConfirm: (pin: number, value: number) => void;
 }) {
   const { dialog, onClose, onConfirm } = props;
   const [val, setVal] = useState<number>(dialog.value);

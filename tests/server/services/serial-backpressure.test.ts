@@ -50,7 +50,7 @@ describe('Serial Backpressure (Arduino TX Buffer)', () => {
    * - Should see timestamps with significant gaps
    */
   it('T-BP-01: Serial.println() blocks when TX buffer fills', async () => {
-    const sketch = `
+    const sketch = String.raw`
 void setup() {
   Serial.begin(115200);
 }
@@ -77,8 +77,8 @@ void loop() {
   for (size_t i = prefixLen; i < 148; i++) {
     buf[i] = 'X';
   }
-  buf[148] = '\\n';
-  buf[149] = '\\0';
+  buf[148] = '\n';
+  buf[149] = '\0';
   
   Serial.print(buf);
   
@@ -105,7 +105,7 @@ void loop() {
     const deltaRegex = /\[(\d+) ms delta\]/g;
     let match;
     while ((match = deltaRegex.exec(output)) !== null) {
-      deltas.push(parseInt(match[1], 10));
+      deltas.push(Number.parseInt(match[1], 10));
     }
 
     log(`[T-BP-01] Time deltas (ms): ${deltas.join(', ')}`);
@@ -136,7 +136,7 @@ void loop() {
    * but in practice neither happens - it just slows down.
    */
   it('T-BP-02: With backpressure, no server-side drops occur', async () => {
-    const sketch = `
+    const sketch = String.raw`
 void setup() {
   Serial.begin(115200);
 }
@@ -159,8 +159,8 @@ void loop() {
   for (size_t i = prefixLen; i < 200; i++) {
     buf[i] = 'X';
   }
-  buf[200] = '\\n';
-  buf[201] = '\\0';
+  buf[200] = '\n';
+  buf[201] = '\0';
   
   Serial.println(buf);
   counter++;
@@ -178,7 +178,7 @@ void loop() {
     const regex = /(\d{6})/g;
     let match;
     while ((match = regex.exec(output)) !== null) {
-      const num = parseInt(match[1], 10);
+      const num = Number.parseInt(match[1], 10);
       // Avoid END marker
       if (num < 10000) {
         lineNumbers.push(num);
@@ -186,7 +186,7 @@ void loop() {
     }
 
     log(`[T-BP-02] Total lines: ${lineNumbers.length}`);
-    log(`[T-BP-02] First: ${lineNumbers[0]}, Last: ${lineNumbers[lineNumbers.length - 1]}`);
+    log(`[T-BP-02] First: ${lineNumbers[0]}, Last: ${lineNumbers.at(-1)}`);
 
     // Find gaps (dropped lines)
     let gaps = 0;
@@ -199,7 +199,7 @@ void loop() {
       }
     }
 
-    const dropRate = totalMissing / (lineNumbers[lineNumbers.length - 1] + 1);
+    const dropRate = totalMissing / (lineNumbers.at(-1) + 1);
     log(`[T-BP-02] Gaps: ${gaps}, Missing: ${totalMissing}, Drop rate: ${(dropRate * 100).toFixed(1)}%`);
 
     // With backpressure, drop rate should be VERY LOW or ZERO

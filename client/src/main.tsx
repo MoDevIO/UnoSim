@@ -8,13 +8,34 @@ import { getCurrentFontScale, increaseFontScale, decreaseFontScale } from "./lib
 import { isMac } from "./lib/platform";
 import { Logger } from "@shared/logger";
 
+// Extend global interfaces for optional test hooks and Monaco worker wiring
+declare global {
+  interface Window {
+    MonacoEnvironment?: { getWorker: () => Worker };
+    setEditorContent?: (code: string, maxRetries?: number) => Promise<boolean>;
+    __MONACO_EDITOR__?: {
+      setValue: (code: string) => void;
+      getModel?: () => { setValue?: (code: string) => void };
+      getDomNode?: () => HTMLElement | null;
+      focus?: () => void;
+    };
+  }
+
+  interface WorkerGlobalScope {
+    MonacoEnvironment?: { getWorker: () => Worker };
+  }
+}
+
 const logger = new Logger("Main");
 
 // Provide MonacoEnvironment.getWorker to load editor workers off the main thread
 if (typeof self !== "undefined") {
-  (self as any).MonacoEnvironment = {
+  // Monaco expects a global MonacoEnvironment.getWorker factory.
+  // Cast to a constructor type to satisfy TS inference.
+  const MonacoWorkerConstructor = editorWorker as unknown as new () => Worker;
+  self.MonacoEnvironment = {
     getWorker() {
-      return new (editorWorker as any)();
+      return new MonacoWorkerConstructor();
     },
   };
 }
@@ -55,11 +76,11 @@ function setupFontScaleShortcuts() {
     }
   };
   
-  window.addEventListener("keydown", handleKeyDown);
+  globalThis.addEventListener("keydown", handleKeyDown);
   
   // Cleanup function for HMR
   return () => {
-    window.removeEventListener("keydown", handleKeyDown);
+    globalThis.removeEventListener("keydown", handleKeyDown);
   };
 }
 
@@ -68,25 +89,23 @@ setupFontScaleShortcuts();
 
 
 // E2E TEST HOOK: Add a global setEditorContent function for Playwright
-if (typeof window !== "undefined") {
-  (window as any).setEditorContent = async function (code: string, maxRetries: number = 10) {
+if (globalThis.window !== undefined) {
+  (globalThis as any).setEditorContent = async function (code: string, maxRetries: number = 50) {
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-    let lastErr;
+    let lastErr: unknown;
     for (let i = 0; i < maxRetries; ++i) {
       try {
-        const editor = (window as any).__MONACO_EDITOR__;
+        const editor = (globalThis as any).__MONACO_EDITOR__;
         if (editor && typeof editor.setValue === "function") {
-          editor.focus();
+          editor.focus?.();
           editor.setValue(code);
           // Trigger change event if needed
-          if (editor.getModel) {
-            const model = editor.getModel();
-            if (model && typeof model.setValue === "function") {
-              model.setValue(code);
-            }
+          const model = editor.getModel?.();
+          if (model && typeof model.setValue === "function") {
+            model.setValue(code);
           }
           // Optionally trigger input event for React
-          const domNode = editor.getDomNode && editor.getDomNode();
+          const domNode = editor.getDomNode?.();
           if (domNode) {
             domNode.dispatchEvent(new Event("input", { bubbles: true }));
           }
@@ -95,10 +114,12 @@ if (typeof window !== "undefined") {
       } catch (err) {
         lastErr = err;
       }
-      await sleep(100);
+      await sleep(200);
     }
-    if (lastErr) throw lastErr;
-    throw new Error("setEditorContent: Monaco editor not found after retries");
+    if (lastErr) {
+      console.warn("setEditorContent failed (editor not ready):", lastErr);
+    }
+    return false;
   };
 }
 

@@ -41,8 +41,8 @@ export interface SerialOutputTelemetry {
 }
 
 export class SerialOutputBatcher {
-  private config: Required<SerialOutputBatcherConfig>;
-  private pendingBuffer: RingBuffer; // Ring-Buffer instead of string accumulation
+  private readonly config: Required<SerialOutputBatcherConfig>;
+  private readonly pendingBuffer: RingBuffer; // Ring-Buffer instead of string accumulation
   private tickTimer: NodeJS.Timeout | null = null;
   
   // paused flag prevents enqueue/start while paused (tests rely on this)

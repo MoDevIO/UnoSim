@@ -31,8 +31,8 @@ interface PinStateBatcherConfig {
 }
 
 export class PinStateBatcher {
-  private config: Required<PinStateBatcherConfig>;
-  private pendingStates = new Map<string, PinStateEvent>();
+  private readonly config: Required<PinStateBatcherConfig>;
+  private readonly pendingStates = new Map<string, PinStateEvent>();
   private tickTimer: NodeJS.Timeout | null = null;
   private intendedCount = 0;
   private actualCount = 0;

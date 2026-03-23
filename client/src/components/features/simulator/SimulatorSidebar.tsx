@@ -1,30 +1,21 @@
 import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
-
-type BatchStats = { lastBatchMs: number; lastBatchSize: number; lastFrameAt: number };
+import type { PinState, BatchStats } from "@/hooks/use-simulation-store";
 
 type SimulationStatus = "running" | "stopped" | "paused";
 
 type SimulatorSidebarProps = {
-  pinMonitorVisible: boolean;
-  pinStates: any[];
-  batchStats: BatchStats;
-  simulationStatus: SimulationStatus | undefined;
-  txActivity: number;
-  rxActivity: number;
-  // telemetry info (useTelemetry hook)
-  telemetryData?: any;
-  rates?: {
-    serialOutputPerSecond: number;
-    serialBytesPerSecond: number;
-    serialDroppedBytesPerSecond: number;
-    serialBytesTotal: number;
-  };
-  onReset: () => void;
-  onPinToggle: (pin: number, newValue: number) => void;
-  analogPins: number[];
-  onAnalogChange: (pin: number, newValue: number) => void;
-  isMobile?: boolean;
+  readonly pinMonitorVisible: boolean;
+  readonly pinStates: PinState[];
+  readonly batchStats: BatchStats;
+  readonly simulationStatus: SimulationStatus | undefined;
+  readonly txActivity: number;
+  readonly rxActivity: number;
+  readonly onReset: () => void;
+  readonly onPinToggle: (pin: number, newValue: number) => void;
+  readonly analogPins: number[];
+  readonly onAnalogChange: (pin: number, newValue: number) => void;
+  readonly isMobile?: boolean;
 };
 
 export default function SimulatorSidebar({
@@ -46,7 +37,7 @@ export default function SimulatorSidebar({
   return (
     <div className={isMobile ? "h-full w-full" : "h-full w-full flex flex-col gap-3 p-2 overflow-y-auto"}>
       {pinMonitorVisible && (
-        <div className={isMobile ? "" : ""}>
+        <div>
           <PinMonitor pinStates={pinStates} batchStats={batchStats} />
       {/* telemetry display could be added here if desired */}
         </div>

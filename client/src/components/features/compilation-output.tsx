@@ -10,12 +10,12 @@ interface CompilationError {
 }
 
 interface CompilationOutputProps {
-  output?: string;
-  errors?: CompilationError[];
-  onClear: () => void;
-  isSuccess?: boolean;
-  showSuccessMessage?: boolean;
-  hideHeader?: boolean;
+  readonly output?: string;
+  readonly errors?: CompilationError[];
+  readonly onClear: () => void;
+  readonly isSuccess?: boolean;
+  readonly showSuccessMessage?: boolean;
+  readonly hideHeader?: boolean;
 }
 
 export function CompilationOutput({

@@ -12,7 +12,7 @@ import {
 import type { OutputLine } from "@shared/schema";
 
 interface SerialPlotterProps {
-  output: OutputLine[];
+  readonly output: OutputLine[];
 }
 
 // Series colors are provided by Tailwind tokens (mapped to CSS variables)

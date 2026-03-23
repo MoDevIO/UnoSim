@@ -21,8 +21,8 @@ const debugModeStore = {
   setDebugMode: (value: boolean) => {
     debugModeState = value;
     try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("unoDebugMode", value ? "1" : "0");
+      if (globalThis.window !== undefined) {
+        globalThis.localStorage.setItem("unoDebugMode", value ? "1" : "0");
       }
     } catch {
       // Ignore localStorage errors
@@ -33,8 +33,8 @@ const debugModeStore = {
   // Initialize from localStorage on first access
   initFromStorage: () => {
     try {
-      if (typeof window !== "undefined") {
-        debugModeState = window.localStorage.getItem("unoDebugMode") === "1";
+      if (globalThis.window !== undefined) {
+        debugModeState = globalThis.localStorage.getItem("unoDebugMode") === "1";
       }
     } catch {
       debugModeState = false;
@@ -43,14 +43,14 @@ const debugModeStore = {
 };
 
 // Initialize when module first loads (in browser)
-if (typeof window !== "undefined") {
+if (globalThis.window !== undefined) {
   debugModeStore.initFromStorage();
 
   // Listen for external events (used by Playwright tests) so that
   // dispatching a CustomEvent("debugModeChange") immediately updates
   // the store. Without this, tests would toggle localStorage directly but
   // React components wouldn't re-render until a manual setDebugMode call.
-  window.addEventListener("debugModeChange", (ev) => {
+  globalThis.addEventListener("debugModeChange", (ev) => {
     const detail = (ev as CustomEvent).detail;
     if (detail && typeof detail.value === "boolean") {
       debugModeStore.setDebugMode(detail.value);

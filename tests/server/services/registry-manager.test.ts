@@ -448,7 +448,7 @@ describe("RegistryManager", () => {
       }
 
       // Get the last registry that was sent to the client
-      const lastCall = updateCallback.mock.calls[updateCallback.mock.calls.length - 1];
+      const lastCall = updateCallback.mock.calls.at(-1);
       expect(lastCall).toBeDefined();
       const sentRegistry: IOPinRecord[] = lastCall[0];
 
@@ -476,7 +476,7 @@ describe("RegistryManager", () => {
       manager.updatePinMode(6, 1); // OUTPUT (from loop 2) → conflict!
 
       const sentRegistry: IOPinRecord[] =
-        updateCallback.mock.calls[updateCallback.mock.calls.length - 1][0];
+        updateCallback.mock.calls.at(-1)[0];
       const pin6 = sentRegistry.find((r) => r.pin === "6");
 
       expect(pin6).toBeDefined();
@@ -492,7 +492,7 @@ describe("RegistryManager", () => {
       manager.updatePinMode(7, 1); // single OUTPUT call
 
       const sentRegistry: IOPinRecord[] =
-        updateCallback.mock.calls[updateCallback.mock.calls.length - 1][0];
+        updateCallback.mock.calls.at(-1)[0];
       const pin7 = sentRegistry.find((r) => r.pin === "7");
 
       expect(pin7).toBeDefined();

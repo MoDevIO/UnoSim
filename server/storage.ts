@@ -1,5 +1,5 @@
 import { type Sketch, type InsertSketch } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 
 interface IStorage {
   getSketch(id: string): Promise<Sketch | undefined>;
@@ -14,7 +14,7 @@ interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private sketches: Map<string, Sketch>;
+  private readonly sketches: Map<string, Sketch>;
 
   constructor() {
     this.sketches = new Map();

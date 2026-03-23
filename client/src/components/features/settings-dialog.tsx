@@ -41,7 +41,7 @@ export default function SettingsDialog({
 }) {
   const [color, setColor] = React.useState<string>(() => {
     try {
-      return window.localStorage.getItem(STORAGE_KEY) || DEFAULT_COLOR;
+      return globalThis.localStorage.getItem(STORAGE_KEY) || DEFAULT_COLOR;
     } catch {
       return DEFAULT_COLOR;
     }
@@ -49,7 +49,7 @@ export default function SettingsDialog({
 
   React.useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, color);
+      globalThis.localStorage.setItem(STORAGE_KEY, color);
     } catch {}
     // Dispatch a custom event so the Arduino board can update itself
     const ev = new CustomEvent("arduinoColorChange", { detail: { color } });
@@ -59,7 +59,7 @@ export default function SettingsDialog({
   // Debug mode toggle (experimental)
   const [debugMode, setDebugMode] = React.useState<boolean>(() => {
     try {
-      return window.localStorage.getItem(DEBUG_MODE_KEY) === "1";
+      return globalThis.localStorage.getItem(DEBUG_MODE_KEY) === "1";
     } catch {
       return false;
     }
@@ -67,7 +67,7 @@ export default function SettingsDialog({
 
   const setStoredDebug = (v: boolean) => {
     try {
-      window.localStorage.setItem(DEBUG_MODE_KEY, v ? "1" : "0");
+      globalThis.localStorage.setItem(DEBUG_MODE_KEY, v ? "1" : "0");
     } catch {}
     setDebugMode(v);
     try {
@@ -80,7 +80,7 @@ export default function SettingsDialog({
   const [keepExamplesMenuOpen, setKeepExamplesMenuOpen] =
     React.useState<boolean>(() => {
       try {
-        const stored = window.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY);
+        const stored = globalThis.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY);
         return stored === null
           ? DEFAULT_KEEP_EXAMPLES_MENU_OPEN
           : stored === "1";
@@ -91,7 +91,7 @@ export default function SettingsDialog({
 
   const setStoredKeepExamplesMenuOpen = (v: boolean) => {
     try {
-      window.localStorage.setItem(KEEP_EXAMPLES_MENU_OPEN_KEY, v ? "1" : "0");
+      globalThis.localStorage.setItem(KEEP_EXAMPLES_MENU_OPEN_KEY, v ? "1" : "0");
     } catch {}
     setKeepExamplesMenuOpen(v);
     try {
@@ -106,7 +106,7 @@ export default function SettingsDialog({
   const [pinMonitorVisible, setPinMonitorVisible] = React.useState<boolean>(
     () => {
       try {
-        const stored = window.localStorage.getItem(PIN_MONITOR_VISIBLE_KEY);
+        const stored = globalThis.localStorage.getItem(PIN_MONITOR_VISIBLE_KEY);
         return stored === null ? DEFAULT_PIN_MONITOR_VISIBLE : stored === "1";
       } catch {
         return DEFAULT_PIN_MONITOR_VISIBLE;
@@ -116,7 +116,7 @@ export default function SettingsDialog({
 
   const setStoredPinMonitorVisible = (v: boolean) => {
     try {
-      window.localStorage.setItem(PIN_MONITOR_VISIBLE_KEY, v ? "1" : "0");
+      globalThis.localStorage.setItem(PIN_MONITOR_VISIBLE_KEY, v ? "1" : "0");
     } catch {}
     setPinMonitorVisible(v);
     try {
@@ -130,7 +130,7 @@ export default function SettingsDialog({
   // Prevent the hex input from automatically receiving focus when the dialog opens
   React.useEffect(() => {
     if (!open) return;
-    const t = window.setTimeout(() => {
+    const t = globalThis.setTimeout(() => {
       try {
         const el = document.querySelector(
           'input[aria-label="hex color"]',
@@ -138,7 +138,7 @@ export default function SettingsDialog({
         el?.blur();
       } catch {}
     }, 0);
-    return () => window.clearTimeout(t);
+    return () => globalThis.clearTimeout(t);
   }, [open]);
 
   return (
@@ -177,7 +177,7 @@ export default function SettingsDialog({
                   defaultValue={(() => {
                     try {
                       return (
-                        window.localStorage.getItem(FONT_SCALE_KEY) ||
+                        globalThis.localStorage.getItem(FONT_SCALE_KEY) ||
                         DEFAULT_FONT_SCALE
                       );
                     } catch {
@@ -187,7 +187,7 @@ export default function SettingsDialog({
                   onChange={(e) => {
                     const v = e.target.value;
                     try {
-                      window.localStorage.setItem(FONT_SCALE_KEY, v);
+                      globalThis.localStorage.setItem(FONT_SCALE_KEY, v);
                     } catch {}
                     try {
                       document.documentElement.style.setProperty(
@@ -197,7 +197,7 @@ export default function SettingsDialog({
                     } catch {}
                     try {
                       const ev = new CustomEvent("uiFontScaleChange", {
-                        detail: { value: parseFloat(v) },
+                        detail: { value: Number.parseFloat(v) },
                       });
                       document.dispatchEvent(ev);
                     } catch {}
@@ -403,10 +403,10 @@ export default function SettingsDialog({
 function ToastDurationControl() {
   const [sliderVal, setSliderVal] = React.useState<number>(() => {
     try {
-      const v = window.localStorage.getItem(TOAST_DURATION_KEY);
+      const v = globalThis.localStorage.getItem(TOAST_DURATION_KEY);
       if (v === null) return DEFAULT_TOAST_SECONDS * 2; // slider steps are 0.5s, so value = seconds*2
       if (v === "infinite") return 21;
-      const ms = parseInt(v, 10);
+      const ms = Number.parseInt(v, 10);
       if (Number.isNaN(ms)) return DEFAULT_TOAST_SECONDS * 2;
       const computed = Math.round((ms / 1000) * 2);
       if (computed < 1) return 1;
@@ -420,10 +420,10 @@ function ToastDurationControl() {
   const updateStored = (val: number) => {
     try {
       if (val === 21) {
-        window.localStorage.setItem(TOAST_DURATION_KEY, "infinite");
+        globalThis.localStorage.setItem(TOAST_DURATION_KEY, "infinite");
       } else {
         const ms = Math.round((val / 2) * 1000);
-        window.localStorage.setItem(TOAST_DURATION_KEY, String(ms));
+        globalThis.localStorage.setItem(TOAST_DURATION_KEY, String(ms));
       }
       // dispatch event for any listeners
       const ev = new CustomEvent("toastDurationChange", {

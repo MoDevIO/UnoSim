@@ -141,18 +141,18 @@ function dispatch(action: Action) {
 type Toast = Omit<ToasterToast, "id">;
 
 // exported types used by consumers (eg. editor commands hook)
-export type ToastOptions = Toast; // alias to the internal shape without an id
-export type ToastFn = (props: ToastOptions) => {
+export type { Toast };
+export type ToastFn = (props: Toast) => {
   id: string;
   dismiss: () => void;
-  update: (props: ToastOptions) => void;
+  update: (props: Toast) => void;
 };
 
 function toast({ ...props }: Toast) {
   const id = genId();
 
   // expose a simpler `update` that accepts toast options (without id)
-  const update = (props: ToastOptions) =>
+  const update = (props: Toast) =>
     dispatch({
       type: "UPDATE_TOAST",
       toast: { ...props, id },
@@ -162,13 +162,13 @@ function toast({ ...props }: Toast) {
   // Allow overriding the default via localStorage (set by Settings dialog)
   let duration = (props as any).duration ?? DEFAULT_TOAST_DURATION;
   try {
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem("unoToastDuration");
+    if (globalThis.window !== undefined) {
+      const stored = globalThis.localStorage.getItem("unoToastDuration");
       if (stored !== null) {
         if (stored === "infinite") {
           duration = Infinity;
         } else {
-          const ms = parseInt(stored, 10);
+          const ms = Number.parseInt(stored, 10);
           if (!Number.isNaN(ms)) duration = ms;
         }
       }

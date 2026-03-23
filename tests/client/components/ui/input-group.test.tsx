@@ -143,6 +143,7 @@ describe("InputGroup", () => {
     render(
       <InputGroup
         value="test value"
+        readOnly
         maxLength={10}
         inputTestId="test-input"
       />,

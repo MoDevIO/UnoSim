@@ -21,7 +21,7 @@ export function useBackendHealth(queryClient: QueryClient) {
   const triggerErrorGlitch = useCallback((duration = 600) => {
     try {
       setShowErrorGlitch(true);
-      window.setTimeout(() => setShowErrorGlitch(false), duration);
+      globalThis.setTimeout(() => setShowErrorGlitch(false), duration);
     } catch {}
   }, []);
 

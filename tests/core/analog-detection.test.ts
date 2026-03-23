@@ -32,7 +32,7 @@ void loop()
     const end = Number(fm[4]);
     const body = fm[5];
     const useRe = new RegExp(
-      "analogRead\\s*\\(\\s*" + varName + "\\s*\\)",
+      String.raw`analogRead\s*\(\s*` + varName + String.raw`\s*\)`,
       "g",
     );
     if (useRe.test(body)) {

@@ -9,7 +9,7 @@ import { Logger } from "@shared/logger";
 import { getUnifiedGatekeeper, TaskPriority } from "./unified-gatekeeper";
 
 class CompileGatekeeper {
-  private logger = new Logger("CompileGatekeeper");
+  private readonly logger = new Logger("CompileGatekeeper");
   private readonly maxConcurrent: number;
 
   constructor(maxConcurrent?: number) {
@@ -23,7 +23,7 @@ class CompileGatekeeper {
       );
     } else {
       this.maxConcurrent =
-        maxConcurrent || parseInt(process.env.COMPILE_MAX_CONCURRENT || "4", 10);
+        maxConcurrent || Number.parseInt(process.env.COMPILE_MAX_CONCURRENT || "4", 10);
 
       this.logger.info(
         `CompileGatekeeper initialized with max ${this.maxConcurrent} concurrent compiles`,
@@ -89,9 +89,7 @@ class CompileGatekeeper {
 let gatekeeperInstance: CompileGatekeeper | null = null;
 
 export function getCompileGatekeeper(maxConcurrent?: number): CompileGatekeeper {
-  if (!gatekeeperInstance) {
-    gatekeeperInstance = new CompileGatekeeper(maxConcurrent);
-  }
+  gatekeeperInstance ??= new CompileGatekeeper(maxConcurrent);
   return gatekeeperInstance;
 }
 

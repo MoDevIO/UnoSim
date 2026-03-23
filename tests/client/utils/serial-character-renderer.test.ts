@@ -19,8 +19,8 @@ describe("SerialCharacterRenderer - Unit Tests", () => {
     renderer = new SerialCharacterRenderer(onChar);
     
     // Mock requestAnimationFrame to use setTimeout behavior
-    global.requestAnimationFrame = vi.fn((cb) => setTimeout(cb, 0) as unknown as number);
-    global.cancelAnimationFrame = vi.fn((id) => clearTimeout(id as unknown as NodeJS.Timeout));
+    globalThis.requestAnimationFrame = vi.fn((cb) => setTimeout(cb, 0) as unknown as number);
+    globalThis.cancelAnimationFrame = vi.fn((id) => clearTimeout(id as unknown as NodeJS.Timeout));
   });
 
   afterEach(() => {

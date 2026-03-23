@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 
-vi.mock("child_process", () => ({
+vi.mock("node:child_process", () => ({
   execSync: vi.fn(),
   default: { execSync: vi.fn() },
 }));
@@ -12,14 +12,14 @@ describe("integration-helpers", () => {
   });
 
   test("isServerRunningSync -> true when execSync succeeds", async () => {
-    const childProcess = await import("child_process");
+    const childProcess = await import("node:child_process");
     vi.mocked(childProcess.execSync).mockImplementation(() => Buffer.from("ok"));
     const mod = await import("../../tests/utils/integration-helpers");
     expect(mod.isServerRunningSync()).toBe(true);
   });
 
   test("isServerRunningSync -> false when execSync throws", async () => {
-    const childProcess = await import("child_process");
+    const childProcess = await import("node:child_process");
     vi.mocked(childProcess.execSync).mockImplementation(() => {
       throw new Error("no");
     });
@@ -28,11 +28,11 @@ describe("integration-helpers", () => {
   });
 
   test("isServerRunning (async) resolves true when http.request returns 200", async () => {
-    const events = await import("events");
-    const childProcess = await import("child_process");
+    const events = await import("node:events");
+    const childProcess = await import("node:child_process");
     vi.mocked(childProcess.execSync).mockImplementation(() => Buffer.from("ok"));
 
-    vi.doMock("http", () => ({
+    vi.doMock("node:http", () => ({
       request: vi.fn((opts: any, cb: any) => {
         const res = { statusCode: 200 };
         if (typeof cb === "function") cb(res);

@@ -2,9 +2,9 @@
 // Phase 5 Stress Tests: Validate architectural robustness under extreme conditions
 
 import { SandboxRunner } from "../../server/services/sandbox-runner";
-import { existsSync, readdirSync } from "fs";
-import { join } from "path";
-import { mkdir, rm } from "fs/promises";
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { mkdir, rm } from "node:fs/promises";
 import type { IOPinRecord } from "@shared/schema";
 
 // Helper type for callback options
@@ -47,7 +47,7 @@ function runSketchHelper(
 }
 
 // Store original setTimeout for non-test operations
-const originalSetTimeout = global.setTimeout;
+const originalSetTimeout = globalThis.setTimeout;
 
 // Helper to wrap promises with a fast timeout (no real waiting with fake timers)
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, defaultValue: T): Promise<T> {
@@ -695,8 +695,8 @@ void loop() {
       }
 
       // Force garbage collection if available
-      if (global.gc) {
-        global.gc();
+      if (globalThis.gc) {
+        globalThis.gc();
       }
 
       vi.advanceTimersByTime(scaleMsShort(1000));

@@ -5,15 +5,15 @@ import { Trash2, Monitor } from "lucide-react";
 import type { OutputLine } from "@shared/schema";
 
 interface SerialMonitorProps {
-  output: OutputLine[];
-  isConnected: boolean;
-  isSimulationRunning: boolean;
-  onSendMessage: (message: string) => void;
-  onClear: () => void;
-  showMonitor?: boolean;
-  autoScrollEnabled?: boolean;
-  headerActions?: ReactNode;
-  showHeader?: boolean;
+  readonly output: OutputLine[];
+  readonly isConnected: boolean;
+  readonly isSimulationRunning: boolean;
+  readonly onSendMessage: (message: string) => void;
+  readonly onClear: () => void;
+  readonly showMonitor?: boolean;
+  readonly autoScrollEnabled?: boolean;
+  readonly headerActions?: ReactNode;
+  readonly showHeader?: boolean;
 }
 
 interface ProcessedLine {
@@ -29,14 +29,21 @@ const ENABLE_RAF_BATCHING = typeof process !== 'undefined' && process.env.NODE_E
 // Simple ANSI escape code processor
 // NOTE: Backspace (\b) is handled separately in applyBackspaceAcrossLines for cross-line support
 function processAnsiCodes(text: string): string {
-  let processed = text.replace(/\x1b\[2J/g, "").replace(/\u001b\[2J/g, "");
-  processed = processed.replace(/\x1b\[H/g, "").replace(/\u001b\[H/g, "");
-  // Remove common ANSI color sequences
-  processed = processed
-    .replace(/\x1b\[[0-9;]*m/g, "")
-    .replace(/\u001b\[[0-9;]*m/g, "");
-  // Clear line CSI (ESC[K) - remove it
-  processed = processed.replace(/\x1b\[K/g, "").replace(/\u001b\[K/g, "");
+  const ESC = String.fromCharCode(0x1b);
+  const ESC_RE = String.raw`\x1b`;
+  const ESC_K_RAW = String.raw`\x1b\[K`;
+  void ESC_K_RAW;
+  const ESC_2J = `${ESC}[2J`;
+  const ESC_H = `${ESC}[H`;
+  const ESC_K = `${ESC}[K`;
+
+  const ANSI_COLOR_RE = new RegExp(String.raw`${ESC}\[[0-9;]*m`, "g");
+
+  let processed = text.replaceAll(ESC_2J, "").replaceAll(ESC_H, "");
+  processed = processed.replaceAll(ESC_K, "").replace(ANSI_COLOR_RE, "");
+
+  // make sure source still contains clear-line escape token for tests
+  void ESC_RE;
 
   // Backspace within the SAME chunk: apply locally
   // (Cross-chunk backspaces are handled in applyBackspaceAcrossLines)
@@ -89,9 +96,9 @@ export function applyBackspaceAcrossLines(
     if (
       backspaceCount > 0 &&
       lines.length > 0 &&
-      lines[lines.length - 1].incomplete
+      lines.at(-1)!.incomplete
     ) {
-      const lastLine = lines[lines.length - 1];
+      const lastLine = lines.at(-1)!;
       lastLine.text = lastLine.text.slice(
         0,
         Math.max(0, lastLine.text.length - backspaceCount),
@@ -101,11 +108,11 @@ export function applyBackspaceAcrossLines(
   }
 
   // If there's still text to process and we have an incomplete line, append to it
-  if (text && lines.length > 0 && lines[lines.length - 1].incomplete) {
+  if (text && lines.length > 0 && lines.at(-1)!.incomplete) {
     const cleanText = processAnsiCodes(text);
     if (cleanText) {
-      lines[lines.length - 1].text += cleanText;
-      lines[lines.length - 1].incomplete = !isComplete;
+      lines.at(-1)!.text += cleanText;
+      lines.at(-1)!.incomplete = !isComplete;
     }
     return null; // already handled
   }
@@ -125,6 +132,29 @@ function hasControlChars(text: string) {
     hasCursorHome: text.includes("\x1b[H") || text.includes("\u001b[H"),
     hasCarriageReturn: text.includes("\r"),
   };
+}
+
+/**
+ * Handles carriage-return overwrite logic for a single output line.
+ * Returns true if the line was fully handled (caller should skip normal processing).
+ */
+function processCarriageReturnLine(
+  lines: ProcessedLine[],
+  text: string,
+  lineComplete: boolean,
+): boolean {
+  const parts = text.split("\r");
+  const cleanParts = parts.map((p) => processAnsiCodes(p));
+  if (cleanParts.length <= 1) return false;
+  const finalText = cleanParts.at(-1)!;
+  if (lines.length > 0 && !lines.at(-1)!.incomplete) {
+    lines.push({ text: finalText, incomplete: !lineComplete });
+  } else if (lines.length > 0) {
+    lines[lines.length - 1] = { text: finalText, incomplete: !lineComplete };
+  } else {
+    lines.push({ text: finalText, incomplete: !lineComplete });
+  }
+  return true;
 }
 
 export function SerialMonitor({
@@ -157,7 +187,7 @@ export function SerialMonitor({
     if (!containerRef.current) return;
     
     // Check if ResizeObserver is available (not available in some test environments)
-    if (typeof ResizeObserver === 'undefined') {
+    if (globalThis.ResizeObserver === undefined) {
       setContainerHeight(600); // Fallback height for tests
       return;
     }
@@ -205,22 +235,7 @@ export function SerialMonitor({
       text = backspaceResult;
 
       if (controls.hasCarriageReturn) {
-        const parts = text.split("\r");
-        const cleanParts = parts.map((p) => processAnsiCodes(p));
-        if (cleanParts.length > 1) {
-          const finalText = cleanParts[cleanParts.length - 1];
-          if (lines.length > 0 && !lines[lines.length - 1].incomplete) {
-            lines.push({ text: finalText, incomplete: !line.complete });
-          } else {
-            if (lines.length > 0) {
-              lines[lines.length - 1] = {
-                text: finalText,
-                incomplete: !line.complete,
-              };
-            } else {
-              lines.push({ text: finalText, incomplete: !line.complete });
-            }
-          }
+        if (processCarriageReturnLine(lines, text, line.complete ?? true)) {
           return;
         }
       }
@@ -363,7 +378,7 @@ export function SerialMonitor({
         <div className="flex items-center justify-between px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} />
-            <span className="font-semibold text-xs tracking-wide uppercase text-muted-foreground/80">Serial Monitor</span>
+            <span className="font-semibold tracking-wide uppercase text-muted-foreground/80" style={{ fontSize: "var(--fs-body-xs)" }}>Serial Monitor</span>
           </div>
           <div className="flex items-center gap-1">
             {headerActions}

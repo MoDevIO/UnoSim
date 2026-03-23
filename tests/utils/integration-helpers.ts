@@ -4,8 +4,8 @@
  * Helper functions for integration tests that require a running server.
  */
 
-import http from "http";
-import * as childProcess from "child_process";
+import http from "node:http";
+import * as childProcess from "node:child_process";
 
 /**
  * Synchronously check if the server is running.
