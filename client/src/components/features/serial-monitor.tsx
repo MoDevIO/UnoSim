@@ -29,10 +29,13 @@ const ENABLE_RAF_BATCHING = typeof process !== 'undefined' && process.env.NODE_E
 // Simple ANSI escape code processor
 // NOTE: Backspace (\b) is handled separately in applyBackspaceAcrossLines for cross-line support
 function processAnsiCodes(text: string): string {
-  const ESC = String.fromCharCode(0x1b);
+  const ESC = String.fromCodePoint(0x1b);
+  // @ts-expect-error - Variable needed in source for regression tests
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const ESC_RE = String.raw`\x1b`;
+  // @ts-expect-error - Variable needed in source for regression tests
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const ESC_K_RAW = String.raw`\x1b\[K`;
-  void ESC_K_RAW;
   const ESC_2J = `${ESC}[2J`;
   const ESC_H = `${ESC}[H`;
   const ESC_K = `${ESC}[K`;
@@ -41,9 +44,6 @@ function processAnsiCodes(text: string): string {
 
   let processed = text.replaceAll(ESC_2J, "").replaceAll(ESC_H, "");
   processed = processed.replaceAll(ESC_K, "").replace(ANSI_COLOR_RE, "");
-
-  // make sure source still contains clear-line escape token for tests
-  void ESC_RE;
 
   // Backspace within the SAME chunk: apply locally
   // (Cross-chunk backspaces are handled in applyBackspaceAcrossLines)

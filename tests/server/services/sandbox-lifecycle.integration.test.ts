@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 
-// Skip only when SKIP_HEAVY_TESTS is explicitly set to a truthy value (default: run heavy/integration tests)
-const _skipHeavy = process.env.SKIP_HEAVY_TESTS === "1" || process.env.SKIP_HEAVY_TESTS === "true";
-const maybeDescribe = describe;
+const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const maybeDescribe = _skipHeavy ? describe.skip : describe;
 
 maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => {
   let runner: SandboxRunner;

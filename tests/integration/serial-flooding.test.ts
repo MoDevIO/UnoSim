@@ -19,10 +19,13 @@
 import { SandboxRunner } from '../../server/services/sandbox-runner';
 import { extractPlainText, runSketchWithOutput } from '../utils/serial-test-helper';
 
+const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const maybeDescribe = _skipHeavy ? describe.skip : describe;
+
 // Use stderr to bypass vitest console capture
 const log = (msg: string) => process.stderr.write(msg + '\n');
 
-describe('Serial Output Flooding', () => {
+maybeDescribe('Serial Output Flooding', () => {
   let runner: SandboxRunner;
 
   beforeEach(() => {

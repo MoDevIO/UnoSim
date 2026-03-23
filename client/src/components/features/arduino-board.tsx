@@ -316,7 +316,7 @@ export function ArduinoBoard({
   const rxTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [scale, setScale] = useState<number>(1);
   const containerRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLElement>(null);
   const innerWrapperRef = useRef<HTMLDivElement>(null);
 
   // Slider positions in percent of viewBox (left%, top%)
@@ -603,11 +603,9 @@ export function ArduinoBoard({
                 dangerouslySetInnerHTML={{ __html: modifiedSvg }}
               />
               {/* Overlay SVG - dynamic visualization and click handling */}
-              <div
-                ref={overlayRef}
+              <button
+                ref={overlayRef as React.Ref<HTMLButtonElement>}
                 className="arduino-overlay absolute inset-0 w-full h-full"
-                role="application"
-                tabIndex={0}
                 aria-label="Arduino board interactive overlay. Click pins to toggle their state."
                 onClick={handleOverlayClick}
                 onKeyDown={(e) => {
@@ -615,8 +613,10 @@ export function ArduinoBoard({
                     handleOverlayClick(e as unknown as React.MouseEvent);
                   }
                 }}
-                dangerouslySetInnerHTML={{ __html: overlaySvg }}
-              />
+                style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+              >
+                <div dangerouslySetInnerHTML={{ __html: overlaySvg }} />
+              </button>
               {/* analog dialog is rendered as a portal to avoid affecting layout */}
               <AnalogDialogPortal
                 dialog={analogDialog}
@@ -651,13 +651,13 @@ interface AnalogDialogPortalProps {
         placement: "above" | "below";
       }
     | null;
-  readonly overlayRef: React.RefObject<HTMLDivElement> | null;
+  readonly overlayRef: React.RefObject<HTMLElement> | null;
   readonly onClose: () => void;
   readonly onConfirm: (pin: number, value: number) => void;
 }
 
 function getAnalogDialogCoordinates(
-  overlayRef: React.RefObject<HTMLDivElement> | null,
+  overlayRef: React.RefObject<HTMLElement> | null,
   dialog: {
     open: true;
     pin: number;
