@@ -53,6 +53,11 @@ jobs:
           npm run lint
           npm run test:coverage
 
+      - name: Copy coverage-summary.json for badge
+        # Nur bei Push auf Haupt-Branches ausführen
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        run: cp coverage/coverage-summary.json coverage/lcov-report/coverage-summary.json
+
       - name: Deploy Coverage to GitHub Pages
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: peaceiris/actions-gh-pages@v4
