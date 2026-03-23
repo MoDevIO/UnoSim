@@ -11,7 +11,7 @@ export type PinConflictInfo =
  */
 export function ensurePinModeOperation(pin: IOPinRecord, mode: number): boolean {
   const pinModeOp = `pinMode:${mode}`;
-  if (!pin.usedAt) pin.usedAt = [];
+  pin.usedAt ??= [];
   const alreadyTracked = pin.usedAt.some((u) => u.operation === pinModeOp);
   if (!alreadyTracked) {
     pin.usedAt.push({ line: 0, operation: pinModeOp });

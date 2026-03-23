@@ -286,7 +286,19 @@ export function SimulatorLayout({
 }: SimulatorLayoutProps) {
   return (
     <div className="flex-1 overflow-hidden relative z-0">
-      {!isMobile ? (
+      {isMobile ? (
+        <MobileLayout
+          isMobile={isMobile}
+          mobilePanel={mobilePanel}
+          setMobilePanel={setMobilePanel}
+          headerHeight={headerHeight}
+          overlayZ={overlayZ}
+          codeSlot={codeSlot}
+          compileSlot={compileSlot}
+          serialSlot={serialSlot}
+          boardSlot={boardSlot}
+        />
+      ) : (
         <DesktopSimulatorLayout
           editorSlot={editorSlot}
           serialSlot={serialSlot}
@@ -323,18 +335,6 @@ export function SimulatorLayout({
           onClearDebugMessages={onClearDebugMessages}
           openOutputPanel={openOutputPanel}
           outputPanelManuallyResizedRef={outputPanelManuallyResizedRef}
-        />
-      ) : (
-        <MobileLayout
-          isMobile={isMobile}
-          mobilePanel={mobilePanel}
-          setMobilePanel={setMobilePanel}
-          headerHeight={headerHeight}
-          overlayZ={overlayZ}
-          codeSlot={codeSlot}
-          compileSlot={compileSlot}
-          serialSlot={serialSlot}
-          boardSlot={boardSlot}
         />
       )}
     </div>

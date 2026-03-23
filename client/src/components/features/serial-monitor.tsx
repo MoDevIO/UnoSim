@@ -43,7 +43,7 @@ function processAnsiCodes(text: string): string {
   const ANSI_COLOR_RE = new RegExp(String.raw`${ESC}\[[0-9;]*m`, "g");
 
   let processed = text.replaceAll(ESC_2J, "").replaceAll(ESC_H, "");
-  processed = processed.replaceAll(ESC_K, "").replace(ANSI_COLOR_RE, "");
+  processed = processed.replaceAll(ESC_K, "").replaceAll(ANSI_COLOR_RE, "");
 
   // Backspace within the SAME chunk: apply locally
   // (Cross-chunk backspaces are handled in applyBackspaceAcrossLines)

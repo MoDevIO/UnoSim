@@ -113,22 +113,22 @@ function shouldLog(level: LogLevel): boolean {
 function sanitize(message: string): string {
   return message
     // Tokens und API-Keys (JWT, Bearer, API-Key Parameter)
-    .replace(/bearer\s+[A-Za-z0-9-._~+/]+=*/gi, "bearer [REDACTED_TOKEN]")
-    .replace(/(?:api[_-]?)?key[=:]\s*[A-Za-z0-9-._~+/]+=*/gi, "key=[REDACTED_KEY]")
+    .replaceAll(/bearer\s+[-A-Za-z0-9._~+/]+=*/gi, "bearer [REDACTED_TOKEN]")
+    .replaceAll(/(?:api[-_]?)?key[=:]\s*[-A-Za-z0-9._~+/]+=*/gi, "key=[REDACTED_KEY]")
     // Passwörter
-    .replace(/password[=:]\s*[^\s,}\]"]*/gi, "password=[REDACTED]")
-    .replace(/pwd[=:]\s*[^\s,}\]"]*/gi, "pwd=[REDACTED]")
+    .replaceAll(/password[=:]\s*[^\s,}\]"]*/gi, "password=[REDACTED]")
+    .replaceAll(/pwd[=:]\s*[^\s,}\]"]*/gi, "pwd=[REDACTED]")
     // Cookies
-    .replace(/session[_-]?id[=:]\s*[A-Za-z0-9-._~+/]+=*/gi, "session_id=[REDACTED]")
+    .replaceAll(/session[-_]?id[=:]\s*[-A-Za-z0-9._~+/]+=*/gi, "session_id=[REDACTED]")
     // Email-Adressen und Telefonnummern (PII)
-    .replace(/[\w.-]+@[\w.-]+\.\w+/g, "[EMAIL_REDACTED]")
-    .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, "[PHONE_REDACTED]")
+    .replaceAll(/[\w.-]+@[\w.-]+\.\w+/g, "[EMAIL_REDACTED]")
+    .replaceAll(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, "[PHONE_REDACTED]")
     // SSN Pattern (XXX-XX-XXXX)
-    .replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN_REDACTED]")
+    .replaceAll(/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN_REDACTED]")
     // Kreditkartennummern
-    .replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, "[CARD_REDACTED]")
+    .replaceAll(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, "[CARD_REDACTED]")
     // Allerdings: Spezifische sensitiv-Felder in JSON/Objekten
-    .replace(/"(password|token|secret|apiKey|secret_key)"[^}]*:\s*"[^"]*"/gi, '$1:"[REDACTED]"');
+    .replaceAll(/"(password|token|secret|apiKey|secret_key)"[^}]*:\s*"[^"]*"/gi, '$1:"[REDACTED]"');
 }
 
 /**

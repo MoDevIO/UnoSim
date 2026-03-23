@@ -200,8 +200,7 @@ export function SketchTabs({
       let inoCount = 0;
 
       // Read all files
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (const file of files) {
         const extension = file.name.slice(Math.max(0, file.name.lastIndexOf(".")));
 
         // Only allow .ino and .h files

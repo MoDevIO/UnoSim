@@ -764,9 +764,10 @@ export class CodeParser {
     messages.push(...pinChecker.checkPinModeConflicts(pinModeCalls));
 
     const loopConfiguredPins = this.getLoopConfiguredPins(code);
-    messages.push(...this.checkDigitalIOSetup(code, pinModeSet, loopConfiguredPins));
-
-    messages.push(...this.checkVariablePinUsage(code, uncommentedCode));
+    messages.push(
+      ...this.checkDigitalIOSetup(code, pinModeSet, loopConfiguredPins),
+      ...this.checkVariablePinUsage(code, uncommentedCode),
+    );
 
     // Check OUTPUT pins being read
     const outputPins = new Set<number>();

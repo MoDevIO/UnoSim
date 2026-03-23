@@ -16,7 +16,7 @@ export async function apiRequest(
     ? { "Content-Type": "application/json" }
     : {};
 
-  if (typeof globalThis.window !== "undefined") {
+  if (globalThis.window !== undefined) {
     try {
       const testRunId = globalThis.sessionStorage?.getItem("__TEST_RUN_ID__");
       if (testRunId) {

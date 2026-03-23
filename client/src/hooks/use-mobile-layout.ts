@@ -4,7 +4,7 @@ import { Logger } from "@shared/logger";
 const logger = new Logger("MobileLayout");
 
 export function useMobileLayout() {
-  const isClient = typeof globalThis.window !== "undefined";
+  const isClient = globalThis.window !== undefined;
   const mqQuery = "(max-width: 768px)";
   const initialIsMobile = isClient ? globalThis.matchMedia(mqQuery).matches : false;
   const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile);

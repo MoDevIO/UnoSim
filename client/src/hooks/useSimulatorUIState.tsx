@@ -309,19 +309,17 @@ export function useSimulatorUIState({
 
   const serialSlot = useMemo(
     () => (
-      <>
-        <div className="flex-1 min-h-0">
-          <SerialMonitor
-            output={renderedSerialOutput}
-            isConnected={isConnected}
-            isSimulationRunning={simulationStatus !== "stopped"}
-            onSendMessage={handleSerialSend}
-            onClear={handleClearSerialOutput}
-            showMonitor={showSerialMonitor}
-            autoScrollEnabled={autoScrollEnabled}
-          />
-        </div>
-      </>
+      <div className="flex-1 min-h-0">
+        <SerialMonitor
+          output={renderedSerialOutput}
+          isConnected={isConnected}
+          isSimulationRunning={simulationStatus !== "stopped"}
+          onSendMessage={handleSerialSend}
+          onClear={handleClearSerialOutput}
+          showMonitor={showSerialMonitor}
+          autoScrollEnabled={autoScrollEnabled}
+        />
+      </div>
     ),
     [
       renderedSerialOutput,
