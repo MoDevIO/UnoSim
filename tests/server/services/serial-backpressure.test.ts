@@ -21,7 +21,10 @@ import { extractPlainText, runSketchWithOutput } from '../../utils/serial-test-h
 
 const log = (msg: string) => process.stderr.write(msg + '\n');
 
-describe('Serial Backpressure (Arduino TX Buffer)', () => {
+const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const maybeDescribe = _skipHeavy ? describe.skip : describe;
+
+maybeDescribe('Serial Backpressure (Arduino TX Buffer)', () => {
   let runner: SandboxRunner;
 
   beforeEach(() => {

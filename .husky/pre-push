@@ -7,8 +7,7 @@ echo "🔍 Starte Qualitäts-Checks vor dem Push..."
 #   git push --no-verify
 # umgehen (nicht empfohlen!)
 echo "⏳ Starte npm run test:fast..."
-# Exclude timing-sensitive tests that are flaky in CI environment
-npm run test:fast -- --exclude tests/server/timing-delay.test.ts --exclude tests/integration/serial-flooding.test.ts --exclude tests/server/pause-resume-digitalread.test.ts --exclude tests/server/pause-resume-timing.test.ts
+npm run test:fast
 if [ $? -ne 0 ]; then
   echo "❌ Fehler: Die schnellen Tests sind fehlgeschlagen!"
   echo "💡 Tipp: Um den Hook zu überspringen, verwende: git push --no-verify"

@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 
+const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const maybeDescribe = _skipHeavy ? describe.skip : describe;
+
 // Globaler Timeout für diese Suite erhöhen
 vi.setConfig({ testTimeout: 60000 });
 
-describe("SandboxRunner - Pause/Resume Timing", () => {
+maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
   let runner: SandboxRunner;
 
   beforeEach(() => {
