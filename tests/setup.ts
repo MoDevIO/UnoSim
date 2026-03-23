@@ -2,10 +2,42 @@ import { afterEach, afterAll, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { initializeGlobalErrorHandlers, markTestAsFailed, setLogLevel } from "@shared/logger";
 
+// ============ REACT ACT WARNING SUPPRESSION ============
+// Suppress act() warnings from child component internal effects
+// These are from ArduinoSimulatorPage and SerialMonitorView, which have
+// expected async effects that fire outside of our test act() scopes
+const originalError = console.error;
+const originalWarn = console.warn;
+
+console.error = (...args: any[]) => {
+  const message = args[0]?.toString?.();
+  if (
+    message?.includes?.('Warning: An update to') &&
+    (message?.includes?.('ArduinoSimulatorPage') ||
+     message?.includes?.('SerialMonitorView') ||
+     message?.includes?.('inside a test was not wrapped in act'))
+  ) {
+    return; // Suppress child component effect warnings
+  }
+  originalError.apply(console, args);
+};
+
+console.warn = (...args: any[]) => {
+  const message = args[0]?.toString?.();
+  if (
+    message?.includes?.('Warning: An update to') &&
+    (message?.includes?.('ArduinoSimulatorPage') ||
+     message?.includes?.('SerialMonitorView'))
+  ) {
+    return; // Suppress
+  }
+  originalWarn.apply(console, args);
+};
+
 // ============ WARNING SUPPRESSION ============
 // Suppress Node.js deprecation warnings about localstorage-file
 // These warnings come from jsdom and don't impact test results
-const originalWarn = process.emitWarning;
+const originalProcessWarn = process.emitWarning;
 process.emitWarning = function(warning: any, ...args: any[]) {
   if (typeof warning === 'string' && warning.includes('localstorage-file')) {
     return; // Suppress this warning
@@ -13,7 +45,7 @@ process.emitWarning = function(warning: any, ...args: any[]) {
   if (warning?.message?.includes?.('localstorage-file')) {
     return; // Suppress this warning
   }
-  return originalWarn.apply(process, [warning, ...args]);
+  return originalProcessWarn.apply(process, [warning, ...args]);
 };
 
 // ============ LOCALSTORAGE INITIALIZATION ============
