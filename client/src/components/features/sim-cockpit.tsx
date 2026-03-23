@@ -1,8 +1,7 @@
 import React from "react";
 import clsx from "clsx";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
-
-type SimulationStatus = "idle" | "running" | "compiling" | "stopped" | "paused";
+import type { SimulationStatus } from "@shared/types/arduino.types";
 
 export const SimCockpit: React.FC<{ 
   batchStats?: unknown;

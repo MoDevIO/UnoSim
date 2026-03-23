@@ -8,7 +8,7 @@ describe("useSimulationLifecycle", () => {
     const setSimulationStatus = vi.fn();
     const resetPinUI = vi.fn();
 
-    const { result, rerender } = renderHook(
+    const { rerender } = renderHook(
       ({ code, status }) =>
         useSimulationLifecycle({
           code,
@@ -65,7 +65,7 @@ describe("useSimulationLifecycle", () => {
     const setSimulationStatus = vi.fn();
     const resetPinUI = vi.fn();
 
-    const { result, rerender } = renderHook(
+    const { rerender } = renderHook(
       ({ hasErr, status }) =>
         useSimulationLifecycle({
           code: "x",

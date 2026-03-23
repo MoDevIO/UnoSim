@@ -39,9 +39,10 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
       runner.runSketch({
         code,
         onOutput: (line) => {
-          const match = line.match(/TIME:(\d+)/);
+          const matchRe = /TIME:(\d+)/;
+          const match = matchRe.exec(line);
           if (match) {
-            const t = parseInt(match[1]);
+            const t = Number.parseInt(match[1]);
             timeValues.push(t);
 
             if (timeValues.length === 5) {
@@ -51,7 +52,7 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
               // Wir warten 500ms in der "echten" Welt
               setTimeout(() => {
                 // In dieser Zeit darf millis() in der Simulation nicht signifikant steigen
-                const currentVal = timeValues[timeValues.length - 1];
+                const currentVal = timeValues.at(-1);
                 try {
                   expect(currentVal).toBeLessThanOrEqual(valAtPause + 20);
                   runner.resume();
@@ -93,9 +94,10 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
       runner.runSketch({
         code,
         onOutput: (line) => {
-          const match = line.match(/T:(\d+)/);
+          const timeRe = /T:(\d+)/;
+          const match = timeRe.exec(line);
           if (match) {
-            timeReadings.push({ value: parseInt(match[1]), isPaused: runner.isPaused });
+            timeReadings.push({ value: Number.parseInt(match[1]), isPaused: runner.isPaused });
           }
 
           if (timeReadings.length > 0 && timeReadings.length % 4 === 0 && cycle < 2 && !pausedInCycle) {
@@ -118,19 +120,17 @@ describe("SandboxRunner - Pause/Resume Timing", () => {
                       if (prev.isPaused && curr.isPaused) {
                         // Während Pause: Max 50ms Drift erlaubt
                         expect(curr.value).toBeLessThanOrEqual(prev.value + 50);
-                      } else {
+                      } else if (!prev.isPaused && !curr.isPaused) {
                         // Wir vergleichen nur, wenn wir mindestens zwei aufeinanderfolgende 
                         // Events im gleichen Status ('running') haben.
-                        if (!prev.isPaused && !curr.isPaused) {
-                          // Falls die Zeit im Worker mal kurz "springt" (Event-Reordering in CI),
-                          // loggen wir das nur, anstatt den Test zu killen, SOLANGE der Wert
-                          // sich im plausiblen Bereich bewegt.
-                          if (curr.value < prev.value - 50) {
-                            console.warn(`CI Jitter detected: Time jumped from ${prev.value} to ${curr.value}`);
-                          } else {
-                            // Der eigentliche Check bleibt, aber wir sind etwas gnädiger
-                            expect(curr.value).toBeGreaterThanOrEqual(prev.value - 100);
-                          }
+                        // Falls die Zeit im Worker mal kurz "springt" (Event-Reordering in CI),
+                        // loggen wir das nur, anstatt den Test zu killen, SOLANGE der Wert
+                        // sich im plausiblen Bereich bewegt.
+                        if (curr.value < prev.value - 50) {
+                          console.warn(`CI Jitter detected: Time jumped from ${prev.value} to ${curr.value}`);
+                        } else {
+                          // Der eigentliche Check bleibt, aber wir sind etwas gnädiger
+                          expect(curr.value).toBeGreaterThanOrEqual(prev.value - 100);
                         }
                       }
                     }

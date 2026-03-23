@@ -8,7 +8,7 @@ const DEBUG = false; // Disable after testing
 
 import { Logger } from "../../../shared/logger";
 const logger = new Logger("MonacoErrorSuppressor");
-const log = (msg: string, ...args: any[]) => {
+const log = (msg: string, ...args: unknown[]) => {
   if (DEBUG) {
     logger.debug(`[Monaco Error Suppressor] ${msg}`, ...(args as []));
   }
@@ -18,10 +18,25 @@ log("Module loaded");
 
 // First, patch the global error handler used by Monaco itself
 // This prevents the error from being thrown in the first place
-(window as any).__MONACO_EDITOR_ERROR_HANDLER__ = {
-  onUnexpectedError: (error: any) => {
-    const message = error?.message || error?.toString?.() || "";
-    const stack = error?.stack || "";
+declare global {
+  interface GlobalThis {
+    __MONACO_EDITOR_ERROR_HANDLER__?: {
+      onUnexpectedError: (error: unknown) => void;
+    };
+  }
+}
+
+(globalThis as any).__MONACO_EDITOR_ERROR_HANDLER__ = {
+  onUnexpectedError: (error: unknown) => {
+    let message = "";
+    let stack = "";
+    
+    if (error instanceof Error) {
+      message = error.message;
+      stack = error.stack ?? "";
+    } else {
+      message = String(error);
+    }
 
     if (
       (message.includes("offsetNode") && message.includes("hitResult")) ||
@@ -44,12 +59,21 @@ log("Module loaded");
 const originalError = console.error;
 const originalWarn = console.warn;
 
-const isMonacoHitTestError = (args: any[]) => {
+const isMonacoHitTestError = (args: unknown[]): boolean => {
+  if (args.length === 0) return false;
+  
   const firstArg = args[0];
-  if (!firstArg) return false;
+  if (!firstArg || typeof firstArg !== 'object') return false;
 
-  const message = firstArg?.message || firstArg?.toString?.() || "";
-  const stack = firstArg?.stack || "";
+  let message = "";
+  let stack = "";
+
+  if (firstArg instanceof Error) {
+    message = firstArg.message;
+    stack = firstArg.stack ?? "";
+  } else {
+    message = String(firstArg);
+  }
 
   const isError =
     (message.includes("offsetNode") && message.includes("hitResult")) ||
@@ -59,32 +83,32 @@ const isMonacoHitTestError = (args: any[]) => {
 
   if (isError) {
     log("Detected Monaco hitTest error:", {
-      message: message.substring(0, 150),
+      message: message.slice(0, 150),
     });
   }
 
   return isError;
 };
 
-console.error = function (...args: any[]) {
+console.error = function (...args: unknown[]) {
   if (isMonacoHitTestError(args)) {
     log("Suppressed error via console.error");
     return;
   }
-  originalError.apply(console, args);
+  originalError.apply(console, args as any);
 };
 
-console.warn = function (...args: any[]) {
+console.warn = function (...args: unknown[]) {
   if (isMonacoHitTestError(args)) {
     log("Suppressed warning via console.warn");
     return;
   }
-  originalWarn.apply(console, args);
+  originalWarn.apply(console, args as any);
 };
 
 // Intercept uncaught errors at the earliest point
-const originalErrorHandler = window.onerror;
-window.onerror = function (message, source, lineno, colno, error) {
+const originalErrorHandler = globalThis.onerror;
+globalThis.onerror = function (message, source, lineno, colno, error) {
   const errorMessage = String(message) || "";
   const errorStack = error?.stack || "";
 
@@ -104,7 +128,7 @@ window.onerror = function (message, source, lineno, colno, error) {
 };
 
 // Capture errors before they bubble up
-window.addEventListener(
+globalThis.addEventListener(
   "error",
   (event: ErrorEvent) => {
     if (isMonacoHitTestError([event.error])) {
@@ -120,7 +144,7 @@ window.addEventListener(
 );
 
 // Handle unhandled promise rejections
-window.addEventListener(
+globalThis.addEventListener(
   "unhandledrejection",
   (event: PromiseRejectionEvent) => {
     const reason = event.reason;

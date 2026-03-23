@@ -208,7 +208,7 @@ describe("RegistryManager", () => {
       manager.addPin({ pin: "13", defined: true, pinMode: 1, usedAt: [] });
       manager.finishCollection();
 
-      const firstRegistry = manager.getRegistry();
+      const _firstRegistry = manager.getRegistry();
       updateCallback.mockClear();
 
       // Try to send same registry again
@@ -410,6 +410,93 @@ describe("RegistryManager", () => {
       manager.finishCollection();
 
       expect(updateCallback).not.toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Runtime conflict detection
+  //
+  // Simulates what happens when a sketch runs:
+  //   for (int i = 1; i <= 6; i++) pinMode(i, INPUT);   // Loop 1
+  //   for (int i = 6; i <= 10; i++) pinMode(i, OUTPUT); // Loop 2
+  //
+  // Pin 6 gets two updatePinMode() calls: first INPUT (0), then OUTPUT (1).
+  // The sent IOPinRecord for pin 6 must reflect BOTH modes so that the client
+  // can flag the conflict.  This requires that runtime usedAt entries (which
+  // always have line=0) survive the cleanupPinRecord() call inside sendNow().
+  // ──────────────────────────────────────────────────────────────────────────
+  describe("runtime conflict detection (braceless for-loop scenario)", () => {
+    it("runtime usedAt entries (line=0) must survive sendNow cleanup", () => {
+      // Simulate the IO_REGISTRY_START…END burst first (pre-populates 20 pins)
+      manager.startCollection();
+      for (let i = 0; i <= 13; i++) {
+        manager.addPin({ pin: String(i), defined: false, pinMode: 0, usedAt: [] });
+      }
+      for (let i = 0; i <= 5; i++) {
+        manager.addPin({ pin: `A${i}`, defined: false, pinMode: 0, usedAt: [] });
+      }
+      manager.finishCollection();
+      updateCallback.mockClear();
+
+      // Loop 1: pins 1..6 as INPUT – simulated via [[PIN_MODE:X:0]] messages
+      for (let pin = 1; pin <= 6; pin++) {
+        manager.updatePinMode(pin, 0); // INPUT
+      }
+      // Loop 2: pins 6..10 as OUTPUT
+      for (let pin = 6; pin <= 10; pin++) {
+        manager.updatePinMode(pin, 1); // OUTPUT
+      }
+
+      // Get the last registry that was sent to the client
+      const lastCall = updateCallback.mock.calls.at(-1);
+      expect(lastCall).toBeDefined();
+      const sentRegistry: IOPinRecord[] = lastCall[0];
+
+      const pin6 = sentRegistry.find((r) => r.pin === "6");
+      expect(pin6).toBeDefined();
+
+      // usedAt must contain BOTH "pinMode:0" (INPUT) and "pinMode:1" (OUTPUT)
+      expect(pin6!.usedAt).toContainEqual(
+        expect.objectContaining({ operation: "pinMode:0" }),
+      );
+      expect(pin6!.usedAt).toContainEqual(
+        expect.objectContaining({ operation: "pinMode:1" }),
+      );
+    });
+
+    it("pin 6 must be flagged as conflict=true when it receives both INPUT and OUTPUT", () => {
+      manager.startCollection();
+      for (let i = 0; i <= 13; i++) {
+        manager.addPin({ pin: String(i), defined: false, pinMode: 0, usedAt: [] });
+      }
+      manager.finishCollection();
+      updateCallback.mockClear();
+
+      manager.updatePinMode(6, 0); // INPUT (from loop 1)
+      manager.updatePinMode(6, 1); // OUTPUT (from loop 2) → conflict!
+
+      const sentRegistry: IOPinRecord[] =
+        updateCallback.mock.calls.at(-1)[0];
+      const pin6 = sentRegistry.find((r) => r.pin === "6");
+
+      expect(pin6).toBeDefined();
+      expect(pin6!.conflict).toBe(true);
+    });
+
+    it("no conflict flag for pin that has only one mode", () => {
+      manager.startCollection();
+      manager.addPin({ pin: "7", defined: false, pinMode: 0, usedAt: [] });
+      manager.finishCollection();
+      updateCallback.mockClear();
+
+      manager.updatePinMode(7, 1); // single OUTPUT call
+
+      const sentRegistry: IOPinRecord[] =
+        updateCallback.mock.calls.at(-1)[0];
+      const pin7 = sentRegistry.find((r) => r.pin === "7");
+
+      expect(pin7).toBeDefined();
+      expect(pin7!.conflict).toBeFalsy();
     });
   });
 });

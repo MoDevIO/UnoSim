@@ -1,9 +1,9 @@
 import type { Express } from "express";
 import type { CompilationResult } from "./services/arduino-compiler";
 
-import { createServer, type Server } from "http";
-import { createHash } from "crypto";
-import { readdir, stat } from "fs/promises";
+import { createServer, type Server } from "node:http";
+import { createHash } from "node:crypto";
+import { readdir, stat } from "node:fs/promises";
 import { storage } from "./storage";
 import { getPooledCompiler } from "./services/pooled-compiler";
 import { SandboxRunner } from "./services/sandbox-runner";
@@ -11,8 +11,8 @@ import { getSimulationRateLimiter } from "./services/rate-limiter";
 import { shouldSendSimulationEndMessage } from "./services/simulation-end";
 import { getSandboxRunnerPool, initializeSandboxRunnerPool } from "./services/sandbox-runner-pool";
 import { insertSketchSchema } from "@shared/schema";
-import path from "path";
-import { fileURLToPath } from "url";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { Logger } from "@shared/logger"; // Pfad ggf. anpassen
 
@@ -140,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sketches = await storage.getAllSketches();
       res.json(sketches);
-    } catch (error) {
+    } catch {
       res.status(500).json({ error: "Failed to fetch sketches" });
     }
   });
@@ -150,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sketch = await storage.getSketch(req.params.id);
       if (!sketch) return res.status(404).json({ error: "Sketch not found" });
       res.json(sketch);
-    } catch (error) {
+    } catch {
       res.status(500).json({ error: "Failed to fetch sketch" });
     }
   });
@@ -160,7 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertSketchSchema.parse(req.body);
       const sketch = await storage.createSketch(validatedData);
       res.status(201).json(sketch);
-    } catch (error) {
+    } catch {
       res.status(400).json({ error: "Invalid sketch data" });
     }
   });
@@ -171,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sketch = await storage.updateSketch(req.params.id, validatedData);
       if (!sketch) return res.status(404).json({ error: "Sketch not found" });
       res.json(sketch);
-    } catch (error) {
+    } catch {
       res.status(400).json({ error: "Invalid sketch data" });
     }
   });
@@ -181,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteSketch(req.params.id);
       if (!deleted) return res.status(404).json({ error: "Sketch not found" });
       res.status(204).send();
-    } catch (error) {
+    } catch {
       res.status(500).json({ error: "Failed to delete sketch" });
     }
   });

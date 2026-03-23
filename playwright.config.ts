@@ -1,11 +1,15 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // choose a unique port per worker to avoid collisions when tests start their own server
 // PW_WORKER_INDEX is provided by Playwright when spawning workers.
 // ensure we don't end up with NaN if the env var is missing or corrupt
 let basePort = 3000;
 if (process.env.PW_WORKER_INDEX) {
-  const idx = parseInt(process.env.PW_WORKER_INDEX, 10);
+  const idx = Number.parseInt(process.env.PW_WORKER_INDEX, 10);
   if (!Number.isNaN(idx)) {
     basePort += idx;
   }
@@ -15,6 +19,15 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 90000, 
   
+  // Global teardown: prints race-condition summary and runs leak check in CI
+  globalTeardown: path.resolve(__dirname, "e2e/global-teardown.ts"),
+
+  // Reporters: built-in list reporter + custom race-condition reporter
+  reporter: [
+    ["list"],
+    [path.resolve(__dirname, "e2e/race-condition-reporter.ts")],
+  ],
+
   // PARALLELISIERUNG AKTIVIERT
   // Nutzt 4 Worker lokal, in der CI (GitHub Actions etc.) 2, um Überlastung zu vermeiden
   workers: process.env.CI ? 2 : 4,               

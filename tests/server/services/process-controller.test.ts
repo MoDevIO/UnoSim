@@ -17,7 +17,7 @@ describe("ProcessController — unit", () => {
 
     // Spawn a short-lived node process that writes after a small delay so
     // listeners (pre- and post-spawn) are already registered when data arrives.
-    pc.spawn("node", ["-e", `setTimeout(()=>{ process.stdout.write('PC-HELLO\\n'); }, 40); setTimeout(()=>process.exit(0), 120);`]);
+    pc.spawn("node", ["-e", String.raw`setTimeout(()=>{ process.stdout.write('PC-HELLO\n'); }, 40); setTimeout(()=>process.exit(0), 120);`]);
 
     // listener added AFTER spawn should still receive data
     pc.onStdout((d) => { b += d.toString(); });
@@ -25,7 +25,7 @@ describe("ProcessController — unit", () => {
     // wait for first stdout chunk (or fail after timeout)
     await new Promise<void>((resolve, reject) => {
       const to = setTimeout(() => reject(new Error('timeout waiting for stdout')), 1500);
-      const onData = (d: Buffer) => {
+      const onData = (_d: Buffer) => {
         clearTimeout(to);
         // resolve once either listener has been invoked
         resolve();
@@ -53,7 +53,7 @@ describe("ProcessController — unit", () => {
     pc.onClose(() => { closed = true; });
 
     // long-running process that emits every 25ms (give listener time to attach)
-    pc.spawn("node", ["-e", `setInterval(()=>process.stdout.write('TICK\\n'), 25);`]);
+    pc.spawn("node", ["-e", String.raw`setInterval(()=>process.stdout.write('TICK\n'), 25);`]);
 
     // wait for the first tick (or timeout)
     await new Promise<void>((resolve, reject) => {
@@ -91,7 +91,7 @@ describe("ProcessController — unit", () => {
       const wrote = pc.writeStdin("after-exit\n");
       // writeStdin should be false because stdin/pipe no longer present
       expect(wrote).toBe(false);
-    } catch (err) {
+    } catch {
       ok = false;
     }
 

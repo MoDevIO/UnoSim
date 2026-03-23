@@ -12,7 +12,7 @@
  * - Lock monitoring and auto-cleanup
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   UnifiedGatekeeper,
   TaskPriority,
@@ -94,7 +94,7 @@ describe("UnifiedGatekeeper", () => {
       const maxConcurrent = 2;
       const gk = new UnifiedGatekeeper(maxConcurrent);
 
-      const activeCount: number[] = [];
+      const _activeCount: number[] = [];
       let activeNow = 0;
       const maxObserved: number[] = [];
 
@@ -477,9 +477,9 @@ describe("UnifiedGatekeeper", () => {
     it("should block write lock when read locks exist", async () => {
       const readLock = await gatekeeper.acquireCacheLock("key", "read", 5000, "reader");
 
-      let writeLockGranted = false;
+      let _writeLockGranted = false;
       const writeLockTimeout = setTimeout(() => {
-        writeLockGranted = false;
+        _writeLockGranted = false;
       }, 100);
 
       const writePromise = gatekeeper.acquireCacheLock("key", "write", 500, "writer");
@@ -647,7 +647,7 @@ describe("UnifiedGatekeeper", () => {
       // Directly manipulate activeSlots to set a very short expiry
       const release = await gk.acquireCompileSlot(TaskPriority.NORMAL, 5000, "task");
 
-      let expirationNoticed = false;
+      let _expirationNoticed = false;
 
       // Wait for lock monitoring to detect expiration (5 second default interval)
       // This test uses shorter intervals by monitoring intervals
@@ -793,7 +793,7 @@ describe("UnifiedGatekeeper", () => {
 
   describe("Reset Functionality", () => {
     it("should reset all gatekeeper state", async () => {
-      const release = await gatekeeper.acquireCompileSlot(TaskPriority.NORMAL, 5000, "task");
+      const _release = await gatekeeper.acquireCompileSlot(TaskPriority.NORMAL, 5000, "task");
 
       let stats = gatekeeper.getStats();
       expect(stats.activeCompiles).toBe(1);
@@ -813,7 +813,7 @@ describe("UnifiedGatekeeper", () => {
     it("should preserve maxConcurrent after reset", async () => {
       const gk = new UnifiedGatekeeper(5);
 
-      const release = await gk.acquireCompileSlot(TaskPriority.NORMAL, 5000, "task");
+      const _release = await gk.acquireCompileSlot(TaskPriority.NORMAL, 5000, "task");
       const statsBefore = gk.getStats();
       expect(statsBefore.maxConcurrentCompiles).toBe(5);
 

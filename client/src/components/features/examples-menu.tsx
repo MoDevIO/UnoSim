@@ -15,8 +15,8 @@ interface Example {
 }
 
 interface ExamplesMenuProps {
-  onLoadExample: (filename: string, content: string) => void;
-  backendReachable?: boolean;
+  readonly onLoadExample: (filename: string, content: string) => void;
+  readonly backendReachable?: boolean;
 }
 
 const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
@@ -223,11 +223,11 @@ export function ExamplesMenu({
     };
 
     // Add mouse move listener
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("keydown", onKey, { capture: true });
+    globalThis.addEventListener("mousemove", onMouseMove);
+    globalThis.addEventListener("keydown", onKey, { capture: true });
     return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("keydown", onKey, { capture: true });
+      globalThis.removeEventListener("mousemove", onMouseMove);
+      globalThis.removeEventListener("keydown", onKey, { capture: true });
       clearHighlight();
     };
   }, [open]);
@@ -241,7 +241,7 @@ export function ExamplesMenu({
 
     // Close menu after loading example unless "keep open" setting is enabled
     try {
-      if (window.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) !== "1") {
+      if (globalThis.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) !== "1") {
         setOpen(false);
       }
     } catch {
@@ -294,8 +294,8 @@ export function ExamplesMenu({
 }
 
 interface ExamplesTreeProps {
-  examples: Example[];
-  onLoadExample: (example: Example) => void;
+  readonly examples: Example[];
+  readonly onLoadExample: (example: Example) => void;
 }
 
 function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {

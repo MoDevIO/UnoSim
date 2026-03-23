@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+import type { PinMode } from "@shared/types/arduino.types";
 
-export interface UsePinStateParams {
+interface UsePinStateParams {
   resetPinStates: () => void;
 }
 
@@ -11,7 +12,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
   // Detected explicit pinMode(...) declarations found during parsing.
   // We store modes for pins so that we can apply them when the simulation starts.
   const [detectedPinModes, setDetectedPinModes] = useState<
-    Record<number, "INPUT" | "OUTPUT" | "INPUT_PULLUP">
+    Record<number, PinMode>
   >({});
 
   // Pins that have a detected pinMode(...) declaration which conflicts with analogRead usage
@@ -20,7 +21,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
   // Pin Monitor visibility state (persisted to localStorage)
   const [pinMonitorVisible, setPinMonitorVisible] = useState<boolean>(() => {
     try {
-      return window.localStorage.getItem("unoPinMonitorVisible") === "1";
+      return globalThis.localStorage.getItem("unoPinMonitorVisible") === "1";
     } catch {
       return false; // Hidden by default
     }
@@ -28,7 +29,9 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
 
   // Listen for pin monitor visibility change events from settings dialog
   useEffect(() => {
-    const handler = (ev: any) => {
+    type BoolDetailEvent = CustomEvent<{ value: boolean }>;
+
+    const handler = (ev: BoolDetailEvent) => {
       try {
         const newValue = Boolean(ev?.detail?.value);
         setPinMonitorVisible(newValue);
@@ -36,6 +39,7 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
         // ignore
       }
     };
+
     document.addEventListener("pinMonitorVisibleChange", handler as EventListener);
     return () =>
       document.removeEventListener("pinMonitorVisibleChange", handler as EventListener);
@@ -59,10 +63,10 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
   // Helper function to convert pin strings to numbers (A0-A5 → 14-19, digital → as-is)
   const pinToNumber = (pinStr: string): number | null => {
     if (/^\d+$/.test(pinStr)) {
-      return parseInt(pinStr, 10);
+      return Number.parseInt(pinStr, 10);
     }
     if (/^A\d+$/i.test(pinStr)) {
-      const analogIndex = parseInt(pinStr.slice(1), 10);
+      const analogIndex = Number.parseInt(pinStr.slice(1), 10);
       if (analogIndex >= 0 && analogIndex <= 5) {
         return 14 + analogIndex; // A0->14, A1->15, ..., A5->19
       }

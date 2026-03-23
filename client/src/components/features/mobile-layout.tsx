@@ -6,24 +6,24 @@ import clsx from "clsx";
 
 export type MobilePanel = "code" | "compile" | "serial" | "board" | null;
 
-export interface MobileLayoutProps {
-  isMobile: boolean;
-  mobilePanel: MobilePanel;
-  setMobilePanel: React.Dispatch<React.SetStateAction<MobilePanel>>;
-  headerHeight: number;
-  overlayZ: number;
+interface MobileLayoutProps {
+  readonly isMobile: boolean;
+  readonly mobilePanel: MobilePanel;
+  readonly setMobilePanel: React.Dispatch<React.SetStateAction<MobilePanel>>;
+  readonly headerHeight: number;
+  readonly overlayZ: number;
 
   // slots
-  codeSlot?: React.ReactNode;
-  compileSlot?: React.ReactNode;
-  serialSlot?: React.ReactNode;
-  boardSlot?: React.ReactNode;
+  readonly codeSlot?: React.ReactNode;
+  readonly compileSlot?: React.ReactNode;
+  readonly serialSlot?: React.ReactNode;
+  readonly boardSlot?: React.ReactNode;
 
-  portalContainer?: HTMLElement | null;
-  className?: string;
-  testId?: string;
-  onOpenPanel?: (panel: MobilePanel) => void;
-  onClosePanel?: () => void;
+  readonly portalContainer?: HTMLElement | null;
+  readonly className?: string;
+  readonly testId?: string;
+  readonly onOpenPanel?: (panel: MobilePanel) => void;
+  readonly onClosePanel?: () => void;
 }
 
 export const MobileLayout = React.memo(function MobileLayout({
@@ -65,8 +65,8 @@ export const MobileLayout = React.memo(function MobileLayout({
       <div
         className="absolute inset-0 flex items-end justify-end p-8"
         style={{
-          paddingBottom: "env(safe-area-inset-bottom, 32px)",
-          paddingRight: "env(safe-area-inset-right, 32px)",
+          paddingBottom: "env(safe-area-inset-bottom, var(--ui-safe-area-bottom))",
+          paddingRight: "env(safe-area-inset-right, var(--ui-safe-area-right))",
         }}
       >
         <div className="pointer-events-auto sticky mr-4 mb-4" style={{ alignSelf: "flex-end" }}>

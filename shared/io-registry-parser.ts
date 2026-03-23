@@ -20,9 +20,10 @@
  */
 
 import type { IOPinRecord } from "./schema";
+import type { PinMode } from "@shared/types/arduino.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Constants
+// Constants & Regex Patterns
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Built-in Arduino pin-name constants mapped to numeric IDs (0-19). */
@@ -32,11 +33,20 @@ const BUILTIN_CONSTANTS: Record<string, number> = {
 };
 
 /** Canonical mode name table. */
-const MODE_MAP: Record<string, "INPUT" | "OUTPUT" | "INPUT_PULLUP"> = {
+const MODE_MAP: Record<string, PinMode> = {
   INPUT: "INPUT",       "0": "INPUT",
   OUTPUT: "OUTPUT",     "1": "OUTPUT",
   INPUT_PULLUP: "INPUT_PULLUP", "2": "INPUT_PULLUP",
 };
+
+// Regex patterns for symbol resolution (S6353: use \w instead of [A-Za-z0-9_])
+const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
+const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
+const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
+const ARRAY_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
+const FOR_LOOP_PATTERN = /\bfor\s*\(\s*(?:(?:byte|int|uint8_t|short)\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>]=?)\s*(\w+)\s*;[^)]*\)\s*(\{)?/g;
+const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/;
+const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*((?:[A-Za-z_]\w*\s*\[\s*\d+\s*\])|(?:[A-Za-z_]\w*|\d+))(?:\s*,\s*([A-Za-z_]\w*|\d+))?/g;
 
 type OpName =
   | "pinMode"
@@ -45,11 +55,13 @@ type OpName =
   | "analogRead"
   | "analogWrite";
 
+type PinModeType = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+
 interface CallEntry {
   op: OpName;
   pinId: number;
   line: number;
-  mode?: "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+  mode?: PinMode;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,11 +74,11 @@ interface CallEntry {
  */
 function stripComments(code: string): string {
   // Multi-line comments → spaces (preserve newlines for correct line counting)
-  let result = code.replace(/\/\*[\s\S]*?\*\//g, (m) =>
-    m.replace(/[^\n]/g, " "),
+  let result = code.replaceAll(/\/\*[\s\S]*?\*\//g, (m) =>
+    m.replaceAll(/[^\n]/g, " "),
   );
   // Single-line comments → spaces (preserve line length)
-  result = result.replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
+  result = result.replaceAll(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
   return result;
 }
 
@@ -87,25 +99,20 @@ function buildSymbols(clean: string): Map<string, number> {
   const syms = new Map<string, number>(Object.entries(BUILTIN_CONSTANTS));
 
   // #define NAME VALUE
-  const defineRe = /^#define\s+([A-Za-z_]\w*)\s+([A-Za-z0-9_]+)/gm;
   let m: RegExpExecArray | null;
-  while ((m = defineRe.exec(clean)) !== null) {
+  while ((m = DEFINE_PATTERN.exec(clean)) !== null) {
     const v = resolveToken(m[2], syms);
     if (v !== undefined) syms.set(m[1], v);
   }
 
   // const int/byte NAME = VALUE;
-  const constRe =
-    /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z0-9_]+)\s*;/g;
-  while ((m = constRe.exec(clean)) !== null) {
+  while ((m = CONST_PATTERN.exec(clean)) !== null) {
     const v = resolveToken(m[2], syms);
     if (v !== undefined) syms.set(m[1], v);
   }
 
   // plain int/byte NAME = VALUE; (common in Arduino, e.g. int led = 12;)
-  const varRe =
-    /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z0-9_]+)\s*;/g;
-  while ((m = varRe.exec(clean)) !== null) {
+  while ((m = VAR_PATTERN.exec(clean)) !== null) {
     if (syms.has(m[1])) continue; // already set by const variant
     const v = resolveToken(m[2], syms);
     if (v !== undefined) syms.set(m[1], v);
@@ -119,10 +126,10 @@ function resolveToken(
   token: string,
   syms: Map<string, number>,
 ): number | undefined {
-  if (/^\d+$/.test(token)) return parseInt(token, 10);
+  if (/^\d+$/.test(token)) return Number.parseInt(token, 10);
   const analogMatch = /^A(\d+)$/.exec(token);
   if (analogMatch) {
-    const n = parseInt(analogMatch[1], 10);
+    const n = Number.parseInt(analogMatch[1], 10);
     return n >= 0 && n <= 5 ? 14 + n : undefined;
   }
   return syms.get(token);
@@ -137,10 +144,8 @@ function buildArrays(
   syms: Map<string, number>,
 ): Map<string, number[]> {
   const arrays = new Map<string, number[]>();
-  const re =
-    /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(clean)) !== null) {
+  while ((m = ARRAY_PATTERN.exec(clean)) !== null) {
     const vals = m[2]
       .split(",")
       .map((v) => resolveToken(v.trim(), syms));
@@ -162,10 +167,10 @@ function resolvePin(
 ): number | undefined {
   const t = expr.trim();
   // Array access: name[index]
-  const arrM = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/.exec(t);
+  const arrM = ARRAY_ACCESS_PATTERN.exec(t);
   if (arrM) {
     const arr = arrays.get(arrM[1]);
-    const idx = parseInt(arrM[2], 10);
+    const idx = Number.parseInt(arrM[2], 10);
     if (arr && idx < arr.length) {
       const id = arr[idx];
       return id >= 0 && id <= 19 ? id : undefined;
@@ -189,6 +194,63 @@ interface LoopRange {
 }
 
 /**
+ * Generate loop values based on operator and limits.
+ * Uses data-driven approach to reduce cognitive complexity.
+ */
+function generateLoopValues(
+  start: number,
+  op: string,
+  limitVal: number,
+): number[] {
+  const values: number[] = [];
+  const compareFunc = getComparisonFunction(op);
+  if (!compareFunc) return values;
+
+  const direction = op === ">" || op === ">=" ? -1 : 1;
+  let i = start;
+  while (values.length <= 20) {
+    if (!compareFunc(i, limitVal)) break;
+    values.push(i);
+    i += direction;
+  }
+  return values;
+}
+
+/**
+ * Get comparison function for a given operator string.
+ */
+function getComparisonFunction(op: string): ((a: number, b: number) => boolean) | null {
+  switch (op) {
+    case "<":
+      return (a, b) => a < b;
+    case "<=":
+      return (a, b) => a <= b;
+    case ">":
+      return (a, b) => a > b;
+    case ">=":
+      return (a, b) => a >= b;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Find matching closing brace in a string starting from a given position.
+ * Helper to reduce cognitive complexity in findLoopRanges.
+ */
+function findMatchingBrace(str: string, openPos: number): number {
+  let depth = 0;
+  for (let i = openPos; i < str.length; i++) {
+    if (str[i] === "{") depth++;
+    else if (str[i] === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return openPos;
+}
+
+/**
  * Find all for-loops with a numeric iteration variable over a statically
  * determinable range, e.g. `for (int i = 2; i < 4; i++)`.
  */
@@ -197,47 +259,34 @@ function findLoopRanges(
   syms: Map<string, number>,
 ): LoopRange[] {
   const ranges: LoopRange[] = [];
-  const re =
-    /\bfor\s*\(\s*(?:(?:byte|int|uint8_t|short)\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>]=?)\s*([A-Za-z0-9_]+)\s*;[^)]*\)\s*\{/g;
+  // The opening brace (\{)? is made optional so that braceless single-statement
+  // loop bodies are also handled, e.g.:
+  //   for (int i = 1; i <= 6; i++) pinMode(i, INPUT);
   let m: RegExpExecArray | null;
 
-  while ((m = re.exec(clean)) !== null) {
+  while ((m = FOR_LOOP_PATTERN.exec(clean)) !== null) {
     const variable = m[1];
-    const start = parseInt(m[2], 10);
+    const start = Number.parseInt(m[2], 10);
     const op = m[3];
-    const limitVal = resolveToken(m[4], syms) ?? parseInt(m[4], 10);
-    if (isNaN(limitVal)) continue;
+    const limitVal = resolveToken(m[4], syms) ?? Number.parseInt(m[4], 10);
+    const hasBrace = !!m[5];
+    if (Number.isNaN(limitVal)) continue;
 
-    const values: number[] = [];
-    if (op === "<")
-      for (let i = start; i < limitVal && values.length <= 20; i++)
-        values.push(i);
-    if (op === "<=")
-      for (let i = start; i <= limitVal && values.length <= 20; i++)
-        values.push(i);
-    if (op === ">")
-      for (let i = start; i > limitVal && values.length <= 20; i--)
-        values.push(i);
-    if (op === ">=")
-      for (let i = start; i >= limitVal && values.length <= 20; i--)
-        values.push(i);
-
+    const values = generateLoopValues(start, op, limitVal);
     if (values.length === 0 || values.length > 20) continue;
 
-    // Find the matching closing brace of the loop body
-    let openBrace = m.index + m[0].length - 1;
-    while (openBrace < clean.length && clean[openBrace] !== "{") openBrace++;
-    let depth = 0;
-    let endPos = openBrace;
-    for (let i = openBrace; i < clean.length; i++) {
-      if (clean[i] === "{") depth++;
-      else if (clean[i] === "}") {
-        depth--;
-        if (depth === 0) {
-          endPos = i;
-          break;
-        }
-      }
+    let endPos: number;
+    if (hasBrace) {
+      // Braced body: find the matching closing brace
+      let openBrace = m.index + m[0].length - 1;
+      while (openBrace < clean.length && clean[openBrace] !== "{")
+        openBrace++;
+      endPos = findMatchingBrace(clean, openBrace);
+    } else {
+      // Braceless body: the single statement ends at the first ";" after the header
+      const bodyStart = m.index + m[0].length;
+      const semiPos = clean.indexOf(";", bodyStart);
+      endPos = semiPos >= 0 ? semiPos : clean.length;
     }
 
     ranges.push({
@@ -255,6 +304,264 @@ function findLoopRanges(
 // ─────────────────────────────────────────────────────────────────────────────
 // Main exported function
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Detect conflicts in pin mode and operation assignments.
+ * Returns { pinModeConflict, operationConflict, outputReadConflict, hasInputMode, hasOutputMode }
+ */
+function detectPinConflicts(
+  pmCalls: CallEntry[],
+  drCalls: CallEntry[],
+  dwCalls: CallEntry[],
+  arCalls: CallEntry[],
+  awCalls: CallEntry[],
+): {
+  pinModeConflict: boolean;
+  operationConflict: boolean;
+  outputReadConflict: boolean;
+  uniqueModes: PinModeType[];
+} {
+  const allModes = pmCalls.map((c) => c.mode!);
+  const uniqueModes = [...new Set(allModes)] as PinModeType[];
+
+  // TC 11: same pin configured with multiple DIFFERENT modes
+  const pinModeConflict = uniqueModes.length > 1;
+
+  // TC 9: pin set to INPUT/INPUT_PULLUP AND written via digital/analogWrite
+  const hasInputMode =
+    pmCalls.length > 0 &&
+    (uniqueModes.includes("INPUT") || uniqueModes.includes("INPUT_PULLUP"));
+  const hasWrite = dwCalls.length > 0 || awCalls.length > 0;
+  const operationConflict = hasInputMode && hasWrite;
+
+  // TC 9b: pin set to OUTPUT AND read via digital/analogRead
+  const hasOutputMode =
+    pmCalls.length > 0 && uniqueModes.includes("OUTPUT");
+  const hasRead = drCalls.length > 0 || arCalls.length > 0;
+  const outputReadConflict = hasOutputMode && hasRead;
+
+  return {
+    pinModeConflict,
+    operationConflict,
+    outputReadConflict,
+    uniqueModes,
+  };
+}
+
+/**
+ * Generate conflict message based on detected conflict type.
+ */
+function generateConflictMessage(
+  pinModeConflict: boolean,
+  operationConflict: boolean,
+  outputReadConflict: boolean,
+  uniqueModes: PinModeType[],
+): string {
+  if (pinModeConflict) {
+    return `Multiple modes: ${uniqueModes.join(", ")}`;
+  }
+  if (operationConflict) {
+    const nonOutputModes = uniqueModes.filter((mm) => mm !== "OUTPUT");
+    return `Write on ${nonOutputModes.join("/")} pin`;
+  }
+  if (outputReadConflict) {
+    return "Read on OUTPUT pin";
+  }
+  return "";
+}
+
+/**
+ * Process an expanded for-loop variable and add entries to the list.
+ */
+function processLoopExpansion(
+  loop: LoopRange,
+  op: OpName,
+  secondArg: string,
+  entries: CallEntry[],
+): void {
+  for (const pinId of loop.values) {
+    if (pinId < 0 || pinId > 19) continue;
+    if (op === "pinMode") {
+      const mode = MODE_MAP[secondArg];
+      if (!mode) continue;
+      entries.push({ op, pinId, line: loop.startLine, mode });
+    } else {
+      entries.push({ op, pinId, line: loop.startLine });
+    }
+  }
+}
+
+/**
+ * Process a statically-resolved pin and add entry to the list.
+ */
+function processStaticPin(
+  pinId: number,
+  op: OpName,
+  secondArg: string,
+  callLine: number,
+  entries: CallEntry[],
+): void {
+  if (op === "pinMode") {
+    const mode = MODE_MAP[secondArg];
+    if (!mode) return;
+    entries.push({ op, pinId, line: callLine, mode });
+  } else {
+    entries.push({ op, pinId, line: callLine });
+  }
+}
+
+/**
+ * Process a single function call and add entries to the entries list.
+ * Handles for-loop expansion and static pin resolution.
+ */
+function processCallExpression(
+  op: OpName,
+  pinExpr: string,
+  secondArg: string,
+  callPos: number,
+  callLine: number,
+  loops: LoopRange[],
+  syms: Map<string, number>,
+  arrays: Map<string, number[]>,
+  entries: CallEntry[],
+): void {
+  // ── Check for-loop variable expansion (TC 3) ──────────────────────────
+  const loop = loops.find(
+    (l) => l.startPos <= callPos && callPos <= l.endPos && l.variable === pinExpr,
+  );
+
+  if (loop) {
+    processLoopExpansion(loop, op, secondArg, entries);
+    return;
+  }
+
+  // ── Statically resolve pin expression ────────────────────────────────
+  const pinId = resolvePin(pinExpr, syms, arrays);
+  if (pinId === undefined) return; // TC 8: dynamic → skip (runtime only)
+
+  processStaticPin(pinId, op, secondArg, callLine, entries);
+}
+
+/**
+ * Populate extended-view line arrays in IOPinRecord.
+ */
+function populateLineArrays(
+  record: IOPinRecord,
+  pmCalls: CallEntry[],
+  drCalls: CallEntry[],
+  dwCalls: CallEntry[],
+  arCalls: CallEntry[],
+  awCalls: CallEntry[],
+): void {
+  if (pmCalls.length > 0) {
+    record.pinModeLines = pmCalls.map((c) => c.line);
+    record.pinModeModes = pmCalls.map((c) => c.mode!);
+  }
+  if (drCalls.length > 0) {
+    record.digitalReadLines = drCalls.map((c) => c.line);
+  }
+  if (dwCalls.length > 0) {
+    record.digitalWriteLines = dwCalls.map((c) => c.line);
+  }
+  if (arCalls.length > 0) {
+    record.analogReadLines = arCalls.map((c) => c.line);
+  }
+  if (awCalls.length > 0) {
+    record.analogWriteLines = awCalls.map((c) => c.line);
+  }
+}
+
+/**
+ * Populate legacy fields for backward compatibility with runtime registry.
+ */
+function populateLegacyFields(
+  record: IOPinRecord,
+  pmCalls: CallEntry[],
+  drCalls: CallEntry[],
+  dwCalls: CallEntry[],
+  arCalls: CallEntry[],
+  awCalls: CallEntry[],
+): void {
+  if (pmCalls.length > 0) {
+    const allModes = pmCalls.map((c) => c.mode!);
+    const lastMode = allModes.at(-1);
+    record.pinMode = convertModeToNumeric(lastMode);
+    record.definedAt = { line: pmCalls.at(-1)!.line };
+  }
+
+  const nonPmCalls = [...drCalls, ...dwCalls, ...arCalls, ...awCalls];
+  if (nonPmCalls.length > 0) {
+    record.usedAt = nonPmCalls.map((c) => ({
+      line: c.line,
+      operation: c.op,
+    }));
+  }
+}
+
+/**
+ * Convert PinMode string to numeric representation for legacy compatibility.
+ */
+function convertModeToNumeric(mode: PinMode | undefined): number {
+  switch (mode) {
+    case "INPUT":
+      return 0;
+    case "OUTPUT":
+      return 1;
+    case "INPUT_PULLUP":
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Build a single IOPinRecord from aggregated call entries for a pin.
+ */
+function buildPinRecord(
+  pinId: number,
+  calls: CallEntry[],
+  pmCalls: CallEntry[],
+  drCalls: CallEntry[],
+  dwCalls: CallEntry[],
+  arCalls: CallEntry[],
+  awCalls: CallEntry[],
+): IOPinRecord {
+  const label = pinId >= 14 ? `A${pinId - 14}` : String(pinId);
+
+  const conflicts = detectPinConflicts(
+    pmCalls,
+    drCalls,
+    dwCalls,
+    arCalls,
+    awCalls,
+  );
+
+  const conflict =
+    conflicts.pinModeConflict ||
+    conflicts.operationConflict ||
+    conflicts.outputReadConflict;
+
+  const record: IOPinRecord = {
+    pin: label,
+    pinId,
+    defined: calls.length > 0,
+  };
+
+  if (conflict) {
+    record.conflict = true;
+    record.conflictMessage = generateConflictMessage(
+      conflicts.pinModeConflict,
+      conflicts.operationConflict,
+      conflicts.outputReadConflict,
+      conflicts.uniqueModes,
+    );
+  }
+
+  populateLineArrays(record, pmCalls, drCalls, dwCalls, arCalls, awCalls);
+  populateLegacyFields(record, pmCalls, drCalls, dwCalls, arCalls, awCalls);
+
+  return record;
+}
 
 /**
  * Statically parse an Arduino sketch and return an IOPinRecord[] for every pin
@@ -283,50 +590,26 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
    *   [2] pin expression: array-index form OR simple token/number
    *   [3] optional second argument (mode for pinMode, ignored otherwise)
    */
-  const callRe =
-    /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*((?:[A-Za-z_]\w*\s*\[\s*\d+\s*\])|(?:[A-Za-z_]\w*|\d+))(?:\s*,\s*([A-Za-z_]\w*|\d+))?/g;
 
   let m: RegExpExecArray | null;
-  while ((m = callRe.exec(clean)) !== null) {
+  while ((m = FUNCTION_CALL_PATTERN.exec(clean)) !== null) {
     const op = m[1] as OpName;
     const pinExpr = m[2].trim();
     const secondArg = (m[3] ?? "").trim();
     const callPos = m.index;
     const callLine = lineAt(clean, callPos);
 
-    // ── Check for-loop variable expansion (TC 3) ──────────────────────────
-    const loop = loops.find(
-      (l) =>
-        l.startPos <= callPos &&
-        callPos <= l.endPos &&
-        l.variable === pinExpr,
+    processCallExpression(
+      op,
+      pinExpr,
+      secondArg,
+      callPos,
+      callLine,
+      loops,
+      syms,
+      arrays,
+      entries,
     );
-
-    if (loop) {
-      for (const pinId of loop.values) {
-        if (pinId < 0 || pinId > 19) continue;
-        if (op === "pinMode") {
-          const mode = MODE_MAP[secondArg];
-          if (!mode) continue;
-          entries.push({ op, pinId, line: loop.startLine, mode });
-        } else {
-          entries.push({ op, pinId, line: loop.startLine });
-        }
-      }
-      continue;
-    }
-
-    // ── Statically resolve pin expression ────────────────────────────────
-    const pinId = resolvePin(pinExpr, syms, arrays);
-    if (pinId === undefined) continue; // TC 8: dynamic → skip (runtime only)
-
-    if (op === "pinMode") {
-      const mode = MODE_MAP[secondArg];
-      if (!mode) continue; // mode not statically resolvable
-      entries.push({ op, pinId, line: callLine, mode });
-    } else {
-      entries.push({ op, pinId, line: callLine });
-    }
   }
 
   // ── Aggregate entries by pinId ────────────────────────────────────────────
@@ -339,75 +622,21 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
   const records: IOPinRecord[] = [];
 
   for (const [pinId, calls] of pinMap) {
-    const label = pinId >= 14 ? `A${pinId - 14}` : String(pinId);
-
     const pmCalls = calls.filter((c) => c.op === "pinMode");
     const drCalls = calls.filter((c) => c.op === "digitalRead");
     const dwCalls = calls.filter((c) => c.op === "digitalWrite");
     const arCalls = calls.filter((c) => c.op === "analogRead");
     const awCalls = calls.filter((c) => c.op === "analogWrite");
 
-    const allModes = pmCalls.map((c) => c.mode!);
-    const uniqueModes = [...new Set(allModes)] as Array<
-      "INPUT" | "OUTPUT" | "INPUT_PULLUP"
-    >;
-
-    // TC 11: same pin configured with multiple DIFFERENT modes → conflict
-    const pinModeConflict = uniqueModes.length > 1;
-
-    // TC 9: pin set to INPUT/INPUT_PULLUP AND written via digital/analogWrite
-    const hasInputMode =
-      pmCalls.length > 0 &&
-      uniqueModes.some((mm) => mm === "INPUT" || mm === "INPUT_PULLUP");
-    const hasWrite = dwCalls.length > 0 || awCalls.length > 0;
-    const operationConflict = hasInputMode && hasWrite;
-
-    const conflict = pinModeConflict || operationConflict;
-
-    const record: IOPinRecord = {
-      pin: label,
+    const record = buildPinRecord(
       pinId,
-      defined: calls.length > 0,
-    };
-
-    if (conflict) {
-      record.conflict = true;
-      record.conflictMessage = pinModeConflict
-        ? `Multiple modes: ${uniqueModes.join(", ")}`
-        : `Write on ${uniqueModes
-            .filter((mm) => mm !== "OUTPUT")
-            .join("/")} pin`;
-    }
-
-    // ── New extended-view line arrays ────────────────────────────────────
-    if (pmCalls.length > 0) {
-      record.pinModeLines = pmCalls.map((c) => c.line);
-      record.pinModeModes = pmCalls.map((c) => c.mode!);
-    }
-    if (drCalls.length > 0)
-      record.digitalReadLines = drCalls.map((c) => c.line);
-    if (dwCalls.length > 0)
-      record.digitalWriteLines = dwCalls.map((c) => c.line);
-    if (arCalls.length > 0)
-      record.analogReadLines = arCalls.map((c) => c.line);
-    if (awCalls.length > 0)
-      record.analogWriteLines = awCalls.map((c) => c.line);
-
-    // ── Legacy fields (backward compat with runtime registry manager) ────
-    if (pmCalls.length > 0) {
-      const lastMode = allModes[allModes.length - 1];
-      record.pinMode =
-        lastMode === "INPUT" ? 0 : lastMode === "OUTPUT" ? 1 : 2;
-      record.definedAt = { line: pmCalls[pmCalls.length - 1].line };
-    }
-
-    const nonPmCalls = [...drCalls, ...dwCalls, ...arCalls, ...awCalls];
-    if (nonPmCalls.length > 0) {
-      record.usedAt = nonPmCalls.map((c) => ({
-        line: c.line,
-        operation: c.op,
-      }));
-    }
+      calls,
+      pmCalls,
+      drCalls,
+      dwCalls,
+      arCalls,
+      awCalls,
+    );
 
     records.push(record);
   }

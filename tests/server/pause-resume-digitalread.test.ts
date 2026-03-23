@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 
-const skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
+const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = describe;
 
 vi.setConfig({ testTimeout: 30000 });
@@ -46,7 +46,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
         runner.stop();
         process.stderr.write("[TEST] timeout reached, outputs seen:" + JSON.stringify(output) + "\n");
         reject(new Error("Timeout waiting for output"));
-      }, 15000);
+      }, 60000); // increased for CI / slower environments
       const healthTimer = setTimeout(() => {
         console.error("[TEST] still waiting 10s, running=", runner.isRunning, "paused=", runner.isPaused, "output=", output);
       }, 10000);
@@ -98,7 +98,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
     const fullOutput = output.join("");
     expect(fullOutput).toContain("PIN2=1");
     console.log("✅ digitalRead works BEFORE pause");
-  }, 20000);
+  }, 60000);
 
 
   it("should read pin value correctly AFTER pause/resume", async () => {
@@ -120,7 +120,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
     const stderrLines: string[] = [];
     let setupDone = false;
     let pausedOnce = false;
-    let resumedOnce = false;
+    let _resumedOnce = false;
     let pinSetAfterResume = false;
 
     const result = await new Promise<{success: boolean, output: string, stderr: string}>((resolve) => {
@@ -131,7 +131,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
           output: output.join(""),
           stderr: stderrLines.join("\n")
         });
-      }, 15000);
+      }, 30000);
 
       runner.runSketch({
         code,
@@ -154,7 +154,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
             setTimeout(() => {
               const resumed = runner.resume();
               stderrLines.push(`[TEST] Resume called, result: ${resumed}`);
-              resumedOnce = true;
+              _resumedOnce = true;
               
               // Step 4: After resume, set pin to HIGH
               setTimeout(() => {

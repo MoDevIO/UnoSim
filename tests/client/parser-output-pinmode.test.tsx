@@ -12,7 +12,7 @@ function extractPinModeData(
     .filter((u) => u.operation.includes("pinMode"))
     .map((u) => {
       const match = u.operation.match(/pinMode:(\d+)/);
-      const mode = match ? parseInt(match[1]) : -1;
+      const mode = match ? Number.parseInt(match[1]) : -1;
       return mode === 0
         ? "INPUT"
         : mode === 1
@@ -365,7 +365,7 @@ describe("ParserOutput Component", () => {
   });
 
   it("displays registry tab with programmed pins", async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const ioRegistry: IOPinRecord[] = [
       {
         pin: 13,

@@ -2,18 +2,14 @@ import { useRef } from "react";
 import { useSimulationControls, UseSimulationControlsParams, SimulationStatus } from "./use-simulation-controls";
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 
-// re-export types so callers (including tests) can reference them easily
-export type {
-  SimulationStatus,
-  DebugMessageParams,
-} from "./use-simulation-controls";
+// re-export types removed (unused exports per knip)
 
 // The hook accepts the same parameters as `useSimulationControls` plus a few
 // extras that are required by the lifecycle automation.  A parent may also
 // provide an optional `startSimulationRef` so it can invoke the start action
 // before the hook itself is instantiated (used by the page when wiring up
 // the compilation hook).
-export type UseSimulationParams = UseSimulationControlsParams & {
+type UseSimulationParams = UseSimulationControlsParams & {
   startSimulationRef?: React.MutableRefObject<(() => void) | null>;
   // forwarded to lifecycle hook
   code: string;
@@ -24,7 +20,7 @@ export type UseSimulationParams = UseSimulationControlsParams & {
   hasCompilationErrors?: boolean;
 };
 
-export interface UseSimulationResult {
+interface UseSimulationResult {
   // state values (mirrors useSimulationControls)
   simulationStatus: SimulationStatus;
   setSimulationStatus: React.Dispatch<React.SetStateAction<SimulationStatus>>;

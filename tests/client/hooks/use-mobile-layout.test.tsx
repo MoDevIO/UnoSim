@@ -23,7 +23,7 @@ describe("useMobileLayout", () => {
       dispatchEvent: vi.fn(),
     }));
 
-    Object.defineProperty(window, "matchMedia", {
+    Object.defineProperty(globalThis, "matchMedia", {
       writable: true,
       value: matchMediaMock,
     });
@@ -415,7 +415,7 @@ describe("useMobileLayout", () => {
     // Change header height and trigger resize
     currentHeight = 70;
     act(() => {
-      window.dispatchEvent(new Event("resize"));
+      globalThis.dispatchEvent(new Event("resize"));
     });
 
     // Header height should update (note: due to timing this might not always work perfectly)
@@ -426,7 +426,7 @@ describe("useMobileLayout", () => {
   });
 
   it("should cleanup resize listener on unmount", () => {
-    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+    const removeEventListenerSpy = vi.spyOn(globalThis, "removeEventListener");
 
     const { unmount } = renderHook(() => useMobileLayout());
 

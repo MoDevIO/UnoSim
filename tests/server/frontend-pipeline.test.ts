@@ -31,10 +31,10 @@ function processSerialEvents(
       if (
         backspaceCount > 0 &&
         newLines.length > 0 &&
-        !newLines[newLines.length - 1].complete
+        !newLines.at(-1).complete
       ) {
         // Remove characters from the last incomplete line
-        const lastLine = newLines[newLines.length - 1];
+        const lastLine = newLines.at(-1);
         lastLine.text = lastLine.text.slice(
           0,
           Math.max(0, lastLine.text.length - backspaceCount),
@@ -49,15 +49,15 @@ function processSerialEvents(
     // Check for newlines
     if (text.includes("\n")) {
       const pos = text.indexOf("\n");
-      const beforeNewline = text.substring(0, pos);
-      const afterNewline = text.substring(pos + 1);
+      const beforeNewline = text.slice(0, Math.max(0, pos));
+      const afterNewline = text.slice(Math.max(0, pos + 1));
 
       // Append text before newline to current line and mark complete
-      if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
+      if (newLines.length === 0 || newLines.at(-1).complete) {
         newLines.push({ text: beforeNewline, complete: true });
       } else {
-        newLines[newLines.length - 1].text += beforeNewline;
-        newLines[newLines.length - 1].complete = true;
+        newLines.at(-1).text += beforeNewline;
+        newLines.at(-1).complete = true;
       }
 
       // Handle text after newline
@@ -66,10 +66,10 @@ function processSerialEvents(
       }
     } else {
       // No newline - append to last incomplete line or create new
-      if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
+      if (newLines.length === 0 || newLines.at(-1).complete) {
         newLines.push({ text: text, complete: false });
       } else {
-        newLines[newLines.length - 1].text += text;
+        newLines.at(-1).text += text;
       }
     }
   }

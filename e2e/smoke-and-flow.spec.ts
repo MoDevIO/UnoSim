@@ -59,7 +59,7 @@ test('dialogs - open and close settings menu', async ({ page }) => {
   await page.goto('/');
   // use app event to open settings dialog instead of clicking header
   await page.evaluate(() => {
-    window.dispatchEvent(new CustomEvent('open-settings'));
+    globalThis.dispatchEvent(new CustomEvent('open-settings'));
   });
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.click('button:has-text("Close")');

@@ -1,0 +1,495 @@
+/**
+ * Arduino Serial Class & Output Utilities — Step B extraction
+ *
+ * Exports the C++ SerialClass with:
+ *  - TX buffer and backpressure simulation
+ *  - base64 encoding for SERIAL_EVENT protocol frames
+ *  - Number formatting (DEC / HEX / OCT / BIN), print/println overloads
+ *  - Serial input buffer (mockInput, read, peek, readString*, parseInt, parseFloat)
+ *  - `SerialClass Serial;` global instance
+ *  - `delay()` implementation (placed here because it calls Serial.flush())
+ *
+ * Dependencies (must appear earlier in the assembled C++ source):
+ *  - `cerrMutex` (ARDUINO_GLOBALS)
+ *  - `millis()` (ARDUINO_TIMING_AND_RANDOM)
+ *  - `String` class (ARDUINO_STRING_CLASS)
+ */
+
+export const ARDUINO_SERIAL_CLASS = String.raw`
+// Serial class with working implementation
+class SerialClass {
+private:
+    std::mutex mtx;
+    std::queue<uint8_t> inputBuffer;
+    unsigned long _timeout = 1000; // Default timeout 1 second
+    bool initialized = false;
+    long _baudrate = 9600;
+    std::string lineBuffer; // Buffer to accumulate output until newline
+    
+    // TX Buffer (backpressure simulation)
+    // Real Arduino Uno has 64-byte TX buffer, MEGA has 128-byte
+    // We use 256 to be generous with modern systems
+    static const size_t TX_BUFFER_SIZE = 256;
+    size_t txBufferUsed = 0;  // Current bytes in TX buffer
+    std::chrono::steady_clock::time_point lastTxTime;  // Initialized in constructor
+    
+    // Simulate serial transmission delay for n characters
+    // 10 bits per char: start + 8 data + stop
+    // Also checks stdin during the delay for responsiveness
+    void txDelay(size_t numChars) {
+        if (_baudrate > 0 && numChars > 0) {
+            // Milliseconds total = (10 bits * numChars * 1000) / baudrate
+            long totalMs = (10L * numChars * 1000L) / _baudrate;
+            // Cap at 2ms so the SerialOutputBatcher is the sole rate-limiter.
+            // For short messages at standard baudrates (e.g. println("Hello") at 9600),
+            // txDelay stays realistic (1.2ms uncapped). For large messages or low baudrates,
+            // the mock runs faster than real UART and the batcher drops excess data.
+            if (totalMs > 2L) totalMs = 2L;
+            // Direct sleep (consistent with simplified delay() - no stdin polling during serial tx)
+            std::this_thread::sleep_for(std::chrono::milliseconds(totalMs));
+        }
+    }
+    
+    // Update TX buffer state - simulates bytes draining at baudrate
+    void updateTxBuffer() {
+        if (txBufferUsed > 0 && _baudrate > 0) {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTxTime).count();
+            
+            // Calculate how many bytes could drain in the elapsed time
+            // Drain rate: baudrate / 10 bits per byte = bytes per second
+            double bytesPerMs = (_baudrate / 10.0) / 1000.0;
+            size_t bytesDrained = static_cast<size_t>(elapsed * bytesPerMs);
+            
+            if (bytesDrained > 0) {
+                txBufferUsed = (bytesDrained >= txBufferUsed) ? 0 : (txBufferUsed - bytesDrained);
+                lastTxTime = now;
+            }
+        }
+    }
+    
+    // Block if TX buffer is getting full (backpressure)
+    void applyBackpressure(size_t newBytes) {
+        updateTxBuffer();
+        
+        if (txBufferUsed + newBytes > TX_BUFFER_SIZE) {
+            // Buffer would overflow - calculate how long to wait
+            size_t bytesOverflow = (txBufferUsed + newBytes) - TX_BUFFER_SIZE;
+            double bytesPerMs = (_baudrate / 10.0) / 1000.0;
+            
+            if (bytesPerMs > 0) {
+                // How long to wait for overflow bytes to drain?
+                unsigned long waitMs = static_cast<unsigned long>((bytesOverflow / bytesPerMs) + 1);
+                std::this_thread::sleep_for(std::chrono::milliseconds(waitMs));
+                updateTxBuffer();
+            }
+        }
+        
+        // Add new bytes to buffer
+        txBufferUsed += newBytes;
+    }
+    
+    // Base64 encoder helper
+    static std::string base64_encode(const std::string &in) {
+        static const std::string b64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        std::string out;
+        int val=0, valb=-6;
+        for (unsigned char c : in) {
+            val = (val<<8) + c;
+            valb += 8;
+            while (valb>=0) {
+                out.push_back(b64_chars[(val>>valb)&0x3F]);
+                valb-=6;
+            }
+        }
+        if (valb>-6) out.push_back(b64_chars[((val<<8)>>(valb+8))&0x3F]);
+        while (out.size()%4) out.push_back('=');
+        return out;
+    }
+
+    // Flush the line buffer as a single SERIAL_EVENT
+    void flushLineBuffer() {
+        if (lineBuffer.empty()) return;
+        unsigned long ts = millis();
+        std::string enc = base64_encode(lineBuffer);
+        { std::lock_guard<std::mutex> lock(cerrMutex);
+          std::cerr << "[[SERIAL_EVENT:" << ts << ":" << enc << "]]" << std::endl;
+          std::cerr.flush(); }
+        // Simulate transmit time for the whole buffer
+        txDelay(lineBuffer.length());
+        lineBuffer.clear();
+    }
+
+    // Output string - buffer until newline; flush BEFORE backspace/carriage return
+    // so that the control char stays with its following content
+    // WITH BACKPRESSURE: blocks if TX buffer would overflow
+    void serialWrite(const std::string& s) {
+        // Apply backpressure before adding to output buffer
+        applyBackpressure(s.length());
+        
+        for (char c : s) {
+            if (c == '\b' || c == '\r') {
+                // Flush pending content BEFORE the control character
+                flushLineBuffer();
+                // Add backspace to buffer - it will be sent with the next char(s)
+                lineBuffer += c;
+            } else if (c == '\n') {
+                lineBuffer += c;
+                flushLineBuffer();
+            } else {
+                lineBuffer += c;
+            }
+        }
+    }
+    
+    void serialWrite(char c) {
+        // Apply backpressure for single character
+        applyBackpressure(1);
+        
+        if (c == '\b' || c == '\r') {
+            flushLineBuffer();
+            lineBuffer += c;
+        } else if (c == '\n') {
+            lineBuffer += c;
+            flushLineBuffer();
+        } else {
+            lineBuffer += c;
+        }
+    }
+    
+public:
+    SerialClass() {
+        std::cout.setf(std::ios::unitbuf);
+        std::cerr.setf(std::ios::unitbuf);
+        lastTxTime = std::chrono::steady_clock::now();
+    }
+    
+    // Fix for 'while (!Serial)' error
+    explicit operator bool() const {
+        return true; // The serial connection is always considered 'ready' in the mock
+    }
+    
+    void begin(long baud) {
+        _baudrate = baud;
+        // Reset TX buffer state
+        txBufferUsed = 0;
+        lastTxTime = std::chrono::steady_clock::now();
+        
+        if (!initialized) {
+            // Disable buffering on stdout and stderr for immediate output
+            setvbuf(stdout, NULL, _IONBF, 0);
+            setvbuf(stderr, NULL, _IONBF, 0);
+            initialized = true;
+        }
+    }
+    void begin(long baud, int config) { begin(baud); }
+    void end() {}
+    
+    // Set timeout for read operations (in milliseconds)
+    void setTimeout(unsigned long timeout) {
+        _timeout = timeout;
+    }
+    
+    int available() {
+        std::lock_guard<std::mutex> lock(mtx);
+        return static_cast<int>(inputBuffer.size());
+    }
+    
+    int read() {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (inputBuffer.empty()) return -1;
+        uint8_t b = inputBuffer.front();
+        inputBuffer.pop();
+        return b;
+    }
+
+    int peek() {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (inputBuffer.empty()) return -1;
+        return inputBuffer.front();
+    }
+    
+    // Read string until terminator character
+    String readStringUntil(char terminator) {
+        String result;
+        while (available() > 0) {
+            int c = read();
+            if (c == -1) break;
+            if ((char)c == terminator) break;
+            result.concat((char)c);
+        }
+        return result;
+    }
+    
+    // Read entire string (until timeout or no more data)
+    String readString() {
+        String result;
+        while (available() > 0) {
+            int c = read();
+            if (c == -1) break;
+            result.concat((char)c);
+        }
+        return result;
+    }
+    
+    // Read bytes into buffer, returns number of bytes read
+    size_t readBytes(char* buffer, size_t length) {
+        size_t count = 0;
+        while (count < length && available() > 0) {
+            int c = read();
+            if (c == -1) break;
+            buffer[count++] = (char)c;
+        }
+        return count;
+    }
+    
+    // Read bytes until terminator or length reached
+    size_t readBytesUntil(char terminator, char* buffer, size_t length) {
+        size_t count = 0;
+        while (count < length && available() > 0) {
+            int c = read();
+            if (c == -1) break;
+            if ((char)c == terminator) break;
+            buffer[count++] = (char)c;
+        }
+        return count;
+    }
+
+    void flush() {
+        // Flush the line buffer immediately (for Serial.print without newline)
+        flushLineBuffer();
+        std::cout << std::flush;
+    }
+    
+    // Helper for number format conversion - returns string
+    // Supports any base >= 2, matching Arduino's Print::printNumber() behavior
+    std::string formatNumber(long n, int base) {
+        if (base < 2) base = 10; // Arduino defaults to base 10 for invalid bases
+        
+        std::ostringstream oss;
+        if (base == DEC) {
+            oss << n;
+        } else if (base == HEX) {
+            oss << std::uppercase << std::hex << n << std::dec;
+        } else if (base == OCT) {
+            oss << std::oct << n << std::dec;
+        } else {
+            // General base conversion (BIN and any other base >= 2)
+            if (n == 0) { oss << "0"; }
+            else {
+                std::string result;
+                unsigned long un = (n < 0) ? (unsigned long)n : n;
+                while (un > 0) {
+                    int digit = un % base;
+                    result = (char)(digit < 10 ? '0' + digit : 'A' + digit - 10) + result;
+                    un /= base;
+                }
+                oss << result;
+            }
+        }
+        return oss.str();
+    }
+    
+    void printNumber(long n, int base) {
+        serialWrite(formatNumber(n, base));
+    }
+    
+    template<typename T> void print(T v) { 
+        std::ostringstream oss;
+        oss << v;
+        serialWrite(oss.str());
+    }
+    
+    // Special overload for byte/uint8_t (otherwise printed as char)
+    void print(byte v) { 
+        std::ostringstream oss;
+        oss << (int)v;
+        serialWrite(oss.str());
+    }
+    
+    // print with base format (DEC, HEX, OCT, BIN)
+    void print(int v, int base) { printNumber(v, base); }
+    void print(long v, int base) { printNumber(v, base); }
+    void print(unsigned int v, int base) { printNumber(v, base); }
+    void print(unsigned long v, int base) { printNumber(v, base); }
+    void print(byte v, int base) { printNumber(v, base); }
+    
+    // Overload for floating-point with decimal places
+    void print(float v, int decimals) {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(decimals) << v;
+        serialWrite(oss.str());
+    }
+    
+    void print(double v, int decimals) {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(decimals) << v;
+        serialWrite(oss.str());
+    }
+
+    template<typename T> void println(T v) { 
+        std::ostringstream oss;
+        oss << v << "\n";
+        serialWrite(oss.str());
+    }
+    
+    // Special overload for byte/uint8_t (otherwise printed as char)
+    void println(byte v) { 
+        std::ostringstream oss;
+        oss << (int)v << "\n";
+        serialWrite(oss.str());
+    }
+    
+    // println with base format (DEC, HEX, OCT, BIN)
+    void println(int v, int base) { 
+        serialWrite(formatNumber(v, base) + "\n");
+    }
+    void println(long v, int base) { 
+        serialWrite(formatNumber(v, base) + "\n");
+    }
+    void println(unsigned int v, int base) { 
+        serialWrite(formatNumber(v, base) + "\n");
+    }
+    void println(unsigned long v, int base) { 
+        serialWrite(formatNumber(v, base) + "\n");
+    }
+    void println(byte v, int base) { 
+        serialWrite(formatNumber(v, base) + "\n");
+    }
+    
+    // Overload for floating-point with decimal places
+    void println(float v, int decimals) {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(decimals) << v << "\n";
+        serialWrite(oss.str());
+    }
+    
+    void println(double v, int decimals) {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(decimals) << v << "\n";
+        serialWrite(oss.str());
+    }
+    
+    void println() { 
+        serialWrite("\n");
+    }
+
+    // parseInt() - Reads next integer from Serial Input
+    int parseInt() {
+        int result = 0;
+        int c;
+        
+        // Skip non-digit characters
+        while ((c = read()) != -1) {
+            if ((c >= '0' && c <= '9') || c == '-') {
+                break;
+            }
+        }
+        
+        if (c == -1) return 0;
+        
+        boolean negative = (c == '-');
+        if (!negative && c >= '0' && c <= '9') {
+            result = c - '0';
+        }
+        
+        while ((c = read()) != -1) {
+            if (c >= '0' && c <= '9') {
+                result = result * 10 + (c - '0');
+            } else {
+                break;
+            }
+        }
+        
+        return negative ? -result : result;
+    }
+    
+    // parseFloat() - Reads next float from Serial Input
+    float parseFloat() {
+        float result = 0.0f;
+        float fraction = 0.0f;
+        float divisor = 1.0f;
+        boolean negative = false;
+        boolean inFraction = false;
+        int c;
+        
+        // Skip non-digit characters (except minus and dot)
+        while ((c = read()) != -1) {
+            if ((c >= '0' && c <= '9') || c == '-' || c == '.') {
+                break;
+            }
+        }
+        
+        if (c == -1) return 0.0f;
+        
+        // Handle negative sign
+        if (c == '-') {
+            negative = true;
+            c = read();
+        }
+        
+        // Read integer and fractional parts
+        while (c != -1) {
+            if (c == '.') {
+                inFraction = true;
+            } else if (c >= '0' && c <= '9') {
+                if (inFraction) {
+                    divisor *= 10.0f;
+                    fraction += (c - '0') / divisor;
+                } else {
+                    result = result * 10.0f + (c - '0');
+                }
+            } else {
+                break;
+            }
+            c = read();
+        }
+        
+        result += fraction;
+        return negative ? -result : result;
+    }
+
+    void write(uint8_t b) { serialWrite(std::string(1, (char)b)); }
+    void write(const char* str) { serialWrite(std::string(str)); }
+    
+    // Write buffer with length
+    size_t write(const uint8_t* buffer, size_t size) {
+        std::string s;
+        s.reserve(size);
+        for (size_t i = 0; i < size; i++) {
+            s += (char)buffer[i];
+        }
+        serialWrite(s);
+        return size;
+    }
+    
+    size_t write(const char* buffer, size_t size) {
+        return write((const uint8_t*)buffer, size);
+    }
+
+    void mockInput(const char* data, size_t len) {
+        std::lock_guard<std::mutex> lock(mtx);
+        for (size_t i = 0; i < len; i++) {
+            inputBuffer.push(static_cast<uint8_t>(data[i]));
+        }
+    }
+
+    void mockInput(const std::string& data) {
+        mockInput(data.c_str(), data.size());
+    }
+};
+
+SerialClass Serial;
+
+// Implementation of delay() after SerialClass is defined
+inline void delay(unsigned long ms) { 
+    // Flush serial buffer FIRST so output appears before the delay
+    Serial.flush();
+    
+    // Direct sleep without chunking to avoid overhead from repeated system calls.
+    // The previous implementation split into 10ms chunks and called checkStdinForPinCommands()
+    // ~100 times per second, which added ~2ms per iteration (~200ms overhead for 1000ms delay).
+    // Real Arduino blocks completely during delay, so this matches expected behavior.
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+`;

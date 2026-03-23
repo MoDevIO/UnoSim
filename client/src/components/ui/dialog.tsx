@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
 
-const DialogTrigger = DialogPrimitive.Trigger;
+// DialogTrigger unused, internal only
 
 const DialogPortal = DialogPrimitive.Portal;
 
@@ -110,10 +110,10 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {
   Dialog,
-  DialogPortal,
-  DialogOverlay,
+  // DialogPortal, // internal only
+  // DialogOverlay, // internal only
   DialogClose,
-  DialogTrigger,
+  // DialogTrigger, // internal only
   DialogContent,
   DialogHeader,
   DialogFooter,

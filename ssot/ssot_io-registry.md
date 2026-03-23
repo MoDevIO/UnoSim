@@ -1,14 +1,12 @@
 # Textbeschreibung:
- Wir wollen zunächst nur über die IO-Registry reden. Die Storyline ist so:
+Die Storyline ist so:
 
 Im ino-File werden Pins verwendet. Die Verwendung der Pins soll in einer Tabelle dargestellt werden. Es geht um die Verwendung der Pins 0-13 und 14-19 (alias A0-A5) mit:
 * pinMode (INPUT, OUTPUT, INPUT_PULLUP)
 * digitalRead
 * digitalWrite
 
-
 Die IO-Registry ist eine Tabelle aller verwendeter Pins. Als Spalten existieren dann die Funktionen (siehe Bild).
-
 
 # Aktualisierung der Tabelle:
 Die Verwendung der Pins wird durch ein Parsing während der Eingabe ermittelt und dargestellt. Es kann aber auch sein, dass die Verwendung erst im laufenden Programm deutlich wird. Es soll soweit es geht das statische Parsing eingesetzt werden. Das Run-Time-Parsing wird zur Ergänzung der TAbelle verwendet.

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PinMode } from "./types/arduino.types";
 
 // Sketch types (non-DB, for MemStorage)
 export interface Sketch {
@@ -179,7 +180,7 @@ export interface IOPinRecord {
   pinId?: number;
   // ── Per-operation line arrays (for extended / eye-on view) ───────────────
   pinModeLines?: Array<number | "runtime">;
-  pinModeModes?: Array<"INPUT" | "OUTPUT" | "INPUT_PULLUP">;
+  pinModeModes?: Array<PinMode>;
   digitalReadLines?: Array<number | "runtime">;
   digitalWriteLines?: Array<number | "runtime">;
   analogReadLines?: Array<number | "runtime">;

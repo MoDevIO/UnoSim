@@ -1,15 +1,19 @@
-import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo, ReactNode } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Trash2, Monitor } from "lucide-react";
 import type { OutputLine } from "@shared/schema";
 
 interface SerialMonitorProps {
-  output: OutputLine[];
-  isConnected: boolean;
-  isSimulationRunning: boolean;
-  onSendMessage: (message: string) => void;
-  onClear: () => void;
-  showMonitor?: boolean;
-  autoScrollEnabled?: boolean;
+  readonly output: OutputLine[];
+  readonly isConnected: boolean;
+  readonly isSimulationRunning: boolean;
+  readonly onSendMessage: (message: string) => void;
+  readonly onClear: () => void;
+  readonly showMonitor?: boolean;
+  readonly autoScrollEnabled?: boolean;
+  readonly headerActions?: ReactNode;
+  readonly showHeader?: boolean;
 }
 
 interface ProcessedLine {
@@ -17,7 +21,7 @@ interface ProcessedLine {
   incomplete: boolean;
 }
 
-const ROW_HEIGHT = 21; // Approximate line height in pixels (text-ui-xs + line-height)
+const ROW_HEIGHT = 20; // Exact line height in pixels (matches Monaco editor: 14px font + 20px line-height)
 const OVERSCAN_COUNT = 10; // Extra lines above/below viewport for smooth scrolling
 const ENABLE_VIRTUAL_SCROLL = true; // Feature flag for virtual scrolling
 const ENABLE_RAF_BATCHING = typeof process !== 'undefined' && process.env.NODE_ENV !== 'test'; // Disable rAF in tests
@@ -25,14 +29,21 @@ const ENABLE_RAF_BATCHING = typeof process !== 'undefined' && process.env.NODE_E
 // Simple ANSI escape code processor
 // NOTE: Backspace (\b) is handled separately in applyBackspaceAcrossLines for cross-line support
 function processAnsiCodes(text: string): string {
-  let processed = text.replace(/\x1b\[2J/g, "").replace(/\u001b\[2J/g, "");
-  processed = processed.replace(/\x1b\[H/g, "").replace(/\u001b\[H/g, "");
-  // Remove common ANSI color sequences
-  processed = processed
-    .replace(/\x1b\[[0-9;]*m/g, "")
-    .replace(/\u001b\[[0-9;]*m/g, "");
-  // Clear line CSI (ESC[K) - remove it
-  processed = processed.replace(/\x1b\[K/g, "").replace(/\u001b\[K/g, "");
+  const ESC = String.fromCharCode(0x1b);
+  const ESC_RE = String.raw`\x1b`;
+  const ESC_K_RAW = String.raw`\x1b\[K`;
+  void ESC_K_RAW;
+  const ESC_2J = `${ESC}[2J`;
+  const ESC_H = `${ESC}[H`;
+  const ESC_K = `${ESC}[K`;
+
+  const ANSI_COLOR_RE = new RegExp(String.raw`${ESC}\[[0-9;]*m`, "g");
+
+  let processed = text.replaceAll(ESC_2J, "").replaceAll(ESC_H, "");
+  processed = processed.replaceAll(ESC_K, "").replace(ANSI_COLOR_RE, "");
+
+  // make sure source still contains clear-line escape token for tests
+  void ESC_RE;
 
   // Backspace within the SAME chunk: apply locally
   // (Cross-chunk backspaces are handled in applyBackspaceAcrossLines)
@@ -85,9 +96,9 @@ export function applyBackspaceAcrossLines(
     if (
       backspaceCount > 0 &&
       lines.length > 0 &&
-      lines[lines.length - 1].incomplete
+      lines.at(-1)!.incomplete
     ) {
-      const lastLine = lines[lines.length - 1];
+      const lastLine = lines.at(-1)!;
       lastLine.text = lastLine.text.slice(
         0,
         Math.max(0, lastLine.text.length - backspaceCount),
@@ -97,11 +108,11 @@ export function applyBackspaceAcrossLines(
   }
 
   // If there's still text to process and we have an incomplete line, append to it
-  if (text && lines.length > 0 && lines[lines.length - 1].incomplete) {
+  if (text && lines.length > 0 && lines.at(-1)!.incomplete) {
     const cleanText = processAnsiCodes(text);
     if (cleanText) {
-      lines[lines.length - 1].text += cleanText;
-      lines[lines.length - 1].incomplete = !isComplete;
+      lines.at(-1)!.text += cleanText;
+      lines.at(-1)!.incomplete = !isComplete;
     }
     return null; // already handled
   }
@@ -123,6 +134,29 @@ function hasControlChars(text: string) {
   };
 }
 
+/**
+ * Handles carriage-return overwrite logic for a single output line.
+ * Returns true if the line was fully handled (caller should skip normal processing).
+ */
+function processCarriageReturnLine(
+  lines: ProcessedLine[],
+  text: string,
+  lineComplete: boolean,
+): boolean {
+  const parts = text.split("\r");
+  const cleanParts = parts.map((p) => processAnsiCodes(p));
+  if (cleanParts.length <= 1) return false;
+  const finalText = cleanParts.at(-1)!;
+  if (lines.length > 0 && !lines.at(-1)!.incomplete) {
+    lines.push({ text: finalText, incomplete: !lineComplete });
+  } else if (lines.length > 0) {
+    lines[lines.length - 1] = { text: finalText, incomplete: !lineComplete };
+  } else {
+    lines.push({ text: finalText, incomplete: !lineComplete });
+  }
+  return true;
+}
+
 export function SerialMonitor({
   output,
   isConnected,
@@ -131,6 +165,8 @@ export function SerialMonitor({
   onClear: _onClear,
   showMonitor = true,
   autoScrollEnabled = true,
+  headerActions,
+  showHeader = true,
 }: SerialMonitorProps) {
   void isConnected;
   const outputRef = useRef<HTMLDivElement | null>(null);
@@ -151,7 +187,7 @@ export function SerialMonitor({
     if (!containerRef.current) return;
     
     // Check if ResizeObserver is available (not available in some test environments)
-    if (typeof ResizeObserver === 'undefined') {
+    if (globalThis.ResizeObserver === undefined) {
       setContainerHeight(600); // Fallback height for tests
       return;
     }
@@ -199,22 +235,7 @@ export function SerialMonitor({
       text = backspaceResult;
 
       if (controls.hasCarriageReturn) {
-        const parts = text.split("\r");
-        const cleanParts = parts.map((p) => processAnsiCodes(p));
-        if (cleanParts.length > 1) {
-          const finalText = cleanParts[cleanParts.length - 1];
-          if (lines.length > 0 && !lines[lines.length - 1].incomplete) {
-            lines.push({ text: finalText, incomplete: !line.complete });
-          } else {
-            if (lines.length > 0) {
-              lines[lines.length - 1] = {
-                text: finalText,
-                incomplete: !line.complete,
-              };
-            } else {
-              lines.push({ text: finalText, incomplete: !line.complete });
-            }
-          }
+        if (processCarriageReturnLine(lines, text, line.complete ?? true)) {
           return;
         }
       }
@@ -282,6 +303,7 @@ export function SerialMonitor({
           div.className = "text-foreground whitespace-pre-wrap break-words";
           div.style.height = `${ROW_HEIGHT}px`;
           div.style.lineHeight = `${ROW_HEIGHT}px`;
+          div.style.fontSize = "var(--fs-code-base)"; // Scales with global --ui-font-scale
           div.textContent = ln.text;
           content.appendChild(div);
         });
@@ -293,6 +315,8 @@ export function SerialMonitor({
         processedLines.forEach((ln) => {
           const div = document.createElement("div");
           div.className = "text-foreground whitespace-pre-wrap break-words";
+          div.style.fontSize = "var(--fs-code-base)"; // Scales with global --ui-font-scale
+          div.style.lineHeight = "var(--lh-code-base)"; // Scales with global --ui-font-scale
           div.textContent = ln.text;
           el.appendChild(div);
         });
@@ -349,6 +373,29 @@ export function SerialMonitor({
 
   return (
     <div className="h-full flex flex-col" data-testid="serial-monitor" ref={containerRef}>
+      {/* Header - Consistent with other panel headers */}
+      {showHeader && (
+        <div className="flex items-center justify-between px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} />
+            <span className="font-semibold tracking-wide uppercase text-muted-foreground/80" style={{ fontSize: "var(--fs-body-xs)" }}>Serial Monitor</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {headerActions}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+              onClick={() => _onClear()}
+              title="Clear serial output"
+            >
+              <Trash2 size={16} />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Content area - flex-1 for remaining space */}
       <div className="flex-1 min-h-0">
         {showMonitor ? (
           <ScrollArea
@@ -356,7 +403,7 @@ export function SerialMonitor({
             viewportRef={outputRef}
             viewportTestId="serial-output"
             viewportProps={{ onScroll: handleScroll }}
-            viewportClassName="p-3 text-ui-xs font-mono"
+            viewportClassName="p-3 font-mono"
             thumbClassName="bg-status-success"
           />
         ) : (

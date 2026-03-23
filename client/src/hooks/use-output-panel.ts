@@ -1,19 +1,23 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 import type { ParserMessage } from "@shared/schema";
+
+type CompilationResultType = "success" | "error" | null;
+type OutputTabType = "compiler" | "messages" | "registry" | "debug";
 
 export function useOutputPanel(
   hasCompilationErrors: boolean,
   cliOutput: string,
   parserMessages: ParserMessage[],
-  lastCompilationResult: "success" | "error" | null,
+  lastCompilationResult: CompilationResultType,
   parserMessagesContainerRef: React.RefObject<HTMLDivElement>,
   showCompilationOutput: boolean,
   setShowCompilationOutput: (value: boolean | ((prev: boolean) => boolean)) => void,
   setParserPanelDismissed: (value: boolean) => void,
-  setActiveOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") => void,
+  setActiveOutputTab: (tab: OutputTabType) => void,
   code: string,
 ) {
-  const outputPanelRef = useRef<any>(null);
+  const outputPanelRef = useRef<ImperativePanelHandle | null>(null);
   const outputTabsHeaderRef = useRef<HTMLDivElement | null>(null);
   const [outputPanelMinPercent, setOutputPanelMinPercent] = useState<number>(3);
   const [compilationPanelSize, setCompilationPanelSize] = useState(3);
@@ -22,7 +26,7 @@ export function useOutputPanel(
 
   // Helper function to open the output panel (via double-click on tabs)
   const openOutputPanel = useCallback(
-    (targetTab: "compiler" | "messages" | "registry" | "debug") => {
+    (targetTab: OutputTabType) => {
       // Mark as manually resized FIRST before showing panel (update both state and ref)
       outputPanelManuallyResizedRef.current = true;
       setOutputPanelManuallyResized(true);
@@ -47,16 +51,17 @@ export function useOutputPanel(
   );
 
   useEffect(() => {
-    const handler = (ev: any) => {
+    const handler: EventListener = (ev) => {
       try {
-        const newValue = Boolean(ev?.detail?.value);
+        const custom = ev as CustomEvent<{ value?: unknown }>;
+        const newValue = Boolean(custom?.detail?.value);
         setShowCompilationOutput(newValue);
         // Reset manual resize flag when toggling panel visibility (update both ref and state)
         outputPanelManuallyResizedRef.current = false;
         setOutputPanelManuallyResized(false);
         // Persist to localStorage
         try {
-          window.localStorage.setItem(
+          globalThis.localStorage.setItem(
             "unoShowCompileOutput",
             newValue ? "1" : "0",
           );
@@ -67,21 +72,30 @@ export function useOutputPanel(
         // ignore
       }
     };
-    document.addEventListener(
-      "showCompileOutputChange",
-      handler as EventListener,
-    );
-    return () =>
-      document.removeEventListener(
-        "showCompileOutputChange",
-        handler as EventListener,
-      );
+    document.addEventListener("showCompileOutputChange", handler);
+    return () => document.removeEventListener("showCompileOutputChange", handler);
   }, [setShowCompilationOutput]);
+
+  useEffect(() => {
+    const handler: EventListener = (ev) => {
+      try {
+        const custom = ev as CustomEvent<{ tab?: "compiler" | "messages" | "registry" | "debug" }>;
+        const tab = custom?.detail?.tab;
+        if (!tab) return;
+        setActiveOutputTab(tab);
+        setShowCompilationOutput(true);
+      } catch {
+        // ignore invalid payloads
+      }
+    };
+    document.addEventListener("setOutputTab", handler);
+    return () => document.removeEventListener("setOutputTab", handler);
+  }, [setActiveOutputTab, setShowCompilationOutput]);
 
   // Persist showCompilationOutput state to localStorage whenever it changes
   useEffect(() => {
     try {
-      window.localStorage.setItem(
+      globalThis.localStorage.setItem(
         "unoShowCompileOutput",
         showCompilationOutput ? "1" : "0",
       );
@@ -225,7 +239,7 @@ export function useOutputPanel(
       // Enforce absolute minimum height (px) equal to the header height (plus 0 gap target).
       // The panel is the bottom panel; keeping it at header height keeps the header near the bottom edge.
       const absoluteMinPx = headerHeight;
-      const currentMinPx = parseInt(panelNode.style.minHeight || "0", 10);
+      const currentMinPx = Number.parseInt(panelNode.style.minHeight || "0", 10);
       if (Number.isNaN(currentMinPx) || currentMinPx !== absoluteMinPx) {
         panelNode.style.minHeight = `${absoluteMinPx}px`;
       }
@@ -280,12 +294,12 @@ export function useOutputPanel(
         });
       });
     };
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("uiFontScaleChange", handleUiScale);
+    globalThis.addEventListener("resize", handleResize);
+    globalThis.addEventListener("uiFontScaleChange", handleUiScale);
     document.addEventListener("uiFontScaleChange", handleUiScale);
     return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("uiFontScaleChange", handleUiScale);
+      globalThis.removeEventListener("resize", handleResize);
+      globalThis.removeEventListener("uiFontScaleChange", handleUiScale);
       document.removeEventListener("uiFontScaleChange", handleUiScale);
     };
   }, [enforceOutputPanelFloor]);

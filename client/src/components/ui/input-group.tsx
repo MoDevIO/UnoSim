@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 import { SendHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export interface InputGroupProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  onSubmit?: () => void;
-  inputTestId?: string;
-  buttonTestId?: string;
+interface InputGroupProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  readonly onSubmit?: () => void;
+  readonly inputTestId?: string;
+  readonly buttonTestId?: string;
 }
 
 export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
@@ -23,7 +23,7 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
     ref,
   ) => {
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (onKeyDown) onKeyDown(e as any);
+      if (onKeyDown) onKeyDown(e);
       if (e.key === "Enter") {
         e.preventDefault();
         if (!disabled && onSubmit) onSubmit();
@@ -73,4 +73,5 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
 );
 InputGroup.displayName = "InputGroup";
 
-export default InputGroup;
+// default export removed; use named InputGroup export
+

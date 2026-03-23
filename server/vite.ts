@@ -1,9 +1,9 @@
 import express, { type Express } from "express";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createServer as createViteServer, createLogger } from "vite";
-import { type Server } from "http";
+import { type Server } from "node:http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 

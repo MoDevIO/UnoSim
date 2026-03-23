@@ -14,7 +14,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { CompilationWorkerPool } from "../../server/services/compilation-worker-pool";
 import { PooledCompiler } from "../../server/services/pooled-compiler";
-import type { CompilationResult } from "../../server/services/arduino-compiler";
 
 describe("PooledCompiler - Integration", () => {
   let compiler: PooledCompiler;
@@ -28,7 +27,7 @@ describe("PooledCompiler - Integration", () => {
     if (compiler) {
       try {
         await compiler.shutdown();
-      } catch (err) {
+      } catch {
         // noop if shutdown fails (e.g., in fallback mode)
       }
     }

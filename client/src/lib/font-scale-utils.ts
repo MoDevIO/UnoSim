@@ -8,15 +8,15 @@ export const FONT_SCALES = [
   { label: "XXL", value: 1.5, px: 20 },
 ] as const;
 
-export const FONT_SCALE_KEY = "unoFontScale";
+const FONT_SCALE_KEY = "unoFontScale"; // internal only
 export const DEFAULT_FONT_SCALE = 1.0;
 
 export function getCurrentFontScale(): number {
   try {
-    const stored = window.localStorage.getItem(FONT_SCALE_KEY);
+    const stored = globalThis.localStorage.getItem(FONT_SCALE_KEY);
     if (!stored) return DEFAULT_FONT_SCALE;
-    const parsed = parseFloat(stored);
-    return isNaN(parsed) ? DEFAULT_FONT_SCALE : parsed;
+    const parsed = Number.parseFloat(stored);
+    return Number.isNaN(parsed) ? DEFAULT_FONT_SCALE : parsed;
   } catch {
     return DEFAULT_FONT_SCALE;
   }
@@ -24,7 +24,7 @@ export function getCurrentFontScale(): number {
 
 export function setFontScale(scale: number): void {
   try {
-    window.localStorage.setItem(FONT_SCALE_KEY, String(scale));
+    globalThis.localStorage.setItem(FONT_SCALE_KEY, String(scale));
     document.documentElement.style.setProperty("--ui-font-scale", String(scale));
     document.dispatchEvent(
       new CustomEvent("uiFontScaleChange", { detail: { value: scale } })

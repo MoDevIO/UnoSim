@@ -7,52 +7,48 @@ import { ParserOutput } from "@/components/features/parser-output";
 import { X, LayoutGrid, Table } from "lucide-react";
 import clsx from "clsx";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
+import { pinModeToString } from "@shared/utils/arduino-utils";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 
-export type OutputTab = "compiler" | "messages" | "registry" | "debug";
+type OutputTab = "compiler" | "messages" | "registry" | "debug";
 
-export interface OutputPanelProps {
+interface OutputPanelProps {
   /* State */
-  activeOutputTab: OutputTab;
-  showCompilationOutput: boolean;
-  isSuccessState: boolean;
-  isModified: boolean;
-  compilationPanelSize: number;
-  outputPanelMinPercent: number;
-  debugMode: boolean;
-  debugViewMode: "table" | "tiles";
-  debugMessageFilter: string;
+  readonly activeOutputTab: OutputTab;
+  readonly isSuccessState: boolean;
+  readonly isModified: boolean;
+  readonly debugMode: boolean;
+  readonly debugViewMode: "table" | "tiles";
+  readonly debugMessageFilter: string;
 
   /* Data */
-  cliOutput: string;
-  parserMessages: ParserMessage[];
-  ioRegistry: IOPinRecord[];
-  debugMessages: DebugMessage[];
-  lastCompilationResult: string | null;
-  hasCompilationErrors: boolean;
+  readonly cliOutput: string;
+  readonly parserMessages: ParserMessage[];
+  readonly ioRegistry: IOPinRecord[];
+  readonly debugMessages: DebugMessage[];
+  readonly lastCompilationResult: string | null;
+  readonly hasCompilationErrors: boolean;
 
   /* Refs */
-  outputTabsHeaderRef: React.RefObject<HTMLDivElement>;
-  parserMessagesContainerRef: React.RefObject<HTMLDivElement>;
-  debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
+  readonly outputTabsHeaderRef: React.RefObject<HTMLDivElement>;
+  readonly parserMessagesContainerRef: React.RefObject<HTMLDivElement>;
+  readonly debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
 
   /* Actions */
-  onTabChange: (tab: OutputTab) => void;
-  openOutputPanel: (tab: OutputTab) => void;
-  onClose: () => void;
-  getOutputPanelSize?: () => number;
-  resizeOutputPanel?: (percent: number) => void;
+  readonly onTabChange: (tab: OutputTab) => void;
+  readonly openOutputPanel: (tab: OutputTab) => void;
+  readonly onClose: () => void;
 
-  onClearCompilationOutput: () => void;
-  onParserMessagesClear: () => void;
-  onParserGoToLine: (line: number) => void;
-  onInsertSuggestion: (suggestion: string, line?: number) => void;
-  onRegistryClear?: () => void;
+  readonly onClearCompilationOutput: () => void;
+  readonly onParserMessagesClear: () => void;
+  readonly onParserGoToLine: (line: number) => void;
+  readonly onInsertSuggestion: (suggestion: string, line?: number) => void;
+  readonly onRegistryClear?: () => void;
 
-  setDebugMessageFilter: (s: string) => void;
-  setDebugViewMode: (m: "table" | "tiles") => void;
-  onCopyDebugMessages: () => void;
-  onClearDebugMessages: () => void;
+  readonly setDebugMessageFilter: (s: string) => void;
+  readonly setDebugViewMode: (m: "table" | "tiles") => void;
+  readonly onCopyDebugMessages: () => void;
+  readonly onClearDebugMessages: () => void;
 }
 
 export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelProps) {
@@ -88,7 +84,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
 
   return (
     <Tabs value={activeOutputTab} onValueChange={(v) => onTabChange(v as OutputTab)} className="h-full flex flex-col">
-      <div ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="flex items-center justify-start px-2 h-[var(--ui-header-height)] bg-muted border-b">
+      <div ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="flex items-center justify-start px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b">
         <TabsList className="h-auto flex gap-1 bg-transparent items-center">
           <TabsTrigger value="compiler" onDoubleClick={() => openOutputPanel("compiler")} className={clsx("h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center", {
             "text-gray-400": lastCompilationResult === null,
@@ -122,9 +118,10 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
               const digitalReads = ops.filter((u) => u.operation.includes("digitalRead"));
               const digitalWrites = ops.filter((u) => u.operation.includes("digitalWrite"));
               const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
-                const match = u.operation.match(/pinMode:(\d+)/);
-                const mode = match ? parseInt(match[1]) : -1;
-                return mode === 0 ? "INPUT" : mode === 1 ? "OUTPUT" : mode === 2 ? "INPUT_PULLUP" : "UNKNOWN";
+                const pinModeRe = /pinMode:(\d+)/;
+                const match = pinModeRe.exec(u.operation);
+                const mode = match ? Number.parseInt(match[1]) : -1;
+                return pinModeToString(mode);
               });
               const uniqueModes = [...new Set(pinModes)];
               const hasMultipleModes = uniqueModes.length > 1;
@@ -139,9 +136,10 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 const digitalReads = ops.filter((u) => u.operation.includes("digitalRead"));
                 const digitalWrites = ops.filter((u) => u.operation.includes("digitalWrite"));
                 const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
-                  const match = u.operation.match(/pinMode:(\d+)/);
-                  const mode = match ? parseInt(match[1]) : -1;
-                  return mode === 0 ? "INPUT" : mode === 1 ? "OUTPUT" : mode === 2 ? "INPUT_PULLUP" : "UNKNOWN";
+                  const pinModeRe = /pinMode:(\d+)/;
+                  const match = pinModeRe.exec(u.operation);
+                  const mode = match ? Number.parseInt(match[1]) : -1;
+                  return pinModeToString(mode);
                 });
                 const uniqueModes = [...new Set(pinModes)];
                 const hasMultipleModes = uniqueModes.length > 1;
@@ -182,7 +180,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
         <ParserOutput
           messages={parserMessages}
           ioRegistry={ioRegistry}
-          messagesContainerRef={parserMessagesContainerRef as React.RefObject<HTMLDivElement>}
+          messagesContainerRef={parserMessagesContainerRef as unknown as React.RefObject<HTMLDivElement>}
           onClear={onParserMessagesClear}
           onGoToLine={onParserGoToLine}
           onInsertSuggestion={onInsertSuggestion}
@@ -202,7 +200,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 <span className="text-ui-xs text-muted-foreground whitespace-nowrap">Filter:</span>
                 <select value={debugMessageFilter} onChange={(e) => setDebugMessageFilter(e.target.value.toLowerCase())} className="flex-1 px-2 py-1 text-ui-xs bg-background border border-muted-foreground/20 rounded text-foreground min-w-0 max-w-xs">
                   <option value="">All Types</option>
-                  {Array.from(new Set(debugMessages.map((m) => m.type))).sort().map((type) => (
+                  {Array.from(new Set(debugMessages.map((m) => m.type))).sort((a, b) => a.localeCompare(b)).map((type) => (
                     <option key={type} value={type.toLowerCase()}>
                       {type}
                     </option>

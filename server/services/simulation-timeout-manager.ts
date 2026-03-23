@@ -3,11 +3,11 @@
 
 import { Logger } from "@shared/logger";
 
-export interface TimeoutCallback {
+interface TimeoutCallback {
   (): void;
 }
 
-export interface SimulationTimeoutManagerConfig {
+interface SimulationTimeoutManagerConfig {
   onTimeout?: TimeoutCallback;
 }
 

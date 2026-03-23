@@ -2,12 +2,10 @@ import { useCompileAndRun, CompileAndRunParams } from "./use-compile-and-run";
 import { useRef, useEffect } from "react";
 import type { MutableRefObject } from "react";
 import type { SetState } from "./use-compile-and-run";
-
-// original alias kept for compatibility (rare external refs)
-export type UseCompileAndRunParams = CompileAndRunParams;
+import type { IncomingArduinoMessage } from "@/types/websocket";
 
 // compilation-only parameters (simulation inputs are injected with no-ops)
-export type UseCompilationParams = Omit<
+type UseCompilationParams = Omit<
   CompileAndRunParams,
   |
     "serialEventQueueRef"
@@ -25,19 +23,19 @@ export type UseCompilationParams = Omit<
   // hook will use these to start the simulation over the network. this
   // keeps the helper convenient for pure-compile scenarios while still
   // allowing the integrated compile+run page to function correctly.
-  sendMessage?: (message: any) => void;
-  sendMessageImmediate?: (message: any) => boolean;
+  sendMessage?: (message: IncomingArduinoMessage) => void;
+  sendMessageImmediate?: (message: IncomingArduinoMessage) => boolean;
 };
 
 export function useCompilation(params: UseCompilationParams) {
   // merge passed compile params with harmless defaults for simulation fields
+  const emptyQueueRef = useRef<Array<{ payload: IncomingArduinoMessage; receivedAt: number }>>([]);
+
   const merged = useCompileAndRun({
     ...params,
     sendMessage: params.sendMessage ?? (() => {}),
-    // @ts-ignore intentionally provide fallback; if caller passed
-    // immediate sender we forward it, otherwise undefined is fine.
     sendMessageImmediate: params.sendMessageImmediate,
-    serialEventQueueRef: { current: [] } as MutableRefObject<any>,
+    serialEventQueueRef: emptyQueueRef,
     pendingPinConflicts: [],
     setPendingPinConflicts: () => {},
     isModified: false,
@@ -91,5 +89,5 @@ export function useCompilation(params: UseCompilationParams) {
     handleCompileAndStart,
     handleClearCompilationOutput: merged.handleClearCompilationOutput,
     clearOutputs: merged.clearOutputs,
-  } as any;
+  };
 }

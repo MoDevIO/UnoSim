@@ -123,7 +123,7 @@ describe("UnifiedGatekeeper - Performance Benchmarks", () => {
 
       // Queue 100 tasks
       const startTime = Date.now();
-      const queuedTasks = Array.from({ length: numTasks }, (_, i) =>
+      const queuedTasks = Array.from({ length: numTasks }, (_, _i) =>
         gk.acquireCompileSlot().then(release => {
           setTimeout(release, 1); // Quick release
         })
@@ -189,7 +189,7 @@ describe("UnifiedGatekeeper - Performance Benchmarks", () => {
     it("should cleanup all listeners on reset", async () => {
       const key = "reset-test";
 
-      const writeLock = await gatekeeper.acquireCacheLock(key, "write", 60000, "w");
+      const _writeLock = await gatekeeper.acquireCacheLock(key, "write", 60000, "w");
 
       // Queue some waiters
       gatekeeper.acquireCacheLock(key, "read", 60000, "r1").catch(() => {});

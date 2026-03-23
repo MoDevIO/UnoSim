@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import http from "http";
-import { createHash } from "crypto";
+import http from "node:http";
+import { createHash } from "node:crypto";
 
 /**
  * CLI Label Isolation Test (Self-Contained)
@@ -79,7 +79,10 @@ describe("CLI Label Session Isolation", () => {
             if (!sessionCompilations.has(sessionId)) {
               sessionCompilations.set(sessionId, []);
             }
-            sessionCompilations.get(sessionId)!.push(codeHash);
+            const sessionCompilationList = sessionCompilations.get(sessionId);
+            if (sessionCompilationList) {
+              sessionCompilationList.push(codeHash);
+            }
 
             const cached = compilationCache.has(codeHash);
             if (!cached) {
@@ -89,11 +92,12 @@ describe("CLI Label Session Isolation", () => {
               });
             }
 
+            const cacheEntry = compilationCache.get(codeHash);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(
               JSON.stringify({
                 success: true,
-                output: compilationCache.get(codeHash)!.result.output,
+                output: cacheEntry?.result.output ?? "",
                 cached,
                 codeHash: codeHash.slice(0, 8),
               }),

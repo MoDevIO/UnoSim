@@ -3,17 +3,61 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { getWebSocketManager } from "@/lib/websocket-manager";
 import { Logger } from "@shared/logger";
 import { buildGccCompilationErrorState } from "@/lib/compilation-error-state";
-import type { ParserMessage, IOPinRecord, WSMessage } from "@shared/schema";
+import type { ParserMessage, IOPinRecord, OutputLine, WSMessage } from "@shared/schema";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
-import type { PinStateType } from "@/hooks/use-simulation-store";
+import type { PinState, PinStateType } from "@/hooks/use-simulation-store";
+import type {
+  IncomingArduinoMessage,
+  SerialPayload,
+  PinStatePayload,
+  PinStateBatchPayload,
+  IoRegistryPayload,
+  SimulationStatusPayload,
+  CompilationStatusPayload,
+  CompilationErrorPayload,
+  SimTelemetryPayload,
+} from "@/types/websocket";
 
 const logger = new Logger("useWebSocketHandler");
 
-type OutputLine = { text: string; complete: boolean };
+// NOTE: We intentionally keep OutputLine as a shared type from @shared/schema to
+// avoid duplicating the definition across components.
 
-type UseWebSocketHandlerParams = {
+// ─── Regex patterns (extracted to module level) ────────────────────────────
+/** Match "Pin Xx is..." messages (e.g., "Pin 13 is...") – S5843 fix (use .exec()) */
+const PIN_MESSAGE_RE = /Pin\s+(\S+)\s+is/;
+
+/** Extract pin key from Arduino parser message (e.g., "Pin 13 is..." → "13") */
+function extractPinKeyFromMessage(msg: string): string | null {
+  const match = PIN_MESSAGE_RE.exec(msg);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Merge incoming parser warnings into existing messages.
+ * Replaces stale "pinMode() was never called" messages for the same pin,
+ * deduplicates, and returns the new array (or the original if nothing changed).
+ * Extracted to fix S2004 (nesting depth) in useWebSocketHandler.
+ */
+function mergeParserWarnings(
+  prev: ParserMessage[],
+  usageWarnings: ParserMessage[],
+): ParserMessage[] {
+  const cleanedPrev = prev.filter((existing) => {
+    if (existing.category !== "pins") return true;
+    if (!existing.message.includes("pinMode() was never called")) return true;
+    const pinKey = extractPinKeyFromMessage(existing.message);
+    if (!pinKey) return true;
+    return !usageWarnings.some((m) => extractPinKeyFromMessage(m.message) === pinKey);
+  });
+  const existingKeys = new Set(cleanedPrev.map((m) => `${m.category}:${m.message}`));
+  const newMessages = usageWarnings.filter((m) => !existingKeys.has(`${m.category}:${m.message}`));
+  return newMessages.length > 0 ? [...cleanedPrev, ...newMessages] : cleanedPrev;
+}
+
+export type UseWebSocketHandlerParams = {
   // read-only state used inside the handler
-  simulationStatus: string;
+  simulationStatus: "running" | "stopped" | "paused";
 
   // callbacks / setters from parent scope
   addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http") => void;
@@ -21,23 +65,23 @@ type UseWebSocketHandlerParams = {
   appendSerialOutput: (text: string) => void;
   appendRenderedText: (text: string) => void;
   setSerialOutput: React.Dispatch<React.SetStateAction<OutputLine[]>>;
-  setArduinoCliStatus: (v: any) => void;
+  setArduinoCliStatus: React.Dispatch<React.SetStateAction<"idle" | "compiling" | "success" | "error">>;
   setCliOutput: React.Dispatch<React.SetStateAction<string>>;
   setHasCompilationErrors: React.Dispatch<React.SetStateAction<boolean>>;
   setLastCompilationResult: React.Dispatch<React.SetStateAction<"success" | "error" | null>>;
   setShowCompilationOutput: React.Dispatch<React.SetStateAction<boolean>>;
   setParserPanelDismissed: React.Dispatch<React.SetStateAction<boolean>>;
   setActiveOutputTab: React.Dispatch<React.SetStateAction<"compiler" | "messages" | "registry" | "debug">>;
-  setCompilationStatus: React.Dispatch<React.SetStateAction<any>>;
-  setSimulationStatus: React.Dispatch<React.SetStateAction<any>>;
+  setCompilationStatus: React.Dispatch<React.SetStateAction<"ready" | "compiling" | "success" | "error">>;
+  setSimulationStatus: React.Dispatch<React.SetStateAction<"running" | "stopped" | "paused">>;
 
   stopRendering: () => void;
   pauseRendering: () => void;
   resumeRendering: () => void;
 
-  serialEventQueueRef: React.MutableRefObject<Array<{ payload: any; receivedAt: number }>>;
+  serialEventQueueRef: React.MutableRefObject<Array<{ payload: IncomingArduinoMessage; receivedAt: number }>>;
 
-  setPinStates: React.Dispatch<React.SetStateAction<any[]>>;
+  setPinStates: React.Dispatch<React.SetStateAction<PinState[]>>;
   setAnalogPinsUsed: React.Dispatch<React.SetStateAction<number[]>>;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   enqueuePinEvent: (pin: number, stateType: PinStateType, value: number) => void;
@@ -89,216 +133,258 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     sendMessage: sendMessageRaw,
   } = useWebSocket();
 
-  const sendMessage = useCallback((message: WSMessage | any) => {
-    sendMessageRaw(message as any);
+  const sendMessage = useCallback((message: WSMessage) => {
+    sendMessageRaw(message);
   }, [sendMessageRaw]);
+
+  // ─── Message handlers: extracted to reduce nesting depth and cognitive complexity ───
+
+  /** Handle sim_telemetry messages. */
+  const handleSimTelemetry = (message: SimTelemetryPayload) => {
+    // Push telemetry unconditionally: the server only sends sim_telemetry
+    // while the simulation is running, so the status guard is unnecessary.
+    // Dropping it avoids a timing issue where React batches the
+    // simulation_status: running message together with the first telemetry
+    // packet — causing the status to still read "stopped" when the handler
+    // runs and silently discarding the data.
+    telemetryStore.pushTelemetry(message.metrics);
+  };
+
+  /** Handle serial_output messages. */
+  const handleSerialOutput = (message: SerialPayload) => {
+    let text = (message.data ?? "").toString();
+    const isComplete = message.isComplete ?? true;
+
+    // Skip timing control messages
+    if (text.includes("[[TIME_RESUMED:") || text.includes("[[TIME_FROZEN:")) {
+      return;
+    }
+
+    setRxActivity((prev) => prev + 1);
+
+    const isNewlineOnly = text === "\n" || text === "\r\n";
+    if (isNewlineOnly) text = "";
+
+    const MAX_SERIAL_LINES = 5000;
+    const textTrimmed = text.trimEnd();
+    const isSystemMessage = textTrimmed.startsWith("--- ") && textTrimmed.endsWith(" ---");
+
+    if (isSystemMessage) {
+      appendRenderedText(text);
+    } else {
+      // The server now adds newlines after complete lines during batching.
+      // Only add a final newline if:
+      // 1. isComplete=true (this line had a newline originally)
+      // 2. text doesn't already end with newline (server already added it)
+      let textForRenderer: string;
+      if (isNewlineOnly) {
+        textForRenderer = "\n";
+      } else if (isComplete && !isNewlineOnly && !text.endsWith('\n')) {
+        textForRenderer = text + "\n";
+      } else {
+        textForRenderer = text;
+      }
+      appendSerialOutput(textForRenderer);
+    }
+
+    setSerialOutput((prev) => {
+      const newLines = [...prev];
+
+      if (isComplete) {
+        if (newLines.length > 0 && !newLines.at(-1)!.complete) {
+          newLines[newLines.length - 1] = {
+            text: newLines.at(-1)!.text + text,
+            complete: true,
+          };
+        } else if (text.length > 0) {
+          newLines.push({ text, complete: true });
+        }
+      } else if (newLines.length === 0 || newLines.at(-1)!.complete) {
+        newLines.push({ text, complete: false });
+      } else {
+        newLines[newLines.length - 1] = {
+          text: newLines.at(-1)!.text + text,
+          complete: false,
+        };
+      }
+
+      if (newLines.length > MAX_SERIAL_LINES) {
+        return newLines.slice(newLines.length - MAX_SERIAL_LINES);
+      }
+
+      return newLines;
+    });
+  };
+
+  /** Handle compilation_status messages. */
+  const handleCompilationStatus = (message: CompilationStatusPayload) => {
+    if (message.arduinoCliStatus !== undefined) {
+      setArduinoCliStatus(message.arduinoCliStatus);
+    }
+    if (message.message) {
+      setCliOutput(message.message);
+    }
+  };
+
+  /** Handle compilation_error messages. */
+  const handleCompilationError = (message: CompilationErrorPayload) => {
+    logger.info(`[WS] GCC Compilation Error detected: ${JSON.stringify(message.data)}`);
+    const gccErrorState = buildGccCompilationErrorState(message.data);
+    setCliOutput(gccErrorState.cliOutput);
+    setHasCompilationErrors(gccErrorState.hasCompilationErrors);
+    setLastCompilationResult(gccErrorState.lastCompilationResult);
+    setShowCompilationOutput(gccErrorState.showCompilationOutput);
+    setParserPanelDismissed(gccErrorState.parserPanelDismissed);
+    setActiveOutputTab(gccErrorState.activeOutputTab);
+    setCompilationStatus("error");
+    setSimulationStatus("stopped");
+  };
+
+  /** Handle simulation_status messages. */
+  const handleSimulationStatus = (message: SimulationStatusPayload) => {
+    const { status } = message;
+    setSimulationStatus(status);
+
+    if (status === "stopped") {
+      stopRendering();
+      if (serialEventQueueRef?.current) {
+        serialEventQueueRef.current = [];
+      }
+      setPinStates([]);
+      setAnalogPinsUsed([]);
+      resetPinUI({ keepDetected: true });
+      setCompilationStatus("ready");
+    } else if (status === "paused") {
+      pauseRendering();
+    } else if (status === "running") {
+      resumeRendering();
+    }
+  };
+
+  /** Handle pin_state messages. */
+  const handlePinState = (message: PinStatePayload) => {
+    const { pin, stateType, value } = message;
+    enqueuePinEvent(pin, stateType, value);
+  };
+
+  /** Handle pin_state_batch messages. */
+  const handlePinStateBatch = (message: PinStateBatchPayload) => {
+    for (const { pin, stateType, value } of message.states) {
+      enqueuePinEvent(pin, stateType, value);
+    }
+  };
+
+  /** Extract analog pins from IO registry operations. */
+  const extractAnalogPinsFromRegistry = (registry: IOPinRecord[]) => {
+    const analogPins = new Set<number>();
+    for (const record of registry) {
+      const usedOps = record.usedAt || [];
+      const hasAnalogOp = usedOps.some((u: { line: number; operation: string }) =>
+        u.operation === "analogRead" || u.operation === "analogWrite" || u.operation.startsWith("analogWrite:")
+      );
+      if (hasAnalogOp) {
+        const pinNum = pinToNumber(record.pin);
+        if (pinNum !== null && pinNum >= 14 && pinNum <= 19) {
+          analogPins.add(pinNum);
+        }
+      }
+    }
+    return analogPins;
+  };
+
+  /** Update analog pins used in the simulation. */
+  const updateAnalogPinsUsed = (analogPinsFromRegistry: Set<number>) => {
+    if (simulationStatus === "running") {
+      setAnalogPinsUsed((prev) => {
+        const merged = new Set([...prev, ...Array.from(analogPinsFromRegistry)]);
+        return Array.from(merged).sort((a, b) => a - b);
+      });
+    } else if (analogPinsFromRegistry.size > 0) {
+      const arr = Array.from(analogPinsFromRegistry).sort((a, b) => a - b);
+      setAnalogPinsUsed(arr);
+    }
+  };
+
+  /** Update pin states from IO registry. */
+  const updatePinStatesFromRegistry = (registry: IOPinRecord[]) => {
+    setPinStates((prev) => {
+      const newStates = [...prev];
+
+      for (const record of registry) {
+        if (!record.defined) continue;
+
+        const pinNum = pinToNumber(record.pin);
+        if (pinNum === null) continue;
+
+        const exists = newStates.find((p) => p.pin === pinNum);
+        if (!exists) {
+          newStates.push({
+            pin: pinNum,
+            mode: "INPUT",
+            value: 0,
+            type: "digital",
+          });
+        }
+      }
+
+      return newStates;
+    });
+  };
+
+  /** Handle io_registry messages. */
+  const handleIoRegistry = (message: IoRegistryPayload) => {
+    const { registry, baudrate } = message;
+    setIoRegistry(registry);
+
+    if (typeof baudrate === "number" && baudrate > 0) {
+      setBaudRate(baudrate);
+      setSerialBaudrate(baudrate);
+    }
+
+    const analogPinsFromRegistry = extractAnalogPinsFromRegistry(registry);
+    updateAnalogPinsUsed(analogPinsFromRegistry);
+    updatePinStatesFromRegistry(registry);
+
+    // Parser messages handling
+    const usageWarnings: ParserMessage[] = [];
+    if (usageWarnings.length > 0) {
+      setParserMessages((prev) => {
+        const updated = mergeParserWarnings(prev, usageWarnings);
+        if (updated !== prev) setParserPanelDismissed(false);
+        return updated;
+      });
+    }
+  };
 
   // Helper: single message processor (used by both the mount-consumer and
   // the reactive consumer). Extracted so initial queued messages are handled
   // the same way as runtime messages and to avoid duplicated logic.
-  const processMessage = (message: any) => {
+  const processMessage = (message: IncomingArduinoMessage) => {
     switch (message.type) {
-      case "sim_telemetry": {
-        if (simulationStatus === "running") {
-          telemetryStore.pushTelemetry((message as any).metrics);
-        }
+      case "sim_telemetry":
+        handleSimTelemetry(message);
         break;
-      }
-      case "serial_output": {
-        let text = ((message as any).data ?? "").toString();
-        const isComplete = (message as any).isComplete ?? true;
-
-        if (text.includes("[[TIME_RESUMED:") || text.includes("[[TIME_FROZEN:")) {
-          break;
-        }
-
-
-        setRxActivity((prev) => prev + 1);
-
-        const isNewlineOnly = text === "\n" || text === "\r\n";
-        if (isNewlineOnly) text = "";
-
-        const MAX_SERIAL_LINES = 5000;
-
-        const textTrimmed = text.trimEnd();
-        const isSystemMessage = textTrimmed.startsWith("--- ") && textTrimmed.endsWith(" ---");
-
-        if (isSystemMessage) {
-          appendRenderedText(text);
-        } else {
-          const textForRenderer = isNewlineOnly ? "\n" : (isComplete && !isNewlineOnly ? text + "\n" : text);
-          appendSerialOutput(textForRenderer);
-        }
-
-        setSerialOutput((prev) => {
-          const newLines = [...prev];
-
-          if (isComplete) {
-            if (newLines.length > 0 && !newLines[newLines.length - 1].complete) {
-              newLines[newLines.length - 1] = {
-                text: newLines[newLines.length - 1].text + text,
-                complete: true,
-              };
-            } else {
-              if (text.length > 0) {
-                newLines.push({ text, complete: true });
-              }
-            }
-          } else {
-            if (newLines.length === 0 || newLines[newLines.length - 1].complete) {
-              newLines.push({ text, complete: false });
-            } else {
-              newLines[newLines.length - 1] = {
-                text: newLines[newLines.length - 1].text + text,
-                complete: false,
-              };
-            }
-          }
-
-          if (newLines.length > MAX_SERIAL_LINES) {
-            return newLines.slice(newLines.length - MAX_SERIAL_LINES);
-          }
-
-          return newLines;
-        });
+      case "serial_output":
+        handleSerialOutput(message);
         break;
-      }
       case "compilation_status":
-        if ((message as any).arduinoCliStatus !== undefined) {
-          setArduinoCliStatus((message as any).arduinoCliStatus);
-        }
-        if ((message as any).message) {
-          setCliOutput((message as any).message);
-        }
+        handleCompilationStatus(message);
         break;
-      case "compilation_error": {
-        logger.info(`[WS] GCC Compilation Error detected: ${JSON.stringify((message as any).data)}`);
-        const gccErrorState = buildGccCompilationErrorState((message as any).data);
-        setCliOutput(gccErrorState.cliOutput);
-        setHasCompilationErrors(gccErrorState.hasCompilationErrors);
-        setLastCompilationResult(gccErrorState.lastCompilationResult);
-        setShowCompilationOutput(gccErrorState.showCompilationOutput);
-        setParserPanelDismissed(gccErrorState.parserPanelDismissed);
-        setActiveOutputTab(gccErrorState.activeOutputTab);
-        // mark compilation error state; gccStatus no longer tracked
-        setCompilationStatus("error");
-        setSimulationStatus("stopped");
-        // no need to reset gccStatus
+      case "compilation_error":
+        handleCompilationError(message);
         break;
-      }
-      case "simulation_status": {
-        setSimulationStatus((message as any).status);
-        if ((message as any).status === "stopped") {
-          stopRendering();
-          if (serialEventQueueRef && serialEventQueueRef.current) serialEventQueueRef.current = [];
-          setPinStates([]);
-          setAnalogPinsUsed([]);
-          resetPinUI({ keepDetected: true });
-          setCompilationStatus("ready");
-        } else if ((message as any).status === "paused") {
-          pauseRendering();
-        } else if ((message as any).status === "running") {
-          resumeRendering();
-        }
+      case "simulation_status":
+        handleSimulationStatus(message);
         break;
-      }
-      case "pin_state": {
-        const { pin, stateType, value } = message as any;
-        enqueuePinEvent(pin, stateType, value);
+      case "pin_state":
+        handlePinState(message);
         break;
-      }
-      case "pin_state_batch": {
-        const { states } = message as any as { states: Array<{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }> };
-        for (const { pin, stateType, value } of states) {
-          enqueuePinEvent(pin, stateType, value);
-        }
+      case "pin_state_batch":
+        handlePinStateBatch(message);
         break;
-      }
-      case "io_registry": {
-        const { registry, baudrate } = message as any;
-        setIoRegistry(registry);
-
-        if (typeof baudrate === "number" && baudrate > 0) {
-          setBaudRate(baudrate);
-          setSerialBaudrate(baudrate);
-        }
-
-        const analogPinsFromRegistry = new Set<number>();
-        for (const record of registry) {
-          const usedOps = record.usedAt || [];
-          const hasAnalogOp = usedOps.some((u: { line: number; operation: string }) =>
-            u.operation === "analogRead" || u.operation === "analogWrite" || u.operation.startsWith("analogWrite:")
-          );
-          if (hasAnalogOp) {
-            const pinNum = pinToNumber(record.pin);
-            if (pinNum !== null && pinNum >= 14 && pinNum <= 19) {
-              analogPinsFromRegistry.add(pinNum);
-            }
-          }
-        }
-
-        if (simulationStatus === "running") {
-          setAnalogPinsUsed((prev) => {
-            const merged = new Set([...prev, ...Array.from(analogPinsFromRegistry)]);
-            const arr = Array.from(merged).sort((a, b) => a - b);
-            return arr;
-          });
-        } else if (analogPinsFromRegistry.size > 0) {
-          const arr = Array.from(analogPinsFromRegistry).sort((a, b) => a - b);
-          setAnalogPinsUsed(arr);
-        }
-
-        setPinStates((prev) => {
-          const newStates = [...prev];
-
-          for (const record of registry) {
-            if (!record.defined) continue;
-
-            const pinNum = pinToNumber(record.pin);
-            if (pinNum === null) continue;
-
-            const exists = newStates.find((p) => p.pin === pinNum);
-            if (!exists) {
-              newStates.push({
-                pin: pinNum,
-                mode: "INPUT",
-                value: 0,
-                type: pinNum >= 14 && pinNum <= 19 ? "digital" : "digital",
-              });
-            }
-          }
-
-          return newStates;
-        });
-
-        const usageWarnings: ParserMessage[] = [];
-
-        if (usageWarnings.length > 0) {
-          setParserMessages((prev) => {
-            const cleanedPrev = prev.filter((existing) => {
-              if (existing.category !== "pins") return true;
-              if (!existing.message.includes("pinMode() was never called")) return true;
-              const pinMatch = existing.message.match(/Pin\s+(\S+)\s+is/);
-              if (!pinMatch) return true;
-              const pinKey = pinMatch[1];
-              const isReplaced = usageWarnings.some((m) => {
-                const newMatch = m.message.match(/Pin\s+(\S+)\s+is/);
-                return newMatch && newMatch[1] === pinKey;
-              });
-              return !isReplaced;
-            });
-
-            const existingMessages = new Set(cleanedPrev.map((m) => `${m.category}:${m.message}`));
-            const newMessages = usageWarnings.filter((m) => !existingMessages.has(`${m.category}:${m.message}`));
-            if (newMessages.length > 0) {
-              setParserPanelDismissed(false);
-              return [...cleanedPrev, ...newMessages];
-            }
-            return cleanedPrev;
-          });
-        }
+      case "io_registry":
+        handleIoRegistry(message);
         break;
-      }
     }
   };
 
@@ -324,7 +410,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
           processMessage(message);
         }
       }
-    } catch (err) {
+    } catch {
       // swallow - defensive
     }
   }, []);

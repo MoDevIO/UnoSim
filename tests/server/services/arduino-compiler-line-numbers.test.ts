@@ -6,8 +6,8 @@
  */
 
 import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
-import { spawn } from "child_process";
-import { writeFile, mkdir, rm } from "fs/promises";
+import { spawn } from "node:child_process";
+import { writeFile, mkdir, rm, mkdtemp } from "node:fs/promises";
 
 vi.setConfig({ testTimeout: 2000 });
 
@@ -24,21 +24,23 @@ const createMockProcess = () => {
   return mockProcess;
 };
 
-vi.mock("child_process", () => {
+vi.mock("node:child_process", () => {
   const spawnMock = vi.fn(() => createMockProcess());
   return {
     spawn: spawnMock,
     default: { spawn: spawnMock },
   };
 });
-vi.mock("fs/promises", () => ({
+vi.mock("node:fs/promises", () => ({
   writeFile: vi.fn(),
   mkdir: vi.fn(),
   rm: vi.fn(),
+  mkdtemp: vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir"),
   default: {
     writeFile: vi.fn(),
     mkdir: vi.fn(),
     rm: vi.fn(),
+    mkdtemp: vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir"),
   },
 }));
 
@@ -47,6 +49,7 @@ describe("ArduinoCompiler - Line Number Correction", () => {
   const mockWriteFile = writeFile as jest.MockedFunction<typeof writeFile>;
   const mockMkdir = mkdir as jest.MockedFunction<typeof mkdir>;
   const mockRm = rm as jest.MockedFunction<typeof rm>;
+  const mockMkdtemp = mkdtemp as jest.MockedFunction<typeof mkdtemp>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -55,6 +58,7 @@ describe("ArduinoCompiler - Line Number Correction", () => {
     // Standard mocks
     mockWriteFile.mockResolvedValue(undefined);
     mockMkdir.mockResolvedValue(undefined);
+    mockMkdtemp.mockResolvedValue("/tmp/unowebsim-mock-dir");
     mockRm.mockResolvedValue(undefined);
   });
 

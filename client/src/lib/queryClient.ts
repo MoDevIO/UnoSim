@@ -16,9 +16,9 @@ export async function apiRequest(
     ? { "Content-Type": "application/json" }
     : {};
 
-  if (typeof window !== "undefined") {
+  if (typeof globalThis.window !== "undefined") {
     try {
-      const testRunId = window.sessionStorage?.getItem("__TEST_RUN_ID__");
+      const testRunId = globalThis.sessionStorage?.getItem("__TEST_RUN_ID__");
       if (testRunId) {
         headers["x-test-run-id"] = testRunId;
       }
@@ -39,7 +39,7 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
+const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>

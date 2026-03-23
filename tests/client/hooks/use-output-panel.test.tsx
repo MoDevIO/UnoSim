@@ -340,7 +340,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle malformed showCompileOutputChange event gracefully", async () => {
-    const initialValue = localStorage.getItem("unoShowCompileOutput");
+    const _initialValue = localStorage.getItem("unoShowCompileOutput");
     renderHook(() => callHook(defaultProps));
 
     act(() => {
@@ -453,7 +453,7 @@ describe("useOutputPanel", () => {
     };
 
     act(() => {
-      window.dispatchEvent(new Event("resize"));
+      globalThis.dispatchEvent(new Event("resize"));
       vi.runAllTimers();
     });
 
@@ -470,7 +470,7 @@ describe("useOutputPanel", () => {
     result.current.outputPanelRef.current = { resize: mockResize };
 
     act(() => {
-      window.dispatchEvent(new Event("uiFontScaleChange"));
+      globalThis.dispatchEvent(new Event("uiFontScaleChange"));
       vi.runAllTimers();
     });
 
@@ -495,7 +495,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should cleanup window and document event listeners on unmount", () => {
-    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+    const removeEventListenerSpy = vi.spyOn(globalThis, "removeEventListener");
     const docRemoveListenerSpy = vi.spyOn(document, "removeEventListener");
 
     const { unmount } = renderHook(() =>
@@ -525,11 +525,11 @@ describe("useOutputPanel", () => {
   it("should handle localStorage errors gracefully when persisting showCompilationOutput", () => {
     // Replace localStorage.setItem with one that throws
     const originalSetItem = localStorage.setItem;
-    const originalWindowSetItem = window.localStorage.setItem;
+    const originalWindowSetItem = globalThis.localStorage.setItem;
     localStorage.setItem = () => {
       throw new Error("localStorage unavailable");
     };
-    window.localStorage.setItem = () => {
+    globalThis.localStorage.setItem = () => {
       throw new Error("localStorage unavailable");
     };
 
@@ -548,17 +548,17 @@ describe("useOutputPanel", () => {
     
     // Restore
     localStorage.setItem = originalSetItem;
-    window.localStorage.setItem = originalWindowSetItem;
+    globalThis.localStorage.setItem = originalWindowSetItem;
   });
 
   it("should handle localStorage errors in showCompileOutputChange event listener", () => {
     // Replace localStorage.setItem with one that throws
     const originalSetItem = localStorage.setItem;
-    const originalWindowSetItem = window.localStorage.setItem;
+    const originalWindowSetItem = globalThis.localStorage.setItem;
     localStorage.setItem = () => {
       throw new Error("localStorage unavailable");
     };
-    window.localStorage.setItem = () => {
+    globalThis.localStorage.setItem = () => {
       throw new Error("localStorage unavailable");
     };
 
@@ -576,7 +576,7 @@ describe("useOutputPanel", () => {
     
     // Restore
     localStorage.setItem = originalSetItem;
-    window.localStorage.setItem = originalWindowSetItem;
+    globalThis.localStorage.setItem = originalWindowSetItem;
   });
 
   it("should auto-minimize panel on successful compilation with no errors", () => {
@@ -736,7 +736,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle showCompileOutputChange event", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    renderHook(() => callHook(defaultProps));
 
     act(() => {
       const event = new CustomEvent("showCompileOutputChange", {
@@ -858,7 +858,7 @@ describe("useOutputPanel", () => {
     const enforceFloorSpy = vi.spyOn(result.current, 'enforceOutputPanelFloor');
 
     act(() => {
-      window.dispatchEvent(new Event("resize"));
+      globalThis.dispatchEvent(new Event("resize"));
       vi.runAllTimers();
     });
 
@@ -877,7 +877,7 @@ describe("useOutputPanel", () => {
     // Should not throw when dispatching font scale change event
     expect(() => {
       act(() => {
-        window.dispatchEvent(new Event("uiFontScaleChange"));
+        globalThis.dispatchEvent(new Event("uiFontScaleChange"));
         document.dispatchEvent(new Event("uiFontScaleChange"));
         vi.runAllTimers();
       });
@@ -885,7 +885,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should cleanup event listeners on unmount", () => {
-    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+    const removeEventListenerSpy = vi.spyOn(globalThis, "removeEventListener");
     const docRemoveListenerSpy = vi.spyOn(document, "removeEventListener");
 
     const { unmount } = renderHook(() => callHook(defaultProps));

@@ -36,10 +36,10 @@ function App() {
     const onOpenSettings = () => setSettingsOpen(true);
 
     document.addEventListener("keydown", onKey, { capture: true });
-    window.addEventListener("open-settings", onOpenSettings as EventListener);
+    globalThis.addEventListener("open-settings", onOpenSettings as EventListener);
     return () => {
       document.removeEventListener("keydown", onKey, { capture: true });
-      window.removeEventListener(
+      globalThis.removeEventListener(
         "open-settings",
         onOpenSettings as EventListener,
       );

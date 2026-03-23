@@ -5,14 +5,15 @@ import type { IOPinRecord } from "@shared/schema";
 import type { PinStateBatcher } from "./pin-state-batcher";
 import type { SerialOutputBatcher, SerialOutputTelemetry } from "./serial-output-batcher";
 import { Logger } from "@shared/logger";
-import { createWriteStream, type WriteStream } from "fs";
-import { join } from "path";
+import { computePinConflict, ensurePinModeOperation } from "./utils/pin-validator";
+import { createWriteStream, type WriteStream } from "node:fs";
+import { join } from "node:path";
 
-export interface RegistryUpdateCallback {
+interface RegistryUpdateCallback {
   (registry: IOPinRecord[], baudrate: number | undefined, reason?: string): void;
 }
 
-export interface PerformanceMetrics {
+interface PerformanceMetrics {
   timestamp: number;
   intendedPinChangesPerSecond: number;
   actualPinChangesPerSecond: number;
@@ -26,11 +27,11 @@ export interface PerformanceMetrics {
   serialDroppedBytesPerSecond: number;
 }
 
-export interface TelemetryUpdateCallback {
+interface TelemetryUpdateCallback {
   (metrics: PerformanceMetrics): void;
 }
 
-export interface RegistryManagerConfig {
+interface RegistryManagerConfig {
   onUpdate?: RegistryUpdateCallback;
   onTelemetry?: TelemetryUpdateCallback;
   enableTelemetry?: boolean;
@@ -40,23 +41,28 @@ export interface RegistryManagerConfig {
  * Helper to clean up pin record by removing line: 0 from usedAt/definedAt
  */
 function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
-  const cleaned = { ...pin };
-  
+  // Use a mutable copy so we can delete optional fields safely
+  const cleaned: Partial<IOPinRecord> = { ...pin };
+
   // Remove definedAt if line is 0
   if (cleaned.definedAt?.line === 0) {
-    delete (cleaned as any).definedAt;
+    delete cleaned.definedAt;
   }
-  
-  // Filter out usedAt entries with line: 0
+
+  // Filter out usedAt entries with line: 0 that have no operation (true placeholders).
+  // Runtime entries always have line: 0 but carry a non-empty operation string
+  // (e.g. "pinMode:0") – those must be preserved so the client can detect conflicts.
   if (cleaned.usedAt && cleaned.usedAt.length > 0) {
-    cleaned.usedAt = cleaned.usedAt.filter(entry => entry.line !== 0);
+    cleaned.usedAt = cleaned.usedAt.filter(
+      entry => entry.line !== 0 || !!entry.operation,
+    );
     // Remove usedAt entirely if empty
     if (cleaned.usedAt.length === 0) {
-      delete (cleaned as any).usedAt;
+      delete cleaned.usedAt;
     }
   }
-  
-  return cleaned;
+
+  return cleaned as IOPinRecord;
 }
 
 function mergeUsedAtEntries(
@@ -93,13 +99,14 @@ export class RegistryManager {
   private baudrate: number | undefined = undefined; // undefined = Serial.begin() not found in code
   private destroyed = false; // Prevent logging after destruction
   private debugStream: WriteStream | null = null; // Non-blocking telemetry stream
+  private telemetryPaused = false; // Used to keep telemetry heartbeat paused when requested
   /**
    * Anti-spam: tracks (pin, mode) pairs already sent via updatePinMode so that
    * repeated calls (e.g. from loop()) never trigger a redundant WS message.
    * Keyed as "<pinId>:<mode>" (e.g. "13:1").
    * Reset on reset() / next program start.
    */
-  private runtimeSentFingerprints = new Set<string>();
+  private readonly runtimeSentFingerprints = new Set<string>();
   private readonly logger = new Logger("RegistryManager");
   private readonly onUpdateCallback?: RegistryUpdateCallback;
   private readonly onTelemetryCallback?: TelemetryUpdateCallback;
@@ -108,13 +115,13 @@ export class RegistryManager {
   private serialOutputBatcher: SerialOutputBatcher | null = null; // Reference to SerialOutputBatcher for telemetry
   
   // Telemetry tracking
-  private telemetry = {
+  private readonly telemetry = {
     incomingEvents: 0,
     sentBatches: 0,
     serialOutputEvents: 0, // track serial output events
     serialOutputBytes: 0, // bytes in current interval
     serialOutputBytesTotal: 0, // cumulative bytes since start
-    // timestamp at which the simulation was paused (if any)
+    // timestamp at which the simulation was paused (if present)
     pauseTimestamp: null as number | null,
     lastReportTime: Date.now(),
   };
@@ -123,8 +130,11 @@ export class RegistryManager {
     this.onUpdateCallback = config.onUpdate;
     this.onTelemetryCallback = config.onTelemetry;
     this.enableTelemetry = config.enableTelemetry ?? false;
-    
-    // Telemetry heartbeat starts only when simulation is running
+
+    // Do NOT start heartbeat here. The telemetry callback (onTelemetry) requires
+    // executionState.telemetryCallback to be set first, which happens later in
+    // ExecutionManager.runSketch(). The heartbeat will start when the first
+    // batcher is attached (setPinStateBatcher/setSerialOutputBatcher).
   }
   
   /**
@@ -132,6 +142,12 @@ export class RegistryManager {
    */
   setPinStateBatcher(batcher: PinStateBatcher | null): void {
     this.pinStateBatcher = batcher;
+
+    // Start telemetry heartbeat when the first batcher is attached.
+    // This ensures we have metrics even if no IO_REGISTRY markers were emitted.
+    if (batcher && this.enableTelemetry && this.onTelemetryCallback && !this.telemetryPaused) {
+      this.startHeartbeat();
+    }
   }
   
   /**
@@ -139,13 +155,23 @@ export class RegistryManager {
    */
   setSerialOutputBatcher(batcher: SerialOutputBatcher | null): void {
     this.serialOutputBatcher = batcher;
+
+    if (batcher && this.enableTelemetry && this.onTelemetryCallback && !this.telemetryPaused) {
+      this.startHeartbeat();
+    }
   }
   
   /**
    * Start 1-second heartbeat for telemetry reporting
    */
   private startHeartbeat(): void {
-    if (this.heartbeatInterval) return;
+    if (this.heartbeatInterval) {
+      return;
+    }
+    if (this.telemetryPaused) {
+      return;
+    }
+
     this.heartbeatInterval = setInterval(() => {
       if (!this.destroyed) {
         const metrics = this.getPerformanceMetrics();
@@ -171,12 +197,13 @@ export class RegistryManager {
    * Stops sending telemetry data while paused
    */
   pauseTelemetry(): void {
+    this.telemetryPaused = true;
     this.stopTelemetry();
   }
 
   /**
    * Inform the manager of the exact timestamp when the simulation was paused.
-   * This allows any subsequent events (e.g. those buffered in OS pipes) to be
+   * This allows subsequent events (e.g. those buffered in OS pipes) to be
    * labelled with a correct 'pause' time rather than the later resume time.
    *
    * The current implementation simply stores the value for future use; the
@@ -192,6 +219,7 @@ export class RegistryManager {
    * Resets counters and restarts the heartbeat
    */
   resumeTelemetry(): void {
+    this.telemetryPaused = false;
     if (this.onTelemetryCallback && this.enableTelemetry) {
       // Reset timestamp for fresh start after pause
       this.telemetry.lastReportTime = Date.now();
@@ -200,14 +228,15 @@ export class RegistryManager {
   }
   
   /**
-   * Calculate and return current performance metrics
+   * Calculate pin metrics from PinStateBatcher telemetry
    */
-  private getPerformanceMetrics(): PerformanceMetrics {
-    const now = Date.now();
-    const timeElapsedMs = now - this.telemetry.lastReportTime;
-    const timeElapsedSec = timeElapsedMs / 1000;
-
-    // Get pin change telemetry from PinStateBatcher
+  private getPinMetrics(timeElapsedSec: number): {
+    intendedPinChangesPerSecond: number;
+    actualPinChangesPerSecond: number;
+    droppedPinChangesPerSecond: number;
+    batchesPerSecond: number;
+    avgStatesPerBatch: number;
+  } {
     let intendedPinChangesPerSecond = 0;
     let actualPinChangesPerSecond = 0;
     let droppedPinChangesPerSecond = 0;
@@ -236,12 +265,31 @@ export class RegistryManager {
         : 0;
     }
 
-    // Get serial output telemetry from SerialOutputBatcher
+    return {
+      intendedPinChangesPerSecond,
+      actualPinChangesPerSecond,
+      droppedPinChangesPerSecond,
+      batchesPerSecond,
+      avgStatesPerBatch,
+    };
+  }
+
+  /**
+   * Calculate serial output metrics from SerialOutputBatcher telemetry
+   */
+  private getSerialMetrics(timeElapsedSec: number): {
+    serialOutputPerSecond: number;
+    serialBytesPerSecond: number;
+    serialIntendedBytesPerSecond: number;
+    serialDroppedBytesPerSecond: number;
+    serialBytesTotal: number;
+    batcherTelemetry: SerialOutputTelemetry | null;
+  } {
     let serialOutputPerSecond = 0;
     let serialBytesPerSecond = 0;
     let serialIntendedBytesPerSecond = 0;
     let serialDroppedBytesPerSecond = 0;
-    let serialBytesTotal = this.telemetry.serialOutputBytesTotal; // Fallback for no batcher
+    let serialBytesTotal = this.telemetry.serialOutputBytesTotal;
     let batcherTelemetry: SerialOutputTelemetry | null = null;
 
     if (this.serialOutputBatcher) {
@@ -270,6 +318,45 @@ export class RegistryManager {
       // Total bytes from batcher (cumulative, never reset)
       serialBytesTotal = batcherTelemetry.totalBytes;
     }
+
+    return {
+      serialOutputPerSecond,
+      serialBytesPerSecond,
+      serialIntendedBytesPerSecond,
+      serialDroppedBytesPerSecond,
+      serialBytesTotal,
+      batcherTelemetry,
+    };
+  }
+
+  /**
+   * Calculate and return current performance metrics
+   */
+  private getPerformanceMetrics(): PerformanceMetrics {
+    const now = Date.now();
+    const timeElapsedMs = now - this.telemetry.lastReportTime;
+    const timeElapsedSec = timeElapsedMs / 1000;
+
+    // Delegate to specialized metrics functions
+    const pinMetrics = this.getPinMetrics(timeElapsedSec);
+    const serialMetrics = this.getSerialMetrics(timeElapsedSec);
+
+    const {
+      intendedPinChangesPerSecond,
+      actualPinChangesPerSecond,
+      droppedPinChangesPerSecond,
+      batchesPerSecond,
+      avgStatesPerBatch,
+    } = pinMetrics;
+
+    const {
+      serialOutputPerSecond,
+      serialBytesPerSecond,
+      serialIntendedBytesPerSecond,
+      serialDroppedBytesPerSecond,
+      serialBytesTotal,
+      batcherTelemetry,
+    } = serialMetrics;
 
     const metrics: PerformanceMetrics = {
       timestamp: now,
@@ -316,7 +403,9 @@ export class RegistryManager {
           }) + "\n";
           // Non-blocking write via stream
           if (!this.debugStream) {
-            this.debugStream = createWriteStream(debugPath, { flags: "a" });
+            const stream = createWriteStream(debugPath, { flags: "a" });
+            stream.on("error", () => { this.debugStream = null; });
+            this.debugStream = stream;
           }
           this.debugStream.write(debugLine);
         } catch {
@@ -331,7 +420,7 @@ export class RegistryManager {
   /**
    * Start collecting registry data (called when [[IO_REGISTRY_START]] marker is received)
    * 
-   * NEW: Implements "Initial Sync Flush" to ensure any runtime pin definitions (e.g., from updatePinMode)
+   * NEW: Implements "Initial Sync Flush" to ensure runtime pin definitions (e.g., from updatePinMode)
    * are sent to clients before the registry is cleared. This prevents losing pin definitions that arrive
    * before the IO_REGISTRY_START marker.
    */
@@ -340,7 +429,7 @@ export class RegistryManager {
     // Collection start (not logged individually — too noisy).
     
     // ROBUSTNESS: Flush current registry state before clearing
-    // This ensures any pins added via updatePinMode before IO_REGISTRY_START marker are sent
+    // This ensures pins added via updatePinMode before IO_REGISTRY_START marker are sent
     if (!this.waitingForRegistry && this.registry.length > 0 && this.isDirty) {
       const hasDefinedPins = this.registry.some((p) => p.defined);
       if (hasDefinedPins) {
@@ -364,9 +453,23 @@ export class RegistryManager {
     this.telemetry.lastReportTime = Date.now();
     
     if (this.onTelemetryCallback && this.enableTelemetry) {
-      this.stopTelemetry(); // Clear any previous heartbeat
+      this.stopTelemetry(); // Clear previous heartbeat
       this.startHeartbeat();
     }
+  }
+
+  /**
+   * Detect and annotate conflicts on a single pin record in-place.
+   *
+   * Checks:
+   *   – Multiple distinct pinMode modes in usedAt  → TC11 / multi-mode conflict
+   *   – INPUT/INPUT_PULLUP mode + digitalWrite/analogWrite in usedAt  → TC9
+   *   – OUTPUT mode combined with digitalRead/analogRead in usedAt  → TC9b
+   */
+  private detectConflictsForPin(pin: IOPinRecord): void {
+    const conflictInfo = computePinConflict(pin);
+    pin.conflict = conflictInfo.conflict;
+    pin.conflictMessage = conflictInfo.conflict ? conflictInfo.conflictMessage : undefined;
   }
 
   /**
@@ -424,6 +527,12 @@ export class RegistryManager {
       `Registry collection complete: ${this.registry.length} pins`,
     );
     this.isCollecting = false;
+
+    // Annotate conflicts now that all pins from the IO_REGISTRY burst are known
+    for (const pin of this.registry) {
+      this.detectConflictsForPin(pin);
+    }
+
     this.isDirty = true;
     const nextHash = this.computeRegistryHash();
     if (nextHash !== this.registryHash) {
@@ -459,78 +568,99 @@ export class RegistryManager {
   }
 
   /**
+   * Check if we should skip this pin mode update (anti-spam check)
+   */
+  private shouldSkipPinMode(pin: number, mode: number): boolean {
+    const fingerprint = `${pin}:${mode}`;
+    return this.runtimeSentFingerprints.has(fingerprint);
+  }
+
+  /**
+   * Track that we've sent this pin mode combination
+   */
+  private markPinModeSent(pin: number, mode: number): void {
+    const fingerprint = `${pin}:${mode}`;
+    this.runtimeSentFingerprints.add(fingerprint);
+  }
+
+  /**
    * Update a pin's mode at runtime (called when [[PIN_MODE:pin:mode]] is received)
    */
   updatePinMode(pin: number, mode: number): void {
     if (this.destroyed) return;
-    // ── Anti-spam: skip if this (pin, mode) was already sent ─────────────────
-    const fingerprint = `${pin}:${mode}`;
-    if (this.runtimeSentFingerprints.has(fingerprint)) {
+
+    // Anti-spam: skip if this (pin, mode) was already sent
+    if (this.shouldSkipPinMode(pin, mode)) {
       this.telemetry.incomingEvents++;
-      return; // No new information – don't update registry or trigger WS send
+      return;
     }
+
     const pinStr = pin >= 14 && pin <= 19 ? `A${pin - 14}` : String(pin);
     const existing = this.registry.find((p) => p.pin === pinStr);
+    const isNewRecord = !existing;
+    const wasDefinedBefore = existing?.defined ?? false;
 
     this.logger.debug(
-      `updatePinMode: pin=${pin} (${pinStr}), mode=${mode}, existing=${!!existing}, wasDefinedBefore=${existing?.defined || false}`,
+      `updatePinMode: pin=${pin} (${pinStr}), mode=${mode}, existing=${!!existing}, wasDefinedBefore=${wasDefinedBefore}`,
     );
 
-    if (existing) {
-      const wasDefinedBefore = existing.defined;
-      existing.pinMode = mode;
-      existing.defined = true;
+    // Create or update registry record
+    const record: IOPinRecord = existing ?? { pin: pinStr, defined: true, pinMode: mode, usedAt: [] };
 
-      // Track pinMode operation in usedAt
-      const pinModeOp = `pinMode:${mode}`;
-      if (!existing.usedAt) existing.usedAt = [];
+    record.pinMode = mode;
+    record.defined = true;
 
-      const alreadyTracked = existing.usedAt.some(
-        (u) => u.operation === pinModeOp,
-      );
-      if (!alreadyTracked) {
-        existing.usedAt.push({ line: 0, operation: pinModeOp });
-      }
-      this.telemetry.incomingEvents++;
+    // Ensure the mode operation is tracked for conflict detection
+    ensurePinModeOperation(record, mode);
 
-      // Structural changes (defined: false -> true) must be sent immediately.
-      // If the pin was already defined, do not re-send the registry.
-      if (!wasDefinedBefore) {
-        this.logger.debug(
-          `Structural change: pin ${pinStr} marked as defined, sending immediately`,
-        );
-        this.logger.info(
-          `Registry send trigger: first-time pin use ${pinStr} (pinMode:${mode})`,
-        );
-        this.runtimeSentFingerprints.add(fingerprint);
-        this.isDirty = true;
-        if (!this.isCollecting && !this.waitingForRegistry) {
-          const nextHash = this.computeRegistryHash();
-          this.sendNow(nextHash, "pin-defined-changed");
-        }
-      } else {
-        // Already defined but new mode (mode change) – mark as sent
-        this.runtimeSentFingerprints.add(fingerprint);
-      }
-    } else {
-      // Create new pin record if not yet in registry
-      this.registry.push({
-        pin: pinStr,
-        defined: true,
-        pinMode: mode,
-        usedAt: [{ line: 0, operation: `pinMode:${mode}` }],
-      });
-      this.isDirty = true;
-      this.telemetry.incomingEvents++;
-      this.logger.debug(
-        `New pin record created: ${pinStr} with mode=${mode}, sending immediately`,
-      );
-      this.runtimeSentFingerprints.add(fingerprint);
-      if (!this.isCollecting && !this.waitingForRegistry) {
-        const nextHash = this.computeRegistryHash();
-        this.sendNow(nextHash, "pin-new-record");
-      }
+    // Validate and detect conflicts
+    const { shouldSend, reason } = this.validateAndDetectConflicts(
+      record,
+      isNewRecord,
+      wasDefinedBefore,
+      pinStr,
+    );
+
+    if (!existing) {
+      this.registry.push(record);
     }
+
+    this.telemetry.incomingEvents++;
+    this.markPinModeSent(pin, mode);
+    this.isDirty = true;
+
+    // Send based on validation result
+    if (shouldSend && !this.isCollecting && !this.waitingForRegistry) {
+      const nextHash = this.computeRegistryHash();
+      this.sendNow(nextHash, reason);
+    }
+  }
+
+  private validateAndDetectConflicts(
+    record: IOPinRecord,
+    isNewRecord: boolean,
+    wasDefinedBefore: boolean,
+    pinStr: string,
+  ): { shouldSend: boolean; reason: string } {
+    const hadConflict = Boolean(record.conflict);
+    const conflictInfo = computePinConflict(record);
+    record.conflict = conflictInfo.conflict;
+    record.conflictMessage = conflictInfo.conflict ? conflictInfo.conflictMessage : undefined;
+
+    // Send on first-time definition
+    if (!wasDefinedBefore) {
+      this.logger.debug(`Structural change: pin ${pinStr} marked as defined, sending immediately`);
+      this.logger.info(`Registry send trigger: first-time pin use ${pinStr} (pinMode:${record.pinMode})`);
+      return { shouldSend: true, reason: isNewRecord ? "pin-new-record" : "pin-defined-changed" };
+    }
+
+    // Send on new conflict detection
+    if (conflictInfo.conflict && !hadConflict) {
+      this.isDirty = true;
+      return { shouldSend: true, reason: "pin-conflict-detected" };
+    }
+
+    return { shouldSend: false, reason: "" };
   }
 
 
@@ -585,6 +715,11 @@ export class RegistryManager {
     this.isDirty = false;
     this.runtimeSentFingerprints.clear(); // reset anti-spam state for new sketch run
 
+    // Ensure telemetry is enabled for the next run.
+    // `pauseTelemetry()` sets `telemetryPaused` to true, which must be cleared
+    // on reset so that subsequent simulations can restart the heartbeat.
+    this.telemetryPaused = false;
+    this.destroyed = false; // Reset destroyed flag so heartbeat can run in next simulation
     this.stopTelemetry();
 
     if (this.debounceTimer) {
@@ -601,7 +736,7 @@ export class RegistryManager {
   }
 
   /**
-   * Destroy the manager and prevent any further logging or callbacks
+   * Destroy the manager and prevent further logging or callbacks
    * This is called during test teardown to prevent "log after tests are done" errors
    */
   destroy(): void {
@@ -643,10 +778,10 @@ export class RegistryManager {
 
   /**
    * Immediately send the registry via callback
-   * Cancels any pending throttle timer to ensure structural changes reach UI immediately
+   * Cancels pending throttle timer to ensure structural changes reach UI immediately
    */
   private sendNow(hash: string, reason?: string): void {
-    // Cancel any pending throttle timer to ensure immediate send
+    // Cancel pending throttle timer to ensure immediate send
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;

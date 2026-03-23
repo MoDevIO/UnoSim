@@ -1,17 +1,16 @@
 #!/bin/bash
 
 # ─────────────────────────────────────────────────────────────────
-# UnoSim Test & Build Pipeline (Policy-Compliant Version)
+# UnoSim Test & Build Pipeline (Stability & Resource Guard)
 # ─────────────────────────────────────────────────────────────────
 
 # Konfiguration
 LOG_FILE="run-tests_output.log"
-TOTAL_STEPS=5
+TOTAL_STEPS=7
 STEP=0
 SERVER_PID=""
 
-# Policy: Standard Log-Level für die Pipeline ist WARN (2) oder ERROR (1)
-# Das minimiert I/O-Last, während der Ring-Buffer bei Fehlern Kontext liefert.
+# Policy: Standard Log-Level für die Pipeline ist ERROR (1)
 export LOG_LEVEL=1 
 export NODE_ENV=test
 
@@ -39,9 +38,7 @@ run_task() {
     # Verzeichnisse sicherstellen
     mkdir -p temp build
     
-    # Policy-Konforme Ausführung:
-    # Wir nutzen die neue LOG_LEVEL Steuerung statt unzuverlässiger grep-Filter.
-    # set -o pipefail stellt sicher, dass Fehler im Command den Task stoppen.
+    # Policy-Konforme Ausführung
     (set -o pipefail; eval "$cmd" >> "$LOG_FILE" 2>&1) &
     local pid=$!
 
@@ -60,8 +57,6 @@ run_task() {
     else
         printf "\r  %b %-35s ${R}FEHLER${RS} (Code: $exit_code)\n" "$FAIL" "$label"
         echo -e "  ${R}${FAIL} Abbruch: Siehe $LOG_FILE${RS}"
-        # Tipp: Bei Fehlern enthält das LOG_FILE dank Ring-Buffer nun automatisch 
-        # den DEBUG-Kontext, auch wenn LOG_LEVEL auf 1 steht.
         exit 1
     fi
 }
@@ -94,10 +89,13 @@ div
 rm -f "$LOG_FILE"
 [ -d temp ] && rm -rf temp/*
 
-# 1. Statische Analyse
+# 1. Pre-Flight Check (Ressourcen & Zombies aufräumen)
+run_task "Pre-Flight Environment Check" "./check-leaks.sh --cleanup"
+
+# 2. Statische Analyse
 run_task "Statische Analyse" "npm run check"
 
-# 2. Unit-Tests & Coverage
+# 3. Unit-Tests & Coverage
 run_task "Unit-Tests & Coverage" "NODE_OPTIONS='--no-warnings' npm run test:unit -- --reporter=default --maxConcurrency=2"
 parse_test_results "Tests.*passed"
 
@@ -107,8 +105,8 @@ lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 sleep 1
 
 export PORT=3000
-# Server startet im Hintergrund mit kontrolliertem Logging
-npm run dev >> "$LOG_FILE" 2>&1 &
+# Server startet im Hintergrund (NODE_ENV=development für Vite-Snapshots)
+NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 
 for i in {1..15}; do
@@ -120,19 +118,22 @@ for i in {1..15}; do
     sleep 1
 done
 
-# 3. E2E-Tests (Playwright)
+# 4. E2E-Tests (Playwright)
 run_task "E2E-Tests (Playwright)" "npx playwright test"
 parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
 
-# 4. Integration-Tests (Cache)
+# 5. Integration-Tests (Cache)
 run_task "Cache-Optimization Tests" "npx vitest run tests/server/cache-optimization.test.ts --reporter=default"
 parse_test_results "Tests.*passed"
 
-# Server stoppen
+# 6. Post-Test Integrity Check (Leak-Detection nach allen Tests)
+run_task "Post-Test Integrity Check" "./check-leaks.sh --cleanup"
+
+# Server stoppen bevor der Build startet
 cleanup
 SERVER_PID=""
 
-# 5. Produktions-Build
+# 7. Produktions-Build
 run_task "Produktions-Build" "npm run build"
 
 echo

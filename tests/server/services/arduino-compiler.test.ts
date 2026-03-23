@@ -28,8 +28,8 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
-import { spawn } from "child_process";
-import { writeFile, mkdir, rm } from "fs/promises";
+import { spawn } from "node:child_process";
+import { writeFile, mkdir, rm, mkdtemp } from "node:fs/promises";
 import { Logger } from "@shared/logger";
 
 vi.setConfig({ testTimeout: 2000 });
@@ -47,25 +47,28 @@ const createMockProcess = () => {
   return mockProcess;
 };
 
-vi.mock("child_process", () => {
+vi.mock("node:child_process", () => {
   const spawnMock = vi.fn(() => createMockProcess());
   return {
     spawn: spawnMock,
     default: { spawn: spawnMock },
   };
 });
-vi.mock("fs/promises", () => {
+vi.mock("node:fs/promises", () => {
   const writeFileMock = vi.fn();
   const mkdirMock = vi.fn();
   const rmMock = vi.fn();
+  const mkdtempMock = vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir");
   return {
     writeFile: writeFileMock,
     mkdir: mkdirMock,
     rm: rmMock,
+    mkdtemp: mkdtempMock,
     default: {
       writeFile: writeFileMock,
       mkdir: mkdirMock,
       rm: rmMock,
+      mkdtemp: mkdtempMock,
     },
   };
 });
@@ -75,6 +78,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
   const mockWriteFile = writeFile as jest.MockedFunction<typeof writeFile>;
   const mockMkdir = mkdir as jest.MockedFunction<typeof mkdir>;
   const mockRm = rm as jest.MockedFunction<typeof rm>;
+  const mockMkdtemp = mkdtemp as jest.MockedFunction<typeof mkdtemp>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -85,6 +89,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
     // Standard fs/promises mocks
     mockWriteFile.mockResolvedValue(undefined);
     mockMkdir.mockResolvedValue(undefined);
+    mockMkdtemp.mockResolvedValue("/tmp/unowebsim-mock-dir");
     mockRm.mockResolvedValue(undefined);
   });
 

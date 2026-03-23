@@ -3,9 +3,9 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 import { getCompilationPool } from "./services/compilation-worker-pool";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,7 +52,7 @@ function startCleanupService() {
       if (deletedCount > 0) {
         console.log(`[Cleanup] Deleted ${deletedCount} old temp items`);
       }
-    } catch (err) {
+    } catch {
       // Silently handle cleanup errors
     }
   }, CLEANUP_INTERVAL_MS);
@@ -167,6 +167,9 @@ process.on("uncaughtException", (error) => {
 });
 
 let isServerReady = false; // Flag to indicate server initialization complete
+
+// Ensure temp/ directory exists before any services try to write into it
+fs.mkdirSync(path.join(process.cwd(), "temp"), { recursive: true });
 
 (async () => {
   const server = await registerRoutes(app);

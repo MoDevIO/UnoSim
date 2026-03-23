@@ -281,7 +281,7 @@ describe('Serial Output Stop/Pause/Resume', () => {
       batcher.pause();
       batcher.enqueue('Step2 data\n');
       vi.advanceTimersByTime(500);
-      const outputBetween = chunks.join('');
+      const _outputBetween = chunks.join('');
 
       // 3. Resume
       batcher.resume();

@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import path from 'path';
+import path from 'node:path';
 
 const __dirname = path.resolve();
 
@@ -33,6 +33,7 @@ export default defineConfig({
     },
     // Policy-Konformität: Flush-on-Failure Mechanismus
     // Bei Test-Fehlschlag wird Debug-Buffer auf Konsole geflushert
+    silent: false,
     testTimeout: 30000,
     hookTimeout: 10000,
   },

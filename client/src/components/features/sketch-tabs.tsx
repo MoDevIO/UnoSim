@@ -47,19 +47,19 @@ interface Tab {
 }
 
 interface SketchTabsProps {
-  tabs: Tab[];
-  activeTabId: string | null;
-  modifiedTabId: string | null;
-  onTabClick: (tabId: string) => void;
-  onTabClose: (tabId: string) => void;
-  onTabRename: (tabId: string, newName: string) => void;
-  onTabAdd: () => void;
-  onFilesLoaded?: (
+  readonly tabs: Tab[];
+  readonly activeTabId: string | null;
+  readonly modifiedTabId: string | null;
+  readonly onTabClick: (tabId: string) => void;
+  readonly onTabClose: (tabId: string) => void;
+  readonly onTabRename: (tabId: string, newName: string) => void;
+  readonly onTabAdd: () => void;
+  readonly onFilesLoaded?: (
     files: Array<{ name: string; content: string }>,
     replaceAll: boolean,
   ) => void;
-  onFormatCode?: () => void;
-  examplesMenu?: React.ReactNode;
+  readonly onFormatCode?: () => void;
+  readonly examplesMenu?: React.ReactNode;
 }
 
 export function SketchTabs({
@@ -106,10 +106,10 @@ export function SketchTabs({
     checkScroll();
     const container = tabsContainerRef.current;
     container?.addEventListener("scroll", checkScroll);
-    window.addEventListener("resize", checkScroll);
+    globalThis.addEventListener("resize", checkScroll);
     return () => {
       container?.removeEventListener("scroll", checkScroll);
-      window.removeEventListener("resize", checkScroll);
+      globalThis.removeEventListener("resize", checkScroll);
     };
   }, [tabs]);
 
@@ -135,9 +135,9 @@ export function SketchTabs({
   const handleRenameStart = (tabId: string, currentName: string) => {
     setRenamingTabId(tabId);
     // Remove file extension for display
-    const nameWithoutExtension = currentName.substring(
+    const nameWithoutExtension = currentName.slice(
       0,
-      currentName.lastIndexOf("."),
+      Math.max(0, currentName.lastIndexOf(".")),
     );
     setNewName(nameWithoutExtension);
   };
@@ -145,9 +145,9 @@ export function SketchTabs({
   const handleRenameStartDialog = (tabId: string, currentName: string) => {
     setRenamingTabId(tabId);
     // Remove file extension for display
-    const nameWithoutExtension = currentName.substring(
+    const nameWithoutExtension = currentName.slice(
       0,
-      currentName.lastIndexOf("."),
+      Math.max(0, currentName.lastIndexOf(".")),
     );
     setNewName(nameWithoutExtension);
     setIsRenameDialogOpen(true);
@@ -158,13 +158,13 @@ export function SketchTabs({
       const currentTab = tabs.find((t) => t.id === renamingTabId);
       if (currentTab) {
         // Extract the file extension
-        const extension = currentTab.name.substring(
-          currentTab.name.lastIndexOf("."),
+        const extension = currentTab.name.slice(
+          Math.max(0, currentTab.name.lastIndexOf(".")),
         );
         // Remove extension from new name if user included it
         let baseName = newName.trim();
         if (baseName.endsWith(extension)) {
-          baseName = baseName.substring(0, baseName.length - extension.length);
+          baseName = baseName.slice(0, Math.max(0, baseName.length - extension.length));
         }
         // Combine base name with original extension
         const finalName = baseName + extension;
@@ -202,7 +202,7 @@ export function SketchTabs({
       // Read all files
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const extension = file.name.substring(file.name.lastIndexOf("."));
+        const extension = file.name.slice(Math.max(0, file.name.lastIndexOf(".")));
 
         // Only allow .ino and .h files
         if (extension !== ".ino" && extension !== ".h") {
@@ -350,8 +350,8 @@ export function SketchTabs({
 
   return (
     <div
-      className="flex items-center bg-muted border-b border-border px-2"
-      style={{ minHeight: "var(--ui-header-height)" }}
+      className="flex items-center bg-muted border-b border-border px-[var(--header-padding-x)]"
+      style={{ height: "var(--ui-header-height)" }}
     >
       {/* Scroll left button */}
       {canScrollLeft && (
@@ -371,7 +371,7 @@ export function SketchTabs({
         className="flex items-center overflow-x-auto flex-1 scrollbar-hide"
         style={{
           scrollBehavior: "smooth",
-          minHeight: "var(--ui-header-height)",
+          height: "var(--ui-header-height)",
         }}
       >
         {tabs.map((tab) => (

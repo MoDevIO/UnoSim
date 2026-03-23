@@ -4,18 +4,42 @@ import { Logger } from "@shared/logger";
 
 const logger = new Logger("CodeEditor");
 
+/**
+ * Find the location of `void functionName()` in source lines.
+ * Returns 1-indexed startLine and openBraceLine, or -1 if not found.
+ */
+function findFunctionInLines(
+  lines: string[],
+  functionName: string,
+): { startLine: number; openBraceLine: number } {
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(`void ${functionName}()`)) {
+      const startLine = i + 1;
+      let openBraceLine = startLine;
+      for (let j = i; j < Math.min(i + 3, lines.length); j++) {
+        if (lines[j].includes("{")) {
+          openBraceLine = j + 1;
+          break;
+        }
+      }
+      return { startLine, openBraceLine };
+    }
+  }
+  return { startLine: -1, openBraceLine: -1 };
+}
+
 // Formatting function
 function formatCode(code: string): string {
   let formatted = code;
 
   // 1. Normalize line endings
-  formatted = formatted.replace(/\r\n/g, "\n");
+  formatted = formatted.replaceAll('\r\n', '\n');
 
   // 2. Add newlines after opening braces
-  formatted = formatted.replace(/\{\s*/g, "{\n");
+  formatted = formatted.replaceAll(/\{\s*/g, "{\n");
 
   // 3. Add newlines before closing braces
-  formatted = formatted.replace(/\s*\}/g, "\n}");
+  formatted = formatted.replaceAll(/[ \t\n\r]*\}/g, "\n}");
 
   // 4. Indent blocks (simple 2-space indentation)
   const lines = formatted.split("\n");
@@ -41,7 +65,7 @@ function formatCode(code: string): string {
   formatted = indentedLines.join("\n");
 
   // 5. Remove multiple consecutive blank lines
-  formatted = formatted.replace(/\n{3,}/g, "\n\n");
+  formatted = formatted.replaceAll(/\n{3,}/g, "\n\n");
 
   // 6. Ensure newline at end of file
   if (!formatted.endsWith("\n")) {
@@ -51,13 +75,116 @@ function formatCode(code: string): string {
   return formatted;
 }
 
+function insertSuggestionAtLine(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  model: monaco.editor.ITextModel,
+  insertLine: number,
+  text: string,
+) {
+  const indent = "  ";
+  const range = {
+    startLineNumber: insertLine,
+    startColumn: model.getLineMaxColumn(insertLine),
+    endLineNumber: insertLine,
+    endColumn: model.getLineMaxColumn(insertLine),
+  };
+
+  editor.executeEdits("insertSuggestion", [{ range, text: "\n" + indent + text }]);
+  editor.setPosition({
+    lineNumber: insertLine + 1,
+    column: indent.length + text.length + 1,
+  });
+  editor.revealPositionInCenter({
+    lineNumber: insertLine + 1,
+    column: 1,
+  });
+}
+
+/**
+ * Insert text at a specific line or at the current cursor position when line is undefined.
+ * Extracted from CodeEditor.insertTextAtLine to reduce Cognitive Complexity (S3776).
+ */
+function insertTextAtLineInEditor(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  model: monaco.editor.ITextModel,
+  line: number | undefined,
+  text: string,
+): void {
+  if (line === undefined) {
+    const pos = editor.getPosition();
+    if (!pos) return;
+    const endOfLine = model.getLineMaxColumn(pos.lineNumber);
+    const range = {
+      startLineNumber: pos.lineNumber,
+      startColumn: endOfLine,
+      endLineNumber: pos.lineNumber,
+      endColumn: endOfLine,
+    };
+    editor.executeEdits("insertSuggestion", [{ range, text: "\n" + text }]);
+    editor.setPosition({ lineNumber: pos.lineNumber + 1, column: text.length + 1 });
+    editor.revealPositionInCenter({ lineNumber: pos.lineNumber + 1, column: 1 });
+    return;
+  }
+  const targetLine = Math.min(Math.max(1, Math.floor(line)), model.getLineCount());
+  const endOfLine = model.getLineMaxColumn(targetLine);
+  const range = {
+    startLineNumber: targetLine,
+    startColumn: endOfLine,
+    endLineNumber: targetLine,
+    endColumn: endOfLine,
+  };
+  editor.executeEdits("insertSuggestion", [{ range, text: "\n" + text }]);
+  editor.setPosition({ lineNumber: targetLine + 1, column: text.length + 1 });
+  editor.revealPositionInCenter({ lineNumber: targetLine + 1, column: 1 });
+}
+
+/**
+ * Determine where to insert a suggestion: inside setup() or loop(),
+ * or at the current cursor if neither function is found.
+ * Extracted to reduce Cognitive Complexity of insertSuggestionSmartly (S3776).
+ */
+function resolveSmartInsertLine(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  model: monaco.editor.ITextModel,
+  text: string,
+): number {
+  const lines = model.getValue().split("\n");
+  const isSetupSuggestion =
+    text.includes("Serial.begin") ||
+    text.includes("pinMode") ||
+    text.includes("void setup");
+  const targetFunctionName = isSetupSuggestion ? "setup" : "loop";
+  const { startLine: functionStartLine, openBraceLine: functionOpenBraceIndex } =
+    findFunctionInLines(lines, targetFunctionName);
+  if (functionStartLine === -1) {
+    return editor.getPosition()?.lineNumber ?? 1;
+  }
+  return functionOpenBraceIndex > 0 ? functionOpenBraceIndex : functionStartLine;
+}
+
+
+interface CodeEditorAPI {
+  getValue: () => string;
+  undo?: () => void;
+  redo?: () => void;
+  find?: () => void;
+  selectAll?: () => void;
+  copy?: () => void;
+  cut?: () => void;
+  paste?: () => void;
+  goToLine?: (line: number) => void;
+  insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
+  insertTextAtLine?: (line: number | undefined, text: string) => void;
+  formatCode?: () => void;
+}
+
 interface CodeEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  onCompileAndRun?: () => void;
-  onFormat?: () => void;
-  readOnly?: boolean;
-  editorRef?: React.MutableRefObject<{ getValue: () => string } | null>;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly onCompileAndRun?: () => void;
+  readonly onFormat?: () => void;
+  readonly readOnly?: boolean;
+  readonly editorRef?: React.MutableRefObject<CodeEditorAPI | null>;
 }
 
 export function CodeEditor({
@@ -95,22 +222,26 @@ export function CodeEditor({
             "type",
           ],
           [
-            /\b(setup|loop|pinMode|digitalWrite|digitalRead|analogRead|analogWrite|delay|millis|Serial|if|else|for|while|do|switch|case|break|continue|return|HIGH|LOW|INPUT|OUTPUT|LED_BUILTIN)\b/,
+            /\b(setup|loop|pinMode|digitalWrite|digitalRead|analogRead|analogWrite|delay|millis|Serial)\b/,
+            "keyword",
+          ],
+          [
+            /\b(if|else|for|while|do|switch|case|break|continue|return|HIGH|LOW|INPUT|OUTPUT|LED_BUILTIN)\b/,
             "keyword",
           ],
           [/\b\d+\b/, "number"],
-          [/[{}()\[\]]/, "bracket"],
+          [/[{}()[\]]/,  "bracket"],
           [/[<>]=?/, "operator"],
           [/[+\-*/%=!&|^~]/, "operator"],
           [/[;,.]/, "delimiter"],
-          [/\b[a-zA-Z_][a-zA-Z0-9_]*(?=\s*\()/, "function"],
+          [/\b[a-zA-Z_]\w*(?=\s*\()/, "function"],
         ],
 
         // comment state for multiline comments
         comment: [
           [/\*\//, "comment.block", "@pop"],
-          [/[^\/*]+/, "comment.block"],
-          [/[\/*]/, "comment.block"],
+          [/[^*]+/, "comment.block"],
+          [/[/*]/, "comment.block"],
         ],
       },
     });
@@ -144,9 +275,9 @@ export function CodeEditor({
       try {
         const cs = getComputedStyle(document.documentElement);
         const baseFs =
-          parseFloat(cs.getPropertyValue("--ui-font-base-size")) || 16;
-        const baseLh = parseFloat(cs.getPropertyValue("--ui-line-base")) || 20;
-        const scale = parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1;
+          Number.parseFloat(cs.getPropertyValue("--ui-font-base-size")) || 16;
+        const baseLh = Number.parseFloat(cs.getPropertyValue("--ui-line-base")) || 20;
+        const scale = Number.parseFloat(cs.getPropertyValue("--ui-font-scale")) || 1;
         const fs = baseFs * scale;
         const lh = baseLh * scale;
         return { fs, lh };
@@ -187,14 +318,19 @@ export function CodeEditor({
       cursorStyle: "line",
       cursorWidth: 2,
       cursorSmoothCaretAnimation: "on",
+      // Prevent auto-indent and format-on-paste/type from mangling programmatically
+      // inserted code (e.g. via Playwright setValue / setEditorContent).
+      autoIndent: "none",
+      formatOnPaste: false,
+      formatOnType: false,
     });
 
     editorRef.current = editor;
 
     // E2E TEST HOOK: Expose the editor instance globally for Playwright
-    if (typeof window !== "undefined") {
+    if (globalThis.window !== undefined) {
       // Only expose the first editor (or last, if multiple)
-      (window as any).__MONACO_EDITOR__ = editor;
+      (globalThis as any).__MONACO_EDITOR__ = editor;
     }
 
     // Ensure Monaco re-measures and layouts after CSS has fully applied.
@@ -216,91 +352,44 @@ export function CodeEditor({
 
     // Expose getValue method to external ref if provided
     if (externalEditorRef) {
+      const withEditorFocus = (action: () => void) => {
+        try {
+          editor.focus();
+          action();
+        } catch {
+          // ignore focus failures
+        }
+      };
+
       externalEditorRef.current = {
         getValue: () => editor.getValue(),
         undo: () => {
-          try {
-            editor.focus();
-            editor.trigger("keyboard", "undo", {});
-          } catch {}
+          withEditorFocus(() => editor.trigger("keyboard", "undo", {}));
         },
         redo: () => {
-          try {
-            editor.focus();
-            editor.trigger("keyboard", "redo", {});
-          } catch {}
+          withEditorFocus(() => editor.trigger("keyboard", "redo", {}));
         },
         find: () => {
-          try {
-            editor.focus();
+          withEditorFocus(() => {
             const action = editor.getAction("actions.find");
             if (action) action.run();
-          } catch {}
+          });
         },
         selectAll: () => {
-          try {
-            editor.focus();
+          withEditorFocus(() => {
             const model = editor.getModel();
             if (model) {
               editor.setSelection(model.getFullModelRange());
               editor.revealRangeInCenter(model.getFullModelRange());
             }
-          } catch {}
+          });
         },
         insertTextAtLine: (line: number | undefined, text: string) => {
           try {
             editor.focus();
             const model = editor.getModel();
             if (!model) return;
-
-            // If no line specified, insert at current cursor position
-            if (line === undefined) {
-              const pos = editor.getPosition();
-              if (pos) {
-                const endOfLine = model.getLineMaxColumn(pos.lineNumber);
-                const range = {
-                  startLineNumber: pos.lineNumber,
-                  startColumn: endOfLine,
-                  endLineNumber: pos.lineNumber,
-                  endColumn: endOfLine,
-                };
-                editor.executeEdits("insertSuggestion", [
-                  { range, text: "\n" + text },
-                ]);
-                editor.setPosition({
-                  lineNumber: pos.lineNumber + 1,
-                  column: text.length + 1,
-                });
-                editor.revealPositionInCenter({
-                  lineNumber: pos.lineNumber + 1,
-                  column: 1,
-                });
-              }
-            } else {
-              // Insert at specified line (at the end of that line)
-              const targetLine = Math.min(
-                Math.max(1, Math.floor(line)),
-                model.getLineCount(),
-              );
-              const endOfLine = model.getLineMaxColumn(targetLine);
-              const range = {
-                startLineNumber: targetLine,
-                startColumn: endOfLine,
-                endLineNumber: targetLine,
-                endColumn: endOfLine,
-              };
-              editor.executeEdits("insertSuggestion", [
-                { range, text: "\n" + text },
-              ]);
-              editor.setPosition({
-                lineNumber: targetLine + 1,
-                column: text.length + 1,
-              });
-              editor.revealPositionInCenter({
-                lineNumber: targetLine + 1,
-                column: 1,
-              });
-            }
+            insertTextAtLineInEditor(editor, model, line, text);
           } catch (err) {
             console.error("Insert text at line failed:", err);
           }
@@ -313,160 +402,71 @@ export function CodeEditor({
             editor.focus();
             const model = editor.getModel();
             if (!model) return;
-
-            const fullCode = model.getValue();
-            const lines = fullCode.split("\n");
-
-            // Determine which function this suggestion belongs to
-            const isSetupSuggestion =
-              text.includes("Serial.begin") ||
-              text.includes("pinMode") ||
-              text.includes("void setup");
-
-            let targetFunctionName = isSetupSuggestion ? "setup" : "loop";
-
-            // Find the target function (setup or loop)
-            let functionStartLine = -1;
-            let functionOpenBraceIndex = -1;
-
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i].includes(`void ${targetFunctionName}()`)) {
-                functionStartLine = i + 1; // 1-indexed for Monaco
-                // Find the opening brace
-                for (let j = i; j < Math.min(i + 3, lines.length); j++) {
-                  if (lines[j].includes("{")) {
-                    functionOpenBraceIndex = j + 1;
-                    break;
-                  }
-                }
-                break;
-              }
-            }
-
-            // If function not found, just insert at current position
-            if (functionStartLine === -1) {
-              const pos = editor.getPosition();
-              if (pos) {
-                const endOfLine = model.getLineMaxColumn(pos.lineNumber);
-                const range = {
-                  startLineNumber: pos.lineNumber,
-                  startColumn: endOfLine,
-                  endLineNumber: pos.lineNumber,
-                  endColumn: endOfLine,
-                };
-                editor.executeEdits("insertSuggestion", [
-                  { range, text: "\n" + text },
-                ]);
-                editor.setPosition({
-                  lineNumber: pos.lineNumber + 1,
-                  column: 1,
-                });
-                editor.revealPositionInCenter({
-                  lineNumber: pos.lineNumber + 1,
-                  column: 1,
-                });
-              }
-              return;
-            }
-
-            // Insert inside the function body, after the opening brace
-            const insertLine =
-              functionOpenBraceIndex > 0
-                ? functionOpenBraceIndex
-                : functionStartLine;
-
-            // Always create a new line after the opening brace
-            const indent = "  "; // 2 spaces
-            const range = {
-              startLineNumber: insertLine,
-              startColumn: model.getLineMaxColumn(insertLine),
-              endLineNumber: insertLine,
-              endColumn: model.getLineMaxColumn(insertLine),
-            };
-            editor.executeEdits("insertSuggestion", [
-              { range, text: "\n" + indent + text },
-            ]);
-            editor.setPosition({
-              lineNumber: insertLine + 1,
-              column: indent.length + text.length + 1,
-            });
-            editor.revealPositionInCenter({
-              lineNumber: insertLine + 1,
-              column: 1,
-            });
+            const insertLine = resolveSmartInsertLine(editor, model, text);
+            insertSuggestionAtLine(editor, model, insertLine, text);
           } catch (err) {
             console.error("Insert suggestion smartly failed:", err);
           }
         },
         copy: () => {
-          try {
-            editor.focus();
+          withEditorFocus(() => {
             const model = editor.getModel();
             const sel = editor.getSelection();
             if (model && sel && !sel.isEmpty()) {
               const text = model.getValueInRange(sel);
-              try {
-                navigator.clipboard.writeText(text).catch(() => {});
-              } catch {}
+              navigator.clipboard.writeText(text).catch(() => {});
             }
-          } catch {}
+          });
         },
         cut: () => {
-          try {
-            editor.focus();
+          withEditorFocus(() => {
             const model = editor.getModel();
             const sel = editor.getSelection();
             if (model && sel && !sel.isEmpty()) {
               const text = model.getValueInRange(sel);
               // try clipboard write (async) but not await to avoid blocking
-              try {
-                navigator.clipboard.writeText(text).catch(() => {});
-              } catch {}
+              navigator.clipboard.writeText(text).catch(() => {});
               editor.executeEdits("cut", [{ range: sel, text: "" }]);
             }
-          } catch {}
+          });
         },
         paste: () => {
-          try {
-            editor.focus();
-            const model = editor.getModel();
-            const sel = editor.getSelection();
-            (async () => {
-              try {
-                const text = await navigator.clipboard.readText();
-                if (!text) return;
-                const pos = editor.getPosition();
-                if (model && sel && !sel.isEmpty()) {
-                  editor.executeEdits("paste", [{ range: sel, text }]);
-                } else if (pos) {
-                  const r = {
-                    startLineNumber: pos.lineNumber,
-                    startColumn: pos.column,
-                    endLineNumber: pos.lineNumber,
-                    endColumn: pos.column,
-                  };
-                  editor.executeEdits("paste", [{ range: r, text }]);
-                }
-              } catch (err) {
-                /* ignore clipboard read errors */
+          editor.focus();
+          const model = editor.getModel();
+          const sel = editor.getSelection();
+          (async () => {
+            try {
+              const text = await navigator.clipboard.readText();
+              if (!text) return;
+              const pos = editor.getPosition();
+              if (model && sel && !sel.isEmpty()) {
+                editor.executeEdits("paste", [{ range: sel, text }]);
+              } else if (pos) {
+                const r = {
+                  startLineNumber: pos.lineNumber,
+                  startColumn: pos.column,
+                  endLineNumber: pos.lineNumber,
+                  endColumn: pos.column,
+                };
+                editor.executeEdits("paste", [{ range: r, text }]);
               }
-            })();
-          } catch {}
+            } catch {
+              /* ignore clipboard read errors */
+            }
+          })();
         },
         goToLine: (ln: number) => {
-          try {
-            editor.focus();
-            const model = editor.getModel();
-            if (!model) return;
-            const line = Math.min(
-              Math.max(1, Math.floor(ln)),
-              model.getLineCount(),
-            );
-            editor.setPosition({ lineNumber: line, column: 1 });
-            editor.revealPositionInCenter({ lineNumber: line, column: 1 });
-          } catch {}
+          editor.focus();
+          const model = editor.getModel();
+          if (!model) return;
+          const line = Math.min(
+            Math.max(1, Math.floor(ln)),
+            model.getLineCount(),
+          );
+          editor.setPosition({ lineNumber: line, column: 1 });
+          editor.revealPositionInCenter({ lineNumber: line, column: 1 });
         },
-      } as any;
+      };
     }
 
     // Set up change listener with null check
@@ -483,7 +483,7 @@ export function CodeEditor({
     // Use onKeyDown instead of addCommand to avoid accidental deletion
     const keydownDisposable = editor.onKeyDown((e) => {
       // Check if Ctrl/Cmd + Shift + F (Format)
-      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const isMac = navigator.userAgent.includes("Mac");
       const isFormatKey =
         (isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.code === "KeyF";
 
@@ -540,7 +540,7 @@ export function CodeEditor({
     };
 
     // Keep listening for scale changes (some emit on document, others on window)
-    window.addEventListener("uiFontScaleChange", onScale);
+    globalThis.addEventListener("uiFontScaleChange", onScale);
     document.addEventListener("uiFontScaleChange", onScale);
     const handlePaste = (e: ClipboardEvent) => {
       e.preventDefault();
@@ -570,7 +570,7 @@ export function CodeEditor({
         const endColumn =
           lines.length === 1
             ? selection.startColumn + text.length
-            : lines[lines.length - 1].length + 1;
+            : lines.at(-1)!.length + 1;
 
         editor.setPosition({
           lineNumber: endLineNumber,
@@ -591,7 +591,7 @@ export function CodeEditor({
         domNode.removeEventListener("paste", handlePaste);
       }
       document.removeEventListener("uiFontScaleChange", onScale);
-      window.removeEventListener("uiFontScaleChange", onScale);
+      globalThis.removeEventListener("uiFontScaleChange", onScale);
       editor.dispose();
     };
   }, []);
@@ -619,7 +619,7 @@ export function CodeEditor({
 
   // Global keyboard shortcut for Cmd+U (Compile & Run) - works even when editor is not focused
   useEffect(() => {
-    const isMac = navigator.platform.toUpperCase().includes("MAC");
+    const isMac = navigator.userAgent.includes("Mac");
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const isCompileKey = (isMac ? e.metaKey : e.ctrlKey) && e.code === "KeyU";

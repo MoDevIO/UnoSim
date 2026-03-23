@@ -8,9 +8,9 @@ const DropdownMenu = DropdownMenuPrimitive.Root;
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
-const DropdownMenuGroup = DropdownMenuPrimitive.Group;
+// DropdownMenuGroup unused
 
-const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
+// DropdownMenuPortal unused internal
 
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 
@@ -184,13 +184,13 @@ export {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuCheckboxItem,
+  // DropdownMenuCheckboxItem, // unused
   DropdownMenuRadioItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
-  DropdownMenuGroup,
-  DropdownMenuPortal,
+  // DropdownMenuGroup, // unused
+  // DropdownMenuPortal, // internal only
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,

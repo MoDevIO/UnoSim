@@ -23,7 +23,7 @@ export interface PinStateBatch {
   timestamp: number;
 }
 
-export interface PinStateBatcherConfig {
+interface PinStateBatcherConfig {
   /** Tick interval in milliseconds (default: 50ms = 20 batches/sec) */
   tickIntervalMs?: number;
   /** Callback invoked with each batch */
@@ -31,8 +31,8 @@ export interface PinStateBatcherConfig {
 }
 
 export class PinStateBatcher {
-  private config: Required<PinStateBatcherConfig>;
-  private pendingStates = new Map<string, PinStateEvent>();
+  private readonly config: Required<PinStateBatcherConfig>;
+  private readonly pendingStates = new Map<string, PinStateEvent>();
   private tickTimer: NodeJS.Timeout | null = null;
   private intendedCount = 0;
   private actualCount = 0;

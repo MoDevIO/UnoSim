@@ -345,4 +345,179 @@ describe("PinStateBatcher", () => {
 
     batcher.destroy();
   });
+
+  // Test 2.1: Correct Dropping & Batching Under High Toggle Frequency
+  describe("High-Frequency Toggle Scenarios (Dropping & Batching Validation)", () => {
+    it("should correctly drop and batch when one pin toggles 100 times in single tick", () => {
+      const batches: any[] = [];
+      const batcher = new PinStateBatcher({
+        tickIntervalMs: 50,
+        onBatch: (batch) => batches.push(batch),
+      });
+
+      batcher.start();
+
+      // Pin 0: toggle 100 times (0 → 1 → 0 → 1 → ... → 0)
+      // Final value should be 0 (100 is even, so final is 0)
+      for (let i = 0; i < 100; i++) {
+        batcher.enqueue(0, "value", i % 2);
+      }
+
+      // Pin 1: set once
+      batcher.enqueue(1, "value", 1);
+
+      // Advance time to trigger one tick
+      vi.advanceTimersByTime(50);
+
+      // Verify: should have exactly 1 batch with 2 pins
+      expect(batches).toHaveLength(1);
+      expect(batches[0].states).toHaveLength(2);
+
+      // Verify pin states
+      const pin0State = batches[0].states.find((s: any) => s.pin === 0);
+      const pin1State = batches[0].states.find((s: any) => s.pin === 1);
+
+      expect(pin0State).toBeDefined();
+      expect(pin1State).toBeDefined();
+
+      // Sampling: Pin 0 should have final value (1, because iteration 0-99 ends at 99 % 2 = 1)
+      expect(pin0State.value).toBe(1);
+      expect(pin1State.value).toBe(1);
+
+      // Dropping: Telemetry should show 99 dropped for Pin 0 + 1 for Pin 1 = 100 intended, 2 actual
+      const telemetry = batcher.getTelemetryAndReset();
+      expect(telemetry.intended).toBe(101); // 100 toggles for pin 0 + 1 for pin 1
+      expect(telemetry.actual).toBe(2); // 2 unique pin:stateType entries
+      // Dropped should be: 101 intended - 2 actual = 99
+      const dropped = telemetry.intended - telemetry.actual;
+      expect(dropped).toBe(99);
+
+      batcher.destroy();
+    });
+
+    it("should correctly report droppedPinChanges when one pin toggles at extreme frequency", () => {
+      const batches: any[] = [];
+      const batcher = new PinStateBatcher({
+        tickIntervalMs: 50,
+        onBatch: (batch) => batches.push(batch),
+      });
+
+      batcher.start();
+
+      // Simulate extreme frequency: Pin 2 toggles 500 times in one tick
+      for (let i = 0; i < 500; i++) {
+        batcher.enqueue(2, "value", i % 2);
+      }
+
+      // Pin 3 and Pin 4 each change once
+      batcher.enqueue(3, "value", 1);
+      batcher.enqueue(4, "pwm", 128);
+
+      vi.advanceTimersByTime(50);
+
+      expect(batches).toHaveLength(1);
+      expect(batches[0].states).toHaveLength(3);
+
+      // Final state for Pin 2 should be 1 (iteration 0-499 ends at 499 % 2 = 1)
+      const pin2State = batches[0].states.find((s: any) => s.pin === 2);
+      expect(pin2State.value).toBe(1);
+
+      // Telemetry: 500 + 1 + 1 = 502 intended, 3 actual
+      const telemetry = batcher.getTelemetryAndReset();
+      expect(telemetry.intended).toBe(502);
+      expect(telemetry.actual).toBe(3);
+      expect(telemetry.intended - telemetry.actual).toBe(499); // 499 dropped
+    });
+
+    it("should batch multiple high-frequency pins correctly, keeping only final states", () => {
+      const batches: any[] = [];
+      const batcher = new PinStateBatcher({
+        tickIntervalMs: 50,
+        onBatch: (batch) => batches.push(batch),
+      });
+
+      batcher.start();
+
+      // Two pins, each toggled multiple times
+      // Pin 5: 50 toggles → final value: 0 (50 is even)
+      for (let i = 0; i < 50; i++) {
+        batcher.enqueue(5, "value", i % 2);
+      }
+
+      // Pin 6: 75 toggles → final value: 1 (75 is odd)
+      for (let i = 0; i < 75; i++) {
+        batcher.enqueue(6, "value", i % 2);
+      }
+
+      // Pin 7: static value set, no toggles
+      batcher.enqueue(7, "mode", 1);
+
+      vi.advanceTimersByTime(50);
+
+      expect(batches).toHaveLength(1);
+      expect(batches[0].states).toHaveLength(3);
+
+      // Verify final values
+      const pin5 = batches[0].states.find((s: any) => s.pin === 5);
+      const pin6 = batches[0].states.find((s: any) => s.pin === 6);
+      const pin7 = batches[0].states.find((s: any) => s.pin === 7);
+
+      expect(pin5.value).toBe(1); // iteration 0-49 ends at 49 % 2 = 1
+      expect(pin6.value).toBe(0); // iteration 0-74 ends at 74 % 2 = 0
+      expect(pin7.value).toBe(1);
+
+      // Telemetry: 50 + 75 + 1 = 126 intended, 3 actual
+      const telemetry = batcher.getTelemetryAndReset();
+      expect(telemetry.intended).toBe(126);
+      expect(telemetry.actual).toBe(3);
+      expect(telemetry.batches).toBe(1);
+    });
+
+    it("should maintain correct batch array length reflecting unique pin:stateType entries", () => {
+      const batches: any[] = [];
+      const batcher = new PinStateBatcher({
+        tickIntervalMs: 50,
+        onBatch: (batch) => batches.push(batch),
+      });
+
+      batcher.start();
+
+      // High frequency on single pin with multiple state types
+      // Pin 10: value state
+      for (let i = 0; i < 200; i++) {
+        batcher.enqueue(10, "value", i % 2);
+      }
+
+      // Pin 10: mode state (different from value, should not be deduplicated)
+      for (let i = 0; i < 50; i++) {
+        batcher.enqueue(10, "mode", i % 2);
+      }
+
+      // Pin 10: pwm state
+      batcher.enqueue(10, "pwm", 100);
+      batcher.enqueue(10, "pwm", 150);
+      batcher.enqueue(10, "pwm", 200);
+
+      vi.advanceTimersByTime(50);
+
+      expect(batches).toHaveLength(1);
+      // Should have 3 entries for Pin 10 (value, mode, pwm)
+      const pin10States = batches[0].states.filter((s: any) => s.pin === 10);
+      expect(pin10States).toHaveLength(3);
+
+      // Verify final values
+      const valueState = pin10States.find((s: any) => s.stateType === "value");
+      const modeState = pin10States.find((s: any) => s.stateType === "mode");
+      const pwmState = pin10States.find((s: any) => s.stateType === "pwm");
+
+      expect(valueState.value).toBe(1); // iteration 0-199 ends at 199 % 2 = 1
+      expect(modeState.value).toBe(1); // iteration 0-49 ends at 49 % 2 = 1
+      expect(pwmState.value).toBe(200); // last value
+
+      // Telemetry: 200 + 50 + 3 = 253 intended, 3 actual (all same pin, different stateTypes)
+      const telemetry = batcher.getTelemetryAndReset();
+      expect(telemetry.intended).toBe(253);
+      expect(telemetry.actual).toBe(3);
+    });
+  });
 });

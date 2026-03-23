@@ -12,7 +12,7 @@ export interface DebugMessage {
 export function useDebugConsole(activeOutputTab: string) {
   const [debugMode, setDebugMode] = useState<boolean>(() => {
     try {
-      return window.localStorage.getItem("unoDebugMode") === "1";
+      return globalThis.localStorage.getItem("unoDebugMode") === "1";
     } catch {
       return false;
     }
@@ -25,7 +25,9 @@ export function useDebugConsole(activeOutputTab: string) {
 
   // Listen for debug mode change events from settings dialog
   useEffect(() => {
-    const handler = (ev: any) => {
+    type BoolDetailEvent = CustomEvent<{ value: boolean }>;
+
+    const handler = (ev: BoolDetailEvent) => {
       try {
         const newValue = Boolean(ev?.detail?.value);
         setDebugMode(newValue);
@@ -33,6 +35,7 @@ export function useDebugConsole(activeOutputTab: string) {
         // ignore
       }
     };
+
     document.addEventListener("debugModeChange", handler as EventListener);
     return () =>
       document.removeEventListener("debugModeChange", handler as EventListener);

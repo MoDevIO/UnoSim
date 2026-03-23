@@ -1,7 +1,7 @@
 // telemetry-integration.test.ts
 // Integration tests for telemetry pipeline
 
-import { describe, it, expect, beforeEach, vi, fake } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 
 // Mock types matching the actual schema
 interface PerformanceMetrics {

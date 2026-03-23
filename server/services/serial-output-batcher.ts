@@ -16,7 +16,7 @@
 
 import { RingBuffer } from "@shared/utils/ring-buffer";
 
-export interface SerialOutputBatcherConfig {
+interface SerialOutputBatcherConfig {
   /** Baudrate in bits per second (e.g., 115200) */
   baudrate: number;
   /** Tick interval in milliseconds (default: 50ms = 20 batches/sec) */
@@ -41,8 +41,8 @@ export interface SerialOutputTelemetry {
 }
 
 export class SerialOutputBatcher {
-  private config: Required<SerialOutputBatcherConfig>;
-  private pendingBuffer: RingBuffer; // Ring-Buffer instead of string accumulation
+  private readonly config: Required<SerialOutputBatcherConfig>;
+  private readonly pendingBuffer: RingBuffer; // Ring-Buffer instead of string accumulation
   private tickTimer: NodeJS.Timeout | null = null;
   
   // paused flag prevents enqueue/start while paused (tests rely on this)

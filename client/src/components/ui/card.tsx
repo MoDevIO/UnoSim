@@ -78,9 +78,9 @@ CardFooter.displayName = "CardFooter";
 
 export {
   Card,
-  CardHeader,
-  CardFooter,
-  CardTitle,
-  CardDescription,
+  // CardHeader, // unused
+  // CardFooter, // unused
+  // CardTitle, // unused
+  // CardDescription, // unused
   CardContent,
 };

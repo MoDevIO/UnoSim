@@ -86,8 +86,8 @@ export class ArduinoOutputParser {
     if (pinModeMatch) {
       return {
         type: "pin_mode",
-        pin: parseInt(pinModeMatch[1]),
-        mode: parseInt(pinModeMatch[2]),
+        pin: Number.parseInt(pinModeMatch[1]),
+        mode: Number.parseInt(pinModeMatch[2]),
       };
     }
 
@@ -95,8 +95,8 @@ export class ArduinoOutputParser {
     if (pinValueMatch) {
       return {
         type: "pin_value",
-        pin: parseInt(pinValueMatch[1]),
-        value: parseInt(pinValueMatch[2]),
+        pin: Number.parseInt(pinValueMatch[1]),
+        value: Number.parseInt(pinValueMatch[2]),
       };
     }
 
@@ -104,8 +104,8 @@ export class ArduinoOutputParser {
     if (pinPwmMatch) {
       return {
         type: "pin_pwm",
-        pin: parseInt(pinPwmMatch[1]),
-        value: parseInt(pinPwmMatch[2]),
+        pin: Number.parseInt(pinPwmMatch[1]),
+        value: Number.parseInt(pinPwmMatch[2]),
       };
     }
 
@@ -154,7 +154,7 @@ export class ArduinoOutputParser {
       /^[A-Za-z0-9+/=:]{1,}\]\]$/.test(line) ||                // timestamp:base64 tail + ]]
       /^\d+:[A-Za-z0-9+/=]+/.test(line)                        // timestamp:base64 (no brackets)
     ) {
-      logger.debug(`Ignoring protocol fragment: ${line.substring(0, 80)}...`);
+      logger.debug(`Ignoring protocol fragment: ${line.slice(0, 80)}...`);
       return { type: "ignored" };
     }
 
@@ -176,7 +176,7 @@ export class ArduinoOutputParser {
     processStartTime: number | null,
   ): ParsedStderrOutput | null {
     try {
-      const ts = parseInt(timestampStr, 10);
+      const ts = Number.parseInt(timestampStr, 10);
       const buf = Buffer.from(base64Data, "base64");
       const decoded = buf.toString("utf8");
 
@@ -204,8 +204,8 @@ export class ArduinoOutputParser {
     try {
       const pin = match[1];
       const defined = match[2] === "1";
-      const definedLine = parseInt(match[3]);
-      const pinModeParsed = parseInt(match[4]);
+      const definedLine = Number.parseInt(match[3]);
+      const pinModeParsed = Number.parseInt(match[4]);
       const operationsStr = match[5];
 
       const usedAt: Array<{ line: number; operation: string }> = [];
@@ -218,10 +218,10 @@ export class ArduinoOutputParser {
               // Skip metadata like _count
               const atIndex = opMatch.lastIndexOf("@");
               if (atIndex > 0) {
-                const operation = opMatch.substring(0, atIndex);
-                const lineStr = opMatch.substring(atIndex + 1);
+                const operation = opMatch.slice(0, Math.max(0, atIndex));
+                const lineStr = opMatch.slice(Math.max(0, atIndex + 1));
                 usedAt.push({
-                  line: parseInt(lineStr) || 0,
+                  line: Number.parseInt(lineStr) || 0,
                   operation,
                 });
               }

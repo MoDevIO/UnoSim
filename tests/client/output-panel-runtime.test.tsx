@@ -17,7 +17,6 @@ import {
   screen,
   fireEvent,
   waitFor,
-  within,
 } from "@testing-library/react";
 import type { ParserMessage } from "@shared/schema";
 
@@ -234,7 +233,7 @@ describe("OutputPanel Runtime Behavior - Real React Tests", () => {
 
   describe("Feature 1: Auto-Open on Compiler Errors", () => {
     it("PROOF: Panel opens and resizes to 25-75% when compilation error occurs", async () => {
-      const { rerender } = render(<MockOutputPanel />);
+      render(<MockOutputPanel />);
 
       // INITIAL STATE
       let panelSize = screen.getByTestId("state-panel-size").textContent;
