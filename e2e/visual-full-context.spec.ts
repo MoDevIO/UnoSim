@@ -191,22 +191,36 @@ void loop() {
     await setCode(page, code);
     await startAndAwaitRunning(page);
 
-    // Force the Compiler tab open to ensure consistent UI state across environments
-    await activateOutputTab(page, 'Compiler');
-
-    // ─── STRICT PROOF REQUIRED BY SPEC ───────────────────────────────────────
-    // Wait for the compiler panel to fully render and display output
-    // Allow maximum time for the compilation output to become visible
-    await page.waitForTimeout(2000);
+    // ─── OPEN + EXPAND COMPILER PANEL ────────────────────────────────────────
+    // Double-click invokes openOutputPanel("compiler") which resizes the panel
+    // to 50% height (the single activateOutputTab event only toggles visibility
+    // but leaves the panel at its 3 % minimum size so content is clipped).
+    const compilerTab = page
+      .locator('[data-testid="output-tabs-header"]')
+      .getByRole('tab', { name: /compiler/i });
+    await expect(compilerTab).toBeVisible({ timeout: 8000 });
+    await compilerTab.dblclick();
+    await page.waitForTimeout(300);
+    await compilerTab.click();
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Allow animations and rendering to fully complete
-    await page.waitForTimeout(300);
+    // ─── STRICT PROOF REQUIRED BY SPEC ───────────────────────────────────────
+    // Wait until the compilation-output container actually shows the CLI text.
+    // compilation-text is the data-testid of the success output div; toContainText
+    // works on the full text content of the element regardless of child spans.
+    await expect(page.locator('[data-testid="compilation-text"]')).toContainText(
+      /Sketch uses/i,
+      { timeout: 10000 },
+    );
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Buffer for panel open/close CSS transitions to fully settle
+    await page.waitForTimeout(500);
 
     const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
     expect(snap).toMatchSnapshot('03_compiler_cli_success_context.png', {
-      // Allow for rendering variation across different OS environments and machines
-      maxDiffPixels: 2500,
+      // Raised to absorb Linux CI font-rendering differences vs macOS baseline
+      maxDiffPixels: 4500,
       threshold: 0.25,
     });
   });
