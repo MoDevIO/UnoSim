@@ -53,10 +53,24 @@ jobs:
           npm run lint
           npm run test:coverage
 
-      - name: Copy coverage-summary.json for badge
-        # Nur bei Push auf Haupt-Branches ausführen
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        run: cp coverage/coverage-summary.json coverage/lcov-report/coverage-summary.json
+      - name: Copy Coverage Summary
+        run: |
+          # Sicherstellen, dass das Zielverzeichnis existiert
+          mkdir -p coverage/lcov-report
+
+          # Debugging: Zeige wo die Dateien wirklich liegen
+          echo "Searching for coverage files..."
+          find coverage -name "coverage-summary.json"
+
+          # Kopieren mit Pfad-Prüfung
+          if [ -f "coverage/coverage-summary.json" ]; then
+            cp coverage/coverage-summary.json coverage/lcov-report/coverage-summary.json
+          elif [ -f "server/coverage/coverage-summary.json" ]; then
+            cp server/coverage/coverage-summary.json coverage/lcov-report/coverage-summary.json
+          else
+            echo "Error: coverage-summary.json not found!"
+            exit 1
+          fi
 
       - name: Deploy Coverage to GitHub Pages
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')

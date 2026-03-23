@@ -28,7 +28,7 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html', 'lcov'],
+      reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
       reportBase: 'coverage',
     },
     // Policy-Konformität: Flush-on-Failure Mechanismus
