@@ -162,6 +162,39 @@ function resolveSmartInsertLine(
   return functionOpenBraceIndex > 0 ? functionOpenBraceIndex : functionStartLine;
 }
 
+/**
+ * Handle paste action with clipboard read and insert.
+ * Extracted to reduce nesting depth in paste callback (S2004).
+ */
+async function handlePasteAction(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  model: monaco.editor.ITextModel | null,
+  sel: ReturnType<typeof editor.getSelection> | null,
+): Promise<void> {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text) return;
+    
+    if (model && sel && !sel.isEmpty()) {
+      editor.executeEdits("paste", [{ range: sel, text }]);
+      return;
+    }
+    
+    const pos = editor.getPosition();
+    if (pos) {
+      const range = {
+        startLineNumber: pos.lineNumber,
+        startColumn: pos.column,
+        endLineNumber: pos.lineNumber,
+        endColumn: pos.column,
+      };
+      editor.executeEdits("paste", [{ range, text }]);
+    }
+  } catch {
+    // ignore clipboard read errors
+  }
+}
+
 
 interface CodeEditorAPI {
   getValue: () => string;
@@ -434,26 +467,7 @@ export function CodeEditor({
           editor.focus();
           const model = editor.getModel();
           const sel = editor.getSelection();
-          (async () => {
-            try {
-              const text = await navigator.clipboard.readText();
-              if (!text) return;
-              const pos = editor.getPosition();
-              if (model && sel && !sel.isEmpty()) {
-                editor.executeEdits("paste", [{ range: sel, text }]);
-              } else if (pos) {
-                const r = {
-                  startLineNumber: pos.lineNumber,
-                  startColumn: pos.column,
-                  endLineNumber: pos.lineNumber,
-                  endColumn: pos.column,
-                };
-                editor.executeEdits("paste", [{ range: r, text }]);
-              }
-            } catch {
-              /* ignore clipboard read errors */
-            }
-          })();
+          handlePasteAction(editor, model, sel);
         },
         goToLine: (ln: number) => {
           editor.focus();
