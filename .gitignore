@@ -69,6 +69,7 @@ shared/**/*.js
 .env
 .env*.local
 .vercel
+.vscode/settings.json
 
 ##################################
 # 6. STORAGE & DB (SIMULATION)   #
