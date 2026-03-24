@@ -5,6 +5,58 @@ import type { ParserMessage } from "@shared/schema";
 type CompilationResultType = "success" | "error" | null;
 type OutputTabType = "compiler" | "messages" | "registry" | "debug";
 
+/**
+ * Compute output panel size percentage for compiler error output.
+ * Extracted from useOutputPanel to reduce cognitive complexity (S3776).
+ */
+function _computeErrorPanelSize(cliOutput: string): number {
+  const lines = cliOutput.split("\n").length;
+  const totalChars = cliOutput.length;
+  const lineBasedPx = 50 + 60 + Math.max(lines, Math.ceil(totalChars / 80)) * 20;
+  return Math.min(75, Math.max(25, Math.ceil((lineBasedPx / 800) * 100)));
+}
+
+/**
+ * Compute output panel size percentage for parser messages, using DOM measurement when available.
+ * Extracted from useOutputPanel to reduce cognitive complexity (S3776).
+ */
+function _computeMessagePanelSize(
+  parserMessages: ParserMessage[],
+  parserMessagesContainerRef: React.RefObject<HTMLDivElement>,
+  outputTabsHeaderRef: React.RefObject<HTMLDivElement>,
+): number {
+  const messageCount = parserMessages.length;
+  const totalMessageLength = parserMessages.reduce(
+    (sum, msg) => sum + (msg.message?.length || 0),
+    0,
+  );
+  const estimatedPx = 50 + 60 + messageCount * 55 + Math.ceil(totalMessageLength / 100) * 15;
+  const estimatedPercent = Math.min(75, Math.max(25, Math.ceil((estimatedPx / 800) * 100)));
+  const headerEl = outputTabsHeaderRef.current;
+  const headerHeightPx = headerEl
+    ? Math.ceil(headerEl.getBoundingClientRect().height || 50)
+    : 50;
+  let measuredPercent = estimatedPercent;
+  try {
+    const panelNode = headerEl?.closest("[data-panel]") as HTMLElement | null;
+    const groupNode = panelNode?.parentElement as HTMLElement | null;
+    const groupHeightPx = Math.ceil(groupNode?.getBoundingClientRect().height || 0);
+    const messagesHeightPx = parserMessagesContainerRef.current
+      ? Math.ceil(parserMessagesContainerRef.current.scrollHeight)
+      : 0;
+    if (groupHeightPx > 0) {
+      const measuredPx = headerHeightPx + messagesHeightPx;
+      measuredPercent = Math.min(
+        75,
+        Math.max(25, Math.ceil((measuredPx / groupHeightPx) * 100)),
+      );
+    }
+  } catch {
+    // Fallback to estimatedPercent
+  }
+  return Math.min(75, Math.max(25, Math.max(estimatedPercent, measuredPercent)));
+}
+
 export function useOutputPanel(
   hasCompilationErrors: boolean,
   cliOutput: string,
@@ -106,105 +158,28 @@ export function useOutputPanel(
 
   // Update compilation panel size based on error content and parser messages
   useEffect(() => {
-    // Reset parserPanelDismissed when new errors occur (auto-reopen logic)
     if (hasCompilationErrors && cliOutput.trim().length > 0) {
       setParserPanelDismissed(false);
       setShowCompilationOutput(true);
-
-      // Only auto-size if user hasn't manually resized
       if (!outputPanelManuallyResized) {
-        // Auto-show and size panel for compiler errors
-        const lines = cliOutput.split("\n").length;
-        const totalChars = cliOutput.length;
-        const HEADER_HEIGHT = 50;
-        const PER_LINE = 20;
-        const PADDING = 60;
-        const AVAILABLE_HEIGHT = 800;
-
-        const lineBasedPx =
-          HEADER_HEIGHT +
-          PADDING +
-          Math.max(lines, Math.ceil(totalChars / 80)) * PER_LINE;
-        const newSize = Math.min(
-          75,
-          Math.max(25, Math.ceil((lineBasedPx / AVAILABLE_HEIGHT) * 100)),
-        );
-
-        setCompilationPanelSize(newSize);
+        setCompilationPanelSize(_computeErrorPanelSize(cliOutput));
       }
     } else if (parserMessages.length > 0 && !hasCompilationErrors) {
-      // Reset dismissal flag and show panel for new parser messages (auto-reopen)
       setParserPanelDismissed(false);
       setShowCompilationOutput(true);
       setActiveOutputTab("messages");
-
-      // Only auto-size if user hasn't manually resized
       if (!outputPanelManuallyResized) {
-        // Auto-show and size panel for parser messages (spec 3.2)
-        const messageCount = parserMessages.length;
-        const totalMessageLength = parserMessages.reduce(
-          (sum, msg) => sum + (msg.message?.length || 0),
-          0,
+        setCompilationPanelSize(
+          _computeMessagePanelSize(parserMessages, parserMessagesContainerRef, outputTabsHeaderRef),
         );
-        const HEADER_HEIGHT = 50;
-        const PER_MESSAGE_BASE = 55;
-        const PADDING = 60;
-        const AVAILABLE_HEIGHT = 800;
-
-        // SSOT formula (based on count + text length)
-        const estimatedPx =
-          HEADER_HEIGHT +
-          PADDING +
-          messageCount * PER_MESSAGE_BASE +
-          Math.ceil(totalMessageLength / 100) * 15;
-        const estimatedPercent = Math.min(
-          75,
-          Math.max(25, Math.ceil((estimatedPx / AVAILABLE_HEIGHT) * 100)),
-        );
-
-        // Measure rendered message container to ensure all containers stay visible
-        const headerEl = outputTabsHeaderRef.current;
-        const headerHeightPx = headerEl
-          ? Math.ceil(headerEl.getBoundingClientRect().height || HEADER_HEIGHT)
-          : HEADER_HEIGHT;
-        let measuredPercent = estimatedPercent;
-
-        try {
-          const panelNode = headerEl?.closest("[data-panel]") as
-            | HTMLElement
-            | null;
-          const groupNode = panelNode?.parentElement as HTMLElement | null;
-          const groupHeightPx = Math.ceil(
-            groupNode?.getBoundingClientRect().height || 0,
-          );
-          const messagesHeightPx = parserMessagesContainerRef.current
-            ? Math.ceil(parserMessagesContainerRef.current.scrollHeight)
-            : 0;
-
-          if (groupHeightPx > 0) {
-            const measuredPx = headerHeightPx + messagesHeightPx;
-            measuredPercent = Math.min(
-              75,
-              Math.max(25, Math.ceil((measuredPx / groupHeightPx) * 100)),
-            );
-          }
-        } catch {
-          // Fallback to estimatedPercent
-        }
-
-        const newSize = Math.min(75, Math.max(25, Math.max(estimatedPercent, measuredPercent)));
-        setCompilationPanelSize(newSize);
       }
     } else if (
       lastCompilationResult === "success" &&
       !hasCompilationErrors &&
-      parserMessages.length === 0
+      parserMessages.length === 0 &&
+      !outputPanelManuallyResized
     ) {
-      // Only auto-minimize if user hasn't manually resized
-      if (!outputPanelManuallyResized) {
-        // Minimize panel when no errors and no messages (keep visible at 3%)
-        setCompilationPanelSize(3);
-      }
+      setCompilationPanelSize(3);
     }
   }, [
     cliOutput,
@@ -252,19 +227,14 @@ export function useOutputPanel(
         Math.abs(prev - targetMinPercent) > 0.01 ? targetMinPercent : prev,
       );
 
-      if (
-        typeof panelHandle.getSize === "function" &&
-        typeof panelHandle.resize === "function"
-      ) {
-        const currentSize = panelHandle.getSize();
-        if (typeof currentSize === "number") {
-          const target = forceResize
-            ? targetMinPercent // when forced (e.g., example load), snap to computed floor
-            : Math.max(currentSize, targetMinPercent);
-          if (Math.abs(currentSize - target) > 0.01) {
-            panelHandle.resize(target);
-          }
-        }
+      if (typeof panelHandle.getSize !== "function" || typeof panelHandle.resize !== "function") return;
+      const currentSize = panelHandle.getSize();
+      if (typeof currentSize !== "number") return;
+      const target = forceResize
+        ? targetMinPercent // when forced (e.g., example load), snap to computed floor
+        : Math.max(currentSize, targetMinPercent);
+      if (Math.abs(currentSize - target) > 0.01) {
+        panelHandle.resize(target);
       }
     },
     [showCompilationOutput],
@@ -284,15 +254,14 @@ export function useOutputPanel(
   useEffect(() => {
     const handleResize = () =>
       requestAnimationFrame(() => enforceOutputPanelFloor(false)); // Don't force resize on window resize
+    const _applyUiScaleEnforcement = () => {
+      enforceOutputPanelFloor(true); // Force resize on scale change
+      // Additional delayed enforcement for complex layout changes
+      setTimeout(() => enforceOutputPanelFloor(true), 50);
+    };
     const handleUiScale: EventListener = () => {
       // Double rAF to ensure CSS has fully applied and DOM has re-rendered
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          enforceOutputPanelFloor(true); // Force resize on scale change
-          // Additional delayed enforcement for complex layout changes
-          setTimeout(() => enforceOutputPanelFloor(true), 50);
-        });
-      });
+      requestAnimationFrame(() => requestAnimationFrame(_applyUiScaleEnforcement));
     };
     globalThis.addEventListener("resize", handleResize);
     globalThis.addEventListener("uiFontScaleChange", handleUiScale);
