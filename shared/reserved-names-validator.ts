@@ -250,29 +250,15 @@ class ReservedNamesValidator {
     while (i < code.length) {
       // Check for line comment //
       if (code[i] === "/" && code[i + 1] === "/") {
-        // Skip until end of line
-        while (i < code.length && code[i] !== "\n") {
-          i++;
-        }
-        if (i < code.length) {
-          result += "\n"; // Preserve newline
-          i++;
-        }
+        const { newI, addNewline } = _skipLineComment(code, i);
+        i = newI;
+        if (addNewline) result += "\n";
       }
       // Check for block comment /* */
       else if (code[i] === "/" && code[i + 1] === "*") {
-        i += 2;
-        // Skip until */
-        while (i < code.length - 1) {
-          if (code[i] === "*" && code[i + 1] === "/") {
-            i += 2;
-            break;
-          }
-          if (code[i] === "\n") {
-            result += "\n"; // Preserve newlines to keep line numbers correct
-          }
-          i++;
-        }
+        const { newI, preserved } = _skipBlockComment(code, i);
+        i = newI;
+        result += preserved;
       } else {
         result += code[i];
         i++;
@@ -293,6 +279,34 @@ class ReservedNamesValidator {
     const searchCode = startIndex === undefined ? code.slice(0, Math.max(0, code.indexOf(name) + name.length)) : code.slice(0, Math.max(0, startIndex + name.length));
     return (searchCode.match(/\n/g) || []).length + 1;
   }
+}
+
+/** Skip a C++ // line comment; returns new position and whether a newline was consumed. */
+function _skipLineComment(code: string, i: number): { newI: number; addNewline: boolean } {
+  let j = i;
+  while (j < code.length && code[j] !== "\n") {
+    j++;
+  }
+  if (j < code.length) {
+    return { newI: j + 1, addNewline: true }; // consume newline, preserve in output
+  }
+  return { newI: j, addNewline: false };
+}
+
+/** Skip a C-style block comment /* ... *\/; returns new position and preserved newlines. */
+function _skipBlockComment(code: string, start: number): { newI: number; preserved: string } {
+  let i = start + 2;
+  let preserved = "";
+  while (i < code.length - 1) {
+    if (code[i] === "*" && code[i + 1] === "/") {
+      return { newI: i + 2, preserved };
+    }
+    if (code[i] === "\n") {
+      preserved += "\n"; // Preserve newlines to keep line numbers correct
+    }
+    i++;
+  }
+  return { newI: i, preserved };
 }
 
 export const reservedNamesValidator = new ReservedNamesValidator();
