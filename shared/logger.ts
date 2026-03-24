@@ -113,13 +113,13 @@ function shouldLog(level: LogLevel): boolean {
 function sanitize(message: string): string {
   return message
     // Tokens und API-Keys (JWT, Bearer, API-Key Parameter)
-    .replaceAll(/bearer\s+[-A-Za-z0-9._~+/]+=*/gi, "bearer [REDACTED_TOKEN]")
-    .replaceAll(/(?:api[-_]?)?key[=:]\s*[-A-Za-z0-9._~+/]+=*/gi, "key=[REDACTED_KEY]")
+    .replaceAll(/bearer\s+[-\w.~+/]+=*/gi, "bearer [REDACTED_TOKEN]")
+    .replaceAll(/(?:api[-_]?)?key[=:]\s*[-\w.~+/]+=*/gi, "key=[REDACTED_KEY]")
     // Passwörter (replacement omits key name to avoid S2068 false positive)
     .replaceAll(/password[=:]\s*[^\s,}\]"]*/gi, "[REDACTED]")
     .replaceAll(/pwd[=:]\s*[^\s,}\]"]*/gi, "[REDACTED]")
     // Cookies
-    .replaceAll(/session[-_]?id[=:]\s*[-A-Za-z0-9._~+/]+=*/gi, "session_id=[REDACTED]")
+    .replaceAll(/session[-_]?id[=:]\s*[-\w.~+/]+=*/gi, "session_id=[REDACTED]")
     // Email-Adressen und Telefonnummern (PII) - S5852: literal @ split avoids ReDoS
     .replaceAll(/[^\s@"']{1,64}@[^\s@"'.]{1,64}\.[^\s@"'.]{2,10}/g, "[EMAIL_REDACTED]")
     .replaceAll(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, "[PHONE_REDACTED]")
