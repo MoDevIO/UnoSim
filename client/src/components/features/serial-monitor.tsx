@@ -159,7 +159,6 @@ function processCarriageReturnLine(
 
 export function SerialMonitor({
   output,
-  isConnected,
   isSimulationRunning: _isSimulationRunning = false,
   onSendMessage: _onSendMessage,
   onClear: _onClear,
@@ -168,7 +167,6 @@ export function SerialMonitor({
   headerActions,
   showHeader = true,
 }: SerialMonitorProps) {
-  void isConnected;
   const outputRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
