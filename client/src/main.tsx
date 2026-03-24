@@ -29,11 +29,11 @@ declare global {
 const logger = new Logger("Main");
 
 // Provide MonacoEnvironment.getWorker to load editor workers off the main thread
-if (typeof self !== "undefined") {
+if (typeof globalThis !== "undefined") {
   // Monaco expects a global MonacoEnvironment.getWorker factory.
   // Cast to a constructor type to satisfy TS inference.
   const MonacoWorkerConstructor = editorWorker as unknown as new () => Worker;
-  self.MonacoEnvironment = {
+  (globalThis as any).MonacoEnvironment = {
     getWorker() {
       return new MonacoWorkerConstructor();
     },

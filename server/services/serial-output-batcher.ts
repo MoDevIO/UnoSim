@@ -253,10 +253,8 @@ export class SerialOutputBatcher {
       if (bufferSize < lowWatermark) {
         this.overloadedState = false;
       }
-    } else {
-      if (bufferSize > threshold) {
-        this.overloadedState = true;
-      }
+    } else if (bufferSize > threshold) {
+      this.overloadedState = true;
     }
     return this.overloadedState;
   }

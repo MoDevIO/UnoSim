@@ -200,8 +200,7 @@ export function SketchTabs({
       let inoCount = 0;
 
       // Read all files
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (const file of files) {
         const extension = file.name.slice(Math.max(0, file.name.lastIndexOf(".")));
 
         // Only allow .ino and .h files
@@ -219,16 +218,7 @@ export function SketchTabs({
         }
 
         // Read file content
-        const content = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            resolve(e.target?.result as string);
-          };
-          reader.onerror = () => {
-            reject(new Error(`Error reading ${file.name}`));
-          };
-          reader.readAsText(file);
-        });
+        const content = await file.text();
 
         loadedFiles.push({
           name: file.name,
@@ -325,7 +315,7 @@ export function SketchTabs({
           element.style.display = "none";
           document.body.appendChild(element);
           element.click();
-          document.body.removeChild(element);
+          element.remove();
         }, index * 200); // Stagger downloads to avoid browser throttling
       });
 

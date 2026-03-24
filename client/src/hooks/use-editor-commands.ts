@@ -156,7 +156,7 @@ export function useEditorCommands(
     formatted = formatted.replaceAll("\t", "  ");
 
     // 2. collapse multiple spaces into two
-    formatted = formatted.replace(/ {2,}/g, "  ");
+    formatted = formatted.replaceAll(/ {2,}/g, "  ");
 
     // 3. indent blocks (very naive)
     const lines = formatted.split("\n");
@@ -171,7 +171,7 @@ export function useEditorCommands(
     formatted = indentedLines.join("\n");
 
     // 5. Remove multiple consecutive blank lines
-    formatted = formatted.replace(/\n{3,}/g, "\n\n");
+    formatted = formatted.replaceAll(/\n{3,}/g, "\n\n");
 
     // 6. Ensure newline at end of file
     if (!formatted.endsWith("\n")) {

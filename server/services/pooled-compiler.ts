@@ -14,8 +14,7 @@
 
 import { CompilationWorkerPool, getCompilationPool, type CompilationTask } from "./compilation-worker-pool";
 import { ArduinoCompiler } from "./arduino-compiler";
-import type { CompilationResult } from "./arduino-compiler";
-import type { CompileRequestOptions } from "./arduino-compiler";
+import type { CompilationResult, CompileRequestOptions } from "./arduino-compiler";
 
 export class PooledCompiler {
   private readonly pool: CompilationWorkerPool | null;
@@ -90,9 +89,7 @@ export class PooledCompiler {
 let pooledCompilerInstance: PooledCompiler | null = null;
 
 export function getPooledCompiler(): PooledCompiler {
-  if (!pooledCompilerInstance) {
-    pooledCompilerInstance = new PooledCompiler();
-  }
+  pooledCompilerInstance ??= new PooledCompiler();
   return pooledCompilerInstance;
 }
 

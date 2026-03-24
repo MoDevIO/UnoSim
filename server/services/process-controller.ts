@@ -98,11 +98,9 @@ export class ProcessController implements IProcessController {
     }
 
     // attach existing listeners (guard for nullability)
-    if (this.proc && this.proc.stdout) {
-      this.proc.stdout.on("data", (d: Buffer) => {
-        this.stdoutListeners.forEach((cb) => cb(d));
-      });
-    }
+    this.proc?.stdout?.on("data", (d: Buffer) => {
+      this.stdoutListeners.forEach((cb) => cb(d));
+    });
 
     this._setupStderrHandling(createInterface);
     this._setupKillTimer();
@@ -206,8 +204,7 @@ export class ProcessController implements IProcessController {
 
   writeStdin(data: string): boolean {
     try {
-      if (!this.proc || !this.proc.stdin) return false;
-      return this.proc.stdin.write(data);
+      return this.proc?.stdin?.write(data) ?? false;
     } catch {
       return false;
     }

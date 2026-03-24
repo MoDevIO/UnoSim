@@ -185,7 +185,7 @@ class ReservedNamesValidator {
     // Check for variable declarations using reserved names
     // Match patterns like: int pause; float pause; int* pause; etc.
     const varDeclRegex =
-      /\b(int|float|double|bool|byte|char|short|long|unsigned|void|const|volatile|static)\s+(?:\*+\s*)*(\w+)\s*(?:[=\[\;])/g;
+      /\b(int|float|double|bool|byte|char|short|long|unsigned|void|const|volatile|static)\s+(?:\*+\s*)*(\w+)\s*(?:[=[;])/g;
 
     let match;
     const foundReservedNames = new Set<string>();
@@ -290,7 +290,7 @@ class ReservedNamesValidator {
     name: string,
     startIndex?: number,
   ): number {
-    const searchCode = startIndex !== undefined ? code.slice(0, Math.max(0, startIndex + name.length)) : code.slice(0, Math.max(0, code.indexOf(name) + name.length));
+    const searchCode = startIndex === undefined ? code.slice(0, Math.max(0, code.indexOf(name) + name.length)) : code.slice(0, Math.max(0, startIndex + name.length));
     return (searchCode.match(/\n/g) || []).length + 1;
   }
 }

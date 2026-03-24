@@ -4,7 +4,7 @@ import { Logger } from "@shared/logger";
 const logger = new Logger("MobileLayout");
 
 export function useMobileLayout() {
-  const isClient = typeof globalThis.window !== "undefined";
+  const isClient = globalThis.window !== undefined;
   const mqQuery = "(max-width: 768px)";
   const initialIsMobile = isClient ? globalThis.matchMedia(mqQuery).matches : false;
   const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile);
@@ -26,14 +26,10 @@ export function useMobileLayout() {
       // If switching out of mobile, close any mobile panel
       if (!matches) setMobilePanel(null);
     };
-    // Modern browsers: addEventListener; fallback to addListener
-    if (typeof mq.addEventListener === "function")
-      mq.addEventListener("change", onChange as any);
-    else mq.addListener(onChange as any);
+    // Modern browsers: addEventListener
+    mq.addEventListener("change", onChange as any);
     return () => {
-      if (typeof mq.removeEventListener === "function")
-        mq.removeEventListener("change", onChange as any);
-      else mq.removeListener(onChange as any);
+      mq.removeEventListener("change", onChange as any);
     };
   }, [isClient, mobilePanel]);
 
@@ -58,11 +54,11 @@ export function useMobileLayout() {
       // First try to find our mobile header by data attribute
       let hdr: Element | null = document.querySelector("[data-mobile-header]");
       // Fallback to <header> tag
-      if (!hdr) hdr = document.querySelector("header");
+      hdr ??= document.querySelector("header");
       if (!hdr) {
-        const all = Array.from(
-          document.body.querySelectorAll("*"),
-        ) as HTMLElement[];
+        const all = Array.from<HTMLElement>(
+          document.body.querySelectorAll<HTMLElement>("*"),
+        );
         hdr =
           all.find((el) => {
             if (!el) return false;

@@ -3,9 +3,7 @@
 
 import { Logger } from "@shared/logger";
 
-interface TimeoutCallback {
-  (): void;
-}
+type TimeoutCallback = () => void;
 
 interface SimulationTimeoutManagerConfig {
   onTimeout?: TimeoutCallback;

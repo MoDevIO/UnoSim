@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { SerialMonitor, applyBackspaceAcrossLines } from "@/components/features/serial-monitor";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -102,9 +102,10 @@ describe("SerialMonitor UI", () => {
       />,
     );
 
+    // Wait for effect to re-render before checking cleared state
+    expect(await screen.findByText("Cleared")).not.toBeNull();
     expect(screen.queryByText("Line 1")).toBeNull();
     expect(screen.queryByText("Line 2")).toBeNull();
-    expect(await screen.findByText("Cleared")).not.toBeNull();
   });
 
   it("processes cursor home ANSI code", async () => {
@@ -134,7 +135,7 @@ describe("SerialMonitor UI", () => {
     );
 
     const output = screen.getByTestId("serial-output");
-    expect(output.textContent).toContain("A    B");
+    await waitFor(() => expect(output.textContent).toContain("A    B"));
   });
 
   it("replaces bell character with visible marker", async () => {
@@ -159,8 +160,10 @@ describe("SerialMonitor UI", () => {
     );
 
     const output = screen.getByTestId("serial-output");
-    expect(output.textContent).toContain("Line1");
-    expect(output.textContent).toContain("Line2");
+    await waitFor(() => {
+      expect(output.textContent).toContain("Line1");
+      expect(output.textContent).toContain("Line2");
+    });
   });
 
   it("normalizes vertical tab to newline", async () => {
@@ -173,8 +176,10 @@ describe("SerialMonitor UI", () => {
     );
 
     const output = screen.getByTestId("serial-output");
-    expect(output.textContent).toContain("Line1");
-    expect(output.textContent).toContain("Line2");
+    await waitFor(() => {
+      expect(output.textContent).toContain("Line1");
+      expect(output.textContent).toContain("Line2");
+    });
   });
 
   it("handles carriage return within same line", async () => {

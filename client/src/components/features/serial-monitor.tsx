@@ -43,7 +43,7 @@ function processAnsiCodes(text: string): string {
   const ANSI_COLOR_RE = new RegExp(String.raw`${ESC}\[[0-9;]*m`, "g");
 
   let processed = text.replaceAll(ESC_2J, "").replaceAll(ESC_H, "");
-  processed = processed.replaceAll(ESC_K, "").replace(ANSI_COLOR_RE, "");
+  processed = processed.replaceAll(ESC_K, "").replaceAll(ANSI_COLOR_RE, "");
 
   // Backspace within the SAME chunk: apply locally
   // (Cross-chunk backspaces are handled in applyBackspaceAcrossLines)
@@ -61,17 +61,17 @@ function processAnsiCodes(text: string): string {
 
   // Expand tabs to 4 spaces
   if (processed.includes("\t")) {
-    processed = processed.replace(/\t/g, "    ");
+    processed = processed.replaceAll("\t", "    ");
   }
 
   // Bell character: replace with visible marker (so it's not silently dropped)
   if (processed.includes("\x07")) {
-    processed = processed.replace(/\x07/g, "␇");
+    processed = processed.replaceAll("\x07", "␇");
   }
 
   // Form feed and vertical tab => normalize to newline
   if (processed.includes("\f") || processed.includes("\v")) {
-    processed = processed.replace(/\f/g, "\n").replace(/\v/g, "\n");
+    processed = processed.replaceAll("\f", "\n").replaceAll("\v", "\n");
   }
 
   return processed;

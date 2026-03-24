@@ -82,7 +82,7 @@ export class LocalCompiler {
       this.compileTimeoutMs = 60000;
     }
 
-    const spawnIsMock = typeof (spawn as any).mock !== 'undefined';
+    const spawnIsMock = (spawn as any).mock !== undefined;
 
     return { usingTestEnv, coverageActive, spawnIsMock };
   }
@@ -230,10 +230,10 @@ export class LocalCompiler {
           throw new Error(`Created path is not a directory: ${outputDir}`);
         }
         this.logger.debug(`Created output directory with proper permissions: ${outputDir}`);
-      } catch (mkdirErr) {
-        const msg = mkdirErr instanceof Error ? mkdirErr.message : String(mkdirErr);
+      } catch (error_) {
+        const msg = error_ instanceof Error ? error_.message : String(error_);
         this.logger.error(`Failed to create output directory: ${msg}`);
-        throw mkdirErr;
+        throw error_;
       }
     }
 
@@ -343,11 +343,11 @@ export class LocalCompiler {
           const newCacheStat = await stat(cachePath);
           const sizeKB = (newCacheStat.size / 1024).toFixed(1);
           this.logger.info(`[LocalCompiler] CLI cache saved (${sizeKB} KB)`);
-        } catch (writeErr) {
+        } catch (error_) {
           const tmpCachePath = cachePath + "." + _cacheUUID() + ".tmp";
           try { await rm(tmpCachePath, { force: true }); } catch {}
           this.logger.warn(`[LocalCompiler] CLI cache write failed: ${
-            writeErr instanceof Error ? writeErr.message : writeErr}`);
+            error_ instanceof Error ? error_.message : error_}`);
         }
       }
     } catch {}
@@ -359,9 +359,9 @@ export class LocalCompiler {
    */
   private cleanCompilerErrors(errors: string): string {
     return errors
-      .replace(/\/sandbox\/sketch\.cpp/g, "sketch.ino") // Docker path
-      .replace(/\/[^\s:]+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino") // Local temp path
-      .replace(/sketch\.cpp/g, "sketch.ino") // Generic .cpp references
+      .replaceAll(/\/sandbox\/sketch\.cpp/g, "sketch.ino") // Docker path
+      .replaceAll(/\/[^\s:]+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino") // Local temp path
+      .replaceAll(/sketch\.cpp/g, "sketch.ino") // Generic .cpp references
       .trim();
   }
 

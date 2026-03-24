@@ -154,7 +154,7 @@ app.use((req, res, next) => {
 
 // Global error handlers to prevent server crashes
 process.on("unhandledRejection", (reason, promise) => {
-  console.error(`[ERROR] Unhandled Promise Rejection at ${promise}:`, reason);
+  console.error(`[ERROR] Unhandled Promise Rejection:`, promise, reason);
 });
 
 process.on("uncaughtException", (error) => {
@@ -296,8 +296,8 @@ fs.mkdirSync(path.join(process.cwd(), "temp"), { recursive: true });
           await pool.shutdown();
           console.log(`[Shutdown] Worker pool shut down complete`);
         }
-      } catch (poolErr) {
-        console.error(`[Shutdown] Pool shutdown error:`, poolErr);
+      } catch (error_) {
+        console.error(`[Shutdown] Pool shutdown error:`, error_);
       }
 
       clearTimeout(shutdownTimeout);

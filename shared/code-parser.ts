@@ -644,14 +644,14 @@ export class CodeParser {
 
   private checkAnalogWritePWM(code: string): ParserMessage[] {
     const messages: ParserMessage[] = [];
-    const PWM_PINS = [3, 5, 6, 9, 10, 11];
+    const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
     const analogWriteRegex = PARSER_PATTERNS.ANALOG_WRITE;
     let match;
     
     while ((match = analogWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
       const pin = parsePinNumberHelper(pinStr);
-      if (pin !== undefined && !PWM_PINS.includes(pin)) {
+      if (pin !== undefined && !PWM_PINS.has(pin)) {
         messages.push({
           id: randomUUID(),
           type: "warning",
@@ -764,9 +764,10 @@ export class CodeParser {
     messages.push(...pinChecker.checkPinModeConflicts(pinModeCalls));
 
     const loopConfiguredPins = this.getLoopConfiguredPins(code);
-    messages.push(...this.checkDigitalIOSetup(code, pinModeSet, loopConfiguredPins));
-
-    messages.push(...this.checkVariablePinUsage(code, uncommentedCode));
+    messages.push(
+      ...this.checkDigitalIOSetup(code, pinModeSet, loopConfiguredPins),
+      ...this.checkVariablePinUsage(code, uncommentedCode),
+    );
 
     // Check OUTPUT pins being read
     const outputPins = new Set<number>();

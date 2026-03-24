@@ -127,10 +127,8 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
   function sendSerialOutputBatched(ws: WebSocket, line: string, isComplete?: boolean): void {
     // Ensure buffer state exists for this client
     let bufferState = clientSerialBuffers.get(ws);
-    if (!bufferState) {
-      bufferState = { lines: [], flushTimer: null };
-      clientSerialBuffers.set(ws, bufferState);
-    }
+    bufferState ??= { lines: [], flushTimer: null };
+    clientSerialBuffers.set(ws, bufferState);
 
     // Store line WITH its isComplete semantic for later intelligent combination
     const lineObj = { data: line, isComplete: isComplete ?? true };
@@ -264,8 +262,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       if (baudrate !== undefined) message.baudrate = baudrate;
       if (reason !== undefined) message.reason = reason;
       sendMessageToClient(ws, message);
+      const baudSuffix = baudrate === undefined ? "" : `, baud=${baudrate}`;
       logger.info(
-        `[io_registry] ${registry.length} pins${baudrate !== undefined ? `, baud=${baudrate}` : ""}`,
+        `[io_registry] ${registry.length} pins${baudSuffix}`,
       );
 
       // Async save without blocking — fire-and-forget with error handling
@@ -328,7 +327,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
   ): Promise<void> {
     // Rate limiting check
     const rateLimiter = getSimulationRateLimiter();
-    const limitCheck = rateLimiter.checkLimit(ws as WebSocket);
+    const limitCheck = rateLimiter.checkLimit(ws);
     if (!limitCheck.allowed) {
       const retryAfter = limitCheck.retryAfter || 30;
       logger.warn(`[RateLimit] Simulation start rejected. Retry after ${retryAfter}s`);
@@ -521,15 +520,24 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     const url = req.url || "";
     const urlParams = new URLSearchParams(url.split("?")[1] || "");
     const testRunId = urlParams.get("testRunId") || undefined;
+    const testRunIdSuffix = testRunId ? ` [testRunId: ${testRunId}]` : "";
 
-    logger.info(`New WebSocket client connected${testRunId ? ` [testRunId: ${testRunId}]` : ""}. Total clients: ${wss.clients.size}`);
+    logger.info(`New WebSocket client connected${testRunIdSuffix}. Total clients: ${wss.clients.size}`);
 
     clientRunners.set(ws, { runner: null, isRunning: false, isPaused: false, testRunId });
 
     const clientState = clientRunners.get(ws);
+    let simStatus: "paused" | "running" | "stopped";
+    if (clientState?.isPaused) {
+      simStatus = "paused";
+    } else if (clientState?.isRunning) {
+      simStatus = "running";
+    } else {
+      simStatus = "stopped";
+    }
     sendMessageToClient(ws, {
       type: "simulation_status",
-      status: clientState?.isPaused ? "paused" : clientState?.isRunning ? "running" : "stopped",
+      status: simStatus,
     });
 
     if (testRunId) {

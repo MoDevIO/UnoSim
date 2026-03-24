@@ -7,9 +7,11 @@
 
 import { AlertCircle, CheckCircle, Clock } from "lucide-react";
 
+type CompilationStatus = "idle" | "compiling" | "success" | "error";
+
 export interface SimulatorStatusBarProps {
   /** Current compilation status: idle, compiling, success, error */
-  readonly compilationStatus?: "idle" | "compiling" | "success" | "error";
+  readonly compilationStatus?: CompilationStatus;
   /** Human-readable compilation status message */
   readonly statusMessage?: string;
   /** Whether last compilation was successful */

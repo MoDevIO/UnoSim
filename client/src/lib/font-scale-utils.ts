@@ -2,14 +2,14 @@
 
 export const FONT_SCALES = [
   { label: "S", value: 0.875, px: 12 },
-  { label: "M", value: 1.0, px: 14 },
+  { label: "M", value: 1, px: 14 },
   { label: "L", value: 1.125, px: 16 },
   { label: "XL", value: 1.25, px: 18 },
   { label: "XXL", value: 1.5, px: 20 },
 ] as const;
 
 const FONT_SCALE_KEY = "unoFontScale"; // internal only
-export const DEFAULT_FONT_SCALE = 1.0;
+export const DEFAULT_FONT_SCALE = 1;
 
 export function getCurrentFontScale(): number {
   try {

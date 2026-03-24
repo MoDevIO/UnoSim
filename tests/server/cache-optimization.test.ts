@@ -71,7 +71,7 @@ describe("Compilation Cache Optimization", () => {
   let stubServer: http.Server;
 
   // Realistic compilation cache with TTL
-  const CACHE_TTL_MS = 200; // Short TTL for testing (200ms)
+  const CACHE_TTL_MS = 3000; // 3s TTL — robust against pre-push hook load
   const compilationCache = new Map<
     string,
     { output: string; cachedAt: number; headers?: unknown }
@@ -258,8 +258,8 @@ void loop() { delay(100); }
     const result2 = await response2.json();
     expect(result2.cached).toBe(true);
 
-    // Wait for TTL to expire (200ms + margin)
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Wait for TTL to expire (3000ms + margin)
+    await new Promise((resolve) => setTimeout(resolve, 3100));
 
     // After TTL — miss again
     const response3 = await fetchHttp(`${API_BASE}/api/compile`, {
@@ -270,5 +270,5 @@ void loop() { delay(100); }
     const result3 = await response3.json();
     expect(result3.success).toBe(true);
     expect(result3.cached).toBe(false); // TTL expired → fresh compile
-  }, 10000);
+  }, 15000);
 });

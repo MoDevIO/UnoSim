@@ -9,9 +9,11 @@ import { computePinConflict, ensurePinModeOperation } from "./utils/pin-validato
 import { createWriteStream, type WriteStream } from "node:fs";
 import { join } from "node:path";
 
-interface RegistryUpdateCallback {
-  (registry: IOPinRecord[], baudrate: number | undefined, reason?: string): void;
-}
+type RegistryUpdateCallback = (
+  registry: IOPinRecord[],
+  baudrate: number | undefined,
+  reason?: string,
+) => void;
 
 interface PerformanceMetrics {
   timestamp: number;
@@ -27,9 +29,7 @@ interface PerformanceMetrics {
   serialDroppedBytesPerSecond: number;
 }
 
-interface TelemetryUpdateCallback {
-  (metrics: PerformanceMetrics): void;
-}
+type TelemetryUpdateCallback = (metrics: PerformanceMetrics) => void;
 
 interface RegistryManagerConfig {
   onUpdate?: RegistryUpdateCallback;
@@ -535,10 +535,10 @@ export class RegistryManager {
 
     this.isDirty = true;
     const nextHash = this.computeRegistryHash();
-    if (nextHash !== this.registryHash) {
-      this.sendNow(nextHash, "collection-complete");
-    } else {
+    if (nextHash === this.registryHash) {
       this.isDirty = false;
+    } else {
+      this.sendNow(nextHash, "collection-complete");
     }
     this.waitingForRegistry = false;
     if (this.waitTimer) {
@@ -556,13 +556,13 @@ export class RegistryManager {
     if (baudrate > 0) {
       // Only set if non-default (not 9600)
       // This ensures we know that Serial.begin() was actually in the code
-      if (baudrate !== 9600) {
-        this.logger.debug(`Baudrate from Serial.begin(): ${baudrate}`);
-        this.baudrate = baudrate;
-      } else {
+      if (baudrate === 9600) {
         // Default 9600 might mean Serial.begin() wasn't in the code
         // Leave as undefined so we don't send a false positive
         this.logger.debug(`Serial.begin(9600) - not sending default bandrate`);
+      } else {
+        this.logger.debug(`Baudrate from Serial.begin(): ${baudrate}`);
+        this.baudrate = baudrate;
       }
     }
   }

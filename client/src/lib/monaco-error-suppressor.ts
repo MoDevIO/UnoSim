@@ -82,9 +82,7 @@ const isMonacoHitTestError = (args: unknown[]): boolean => {
       message.includes("hitResult is null"));
 
   if (isError) {
-    log("Detected Monaco hitTest error:", {
-      message: message.slice(0, 150),
-    });
+    log(`Detected Monaco hitTest error: ${message.slice(0, 150)}`);
   }
 
   return isError;
@@ -137,7 +135,6 @@ globalThis.addEventListener(
       );
       event.preventDefault();
       event.stopImmediatePropagation();
-      return;
     }
   },
   true,

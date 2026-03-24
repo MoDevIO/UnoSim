@@ -23,6 +23,14 @@ import { registerAuthRoutes } from "./routes/auth.routes";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function hashCode(
+  code: string,
+  headers?: Array<{ name: string; content: string }>,
+): string {
+  const combinedInput = code + JSON.stringify(headers || []);
+  return createHash("sha256").update(combinedInput).digest("hex");
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const logger = new Logger("Routes");
   const httpServer = createServer(app);
@@ -67,15 +75,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Placeholder for simulation websocket API (populated when WS module is registered)
   let simulationApi: { stopAllRunnersAndNotify: () => Promise<{ cleanedUpCount: number; cleanedTestRunIds: string[] }> } | null = null;
-
-  // Helper function to generate code hash
-  function hashCode(
-    code: string,
-    headers?: Array<{ name: string; content: string }>,
-  ): string {
-    const combinedInput = code + JSON.stringify(headers || []);
-    return createHash("sha256").update(combinedInput).digest("hex");
-  }
 
 
   // --- Examples API endpoint ---

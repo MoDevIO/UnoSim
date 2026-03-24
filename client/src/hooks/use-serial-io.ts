@@ -49,14 +49,20 @@ export function useSerialIO() {
 
   const clearSerialOutput = useCallback(() => {
     setSerialOutput([]);
-    rendererRef.current?.clear();
+    if (rendererRef.current) {
+      rendererRef.current.clear();
+      // Re-enable rendering so the next serial output is displayed.
+      // clear() pauses the renderer (to stop current animation), but we must
+      // resume() so that data arriving after the clear is not silently dropped.
+      rendererRef.current.resume();
+    }
     setRenderedSerialText("");
   }, []);
 
   // Baudrate rendering methods
   const appendSerialOutput = useCallback((text: string) => {
     const isTestMode =
-      typeof globalThis.window !== "undefined" && (globalThis as any).__PLAYWRIGHT_TEST__;
+      globalThis.window !== undefined && (globalThis as any).__PLAYWRIGHT_TEST__;
     if (isTestMode) {
       // in tests we bypass baudrate rendering to make output appear instantly
       setRenderedSerialText((prev) => prev + text);
@@ -67,7 +73,7 @@ export function useSerialIO() {
 
   const setBaudrate = useCallback((baud: number | undefined) => {
     const isTestMode =
-      typeof globalThis.window !== "undefined" && (globalThis as any).__PLAYWRIGHT_TEST__;
+      globalThis.window !== undefined && (globalThis as any).__PLAYWRIGHT_TEST__;
     rendererRef.current?.setBaudrate(isTestMode ? 0 : baud);
   }, []);
 

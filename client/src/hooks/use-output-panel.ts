@@ -227,7 +227,7 @@ export function useOutputPanel(
       const panelHandle = outputPanelRef.current;
       if (!headerEl || !panelHandle) return;
 
-      const panelNode = headerEl.closest("[data-panel]") as HTMLElement | null;
+      const panelNode = headerEl.closest<HTMLElement>("[data-panel]");
       const groupNode = panelNode?.parentElement as HTMLElement | null;
       if (!panelNode || !groupNode) return;
 
@@ -309,7 +309,7 @@ export function useOutputPanel(
     if (!showCompilationOutput) return;
 
     const headerEl = outputTabsHeaderRef.current;
-    const panelNode = headerEl?.closest("[data-panel]") as HTMLElement | null;
+    const panelNode = headerEl?.closest<HTMLElement>("[data-panel]");
     const groupNode = panelNode?.parentElement as HTMLElement | null;
 
     if (!groupNode) return;
@@ -342,7 +342,7 @@ export function useOutputPanel(
       const headerEl = outputTabsHeaderRef.current;
       if (!headerEl) return;
 
-      const panelNode = headerEl.closest("[data-panel]") as HTMLElement | null;
+      const panelNode = headerEl.closest<HTMLElement>("[data-panel]");
       const groupNode = panelNode?.parentElement as HTMLElement | null;
       if (!panelNode || !groupNode) return;
 

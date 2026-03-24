@@ -86,9 +86,9 @@ export class FilesystemHelper {
         });
         this.logger.debug(`Removed temp directory directly: ${dir}`);
         return true;
-      } catch (rmErr) {
+      } catch (error_) {
         this.logger.warn(
-          `Failed to mark temp directory for cleanup: ${err instanceof Error ? err.message : String(err)}; remove failed: ${rmErr instanceof Error ? rmErr.message : String(rmErr)}`,
+          `Failed to mark temp directory for cleanup: ${err instanceof Error ? err.message : String(err)}; remove failed: ${error_ instanceof Error ? error_.message : String(error_)}`,
         );
         return false;
       }

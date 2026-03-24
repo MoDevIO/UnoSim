@@ -181,8 +181,9 @@ html, body {
 /* Override Tailwind `text-ui-*` utilities to enforce central UI font-size/line-height */
 
 /* Controls (buttons, menu items, icon-only controls) should use the scaled control font and align vertically */
-button,
-[role="button"] {
+/* .arduino-overlay is excluded: it is a full-board canvas button, not a UI control */
+button:not(.arduino-overlay),
+[role="button"]:not(.arduino-overlay) {
   font-size: var(--ui-control-font-size) !important;
   line-height: var(--ui-button-height) !important;
   height: var(--ui-button-height) !important;
@@ -195,13 +196,13 @@ button,
 }
 
 /* Ensure icon-only square controls center SVGs */
-button > svg {
+button:not(.arduino-overlay) > svg {
   width: 1em;
   height: 1em;
 }
 
 /* Force child nodes to inherit control sizing to avoid mixed line-height from inner spans */
-button * {
+button:not(.arduino-overlay) * {
   font-size: var(--ui-control-font-size) !important;
   line-height: var(--ui-button-height) !important;
 }

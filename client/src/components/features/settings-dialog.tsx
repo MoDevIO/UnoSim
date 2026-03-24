@@ -132,9 +132,9 @@ export default function SettingsDialog({
     if (!open) return;
     const t = globalThis.setTimeout(() => {
       try {
-        const el = document.querySelector(
+        const el = document.querySelector<HTMLElement>(
           'input[aria-label="hex color"]',
-        ) as HTMLElement | null;
+        );
         el?.blur();
       } catch {}
     }, 0);
@@ -318,7 +318,7 @@ export default function SettingsDialog({
                 </div>
                 <div className="text-ui-xs text-muted-foreground mt-1">
                   <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">
-                    {navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Strg'}+D
+                    {navigator.userAgent.toLowerCase().includes('mac') ? '⌘' : 'Strg'}+D
                   </kbd>
                 </div>
               </div>
