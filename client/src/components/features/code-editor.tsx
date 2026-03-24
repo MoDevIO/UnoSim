@@ -28,6 +28,9 @@ function findFunctionInLines(
   return { startLine: -1, openBraceLine: -1 };
 }
 
+/** Intentional no-op error handler - avoids anonymous function nesting in .catch() (S2004). */
+const _ignoreErr = () => {};
+
 // Formatting function
 function formatCode(code: string): string {
   let formatted = code;
@@ -442,25 +445,23 @@ export function CodeEditor({
           }
         },
         copy: () => {
+          const model = editor.getModel();
+          const sel = editor.getSelection();
+          if (!model || !sel || sel.isEmpty()) return;
           withEditorFocus(() => {
-            const model = editor.getModel();
-            const sel = editor.getSelection();
-            if (model && sel && !sel.isEmpty()) {
-              const text = model.getValueInRange(sel);
-              navigator.clipboard.writeText(text).catch(() => {});
-            }
+            const text = model.getValueInRange(sel);
+            navigator.clipboard.writeText(text).catch(_ignoreErr);
           });
         },
         cut: () => {
+          const model = editor.getModel();
+          const sel = editor.getSelection();
+          if (!model || !sel || sel.isEmpty()) return;
           withEditorFocus(() => {
-            const model = editor.getModel();
-            const sel = editor.getSelection();
-            if (model && sel && !sel.isEmpty()) {
-              const text = model.getValueInRange(sel);
-              // try clipboard write (async) but not await to avoid blocking
-              navigator.clipboard.writeText(text).catch(() => {});
-              editor.executeEdits("cut", [{ range: sel, text: "" }]);
-            }
+            const text = model.getValueInRange(sel);
+            // try clipboard write (async) but not await to avoid blocking
+            navigator.clipboard.writeText(text).catch(_ignoreErr);
+            editor.executeEdits("cut", [{ range: sel, text: "" }]);
           });
         },
         paste: () => {
