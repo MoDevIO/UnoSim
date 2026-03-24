@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14.67% </span>
+                <span class="strong">14.2% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>27/184</span>
+                <span class='fraction'>26/183</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">4.16% </span>
+                <span class="strong">2.94% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>3/72</span>
+                <span class='fraction'>2/68</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14.44% </span>
+                <span class="strong">13.96% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>26/180</span>
+                <span class='fraction'>25/179</span>
             </div>
         
             
@@ -522,10 +522,7 @@
 <a name='L457'></a><a href='#L457'>457</a>
 <a name='L458'></a><a href='#L458'>458</a>
 <a name='L459'></a><a href='#L459'>459</a>
-<a name='L460'></a><a href='#L460'>460</a>
-<a name='L461'></a><a href='#L461'>461</a>
-<a name='L462'></a><a href='#L462'>462</a>
-<a name='L463'></a><a href='#L463'>463</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L460'></a><a href='#L460'>460</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -608,8 +605,6 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -679,6 +674,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -726,8 +722,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1067,9 +1061,7 @@ class WebSocketManager {
    * Get the singleton instance
    */
   public static getInstance(): WebSocketManager {
-    <span class="missing-if-branch" title="else path not taken" >E</span>if (!WebSocketManager.instance) {
-      WebSocketManager.instance = new WebSocketManager();
-    }
+    WebSocketManager.instance ??= new WebSocketManager();
     return WebSocketManager.instance;
   }
   
@@ -1140,7 +1132,8 @@ class WebSocketManager {
 <span class="cstat-no" title="statement not covered" >      wsUrl += `?testRunId=${encodeURIComponent(this.testRunId)}`;</span>
     }
     
-<span class="cstat-no" title="statement not covered" >    logger.info(`Connecting to WebSocket: ${wsUrl}${this.testRunId ? ` [testRunId: ${this.testRunId}]` : ""}`);</span>
+    const testRunSuffix = <span class="cstat-no" title="statement not covered" >this.testRunId ? ` [testRunId: ${this.testRunId}]` : "";</span>
+<span class="cstat-no" title="statement not covered" >    logger.info(`Connecting to WebSocket: ${wsUrl}${testRunSuffix}`);</span>
     
 <span class="cstat-no" title="statement not covered" >    try {</span>
 <span class="cstat-no" title="statement not covered" >      this.ws = new WebSocket(wsUrl);</span>
@@ -1186,11 +1179,9 @@ class WebSocketManager {
     }
     
     // Schedule flush if not already scheduled
-<span class="cstat-no" title="statement not covered" >    if (!this.bufferFlushTimeout) {</span>
-<span class="cstat-no" title="statement not covered" >      this.bufferFlushTimeout = setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >        this.flushBuffer();</span>
-      }, CONFIG.BUFFER_FLUSH_INTERVAL_MS);
-    }
+<span class="cstat-no" title="statement not covered" >    this.bufferFlushTimeout ??= setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >      this.flushBuffer();</span>
+    }, CONFIG.BUFFER_FLUSH_INTERVAL_MS);
     
 <span class="cstat-no" title="statement not covered" >    return true;</span>
   }
@@ -1335,7 +1326,7 @@ class WebSocketManager {
   }
   
   private <span class="fstat-no" title="function not covered" >handleError(e</span>vent: Event): void {
-<span class="cstat-no" title="statement not covered" >    logger.error(`WebSocket error: ${event}`);</span>
+<span class="cstat-no" title="statement not covered" >    logger.error(`WebSocket error: ${event.type}`);</span>
 <span class="cstat-no" title="statement not covered" >    this.emit("error", "WebSocket connection error");</span>
   }
   
@@ -1456,7 +1447,7 @@ export const getWebSocketManager = (): WebSocketManager =&gt; WebSocketManager.g
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-23T19:08:14.685Z
+                at 2026-03-24T09:43:45.358Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
