@@ -9,15 +9,14 @@ test('smoke - home loads and start button visible', async ({ page }) => {
 });
 
 // Test 2: golden path Blink example
-// assumes default sketch area accessible via textarea with data-testid
-// adapt selectors to app structure
+// Uses __MONACO_EDITOR__ (exposed globally by code-editor.tsx) for reliable
+// content injection — avoids flaky keyboard simulation in headless CI.
 
 test('golden path - load blink, start, see running & serial output', async ({ page }) => {
   await page.goto('/');
 
-  // type simple blink sketch into Monaco code editor
   const code = `void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(13, OUTPUT);
 }
 void loop() {
@@ -28,14 +27,15 @@ void loop() {
   Serial.println("LED OFF");
   delay(100);
 }`;
-  const editor = page.locator('[data-testid="code-editor"]');
-  await editor.click();
-  // clear any existing content (Cmd+A / Ctrl+A then Delete)
-  await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
-  await page.keyboard.press('KeyA');
-  await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
-  await page.keyboard.press('Backspace');
-  await page.keyboard.type(code, { delay: 20 });
+
+  // Wait until Monaco is fully initialised (the editor hook exposes __MONACO_EDITOR__)
+  await page.waitForFunction(() => Boolean((window as unknown as Record<string, unknown>)['__MONACO_EDITOR__']), { timeout: 15000 });
+
+  // Inject code directly via the editor instance — reliable in any environment
+  await page.evaluate((sketch: string) => {
+    const editor = (window as unknown as Record<string, unknown>)['__MONACO_EDITOR__'] as { setValue: (v: string) => void };
+    editor.setValue(sketch);
+  }, code);
 
   // start simulation - use accessible role lookup
   const startButton = page.getByRole('button', { name: /start simulation/i });

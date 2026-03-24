@@ -49,7 +49,13 @@ export function useSerialIO() {
 
   const clearSerialOutput = useCallback(() => {
     setSerialOutput([]);
-    rendererRef.current?.clear();
+    if (rendererRef.current) {
+      rendererRef.current.clear();
+      // Re-enable rendering so the next serial output is displayed.
+      // clear() pauses the renderer (to stop current animation), but we must
+      // resume() so that data arriving after the clear is not silently dropped.
+      rendererRef.current.resume();
+    }
     setRenderedSerialText("");
   }, []);
 
