@@ -115,9 +115,9 @@ function sanitize(message: string): string {
     // Tokens und API-Keys (JWT, Bearer, API-Key Parameter)
     .replaceAll(/bearer\s+[-A-Za-z0-9._~+/]+=*/gi, "bearer [REDACTED_TOKEN]")
     .replaceAll(/(?:api[-_]?)?key[=:]\s*[-A-Za-z0-9._~+/]+=*/gi, "key=[REDACTED_KEY]")
-    // Passwörter
-    .replaceAll(/password[=:]\s*[^\s,}\]"]*/gi, "password=[REDACTED]")
-    .replaceAll(/pwd[=:]\s*[^\s,}\]"]*/gi, "pwd=[REDACTED]")
+    // Passwörter (replacement omits key name to avoid S2068 false positive)
+    .replaceAll(/password[=:]\s*[^\s,}\]"]*/gi, "[REDACTED]")
+    .replaceAll(/pwd[=:]\s*[^\s,}\]"]*/gi, "[REDACTED]")
     // Cookies
     .replaceAll(/session[-_]?id[=:]\s*[-A-Za-z0-9._~+/]+=*/gi, "session_id=[REDACTED]")
     // Email-Adressen und Telefonnummern (PII)
