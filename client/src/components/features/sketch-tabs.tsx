@@ -204,7 +204,7 @@ export function SketchTabs({
         const extension = file.name.slice(Math.max(0, file.name.lastIndexOf(".")));
 
         // Only allow .ino and .h files
-        if (extension !== ".ino" && extension !== ".h") {
+        if (![".ino", ".h"].includes(extension)) {
           toast({
             title: "Unsupported File Type",
             description: `"${file.name}" is not supported. Please only upload .ino and .h files.`,
