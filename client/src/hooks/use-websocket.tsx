@@ -110,8 +110,6 @@ export function useWebSocket() {
     if (!sent) {
       logger.warn(`Message not sent (not connected): ${message.type}`);
     }
-  // avoid unused var warning from TS
-  void sent;
   }, []);
   
   /**
@@ -127,10 +125,6 @@ export function useWebSocket() {
     }
     return sent;
   }, []);
-  // reference it here so TS believes the variable has been read in this
-  // module; we actually return it from the hook but the compiler can be
-  // too clever and think it's unused otherwise.
-  void sendMessageImmediate;
 
   // Function to consume and clear the message queue
   const consumeMessages = useCallback(() => {

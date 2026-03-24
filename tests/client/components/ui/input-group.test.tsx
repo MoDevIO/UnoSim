@@ -63,8 +63,9 @@ describe("InputGroup", () => {
 
     const input = screen.getByTestId("test-input");
     
-    // Should not throw
+    // Should not throw; verify component stays mounted
     await user.type(input, "{Enter}");
+    expect(input).toBeInTheDocument();
   });
 
   it("should call onSubmit when button is clicked", async () => {

@@ -310,6 +310,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         }
       }, 15000); // allow more time on slow CI machines
     });
+    expect(uncaught).toBeNull();
 }, 20000);
 
   it("error handling: process can exit with non-zero code and onExit receives that code", async () => {

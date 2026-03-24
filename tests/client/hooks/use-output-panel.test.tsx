@@ -826,7 +826,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle code change and trigger correction loop", async () => {
-    const { rerender } = renderHook(
+    const { rerender, result } = renderHook(
       (props) => callHook(props),
       { initialProps: defaultProps },
     );
@@ -847,6 +847,7 @@ describe("useOutputPanel", () => {
 
     // Correction loop should complete without errors
     // (We can't easily verify the exact behavior without DOM setup)
+    expect(result.current).toBeDefined();
   });
 
   it("should call enforceOutputPanelFloor on resize event", () => {

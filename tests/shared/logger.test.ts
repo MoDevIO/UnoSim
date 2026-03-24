@@ -102,4 +102,60 @@ describe("Logger", () => {
       expect(errorSpy).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("Logger - Sanitization (sanitize() coverage)", () => {
+    it("should redact password= values in log messages", () => {
+      setLogLevel("INFO");
+      const sanitizeLogger = new Logger("SanitizeTest");
+      sanitizeLogger.info("login failed: password=hunter2");
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[REDACTED]"),
+      );
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("hunter2"),
+      );
+    });
+
+    it("should redact pwd= values in log messages", () => {
+      setLogLevel("INFO");
+      const sanitizeLogger = new Logger("SanitizeTest");
+      sanitizeLogger.info("login: pwd=s3cr3t");
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[REDACTED]"),
+      );
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("s3cr3t"),
+      );
+    });
+
+    it("should redact email addresses in log messages", () => {
+      setLogLevel("INFO");
+      const sanitizeLogger = new Logger("SanitizeTest");
+      sanitizeLogger.info("User logged in: user@example.com");
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[EMAIL_REDACTED]"),
+      );
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("user@example.com"),
+      );
+    });
+
+    it("should redact bearer tokens in log messages", () => {
+      setLogLevel("INFO");
+      const sanitizeLogger = new Logger("SanitizeTest");
+      sanitizeLogger.info("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.abc");
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("bearer [REDACTED_TOKEN]"),
+      );
+    });
+
+    it("should not redact normal log messages", () => {
+      setLogLevel("INFO");
+      const sanitizeLogger = new Logger("SanitizeTest");
+      sanitizeLogger.info("Simulation started successfully");
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Simulation started successfully"),
+      );
+    });
+  });
 });

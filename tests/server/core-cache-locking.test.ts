@@ -152,6 +152,8 @@ describe("Core-Cache Locking Behavior", () => {
     }
 
     // Both compile() calls succeeded without deadlock or cache corruption.
+    expect(results[0].success).toBe(true);
+    expect(results[1].success).toBe(true);
     console.log("[Test] Both parallel compilations completed successfully");
   }, 90000); // 90 s for 2-core CI runners
 

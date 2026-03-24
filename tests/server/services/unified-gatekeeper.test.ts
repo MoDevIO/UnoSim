@@ -880,6 +880,7 @@ describe("UnifiedGatekeeper", () => {
 
       // Should still be granted
       const release2 = await promise2;
+      expect(release2).toBeInstanceOf(Function);
       release2();
 
       gk.stopLockMonitoring();
