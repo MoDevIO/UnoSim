@@ -120,8 +120,8 @@ function sanitize(message: string): string {
     .replaceAll(/pwd[=:]\s*[^\s,}\]"]*/gi, "[REDACTED]")
     // Cookies
     .replaceAll(/session[-_]?id[=:]\s*[-A-Za-z0-9._~+/]+=*/gi, "session_id=[REDACTED]")
-    // Email-Adressen und Telefonnummern (PII)
-    .replaceAll(/[\w.-]+@[\w.-]+\.\w+/g, "[EMAIL_REDACTED]")
+    // Email-Adressen und Telefonnummern (PII) - S5852: literal @ split avoids ReDoS
+    .replaceAll(/[^\s@"']{1,64}@[^\s@"'.]{1,64}\.[^\s@"'.]{2,10}/g, "[EMAIL_REDACTED]")
     .replaceAll(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, "[PHONE_REDACTED]")
     // SSN Pattern (XXX-XX-XXXX)
     .replaceAll(/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN_REDACTED]")
