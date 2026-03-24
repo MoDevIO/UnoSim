@@ -281,8 +281,13 @@ describe("SandboxRunner", () => {
   }
 
   let activeRunners: SandboxRunner[] = [];
+  let savedForceDocker: string | undefined;
 
   beforeEach(() => {
+    // Isolate Docker-mock tests from real FORCE_DOCKER env var
+    savedForceDocker = process.env.FORCE_DOCKER;
+    delete process.env.FORCE_DOCKER;
+
     activeRunners = [];
     spawnInstances.length = 0;
     mkdirMock.mockClear();
@@ -321,6 +326,13 @@ describe("SandboxRunner", () => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
     vi.clearAllMocks();
+
+    // Restore FORCE_DOCKER env var
+    if (savedForceDocker !== undefined) {
+      process.env.FORCE_DOCKER = savedForceDocker;
+    } else {
+      delete process.env.FORCE_DOCKER;
+    }
   });
 
   // Helper to track runners for cleanup

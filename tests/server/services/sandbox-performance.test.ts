@@ -144,8 +144,13 @@ describe("SandboxRunner Performance Tests", () => {
     new Promise((resolve) => originalSetTimeout(resolve, ms));
 
   let activeRunners: SandboxRunner[] = [];
+  let savedForceDocker: string | undefined;
 
   beforeEach(() => {
+    // Isolate Docker-mock tests from real FORCE_DOCKER env var
+    savedForceDocker = process.env.FORCE_DOCKER;
+    delete process.env.FORCE_DOCKER;
+
     activeRunners = [];
     spawnInstances.length = 0;
     (spawn as any).mockClear?.();
@@ -184,6 +189,13 @@ describe("SandboxRunner Performance Tests", () => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
     vi.clearAllMocks();
+
+    // Restore FORCE_DOCKER env var
+    if (savedForceDocker !== undefined) {
+      process.env.FORCE_DOCKER = savedForceDocker;
+    } else {
+      delete process.env.FORCE_DOCKER;
+    }
   });
 
   // Helper to create and track runners

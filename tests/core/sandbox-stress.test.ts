@@ -68,8 +68,14 @@ describe("SandboxRunner Stress Tests - Phase 5", () => {
   let tempDir: string;
   let activeRunners: SandboxRunner[] = [];
   let dockerAvailable = false;
+  let savedForceDocker: string | undefined;
 
   beforeAll(async () => {
+    // Unset FORCE_DOCKER so docker availability reflects real state without env override.
+    // Stress tests use fake timers which are incompatible with FORCE_DOCKER=1 + real Docker.
+    savedForceDocker = process.env.FORCE_DOCKER;
+    delete process.env.FORCE_DOCKER;
+
     tempDir = join(process.cwd(), "temp");
     if (!existsSync(tempDir)) {
       await mkdir(tempDir, { recursive: true });
@@ -85,6 +91,15 @@ describe("SandboxRunner Stress Tests - Phase 5", () => {
       console.log("   Note: Local mode has different behavior and timing characteristics");
     } else {
       console.log("✅ Docker available - Tests will use containerized sandbox");
+    }
+  });
+
+  afterAll(() => {
+    // Restore FORCE_DOCKER env var
+    if (savedForceDocker !== undefined) {
+      process.env.FORCE_DOCKER = savedForceDocker;
+    } else {
+      delete process.env.FORCE_DOCKER;
     }
   });
 
