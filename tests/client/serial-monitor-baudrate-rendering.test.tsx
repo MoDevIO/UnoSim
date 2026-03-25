@@ -252,10 +252,18 @@ describe("Serial Monitor - Baudrate-Based Character Rendering", () => {
         ref.current?.append("ABCDEF");
       });
 
-      // 2 Zeichen rendern
+      // At 300 baud: msPerChar ≈ 33.3ms, rAF ticks every 16ms
+      // tick at 16ms: elapsed=16 < 33.3 → no char yet
+      // tick at 32ms: elapsed=32 < 33.3 → no char yet
+      // tick at 48ms: elapsed=48 ≥ 33.3 → 'A' rendered, lastCharTime=48
+      // tick at 64ms: elapsed=64-48=16 < 33.3 → no char yet
+      // tick at 80ms: elapsed=80-48=32 < 33.3 → no char yet
+      // Advance to just before the 3rd char becomes due (< 48 + 33.3 + 33.3 = 114.6ms)
+      // Use 66ms total: renders exactly 'A' at ~48ms, 'B' not yet due
+      // Actually: 'A' at ~48ms, 'B' at ~48+33=81ms → advance 80ms to get 'A' only
+      // More reliably: advance 2×33ms + small buffer = 70ms, then pause
       act(() => {
-        // advance 66ms (two chars) plus extra rAF ticks
-        vi.advanceTimersByTime(100);
+        vi.advanceTimersByTime(70);
       });
       await waitFor(() => expect(output.textContent).toBe("AB"));
 
