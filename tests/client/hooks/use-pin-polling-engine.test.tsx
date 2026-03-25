@@ -15,7 +15,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { RefObject, MutableRefObject } from "react";
-import { createRef } from "react";
 import { usePinPollingEngine } from "@/hooks/usePinPollingEngine";
 import type { PinState } from "@/components/features/arduino-board";
 

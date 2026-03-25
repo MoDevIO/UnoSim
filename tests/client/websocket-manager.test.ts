@@ -239,10 +239,8 @@ describe("WebSocketManager", () => {
     wsInstances[0]._simulateOpen();
     wsInstances[0]._simulateMessage({ invalid: true });
 
-    // Since the mock returns false for this run, no message emitted
-    // But we can only affect future module loads, so check received is empty
-    // from the perspective of the _simulateMessage call
-    // The mock may not apply to already-loaded module, so this tests the branch
+    // The real isArduinoMessage still guards – invalid payloads are dropped
+    expect(received).toHaveLength(0);
   });
 
   // ---- disconnect() ----
