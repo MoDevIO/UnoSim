@@ -217,6 +217,27 @@ function updateLabelForPin(
   }
 }
 
+/** Compute brightness for a pin considering the fade-out animation. */
+function computeFadeBrightness(isHigh: boolean, turnedOffAt: number | undefined): number {
+  if (isHigh) return 1;
+  if (!turnedOffAt) return 0;
+  const elapsed = Date.now() - turnedOffAt;
+  return elapsed < FADE_OUT_MS ? 1 - elapsed / FADE_OUT_MS : 0;
+}
+
+/** Map a pin state + brightness to an RGB color string. */
+function pinColorForState(state: PinState, pin: number, brightness: number): string {
+  if (brightness <= 0) return "var(--color-black)";
+  const intensity = Math.round(brightness * 255);
+  if (state.type === "digital") return `rgb(${intensity}, 0, 0)`;
+  if (PWM_PINS.includes(pin)) {
+    const pwmIntensity = Math.round((state.value / 255) * intensity);
+    return `rgb(${pwmIntensity}, 0, 0)`;
+  }
+  if (state.value >= 255) return `rgb(${intensity}, 0, 0)`;
+  return "var(--color-black)";
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface UsePinPollingEngineProps {
@@ -259,41 +280,11 @@ export function usePinPollingEngine({
    * Get pin color with fade-out effect for OFF LEDs
    */
   const getPinColor = (pin: number): string => {
-    const pinStates = stateRef.current.pinStates;
-    const state = pinStates.find((p) => p.pin === pin);
+    const state = stateRef.current.pinStates.find((p) => p.pin === pin);
     if (!state) return "transparent";
-
-    const isPWM = PWM_PINS.includes(pin);
-    const isHigh = state.value > 0;
-
-    let brightness = 0;
-    if (isHigh) {
-      brightness = 1;
-    } else {
-      const turnedOffAt = pinTurnedOffAtRef.current.get(pin);
-      if (turnedOffAt) {
-        const timeSinceTurnedOff = Date.now() - turnedOffAt;
-        if (timeSinceTurnedOff < FADE_OUT_MS) {
-          brightness = 1 - (timeSinceTurnedOff / FADE_OUT_MS);
-        }
-      }
-    }
-
-    if (brightness <= 0) {
-      return "var(--color-black)";
-    }
-
-    const intensity = Math.round(brightness * 255);
-
-    if (state.type === "digital") {
-      return `rgb(${intensity}, 0, 0)`;
-    } else if (isPWM) {
-      const pwmIntensity = Math.round((state.value / 255) * intensity);
-      return `rgb(${pwmIntensity}, 0, 0)`;
-    } else if (state.value >= 255) {
-      return `rgb(${intensity}, 0, 0)`;
-    }
-    return "var(--color-black)";
+    const turnedOffAt = pinTurnedOffAtRef.current.get(pin);
+    const brightness = computeFadeBrightness(state.value > 0, turnedOffAt);
+    return pinColorForState(state, pin, brightness);
   };
 
   /** Track LED fade-out state when a pin turns on/off. */
