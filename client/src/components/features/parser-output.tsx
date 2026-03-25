@@ -360,10 +360,18 @@ export function ParserOutput({
                         style={{
                           borderLeftColor: getSeverityColor(message.severity),
                         }}
+                        role="button"
+                        tabIndex={message.line !== undefined ? 0 : -1}
                         onClick={() =>
                           message.line !== undefined &&
                           onGoToLine?.(message.line)
                         }
+                        onKeyDown={(e) => {
+                          if ((e.key === "Enter" || e.key === " ") && message.line !== undefined) {
+                            e.preventDefault();
+                            onGoToLine?.(message.line);
+                          }
+                        }}
                       >
                         <div className="flex items-start gap-2">
                           {getSeverityIcon(message.severity)}

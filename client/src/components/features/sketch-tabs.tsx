@@ -382,6 +382,14 @@ export function SketchTabs({
                 onTabClick(tab.id);
               }
             }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if ((e.key === "Enter" || e.key === " ") && renamingTabId !== tab.id) {
+                e.preventDefault();
+                onTabClick(tab.id);
+              }
+            }}
           >
             {renamingTabId === tab.id ? (
               <Input
@@ -415,9 +423,17 @@ export function SketchTabs({
                     display: "flex",
                     alignItems: "center",
                   }}
+                  role="button"
+                  tabIndex={-1}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     handleRenameStart(tab.id, tab.name);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "F2") {
+                      e.stopPropagation();
+                      handleRenameStart(tab.id, tab.name);
+                    }
                   }}
                 >
                   {tab.name}

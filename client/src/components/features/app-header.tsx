@@ -161,12 +161,11 @@ function PauseButton({ isPausing, simulateDisabled, isLoading, onPause }: PauseB
     }
   };
   return (
-    <div
-      className="absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center cursor-pointer bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10"
+    <button
+      type="button"
+      className="absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10 cursor-pointer"
       onClick={handleClick}
       onMouseDown={handleMouseDown}
-      role="button"
-      tabIndex={0}
       onKeyDown={handleKeyDown}
       aria-label="Pause Simulation"
       title="Pause"
@@ -176,7 +175,7 @@ function PauseButton({ isPausing, simulateDisabled, isLoading, onPause }: PauseB
       ) : (
         <Pause className="h-3 w-3 text-orange-900" />
       )}
-    </div>
+    </button>
   );
 }
 
@@ -282,9 +281,9 @@ function DesktopMenuBar({
   onTimeoutChange,
 }: DesktopMenuBarProps) {
   return (
-    <nav
-      className="app-menu no-drag flex items-center gap-0 flex-shrink-0"
+    <div
       role="menubar"
+      className="app-menu no-drag flex items-center gap-0 flex-shrink-0"
       aria-label="Application menu"
     >
       {/* File Menu */}
@@ -498,7 +497,7 @@ function DesktopMenuBar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </nav>
+    </div>
   );
 }
 
