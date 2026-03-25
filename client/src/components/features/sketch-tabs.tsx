@@ -382,7 +382,6 @@ export function SketchTabs({
                 onTabClick(tab.id);
               }
             }}
-            role="button"
             tabIndex={0}
             onKeyDown={(e) => {
               if ((e.key === "Enter" || e.key === " ") && renamingTabId !== tab.id) {
@@ -414,8 +413,9 @@ export function SketchTabs({
               />
             ) : (
               <>
-                <span
-                  className="text-ui-sm whitespace-nowrap cursor-pointer hover:underline"
+                <button
+                  type="button"
+                  className="text-ui-sm whitespace-nowrap cursor-pointer hover:underline border-0 bg-transparent p-0"
                   style={{
                     fontSize: "var(--ui-control-font-size)",
                     lineHeight: "var(--ui-button-height)",
@@ -423,7 +423,6 @@ export function SketchTabs({
                     display: "flex",
                     alignItems: "center",
                   }}
-                  role="button"
                   tabIndex={-1}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
@@ -438,7 +437,7 @@ export function SketchTabs({
                 >
                   {tab.name}
                   {modifiedTabId === tab.id && <span className="ml-1">•</span>}
-                </span>
+                </button>
                 {tabs[0]?.id !== tab.id && (
                   <Button
                     variant="outline"

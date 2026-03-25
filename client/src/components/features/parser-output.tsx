@@ -360,8 +360,7 @@ export function ParserOutput({
                         style={{
                           borderLeftColor: getSeverityColor(message.severity),
                         }}
-                        role="button"
-                        tabIndex={message.line !== undefined ? 0 : -1}
+                        tabIndex={message.line === undefined ? -1 : 0}
                         onClick={() =>
                           message.line !== undefined &&
                           onGoToLine?.(message.line)

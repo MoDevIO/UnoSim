@@ -135,11 +135,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     bufferState.lines.push(lineObj);
 
     // Schedule flush if not already scheduled
-    if (!bufferState.flushTimer) {
-      bufferState.flushTimer = setTimeout(() => {
-        flushSerialOutputBuffer(ws);
-      }, 50);
-    }
+    bufferState.flushTimer ??= setTimeout(() => {
+      flushSerialOutputBuffer(ws);
+    }, 50);
   }
 
   async function safeReleaseRunner(
@@ -550,8 +548,13 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     ws.on("message", async (message) => {
       try {
         // Debug: log raw incoming WS messages for E2E troubleshooting
-        logger.debug(`[WS-IN] ${message.toString()}`);
-        const data = JSON.parse(message.toString());
+        const msgText = Buffer.isBuffer(message)
+          ? message.toString()
+          : Array.isArray(message)
+            ? Buffer.concat(message).toString()
+            : Buffer.from(message).toString();
+        logger.debug(`[WS-IN] ${msgText}`);
+        const data = JSON.parse(msgText);
         const type = data.type;
         const clientState = clientRunners.get(ws);
 
