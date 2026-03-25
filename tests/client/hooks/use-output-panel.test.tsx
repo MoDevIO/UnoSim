@@ -35,10 +35,12 @@ describe("useOutputPanel", () => {
     parserMessages: [] as ParserMessage[],
     lastCompilationResult: null as "success" | "error" | null,
     parserMessagesContainerRef: mockParserMessagesContainerRef,
-    showCompilationOutput: false,
-    setShowCompilationOutput: mockSetShowCompilationOutput,
-    setParserPanelDismissed: mockSetParserPanelDismissed,
-    setActiveOutputTab: mockSetActiveOutputTab,
+    stateHandlers: {
+      showCompilationOutput: false,
+      setShowCompilationOutput: mockSetShowCompilationOutput,
+      setParserPanelDismissed: mockSetParserPanelDismissed,
+      setActiveOutputTab: mockSetActiveOutputTab,
+    },
     code: "",
   };
 
@@ -50,10 +52,7 @@ describe("useOutputPanel", () => {
       props.parserMessages,
       props.lastCompilationResult,
       props.parserMessagesContainerRef,
-      props.showCompilationOutput,
-      props.setShowCompilationOutput,
-      props.setParserPanelDismissed,
-      props.setActiveOutputTab,
+      props.stateHandlers,
       props.code,
     );
 
@@ -90,7 +89,7 @@ describe("useOutputPanel", () => {
     localStorage.setItem("unoShowCompileOutput", "1");
 
     const { result } = renderHook(() =>
-      callHook({ ...defaultProps, showCompilationOutput: true }),
+      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     // The hook doesn't directly use this in initialization, but the parent would
@@ -223,7 +222,7 @@ describe("useOutputPanel", () => {
         ...defaultProps,
         hasCompilationErrors: true,
         cliOutput: "Error: compilation failed",
-        showCompilationOutput: false,
+        stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: false },
       });
       vi.runAllTimers();
     });
@@ -386,7 +385,7 @@ describe("useOutputPanel", () => {
         ...defaultProps,
         parserMessages: messages,
         hasCompilationErrors: false,
-        showCompilationOutput: false,
+        stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: false },
       });
       vi.runAllTimers();
     });
@@ -427,13 +426,13 @@ describe("useOutputPanel", () => {
   it("should persist showCompilationOutput to localStorage when changed", () => {
     const { rerender } = renderHook(
       (props) => callHook(props),
-      { initialProps: { ...defaultProps, showCompilationOutput: false } },
+      { initialProps: { ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: false } } },
     );
 
     expect(localStorage.getItem("unoShowCompileOutput")).toBe("0");
 
     act(() => {
-      rerender({ ...defaultProps, showCompilationOutput: true });
+      rerender({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } });
       vi.runAllTimers();
     });
 
@@ -442,7 +441,7 @@ describe("useOutputPanel", () => {
 
   it("should handle window resize event", () => {
     const { result } = renderHook(() =>
-      callHook({ ...defaultProps, showCompilationOutput: true }),
+      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     const mockGetSize = vi.fn(() => 25);
@@ -463,7 +462,7 @@ describe("useOutputPanel", () => {
 
   it("should handle uiFontScaleChange event on window", () => {
     const { result } = renderHook(() =>
-      callHook({ ...defaultProps, showCompilationOutput: true }),
+      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     const mockResize = vi.fn();
@@ -480,7 +479,7 @@ describe("useOutputPanel", () => {
 
   it("should handle uiFontScaleChange event on document", () => {
     const { result } = renderHook(() =>
-      callHook({ ...defaultProps, showCompilationOutput: true }),
+      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     const mockResize = vi.fn();
@@ -499,7 +498,7 @@ describe("useOutputPanel", () => {
     const docRemoveListenerSpy = vi.spyOn(document, "removeEventListener");
 
     const { unmount } = renderHook(() =>
-      callHook({ ...defaultProps, showCompilationOutput: true }),
+      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     unmount();
@@ -780,7 +779,7 @@ describe("useOutputPanel", () => {
     act(() => {
       rerender({
         ...defaultProps,
-        showCompilationOutput: true,
+        stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true },
       });
       vi.runAllTimers();
     });
@@ -790,7 +789,7 @@ describe("useOutputPanel", () => {
     act(() => {
       rerender({
         ...defaultProps,
-        showCompilationOutput: false,
+        stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: false },
       });
       vi.runAllTimers();
     });

@@ -5,6 +5,13 @@ import type { ParserMessage } from "@shared/schema";
 type CompilationResultType = "success" | "error" | null;
 type OutputTabType = "compiler" | "messages" | "registry" | "debug";
 
+export interface OutputPanelStateHandlers {
+  readonly showCompilationOutput: boolean;
+  readonly setShowCompilationOutput: (value: boolean | ((prev: boolean) => boolean)) => void;
+  readonly setParserPanelDismissed: (value: boolean) => void;
+  readonly setActiveOutputTab: (tab: OutputTabType) => void;
+}
+
 /**
  * Compute output panel size percentage for compiler error output.
  * Extracted from useOutputPanel to reduce cognitive complexity (S3776).
@@ -63,12 +70,10 @@ export function useOutputPanel(
   parserMessages: ParserMessage[],
   lastCompilationResult: CompilationResultType,
   parserMessagesContainerRef: React.RefObject<HTMLDivElement>,
-  showCompilationOutput: boolean,
-  setShowCompilationOutput: (value: boolean | ((prev: boolean) => boolean)) => void,
-  setParserPanelDismissed: (value: boolean) => void,
-  setActiveOutputTab: (tab: OutputTabType) => void,
+  stateHandlers: OutputPanelStateHandlers,
   code: string,
 ) {
+  const { showCompilationOutput, setShowCompilationOutput, setParserPanelDismissed, setActiveOutputTab } = stateHandlers;
   const outputPanelRef = useRef<ImperativePanelHandle | null>(null);
   const outputTabsHeaderRef = useRef<HTMLDivElement | null>(null);
   const [outputPanelMinPercent, setOutputPanelMinPercent] = useState<number>(3);

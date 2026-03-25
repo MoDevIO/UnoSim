@@ -410,6 +410,13 @@ function processStaticPin(
   }
 }
 
+interface CallContext {
+  loops: LoopRange[];
+  syms: Map<string, number>;
+  arrays: Map<string, number[]>;
+  entries: CallEntry[];
+}
+
 /**
  * Process a single function call and add entries to the entries list.
  * Handles for-loop expansion and static pin resolution.
@@ -420,11 +427,9 @@ function processCallExpression(
   secondArg: string,
   callPos: number,
   callLine: number,
-  loops: LoopRange[],
-  syms: Map<string, number>,
-  arrays: Map<string, number[]>,
-  entries: CallEntry[],
+  ctx: CallContext,
 ): void {
+  const { loops, syms, arrays, entries } = ctx;
   // ── Check for-loop variable expansion (TC 3) ──────────────────────────
   const loop = loops.find(
     (l) => l.startPos <= callPos && callPos <= l.endPos && l.variable === pinExpr,
@@ -605,10 +610,7 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
       secondArg,
       callPos,
       callLine,
-      loops,
-      syms,
-      arrays,
-      entries,
+      { loops, syms, arrays, entries },
     );
   }
 

@@ -45,10 +45,7 @@ export function useSimulatorOutputPanel({
     parserMessages,
     compilationState,
     parserMessagesContainerRef,
-    showCompilationOutput,
-    setShowCompilationOutput,
-    setParserPanelDismissed,
-    setActiveOutputTab,
+    { showCompilationOutput, setShowCompilationOutput, setParserPanelDismissed, setActiveOutputTab },
     code,
   );
 
