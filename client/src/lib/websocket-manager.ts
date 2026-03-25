@@ -441,7 +441,7 @@ class WebSocketManager {
     if (callbacks) {
       callbacks.forEach(cb => {
         try {
-          (cb as Function)(...args);
+          cb(...args);
         } catch (error) {
           logger.error(`Error in event handler for ${event}: ${error}`);
         }

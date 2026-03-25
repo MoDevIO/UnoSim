@@ -100,7 +100,7 @@ export function useMobileLayout() {
       const chosenZ = z > 0 ? Math.max(z - 1, 5) : 30;
       setOverlayZ(chosenZ);
       logger.debug(
-        `[mobile overlay] header detect: ${hdr} headerHeight=${h} overlayZ=${chosenZ}`,
+        `[mobile overlay] header detect: ${hdr?.tagName ?? "null"} headerHeight=${h} overlayZ=${chosenZ}`,
       );
     };
 

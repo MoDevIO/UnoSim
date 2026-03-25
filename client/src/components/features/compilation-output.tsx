@@ -72,9 +72,9 @@ export function CompilationOutput({
       <div className="flex-1 overflow-auto custom-scrollbar">
         {errors && errors.length > 0 ? (
           <div data-testid="compilation-errors" className="p-3 font-mono whitespace-pre-wrap">
-            {errors.map((e, idx) => (
+            {errors.map((e) => (
               <div
-                key={idx}
+                key={`${e.file}:${e.line}:${e.column}:${e.type}:${e.message}`}
                 className={e.type === "error" ? "text-red-400" : "text-yellow-400"}
               >
                 {e.file}{e.line ? `:${e.line}` : ""}{e.column ? `:${e.column}` : ""} {e.type}: {e.message}

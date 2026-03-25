@@ -149,8 +149,8 @@ function buildArrays(
     const vals = m[2]
       .split(",")
       .map((v) => resolveToken(v.trim(), syms));
-    if (vals.every((v) => v !== undefined)) {
-      arrays.set(m[1], vals as number[]);
+    if (vals.every((v): v is number => v !== undefined)) {
+      arrays.set(m[1], vals);
     }
   }
   return arrays;

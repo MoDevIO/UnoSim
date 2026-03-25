@@ -72,7 +72,6 @@ function setupFontScaleShortcuts() {
       if (decreaseFontScale()) {
         logger.debug("Font scale decreased");
       }
-      return;
     }
   };
   
