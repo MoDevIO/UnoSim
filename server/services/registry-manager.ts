@@ -796,7 +796,7 @@ export class RegistryManager {
       const pinsList = this.registry.map((p) => `${p.pin}(def=${p.defined})`).join(",");
       const hasPin13 = this.registry.some((p) => p.pin === "13");
       if (reason) {
-        const baudInfo = this.baudrate !== undefined ? ` | baud=${this.baudrate}` : " | baud=not-defined";
+        const baudInfo = this.baudrate === undefined ? " | baud=not-defined" : ` | baud=${this.baudrate}`;
         this.logger.info(
           `📤 Registry SEND [${reason}]: ${this.registry.length} pins [${pinsList}]${baudInfo} ${hasPin13 ? "✅ PIN13_INCLUDED" : "❌ NO_PIN13"}`,
         );

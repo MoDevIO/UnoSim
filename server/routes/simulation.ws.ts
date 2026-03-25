@@ -7,6 +7,14 @@ import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import path from "node:path";
 import { constants as zlibConstants } from "node:zlib";
 import { writeFile, access } from "node:fs/promises";
+import type { RawData } from "ws";
+
+/** Safely convert WebSocket RawData (Buffer | ArrayBuffer | Buffer[]) to a string. */
+function rawDataToString(data: RawData): string {
+  if (Array.isArray(data)) return Buffer.concat(data).toString();
+  if (data instanceof ArrayBuffer) return Buffer.from(data).toString();
+  return data.toString();
+}
 
 type SimulationDeps = {
   SandboxRunner: typeof SandboxRunner;
@@ -548,11 +556,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     ws.on("message", async (message) => {
       try {
         // Debug: log raw incoming WS messages for E2E troubleshooting
-        const msgText = Buffer.isBuffer(message)
-          ? message.toString()
-          : Array.isArray(message)
-            ? Buffer.concat(message).toString()
-            : Buffer.from(message).toString();
+        const msgText = rawDataToString(message);
         logger.debug(`[WS-IN] ${msgText}`);
         const data = JSON.parse(msgText);
         const type = data.type;

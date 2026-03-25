@@ -30,6 +30,17 @@ const ASSIGN_PIN_RE = /(?:int|const\s+int|uint8_t|byte)\s+(\w+)\s*=\s*(A\d|\d+)\
 /** Match analogRead(token) calls. */
 const ANALOG_READ_RE = /analogRead\s*\(\s*([^)]+)\s*\)/g;
 
+/** Extracts the body of a braced block starting at `openBracePos` in `src`. */
+function extractBracedBody(src: string, openBracePos: number): string {
+  let depth = 1, pos = openBracePos;
+  while (pos < src.length && depth > 0) {
+    if (src[pos] === '{') depth++;
+    else if (src[pos] === '}') depth--;
+    pos++;
+  }
+  return src.slice(openBracePos, pos - 1);
+}
+
 /** Match for-loop pattern with integer iteration (header + opening brace only; body extracted via brace counting). */
 const FOR_LOOP_RE = /for\s*\(\s*\w*\s*(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;.*?\)\s*\{/g;
 
@@ -145,15 +156,7 @@ function findForLoopPins(code: string): Set<number> {
 
   while ((fm = FOR_LOOP_RE.exec(code))) {
     const [, varName, startStr, cmp, endStr] = fm;
-    // Extract loop body via brace counting (regex ends with '{', body follows)
-    const bodyStart = fm.index + fm[0].length;
-    let depth = 1, pos = bodyStart;
-    while (pos < code.length && depth > 0) {
-      if (code[pos] === '{') depth++;
-      else if (code[pos] === '}') depth--;
-      pos++;
-    }
-    const body = code.slice(bodyStart, pos - 1);
+    const body = extractBracedBody(code, fm.index + fm[0].length);
     const useRe = new RegExp(
       String.raw`analogRead\s*\(\s*${varName}\s*\)`,
       "g",
