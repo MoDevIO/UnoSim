@@ -154,16 +154,21 @@ function hideAllLabels(svgEl: SVGSVGElement): void {
   }
 }
 
+interface SvgTextOpts {
+  textValue: string;
+  fill: string;
+  showPWMValues: boolean;
+  rotate?: LabelRotateOpts;
+}
+
 function ensureSvgText(
   svgEl: SVGSVGElement,
   id: string,
   x: number,
   y: number,
-  textValue: string,
-  fill: string,
-  showPWMValues: boolean,
-  rotate?: LabelRotateOpts,
+  opts: SvgTextOpts,
 ): void {
+  const { textValue, fill, showPWMValues, rotate } = opts;
   let t = svgEl.querySelector<SVGTextElement>(`#${id}`);
   if (t) {
     t.setAttribute("font-size", getComputedTokenValue("--fs-label-sm"));
@@ -211,7 +216,12 @@ function updateLabelForPin(
     const bb = refEl.getBBox();
     const cy = bb.y + bb.height / 2;
     const cx = bb.x + bb.width / 2;
-    ensureSvgText(svgEl, labelId, cx, cy, pinValue, "var(--color-white)", showPWMValues, computeLabelPosition(bb, cy));
+    ensureSvgText(svgEl, labelId, cx, cy, {
+      textValue: pinValue,
+      fill: "var(--color-white)",
+      showPWMValues,
+      rotate: computeLabelPosition(bb, cy),
+    });
   } catch {
     // ignore bbox errors
   }

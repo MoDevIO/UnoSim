@@ -24,7 +24,7 @@ const PARSER_PATTERNS = {
   LOOP_ANY: /void\s+loop\s*\([^)]*\)/,
 
   // Pin-related patterns
-  FOR_LOOP_HEADER: /for\s*\(\s*(?:(?:unsigned\s+int|uint8_t|unsigned|byte|int|var)\s+)?([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*(<=?)\s*(\d+)\s*;[^)]*\)/g,
+  FOR_LOOP_HEADER: /for\s*\(\s*(?:\w+(?:\s+\w+)?\s+)?([a-zA-Z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*(<=?)\s*(\d+)\s*;[^)]*\)/g,
   PIN_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,/g,
   PIN_MODE_WITH_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g,
   PIN_MODE_VAR: /pinMode\s*\(\s*([a-zA-Z_]\w*)\s*,/g,

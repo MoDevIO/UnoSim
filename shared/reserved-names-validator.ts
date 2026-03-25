@@ -185,7 +185,7 @@ class ReservedNamesValidator {
     // Check for variable declarations using reserved names
     // Match patterns like: int pause; float pause; int* pause; etc.
     const varDeclRegex =
-      /\b(int|float|double|bool|byte|char|short|long|unsigned|void|const|volatile|static)\s+(?:\*+\s*)*(\w+)\s*(?:[=[;])/g;
+      /\b(int|float|double|bool|byte|char|short|long|unsigned|const|volatile|static)\s+(?:\*+\s*)*(\w+)\s*(?:[=;])/g;
 
     let match;
     const foundReservedNames = new Set<string>();

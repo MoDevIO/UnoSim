@@ -44,9 +44,9 @@ const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
 const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const ARRAY_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
-const FOR_LOOP_PATTERN = /\bfor\s*\(\s*(?:(?:byte|int|uint8_t|short)\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>]=?)\s*(\w+)\s*;[^)]*\)\s*(\{)?/g;
+const FOR_LOOP_PATTERN = /\bfor\s*\(\s*(?:\w+\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>]=?)\s*(\w+)\s*;[^)]*\)\s*(\{)?/g;
 const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/;
-const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*((?:[A-Za-z_]\w*\s*\[\s*\d+\s*\])|(?:[A-Za-z_]\w*|\d+))(?:\s*,\s*([A-Za-z_]\w*|\d+))?/g;
+const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*(\w+(?:\[\d+\])?)(?:\s*,\s*(\w+))?/g;
 
 type OpName =
   | "pinMode"

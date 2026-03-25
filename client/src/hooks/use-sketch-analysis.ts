@@ -31,7 +31,7 @@ const ASSIGN_PIN_RE = /(?:int|const\s+int|uint8_t|byte)\s+(\w+)\s*=\s*(A\d|\d+)\
 const ANALOG_READ_RE = /analogRead\s*\(\s*([^)]+)\s*\)/g;
 
 /** Match for-loop pattern with integer iteration. */
-const FOR_LOOP_RE = /for\s*\(\s*(?:byte|int|unsigned|uint8_t)?\s*(\w+)\s*=\s*(\d+)\s*;\s*\1\s*(<|<=)\s*(\d+)\s*;[^)]*\)\s*\{([\s\S]*?)\}/g;
+const FOR_LOOP_RE = /for\s*\(\s*(?:\w+\s+)?(\w+)\s*=\s*(\d+)\s*;\s*\1\s*(<=?)\s*(\d+)\s*;[^)]*\)\s*\{([\s\S]*?)\}/g;
 
 /** Match pinMode(pin, mode) calls. */
 const PIN_MODE_RE = /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
