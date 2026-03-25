@@ -30,8 +30,8 @@ const ASSIGN_PIN_RE = /(?:int|const\s+int|uint8_t|byte)\s+(\w+)\s*=\s*(A\d|\d+)\
 /** Match analogRead(token) calls. */
 const ANALOG_READ_RE = /analogRead\s*\(\s*([^)]+)\s*\)/g;
 
-/** Match for-loop pattern with integer iteration. */
-const FOR_LOOP_RE = /for\s*\(\s*(?:\w+\s+)?(\w+)\s*=\s*(\d+)\s*;\s*\1\s*(<=?)\s*(\d+)\s*;[^)]*\)\s*\{([\s\S]*?)\}/g;
+/** Match for-loop pattern with integer iteration (header + opening brace only; body extracted via brace counting). */
+const FOR_LOOP_RE = /for\s*\(\s*\w*\s*(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;.*?\)\s*\{/g;
 
 /** Match pinMode(pin, mode) calls. */
 const PIN_MODE_RE = /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
@@ -144,7 +144,16 @@ function findForLoopPins(code: string): Set<number> {
   let fm: RegExpExecArray | null = null;
 
   while ((fm = FOR_LOOP_RE.exec(code))) {
-    const [, varName, startStr, cmp, endStr, body] = fm;
+    const [, varName, startStr, cmp, endStr] = fm;
+    // Extract loop body via brace counting (regex ends with '{', body follows)
+    const bodyStart = fm.index + fm[0].length;
+    let depth = 1, pos = bodyStart;
+    while (pos < code.length && depth > 0) {
+      if (code[pos] === '{') depth++;
+      else if (code[pos] === '}') depth--;
+      pos++;
+    }
+    const body = code.slice(bodyStart, pos - 1);
     const useRe = new RegExp(
       String.raw`analogRead\s*\(\s*${varName}\s*\)`,
       "g",
