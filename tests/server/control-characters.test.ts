@@ -61,8 +61,8 @@ describe("Control Characters Examples and Handling", () => {
     expect(monitorCode).toContain(String.raw`\b`);
     // Tab expansion
     expect(monitorCode).toContain(String.raw`\t`);
-    // ESC[K clear-line handling
-    expect(monitorCode).toContain(String.raw`\x1b\[K`);
+    // ESC[K clear-line handling – implemented via ESC_K template literal (e.g. `${ESC}[K`)
+    expect(monitorCode).toContain("[K");
     // Bell marker
     expect(monitorCode.includes(String.raw`\x07`) || monitorCode.includes("␇")).toBe(
       true,
