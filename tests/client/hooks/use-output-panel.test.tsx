@@ -944,4 +944,41 @@ describe("useOutputPanel", () => {
     // Should not call resize when manually resized
     expect(mockResize).not.toHaveBeenCalled();
   });
+
+  it("should handle setOutputTab custom event and set active tab", async () => {
+    renderHook(() => callHook(defaultProps));
+
+    act(() => {
+      const event = new CustomEvent("setOutputTab", { detail: { tab: "messages" } });
+      document.dispatchEvent(event);
+    });
+
+    await waitFor(() => {
+      expect(mockSetActiveOutputTab).toHaveBeenCalledWith("messages");
+      expect(mockSetShowCompilationOutput).toHaveBeenCalledWith(true);
+    });
+  });
+
+  it("should ignore setOutputTab event with no tab detail", async () => {
+    renderHook(() => callHook(defaultProps));
+
+    act(() => {
+      const event = new CustomEvent("setOutputTab", { detail: {} });
+      document.dispatchEvent(event);
+    });
+
+    // Callbacks should NOT be triggered
+    expect(mockSetActiveOutputTab).not.toHaveBeenCalled();
+  });
+
+  it("should cleanup setOutputTab event listener on unmount", () => {
+    const removeEventListenerSpy = vi.spyOn(document, "removeEventListener");
+    const { unmount } = renderHook(() => callHook(defaultProps));
+
+    unmount();
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith("setOutputTab", expect.any(Function));
+
+    removeEventListenerSpy.mockRestore();
+  });
 });

@@ -42,7 +42,11 @@ function extractBracedBody(src: string, openBracePos: number): string {
 }
 
 /** Match for-loop pattern with integer iteration (header + opening brace only; body extracted via brace counting). */
-const FOR_LOOP_RE = /for\s*\(\s*\w*\s*(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;.*?\)\s*\{/g;
+// Split for-loop regex across variables to keep S5843 complexity ≤20 per variable
+const FOR_INIT = /(?:\w+\s+)?/.source; // optional type prefix (e.g. "int ")
+const FOR_LOOP_RE = new RegExp(String.raw`for\s*\( *${FOR_INIT}(\w+) *= *(\d+) *; *\w+ *(<=?) *(\d+) *;[^)]*\)`, "g");
+// Verify the for-loop is followed by a brace
+const FOR_BRACE_TAIL = /^ *\{/;
 
 /** Match pinMode(pin, mode) calls. */
 const PIN_MODE_RE = /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
@@ -155,8 +159,11 @@ function findForLoopPins(code: string): Set<number> {
   let fm: RegExpExecArray | null = null;
 
   while ((fm = FOR_LOOP_RE.exec(code))) {
+    const tail = code.slice(fm.index + fm[0].length);
+    if (!FOR_BRACE_TAIL.test(tail)) continue;
+    const bracePos = fm.index + fm[0].length + tail.indexOf("{") + 1;
     const [, varName, startStr, cmp, endStr] = fm;
-    const body = extractBracedBody(code, fm.index + fm[0].length);
+    const body = extractBracedBody(code, bracePos);
     const useRe = new RegExp(
       String.raw`analogRead\s*\(\s*${varName}\s*\)`,
       "g",

@@ -1,4 +1,4 @@
-import { Logger, setLogLevel } from "../../shared/logger";
+import { Logger, setLogLevel, markTestAsFailed, initializeGlobalErrorHandlers } from "../../shared/logger";
 
 describe("Logger", () => {
   let logger: Logger;
@@ -156,6 +156,89 @@ describe("Logger", () => {
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining("Simulation started successfully"),
       );
+    });
+
+    it("should redact JSON sensitive fields (password/token/secret in JSON objects)", () => {
+      setLogLevel("INFO");
+      const sanitizeLogger = new Logger("SanitizeTest");
+      sanitizeLogger.info('Request body: {"password": "hunter2", "user": "admin"}');
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[REDACTED]"),
+      );
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("hunter2"),
+      );
+    });
+
+    it("should redact SSN patterns (XXX-XX-XXXX)", () => {
+      setLogLevel("INFO");
+      const sanitizeLogger = new Logger("SanitizeTest");
+      sanitizeLogger.info("Customer SSN: 123-45-6789");
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[SSN_REDACTED]"),
+      );
+    });
+
+    it("should redact phone numbers", () => {
+      setLogLevel("INFO");
+      const sanitizeLogger = new Logger("SanitizeTest");
+      sanitizeLogger.info("Call us at 555-123-4567");
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[PHONE_REDACTED]"),
+      );
+    });
+
+    it("should redact credit card numbers", () => {
+      setLogLevel("INFO");
+      const sanitizeLogger = new Logger("SanitizeTest");
+      sanitizeLogger.info("Card: 1234 5678 9012 3456");
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[CARD_REDACTED]"),
+      );
+    });
+  });
+
+  describe("RingBuffer overflow and markTestAsFailed", () => {
+    it("should overflow ring buffer and flush via markTestAsFailed with reason", () => {
+      setLogLevel("DEBUG");
+      const bufLogger = new Logger("RingBufferTest");
+      // Fill ring buffer past its maxSize (200) to trigger overflow branch
+      for (let i = 0; i < 205; i++) {
+        bufLogger.debug(`debug message ${i}`);
+      }
+      // markTestAsFailed flushes the buffer via flushDebugOnFailure
+      markTestAsFailed("overflow test");
+      // error spy should have been called with the flush header
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("DEBUG BUFFER FLUSH"),
+      );
+    });
+
+    it("should flush buffer via markTestAsFailed without reason", () => {
+      setLogLevel("DEBUG");
+      const bufLogger = new Logger("RingBufferFlushTest");
+      bufLogger.debug("test entry for flush");
+      markTestAsFailed();
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("DEBUG BUFFER FLUSH"),
+      );
+    });
+
+    it("should handle markTestAsFailed when buffer is empty (no-op)", () => {
+      // First clear the buffer by calling markTestAsFailed
+      markTestAsFailed();
+      // Now buffer is empty - calling again should be a no-op
+      errorSpy.mockClear();
+      markTestAsFailed("empty buffer");
+      expect(errorSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("DEBUG BUFFER FLUSH"),
+      );
+    });
+  });
+
+  describe("initializeGlobalErrorHandlers", () => {
+    it("should register process error handlers without throwing", () => {
+      expect(() => initializeGlobalErrorHandlers()).not.toThrow();
     });
   });
 });

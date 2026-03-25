@@ -417,4 +417,54 @@ describe("parseStaticIORegistry – edge cases", () => {
     expect(pin5!.conflict).toBe(true);
     expect(pin5!.conflictMessage).toBeTruthy();
   });
+
+  // ── Array with unresolvable tokens → array ignored ────────────────────────
+  it("array with unresolvable variable tokens is skipped", () => {
+    const code = sketch([
+      "int vals[] = {unknownVar, 8};",
+      "void setup() {",
+      "  pinMode(vals[0], OUTPUT);",
+      "}",
+      "void loop() {}",
+    ]);
+    const registry = parseStaticIORegistry(code);
+
+    // unknownVar cannot be resolved, so the array is skipped entirely
+    // Thus, vals[0] cannot be resolved either, and no pin record is created
+    expect(registry).toHaveLength(0);
+  });
+
+  // ── For-loop with unknown symbol limit (resolveToken returns undefined) ──
+  it("for-loop with unknown symbol limit is skipped", () => {
+    const code = sketch([
+      "void setup() {",
+      "  for (int i=0; i<NUM_LEDS; i++) {",
+      "    pinMode(i, OUTPUT);",
+      "  }",
+      "}",
+      "void loop() {}",
+    ]);
+    const registry = parseStaticIORegistry(code);
+
+    // NUM_LEDS is not defined, so parseInt yields NaN → for-loop expansion skipped.
+    // The direct scan may still pick up the literal call, so just ensure
+    // that the for-loop did NOT expand to multiple pins.
+    expect(registry.length).toBeLessThanOrEqual(1);
+  });
+
+  // ── For-loop with >= comparator ───────────────────────────────────────────
+  it("for-loop with >= comparator is handled", () => {
+    const code = sketch([
+      "void setup() {",
+      "  for (int i=5; i>=2; i--) {",
+      "    pinMode(i, OUTPUT);",
+      "  }",
+      "}",
+      "void loop() {}",
+    ]);
+    const registry = parseStaticIORegistry(code);
+
+    // >= comparator: iterates from high to low, should find pins
+    expect(registry.length).toBeGreaterThanOrEqual(1);
+  });
 });

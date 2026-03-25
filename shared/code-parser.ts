@@ -8,6 +8,8 @@ type SeverityLevel = 1 | 2 | 3;
  * Centralized patterns and constants for Arduino code parsing
  * Extracted to reduce cognitive complexity and enable reuse
  */
+// Extracted to its own variable so S5843 complexity is counted separately
+const FOR_TYPE_PREFIX = /(?:\w+\s+)?/.source; // optional type prefix like "int "
 const PARSER_PATTERNS = {
   // Serial configuration patterns
   SERIAL_USAGE: /Serial\s*\.\s*(print|println|write|read|available|peek|readString|readBytes|parseInt|parseFloat|find|findUntil)/,
@@ -24,7 +26,8 @@ const PARSER_PATTERNS = {
   LOOP_ANY: /void\s+loop\s*\([^)]*\)/,
 
   // Pin-related patterns
-  FOR_LOOP_HEADER: /for\s*\(\s*\w*\s*(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;[^)]*\)/g,
+  // Split regex complexity across variables to keep S5843 ≤20 per variable. Non-backtracking (S5852).
+  FOR_LOOP_HEADER: new RegExp(String.raw`for\s*\( *${FOR_TYPE_PREFIX}(\w+) *= *(\d+) *; *\w+ *(<=?) *(\d+) *;[^)]*\)`, "g"),
   PIN_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,/g,
   PIN_MODE_WITH_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g,
   PIN_MODE_VAR: /pinMode\s*\(\s*([a-zA-Z_]\w*)\s*,/g,

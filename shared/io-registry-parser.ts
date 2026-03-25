@@ -44,7 +44,10 @@ const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
 const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const ARRAY_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
-const FOR_LOOP_PATTERN = /\bfor\s*\(\s*\w*\s*(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*([<>]=?)\s*(\w+)\s*;.*?\)\s*(\{)?/g;
+// Non-backtracking: Split regex complexity across variables to keep S5843 ≤20 per variable (S5852)
+const FOR_TYPE_PREFIX = /(?:\w+\s+)?/.source; // optional type like "int "
+const FOR_LOOP_PATTERN = new RegExp(String.raw`\bfor *\( *${FOR_TYPE_PREFIX}(\w+) *= *(\d+) *; *(\w+) *([<>]=?) *(\w+) *;[^)]*\)`, "g");
+const FOR_BRACE_TAIL_RE = /^ *(\{)?/;
 const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/;
 const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*(\w+(?:\[\d+\])?)(?:\s*,\s*(\w+))?/g;
 
@@ -267,9 +270,11 @@ function findLoopRanges(
   while ((m = FOR_LOOP_PATTERN.exec(clean)) !== null) {
     const variable = m[1];
     const start = Number.parseInt(m[2], 10);
-    const op = m[3];
-    const limitVal = resolveToken(m[4], syms) ?? Number.parseInt(m[4], 10);
-    const hasBrace = !!m[5];
+    const op = m[4];
+    const limitVal = resolveToken(m[5], syms) ?? Number.parseInt(m[5], 10);
+    const tail = clean.slice(m.index + m[0].length);
+    const braceMatch = FOR_BRACE_TAIL_RE.exec(tail);
+    const hasBrace = !!braceMatch?.[1];
     if (Number.isNaN(limitVal)) continue;
 
     const values = generateLoopValues(start, op, limitVal);
