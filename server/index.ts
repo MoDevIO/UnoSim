@@ -171,8 +171,7 @@ let isServerReady = false; // Flag to indicate server initialization complete
 // Ensure temp/ directory exists before any services try to write into it
 fs.mkdirSync(path.join(process.cwd(), "temp"), { recursive: true });
 
-(async () => {
-  const server = await registerRoutes(app);
+const server = await registerRoutes(app);
 
   // Middleware to prevent requests during initialization
   // Returns 503 (Service Unavailable) until Docker checks complete
@@ -310,7 +309,6 @@ fs.mkdirSync(path.join(process.cwd(), "temp"), { recursive: true });
     }
   }
 
-  // Handle termination signals
-  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-})();
+// Handle termination signals
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

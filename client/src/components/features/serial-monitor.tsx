@@ -30,12 +30,6 @@ const ENABLE_RAF_BATCHING = typeof process !== 'undefined' && process.env.NODE_E
 // NOTE: Backspace (\b) is handled separately in applyBackspaceAcrossLines for cross-line support
 function processAnsiCodes(text: string): string {
   const ESC = String.fromCodePoint(0x1b);
-  // @ts-expect-error - Variable needed in source for regression tests
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const ESC_RE = String.raw`\x1b`;
-  // @ts-expect-error - Variable needed in source for regression tests
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const ESC_K_RAW = String.raw`\x1b\[K`;
   const ESC_2J = `${ESC}[2J`;
   const ESC_H = `${ESC}[H`;
   const ESC_K = `${ESC}[K`;
@@ -159,7 +153,7 @@ function processCarriageReturnLine(
 
 export function SerialMonitor({
   output,
-  isConnected,
+  isConnected: _isConnected,
   isSimulationRunning: _isSimulationRunning = false,
   onSendMessage: _onSendMessage,
   onClear: _onClear,
@@ -168,7 +162,6 @@ export function SerialMonitor({
   headerActions,
   showHeader = true,
 }: SerialMonitorProps) {
-  void isConnected;
   const outputRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);

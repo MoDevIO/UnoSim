@@ -133,7 +133,12 @@ export class SandboxRunner {
       processController: this.processController,
     };
 
-    // Start docker check eagerly so getSandboxStatus() has cached results
+    // Start docker check eagerly so getSandboxStatus() has cached results (S7059: moved to private method)
+    this._scheduleEagerDockerCheck();
+  }
+
+  /** Schedule docker availability check immediately after construction. (S7059: move async-op out of constructor) */
+  private _scheduleEagerDockerCheck(): void {
     this.ensureDockerChecked().catch(() => {
       // Docker check failed, but we already have defaults set
       // (dockerAvailable=false, dockerImageBuilt=false)

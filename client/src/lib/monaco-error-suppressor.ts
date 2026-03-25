@@ -72,7 +72,8 @@ const isMonacoHitTestError = (args: unknown[]): boolean => {
     message = firstArg.message;
     stack = firstArg.stack ?? "";
   } else {
-    message = String(firstArg);
+    const obj = firstArg as Record<string, unknown>;
+    message = typeof obj.message === "string" ? obj.message : JSON.stringify(firstArg);
   }
 
   const isError =
@@ -107,7 +108,7 @@ console.warn = function (...args: unknown[]) {
 // Intercept uncaught errors at the earliest point
 const originalErrorHandler = globalThis.onerror;
 globalThis.onerror = function (message, source, lineno, colno, error) {
-  const errorMessage = String(message) || "";
+  const errorMessage = typeof message === "string" ? message : "";
   const errorStack = error?.stack || "";
 
   if (

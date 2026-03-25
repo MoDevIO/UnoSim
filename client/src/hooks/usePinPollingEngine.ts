@@ -54,6 +54,202 @@ function getComputedSpacingToken(tokenName: string): number {
   }
 }
 
+// ─── Pure module-level helpers (no hook state needed) ───────────────────────
+
+type LabelRotateOpts = { translateY: number; localX: number; anchor: string };
+
+function applyPinStateDot(el: SVGCircleElement | null, color: string): void {
+  if (!el) return;
+  const isOff = color === "transparent" || color === "var(--color-black)";
+  if (isOff) {
+    el.setAttribute("fill", "var(--color-black)");
+    el.removeAttribute("filter");
+  } else {
+    el.setAttribute("fill", color);
+    el.setAttribute("filter", "url(#glow-red)");
+  }
+}
+
+function applyDigitalPinFrame(
+  frame: SVGRectElement | null,
+  isSimulationRunning: boolean,
+  isInput: boolean,
+): void {
+  if (!frame) return;
+  const show = isSimulationRunning && isInput;
+  frame.style.display = show ? "block" : "none";
+  if (show) {
+    frame.setAttribute("filter", "url(#glow-yellow)");
+  } else {
+    frame.removeAttribute("filter");
+  }
+}
+
+function applyAnalogPinFrame(
+  frame: SVGRectElement | null,
+  show: boolean,
+  usedAsAnalog: boolean,
+): void {
+  if (!frame) return;
+  frame.style.display = show ? "block" : "none";
+  if (show) {
+    frame.setAttribute("filter", "url(#glow-yellow)");
+  } else {
+    frame.removeAttribute("filter");
+  }
+  if (frame instanceof SVGGraphicsElement) {
+    frame.style.strokeDasharray = show && usedAsAnalog ? "3,2" : "";
+  }
+}
+
+function applyAnalogPinClick(
+  click: SVGRectElement | null,
+  isInput: boolean,
+  usedAsAnalog: boolean,
+): void {
+  if (!click || !(click instanceof HTMLElement)) return;
+  const clickable = isInput || usedAsAnalog;
+  click.style.pointerEvents = clickable ? "auto" : "none";
+  click.style.cursor = clickable ? "pointer" : "default";
+}
+
+function applyLedVisual(
+  el: SVGRectElement | null,
+  active: boolean,
+  activeColor: string,
+  glowFilter: string,
+): void {
+  if (!el) return;
+  if (active) {
+    el.setAttribute("fill", activeColor);
+    el.setAttribute("fill-opacity", "1");
+    el.style.filter = `url(${glowFilter})`;
+  } else {
+    el.setAttribute("fill", "transparent");
+    el.setAttribute("fill-opacity", "0");
+    el.style.filter = "none";
+  }
+}
+
+function computeLabelPosition(bb: DOMRect, cy: number): LabelRotateOpts {
+  const padding = getComputedSpacingToken("--svg-label-padding");
+  const fontSize = Number.parseFloat(getComputedTokenValue("--fs-label-sm"));
+  if (cy < VIEWBOX_HEIGHT / 2) {
+    return {
+      translateY: cy - bb.height / 2 - fontSize / 2 - padding,
+      localX: -bb.width / 2 + padding,
+      anchor: "start",
+    };
+  }
+  return {
+    translateY: cy + bb.height / 2 + fontSize / 2 + padding,
+    localX: bb.width / 2 - padding,
+    anchor: "end",
+  };
+}
+
+function hideAllLabels(svgEl: SVGSVGElement): void {
+  for (const n of svgEl.querySelectorAll('text[id^="pin-"][id$="-val"]')) {
+    if (n instanceof SVGElement) n.setAttribute("style", "display: none;");
+  }
+}
+
+interface SvgTextOpts {
+  textValue: string;
+  fill: string;
+  showPWMValues: boolean;
+  rotate?: LabelRotateOpts;
+}
+
+function ensureSvgText(
+  svgEl: SVGSVGElement,
+  id: string,
+  x: number,
+  y: number,
+  opts: SvgTextOpts,
+): void {
+  const { textValue, fill, showPWMValues, rotate } = opts;
+  let t = svgEl.querySelector<SVGTextElement>(`#${id}`);
+  if (t) {
+    t.setAttribute("font-size", getComputedTokenValue("--fs-label-sm"));
+    if (rotate) t.setAttribute("text-anchor", rotate.anchor);
+  } else {
+    t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    t.setAttribute("id", id);
+    t.setAttribute("text-anchor", rotate?.anchor ?? "middle");
+    t.setAttribute("font-size", getComputedTokenValue("--fs-label-sm"));
+    t.setAttribute("fill", fill);
+    t.setAttribute("stroke", "var(--color-black)");
+    t.setAttribute("stroke-width", "0.4");
+    t.setAttribute("paint-order", "stroke");
+    t.setAttribute("dominant-baseline", "middle");
+    t.setAttribute("style", "pointer-events: none;");
+    svgEl.appendChild(t);
+  }
+  t.textContent = textValue;
+  if (rotate) {
+    t.setAttribute("transform", `translate(${x} ${rotate.translateY}) rotate(-90)`);
+    t.setAttribute("x", String(rotate.localX));
+    t.setAttribute("y", "0");
+  } else {
+    t.setAttribute("x", String(x));
+    t.setAttribute("y", String(y));
+    t.removeAttribute("transform");
+  }
+  t.style.display = textValue && showPWMValues ? "block" : "none";
+}
+
+function updateLabelForPin(
+  svgEl: SVGSVGElement,
+  stateElId: string,
+  frameElId: string,
+  labelId: string,
+  pinValue: string,
+  showPWMValues: boolean,
+): void {
+  const stateEl = svgEl.querySelector<SVGCircleElement>(`#${stateElId}`);
+  const frameEl = svgEl.querySelector<SVGRectElement>(`#${frameElId}`);
+  if (!stateEl && !frameEl) return;
+  try {
+    const refEl = (stateEl instanceof SVGGraphicsElement ? stateEl : frameEl) as SVGGraphicsElement | null;
+    if (!refEl) return;
+    const bb = refEl.getBBox();
+    const cy = bb.y + bb.height / 2;
+    const cx = bb.x + bb.width / 2;
+    ensureSvgText(svgEl, labelId, cx, cy, {
+      textValue: pinValue,
+      fill: "var(--color-white)",
+      showPWMValues,
+      rotate: computeLabelPosition(bb, cy),
+    });
+  } catch {
+    // ignore bbox errors
+  }
+}
+
+/** Compute brightness for a pin considering the fade-out animation. */
+function computeFadeBrightness(isHigh: boolean, turnedOffAt: number | undefined): number {
+  if (isHigh) return 1;
+  if (!turnedOffAt) return 0;
+  const elapsed = Date.now() - turnedOffAt;
+  return elapsed < FADE_OUT_MS ? 1 - elapsed / FADE_OUT_MS : 0;
+}
+
+/** Map a pin state + brightness to an RGB color string. */
+function pinColorForState(state: PinState, pin: number, brightness: number): string {
+  if (brightness <= 0) return "var(--color-black)";
+  const intensity = Math.round(brightness * 255);
+  if (state.type === "digital") return `rgb(${intensity}, 0, 0)`;
+  if (PWM_PINS.includes(pin)) {
+    const pwmIntensity = Math.round((state.value / 255) * intensity);
+    return `rgb(${pwmIntensity}, 0, 0)`;
+  }
+  if (state.value >= 255) return `rgb(${intensity}, 0, 0)`;
+  return "var(--color-black)";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface UsePinPollingEngineProps {
   overlayRef: React.RefObject<HTMLElement>;
   stateRef: React.MutableRefObject<{
@@ -94,41 +290,11 @@ export function usePinPollingEngine({
    * Get pin color with fade-out effect for OFF LEDs
    */
   const getPinColor = (pin: number): string => {
-    const pinStates = stateRef.current.pinStates;
-    const state = pinStates.find((p) => p.pin === pin);
+    const state = stateRef.current.pinStates.find((p) => p.pin === pin);
     if (!state) return "transparent";
-
-    const isPWM = PWM_PINS.includes(pin);
-    const isHigh = state.value > 0;
-
-    let brightness = 0;
-    if (isHigh) {
-      brightness = 1;
-    } else {
-      const turnedOffAt = pinTurnedOffAtRef.current.get(pin);
-      if (turnedOffAt) {
-        const timeSinceTurnedOff = Date.now() - turnedOffAt;
-        if (timeSinceTurnedOff < FADE_OUT_MS) {
-          brightness = 1 - (timeSinceTurnedOff / FADE_OUT_MS);
-        }
-      }
-    }
-
-    if (brightness <= 0) {
-      return "var(--color-black)";
-    }
-
-    const intensity = Math.round(brightness * 255);
-
-    if (state.type === "digital") {
-      return `rgb(${intensity}, 0, 0)`;
-    } else if (isPWM) {
-      const pwmIntensity = Math.round((state.value / 255) * intensity);
-      return `rgb(${pwmIntensity}, 0, 0)`;
-    } else if (state.value >= 255) {
-      return `rgb(${intensity}, 0, 0)`;
-    }
-    return "var(--color-black)";
+    const turnedOffAt = pinTurnedOffAtRef.current.get(pin);
+    const brightness = computeFadeBrightness(state.value > 0, turnedOffAt);
+    return pinColorForState(state, pin, brightness);
   };
 
   /** Track LED fade-out state when a pin turns on/off. */
@@ -139,168 +305,26 @@ export function usePinPollingEngine({
       if (!isHigh) pinTurnedOffAtRef.current.set(pin, Date.now());
     }
   };
-
-  /** Apply fill/filter style to a pin state dot element. */
-  const applyPinStateDot = (el: SVGCircleElement | null, color: string) => {
-    if (!el) return;
-    const isOff = color === "transparent" || color === "var(--color-black)";
-    if (isOff) {
-      el.setAttribute("fill", "var(--color-black)");
-      el.removeAttribute("filter");
-    } else {
-      el.setAttribute("fill", color);
-      el.setAttribute("filter", "url(#glow-red)");
-    }
+  const getPinState = (pin: number) => {
+    return stateRef.current.pinStates.find((p) => p.pin === pin);
   };
 
-  /** Apply visibility/filter to a digital-pin frame element. */
-  const applyDigitalPinFrame = (
-    frame: SVGRectElement | null,
-    isSimulationRunning: boolean,
-    isInput: boolean,
-  ) => {
-    if (!frame) return;
-    const show = isSimulationRunning && isInput;
-    frame.style.display = show ? "block" : "none";
-    if (show) {
-      frame.setAttribute("filter", "url(#glow-yellow)");
-    } else {
-      frame.removeAttribute("filter");
-    }
-  };
+  /** Update a single digital pin element. */
+  const updateDigitalPin = (svgEl: SVGSVGElement, pin: number) => {
+    const frame = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-frame`);
+    const state = svgEl.querySelector<SVGCircleElement>(`#pin-${pin}-state`);
+    const click = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-click`);
+    const isInput = isPinInputLocal(pin);
+    const pinState = getPinState(pin);
+    trackPinFadeState(pin, !!(pinState && pinState.value > 0));
+    const color = getPinColor(pin);
 
-  /** Apply visibility/filter/dash to an analog-pin frame element. */
-  const applyAnalogPinFrame = (
-    frame: SVGRectElement | null,
-    show: boolean,
-    usedAsAnalog: boolean,
-  ) => {
-    if (!frame) return;
-    frame.style.display = show ? "block" : "none";
-    if (show) {
-      frame.setAttribute("filter", "url(#glow-yellow)");
-    } else {
-      frame.removeAttribute("filter");
-    }
-    if (frame instanceof SVGGraphicsElement) {
-      frame.style.strokeDasharray = show && usedAsAnalog ? "3,2" : "";
-    }
-  };
+    applyDigitalPinFrame(frame, stateRef.current.isSimulationRunning, isInput);
+    applyPinStateDot(state, color);
 
-  /** Apply cursor/pointer-events to an analog pin click element. */
-  const applyAnalogPinClick = (
-    click: SVGRectElement | null,
-    isInput: boolean,
-    usedAsAnalog: boolean,
-  ) => {
-    if (!click || !(click instanceof HTMLElement)) return;
-    const clickable = isInput || usedAsAnalog;
-    click.style.pointerEvents = clickable ? "auto" : "none";
-    click.style.cursor = clickable ? "pointer" : "default";
-  };
-
-  /** Apply fill/filter/opacity to an LED rect element. */
-  const applyLedVisual = (
-    el: SVGRectElement | null,
-    active: boolean,
-    activeColor: string,
-    glowFilter: string,
-  ) => {
-    if (!el) return;
-    if (active) {
-      el.setAttribute("fill", activeColor);
-      el.setAttribute("fill-opacity", "1");
-      el.style.filter = `url(${glowFilter})`;
-    } else {
-      el.setAttribute("fill", "transparent");
-      el.setAttribute("fill-opacity", "0");
-      el.style.filter = "none";
-    }
-  };
-
-  type LabelRotateOpts = { translateY: number; localX: number; anchor: string };
-
-  /** Create or update a rotated SVG text label for a pin value. */
-  const ensureSvgText = (
-    svgEl: SVGSVGElement,
-    id: string,
-    x: number,
-    y: number,
-    textValue: string,
-    fill: string,
-    rotate?: LabelRotateOpts,
-  ) => {
-    const showPWMValues = stateRef.current.showPWMValues;
-    let t = svgEl.querySelector<SVGTextElement>(`#${id}`);
-    if (t) {
-      t.setAttribute("font-size", getComputedTokenValue("--fs-label-sm"));
-      if (rotate) t.setAttribute("text-anchor", rotate.anchor);
-    } else {
-      t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      t.setAttribute("id", id);
-      t.setAttribute("text-anchor", rotate?.anchor ?? "middle");
-      t.setAttribute("font-size", getComputedTokenValue("--fs-label-sm"));
-      t.setAttribute("fill", fill);
-      t.setAttribute("stroke", "var(--color-black)");
-      t.setAttribute("stroke-width", "0.4");
-      t.setAttribute("paint-order", "stroke");
-      t.setAttribute("dominant-baseline", "middle");
-      t.setAttribute("style", "pointer-events: none;");
-      svgEl.appendChild(t);
-    }
-    t.textContent = textValue;
-    if (rotate) {
-      t.setAttribute("transform", `translate(${x} ${rotate.translateY}) rotate(-90)`);
-      t.setAttribute("x", String(rotate.localX));
-      t.setAttribute("y", "0");
-    } else {
-      t.setAttribute("x", String(x));
-      t.setAttribute("y", String(y));
-      t.removeAttribute("transform");
-    }
-    t.style.display = textValue && showPWMValues ? "block" : "none";
-  };
-
-  /** Compute rotated label position above/below a pin element. */
-  const computeLabelPosition = (bb: DOMRect, cy: number): LabelRotateOpts => {
-    const padding = getComputedSpacingToken("--svg-label-padding");
-    const fontSize = Number.parseFloat(getComputedTokenValue("--fs-label-sm"));
-    if (cy < VIEWBOX_HEIGHT / 2) {
-      return {
-        translateY: cy - bb.height / 2 - fontSize / 2 - padding,
-        localX: -bb.width / 2 + padding,
-        anchor: "start",
-      };
-    }
-    return {
-      translateY: cy + bb.height / 2 + fontSize / 2 + padding,
-      localX: bb.width / 2 - padding,
-      anchor: "end",
-    };
-  };
-
-  /** Update the value label for a single pin element. */
-  const updateLabelForPin = (
-    svgEl: SVGSVGElement,
-    stateElId: string,
-    frameElId: string,
-    labelId: string,
-    pinValue: string,
-  ) => {
-    const stateEl = svgEl.querySelector<SVGCircleElement>(`#${stateElId}`);
-    const frameEl = svgEl.querySelector<SVGRectElement>(`#${frameElId}`);
-    if (!stateEl && !frameEl) return;
-    try {
-      // Prefer stateEl (circle, always visible) over frameEl (rect, may be display:none)
-      // getBBox() returns {0,0,0,0} for display:none elements in many browsers
-      const refEl = (stateEl instanceof SVGGraphicsElement ? stateEl : frameEl) as SVGGraphicsElement | null;
-      if (!refEl) return;
-      const bb = refEl.getBBox();
-      const cy = bb.y + bb.height / 2;
-      const cx = bb.x + bb.width / 2;
-      ensureSvgText(svgEl, labelId, cx, cy, pinValue, "var(--color-white)", computeLabelPosition(bb, cy));
-    } catch {
-      // ignore bbox errors
+    if (click) {
+      click.style.pointerEvents = isInput ? "auto" : "none";
+      click.style.cursor = isInput ? "pointer" : "default";
     }
   };
 
@@ -308,43 +332,35 @@ export function usePinPollingEngine({
    * Update digital pins 0-13 visual representation
    */
   const updateDigitalPins = (svgEl: SVGSVGElement) => {
-    const { pinStates, isSimulationRunning } = stateRef.current;
     for (let pin = 0; pin <= 13; pin++) {
-      const frame = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-frame`);
-      const state = svgEl.querySelector<SVGCircleElement>(`#pin-${pin}-state`);
-      const click = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-click`);
-      const isInput = isPinInputLocal(pin);
-      const pinState = pinStates.find((p) => p.pin === pin);
-      trackPinFadeState(pin, !!(pinState && pinState.value > 0));
-      const color = getPinColor(pin);
-      applyDigitalPinFrame(frame, isSimulationRunning, isInput);
-      applyPinStateDot(state, color);
-      if (click) {
-        click.style.pointerEvents = isInput ? "auto" : "none";
-        click.style.cursor = isInput ? "pointer" : "default";
-      }
+      updateDigitalPin(svgEl, pin);
     }
+  };
+
+  /** Update a single analog pin element. */
+  const updateAnalogPin = (svgEl: SVGSVGElement, pinIndex: number) => {
+    const pinNumber = 14 + pinIndex;
+    const frame = svgEl.querySelector<SVGRectElement>(`#pin-A${pinIndex}-frame`);
+    const state = svgEl.querySelector<SVGCircleElement>(`#pin-A${pinIndex}-state`);
+    const click = svgEl.querySelector<SVGRectElement>(`#pin-A${pinIndex}-click`);
+    const isInput = isPinInputLocal(pinNumber);
+    const pinState = getPinState(pinNumber);
+    trackPinFadeState(pinNumber, !!(pinState && pinState.value > 0));
+    const usedAsAnalog = stateRef.current.analogPins.includes(pinNumber);
+    const color = getPinColor(pinNumber);
+    const show = stateRef.current.isSimulationRunning && (isInput || usedAsAnalog);
+
+    applyAnalogPinFrame(frame, show, usedAsAnalog);
+    applyPinStateDot(state, color);
+    applyAnalogPinClick(click, isInput, usedAsAnalog);
   };
 
   /**
    * Update analog pins A0-A5 visual representation
    */
   const updateAnalogPins = (svgEl: SVGSVGElement) => {
-    const { pinStates, isSimulationRunning, analogPins } = stateRef.current;
     for (let i = 0; i <= 5; i++) {
-      const pinNumber = 14 + i;
-      const frame = svgEl.querySelector<SVGRectElement>(`#pin-A${i}-frame`);
-      const state = svgEl.querySelector<SVGCircleElement>(`#pin-A${i}-state`);
-      const click = svgEl.querySelector<SVGRectElement>(`#pin-A${i}-click`);
-      const isInput = isPinInputLocal(pinNumber);
-      const pinState = pinStates.find((p) => p.pin === pinNumber);
-      trackPinFadeState(pinNumber, !!(pinState && pinState.value > 0));
-      const usedAsAnalog = analogPins.includes(pinNumber);
-      const color = getPinColor(pinNumber);
-      const show = isSimulationRunning && (isInput || usedAsAnalog);
-      applyAnalogPinFrame(frame, show, usedAsAnalog);
-      applyPinStateDot(state, color);
-      applyAnalogPinClick(click, isInput, usedAsAnalog);
+      updateAnalogPin(svgEl, i);
     }
   };
 
@@ -368,23 +384,22 @@ export function usePinPollingEngine({
    * Update numeric labels for PWM and analog pins
    */
   const updateLabels = (svgEl: SVGSVGElement) => {
-    const { pinStates, showPWMValues } = stateRef.current;
+    const { showPWMValues } = stateRef.current;
 
     if (!showPWMValues) {
-      for (const n of svgEl.querySelectorAll('text[id^="pin-"][id$="-val"]')) {
-        if (n instanceof SVGElement) n.setAttribute("style", "display: none;");
-      }
+      hideAllLabels(svgEl);
       return;
     }
 
     for (const pin of PWM_PINS) {
-      const valStr = pinStates.find((p) => p.pin === pin)?.value?.toString() ?? "";
-      updateLabelForPin(svgEl, `pin-${pin}-state`, `pin-${pin}-frame`, `pin-${pin}-val`, valStr);
+      const valStr = getPinState(pin)?.value?.toString() ?? "";
+      updateLabelForPin(svgEl, `pin-${pin}-state`, `pin-${pin}-frame`, `pin-${pin}-val`, valStr, showPWMValues);
     }
 
     for (let i = 0; i <= 5; i++) {
-      const valStr = pinStates.find((p) => p.pin === 14 + i)?.value?.toString() ?? "";
-      updateLabelForPin(svgEl, `pin-A${i}-state`, `pin-A${i}-frame`, `pin-A${i}-val`, valStr);
+      const pinNumber = 14 + i;
+      const valStr = getPinState(pinNumber)?.value?.toString() ?? "";
+      updateLabelForPin(svgEl, `pin-A${i}-state`, `pin-A${i}-frame`, `pin-A${i}-val`, valStr, showPWMValues);
     }
   };
 

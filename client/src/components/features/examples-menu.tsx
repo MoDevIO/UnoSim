@@ -135,7 +135,7 @@ export function ExamplesMenu({
 
     const clearHighlight = () => {
       // Clear from all items including those not currently visible
-      const allItems = document.querySelectorAll(
+      const allItems = document.querySelectorAll<HTMLElement>(
         '[data-role="example-folder"], [data-role="example-item"]',
       );
       allItems.forEach((it) => {
@@ -144,7 +144,7 @@ export function ExamplesMenu({
           "text-accent-foreground",
           "rounded-sm",
         );
-        it.setAttribute("data-keyboard-focused", "false");
+        it.dataset.keyboardFocused = "false";
       });
     };
 
@@ -157,7 +157,7 @@ export function ExamplesMenu({
           "text-accent-foreground",
           "rounded-sm",
         );
-        items[idx].setAttribute("data-keyboard-focused", "true");
+        items[idx].dataset.keyboardFocused = "true";
         items[idx].focus();
       }
     };
@@ -167,7 +167,7 @@ export function ExamplesMenu({
       const target = (e.target as HTMLElement).closest<HTMLElement>(
         '[data-role="example-folder"], [data-role="example-item"]',
       );
-      if (target?.getAttribute("data-keyboard-focused") === "true") {
+      if (target?.dataset.keyboardFocused === "true") {
         clearHighlight();
         focusedIndexRef.current = -1;
       }
@@ -215,7 +215,7 @@ export function ExamplesMenu({
       } else if (e.key === "Enter") {
         e.preventDefault();
         e.stopPropagation();
-        const idx = focusedIndexRef.current >= 0 ? focusedIndexRef.current : 0;
+        const idx = Math.max(0, focusedIndexRef.current);
         items[idx]?.click();
       } else if (e.key === "Escape") {
         setOpen(false);
@@ -298,19 +298,19 @@ interface ExamplesTreeProps {
   readonly onLoadExample: (example: Example) => void;
 }
 
+function groupExamplesByFolder(items: Example[]): Record<string, Example[]> {
+  const grouped: Record<string, Example[]> = {};
+  items.forEach((item) => {
+    const parts = item.filename.split("/");
+    const folder = parts.length > 1 ? parts[0] : "Other";
+    if (!grouped[folder]) grouped[folder] = [];
+    grouped[folder].push(item);
+  });
+  return grouped;
+}
+
 function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
-
-  function groupExamplesByFolder(items: Example[]): Record<string, Example[]> {
-    const grouped: Record<string, Example[]> = {};
-    items.forEach((item) => {
-      const parts = item.filename.split("/");
-      const folder = parts.length > 1 ? parts[0] : "Other";
-      if (!grouped[folder]) grouped[folder] = [];
-      grouped[folder].push(item);
-    });
-    return grouped;
-  }
 
   function toggleFolder(folder: string) {
     // Close the folder if it's already open, otherwise open it and close others
@@ -326,7 +326,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
   return (
     <div className="py-1">
       {Object.entries(grouped)
-        .sort(([a], [b]) => a.localeCompare(b))
+        .toSorted(([a], [b]) => a.localeCompare(b))
         .map(([folder, items]) => {
           const isExpanded = expandedFolder === folder;
           const cleanFolderName = folder.replace(/^\d+-/, "");
@@ -353,7 +353,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
               {isExpanded && (
                 <div className="bg-muted/30">
                   {items
-                    .sort((a, b) => a.filename.localeCompare(b.filename))
+                    .toSorted((a, b) => a.filename.localeCompare(b.filename))
                     .map((example) => (
                       <Button
                         key={example.filename}

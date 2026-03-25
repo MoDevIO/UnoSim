@@ -227,7 +227,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       try {
         doUploadOnCompileSuccessRef.current = false;
         lastCompilePayloadRef.current = null;
-      } catch {}
+      } catch { }
     },
   });
 
@@ -282,7 +282,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   });
 
   // ─── Compilation response handlers ───────────────────────────────────────
-  
+
   /**
    * Handle successful compilation: update state, show toast, handle upload queue
    */
@@ -383,7 +383,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   );
 
   // ─── Simulation control mutations ─────────────────────────────────────────
-  
+
   const stopMutation = useMutation({
     mutationFn: async () => {
       params.addDebugMessage({
@@ -495,7 +495,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
           );
           params.setPendingPinConflicts([]);
         }
-      } catch {}
+      } catch { }
     },
     onError: (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
@@ -531,6 +531,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         return params.editorRef.current.getValue();
       } catch (error) {
         console.error("[CLIENT] Error getting code from editor:", error);
+        // Fall through to tabs/code fallback
       }
     }
 
@@ -620,7 +621,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     const payload = buildCompilePayload(mainSketchCode);
     logger.info(`[CLIENT] Compile & Start with ${payload.headers.length} headers`);
     logger.info(`[CLIENT] Code length: ${mainSketchCode.length} bytes`);
-    
+
     // Determine code source (editor > tabs > state) — helper is module-level (fixes S3776)
     const codeSource = determineCodeSource(params.editorRef, params.tabs);
     logger.info(`[CLIENT] Main code from: ${codeSource}`);
@@ -639,7 +640,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     compileMutation.mutate(payload, {
       onSuccess: (data) => {
         logger.info(`[CLIENT] Compile response: ${JSON.stringify(data, null, 2)}`);
-        
+
         if (data.success) {
           initializeEmptyRegistry();
           startSimulationInternal();

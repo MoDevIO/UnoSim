@@ -126,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await readExamplesRecursive(examplesDir);
-      exampleFiles.sort();
+      exampleFiles.sort((a, b) => a.localeCompare(b));
 
       res.json(exampleFiles);
     } catch (error) {

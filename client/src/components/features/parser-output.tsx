@@ -356,60 +356,71 @@ export function ParserOutput({
                     {categoryMessages.map((message) => (
                       <div
                         key={message.id}
-                        className="p-2 bg-muted/50 rounded border-l-2 cursor-pointer hover:bg-muted/70 transition-colors"
+                        className="bg-muted/50 rounded border-l-2 transition-colors"
                         style={{
                           borderLeftColor: getSeverityColor(message.severity),
                         }}
-                        onClick={() =>
-                          message.line !== undefined &&
-                          onGoToLine?.(message.line)
-                        }
                       >
-                        <div className="flex items-start gap-2">
-                          {getSeverityIcon(message.severity)}
-                          <div className="flex-1 min-w-0">
-                            <div className="text-foreground font-medium mb-1">
-                              {message.message}
-                            </div>
-                            <div className="text-muted-foreground text-ui-xs space-x-2">
-                              {message.line !== undefined && (
-                                <span>Line {message.line}</span>
-                              )}
-                              {message.column !== undefined &&
-                                message.column > 0 && (
-                                  <span>• Col {message.column}</span>
-                                )}
-                              <span>
-                                • {getSeverityLabel(message.severity)}
-                              </span>
-                            </div>
-                            {message.suggestion && (
-                              <div className="mt-1.5 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2">
-                                <div className="flex-1 text-muted-foreground text-ui-xs">
-                                  <span className="font-semibold">
-                                    Suggestion:
-                                  </span>{" "}
-                                  {message.suggestion}
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onInsertSuggestion?.(
-                                      message.suggestion!,
-                                      message.line,
-                                    );
-                                  }}
-                                  className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-3"
-                                  title="Insert suggestion"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                </Button>
+                        <button
+                          type="button"
+                          className="w-full text-left p-2 cursor-pointer hover:bg-muted/70 block"
+                          tabIndex={message.line === undefined ? -1 : 0}
+                          onClick={() =>
+                            message.line !== undefined &&
+                            onGoToLine?.(message.line)
+                          }
+                          onKeyDown={(e) => {
+                            if ((e.key === "Enter" || e.key === " ") && message.line !== undefined) {
+                              e.preventDefault();
+                              onGoToLine?.(message.line);
+                            }
+                          }}
+                        >
+                          <div className="flex items-start gap-2">
+                            {getSeverityIcon(message.severity)}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-foreground font-medium mb-1">
+                                {message.message}
                               </div>
-                            )}
+                              <div className="text-muted-foreground text-ui-xs space-x-2">
+                                {message.line !== undefined && (
+                                  <span>Line {message.line}</span>
+                                )}
+                                {message.column !== undefined &&
+                                  message.column > 0 && (
+                                    <span>• Col {message.column}</span>
+                                  )}
+                                <span>
+                                  • {getSeverityLabel(message.severity)}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        </button>
+                        {message.suggestion && (
+                          <div className="mx-2 mb-2 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2">
+                            <div className="flex-1 text-muted-foreground text-ui-xs">
+                              <span className="font-semibold">
+                                Suggestion:
+                              </span>{" "}
+                              {message.suggestion}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                onInsertSuggestion?.(
+                                  message.suggestion!,
+                                  message.line,
+                                );
+                              }}
+                              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-3"
+                              title="Insert suggestion"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

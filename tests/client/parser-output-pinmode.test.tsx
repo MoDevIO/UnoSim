@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { ParserOutput } from "@/components/features/parser-output";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Helper function to extract pinMode data (extracted from parser-output.tsx)
 function extractPinModeData(
@@ -640,5 +640,106 @@ describe("ParserOutput Component", () => {
 
     expect(screen.getByText("OUTPUT")).not.toBeNull();
     expect(screen.getByText("INPUT")).not.toBeNull();
+  });
+
+  it("calls onGoToLine when Enter is pressed on a message button", async () => {
+    const user = userEvent.setup();
+    const messages: ParserMessage[] = [
+      { id: "1", severity: 2, message: "Enter test", category: "pins", line: 42 },
+    ];
+
+    render(
+      <ParserOutput
+        messages={messages}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+      />,
+    );
+
+    const button = screen.getByText("Enter test").closest("button")!;
+    button.focus();
+    await user.keyboard("{Enter}");
+
+    expect(mockOnGoToLine).toHaveBeenCalledWith(42);
+  });
+
+  it("calls onGoToLine when Space is pressed on a message button", async () => {
+    const user = userEvent.setup();
+    const messages: ParserMessage[] = [
+      { id: "1", severity: 2, message: "Space test", category: "pins", line: 7 },
+    ];
+
+    render(
+      <ParserOutput
+        messages={messages}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+      />,
+    );
+
+    const button = screen.getByText("Space test").closest("button")!;
+    button.focus();
+    await user.keyboard(" ");
+
+    expect(mockOnGoToLine).toHaveBeenCalledWith(7);
+  });
+
+  it("does not call onGoToLine for non-Enter/Space key presses", async () => {
+    const user = userEvent.setup();
+    const messages: ParserMessage[] = [
+      { id: "1", severity: 2, message: "Key test", category: "pins", line: 5 },
+    ];
+
+    render(
+      <ParserOutput
+        messages={messages}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+      />,
+    );
+
+    const button = screen.getByText("Key test").closest("button")!;
+    button.focus();
+    await user.keyboard("a");
+
+    expect(mockOnGoToLine).not.toHaveBeenCalled();
+  });
+
+  it("does not call onGoToLine on Enter when message has no line", async () => {
+    const user = userEvent.setup();
+    const messages: ParserMessage[] = [
+      { id: "1", severity: 1, message: "No line msg", category: "pins" },
+    ];
+
+    render(
+      <ParserOutput
+        messages={messages}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+      />,
+    );
+
+    const button = screen.getByText("No line msg").closest("button")!;
+    expect(button.tabIndex).toBe(-1);
+    button.focus();
+    await user.keyboard("{Enter}");
+
+    expect(mockOnGoToLine).not.toHaveBeenCalled();
+  });
+
+  it("sets tabIndex=0 for messages with a line number", () => {
+    const messages: ParserMessage[] = [
+      { id: "1", severity: 2, message: "Has line", category: "pins", line: 10 },
+    ];
+
+    render(
+      <ParserOutput
+        messages={messages}
+        onClear={mockOnClear}
+      />,
+    );
+
+    const button = screen.getByText("Has line").closest("button")!;
+    expect(button.tabIndex).toBe(0);
   });
 });

@@ -44,9 +44,12 @@ const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
 const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const ARRAY_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
-const FOR_LOOP_PATTERN = /\bfor\s*\(\s*(?:(?:byte|int|uint8_t|short)\s+)?([A-Za-z_]\w*)\s*=\s*(\d+)\s*;\s*\1\s*([<>]=?)\s*(\w+)\s*;[^)]*\)\s*(\{)?/g;
+// Non-backtracking: Split regex complexity across variables to keep S5843 ≤20 per variable (S5852)
+const FOR_TYPE_PREFIX = /(?:\w+\s+)?/.source; // optional type like "int "
+const FOR_LOOP_PATTERN = new RegExp(String.raw`\bfor *\( *${FOR_TYPE_PREFIX}(\w+) *= *(\d+) *; *(\w+) *([<>]=?) *(\w+) *;[^)]*\)`, "g");
+const FOR_BRACE_TAIL_RE = /^ *(\{)?/;
 const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/;
-const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*((?:[A-Za-z_]\w*\s*\[\s*\d+\s*\])|(?:[A-Za-z_]\w*|\d+))(?:\s*,\s*([A-Za-z_]\w*|\d+))?/g;
+const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*(\w+(?:\[\d+\])?)(?:\s*,\s*(\w+))?/g;
 
 type OpName =
   | "pinMode"
@@ -149,8 +152,8 @@ function buildArrays(
     const vals = m[2]
       .split(",")
       .map((v) => resolveToken(v.trim(), syms));
-    if (vals.every((v) => v !== undefined)) {
-      arrays.set(m[1], vals as number[]);
+    if (vals.every((v): v is number => v !== undefined)) {
+      arrays.set(m[1], vals);
     }
   }
   return arrays;
@@ -267,9 +270,11 @@ function findLoopRanges(
   while ((m = FOR_LOOP_PATTERN.exec(clean)) !== null) {
     const variable = m[1];
     const start = Number.parseInt(m[2], 10);
-    const op = m[3];
-    const limitVal = resolveToken(m[4], syms) ?? Number.parseInt(m[4], 10);
-    const hasBrace = !!m[5];
+    const op = m[4];
+    const limitVal = resolveToken(m[5], syms) ?? Number.parseInt(m[5], 10);
+    const tail = clean.slice(m.index + m[0].length);
+    const braceMatch = FOR_BRACE_TAIL_RE.exec(tail);
+    const hasBrace = !!braceMatch?.[1];
     if (Number.isNaN(limitVal)) continue;
 
     const values = generateLoopValues(start, op, limitVal);
@@ -410,6 +415,13 @@ function processStaticPin(
   }
 }
 
+interface CallContext {
+  loops: LoopRange[];
+  syms: Map<string, number>;
+  arrays: Map<string, number[]>;
+  entries: CallEntry[];
+}
+
 /**
  * Process a single function call and add entries to the entries list.
  * Handles for-loop expansion and static pin resolution.
@@ -420,11 +432,9 @@ function processCallExpression(
   secondArg: string,
   callPos: number,
   callLine: number,
-  loops: LoopRange[],
-  syms: Map<string, number>,
-  arrays: Map<string, number[]>,
-  entries: CallEntry[],
+  ctx: CallContext,
 ): void {
+  const { loops, syms, arrays, entries } = ctx;
   // ── Check for-loop variable expansion (TC 3) ──────────────────────────
   const loop = loops.find(
     (l) => l.startPos <= callPos && callPos <= l.endPos && l.variable === pinExpr,
@@ -605,10 +615,7 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
       secondArg,
       callPos,
       callLine,
-      loops,
-      syms,
-      arrays,
-      entries,
+      { loops, syms, arrays, entries },
     );
   }
 

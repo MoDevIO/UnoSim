@@ -36,8 +36,8 @@ export default function SettingsDialog({
   open,
   onOpenChange,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
 }) {
   const [color, setColor] = React.useState<string>(() => {
     try {

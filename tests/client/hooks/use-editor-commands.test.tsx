@@ -108,6 +108,59 @@ describe("useEditorCommands", () => {
     expect(ed.goToLine).toHaveBeenCalledWith(5);
   });
 
+  it("goToLine catches and logs error when goToLine throws", () => {
+    const ed = makeEditor();
+    ed.goToLine = vi.fn(() => {
+      throw new Error("editor crash");
+    });
+    const ref = createRef(ed);
+    const toast = buildToast();
+    vi.stubGlobal("prompt", vi.fn().mockReturnValue("3"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() => useEditorCommands(ref, { toast }));
+
+    act(() => {
+      result.current.goToLine();
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith("Go to line failed", expect.any(Error));
+    consoleSpy.mockRestore();
+  });
+
+  it("insertSuggestion logs error when insertSuggestionSmartly not available", () => {
+    const ed = makeEditor();
+    delete ed.insertSuggestionSmartly;
+    const ref = createRef(ed);
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() => useEditorCommands(ref, {}));
+
+    act(() => {
+      result.current.insertSuggestion("abc");
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "insertSuggestionSmartly method not available on editor",
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it("insertSuggestion catches error when insertSuggestionSmartly throws", () => {
+    const ed = makeEditor();
+    ed.insertSuggestionSmartly = vi.fn(() => {
+      throw new Error("insert failed");
+    });
+    const ref = createRef(ed);
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() => useEditorCommands(ref, {}));
+
+    act(() => {
+      result.current.insertSuggestion("abc");
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith(expect.any(Error));
+    consoleSpy.mockRestore();
+  });
+
   it("formatCode applies formatting and updates state", () => {
     const ed = makeEditor();
     const ref = createRef(ed);

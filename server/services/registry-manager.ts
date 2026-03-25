@@ -795,8 +795,8 @@ export class RegistryManager {
       // Enhanced logging: show which pins are being sent, especially pin 13
       const pinsList = this.registry.map((p) => `${p.pin}(def=${p.defined})`).join(",");
       const hasPin13 = this.registry.some((p) => p.pin === "13");
-      if (reason && !this.destroyed) {
-        const baudInfo = this.baudrate !== undefined ? ` | baud=${this.baudrate}` : " | baud=not-defined";
+      if (reason) {
+        const baudInfo = this.baudrate === undefined ? " | baud=not-defined" : ` | baud=${this.baudrate}`;
         this.logger.info(
           `📤 Registry SEND [${reason}]: ${this.registry.length} pins [${pinsList}]${baudInfo} ${hasPin13 ? "✅ PIN13_INCLUDED" : "❌ NO_PIN13"}`,
         );

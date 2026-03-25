@@ -298,9 +298,6 @@ export function SketchTabs({
     setPendingFilesToLoad(null);
   };
 
-  // mark handler as intentionally present to satisfy TS noUnusedLocals
-  void handleReplaceConfirmNo;
-
   const downloadAllTabs = async () => {
     try {
       // Download each file individually
@@ -368,64 +365,87 @@ export function SketchTabs({
           <div
             key={tab.id}
             className={clsx(
-              "flex items-center space-x-2 px-4 mr-2 cursor-pointer transition-colors flex-shrink-0 group rounded-md",
+              "flex items-center flex-shrink-0 group rounded-md mr-2",
               activeTabId === tab.id
-                ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                : "hover:bg-muted/80 text-muted-foreground",
+                ? "bg-background shadow-sm ring-1 ring-border"
+                : "",
             )}
             style={{
               height: "var(--ui-button-height)",
-              lineHeight: "var(--ui-button-height)",
               display: "flex",
               alignItems: "center",
               fontSize: "var(--ui-control-font-size)",
             }}
-            onClick={() => {
-              if (renamingTabId !== tab.id) {
-                onTabClick(tab.id);
-              }
-            }}
           >
             {renamingTabId === tab.id ? (
-              <Input
-                ref={inputRef}
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") {
-                    handleRenameSave();
-                  } else if (e.key === "Escape") {
-                    handleRenameCancel();
-                  }
-                }}
-                onBlur={handleRenameSave}
-                className="w-24 px-2 py-1 text-ui-sm"
-                style={{
-                  height: "var(--ui-button-height)",
-                  fontSize: "var(--ui-control-font-size)",
-                  lineHeight: "var(--ui-button-height)",
-                }}
-              />
-            ) : (
-              <>
-                <span
-                  className="text-ui-sm whitespace-nowrap cursor-pointer hover:underline"
+              <div className="px-4 flex items-center" style={{ height: "var(--ui-button-height)" }}>
+                <Input
+                  ref={inputRef}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") {
+                      handleRenameSave();
+                    } else if (e.key === "Escape") {
+                      handleRenameCancel();
+                    }
+                  }}
+                  onBlur={handleRenameSave}
+                  className="w-24 px-2 py-1 text-ui-sm"
                   style={{
+                    height: "var(--ui-button-height)",
                     fontSize: "var(--ui-control-font-size)",
                     lineHeight: "var(--ui-button-height)",
+                  }}
+                />
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={clsx(
+                    "flex items-center space-x-2 px-4 cursor-pointer transition-colors",
+                    activeTabId === tab.id
+                      ? "text-foreground"
+                      : "hover:bg-muted/80 text-muted-foreground",
+                  )}
+                  style={{
                     height: "var(--ui-button-height)",
+                    lineHeight: "var(--ui-button-height)",
                     display: "flex",
                     alignItems: "center",
+                    fontSize: "var(--ui-control-font-size)",
+                    background: "transparent",
+                    border: "none",
                   }}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    handleRenameStart(tab.id, tab.name);
+                  onClick={() => onTabClick(tab.id)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onTabClick(tab.id);
+                    } else if (e.key === "F2") {
+                      e.preventDefault();
+                      handleRenameStart(tab.id, tab.name);
+                    }
                   }}
+                  onDoubleClick={() => handleRenameStart(tab.id, tab.name)}
                 >
-                  {tab.name}
-                  {modifiedTabId === tab.id && <span className="ml-1">•</span>}
-                </span>
+                  <span
+                    className="text-ui-sm whitespace-nowrap"
+                    style={{
+                      fontSize: "var(--ui-control-font-size)",
+                      lineHeight: "var(--ui-button-height)",
+                      height: "var(--ui-button-height)",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    {tab.name}
+                    {modifiedTabId === tab.id && <span className="ml-1">•</span>}
+                  </span>
+                </button>
                 {tabs[0]?.id !== tab.id && (
                   <Button
                     variant="outline"
@@ -607,7 +627,7 @@ export function SketchTabs({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Nein (nur .h Dateien)</AlertDialogCancel>
+            <AlertDialogCancel onClick={handleReplaceConfirmNo}>Nein (nur .h Dateien)</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleReplaceConfirmYes}
               className="bg-blue-600 hover:bg-blue-700"

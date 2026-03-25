@@ -12,9 +12,10 @@
  * object with a `compile()` method.
  */
 
-import { CompilationWorkerPool, getCompilationPool, type CompilationTask } from "./compilation-worker-pool";
+import { CompilationWorkerPool, getCompilationPool } from "./compilation-worker-pool";
 import { ArduinoCompiler } from "./arduino-compiler";
 import type { CompilationResult, CompileRequestOptions } from "./arduino-compiler";
+import type { CompileRequestPayload } from "@shared/worker-protocol";
 
 export class PooledCompiler {
   private readonly pool: CompilationWorkerPool | null;
@@ -47,7 +48,7 @@ export class PooledCompiler {
     options?: CompileRequestOptions,
   ): Promise<CompilationResult> {
     if (this.usePool && this.pool) {
-      const task: CompilationTask = { code, headers, tempRoot, ...options };
+      const task: CompileRequestPayload = { code, headers, tempRoot, ...options };
       return await this.pool.compile(task);
     } else if (this.directCompiler) {
       return await this.directCompiler.compile(code, headers, tempRoot, options);

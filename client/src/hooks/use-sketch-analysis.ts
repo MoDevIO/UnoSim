@@ -30,8 +30,23 @@ const ASSIGN_PIN_RE = /(?:int|const\s+int|uint8_t|byte)\s+(\w+)\s*=\s*(A\d|\d+)\
 /** Match analogRead(token) calls. */
 const ANALOG_READ_RE = /analogRead\s*\(\s*([^)]+)\s*\)/g;
 
-/** Match for-loop pattern with integer iteration. */
-const FOR_LOOP_RE = /for\s*\(\s*(?:byte|int|unsigned|uint8_t)?\s*(\w+)\s*=\s*(\d+)\s*;\s*\1\s*(<|<=)\s*(\d+)\s*;[^)]*\)\s*\{([\s\S]*?)\}/g;
+/** Extracts the body of a braced block starting at `openBracePos` in `src`. */
+function extractBracedBody(src: string, openBracePos: number): string {
+  let depth = 1, pos = openBracePos;
+  while (pos < src.length && depth > 0) {
+    if (src[pos] === '{') depth++;
+    else if (src[pos] === '}') depth--;
+    pos++;
+  }
+  return src.slice(openBracePos, pos - 1);
+}
+
+/** Match for-loop pattern with integer iteration (header + opening brace only; body extracted via brace counting). */
+// Split for-loop regex across variables to keep S5843 complexity ≤20 per variable
+const FOR_INIT = /(?:\w+\s+)?/.source; // optional type prefix (e.g. "int ")
+const FOR_LOOP_RE = new RegExp(String.raw`for\s*\( *${FOR_INIT}(\w+) *= *(\d+) *; *\w+ *(<=?) *(\d+) *;[^)]*\)`, "g");
+// Verify the for-loop is followed by a brace
+const FOR_BRACE_TAIL = /^ *\{/;
 
 /** Match pinMode(pin, mode) calls. */
 const PIN_MODE_RE = /pinMode\s*\(\s*(A\d+|\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g;
@@ -144,7 +159,11 @@ function findForLoopPins(code: string): Set<number> {
   let fm: RegExpExecArray | null = null;
 
   while ((fm = FOR_LOOP_RE.exec(code))) {
-    const [, varName, startStr, cmp, endStr, body] = fm;
+    const tail = code.slice(fm.index + fm[0].length);
+    if (!FOR_BRACE_TAIL.test(tail)) continue;
+    const bracePos = fm.index + fm[0].length + tail.indexOf("{") + 1;
+    const [, varName, startStr, cmp, endStr] = fm;
+    const body = extractBracedBody(code, bracePos);
     const useRe = new RegExp(
       String.raw`analogRead\s*\(\s*${varName}\s*\)`,
       "g",

@@ -294,5 +294,18 @@ void loop() {
       const messages = reservedNamesValidator.validateReservedNames(code);
       expect(messages.length).toBe(0);
     });
+
+    it("should handle unterminated block comment gracefully", () => {
+      const code = `
+void setup() {
+  /* this comment never closes
+  int pause = 5;
+}
+void loop() {
+}`;
+      const messages = reservedNamesValidator.validateReservedNames(code);
+      // Everything after /* is treated as comment, so no reserved name detected
+      expect(messages.length).toBe(0);
+    });
   });
 });
