@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { ToastFn } from "@/hooks/use-toast";
 
-export type UseSimulatorKeyboardShortcutsOptions = {
+type UseSimulatorKeyboardShortcutsOptions = {
   isMac: boolean;
   simulationStatus: "running" | "stopped" | "paused";
   compilePending: boolean;

@@ -29,12 +29,6 @@ import {
 } from "@shared/worker-protocol";
 
 /**
- * Type alias for backward compatibility
- * @deprecated Use CompileRequestPayload from worker-protocol instead
- */
-export type CompilationTask = CompileRequestPayload;
-
-/**
  * Statistic tracking for monitoring pool health
  */
 interface PoolStats {

@@ -94,10 +94,6 @@ export type AnyWorkerMessage =
   | ShutdownMessage;
 
 /**
- * Type guard to check if a message is a compile request
- */
-
-/**
  * Type guard to check if a message is a compile response
  */
 export function isCompileResponse(msg: WorkerMessage<unknown>): msg is CompileResponseMessage {
@@ -125,14 +121,4 @@ export function createCompileRequest(
   };
 }
 
-/**
- * Helper to create a compile response message
- */
 
-/**
- * Helper to create a ready message
- */
-
-/**
- * Helper to create a structured worker error
- */

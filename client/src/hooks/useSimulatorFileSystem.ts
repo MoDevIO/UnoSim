@@ -4,11 +4,7 @@ import { useFileManager } from "@/hooks/use-file-manager";
 import type { Sketch } from "@shared/schema";
 import type { ToastFn } from "@/hooks/use-toast";
 
-export type SimulationStatus = "stopped" | "running" | "paused";
-
-export type OutputTab = "compiler" | "messages" | "registry" | "debug";
-
-export interface UseSimulatorFileSystemParams {
+interface UseSimulatorFileSystemParams {
   code: string;
   setCode: (value: string) => void;
   isModified: boolean;

@@ -7,12 +7,12 @@
 
 import { SandboxRunner } from '../../server/services/sandbox-runner';
 
-export interface E2EMessage {
+interface E2EMessage {
   type: string;
   [key: string]: unknown;
 }
 
-export interface E2ERunner {
+interface E2ERunner {
   runSketch(options: {
     code: string;
     onOutput?: (line: string) => void;
@@ -22,7 +22,7 @@ export interface E2ERunner {
   stop(): Promise<void>;
 }
 
-export interface TestEnvironment {
+interface TestEnvironment {
   runner: E2ERunner;
   /** Drain and return all messages collected since the last call. */
   captureMessages(): E2EMessage[];
