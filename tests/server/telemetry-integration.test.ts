@@ -320,13 +320,10 @@ describe("Telemetry - E2E Integration Pipeline", () => {
     });
 
     it("should preserve chronological order of metrics", () => {
-      const metrics = [];
-
       for (let i = 0; i < 3; i++) {
         server.recordPinChange();
         const msg = server.getTelemetryMessage();
         client.receiveMessage(msg);
-        metrics.push(msg.payload);
       }
 
       const history = client.getHistory();
