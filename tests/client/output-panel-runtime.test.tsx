@@ -293,7 +293,7 @@ describe("OutputPanel Runtime Behavior - Real React Tests", () => {
 
       // INITIAL STATE
       let panelSize = screen.getByTestId("state-panel-size").textContent;
-      let showPanel = screen.getByTestId("state-show-panel").textContent;
+      let showPanel: string | null;
       let hasErrors = screen.getByTestId("state-has-errors").textContent;
       let dismissed = screen.getByTestId("state-dismissed").textContent;
 

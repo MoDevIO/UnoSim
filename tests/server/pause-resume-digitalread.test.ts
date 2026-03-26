@@ -6,6 +6,58 @@ const maybeDescribe = _skipHeavy ? describe.skip : describe;
 
 vi.setConfig({ testTimeout: 30000 });
 
+/** Flags mutated by the resume/pin helpers to communicate state back to the test. */
+interface ResumeFlags {
+  resumedOnce: boolean;
+  pinSetAfterResume: boolean;
+}
+
+/** After 1 s, resumes the runner, logs debug info, and sets pin 2 to HIGH 500 ms later. */
+function scheduleResumeAndSetPin(
+  runner: SandboxRunner,
+  stderrLines: string[],
+  flags: ResumeFlags,
+): void {
+  setTimeout(() => {
+    const resumed = runner.resume();
+    stderrLines.push(`[TEST] Resume called, result: ${resumed}`);
+    flags.resumedOnce = true;
+
+    setTimeout(() => {
+      stderrLines.push(
+        `[TEST] Setting pin 2 to HIGH`,
+        `[TEST] runner.isRunning=${runner.isRunning}, runner.isPaused=${runner.isPaused}`,
+        `[TEST] runner.process exists: ${!!(runner as any).process}`,
+        `[TEST] runner.process.stdin exists: ${!!((runner as any).process?.stdin)}`,
+        `[TEST] runner.process.killed: ${(runner as any).process?.killed}`,
+      );
+      runner.setPinValue(2, 1);
+      flags.pinSetAfterResume = true;
+    }, 500);
+  }, 1000);
+}
+
+/** After 1 s, resumes and sets pins 2 and 3 to HIGH sequentially. */
+function resumeAndSetMultiplePins(
+  runner: SandboxRunner,
+  flags: ResumeFlags,
+): void {
+  setTimeout(() => {
+    console.log("📍 Resuming...");
+    runner.resume();
+    flags.resumedOnce = true;
+
+    setTimeout(() => {
+      console.log("📍 Setting pin 2 to HIGH...");
+      runner.setPinValue(2, 1);
+      setTimeout(() => {
+        console.log("📍 Setting pin 3 to HIGH...");
+        runner.setPinValue(3, 1);
+      }, 200);
+    }, 500);
+  }, 1000);
+}
+
 maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
   let runner: SandboxRunner;
 
@@ -51,10 +103,9 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
         console.error("[TEST] still waiting 10s, running=", runner.isRunning, "paused=", runner.isPaused, "output=", output);
       }, 10000);
 
-      try {
-        // prepare callbacks first (avoid any race with runSketch)
-        let firstLine = true;
-        const onOutput = (line: string) => {
+      // prepare callbacks first (avoid any race with runSketch)
+      let firstLine = true;
+      const onOutput = (line: string) => {
           console.log("[OUT]", line);
           output.push(line);
           if (firstLine) {
@@ -67,7 +118,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
             clearTimeout(timeout);
             clearTimeout(healthTimer);
             console.log("- Status before stop: running=", runner.isRunning, "paused=", runner.isPaused);
-            runner.stop().then(resolve).catch(reject);
+            runner.stop().then(resolve, reject);
           }
         };
 
@@ -86,13 +137,6 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
           onExit: () => {},
           timeoutSec: 10,
         });
-
-      } catch (err) {
-        clearTimeout(timeout);
-        clearTimeout(healthTimer);
-        runner.stop();
-        reject(err);
-      }
     });
 
     const fullOutput = output.join("");
@@ -120,8 +164,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
     const stderrLines: string[] = [];
     let setupDone = false;
     let pausedOnce = false;
-    let _resumedOnce = false;
-    let pinSetAfterResume = false;
+    const resumeFlags: ResumeFlags = { resumedOnce: false, pinSetAfterResume: false };
 
     const result = await new Promise<{success: boolean, output: string, stderr: string}>((resolve) => {
       const timeout = setTimeout(() => {
@@ -150,27 +193,12 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
             const paused = runner.pause();
             stderrLines.push(`[TEST] Pause called, result: ${paused}`);
             
-            // Step 3: Wait a bit, then resume
-            setTimeout(() => {
-              const resumed = runner.resume();
-              stderrLines.push(`[TEST] Resume called, result: ${resumed}`);
-              _resumedOnce = true;
-              
-              // Step 4: After resume, set pin to HIGH
-              setTimeout(() => {
-                stderrLines.push(`[TEST] Setting pin 2 to HIGH`);
-                stderrLines.push(`[TEST] runner.isRunning=${runner.isRunning}, runner.isPaused=${runner.isPaused}`);
-                stderrLines.push(`[TEST] runner.process exists: ${!!(runner as any).process}`);
-                stderrLines.push(`[TEST] runner.process.stdin exists: ${!!((runner as any).process?.stdin)}`);
-                stderrLines.push(`[TEST] runner.process.killed: ${(runner as any).process?.killed}`);
-                runner.setPinValue(2, 1);
-                pinSetAfterResume = true;
-              }, 500);
-            }, 1000);
+            // Step 3: Wait a bit, then resume + set pin
+            scheduleResumeAndSetPin(runner, stderrLines, resumeFlags);
           }
 
           // Step 5: Check if we get PIN2=1 after setting pin post-resume
-          if (pinSetAfterResume && fullOutput.includes("PIN2=1")) {
+          if (resumeFlags.pinSetAfterResume && fullOutput.includes("PIN2=1")) {
             clearTimeout(timeout);
             runner.stop();
             resolve({
@@ -228,7 +256,7 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
     const output: string[] = [];
     let ready = false;
     let pausedOnce = false;
-    let resumedOnce = false;
+    const resumeFlags: ResumeFlags = { resumedOnce: false, pinSetAfterResume: false };
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -255,25 +283,11 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
             console.log("📍 Pausing...");
             runner.pause();
             
-            setTimeout(() => {
-              console.log("📍 Resuming...");
-              runner.resume();
-              resumedOnce = true;
-              
-              // Set both pins after resume
-              setTimeout(() => {
-                console.log("📍 Setting pin 2 to HIGH...");
-                runner.setPinValue(2, 1);
-                setTimeout(() => {
-                  console.log("📍 Setting pin 3 to HIGH...");
-                  runner.setPinValue(3, 1);
-                }, 200);
-              }, 500);
-            }, 1000);
+            resumeAndSetMultiplePins(runner, resumeFlags);
           }
 
           // Check for P2=1 P3=1
-          if (resumedOnce && fullOutput.includes("P2=1") && fullOutput.includes("P3=1")) {
+          if (resumeFlags.resumedOnce && fullOutput.includes("P2=1") && fullOutput.includes("P3=1")) {
             console.log("✅ SUCCESS: Both pins read correctly after resume!");
             clearTimeout(timeout);
             runner.stop();

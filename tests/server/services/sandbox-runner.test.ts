@@ -134,7 +134,7 @@ vi.mock("node:child_process", () => {
 
 vi.mock("node:fs/promises", () => {
   const mkdirMock = vi.fn().mockResolvedValue(undefined);
-  const mkdtempMock = vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir");
+  const mkdtempMock = vi.fn().mockResolvedValue(`${import.meta.dirname ?? "."}/unowebsim-mock-dir`);
   const writeFileMock = vi.fn().mockResolvedValue(undefined);
   const rmMock = vi.fn().mockResolvedValue(undefined);
   const chmodMock = vi.fn().mockResolvedValue(undefined);
@@ -328,10 +328,10 @@ describe("SandboxRunner", () => {
     vi.clearAllMocks();
 
     // Restore FORCE_DOCKER env var
-    if (savedForceDocker !== undefined) {
-      process.env.FORCE_DOCKER = savedForceDocker;
-    } else {
+    if (savedForceDocker === undefined) {
       delete process.env.FORCE_DOCKER;
+    } else {
+      process.env.FORCE_DOCKER = savedForceDocker;
     }
   });
 

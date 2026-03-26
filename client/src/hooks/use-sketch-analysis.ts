@@ -44,9 +44,9 @@ function extractBracedBody(src: string, openBracePos: number): string {
 /** Match for-loop pattern with integer iteration (header + opening brace only; body extracted via brace counting). */
 // Two separate regexes to avoid super-linear backtracking (S5843):
 // 1. With type prefix:  for (int i = 0; i <= 5; ...)
-const FOR_LOOP_TYPED_RE = /for\s*\(\s*\w+\s+(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;[^)]*\)/g;
+const FOR_LOOP_TYPED_RE = /for *\( *\w+ +(\w+) *= *(\d+) *; *\w+ *(<=?) *(\d+) *;[^)]*\)/g;
 // 2. Without type prefix: for (i = 0; i <= 5; ...)
-const FOR_LOOP_BARE_RE = /for\s*\(\s*(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;[^)]*\)/g;
+const FOR_LOOP_BARE_RE = /for *\( *(\w+) *= *(\d+) *; *\w+ *(<=?) *(\d+) *;[^)]*\)/g;
 // Verify the for-loop is followed by a brace
 const FOR_BRACE_TAIL = /^ *\{/;
 

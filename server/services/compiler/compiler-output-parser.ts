@@ -33,7 +33,7 @@ export class CompilerOutputParser {
   static parseErrors(stderr: string, lineOffset: number = 0): CompilationError[] {
     // match patterns like 'file:line:column: error: message' or
     // 'file:line: error: message' (column optional)
-    const regex = /^([^:]+):(\d+)(?::(\d+))?:\s+(warning|error):\s+(.*)$/gm;
+    const regex = /^([^:\n]+):(\d+)(?::(\d+))?: +(warning|error): +([^\n]*)$/gm;
     const results: CompilationError[] = [];
     const seen = new Set<string>();
 

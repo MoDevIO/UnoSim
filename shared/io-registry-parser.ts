@@ -43,10 +43,12 @@ const MODE_MAP: Record<string, PinMode> = {
 const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
 const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
-const ARRAY_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
-// Non-backtracking: Split regex complexity across variables to keep S5843 ≤20 per variable (S5852)
-const FOR_TYPE_PREFIX = /(?:\w+\s+)?/.source; // optional type like "int "
-const FOR_LOOP_PATTERN = new RegExp(String.raw`\bfor *\( *${FOR_TYPE_PREFIX}(\w+) *= *(\d+) *; *(\w+) *([<>]=?) *(\w+) *;[^)]*\)`, "g");
+const ARRAY_PATTERN = /\b(?:int|byte|uint8_t) +([A-Za-z_]\w*) *\[ *\d* *\] *= *\{([^}]+)\}/g;
+// Two separate for-loop regexes to avoid super-linear backtracking (S5843):
+// 1. With type prefix: for (int i = 0; ...)
+const FOR_LOOP_TYPED = /\bfor\s*\(\s*\w+\s+(\w+)\s*=\s*(\d+)\s*;\s*(\w+)\s*([<>]=?)\s*(\w+)\s*;[^)]*\)/g;
+// 2. Without type prefix: for (i = 0; ...)
+const FOR_LOOP_BARE = /\bfor\s*\(\s*(\w+)\s*=\s*(\d+)\s*;\s*(\w+)\s*([<>]=?)\s*(\w+)\s*;[^)]*\)/g;
 const FOR_BRACE_TAIL_RE = /^ *(\{)?/;
 const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/;
 const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*(\w+(?:\[\d+\])?)(?:\s*,\s*(\w+))?/g;
@@ -253,6 +255,21 @@ function findMatchingBrace(str: string, openPos: number): number {
   return openPos;
 }
 
+/** Find the end position of a for-loop body (braced or braceless). */
+function findLoopBodyEnd(
+  clean: string,
+  headerEnd: number,
+  hasBrace: boolean,
+): number {
+  if (hasBrace) {
+    let openBrace = headerEnd - 1;
+    while (openBrace < clean.length && clean[openBrace] !== "{") openBrace++;
+    return findMatchingBrace(clean, openBrace);
+  }
+  const semiPos = clean.indexOf(";", headerEnd);
+  return semiPos >= 0 ? semiPos : clean.length;
+}
+
 /**
  * Find all for-loops with a numeric iteration variable over a statically
  * determinable range, e.g. `for (int i = 2; i < 4; i++)`.
@@ -262,45 +279,32 @@ function findLoopRanges(
   syms: Map<string, number>,
 ): LoopRange[] {
   const ranges: LoopRange[] = [];
-  // The opening brace (\{)? is made optional so that braceless single-statement
-  // loop bodies are also handled, e.g.:
-  //   for (int i = 1; i <= 6; i++) pinMode(i, INPUT);
   let m: RegExpExecArray | null;
 
-  while ((m = FOR_LOOP_PATTERN.exec(clean)) !== null) {
-    const variable = m[1];
-    const start = Number.parseInt(m[2], 10);
-    const op = m[4];
-    const limitVal = resolveToken(m[5], syms) ?? Number.parseInt(m[5], 10);
-    const tail = clean.slice(m.index + m[0].length);
-    const braceMatch = FOR_BRACE_TAIL_RE.exec(tail);
-    const hasBrace = !!braceMatch?.[1];
-    if (Number.isNaN(limitVal)) continue;
+  for (const forRe of [FOR_LOOP_TYPED, FOR_LOOP_BARE]) {
+    forRe.lastIndex = 0;
+    while ((m = forRe.exec(clean)) !== null) {
+      const variable = m[1];
+      const start = Number.parseInt(m[2], 10);
+      const op = m[4];
+      const limitVal = resolveToken(m[5], syms) ?? Number.parseInt(m[5], 10);
+      if (Number.isNaN(limitVal)) continue;
 
-    const values = generateLoopValues(start, op, limitVal);
-    if (values.length === 0 || values.length > 20) continue;
+      const values = generateLoopValues(start, op, limitVal);
+      if (values.length === 0 || values.length > 20) continue;
 
-    let endPos: number;
-    if (hasBrace) {
-      // Braced body: find the matching closing brace
-      let openBrace = m.index + m[0].length - 1;
-      while (openBrace < clean.length && clean[openBrace] !== "{")
-        openBrace++;
-      endPos = findMatchingBrace(clean, openBrace);
-    } else {
-      // Braceless body: the single statement ends at the first ";" after the header
-      const bodyStart = m.index + m[0].length;
-      const semiPos = clean.indexOf(";", bodyStart);
-      endPos = semiPos >= 0 ? semiPos : clean.length;
+      const tail = clean.slice(m.index + m[0].length);
+      const hasBrace = !!FOR_BRACE_TAIL_RE.exec(tail)?.[1];
+      const endPos = findLoopBodyEnd(clean, m.index + m[0].length, hasBrace);
+
+      ranges.push({
+        startPos: m.index,
+        endPos,
+        startLine: lineAt(clean, m.index),
+        variable,
+        values,
+      });
     }
-
-    ranges.push({
-      startPos: m.index,
-      endPos,
-      startLine: lineAt(clean, m.index),
-      variable,
-      values,
-    });
   }
 
   return ranges;

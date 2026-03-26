@@ -208,9 +208,8 @@ describe("SandboxRunnerPool", () => {
     await pool.initialize();
 
     // Acquire all runners
-    const runners = [];
     for (let i = 0; i < 5; i++) {
-      runners.push(await pool.acquireRunner());
+      await pool.acquireRunner();
     }
 
     const pendingAcquire = pool.acquireRunner();

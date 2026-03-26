@@ -52,7 +52,7 @@ export function useDebugConsole(activeOutputTab: string) {
       if (!debugMode) return;
 
       const message: DebugMessage = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: `${Date.now()}-${crypto.randomUUID()}`,
         timestamp: new Date(),
         sender,
         type,

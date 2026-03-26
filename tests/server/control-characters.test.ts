@@ -3,6 +3,38 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { applyBackspaceAcrossLines } from "../../client/src/components/features/serial-monitor";
 
+/**
+ * Simulates what the serial monitor does: processes incoming serial chunks
+ * and builds up the display lines.
+ */
+function simulateSerialOutput(
+  chunks: Array<{ text: string; complete: boolean }>,
+) {
+  const lines: Array<{ text: string; incomplete: boolean }> = [];
+  const snapshots: string[] = [];
+
+  for (const chunk of chunks) {
+    const result = applyBackspaceAcrossLines(
+      lines,
+      chunk.text,
+      chunk.complete,
+    );
+    if (result !== null) {
+      // No backspace handling was needed, add as new line or append
+      if (lines.length > 0 && lines.at(-1).incomplete) {
+        lines.at(-1).text += result;
+        lines.at(-1).incomplete = !chunk.complete;
+      } else {
+        lines.push({ text: result, incomplete: !chunk.complete });
+      }
+    }
+    // Snapshot what user sees after each chunk
+    snapshots.push(lines.map((l) => l.text).join(""));
+  }
+
+  return { lines, snapshots };
+}
+
 describe("Control Characters Examples and Handling", () => {
   const examplesDir = path.join(
     __dirname,
@@ -86,38 +118,6 @@ describe("Control Characters Examples and Handling", () => {
   });
 
   describe(String.raw`backspace (\b) behavior`, () => {
-    /**
-     * Simulates what the serial monitor does: processes incoming serial chunks
-     * and builds up the display lines.
-     */
-    function simulateSerialOutput(
-      chunks: Array<{ text: string; complete: boolean }>,
-    ) {
-      const lines: Array<{ text: string; incomplete: boolean }> = [];
-      const snapshots: string[] = [];
-
-      for (const chunk of chunks) {
-        const result = applyBackspaceAcrossLines(
-          lines,
-          chunk.text,
-          chunk.complete,
-        );
-        if (result !== null) {
-          // No backspace handling was needed, add as new line or append
-          if (lines.length > 0 && lines.at(-1).incomplete) {
-            lines.at(-1).text += result;
-            lines.at(-1).incomplete = !chunk.complete;
-          } else {
-            lines.push({ text: result, incomplete: !chunk.complete });
-          }
-        }
-        // Snapshot what user sees after each chunk
-        snapshots.push(lines.map((l) => l.text).join(""));
-      }
-
-      return { lines, snapshots };
-    }
-
     it("Phase 1: character X is displayed initially", () => {
       const { snapshots } = simulateSerialOutput([
         { text: "X", complete: false },
