@@ -182,8 +182,8 @@ html, body {
 
 /* Controls (buttons, menu items, icon-only controls) should use the scaled control font and align vertically */
 /* .arduino-overlay is excluded: it is a full-board canvas button, not a UI control */
-button:not(.arduino-overlay),
-[role="button"]:not(.arduino-overlay) {
+button:not(.arduino-overlay):not(.parser-message-btn),
+[role="button"]:not(.arduino-overlay):not(.parser-message-btn) {
   font-size: var(--ui-control-font-size) !important;
   line-height: var(--ui-button-height) !important;
   height: var(--ui-button-height) !important;
@@ -196,13 +196,13 @@ button:not(.arduino-overlay),
 }
 
 /* Ensure icon-only square controls center SVGs */
-button:not(.arduino-overlay) > svg {
+button:not(.arduino-overlay):not(.parser-message-btn) > svg {
   width: 1em;
   height: 1em;
 }
 
 /* Force child nodes to inherit control sizing to avoid mixed line-height from inner spans */
-button:not(.arduino-overlay) * {
+button:not(.arduino-overlay):not(.parser-message-btn) * {
   font-size: var(--ui-control-font-size) !important;
   line-height: var(--ui-button-height) !important;
 }

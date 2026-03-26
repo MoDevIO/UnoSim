@@ -363,7 +363,7 @@ export function ParserOutput({
                       >
                         <button
                           type="button"
-                          className="w-full text-left p-2 cursor-pointer hover:bg-muted/70 block"
+                          className="parser-message-btn w-full text-left p-2 cursor-pointer hover:bg-muted/70 block"
                           tabIndex={message.line === undefined ? -1 : 0}
                           onClick={() =>
                             message.line !== undefined &&
@@ -398,8 +398,8 @@ export function ParserOutput({
                           </div>
                         </button>
                         {message.suggestion && (
-                          <div className="mx-2 mb-2 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2">
-                            <div className="flex-1 text-muted-foreground text-ui-xs">
+                          <div className="ml-8 mr-2 mb-2 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2">
+                            <div className="flex-1 min-w-0 text-muted-foreground text-ui-xs">
                               <span className="font-semibold">
                                 Suggestion:
                               </span>{" "}
