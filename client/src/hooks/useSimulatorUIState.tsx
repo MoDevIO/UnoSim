@@ -13,9 +13,9 @@ const CodeEditor = lazy(() =>
   })),
 );
 
-export type OutputTab = "compiler" | "messages" | "registry" | "debug";
+type OutputTab = "compiler" | "messages" | "registry" | "debug";
 
-export interface UseSimulatorUIStateParams {
+interface UseSimulatorUIStateParams {
   code: string;
   setCode: (code: string) => void;
   tabs: Array<{ id: string; name: string; content: string }>;

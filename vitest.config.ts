@@ -39,6 +39,12 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
       reportBase: 'coverage',
+      exclude: [
+        'tests/**',
+        'e2e/**',
+        '**/node_modules/**',
+        '**/dist/**',
+      ],
     },
     // Policy-Konformität: Flush-on-Failure Mechanismus
     // Bei Test-Fehlschlag wird Debug-Buffer auf Konsole geflushert

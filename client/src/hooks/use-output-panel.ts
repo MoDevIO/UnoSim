@@ -5,7 +5,7 @@ import type { ParserMessage } from "@shared/schema";
 type CompilationResultType = "success" | "error" | null;
 type OutputTabType = "compiler" | "messages" | "registry" | "debug";
 
-export interface OutputPanelStateHandlers {
+interface OutputPanelStateHandlers {
   readonly showCompilationOutput: boolean;
   readonly setShowCompilationOutput: (value: boolean | ((prev: boolean) => boolean)) => void;
   readonly setParserPanelDismissed: (value: boolean) => void;

@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 
-export interface SketchTab {
+interface SketchTab {
   id: string;
   name: string;
   content: string;

@@ -1,7 +1,7 @@
 import type { IOPinRecord } from "@shared/schema";
 import { pinModeToString } from "@shared/utils/arduino-utils";
 
-export type PinConflictInfo =
+type PinConflictInfo =
   | { conflict: true; conflictMessage: string }
   | { conflict: false };
 

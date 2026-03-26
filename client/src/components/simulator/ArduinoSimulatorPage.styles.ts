@@ -58,37 +58,5 @@ export const CSS_CLASSES = {
   OUTPUT_LAYOUT: "hidden",
 };
 
-/**
- * Status message info and styling helper
- */
-type CompilationStatusType = "compiling" | "success" | "error" | "ready";
-
-interface StatusInfo {
-  text: string;
-  className: string;
-}
-
-/**
- * Get status info object based on compilation/modification state
- */
-export function getStatusInfo(
-  compilationStatus: CompilationStatusType,
-  isModified: boolean,
-): StatusInfo {
-  switch (compilationStatus) {
-    case "compiling":
-      return { text: "Compiling...", className: "status-compiling" };
-    case "success":
-      return {
-        text: isModified ? "Code Changed" : "Compilation with Arduino-CLI complete",
-        className: isModified ? "status-modified" : "status-success",
-      };
-    case "error":
-      return { text: "Compilation Error", className: "status-error" };
-    default:
-      return { text: "Ready", className: "status-ready" };
-  }
-}
-
 export const DIGITAL_PIN_COUNT = 14; // Pins 0–13
 export const ANALOG_PIN_COUNT = 6;   // Pins A0–A5
