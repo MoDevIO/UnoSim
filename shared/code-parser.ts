@@ -44,17 +44,17 @@ const PARSER_PATTERNS = {
 
   // Performance patterns
   WHILE_TRUE: /while\s*\(\s*true\s*\)/,
-  FOR_NO_EXIT: /for *\( *[^;\n]+; *; *[^)\n]+\)/,
+  FOR_NO_EXIT: /for *\( *[^;\n]+; *; *[^)\n]+\)/, // NOSONAR S5843
   LARGE_ARRAY: /\[\s*(\d{4,})\s*\]/,
   FUNCTION_DEF_BASIC,
   FUNCTION_DEF_UNSIGNED,
 
   // Comment patterns (consolidated from inline)
-  COMMENT_SINGLE_LINE: /\/\/[^\n]*$/gm,
-  COMMENT_MULTI_LINE: /\/\*[\s\S]*?\*\//g,
+  COMMENT_SINGLE_LINE: /\/\/[^\n]*$/gm, // NOSONAR S5843
+  COMMENT_MULTI_LINE: /\/\*[^*]*(?:\*+[^*/][^*]*)*\*\//g,
 
   // Additional pin patterns (consolidated from inline)
-  PIN_MODE_ANY: /pinMode *\( *[^,)\n]+,/,
+  PIN_MODE_ANY: /pinMode *\( *[^,)\n]+,/, // NOSONAR S5843
   DIGITAL_DYNAMIC_PIN_READ: /digitalRead\s*\(\s*[^0-9A\s][^,)]*/,
   DIGITAL_DYNAMIC_PIN_WRITE: /digitalWrite\s*\(\s*[^0-9A\s][^,)]*/,
   

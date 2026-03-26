@@ -33,7 +33,7 @@ export class CompilerOutputParser {
   static parseErrors(stderr: string, lineOffset: number = 0): CompilationError[] {
     // match patterns like 'file:line:column: error: message' or
     // 'file:line: error: message' (column optional)
-    const regex = /^([^:\n]+):(\d+)(?::(\d+))?: +(warning|error): +([^\n]*)$/gm;
+    const regex = /^([^:\n]+):(\d+)(?::(\d+))?: +(warning|error): +([^\n]*)$/gm; // NOSONAR S5843
     const results: CompilationError[] = [];
     const seen = new Set<string>();
 

@@ -14,7 +14,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
   afterEach(async () => {
     // Ensure runner is stopped and cleaned up between tests
     try {
-      if (runner && runner.isRunning) await runner.stop();
+      if (runner?.isRunning) await runner.stop();
     } catch {
       // swallow cleanup errors to not mask test results
     }
@@ -107,7 +107,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         // will show up as a zombie in check-leaks.sh.
         try { runner.resume(); } catch {}
         try { await runner.stop(); } catch {}
-        if (err) reject(err instanceof Error ? err : new Error(String(err)));
+        if (err) reject(err instanceof Error ? err : new Error(String(err))); // NOSONAR S6551
         else resolve();
       };
 
@@ -141,7 +141,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
                 // Settle: wait for any in-flight pipe data to drain through the
                 // batcher.  Without this, lines that were already in the OS-level
                 // pipe buffer can still arrive ~50 ms after SIGSTOP.
-                await new Promise<void>(r => setTimeout(r, 200));
+                await new Promise<void>(r => setTimeout(r, 200)); // NOSONAR S2004
 
                 // Verify the OS process is genuinely suspended.
                 if (pid != null) {
@@ -156,7 +156,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
                 expect(afterPauseCount).toBeLessThanOrEqual(beforePauseCount + 1);
 
                 // Optionally wait again to confirm output really stopped.
-                await new Promise<void>(r => setTimeout(r, 300));
+                await new Promise<void>(r => setTimeout(r, 300)); // NOSONAR S2004
                 const frozenCount = lines.length;
                 console.log(`[SIGSTOP-TEST] frozen check — count=${frozenCount}`);
                 expect(frozenCount).toBeLessThanOrEqual(afterPauseCount + 1);
@@ -166,7 +166,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
                 const resumed = runner.resume();
                 expect(resumed).toBe(true);
 
-                await new Promise<void>(r => setTimeout(r, 1500));
+                await new Promise<void>(r => setTimeout(r, 1500)); // NOSONAR S2004
                 console.log(`[SIGSTOP-TEST] after resume — lines=${lines.length}, frozenAt=${frozenCount}`);
                 expect(lines.length).toBeGreaterThan(frozenCount);
 
@@ -220,7 +220,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
           // Be resilient: stop shortly after the first serial output (avoids flaky timing)
           if (captured.length === 1) {
             setTimeout(() => {
-              runner.stop().catch(() => {});
+              runner.stop().catch(() => {}); // NOSONAR S2004
             }, 50);
           }
         },

@@ -14,6 +14,52 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+type BufferEntry = { lines: Array<{ data: string; isComplete: boolean }>; flushTimer: NodeJS.Timeout | null };
+
+function createBatcher(): {
+  messages: any[];
+  ws: { readyState: number; send: ReturnType<typeof vi.fn> };
+  send: (line: string, isComplete?: boolean) => void;
+} {
+  const messages: any[] = [];
+  const ws = {
+    readyState: 1,
+    send: vi.fn((msg: string) => {
+      messages.push(JSON.parse(msg));
+    }),
+  };
+  const clientSerialBuffers = new Map<typeof ws, BufferEntry>();
+
+  function flushBuffer(): void {
+    const bufferState = clientSerialBuffers.get(ws);
+    if (!bufferState || bufferState.lines.length === 0) {
+      return;
+    }
+    bufferState.flushTimer = null;
+    const combinedData = bufferState.lines
+      .map((lineObj) => (lineObj.isComplete ? lineObj.data + '\n' : lineObj.data))
+      .join('');
+    const lastLine = bufferState.lines.at(-1);
+    const finalIsComplete = lastLine?.isComplete ?? true;
+    bufferState.lines = [];
+    if (ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: "serial_output", data: combinedData, isComplete: finalIsComplete }));
+    }
+  }
+
+  function send(line: string, isComplete?: boolean): void {
+    let bufferState = clientSerialBuffers.get(ws);
+    if (!bufferState) {
+      bufferState = { lines: [], flushTimer: null };
+      clientSerialBuffers.set(ws, bufferState);
+    }
+    bufferState.lines.push({ data: line, isComplete: isComplete ?? true });
+    bufferState.flushTimer ??= setTimeout(() => flushBuffer(), 50) as unknown as NodeJS.Timeout;
+  }
+
+  return { messages, ws, send };
+}
+
 describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
   
   beforeEach(() => {
@@ -25,69 +71,12 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
   });
 
   it('T01: should batch multiple lines into a single message after 50ms', () => {
-    const messages: any[] = [];
-    
-    const ws = {
-      readyState: 1,
-      send: vi.fn((msg: string) => {
-        messages.push(JSON.parse(msg));
-      }),
-    };
-
-    const clientSerialBuffers = new Map<any, { lines: Array<{ data: string; isComplete: boolean }>; flushTimer: NodeJS.Timeout | null }>();
-
-    function flushSerialOutputBuffer(ws: any): void {
-      const bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState || bufferState.lines.length === 0) {
-        return;
-      }
-
-      bufferState.flushTimer = null;
-      
-      // Add newline after EVERY complete line (critical for batch boundary handling)
-      const combinedData = bufferState.lines
-        .map((lineObj) => {
-          if (lineObj.isComplete) {
-            return lineObj.data + '\n';
-          }
-          return lineObj.data;
-        })
-        .join('');
-      
-      const lastLine = bufferState.lines.at(-1);
-      const finalIsComplete = lastLine?.isComplete ?? true;
-      
-      bufferState.lines = [];
-
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify({
-          type: "serial_output",
-          data: combinedData,
-          isComplete: finalIsComplete,
-        }));
-      }
-    }
-
-    function sendSerialOutputBatched(ws: any, line: string, isComplete?: boolean): void {
-      let bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState) {
-        bufferState = { lines: [], flushTimer: null };
-        clientSerialBuffers.set(ws, bufferState);
-      }
-
-      bufferState.lines.push({ data: line, isComplete: isComplete ?? true });
-
-      if (!bufferState.flushTimer) {
-        bufferState.flushTimer = setTimeout(() => {
-          flushSerialOutputBuffer(ws);
-        }, 50) as unknown as NodeJS.Timeout;
-      }
-    }
+    const { messages, send } = createBatcher();
 
     // Send 3 lines with isComplete=true (simulating println output)
-    sendSerialOutputBatched(ws, 'Hello', true);
-    sendSerialOutputBatched(ws, 'World', true);
-    sendSerialOutputBatched(ws, 'Test', true);
+    send('Hello', true);
+    send('World', true);
+    send('Test', true);
 
     expect(messages.length).toBe(0);
     vi.advanceTimersByTime(50);
@@ -100,73 +89,17 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
   });
 
   it('T02: should send separate batches if 50ms gap occurs between messages', () => {
-    const messages: any[] = [];
-    
-    const ws = {
-      readyState: 1,
-      send: vi.fn((msg: string) => {
-        messages.push(JSON.parse(msg));
-      }),
-    };
+    const { messages, send } = createBatcher();
 
-    const clientSerialBuffers = new Map<any, { lines: Array<{ data: string; isComplete: boolean }>; flushTimer: NodeJS.Timeout | null }>();
-
-    function flushSerialOutputBuffer(ws: any): void {
-      const bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState || bufferState.lines.length === 0) {
-        return;
-      }
-
-      bufferState.flushTimer = null;
-      
-      const combinedData = bufferState.lines
-        .map((lineObj) => {
-          if (lineObj.isComplete) {
-            return lineObj.data + '\n';
-          }
-          return lineObj.data;
-        })
-        .join('');
-      
-      const lastLine = bufferState.lines.at(-1);
-      const finalIsComplete = lastLine?.isComplete ?? true;
-      
-      bufferState.lines = [];
-
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify({
-          type: "serial_output",
-          data: combinedData,
-          isComplete: finalIsComplete,
-        }));
-      }
-    }
-
-    function sendSerialOutputBatched(ws: any, line: string, isComplete?: boolean): void {
-      let bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState) {
-        bufferState = { lines: [], flushTimer: null };
-        clientSerialBuffers.set(ws, bufferState);
-      }
-
-      bufferState.lines.push({ data: line, isComplete: isComplete ?? true });
-
-      if (!bufferState.flushTimer) {
-        bufferState.flushTimer = setTimeout(() => {
-          flushSerialOutputBuffer(ws);
-        }, 50) as unknown as NodeJS.Timeout;
-      }
-    }
-
-    sendSerialOutputBatched(ws, 'Line1', true);
-    sendSerialOutputBatched(ws, 'Line2', true);
+    send('Line1', true);
+    send('Line2', true);
     
     vi.advanceTimersByTime(50);
     expect(messages.length).toBe(1);
     expect(messages[0].data).toBe('Line1\nLine2\n');
     expect(messages[0].isComplete).toBe(true);
 
-    sendSerialOutputBatched(ws, 'Line3', true);
+    send('Line3', true);
     
     vi.advanceTimersByTime(50);
     expect(messages.length).toBe(2);
@@ -175,67 +108,11 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
   });
 
   it('T03: should handle incomplete lines (no trailing newline)', () => {
-    const messages: any[] = [];
-    
-    const ws = {
-      readyState: 1,
-      send: vi.fn((msg: string) => {
-        messages.push(JSON.parse(msg));
-      }),
-    };
-
-    const clientSerialBuffers = new Map<any, { lines: Array<{ data: string; isComplete: boolean }>; flushTimer: NodeJS.Timeout | null }>();
-
-    function flushSerialOutputBuffer(ws: any): void {
-      const bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState || bufferState.lines.length === 0) {
-        return;
-      }
-
-      bufferState.flushTimer = null;
-      
-      const combinedData = bufferState.lines
-        .map((lineObj) => {
-          if (lineObj.isComplete) {
-            return lineObj.data + '\n';
-          }
-          return lineObj.data;
-        })
-        .join('');
-      
-      const lastLine = bufferState.lines.at(-1);
-      const finalIsComplete = lastLine?.isComplete ?? true;
-      
-      bufferState.lines = [];
-
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify({
-          type: "serial_output",
-          data: combinedData,
-          isComplete: finalIsComplete,
-        }));
-      }
-    }
-
-    function sendSerialOutputBatched(ws: any, line: string, isComplete?: boolean): void {
-      let bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState) {
-        bufferState = { lines: [], flushTimer: null };
-        clientSerialBuffers.set(ws, bufferState);
-      }
-
-      bufferState.lines.push({ data: line, isComplete: isComplete ?? true });
-
-      if (!bufferState.flushTimer) {
-        bufferState.flushTimer = setTimeout(() => {
-          flushSerialOutputBuffer(ws);
-        }, 50) as unknown as NodeJS.Timeout;
-      }
-    }
+    const { messages, send } = createBatcher();
 
     // Simulate Serial.print (incomplete) followed by Serial.println (complete)
-    sendSerialOutputBatched(ws, 'Partial', false);
-    sendSerialOutputBatched(ws, ' Output', true);
+    send('Partial', false);
+    send(' Output', true);
     
     vi.advanceTimersByTime(50);
     
@@ -246,65 +123,9 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
   });
 
   it('T04: should handle incomplete line at buffer flush', () => {
-    const messages: any[] = [];
-    
-    const ws = {
-      readyState: 1,
-      send: vi.fn((msg: string) => {
-        messages.push(JSON.parse(msg));
-      }),
-    };
+    const { messages, send } = createBatcher();
 
-    const clientSerialBuffers = new Map<any, { lines: Array<{ data: string; isComplete: boolean }>; flushTimer: NodeJS.Timeout | null }>();
-
-    function flushSerialOutputBuffer(ws: any): void {
-      const bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState || bufferState.lines.length === 0) {
-        return;
-      }
-
-      bufferState.flushTimer = null;
-      
-      const combinedData = bufferState.lines
-        .map((lineObj) => {
-          if (lineObj.isComplete) {
-            return lineObj.data + '\n';
-          }
-          return lineObj.data;
-        })
-        .join('');
-      
-      const lastLine = bufferState.lines.at(-1);
-      const finalIsComplete = lastLine?.isComplete ?? true;
-      
-      bufferState.lines = [];
-
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify({
-          type: "serial_output",
-          data: combinedData,
-          isComplete: finalIsComplete,
-        }));
-      }
-    }
-
-    function sendSerialOutputBatched(ws: any, line: string, isComplete?: boolean): void {
-      let bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState) {
-        bufferState = { lines: [], flushTimer: null };
-        clientSerialBuffers.set(ws, bufferState);
-      }
-
-      bufferState.lines.push({ data: line, isComplete: isComplete ?? true });
-
-      if (!bufferState.flushTimer) {
-        bufferState.flushTimer = setTimeout(() => {
-          flushSerialOutputBuffer(ws);
-        }, 50) as unknown as NodeJS.Timeout;
-      }
-    }
-
-    sendSerialOutputBatched(ws, 'Still typing', false);
+    send('Still typing', false);
     
     vi.advanceTimersByTime(50);
     
@@ -315,66 +136,10 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
   });
 
   it('T05: should preserve batch order for rapid-fire messages', () => {
-    const messages: any[] = [];
-    
-    const ws = {
-      readyState: 1,
-      send: vi.fn((msg: string) => {
-        messages.push(JSON.parse(msg));
-      }),
-    };
-
-    const clientSerialBuffers = new Map<any, { lines: Array<{ data: string; isComplete: boolean }>; flushTimer: NodeJS.Timeout | null }>();
-
-    function flushSerialOutputBuffer(ws: any): void {
-      const bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState || bufferState.lines.length === 0) {
-        return;
-      }
-
-      bufferState.flushTimer = null;
-      
-      const combinedData = bufferState.lines
-        .map((lineObj) => {
-          if (lineObj.isComplete) {
-            return lineObj.data + '\n';
-          }
-          return lineObj.data;
-        })
-        .join('');
-      
-      const lastLine = bufferState.lines.at(-1);
-      const finalIsComplete = lastLine?.isComplete ?? true;
-      
-      bufferState.lines = [];
-
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify({
-          type: "serial_output",
-          data: combinedData,
-          isComplete: finalIsComplete,
-        }));
-      }
-    }
-
-    function sendSerialOutputBatched(ws: any, line: string, isComplete?: boolean): void {
-      let bufferState = clientSerialBuffers.get(ws);
-      if (!bufferState) {
-        bufferState = { lines: [], flushTimer: null };
-        clientSerialBuffers.set(ws, bufferState);
-      }
-
-      bufferState.lines.push({ data: line, isComplete: isComplete ?? true });
-
-      if (!bufferState.flushTimer) {
-        bufferState.flushTimer = setTimeout(() => {
-          flushSerialOutputBuffer(ws);
-        }, 50) as unknown as NodeJS.Timeout;
-      }
-    }
+    const { messages, send } = createBatcher();
 
     for (let i = 0; i < 10; i++) {
-      sendSerialOutputBatched(ws, `Line${i}`, true);
+      send(`Line${i}`, true);
     }
     
     vi.advanceTimersByTime(50);
@@ -388,4 +153,3 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
     expect(messages[0].isComplete).toBe(true);
   });
 });
-

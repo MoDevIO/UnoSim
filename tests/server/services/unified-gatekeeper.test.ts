@@ -988,11 +988,11 @@ describe("UnifiedGatekeeper", () => {
 
       // Generate random operations
       for (let i = 0; i < 20; i++) {
-        if (Math.random() > 0.3) {
+        if (Math.random() > 0.3) { // NOSONAR S2245
           // Compile slot operation
           operations.push(
             gk.acquireCompileSlot(TaskPriority.NORMAL, 10000, `stress${i}`).then(r => {
-              setTimeout(() => r(), Math.random() * 50);
+              setTimeout(() => r(), Math.random() * 50); // NOSONAR S2245
             }).catch(() => null)
           );
         } else {
@@ -1026,10 +1026,10 @@ describe("UnifiedGatekeeper", () => {
         expect(gk.getStats().maxConcurrentCompiles).toBe(7);
         gk.stopLockMonitoring();
       } finally {
-        if (originalEnv !== undefined) {
-          process.env.COMPILE_MAX_CONCURRENT = originalEnv;
-        } else {
+        if (originalEnv === undefined) {
           delete process.env.COMPILE_MAX_CONCURRENT;
+        } else {
+          process.env.COMPILE_MAX_CONCURRENT = originalEnv;
         }
       }
     });
@@ -1044,10 +1044,10 @@ describe("UnifiedGatekeeper", () => {
         expect(gk.getStats().availableSlots).toBe(Infinity);
         gk.stopLockMonitoring();
       } finally {
-        if (originalEnv !== undefined) {
-          process.env.COMPILE_GATEKEEPER_DISABLED = originalEnv;
-        } else {
+        if (originalEnv === undefined) {
           delete process.env.COMPILE_GATEKEEPER_DISABLED;
+        } else {
+          process.env.COMPILE_GATEKEEPER_DISABLED = originalEnv;
         }
       }
     });

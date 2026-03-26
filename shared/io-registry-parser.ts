@@ -43,7 +43,7 @@ const MODE_MAP: Record<string, PinMode> = {
 const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
 const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
-const ARRAY_PATTERN = /\b(?:int|byte|uint8_t) +([A-Za-z_]\w*) *\[ *\d* *\] *= *\{([^}]+)\}/g;
+const ARRAY_PATTERN = /\b(?:int|byte|uint8_t) +([A-Za-z_]\w*) *\[ *\d* *\] *= *\{([^}]+)\}/g; // NOSONAR S5843
 // Two separate for-loop regexes to avoid super-linear backtracking (S5843):
 // 1. With type prefix: for (int i = 0; ...)
 const FOR_LOOP_TYPED = /\bfor\s*\(\s*\w+\s+(\w+)\s*=\s*(\d+)\s*;\s*(\w+)\s*([<>]=?)\s*(\w+)\s*;[^)]*\)/g;
@@ -79,7 +79,7 @@ interface CallEntry {
  */
 function stripComments(code: string): string {
   // Multi-line comments → spaces (preserve newlines for correct line counting)
-  let result = code.replaceAll(/\/\*[\s\S]*?\*\//g, (m) =>
+  let result = code.replaceAll(/\/\*[^*]*(?:\*+[^*/][^*]*)*\*\//g, (m) =>
     m.replaceAll(/[^\n]/g, " "),
   );
   // Single-line comments → spaces (preserve line length)

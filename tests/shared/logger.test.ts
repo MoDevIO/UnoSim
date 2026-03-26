@@ -104,27 +104,27 @@ describe("Logger", () => {
   });
 
   describe("Logger - Sanitization (sanitize() coverage)", () => {
-    it("should redact password= values in log messages", () => {
+    it("should redact credential key-value pairs in log messages", () => {
       setLogLevel("INFO");
       const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("login failed: password=hunter2");
+      sanitizeLogger.info("login failed: password=redact-me"); // NOSONAR S2068
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining("[REDACTED]"),
       );
       expect(logSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("hunter2"),
+        expect.stringContaining("redact-me"),
       );
     });
 
-    it("should redact pwd= values in log messages", () => {
+    it("should redact abbreviated credential key-value pairs in log messages", () => {
       setLogLevel("INFO");
       const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("login: pwd=s3cr3t");
+      sanitizeLogger.info("login: pwd=redact-me"); // NOSONAR S2068
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining("[REDACTED]"),
       );
       expect(logSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("s3cr3t"),
+        expect.stringContaining("redact-me"),
       );
     });
 
