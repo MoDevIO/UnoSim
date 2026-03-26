@@ -86,20 +86,20 @@ describe("SandboxRunner Stress Tests - Phase 5", () => {
     const status = testRunner.getSandboxStatus();
     dockerAvailable = status.dockerAvailable && status.dockerImageBuilt;
     
-    if (!dockerAvailable) {
+    if (dockerAvailable) {
+      console.log("✅ Docker available - Tests will use containerized sandbox");
+    } else {
       console.log("⚠️ Docker not available - Tests will use local g++ compilation");
       console.log("   Note: Local mode has different behavior and timing characteristics");
-    } else {
-      console.log("✅ Docker available - Tests will use containerized sandbox");
     }
   });
 
   afterAll(() => {
     // Restore FORCE_DOCKER env var
-    if (savedForceDocker !== undefined) {
-      process.env.FORCE_DOCKER = savedForceDocker;
-    } else {
+    if (savedForceDocker === undefined) {
       delete process.env.FORCE_DOCKER;
+    } else {
+      process.env.FORCE_DOCKER = savedForceDocker;
     }
   });
 
@@ -355,17 +355,17 @@ void loop() {
 
       for (let i = 0; i < 10; i++) {
         // Random delay between 10ms and 50ms
-        const pauseDelay = 10 + Math.random() * 40;
+        const pauseDelay = 10 + (crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * 40;
         // Use fake timer advance instead of real setTimeout
         vi.advanceTimersByTime(pauseDelay);
 
-        const pauseSuccess = await runner.pause();
+        const pauseSuccess = runner.pause();
         pauseResults.push(pauseSuccess);
 
-        const resumeDelay = 10 + Math.random() * 40;
+        const resumeDelay = 10 + (crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * 40;
         vi.advanceTimersByTime(resumeDelay);
 
-        const resumeSuccess = await runner.resume();
+        const resumeSuccess = runner.resume();
         resumeResults.push(resumeSuccess);
       }
 
@@ -446,13 +446,13 @@ void loop() {
         // 3 pause/resume cycles with timing tracking (reduced from 5)
         for (let i = 0; i < 3; i++) {
           const pauseStart = Date.now();
-          await runner.pause();
+          runner.pause();
           pauseTimestamps.push(pauseStart);
 
           vi.advanceTimersByTime(scaleMsShort(200)); // Pause for 200ms (using fake timers)
 
           const resumeStart = Date.now();
-          await runner.resume();
+          runner.resume();
           resumeTimestamps.push(resumeStart);
 
           totalPausedTime += resumeStart - pauseStart;
@@ -736,15 +736,17 @@ void loop() {
       activeRunners.push(runner);
 
       // Try to pause when STOPPED (invalid)
-      const pauseResult = await runner.pause();
+      const pauseResult = runner.pause();
       expect(pauseResult).toBe(false);
 
       // Try to resume when STOPPED (invalid)
-      const resumeResult = await runner.resume();
+      const resumeResult = runner.resume();
       expect(resumeResult).toBe(false);
 
       // Skip the rest if Docker not available (local mode is too variable)
-      if (!dockerAvailable) {
+      if (dockerAvailable) {
+        // Docker available - continue with full test below
+      } else {
         console.log("Skipping pause/resume stress in local mode");
         await runner.stop();
         return; // Exit early
@@ -784,15 +786,15 @@ void loop() {
         vi.advanceTimersByTime(scaleMsShort(500));
 
         // Valid pause
-        const validPause = await runner.pause();
+        const validPause = runner.pause();
         expect(validPause).toBe(true);
 
         // Try to pause again (invalid when PAUSED)
-        const doublePause = await runner.pause();
+        const doublePause = runner.pause();
         expect(doublePause).toBe(false);
 
         // Valid resume
-        const validResume = await runner.resume();
+        const validResume = runner.resume();
         expect(validResume).toBe(true);
       }
 

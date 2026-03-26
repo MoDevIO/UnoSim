@@ -113,7 +113,7 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
               cycle++;
 
               if (cycle === 2) {
-                setTimeout(async () => {
+                setTimeout(async () => { // NOSONAR S2004
                   try {
                     const readings = [...timeReadings];
                     for (let i = 1; i < readings.length; i++) {

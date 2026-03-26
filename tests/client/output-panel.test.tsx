@@ -6,7 +6,7 @@ import { OutputPanel } from "../../client/src/components/features/output-panel";
 describe("OutputPanel — callback reference stability", () => {
   it("does not re-render when parent updates unrelated state while callbacks and data props are stable", () => {
     function Wrapper() {
-      const [count, setCount] = useState(0);
+      const [count, setCount] = useState(0); // NOSONAR S6754
 
       // Stable (memoized) data props
       const parserMessages = useMemo(() => [], [] as any);
@@ -34,8 +34,13 @@ describe("OutputPanel — callback reference stability", () => {
 
       return (
         <>
-          <button data-count={count} onClick={() => setCount((c) => c + 1)}>Inc</button>
-          <div data-testid="output-root">
+          <button
+            data-count={count} // NOSONAR S6747
+            onClick={() => setCount((c) => c + 1)} // NOSONAR S6747
+          >Inc</button>
+          <div
+            data-testid="output-root" // NOSONAR S6747
+          >
             <OutputPanel
               activeOutputTab="compiler"
               showCompilationOutput={true}

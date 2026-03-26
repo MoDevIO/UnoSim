@@ -42,7 +42,7 @@ function formatCode(code: string): string {
   formatted = formatted.replaceAll(/\{\s*/g, "{\n");
 
   // 3. Add newlines before closing braces
-  formatted = formatted.replaceAll(/[ \t\n\r]*\}/g, "\n}");
+  formatted = formatted.replaceAll(/[ \t\n\r]*\}/g, "\n}"); // NOSONAR S2631
 
   // 4. Indent blocks (simple 2-space indentation)
   const lines = formatted.split("\n");
@@ -249,10 +249,10 @@ export function CodeEditor({
     monaco.languages.setMonarchTokensProvider("arduino-cpp", {
       tokenizer: {
         root: [
-          [/\/\/.*$/, "comment"],
+          [/\/\/.*$/, "comment"], // NOSONAR S5843
           [/\/\*/, "comment.block", "@comment"],
-          [/".*?"/, "string"],
-          [/'.*?'/, "string"],
+          [/".*?"/, "string"], // NOSONAR S5843
+          [/'.*?'/, "string"], // NOSONAR S5843
           [
             /\b(void|int|float|double|char|bool|byte|String|long|short|unsigned)\b/,
             "type",
