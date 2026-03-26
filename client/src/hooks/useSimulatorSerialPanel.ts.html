@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">29.41% </span>
+                <span class="strong">94.11% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>5/17</span>
+                <span class='fraction'>16/17</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/10</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">20% </span>
+                <span class="strong">80% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/5</span>
+                <span class='fraction'>4/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">33.33% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>5/15</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -162,16 +162,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -180,32 +178,34 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -239,11 +239,11 @@ export function useSimulatorSerialPanel(params: {
   } = params;
 &nbsp;
   const handleSerialSend = useCallback(
-<span class="fstat-no" title="function not covered" >    (m</span>essage: string) =&gt; {
-<span class="cstat-no" title="statement not covered" >      if (!ensureBackendConnected("Serial senden")) <span class="cstat-no" title="statement not covered" >return;</span></span>
+    (message: string) =&gt; {
+      if (!ensureBackendConnected("Serial senden")) return;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >      if (simulationStatus !== "running") {</span>
-<span class="cstat-no" title="statement not covered" >        toast({</span>
+      if (simulationStatus !== "running") {
+        toast({
           title:
             simulationStatus === "paused"
               ? "Simulation paused"
@@ -254,29 +254,29 @@ export function useSimulatorSerialPanel(params: {
               : "Start the simulation to send serial input.",
           variant: "destructive",
         });
-<span class="cstat-no" title="statement not covered" >        return;</span>
+        return;
       }
 &nbsp;
       // Trigger TX LED blink when client sends data
-<span class="cstat-no" title="statement not covered" >      setTxActivity(<span class="fstat-no" title="function not covered" >(p</span>rev) =&gt; <span class="cstat-no" title="statement not covered" >prev + 1)</span>;</span>
+      setTxActivity(<span class="fstat-no" title="function not covered" >(p</span>rev) =&gt; <span class="cstat-no" title="statement not covered" >prev + 1)</span>;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >      sendMessage({ type: "serial_input", data: message });</span>
-<span class="cstat-no" title="statement not covered" >      setSerialInputValue("");</span>
+      sendMessage({ type: "serial_input", data: message });
+      setSerialInputValue("");
     },
     [ensureBackendConnected, simulationStatus, toast, setTxActivity, sendMessage, setSerialInputValue],
   );
 &nbsp;
   const handleSerialInputKeyDown = useCallback(
-<span class="fstat-no" title="function not covered" >    (e</span>: KeyboardEvent) =&gt; {
-<span class="cstat-no" title="statement not covered" >      if (e.key === "Enter") {</span>
-<span class="cstat-no" title="statement not covered" >        handleSerialSend(serialInputValue);</span>
+    (e: KeyboardEvent) =&gt; {
+      if (e.key === "Enter") {
+        handleSerialSend(serialInputValue);
       }
     },
     [handleSerialSend, serialInputValue],
   );
 &nbsp;
-  const handleClearOutput = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    clearSerialOutput();</span>
+  const handleClearOutput = useCallback(() =&gt; {
+    clearSerialOutput();
   }, [clearSerialOutput]);
 &nbsp;
   return {
@@ -292,7 +292,7 @@ export function useSimulatorSerialPanel(params: {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-25T15:57:34.595Z
+                at 2026-03-26T06:47:07.647Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
