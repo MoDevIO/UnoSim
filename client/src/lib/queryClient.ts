@@ -44,7 +44,15 @@ const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/"), {
+    const path = queryKey
+      .map((segment) =>
+        typeof segment === "string"
+          ? segment
+          : encodeURIComponent(JSON.stringify(segment)),
+      )
+      .join("/");
+
+    const res = await fetch(path, {
       credentials: "include",
     });
 

@@ -216,6 +216,7 @@ describe("ParserOutput Component", () => {
     const messages: ParserMessage[] = [
       {
         id: "1",
+        type: "warning",
         severity: 2,
         message: "Serial warning",
         category: "serial",
@@ -223,6 +224,7 @@ describe("ParserOutput Component", () => {
       },
       {
         id: "2",
+        type: "error",
         severity: 3,
         message: "Hardware error",
         category: "hardware",
@@ -245,9 +247,9 @@ describe("ParserOutput Component", () => {
 
   it("displays error/warning/info counts in header", () => {
     const messages: ParserMessage[] = [
-      { id: "1", severity: 3, message: "Error", category: "pins", line: 1 },
-      { id: "2", severity: 2, message: "Warning", category: "pins", line: 2 },
-      { id: "3", severity: 1, message: "Info", category: "pins", line: 3 },
+      { id: "1", type: "error", severity: 3, message: "Error", category: "pins", line: 1 },
+      { id: "2", type: "warning", severity: 2, message: "Warning", category: "pins", line: 2 },
+      { id: "3", type: "info", severity: 1, message: "Info", category: "pins", line: 3 },
     ];
 
     render(
@@ -281,7 +283,7 @@ describe("ParserOutput Component", () => {
   it("calls onGoToLine when message is clicked", async () => {
     const user = userEvent.setup();
     const messages: ParserMessage[] = [
-      { id: "1", severity: 2, message: "Test message", category: "pins", line: 10 },
+      { id: "1", type: "warning", severity: 2, message: "Test message", category: "pins", line: 10 },
     ];
 
     render(
@@ -302,6 +304,7 @@ describe("ParserOutput Component", () => {
     const messages: ParserMessage[] = [
       {
         id: "1",
+        type: "warning",
         severity: 2,
         message: "Test message",
         category: "pins",
@@ -327,6 +330,7 @@ describe("ParserOutput Component", () => {
     const messages: ParserMessage[] = [
       {
         id: "1",
+        type: "warning",
         severity: 2,
         message: "Test",
         category: "pins",
@@ -365,7 +369,7 @@ describe("ParserOutput Component", () => {
     const _user = userEvent.setup();
     const ioRegistry: IOPinRecord[] = [
       {
-        pin: 13,
+        pin: "13",
         defined: true,
         pinMode: 1,
         usedAt: [{ line: 5, operation: "pinMode:1" }],
@@ -389,8 +393,8 @@ describe("ParserOutput Component", () => {
   it("toggles between programmed and all pins", async () => {
     const user = userEvent.setup();
     const ioRegistry: IOPinRecord[] = [
-      { pin: 13, defined: true, pinMode: 1, usedAt: [{ line: 5, operation: "pinMode:1" }] },
-      { pin: 12, defined: false, usedAt: [] },
+      { pin: "13", defined: true, pinMode: 1, usedAt: [{ line: 5, operation: "pinMode:1" }] },
+      { pin: "12", defined: false, usedAt: [] },
     ];
 
     render(
@@ -414,7 +418,7 @@ describe("ParserOutput Component", () => {
 
   it("displays 'No pins used' message when no programmed pins", () => {
     const ioRegistry: IOPinRecord[] = [
-      { pin: 13, defined: false, usedAt: [] },
+      { pin: "13", defined: false, usedAt: [] },
     ];
 
     render(
@@ -432,7 +436,7 @@ describe("ParserOutput Component", () => {
   it("shows link to show all pins when no programmed pins", async () => {
     const user = userEvent.setup();
     const ioRegistry: IOPinRecord[] = [
-      { pin: 13, defined: false, usedAt: [] },
+      { pin: "13", defined: false, usedAt: [] },
     ];
 
     render(
@@ -455,7 +459,7 @@ describe("ParserOutput Component", () => {
   it("displays PWM tilde for PWM-capable pins", () => {
     const ioRegistry: IOPinRecord[] = [
       {
-        pin: 9,
+        pin: "9",
         defined: true,
         pinMode: 1,
         usedAt: [{ line: 5, operation: "pinMode:1" }],
@@ -497,7 +501,7 @@ describe("ParserOutput Component", () => {
   it("displays missing pinMode with X icon", () => {
     const ioRegistry: IOPinRecord[] = [
       {
-        pin: 13,
+        pin: "13",
         defined: false,
         usedAt: [{ line: 5, operation: "digitalWrite" }],
       },
@@ -550,7 +554,7 @@ describe("ParserOutput Component", () => {
   it("switches between tabs", async () => {
     const user = userEvent.setup();
     const messages: ParserMessage[] = [
-      { id: "1", severity: 1, message: "Test", category: "pins", line: 1 },
+      { id: "1", type: "info", severity: 1, message: "Test", category: "pins", line: 1 },
     ];
 
     render(
@@ -575,6 +579,7 @@ describe("ParserOutput Component", () => {
     const messages: ParserMessage[] = [
       {
         id: "1",
+        type: "warning",
         severity: 2,
         message: "Test",
         category: "pins",
@@ -596,9 +601,9 @@ describe("ParserOutput Component", () => {
 
   it("displays severity labels", () => {
     const messages: ParserMessage[] = [
-      { id: "1", severity: 1, message: "Info msg", category: "pins", line: 1 },
-      { id: "2", severity: 2, message: "Warning msg", category: "pins", line: 2 },
-      { id: "3", severity: 3, message: "Error msg", category: "pins", line: 3 },
+      { id: "1", type: "info", severity: 1, message: "Info msg", category: "pins", line: 1 },
+      { id: "2", type: "warning", severity: 2, message: "Warning msg", category: "pins", line: 2 },
+      { id: "3", type: "error", severity: 3, message: "Error msg", category: "pins", line: 3 },
     ];
 
     render(
@@ -616,7 +621,7 @@ describe("ParserOutput Component", () => {
   it("displays multiple pinMode modes with conflict indicator", () => {
     const ioRegistry: IOPinRecord[] = [
       {
-        pin: 13,
+        pin: "13",
         defined: true,
         pinMode: 1,
         usedAt: [
@@ -642,7 +647,7 @@ describe("ParserOutput Component", () => {
   it("calls onGoToLine when Enter is pressed on a message button", async () => {
     const user = userEvent.setup();
     const messages: ParserMessage[] = [
-      { id: "1", severity: 2, message: "Enter test", category: "pins", line: 42 },
+      { id: "1", type: "warning", severity: 2, message: "Enter test", category: "pins", line: 42 },
     ];
 
     render(
@@ -663,7 +668,7 @@ describe("ParserOutput Component", () => {
   it("calls onGoToLine when Space is pressed on a message button", async () => {
     const user = userEvent.setup();
     const messages: ParserMessage[] = [
-      { id: "1", severity: 2, message: "Space test", category: "pins", line: 7 },
+      { id: "1", type: "warning", severity: 2, message: "Space test", category: "pins", line: 7 },
     ];
 
     render(
@@ -684,7 +689,7 @@ describe("ParserOutput Component", () => {
   it("does not call onGoToLine for non-Enter/Space key presses", async () => {
     const user = userEvent.setup();
     const messages: ParserMessage[] = [
-      { id: "1", severity: 2, message: "Key test", category: "pins", line: 5 },
+      { id: "1", type: "warning", severity: 2, message: "Key test", category: "pins", line: 5 },
     ];
 
     render(
@@ -705,7 +710,7 @@ describe("ParserOutput Component", () => {
   it("does not call onGoToLine on Enter when message has no line", async () => {
     const user = userEvent.setup();
     const messages: ParserMessage[] = [
-      { id: "1", severity: 1, message: "No line msg", category: "pins" },
+      { id: "1", type: "info", severity: 1, message: "No line msg", category: "pins" },
     ];
 
     render(
@@ -726,7 +731,7 @@ describe("ParserOutput Component", () => {
 
   it("sets tabIndex=0 for messages with a line number", () => {
     const messages: ParserMessage[] = [
-      { id: "1", severity: 2, message: "Has line", category: "pins", line: 10 },
+      { id: "1", type: "warning", severity: 2, message: "Has line", category: "pins", line: 10 },
     ];
 
     render(

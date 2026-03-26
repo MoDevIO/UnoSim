@@ -73,7 +73,7 @@ describe("use-toast", () => {
       id2 = result.current.toast({ title: "Second" }).id;
     });
 
-    expect(id1!).not.toBe(id2!);
+    expect(id1).not.toBe(id2);
   });
 
   it("enforces TOAST_LIMIT (only 1 toast visible)", () => {

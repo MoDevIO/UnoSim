@@ -214,7 +214,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     },
     onError: (err: unknown) => {
       const backendDown = params.isBackendUnreachableError(err);
-      const message = err instanceof Error ? err.message : String(err);
+      const message = err instanceof Error ? err.message : JSON.stringify(err, null, 2);
       params.toast({
         title: backendDown ? "Backend unreachable" : "Upload failed",
         description: backendDown
@@ -498,7 +498,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       } catch { }
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : JSON.stringify(error, null, 2);
       params.toast({
         title: "Start Failed",
         description: message || "Could not start simulation",

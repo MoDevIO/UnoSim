@@ -42,7 +42,7 @@ interface RegistryManagerConfig {
  */
 function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
   // Use a mutable copy so we can delete optional fields safely
-  const cleaned: Partial<IOPinRecord> = { ...pin };
+  const cleaned: IOPinRecord = { ...pin };
 
   // Remove definedAt if line is 0
   if (cleaned.definedAt?.line === 0) {
@@ -62,7 +62,7 @@ function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
     }
   }
 
-  return cleaned as IOPinRecord;
+  return cleaned;
 }
 
 function mergeUsedAtEntries(
