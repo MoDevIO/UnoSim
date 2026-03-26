@@ -8,7 +8,7 @@ let ArduinoSimulator: typeof import("@/pages/arduino-simulator").default;
 
 // Minimal mocks required for ArduinoSimulator to mount
 vi.mock("@tanstack/react-query", async (importOriginal) => {
-  const actual = await (importOriginal() as Promise<any>);
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>();
   return {
     ...actual,
     // keep simple hooks used by tests but keep actual QueryClient/Provider

@@ -98,7 +98,7 @@ export function useFileSystem(params: UseFileSystemParams): UseFileSystemResult 
         setTabs((prevTabs) => {
           if (prevTabs.length > 0) return prevTabs;
 
-          const tabId = `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+          const tabId = `tab-${Date.now()}-${crypto.randomUUID().slice(0, 7)}`;
           setActiveTabId(tabId);
           return [
             {

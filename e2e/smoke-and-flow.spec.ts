@@ -29,11 +29,11 @@ void loop() {
 }`;
 
   // Wait until Monaco is fully initialised (the editor hook exposes __MONACO_EDITOR__)
-  await page.waitForFunction(() => Boolean((window as unknown as Record<string, unknown>)['__MONACO_EDITOR__']), { timeout: 15000 });
+  await page.waitForFunction(() => Boolean((globalThis as unknown as Record<string, unknown>)['__MONACO_EDITOR__']), { timeout: 15000 });
 
   // Inject code directly via the editor instance — reliable in any environment
   await page.evaluate((sketch: string) => {
-    const editor = (window as unknown as Record<string, unknown>)['__MONACO_EDITOR__'] as { setValue: (v: string) => void };
+    const editor = (globalThis as unknown as Record<string, unknown>)['__MONACO_EDITOR__'] as { setValue: (v: string) => void };
     editor.setValue(sketch);
   }, code);
 

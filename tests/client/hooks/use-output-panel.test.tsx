@@ -600,7 +600,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should calculate panel size based on cliOutput lines", () => {
-    const longCliOutput = Array(20).fill("Error line").join("\n");
+    const longCliOutput = new Array(20).fill("Error line").join("\n");
 
     const { result, rerender } = renderHook(
       (props) => callHook(props),
@@ -621,7 +621,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should cap panel size at 75% maximum", () => {
-    const veryLongCliOutput = Array(200).fill("Error line").join("\n");
+    const veryLongCliOutput = new Array(200).fill("Error line").join("\n");
 
     const { result, rerender } = renderHook(
       (props) => callHook(props),
@@ -663,7 +663,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should compute panel size based on parser message count and length", () => {
-    const manyMessages: ParserMessage[] = Array(10)
+    const manyMessages: ParserMessage[] = new Array(10)
       .fill(null)
       .map((_, i) => ({
         severity: "warning",

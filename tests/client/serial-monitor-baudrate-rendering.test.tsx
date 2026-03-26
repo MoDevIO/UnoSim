@@ -13,8 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vite
 vi.useFakeTimers();
 import { render, waitFor } from "@testing-library/react";
 import { useSerialIO } from "@/hooks/use-serial-io";
-import { act } from "react";
-import React from "react";
+import React, { act } from "react";
 
 // ensure rAF exists when using fake timers and provide a stable 16ms interval
 // beforeAll only sets up if test runner doesn't provide rAF/cancel; individual
@@ -358,7 +357,7 @@ describe("Serial Monitor - Baudrate-Based Character Rendering", () => {
       { baud: 1200, msPerChar: 8.3, charsIn100ms: 12 },
       { baud: 2400, msPerChar: 4.2, charsIn100ms: 24 },
       { baud: 4800, msPerChar: 2.1, charsIn100ms: 48 },
-      { baud: 9600, msPerChar: 1.0, charsIn100ms: 96 },
+      { baud: 9600, msPerChar: 1, charsIn100ms: 96 },
       { baud: 19200, msPerChar: 0.5, charsIn100ms: 192 },
       { baud: 38400, msPerChar: 0.26, charsIn100ms: 384 },
       { baud: 57600, msPerChar: 0.17, charsIn100ms: 576 },

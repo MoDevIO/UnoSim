@@ -313,7 +313,7 @@ describe("useMobileLayout", () => {
 
   it("should detect header with data-mobile-header attribute", () => {
     const header = document.createElement("div");
-    header.setAttribute("data-mobile-header", "true");
+    header.dataset.mobileHeader = "true";
     Object.defineProperty(header, "getBoundingClientRect", {
       value: () => ({
         top: 0,
@@ -331,7 +331,7 @@ describe("useMobileLayout", () => {
     // Header height should be detected
     expect(result.current.headerHeight).toBe(56);
 
-    document.body.removeChild(header);
+    header.remove();
   });
 
   it("should fallback to header tag when data-mobile-header not found", () => {
@@ -353,7 +353,7 @@ describe("useMobileLayout", () => {
     // Header height should be detected from <header> tag
     expect(result.current.headerHeight).toBe(64);
 
-    document.body.removeChild(header);
+    header.remove();
   });
 
   it("should handle header with z-index for overlay positioning", () => {
@@ -377,7 +377,7 @@ describe("useMobileLayout", () => {
     expect(result.current.overlayZ).toBeGreaterThanOrEqual(5);
     expect(result.current.overlayZ).toBeLessThanOrEqual(49);
 
-    document.body.removeChild(header);
+    header.remove();
   });
 
   it("should use default values when no suitable header is found", () => {
@@ -420,7 +420,7 @@ describe("useMobileLayout", () => {
     // The test validates that resize listener is set up
     expect(result.current.headerHeight).toBeGreaterThanOrEqual(40);
 
-    document.body.removeChild(header);
+    header.remove();
   });
 
   it("should cleanup resize listener on unmount", () => {
@@ -459,6 +459,6 @@ describe("useMobileLayout", () => {
     // Should use default overlay z-index when header z-index is invalid
     expect(result.current.overlayZ).toBe(30);
 
-    document.body.removeChild(header);
+    header.remove();
   });
 });
