@@ -16,7 +16,7 @@ export function isServerRunningSync(): boolean {
   try {
     // Use curl with a very short timeout to check server availability
     childProcess.execSync(
-      "curl -s --max-time 1 http://localhost:3000/api/sketches > /dev/null 2>&1",
+      "curl -s --max-time 1 http://localhost:3000/api/sketches > /dev/null 2>&1", // NOSONAR S4036
       {
         timeout: 2000,
         stdio: "pipe",

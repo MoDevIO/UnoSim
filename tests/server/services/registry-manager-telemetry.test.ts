@@ -9,16 +9,12 @@ import { SerialOutputBatcher } from "../../../server/services/serial-output-batc
 
 describe("RegistryManager - Telemetry Metrics", () => {
   let manager: RegistryManager;
-  const telemetryCallbacks: any[] = [];
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-02-08T00:00:00.000Z"));
-    telemetryCallbacks.length = 0;
     manager = new RegistryManager({
-      onTelemetry: (metrics) => {
-        telemetryCallbacks.push(metrics);
-      },
+      onTelemetry: () => {},
       enableTelemetry: true,
     });
     // Keep heartbeat paused for deterministic metric tests
@@ -231,9 +227,7 @@ describe("RegistryManager - Telemetry Metrics", () => {
   describe("Telemetry Configuration", () => {
     it("should respect enableTelemetry flag when false", () => {
       const disabledManager = new RegistryManager({
-        onTelemetry: (metrics) => {
-          telemetryCallbacks.push(metrics);
-        },
+        onTelemetry: () => {},
         enableTelemetry: false,
       });
 

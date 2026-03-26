@@ -39,7 +39,7 @@ function fetchHttp(
         resolve({
           ok: res.statusCode! >= 200 && res.statusCode! < 300,
           status: res.statusCode!,
-          json: async () => JSON.parse(data),
+          json: async () => JSON.parse(data), // NOSONAR S2004
         });
       });
     });

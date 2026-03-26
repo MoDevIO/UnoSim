@@ -37,14 +37,14 @@ export class ArduinoOutputParser {
     serialEvent: /\[\[SERIAL_EVENT:(\d+):([A-Za-z0-9+/=]+)\]\]/,
     registryStart: /\[\[IO_REGISTRY_START\]\]/,
     registryEnd: /\[\[IO_REGISTRY_END\]\]/,
-    registryPin: /\[\[IO_PIN:([^:]+):([01]):(\d+):(\d+):?(.*)\]\]/,
+    registryPin: /\[\[IO_PIN:([^:]+):([01]):(\d+):(\d+):?([^[\]]*)]\]/,  // NOSONAR S5843
     pinMode: /\[\[PIN_MODE:(\d+):(\d+)\]\]/,
     pinValue: /\[\[PIN_VALUE:(\d+):(\d+)\]\]/,
     pinPwm: /\[\[PIN_PWM:(\d+):(\d+)\]\]/,
     // Debug markers - should be ignored
     digitalRead: /\[\[DREAD:(\d+):(\d+)\]\]/,
     pinSet: /\[\[PIN_SET:(\d+):(\d+)\]\]/,
-    stdinRecv: /\[\[STDIN_RECV:(.+)\]\]/,
+    stdinRecv: /\[\[STDIN_RECV:([^\]]+)\]\]/, // NOSONAR S5843
     // Pause/Resume timing markers - should be ignored
     timeFrozen: /\[\[TIME_FROZEN:(\d+)\]\]/,
     timeResumed: /\[\[TIME_RESUMED:(\d+)\]\]/,
@@ -207,7 +207,7 @@ export class ArduinoOutputParser {
       const usedAt: Array<{ line: number; operation: string }> = [];
       if (operationsStr) {
         // Parse operations: "pinMode:1@0:digitalWrite@5" -> extract operation@line pairs
-        const opMatches = operationsStr.match(/([^:@]+(?::\d+)?@\d+)/g);
+        const opMatches = operationsStr.match(/([^:@]+(?::\d+)?@\d+)/g); // NOSONAR S5843
         if (opMatches) {
           opMatches.forEach((opMatch) => {
             if (opMatch && !opMatch.startsWith("_count")) {

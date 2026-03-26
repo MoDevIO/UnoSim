@@ -45,7 +45,7 @@ describe("Carriage Return Integration Test", () => {
 
     expect(decoded).toBe(testString);
     expect(decoded).toContain("\r");
-    expect(decoded.charCodeAt(0)).toBe(13); // ASCII code for \r
+    expect(decoded.codePointAt(0)).toBe(13); // ASCII code for \r
   });
 
   it("should document the expected behavior for counter sketch", () => {
@@ -105,7 +105,7 @@ describe("Carriage Return Integration Test", () => {
     const simulatorCode = fs.readFileSync(simulatorPath, "utf8");
 
     // Should NOT strip \r in the serial output processing
-    const problematicLine = /data\.replace\(\/\\r\/g,\s*['""]['"]\)/;
+    const problematicLine = /data\.replace\(\/\\r\/g,\s*['"]['"]\)/;
     expect(simulatorCode).not.toMatch(problematicLine);
 
     // Serial output comes via serial_output message type (no more payload wrapper)

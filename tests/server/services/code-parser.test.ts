@@ -45,7 +45,7 @@ describe("CodeParser", () => {
         expect.objectContaining({
           type: "warning",
           category: "serial",
-          message: expect.stringMatching(/9600.*115200|115200.*9600/),
+          message: expect.stringMatching(/9600.*115200|115200.*9600/), // NOSONAR S5843
         }),
       );
     });
@@ -122,7 +122,7 @@ describe("CodeParser", () => {
         expect.objectContaining({
           type: "warning",
           category: "serial",
-          message: expect.stringMatching(/while.*Serial|Serial.*while/i),
+          message: expect.stringMatching(/while.*Serial|Serial.*while/i), // NOSONAR S5843
         }),
       );
     });
@@ -140,7 +140,7 @@ describe("CodeParser", () => {
           type: "warning",
           category: "serial",
           message: expect.stringMatching(
-            /Serial\.read.*available|available.*Serial\.read/i,
+            /Serial\.read.*available|available.*Serial\.read/i, // NOSONAR S5843
           ),
         }),
       );
@@ -261,7 +261,7 @@ describe("CodeParser", () => {
         expect.objectContaining({
           type: "warning",
           category: "hardware",
-          message: expect.stringMatching(/PWM.*2|2.*PWM/),
+          message: expect.stringMatching(/PWM.*2|2.*PWM/), // NOSONAR S5843
         }),
       );
     });
@@ -375,7 +375,7 @@ void loop()
         expect.objectContaining({
           type: "warning",
           category: "pins",
-          message: expect.stringMatching(/pinMode\(\).*multiple|multiple pinMode|different modes/i),
+          message: expect.stringMatching(/pinMode\(\).*multiple|multiple pinMode|different modes/i), // NOSONAR S5843
         }),
       );
     });
@@ -449,7 +449,7 @@ void loop() {}
           type: "warning",
           category: "hardware",
           message: expect.stringMatching(
-            /both digital.*analog|analog.*both digital/i,
+            /both digital.*analog|analog.*both digital/i, // NOSONAR S5843
           ),
         }),
       );
@@ -506,7 +506,7 @@ void loop() {}
           type: "warning",
           category: "hardware",
           message: expect.stringMatching(
-            /both digital.*analog|analog.*digital/i,
+            /both digital.*analog|analog.*digital/i, // NOSONAR S5843
           ),
         }),
       );

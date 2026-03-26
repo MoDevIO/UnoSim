@@ -50,10 +50,10 @@ describe("Core-Cache Locking Behavior", () => {
 
   afterAll(() => {
     // Restore original env var
-    if (originalArduinoCacheDir !== undefined) {
-      process.env.ARDUINO_CACHE_DIR = originalArduinoCacheDir;
-    } else {
+    if (originalArduinoCacheDir === undefined) {
       delete process.env.ARDUINO_CACHE_DIR;
+    } else {
+      process.env.ARDUINO_CACHE_DIR = originalArduinoCacheDir;
     }
     // Remove temp dir to keep the runner clean
     try {

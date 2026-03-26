@@ -52,7 +52,7 @@ process.emitWarning = function(warning: any, ...args: any[]) {
 // Initialize in-memory localStorage to prevent jsdom warnings about localstorage-file
 // This is safe for tests since we're using jsdom which provides its own storage
 try {
-  if (typeof globalThis.localStorage === 'undefined') {
+  if (globalThis.localStorage === undefined) {
     const memoryStorage: Record<string, string> = {};
     globalThis.localStorage = {
       getItem: (key: string) => memoryStorage[key] ?? null,
@@ -63,8 +63,8 @@ try {
       length: Object.keys(memoryStorage).length,
     } as any;
   }
-} catch (_e) {
-  // localStorage may already be initialized, that's fine
+} catch (_e) { // NOSONAR S2486
+  // localStorage may already be initialized, that's fine  
 }
 
 // ============ POLICY: GLOBALE ERROR-HANDLER ============

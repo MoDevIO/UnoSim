@@ -685,7 +685,7 @@ export class ExecutionManager {
   private cleanCompilerErrors(errors: string): string {
     return errors
       .replaceAll("/sandbox/sketch.cpp", "sketch.ino")
-      .replaceAll(/\/[^\s:]+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino")
+      .replaceAll(/(?:\/[^\s:/]+)+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino")
       .trim();
   }
 

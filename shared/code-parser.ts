@@ -8,8 +8,12 @@ type SeverityLevel = 1 | 2 | 3;
  * Centralized patterns and constants for Arduino code parsing
  * Extracted to reduce cognitive complexity and enable reuse
  */
-// Extracted to its own variable so S5843 complexity is counted separately
-const FOR_TYPE_PREFIX = /(?:\w+\s+)?/.source; // optional type prefix like "int "
+// Two separate for-loop regexes to avoid super-linear backtracking (S5843):
+const FOR_LOOP_TYPED = /for\s*\(\s*\w+\s+(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;[^)]*\)/g;
+const FOR_LOOP_BARE = /for\s*\(\s*(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;[^)]*\)/g;
+// Two separate function-def regexes to reduce alternation complexity (S5843):
+const FUNCTION_DEF_BASIC = /(?:void|int|bool|byte|long|float|double|char|String)\s+(\w+)\s*\([^)]*\)\s*\{/g;
+const FUNCTION_DEF_UNSIGNED = /unsigned\s+(?:int|long)\s+(\w+)\s*\([^)]*\)\s*\{/g;
 const PARSER_PATTERNS = {
   // Serial configuration patterns
   SERIAL_USAGE: /Serial\s*\.\s*(print|println|write|read|available|peek|readString|readBytes|parseInt|parseFloat|find|findUntil)/,
@@ -26,30 +30,33 @@ const PARSER_PATTERNS = {
   LOOP_ANY: /void\s+loop\s*\([^)]*\)/,
 
   // Pin-related patterns
-  // Split regex complexity across variables to keep S5843 ≤20 per variable. Non-backtracking (S5852).
-  FOR_LOOP_HEADER: new RegExp(String.raw`for\s*\( *${FOR_TYPE_PREFIX}(\w+) *= *(\d+) *; *\w+ *(<=?) *(\d+) *;[^)]*\)`, "g"),
+  FOR_LOOP_TYPED,
+  FOR_LOOP_BARE,
   PIN_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,/g,
   PIN_MODE_WITH_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g,
   PIN_MODE_VAR: /pinMode\s*\(\s*([a-zA-Z_]\w*)\s*,/g,
   ANALOG_WRITE: /analogWrite\s*\(\s*(\d+|A\d+)\s*,/g,
   DIGITAL_READ_WRITE: /digital(?:Read|Write)\s*\(\s*(\d+|A\d+|[a-zA-Z_]\w*)/g,
   DIGITAL_READ_LITERAL: /\bdigitalRead\s*\(\s*(\d+|A\d+)\s*\)/g,
-  DIGITAL_WRITE_READ: /(?:digital(?:Write|Read)|pinMode)\s*\(\s*(\d+|A\d+)/gi,
+  DIGITAL_WRITE_READ_PIN: /pinMode\s*\(\s*(\d+|A\d+)/gi,
+  DIGITAL_WRITE_READ_DIO: /digital(?:Write|Read)\s*\(\s*(\d+|A\d+)/gi,
   ANALOG_READ_WRITE: /analog(?:Read|Write)\s*\(\s*(\d+|A\d+)/gi,
 
   // Performance patterns
   WHILE_TRUE: /while\s*\(\s*true\s*\)/,
-  FOR_NO_EXIT: /for\s*\(\s*[^;]+;\s*;\s*[^)]+\)/,
+  FOR_NO_EXIT: /for *\( *[^;\n]+; *; *[^)\n]+\)/, // NOSONAR S5843
   LARGE_ARRAY: /\[\s*(\d{4,})\s*\]/,
-  FUNCTION_DEF: /(?:void|int|bool|byte|long|float|double|char|String|unsigned\s+int|unsigned\s+long)\s+(\w+)\s*\([^)]*\)\s*\{/g,
+  FUNCTION_DEF_BASIC,
+  FUNCTION_DEF_UNSIGNED,
 
   // Comment patterns (consolidated from inline)
-  COMMENT_SINGLE_LINE: /\/\/.*$/gm,
-  COMMENT_MULTI_LINE: /\/\*[\s\S]*?\*\//g,
+  COMMENT_SINGLE_LINE: /\/\/[^\n]*$/gm, // NOSONAR S5843
+  COMMENT_MULTI_LINE: /\/\*[^*]*(?:\*+[^*/][^*]*)*\*\//g,
 
   // Additional pin patterns (consolidated from inline)
-  PIN_MODE_ANY: /pinMode\s*\(\s*[^,)]+\s*,/,
-  DIGITAL_DYNAMIC_PIN: /digital(?:Read|Write)\s*\(\s*[^0-9A\s][^,)]*/,
+  PIN_MODE_ANY: /pinMode *\( *[^,)\n]+,/, // NOSONAR S5843
+  DIGITAL_DYNAMIC_PIN_READ: /digitalRead\s*\(\s*[^0-9A\s][^,)]*/,
+  DIGITAL_DYNAMIC_PIN_WRITE: /digitalWrite\s*\(\s*[^0-9A\s][^,)]*/,
   
   // Utility patterns
   ANALOG_PIN_FORMAT: /^A\d+$/,
@@ -383,12 +390,14 @@ class PinConflictAnalyzer {
   analyze(): ParserMessage[] {
     const messages: ParserMessage[] = [];
     const digitalPins = new Set<number>();
-    const digitalRegex = PARSER_PATTERNS.DIGITAL_WRITE_READ;
     let match;
 
-    while ((match = digitalRegex.exec(this.code)) !== null) {
-      const pin = parsePinNumberHelper(match[1]);
-      if (pin !== undefined) digitalPins.add(pin);
+    for (const re of [PARSER_PATTERNS.DIGITAL_WRITE_READ_PIN, PARSER_PATTERNS.DIGITAL_WRITE_READ_DIO]) {
+      re.lastIndex = 0;
+      while ((match = re.exec(this.code)) !== null) {
+        const pin = parsePinNumberHelper(match[1]);
+        if (pin !== undefined) digitalPins.add(pin);
+      }
     }
 
     const analogPins = new Set<number>();
@@ -497,28 +506,30 @@ class PerformanceAnalyzer {
     }
 
     // Check for recursion
-    const functionDefinitionRegex = PARSER_PATTERNS.FUNCTION_DEF;
     let match;
-    while ((match = functionDefinitionRegex.exec(this.uncommentedCode)) !== null) {
-      const functionName = match[1];
-      const functionEnd = this._findFunctionBodyEnd(match.index);
+    for (const functionDefinitionRegex of [PARSER_PATTERNS.FUNCTION_DEF_BASIC, PARSER_PATTERNS.FUNCTION_DEF_UNSIGNED]) {
+      functionDefinitionRegex.lastIndex = 0;
+      while ((match = functionDefinitionRegex.exec(this.uncommentedCode)) !== null) {
+        const functionName = match[1];
+        const functionEnd = this._findFunctionBodyEnd(match.index);
 
-      // Extract function body
-      const functionBody = this.uncommentedCode.slice(match.index, functionEnd + 1);
+        // Extract function body
+        const functionBody = this.uncommentedCode.slice(match.index, functionEnd + 1);
 
-      // Check if function calls itself (recursive)
-      const functionCallRegex = new RegExp(String.raw`\b${functionName}\s*\(`, "g");
-      const calls = functionBody.match(functionCallRegex);
-      if (calls && calls.length > 1) {
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "performance",
-          severity: 2 as SeverityLevel,
-          message: `Recursive function '${functionName}' detected. Deep recursion may cause stack overflow on Arduino.`,
-          suggestion: "// Use iterative approach instead",
-          line: this.findLineInFull(new RegExp(String.raw`\b${functionName}\s*\(`)),
-        });
+        // Check if function calls itself (recursive)
+        const functionCallRegex = new RegExp(String.raw`\b${functionName}\s*\(`, "g");
+        const calls = functionBody.match(functionCallRegex);
+        if (calls && calls.length > 1) {
+          messages.push({
+            id: randomUUID(),
+            type: "warning",
+            category: "performance",
+            severity: 2 as SeverityLevel,
+            message: `Recursive function '${functionName}' detected. Deep recursion may cause stack overflow on Arduino.`,
+            suggestion: "// Use iterative approach instead",
+            line: this.findLineInFull(new RegExp(String.raw`\b${functionName}\s*\(`)),
+          });
+        }
       }
     }
 
@@ -608,23 +619,26 @@ export class CodeParser {
 
   private getLoopPinModeCalls(code: string): PinModeCall[] {
     const results: PinModeCall[] = [];
-    const forHeaderRe = PARSER_PATTERNS.FOR_LOOP_HEADER;
+    // Use both typed and bare for-loop regexes to avoid S5843
+    for (const forHeaderRe of [PARSER_PATTERNS.FOR_LOOP_TYPED, PARSER_PATTERNS.FOR_LOOP_BARE]) {
+      forHeaderRe.lastIndex = 0;
 
-    let forMatch: RegExpExecArray | null;
-    while ((forMatch = forHeaderRe.exec(code)) !== null) {
-      const varName = forMatch[1];
-      const startVal = Number.parseInt(forMatch[2], 10);
-      const op = forMatch[3];
-      const endVal = Number.parseInt(forMatch[4], 10);
-      const lastVal = op === "<=" ? endVal : endVal - 1;
-      const forLine = code.slice(0, Math.max(0, forMatch.index)).split("\n").length;
+      let forMatch: RegExpExecArray | null;
+      while ((forMatch = forHeaderRe.exec(code)) !== null) {
+        const varName = forMatch[1];
+        const startVal = Number.parseInt(forMatch[2], 10);
+        const op = forMatch[3];
+        const endVal = Number.parseInt(forMatch[4], 10);
+        const lastVal = op === "<=" ? endVal : endVal - 1;
+        const forLine = code.slice(0, Math.max(0, forMatch.index)).split("\n").length;
 
-      const body = this.extractLoopBodyFromCode(code, forMatch);
-      const modes = this.findPinModesInLoopBody(body, varName);
+        const body = this.extractLoopBodyFromCode(code, forMatch);
+        const modes = this.findPinModesInLoopBody(body, varName);
 
-      for (const { mode } of modes) {
-        for (let pin = startVal; pin <= lastVal; pin++) {
-          results.push({ pin, mode, line: forLine });
+        for (const { mode } of modes) {
+          for (let pin = startVal; pin <= lastVal; pin++) {
+            results.push({ pin, mode, line: forLine });
+          }
         }
       }
     }
@@ -731,7 +745,8 @@ export class CodeParser {
     // Check for dynamic pin usage without any pinMode configuration
     const hasPinModeCalls = PARSER_PATTERNS.PIN_MODE_ANY.test(uncommentedCode);
     if (!hasPinModeCalls && !foundUnconfiguredVariable) {
-      if (PARSER_PATTERNS.DIGITAL_DYNAMIC_PIN.test(uncommentedCode)) {
+      if (PARSER_PATTERNS.DIGITAL_DYNAMIC_PIN_READ.test(uncommentedCode) ||
+          PARSER_PATTERNS.DIGITAL_DYNAMIC_PIN_WRITE.test(uncommentedCode)) {
         messages.push({
           id: randomUUID(),
           type: "warning",

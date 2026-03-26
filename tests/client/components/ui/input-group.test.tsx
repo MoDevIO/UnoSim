@@ -13,12 +13,12 @@ describe("InputGroup", () => {
       />,
     );
 
-    const input = screen.getByTestId("test-input") as HTMLInputElement;
+    const input = screen.getByTestId("test-input");
     const button = screen.getByTestId("test-button");
 
     expect(input).not.toBeNull();
     expect(button).not.toBeNull();
-    expect(input.placeholder).toBe("Type here");
+    expect((input as HTMLInputElement).placeholder).toBe("Type here");
   });
 
   it("should call onSubmit when Enter key is pressed", async () => {
@@ -94,10 +94,10 @@ describe("InputGroup", () => {
       />,
     );
 
-    const button = screen.getByTestId("test-button") as HTMLButtonElement;
+    const button = screen.getByTestId("test-button");
 
     // Button should be disabled
-    expect(button.disabled).toBe(true);
+    expect((button as HTMLButtonElement).disabled).toBe(true);
     
     // Note: The input does not receive the disabled attribute in the current implementation
     // because 'disabled' is destructured but not passed to the input element
@@ -150,10 +150,10 @@ describe("InputGroup", () => {
       />,
     );
 
-    const input = screen.getByTestId("test-input") as HTMLInputElement;
+    const input = screen.getByTestId("test-input");
 
-    expect(input.value).toBe("test value");
-    expect(input.maxLength).toBe(10);
+    expect((input as HTMLInputElement).value).toBe("test value");
+    expect((input as HTMLInputElement).maxLength).toBe(10);
   });
 
   it("should apply custom className", () => {

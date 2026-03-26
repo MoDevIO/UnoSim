@@ -94,7 +94,7 @@ error: missing semicolon on line 5`;
     });
 
     it("should calculate size based on total character count for long error messages", () => {
-      const longError = Array(15)
+      const longError = new Array(15)
         .fill(0)
         .map(
           (_, i) =>
@@ -125,7 +125,7 @@ error: missing semicolon on line 5`;
     });
 
     it("should cap panel size at 75% maximum", () => {
-      const veryLongError = Array(100)
+      const veryLongError = new Array(100)
         .fill(0)
         .map((_, i) => `error: ${i}`)
         .join("\n");
@@ -257,7 +257,7 @@ error: missing semicolon on line 5`;
 
     it("should increase panel size with more messages", () => {
       const calculateSize = (messageCount: number) => {
-        const messages = Array(messageCount)
+        const messages = new Array(messageCount)
           .fill(null)
           .map((_, i) => ({
             id: `msg-${i}`,
@@ -299,7 +299,7 @@ error: missing semicolon on line 5`;
 
     it("should cap panel size at 75% for many messages", () => {
       const messageCount = 50;
-      const messages = Array(messageCount)
+      const messages = new Array(messageCount)
         .fill(null)
         .map((_, i) => ({
           id: `msg-${i}`,
@@ -574,7 +574,7 @@ error: missing semicolon on line 5`;
 
   describe("Edge Cases", () => {
     it("should handle very long error messages (multiple screen heights)", () => {
-      const veryLongError = Array(100)
+      const veryLongError = new Array(100)
         .fill(0)
         .map((_, i) => `error line ${i}: this is a test error message`)
         .join("\n");
@@ -604,7 +604,7 @@ error: missing semicolon on line 5`;
       const emptyErrors = "";
 
       // When output is empty, condition hasCompilationErrors && cliOutput.trim().length > 0 is false
-      const shouldProcess = true && emptyErrors.trim().length > 0;
+      const shouldProcess = emptyErrors.trim().length > 0;
       expect(shouldProcess).toBe(false);
     });
 

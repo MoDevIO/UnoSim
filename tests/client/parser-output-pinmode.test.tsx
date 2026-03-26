@@ -5,21 +5,21 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 
 // Helper function to extract pinMode data (extracted from parser-output.tsx)
+const PIN_MODE_LABELS: Record<number, string> = {
+  0: "INPUT",
+  1: "OUTPUT",
+  2: "INPUT_PULLUP",
+};
+
 function extractPinModeData(
   operations: Array<{ line: number; operation: string }>,
 ) {
   const pinModes = operations
     .filter((u) => u.operation.includes("pinMode"))
     .map((u) => {
-      const match = u.operation.match(/pinMode:(\d+)/);
+      const match = /pinMode:(\d+)/.exec(u.operation);
       const mode = match ? Number.parseInt(match[1]) : -1;
-      return mode === 0
-        ? "INPUT"
-        : mode === 1
-          ? "OUTPUT"
-          : mode === 2
-            ? "INPUT_PULLUP"
-            : "UNKNOWN";
+      return PIN_MODE_LABELS[mode] ?? "UNKNOWN";
     });
 
   const uniqueModes = [...new Set(pinModes)];
@@ -156,38 +156,35 @@ describe("ParserOutput - pinMode Detection", () => {
 describe("I/O Registry - pinMode Operation Format", () => {
   it("should match pinMode:0 format", () => {
     const operation = "pinMode:0";
-    const match = operation.match(/pinMode:(\d+)/);
+    const match = /pinMode:(\d+)/.exec(operation);
 
-    expect(match).not.toBeNull();
-    expect(match![1]).toBe("0");
+    expect(match?.[1]).toBe("0");
   });
 
   it("should match pinMode:1 format", () => {
     const operation = "pinMode:1";
-    const match = operation.match(/pinMode:(\d+)/);
+    const match = /pinMode:(\d+)/.exec(operation);
 
-    expect(match).not.toBeNull();
-    expect(match![1]).toBe("1");
+    expect(match?.[1]).toBe("1");
   });
 
   it("should match pinMode:2 format", () => {
     const operation = "pinMode:2";
-    const match = operation.match(/pinMode:(\d+)/);
+    const match = /pinMode:(\d+)/.exec(operation);
 
-    expect(match).not.toBeNull();
-    expect(match![1]).toBe("2");
+    expect(match?.[1]).toBe("2");
   });
 
   it("should not match plain pinMode without colon", () => {
     const operation = "pinMode";
-    const match = operation.match(/pinMode:(\d+)/);
+    const match = /pinMode:(\d+)/.exec(operation);
 
     expect(match).toBeNull();
   });
 
   it("should not match pinMode with non-numeric mode", () => {
     const operation = "pinMode:INPUT";
-    const match = operation.match(/pinMode:(\d+)/);
+    const match = /pinMode:(\d+)/.exec(operation);
 
     expect(match).toBeNull();
   });
@@ -261,7 +258,7 @@ describe("ParserOutput Component", () => {
     );
 
     // Check that counts are displayed (each count should be "1")
-    const allText = document.body.textContent!;
+    const allText = document.body.textContent ?? "";
     expect(allText).toContain("Messages (3)");
   });
 

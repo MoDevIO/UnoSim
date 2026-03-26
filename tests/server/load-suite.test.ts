@@ -12,6 +12,15 @@ import http from "node:http";
  * Starten Sie in einem separaten Terminal: npm run dev
  */
 
+// Helper: collect body from an http response
+function collectBody(res: http.IncomingMessage): Promise<string> {
+  return new Promise((resolve) => {
+    let data = "";
+    res.on("data", (chunk) => (data += chunk));
+    res.on("end", () => resolve(data));
+  });
+}
+
 // Helper function for HTTP requests
 function fetchHttp(
   url: string,
@@ -36,16 +45,13 @@ function fetchHttp(
       headers: options?.headers || {},
     };
 
-    const req = http.request(reqOptions, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        resolve({
-          ok: res.statusCode! >= 200 && res.statusCode! < 300,
-          status: res.statusCode!,
-          json: async () => JSON.parse(data),
-          text: async () => data,
-        });
+    const req = http.request(reqOptions, async (res) => {
+      const data = await collectBody(res);
+      resolve({
+        ok: res.statusCode! >= 200 && res.statusCode! < 300,
+        status: res.statusCode!,
+        json: async () => JSON.parse(data),
+        text: async () => data,
       });
     });
 
@@ -99,6 +105,40 @@ interface TestResult {
   failedClients?: Array<{ id: number; error: string }>;
 }
 
+/** Creates a stub HTTP server that responds to /api/sketches and /api/compile. */
+async function createStubServer(): Promise<{ server: http.Server; baseUrl: string }> {
+  const server = http.createServer((req, res) => {
+    if (req.url?.startsWith("/api/sketches")) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify([]));
+      return;
+    }
+    if (req.url === "/api/compile" && req.method === "POST") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, output: "" }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, () => resolve());
+  });
+
+  const baseUrl = `http://localhost:${(server.address() as any).port}`;
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  return { server, baseUrl };
+}
+
+/** Gracefully shuts down an http server. */
+async function closeServer(server: http.Server): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((err) => (err ? reject(err) : resolve()));
+  });
+}
+
 /**
  * Shared implementation for load tests
  */
@@ -111,44 +151,14 @@ function createLoadTestSuite(
     let stubServer: http.Server;
     const testResults: TestResult[] = [];
 
-    async function startStubServer() {
-      stubServer = http.createServer((req, res) => {
-        if (req.url?.startsWith("/api/sketches")) {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify([]));
-        } else if (req.url === "/api/compile" && req.method === "POST") {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ success: true, output: "" }));
-        } else {
-          res.writeHead(404);
-          res.end();
-        }
-      });
-
-      await new Promise<void>((resolve, reject) => {
-        stubServer.once("error", reject);
-        stubServer.listen(0, () => {
-          API_BASE = `http://localhost:${(stubServer.address() as any).port}`;
-          resolve();
-        });
-      });
-
-      // allow the server to settle after binding
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-
-    async function stopStubServer() {
-      await new Promise<void>((resolve, reject) => {
-        stubServer.close((err) => (err ? reject(err) : resolve()));
-      });
-    }
-
     beforeAll(async () => {
-      await startStubServer();
+      const result = await createStubServer();
+      stubServer = result.server;
+      API_BASE = result.baseUrl;
     });
 
     afterAll(async () => {
-      await stopStubServer();
+      await closeServer(stubServer);
     });
 
     async function simulateClient(clientId: number): Promise<ClientMetrics> {

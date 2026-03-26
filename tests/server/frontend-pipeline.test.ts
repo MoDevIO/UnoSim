@@ -7,70 +7,79 @@ import { applyBackspaceAcrossLines } from "../../client/src/components/features/
 import type { OutputLine } from "../../shared/schema";
 
 /**
+ * Strips leading backspace characters from text and removes corresponding
+ * characters from the last incomplete line.
+ */
+function handleBackspacePrefix(text: string, newLines: OutputLine[]): string {
+  if (!text.includes("\b")) return text;
+
+  let backspaceCount = 0;
+  let idx = 0;
+  while (idx < text.length && text[idx] === "\b") {
+    backspaceCount++;
+    idx++;
+  }
+
+  if (backspaceCount > 0 && newLines.length > 0 && !newLines.at(-1).complete) {
+    const lastLine = newLines.at(-1);
+    lastLine.text = lastLine.text.slice(
+      0,
+      Math.max(0, lastLine.text.length - backspaceCount),
+    );
+  }
+
+  return text.slice(backspaceCount);
+}
+
+/**
+ * Appends text as an incomplete line (no newline at end).
+ */
+function appendIncompleteText(text: string, newLines: OutputLine[]): void {
+  if (newLines.length === 0 || newLines.at(-1).complete) {
+    newLines.push({ text, complete: false });
+  } else {
+    newLines.at(-1).text += text;
+  }
+}
+
+/**
+ * Appends text and marks the line as complete (newline at end).
+ */
+function appendCompleteText(text: string, newLines: OutputLine[]): void {
+  if (newLines.length === 0 || newLines.at(-1).complete) {
+    newLines.push({ text, complete: true });
+  } else {
+    newLines.at(-1).text += text;
+    newLines.at(-1).complete = true;
+  }
+}
+
+/**
  * Simulates processSerialEvents from arduino-simulator.tsx
  */
 function processSerialEvents(
   events: Array<{ payload: { data: string } }>,
   currentLines: OutputLine[],
 ): OutputLine[] {
-  let newLines: OutputLine[] = [...currentLines];
+  const newLines: OutputLine[] = [...currentLines];
 
   for (const { payload } of events) {
-    const piece: string = (payload.data || "").toString();
-
-    // Handle backspace at the start of this piece - apply to previous line
-    let text = piece;
-    if (text.includes("\b")) {
-      let backspaceCount = 0;
-      let idx = 0;
-      while (idx < text.length && text[idx] === "\b") {
-        backspaceCount++;
-        idx++;
-      }
-
-      if (
-        backspaceCount > 0 &&
-        newLines.length > 0 &&
-        !newLines.at(-1).complete
-      ) {
-        // Remove characters from the last incomplete line
-        const lastLine = newLines.at(-1);
-        lastLine.text = lastLine.text.slice(
-          0,
-          Math.max(0, lastLine.text.length - backspaceCount),
-        );
-        text = text.slice(backspaceCount);
-      }
-    }
-
-    // Process remaining text
+    const text = handleBackspacePrefix(
+      (payload.data || "").toString(),
+      newLines,
+    );
     if (!text) continue;
 
-    // Check for newlines
     if (text.includes("\n")) {
       const pos = text.indexOf("\n");
-      const beforeNewline = text.slice(0, Math.max(0, pos));
+      appendCompleteText(text.slice(0, Math.max(0, pos)), newLines);
+
       const afterNewline = text.slice(Math.max(0, pos + 1));
-
-      // Append text before newline to current line and mark complete
-      if (newLines.length === 0 || newLines.at(-1).complete) {
-        newLines.push({ text: beforeNewline, complete: true });
-      } else {
-        newLines.at(-1).text += beforeNewline;
-        newLines.at(-1).complete = true;
-      }
-
-      // Handle text after newline
       if (afterNewline) {
         newLines.push({ text: afterNewline, complete: false });
       }
     } else {
-      // No newline - append to last incomplete line or create new
-      if (newLines.length === 0 || newLines.at(-1).complete) {
-        newLines.push({ text: text, complete: false });
-      } else {
-        newLines.at(-1).text += text;
-      }
+      appendIncompleteText(text, newLines);
     }
   }
 

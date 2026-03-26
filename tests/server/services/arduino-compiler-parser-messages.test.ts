@@ -28,12 +28,12 @@ vi.mock("node:fs/promises", () => ({
   writeFile: vi.fn(),
   mkdir: vi.fn(),
   rm: vi.fn(),
-  mkdtemp: vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir"),
+  mkdtemp: vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir"), // NOSONAR S5443
   default: {
     writeFile: vi.fn(),
     mkdir: vi.fn(),
     rm: vi.fn(),
-    mkdtemp: vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir"),
+    mkdtemp: vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir"), // NOSONAR S5443
   },
 }));
 
@@ -50,7 +50,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
 
     mockWriteFile.mockResolvedValue(undefined);
     mockMkdir.mockResolvedValue(undefined);
-    mockMkdtemp.mockResolvedValue("/tmp/unowebsim-mock-dir");
+    mockMkdtemp.mockResolvedValue("/tmp/unowebsim-mock-dir"); // NOSONAR S5443
     mockRm.mockResolvedValue(undefined);
   });
 

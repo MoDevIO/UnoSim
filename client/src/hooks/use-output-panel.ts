@@ -45,8 +45,8 @@ function _computeMessagePanelSize(
     : 50;
   let measuredPercent = estimatedPercent;
   try {
-    const panelNode = headerEl?.closest("[data-panel]") as HTMLElement | null;
-    const groupNode = panelNode?.parentElement as HTMLElement | null;
+    const panelNode = headerEl?.closest<HTMLElement>("[data-panel]");
+    const groupNode = panelNode?.parentElement;
     const groupHeightPx = Math.ceil(groupNode?.getBoundingClientRect().height || 0);
     const messagesHeightPx = parserMessagesContainerRef.current
       ? Math.ceil(parserMessagesContainerRef.current.scrollHeight)
@@ -208,7 +208,7 @@ export function useOutputPanel(
       if (!headerEl || !panelHandle) return;
 
       const panelNode = headerEl.closest<HTMLElement>("[data-panel]");
-      const groupNode = panelNode?.parentElement as HTMLElement | null;
+      const groupNode = panelNode?.parentElement;
       if (!panelNode || !groupNode) return;
 
       const headerRect = headerEl.getBoundingClientRect();
@@ -284,7 +284,7 @@ export function useOutputPanel(
 
     const headerEl = outputTabsHeaderRef.current;
     const panelNode = headerEl?.closest<HTMLElement>("[data-panel]");
-    const groupNode = panelNode?.parentElement as HTMLElement | null;
+    const groupNode = panelNode?.parentElement;
 
     if (!groupNode) return;
 
@@ -317,7 +317,7 @@ export function useOutputPanel(
       if (!headerEl) return;
 
       const panelNode = headerEl.closest<HTMLElement>("[data-panel]");
-      const groupNode = panelNode?.parentElement as HTMLElement | null;
+      const groupNode = panelNode?.parentElement;
       if (!panelNode || !groupNode) return;
 
       const headerRect = headerEl.getBoundingClientRect();

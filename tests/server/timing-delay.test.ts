@@ -44,7 +44,6 @@ maybeDescribe("Timing - delay() accuracy", () => {
       }
     `;
 
-    const output: string[] = [];
     const measurements: number[] = [];
 
     await new Promise<void>((resolve, reject) => {
@@ -56,11 +55,10 @@ maybeDescribe("Timing - delay() accuracy", () => {
       runner.runSketch({
         code,
         onOutput: (line) => {
-          output.push(line);
           console.log(`Output: ${line}`);
           
           // Parse "Elapsed: 1000ms" pattern
-          const match = line.match(/Elapsed:\s*(\d+)ms/);
+          const match = /Elapsed:\s*(\d+)ms/.exec(line);
           if (match) {
             const elapsed = Number.parseInt(match[1], 10);
             measurements.push(elapsed);
@@ -128,7 +126,6 @@ maybeDescribe("Timing - delay() accuracy", () => {
       }
     `;
 
-    const output: string[] = [];
     const measurements: number[] = [];
 
     await new Promise<void>((resolve, reject) => {
@@ -140,11 +137,10 @@ maybeDescribe("Timing - delay() accuracy", () => {
       runner.runSketch({
         code,
         onOutput: (line) => {
-          output.push(line);
           console.log(`Output: ${line}`);
           
           // Parse "Delay N: 500ms" pattern
-          const match = line.match(/Delay\s+\d+:\s*(\d+)ms/);
+          const match = /Delay\s+\d+:\s*(\d+)ms/.exec(line);
           if (match) {
             const elapsed = Number.parseInt(match[1], 10);
             measurements.push(elapsed);

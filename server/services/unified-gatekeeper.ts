@@ -145,7 +145,7 @@ export class UnifiedGatekeeper extends EventEmitter {
     owner: string = "unknown",
   ): Promise<() => void> {
     this.stats.totalCompileSlotRequests++;
-    const ownerId = `${owner}-${Date.now()}-${Math.random()}`;
+    const ownerId = `${owner}-${Date.now()}-${crypto.randomUUID()}`;
 
     return new Promise((resolve, reject) => {
       const grant = () => {
@@ -259,7 +259,7 @@ export class UnifiedGatekeeper extends EventEmitter {
     owner: string = "unknown",
   ): Promise<() => Promise<void>> {
     this.stats.totalCacheLockRequests++;
-    const ownerId = `${owner}-${Date.now()}-${Math.random()}`;
+    const ownerId = `${owner}-${Date.now()}-${crypto.randomUUID()}`;
 
     return new Promise((resolve, reject) => {
       let timeoutHandle: NodeJS.Timeout | null = null;
@@ -338,7 +338,8 @@ export class UnifiedGatekeeper extends EventEmitter {
    */
   private _grantNextQueuedSlot(): void {
     if (this.compileQueue.length === 0) return;
-    const task = this.compileQueue.shift()!;
+    const task = this.compileQueue.shift();
+    if (!task) return;
     try {
       task.resolver(this.createReleaseFunction(task.ownerId, "compile"));
     } catch (err) {
@@ -347,7 +348,8 @@ export class UnifiedGatekeeper extends EventEmitter {
       );
       // Slot remains available (already incremented above), try next task
       if (this.compileQueue.length > 0) {
-        const next = this.compileQueue.shift()!;
+        const next = this.compileQueue.shift();
+        if (!next) return;
         try {
           next.resolver(this.createReleaseFunction(next.ownerId, "compile"));
         } catch {

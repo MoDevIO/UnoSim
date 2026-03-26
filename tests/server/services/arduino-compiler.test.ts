@@ -19,9 +19,9 @@ vi.mock("node:fs", async (importOriginal) => {
     ...actual,
     default: {
       ...actual,
-      mkdtempSync: vi.fn().mockReturnValue("/tmp/unowebsim-mock-dir"),
+      mkdtempSync: vi.fn().mockReturnValue("/tmp/unowebsim-mock-dir"), // NOSONAR S5443
     },
-    mkdtempSync: vi.fn().mockReturnValue("/tmp/unowebsim-mock-dir"),
+    mkdtempSync: vi.fn().mockReturnValue("/tmp/unowebsim-mock-dir"), // NOSONAR S5443
     rmSync: vi.fn(),
     writeFileSync: vi.fn(),
   };
@@ -58,7 +58,7 @@ vi.mock("node:fs/promises", () => {
   const writeFileMock = vi.fn();
   const mkdirMock = vi.fn();
   const rmMock = vi.fn();
-  const mkdtempMock = vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir");
+  const mkdtempMock = vi.fn().mockResolvedValue("/tmp/unowebsim-mock-dir"); // NOSONAR S5443
   return {
     writeFile: writeFileMock,
     mkdir: mkdirMock,
@@ -89,7 +89,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
     // Standard fs/promises mocks
     mockWriteFile.mockResolvedValue(undefined);
     mockMkdir.mockResolvedValue(undefined);
-    mockMkdtemp.mockResolvedValue("/tmp/unowebsim-mock-dir");
+    mockMkdtemp.mockResolvedValue("/tmp/unowebsim-mock-dir"); // NOSONAR S5443
     mockRm.mockResolvedValue(undefined);
   });
 
@@ -385,7 +385,7 @@ describe("ArduinoCompiler - Full Coverage", () => {
       // With robust cleanup, we should get a warning about failed cleanup
       // The gatekeeper and retry logic mean we expect a "Failed to clean up" warning
       expect(warnSpy).toHaveBeenCalled();
-      const warnCalls = warnSpy.mock.calls.map((call) => call[0] as string);
+      const warnCalls = warnSpy.mock.calls.map((call) => call[0] as string); // NOSONAR S4325
       const hasCleanupWarning =
         warnCalls.some((msg) => msg.includes("Failed to clean up")) ||
         warnCalls.some((msg) => msg.includes("cleanup"));

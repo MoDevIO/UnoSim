@@ -26,7 +26,7 @@ void loop() {
 }`;
       const messages = reservedNamesValidator.validateReservedNames(code);
       // This test is simplified - pointer detection may vary by implementation
-      expect(messages.length >= 0).toBe(true);
+      expect(Array.isArray(messages)).toBe(true);
     });
 
     it("should detect reserved variable name with initialization", () => {
@@ -229,7 +229,7 @@ void loop() {
 }`;
       const messages = reservedNamesValidator.validateReservedNames(code);
       // May or may not detect depending on implementation
-      expect(messages.length >= 0).toBe(true);
+      expect(Array.isArray(messages)).toBe(true);
     });
 
     it("should provide unique ids for messages", () => {

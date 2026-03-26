@@ -155,7 +155,7 @@ error: expected declaration specifiers before 'void'`,
       // Long error
       const longError: CompileResult = {
         success: false,
-        output: Array(30)
+        output: new Array(30)
           .fill(0)
           .map((_, i) => `error: this is error line ${i} with lots of content`)
           .join("\n"),
@@ -233,7 +233,7 @@ error: expected declaration specifiers before 'void'`,
         },
       ];
 
-      const manyMessages: ParserMessage[] = Array(8)
+      const manyMessages: ParserMessage[] = new Array(8)
         .fill(null)
         .map((_, i) => ({
           id: `msg${i}`,

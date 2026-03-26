@@ -8,10 +8,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ---------- WebSocket mock ----------
 class MockWebSocket {
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
 
   readyState = MockWebSocket.CONNECTING;
   onopen: ((ev: Event) => void) | null = null;
@@ -63,10 +63,10 @@ vi.stubGlobal("WebSocket", class extends MockWebSocket {
     wsInstances.push(this);
   }
 
-  static override CONNECTING = 0;
-  static override OPEN = 1;
-  static override CLOSING = 2;
-  static override CLOSED = 3;
+  static override readonly CONNECTING = 0;
+  static override readonly OPEN = 1;
+  static override readonly CLOSING = 2;
+  static override readonly CLOSED = 3;
 });
 
 // Stub location for URL construction

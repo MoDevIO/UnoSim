@@ -46,7 +46,7 @@ export function useSimulatorFileSystem({
   );
 
   const handleTabAdd = useCallback(() => {
-    const newTabId = Math.random().toString(36).slice(2, 11);
+    const newTabId = crypto.randomUUID().replaceAll("-", "").slice(0, 9);
     const newTab = {
       id: newTabId,
       name: `header_${tabs.length}.h`,
@@ -105,7 +105,7 @@ export function useSimulatorFileSystem({
         const orderedFiles = [...inoFiles, ...hFiles];
 
         const newTabs = orderedFiles.map((file) => ({
-          id: Math.random().toString(36).slice(2, 11),
+          id: crypto.randomUUID().replaceAll("-", "").slice(0, 9),
           name: file.name,
           content: file.content,
         }));
@@ -120,7 +120,7 @@ export function useSimulatorFileSystem({
         }
       } else {
         const newHeaderFiles = files.map((file) => ({
-          id: Math.random().toString(36).slice(2, 11),
+          id: crypto.randomUUID().replaceAll("-", "").slice(0, 9),
           name: file.name,
           content: file.content,
         }));
@@ -152,7 +152,7 @@ export function useSimulatorFileSystem({
       onLoadExample?.();
 
       const newTab = {
-        id: Math.random().toString(36).slice(2, 11),
+        id: crypto.randomUUID().replaceAll("-", "").slice(0, 9),
         name: filename,
         content,
       };

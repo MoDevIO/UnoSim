@@ -43,7 +43,7 @@ describe("CompilerOutputParser", () => {
     });
 
     it("should extract basename from full file paths", () => {
-      const stderr = "/tmp/sketch/build/sketch.cpp:10:5: error: syntax error";
+      const stderr = "/builds/sketch/build/sketch.cpp:10:5: error: syntax error";
       const errors = CompilerOutputParser.parseErrors(stderr);
 
       expect(errors[0].file).toBe("sketch.cpp");

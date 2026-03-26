@@ -371,7 +371,7 @@ class WebSocketManager {
     
     // Calculate delay with exponential backoff + jitter
     const baseDelay = CONFIG.RECONNECT_BASE_DELAY_MS * Math.pow(2, this.reconnectAttempts);
-    const jitter = Math.random() * 1000; // 0-1s random jitter
+    const jitter = (crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * 1000; // 0-1s random jitter
     const delay = Math.min(baseDelay + jitter, CONFIG.RECONNECT_MAX_DELAY_MS);
     
     this.reconnectAttempts++;
