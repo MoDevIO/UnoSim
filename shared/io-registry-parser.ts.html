@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.46% </span>
+                <span class="strong">94.49% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>222/235</span>
+                <span class='fraction'>223/236</span>
             </div>
         
             
@@ -37,9 +37,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.55% </span>
+                <span class="strong">95.65% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>43/45</span>
+                <span class='fraction'>44/46</span>
             </div>
         
             
@@ -716,7 +716,11 @@
 <a name='L651'></a><a href='#L651'>651</a>
 <a name='L652'></a><a href='#L652'>652</a>
 <a name='L653'></a><a href='#L653'>653</a>
-<a name='L654'></a><a href='#L654'>654</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L654'></a><a href='#L654'>654</a>
+<a name='L655'></a><a href='#L655'>655</a>
+<a name='L656'></a><a href='#L656'>656</a>
+<a name='L657'></a><a href='#L657'>657</a>
+<a name='L658'></a><a href='#L658'>658</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -763,7 +767,9 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
@@ -977,18 +983,29 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">23x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
@@ -998,21 +1015,12 @@
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1414,10 +1422,12 @@ const MODE_MAP: Record&lt;string, PinMode&gt; = {
 const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
 const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
-const ARRAY_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*\d*\s*\]\s*=\s*\{([^}]+)\}/g;
-// Non-backtracking: Split regex complexity across variables to keep S5843 ≤20 per variable (S5852)
-const FOR_TYPE_PREFIX = /(?:\w+\s+)?/.source; // optional type like "int "
-const FOR_LOOP_PATTERN = new RegExp(String.raw`\bfor *\( *${FOR_TYPE_PREFIX}(\w+) *= *(\d+) *; *(\w+) *([&lt;&gt;]=?) *(\w+) *;[^)]*\)`, "g");
+const ARRAY_PATTERN = /\b(?:int|byte|uint8_t) +([A-Za-z_]\w*) *\[ *\d* *\] *= *\{([^}]+)\}/g; // NOSONAR S5843
+// Two separate for-loop regexes to avoid super-linear backtracking (S5843):
+// 1. With type prefix: for (int i = 0; ...)
+const FOR_LOOP_TYPED = /\bfor\s*\(\s*\w+\s+(\w+)\s*=\s*(\d+)\s*;\s*(\w+)\s*([&lt;&gt;]=?)\s*(\w+)\s*;[^)]*\)/g;
+// 2. Without type prefix: for (i = 0; ...)
+const FOR_LOOP_BARE = /\bfor\s*\(\s*(\w+)\s*=\s*(\d+)\s*;\s*(\w+)\s*([&lt;&gt;]=?)\s*(\w+)\s*;[^)]*\)/g;
 const FOR_BRACE_TAIL_RE = /^ *(\{)?/;
 const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/;
 const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*(\w+(?:\[\d+\])?)(?:\s*,\s*(\w+))?/g;
@@ -1448,7 +1458,7 @@ interface CallEntry {
  */
 function stripComments(code: string): string {
   // Multi-line comments → spaces (preserve newlines for correct line counting)
-  let result = code.replaceAll(/\/\*[\s\S]*?\*\//g, (m) =&gt;
+  let result = code.replaceAll(/\/\*[^*]*(?:\*+[^*/][^*]*)*\*\//g, (m) =&gt;
     m.replaceAll(/[^\n]/g, " "),
   );
   // Single-line comments → spaces (preserve line length)
@@ -1624,6 +1634,21 @@ function findMatchingBrace(str: string, openPos: number): number {
 <span class="cstat-no" title="statement not covered" >  return openPos;</span>
 }
 &nbsp;
+/** Find the end position of a for-loop body (braced or braceless). */
+function findLoopBodyEnd(
+  clean: string,
+  headerEnd: number,
+  hasBrace: boolean,
+): number {
+  if (hasBrace) {
+    let openBrace = headerEnd - 1;
+    while (openBrace &lt; clean.length &amp;&amp; clean[openBrace] !== "{") openBrace++;
+    return findMatchingBrace(clean, openBrace);
+  }
+  const semiPos = clean.indexOf(";", headerEnd);
+  return semiPos &gt;= 0 ? semiPos : <span class="branch-1 cbranch-no" title="branch not covered" >clean.length;</span>
+}
+&nbsp;
 /**
  * Find all for-loops with a numeric iteration variable over a statically
  * determinable range, e.g. `for (int i = 2; i &lt; 4; i++)`.
@@ -1633,45 +1658,32 @@ function findLoopRanges(
   syms: Map&lt;string, number&gt;,
 ): LoopRange[] {
   const ranges: LoopRange[] = [];
-  // The opening brace (\{)? is made optional so that braceless single-statement
-  // loop bodies are also handled, e.g.:
-  //   for (int i = 1; i &lt;= 6; i++) pinMode(i, INPUT);
   let m: RegExpExecArray | null;
 &nbsp;
-  while ((m = FOR_LOOP_PATTERN.exec(clean)) !== null) {
-    const variable = m[1];
-    const start = Number.parseInt(m[2], 10);
-    const op = m[4];
-    const limitVal = resolveToken(m[5], syms) ?? Number.parseInt(m[5], 10);
-    const tail = clean.slice(m.index + m[0].length);
-    const braceMatch = FOR_BRACE_TAIL_RE.exec(tail);
-    const hasBrace = !!braceMatch?.[1];
-    if (Number.isNaN(limitVal)) continue;
+  for (const forRe of [FOR_LOOP_TYPED, FOR_LOOP_BARE]) {
+    forRe.lastIndex = 0;
+    while ((m = forRe.exec(clean)) !== null) {
+      const variable = m[1];
+      const start = Number.parseInt(m[2], 10);
+      const op = m[4];
+      const limitVal = resolveToken(m[5], syms) ?? Number.parseInt(m[5], 10);
+      if (Number.isNaN(limitVal)) continue;
 &nbsp;
-    const values = generateLoopValues(start, op, limitVal);
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (values.length === 0 || values.length &gt; 20) <span class="cstat-no" title="statement not covered" >continue;</span>
+      const values = generateLoopValues(start, op, limitVal);
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (values.length === 0 || values.length &gt; 20) <span class="cstat-no" title="statement not covered" >continue;</span>
 &nbsp;
-    let endPos: number;
-    if (hasBrace) {
-      // Braced body: find the matching closing brace
-      let openBrace = m.index + m[0].length - 1;
-      while (openBrace &lt; clean.length &amp;&amp; clean[openBrace] !== "{")
-        openBrace++;
-      endPos = findMatchingBrace(clean, openBrace);
-    } else {
-      // Braceless body: the single statement ends at the first ";" after the header
-      const bodyStart = m.index + m[0].length;
-      const semiPos = clean.indexOf(";", bodyStart);
-      endPos = semiPos &gt;= 0 ? semiPos : <span class="branch-1 cbranch-no" title="branch not covered" >clean.length;</span>
+      const tail = clean.slice(m.index + m[0].length);
+      const hasBrace = !!FOR_BRACE_TAIL_RE.exec(tail)?.[1];
+      const endPos = findLoopBodyEnd(clean, m.index + m[0].length, hasBrace);
+&nbsp;
+      ranges.push({
+        startPos: m.index,
+        endPos,
+        startLine: lineAt(clean, m.index),
+        variable,
+        values,
+      });
     }
-&nbsp;
-    ranges.push({
-      startPos: m.index,
-      endPos,
-      startLine: lineAt(clean, m.index),
-      variable,
-      values,
-    });
   }
 &nbsp;
   return ranges;
@@ -2029,7 +2041,7 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-26T07:35:58.716Z
+                at 2026-03-26T14:23:36.880Z
             </div>
         <script src="../prettify.js"></script>
         <script>

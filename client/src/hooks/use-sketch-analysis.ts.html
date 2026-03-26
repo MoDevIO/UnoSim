@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.16% </span>
+                <span class="strong">92.56% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>109/117</span>
+                <span class='fraction'>112/121</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.75% </span>
+                <span class="strong">94.11% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>15/16</span>
+                <span class='fraction'>16/17</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.65% </span>
+                <span class="strong">95.74% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>88/92</span>
+                <span class='fraction'>90/94</span>
             </div>
         
             
@@ -288,7 +288,13 @@
 <a name='L223'></a><a href='#L223'>223</a>
 <a name='L224'></a><a href='#L224'>224</a>
 <a name='L225'></a><a href='#L225'>225</a>
-<a name='L226'></a><a href='#L226'>226</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -333,7 +339,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
@@ -446,7 +454,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">4x</span>
@@ -465,6 +472,11 @@
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -543,7 +555,7 @@ const DEFINE_PIN_RE = /#define\s+(\w+)\s+(A\d|\d+)/g;
 const ASSIGN_PIN_RE = /(?:int|const\s+int|uint8_t|byte)\s+(\w+)\s*=\s*(A\d|\d+)\s*;/g;
 &nbsp;
 /** Match analogRead(token) calls. */
-const ANALOG_READ_RE = /analogRead\s*\(\s*([^)]+)\s*\)/g;
+const ANALOG_READ_RE = /analogRead\s*\(\s*([^)\s]+)\s*\)/g;
 &nbsp;
 /** Extracts the body of a braced block starting at `openBracePos` in `src`. */
 function extractBracedBody(src: string, openBracePos: number): string {
@@ -557,9 +569,11 @@ function extractBracedBody(src: string, openBracePos: number): string {
 }
 &nbsp;
 /** Match for-loop pattern with integer iteration (header + opening brace only; body extracted via brace counting). */
-// Split for-loop regex across variables to keep S5843 complexity ≤20 per variable
-const FOR_INIT = /(?:\w+\s+)?/.source; // optional type prefix (e.g. "int ")
-const FOR_LOOP_RE = new RegExp(String.raw`for\s*\( *${FOR_INIT}(\w+) *= *(\d+) *; *\w+ *(&lt;=?) *(\d+) *;[^)]*\)`, "g");
+// Two separate regexes to avoid super-linear backtracking (S5843):
+// 1. With type prefix:  for (int i = 0; i &lt;= 5; ...)
+const FOR_LOOP_TYPED_RE = /for *\( *\w+ +(\w+) *= *(\d+) *; *\w+ *(&lt;=?) *(\d+) *;[^)]*\)/g;
+// 2. Without type prefix: for (i = 0; i &lt;= 5; ...)
+const FOR_LOOP_BARE_RE = /for *\( *(\w+) *= *(\d+) *; *\w+ *(&lt;=?) *(\d+) *;[^)]*\)/g;
 // Verify the for-loop is followed by a brace
 const FOR_BRACE_TAIL = /^ *\{/;
 &nbsp;
@@ -671,11 +685,10 @@ function findAnalogReadPins(
 /** Finds analog pins iterated in for-loops and used in analogRead. */
 function findForLoopPins(code: string): Set&lt;number&gt; {
   const pins = new Set&lt;number&gt;();
-  let fm: RegExpExecArray | null = null;
 &nbsp;
-  while ((fm = FOR_LOOP_RE.exec(code))) {
+  const processMatch = (fm: RegExpExecArray) =&gt; {
     const tail = code.slice(fm.index + fm[0].length);
-    if (!FOR_BRACE_TAIL.test(tail)) continue;
+    if (!FOR_BRACE_TAIL.test(tail)) return;
     const bracePos = fm.index + fm[0].length + tail.indexOf("{") + 1;
     const [, varName, startStr, cmp, endStr] = fm;
     const body = extractBracedBody(code, bracePos);
@@ -683,14 +696,19 @@ function findForLoopPins(code: string): Set&lt;number&gt; {
       String.raw`analogRead\s*\(\s*${varName}\s*\)`,
       "g",
     );
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (!useRe.test(body)) <span class="cstat-no" title="statement not covered" >continue;</span>
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!useRe.test(body)) <span class="cstat-no" title="statement not covered" >return;</span>
     const start = Number(startStr);
     const last = cmp === "&lt;=" ? Number(endStr) : Number(endStr) - 1;
     for (let pin = start; pin &lt;= last; pin++) {
       if (pin &gt;= 0 &amp;&amp; pin &lt;= 5) pins.add(14 + pin<span class="missing-if-branch" title="else path not taken" >E</span>);
       else if (pin &gt;= 14 &amp;&amp; pin &lt;= 19) pins.add(pin);
     }
-  }
+  };
+&nbsp;
+  let fm: RegExpExecArray | null = null;
+  while ((fm = FOR_LOOP_TYPED_RE.exec(code))) processMatch(fm);
+  while ((fm = FOR_LOOP_BARE_RE.exec(code))) <span class="cstat-no" title="statement not covered" >processMatch(fm);</span>
+&nbsp;
   return pins;
 }
 &nbsp;
@@ -745,7 +763,7 @@ export function useSketchAnalysis(code: string): SketchAnalysisResult {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-26T07:35:58.716Z
+                at 2026-03-26T14:23:36.880Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
