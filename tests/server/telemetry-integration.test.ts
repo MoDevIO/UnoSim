@@ -289,9 +289,9 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       const msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      const metric = client.getLastMetric()!;
-      expect(metric.pinChangesPerSecond).toBe(12);
-      expect(metric.serialOutputPerSecond).toBe(8);
+      const metric = client.getLastMetric();
+      expect(metric?.pinChangesPerSecond).toBe(12);
+      expect(metric?.serialOutputPerSecond).toBe(8);
     });
 
     it("should maintain peak tracking across multiple intervals", () => {
@@ -344,10 +344,10 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       const msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      const metric = client.getLastMetric()!;
-      expect(metric.pinChangesPerSecond).toBe(0);
-      expect(metric.serialOutputPerSecond).toBe(0);
-      expect(metric.isThrottled).toBe(false);
+      const metric = client.getLastMetric();
+      expect(metric?.pinChangesPerSecond).toBe(0);
+      expect(metric?.serialOutputPerSecond).toBe(0);
+      expect(metric?.isThrottled).toBe(false);
     });
 
     it("should handle very high pin change rates", () => {
@@ -384,9 +384,9 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       const msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      const metric = client.getLastMetric()!;
-      expect(metric.pinChangesPerSecond).toBe(20);
-      expect(metric.serialOutputPerSecond).toBe(20);
+      const metric = client.getLastMetric();
+      expect(metric?.pinChangesPerSecond).toBe(20);
+      expect(metric?.serialOutputPerSecond).toBe(20);
     });
   });
 
@@ -400,7 +400,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       const msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      const metric = client.getLastMetric()!;
+      const metric = client.getLastMetric();
 
       // Verify all required fields present and non-null
       expect(metric).toHaveProperty("incomingEvents");
@@ -449,9 +449,9 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       const msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      const metric = client.getLastMetric()!;
-      expect(metric.pinChangesPerSecond).toBe(pinEvents);
-      expect(metric.serialOutputPerSecond).toBe(serialEvents);
+      const metric = client.getLastMetric();
+      expect(metric?.pinChangesPerSecond).toBe(pinEvents);
+      expect(metric?.serialOutputPerSecond).toBe(serialEvents);
     });
 
     it("should handle burst patterns correctly", () => {
