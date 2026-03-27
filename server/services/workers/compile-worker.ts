@@ -12,8 +12,7 @@
  * concurrency, so we disable the per-compiler gatekeeper here.
  */
 
-import { parentPort } from "node:worker_threads";
-import { workerData } from "node:worker_threads";
+import { parentPort, workerData } from "node:worker_threads";
 import { Logger } from "@shared/logger";
 import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import {
@@ -57,7 +56,7 @@ async function initializeCompiler() {
     let module;
     try {
       module = await import("../arduino-compiler.js");
-    } catch (jsErr) {
+    } catch {
       // In development mode with tsx, import the .ts file directly
       module = await import("../arduino-compiler.ts");
     }
@@ -84,7 +83,8 @@ async function ensureWorkerDirs(): Promise<void> {
   workerDirsReady = true;
 }
 
-async function execArduinoCliJson(args: string[]): Promise<any | null> {
+ 
+async function execArduinoCliJson(args: string[]): Promise<any> {
   const { spawn } = await import("node:child_process");
 
   return new Promise((resolve) => {
@@ -213,6 +213,48 @@ async function acquireCoreCacheLock(lockPath: string, timeoutMs: number = 120000
   return { acquired: false, waitedMs: Date.now() - start };
 }
 
+async function collectDirectoryRecords(targetDir: string): Promise<{ records: Array<{ fullPath: string; size: number; atimeMs: number }>; totalSize: number }> {
+  await mkdir(targetDir, { recursive: true });
+  const entries = await readdir(targetDir);
+  const records: Array<{ fullPath: string; size: number; atimeMs: number }> = [];
+  let totalSize = 0;
+
+  for (const entry of entries) {
+    const fullPath = join(targetDir, entry);
+    try {
+      const entryStat = await stat(fullPath);
+      const atimeMs = entryStat.atimeMs || entryStat.mtimeMs;
+      let size = entryStat.size;
+
+      if (entryStat.isDirectory()) {
+        const nested = await readdir(fullPath);
+        size = 0;
+        for (const nestedEntry of nested) {
+          const nestedStat = await stat(join(fullPath, nestedEntry));
+          size += nestedStat.size;
+        }
+      }
+
+      totalSize += size;
+      records.push({ fullPath, size, atimeMs });
+    } catch {
+      // ignore races with concurrent delete
+    }
+  }
+
+  return { records, totalSize };
+}
+
+async function evictLruEntries(records: Array<{ fullPath: string; size: number; atimeMs: number }>, totalSize: number, maxBytes: number): Promise<void> {
+  records.sort((a, b) => a.atimeMs - b.atimeMs);
+  let remaining = totalSize;
+  for (const record of records) {
+    if (remaining <= maxBytes) break;
+    await rm(record.fullPath, { recursive: true, force: true });
+    remaining -= record.size;
+  }
+}
+
 async function cleanupCacheLru(): Promise<void> {
   const markerPath = join(BUILD_CACHE_DIR, ".cleanup-marker");
   const now = Date.now();
@@ -230,41 +272,9 @@ async function cleanupCacheLru(): Promise<void> {
 
   for (const targetDir of targets) {
     try {
-      await mkdir(targetDir, { recursive: true });
-      const entries = await readdir(targetDir);
-      const records: Array<{ fullPath: string; size: number; atimeMs: number }> = [];
-      let totalSize = 0;
-
-      for (const entry of entries) {
-        const fullPath = join(targetDir, entry);
-        try {
-          const entryStat = await stat(fullPath);
-          const atimeMs = entryStat.atimeMs || entryStat.mtimeMs;
-          let size = entryStat.size;
-
-          if (entryStat.isDirectory()) {
-            const nested = await readdir(fullPath);
-            size = 0;
-            for (const nestedEntry of nested) {
-              const nestedStat = await stat(join(fullPath, nestedEntry));
-              size += nestedStat.size;
-            }
-          }
-
-          totalSize += size;
-          records.push({ fullPath, size, atimeMs });
-        } catch {
-          // ignore races with concurrent delete
-        }
-      }
-
+      const { records, totalSize } = await collectDirectoryRecords(targetDir);
       if (totalSize > maxBytes) {
-        records.sort((a, b) => a.atimeMs - b.atimeMs);
-        for (const record of records) {
-          if (totalSize <= maxBytes) break;
-          await rm(record.fullPath, { recursive: true, force: true });
-          totalSize -= record.size;
-        }
+        await evictLruEntries(records, totalSize, maxBytes);
       }
     } catch (error) {
       logger.debug(`[Worker] Cache cleanup skipped for ${targetDir}: ${error instanceof Error ? error.message : String(error)}`);
@@ -272,6 +282,54 @@ async function cleanupCacheLru(): Promise<void> {
   }
 
   await writeFile(markerPath, String(now));
+}
+
+async function checkBinaryExists(sketchHash: string): Promise<boolean> {
+  try {
+    await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.hex`));
+    return true;
+  } catch {
+    try {
+      await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.elf`));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+async function checkFileExists(filePath: string): Promise<boolean> {
+  try {
+    await stat(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function acquireCoreCache(coreReadyMarker: string, coreLockPath: string, coreFingerprint: string): Promise<{ coreCacheWarm: boolean; acquiredCoreLock: boolean; activeBuildCachePath: string }> {
+  let coreCacheWarm = await checkFileExists(coreReadyMarker);
+  let acquiredCoreLock = false;
+  let activeBuildCachePath = CORE_CACHE_BUILD_PATH;
+
+  if (await checkFileExists(coreLockPath)) {
+    logger.info(`[Worker ${resolvedWorkerId}] Core cache lock exists for ${coreFingerprint.slice(0, 12)}. Waiting...`);
+  }
+
+  if (!coreCacheWarm) {
+    const lockResult = await acquireCoreCacheLock(coreLockPath, 120000);
+    acquiredCoreLock = lockResult.acquired;
+
+    if (!acquiredCoreLock) {
+      activeBuildCachePath = join(WORKER_BUILD_DIR, "ephemeral-core-cache", coreFingerprint, String(Date.now()));
+      await mkdir(activeBuildCachePath, { recursive: true });
+      logger.warn(`[Worker ${resolvedWorkerId}] Core cache lock timeout. Compiling without shared cache write.`);
+    }
+
+    coreCacheWarm = await checkFileExists(coreReadyMarker);
+  }
+
+  return { coreCacheWarm, acquiredCoreLock, activeBuildCachePath };
 }
 
 /**
@@ -293,62 +351,9 @@ async function processCompileRequest(task: CompileRequestPayload) {
     const coreReadyMarker = join(CORE_CACHE_META_DIR, `${coreFingerprint}.ready`);
     const coreLockPath = join(CORE_CACHE_LOCK_DIR, `${coreFingerprint}.lock`);
     const sketchBuildPath = join(WORKER_BUILD_DIR, "build-output", sketchHash);
-    
-    // Check for binary existence asynchronously
-    let hasInstantBinary = false;
-    try {
-      await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.hex`));
-      hasInstantBinary = true;
-    } catch {
-      try {
-        await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.elf`));
-        hasInstantBinary = true;
-      } catch {
-        hasInstantBinary = false;
-      }
-    }
 
-    // Check core cache status asynchronously
-    let coreCacheWarm = false;
-    try {
-      await stat(coreReadyMarker);
-      coreCacheWarm = true;
-    } catch {
-      coreCacheWarm = false;
-    }
-    
-    let lockExists = false;
-    try {
-      await stat(coreLockPath);
-      lockExists = true;
-    } catch {
-      lockExists = false;
-    }
-    if (lockExists) {
-      logger.info(`[Worker ${resolvedWorkerId}] Core cache lock exists for ${coreFingerprint.slice(0, 12)}. Waiting...`);
-    }
-
-    let acquiredCoreLock = false;
-    let activeBuildCachePath = CORE_CACHE_BUILD_PATH;
-
-    if (!coreCacheWarm) {
-      const lockResult = await acquireCoreCacheLock(coreLockPath, 120000);
-      acquiredCoreLock = lockResult.acquired;
-
-      if (!acquiredCoreLock) {
-        activeBuildCachePath = join(WORKER_BUILD_DIR, "ephemeral-core-cache", coreFingerprint, String(Date.now()));
-        await mkdir(activeBuildCachePath, { recursive: true });
-        logger.warn(`[Worker ${resolvedWorkerId}] Core cache lock timeout. Compiling without shared cache write.`);
-      }
-
-      // Recheck cache warmth after lock attempt
-      try {
-        await stat(coreReadyMarker);
-        coreCacheWarm = true;
-      } catch {
-        coreCacheWarm = false;
-      }
-    }
+    const hasInstantBinary = await checkBinaryExists(sketchHash);
+    const { coreCacheWarm, acquiredCoreLock, activeBuildCachePath } = await acquireCoreCache(coreReadyMarker, coreLockPath, coreFingerprint);
 
     if (hasInstantBinary) {
       logger.info(`[Cache] Hit for hash ${sketchHash}`);
@@ -371,11 +376,8 @@ async function processCompileRequest(task: CompileRequestPayload) {
       });
 
       if (compileResult.success && acquiredCoreLock) {
-        // Mark core cache as ready
-        try {
-          await stat(coreReadyMarker);
-        } catch {
-          // File doesn't exist, create it
+        const markerExists = await checkFileExists(coreReadyMarker);
+        if (!markerExists) {
           await writeFile(coreReadyMarker, new Date().toISOString());
         }
       }
