@@ -504,7 +504,7 @@ function populateLegacyFields(
       .filter((m): m is PinMode => m !== undefined);
     const lastMode = allModes.at(-1);
     record.pinMode = convertModeToNumeric(lastMode);
-    record.definedAt = { line: pmCalls.at(-1).line };
+    record.definedAt = { line: pmCalls[pmCalls.length - 1].line };
   }
 
   const nonPmCalls = [...drCalls, ...dwCalls, ...arCalls, ...awCalls];
