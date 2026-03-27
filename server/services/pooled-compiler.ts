@@ -61,10 +61,16 @@ export class PooledCompiler {
         return await this.pool.compile(task);
       } catch (_err) {
         // Pool failed to compile (e.g., workers not operational) - fall back to direct compiler
+        if (!this.directCompiler) {
+          throw new Error("Neither pool nor direct compiler available");
+        }
         return await this.directCompiler.compile(code, headers, tempRoot, options);
       }
     } else {
       // Fall back to direct compiler (always available)
+      if (!this.directCompiler) {
+        throw new Error("Neither pool nor direct compiler available");
+      }
       return await this.directCompiler.compile(code, headers, tempRoot, options);
     }
   }
