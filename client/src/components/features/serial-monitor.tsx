@@ -151,6 +151,39 @@ function processCarriageReturnLine(
   return true;
 }
 
+function processLineWithControls(
+  lines: ProcessedLine[],
+  text: string,
+  controls: ReturnType<typeof hasControlChars>,
+  shouldClear: boolean,
+  lineComplete: boolean,
+): { text: string; shouldClear: boolean; handled: boolean } {
+  let newShouldClear = shouldClear;
+  let newText = text;
+
+  if (controls.hasClearScreen) {
+    newShouldClear = true;
+    lines.length = 0;
+  }
+
+  if (controls.hasCursorHome && newShouldClear) {
+    lines.length = 0;
+    newShouldClear = false;
+  }
+
+  const backspaceResult = applyBackspaceAcrossLines(lines, newText, lineComplete);
+  if (backspaceResult === null) {
+    return { text: "", shouldClear: newShouldClear, handled: true };
+  }
+
+  newText = backspaceResult;
+  if (controls.hasCarriageReturn && processCarriageReturnLine(lines, newText, lineComplete)) {
+    return { text: "", shouldClear: newShouldClear, handled: true };
+  }
+
+  return { text: newText, shouldClear: newShouldClear, handled: false };
+}
+
 export function SerialMonitor({
   output,
   isConnected: _isConnected,
@@ -204,38 +237,20 @@ export function SerialMonitor({
       let text = line.text;
       const controls = hasControlChars(text);
 
-      if (controls.hasClearScreen) {
-        shouldClear = true;
-        lines.length = 0;
-      }
-
-      if (controls.hasCursorHome) {
-        if (shouldClear) {
-          lines.length = 0;
-          shouldClear = false;
-        }
-      }
-
-      // Handle backspace across line boundaries: apply to last incomplete line
-      const backspaceResult = applyBackspaceAcrossLines(
+      const { text: processedText, shouldClear: newShouldClear, handled } = processLineWithControls(
         lines,
         text,
+        controls,
+        shouldClear,
         line.complete ?? true,
       );
-      if (backspaceResult === null) {
-        return; // handled fully
-      }
-      text = backspaceResult;
+      shouldClear = newShouldClear;
 
-      if (controls.hasCarriageReturn) {
-        if (processCarriageReturnLine(lines, text, line.complete ?? true)) {
-          return;
+      if (!handled && processedText) {
+        const cleanText = processAnsiCodes(processedText);
+        if (cleanText) {
+          lines.push({ text: cleanText, incomplete: !line.complete });
         }
-      }
-
-      const cleanText = processAnsiCodes(text);
-      if (cleanText) {
-        lines.push({ text: cleanText, incomplete: !line.complete });
       }
     });
 
