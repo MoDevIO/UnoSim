@@ -15,7 +15,7 @@ import type { CompilationResult } from "../server/services/arduino-compiler";
 /**
  * Commands that can be sent to worker threads
  */
-enum WorkerCommand {
+export enum WorkerCommand {
   COMPILE = "compile",
   READY = "ready",
   SHUTDOWN = "shutdown",
@@ -38,7 +38,7 @@ export interface CompileRequestPayload {
 /**
  * Compilation response payload sent from worker to main thread
  */
-interface CompileResponsePayload {
+export interface CompileResponsePayload {
   result?: CompilationResult;
   error?: WorkerError;
 }
@@ -46,7 +46,7 @@ interface CompileResponsePayload {
 /**
  * Structured error object for worker errors
  */
-interface WorkerError {
+export interface WorkerError {
   message: string;
   code?: string;
   stack?: string;
@@ -56,7 +56,7 @@ interface WorkerError {
  * Generic worker message envelope
  * T = payload type (CompileRequestPayload | CompileResponsePayload | void)
  */
-interface WorkerMessage<T = void> {
+export interface WorkerMessage<T = void> {
   type: WorkerCommand;
   taskId?: string;
   payload?: T;
@@ -94,6 +94,13 @@ export type AnyWorkerMessage =
   | ShutdownMessage;
 
 /**
+ * Type guard to check if a message is a compile request
+ */
+export function isCompileRequest(msg: WorkerMessage<unknown>): msg is CompileRequestMessage {
+  return msg.type === WorkerCommand.COMPILE && msg.payload !== undefined;
+}
+
+/**
  * Type guard to check if a message is a compile response
  */
 export function isCompileResponse(msg: WorkerMessage<unknown>): msg is CompileResponseMessage {
@@ -108,6 +115,13 @@ export function isReadyMessage(msg: WorkerMessage<unknown>): msg is ReadyMessage
 }
 
 /**
+ * Type guard to check if a message is a shutdown signal
+ */
+export function isShutdownMessage(msg: WorkerMessage<unknown>): msg is ShutdownMessage {
+  return msg.type === WorkerCommand.SHUTDOWN;
+}
+
+/**
  * Helper to create a compile request message
  */
 export function createCompileRequest(
@@ -118,6 +132,45 @@ export function createCompileRequest(
     type: WorkerCommand.COMPILE,
     payload,
     taskId,
+  };
+}
+
+/**
+ * Helper to create a compile response message
+ */
+export function createCompileResponse(
+  payload: CompileResponsePayload,
+  taskId?: string
+): CompileResponseMessage {
+  return {
+    type: WorkerCommand.COMPILE_RESULT,
+    payload,
+    taskId,
+  };
+}
+
+/**
+ * Helper to create a ready message
+ */
+export function createReadyMessage(): ReadyMessage {
+  return {
+    type: WorkerCommand.READY,
+  };
+}
+
+/**
+ * Helper to create a structured worker error
+ */
+export function createWorkerError(err: unknown): WorkerError {
+  if (err instanceof Error) {
+    return {
+      message: err.message,
+      code: (err as any).code,
+      stack: err.stack,
+    };
+  }
+  return {
+    message: String(err),
   };
 }
 
