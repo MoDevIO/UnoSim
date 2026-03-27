@@ -176,7 +176,7 @@ class PinCompatibilityChecker {
           !outputReadWarnedPins.has(pinNum)
         ) {
           outputReadWarnedPins.add(pinNum);
-          const pinStr = pinNum >= 14 ? `A${pinNum - 14}` : String(pinNum);
+          const pinStr = pinNum >= 14 ? `A${pinNum - 14}` : `${pinNum}`;
           const line = uncommentedCode.slice(0, Math.max(0, match.index)).split("\n").length;
           messages.push({
             id: randomUUID(),

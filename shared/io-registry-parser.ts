@@ -330,7 +330,7 @@ function detectPinConflicts(
   outputReadConflict: boolean;
   uniqueModes: PinModeType[];
 } {
-  const allModes = pmCalls.map((c) => c.mode!);
+  const allModes = pmCalls.map((c) => c.mode);
   const uniqueModes = [...new Set(allModes)] as PinModeType[];
 
   // TC 11: same pin configured with multiple DIFFERENT modes
