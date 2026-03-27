@@ -182,7 +182,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       let msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      expect(client.getLastMetric()!.pinChangesPerSecond).toBe(5);
+      expect(client.getLastMetric()?.pinChangesPerSecond).toBe(5);
 
       // Second interval: 3 changes (starting fresh)
       server.recordPinChange();
@@ -192,7 +192,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      expect(client.getLastMetric()!.pinChangesPerSecond).toBe(3);
+      expect(client.getLastMetric()?.pinChangesPerSecond).toBe(3);
     });
 
     it("should track debounce state correctly across reports", () => {
@@ -200,19 +200,19 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       server.recordPinChange();
       let msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
-      expect(client.getLastMetric()!.isThrottled).toBe(true);
+      expect(client.getLastMetric()?.isThrottled).toBe(true);
 
       // Immediately after, debounce still active
       msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
-      expect(client.getLastMetric()!.isThrottled).toBe(true);
+      expect(client.getLastMetric()?.isThrottled).toBe(true);
 
       // Wait for debounce to clear
       server.cleanup();
       server = new ServerTelemetrySimulator(); // Fresh instance
       msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
-      expect(client.getLastMetric()!.isThrottled).toBe(false);
+      expect(client.getLastMetric()?.isThrottled).toBe(false);
     });
   });
 
@@ -245,7 +245,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       client.receiveMessage(msg);
 
       // Verify
-      expect(client.getLastMetric()!.serialOutputPerSecond).toBe(50);
+      expect(client.getLastMetric()?.serialOutputPerSecond).toBe(50);
     });
 
     it("should reset serial counter independently from pin counter", () => {
@@ -260,8 +260,8 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       let msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      expect(client.getLastMetric()!.pinChangesPerSecond).toBe(5);
-      expect(client.getLastMetric()!.serialOutputPerSecond).toBe(10);
+      expect(client.getLastMetric()?.pinChangesPerSecond).toBe(5);
+      expect(client.getLastMetric()?.serialOutputPerSecond).toBe(10);
 
       // Second interval: only pins (no serial)
       for (let i = 0; i < 3; i++) {
@@ -271,8 +271,8 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      expect(client.getLastMetric()!.pinChangesPerSecond).toBe(3);
-      expect(client.getLastMetric()!.serialOutputPerSecond).toBe(0);
+      expect(client.getLastMetric()?.pinChangesPerSecond).toBe(3);
+      expect(client.getLastMetric()?.serialOutputPerSecond).toBe(0);
     });
   });
 
@@ -359,7 +359,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       const msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      expect(client.getLastMetric()!.pinChangesPerSecond).toBe(300);
+      expect(client.getLastMetric()?.pinChangesPerSecond).toBe(300);
     });
 
     it("should handle very high serial output rates", () => {
@@ -371,7 +371,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       const msg = server.getTelemetryMessage();
       client.receiveMessage(msg);
 
-      expect(client.getLastMetric()!.serialOutputPerSecond).toBe(500);
+      expect(client.getLastMetric()?.serialOutputPerSecond).toBe(500);
     });
 
     it("should handle rapid alternating pin and serial events", () => {
