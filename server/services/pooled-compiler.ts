@@ -34,8 +34,9 @@ export class PooledCompiler {
     } else if (this.usePool) {
       try {
         this.pool = getCompilationPool();
-      } catch (_err) {
+      } catch {
         // Worker pool unavailable (e.g., worker files not found) - fall back to direct compiler
+        // This is expected in development mode and is handled gracefully
         this.pool = null;
       }
     } else {
@@ -59,8 +60,9 @@ export class PooledCompiler {
       try {
         const task: CompileRequestPayload = { code, headers, tempRoot, ...options };
         return await this.pool.compile(task);
-      } catch (_err) {
+      } catch {
         // Pool failed to compile (e.g., workers not operational) - fall back to direct compiler
+        // This is an expected fallback path when workers are unavailable
         if (!this.directCompiler) {
           throw new Error("Neither pool nor direct compiler available");
         }
@@ -73,6 +75,13 @@ export class PooledCompiler {
       }
       return await this.directCompiler.compile(code, headers, tempRoot, options);
     }
+  }
+
+  /**
+   * Check if worker pool is operational
+   */
+  isOperational(): boolean {
+    return this.usePool && this.pool !== null;
   }
 
   /**
