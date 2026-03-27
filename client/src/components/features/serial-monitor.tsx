@@ -87,28 +87,29 @@ export function applyBackspaceAcrossLines(
       idx++;
     }
 
-    if (
-      backspaceCount > 0 &&
-      lines.length > 0 &&
-      lines.at(-1)!.incomplete
-    ) {
-      const lastLine = lines.at(-1)!;
-      lastLine.text = lastLine.text.slice(
-        0,
-        Math.max(0, lastLine.text.length - backspaceCount),
-      );
-      text = text.slice(backspaceCount);
+    if (backspaceCount > 0) {
+      const lastLine = lines.at(-1);
+      if (lastLine?.incomplete) {
+        lastLine.text = lastLine.text.slice(
+          0,
+          Math.max(0, lastLine.text.length - backspaceCount),
+        );
+        text = text.slice(backspaceCount);
+      }
     }
   }
 
   // If there's still text to process and we have an incomplete line, append to it
-  if (text && lines.length > 0 && lines.at(-1)!.incomplete) {
-    const cleanText = processAnsiCodes(text);
-    if (cleanText) {
-      lines.at(-1)!.text += cleanText;
-      lines.at(-1)!.incomplete = !isComplete;
+  if (text) {
+    const lastLine = lines.at(-1);
+    if (lastLine?.incomplete) {
+      const cleanText = processAnsiCodes(text);
+      if (cleanText) {
+        lastLine.text += cleanText;
+        lastLine.incomplete = !isComplete;
+      }
+      return null; // already handled
     }
-    return null; // already handled
   }
 
   // No text left after backspace processing, or no incomplete line to append to
@@ -140,10 +141,9 @@ function processCarriageReturnLine(
   const parts = text.split("\r");
   const cleanParts = parts.map((p) => processAnsiCodes(p));
   if (cleanParts.length <= 1) return false;
-  const finalText = cleanParts.at(-1)!;
-  if (lines.length > 0 && !lines.at(-1)!.incomplete) {
-    lines.push({ text: finalText, incomplete: !lineComplete });
-  } else if (lines.length > 0) {
+  const finalText = cleanParts.at(-1) ?? "";
+  const lastLine = lines.at(-1);
+  if (lastLine && lastLine.incomplete) {
     lines[lines.length - 1] = { text: finalText, incomplete: !lineComplete };
   } else {
     lines.push({ text: finalText, incomplete: !lineComplete });

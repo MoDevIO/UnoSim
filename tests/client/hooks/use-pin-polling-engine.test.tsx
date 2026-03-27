@@ -579,7 +579,8 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
 
   it("hides existing val labels when showPWMValues is false (hideAllLabels)", () => {
     const { overlayRef } = buildExtendedOverlay();
-    const svgEl = overlayRef.current?.querySelector("svg")!;
+    const svgEl = overlayRef.current?.querySelector("svg");
+    if (!svgEl) throw new Error("svgEl should be defined");
 
     // Pre-add a val label element
     const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -601,12 +602,14 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
 
   it("creates PWM label text element when showPWMValues=true and getBBox is mocked", () => {
     const { overlayRef } = buildExtendedOverlay();
-    const svgEl = overlayRef.current!.querySelector("svg")!;
+    const svgEl = overlayRef.current?.querySelector("svg");
+    if (!svgEl) throw new Error("svgEl should be defined");
 
     // Mock getBBox on both elements – code uses stateEl if instanceof SVGGraphicsElement, else frameEl
     const mockBBox = { x: 30, y: 10, width: 6, height: 6, bottom: 16, left: 30, right: 36, top: 10 } as DOMRect;
-    const circle = svgEl.querySelector<SVGCircleElement>("#pin-3-state")!;
-    const frame = svgEl.querySelector<SVGRectElement>("#pin-3-frame")!;
+    const circle = svgEl.querySelector<SVGCircleElement>("#pin-3-state");
+    const frame = svgEl.querySelector<SVGRectElement>("#pin-3-frame");
+    if (!circle || !frame) throw new Error("circle and frame should be defined");
     Object.defineProperty(circle, "getBBox", { configurable: true, value: () => mockBBox });
     Object.defineProperty(frame, "getBBox", { configurable: true, value: () => mockBBox });
 
@@ -625,7 +628,8 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
 
   it("updates existing label textContent in ensureSvgText (update-path coverage)", () => {
     const { overlayRef } = buildExtendedOverlay();
-    const svgEl = overlayRef.current?.querySelector("svg")!;
+    const svgEl = overlayRef.current?.querySelector("svg");
+    if (!svgEl) throw new Error("svgEl should be defined");
 
     // Pre-add the label so ensureSvgText takes the update-path (t != null)
     const existing = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -635,8 +639,9 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
 
     // Mock getBBox on both elements – code picks whichever passes instanceof check
     const mockBBox = { x: 30, y: 10, width: 6, height: 6, bottom: 16, left: 30, right: 36, top: 10 } as DOMRect;
-    const circle = svgEl.querySelector<SVGCircleElement>("#pin-3-state")!;
-    const frame = svgEl.querySelector<SVGRectElement>("#pin-3-frame")!;
+    const circle = svgEl.querySelector<SVGCircleElement>("#pin-3-state");
+    const frame = svgEl.querySelector<SVGRectElement>("#pin-3-frame");
+    if (!circle || !frame) throw new Error("circle and frame should be defined");
     Object.defineProperty(circle, "getBBox", { configurable: true, value: () => mockBBox });
     Object.defineProperty(frame, "getBBox", { configurable: true, value: () => mockBBox });
 
@@ -653,13 +658,15 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
 
   it("computes lower-half label position (cy >= VIEWBOX_HEIGHT/2 → anchor=end)", () => {
     const { overlayRef } = buildExtendedOverlay();
-    const svgEl = overlayRef.current!.querySelector("svg")!;
+    const svgEl = overlayRef.current?.querySelector("svg");
+    if (!svgEl) throw new Error("svgEl should be defined");
 
     // cy = 183 (> 104.5 = VIEWBOX_HEIGHT/2) → label goes below → anchor "end"
     // Mock getBBox on both elements – code picks whichever passes instanceof check
     const mockBBox = { x: 10, y: 180, width: 6, height: 6, bottom: 186, left: 10, right: 16, top: 180 } as DOMRect;
-    const circle = svgEl.querySelector<SVGCircleElement>("#pin-A0-state")!;
-    const frame = svgEl.querySelector<SVGRectElement>("#pin-A0-frame")!;
+    const circle = svgEl.querySelector<SVGCircleElement>("#pin-A0-state");
+    const frame = svgEl.querySelector<SVGRectElement>("#pin-A0-frame");
+    if (!circle || !frame) throw new Error("circle and frame should be defined");
     Object.defineProperty(circle, "getBBox", { configurable: true, value: () => mockBBox });
     Object.defineProperty(frame, "getBBox", { configurable: true, value: () => mockBBox });
 
