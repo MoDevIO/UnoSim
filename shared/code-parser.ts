@@ -96,9 +96,11 @@ class PinCompatibilityChecker {
       const line = this.uncommentedCode.slice(0, Math.max(0, match.index)).split("\n").length;
 
       if (result.has(pin)) {
-        const entry = result.get(pin)!;
-        entry.modes.push(mode);
-        entry.lines.push(line);
+        const entry = result.get(pin);
+        if (entry) {
+          entry.modes.push(mode);
+          entry.lines.push(line);
+        }
       } else {
         result.set(pin, { modes: [mode], lines: [line] });
       }
@@ -108,9 +110,11 @@ class PinCompatibilityChecker {
     for (const { pin, mode, line } of getLoopPinModeCalls(this.uncommentedCode)) {
       const key = String(pin);
       if (result.has(key)) {
-        const entry = result.get(key)!;
-        entry.modes.push(mode);
-        entry.lines.push(line);
+        const entry = result.get(key);
+        if (entry) {
+          entry.modes.push(mode);
+          entry.lines.push(line);
+        }
       } else {
         result.set(key, { modes: [mode], lines: [line] });
       }

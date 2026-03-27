@@ -8,22 +8,19 @@ import { getCurrentFontScale, increaseFontScale, decreaseFontScale } from "./lib
 import { isMac } from "./lib/platform";
 import { Logger } from "@shared/logger";
 
-// Extend global interfaces for optional test hooks and Monaco worker wiring
+// Extend globalThis for optional test hooks and Monaco worker wiring
 declare global {
-  interface Window {
-    MonacoEnvironment?: { getWorker: () => Worker };
-    setEditorContent?: (code: string, maxRetries?: number) => Promise<boolean>;
-    __MONACO_EDITOR__?: {
-      setValue: (code: string) => void;
-      getModel?: () => { setValue?: (code: string) => void };
-      getDomNode?: () => HTMLElement | null;
-      focus?: () => void;
-    };
-  }
-
-  interface WorkerGlobalScope {
-    MonacoEnvironment?: { getWorker: () => Worker };
-  }
+   
+  var MonacoEnvironment: { getWorker: () => Worker } | undefined;
+   
+  var setEditorContent: ((code: string, maxRetries?: number) => Promise<boolean>) | undefined;
+   
+  var __MONACO_EDITOR__: {
+    setValue: (code: string) => void;
+    getModel?: () => { setValue?: (code: string) => void };
+    getDomNode?: () => HTMLElement | null;
+    focus?: () => void;
+  } | undefined;
 }
 
 const logger = new Logger("Main");
@@ -31,11 +28,9 @@ const logger = new Logger("Main");
 // Provide MonacoEnvironment.getWorker to load editor workers off the main thread
 if (typeof globalThis !== "undefined") {
   // Monaco expects a global MonacoEnvironment.getWorker factory.
-  // Cast to a constructor type to satisfy TS inference.
-  const MonacoWorkerConstructor = editorWorker as unknown as new () => Worker;
-  (globalThis as any).MonacoEnvironment = {
+  globalThis.MonacoEnvironment = {
     getWorker() {
-      return new MonacoWorkerConstructor();
+      return new editorWorker();
     },
   };
 }
@@ -89,12 +84,12 @@ setupFontScaleShortcuts();
 
 // E2E TEST HOOK: Add a global setEditorContent function for Playwright
 if (globalThis.window !== undefined) {
-  (globalThis as any).setEditorContent = async function (code: string, maxRetries: number = 50) {
+  globalThis.setEditorContent = async function (code: string, maxRetries: number = 50) {
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
     let lastErr: unknown;
     for (let i = 0; i < maxRetries; ++i) {
       try {
-        const editor = (globalThis as any).__MONACO_EDITOR__;
+        const editor = globalThis.__MONACO_EDITOR__;
         if (editor && typeof editor.setValue === "function") {
           editor.focus?.();
           editor.setValue(code);
@@ -122,4 +117,6 @@ if (globalThis.window !== undefined) {
   };
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootEl = document.getElementById("root");
+if (!rootEl) throw new Error("Root element #root not found");
+createRoot(rootEl).render(<App />);

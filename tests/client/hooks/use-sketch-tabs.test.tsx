@@ -23,7 +23,7 @@ describe("useSketchTabs", () => {
   it("should create a new tab and set it as active", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let newTabId: string;
+    let newTabId = "";
     act(() => {
       newTabId = result.current.createTab("MySketch", "void setup() {}");
     });
@@ -31,8 +31,8 @@ describe("useSketchTabs", () => {
     expect(result.current.tabs).toHaveLength(1);
     expect(result.current.tabs[0].name).toBe("MySketch");
     expect(result.current.tabs[0].content).toBe("void setup() {}");
-    expect(result.current.tabs[0].id).toBe(newTabId!);
-    expect(result.current.activeTabId).toBe(newTabId!);
+    expect(result.current.tabs[0].id).toBe(newTabId);
+    expect(result.current.activeTabId).toBe(newTabId);
   });
 
   it("should create tab with empty content by default", () => {
@@ -62,32 +62,32 @@ describe("useSketchTabs", () => {
   it("should select a tab", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tab1Id: string, tab2Id: string;
+    let tab1Id = "", tab2Id = "";
     act(() => {
       tab1Id = result.current.createTab("Tab1");
       tab2Id = result.current.createTab("Tab2");
     });
 
     // Tab2 should be active after creation
-    expect(result.current.activeTabId).toBe(tab2Id!);
+    expect(result.current.activeTabId).toBe(tab2Id);
 
     act(() => {
-      result.current.selectTab(tab1Id!);
+      result.current.selectTab(tab1Id);
     });
 
-    expect(result.current.activeTabId).toBe(tab1Id!);
+    expect(result.current.activeTabId).toBe(tab1Id);
   });
 
   it("should update tab content", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tabId: string;
+    let tabId = "";
     act(() => {
       tabId = result.current.createTab("Tab1", "old content");
     });
 
     act(() => {
-      result.current.updateTab(tabId!, { content: "new content" });
+      result.current.updateTab(tabId, { content: "new content" });
     });
 
     expect(result.current.tabs[0].content).toBe("new content");
@@ -97,13 +97,13 @@ describe("useSketchTabs", () => {
   it("should update tab name", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tabId: string;
+    let tabId = "";
     act(() => {
       tabId = result.current.createTab("OldName");
     });
 
     act(() => {
-      result.current.updateTab(tabId!, { name: "NewName" });
+      result.current.updateTab(tabId, { name: "NewName" });
     });
 
     expect(result.current.tabs[0].name).toBe("NewName");
@@ -112,13 +112,13 @@ describe("useSketchTabs", () => {
   it("should rename tab using renameTab", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tabId: string;
+    let tabId = "";
     act(() => {
       tabId = result.current.createTab("Original");
     });
 
     act(() => {
-      result.current.renameTab(tabId!, "Renamed");
+      result.current.renameTab(tabId, "Renamed");
     });
 
     expect(result.current.tabs[0].name).toBe("Renamed");
@@ -127,7 +127,7 @@ describe("useSketchTabs", () => {
   it("should delete a tab", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tab1Id: string, tab2Id: string;
+    let tab1Id = "", tab2Id = "";
     act(() => {
       tab1Id = result.current.createTab("Tab1");
       tab2Id = result.current.createTab("Tab2");
@@ -136,44 +136,44 @@ describe("useSketchTabs", () => {
     expect(result.current.tabs).toHaveLength(2);
 
     act(() => {
-      result.current.deleteTab(tab1Id!);
+      result.current.deleteTab(tab1Id);
     });
 
     expect(result.current.tabs).toHaveLength(1);
-    expect(result.current.tabs[0].id).toBe(tab2Id!);
+    expect(result.current.tabs[0].id).toBe(tab2Id);
   });
 
   it("should switch to first tab when deleting active tab", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tab1Id: string, tab2Id: string;
+    let tab1Id = "", tab2Id = "";
     act(() => {
       tab1Id = result.current.createTab("Tab1");
       tab2Id = result.current.createTab("Tab2");
     });
 
     // Tab2 is active
-    expect(result.current.activeTabId).toBe(tab2Id!);
+    expect(result.current.activeTabId).toBe(tab2Id);
 
     act(() => {
-      result.current.deleteTab(tab2Id!);
+      result.current.deleteTab(tab2Id);
     });
 
     // Should switch to Tab1
-    expect(result.current.activeTabId).toBe(tab1Id!);
+    expect(result.current.activeTabId).toBe(tab1Id);
     expect(result.current.tabs).toHaveLength(1);
   });
 
   it("should set activeTabId to null when deleting the last tab", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tabId: string;
+    let tabId = "";
     act(() => {
       tabId = result.current.createTab("OnlyTab");
     });
 
     act(() => {
-      result.current.deleteTab(tabId!);
+      result.current.deleteTab(tabId);
     });
 
     expect(result.current.tabs).toHaveLength(0);
@@ -183,7 +183,7 @@ describe("useSketchTabs", () => {
   it("should not change activeTabId when deleting non-active tab", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let _tab1Id: string, tab2Id: string, tab3Id: string;
+    let _tab1Id = "", tab2Id = "", tab3Id = "";
     act(() => {
       _tab1Id = result.current.createTab("Tab1");
       tab2Id = result.current.createTab("Tab2");
@@ -192,18 +192,18 @@ describe("useSketchTabs", () => {
 
     // Select Tab2
     act(() => {
-      result.current.selectTab(tab2Id!);
+      result.current.selectTab(tab2Id);
     });
 
-    expect(result.current.activeTabId).toBe(tab2Id!);
+    expect(result.current.activeTabId).toBe(tab2Id);
 
     // Delete Tab3 (not active)
     act(() => {
-      result.current.deleteTab(tab3Id!);
+      result.current.deleteTab(tab3Id);
     });
 
     // Active tab should remain Tab2
-    expect(result.current.activeTabId).toBe(tab2Id!);
+    expect(result.current.activeTabId).toBe(tab2Id);
     expect(result.current.tabs).toHaveLength(2);
   });
 
@@ -278,14 +278,14 @@ describe("useSketchTabs", () => {
   it("should handle concurrent updates correctly", () => {
     const { result } = renderHook(() => useSketchTabs());
 
-    let tabId: string;
+    let tabId = "";
     act(() => {
       tabId = result.current.createTab("Tab1", "initial");
     });
 
     act(() => {
-      result.current.updateTab(tabId!, { content: "update1" });
-      result.current.updateTab(tabId!, { name: "NewName" });
+      result.current.updateTab(tabId, { content: "update1" });
+      result.current.updateTab(tabId, { name: "NewName" });
     });
 
     expect(result.current.tabs[0].content).toBe("update1");
