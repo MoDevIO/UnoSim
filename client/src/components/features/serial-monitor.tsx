@@ -71,6 +71,30 @@ function processAnsiCodes(text: string): string {
   return processed;
 }
 
+/**
+ * Strips leading backspace characters from text and removes corresponding
+ * characters from the last incomplete line.
+ */
+function consumeLeadingBackspaces(
+  lines: Array<{ text: string; incomplete: boolean }>,
+  text: string,
+): string {
+  let idx = 0;
+  while (idx < text.length && text[idx] === "\b") {
+    idx++;
+  }
+  if (idx === 0) return text;
+
+  const lastLine = lines.at(-1);
+  if (!lastLine?.incomplete) return text;
+
+  lastLine.text = lastLine.text.slice(
+    0,
+    Math.max(0, lastLine.text.length - idx),
+  );
+  return text.slice(idx);
+}
+
 // Exported for unit testing and reuse inside the hook
 export function applyBackspaceAcrossLines(
   lines: Array<{ text: string; incomplete: boolean }>,
@@ -79,24 +103,7 @@ export function applyBackspaceAcrossLines(
 ): string | null {
   // Handle backspaces at the start of text
   if (text.includes("\b")) {
-    // Count leading backspaces to remove from previous line
-    let backspaceCount = 0;
-    let idx = 0;
-    while (idx < text.length && text[idx] === "\b") {
-      backspaceCount++;
-      idx++;
-    }
-
-    if (backspaceCount > 0) {
-      const lastLine = lines.at(-1);
-      if (lastLine?.incomplete) {
-        lastLine.text = lastLine.text.slice(
-          0,
-          Math.max(0, lastLine.text.length - backspaceCount),
-        );
-        text = text.slice(backspaceCount);
-      }
-    }
+    text = consumeLeadingBackspaces(lines, text);
   }
 
   // If there's still text to process and we have an incomplete line, append to it
@@ -143,7 +150,7 @@ function processCarriageReturnLine(
   if (cleanParts.length <= 1) return false;
   const finalText = cleanParts.at(-1) ?? "";
   const lastLine = lines.at(-1);
-  if (lastLine && lastLine.incomplete) {
+  if (lastLine?.incomplete) {
     lines[lines.length - 1] = { text: finalText, incomplete: !lineComplete };
   } else {
     lines.push({ text: finalText, incomplete: !lineComplete });

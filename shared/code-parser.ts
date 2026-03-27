@@ -71,6 +71,18 @@ interface PinModeEntry {
   lines: number[];
 }
 
+const VALID_PIN_MODES = new Set<string>(["INPUT", "OUTPUT", "INPUT_PULLUP"]);
+
+function addPinModeEntry(result: Map<string, PinModeEntry>, pin: string, mode: PinMode, line: number): void {
+  const existing = result.get(pin);
+  if (existing) {
+    existing.modes.push(mode);
+    existing.lines.push(line);
+  } else {
+    result.set(pin, { modes: [mode], lines: [line] });
+  }
+}
+
 /**
  * Specialized analyzer for pin mode conflicts and hardware compatibility
  */
@@ -89,35 +101,14 @@ class PinCompatibilityChecker {
     while ((match = pinModeWithModeRegex.exec(this.uncommentedCode)) !== null) {
       const pin = match[1];
       const rawMode = match[2];
-      const mode: PinMode =
-        rawMode === "INPUT" || rawMode === "OUTPUT" || rawMode === "INPUT_PULLUP"
-          ? rawMode
-          : "INPUT";
+      const mode: PinMode = VALID_PIN_MODES.has(rawMode) ? (rawMode as PinMode) : "INPUT";
       const line = this.uncommentedCode.slice(0, Math.max(0, match.index)).split("\n").length;
-
-      if (result.has(pin)) {
-        const entry = result.get(pin);
-        if (entry) {
-          entry.modes.push(mode);
-          entry.lines.push(line);
-        }
-      } else {
-        result.set(pin, { modes: [mode], lines: [line] });
-      }
+      addPinModeEntry(result, pin, mode, line);
     }
 
     // Loop-based pinMode() calls
     for (const { pin, mode, line } of getLoopPinModeCalls(this.uncommentedCode)) {
-      const key = String(pin);
-      if (result.has(key)) {
-        const entry = result.get(key);
-        if (entry) {
-          entry.modes.push(mode);
-          entry.lines.push(line);
-        }
-      } else {
-        result.set(key, { modes: [mode], lines: [line] });
-      }
+      addPinModeEntry(result, String(pin), mode, line);
     }
 
     return result;
