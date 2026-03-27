@@ -148,8 +148,8 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       // Verify metric is transmitted correctly
       const lastMetric = client.getLastMetric();
       expect(lastMetric).not.toBeNull();
-      expect(lastMetric!.pinChangesPerSecond).toBe(1);
-      expect(lastMetric!.isThrottled).toBe(true); // Debounce active
+      expect(lastMetric?.pinChangesPerSecond).toBe(1);
+      expect(lastMetric?.isThrottled).toBe(true); // Debounce active
     });
 
     it("should track multiple pin changes in single interval", () => {
@@ -168,7 +168,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
 
       // Verify all changes counted
       const lastMetric = client.getLastMetric();
-      expect(lastMetric!.pinChangesPerSecond).toBe(5);
+      expect(lastMetric?.pinChangesPerSecond).toBe(5);
     });
 
     it("should reset pin counter after reporting", () => {
@@ -229,7 +229,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
 
       // Verify
       const lastMetric = client.getLastMetric();
-      expect(lastMetric!.serialOutputPerSecond).toBe(1);
+      expect(lastMetric?.serialOutputPerSecond).toBe(1);
     });
 
     it("should track high-frequency serial output", () => {
