@@ -48,8 +48,8 @@ function fetchHttp(
     const req = http.request(reqOptions, async (res) => {
       const data = await collectBody(res);
       resolve({
-        ok: res.statusCode! >= 200 && res.statusCode! < 300,
-        status: res.statusCode!,
+        ok: (res.statusCode ?? 200) >= 200 && (res.statusCode ?? 200) < 300,
+        status: res.statusCode ?? 200,
         json: async () => JSON.parse(data),
         text: async () => data,
       });

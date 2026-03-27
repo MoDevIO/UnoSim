@@ -47,8 +47,8 @@ function fetchHttp(
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
         resolve({
-          ok: res.statusCode! >= 200 && res.statusCode! < 300,
-          status: res.statusCode!,
+          ok: (res.statusCode ?? 200) >= 200 && (res.statusCode ?? 200) < 300,
+          status: res.statusCode ?? 200,
           json: async () => JSON.parse(data), // NOSONAR S2004
           text: async () => data, // NOSONAR S2004
         });
