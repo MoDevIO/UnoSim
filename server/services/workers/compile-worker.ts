@@ -23,9 +23,19 @@ import {
   createWorkerError,
   isCompileRequest,
 } from "@shared/worker-protocol";
-import { createHash } from "node:crypto";
-import { mkdir, open, readdir, rm, stat, unlink, utimes, writeFile } from "node:fs/promises";
+import { mkdir, unlink, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
+import {
+  acquireCoreCacheLock,
+  buildSketchHash,
+  checkBinaryExists,
+  checkFileExists,
+  cleanupCacheLru,
+  ensureDirectories,
+  execArduinoCliJson,
+  normalizeLibraries,
+} from "./compile-worker-utils";
 
 // Disable the CompileGatekeeper in worker threads since the pool controls concurrency
 process.env.COMPILE_GATEKEEPER_DISABLED = "true";
@@ -73,55 +83,16 @@ async function initializeCompiler() {
 
 async function ensureWorkerDirs(): Promise<void> {
   if (workerDirsReady) return;
-  await mkdir(WORKER_BUILD_DIR, { recursive: true });
-  await mkdir(join(WORKER_BUILD_DIR, "build-output"), { recursive: true });
-  await mkdir(HEX_CACHE_DIR, { recursive: true });
-  await mkdir(CORE_CACHE_DIR, { recursive: true });
-  await mkdir(CORE_CACHE_BUILD_PATH, { recursive: true });
-  await mkdir(CORE_CACHE_LOCK_DIR, { recursive: true });
-  await mkdir(CORE_CACHE_META_DIR, { recursive: true });
+  await ensureDirectories([
+    WORKER_BUILD_DIR,
+    join(WORKER_BUILD_DIR, "build-output"),
+    HEX_CACHE_DIR,
+    CORE_CACHE_DIR,
+    CORE_CACHE_BUILD_PATH,
+    CORE_CACHE_LOCK_DIR,
+    CORE_CACHE_META_DIR,
+  ]);
   workerDirsReady = true;
-}
-
- 
-async function execArduinoCliJson(args: string[]): Promise<any> {
-  const { spawn } = await import("node:child_process");
-
-  return new Promise((resolve) => {
-    const proc = spawn("arduino-cli", args);
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout?.on("data", (data) => {
-      stdout += data.toString();
-    });
-    proc.stderr?.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on("close", (code) => {
-      if (code !== 0) {
-        logger.debug(`[Worker] arduino-cli ${args.join(" ")} failed: ${stderr.trim()}`);
-        resolve(null);
-        return;
-      }
-
-      try {
-        resolve(stdout ? JSON.parse(stdout) : null);
-      } catch {
-        resolve(null);
-      }
-    });
-
-    proc.on("error", () => resolve(null));
-  });
-}
-
-function normalizeLibraries(libraries?: string[]): string[] {
-  return (libraries || [])
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b));
 }
 
 async function getInstalledLibrariesFingerprint(): Promise<string> {
@@ -173,14 +144,6 @@ async function getCompilerVersion(): Promise<string> {
   return value;
 }
 
-function buildSketchHash(task: CompileRequestPayload, fqbn: string): string {
-  const payload = JSON.stringify({
-    code: task.code,
-    fqbn,
-  });
-  return createHash("sha256").update(payload).digest("hex");
-}
-
 async function buildCoreFingerprint(task: CompileRequestPayload, fqbn: string): Promise<string> {
   const [compilerVersion, installedLibFingerprint] = await Promise.all([
     getCompilerVersion(),
@@ -192,119 +155,8 @@ async function buildCoreFingerprint(task: CompileRequestPayload, fqbn: string): 
   return createHash("sha256").update(payload).digest("hex");
 }
 
-async function acquireCoreCacheLock(lockPath: string, timeoutMs: number = 120000): Promise<{ acquired: boolean; waitedMs: number }> {
-  const start = Date.now();
-
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const fd = await open(lockPath, "wx");
-      await fd.writeFile(`${process.pid}:${resolvedWorkerId}:${new Date().toISOString()}`);
-      await fd.close();
-      return { acquired: true, waitedMs: Date.now() - start };
-    } catch (error: any) {
-      if (error?.code !== "EEXIST") {
-        throw error;
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-
-  return { acquired: false, waitedMs: Date.now() - start };
-}
-
-async function collectDirectoryRecords(targetDir: string): Promise<{ records: Array<{ fullPath: string; size: number; atimeMs: number }>; totalSize: number }> {
-  await mkdir(targetDir, { recursive: true });
-  const entries = await readdir(targetDir);
-  const records: Array<{ fullPath: string; size: number; atimeMs: number }> = [];
-  let totalSize = 0;
-
-  for (const entry of entries) {
-    const fullPath = join(targetDir, entry);
-    try {
-      const entryStat = await stat(fullPath);
-      const atimeMs = entryStat.atimeMs || entryStat.mtimeMs;
-      let size = entryStat.size;
-
-      if (entryStat.isDirectory()) {
-        const nested = await readdir(fullPath);
-        size = 0;
-        for (const nestedEntry of nested) {
-          const nestedStat = await stat(join(fullPath, nestedEntry));
-          size += nestedStat.size;
-        }
-      }
-
-      totalSize += size;
-      records.push({ fullPath, size, atimeMs });
-    } catch {
-      // ignore races with concurrent delete
-    }
-  }
-
-  return { records, totalSize };
-}
-
-async function evictLruEntries(records: Array<{ fullPath: string; size: number; atimeMs: number }>, totalSize: number, maxBytes: number): Promise<void> {
-  records.sort((a, b) => a.atimeMs - b.atimeMs);
-  let remaining = totalSize;
-  for (const record of records) {
-    if (remaining <= maxBytes) break;
-    await rm(record.fullPath, { recursive: true, force: true });
-    remaining -= record.size;
-  }
-}
-
-async function cleanupCacheLru(): Promise<void> {
-  const markerPath = join(BUILD_CACHE_DIR, ".cleanup-marker");
-  const now = Date.now();
-  try {
-    const markerStat = await stat(markerPath);
-    if (now - markerStat.mtimeMs < 60_000) {
-      return;
-    }
-  } catch {
-    // continue cleanup if marker doesn't exist
-  }
-
-  const maxBytes = Number(process.env.BUILD_CACHE_MAX_BYTES || 2 * 1024 * 1024 * 1024);
-  const targets = [HEX_CACHE_DIR, CORE_CACHE_BUILD_PATH];
-
-  for (const targetDir of targets) {
-    try {
-      const { records, totalSize } = await collectDirectoryRecords(targetDir);
-      if (totalSize > maxBytes) {
-        await evictLruEntries(records, totalSize, maxBytes);
-      }
-    } catch (error) {
-      logger.debug(`[Worker] Cache cleanup skipped for ${targetDir}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  await writeFile(markerPath, String(now));
-}
-
-async function checkBinaryExists(sketchHash: string): Promise<boolean> {
-  try {
-    await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.hex`));
-    return true;
-  } catch {
-    try {
-      await stat(join(BINARY_STORAGE_DIR, `${sketchHash}.elf`));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-
-async function checkFileExists(filePath: string): Promise<boolean> {
-  try {
-    await stat(filePath);
-    return true;
-  } catch {
-    return false;
-  }
+async function cleanupCacheLruLocal(): Promise<void> {
+  await cleanupCacheLru(BUILD_CACHE_DIR, [HEX_CACHE_DIR, CORE_CACHE_BUILD_PATH]);
 }
 
 async function acquireCoreCache(coreReadyMarker: string, coreLockPath: string, coreFingerprint: string): Promise<{ coreCacheWarm: boolean; acquiredCoreLock: boolean; activeBuildCachePath: string }> {
@@ -352,7 +204,7 @@ async function processCompileRequest(task: CompileRequestPayload) {
     const coreLockPath = join(CORE_CACHE_LOCK_DIR, `${coreFingerprint}.lock`);
     const sketchBuildPath = join(WORKER_BUILD_DIR, "build-output", sketchHash);
 
-    const hasInstantBinary = await checkBinaryExists(sketchHash);
+    const hasInstantBinary = await checkBinaryExists(BINARY_STORAGE_DIR, sketchHash);
     const { coreCacheWarm, acquiredCoreLock, activeBuildCachePath } = await acquireCoreCache(coreReadyMarker, coreLockPath, coreFingerprint);
 
     if (hasInstantBinary) {
@@ -396,7 +248,7 @@ async function processCompileRequest(task: CompileRequestPayload) {
         logger.info(`[Worker ${resolvedWorkerId}] Core-Cache Miss. Full compile in ${elapsedMs}ms.`);
       }
 
-      await cleanupCacheLru();
+      await cleanupCacheLruLocal();
       return compileResult;
     } finally {
       if (acquiredCoreLock) {
