@@ -154,7 +154,7 @@ void loop() {
 
     // Verify header height token is defined
     expect(headerHeight).toBeTruthy();
-    expect(headerHeight).toMatch(/\d+(px|rem|%|em)/);
+    expect(headerHeight).toMatch(/\d+(?:px|rem|%|em)/);
 
     // Verify board is visible and not clipped
     await expect(boardContainer).toBeVisible();

@@ -28,7 +28,7 @@ afterEach(async () => {
 
 describe("normalizeLibraries", () => {
   it("returns empty array for undefined input", () => {
-    expect(normalizeLibraries(undefined)).toEqual([]);
+    expect(normalizeLibraries()).toEqual([]);
   });
 
   it("returns empty array for empty input", () => {
