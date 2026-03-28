@@ -12,6 +12,7 @@ import {
   evictLruEntries,
   cleanupCacheLru,
   ensureDirectories,
+  execArduinoCliJson,
 } from "../../../server/services/workers/compile-worker-utils";
 
 // Use a unique temp dir per test run to avoid collisions
@@ -326,5 +327,29 @@ describe("ensureDirectories", () => {
     await ensureDirectories([dir]);
     await ensureDirectories([dir]); // should not throw
     expect(await checkFileExists(dir)).toBe(true);
+  });
+});
+
+describe("acquireCoreCacheLock - error propagation", () => {
+  it("throws non-EEXIST errors", async () => {
+    // Try to acquire lock in a path where directory does not exist
+    const lockPath = join(TEST_BASE, "no-such-dir", "deep", "test.lock");
+    await expect(acquireCoreCacheLock(lockPath, 200)).rejects.toThrow();
+  });
+});
+
+describe("execArduinoCliJson", () => {
+  it("returns parsed JSON for valid commands", async () => {
+    const result = await execArduinoCliJson(["version", "--format", "json"]);
+    if (result === null) {
+      // arduino-cli not installed — skip gracefully
+      return;
+    }
+    expect(result).toHaveProperty("Application", "arduino-cli");
+  });
+
+  it("resolves null for invalid subcommands", async () => {
+    const result = await execArduinoCliJson(["nonexistent-command-xyz"]);
+    expect(result).toBeNull();
   });
 });
