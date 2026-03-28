@@ -134,7 +134,7 @@ class PinCompatibilityChecker {
           type: "warning",
           category: "pins",
           severity: 2,
-          message: `Pin ${pin} has multiple pinMode() calls with different modes: ${uniqueModes.join(", ")}.`,
+          message: `Pin ${pin} has multiple pinMode() calls with different modes: ${[...uniqueModes].join(", ")}.`,
           suggestion: `Use a single pinMode(${pin}, <MODE>) call in setup().`,
           line,
         });

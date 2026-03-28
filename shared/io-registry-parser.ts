@@ -367,7 +367,7 @@ function generateConflictMessage(
   uniqueModes: PinModeType[],
 ): string {
   if (pinModeConflict) {
-    return `Multiple modes: ${uniqueModes.join(", ")}`;
+    return `Multiple modes: ${[...uniqueModes].join(", ")}`;
   }
   if (operationConflict) {
     const nonOutputModes = uniqueModes.filter((mm) => mm !== "OUTPUT");

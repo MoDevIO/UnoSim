@@ -41,7 +41,7 @@ import {
 process.env.COMPILE_GATEKEEPER_DISABLED = "true";
 
 const logger = new Logger("compile-worker");
-const BUILD_CACHE_DIR = process.env.BUILD_CACHE_DIR || "/tmp/unowebsim/cache";
+const BUILD_CACHE_DIR = process.env.BUILD_CACHE_DIR || join(process.cwd(), "storage", "cache");
 const HEX_CACHE_DIR = join(BUILD_CACHE_DIR, "hex-cache");
 const CORE_CACHE_DIR = join(process.cwd(), "storage", "core-cache");
 const CORE_CACHE_BUILD_PATH = join(CORE_CACHE_DIR, "build-cache");
