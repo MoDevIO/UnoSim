@@ -44,7 +44,7 @@ void loop() {
     await startButton.click();
 
     // Wait for simulation to be running - use more specific selector
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 15000 });
 
     // Wait a moment for pins to be registered and displayed
     await page.waitForTimeout(500);
@@ -53,9 +53,9 @@ void loop() {
     const board = page.locator('[data-testid*="arduino"], svg').first();
     await expect(board).toBeVisible({ timeout: 5000 });
 
-    // Verify serial output shows setup completed
+    // Verify serial output shows setup completed (generous timeout for cold-start compiles)
     const serial = page.locator('[data-testid="serial-output"]');
-    await expect(serial).toContainText(/pins set to high/i, { timeout: 10000 });
+    await expect(serial).toContainText(/pins set to high/i, { timeout: 15000 });
   });
 
   test('should display correct pin state changes when multiple pins toggle rapidly', async ({ page }) => {
