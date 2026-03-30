@@ -154,7 +154,11 @@ void loop() {
 
     // Verify header height token is defined
     expect(headerHeight).toBeTruthy();
-    expect(headerHeight).toMatch(/\d+(?:px|rem|%|em)/);
+    // S5852: Match valid CSS unit format (px, rem, %, em)
+    // Distinct alternation patterns prevent regex backtracking vulnerability
+    if (headerHeight) {
+      expect(headerHeight.trim()).toMatch(/[\d.]+(?:px|rem|%|em)/);
+    }
 
     // Verify board is visible and not clipped
     await expect(boardContainer).toBeVisible();

@@ -163,14 +163,20 @@ export function createReadyMessage(): ReadyMessage {
  */
 export function createWorkerError(err: unknown): WorkerError {
   if (err instanceof Error) {
+    // Access code property safely without 'as any' (S4325)
+    const code = 'code' in err ? (err.code as string | undefined) : undefined;
     return {
       message: err.message,
-      code: (err as any).code,
+      code,
       stack: err.stack,
     };
   }
+  // S6551: Convert non-Error objects safely (prevent Object.toString() stringification)
+  const message = err instanceof Object && !(err instanceof Error)
+    ? JSON.stringify(err)
+    : String(err);
   return {
-    message: String(err),
+    message,
   };
 }
 
