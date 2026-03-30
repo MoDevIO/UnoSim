@@ -157,6 +157,7 @@ void loop() {
     // S5852: Match valid CSS unit format (px, rem, %, em)
     // Distinct alternation patterns prevent regex backtracking vulnerability
     if (headerHeight) {
+      // NOSONAR S5852 - Safe pattern: distinct unit tokens (px|rem|%|em) have no overlap
       expect(headerHeight.trim()).toMatch(/[\d.]+(?:px|rem|%|em)/);
     }
 
