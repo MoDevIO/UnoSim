@@ -46,12 +46,12 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 
     const pin13 = registry.find((p) => p.pin === "13");
     expect(pin13, "pin 13 must be in registry").toBeDefined();
-    expect(pin13!.pinModeModes).toContain("OUTPUT");
-    expect(pin13!.pinModeLines).toHaveLength(1);
+    expect(pin13?.pinModeModes).toContain("OUTPUT");
+    expect(pin13?.pinModeLines).toHaveLength(1);
     // Compact mode: defined means checkmark
-    expect(pin13!.defined).toBe(true);
+    expect(pin13?.defined).toBe(true);
     // Line number must be > 0 (not 0)
-    expect(pin13!.pinModeLines![0]).toBeGreaterThan(0);
+    expect(pin13?.pinModeLines?.[0]).toBeGreaterThan(0);
   });
 
   // ── TC 2 ──────────────────────────────────────────────────────────────────
@@ -66,11 +66,11 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 
     const pinA0 = registry.find((p) => p.pin === "A0");
     expect(pinA0, "A0 must be in registry").toBeDefined();
-    expect(pinA0!.pinId).toBe(14);
-    expect(pinA0!.digitalReadLines).toBeDefined();
-    expect(pinA0!.digitalReadLines!.length).toBeGreaterThan(0);
+    expect(pinA0?.pinId).toBe(14);
+    expect(pinA0?.digitalReadLines).toBeDefined();
+    expect(pinA0?.digitalReadLines?.length).toBeGreaterThan(0);
     // No pinMode was set, so the flag should not be set
-    expect(pinA0!.pinModeModes).toBeUndefined();
+    expect(pinA0?.pinModeModes).toBeUndefined();
   });
 
   // ── TC 3 ──────────────────────────────────────────────────────────────────
@@ -89,8 +89,8 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 
     expect(pin2, "pin 2 must be in registry").toBeDefined();
     expect(pin3, "pin 3 must be in registry").toBeDefined();
-    expect(pin2!.digitalWriteLines!.length).toBeGreaterThan(0);
-    expect(pin3!.digitalWriteLines!.length).toBeGreaterThan(0);
+    expect(pin2?.digitalWriteLines?.length).toBeGreaterThan(0);
+    expect(pin3?.digitalWriteLines?.length).toBeGreaterThan(0);
 
     // Pins 0, 1, 4+ must NOT be added by this code
     expect(registry.find((p) => p.pin === "4")).toBeUndefined();
@@ -109,7 +109,7 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 
     const pin12 = registry.find((p) => p.pin === "12");
     expect(pin12, "pin 12 must be in registry").toBeDefined();
-    expect(pin12!.digitalWriteLines!.length).toBeGreaterThan(0);
+    expect(pin12?.digitalWriteLines?.length).toBeGreaterThan(0);
   });
 
   // ── TC 5 ──────────────────────────────────────────────────────────────────
@@ -125,8 +125,8 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 
     const pinA3 = registry.find((p) => p.pin === "A3");
     expect(pinA3, "A3 must be in registry").toBeDefined();
-    expect(pinA3!.pinId).toBe(17);
-    expect(pinA3!.pinModeModes).toContain("INPUT");
+    expect(pinA3?.pinId).toBe(17);
+    expect(pinA3?.pinModeModes).toContain("INPUT");
   });
 
   // ── TC 6 ──────────────────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
     const pin9 = registry.find((p) => p.pin === "9");
     expect(pin9, "pin 9 must be in registry").toBeDefined();
     // Static parser must produce exactly ONE entry even though loop() runs many times
-    expect(pin9!.digitalWriteLines).toHaveLength(1);
+    expect(pin9?.digitalWriteLines).toHaveLength(1);
   });
 
   // ── TC 7 ──────────────────────────────────────────────────────────────────
@@ -176,10 +176,10 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 
     const pin5 = registry.find((p) => p.pin === "5");
     expect(pin5, "pin 5 must be in registry").toBeDefined();
-    expect(pin5!.digitalReadLines!.length, "digitalRead column").toBeGreaterThan(0);
-    expect(pin5!.digitalWriteLines!.length, "digitalWrite column").toBeGreaterThan(0);
+    expect(pin5?.digitalReadLines?.length, "digitalRead column").toBeGreaterThan(0);
+    expect(pin5?.digitalWriteLines?.length, "digitalWrite column").toBeGreaterThan(0);
     // The two lines must be different
-    expect(pin5!.digitalReadLines![0]).not.toBe(pin5!.digitalWriteLines![0]);
+    expect(pin5?.digitalReadLines?.[0]).not.toBe(pin5?.digitalWriteLines?.[0]);
   });
 
   // ── TC 8 ──────────────────────────────────────────────────────────────────
@@ -211,11 +211,11 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 
     const pinA0 = registry.find((p) => p.pin === "A0");
     expect(pinA0, "A0 must be in registry").toBeDefined();
-    expect(pinA0!.conflict).toBe(true);
-    expect(pinA0!.conflictMessage).toBeTruthy();
+    expect(pinA0?.conflict).toBe(true);
+    expect(pinA0?.conflictMessage).toBeTruthy();
     // Both columns must be populated
-    expect(pinA0!.pinModeModes).toContain("INPUT");
-    expect(pinA0!.digitalWriteLines!.length).toBeGreaterThan(0);
+    expect(pinA0?.pinModeModes).toContain("INPUT");
+    expect(pinA0?.digitalWriteLines?.length).toBeGreaterThan(0);
   });
 
   // ── TC 10 ─────────────────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 
     const pin8 = registry.find((p) => p.pin === "8");
     expect(pin8, "pin 8 must be in registry").toBeDefined();
-    expect(pin8!.digitalReadLines!.length).toBeGreaterThan(0);
+    expect(pin8?.digitalReadLines?.length).toBeGreaterThan(0);
     // pin 7 must NOT be in registry (only pins[1] = 8 is read)
     expect(registry.find((p) => p.pin === "7")).toBeUndefined();
   });
@@ -273,12 +273,12 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 
     const pin13 = registry.find((p) => p.pin === "13");
     expect(pin13, "pin 13 must be in registry").toBeDefined();
-    expect(pin13!.conflict).toBe(true);
-    expect(pin13!.pinModeLines, "both pinMode lines must be recorded").toHaveLength(2);
-    expect(pin13!.pinModeModes).toContain("OUTPUT");
-    expect(pin13!.pinModeModes).toContain("INPUT");
+    expect(pin13?.conflict).toBe(true);
+    expect(pin13?.pinModeLines, "both pinMode lines must be recorded").toHaveLength(2);
+    expect(pin13?.pinModeModes).toContain("OUTPUT");
+    expect(pin13?.pinModeModes).toContain("INPUT");
     // The two line numbers must differ
-    expect(pin13!.pinModeLines![0]).not.toBe(pin13!.pinModeLines![1]);
+    expect(pin13?.pinModeLines?.[0]).not.toBe(pin13?.pinModeLines?.[1]);
   });
 });
 
@@ -325,8 +325,8 @@ describe("parseStaticIORegistry – edge cases", () => {
     const registry = parseStaticIORegistry(code);
     const pin13 = registry.find((p) => p.pin === "13");
     expect(pin13).toBeDefined();
-    expect(pin13!.pinModeModes).toContain("OUTPUT");
-    expect(pin13!.digitalWriteLines!.length).toBeGreaterThan(0);
+    expect(pin13?.pinModeModes).toContain("OUTPUT");
+    expect(pin13?.digitalWriteLines?.length).toBeGreaterThan(0);
   });
 
   it("code without any IO calls returns empty array", () => {
@@ -357,8 +357,8 @@ describe("parseStaticIORegistry – edge cases", () => {
     ]);
     const registry = parseStaticIORegistry(code);
     const pin2 = registry.find((p) => p.pin === "2");
-    expect(pin2!.pinModeModes).toContain("INPUT_PULLUP");
-    expect(pin2!.pinMode).toBe(2);
+    expect(pin2?.pinModeModes).toContain("INPUT_PULLUP");
+    expect(pin2?.pinMode).toBe(2);
   });
 
   // ── TC3b: braceless for-loop ───────────────────────────────────────────────
@@ -379,23 +379,23 @@ describe("parseStaticIORegistry – edge cases", () => {
     for (const n of [1, 2, 3, 4, 5]) {
       const p = registry.find((r) => r.pin === String(n));
       expect(p, `pin ${n} must be in registry`).toBeDefined();
-      expect(p!.pinModeModes).toContain("INPUT");
-      expect(p!.conflict).toBeFalsy();
+      expect(p?.pinModeModes).toContain("INPUT");
+      expect(p?.conflict).toBeFalsy();
     }
 
     // Pin 6: INPUT + OUTPUT → conflict
     const pin6 = registry.find((r) => r.pin === "6");
     expect(pin6, "pin 6 must be in registry").toBeDefined();
-    expect(pin6!.pinModeModes).toContain("INPUT");
-    expect(pin6!.pinModeModes).toContain("OUTPUT");
-    expect(pin6!.conflict).toBe(true);
+    expect(pin6?.pinModeModes).toContain("INPUT");
+    expect(pin6?.pinModeModes).toContain("OUTPUT");
+    expect(pin6?.conflict).toBe(true);
 
     // Pins 7–10: OUTPUT only, no conflict
     for (const n of [7, 8, 9, 10]) {
       const p = registry.find((r) => r.pin === String(n));
       expect(p, `pin ${n} must be in registry`).toBeDefined();
-      expect(p!.pinModeModes).toContain("OUTPUT");
-      expect(p!.conflict).toBeFalsy();
+      expect(p?.pinModeModes).toContain("OUTPUT");
+      expect(p?.conflict).toBeFalsy();
     }
   });
 
@@ -413,9 +413,9 @@ describe("parseStaticIORegistry – edge cases", () => {
 
     const pin5 = registry.find((p) => p.pin === "5");
     expect(pin5, "pin 5 must be in registry").toBeDefined();
-    expect(pin5!.pinModeModes).toContain("OUTPUT");
-    expect(pin5!.conflict).toBe(true);
-    expect(pin5!.conflictMessage).toBeTruthy();
+    expect(pin5?.pinModeModes).toContain("OUTPUT");
+    expect(pin5?.conflict).toBe(true);
+    expect(pin5?.conflictMessage).toBeTruthy();
   });
 
   // ── Array with unresolvable tokens → array ignored ────────────────────────

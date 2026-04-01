@@ -73,8 +73,8 @@ export function useSimulatorFileSystem({
       setTabs(newTabs);
 
       if (activeTabId === tabId) {
-        if (newTabs.length > 0) {
-          const newActiveTab = newTabs.at(-1)!;
+        const newActiveTab = newTabs.at(-1);
+        if (newActiveTab) {
           setActiveTabId(newActiveTab.id);
           setCode(newActiveTab.content);
         } else {

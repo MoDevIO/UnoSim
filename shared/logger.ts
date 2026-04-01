@@ -143,7 +143,7 @@ function flushDebugOnFailure(reason?: string): void {
 
   console.error("\n" + "=".repeat(80));
   console.error("DEBUG BUFFER FLUSH (Test/Process Failure)");
-  if (reason) console.error(`Reason: ${reason}`);
+  if (reason) console.error(`Reason: ${String(reason)}`);
   console.error("=".repeat(80));
 
   entries.forEach((entry) => {

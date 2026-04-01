@@ -58,7 +58,7 @@ async function post(
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
           resolve({
-            status: res.statusCode!,
+            status: res.statusCode ?? 200,
             body: data ? JSON.parse(data) : undefined,
           });
         });

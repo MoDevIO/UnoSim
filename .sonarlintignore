@@ -1,0 +1,12 @@
+# Ignore shell configuration files containing environment secrets
+.zshrc*
+.bashrc*
+.bash_profile*
+.profile*
+
+# Ignore editor config
+.vscode/
+.idea/
+
+# Ignore node_modules
+node_modules/

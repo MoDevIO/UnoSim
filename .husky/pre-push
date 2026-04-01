@@ -2,12 +2,12 @@
 
 echo "🔍 Starte Qualitäts-Checks vor dem Push..."
 
-# 1. Schnelle Tests ausführen
+# 1. Schnelle Tests mit Coverage ausführen
 # Hinweis: Falls Tests zu lange dauern, können Sie diese Hook mit:
 #   git push --no-verify
 # umgehen (nicht empfohlen!)
-echo "⏳ Starte npm run test:fast..."
-npm run test:fast
+echo "⏳ Starte npm run test:fast (mit Coverage)..."
+LOG_LEVEL=warn npx vitest run --coverage --exclude tests/server/load-suite.test.ts --exclude tests/integration/serial-flow.test.ts
 if [ $? -ne 0 ]; then
   echo "❌ Fehler: Die schnellen Tests sind fehlgeschlagen!"
   echo "💡 Tipp: Um den Hook zu überspringen, verwende: git push --no-verify"

@@ -54,6 +54,7 @@ export class CompilationWorkerPool {
     reject: (error: Error) => void;
     startTime: number;
   }> = [];
+  private isInitialized: boolean = false;
 
   private readonly stats = {
     totalTasks: 0,
@@ -79,7 +80,6 @@ export class CompilationWorkerPool {
    */
   private initializeWorkers(): void {
     // In development, workers are .ts; in production, they're .js after transpilation
-    const isProduction = process.env.NODE_ENV === "production";
     const dirname = path.dirname(new URL(import.meta.url).pathname);
     
     // Try .js first (production), fallback to .ts (development with tsx)
@@ -91,12 +91,9 @@ export class CompilationWorkerPool {
     // Validate worker file exists
     if (!fs.existsSync(workerScript)) {
       this.logger.error(`[CompilationWorkerPool] Worker file not found: ${workerScript}`);
-      // In development mode, we can fall back to inline compilation or skip worker init
-      if (!isProduction) {
-        this.logger.warn(`[CompilationWorkerPool] Falling back to synchronous compilation (development mode)`);
-        return;
-      }
-      throw new Error(`Worker file not found: ${workerScript}`);
+      this.logger.warn(`[CompilationWorkerPool] Worker pool disabled - falling back to synchronous compilation`);
+      // Don't throw - let PooledCompiler handle fallback to direct compiler
+      return;
     }
 
     this.logger.info(`[CompilationWorkerPool] Using worker script: ${workerScript}`);
@@ -136,12 +133,24 @@ export class CompilationWorkerPool {
     }
 
     this.logger.info(`[CompilationWorkerPool] ${this.availableWorkers.size} workers ready`);
+    this.isInitialized = true;
+  }
+
+  /**
+   * Check if the pool is operational
+   */
+  isOperational(): boolean {
+    return this.isInitialized && this.workers.length > 0;
   }
 
   /**
    * Enqueue a compilation task
    */
   async compile(task: CompileRequestPayload): Promise<CompilationResult> {
+    if (!this.isOperational()) {
+      throw new Error("Compilation worker pool is not operational. Worker files may not be available.");
+    }
+
     this.stats.totalTasks++;
 
     return new Promise((resolve, reject) => {

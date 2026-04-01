@@ -71,6 +71,30 @@ function processAnsiCodes(text: string): string {
   return processed;
 }
 
+/**
+ * Strips leading backspace characters from text and removes corresponding
+ * characters from the last incomplete line.
+ */
+function consumeLeadingBackspaces(
+  lines: Array<{ text: string; incomplete: boolean }>,
+  text: string,
+): string {
+  let idx = 0;
+  while (idx < text.length && text[idx] === "\b") {
+    idx++;
+  }
+  if (idx === 0) return text;
+
+  const lastLine = lines.at(-1);
+  if (!lastLine?.incomplete) return text;
+
+  lastLine.text = lastLine.text.slice(
+    0,
+    Math.max(0, lastLine.text.length - idx),
+  );
+  return text.slice(idx);
+}
+
 // Exported for unit testing and reuse inside the hook
 export function applyBackspaceAcrossLines(
   lines: Array<{ text: string; incomplete: boolean }>,
@@ -79,36 +103,20 @@ export function applyBackspaceAcrossLines(
 ): string | null {
   // Handle backspaces at the start of text
   if (text.includes("\b")) {
-    // Count leading backspaces to remove from previous line
-    let backspaceCount = 0;
-    let idx = 0;
-    while (idx < text.length && text[idx] === "\b") {
-      backspaceCount++;
-      idx++;
-    }
-
-    if (
-      backspaceCount > 0 &&
-      lines.length > 0 &&
-      lines.at(-1)!.incomplete
-    ) {
-      const lastLine = lines.at(-1)!;
-      lastLine.text = lastLine.text.slice(
-        0,
-        Math.max(0, lastLine.text.length - backspaceCount),
-      );
-      text = text.slice(backspaceCount);
-    }
+    text = consumeLeadingBackspaces(lines, text);
   }
 
   // If there's still text to process and we have an incomplete line, append to it
-  if (text && lines.length > 0 && lines.at(-1)!.incomplete) {
-    const cleanText = processAnsiCodes(text);
-    if (cleanText) {
-      lines.at(-1)!.text += cleanText;
-      lines.at(-1)!.incomplete = !isComplete;
+  if (text) {
+    const lastLine = lines.at(-1);
+    if (lastLine?.incomplete) {
+      const cleanText = processAnsiCodes(text);
+      if (cleanText) {
+        lastLine.text += cleanText;
+        lastLine.incomplete = !isComplete;
+      }
+      return null; // already handled
     }
-    return null; // already handled
   }
 
   // No text left after backspace processing, or no incomplete line to append to
@@ -140,15 +148,47 @@ function processCarriageReturnLine(
   const parts = text.split("\r");
   const cleanParts = parts.map((p) => processAnsiCodes(p));
   if (cleanParts.length <= 1) return false;
-  const finalText = cleanParts.at(-1)!;
-  if (lines.length > 0 && !lines.at(-1)!.incomplete) {
-    lines.push({ text: finalText, incomplete: !lineComplete });
-  } else if (lines.length > 0) {
+  const finalText = cleanParts.at(-1) ?? "";
+  const lastLine = lines.at(-1);
+  if (lastLine?.incomplete) {
     lines[lines.length - 1] = { text: finalText, incomplete: !lineComplete };
   } else {
     lines.push({ text: finalText, incomplete: !lineComplete });
   }
   return true;
+}
+
+function processLineWithControls(
+  lines: ProcessedLine[],
+  text: string,
+  controls: ReturnType<typeof hasControlChars>,
+  shouldClear: boolean,
+  lineComplete: boolean,
+): { text: string; shouldClear: boolean; handled: boolean } {
+  let newShouldClear = shouldClear;
+  let newText = text;
+
+  if (controls.hasClearScreen) {
+    newShouldClear = true;
+    lines.length = 0;
+  }
+
+  if (controls.hasCursorHome && newShouldClear) {
+    lines.length = 0;
+    newShouldClear = false;
+  }
+
+  const backspaceResult = applyBackspaceAcrossLines(lines, newText, lineComplete);
+  if (backspaceResult === null) {
+    return { text: "", shouldClear: newShouldClear, handled: true };
+  }
+
+  newText = backspaceResult;
+  if (controls.hasCarriageReturn && processCarriageReturnLine(lines, newText, lineComplete)) {
+    return { text: "", shouldClear: newShouldClear, handled: true };
+  }
+
+  return { text: newText, shouldClear: newShouldClear, handled: false };
 }
 
 export function SerialMonitor({
@@ -204,38 +244,20 @@ export function SerialMonitor({
       let text = line.text;
       const controls = hasControlChars(text);
 
-      if (controls.hasClearScreen) {
-        shouldClear = true;
-        lines.length = 0;
-      }
-
-      if (controls.hasCursorHome) {
-        if (shouldClear) {
-          lines.length = 0;
-          shouldClear = false;
-        }
-      }
-
-      // Handle backspace across line boundaries: apply to last incomplete line
-      const backspaceResult = applyBackspaceAcrossLines(
+      const { text: processedText, shouldClear: newShouldClear, handled } = processLineWithControls(
         lines,
         text,
+        controls,
+        shouldClear,
         line.complete ?? true,
       );
-      if (backspaceResult === null) {
-        return; // handled fully
-      }
-      text = backspaceResult;
+      shouldClear = newShouldClear;
 
-      if (controls.hasCarriageReturn) {
-        if (processCarriageReturnLine(lines, text, line.complete ?? true)) {
-          return;
+      if (!handled && processedText) {
+        const cleanText = processAnsiCodes(processedText);
+        if (cleanText) {
+          lines.push({ text: cleanText, incomplete: !line.complete });
         }
-      }
-
-      const cleanText = processAnsiCodes(text);
-      if (cleanText) {
-        lines.push({ text: cleanText, incomplete: !line.complete });
       }
     });
 

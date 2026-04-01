@@ -6,7 +6,7 @@
 
 # Konfiguration
 LOG_FILE="run-tests_output.log"
-TOTAL_STEPS=9
+TOTAL_STEPS=10
 STEP=0
 SERVER_PID=""
 
@@ -173,6 +173,57 @@ SERVER_PID=""
 
 # 7. Produktions-Build
 run_task "Produktions-Build" "npm run build"
+
+# 8. SonarQube Quality Gate Check
+if [ -n "$SONAR_TOKEN" ] && curl -sf http://localhost:9000/api/system/status > /dev/null 2>&1; then
+    STEP=$((STEP+1))
+    echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] SonarQube Quality Gate${RS}"
+    
+    SQ_PROJECT_KEY="unowebsim"
+    SQ_URL="http://localhost:9000"
+    
+    # Fetch quality gate status
+    QG_JSON=$(curl -sf -H "Authorization: Bearer $SONAR_TOKEN" \
+        "${SQ_URL}/api/qualitygates/project_status?projectKey=${SQ_PROJECT_KEY}" 2>/dev/null)
+    
+    if [ -n "$QG_JSON" ]; then
+        QG_STATUS=$(echo "$QG_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['projectStatus']['status'])" 2>/dev/null)
+        
+        echo -e "    Quality Gate: $([ "$QG_STATUS" = "OK" ] && echo "${G}${OK} PASSED${RS}" || echo "${R}${FAIL} $QG_STATUS${RS}")"
+        
+        # Display individual conditions
+        echo "$QG_JSON" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for c in d['projectStatus']['conditions']:
+    status = c['status']
+    metric = c['metricKey'].replace('new_', '').replace('_', ' ').title()
+    actual = c['actualValue']
+    threshold = c['errorThreshold']
+    comp = c['comparator']
+    icon = '✔' if status == 'OK' else '✘'
+    color = '' if status == 'OK' else ''
+    unit = '%' if 'density' in c['metricKey'] or 'coverage' in c['metricKey'] or 'reviewed' in c['metricKey'] else ''
+    print(f'      {icon} {metric}: {actual}{unit} (Threshold: {comp} {threshold}{unit})')
+" 2>/dev/null
+        
+        # Fetch open issues count
+        ISSUES_JSON=$(curl -sf -H "Authorization: Bearer $SONAR_TOKEN" \
+            "${SQ_URL}/api/issues/search?componentKeys=${SQ_PROJECT_KEY}&statuses=OPEN&ps=1" 2>/dev/null)
+        if [ -n "$ISSUES_JSON" ]; then
+            ISSUE_COUNT=$(echo "$ISSUES_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['paging']['total'])" 2>/dev/null)
+            echo -e "      Open Issues: ${ISSUE_COUNT:-?}"
+        fi
+        
+        # Quality gate status is informational, not blocking 
+        echo -e "    ${D}(informational — does not block pipeline)${RS}"
+    else
+        echo -e "    ${WARN} Could not fetch quality gate status"
+    fi
+else
+    STEP=$((STEP+1))
+    echo -e "\n  ${WARN} SonarQube nicht verfügbar – Quality Gate Check übersprungen (Step $STEP)"
+fi
 
 echo
 div

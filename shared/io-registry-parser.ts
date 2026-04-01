@@ -330,7 +330,7 @@ function detectPinConflicts(
   outputReadConflict: boolean;
   uniqueModes: PinModeType[];
 } {
-  const allModes = pmCalls.map((c) => c.mode!);
+  const allModes = pmCalls.map((c) => c.mode);
   const uniqueModes = [...new Set(allModes)] as PinModeType[];
 
   // TC 11: same pin configured with multiple DIFFERENT modes
@@ -367,7 +367,7 @@ function generateConflictMessage(
   uniqueModes: PinModeType[],
 ): string {
   if (pinModeConflict) {
-    return `Multiple modes: ${uniqueModes.join(", ")}`;
+    return `Multiple modes: ${[...uniqueModes].join(", ")}`;
   }
   if (operationConflict) {
     const nonOutputModes = uniqueModes.filter((mm) => mm !== "OUTPUT");
@@ -469,7 +469,9 @@ function populateLineArrays(
 ): void {
   if (pmCalls.length > 0) {
     record.pinModeLines = pmCalls.map((c) => c.line);
-    record.pinModeModes = pmCalls.map((c) => c.mode!);
+    record.pinModeModes = pmCalls
+      .map((c) => c.mode)
+      .filter((m): m is PinMode => m !== undefined);
   }
   if (drCalls.length > 0) {
     record.digitalReadLines = drCalls.map((c) => c.line);
@@ -497,10 +499,14 @@ function populateLegacyFields(
   awCalls: CallEntry[],
 ): void {
   if (pmCalls.length > 0) {
-    const allModes = pmCalls.map((c) => c.mode!);
+    const allModes = pmCalls
+      .map((c) => c.mode)
+      .filter((m): m is PinMode => m !== undefined);
     const lastMode = allModes.at(-1);
+    // eslint-disable-next-line unicorn/prefer-at -- .at(-1) returns T|undefined, not narrowed by length guard
+    const lastPmCall = pmCalls[pmCalls.length - 1];
     record.pinMode = convertModeToNumeric(lastMode);
-    record.definedAt = { line: pmCalls.at(-1)!.line };
+    record.definedAt = { line: lastPmCall.line };
   }
 
   const nonPmCalls = [...drCalls, ...dwCalls, ...arCalls, ...awCalls];
@@ -626,8 +632,12 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
   // ── Aggregate entries by pinId ────────────────────────────────────────────
   const pinMap = new Map<number, CallEntry[]>();
   for (const entry of entries) {
-    if (!pinMap.has(entry.pinId)) pinMap.set(entry.pinId, []);
-    pinMap.get(entry.pinId)!.push(entry);
+    const existing = pinMap.get(entry.pinId);
+    if (existing) {
+      existing.push(entry);
+    } else {
+      pinMap.set(entry.pinId, [entry]);
+    }
   }
 
   const records: IOPinRecord[] = [];

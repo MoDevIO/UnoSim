@@ -19,20 +19,29 @@ import type { CompileRequestPayload } from "@shared/worker-protocol";
 
 export class PooledCompiler {
   private readonly pool: CompilationWorkerPool | null;
-  private readonly directCompiler: ArduinoCompiler | null;
+  private readonly directCompiler: ArduinoCompiler;
   private readonly usePool: boolean;
 
   constructor(pool?: CompilationWorkerPool) {
-    // Only use worker pool in production (where .js files exist and @shared/* is resolved)
+    // Always initialize direct compiler as fallback
+    this.directCompiler = new ArduinoCompiler();
+    
+    // Try to use worker pool in production if available
     this.usePool = process.env.NODE_ENV === "production";
     
-    if (this.usePool) {
-      this.pool = pool ?? getCompilationPool();
-      this.directCompiler = null;
+    if (this.usePool && pool) {
+      this.pool = pool;
+    } else if (this.usePool) {
+      try {
+        this.pool = getCompilationPool();
+      } catch {
+        // Worker pool unavailable (e.g., worker files not found) - fall back to direct compiler
+        // This is expected in development mode and is handled gracefully
+        this.pool = null;
+      }
     } else {
       // Development mode: use direct compiler (worker threads don't work with tsx/@shared/*)
       this.pool = null;
-      this.directCompiler = new ArduinoCompiler();
     }
   }
 
@@ -48,13 +57,31 @@ export class PooledCompiler {
     options?: CompileRequestOptions,
   ): Promise<CompilationResult> {
     if (this.usePool && this.pool) {
-      const task: CompileRequestPayload = { code, headers, tempRoot, ...options };
-      return await this.pool.compile(task);
-    } else if (this.directCompiler) {
-      return await this.directCompiler.compile(code, headers, tempRoot, options);
+      try {
+        const task: CompileRequestPayload = { code, headers, tempRoot, ...options };
+        return await this.pool.compile(task);
+      } catch {
+        // Pool failed to compile (e.g., workers not operational) - fall back to direct compiler
+        // This is an expected fallback path when workers are unavailable
+        if (!this.directCompiler) {
+          throw new Error("Neither pool nor direct compiler available");
+        }
+        return await this.directCompiler.compile(code, headers, tempRoot, options);
+      }
     } else {
-      throw new Error("Neither pool nor direct compiler available");
+      // Fall back to direct compiler (always available)
+      if (!this.directCompiler) {
+        throw new Error("Neither pool nor direct compiler available");
+      }
+      return await this.directCompiler.compile(code, headers, tempRoot, options);
     }
+  }
+
+  /**
+   * Check if worker pool is operational
+   */
+  isOperational(): boolean {
+    return this.usePool && this.pool !== null;
   }
 
   /**

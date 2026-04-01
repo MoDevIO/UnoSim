@@ -2,8 +2,6 @@ import type { ParserMessage } from "./schema";
 import type { PinMode } from "@shared/types/arduino.types";
 import { randomUUID } from "node:crypto";
 
-type SeverityLevel = 1 | 2 | 3;
-
 /**
  * Centralized patterns and constants for Arduino code parsing
  * Extracted to reduce cognitive complexity and enable reuse
@@ -73,6 +71,18 @@ interface PinModeEntry {
   lines: number[];
 }
 
+const VALID_PIN_MODES = new Set<string>(["INPUT", "OUTPUT", "INPUT_PULLUP"]);
+
+function addPinModeEntry(result: Map<string, PinModeEntry>, pin: string, mode: PinMode, line: number): void {
+  const existing = result.get(pin);
+  if (existing) {
+    existing.modes.push(mode);
+    existing.lines.push(line);
+  } else {
+    result.set(pin, { modes: [mode], lines: [line] });
+  }
+}
+
 /**
  * Specialized analyzer for pin mode conflicts and hardware compatibility
  */
@@ -90,28 +100,15 @@ class PinCompatibilityChecker {
     let match;
     while ((match = pinModeWithModeRegex.exec(this.uncommentedCode)) !== null) {
       const pin = match[1];
-      const mode = match[2] as PinMode;
+      const rawMode = match[2];
+      const mode: PinMode = VALID_PIN_MODES.has(rawMode) ? (rawMode as PinMode) : "INPUT";
       const line = this.uncommentedCode.slice(0, Math.max(0, match.index)).split("\n").length;
-
-      if (result.has(pin)) {
-        const entry = result.get(pin)!;
-        entry.modes.push(mode);
-        entry.lines.push(line);
-      } else {
-        result.set(pin, { modes: [mode], lines: [line] });
-      }
+      addPinModeEntry(result, pin, mode, line);
     }
 
     // Loop-based pinMode() calls
     for (const { pin, mode, line } of getLoopPinModeCalls(this.uncommentedCode)) {
-      const key = String(pin);
-      if (result.has(key)) {
-        const entry = result.get(key)!;
-        entry.modes.push(mode);
-        entry.lines.push(line);
-      } else {
-        result.set(key, { modes: [mode], lines: [line] });
-      }
+      addPinModeEntry(result, String(pin), mode, line);
     }
 
     return result;
@@ -136,8 +133,8 @@ class PinCompatibilityChecker {
           id: randomUUID(),
           type: "warning",
           category: "pins",
-          severity: 2 as SeverityLevel,
-          message: `Pin ${pin} has multiple pinMode() calls with different modes: ${uniqueModes.join(", ")}.`,
+          severity: 2,
+          message: `Pin ${pin} has multiple pinMode() calls with different modes: ${[...uniqueModes].join(", ")}.`,
           suggestion: `Use a single pinMode(${pin}, <MODE>) call in setup().`,
           line,
         });
@@ -146,7 +143,7 @@ class PinCompatibilityChecker {
           id: randomUUID(),
           type: "warning",
           category: "pins",
-          severity: 2 as SeverityLevel,
+          severity: 2,
           message: `Pin ${pin} has pinMode() called multiple times (${entry.modes.length}x).`,
           suggestion: `Remove duplicate pinMode(${pin}, ${uniqueModes[0]}) calls.`,
           line,
@@ -179,13 +176,13 @@ class PinCompatibilityChecker {
           !outputReadWarnedPins.has(pinNum)
         ) {
           outputReadWarnedPins.add(pinNum);
-          const pinStr = pinNum >= 14 ? `A${pinNum - 14}` : String(pinNum);
+          const pinStr = pinNum >= 14 ? `A${pinNum - 14}` : `${pinNum}`;
           const line = uncommentedCode.slice(0, Math.max(0, match.index)).split("\n").length;
           messages.push({
             id: randomUUID(),
             type: "warning",
             category: "pins",
-            severity: 2 as SeverityLevel,
+            severity: 2,
             message: `Pin ${pinStr} is configured as OUTPUT but read with digitalRead(). Reading an OUTPUT pin may return unexpected values.`,
             suggestion: `If you need to read the pin, use pinMode(${pinStr}, INPUT) or INPUT_PULLUP instead.`,
             line,
@@ -223,7 +220,7 @@ class SerialConfigurationParser {
         id: randomUUID(),
         type: "warning",
         category: "serial",
-        severity: 2 as SeverityLevel,
+        severity: 2,
         message: serialBeginExists
           ? "Serial.begin() is commented out! Serial output may not work correctly."
           : "Serial.begin(115200) is missing in setup(). Serial output may not work correctly.",
@@ -238,7 +235,7 @@ class SerialConfigurationParser {
         id: randomUUID(),
         type: "warning",
         category: "serial",
-        severity: 2 as SeverityLevel,
+        severity: 2,
         message: "while (!Serial) loop detected. This blocks the simulator - not recommended.",
         suggestion: "// while (!Serial) { }",
         line: findLineNumberHelper(this.code, PARSER_PATTERNS.SERIAL_WHILE_NOT),
@@ -259,7 +256,7 @@ class SerialConfigurationParser {
         id: randomUUID(),
         type: "warning",
         category: "serial",
-        severity: 2 as SeverityLevel,
+        severity: 2,
         message: `Serial.begin(${baudRateMatch[1]}) uses wrong baud rate. This simulator expects Serial.begin(115200).`,
         suggestion: "Serial.begin(115200);",
         line: findLineNumberHelper(
@@ -286,7 +283,7 @@ class SerialConfigurationParser {
           id: randomUUID(),
           type: "warning",
           category: "serial",
-          severity: 2 as SeverityLevel,
+          severity: 2,
           message: "Serial.read() used without checking Serial.available(). This may return -1 when no data is available.",
           suggestion: "if (Serial.available()) { }",
           line: findLineNumberHelper(this.code, PARSER_PATTERNS.SERIAL_READ),
@@ -314,7 +311,7 @@ class StructureParser {
         id: randomUUID(),
         type: "warning",
         category: "structure",
-        severity: 2 as SeverityLevel,
+        severity: 2,
         message: "setup() has parameters, but Arduino setup() should have no parameters.",
         suggestion: "void setup()",
         line: findLineNumberHelper(this.code, PARSER_PATTERNS.SETUP_ANY),
@@ -324,7 +321,7 @@ class StructureParser {
         id: randomUUID(),
         type: "error",
         category: "structure",
-        severity: 3 as SeverityLevel,
+        severity: 3,
         message: "Missing void setup() function. Every Arduino program needs setup().",
         suggestion: "void setup() { }",
       });
@@ -338,7 +335,7 @@ class StructureParser {
         id: randomUUID(),
         type: "warning",
         category: "structure",
-        severity: 2 as SeverityLevel,
+        severity: 2,
         message: "loop() has parameters, but Arduino loop() should have no parameters.",
         suggestion: "void loop()",
         line: findLineNumberHelper(this.code, PARSER_PATTERNS.LOOP_ANY),
@@ -348,7 +345,7 @@ class StructureParser {
         id: randomUUID(),
         type: "error",
         category: "structure",
-        severity: 3 as SeverityLevel,
+        severity: 3,
         message: "Missing void loop() function. Every Arduino program needs loop().",
         suggestion: "void loop() { }",
       });
@@ -414,7 +411,7 @@ class PinConflictAnalyzer {
           id: randomUUID(),
           type: "warning",
           category: "hardware",
-          severity: 2 as SeverityLevel,
+          severity: 2,
           message: `Pin ${pinStr} used as both digital and analog. This may be unintended.`,
           suggestion: `// Use separate pins for digital and analog`,
         });
@@ -456,7 +453,7 @@ class PerformanceAnalyzer {
         id: randomUUID(),
         type: "warning",
         category: "performance",
-        severity: 2 as SeverityLevel,
+        severity: 2,
         message:
           "Infinite while(true) loop detected. This may freeze the simulator.",
         suggestion: "delay(100);",
@@ -470,7 +467,7 @@ class PerformanceAnalyzer {
         id: randomUUID(),
         type: "warning",
         category: "performance",
-        severity: 2 as SeverityLevel,
+        severity: 2,
         message:
           "for loop without exit condition detected. This creates an infinite loop.",
         suggestion: "for (int i = 0; i < 10; i++) { }",
@@ -497,7 +494,7 @@ class PerformanceAnalyzer {
           id: randomUUID(),
           type: "warning",
           category: "performance",
-          severity: 2 as SeverityLevel,
+          severity: 2,
           message: `Large array of ${arraySize} elements detected. This may cause memory issues on Arduino.`,
           suggestion: `// Use smaller array size: int array[100];`,
           line: this.findLineInFull(arrayRegex),
@@ -524,7 +521,7 @@ class PerformanceAnalyzer {
             id: randomUUID(),
             type: "warning",
             category: "performance",
-            severity: 2 as SeverityLevel,
+            severity: 2,
             message: `Recursive function '${functionName}' detected. Deep recursion may cause stack overflow on Arduino.`,
             suggestion: "// Use iterative approach instead",
             line: this.findLineInFull(new RegExp(String.raw`\b${functionName}\s*\(`)),
@@ -673,7 +670,7 @@ export class CodeParser {
           id: randomUUID(),
           type: "warning",
           category: "hardware",
-          severity: 2 as SeverityLevel,
+          severity: 2,
           message: `analogWrite(${pinStr}, ...) used on pin ${pin}, which doesn't support PWM on Arduino UNO. PWM pins: 3, 5, 6, 9, 10, 11.`,
           suggestion: `// Use PWM pin instead: analogWrite(3, value);`,
           line: findLineNumberHelper(code, new RegExp(String.raw`analogWrite\s*\(\s*${pinStr}`)),
@@ -699,7 +696,7 @@ export class CodeParser {
             id: randomUUID(),
             type: "warning",
             category: "hardware",
-            severity: 2 as SeverityLevel,
+            severity: 2,
             message: `Pin ${pinStr} used with digitalRead/digitalWrite but pinMode() was not called for this pin.`,
             suggestion: `pinMode(${pinStr}, INPUT);`,
             line: findLineNumberHelper(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
@@ -732,7 +729,7 @@ export class CodeParser {
             id: randomUUID(),
             type: "warning",
             category: "hardware",
-            severity: 2 as SeverityLevel,
+            severity: 2,
             message: `Variable '${pinStr}' used in digitalRead/digitalWrite but no pinMode() call found for this variable.`,
             suggestion: `pinMode(${pinStr}, INPUT);`,
             line: findLineNumberHelper(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
@@ -751,7 +748,7 @@ export class CodeParser {
           id: randomUUID(),
           type: "warning",
           category: "hardware",
-          severity: 2 as SeverityLevel,
+          severity: 2,
           message: "digitalRead/digitalWrite uses variable pins without any pinMode() calls. Configure pinMode for the pins being read/written.",
           suggestion: "pinMode(<pin>, INPUT);",
           line: findLineNumberHelper(code, PARSER_PATTERNS.DIGITAL_READ_WRITE),

@@ -90,7 +90,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       expect(result.parserMessages).toBeDefined();
       expect(Array.isArray(result.parserMessages)).toBe(true);
 
-      const messages = result.parserMessages!;
+      const messages = result.parserMessages ?? [];
       const serialMessages = messages.filter((m) => m.category === "serial");
 
       // Serial warnings must be in parserMessages field
@@ -136,7 +136,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       expect(result.success).toBe(true);
 
       // Parser messages must exist
-      const messages = result.parserMessages!;
+      const messages = result.parserMessages ?? [];
       const serialMessages = messages.filter((m) => m.category === "serial");
 
       // Serial warnings must be in parserMessages field
@@ -185,7 +185,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       expect(result.parserMessages).toBeDefined();
 
       // No serial warnings when Serial is not used
-      const serialMessages = result.parserMessages!.filter(
+      const serialMessages = (result.parserMessages ?? []).filter(
         (m) => m.category === "serial",
       );
       expect(serialMessages.length).toBe(0);
@@ -223,7 +223,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
 
       expect(result.success).toBe(true);
 
-      const messages = result.parserMessages!;
+      const messages = result.parserMessages ?? [];
       const serialMessages = messages.filter((m) => m.category === "serial");
 
       // At least one warning due to missing Serial.begin
@@ -270,7 +270,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       expect(result.parserMessages).toBeDefined();
 
       // No serial warnings with correct usage
-      const serialMessages = result.parserMessages!.filter(
+      const serialMessages = (result.parserMessages ?? []).filter(
         (m) => m.category === "serial",
       );
       expect(serialMessages.length).toBe(0);
@@ -314,7 +314,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
 
       // Parser messages are present despite compiler error
       expect(result.parserMessages).toBeDefined();
-      const serialMessages = result.parserMessages!.filter(
+      const serialMessages = (result.parserMessages ?? []).filter(
         (m) => m.category === "serial",
       );
       expect(serialMessages.length).toBeGreaterThan(0);

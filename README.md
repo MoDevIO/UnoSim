@@ -70,6 +70,84 @@ npm run dev:full
 
 This will start both the backend server and the frontend development server.
 
+## Usage
+
+UnoSim can be run in several modes depending on your use case.
+
+### Development Mode
+
+```bash
+npm run dev:full
+```
+
+Starts the backend (Express + WebSocket) and the Vite dev server with hot-reload.
+The backend runs via `tsx` (TypeScript execution) and the client is served by Vite on a separate port with HMR.
+Compilation uses `arduino-cli` directly on the host — Docker is **not** required.
+
+| Component | Details |
+|-----------|---------|
+| Backend | `tsx server/index.ts` on port 3000 |
+| Client | Vite HMR dev server (proxied) |
+| Compiler | Direct `arduino-cli` calls on host |
+| Worker Pool | Disabled (`PooledCompiler.usePool = false` outside production) |
+
+### Production Mode
+
+```bash
+npm run build
+npm run start
+```
+
+Builds the full stack (client + server + worker) into `dist/` and runs the production server.
+The Vite-built client is served as static files from `dist/public/`.
+
+| Component | Details |
+|-----------|---------|
+| Backend | `node dist/index.js` on port 3000 |
+| Client | Static files from `dist/public/` |
+| Compiler | Worker Pool with 4 parallel threads |
+| Docker | Optional — enables sandboxed compilation if Docker Desktop is running |
+
+> **Note:** Docker warnings at startup (`Cannot connect to the Docker daemon`) are non-blocking.
+> The app falls back to direct `arduino-cli` compilation when Docker is unavailable.
+
+### Docker Mode
+
+```bash
+docker build -t unowebsim:latest .
+docker run --rm -p 3000:3000 -e NODE_ENV=production unowebsim:latest
+```
+
+Or with docker-compose:
+
+```bash
+docker-compose up --build
+```
+
+Runs the full application inside a container with `arduino-cli` pre-installed.
+Available at `http://localhost:3000`.
+
+### Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev:full` | Start backend + client in development mode |
+| `npm run dev` | Start backend only (no client) |
+| `npm run dev:client` | Start Vite client only |
+| `npm run build` | Build client, server, and worker for production |
+| `npm run start` | Run the production build |
+| `npm run check` | TypeScript type-check (`tsc --noEmit`) |
+| `npm run test:fast` | Run unit tests (excludes load tests) |
+| `npm test` | Run all tests |
+| `./run-tests.sh` | Full pipeline: lint, unit tests, Docker build, integration tests, E2E |
+
+### Architecture Overview
+
+- **Sandbox Runner Pool** — Manages a pool of sandbox processes that execute compiled Arduino binaries. Each simulation runs in an isolated child process with stdout/stderr capture for serial output and pin state reporting.
+- **Compilation Worker Pool** — In production mode, 4 Node.js Worker Threads handle compilations in parallel via the `PooledCompiler`. Each worker runs `arduino-cli` and caches build artifacts (hex files, core objects) for faster recompilation.
+- **WebSocket Layer** — Real-time communication between client and server for serial output, pin state batches, and simulation control (start/stop/pause/resume).
+- **SonarQube Integration** — Quality gate checks are built into the pre-push hook and the test pipeline (`./run-tests.sh`). Coverage reports are generated automatically.
+
 ## Notes for running tests (optional)
 
 The repository contains a **robust, fast test pipeline**:
@@ -131,27 +209,3 @@ The backend utilizes an Adapter Pattern for compilation:
 - Worker Isolation: Each compilation task runs in a separate thread, reducing API latency by ~30% under concurrent load.
 
 - Graceful Shutdown: Intelligent SIGTERM handling ensures all worker threads and file handles are closed properly.
-
-## Docker
-
-This repository includes a Dockerfile that builds the project using Node.js v25.2.1.
-
-- Build the image:
-
-```bash
-docker build -t unowebsim:latest .
-```
-
-- Run the container (exposes port 3000):
-
-```bash
-docker run --rm -p 3000:3000 -e NODE_ENV=production unowebsim:latest
-```
-
-- Alternatively use docker-compose:
-
-```bash
-docker-compose up --build
-```
-
-The server will be available at http://localhost:3000

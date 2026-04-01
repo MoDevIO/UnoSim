@@ -582,10 +582,11 @@ export function CodeEditor({
         // Move cursor to end of pasted text
         const lines = text.split("\n");
         const endLineNumber = selection.startLineNumber + lines.length - 1;
+        const lastLineText = lines.at(-1) ?? "";
         const endColumn =
           lines.length === 1
             ? selection.startColumn + text.length
-            : lines.at(-1)!.length + 1;
+            : lastLineText.length + 1;
 
         editor.setPosition({
           lineNumber: endLineNumber,

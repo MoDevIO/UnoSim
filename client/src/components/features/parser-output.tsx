@@ -410,7 +410,7 @@ export function ParserOutput({
                               size="sm"
                               onClick={() => {
                                 onInsertSuggestion?.(
-                                  message.suggestion!,
+                                  message.suggestion ?? "",
                                   message.line,
                                 );
                               }}

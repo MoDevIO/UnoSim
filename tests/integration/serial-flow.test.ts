@@ -300,7 +300,9 @@ void loop() {
     // Base < 2 should default to base 10 (decimal), printing "42" twice
     const matches = fullOutput.match(/42/g);
     expect(matches).toBeTruthy();
-    expect(matches!.length).toBeGreaterThanOrEqual(2);
+    if (matches) {
+      expect(matches.length).toBeGreaterThanOrEqual(2);
+    }
   });
 
   test('Serial.write should produce output via SERIAL_EVENT', async () => {
