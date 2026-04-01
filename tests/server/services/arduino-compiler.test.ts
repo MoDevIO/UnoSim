@@ -385,10 +385,10 @@ describe("ArduinoCompiler - Full Coverage", () => {
       // With robust cleanup, we should get a warning about failed cleanup
       // The gatekeeper and retry logic mean we expect a "Failed to clean up" warning
       expect(warnSpy).toHaveBeenCalled();
-      const warnCalls = warnSpy.mock.calls.map((call) => call[0] as string); // NOSONAR S4325
+      const warnCalls = warnSpy.mock.calls.map((call) => call[0]);
       const hasCleanupWarning =
-        warnCalls.some((msg) => msg.includes("Failed to clean up")) ||
-        warnCalls.some((msg) => msg.includes("cleanup"));
+        warnCalls.some((msg) => String(msg).includes("Failed to clean up")) ||
+        warnCalls.some((msg) => String(msg).includes("cleanup"));
       expect(hasCleanupWarning).toBe(true);
 
       // ensure rm was invoked at least once (cleanup attempted)

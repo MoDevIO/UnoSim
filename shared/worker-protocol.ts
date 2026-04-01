@@ -163,8 +163,10 @@ export function createReadyMessage(): ReadyMessage {
  */
 export function createWorkerError(err: unknown): WorkerError {
   if (err instanceof Error) {
-    // Access code property safely without 'as any' (S4325)
-    const code = 'code' in err ? (err.code as string | undefined) : undefined;
+    // Access code property safely without type assertion (S4325)
+    const errObject = err as unknown as Record<string, unknown>;
+    const maybeCode = errObject.code;
+    const code = typeof maybeCode === "string" ? maybeCode : undefined;
     return {
       message: err.message,
       code,
