@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.49% </span>
+                <span class="strong">94.58% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>223/236</span>
+                <span class='fraction'>227/240</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.65% </span>
+                <span class="strong">95.83% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>44/46</span>
+                <span class='fraction'>46/48</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.92% </span>
+                <span class="strong">97.02% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>189/195</span>
+                <span class='fraction'>196/202</span>
             </div>
         
             
@@ -720,7 +720,17 @@
 <a name='L655'></a><a href='#L655'>655</a>
 <a name='L656'></a><a href='#L656'>656</a>
 <a name='L657'></a><a href='#L657'>657</a>
-<a name='L658'></a><a href='#L658'>658</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L658'></a><a href='#L658'>658</a>
+<a name='L659'></a><a href='#L659'>659</a>
+<a name='L660'></a><a href='#L660'>660</a>
+<a name='L661'></a><a href='#L661'>661</a>
+<a name='L662'></a><a href='#L662'>662</a>
+<a name='L663'></a><a href='#L663'>663</a>
+<a name='L664'></a><a href='#L664'>664</a>
+<a name='L665'></a><a href='#L665'>665</a>
+<a name='L666'></a><a href='#L666'>666</a>
+<a name='L667'></a><a href='#L667'>667</a>
+<a name='L668'></a><a href='#L668'>668</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1191,6 +1201,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">34x</span>
 <span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">34x</span>
@@ -1219,7 +1231,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-yes">25x</span>
@@ -1350,6 +1366,10 @@
 <span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-yes">40x</span>
 <span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">23x</span>
@@ -1709,7 +1729,7 @@ function detectPinConflicts(
   outputReadConflict: boolean;
   uniqueModes: PinModeType[];
 } {
-  const allModes = pmCalls.map((c) =&gt; c.mode!);
+  const allModes = pmCalls.map((c) =&gt; c.mode);
   const uniqueModes = [...new Set(allModes)] as PinModeType[];
 &nbsp;
   // TC 11: same pin configured with multiple DIFFERENT modes
@@ -1746,7 +1766,7 @@ function generateConflictMessage(
   uniqueModes: PinModeType[],
 ): string {
   if (pinModeConflict) {
-    return `Multiple modes: ${uniqueModes.join(", ")}`;
+    return `Multiple modes: ${[...uniqueModes].join(", ")}`;
   }
   if (operationConflict) {
     const nonOutputModes = uniqueModes.filter((mm) =&gt; mm !== "OUTPUT");
@@ -1848,7 +1868,9 @@ function populateLineArrays(
 ): void {
   if (pmCalls.length &gt; 0) {
     record.pinModeLines = pmCalls.map((c) =&gt; c.line);
-    record.pinModeModes = pmCalls.map((c) =&gt; c.mode!);
+    record.pinModeModes = pmCalls
+      .map((c) =&gt; c.mode)
+      .filter((m): m is PinMode =&gt; m !== undefined);
   }
   if (drCalls.length &gt; 0) {
     record.digitalReadLines = drCalls.map((c) =&gt; c.line);
@@ -1876,10 +1898,14 @@ function populateLegacyFields(
   awCalls: CallEntry[],
 ): void {
   if (pmCalls.length &gt; 0) {
-    const allModes = pmCalls.map((c) =&gt; c.mode!);
+    const allModes = pmCalls
+      .map((c) =&gt; c.mode)
+      .filter((m): m is PinMode =&gt; m !== undefined);
     const lastMode = allModes.at(-1);
+    // eslint-disable-next-line unicorn/prefer-at -- .at(-1) returns T|undefined, not narrowed by length guard
+    const lastPmCall = pmCalls[pmCalls.length - 1];
     record.pinMode = convertModeToNumeric(lastMode);
-    record.definedAt = { line: pmCalls.at(-1)!.line };
+    record.definedAt = { line: lastPmCall.line };
   }
 &nbsp;
   const nonPmCalls = [...drCalls, ...dwCalls, ...arCalls, ...awCalls];
@@ -2005,8 +2031,12 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
   // ── Aggregate entries by pinId ────────────────────────────────────────────
   const pinMap = new Map&lt;number, CallEntry[]&gt;();
   for (const entry of entries) {
-    if (!pinMap.has(entry.pinId)) pinMap.set(entry.pinId, []);
-    pinMap.get(entry.pinId)!.push(entry);
+    const existing = pinMap.get(entry.pinId);
+    if (existing) {
+      existing.push(entry);
+    } else {
+      pinMap.set(entry.pinId, [entry]);
+    }
   }
 &nbsp;
   const records: IOPinRecord[] = [];
@@ -2041,7 +2071,7 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-26T14:23:36.880Z
+                at 2026-04-01T19:28:37.095Z
             </div>
         <script src="../prettify.js"></script>
         <script>
