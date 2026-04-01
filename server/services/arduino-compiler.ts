@@ -516,12 +516,17 @@ export class ArduinoCompiler {
         };
       }
 
-      // 2. Check both instant and hex caches
+      // 2. Check both instant and hex caches.
+      // Only use the cache when the output sidecar (.output.txt) also exists so
+      // the full "Sketch uses X bytes … Board: Arduino UNO" message is returned.
+      // If cachedOutput is null (e.g. old cache entry written before the sidecar
+      // was introduced) we fall through to a fresh compile so the sidecar gets
+      // written and the user always sees the complete output.
       const cacheResult = await this.checkCacheHits(sketchHash, hexCacheDir, compileStartedAt);
-      if (cacheResult.cached && cacheResult.binary) {
+      if (cacheResult.cached && cacheResult.binary && cacheResult.cachedOutput !== null) {
         return {
           success: true,
-          output: cacheResult.cachedOutput ?? "Board: Arduino UNO",
+          output: cacheResult.cachedOutput,
           stderr: undefined,
           errors: [],
           binary: cacheResult.binary,
