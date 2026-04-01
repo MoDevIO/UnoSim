@@ -658,7 +658,8 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    const button = screen.getByText("Enter test").closest("button")!;
+    const button = screen.getByText("Enter test").closest("button");
+    if (!button) throw new Error("button not found");
     button.focus();
     await user.keyboard("{Enter}");
 
@@ -679,7 +680,8 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    const button = screen.getByText("Space test").closest("button")!;
+    const button = screen.getByText("Space test").closest("button");
+    if (!button) throw new Error("button not found");
     button.focus();
     await user.keyboard(" ");
 
@@ -700,7 +702,8 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    const button = screen.getByText("Key test").closest("button")!;
+    const button = screen.getByText("Key test").closest("button");
+    if (!button) throw new Error("button not found");
     button.focus();
     await user.keyboard("a");
 
@@ -721,7 +724,8 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    const button = screen.getByText("No line msg").closest("button")!;
+    const button = screen.getByText("No line msg").closest("button");
+    if (!button) throw new Error("button not found");
     expect(button.tabIndex).toBe(-1);
     button.focus();
     await user.keyboard("{Enter}");
@@ -741,7 +745,8 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    const button = screen.getByText("Has line").closest("button")!;
+    const button = screen.getByText("Has line").closest("button");
+    if (!button) throw new Error("button not found");
     expect(button.tabIndex).toBe(0);
   });
 });

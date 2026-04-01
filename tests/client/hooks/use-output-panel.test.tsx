@@ -44,8 +44,8 @@ describe("useOutputPanel", () => {
     code: "",
   };
 
-  // Helper to call hook with props
-  const callHook = (props: typeof defaultProps) =>
+  // Helper wrapper starting with 'use' so React Hook rules are satisfied
+  const useHookHelper = (props: typeof defaultProps) =>
     useOutputPanel(
       props.hasCompilationErrors,
       props.cliOutput,
@@ -76,7 +76,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should initialize with default values", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     expect(result.current.outputPanelMinPercent).toBe(3);
     expect(result.current.compilationPanelSize).toBe(3);
@@ -89,7 +89,7 @@ describe("useOutputPanel", () => {
     localStorage.setItem("unoShowCompileOutput", "1");
 
     const { result } = renderHook(() =>
-      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
+      useHookHelper({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     // The hook doesn't directly use this in initialization, but the parent would
@@ -97,7 +97,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should open output panel with openOutputPanel", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     act(() => {
       result.current.openOutputPanel("compiler");
@@ -110,7 +110,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should open output panel with different tabs", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     act(() => {
       result.current.openOutputPanel("messages");
@@ -133,7 +133,7 @@ describe("useOutputPanel", () => {
 
   it("should resize panel to 50% when openOutputPanel is called with mock resize", () => {
     const mockResize = vi.fn();
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     // Mock the outputPanelRef.current.resize method
     result.current.outputPanelRef.current = { resize: mockResize };
@@ -148,7 +148,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should set manual resize flag when handleOnResizeOutputPanel is called", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     expect(result.current.outputPanelManuallyResized).toBe(false);
 
@@ -161,7 +161,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should listen to showCompileOutputChange event", async () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     act(() => {
       const event = new CustomEvent("showCompileOutputChange", {
@@ -178,7 +178,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should persist showCompileOutputChange to localStorage", async () => {
-    renderHook(() => callHook(defaultProps));
+    renderHook(() => useHookHelper(defaultProps));
 
     act(() => {
       const event = new CustomEvent("showCompileOutputChange", {
@@ -205,7 +205,7 @@ describe("useOutputPanel", () => {
 
   it("should enforce output panel floor when compilation errors occur", () => {
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -234,7 +234,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should provide enforceOutputPanelFloor function", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     expect(result.current.enforceOutputPanelFloor).toBeDefined();
     expect(typeof result.current.enforceOutputPanelFloor).toBe("function");
@@ -251,7 +251,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should respect manuallyResized flag in ref", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     expect(result.current.outputPanelManuallyResizedRef.current).toBe(false);
 
@@ -265,7 +265,7 @@ describe("useOutputPanel", () => {
 
   it("should handle successful compilation with appropriate panel size", () => {
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -287,7 +287,7 @@ describe("useOutputPanel", () => {
 
   it("should react to code changes via useEffect", () => {
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: { ...defaultProps, code: "void setup() {}" } },
     );
 
@@ -305,7 +305,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should update compilationPanelSize state", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     act(() => {
       result.current.setCompilationPanelSize(25);
@@ -321,7 +321,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should update outputPanelManuallyResized state", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     expect(result.current.outputPanelManuallyResized).toBe(false);
 
@@ -340,7 +340,7 @@ describe("useOutputPanel", () => {
 
   it("should handle malformed showCompileOutputChange event gracefully", async () => {
     const _initialValue = localStorage.getItem("unoShowCompileOutput");
-    renderHook(() => callHook(defaultProps));
+    renderHook(() => useHookHelper(defaultProps));
 
     act(() => {
       const event = new CustomEvent("showCompileOutputChange");
@@ -354,7 +354,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should cancel enforceOutputPanelFloor timeout on unmount", () => {
-    const { result, unmount } = renderHook(() => callHook(defaultProps));
+    const { result, unmount } = renderHook(() => useHookHelper(defaultProps));
 
     const mockResize = vi.fn();
     result.current.outputPanelRef.current = { resize: mockResize };
@@ -376,7 +376,7 @@ describe("useOutputPanel", () => {
     ];
 
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -398,7 +398,7 @@ describe("useOutputPanel", () => {
 
   it("should skip auto-sizing when manually resized flag is set", () => {
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -425,7 +425,7 @@ describe("useOutputPanel", () => {
 
   it("should persist showCompilationOutput to localStorage when changed", () => {
     const { rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: { ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: false } } },
     );
 
@@ -441,7 +441,7 @@ describe("useOutputPanel", () => {
 
   it("should handle window resize event", () => {
     const { result } = renderHook(() =>
-      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
+      useHookHelper({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     const mockGetSize = vi.fn(() => 25);
@@ -462,7 +462,7 @@ describe("useOutputPanel", () => {
 
   it("should handle uiFontScaleChange event on window", () => {
     const { result } = renderHook(() =>
-      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
+      useHookHelper({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     const mockResize = vi.fn();
@@ -479,7 +479,7 @@ describe("useOutputPanel", () => {
 
   it("should handle uiFontScaleChange event on document", () => {
     const { result } = renderHook(() =>
-      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
+      useHookHelper({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     const mockResize = vi.fn();
@@ -498,7 +498,7 @@ describe("useOutputPanel", () => {
     const docRemoveListenerSpy = vi.spyOn(document, "removeEventListener");
 
     const { unmount } = renderHook(() =>
-      callHook({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
+      useHookHelper({ ...defaultProps, stateHandlers: { ...defaultProps.stateHandlers, showCompilationOutput: true } }),
     );
 
     unmount();
@@ -511,7 +511,7 @@ describe("useOutputPanel", () => {
   it("should cleanup showCompileOutputChange listener on unmount", () => {
     const removeEventListenerSpy = vi.spyOn(document, "removeEventListener");
 
-    const { unmount } = renderHook(() => callHook(defaultProps));
+    const { unmount } = renderHook(() => useHookHelper(defaultProps));
 
     unmount();
 
@@ -535,7 +535,7 @@ describe("useOutputPanel", () => {
     // Should not throw even though localStorage throws
     expect(() => {
       const { rerender } = renderHook(
-        (props) => callHook(props),
+        (props) => useHookHelper(props),
         { initialProps: { ...defaultProps, showCompilationOutput: false } },
       );
 
@@ -563,7 +563,7 @@ describe("useOutputPanel", () => {
 
     // Should not throw even though localStorage throws
     expect(() => {
-      renderHook(() => callHook(defaultProps));
+      renderHook(() => useHookHelper(defaultProps));
 
       act(() => {
         const event = new CustomEvent("showCompileOutputChange", {
@@ -580,7 +580,7 @@ describe("useOutputPanel", () => {
 
   it("should auto-minimize panel on successful compilation with no errors", () => {
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: { ...defaultProps, compilationPanelSize: 50 } },
     );
 
@@ -603,7 +603,7 @@ describe("useOutputPanel", () => {
     const longCliOutput = new Array(20).fill("Error line").join("\n");
 
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -624,7 +624,7 @@ describe("useOutputPanel", () => {
     const veryLongCliOutput = new Array(200).fill("Error line").join("\n");
 
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -645,7 +645,7 @@ describe("useOutputPanel", () => {
     const shortCliOutput = "err";
 
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -672,7 +672,7 @@ describe("useOutputPanel", () => {
       }));
 
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -695,7 +695,7 @@ describe("useOutputPanel", () => {
     ];
 
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -716,7 +716,7 @@ describe("useOutputPanel", () => {
 
   it("should minimize panel to 3% on successful compilation with no messages", () => {
     const { result, rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -735,7 +735,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle showCompileOutputChange event", () => {
-    renderHook(() => callHook(defaultProps));
+    renderHook(() => useHookHelper(defaultProps));
 
     act(() => {
       const event = new CustomEvent("showCompileOutputChange", {
@@ -749,7 +749,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should reset manual resize flag on showCompileOutputChange event", () => {
-    const { result } = renderHook(() => callHook(defaultProps));
+    const { result } = renderHook(() => useHookHelper(defaultProps));
 
     // Manually resize first
     act(() => {
@@ -772,7 +772,7 @@ describe("useOutputPanel", () => {
 
   it("should persist showCompilationOutput to localStorage", () => {
     const { rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -805,7 +805,7 @@ describe("useOutputPanel", () => {
     });
 
     const { rerender } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -826,7 +826,7 @@ describe("useOutputPanel", () => {
 
   it("should handle code change and trigger correction loop", async () => {
     const { rerender, result } = renderHook(
-      (props) => callHook(props),
+      (props) => useHookHelper(props),
       { initialProps: defaultProps },
     );
 
@@ -850,7 +850,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should call enforceOutputPanelFloor on resize event", () => {
-    const { result } = renderHook(() => callHook({
+    const { result } = renderHook(() => useHookHelper({
       ...defaultProps,
       showCompilationOutput: true,
     }));
@@ -869,7 +869,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should call enforceOutputPanelFloor on uiFontScaleChange event", () => {
-    renderHook(() => callHook({
+    renderHook(() => useHookHelper({
       ...defaultProps,
       showCompilationOutput: true,
     }));
@@ -888,7 +888,7 @@ describe("useOutputPanel", () => {
     const removeEventListenerSpy = vi.spyOn(globalThis, "removeEventListener");
     const docRemoveListenerSpy = vi.spyOn(document, "removeEventListener");
 
-    const { unmount } = renderHook(() => callHook(defaultProps));
+    const { unmount } = renderHook(() => useHookHelper(defaultProps));
 
     unmount();
 
@@ -919,7 +919,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should not enforce floor when manually resized", () => {
-    const { result } = renderHook(() => callHook({
+    const { result } = renderHook(() => useHookHelper({
       ...defaultProps,
       showCompilationOutput: true,
     }));
@@ -946,7 +946,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should handle setOutputTab custom event and set active tab", async () => {
-    renderHook(() => callHook(defaultProps));
+    renderHook(() => useHookHelper(defaultProps));
 
     act(() => {
       const event = new CustomEvent("setOutputTab", { detail: { tab: "messages" } });
@@ -960,7 +960,7 @@ describe("useOutputPanel", () => {
   });
 
   it("should ignore setOutputTab event with no tab detail", async () => {
-    renderHook(() => callHook(defaultProps));
+    renderHook(() => useHookHelper(defaultProps));
 
     act(() => {
       const event = new CustomEvent("setOutputTab", { detail: {} });
@@ -973,7 +973,7 @@ describe("useOutputPanel", () => {
 
   it("should cleanup setOutputTab event listener on unmount", () => {
     const removeEventListenerSpy = vi.spyOn(document, "removeEventListener");
-    const { unmount } = renderHook(() => callHook(defaultProps));
+    const { unmount } = renderHook(() => useHookHelper(defaultProps));
 
     unmount();
 

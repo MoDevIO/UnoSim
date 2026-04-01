@@ -170,6 +170,20 @@ export class ArduinoCompiler {
     await rename(tmpPath, targetPath);
   }
 
+  private async _writeOutputToCache(storageDir: string, sketchHash: string, output: string): Promise<void> {
+    const outputPath = join(storageDir, `${sketchHash}.output.txt`);
+    await writeFile(outputPath, output, "utf8");
+  }
+
+  private async _readOutputFromCache(storageDir: string, sketchHash: string): Promise<string | null> {
+    const outputPath = join(storageDir, `${sketchHash}.output.txt`);
+    try {
+      return await readFile(outputPath, "utf8");
+    } catch {
+      return null;
+    }
+  }
+
   private async readHexFromCache(
     sketchHash: string,
     hexCacheDir: string,
@@ -269,13 +283,14 @@ export class ArduinoCompiler {
     sketchHash: string,
     hexCacheDir: string,
     compileStartedAt: bigint,
-  ): Promise<{ cached: boolean; binary: Buffer | null; cacheType: string }> {
+  ): Promise<{ cached: boolean; binary: Buffer | null; cacheType: string; cachedOutput: string | null }> {
     // Check instant binary cache first (most recent)
     const instantBinary = await this.readBinaryFromStorage(sketchHash);
     if (instantBinary) {
       const elapsedMs = Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000));
       this.logger.info(`[Cache] Hit for hash ${sketchHash} (${elapsedMs}ms)`);
-      return { cached: true, binary: instantBinary, cacheType: "instant" };
+      const cachedOutput = await this._readOutputFromCache(this.defaultBinaryStorageDir, sketchHash);
+      return { cached: true, binary: instantBinary, cacheType: "instant", cachedOutput };
     }
 
     // Check hex cache (persistent, shared across sessions)
@@ -283,10 +298,11 @@ export class ArduinoCompiler {
     if (cachedBinary) {
       const elapsedMs = Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000));
       this.logger.info(`[Cache] Hit for hash ${sketchHash} (${elapsedMs}ms)`);
-      return { cached: true, binary: cachedBinary, cacheType: "hex" };
+      const cachedOutput = await this._readOutputFromCache(hexCacheDir, sketchHash);
+      return { cached: true, binary: cachedBinary, cacheType: "hex", cachedOutput };
     }
 
-    return { cached: false, binary: null, cacheType: "none" };
+    return { cached: false, binary: null, cacheType: "none", cachedOutput: null };
   }
 
   /**
@@ -389,6 +405,12 @@ export class ArduinoCompiler {
           `[CompileCache] failed to write binary storage cache: ${error instanceof Error ? error.message : String(error)}`,
         );
       });
+      // Store the formatted output alongside both cache locations so cache hits
+      // can reproduce the full compiler output (sketch size, RAM usage, etc.)
+      if (cliOutput) {
+        await this._writeOutputToCache(hexCacheDir, sketchHash, cliOutput).catch(() => undefined);
+        await this._writeOutputToCache(this.defaultBinaryStorageDir, sketchHash, cliOutput).catch(() => undefined);
+      }
       await this.runHexCacheCleanup(hexCacheDir);
     }
 
@@ -497,11 +519,9 @@ export class ArduinoCompiler {
       // 2. Check both instant and hex caches
       const cacheResult = await this.checkCacheHits(sketchHash, hexCacheDir, compileStartedAt);
       if (cacheResult.cached && cacheResult.binary) {
-        const cacheTypeLabel =
-          cacheResult.cacheType === "instant" ? "Instant Hit" : "HEX cache hit";
         return {
           success: true,
-          output: `Board: Arduino UNO (${cacheTypeLabel} in ${Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000))}ms)`,
+          output: cacheResult.cachedOutput ?? "Board: Arduino UNO",
           stderr: undefined,
           errors: [],
           binary: cacheResult.binary,

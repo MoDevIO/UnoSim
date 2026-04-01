@@ -171,13 +171,11 @@ export function createWorkerError(err: unknown): WorkerError {
       stack: err.stack,
     };
   }
-  // S6551: Convert non-Error objects safely (prevent Object.toString() stringification)
-  const message = err instanceof Object && !(err instanceof Error)
-    ? JSON.stringify(err)
-    : String(err);
-  return {
-    message,
-  };
+  if (err instanceof Object) {
+    return { message: JSON.stringify(err) };
+  }
+  // err is a primitive (string, number, boolean, null, undefined) — String() is safe
+  return { message: String(err as string | number | boolean | null | undefined) };
 }
 
 
