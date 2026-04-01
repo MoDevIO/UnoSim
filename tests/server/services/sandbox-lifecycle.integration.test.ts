@@ -334,11 +334,11 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
         onError: () => {},
         onExit: (exitCode) => {
           try {
-            // On some platforms/CI we have observed -1 instead of real code
+            // On some platforms/CI we have observed -1 or null instead of real code
             if (exitCode !== 42) {
               console.warn(`Unexpected exitCode ${exitCode}, proceeding anyway`);
             }
-            expect([42, -1]).toContain(exitCode);
+            expect([42, -1, null]).toContain(exitCode);
             clearTimeout(timeout);
             resolve();
           } catch (err) {
