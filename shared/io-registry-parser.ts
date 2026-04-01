@@ -503,7 +503,8 @@ function populateLegacyFields(
       .map((c) => c.mode)
       .filter((m): m is PinMode => m !== undefined);
     const lastMode = allModes.at(-1);
-    const lastPmCall = pmCalls.at(-1);
+    // eslint-disable-next-line unicorn/prefer-at -- .at(-1) returns T|undefined, not narrowed by length guard
+    const lastPmCall = pmCalls[pmCalls.length - 1];
     record.pinMode = convertModeToNumeric(lastMode);
     record.definedAt = { line: lastPmCall.line };
   }
