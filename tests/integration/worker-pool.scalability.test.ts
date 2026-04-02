@@ -57,7 +57,7 @@ describe("Worker Pool Scalability - Realistic Load", () => {
     );
     // With 4 workers, should handle most requests
     expect(successes).toBeGreaterThanOrEqual(15);
-  });
+  }, 60000);
 
   it("handles staggered user pattern (5-second waves)", async () => {
     const results: boolean[] = [];

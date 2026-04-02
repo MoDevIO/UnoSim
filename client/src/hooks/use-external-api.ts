@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { SimulatorActionType, API_VERSION } from "@/types/external-api";
+import { SimulatorActionType, API_VERSION, SimulatorEventType } from "@/types/external-api";
 import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage } from "@/types/external-api";
 
 export interface UseExternalApiParams {
@@ -16,6 +16,9 @@ export interface UseExternalApiParams {
   /** Returns the current value of a pin (used for GET_PIN_STATE responses). */
   getPinState: (pin: number) => number;
 }
+
+// Global storage for the allowed origin (set by useExternalApi hook)
+const _allowedOriginRef = { value: "*" };
 
 /**
  * Sends a response message to the parent frame.
@@ -67,6 +70,11 @@ export function useExternalApi(params: UseExternalApiParams): void {
     onSetPinState,
     getPinState,
   } = params;
+
+  // Store the allowed origin globally for use by event-sending functions
+  useEffect(() => {
+    _allowedOriginRef.value = allowedOrigin;
+  }, [allowedOrigin]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent): void => {
@@ -138,4 +146,37 @@ export function useExternalApi(params: UseExternalApiParams): void {
       window.removeEventListener("message", handleMessage);
     };
   }, [allowedOrigin, onLoadCode, onStartSimulation, onStopSimulation, onSetPinState, getPinState]);
+}
+
+/**
+ * Gets the currently configured allowed origin for external API communication.
+ * Defaults to "*" if useExternalApi has not been called yet.
+ * @internal Used by other hooks to send events with the correct origin.
+ */
+export function getAllowedOrigin(): string {
+  return _allowedOriginRef.value;
+}
+
+/**
+ * Sends a SERIAL_OUTPUT_EVENT to the parent frame with serial data.
+ * Automatically uses the configured allowed origin and includes API version.
+ * Safely handles errors to prevent serial output from blocking the simulator.
+ * @param output - The serial output string to send.
+ */
+export function emitSerialOutput(output: string): void {
+  try {
+    const event: SimulatorEventMessage = {
+      version: API_VERSION,
+      type: SimulatorEventType.SERIAL_OUTPUT_EVENT,
+      success: true,
+      payload: { output },
+    };
+    sendEventToParent(event, getAllowedOrigin());
+  } catch (error) {
+    // Silently ignore postMessage errors to prevent disrupting serial output
+    // This is expected when the simulator is not embedded in an iframe
+    if (typeof console !== "undefined" && console.debug) {
+      console.debug("[External API] Serial event send failed (expected when not in iframe):", error);
+    }
+  }
 }

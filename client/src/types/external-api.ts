@@ -35,6 +35,8 @@ export enum SimulatorEventType {
   ON_PIN_CHANGE = "ON_PIN_CHANGE",
   /** The simulation's overall state has changed (RUNNING, STOPPED, ERROR) */
   SIMULATION_STATE_CHANGED = "SIMULATION_STATE_CHANGED",
+  /** Data has been output over the serial interface (Serial.print, etc.) */
+  SERIAL_OUTPUT_EVENT = "SERIAL_OUTPUT_EVENT",
 }
 
 /**
@@ -94,6 +96,13 @@ export interface SimulationStateChangedPayload {
 }
 
 /**
+ * Payload for SERIAL_OUTPUT_EVENT events.
+ */
+export interface SerialOutputEventPayload {
+  output: string; // Serial data chunk (may contain newlines)
+}
+
+/**
  * Inbound message from an external website.
  *
  * @example
@@ -128,9 +137,12 @@ export interface SimulatorResponse {
 export type SimulatorEventMessage<T extends SimulatorEventType = SimulatorEventType> = {
   version: string;
   type: T;
+  success: true; // Events always report success
   payload: T extends SimulatorEventType.ON_PIN_CHANGE
     ? OnPinChangePayload
     : T extends SimulatorEventType.SIMULATION_STATE_CHANGED
       ? SimulationStateChangedPayload
-      : never;
+      : T extends SimulatorEventType.SERIAL_OUTPUT_EVENT
+        ? SerialOutputEventPayload
+        : never;
 }
