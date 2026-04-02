@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { SimulatorActionType } from "@/types/external-api";
-import type { SimulatorMessage, SimulatorResponse } from "@/types/external-api";
+import { SimulatorActionType, API_VERSION } from "@/types/external-api";
+import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage } from "@/types/external-api";
 
 export interface UseExternalApiParams {
   /** Restrict inbound messages to this origin. Use "*" to allow all origins. */
@@ -19,17 +19,36 @@ export interface UseExternalApiParams {
 
 /**
  * Sends a response message to the parent frame.
+ * Automatically includes the API version for backward compatibility negotiation.
  *
- * @param response - The response payload to send.
+ * @param response - The response payload to send. May or may not include version already.
  * @param targetOrigin - The target origin for the postMessage call.
  *   Pass the parent origin explicitly to prevent data leakage (S2819).
  *   Use `"*"` only when the caller intentionally allows any receiver.
  */
 export function sendMessageToParent(
-  response: SimulatorResponse,
+  response: Partial<SimulatorResponse>,
   targetOrigin: string,
 ): void {
-  globalThis.postMessage(response, targetOrigin);
+  const withVersion: SimulatorResponse = {
+    ...response,
+    version: API_VERSION,
+  } as SimulatorResponse;
+  globalThis.postMessage(withVersion, targetOrigin);
+}
+
+/**
+ * Sends an event message (emitted proactively by the simulator) to the parent frame.
+ * Automatically includes the API version.
+ *
+ * @param event - The event message to send (already includes version and type).
+ * @param targetOrigin - The target origin for the postMessage call.
+ */
+export function sendEventToParent(
+  event: SimulatorEventMessage,
+  targetOrigin: string,
+): void {
+  globalThis.postMessage(event, targetOrigin);
 }
 
 /**
@@ -95,6 +114,16 @@ export function useExternalApi(params: UseExternalApiParams): void {
             { type: SimulatorActionType.GET_PIN_STATE, success: true, data: value },
             allowedOrigin,
           );
+          break;
+        }
+
+        case SimulatorActionType.BATCH_SET_PIN_STATE: {
+          const payload = message.payload as { pins: Array<{ pin: number; value: number }> };
+          if (Array.isArray(payload.pins)) {
+            for (const pinState of payload.pins) {
+              onSetPinState(pinState.pin, pinState.value);
+            }
+          }
           break;
         }
 

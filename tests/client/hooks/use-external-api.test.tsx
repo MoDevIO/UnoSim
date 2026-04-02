@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useExternalApi, sendMessageToParent } from "../../../client/src/hooks/use-external-api";
-import { SimulatorActionType } from "../../../client/src/types/external-api";
+import { useExternalApi, sendMessageToParent, sendEventToParent } from "../../../client/src/hooks/use-external-api";
+import { SimulatorActionType, SimulatorEventType, API_VERSION } from "../../../client/src/types/external-api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -214,7 +214,10 @@ describe("sendMessageToParent", () => {
     sendMessageToParent(response, ALLOWED_ORIGIN);
 
     expect(spy).toHaveBeenCalledOnce();
-    expect(spy).toHaveBeenCalledWith(response, ALLOWED_ORIGIN);
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ ...response, version: API_VERSION }),
+      ALLOWED_ORIGIN,
+    );
   });
 
   it("uses the provided target origin", () => {
@@ -223,6 +226,172 @@ describe("sendMessageToParent", () => {
 
     sendMessageToParent(response, "*");
 
-    expect(spy).toHaveBeenCalledWith(response, "*");
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ ...response, version: API_VERSION }),
+      "*",
+    );
   });
+});
+
+// ─── API Versioning Tests ────────────────────────────────────────────────────
+
+describe("API Versioning", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sendMessageToParent includes API_VERSION in response", () => {
+    const spy = vi.spyOn(globalThis, "postMessage");
+    const response = { type: "test_response", success: true };
+
+    sendMessageToParent(response, ALLOWED_ORIGIN);
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ version: API_VERSION }),
+      ALLOWED_ORIGIN,
+    );
+  });
+
+  it("GET_PIN_STATE response includes version", () => {
+    const params = { ...buildParams() };
+    const postSpy = vi.spyOn(globalThis, "postMessage");
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({
+        type: SimulatorActionType.GET_PIN_STATE,
+        payload: { pin: 5 },
+      });
+    });
+
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: API_VERSION,
+        type: SimulatorActionType.GET_PIN_STATE,
+      }),
+      ALLOWED_ORIGIN,
+    );
+  });
+});
+
+// ─── Batch-Operations Tests ──────────────────────────────────────────────────
+
+describe("BATCH_SET_PIN_STATE", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("processes BATCH_SET_PIN_STATE with multiple pins", () => {
+    const params = buildParams();
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({
+        type: SimulatorActionType.BATCH_SET_PIN_STATE,
+        payload: {
+          pins: [
+            { pin: 7, value: 1 },
+            { pin: 8, value: 0 },
+            { pin: 9, value: 1 },
+          ],
+        },
+      });
+    });
+
+    // Verify all three pins were set
+    expect(params.onSetPinState).toHaveBeenCalledTimes(3);
+    expect(params.onSetPinState).toHaveBeenNthCalledWith(1, 7, 1);
+    expect(params.onSetPinState).toHaveBeenNthCalledWith(2, 8, 0);
+    expect(params.onSetPinState).toHaveBeenNthCalledWith(3, 9, 1);
+  });
+
+  it("silently handles empty pins array in BATCH_SET_PIN_STATE", () => {
+    const params = buildParams();
+    renderHook(() => useExternalApi(params));
+
+    expect(() => {
+      act(() => {
+        dispatchMessage({
+          type: SimulatorActionType.BATCH_SET_PIN_STATE,
+          payload: { pins: [] },
+        });
+      });
+    }).not.toThrow();
+
+    expect(params.onSetPinState).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Event-Push System Tests ─────────────────────────────────────────────────
+
+describe("Event-Push System (sendEventToParent)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sendEventToParent sends ON_PIN_CHANGE event with version", () => {
+    const spy = vi.spyOn(globalThis, "postMessage");
+
+    sendEventToParent(
+      {
+        version: API_VERSION,
+        type: SimulatorEventType.ON_PIN_CHANGE,
+        payload: { pin: 13, value: 1 },
+      },
+      ALLOWED_ORIGIN,
+    );
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: API_VERSION,
+        type: SimulatorEventType.ON_PIN_CHANGE,
+        payload: { pin: 13, value: 1 },
+      }),
+      ALLOWED_ORIGIN,
+    );
+  });
+
+  it("sendEventToParent sends SIMULATION_STATE_CHANGED event", () => {
+    const spy = vi.spyOn(globalThis, "postMessage");
+
+    sendEventToParent(
+      {
+        version: API_VERSION,
+        type: SimulatorEventType.SIMULATION_STATE_CHANGED,
+        payload: { state: "RUNNING", message: "Simulation started" },
+      },
+      ALLOWED_ORIGIN,
+    );
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: API_VERSION,
+        type: SimulatorEventType.SIMULATION_STATE_CHANGED,
+        payload: expect.objectContaining({ state: "RUNNING" }),
+      }),
+      ALLOWED_ORIGIN,
+    );
+  });
+
+  it("event message includes version for compatibility tracking", () => {
+    const spy = vi.spyOn(globalThis, "postMessage");
+
+    sendEventToParent(
+      {
+        version: API_VERSION,
+        type: SimulatorEventType.ON_PIN_CHANGE,
+        payload: { pin: 7, value: 0 },
+      },
+      "*",
+    );
+
+    const callArgs = spy.mock.calls[0];
+    expect(callArgs[0]).toHaveProperty("version");
+    expect(callArgs[0].version).toBe(API_VERSION);
+  });
+
 });
