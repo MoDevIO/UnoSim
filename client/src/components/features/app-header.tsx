@@ -646,7 +646,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             transform: "translate(-50%, -50%)",
           }}
         >
-          <div className="relative">
+          <div className="relative flex items-stretch h-fit">
             <Button
               onClick={simulateAction}
               disabled={simulateDisabled}
@@ -677,7 +677,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       data-mobile-header
       className="bg-card border-b border-border px-4 h-[var(--ui-header-height)] flex items-center justify-center flex-nowrap overflow-hidden w-full"
     >
-      <div className="flex items-center gap-2 relative">
+      <div className="flex items-center gap-2 relative h-full">
         <Button
           onClick={simulateAction}
           disabled={simulateDisabled}
