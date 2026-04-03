@@ -4,6 +4,7 @@
 
 import { randomUUID } from "node:crypto";
 import { Logger } from "@shared/logger";
+import { ProcessExecutor } from "../process-executor";
 import type { IOPinRecord } from "@shared/schema";
 import type { IProcessController } from "../process-controller";
 import { ArduinoOutputParser as StderrParser } from "../arduino-output-parser";
@@ -117,6 +118,7 @@ export interface ExecutionState {
   processKilled: boolean;
   pendingCleanup: boolean;
   processController: IProcessController;
+  currentContainerName?: string;
   dockerAvailable?: boolean;
   dockerImageBuilt?: boolean;
 }
@@ -131,6 +133,7 @@ export class ExecutionManager {
   private readonly dockerManager: DockerManager;
   private readonly streamHandler: StreamHandler;
   private readonly filesystemHelper: FilesystemHelper;
+  private readonly processExecutor: ProcessExecutor;
 
   constructor(
     registryManager: RegistryManager,
@@ -148,6 +151,7 @@ export class ExecutionManager {
     this.dockerManager = dockerManager;
     this.streamHandler = streamHandler;
     this.filesystemHelper = filesystemHelper;
+    this.processExecutor = new ProcessExecutor();
   }
 
   private static get compileGatekeeper() {
@@ -387,6 +391,9 @@ export class ExecutionManager {
     state: ExecutionState,
     executionTimeout: number,
   ): Promise<void> {
+    const containerName = `unowebsim-${randomUUID()}`;
+    state.currentContainerName = containerName;
+
     const dockerArgs = DockerCommandBuilder.buildSecureRunCommand({
       sketchDir: files.sketchDir,
       memoryMB: SANDBOX_CONFIG.maxMemoryMB,
@@ -394,6 +401,7 @@ export class ExecutionManager {
       pidsLimit: 50,
       imageName: SANDBOX_CONFIG.dockerImage,
       command: DockerCommandBuilder.buildCompileAndRunCommand(),
+      containerName,
       arduinoCacheDir: process.env.ARDUINO_CACHE_DIR,
     });
 
@@ -440,6 +448,8 @@ export class ExecutionManager {
         } else if (code === 0 && onCompileSuccess) {
           onCompileSuccess();
         }
+
+        void this.cleanupDockerContainer(state.currentContainerName);
 
         if (!state.processKilled && onExit) onExit(code);
         this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
@@ -735,6 +745,27 @@ export class ExecutionManager {
   ): void {
     state.processController.kill("SIGKILL");
     callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
+
+    void this.cleanupDockerContainer(state.currentContainerName);
+  }
+
+  /**
+   * Ensure no container remains after Docker process exit or timeout.
+   */
+  private async cleanupDockerContainer(containerName?: string): Promise<void> {
+    if (!containerName) {
+      return;
+    }
+
+    try {
+      await this.processExecutor.execute("docker", ["rm", "-f", containerName], {
+        timeout: 5000,
+        stdio: "pipe",
+      });
+      this.logger.info(`Docker container cleanup: ${containerName}`);
+    } catch (error) {
+      this.logger.debug(`Docker cleanup failed for ${containerName}: ${error}`);
+    }
   }
 
   /**

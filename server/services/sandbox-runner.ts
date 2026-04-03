@@ -241,6 +241,20 @@ export class SandboxRunner {
     try { await mkdir(this.tempDir, { recursive: true }); } catch { /* ignore */ }
   }
 
+  private async cleanupDockerContainer(containerName?: string): Promise<void> {
+    if (!containerName) return;
+
+    try {
+      const result = await this.processExecutor.execute("docker", ["rm", "-f", containerName], {
+        timeout: 5000,
+        stdio: "pipe",
+      });
+      this.logger.info(`Docker cleanup for ${containerName} finished (code ${result.code})`);
+    } catch (error) {
+      this.logger.debug(`Docker cleanup for ${containerName} failed: ${error}`);
+    }
+  }
+
   pause(): boolean {
     const s = this.executionState;
     if (this.state !== SimulationState.RUNNING || !this.processController.hasProcess()) return false;
@@ -355,7 +369,11 @@ export class SandboxRunner {
     }
 
     s.outputBuffer = ""; s.outputBufferIndex = 0; s.isSendingOutput = false;
+    const containerName = s.currentContainerName;
+    s.currentContainerName = undefined;
     if (s.flushTimer) { clearTimeout(s.flushTimer); s.flushTimer = null; }
+
+    await this.cleanupDockerContainer(containerName);
   }
 
   getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean; mode: string } {

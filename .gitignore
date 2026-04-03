@@ -29,6 +29,7 @@ yarn-error.log*
 /target/
 
 # Local/Temp caches
+/storage/cache/
 .cache/
 .vite/
 .next/

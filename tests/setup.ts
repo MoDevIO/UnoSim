@@ -120,6 +120,24 @@ afterEach((ctx) => {
   }
 });
 
-afterAll(() => {
-  // Optional: Cleanup nach allen Tests
+afterAll(async () => {
+  // Remove any unowebsim Docker containers that survived the test run.
+  // This is a safety net for cases where individual afterEach cleanup didn't
+  // complete (e.g., fake timers, test worker termination).
+  try {
+    const { spawn } = await import("node:child_process");
+    const containerIds = await new Promise<string[]>((resolve) => {
+      const proc = spawn("docker", ["ps", "-aq", "--filter", "name=unowebsim-"]);
+      let output = "";
+      proc.stdout?.on("data", (d: Buffer) => { output += d.toString(); });
+      proc.on("close", () => resolve(output.split("\n").filter(Boolean)));
+    });
+    if (containerIds.length > 0) {
+      await new Promise<void>((resolve) => {
+        spawn("docker", ["rm", "-f", ...containerIds]).on("close", () => resolve());
+      });
+    }
+  } catch {
+    // Docker not available or no containers – ignore
+  }
 });

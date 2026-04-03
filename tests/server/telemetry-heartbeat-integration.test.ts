@@ -16,10 +16,10 @@ describe('Telemetry Heartbeat Integration', () => {
     vi.setSystemTime(new Date('2026-03-17T15:00:00Z'));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
     if (runner) {
-      runner.stop().catch(() => {
+      await runner.stop().catch(() => {
         // ignore
       });
     }

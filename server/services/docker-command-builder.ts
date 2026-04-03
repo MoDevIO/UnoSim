@@ -14,6 +14,7 @@ interface DockerRunOptions {
   pidsLimit: number;
   imageName: string;
   command: string[];
+  containerName?: string;
   /** Host path for the Arduino compiler cache. When set, the directory is
    *  bind-mounted into the container at the same path and ARDUINO_CACHE_DIR
    *  is forwarded as an environment variable so the compiler inside the
@@ -35,6 +36,7 @@ export class DockerCommandBuilder {
     return [
       "run",
       "--rm", // Remove container after exit
+      ...(options.containerName ? ["--name", options.containerName] : []),
       "-i", // Interactive mode for stdin
       "--network",
       "none", // No network access
