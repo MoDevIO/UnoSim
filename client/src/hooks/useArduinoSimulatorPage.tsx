@@ -26,6 +26,7 @@ import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
+import { useExternalApi } from "@/hooks/use-external-api";
 import { parseStaticIORegistry } from "@shared/io-registry-parser";
 
 import type {
@@ -627,6 +628,25 @@ export function useArduinoSimulatorPage() {
       setShowCompilationOutput(true);
     }
   }, [simulationStatus, setShowCompilationOutput]);
+
+  // External postMessage API — remote control for embedding websites.
+  // The allowed origin is detected from the parent frame (ancestorOrigins).
+  const externalAllowedOrigin =
+    globalThis.location.ancestorOrigins?.[0] ?? "*";
+
+  useExternalApi({
+    allowedOrigin: externalAllowedOrigin,
+    onLoadCode: setCode,
+    onStartSimulation: compileAndStartAction,
+    onStopSimulation: handleStop,
+    onSetPinState: (pin, value) => {
+      sendMessage({ type: "pin_state", pin, stateType: "value", value });
+    },
+    getPinState: (pin) => {
+      const found = pinStates.find((p) => p.pin === pin);
+      return found?.value ?? 0;
+    },
+  });
 
   const state = {
     showErrorGlitch,

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { OutputLine } from "@shared/schema";
 import { SerialCharacterRenderer } from "@/utils/serial-character-renderer";
+import { emitSerialOutput } from "./use-external-api";
 
 export function useSerialIO() {
   const [serialOutput, setSerialOutput] = useState<OutputLine[]>([]);
@@ -11,6 +12,8 @@ export function useSerialIO() {
   // Baudrate-simulated rendering
   const [renderedSerialText, setRenderedSerialText] = useState<string>("");
   const rendererRef = useRef<SerialCharacterRenderer | null>(null);
+  const emitDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingOutputRef = useRef<string>("");
 
   // Convert renderedSerialText to OutputLine[] format for SerialMonitor
   const renderedSerialOutput = useMemo<OutputLine[]>(() => {
@@ -23,7 +26,7 @@ export function useSerialIO() {
     }));
   }, [renderedSerialText]);
 
-  // Initialize renderer once
+  // Initialize renderer once and cleanup on unmount
   useEffect(() => {
     const renderer = new SerialCharacterRenderer((char: string) => {
       setRenderedSerialText((prev) => prev + char);
@@ -32,6 +35,10 @@ export function useSerialIO() {
 
     return () => {
       renderer.clear();
+      // Clean up debounce timer on unmount
+      if (emitDebounceRef.current !== null) {
+        clearTimeout(emitDebounceRef.current);
+      }
     };
   }, []);
 
@@ -57,6 +64,13 @@ export function useSerialIO() {
       rendererRef.current.resume();
     }
     setRenderedSerialText("");
+    
+    // Clean up any pending debounced emit
+    if (emitDebounceRef.current !== null) {
+      clearTimeout(emitDebounceRef.current);
+      emitDebounceRef.current = null;
+    }
+    pendingOutputRef.current = "";
   }, []);
 
   // Baudrate rendering methods
@@ -69,6 +83,21 @@ export function useSerialIO() {
     } else {
       rendererRef.current?.enqueue(text);
     }
+    
+    // Emit serial output event to parent frame for dashboard monitoring (debounced to 100ms)
+    pendingOutputRef.current += text;
+    
+    if (emitDebounceRef.current !== null) {
+      clearTimeout(emitDebounceRef.current);
+    }
+    
+    emitDebounceRef.current = setTimeout(() => {
+      if (pendingOutputRef.current) {
+        emitSerialOutput(pendingOutputRef.current);
+        pendingOutputRef.current = "";
+      }
+      emitDebounceRef.current = null;
+    }, 100);
   }, []);
 
   const setBaudrate = useCallback((baud: number | undefined) => {

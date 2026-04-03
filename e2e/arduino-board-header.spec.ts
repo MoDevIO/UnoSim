@@ -155,14 +155,16 @@ void loop() {
     // Verify header height token is defined
     expect(headerHeight).toBeTruthy();
     // S5852: Validate CSS unit format without regex alternation
-    // Use strict character class to eliminate backtracking
     if (headerHeight) {
       const trimmedHeight = headerHeight.trim();
-      // Allow numeric+ unit (px, rem, %, em)
-      const isValidUnit = /^\d+(?:\.\d+)?(?:px|rem|%|em)$/.test(trimmedHeight);
+
+      const allowedUnits = ["px", "rem", "%", "em"];
+      const matchingUnit = allowedUnits.find((unit) => trimmedHeight.endsWith(unit));
+      const numericPart = matchingUnit ? trimmedHeight.slice(0, -matchingUnit.length) : "";
+      const isValidUnit = Boolean(matchingUnit) && /^\d+(?:\.\d+)?$/.test(numericPart);
+
       expect(isValidUnit).toBe(true);
     }
-
     // Verify board is visible and not clipped
     await expect(boardContainer).toBeVisible();
     const boundingBox = await boardContainer.boundingBox();

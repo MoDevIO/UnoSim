@@ -16,7 +16,7 @@ describe("ArduinoCompiler - additional", () => {
   });
 
   test("processes header includes and returns processedCode", async () => {
-    const spy = vi
+    const compileSpy = vi
       .spyOn(ArduinoCompiler.prototype as any, "compileWithArduinoCli")
       .mockResolvedValue({ success: true, output: "Board: Arduino UNO" });
 
@@ -26,6 +26,7 @@ describe("ArduinoCompiler - additional", () => {
 
     const res = await compiler.compile(code, headers);
     expect(res.success).toBe(true);
+    expect(compileSpy).toHaveBeenCalledOnce();
     // Note: processedCode was removed from CompilationResult as an optimization
     expect(res.output).toMatch(/Board: Arduino UNO/);
   });

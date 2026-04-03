@@ -295,7 +295,7 @@ export class ExecutionManager {
     state.totalPausedTime = 0;
     this.registryManager.reset();
     this.registryManager.setBaudrate(state.baudrate);
-    this.registryManager.enableWaitMode(5000);
+    this.registryManager.enableWaitMode(5000); // Original 5s timeout
     state.messageQueue = [];
     state.outputBuffer = "";
     state.outputBufferIndex = 0;

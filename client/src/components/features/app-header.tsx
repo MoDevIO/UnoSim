@@ -646,19 +646,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             transform: "translate(-50%, -50%)",
           }}
         >
-          <Button
-            onClick={simulateAction}
-            disabled={simulateDisabled}
-            className={_getDesktopSimulateButtonClass(simulationStatus, simulateDisabled)}
-            data-testid="button-simulate-toggle"
-            aria-label={simulateLabel}
-          >
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
-              <DesktopSimulateIcon isLoading={isLoading} isRunning={isRunning} />
-              <span className="font-semibold leading-none">{simulateText}</span>
-            </div>
+          <div className="relative flex items-stretch h-fit">
+            <Button
+              onClick={simulateAction}
+              disabled={simulateDisabled}
+              className={_getDesktopSimulateButtonClass(simulationStatus, simulateDisabled)}
+              data-testid="button-simulate-toggle"
+              aria-label={simulateLabel}
+            >
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
+                <DesktopSimulateIcon isLoading={isLoading} isRunning={isRunning} />
+                <span className="font-semibold leading-none">{simulateText}</span>
+              </div>
+            </Button>
             {isRunning && <PauseButton {...pauseProps} />}
-          </Button>
+          </div>
         </div>
 
         {/* Right: Optional telemetry/extra controls */}
@@ -675,7 +677,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       data-mobile-header
       className="bg-card border-b border-border px-4 h-[var(--ui-header-height)] flex items-center justify-center flex-nowrap overflow-hidden w-full"
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 relative h-full">
         <Button
           onClick={simulateAction}
           disabled={simulateDisabled}
@@ -684,8 +686,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           aria-label={simulateLabel}
         >
           <MobileSimulateContent isLoading={isLoading} isRunning={isRunning} text={simulateText} />
-          {isRunning && <PauseButton {...pauseProps} />}
         </Button>
+        {isRunning && <PauseButton {...pauseProps} />}
       </div>
     </header>
   );
