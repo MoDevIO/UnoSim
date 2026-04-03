@@ -435,23 +435,17 @@ export class ExecutionManager {
         callbacks.onError(`Docker process failed: ${err.message}`);
       });
 
-      state.processController.onClose((code) => {
+      // Single close handler: state transition + cleanup.
+      // Note: compile callbacks, batchers, and onExit are handled exclusively
+      // by dockerManager.setupDockerHandlers → handleDockerExit to avoid
+      // double invocation (which previously caused a double "stopped" event).
+      state.processController.onClose((_code) => {
         this.transitionTo(state, SimulationState.STOPPED);
         if (state.flushTimer) {
           clearTimeout(state.flushTimer);
           state.flushTimer = null;
         }
-
-        const isCompilePhase = dockerState.isCompilePhase?.value ?? false;
-        if (code !== 0 && isCompilePhase && dockerState.compileErrorBuffer.value && onCompileError) {
-          onCompileError(this.cleanCompilerErrors(dockerState.compileErrorBuffer.value));
-        } else if (code === 0 && onCompileSuccess) {
-          onCompileSuccess();
-        }
-
         void this.cleanupDockerContainer(state.currentContainerName);
-
-        if (!state.processKilled && onExit) onExit(code);
         this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
       });
 
@@ -461,7 +455,7 @@ export class ExecutionManager {
         {
           flushBatchers: () => this.flushBatchers(state),
           flushMessageQueue: () => this.flushMessageQueue(state),
-          processKilled: state.processKilled,
+          getProcessKilled: () => state.processKilled,
           executionTimeout,
         },
         {
@@ -687,16 +681,6 @@ export class ExecutionManager {
 
     this.streamHandler.handleParsedLine(parsed, streamState, callbacks);
     state.backpressurePaused = streamState.backpressurePaused;
-  }
-
-  /**
-   * Clean compiler errors (remove full paths)
-   */
-  private cleanCompilerErrors(errors: string): string {
-    return errors
-      .replaceAll("/sandbox/sketch.cpp", "sketch.ino")
-      .replaceAll(/(?:\/[^\s:/]+)+\/temp\/[a-f0-9-]+\/sketch\.cpp/gi, "sketch.ino")
-      .trim();
   }
 
   /**

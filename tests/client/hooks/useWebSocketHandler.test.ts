@@ -179,6 +179,15 @@ describe("useWebSocketHandler", () => {
     expect(params.enqueuePinEvent).toHaveBeenCalledWith(13, "digital", 1);
   });
 
+  it("emits pin state change on pin_state value/pwm events", () => {
+    // 'value' type should trigger emitPinStateChange (External API bridge)
+    mockMessageQueue.push({ type: "pin_state", pin: 5, stateType: "value", value: 255 });
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(params.enqueuePinEvent).toHaveBeenCalledWith(5, "value", 255);
+  });
+
   it("processes pin_state_batch message", () => {
     mockMessageQueue.push({
       type: "pin_state_batch",
@@ -191,6 +200,21 @@ describe("useWebSocketHandler", () => {
     renderHook(() => useWebSocketHandler(params));
 
     expect(params.enqueuePinEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("emits pin state change in pin_state_batch for value/pwm states", () => {
+    mockMessageQueue.push({
+      type: "pin_state_batch",
+      states: [
+        { pin: 3, stateType: "pwm", value: 128 },
+        { pin: 4, stateType: "value", value: 1 },
+        { pin: 5, stateType: "digital", value: 0 }, // no emit for this one
+      ],
+    });
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(params.enqueuePinEvent).toHaveBeenCalledTimes(3);
   });
 
   it("processes compilation_status message", () => {

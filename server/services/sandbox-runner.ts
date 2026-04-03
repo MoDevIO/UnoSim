@@ -343,7 +343,6 @@ export class SandboxRunner {
     s.telemetryCallback = null; s.pinStateCallback = null; s.ioRegistryCallback = undefined;
     this.registryManager.reset();
     this.timeoutManager.clear();
-    this.registryManager.destroy();
     this.localCompiler.kill();
     this.processController.kill("SIGKILL");
     this.processController.destroySockets();

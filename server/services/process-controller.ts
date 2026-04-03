@@ -56,7 +56,6 @@ export class ProcessController implements IProcessController {
   private closeListeners: CloseCb[] = [];
   private errorListeners: ErrorCb[] = [];
   private stderrReadline: import("node:readline").Interface | null = null;
-  private killTimer: NodeJS.Timeout | null = null;
 
   async spawn(command: string, args: string[] = [], options?: SpawnOptions): Promise<import("node:child_process").ChildProcess | null> {
     // dynamic import ensures test mocks of child_process are applied
@@ -103,7 +102,6 @@ export class ProcessController implements IProcessController {
     });
 
     this._setupStderrHandling(createInterface);
-    this._setupKillTimer();
     this._setupProcessEventListeners();
 
     // return the underlying ChildProcess so callers can inspect it
@@ -142,30 +140,10 @@ export class ProcessController implements IProcessController {
     }
   }
 
-  private _setupKillTimer(): void {
-    // Ensure we don't hang due to child process backpressure (stdout/stderr not drained).
-    // If the process is still alive after 25s, force kill it and log a warning.
-    if (!this.proc) return;
-    
-    if (this.killTimer) {
-      clearTimeout(this.killTimer);
-    }
-    this.killTimer = setTimeout(() => {
-      if (!this.proc || this.proc.killed) return;
-      const pid = this.proc.pid;
-      logger.warn(`ProcessController: child process still alive after 25s, killing pid=${pid}`);
-      this.kill("SIGKILL");
-    }, 25000);
-  }
-
   private _setupProcessEventListeners(): void {
     if (!this.proc) return;
 
     this.proc.on("close", (code: number | null) => {
-      if (this.killTimer) {
-        clearTimeout(this.killTimer);
-        this.killTimer = null;
-      }
       this.closeListeners.forEach((cb) => cb(code));
     });
     this.proc.on("error", (err: Error) => this.errorListeners.forEach((cb) => cb(err)));

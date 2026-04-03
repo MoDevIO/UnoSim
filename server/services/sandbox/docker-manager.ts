@@ -17,7 +17,8 @@ interface DockerManagerCallbacks {
 interface DockerProcessConfig {
   flushBatchers: () => void;
   flushMessageQueue: () => void;
-  processKilled: boolean;
+  /** Use a getter so the guard reflects the live value, preventing stale-capture bugs. */
+  getProcessKilled: () => boolean;
   executionTimeout?: number;
   onStateTransition?: (state: "running" | "stopped") => void;
 }
@@ -192,7 +193,7 @@ export class DockerManager {
     }
 
     // Call exit callback (guard: only if process wasn't terminated by stop())
-    if (!config.processKilled && handlers.onExit) handlers.onExit(code);
+    if (!config.getProcessKilled() && handlers.onExit) handlers.onExit(code);
   }
 
   /**

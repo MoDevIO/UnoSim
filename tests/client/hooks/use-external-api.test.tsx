@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useExternalApi, sendMessageToParent, sendEventToParent } from "../../../client/src/hooks/use-external-api";
+import { useExternalApi, sendMessageToParent, sendEventToParent, emitPinStateChange, emitSimulationStateEvent } from "../../../client/src/hooks/use-external-api";
 import { SimulatorActionType, SimulatorEventType, API_VERSION } from "../../../client/src/types/external-api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -333,14 +333,15 @@ describe("Event-Push System (sendEventToParent)", () => {
     vi.restoreAllMocks();
   });
 
-  it("sendEventToParent sends ON_PIN_CHANGE event with version", () => {
+  it("sendEventToParent sends PIN_STATE_CHANGE_EVENT with version", () => {
     const spy = vi.spyOn(globalThis, "postMessage");
 
     sendEventToParent(
       {
         version: API_VERSION,
-        type: SimulatorEventType.ON_PIN_CHANGE,
-        payload: { pin: 13, value: 1 },
+        type: SimulatorEventType.PIN_STATE_CHANGE_EVENT,
+        success: true,
+        data: { pin: 13, value: 1 },
       },
       ALLOWED_ORIGIN,
     );
@@ -348,21 +349,22 @@ describe("Event-Push System (sendEventToParent)", () => {
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         version: API_VERSION,
-        type: SimulatorEventType.ON_PIN_CHANGE,
-        payload: { pin: 13, value: 1 },
+        type: SimulatorEventType.PIN_STATE_CHANGE_EVENT,
+        data: { pin: 13, value: 1 },
       }),
       ALLOWED_ORIGIN,
     );
   });
 
-  it("sendEventToParent sends SIMULATION_STATE_CHANGED event", () => {
+  it("sendEventToParent sends SIMULATION_STATE_EVENT", () => {
     const spy = vi.spyOn(globalThis, "postMessage");
 
     sendEventToParent(
       {
         version: API_VERSION,
-        type: SimulatorEventType.SIMULATION_STATE_CHANGED,
-        payload: { state: "RUNNING", message: "Simulation started" },
+        type: SimulatorEventType.SIMULATION_STATE_EVENT,
+        success: true,
+        data: { state: "RUNNING", message: "Simulation started" },
       },
       ALLOWED_ORIGIN,
     );
@@ -370,8 +372,8 @@ describe("Event-Push System (sendEventToParent)", () => {
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         version: API_VERSION,
-        type: SimulatorEventType.SIMULATION_STATE_CHANGED,
-        payload: expect.objectContaining({ state: "RUNNING" }),
+        type: SimulatorEventType.SIMULATION_STATE_EVENT,
+        data: expect.objectContaining({ state: "RUNNING" }),
       }),
       ALLOWED_ORIGIN,
     );
@@ -383,8 +385,9 @@ describe("Event-Push System (sendEventToParent)", () => {
     sendEventToParent(
       {
         version: API_VERSION,
-        type: SimulatorEventType.ON_PIN_CHANGE,
-        payload: { pin: 7, value: 0 },
+        type: SimulatorEventType.PIN_STATE_CHANGE_EVENT,
+        success: true,
+        data: { pin: 7, value: 0 },
       },
       "*",
     );
@@ -393,5 +396,77 @@ describe("Event-Push System (sendEventToParent)", () => {
     expect(callArgs[0]).toHaveProperty("version");
     expect(callArgs[0].version).toBe(API_VERSION);
   });
+});
 
+// ─── emitPinStateChange ──────────────────────────────────────────────────────
+
+describe("emitPinStateChange", () => {
+  afterEach(vi.restoreAllMocks);
+
+  it("posts a PIN_STATE_CHANGE_EVENT with correct pin and value", () => {
+    const spy = vi.spyOn(window.parent, "postMessage");
+
+    emitPinStateChange(13, 1);
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: API_VERSION,
+        type: SimulatorEventType.PIN_STATE_CHANGE_EVENT,
+        success: true,
+        data: { pin: 13, value: 1 },
+      }),
+      expect.any(String),
+    );
+  });
+
+  it("silently ignores postMessage errors", () => {
+    vi.spyOn(window.parent, "postMessage").mockImplementation(() => {
+      throw new Error("cross-origin blocked");
+    });
+
+    expect(() => emitPinStateChange(7, 0)).not.toThrow();
+  });
+});
+
+// ─── emitSimulationStateEvent ────────────────────────────────────────────────
+
+describe("emitSimulationStateEvent", () => {
+  afterEach(vi.restoreAllMocks);
+
+  it("posts a SIMULATION_STATE_EVENT with the given state", () => {
+    const spy = vi.spyOn(window.parent, "postMessage");
+
+    emitSimulationStateEvent("RUNNING");
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: API_VERSION,
+        type: SimulatorEventType.SIMULATION_STATE_EVENT,
+        success: true,
+        data: expect.objectContaining({ state: "RUNNING" }),
+      }),
+      expect.any(String),
+    );
+  });
+
+  it("includes optional message when provided", () => {
+    const spy = vi.spyOn(window.parent, "postMessage");
+
+    emitSimulationStateEvent("ERROR", "Sketch crashed");
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ state: "ERROR", message: "Sketch crashed" }),
+      }),
+      expect.any(String),
+    );
+  });
+
+  it("silently ignores postMessage errors", () => {
+    vi.spyOn(window.parent, "postMessage").mockImplementation(() => {
+      throw new Error("cross-origin blocked");
+    });
+
+    expect(() => emitSimulationStateEvent("STOPPED")).not.toThrow();
+  });
 });

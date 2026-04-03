@@ -1,5 +1,4 @@
 import { SandboxRunner } from "./sandbox-runner";
-import { RegistryManager } from "./registry-manager";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord } from "@shared/schema";
 import type { ExecutionState, TelemetryMetrics } from "./sandbox/execution-manager";
@@ -34,7 +33,7 @@ type SandboxRunnerInternal = {
   } | null;
   pinStateBatcher?: { pause: () => void; resume: () => void } | null;
   serialOutputBatcher?: { pause: () => void; resume: () => void } | null;
-  registryManager?: { destroy: () => void } | null;
+  registryManager?: { destroy: () => void; reset: () => void } | null;
   flushMessageQueue?: () => void;
   onOutputCallback?: ((line: string, isComplete?: boolean) => void) | null;
   outputCallback?: ((line: string, isComplete?: boolean) => void) | null;
@@ -235,28 +234,18 @@ class SandboxRunnerPool {
         r.fileBuilder.reset();
       }
 
+      // Reset the existing RegistryManager rather than destroying and recreating it.
+      // Destroying makes the object permanently unusable (destroyed=true), which breaks
+      // the ExecutionManager that holds a reference to the same instance.
+      // The original onUpdate callback uses executionState.ioRegistryCallback dynamically,
+      // so it picks up the correct callback for each new run automatically.
       if (r.registryManager) {
         try {
-          r.registryManager.destroy();
+          r.registryManager.reset();
         } catch (error) {
-          this.logger.debug(`[SandboxRunnerPool] Error destroying old RegistryManager: ${error}`);
+          this.logger.debug(`[SandboxRunnerPool] RegistryManager reset failed: ${error}`);
         }
       }
-
-      r.registryManager = new RegistryManager({
-        onUpdate: (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => {
-          if (r.ioRegistryCallback) {
-            r.ioRegistryCallback(registry, baudrate, reason);
-          }
-          r.flushMessageQueue?.();
-        },
-        onTelemetry: (metrics: TelemetryMetrics) => {
-          if (r.telemetryCallback) {
-            r.telemetryCallback(metrics);
-          }
-        },
-        enableTelemetry: true,
-      });
 
       if (r.timeoutManager) {
         r.timeoutManager.clear();

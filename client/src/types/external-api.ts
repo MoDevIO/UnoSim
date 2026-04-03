@@ -32,9 +32,9 @@ export enum SimulatorActionType {
  */
 export enum SimulatorEventType {
   /** A pin's state (digital or analog value) has changed */
-  ON_PIN_CHANGE = "ON_PIN_CHANGE",
+  PIN_STATE_CHANGE_EVENT = "PIN_STATE_CHANGE_EVENT",
   /** The simulation's overall state has changed (RUNNING, STOPPED, ERROR) */
-  SIMULATION_STATE_CHANGED = "SIMULATION_STATE_CHANGED",
+  SIMULATION_STATE_EVENT = "SIMULATION_STATE_EVENT",
   /** Data has been output over the serial interface (Serial.print, etc.) */
   SERIAL_OUTPUT_EVENT = "SERIAL_OUTPUT_EVENT",
 }
@@ -80,27 +80,21 @@ type PayloadMap = {
 };
 
 /**
- * Payload for ON_PIN_CHANGE events.
+ * Payload for PIN_STATE_CHANGE_EVENT events.
  */
-export interface OnPinChangePayload {
+export interface PinStateChangeEventData {
   pin: number;
   value: number;
 }
 
 /**
- * Payload for SIMULATION_STATE_CHANGED events.
+ * Data for SIMULATION_STATE_EVENT events.
  */
-export interface SimulationStateChangedPayload {
+export interface SimulationStateEventData {
   state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR";
   message?: string;
 }
 
-/**
- * Payload for SERIAL_OUTPUT_EVENT events.
- */
-export interface SerialOutputEventPayload {
-  output: string; // Serial data chunk (may contain newlines)
-}
 
 /**
  * Inbound message from an external website.
@@ -133,16 +127,17 @@ export interface SimulatorResponse {
 /**
  * Event message emitted proactively by the simulator.
  * These are sent without request and inform the parent of state changes.
+ * The `data` field matches the format documented in EXTERNAL_API.md.
  */
 export type SimulatorEventMessage<T extends SimulatorEventType = SimulatorEventType> = {
   version: string;
   type: T;
   success: true; // Events always report success
-  payload: T extends SimulatorEventType.ON_PIN_CHANGE
-    ? OnPinChangePayload
-    : T extends SimulatorEventType.SIMULATION_STATE_CHANGED
-      ? SimulationStateChangedPayload
+  data: T extends SimulatorEventType.PIN_STATE_CHANGE_EVENT
+    ? PinStateChangeEventData
+    : T extends SimulatorEventType.SIMULATION_STATE_EVENT
+      ? SimulationStateEventData
       : T extends SimulatorEventType.SERIAL_OUTPUT_EVENT
-        ? SerialOutputEventPayload
+        ? string
         : never;
 }
