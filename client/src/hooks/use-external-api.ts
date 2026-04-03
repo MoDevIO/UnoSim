@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { SimulatorActionType, API_VERSION, SimulatorEventType } from "@/types/external-api";
-import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage } from "@/types/external-api";
+import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage, SimulationStateEventData } from "@/types/external-api";
 
 export interface UseExternalApiParams {
   /** Restrict inbound messages to this origin. Use "*" to allow all origins. */
@@ -210,11 +210,13 @@ export function emitSimulationStateEvent(
   message?: string,
 ): void {
   try {
+    const data: SimulationStateEventData = { state };
+    if (message !== undefined) data.message = message;
     const event: SimulatorEventMessage<typeof SimulatorEventType.SIMULATION_STATE_EVENT> = {
       version: API_VERSION,
       type: SimulatorEventType.SIMULATION_STATE_EVENT,
       success: true,
-      data: { state, ...(message === undefined ? {} : { message }) },
+      data,
     };
     sendEventToParent(event, getAllowedOrigin());
   } catch {

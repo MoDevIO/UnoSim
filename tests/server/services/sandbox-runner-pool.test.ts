@@ -81,6 +81,7 @@ vi.mock("../../../server/services/sandbox-runner", () => {
 vi.mock("../../../server/services/registry-manager", () => ({
   RegistryManager: vi.fn().mockImplementation(() => ({
     destroy: vi.fn(),
+    reset: vi.fn(),
   })),
 }));
 
@@ -303,6 +304,35 @@ describe("SandboxRunnerPool", () => {
     runner.isRunning = true;
 
     // Should not throw
+    await expect(pool.releaseRunner(runner)).resolves.toBeUndefined();
+  });
+
+  it("calls registryManager.reset() during runner release", async () => {
+    const pool = getSandboxRunnerPool();
+    await pool.initialize();
+
+    const runner = await pool.acquireRunner();
+    const mockRegistryManager = { destroy: vi.fn(), reset: vi.fn(), removeAllListeners: vi.fn() };
+    runner.registryManager = mockRegistryManager;
+
+    await pool.releaseRunner(runner);
+
+    expect(mockRegistryManager.reset).toHaveBeenCalledOnce();
+  });
+
+  it("handles registryManager.reset() failure gracefully during release", async () => {
+    const pool = getSandboxRunnerPool();
+    await pool.initialize();
+
+    const runner = await pool.acquireRunner();
+    const mockRegistryManager = {
+      destroy: vi.fn(),
+      reset: vi.fn().mockImplementation(() => { throw new Error("reset failed"); }),
+      removeAllListeners: vi.fn(),
+    };
+    runner.registryManager = mockRegistryManager;
+
+    // Should not throw even when reset() fails
     await expect(pool.releaseRunner(runner)).resolves.toBeUndefined();
   });
 });

@@ -118,7 +118,7 @@ if docker info > /dev/null 2>&1; then
     run_task "Docker Image Build" "docker build -t $DOCKER_IMAGE ."
     run_task "Docker-Tests (Timing/Pause/Sandbox/Flow)" \
         "FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_IMAGE SKIP_HEAVY_TESTS=false LOG_LEVEL=warn \
-        npx vitest run --reporter=default \
+        npx vitest run --reporter=default --maxWorkers=1 \
         tests/server/timing-delay.test.ts \
         tests/server/pause-resume-timing.test.ts \
         tests/server/pause-resume-digitalread.test.ts \
