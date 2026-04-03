@@ -91,3 +91,4 @@ font_size_report_*.md
 benchmark-*.json
 # but keep /docs/archive tracked since it contains organized archives
 
+server/arduino-cache/
