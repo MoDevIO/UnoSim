@@ -530,7 +530,7 @@ export function ArduinoBoard({
       const DEFAULT_BOARD_HEX = '#0f7391';
       modified = modified.replaceAll(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
     } catch { /* ignore regex errors */ }
-    const opacity = simulationStatus === "running" ? 1 : 0.35;
+    const opacity = isSimulationRunning ? 1 : 0.35;
     return modified.replace(
       /<svg([^>]*)>/,
       `<svg$1 style="width: 100%; height: 100%; display: block; opacity: ${opacity};" preserveAspectRatio="xMidYMid meet">`,
@@ -582,7 +582,7 @@ export function ArduinoBoard({
               className="absolute inset-0 transition-opacity duration-300 ease-in-out pointer-events-none"
               style={{
                 background: "rgba(0,0,0,0.45)",
-                opacity: simulationStatus === "running" ? 0 : 1,
+                opacity: isSimulationRunning ? 0 : 1,
                 zIndex: 20,
               }}
             />

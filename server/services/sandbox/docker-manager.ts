@@ -59,6 +59,12 @@ export class DockerManager {
    * Setup and configure Docker process timeout
    */
   setupDockerTimeout(executionTimeout: number | undefined, callbacks: DockerManagerCallbacks): void {
+    // executionTimeout === 0 means "infinite" (user selected ∞ in the Tools menu)
+    if (executionTimeout === 0) {
+      this.logger.debug("Infinite timeout configured – no timer scheduled");
+      return;
+    }
+
     const timeoutSec =
       executionTimeout && executionTimeout > 0 ? executionTimeout : this.SANDBOX_CONFIG.maxExecutionTimeSec;
 
