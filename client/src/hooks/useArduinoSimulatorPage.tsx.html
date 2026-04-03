@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">64.03% </span>
+                <span class="strong">62.5% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>73/114</span>
+                <span class='fraction'>75/120</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">57.14% </span>
+                <span class="strong">56.25% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>16/28</span>
+                <span class='fraction'>18/32</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">47.36% </span>
+                <span class="strong">40.9% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>9/19</span>
+                <span class='fraction'>9/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.03% </span>
+                <span class="strong">64.86% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>70/106</span>
+                <span class='fraction'>72/111</span>
             </div>
         
             
@@ -780,7 +780,28 @@
 <a name='L715'></a><a href='#L715'>715</a>
 <a name='L716'></a><a href='#L716'>716</a>
 <a name='L717'></a><a href='#L717'>717</a>
-<a name='L718'></a><a href='#L718'>718</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L718'></a><a href='#L718'>718</a>
+<a name='L719'></a><a href='#L719'>719</a>
+<a name='L720'></a><a href='#L720'>720</a>
+<a name='L721'></a><a href='#L721'>721</a>
+<a name='L722'></a><a href='#L722'>722</a>
+<a name='L723'></a><a href='#L723'>723</a>
+<a name='L724'></a><a href='#L724'>724</a>
+<a name='L725'></a><a href='#L725'>725</a>
+<a name='L726'></a><a href='#L726'>726</a>
+<a name='L727'></a><a href='#L727'>727</a>
+<a name='L728'></a><a href='#L728'>728</a>
+<a name='L729'></a><a href='#L729'>729</a>
+<a name='L730'></a><a href='#L730'>730</a>
+<a name='L731'></a><a href='#L731'>731</a>
+<a name='L732'></a><a href='#L732'>732</a>
+<a name='L733'></a><a href='#L733'>733</a>
+<a name='L734'></a><a href='#L734'>734</a>
+<a name='L735'></a><a href='#L735'>735</a>
+<a name='L736'></a><a href='#L736'>736</a>
+<a name='L737'></a><a href='#L737'>737</a>
+<a name='L738'></a><a href='#L738'>738</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1410,6 +1431,25 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1525,6 +1565,7 @@ import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
+import { useExternalApi } from "@/hooks/use-external-api";
 import { parseStaticIORegistry } from "@shared/io-registry-parser";
 &nbsp;
 import type {
@@ -2127,6 +2168,25 @@ export function useArduinoSimulatorPage() {
     }
   }, [simulationStatus, setShowCompilationOutput]);
 &nbsp;
+  // External postMessage API — remote control for embedding websites.
+  // The allowed origin is detected from the parent frame (ancestorOrigins).
+  const externalAllowedOrigin =
+    globalThis.location.ancestorOrigins?.[0] ?? "*";
+&nbsp;
+  useExternalApi({
+    allowedOrigin: externalAllowedOrigin,
+    onLoadCode: setCode,
+    onStartSimulation: compileAndStartAction,
+    onStopSimulation: handleStop,
+    onSetPinState: <span class="fstat-no" title="function not covered" >(p</span>in, value) =&gt; {
+<span class="cstat-no" title="statement not covered" >      sendMessage({ type: "pin_state", pin, stateType: "value", value });</span>
+    },
+    getPinState: <span class="fstat-no" title="function not covered" >(p</span>in) =&gt; {
+      const found = <span class="cstat-no" title="statement not covered" >pinStates.find(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; <span class="cstat-no" title="statement not covered" >p.pin === pin)</span>;</span>
+<span class="cstat-no" title="statement not covered" >      return found?.value ?? 0;</span>
+    },
+  });
+&nbsp;
   const state = {
     showErrorGlitch,
     backendReachable,
@@ -2221,7 +2281,7 @@ export type ArduinoSimulatorPageState = ReturnType&lt;typeof useArduinoSimulator
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-03T09:35:02.703Z
+                at 2026-04-03T09:53:37.881Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
