@@ -111,7 +111,10 @@ export class DockerManager {
       // Parse stdout lines (safety net for direct binary output)
       const lines = str.split(/\r?\n/);
       lines.forEach((line) => {
-        if (!line) return;
+        // Filter the compile-phase sentinel added by buildCompileAndRunCommand.
+        // Its sole purpose is to trigger the isCompilePhase reset above and
+        // must not be forwarded to the protocol parser or the client.
+        if (!line || line.trim() === '[[RUNTIME_START]]') return;
         const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime || 0);
         this.handleParsedLine(parsed, callbacks);
       });
