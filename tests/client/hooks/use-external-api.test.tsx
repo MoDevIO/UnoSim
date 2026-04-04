@@ -10,7 +10,7 @@ const ALLOWED_ORIGIN = "https://example.com";
 /** Simulate an inbound postMessage with a given origin. */
 function dispatchMessage(data: unknown, origin = ALLOWED_ORIGIN) {
   const event = new MessageEvent("message", { data, origin });
-  window.dispatchEvent(event);
+  globalThis.dispatchEvent(event);
 }
 
 /** Build default mock params for the hook. */
@@ -135,8 +135,8 @@ describe("useExternalApi", () => {
 
   it("removes the message listener when the component unmounts", () => {
     const params = buildParams();
-    const addSpy = vi.spyOn(window, "addEventListener");
-    const removeSpy = vi.spyOn(window, "removeEventListener");
+    const addSpy = vi.spyOn(globalThis, "addEventListener");
+    const removeSpy = vi.spyOn(globalThis, "removeEventListener");
 
     const { unmount } = renderHook(() => useExternalApi(params));
 

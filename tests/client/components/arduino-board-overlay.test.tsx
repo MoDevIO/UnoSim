@@ -3,11 +3,8 @@
  *
  * User requirement: The board must have the same visual appearance
  * before starting the simulation and after stopping it (whether via
- * the Stop button or timeout). This means the board should remain
- * fully visible at all times.
- *
- * Solution: Keep the overlay always hidden (opacity=0) and the board
- * always at full opacity (opacity=1).
+ * the Stop button or timeout). The overlay is always hidden and the
+ * board is always at full opacity to prevent black screens.
  */
 import React from "react";
 import { render } from "@testing-library/react";
@@ -17,47 +14,34 @@ import { describe, it, expect } from "vitest";
 
 /**
  * The CORRECT overlay implementation:
- * Overlay always hidden (opacity=0) to keep the board fully visible
- * regardless of simulation state (before-start, during, paused, or after-stop).
+ * Overlay always hidden (opacity=0) to keep the board fully visible.
  */
-function OverlayCorrect(): JSX.Element {
-  return (
+const OverlayCorrect: React.FC = () => (
     <div
       data-testid="overlay"
       className="absolute inset-0 transition-opacity duration-300 ease-in-out pointer-events-none"
       style={{ background: "rgba(0,0,0,0.45)", opacity: 0, zIndex: 20 }}
     />
-  );
-}
+);
 
 /**
- * BUGGY variant 1: Shows overlay when not running (old broken version).
- * This causes the board to go black when simulation stops.
+ * Parameterized overlay that toggles based on simulation status.
+ * This variant is NOT used in production but verifies regression detection.
  */
-function OverlayBuggy_AlwaysShownWhenStopped(): JSX.Element {
-  return (
-    <div
-      data-testid="overlay"
-      className="absolute inset-0 transition-opacity duration-300 ease-in-out pointer-events-none"
-      style={{ background: "rgba(0,0,0,0.45)", opacity: 1, zIndex: 20 }}
-    />
-  );
-}
-
-/**
- * BUGGY variant 2: Shows overlay when simulationStatus !== "running"
- * (the parameterized version from old broken code).
- */
-function OverlayBuggy_ConditionalOnStatus({
+function OverlayConditional({
   simulationStatus,
-}: readonly {
+}: {
   readonly simulationStatus: "running" | "paused" | "stopped";
 }): JSX.Element {
   return (
     <div
       data-testid="overlay"
       className="absolute inset-0 transition-opacity duration-300 ease-in-out pointer-events-none"
-      style={{ background: "rgba(0,0,0,0.45)", opacity: simulationStatus === "running" ? 0 : 1, zIndex: 20 }}
+      style={{
+        background: "rgba(0,0,0,0.45)",
+        opacity: simulationStatus === "running" ? 0 : 1,
+        zIndex: 20,
+      }}
     />
   );
 }
@@ -73,20 +57,20 @@ describe("ArduinoBoard overlay - CORRECT implementation (always hidden)", () => 
 
 // ─── Tests documenting the BUGGY behaviour caused by incorrect opacity logic ───
 
-describe("ArduinoBoard overlay - BUGGY variants (regression detection)", () => {
-  it("Bug: overlay is visible (dark) when always shown (old behavior caused black screen)", () => {
-    const { getByTestId } = render(<OverlayBuggy_AlwaysShownWhenStopped />);
+describe("ArduinoBoard overlay - regression detection", () => {
+  it("conditional overlay is dark when stopped (documents pre-fix bug)", () => {
+    const { getByTestId } = render(<OverlayConditional simulationStatus="stopped" />);
     expect(getByTestId("overlay").style.opacity).toBe("1");
   });
 
-  it("Bug: overlay is shown when stopped (simulationStatus=stopped)", () => {
-    const { getByTestId } = render(<OverlayBuggy_ConditionalOnStatus simulationStatus="stopped" />);
+  it("conditional overlay is dark when paused (documents pre-fix bug)", () => {
+    const { getByTestId } = render(<OverlayConditional simulationStatus="paused" />);
     expect(getByTestId("overlay").style.opacity).toBe("1");
   });
 
-  it("Bug: overlay is shown when paused (simulationStatus=paused)", () => {
-    const { getByTestId } = render(<OverlayBuggy_ConditionalOnStatus simulationStatus="paused" />);
-    expect(getByTestId("overlay").style.opacity).toBe("1");
+  it("conditional overlay is hidden when running", () => {
+    const { getByTestId } = render(<OverlayConditional simulationStatus="running" />);
+    expect(getByTestId("overlay").style.opacity).toBe("0");
   });
 });
 

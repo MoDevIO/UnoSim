@@ -200,34 +200,34 @@ class SandboxRunnerPool {
 
       this.clearRunnerListeners(r);
 
+      // Use the state setter (delegates to executionState.state)
       r.state = "stopped";
-      r.processKilled = false;
-      r.executionState.pauseStartTime = null; // Access private field directly
-      r.totalPausedTime = 0;
-      r.lastPauseTimestamp = null;
 
-      r.pinStateBatcher = null;
-      r.serialOutputBatcher = null;
+      // Reset executionState fields directly to avoid creating ad-hoc properties
+      // on the runner instance that shadow the real executionState fields.
+      const es = r.executionState;
+      es.processKilled = false;
+      es.pauseStartTime = null;
+      es.totalPausedTime = 0;
+      es.pinStateBatcher = null;
+      es.serialOutputBatcher = null;
+      es.onOutputCallback = null;
+      es.errorCallback = null;
+      es.telemetryCallback = null;
+      es.pinStateCallback = null;
+      es.ioRegistryCallback = undefined;
+      es.outputBuffer = "";
+      es.outputBufferIndex = 0;
+      es.totalOutputBytes = 0;
+      es.isSendingOutput = false;
+      es.pendingCleanup = false;
+      es.messageQueue = [];
+      es.stderrFallbackBuffer = "";
+      es.backpressurePaused = false;
 
-      r.onOutputCallback = null;
-      r.outputCallback = null;
-      r.errorCallback = null;
-      r.telemetryCallback = null;
-      r.pinStateCallback = null;
-      r.ioRegistryCallback = null;
-
-      r.outputBuffer = "";
-      r.errorBuffer = "";
-      r.totalOutputBytes = 0;
-      r.isSendingOutput = false;
-
-      r.pendingCleanup = false;
-      r.cleanupRetries = new Map();
-      r.messageQueue = [];
-
-      if (r.flushTimer) {
-        clearTimeout(r.flushTimer);
-        r.flushTimer = null;
+      if (es.flushTimer) {
+        clearTimeout(es.flushTimer);
+        es.flushTimer = null;
       }
 
       if (r.fileBuilder && typeof r.fileBuilder.reset === "function") {
