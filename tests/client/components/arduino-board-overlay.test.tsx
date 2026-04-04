@@ -27,7 +27,7 @@ type RuntimeSimulationStatus = "running" | "paused" | "stopped";
  * opacity driven by `isSimulationRunning` (the prop from PinMonitorView),
  * so the board stays visible when paused.
  */
-function OverlayFixed({ isSimulationRunning }: { isSimulationRunning: boolean }) {
+function OverlayFixed({ isSimulationRunning }: { readonly isSimulationRunning: boolean }) {
   return (
     <div
       data-testid="overlay"
@@ -42,7 +42,7 @@ function OverlayFixed({ isSimulationRunning }: { isSimulationRunning: boolean })
  * opacity driven by `simulationStatus === "running"`, which wrongly shows
  * the darken overlay while the simulation is paused.
  */
-function OverlayBuggy({ simulationStatus }: { simulationStatus: RuntimeSimulationStatus }) {
+function OverlayBuggy({ simulationStatus }: { readonly simulationStatus: RuntimeSimulationStatus }) {
   return (
     <div
       data-testid="overlay"
