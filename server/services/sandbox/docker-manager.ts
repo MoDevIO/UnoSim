@@ -17,7 +17,8 @@ interface DockerManagerCallbacks {
 interface DockerProcessConfig {
   flushBatchers: () => void;
   flushMessageQueue: () => void;
-  processKilled: boolean;
+  /** Use a getter so the guard reflects the live value, preventing stale-capture bugs. */
+  getProcessKilled: () => boolean;
   executionTimeout?: number;
   onStateTransition?: (state: "running" | "stopped") => void;
 }
@@ -58,6 +59,12 @@ export class DockerManager {
    * Setup and configure Docker process timeout
    */
   setupDockerTimeout(executionTimeout: number | undefined, callbacks: DockerManagerCallbacks): void {
+    // executionTimeout === 0 means "infinite" (user selected ∞ in the Tools menu)
+    if (executionTimeout === 0) {
+      this.logger.debug("Infinite timeout configured – no timer scheduled");
+      return;
+    }
+
     const timeoutSec =
       executionTimeout && executionTimeout > 0 ? executionTimeout : this.SANDBOX_CONFIG.maxExecutionTimeSec;
 
@@ -104,7 +111,10 @@ export class DockerManager {
       // Parse stdout lines (safety net for direct binary output)
       const lines = str.split(/\r?\n/);
       lines.forEach((line) => {
-        if (!line) return;
+        // Filter the compile-phase sentinel added by buildCompileAndRunCommand.
+        // Its sole purpose is to trigger the isCompilePhase reset above and
+        // must not be forwarded to the protocol parser or the client.
+        if (!line || line.trim() === '[[RUNTIME_START]]') return;
         const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime || 0);
         this.handleParsedLine(parsed, callbacks);
       });
@@ -192,7 +202,7 @@ export class DockerManager {
     }
 
     // Call exit callback (guard: only if process wasn't terminated by stop())
-    if (!config.processKilled && handlers.onExit) handlers.onExit(code);
+    if (!config.getProcessKilled() && handlers.onExit) handlers.onExit(code);
   }
 
   /**

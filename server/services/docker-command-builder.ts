@@ -14,6 +14,7 @@ interface DockerRunOptions {
   pidsLimit: number;
   imageName: string;
   command: string[];
+  containerName?: string;
   /** Host path for the Arduino compiler cache. When set, the directory is
    *  bind-mounted into the container at the same path and ARDUINO_CACHE_DIR
    *  is forwarded as an environment variable so the compiler inside the
@@ -35,6 +36,7 @@ export class DockerCommandBuilder {
     return [
       "run",
       "--rm", // Remove container after exit
+      ...(options.containerName ? ["--name", options.containerName] : []),
       "-i", // Interactive mode for stdin
       "--network",
       "none", // No network access
@@ -73,7 +75,13 @@ export class DockerCommandBuilder {
     return [
       "sh",
       "-c",
-      "g++ /sandbox/sketch.cpp -o /tmp/sketch -pthread 2>&1 && /tmp/sketch",
+      // The echo marker ensures that a successful silent compilation (no
+      // warnings, no output) still triggers an onStdout event so that
+      // isCompilePhase is reset before the sketch starts writing to stderr.
+      // Without this, isCompilePhase would stay true and all runtime stderr
+      // (SERIAL_EVENT, IO_REGISTRY, …) would accumulate in compileErrorBuffer,
+      // causing a spurious 'compilation_error' message on process exit.
+      "g++ /sandbox/sketch.cpp -o /tmp/sketch -pthread 2>&1 && echo '[[RUNTIME_START]]' && /tmp/sketch",
     ];
   }
 }

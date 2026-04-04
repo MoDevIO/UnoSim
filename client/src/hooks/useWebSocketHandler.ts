@@ -6,6 +6,7 @@ import { buildGccCompilationErrorState } from "@/lib/compilation-error-state";
 import type { ParserMessage, IOPinRecord, OutputLine, WSMessage } from "@shared/schema";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import type { PinState, PinStateType } from "@/hooks/use-simulation-store";
+import { emitPinStateChange, emitSimulationStateEvent } from "@/hooks/use-external-api";
 import type {
   IncomingArduinoMessage,
   SerialPayload,
@@ -254,10 +255,13 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       setAnalogPinsUsed([]);
       resetPinUI({ keepDetected: true });
       setCompilationStatus("ready");
+      emitSimulationStateEvent("STOPPED");
     } else if (status === "paused") {
       pauseRendering();
+      emitSimulationStateEvent("PAUSED");
     } else if (status === "running") {
       resumeRendering();
+      emitSimulationStateEvent("RUNNING");
     }
   };
 
@@ -265,12 +269,18 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   const handlePinState = (message: PinStatePayload) => {
     const { pin, stateType, value } = message;
     enqueuePinEvent(pin, stateType, value);
+    if (stateType === "value" || stateType === "pwm") {
+      emitPinStateChange(pin, value);
+    }
   };
 
   /** Handle pin_state_batch messages. */
   const handlePinStateBatch = (message: PinStateBatchPayload) => {
     for (const { pin, stateType, value } of message.states) {
       enqueuePinEvent(pin, stateType, value);
+      if (stateType === "value" || stateType === "pwm") {
+        emitPinStateChange(pin, value);
+      }
     }
   };
 

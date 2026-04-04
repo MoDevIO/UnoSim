@@ -11,27 +11,32 @@ vi.mock("../../../server/services/sandbox-runner", () => {
   class MockSandboxRunner {
     isRunning = false;
     stop = vi.fn().mockResolvedValue(undefined);
-    state = "stopped";
-    processKilled = false;
-    executionState = { pauseStartTime: null };
-    totalPausedTime = 0;
-    lastPauseTimestamp = null;
-    pinStateBatcher = null;
-    serialOutputBatcher = null;
-    onOutputCallback = null;
-    outputCallback = null;
-    errorCallback = null;
-    telemetryCallback = null;
-    pinStateCallback = null;
-    ioRegistryCallback = null;
-    outputBuffer = "";
-    errorBuffer = "";
-    totalOutputBytes = 0;
-    isSendingOutput = false;
-    pendingCleanup = false;
-    cleanupRetries = new Map();
-    messageQueue: unknown[] = [];
-    flushTimer = null;
+    // The real SandboxRunner uses a getter/setter that delegates to executionState.state
+    _state = "stopped";
+    get state() { return this._state; }
+    set state(v: string) { this._state = v; this.executionState.state = v; }
+    executionState = {
+      state: "stopped" as string,
+      pauseStartTime: null as number | null,
+      totalPausedTime: 0,
+      processKilled: false,
+      pendingCleanup: false,
+      pinStateBatcher: null as unknown,
+      serialOutputBatcher: null as unknown,
+      onOutputCallback: null as unknown,
+      errorCallback: null as unknown,
+      telemetryCallback: null as unknown,
+      pinStateCallback: null as unknown,
+      ioRegistryCallback: undefined as unknown,
+      outputBuffer: "",
+      outputBufferIndex: 0,
+      totalOutputBytes: 0,
+      isSendingOutput: false,
+      messageQueue: [] as unknown[],
+      stderrFallbackBuffer: "",
+      backpressurePaused: false,
+      flushTimer: null as NodeJS.Timeout | null,
+    };
     processController = null;
     registryManager = null;
     fileBuilder = null;
@@ -81,6 +86,7 @@ vi.mock("../../../server/services/sandbox-runner", () => {
 vi.mock("../../../server/services/registry-manager", () => ({
   RegistryManager: vi.fn().mockImplementation(() => ({
     destroy: vi.fn(),
+    reset: vi.fn(),
   })),
 }));
 
@@ -268,18 +274,43 @@ describe("SandboxRunnerPool", () => {
 
     const runner = await pool.acquireRunner();
     
-    // Simulate runner had been used
-    runner.outputBuffer = "some output";
-    runner.errorBuffer = "some error";
-    runner.totalOutputBytes = 1000;
+    // Simulate runner had been used — set executionState fields
+    runner.executionState.outputBuffer = "some output";
+    runner.executionState.totalOutputBytes = 1000;
+    runner.executionState.processKilled = true;
+    runner.executionState.pendingCleanup = true;
 
     await pool.releaseRunner(runner);
 
-    // After release, runner state should be cleaned
+    // After release, executionState fields should be cleaned
     expect(runner.state).toBe("stopped");
-    expect(runner.outputBuffer).toBe("");
-    expect(runner.errorBuffer).toBe("");
-    expect(runner.totalOutputBytes).toBe(0);
+    expect(runner.executionState.outputBuffer).toBe("");
+    expect(runner.executionState.totalOutputBytes).toBe(0);
+    expect(runner.executionState.processKilled).toBe(false);
+    expect(runner.executionState.pendingCleanup).toBe(false);
+  });
+
+  it("resets executionState.processKilled on release (regression: pool used ad-hoc property)", async () => {
+    const pool = getSandboxRunnerPool();
+    await pool.initialize();
+
+    const runner = await pool.acquireRunner();
+
+    // Simulate a simulation that was stopped (processKilled = true)
+    runner.executionState.processKilled = true;
+    runner.executionState.pendingCleanup = true;
+    runner.executionState.isSendingOutput = true;
+    runner.executionState.totalOutputBytes = 5000;
+    runner.executionState.messageQueue = [{ type: "stale" }];
+
+    await pool.releaseRunner(runner);
+
+    // Critical: processKilled must be reset on executionState, not as ad-hoc property
+    expect(runner.executionState.processKilled).toBe(false);
+    expect(runner.executionState.pendingCleanup).toBe(false);
+    expect(runner.executionState.isSendingOutput).toBe(false);
+    expect(runner.executionState.totalOutputBytes).toBe(0);
+    expect(runner.executionState.messageQueue).toEqual([]);
   });
 
   it("handles runner with running state during release", async () => {
@@ -303,6 +334,35 @@ describe("SandboxRunnerPool", () => {
     runner.isRunning = true;
 
     // Should not throw
+    await expect(pool.releaseRunner(runner)).resolves.toBeUndefined();
+  });
+
+  it("calls registryManager.reset() during runner release", async () => {
+    const pool = getSandboxRunnerPool();
+    await pool.initialize();
+
+    const runner = await pool.acquireRunner();
+    const mockRegistryManager = { destroy: vi.fn(), reset: vi.fn(), removeAllListeners: vi.fn() };
+    runner.registryManager = mockRegistryManager;
+
+    await pool.releaseRunner(runner);
+
+    expect(mockRegistryManager.reset).toHaveBeenCalledOnce();
+  });
+
+  it("handles registryManager.reset() failure gracefully during release", async () => {
+    const pool = getSandboxRunnerPool();
+    await pool.initialize();
+
+    const runner = await pool.acquireRunner();
+    const mockRegistryManager = {
+      destroy: vi.fn(),
+      reset: vi.fn().mockImplementation(() => { throw new Error("reset failed"); }),
+      removeAllListeners: vi.fn(),
+    };
+    runner.registryManager = mockRegistryManager;
+
+    // Should not throw even when reset() fails
     await expect(pool.releaseRunner(runner)).resolves.toBeUndefined();
   });
 });

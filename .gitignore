@@ -29,6 +29,7 @@ yarn-error.log*
 /target/
 
 # Local/Temp caches
+/storage/cache/
 .cache/
 .vite/
 .next/
@@ -90,3 +91,4 @@ font_size_report_*.md
 benchmark-*.json
 # but keep /docs/archive tracked since it contains organized archives
 
+server/arduino-cache/

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { SimulatorActionType, API_VERSION, SimulatorEventType } from "@/types/external-api";
-import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage } from "@/types/external-api";
+import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage, SimulationStateEventData } from "@/types/external-api";
 
 export interface UseExternalApiParams {
   /** Restrict inbound messages to this origin. Use "*" to allow all origins. */
@@ -165,11 +165,11 @@ export function getAllowedOrigin(): string {
  */
 export function emitSerialOutput(output: string): void {
   try {
-    const event: SimulatorEventMessage = {
+    const event: SimulatorEventMessage<typeof SimulatorEventType.SERIAL_OUTPUT_EVENT> = {
       version: API_VERSION,
       type: SimulatorEventType.SERIAL_OUTPUT_EVENT,
       success: true,
-      payload: { output },
+      data: output,
     };
     sendEventToParent(event, getAllowedOrigin());
   } catch (error) {
@@ -178,5 +178,48 @@ export function emitSerialOutput(output: string): void {
     if (typeof console !== "undefined" && console.debug) {
       console.debug("[External API] Serial event send failed (expected when not in iframe):", error);
     }
+  }
+}
+
+/**
+ * Sends a PIN_STATE_CHANGE_EVENT to the parent frame when a pin changes value.
+ * @param pin - Pin number (0-13 digital, 14-19 = A0-A5 analog)
+ * @param value - New pin value
+ */
+export function emitPinStateChange(pin: number, value: number): void {
+  try {
+    const event: SimulatorEventMessage<typeof SimulatorEventType.PIN_STATE_CHANGE_EVENT> = {
+      version: API_VERSION,
+      type: SimulatorEventType.PIN_STATE_CHANGE_EVENT,
+      success: true,
+      data: { pin, value },
+    };
+    sendEventToParent(event, getAllowedOrigin());
+  } catch {
+    // Silently ignore — postMessage errors are expected when not embedded
+  }
+}
+
+/**
+ * Sends a SIMULATION_STATE_EVENT to the parent frame when the simulation state changes.
+ * @param state - New simulation state
+ * @param message - Optional human-readable message
+ */
+export function emitSimulationStateEvent(
+  state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR",
+  message?: string,
+): void {
+  try {
+    const data: SimulationStateEventData = { state };
+    if (message !== undefined) data.message = message;
+    const event: SimulatorEventMessage<typeof SimulatorEventType.SIMULATION_STATE_EVENT> = {
+      version: API_VERSION,
+      type: SimulatorEventType.SIMULATION_STATE_EVENT,
+      success: true,
+      data,
+    };
+    sendEventToParent(event, getAllowedOrigin());
+  } catch {
+    // Silently ignore — postMessage errors are expected when not embedded
   }
 }

@@ -1,5 +1,4 @@
 import { SandboxRunner } from "./sandbox-runner";
-import { RegistryManager } from "./registry-manager";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord } from "@shared/schema";
 import type { ExecutionState, TelemetryMetrics } from "./sandbox/execution-manager";
@@ -34,7 +33,7 @@ type SandboxRunnerInternal = {
   } | null;
   pinStateBatcher?: { pause: () => void; resume: () => void } | null;
   serialOutputBatcher?: { pause: () => void; resume: () => void } | null;
-  registryManager?: { destroy: () => void } | null;
+  registryManager?: { destroy: () => void; reset: () => void } | null;
   flushMessageQueue?: () => void;
   onOutputCallback?: ((line: string, isComplete?: boolean) => void) | null;
   outputCallback?: ((line: string, isComplete?: boolean) => void) | null;
@@ -201,62 +200,52 @@ class SandboxRunnerPool {
 
       this.clearRunnerListeners(r);
 
+      // Use the state setter (delegates to executionState.state)
       r.state = "stopped";
-      r.processKilled = false;
-      r.executionState.pauseStartTime = null; // Access private field directly
-      r.totalPausedTime = 0;
-      r.lastPauseTimestamp = null;
 
-      r.pinStateBatcher = null;
-      r.serialOutputBatcher = null;
+      // Reset executionState fields directly to avoid creating ad-hoc properties
+      // on the runner instance that shadow the real executionState fields.
+      const es = r.executionState;
+      es.processKilled = false;
+      es.pauseStartTime = null;
+      es.totalPausedTime = 0;
+      es.pinStateBatcher = null;
+      es.serialOutputBatcher = null;
+      es.onOutputCallback = null;
+      es.errorCallback = null;
+      es.telemetryCallback = null;
+      es.pinStateCallback = null;
+      es.ioRegistryCallback = undefined;
+      es.outputBuffer = "";
+      es.outputBufferIndex = 0;
+      es.totalOutputBytes = 0;
+      es.isSendingOutput = false;
+      es.pendingCleanup = false;
+      es.messageQueue = [];
+      es.stderrFallbackBuffer = "";
+      es.backpressurePaused = false;
 
-      r.onOutputCallback = null;
-      r.outputCallback = null;
-      r.errorCallback = null;
-      r.telemetryCallback = null;
-      r.pinStateCallback = null;
-      r.ioRegistryCallback = null;
-
-      r.outputBuffer = "";
-      r.errorBuffer = "";
-      r.totalOutputBytes = 0;
-      r.isSendingOutput = false;
-
-      r.pendingCleanup = false;
-      r.cleanupRetries = new Map();
-      r.messageQueue = [];
-
-      if (r.flushTimer) {
-        clearTimeout(r.flushTimer);
-        r.flushTimer = null;
+      if (es.flushTimer) {
+        clearTimeout(es.flushTimer);
+        es.flushTimer = null;
       }
 
       if (r.fileBuilder && typeof r.fileBuilder.reset === "function") {
         r.fileBuilder.reset();
       }
 
+      // Reset the existing RegistryManager rather than destroying and recreating it.
+      // Destroying makes the object permanently unusable (destroyed=true), which breaks
+      // the ExecutionManager that holds a reference to the same instance.
+      // The original onUpdate callback uses executionState.ioRegistryCallback dynamically,
+      // so it picks up the correct callback for each new run automatically.
       if (r.registryManager) {
         try {
-          r.registryManager.destroy();
+          r.registryManager.reset();
         } catch (error) {
-          this.logger.debug(`[SandboxRunnerPool] Error destroying old RegistryManager: ${error}`);
+          this.logger.debug(`[SandboxRunnerPool] RegistryManager reset failed: ${error}`);
         }
       }
-
-      r.registryManager = new RegistryManager({
-        onUpdate: (registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => {
-          if (r.ioRegistryCallback) {
-            r.ioRegistryCallback(registry, baudrate, reason);
-          }
-          r.flushMessageQueue?.();
-        },
-        onTelemetry: (metrics: TelemetryMetrics) => {
-          if (r.telemetryCallback) {
-            r.telemetryCallback(metrics);
-          }
-        },
-        enableTelemetry: true,
-      });
 
       if (r.timeoutManager) {
         r.timeoutManager.clear();

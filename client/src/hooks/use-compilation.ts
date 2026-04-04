@@ -25,6 +25,10 @@ type UseCompilationParams = Omit<
   // allowing the integrated compile+run page to function correctly.
   sendMessage?: (message: IncomingArduinoMessage) => void;
   sendMessageImmediate?: (message: IncomingArduinoMessage) => boolean;
+  // when provided, handleCompileAndStart will delegate the simulation start
+  // to the ref's current function (populated by the simulation hook) so the
+  // correct simulationTimeout is used instead of the compile-hook's default.
+  startSimulationRef?: MutableRefObject<(() => void) | null>;
 };
 
 export function useCompilation(params: UseCompilationParams) {
@@ -40,7 +44,7 @@ export function useCompilation(params: UseCompilationParams) {
     setPendingPinConflicts: () => {},
     isModified: false,
     handleCompileAndStart: () => {},
-    startSimulationRef: { current: null } as MutableRefObject<(() => void) | null>,
+    startSimulationRef: params.startSimulationRef ?? ({ current: null } as MutableRefObject<(() => void) | null>),
   });
 
   // notify caller of compile successes in the old style and trigger

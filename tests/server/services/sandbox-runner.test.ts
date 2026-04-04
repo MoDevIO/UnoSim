@@ -786,4 +786,63 @@ describe("SandboxRunner", () => {
       expect(mock.runSketch).toBeDefined();
     });
   });
+
+  describe("Docker container cleanup", () => {
+    afterEach(() => {
+      testGlobals.clearDockerMockConfig();
+    });
+
+    it("calls docker rm -f with the container name when stop is called", async () => {
+      const runner = new SandboxRunner();
+      runner["state"] = "running";
+      const es = (runner as any).executionState;
+      es.currentContainerName = "unowebsim-abc-123";
+
+      const pe = (runner as any).processExecutor;
+      const executeSpy = vi.spyOn(pe, "execute");
+
+      await runner.stop();
+
+      const rmCalls = executeSpy.mock.calls.filter(
+        ([, args]: [string, string[]]) => Array.isArray(args) && args[0] === "rm",
+      );
+      expect(rmCalls).toHaveLength(1);
+      expect(rmCalls[0][1]).toEqual(["rm", "-f", "unowebsim-abc-123"]);
+    });
+
+    it("skips docker rm when no containerName is set", async () => {
+      const runner = new SandboxRunner();
+      runner["state"] = "running";
+      // Do NOT set currentContainerName
+
+      const pe = (runner as any).processExecutor;
+      const executeSpy = vi.spyOn(pe, "execute");
+
+      await runner.stop();
+
+      const rmCalls = executeSpy.mock.calls.filter(
+        ([, args]: [string, string[]]) => Array.isArray(args) && args[0] === "rm",
+      );
+      expect(rmCalls).toHaveLength(0);
+    });
+
+    it("handles docker rm failure gracefully without throwing", async () => {
+      const runner = new SandboxRunner();
+      runner["state"] = "running";
+      const es = (runner as any).executionState;
+      es.currentContainerName = "unowebsim-fail-container";
+
+      const pe = (runner as any).processExecutor;
+      vi.spyOn(pe, "execute").mockImplementation(
+        async (cmd: string, args: string[]) => {
+          if (cmd === "docker" && args[0] === "rm") {
+            throw new Error("docker daemon not running");
+          }
+          return { code: 0, stdout: "", stderr: "" };
+        },
+      );
+
+      await expect(runner.stop()).resolves.toBeUndefined();
+    });
+  });
 });
