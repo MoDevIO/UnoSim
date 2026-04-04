@@ -643,7 +643,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
         if (data.success) {
           initializeEmptyRegistry();
-          startSimulationInternal();
+          (startSimulationRef.current ?? startSimulationInternal)();
           setCompilationStatus("success");
           setHasCompiledOnce(true);
           params.setIsModified(false);
@@ -677,6 +677,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     clearOutputs,
     compileMutation,
     startSimulationInternal,
+    startSimulationRef,
     initializeEmptyRegistry,
     handleCompileError,
   ]);

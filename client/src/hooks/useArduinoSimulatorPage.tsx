@@ -249,6 +249,7 @@ export function useArduinoSimulatorPage() {
     toast,
     sendMessage,
     sendMessageImmediate,
+    startSimulationRef,
   });
 
   // now that compilation helpers exist we can initialise the full simulation
