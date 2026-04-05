@@ -1,16 +1,67 @@
-version: '3.8'
 services:
-  app:
+  unosim-backend:
     build:
       context: .
       dockerfile: Dockerfile
-    image: unowebsim:latest
+    image: unosim-server:latest
+    container_name: unosim-server
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      - ARDUINO_CACHE_DIR=/Users/to/Documents/TT_Web/UnoSim/server/arduino-cache
+      - UNOSIM_SHARED_TEMP_DIR=/Users/to/Documents/TT_Web/UnoSim/temp
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
     ports:
       - "3000:3000"
-    # volumes for local development (uncomment when developing locally)
-    # volumes:
-    #   - ./:/app
-    #   - /app/node_modules
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./server/arduino-cache:/Users/to/Documents/TT_Web/UnoSim/server/arduino-cache
+      - ./temp:/Users/to/Documents/TT_Web/UnoSim/temp
+      - ./storage:/app/storage
+    networks:
+      - unosim-net
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    networks:
+      - unosim-net
+
+  mcp-sonarqube:
+    image: mcp/sonarqube:latest
+    container_name: mcp-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9001:9000"
+    environment:
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+    volumes:
+      - mcp_sonarqube_data:/opt/sonarqube/data
+      - mcp_sonarqube_extensions:/opt/sonarqube/extensions
+      - mcp_sonarqube_logs:/opt/sonarqube/logs
+    networks:
+      - unosim-net
+
+networks:
+  unosim-net:
+    driver: bridge
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  mcp_sonarqube_data:
+  mcp_sonarqube_extensions:
+  mcp_sonarqube_logs:

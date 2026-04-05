@@ -127,7 +127,7 @@ jobs:
         with:
           context: .
           load: true
-          tags: unowebsim-sandbox:latest
+          tags: unosim-sandbox:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

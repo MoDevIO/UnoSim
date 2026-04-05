@@ -1,0 +1,9 @@
+# Minimal sandbox image for Arduino sketch execution
+# The backend spawns this image with a mounted /sandbox sketch directory.
+FROM debian:stable-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends g++ ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /sandbox

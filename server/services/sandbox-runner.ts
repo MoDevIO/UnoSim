@@ -22,6 +22,8 @@ import { FilesystemHelper } from "./sandbox/filesystem-helper";
 import { ExecutionManager, type ExecutionState, SimulationState, SANDBOX_CONFIG } from "./sandbox/execution-manager";
 
 export class SandboxRunner {
+  private static missingDockerSocketLogEmitted = false;
+
   private readonly logger = new Logger("SandboxRunner");
   private readonly tempDir: string;
   private readonly processController: IProcessController;
@@ -191,6 +193,14 @@ export class SandboxRunner {
   }
 
   private async checkDockerAsync(): Promise<void> {
+    const dockerSocketPath = this.getDockerSocketPath();
+    if (dockerSocketPath && !existsSync(dockerSocketPath)) {
+      this.dockerAvailable = false;
+      this.dockerImageBuilt = false;
+      this.logMissingDockerSocketOnce(dockerSocketPath);
+      return;
+    }
+
     // Use ProcessExecutor for all Docker checks
     // docker --version
     const versionResult = await this.processExecutor.execute("docker", ["--version"], {
@@ -233,6 +243,31 @@ export class SandboxRunner {
     });
 
     this.dockerImageBuilt = inspectResult.code === 0;
+  }
+
+  private getDockerSocketPath(): string | null {
+    const dockerHost = process.env.DOCKER_HOST?.trim();
+    if (!dockerHost) {
+      return "/var/run/docker.sock";
+    }
+
+    if (!dockerHost.startsWith("unix://")) {
+      return null;
+    }
+
+    const socketPath = dockerHost.slice("unix://".length).trim();
+    return socketPath || "/var/run/docker.sock";
+  }
+
+  private logMissingDockerSocketOnce(socketPath: string): void {
+    if (SandboxRunner.missingDockerSocketLogEmitted) {
+      return;
+    }
+
+    SandboxRunner.missingDockerSocketLogEmitted = true;
+    this.logger.info(
+      `Docker socket not available at ${socketPath}; sandbox mode disabled, using local-limited execution`,
+    );
   }
 
   private async ensureTempDir(): Promise<void> {

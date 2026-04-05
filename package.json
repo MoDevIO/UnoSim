@@ -13,7 +13,7 @@
     "build:server": "esbuild server/index.ts --platform=node --bundle --format=esm --packages=external --outfile=dist/index.js --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --alias:@shared=./shared",
     "build:worker": "mkdir -p dist/workers && esbuild server/services/workers/compile-worker.ts --platform=node --bundle --format=esm --packages=external --outfile=dist/workers/compile-worker.js --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --alias:@shared=./shared",
     "build:copy-public": "[ -d public ] && cp -r public dist/ || true",
-    "build:sandbox": "docker build -t unowebsim-sandbox:latest .",
+    "build:sandbox": "docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
     "check:raw-hex": "node scripts/check-raw-hex.cjs",
