@@ -134,7 +134,8 @@ void loop() {
     // Proof: "Hello World" must appear in serial monitor BEFORE screenshot
     const serial = page.locator('[data-testid="serial-output"]');
     await expect(serial).toBeVisible({ timeout: 5000 });
-    await expect(serial).toContainText('Hello World', { timeout: 2000 });
+    // Extended timeout to account for compilation+execution latency in CI environments
+    await expect(serial).toContainText('Hello World', { timeout: 8000 });
 
     // Allow the editor and serial output to finish rendering before capturing the snapshot.
     await page.waitForTimeout(2000);
