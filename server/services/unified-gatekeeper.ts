@@ -148,7 +148,10 @@ export class UnifiedGatekeeper extends EventEmitter {
     const ownerId = `${owner}-${Date.now()}-${crypto.randomUUID()}`;
 
     return new Promise((resolve, reject) => {
+      let timeoutHandle: NodeJS.Timeout | null = null;
+      
       const grant = () => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
         const expiresAt = Date.now() + this.lockTTL;
         const entry: CompileSlotEntry = {
           priority,
@@ -167,6 +170,16 @@ export class UnifiedGatekeeper extends EventEmitter {
         // Return release function bound to this owner
         resolve(this.createReleaseFunction(ownerId, "compile"));
       };
+
+      // Set immediate timeout for this acquire attempt (not just queue timeout)
+      timeoutHandle = setTimeout(() => {
+        const idx = this.compileQueue.findIndex(t => t.ownerId === ownerId);
+        if (idx >= 0) {
+          this.compileQueue.splice(idx, 1);
+        }
+        this.activeSlots.delete(ownerId);
+        reject(new Error(`Compile slot acquire timeout after ${timeoutMs}ms for ${owner}`));
+      }, timeoutMs);
 
       if (this.availableSlots > 0) {
         // Fast path: slot available

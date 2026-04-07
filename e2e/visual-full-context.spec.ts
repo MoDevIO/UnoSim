@@ -65,14 +65,16 @@ async function waitForSerial(
   return false;
 }
 
-/** Click "Start Simulation" and wait until the status says "running" */
+/** Click "Start Simulation" and wait for it to be running */
 async function startAndAwaitRunning(page: import('@playwright/test').Page) {
   const startBtn = page.getByRole('button', { name: /start simulation/i });
   await expect(startBtn).toBeVisible({ timeout: 12000 });
   await startBtn.click();
-  await expect(
-    page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i }),
-  ).toBeVisible({ timeout: 25000 });
+  
+  // Wait for "Stop Simulation" button which appears when simulation is running
+  // (alternative: wait for button text to change from "Start" to "Stop")
+  const stopBtn = page.getByRole('button', { name: /stop simulation/i });
+  await expect(stopBtn).toBeVisible({ timeout: 25000 });
 }
 
 /** Double-click a tab to force-expand the output panel, then single-click to

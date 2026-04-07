@@ -8,16 +8,16 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - ARDUINO_CACHE_DIR=/Users/to/Documents/TT_Web/UnoSim/server/arduino-cache
-      - UNOSIM_SHARED_TEMP_DIR=/Users/to/Documents/TT_Web/UnoSim/temp
+      - ARDUINO_CACHE_DIR=/app/arduino-cache
+      - UNOSIM_SHARED_TEMP_DIR=/app/temp
       - DOCKER_HOST=unix:///var/run/docker.sock
       - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
     ports:
       - "3000:3000"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./server/arduino-cache:/Users/to/Documents/TT_Web/UnoSim/server/arduino-cache
-      - ./temp:/Users/to/Documents/TT_Web/UnoSim/temp
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./server/arduino-cache:/app/arduino-cache
+      - ./temp:/app/temp
       - ./storage:/app/storage
     networks:
       - unosim-net
