@@ -43,8 +43,8 @@ void loop() {
     await expect(startButton).toBeVisible({ timeout: 10000 });
     await startButton.click();
 
-    // Wait for simulation to be running - use more specific selector
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 15000 });
+    // Wait for simulation to be running by checking the toggle button state.
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 15000 });
 
     // Wait a moment for pins to be registered and displayed
     await page.waitForTimeout(500);
@@ -101,8 +101,8 @@ void loop() {
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    // Wait for simulation running
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    // Wait for simulation running by checking the toggle button state.
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
 
     // Wait for state transitions to be visible
     const serial = page.locator('[data-testid="serial-output"]');
@@ -139,7 +139,7 @@ void loop() {
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(500);
 
     // Get the arduino board SVG container
@@ -211,7 +211,7 @@ void loop() {
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
 
     // Wait for PWM messages
     const serial = page.locator('[data-testid="serial-output"]');
@@ -277,7 +277,7 @@ void loop() {
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
 
     const serial = page.locator('[data-testid="serial-output"]');
     await expect(serial).toContainText(/configured/i, { timeout: 10000 });
@@ -322,7 +322,7 @@ void loop() {
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
 
     const serial = page.locator('[data-testid="serial-output"]');
     await expect(serial).toContainText(/update batch/i, { timeout: 10000 });
