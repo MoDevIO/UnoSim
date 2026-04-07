@@ -299,11 +299,10 @@ void loop() {
     // Activate the I/O Registry tab (outer output-panel tab value="registry")
     await activateOutputTab(page, /i\/o registry|registry/i);
 
-    // Give the registry analysis a moment to render.
-    await page.waitForTimeout(1500);
-    
-    // Wait a bit more to ensure rendering is fully stabilized before screenshot
-    await page.waitForTimeout(500);
+    // Wait until the registry table is visible and at least one data row is present.
+    const registryTable = page.locator('table.w-full.text-ui-xs.border-collapse');
+    await expect(registryTable).toBeVisible({ timeout: 15000 });
+    await expect(registryTable.locator('tbody tr').first()).toBeVisible({ timeout: 15000 });
 
     const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
     expect(snap).toMatchSnapshot('05_io_registry_mapping_context.png', {
