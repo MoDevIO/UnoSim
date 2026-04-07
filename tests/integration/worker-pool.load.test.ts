@@ -98,7 +98,7 @@ describe("Worker Pool Load Test", () => {
   it("maintains performance under sequential load (10 compilations)", async () => {
     const startTime = Date.now();
     let successCount = 0;
-    let errorCount = 0;
+    let _errorCount = 0;
 
     // Sequential compilation (not parallel)
     for (let i = 0; i < 10; i++) {
@@ -107,11 +107,11 @@ describe("Worker Pool Load Test", () => {
         if (result.success) {
           successCount++;
         } else {
-          errorCount++;
+          _errorCount++;
         }
       } catch {
         // Compilation failed (expected in some scenarios), count as error
-        errorCount++;
+        _errorCount++;
       }
     }
 

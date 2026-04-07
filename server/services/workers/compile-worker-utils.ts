@@ -191,13 +191,13 @@ export async function execArduinoCliJson(args: string[]): Promise<any> {
   return new Promise((resolve) => {
     const proc = spawn("arduino-cli", args);
     let stdout = "";
-    let stderr = "";
+    let _stderr = "";
 
     proc.stdout?.on("data", (data: Buffer) => {
       stdout += data.toString();
     });
     proc.stderr?.on("data", (data: Buffer) => {
-      stderr += data.toString();
+      _stderr += data.toString();
     });
 
     proc.on("close", (code: number | null) => {
