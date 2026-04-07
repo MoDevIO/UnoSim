@@ -14,6 +14,7 @@ services:
       - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
     ports:
       - "3000:3000"
+    user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./server/arduino-cache:/app/arduino-cache

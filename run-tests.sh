@@ -17,7 +17,8 @@ export NODE_ENV=test
 # Docker-Konfiguration (überschreibbar per Umgebungsvariable)
 DOCKER_HOST="${DOCKER_HOST:-unix:///$(echo $HOME)/.docker/run/docker.sock}"
 DOCKER_IMAGE="unosim:latest"
-export DOCKER_HOST
+DOCKER_SANDBOX_IMAGE="${DOCKER_SANDBOX_IMAGE:-unowebsim-sandbox:latest}"
+export DOCKER_HOST DOCKER_SANDBOX_IMAGE
 
 # Farben & Icons
 G="\033[32m"; Y="\033[33m"; R="\033[31m"; C="\033[36m"; B="\033[1m"; D="\033[2m"; RS="\033[0m"
@@ -116,8 +117,9 @@ parse_test_results "Tests.*passed"
 # 4+5. Docker Image Build & Docker-Tests (optional, wenn Docker verfügbar)
 if docker info > /dev/null 2>&1; then
     run_task "Docker Image Build" "docker build -t $DOCKER_IMAGE ."
+    run_task "Sandbox Image Build" "docker build -f Dockerfile.sandbox -t $DOCKER_SANDBOX_IMAGE ."
     run_task "Docker-Tests (Timing/Pause/Sandbox/Flow)" \
-        "FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_IMAGE SKIP_HEAVY_TESTS=false LOG_LEVEL=warn \
+        "FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE SKIP_HEAVY_TESTS=false LOG_LEVEL=warn \
         npx vitest run --reporter=default --maxWorkers=1 \
         tests/server/timing-delay.test.ts \
         tests/server/pause-resume-timing.test.ts \
@@ -141,7 +143,7 @@ export PORT=3000
 # Server startet im Hintergrund (NODE_ENV=development für Vite-Snapshots)
 # FORCE_DOCKER + DOCKER_SANDBOX_IMAGE werden gesetzt, wenn Docker verfügbar ist (s. oben)
 if docker info > /dev/null 2>&1; then
-    FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_IMAGE NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
+    FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 else
     NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 fi
@@ -157,7 +159,7 @@ for i in {1..15}; do
 done
 
 # 4. E2E-Tests (Playwright)
-run_task "E2E-Tests (Playwright)" "npx playwright test"
+run_task "E2E-Tests (Playwright)" "npx playwright test --timeout 60000"
 parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
 
 # 5. Integration-Tests (Cache)

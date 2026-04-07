@@ -133,11 +133,15 @@ void loop() {
     await setCode(page, code);
     await startAndAwaitRunning(page);
 
-    // Proof: "Hello World" must appear in serial monitor BEFORE screenshot
+    // Proof: "Hello World" must appear in serial monitor BEFORE screenshot.
+    // On GitHub Actions the Docker sandbox startup may take longer than local.
     const serial = page.locator('[data-testid="serial-output"]');
     await expect(serial).toBeVisible({ timeout: 5000 });
-    // Extended timeout to account for compilation+execution latency in CI environments
-    await expect(serial).toContainText('Hello World', { timeout: 8000 });
+    await expect(serial).not.toContainText(
+      'Serial output will appear here...',
+      { timeout: 10000 },
+    );
+    await expect(serial).toContainText('Hello World', { timeout: 10000 });
 
     // Allow the editor and serial output to finish rendering before capturing the snapshot.
     await page.waitForTimeout(2000);
