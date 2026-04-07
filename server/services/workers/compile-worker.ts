@@ -51,7 +51,7 @@ const CORE_METADATA_TTL_MS = 5 * 60 * 1000;
 const resolvedWorkerId = Number(workerData?.workerId || 1);
 // Safe usage of writable temp directory: worker-specific isolation by concurrent worker_${workerId},
 // and all files are temporary build artifacts with automatic cleanup after compilation.
-const WORKER_BUILD_DIR = join(getFastTmpBaseDir(), "unowebsim-worker-build", `worker_${resolvedWorkerId}`);
+const WORKER_BUILD_DIR = join(getFastTmpBaseDir(), "unosim-worker-build", `worker_${resolvedWorkerId}`);
 const BINARY_STORAGE_DIR = join(process.cwd(), "storage", "binaries");
 
 let cachedLibFingerprint: { value: string; expiresAt: number } | null = null;

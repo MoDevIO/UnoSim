@@ -115,8 +115,8 @@ The Vite-built client is served as static files from `dist/public/`.
 
 ```bash
 docker build -t unosim-sandbox:latest -f Dockerfile.sandbox .
-docker build -t unowebsim:latest .
-docker run --rm -p 3000:3000 -e NODE_ENV=production unowebsim:latest
+docker build -t unosim:latest .
+docker run --rm -p 3000:3000 -e NODE_ENV=production unosim:latest
 ```
 
 If you start the image manually and want full Docker sandbox mode instead of the local fallback, use the same mounts and environment variables as Compose:

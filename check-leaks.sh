@@ -27,7 +27,7 @@ readonly WATCH_INTERVAL_SEC=5
 readonly SETTLE_TIMEOUT_SEC=10     # warn if count > 0 for this long after a drop
 
 # /dev/shm RAM-disk path used by the test workers
-readonly SHM_TEMP_DIR="/dev/shm/unowebsim-temp"
+readonly SHM_TEMP_DIR="/dev/shm/unosim-temp"
 # Warn when the directory exceeds this many megabytes
 readonly SHM_WARN_MB=500
 
@@ -171,7 +171,7 @@ count_procs() {
 # /dev/shm size check
 # ---------------------------------------------------------------------------
 
-# Emit a warning (or error) if the unowebsim-temp directory on the RAM-disk
+# Emit a warning (or error) if the unosim-temp directory on the RAM-disk
 # has grown beyond SHM_WARN_MB megabytes.  Returns exit-code 1 when the
 # threshold is exceeded so callers can propagate the failure.
 check_devshm() {

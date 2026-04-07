@@ -48,7 +48,7 @@ export class SandboxRunner {
 
   constructor(options?: { tempDir?: string; processController?: IProcessController }) {
     this.processController = options?.processController ?? new ProcessController();
-    this.tempDir = options?.tempDir ?? join(getFastTmpBaseDir(), "unowebsim-temp");
+    this.tempDir = options?.tempDir ?? join(getFastTmpBaseDir(), "unosim-temp");
     this.timeoutManager = new SimulationTimeoutManager();
     this.fileBuilder = new SketchFileBuilder(this.tempDir);
     this.localCompiler = new LocalCompiler();

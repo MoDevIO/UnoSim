@@ -486,7 +486,7 @@ export class ArduinoCompiler {
 
     // use a unique temporary directory per-call to avoid state conflicts
     const baseTempDir =
-      tempRoot || (await mkdtemp(join(getFastTmpBaseDir(), "unowebsim-")));
+      tempRoot || (await mkdtemp(join(getFastTmpBaseDir(), "unosim-")));
 
     const sketchDir = join(baseTempDir, sketchId);
     const sketchFile = join(sketchDir, `${sketchId}.ino`);

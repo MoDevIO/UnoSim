@@ -16,7 +16,7 @@ export NODE_ENV=test
 
 # Docker-Konfiguration (überschreibbar per Umgebungsvariable)
 DOCKER_HOST="${DOCKER_HOST:-unix:///$(echo $HOME)/.docker/run/docker.sock}"
-DOCKER_IMAGE="unowebsim:latest"
+DOCKER_IMAGE="unosim:latest"
 export DOCKER_HOST
 
 # Farben & Icons
@@ -30,7 +30,7 @@ cleanup() {
     if [ -n "$SERVER_PID" ]; then
         kill "$SERVER_PID" 2>/dev/null
     fi
-    # Docker-Container aufräumen: alle laufenden unowebsim-Container stoppen und entfernen
+    # Docker-Container aufräumen: alle laufenden unosim-Container stoppen und entfernen
     if docker info > /dev/null 2>&1; then
         local containers
         containers=$(docker ps -aq --filter "ancestor=$DOCKER_IMAGE" 2>/dev/null)
@@ -179,7 +179,7 @@ if [ -n "$SONAR_TOKEN" ] && curl -sf http://localhost:9000/api/system/status > /
     STEP=$((STEP+1))
     echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] SonarQube Quality Gate${RS}"
     
-    SQ_PROJECT_KEY="unowebsim"
+    SQ_PROJECT_KEY="unosim"
     SQ_URL="http://localhost:9000"
     
     # Fetch quality gate status
