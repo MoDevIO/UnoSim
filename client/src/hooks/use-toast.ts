@@ -8,6 +8,14 @@ const DEFAULT_TOAST_DURATION = 1000;
 // Delay before actually removing toast from state (allow animations) (ms)
 const TOAST_REMOVE_DELAY = 3500;
 
+const ARE_TOASTS_DISABLED = import.meta.env.VITE_DISABLE_TOASTS === "true";
+
+const noopToastResponse = {
+  id: "",
+  dismiss: () => {},
+  update: (_props: Toast) => {},
+};
+
 type ToasterToast = ToastProps & {
   id: string;
   title?: React.ReactNode;
@@ -149,6 +157,10 @@ export type ToastFn = (props: Toast) => {
 };
 
 function toast({ ...props }: Toast) {
+  if (ARE_TOASTS_DISABLED) {
+    return noopToastResponse;
+  }
+
   const id = genId();
 
   // expose a simpler `update` that accepts toast options (without id)
@@ -201,6 +213,10 @@ function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 
   React.useEffect(() => {
+    if (ARE_TOASTS_DISABLED) {
+      return;
+    }
+
     listeners.push(setState);
     return () => {
       const index = listeners.indexOf(setState);
@@ -213,7 +229,9 @@ function useToast() {
   return {
     ...state,
     toast,
-    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    dismiss: ARE_TOASTS_DISABLED
+      ? () => {}
+      : (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   };
 }
 

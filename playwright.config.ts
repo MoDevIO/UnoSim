@@ -47,7 +47,7 @@ export default defineConfig({
   // ... restliche Config
   webServer: {
     // Übergibt den dynamischen Port an den Server-Startbefehl mit zusätzlichen gatekeeper-overrides
-    command: `PORT=${basePort} DISABLE_COMPILE_GATEKEEPER=true DISABLE_RATE_LIMIT=true npm run dev:full`,
+    command: `PORT=${basePort} VITE_DISABLE_TOASTS=true DISABLE_COMPILE_GATEKEEPER=true DISABLE_RATE_LIMIT=true npm run dev:full`,
     url: `http://localhost:${basePort}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000, 
