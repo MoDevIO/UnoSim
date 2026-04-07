@@ -81,10 +81,9 @@ async function startAndAwaitRunning(page: import('@playwright/test').Page) {
  *  ensure it is active. Tabs live inside [data-testid="output-tabs-header"]. */
 async function activateOutputTab(
   page: import('@playwright/test').Page,
-  tabName: string | RegExp,
+  targetTab: 'compiler' | 'messages' | 'registry' | 'debug',
+  visibleName: string | RegExp = targetTab,
 ) {
-  const tabValue = typeof tabName === 'string' ? tabName : tabName.source;
-
   // Force show output panel and set the desired tab via a dedicated event.
   await page.evaluate((value) => {
     document.dispatchEvent(
@@ -93,10 +92,14 @@ async function activateOutputTab(
     document.dispatchEvent(
       new CustomEvent('setOutputTab', { detail: { tab: value } }),
     );
-  }, tabValue);
+  }, targetTab);
 
-  // Give the UI a moment to react.
+  // Give the UI a moment to react and wait until the requested tab is active.
   await page.waitForTimeout(500);
+  const targetTabButton = page.getByRole('tab', { name: visibleName });
+  await expect(targetTabButton).toHaveAttribute('data-state', 'active', {
+    timeout: 15000,
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -297,12 +300,15 @@ void loop() {
     await page.waitForTimeout(1000);
 
     // Activate the I/O Registry tab (outer output-panel tab value="registry")
-    await activateOutputTab(page, /i\/o registry|registry/i);
+    await activateOutputTab(page, 'registry', /i\/o registry|registry/i);
 
     // Wait until the registry table is visible and at least one data row is present.
     const registryTable = page.locator('table.w-full.text-ui-xs.border-collapse');
     await expect(registryTable).toBeVisible({ timeout: 15000 });
     await expect(registryTable.locator('tbody tr').first()).toBeVisible({ timeout: 15000 });
+
+    // Ensure the registry tab is fully active and the UI has settled.
+    await page.waitForTimeout(800);
 
     const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
     expect(snap).toMatchSnapshot('05_io_registry_mapping_context.png', {
@@ -398,7 +404,7 @@ void loop() {
     await page.waitForTimeout(1000);
 
     // Open the I/O Registry tab.
-    await activateOutputTab(page, /i\/o registry|registry/i);
+    await activateOutputTab(page, 'registry', /i\/o registry|registry/i);
 
     // Allow the I/O Registry view to settle before capturing the snapshot.
     await page.waitForTimeout(1500);

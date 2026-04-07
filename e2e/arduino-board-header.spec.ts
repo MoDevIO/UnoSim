@@ -1,4 +1,7 @@
+/// <reference types="node" />
 import { test, expect } from '@playwright/test';
+
+const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 /**
  * E2E Tests for Arduino Board Pin State Header Synchronization
@@ -32,9 +35,9 @@ void loop() {
     // Insert code into editor
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
@@ -92,9 +95,9 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
@@ -130,9 +133,9 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
@@ -202,9 +205,9 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
@@ -268,9 +271,9 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
@@ -313,9 +316,9 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
