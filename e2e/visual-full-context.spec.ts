@@ -299,10 +299,24 @@ void loop() {
     // Static analysis runs with a 300 ms debounce – wait for it to complete.
     await page.waitForTimeout(1000);
 
-    // Activate the I/O Registry tab (outer output-panel tab value="registry")
-    await activateOutputTab(page, 'registry', /i\/o registry|registry/i);
+    // Find the I/O Registry tab button in the footer output-tabs-header.
+    // Double-click to expand the panel to ~50 % height (same pattern as
+    // 03_compiler_cli_success_context), then single-click to confirm it is active.
+    const registryTabButton = page
+      .locator('[data-testid="output-tabs-header"]')
+      .getByRole('tab', { name: /i\/o registry|registry/i });
+    await expect(registryTabButton).toBeVisible({ timeout: 10000 });
+    await registryTabButton.dblclick();
+    await page.waitForTimeout(300);
+    await registryTabButton.click();
 
-    // Wait until the registry table is visible and the static analysis has populated rows.
+    // Verify the tab is active after expansion.
+    await expect(registryTabButton).toHaveAttribute('data-state', 'active', {
+      timeout: 10000,
+    });
+
+    // Wait until the registry table is visible and the static analysis has populated rows
+    // with both INPUT and OUTPUT modes (proves the pin-conflict was detected correctly).
     const registryTable = page.locator('table.w-full.text-ui-xs.border-collapse');
     await expect(registryTable).toBeVisible({ timeout: 15000 });
 
@@ -318,7 +332,7 @@ void loop() {
     await expect(registryTable.locator('tbody tr')).toHaveCount(10, { timeout: 15000 });
 
     // Ensure the registry view is fully settled before the screenshot.
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(500);
 
     const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
     expect(snap).toMatchSnapshot('05_io_registry_mapping_context.png', {
