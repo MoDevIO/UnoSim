@@ -32,12 +32,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && arduino-cli config init \
     && arduino-cli core update-index \
     && arduino-cli core install arduino:avr \
-    # Install Docker CLI
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian buster stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt-get update && apt-get install -y docker-ce-cli \
-    # Cleanup
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
