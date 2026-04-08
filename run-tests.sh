@@ -17,7 +17,7 @@ export NODE_ENV=test
 # Docker-Konfiguration (überschreibbar per Umgebungsvariable)
 DOCKER_HOST="${DOCKER_HOST:-unix:///$(echo $HOME)/.docker/run/docker.sock}"
 DOCKER_IMAGE="unosim:latest"
-DOCKER_SANDBOX_IMAGE="${DOCKER_SANDBOX_IMAGE:-unowebsim-sandbox:latest}"
+DOCKER_SANDBOX_IMAGE="${DOCKER_SANDBOX_IMAGE:-unosim-sandbox:latest}"
 export DOCKER_HOST DOCKER_SANDBOX_IMAGE
 
 # Farben & Icons
@@ -117,7 +117,16 @@ parse_test_results "Tests.*passed"
 # 4+5. Docker Image Build & Docker-Tests (optional, wenn Docker verfügbar)
 if docker info > /dev/null 2>&1; then
     run_task "Docker Image Build" "docker build -t $DOCKER_IMAGE ."
-    run_task "Sandbox Image Build" "docker build -f Dockerfile.sandbox -t $DOCKER_SANDBOX_IMAGE ."
+
+    # Sandbox Image nur bauen wenn es noch nicht existiert
+    if ! docker image inspect "$DOCKER_SANDBOX_IMAGE" > /dev/null 2>&1; then
+        run_task "Sandbox Image Build" "docker build -f Dockerfile.sandbox -t $DOCKER_SANDBOX_IMAGE ."
+    else
+        STEP=$((STEP+1))
+        echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] Sandbox Image Build${RS}"
+        echo -e "  ${OK} Sandbox Image bereits vorhanden – wird übersprungen"
+    fi
+
     run_task "Docker-Tests (Timing/Pause/Sandbox/Flow)" \
         "FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE SKIP_HEAVY_TESTS=false LOG_LEVEL=warn \
         npx vitest run --reporter=default --maxWorkers=1 \
@@ -204,7 +213,6 @@ for c in d['projectStatus']['conditions']:
     threshold = c['errorThreshold']
     comp = c['comparator']
     icon = '✔' if status == 'OK' else '✘'
-    color = '' if status == 'OK' else ''
     unit = '%' if 'density' in c['metricKey'] or 'coverage' in c['metricKey'] or 'reviewed' in c['metricKey'] else ''
     print(f'      {icon} {metric}: {actual}{unit} (Threshold: {comp} {threshold}{unit})')
 " 2>/dev/null
