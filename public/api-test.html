@@ -47,7 +47,7 @@
     .test-pass { color: #4ade80; }
     .test-fail { color: #f87171; }
     .test-skip { color: #fbbf24; }
-    .counter { font-size: 11px; color: #64748b; }
+    .counter { font-size: 11px; color: #94a3b8; }
   </style>
 </head>
 <body>
@@ -211,7 +211,7 @@ void loop() {
       try {
         simOrigin = new URL(url).origin;
       } catch (e) {
-        log("error", "Invalid URL: " + url, undefined, "error");
+        log("error", "Invalid URL: " + url, { name: e.name, message: e.message }, "error");
         return;
       }
 
@@ -253,8 +253,7 @@ void loop() {
       simWindow.postMessage(msg, simOrigin);
     }
 
-    function sendAndWait(type, payload, timeoutMs) {
-      timeoutMs = timeoutMs || 5000;
+    function sendAndWait(type, payload, timeoutMs = 5000) {
       return new Promise(function (resolve) {
         var prev = pendingResponses.get(type);
         if (prev) clearTimeout(prev.timeout);
@@ -270,16 +269,23 @@ void loop() {
     }
 
     // ── Listen for messages from simulator ─────────────────────────────────
-    window.addEventListener("message", function (event) {
-      if (simOrigin && event.origin !== simOrigin) return;
+    globalThis.addEventListener("message", function (event) {
+      if (simOrigin && event.origin !== simOrigin) {
+        return;
+      }
       var msg = event.data;
-      if (typeof msg !== "object" || !msg || !msg.type) return;
-      if (typeof msg.type !== "string") return;
+      if (typeof msg !== "object" || msg === null || typeof msg.type !== "string") {
+        return;
+      }
 
       // Ignore Vite HMR and other internal framework messages
       if (msg.type.startsWith("vite") || msg.type.startsWith("webpackHot") ||
-          msg.type === "webpackOk" || msg.type === "webpackClose") return;
-      if (msg.source === "react-devtools-content-script") return;
+          msg.type === "webpackOk" || msg.type === "webpackClose") {
+        return;
+      }
+      if (msg.source === "react-devtools-content-script") {
+        return;
+      }
 
       var isEvent = msg.type.endsWith("_EVENT");
       var cls = isEvent ? "event" : "recv";
@@ -294,7 +300,11 @@ void loop() {
     });
 
     // ── Automated Tests ────────────────────────────────────────────────────
-    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    function sleep(ms) {
+      return new Promise(function (resolve) {
+        setTimeout(resolve, ms);
+      });
+    }
 
     async function runTests() {
       var results = document.getElementById("test-results");
@@ -302,12 +312,18 @@ void loop() {
       var passed = 0, failed = 0, skipped = 0;
 
       function report(name, ok, detail) {
-        var cls = ok === true ? "test-pass" : ok === false ? "test-fail" : "test-skip";
-        var sym = ok === true ? "✓" : ok === false ? "✗" : "⊘";
-        results.innerHTML += '<span class="' + cls + '">' + sym + " " + name + "</span>" + (detail ? " — " + detail : "") + "<br>";
-        if (ok === true) passed++;
-        else if (ok === false) failed++;
-        else skipped++;
+        var statusClass = ok === true ? "test-pass" : ok === false ? "test-fail" : "test-skip";
+        var symbol = ok === true ? "✓" : ok === false ? "✗" : "⊘";
+        var message = symbol + " " + name;
+        var fullLine = detail ? message + " — " + detail : message;
+        results.innerHTML += '<span class="' + statusClass + '">' + fullLine + "</span><br>";
+        if (ok === true) {
+          passed++;
+        } else if (ok === false) {
+          failed++;
+        } else {
+          skipped++;
+        }
       }
 
       if (!simWindow) {
@@ -426,12 +442,12 @@ void loop() {
       });
 
       document.getElementById("btn-serial-send").addEventListener("click", function () {
-        sendAction("SERIAL_INPUT", { data: document.getElementById("serial-data").value.replace(/\\n/g, "\n") });
+        sendAction("SERIAL_INPUT", { data: document.getElementById("serial-data").value.replaceAll("\\n", "\n") });
       });
 
       document.querySelectorAll("[data-tab]").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          sendAction("SET_OUTPUT_TAB", { tab: btn.getAttribute("data-tab") });
+          sendAction("SET_OUTPUT_TAB", { tab: btn.dataset.tab });
         });
       });
     });
