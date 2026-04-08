@@ -48,9 +48,9 @@ COPY package.json package-lock.json ./
 RUN npm install --legacy-peer-deps --production=false
 
 # Run as non-root user for production
-RUN useradd -m -u 1000 appuser \
-    && chown -R appuser:appuser /app
-USER appuser
+# node:slim already provides a 'node' user at UID 1000
+RUN chown -R node:node /app
+USER node
 
 EXPOSE 3000
 CMD ["npm", "run", "start"]
