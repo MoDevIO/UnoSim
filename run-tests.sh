@@ -28,17 +28,26 @@ OK="${G}✔${RS}"; FAIL="${R}✘${RS}"; RUN="${Y}◌${RS}"; WARN="${Y}⚠${RS}"
 
 div() { printf "${D}────────────────────────────────────────────────${RS}\n"; }
 
+# Helfer: Alle Sandbox-Container finden (Name- UND Kommando-basiert,
+# damit auch namenlose Container mit alten Image-IDs erfasst werden).
+find_sandbox_containers() {
+    local filter="${1:---filter status=exited}"  # default: nur beendete
+    {
+        docker ps -aq $filter --filter "name=unosim-sandbox" 2>/dev/null
+        docker ps -a  $filter --format '{{.ID}} {{.Command}}' 2>/dev/null \
+            | grep 'g++ /sandbox' | awk '{print $1}'
+    } | sort -u
+}
+
 # Aufräum-Funktion bei Abbruch oder Ende
 cleanup() {
     if [ -n "$SERVER_PID" ]; then
         kill "$SERVER_PID" 2>/dev/null
     fi
-    # Sandbox-Container aufräumen (ephemeral, aus unosim-sandbox:latest entstanden)
     if docker info > /dev/null 2>&1; then
         local containers
-        containers=$(docker ps -aq --filter "ancestor=$DOCKER_SANDBOX_IMAGE" 2>/dev/null)
+        containers=$(find_sandbox_containers)
         if [ -n "$containers" ]; then
-            echo "$containers" | xargs docker stop --time 5 > /dev/null 2>&1 || true
             echo "$containers" | xargs docker rm -f > /dev/null 2>&1 || true
         fi
     fi
@@ -106,7 +115,63 @@ div
 rm -f "$LOG_FILE"
 [ -d temp ] && rm -rf temp/*
 
-# Pre-Flight: Altlasten bereinigen (kein nummerierter Schritt)
+# ─────── PRE-FLIGHT: Systemvoraussetzungen ───────
+echo -e "\n${B}▸ [Pre-Flight] Systemvoraussetzungen${RS}"
+
+# Node.js / npm
+if ! command -v npm &>/dev/null; then
+    echo -e "  ${FAIL} npm nicht gefunden – bitte Node.js installieren"
+    exit 1
+fi
+echo -e "  ${OK} Node.js $(node -v)"
+
+# Docker
+DOCKER_AVAILABLE=0
+if command -v docker &>/dev/null && docker info >/dev/null 2>&1; then
+    DOCKER_AVAILABLE=1
+    echo -e "  ${OK} Docker $(docker version --format '{{.Client.Version}}' 2>/dev/null)"
+
+    # docker-compose unosim-server prüfen (Port-3000-Konflikt mit dem E2E-Dev-Server)
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^unosim-server$"; then
+        echo -e "  ${WARN} docker-compose unosim-server blockiert Port 3000 – wird für Tests gestoppt"
+        docker stop unosim-server >/dev/null 2>&1 || true
+    fi
+
+    # Stale Sandbox-Container aufräumen (Name + Kommando-basiert → fängt auch alte Image-IDs)
+    stale=$(find_sandbox_containers)
+    if [ -n "$stale" ]; then
+        count=$(echo "$stale" | wc -l | tr -d ' ')
+        echo "$stale" | xargs docker rm -f >/dev/null 2>&1
+        echo -e "  ${OK} $count alte Sandbox-Container bereinigt"
+    fi
+
+    # Sandbox Image
+    if docker image inspect "$DOCKER_SANDBOX_IMAGE" >/dev/null 2>&1; then
+        echo -e "  ${OK} Sandbox Image vorhanden"
+    else
+        echo -e "  ${WARN} Sandbox Image fehlt – wird bei Bedarf gebaut"
+    fi
+else
+    echo -e "  ${WARN} Docker nicht verfügbar – Docker-Tests und Sandbox werden übersprungen"
+fi
+
+# Port 3000 freigeben (nach Docker-Stop, damit kein docker-proxy mehr übrig ist)
+if lsof -ti:3000 >/dev/null 2>&1; then
+    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    sleep 1
+    echo -e "  ${OK} Port 3000 freigegeben"
+else
+    echo -e "  ${OK} Port 3000 frei"
+fi
+
+# SonarQube (optional, informativ)
+if [ -n "$SONAR_TOKEN" ] && curl -sf http://localhost:9000/api/system/status >/dev/null 2>&1; then
+    echo -e "  ${OK} SonarQube erreichbar"
+else
+    echo -e "  ${D}ℹ  SonarQube nicht verfügbar (optional)${RS}"
+fi
+
+# ─────── PRE-FLIGHT: Compiler-Prozess-Leaks ───────
 echo -e "\n${B}▸ [Pre-Flight] Cleanup leaked compiler processes${RS}"
 ./check-leaks.sh --cleanup >> "$LOG_FILE" 2>&1 && echo -e "  ${OK} Bereinigung abgeschlossen" || true
 
@@ -118,9 +183,7 @@ run_task "Unit-Tests" "NODE_OPTIONS='--no-warnings' npm run test:fast -- --repor
 parse_test_results "Tests.*passed"
 
 # 3+4. Sandbox Image Build & Docker-Tests (optional, wenn Docker verfügbar)
-# HINWEIS: unosim-server:latest wird von docker compose gebaut, nicht hier.
-# Nur das Sandbox-Image wird benötigt und nur wenn es noch nicht existiert.
-if docker info > /dev/null 2>&1; then
+if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
     # Sandbox Image nur bauen wenn es noch nicht existiert
     if ! docker image inspect "$DOCKER_SANDBOX_IMAGE" > /dev/null 2>&1; then
         run_task "Sandbox Image Build" "docker build -f Dockerfile.sandbox -t $DOCKER_SANDBOX_IMAGE ."
@@ -141,6 +204,12 @@ if docker info > /dev/null 2>&1; then
         tests/server/services/sandbox-lifecycle.integration.test.ts \
         tests/server/services/serial-backpressure.test.ts"
     parse_test_results "Tests.*passed"
+
+    # Container-Cleanup nach Docker-Tests: entlastet Docker Desktop vor E2E-Phase
+    stale_after=$(find_sandbox_containers)
+    if [ -n "$stale_after" ]; then
+        echo "$stale_after" | xargs docker rm -f >/dev/null 2>&1
+    fi
 else
     echo -e "  ${WARN} Docker nicht verfügbar – Docker-Tests werden übersprungen (Steps 3+4)"
     STEP=$((STEP+2))
@@ -149,14 +218,30 @@ fi
 # --- VORBEREITUNG SERVER (Kein nummerierter Task) ---
 echo -e "\n${B}▸ [Vorbereitung] Server-Start${RS}"
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-sleep 1
+
+# Docker-Gesundheitsprüfung: Docker Desktop auf macOS braucht nach Heavy-Load
+# manchmal einige Sekunden bis der Daemon wieder stabil antwortet.
+DOCKER_FOR_E2E=0
+if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
+    for _i in {1..10}; do
+        if docker info > /dev/null 2>&1; then
+            DOCKER_FOR_E2E=1
+            [ "$_i" -gt 1 ] && echo -e "  ${OK} Docker nach $((_i * 3))s wiederhergestellt"
+            break
+        fi
+        [ "$_i" -eq 1 ] && echo -e "  ${RUN} Docker antwortet nicht – warte auf Erholung (max. 30s)..."
+        sleep 3
+    done
+fi
 
 export PORT=3000
 # Server startet im Hintergrund (NODE_ENV=development für Vite-Snapshots)
-# FORCE_DOCKER + DOCKER_SANDBOX_IMAGE werden gesetzt, wenn Docker verfügbar ist (s. oben)
-if docker info > /dev/null 2>&1; then
-    FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR=$UNOSIM_SHARED_TEMP_DIR NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
+if [ "$DOCKER_FOR_E2E" -eq 1 ]; then
+    echo -e "  ${OK} Docker verfügbar – E2E mit Sandbox-Unterstützung"
+    export FORCE_DOCKER=1
+    DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR=$UNOSIM_SHARED_TEMP_DIR NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 else
+    echo -e "  ${WARN} Docker nicht verfügbar – E2E im Lokal-Modus"
     NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 fi
 SERVER_PID=$!
