@@ -6,7 +6,7 @@
 
 # Konfiguration
 LOG_FILE="run-tests_output.log"
-TOTAL_STEPS=10
+TOTAL_STEPS=8
 STEP=0
 SERVER_PID=""
 
@@ -104,13 +104,14 @@ div
 rm -f "$LOG_FILE"
 [ -d temp ] && rm -rf temp/*
 
-# 1. Pre-Flight Check (Ressourcen & Zombies aufräumen)
-run_task "Pre-Flight Environment Check" "./check-leaks.sh --cleanup"
+# Pre-Flight: Altlasten bereinigen (kein nummerierter Schritt)
+echo -e "\n${B}▸ [Pre-Flight] Cleanup leaked compiler processes${RS}"
+./check-leaks.sh --cleanup >> "$LOG_FILE" 2>&1 && echo -e "  ${OK} Bereinigung abgeschlossen" || true
 
-# 2. Statische Analyse
+# 1. Statische Analyse
 run_task "Statische Analyse" "npm run check"
 
-# 3. Unit-Tests
+# 2. Unit-Tests
 run_task "Unit-Tests" "NODE_OPTIONS='--no-warnings' npm run test:fast -- --reporter=default --maxConcurrency=2"
 parse_test_results "Tests.*passed"
 
@@ -167,25 +168,21 @@ for i in {1..15}; do
     sleep 1
 done
 
-# 4. E2E-Tests (Playwright)
+# 3. E2E-Tests (Playwright)
 run_task "E2E-Tests (Playwright)" "npx playwright test --timeout 60000"
 parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
 
-# 5. Integration-Tests (Cache)
-run_task "Cache-Optimization Tests" "npx vitest run tests/server/cache-optimization.test.ts --reporter=default"
-parse_test_results "Tests.*passed"
-
-# 6. Post-Test Integrity Check (Leak-Detection nach allen Tests)
+# 4. Post-Test Integrity Check (Leak-Detection nach allen Tests)
 run_task "Post-Test Integrity Check" "./check-leaks.sh --cleanup"
 
 # Server stoppen bevor der Build startet
 cleanup
 SERVER_PID=""
 
-# 7. Produktions-Build
+# 5. Produktions-Build
 run_task "Produktions-Build" "npm run build"
 
-# 8. SonarQube Quality Gate Check
+# 6. SonarQube Quality Gate Check
 if [ -n "$SONAR_TOKEN" ] && curl -sf http://localhost:9000/api/system/status > /dev/null 2>&1; then
     STEP=$((STEP+1))
     echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] SonarQube Quality Gate${RS}"

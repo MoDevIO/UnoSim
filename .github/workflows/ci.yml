@@ -83,6 +83,7 @@ jobs:
   # JOB 2: Schwergewicht (Docker & E2E)
   e2e-tests:
     name: Playwright E2E
+    needs: build-and-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
