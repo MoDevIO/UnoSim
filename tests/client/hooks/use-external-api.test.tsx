@@ -19,8 +19,14 @@ const buildParams = () => ({
   onLoadCode: vi.fn<[string], void>(),
   onStartSimulation: vi.fn<[], void>(),
   onStopSimulation: vi.fn<[], void>(),
+  onPauseSimulation: vi.fn<[], void>(),
+  onResumeSimulation: vi.fn<[], void>(),
   onSetPinState: vi.fn<[number, number], void>(),
   getPinState: vi.fn<[number], number>(() => 1),
+  onSerialInput: vi.fn<[string], void>(),
+  onSetSimulationTimeout: vi.fn<[number], void>(),
+  onSetOutputTab: vi.fn<[string], void>(),
+  getSimulationState: vi.fn<[], string>(() => "stopped"),
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -197,6 +203,204 @@ describe("useExternalApi", () => {
     expect(params.onLoadCode).not.toHaveBeenCalled();
     expect(params.onStartSimulation).not.toHaveBeenCalled();
     expect(params.onSetPinState).not.toHaveBeenCalled();
+  });
+
+  // ── Test 11: PAUSE_SIMULATION ────────────────────────────────────────────
+
+  it("PAUSE_SIMULATION triggers the onPauseSimulation callback", () => {
+    const params = buildParams();
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({ type: SimulatorActionType.PAUSE_SIMULATION, payload: undefined });
+    });
+
+    expect(params.onPauseSimulation).toHaveBeenCalledOnce();
+  });
+
+  // ── Test 12: RESUME_SIMULATION ───────────────────────────────────────────
+
+  it("RESUME_SIMULATION triggers the onResumeSimulation callback", () => {
+    const params = buildParams();
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({ type: SimulatorActionType.RESUME_SIMULATION, payload: undefined });
+    });
+
+    expect(params.onResumeSimulation).toHaveBeenCalledOnce();
+  });
+
+  // ── Test 13: SERIAL_INPUT ────────────────────────────────────────────────
+
+  it("SERIAL_INPUT calls onSerialInput with string data", () => {
+    const params = buildParams();
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({
+        type: SimulatorActionType.SERIAL_INPUT,
+        payload: { data: "Hello\n" },
+      });
+    });
+
+    expect(params.onSerialInput).toHaveBeenCalledOnce();
+    expect(params.onSerialInput).toHaveBeenCalledWith("Hello\n");
+  });
+
+  // ── Test 14: SERIAL_INPUT — invalid payload ──────────────────────────────
+
+  it("SERIAL_INPUT rejects non-string data with error response", () => {
+    const params = buildParams();
+    const postSpy = vi.spyOn(globalThis, "postMessage");
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({
+        type: SimulatorActionType.SERIAL_INPUT,
+        payload: { data: 123 },
+      });
+    });
+
+    expect(params.onSerialInput).not.toHaveBeenCalled();
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SERIAL_INPUT", success: false }),
+      ALLOWED_ORIGIN,
+    );
+  });
+
+  // ── Test 15: SET_SIMULATION_TIMEOUT ──────────────────────────────────────
+
+  it("SET_SIMULATION_TIMEOUT updates the timeout value", () => {
+    const params = buildParams();
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({
+        type: SimulatorActionType.SET_SIMULATION_TIMEOUT,
+        payload: { timeout: 30000 },
+      });
+    });
+
+    expect(params.onSetSimulationTimeout).toHaveBeenCalledOnce();
+    // API accepts ms, internal state uses seconds → 30000ms = 30s
+    expect(params.onSetSimulationTimeout).toHaveBeenCalledWith(30);
+  });
+
+  // ── Test 16: SET_SIMULATION_TIMEOUT — negative value rejected ────────────
+
+  it("SET_SIMULATION_TIMEOUT rejects negative timeout", () => {
+    const params = buildParams();
+    const postSpy = vi.spyOn(globalThis, "postMessage");
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({
+        type: SimulatorActionType.SET_SIMULATION_TIMEOUT,
+        payload: { timeout: -1 },
+      });
+    });
+
+    expect(params.onSetSimulationTimeout).not.toHaveBeenCalled();
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SET_SIMULATION_TIMEOUT", success: false }),
+      ALLOWED_ORIGIN,
+    );
+  });
+
+  // ── Test 17: SET_OUTPUT_TAB ──────────────────────────────────────────────
+
+  it("SET_OUTPUT_TAB switches to the specified tab", () => {
+    const params = buildParams();
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({
+        type: SimulatorActionType.SET_OUTPUT_TAB,
+        payload: { tab: "debug" },
+      });
+    });
+
+    expect(params.onSetOutputTab).toHaveBeenCalledOnce();
+    expect(params.onSetOutputTab).toHaveBeenCalledWith("debug");
+  });
+
+  // ── Test 18: SET_OUTPUT_TAB — invalid tab name ───────────────────────────
+
+  it("SET_OUTPUT_TAB rejects invalid tab names", () => {
+    const params = buildParams();
+    const postSpy = vi.spyOn(globalThis, "postMessage");
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({
+        type: SimulatorActionType.SET_OUTPUT_TAB,
+        payload: { tab: "nonexistent" },
+      });
+    });
+
+    expect(params.onSetOutputTab).not.toHaveBeenCalled();
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SET_OUTPUT_TAB", success: false }),
+      ALLOWED_ORIGIN,
+    );
+  });
+
+  // ── Test 19: GET_SIMULATION_STATE ────────────────────────────────────────
+
+  it("GET_SIMULATION_STATE returns the current simulation state", () => {
+    const params = buildParams();
+    params.getSimulationState.mockReturnValue("running");
+    const postSpy = vi.spyOn(globalThis, "postMessage");
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({ type: SimulatorActionType.GET_SIMULATION_STATE, payload: undefined });
+    });
+
+    expect(params.getSimulationState).toHaveBeenCalledOnce();
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "GET_SIMULATION_STATE", success: true, data: "running" }),
+      ALLOWED_ORIGIN,
+    );
+  });
+
+  // ── Test 20: LOAD_CODE — invalid payload sends error response ────────────
+
+  it("LOAD_CODE rejects non-string code with error response", () => {
+    const params = buildParams();
+    const postSpy = vi.spyOn(globalThis, "postMessage");
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({
+        type: SimulatorActionType.LOAD_CODE,
+        payload: { code: 42 },
+      });
+    });
+
+    expect(params.onLoadCode).not.toHaveBeenCalled();
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "LOAD_CODE", success: false }),
+      ALLOWED_ORIGIN,
+    );
+  });
+
+  // ── Test 21: All actions send responses ──────────────────────────────────
+
+  it("START_SIMULATION sends a success response", () => {
+    const params = buildParams();
+    const postSpy = vi.spyOn(globalThis, "postMessage");
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      dispatchMessage({ type: SimulatorActionType.START_SIMULATION, payload: undefined });
+    });
+
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "START_SIMULATION", success: true, version: API_VERSION }),
+      ALLOWED_ORIGIN,
+    );
   });
 });
 

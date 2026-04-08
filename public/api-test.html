@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UnoSim External API Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 16px; }
+    h1 { font-size: 1.4rem; margin-bottom: 12px; color: #38bdf8; }
+    h2 { font-size: 1rem; margin: 12px 0 6px; color: #94a3b8; }
+    .layout { display: grid; grid-template-columns: 340px 1fr; gap: 12px; height: calc(100vh - 60px); }
+    .panel { background: #1e293b; border-radius: 8px; padding: 12px; overflow-y: auto; }
+    .right-col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+    .iframe-panel { background: #1e293b; border-radius: 8px; padding: 0; overflow: hidden; flex: 1; min-height: 200px; position: relative; }
+    .iframe-panel .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #475569; font-size: 14px; }
+    .iframe-panel iframe { width: 100%; height: 100%; border: none; display: block; }
+    .log-panel { display: flex; flex-direction: column; flex: 1; min-height: 150px; background: #1e293b; border-radius: 8px; padding: 12px; }
+    #log { flex: 1; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+    .log-entry { padding: 2px 4px; border-bottom: 1px solid #1e293b; }
+    .log-entry.sent { background: #0c4a6e22; border-left: 3px solid #0ea5e9; }
+    .log-entry.recv { background: #14532d22; border-left: 3px solid #22c55e; }
+    .log-entry.error { background: #7f1d1d22; border-left: 3px solid #ef4444; }
+    .log-entry.event { background: #4a1d9122; border-left: 3px solid #a855f7; }
+    .log-entry .ts { color: #94a3b8; font-size: 10px; }
+    .log-entry .type { font-weight: 600; }
+    button { background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; transition: background 0.15s; }
+    button:hover { background: #475569; }
+    button.primary { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+    button.primary:hover { background: #0284c7; }
+    button.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+    button.danger:hover { background: #b91c1c; }
+    button.success { background: #16a34a; border-color: #16a34a; color: #fff; }
+    button.success:hover { background: #15803d; }
+    .btn-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    input, select, textarea { background: #0f172a; color: #e2e8f0; border: 1px solid #475569; border-radius: 6px; padding: 6px 8px; font-size: 12px; width: 100%; }
+    textarea { font-family: 'SF Mono', monospace; resize: vertical; }
+    label { font-size: 11px; color: #94a3b8; display: block; margin-bottom: 2px; }
+    .field { margin-bottom: 8px; }
+    .inline { display: flex; gap: 6px; align-items: end; }
+    .inline .field { flex: 1; }
+    hr { border: none; border-top: 1px solid #334155; margin: 10px 0; }
+    .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .status.connected { background: #16a34a33; color: #4ade80; }
+    .status.disconnected { background: #dc262633; color: #f87171; }
+    #test-results { margin-top: 8px; font-size: 12px; }
+    .test-pass { color: #4ade80; }
+    .test-fail { color: #f87171; }
+    .test-skip { color: #fbbf24; }
+    .counter { font-size: 11px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <h1>UnoSim External API Test Console</h1>
+
+  <div class="layout">
+    <!-- Left panel: Controls -->
+    <div class="panel">
+      <div class="field">
+        <label for="sim-url">Simulator URL <span style="color:#94a3b8">(same origin as this page)</span></label>
+        <input id="sim-url" type="text" />
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="btn-connect">Connect iframe</button>
+        <span id="conn-status" class="status disconnected">disconnected</span>
+      </div>
+
+      <hr>
+      <h2>Code</h2>
+      <div class="field">
+        <label for="sketch-code">Sketch Code</label>
+        <textarea id="sketch-code" rows="6">void setup() {
+  Serial.begin(9600);
+  pinMode(13, OUTPUT);
+}
+void loop() {
+  digitalWrite(13, HIGH);
+  Serial.println("LED ON");
+  delay(500);
+  digitalWrite(13, LOW);
+  Serial.println("LED OFF");
+  delay(500);
+}</textarea>
+      </div>
+      <div class="btn-row">
+        <button id="btn-load-code">Load Code</button>
+      </div>
+
+      <hr>
+      <h2>Simulation Control</h2>
+      <div class="btn-row">
+        <button class="success" id="btn-start">Start</button>
+        <button id="btn-pause">Pause</button>
+        <button id="btn-resume">Resume</button>
+        <button class="danger" id="btn-stop">Stop</button>
+      </div>
+      <div class="btn-row">
+        <button id="btn-get-state">Get State</button>
+      </div>
+
+      <hr>
+      <h2>Timeout</h2>
+      <div class="inline">
+        <div class="field">
+          <label for="timeout-val">ms</label>
+          <input id="timeout-val" type="number" value="30000" min="0" step="1000" />
+        </div>
+        <button id="btn-set-timeout">Set</button>
+      </div>
+
+      <hr>
+      <h2>Pins</h2>
+      <div class="inline">
+        <div class="field">
+          <label for="pin-num">Pin</label>
+          <input id="pin-num" type="number" value="13" min="0" max="19" />
+        </div>
+        <div class="field">
+          <label for="pin-val">Value</label>
+          <input id="pin-val" type="number" value="1" min="0" max="1023" />
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:6px">
+        <button id="btn-set-pin">Set Pin</button>
+        <button id="btn-get-pin">Get Pin</button>
+      </div>
+      <div class="btn-row">
+        <button id="btn-batch-pin">Batch Set (2,3,4)</button>
+      </div>
+
+      <hr>
+      <h2>Serial Input</h2>
+      <div class="inline">
+        <div class="field">
+          <label for="serial-data">Data</label>
+          <input id="serial-data" type="text" value="Hello\n" />
+        </div>
+        <button id="btn-serial-send">Send</button>
+      </div>
+
+      <hr>
+      <h2>Output Tab</h2>
+      <div class="btn-row">
+        <button data-tab="compiler">Compiler</button>
+        <button data-tab="messages">Messages</button>
+        <button data-tab="registry">Registry</button>
+        <button data-tab="debug">Debug</button>
+      </div>
+
+      <hr>
+      <h2>Automated Test</h2>
+      <div class="btn-row">
+        <button class="primary" id="btn-run-tests">Run All Tests</button>
+      </div>
+      <div id="test-results"></div>
+    </div>
+
+    <!-- Right column: iframe + log -->
+    <div class="right-col">
+      <!-- Simulator iframe (visible) -->
+      <div class="iframe-panel" id="iframe-container">
+        <div class="placeholder" id="iframe-placeholder">Click <b style="margin:0 4px">Connect iframe</b> to load the simulator here</div>
+      </div>
+
+      <!-- Message log -->
+      <div class="log-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h2 style="margin:0">Message Log</h2>
+          <div>
+            <span id="msg-count" class="counter">0 messages</span>
+            <button id="btn-clear-log" style="margin-left:8px">Clear</button>
+          </div>
+        </div>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────
+    var simWindow = null;
+    var simOrigin = "";
+    var msgCount = 0;
+    var pendingResponses = new Map();
+
+    // ── Logging ────────────────────────────────────────────────────────────
+    function log(direction, type, data, cls) {
+      var el = document.getElementById("log");
+      var ts = new Date().toLocaleTimeString("de-DE", { hour12: false, fractionalSecondDigits: 3 });
+      var div = document.createElement("div");
+      div.className = "log-entry " + (cls || direction);
+      var dataStr = data !== undefined ? " " + JSON.stringify(data) : "";
+      div.innerHTML = '<span class="ts">' + ts + '</span> <span class="type">[' + direction.toUpperCase() + ']</span> ' + type + dataStr;
+      el.appendChild(div);
+      el.scrollTop = el.scrollHeight;
+      msgCount++;
+      document.getElementById("msg-count").textContent = msgCount + " messages";
+    }
+
+    function clearLog() {
+      document.getElementById("log").innerHTML = "";
+      msgCount = 0;
+      document.getElementById("msg-count").textContent = "0 messages";
+    }
+
+    // ── Connect ────────────────────────────────────────────────────────────
+    function connectSimulator() {
+      var url = document.getElementById("sim-url").value.trim();
+      if (!url) return;
+
+      try {
+        simOrigin = new URL(url).origin;
+      } catch (e) {
+        log("error", "Invalid URL: " + url, undefined, "error");
+        return;
+      }
+
+      var container = document.getElementById("iframe-container");
+      var placeholder = document.getElementById("iframe-placeholder");
+      if (placeholder) placeholder.remove();
+
+      var existing = document.getElementById("sim-frame");
+      if (existing) existing.remove();
+
+      var frame = document.createElement("iframe");
+      frame.id = "sim-frame";
+      frame.src = url;
+      frame.allow = "clipboard-write";
+      container.appendChild(frame);
+
+      log("info", "Loading " + url + " …", undefined, "sent");
+
+      frame.onload = function () {
+        simWindow = frame.contentWindow;
+        document.getElementById("conn-status").textContent = "connected";
+        document.getElementById("conn-status").className = "status connected";
+        log("info", "Connected to " + url, undefined, "recv");
+      };
+
+      frame.onerror = function () {
+        log("error", "Failed to load iframe from " + url, undefined, "error");
+      };
+    }
+
+    // ── Send Action ────────────────────────────────────────────────────────
+    function sendAction(type, payload) {
+      if (!simWindow) {
+        log("error", "Not connected — click Connect first", undefined, "error");
+        return;
+      }
+      var msg = { type: type, payload: payload };
+      log("sent", type, payload);
+      simWindow.postMessage(msg, simOrigin);
+    }
+
+    function sendAndWait(type, payload, timeoutMs) {
+      timeoutMs = timeoutMs || 5000;
+      return new Promise(function (resolve) {
+        var prev = pendingResponses.get(type);
+        if (prev) clearTimeout(prev.timeout);
+
+        var tid = setTimeout(function () {
+          pendingResponses.delete(type);
+          resolve({ success: false, error: "Timeout waiting for response" });
+        }, timeoutMs);
+
+        pendingResponses.set(type, { resolve: resolve, timeout: tid });
+        sendAction(type, payload);
+      });
+    }
+
+    // ── Listen for messages from simulator ─────────────────────────────────
+    window.addEventListener("message", function (event) {
+      if (simOrigin && event.origin !== simOrigin) return;
+      var msg = event.data;
+      if (typeof msg !== "object" || !msg || !msg.type) return;
+      if (typeof msg.type !== "string") return;
+
+      // Ignore Vite HMR and other internal framework messages
+      if (msg.type.startsWith("vite") || msg.type.startsWith("webpackHot") ||
+          msg.type === "webpackOk" || msg.type === "webpackClose") return;
+      if (msg.source === "react-devtools-content-script") return;
+
+      var isEvent = msg.type.endsWith("_EVENT");
+      var cls = isEvent ? "event" : "recv";
+      log("recv", msg.type, { success: msg.success, data: msg.data, error: msg.error, version: msg.version }, cls);
+
+      var pending = pendingResponses.get(msg.type);
+      if (pending) {
+        clearTimeout(pending.timeout);
+        pendingResponses.delete(msg.type);
+        pending.resolve(msg);
+      }
+    });
+
+    // ── Automated Tests ────────────────────────────────────────────────────
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    async function runTests() {
+      var results = document.getElementById("test-results");
+      results.innerHTML = "<b>Running tests…</b><br>";
+      var passed = 0, failed = 0, skipped = 0;
+
+      function report(name, ok, detail) {
+        var cls = ok === true ? "test-pass" : ok === false ? "test-fail" : "test-skip";
+        var sym = ok === true ? "✓" : ok === false ? "✗" : "⊘";
+        results.innerHTML += '<span class="' + cls + '">' + sym + " " + name + "</span>" + (detail ? " — " + detail : "") + "<br>";
+        if (ok === true) passed++;
+        else if (ok === false) failed++;
+        else skipped++;
+      }
+
+      if (!simWindow) {
+        report("Connection", null, "Connect to simulator first");
+        results.innerHTML += "<br><b>Skipped — connect first.</b>";
+        return;
+      }
+
+      await sleep(1000);
+
+      var r;
+
+      r = await sendAndWait("LOAD_CODE", { code: "void setup(){}\nvoid loop(){}" });
+      report("LOAD_CODE (valid)", r.success === true);
+
+      r = await sendAndWait("LOAD_CODE", { code: 42 });
+      report("LOAD_CODE (invalid)", r.success === false && !!r.error, r.error);
+
+      r = await sendAndWait("SET_PIN_STATE", { pin: 7, value: 1 });
+      report("SET_PIN_STATE (valid)", r.success === true);
+
+      r = await sendAndWait("SET_PIN_STATE", { pin: 7 });
+      report("SET_PIN_STATE (invalid)", r.success === false, r.error);
+
+      r = await sendAndWait("GET_PIN_STATE", { pin: 7 });
+      report("GET_PIN_STATE", r.success === true && typeof r.data === "number", "data=" + r.data);
+
+      r = await sendAndWait("GET_PIN_STATE", { pin: "abc" });
+      report("GET_PIN_STATE (invalid)", r.success === false, r.error);
+
+      r = await sendAndWait("BATCH_SET_PIN_STATE", { pins: [{ pin: 2, value: 1 }, { pin: 3, value: 0 }] });
+      report("BATCH_SET_PIN_STATE", r.success === true);
+
+      r = await sendAndWait("BATCH_SET_PIN_STATE", { pins: "not-array" });
+      report("BATCH_SET_PIN_STATE (invalid)", r.success === false, r.error);
+
+      r = await sendAndWait("SET_SIMULATION_TIMEOUT", { timeout: 30000 });
+      report("SET_SIMULATION_TIMEOUT (valid)", r.success === true);
+
+      r = await sendAndWait("SET_SIMULATION_TIMEOUT", { timeout: -1 });
+      report("SET_SIMULATION_TIMEOUT (invalid)", r.success === false, r.error);
+
+      r = await sendAndWait("SET_OUTPUT_TAB", { tab: "compiler" });
+      report("SET_OUTPUT_TAB (valid)", r.success === true);
+
+      r = await sendAndWait("SET_OUTPUT_TAB", { tab: "nonexistent" });
+      report("SET_OUTPUT_TAB (invalid)", r.success === false, r.error);
+
+      r = await sendAndWait("GET_SIMULATION_STATE");
+      report("GET_SIMULATION_STATE", r.success === true && typeof r.data === "string", "state=" + r.data);
+
+      r = await sendAndWait("SERIAL_INPUT", { data: "test\n" });
+      report("SERIAL_INPUT (valid)", r.success === true);
+
+      r = await sendAndWait("SERIAL_INPUT", { data: 123 });
+      report("SERIAL_INPUT (invalid)", r.success === false, r.error);
+
+      r = await sendAndWait("PAUSE_SIMULATION");
+      report("PAUSE_SIMULATION", r.success === true);
+
+      r = await sendAndWait("RESUME_SIMULATION");
+      report("RESUME_SIMULATION", r.success === true);
+
+      r = await sendAndWait("STOP_SIMULATION");
+      report("STOP_SIMULATION", r.success === true);
+
+      r = await sendAndWait("GET_SIMULATION_STATE");
+      report("Version in response", typeof r.version === "string" && /^\d+\.\d+\.\d+$/.test(r.version), "v" + r.version);
+
+      results.innerHTML += '<br><b>Done: <span class="test-pass">' + passed + ' passed</span>, <span class="test-fail">' + failed + ' failed</span>, <span class="test-skip">' + skipped + " skipped</span></b>";
+    }
+
+    // ── Wire up all event listeners (CSP script-src-attr blocks inline onclick) ──
+    document.addEventListener("DOMContentLoaded", function () {
+      document.getElementById("sim-url").value = window.location.origin;
+
+      document.getElementById("btn-connect").addEventListener("click", connectSimulator);
+      document.getElementById("btn-clear-log").addEventListener("click", clearLog);
+      document.getElementById("btn-run-tests").addEventListener("click", runTests);
+
+      document.getElementById("btn-load-code").addEventListener("click", function () {
+        sendAction("LOAD_CODE", { code: document.getElementById("sketch-code").value });
+      });
+
+      document.getElementById("btn-start").addEventListener("click", function () {
+        sendAction("START_SIMULATION");
+      });
+      document.getElementById("btn-pause").addEventListener("click", function () {
+        sendAction("PAUSE_SIMULATION");
+      });
+      document.getElementById("btn-resume").addEventListener("click", function () {
+        sendAction("RESUME_SIMULATION");
+      });
+      document.getElementById("btn-stop").addEventListener("click", function () {
+        sendAction("STOP_SIMULATION");
+      });
+      document.getElementById("btn-get-state").addEventListener("click", function () {
+        sendAction("GET_SIMULATION_STATE");
+      });
+
+      document.getElementById("btn-set-timeout").addEventListener("click", function () {
+        sendAction("SET_SIMULATION_TIMEOUT", { timeout: Number(document.getElementById("timeout-val").value) });
+      });
+
+      document.getElementById("btn-set-pin").addEventListener("click", function () {
+        sendAction("SET_PIN_STATE", {
+          pin: Number(document.getElementById("pin-num").value),
+          value: Number(document.getElementById("pin-val").value)
+        });
+      });
+      document.getElementById("btn-get-pin").addEventListener("click", function () {
+        sendAction("GET_PIN_STATE", { pin: Number(document.getElementById("pin-num").value) });
+      });
+      document.getElementById("btn-batch-pin").addEventListener("click", function () {
+        sendAction("BATCH_SET_PIN_STATE", { pins: [{pin:2,value:1},{pin:3,value:1},{pin:4,value:0}] });
+      });
+
+      document.getElementById("btn-serial-send").addEventListener("click", function () {
+        sendAction("SERIAL_INPUT", { data: document.getElementById("serial-data").value.replace(/\\n/g, "\n") });
+      });
+
+      document.querySelectorAll("[data-tab]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          sendAction("SET_OUTPUT_TAB", { tab: btn.getAttribute("data-tab") });
+        });
+      });
+    });
+  </script>
+</body>
+</html>
