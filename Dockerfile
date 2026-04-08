@@ -33,10 +33,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && arduino-cli core update-index \
     && arduino-cli core install arduino:avr \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Verzeichnisse erstellen
-RUN mkdir -p /app/server/arduino-cache /app/storage/binaries /app/temp
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/server/arduino-cache /app/storage/binaries /app/temp
 
 # Copy built artifacts
 COPY --from=builder /app/dist ./dist

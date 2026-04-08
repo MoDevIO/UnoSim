@@ -2,21 +2,14 @@
 # The backend spawns this image with a mounted /sandbox sketch directory.
 FROM debian:stable-slim
 
-# Install build tools
+# Install build tools and prepare filesystem
 RUN apt-get update \
     && apt-get install -y --no-install-recommends g++ ca-certificates \
+    && useradd -m -u 1000 -s /bin/bash sandboxuser \
+    && mkdir -p /sandbox /tmp \
+    && chown -R sandboxuser:sandboxuser /sandbox /tmp \
+    && chmod 755 /sandbox /tmp \
     && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user with fixed UID (1000)
-# This UID should match the Host user UID for volume permissions to work correctly
-RUN useradd -m -u 1000 -s /bin/bash sandboxuser
-
-# Prepare sandbox directory with correct permissions
-# The backend mounts the host directory at /sandbox:rw
-# Ensure the user can read/write to it
-RUN mkdir -p /sandbox /tmp && \
-    chown -R sandboxuser:sandboxuser /sandbox /tmp && \
-    chmod 755 /sandbox /tmp
 
 WORKDIR /sandbox
 
