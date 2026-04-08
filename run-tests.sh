@@ -149,14 +149,28 @@ fi
 # --- VORBEREITUNG SERVER (Kein nummerierter Task) ---
 echo -e "\n${B}▸ [Vorbereitung] Server-Start${RS}"
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-sleep 1
+
+# Docker-Stabilisierung: Nach intensiven Container-Tests kurz auf Erholung warten.
+# Docker Desktop auf macOS wird nach 74s Heavy-Load temporär unresponsive; 30s Retry.
+DOCKER_FOR_E2E=0
+for _i in {1..10}; do
+    if docker info > /dev/null 2>&1; then
+        DOCKER_FOR_E2E=1
+        [ "$_i" -gt 1 ] && echo -e "  ${OK} Docker nach $((_i * 3))s wiederhergestellt"
+        break
+    fi
+    [ "$_i" -eq 1 ] && echo -e "  ${RUN} Docker antwortet nicht – warte auf Erholung (max. 30s)..."
+    sleep 3
+done
 
 export PORT=3000
 # Server startet im Hintergrund (NODE_ENV=development für Vite-Snapshots)
-# FORCE_DOCKER + DOCKER_SANDBOX_IMAGE werden gesetzt, wenn Docker verfügbar ist (s. oben)
-if docker info > /dev/null 2>&1; then
+# FORCE_DOCKER + DOCKER_SANDBOX_IMAGE werden gesetzt, wenn Docker stabil verfügbar ist
+if [ "$DOCKER_FOR_E2E" -eq 1 ]; then
+    echo -e "  ${OK} Docker verfügbar – E2E mit Sandbox-Unterstützung"
     FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR=$UNOSIM_SHARED_TEMP_DIR NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 else
+    echo -e "  ${WARN} Docker nicht verfügbar – E2E im Lokal-Modus"
     NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 fi
 SERVER_PID=$!

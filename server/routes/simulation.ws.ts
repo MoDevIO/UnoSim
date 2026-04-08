@@ -416,6 +416,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       );
     }
 
+    // Capture runner reference before await – ws-close may set clientState.runner=null
+    // concurrently while runSketch is awaited, causing a null-dereference on getSandboxStatus.
+    const runnerForStatus = clientState.runner;
+
     // Start sketch execution and publish sandbox mode once the runner has resolved
     try {
       await clientState.runner.runSketch({
@@ -436,7 +440,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       logger.error(`[Simulation] runSketch failed: ${error}`);
     }
 
-    const sandboxStatus = clientState.runner.getSandboxStatus();
+    const sandboxStatus = runnerForStatus.getSandboxStatus();
     const poolStats = pool.getStats();
     const workerIndex = pool.getRunnerIndex(clientState.runner);
     sendMessageToClient(ws, {
