@@ -135,17 +135,16 @@ docker run --rm -p 3000:3000 \
    unosim-server:latest
 ```
 
-Or with Docker Compose:
+Or with Docker Compose (backend only):
 
 ```bash
 docker compose up --build
 ```
-This will now start the UnoSim backend plus two SonarQube services:
+This will start the UnoSim backend only. Sandbox execution remains dynamic and uses the Docker socket at runtime.
 
-- `sonarqube` at `http://localhost:9000`
-- `mcp-sonarqube` at `http://localhost:9001`
+If you need SonarQube, run it separately in its own stack or service; the UnoSim compose file does not include SonarQube or MCP.
 
-The full application runs inside a container with `arduino-cli` pre-installed and is available at `http://localhost:3000`.
+The application runs inside a container and is available at `http://localhost:3000`.
 
 For sandboxed sketch execution, the server container must use a temp directory that is bind-mounted from the host at the same absolute path. The provided Compose file does this via `UNOSIM_SHARED_TEMP_DIR=/Users/to/Documents/TT_Web/UnoSim/temp` and `./temp:/Users/to/Documents/TT_Web/UnoSim/temp`.
 

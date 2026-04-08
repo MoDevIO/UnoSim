@@ -1,5 +1,6 @@
 services:
-
+  # Minimal backend-only stack. Sandbox containers are created dynamically
+  # by the UnoSim backend via the Docker socket and are not persistent services.
   unosim-backend:
     build:
       context: .

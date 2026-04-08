@@ -1,29 +1,31 @@
 #!/bin/sh
+# ⚠️  SECURITY GATE – KEIN BYPASS ERLAUBT
+# git push --no-verify ist verboten (ssot_agent_policy.md §2.2).
+# Fehlschlagende Tests müssen behoben werden, nicht umgangen.
 
 echo "🔍 Starte Qualitäts-Checks vor dem Push..."
 
-# 1. Schnelle Tests mit Coverage ausführen
-# Hinweis: Falls Tests zu lange dauern, können Sie diese Hook mit:
-#   git push --no-verify
-# umgehen (nicht empfohlen!)
+# 1. Schnelle Tests ausführen (Quality Gate – blockierend)
 echo "⏳ Starte npm run test:fast..."
-LOG_LEVEL=warn npx vitest run --exclude tests/server/load-suite.test.ts --exclude tests/integration/serial-flow.test.ts
-if [ $? -ne 0 ]; then
+if LOG_LEVEL=warn npx vitest run --exclude tests/server/load-suite.test.ts --exclude tests/integration/serial-flow.test.ts; then
+  echo "✅ Alle Tests bestanden"
+else
   echo "❌ Fehler: Die schnellen Tests sind fehlgeschlagen!"
-  echo "💡 Tipp: Um den Hook zu überspringen, verwende: git push --no-verify"
+  echo "   → Tests reparieren, dann erneut pushen."
   exit 1
 fi
 
 # 2. SonarQube Integration (optional - nur wenn Token gesetzt)
 if [ -n "$SONAR_TOKEN" ]; then
   echo "📡 Starte SonarQube Scan..."
-  sonar-scanner -Dsonar.token=$SONAR_TOKEN -Dsonar.qualitygate.wait=false
-  if [ $? -ne 0 ]; then
+  # Wrap in if-condition to prevent sh -e from exiting on scanner failure (non-blocking)
+  if sonar-scanner -Dsonar.token="$SONAR_TOKEN" -Dsonar.qualitygate.wait=false; then
+    echo "✅ SonarQube Scan abgeschlossen"
+  else
     echo "⚠️  Warnung: SonarQube Scan fehlgeschlagen (nicht blockierend)"
-    # Nicht mit exit 1 abbrechen - SonarQube Fehler sollten Push nicht blockieren
   fi
 else
-  echo "💡 Tipp: Um SonarQube zu aktivieren, setzen Sie: export SONAR_TOKEN=\"<token>\""
+  echo "ℹ️  Kein SONAR_TOKEN gesetzt — SonarQube Scan übersprungen"
 fi
 
 echo "✅ Pre-Push Checks abgeschlossen. Push wird fortgesetzt..."

@@ -6,7 +6,7 @@
 
 # Konfiguration
 LOG_FILE="run-tests_output.log"
-TOTAL_STEPS=8
+TOTAL_STEPS=7
 STEP=0
 SERVER_PID=""
 
@@ -15,10 +15,12 @@ export LOG_LEVEL=1
 export NODE_ENV=test
 
 # Docker-Konfiguration (überschreibbar per Umgebungsvariable)
-DOCKER_HOST="${DOCKER_HOST:-unix:///$(echo $HOME)/.docker/run/docker.sock}"
-DOCKER_IMAGE="unosim:latest"
+# unix:// + absolute path = 3 slashes total; $HOME already starts with /
+DOCKER_HOST="${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock}"
 DOCKER_SANDBOX_IMAGE="${DOCKER_SANDBOX_IMAGE:-unosim-sandbox:latest}"
-export DOCKER_HOST DOCKER_SANDBOX_IMAGE
+# Temp-Verzeichnis unter /Users/… damit Docker Desktop es per default mounten kann
+UNOSIM_SHARED_TEMP_DIR="${UNOSIM_SHARED_TEMP_DIR:-$(pwd)/temp}"
+export DOCKER_HOST DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR
 
 # Farben & Icons
 G="\033[32m"; Y="\033[33m"; R="\033[31m"; C="\033[36m"; B="\033[1m"; D="\033[2m"; RS="\033[0m"
@@ -31,10 +33,10 @@ cleanup() {
     if [ -n "$SERVER_PID" ]; then
         kill "$SERVER_PID" 2>/dev/null
     fi
-    # Docker-Container aufräumen: alle laufenden unosim-Container stoppen und entfernen
+    # Sandbox-Container aufräumen (ephemeral, aus unosim-sandbox:latest entstanden)
     if docker info > /dev/null 2>&1; then
         local containers
-        containers=$(docker ps -aq --filter "ancestor=$DOCKER_IMAGE" 2>/dev/null)
+        containers=$(docker ps -aq --filter "ancestor=$DOCKER_SANDBOX_IMAGE" 2>/dev/null)
         if [ -n "$containers" ]; then
             echo "$containers" | xargs docker stop --time 5 > /dev/null 2>&1 || true
             echo "$containers" | xargs docker rm -f > /dev/null 2>&1 || true
@@ -115,10 +117,10 @@ run_task "Statische Analyse" "npm run check"
 run_task "Unit-Tests" "NODE_OPTIONS='--no-warnings' npm run test:fast -- --reporter=default --maxConcurrency=2"
 parse_test_results "Tests.*passed"
 
-# 4+5. Docker Image Build & Docker-Tests (optional, wenn Docker verfügbar)
+# 3+4. Sandbox Image Build & Docker-Tests (optional, wenn Docker verfügbar)
+# HINWEIS: unosim-server:latest wird von docker compose gebaut, nicht hier.
+# Nur das Sandbox-Image wird benötigt und nur wenn es noch nicht existiert.
 if docker info > /dev/null 2>&1; then
-    run_task "Docker Image Build" "docker build -t $DOCKER_IMAGE ."
-
     # Sandbox Image nur bauen wenn es noch nicht existiert
     if ! docker image inspect "$DOCKER_SANDBOX_IMAGE" > /dev/null 2>&1; then
         run_task "Sandbox Image Build" "docker build -f Dockerfile.sandbox -t $DOCKER_SANDBOX_IMAGE ."
@@ -140,7 +142,7 @@ if docker info > /dev/null 2>&1; then
         tests/server/services/serial-backpressure.test.ts"
     parse_test_results "Tests.*passed"
 else
-    echo -e "  ${WARN} Docker nicht verfügbar – Docker-Tests werden übersprungen (Steps 4+5)"
+    echo -e "  ${WARN} Docker nicht verfügbar – Docker-Tests werden übersprungen (Steps 3+4)"
     STEP=$((STEP+2))
 fi
 
@@ -153,7 +155,7 @@ export PORT=3000
 # Server startet im Hintergrund (NODE_ENV=development für Vite-Snapshots)
 # FORCE_DOCKER + DOCKER_SANDBOX_IMAGE werden gesetzt, wenn Docker verfügbar ist (s. oben)
 if docker info > /dev/null 2>&1; then
-    FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
+    FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR=$UNOSIM_SHARED_TEMP_DIR NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 else
     NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 fi
