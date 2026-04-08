@@ -1,4 +1,5 @@
 services:
+
   unosim-backend:
     build:
       context: .
@@ -19,8 +20,6 @@ services:
       - ./server/arduino-cache:/app/arduino-cache
       - ./temp:/app/temp
       - ./storage:/app/storage
-    networks:
-      - sonarqube-net
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 30s
@@ -28,6 +27,11 @@ services:
       retries: 3
       start_period: 20s
 
-networks:
-  sonarqube-net:
-    external: true
+# NOTE: The mcp/sonarqube MCP server is intentionally NOT part of this stack.
+# It is a stdio-based dev tool managed by Docker Desktop MCP Toolkit and
+# launched on-demand per VS Code session. Running it as a persistent service
+# makes no sense and causes constant restart loops.
+#
+# SonarQube itself (sonarqube + sonar-db) lives in its own stack at
+# ~/Documents/sonarqube/docker-compose.yml and is reached from the host
+# via http://localhost:9000.
