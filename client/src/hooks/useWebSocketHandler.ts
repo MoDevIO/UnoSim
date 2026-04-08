@@ -94,6 +94,8 @@ export type UseWebSocketHandlerParams = {
 
   setParserMessages: React.Dispatch<React.SetStateAction<ParserMessage[]>>;
   setSandboxMode: React.Dispatch<React.SetStateAction<string>>;
+  setWorkerIndex: React.Dispatch<React.SetStateAction<number | undefined>>;
+  setWorkerTotal: React.Dispatch<React.SetStateAction<number | undefined>>;
 };
 
 export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
@@ -114,6 +116,8 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setCompilationStatus,
     setSimulationStatus,
     setSandboxMode,
+    setWorkerIndex,
+    setWorkerTotal,
     stopRendering,
     pauseRendering,
     resumeRendering,
@@ -226,6 +230,12 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     }
     if (message.sandboxMode !== undefined) {
       setSandboxMode(message.sandboxMode);
+    }
+    if (message.workerIndex !== undefined) {
+      setWorkerIndex(message.workerIndex);
+    }
+    if (message.workerTotal !== undefined) {
+      setWorkerTotal(message.workerTotal);
     }
     if (message.message) {
       setCliOutput(message.message);

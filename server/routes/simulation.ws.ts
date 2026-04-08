@@ -437,9 +437,13 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     }
 
     const sandboxStatus = clientState.runner.getSandboxStatus();
+    const poolStats = pool.getStats();
+    const workerIndex = pool.getRunnerIndex(clientState.runner);
     sendMessageToClient(ws, {
       type: "compilation_status",
       sandboxMode: sandboxStatus.mode,
+      workerIndex,
+      workerTotal: poolStats.totalRunners,
     });
   }
 

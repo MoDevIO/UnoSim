@@ -1,9 +1,13 @@
 # Multi-stage build using Node 25.2.1
 FROM node:25.2.1 AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 RUN npm install
-COPY . .
+COPY tsconfig.json tsconfig.eslint.json vite.config.ts postcss.config.js tailwind.config.ts components.json ./
+COPY public ./public
+COPY client ./client
+COPY server ./server
+COPY shared ./shared
 RUN npm run build
 
 ########################################
@@ -33,17 +37,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && arduino-cli core update-index \
     && arduino-cli core install arduino:avr \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Verzeichnisse erstellen
-RUN mkdir -p /app/server/arduino-cache /app/storage/binaries /app/temp
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/server/arduino-cache /app/storage/binaries /app/temp
 
 # Copy built artifacts
 COPY --from=builder /app/dist ./dist
 
 # Copy package metadata and install dependencies
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 RUN npm install --legacy-peer-deps --production=false
+
+# Run as non-root user for production
+# node:slim already provides a 'node' user at UID 1000
+RUN chown -R node:node /app
+USER node
 
 EXPOSE 3000
 CMD ["npm", "run", "start"]

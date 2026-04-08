@@ -150,6 +150,8 @@ export function useArduinoSimulatorPage() {
   const [board] = useState<string>("Arduino UNO");
   const [baudRate, setBaudRate] = useState<number>(115200);
   const [sandboxMode, setSandboxMode] = useState<string>("unknown");
+  const [workerIndex, setWorkerIndex] = useState<number | undefined>(undefined);
+  const [workerTotal, setWorkerTotal] = useState<number | undefined>(undefined);
 
   // Serial input box state handled by useSerialIO
 
@@ -466,6 +468,8 @@ export function useArduinoSimulatorPage() {
     setCompilationStatus,
     setSimulationStatus,
     setSandboxMode,
+    setWorkerIndex,
+    setWorkerTotal,
     stopRendering,
     pauseRendering,
     resumeRendering,
@@ -720,6 +724,8 @@ export function useArduinoSimulatorPage() {
     pinMonitorVisible,
     pinStates,
     sandboxMode,
+    workerIndex,
+    workerTotal,
     mobilePanel,
     setMobilePanel,
     headerHeight,
