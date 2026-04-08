@@ -26,12 +26,12 @@
     .log-entry .type { font-weight: 600; }
     button { background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; transition: background 0.15s; }
     button:hover { background: #475569; }
-    button.primary { background: #0c86c7; border-color: #0c86c7; color: #fff; }
-    button.primary:hover { background: #04649e; }
+    button.primary { background: #0369a1; border-color: #0369a1; color: #fff; }
+    button.primary:hover { background: #075985; }
     button.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
     button.danger:hover { background: #b91c1c; }
     button.success { background: #15803d; border-color: #15803d; color: #fff; }
-    button.success:hover { background: #166d3f; }
+    button.success:hover { background: #166534; }
     .btn-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
     input, select, textarea { background: #0f172a; color: #e2e8f0; border: 1px solid #475569; border-radius: 6px; padding: 6px 8px; font-size: 12px; width: 100%; }
     textarea { font-family: 'SF Mono', monospace; resize: vertical; }
@@ -41,8 +41,8 @@
     .inline .field { flex: 1; }
     hr { border: none; border-top: 1px solid #334155; margin: 10px 0; }
     .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    .status.connected { background: #16a34a33; color: #e2e8f0; }
-    .status.disconnected { background: #dc262633; color: #e2e8f0; }
+    .status.connected { background: #14532d; color: #bbf7d0; }
+    .status.disconnected { background: #7f1d1d; color: #fecaca; }
     #test-results { margin-top: 8px; font-size: 12px; }
     .test-pass { color: #4ade80; }
     .test-fail { color: #f87171; }
@@ -189,7 +189,7 @@ void loop() {
       var ts = new Date().toLocaleTimeString("de-DE", { hour12: false, fractionalSecondDigits: 3 });
       var div = document.createElement("div");
       div.className = "log-entry " + (cls || direction);
-      var dataStr = data !== undefined ? " " + JSON.stringify(data) : "";
+      var dataStr = data === undefined ? "" : " " + JSON.stringify(data);
       div.innerHTML = '<span class="ts">' + ts + '</span> <span class="type">[' + direction.toUpperCase() + ']</span> ' + type + dataStr;
       el.appendChild(div);
       el.scrollTop = el.scrollHeight;
@@ -252,7 +252,6 @@ void loop() {
         simWindow.postMessage(msg, simOrigin);
       } else {
         log("error", "Not connected — click Connect first", undefined, "error");
-        return;
       }
     }
 
