@@ -30,7 +30,7 @@ export enum SimulationState {
 }
 
 export const SANDBOX_CONFIG = {
-  dockerImage: process.env.DOCKER_SANDBOX_IMAGE ?? "unowebsim-sandbox:latest",
+  dockerImage: process.env.DOCKER_SANDBOX_IMAGE ?? "unosim-sandbox:latest",
   useDocker: true,
   maxMemoryMB: 256,
   maxCpuPercent: 50,
@@ -391,7 +391,7 @@ export class ExecutionManager {
     state: ExecutionState,
     executionTimeout: number,
   ): Promise<void> {
-    const containerName = `unowebsim-${randomUUID()}`;
+    const containerName = `unosim-sandbox-${randomUUID()}`;
     state.currentContainerName = containerName;
 
     const dockerArgs = DockerCommandBuilder.buildSecureRunCommand({

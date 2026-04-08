@@ -127,14 +127,14 @@ jobs:
         with:
           context: .
           load: true
-          tags: unowebsim-sandbox:latest
+          tags: unosim-sandbox:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Run E2E Tests
         env:
           ARDUINO_CACHE_DIR: ${{ github.workspace }}/server/arduino-cache
-        run: npx playwright test --update-snapshots=missing --workers=2
+        run: npx playwright test --workers=2
 
       - name: Commit new Linux visual baselines
         if: always()
@@ -144,12 +144,22 @@ jobs:
           git add 'e2e/visual-full-context.spec.ts-snapshots/*-linux.png'
           git diff --staged --quiet || (git commit -m "chore(e2e): update linux visual baselines [skip ci]" && git push)
 
-      - name: Upload E2E Report & Artifacts
+      - name: Upload Playwright report artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results
+          name: playwright-report
           path: |
             playwright-report/
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-test-results
+          path: |
             test-results/
-          retention-days: 7
+          if-no-files-found: ignore
+          retention-days: 1

@@ -6,7 +6,7 @@
   "env": {
     "SONARQUBE_URL": "http://localhost:9000",
     "SONAR_URL": "http://localhost:9000",
-    "SONAR_TOKEN": "squ_85eeef7888f45f1801a6c36fa7b94e1b7287f951",
-    "SONARQUBE_TOKEN": "squ_85eeef7888f45f1801a6c36fa7b94e1b7287f951"
+    "SONAR_TOKEN": "squ_ef0885e501176642d37042801c04eb09d913df3e",
+    "SONARQUBE_TOKEN": "squ_ef0885e501176642d37042801c04eb09d913df3e"
   }
 }

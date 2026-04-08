@@ -16,10 +16,13 @@ class CompileGatekeeper {
     // In worker threads, disable gatekeeper since the worker pool controls concurrency
     const isWorkerThread = process.env.COMPILE_GATEKEEPER_DISABLED === "true";
     
-    if (isWorkerThread) {
+    // Allow explicit bypass via env var (for E2E test debugging)
+    const isDisabledViaEnv = process.env.DISABLE_COMPILE_GATEKEEPER === "true";
+    
+    if (isWorkerThread || isDisabledViaEnv) {
       this.maxConcurrent = Infinity;
       this.logger.debug(
-        `CompileGatekeeper in worker thread - gatekeeper disabled (pool controls concurrency)`,
+        `CompileGatekeeper disabled - gatekeeper passes through immediately`,
       );
     } else {
       this.maxConcurrent =

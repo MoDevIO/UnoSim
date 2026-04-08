@@ -282,11 +282,14 @@ describe("SandboxRunner", () => {
 
   let activeRunners: SandboxRunner[] = [];
   let savedForceDocker: string | undefined;
+  let savedDockerHost: string | undefined;
 
   beforeEach(() => {
     // Isolate Docker-mock tests from real FORCE_DOCKER env var
     savedForceDocker = process.env.FORCE_DOCKER;
+    savedDockerHost = process.env.DOCKER_HOST;
     delete process.env.FORCE_DOCKER;
+    delete process.env.DOCKER_HOST;
 
     activeRunners = [];
     spawnInstances.length = 0;
@@ -297,6 +300,8 @@ describe("SandboxRunner", () => {
     renameMock.mockClear();
     spawnMock.mockClear();
     execSyncMock.mockClear();
+    vi.mocked(existsSync).mockReset();
+    vi.mocked(existsSync).mockReturnValue(true);
 
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
   });
@@ -332,6 +337,12 @@ describe("SandboxRunner", () => {
       delete process.env.FORCE_DOCKER;
     } else {
       process.env.FORCE_DOCKER = savedForceDocker;
+    }
+
+    if (savedDockerHost === undefined) {
+      delete process.env.DOCKER_HOST;
+    } else {
+      process.env.DOCKER_HOST = savedDockerHost;
     }
   });
 
@@ -376,6 +387,23 @@ describe("SandboxRunner", () => {
       expect(status.dockerAvailable).toBe(false);
       expect(status.dockerImageBuilt).toBe(false);
       expect(status.mode).toBe("local-limited");
+    });
+
+    it("should fallback without spawning docker when unix socket is missing", async () => {
+      process.env.DOCKER_HOST = "unix:///definitely-missing/unosim-docker.sock";
+      vi.mocked(existsSync).mockImplementation((path) => path !== "/definitely-missing/unosim-docker.sock");
+
+      const runner = new SandboxRunner();
+      activeRunners.push(runner);
+
+      await getEnsureDockerChecked(runner)();
+
+      const status = runner.getSandboxStatus();
+
+      expect(status.dockerAvailable).toBe(false);
+      expect(status.dockerImageBuilt).toBe(false);
+      expect(status.mode).toBe("local-limited");
+      expect(spawnInstances).toHaveLength(0);
     });
 
     it("should fallback when Docker is not installed", async () => {
@@ -796,7 +824,7 @@ describe("SandboxRunner", () => {
       const runner = new SandboxRunner();
       runner["state"] = "running";
       const es = (runner as any).executionState;
-      es.currentContainerName = "unowebsim-abc-123";
+      es.currentContainerName = "unosim-sandbox-abc-123";
 
       const pe = (runner as any).processExecutor;
       const executeSpy = vi.spyOn(pe, "execute");
@@ -807,7 +835,7 @@ describe("SandboxRunner", () => {
         ([, args]: [string, string[]]) => Array.isArray(args) && args[0] === "rm",
       );
       expect(rmCalls).toHaveLength(1);
-      expect(rmCalls[0][1]).toEqual(["rm", "-f", "unowebsim-abc-123"]);
+      expect(rmCalls[0][1]).toEqual(["rm", "-f", "unosim-sandbox-abc-123"]);
     });
 
     it("skips docker rm when no containerName is set", async () => {

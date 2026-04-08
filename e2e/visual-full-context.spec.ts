@@ -65,24 +65,25 @@ async function waitForSerial(
   return false;
 }
 
-/** Click "Start Simulation" and wait until the status says "running" */
+/** Click "Start Simulation" and wait for it to be running */
 async function startAndAwaitRunning(page: import('@playwright/test').Page) {
   const startBtn = page.getByRole('button', { name: /start simulation/i });
   await expect(startBtn).toBeVisible({ timeout: 12000 });
   await startBtn.click();
-  await expect(
-    page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i }),
-  ).toBeVisible({ timeout: 25000 });
+  
+  // Wait for "Stop Simulation" button which appears when simulation is running
+  // (alternative: wait for button text to change from "Start" to "Stop")
+  const stopBtn = page.getByRole('button', { name: /stop simulation/i });
+  await expect(stopBtn).toBeVisible({ timeout: 25000 });
 }
 
 /** Double-click a tab to force-expand the output panel, then single-click to
  *  ensure it is active. Tabs live inside [data-testid="output-tabs-header"]. */
 async function activateOutputTab(
   page: import('@playwright/test').Page,
-  tabName: string | RegExp,
+  targetTab: 'compiler' | 'messages' | 'registry' | 'debug',
+  visibleName: string | RegExp = targetTab,
 ) {
-  const tabValue = typeof tabName === 'string' ? tabName : tabName.source;
-
   // Force show output panel and set the desired tab via a dedicated event.
   await page.evaluate((value) => {
     document.dispatchEvent(
@@ -91,10 +92,14 @@ async function activateOutputTab(
     document.dispatchEvent(
       new CustomEvent('setOutputTab', { detail: { tab: value } }),
     );
-  }, tabValue);
+  }, targetTab);
 
-  // Give the UI a moment to react.
+  // Give the UI a moment to react and wait until the requested tab is active.
   await page.waitForTimeout(500);
+  const targetTabButton = page.getByRole('tab', { name: visibleName });
+  await expect(targetTabButton).toHaveAttribute('data-state', 'active', {
+    timeout: 15000,
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -131,10 +136,15 @@ void loop() {
     await setCode(page, code);
     await startAndAwaitRunning(page);
 
-    // Proof: "Hello World" must appear in serial monitor BEFORE screenshot
+    // Proof: "Hello World" must appear in serial monitor BEFORE screenshot.
+    // On GitHub Actions the Docker sandbox startup may take longer than local.
     const serial = page.locator('[data-testid="serial-output"]');
     await expect(serial).toBeVisible({ timeout: 5000 });
-    await expect(serial).toContainText('Hello World', { timeout: 2000 });
+    await expect(serial).not.toContainText(
+      'Serial output will appear here...',
+      { timeout: 10000 },
+    );
+    await expect(serial).toContainText('Hello World', { timeout: 10000 });
 
     // Allow the editor and serial output to finish rendering before capturing the snapshot.
     await page.waitForTimeout(2000);
@@ -289,13 +299,39 @@ void loop() {
     // Static analysis runs with a 300 ms debounce – wait for it to complete.
     await page.waitForTimeout(1000);
 
-    // Activate the I/O Registry tab (outer output-panel tab value="registry")
-    await activateOutputTab(page, /i\/o registry|registry/i);
+    // Find the I/O Registry tab button in the footer output-tabs-header.
+    // Double-click to expand the panel to ~50 % height (same pattern as
+    // 03_compiler_cli_success_context), then single-click to confirm it is active.
+    const registryTabButton = page
+      .locator('[data-testid="output-tabs-header"]')
+      .getByRole('tab', { name: /i\/o registry|registry/i });
+    await expect(registryTabButton).toBeVisible({ timeout: 10000 });
+    await registryTabButton.dblclick();
+    await page.waitForTimeout(300);
+    await registryTabButton.click();
 
-    // Give the registry analysis a moment to render.
-    await page.waitForTimeout(1500);
-    
-    // Wait a bit more to ensure rendering is fully stabilized before screenshot
+    // Verify the tab is active after expansion.
+    await expect(registryTabButton).toHaveAttribute('data-state', 'active', {
+      timeout: 10000,
+    });
+
+    // Wait until the registry table is visible and the static analysis has populated rows
+    // with both INPUT and OUTPUT modes (proves the pin-conflict was detected correctly).
+    const registryTable = page.locator('table.w-full.text-ui-xs.border-collapse');
+    await expect(registryTable).toBeVisible({ timeout: 15000 });
+
+    await page.waitForFunction(() => {
+      const rows = Array.from(
+        document.querySelectorAll('table.w-full.text-ui-xs.border-collapse tbody tr'),
+      );
+      if (rows.length < 10) return false;
+      const text = rows.map((row) => row.textContent || '').join(' ');
+      return text.includes('INPUT') && text.includes('OUTPUT');
+    }, null, { timeout: 15000 });
+
+    await expect(registryTable.locator('tbody tr')).toHaveCount(10, { timeout: 15000 });
+
+    // Ensure the registry view is fully settled before the screenshot.
     await page.waitForTimeout(500);
 
     const snap = await page.screenshot({ animations: 'disabled', fullPage: false });
@@ -392,7 +428,7 @@ void loop() {
     await page.waitForTimeout(1000);
 
     // Open the I/O Registry tab.
-    await activateOutputTab(page, /i\/o registry|registry/i);
+    await activateOutputTab(page, 'registry', /i\/o registry|registry/i);
 
     // Allow the I/O Registry view to settle before capturing the snapshot.
     await page.waitForTimeout(1500);

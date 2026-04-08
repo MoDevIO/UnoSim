@@ -1,4 +1,4 @@
-# Refactoring Plan: UNOWEBSIM SandboxRunner
+# Refactoring Plan: UNOSIM SandboxRunner
 
 **Status:** Initialer Entwurf (Basierend auf Opus-Analyse)
 **Ziel:** Reduktion der Komplexität (~1.550 LOC auf ~400 LOC), Einführung einer State Machine, Entkopplung der Verantwortlichkeiten.

@@ -127,7 +127,7 @@ afterAll(async () => {
   try {
     const { spawn } = await import("node:child_process");
     const containerIds = await new Promise<string[]>((resolve) => {
-      const proc = spawn("docker", ["ps", "-aq", "--filter", "name=unowebsim-"]);
+      const proc = spawn("docker", ["ps", "-aq", "--filter", "name=unosim-sandbox-"]);
       let output = "";
       proc.stdout?.on("data", (d: Buffer) => { output += d.toString(); });
       proc.on("close", () => resolve(output.split("\n").filter(Boolean)));

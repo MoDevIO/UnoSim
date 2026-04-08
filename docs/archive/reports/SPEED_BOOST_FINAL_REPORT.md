@@ -1,4 +1,4 @@
-# UnoWebSim Performance Optimization - Final Report (Steps 1-10)
+# UnoSim Performance Optimization - Final Report (Steps 1-10)
 
 **Branch:** `feature/speed-boost`  
 **Date:** 5. März 2026  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Complete transformation of UnoWebSim from a prototype to a production-ready, scalable Arduino simulator. All 10 optimization steps successfully implemented and verified.
+Complete transformation of UnoSim from a prototype to a production-ready, scalable Arduino simulator. All 10 optimization steps successfully implemented and verified.
 
 ### Key Achievements
 
@@ -326,7 +326,7 @@ All performance goals achieved:
 
 ## Team Notes
 
-This performance optimization journey transformed UnoWebSim from a proof-of-concept into a production-grade application. The key was systematic profiling, targeted optimizations, and rigorous testing at each step.
+This performance optimization journey transformed UnoSim from a proof-of-concept into a production-grade application. The key was systematic profiling, targeted optimizations, and rigorous testing at each step.
 
 **Key Learnings:**
 1. Async-first architecture prevents most performance issues

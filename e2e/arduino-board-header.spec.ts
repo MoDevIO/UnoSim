@@ -1,4 +1,7 @@
+/// <reference types="node" />
 import { test, expect } from '@playwright/test';
+
+const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 /**
  * E2E Tests for Arduino Board Pin State Header Synchronization
@@ -32,9 +35,9 @@ void loop() {
     // Insert code into editor
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
@@ -43,8 +46,8 @@ void loop() {
     await expect(startButton).toBeVisible({ timeout: 10000 });
     await startButton.click();
 
-    // Wait for simulation to be running - use more specific selector
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 15000 });
+    // Wait for simulation to be running by checking the toggle button state.
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 15000 });
 
     // Wait a moment for pins to be registered and displayed
     await page.waitForTimeout(500);
@@ -92,17 +95,17 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    // Wait for simulation running
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    // Wait for simulation running by checking the toggle button state.
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
 
     // Wait for state transitions to be visible
     const serial = page.locator('[data-testid="serial-output"]');
@@ -130,16 +133,16 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(500);
 
     // Get the arduino board SVG container
@@ -202,16 +205,16 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
 
     // Wait for PWM messages
     const serial = page.locator('[data-testid="serial-output"]');
@@ -268,16 +271,16 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
 
     const serial = page.locator('[data-testid="serial-output"]');
     await expect(serial).toContainText(/configured/i, { timeout: 10000 });
@@ -313,16 +316,16 @@ void loop() {
 
     const editor = page.locator('[data-testid="code-editor"]');
     await editor.click();
-    await page.keyboard.down(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.down(MOD);
     await page.keyboard.press('KeyA');
-    await page.keyboard.up(process.platform === 'darwin' ? 'Meta' : 'Control');
+    await page.keyboard.up(MOD);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(code, { delay: 20 });
 
     const startButton = page.getByRole('button', { name: /start simulation/i });
     await startButton.click();
 
-    await expect(page.locator('div.text-ui-sm.opacity-90', { hasText: /running/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
 
     const serial = page.locator('[data-testid="serial-output"]');
     await expect(serial).toContainText(/update batch/i, { timeout: 10000 });

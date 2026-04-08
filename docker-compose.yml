@@ -1,16 +1,33 @@
-version: '3.8'
 services:
-  app:
+  unosim-backend:
     build:
       context: .
       dockerfile: Dockerfile
-    image: unowebsim:latest
+    image: unosim-server:latest
+    container_name: unosim-server
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      - ARDUINO_CACHE_DIR=/app/arduino-cache
+      - UNOSIM_SHARED_TEMP_DIR=/app/temp
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
     ports:
       - "3000:3000"
-    # volumes for local development (uncomment when developing locally)
-    # volumes:
-    #   - ./:/app
-    #   - /app/node_modules
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./server/arduino-cache:/app/arduino-cache
+      - ./temp:/app/temp
+      - ./storage:/app/storage
+    networks:
+      - sonarqube-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  sonarqube-net:
+    external: true

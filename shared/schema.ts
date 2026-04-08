@@ -58,6 +58,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       .enum(["idle", "compiling", "success", "error"])
       .optional(),
     gccStatus: z.enum(["idle", "compiling", "success", "error"]).optional(),
+    sandboxMode: z.enum(["docker-sandbox", "local-limited"]).optional(),
     message: z.string().optional(),
   }),
   z.object({

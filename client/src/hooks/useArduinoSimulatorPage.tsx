@@ -149,6 +149,7 @@ export function useArduinoSimulatorPage() {
   // Selected board and baud rate (moved to Tools menu)
   const [board] = useState<string>("Arduino UNO");
   const [baudRate, setBaudRate] = useState<number>(115200);
+  const [sandboxMode, setSandboxMode] = useState<string>("unknown");
 
   // Serial input box state handled by useSerialIO
 
@@ -464,6 +465,7 @@ export function useArduinoSimulatorPage() {
     setActiveOutputTab,
     setCompilationStatus,
     setSimulationStatus,
+    setSandboxMode,
     stopRendering,
     pauseRendering,
     resumeRendering,
@@ -717,6 +719,7 @@ export function useArduinoSimulatorPage() {
     handleAnalogChange,
     pinMonitorVisible,
     pinStates,
+    sandboxMode,
     mobilePanel,
     setMobilePanel,
     headerHeight,

@@ -114,18 +114,42 @@ The Vite-built client is served as static files from `dist/public/`.
 ### Docker Mode
 
 ```bash
-docker build -t unowebsim:latest .
-docker run --rm -p 3000:3000 -e NODE_ENV=production unowebsim:latest
+docker build -t unosim-sandbox:latest -f Dockerfile.sandbox .
+docker build -t unosim:latest .
+docker run --rm -p 3000:3000 -e NODE_ENV=production unosim:latest
 ```
 
-Or with docker-compose:
+If you start the image manually and want full Docker sandbox mode instead of the local fallback, use the same mounts and environment variables as Compose:
 
 ```bash
-docker-compose up --build
+docker run --rm -p 3000:3000 \
+   -e NODE_ENV=production \
+   -e DOCKER_HOST=unix:///var/run/docker.sock \
+   -e DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest \
+   -e ARDUINO_CACHE_DIR=/Users/to/Documents/TT_Web/UnoSim/server/arduino-cache \
+   -e UNOSIM_SHARED_TEMP_DIR=/Users/to/Documents/TT_Web/UnoSim/temp \
+   -v /var/run/docker.sock:/var/run/docker.sock \
+   -v /Users/to/Documents/TT_Web/UnoSim/server/arduino-cache:/Users/to/Documents/TT_Web/UnoSim/server/arduino-cache \
+   -v /Users/to/Documents/TT_Web/UnoSim/temp:/Users/to/Documents/TT_Web/UnoSim/temp \
+   -v /Users/to/Documents/TT_Web/UnoSim/storage:/app/storage \
+   unosim-server:latest
 ```
 
-Runs the full application inside a container with `arduino-cli` pre-installed.
-Available at `http://localhost:3000`.
+Or with Docker Compose:
+
+```bash
+docker compose up --build
+```
+This will now start the UnoSim backend plus two SonarQube services:
+
+- `sonarqube` at `http://localhost:9000`
+- `mcp-sonarqube` at `http://localhost:9001`
+
+The full application runs inside a container with `arduino-cli` pre-installed and is available at `http://localhost:3000`.
+
+For sandboxed sketch execution, the server container must use a temp directory that is bind-mounted from the host at the same absolute path. The provided Compose file does this via `UNOSIM_SHARED_TEMP_DIR=/Users/to/Documents/TT_Web/UnoSim/temp` and `./temp:/Users/to/Documents/TT_Web/UnoSim/temp`.
+
+On macOS, make sure `/Users/to/Documents/TT_Web/UnoSim` is allowed under Docker Desktop file sharing, otherwise the inner sandbox container cannot see generated files such as `sketch.cpp`.
 
 ### Available Scripts
 

@@ -21,6 +21,7 @@ function Router() {
 
 function App() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const disableToasts = import.meta.env.VITE_DISABLE_TOASTS === "true";
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,7 +52,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <Toaster />
+          {!disableToasts && <Toaster />}
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
           <Router />
         </TooltipProvider>

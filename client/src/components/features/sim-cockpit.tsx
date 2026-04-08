@@ -6,7 +6,8 @@ import type { SimulationStatus } from "@shared/types/arduino.types";
 export const SimCockpit: React.FC<{ 
   batchStats?: unknown;
   simulationStatus?: SimulationStatus;
-}> = React.memo(({ simulationStatus = "idle" }) => {
+  sandboxMode?: string;
+}> = React.memo(({ simulationStatus = "idle", sandboxMode = "unknown" }) => {
   const { lastHeartbeatAt } = useTelemetryStore();
 
   // Show 0 values when paused or stopped
@@ -28,6 +29,27 @@ export const SimCockpit: React.FC<{
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
           )}
           <span className={clsx("relative inline-flex rounded-full h-3 w-3", isActive ? "bg-emerald-500" : "bg-red-600")}></span>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col items-end">
+          <span className="text-white/40 leading-none mb-1 text-right">Sandbox Mode</span>
+          <span
+            className={clsx(
+              "text-[9px] font-bold",
+              sandboxMode === "docker-sandbox"
+                ? "text-cyan-300"
+                : sandboxMode === "local-limited"
+                ? "text-amber-300"
+                : "text-white/50",
+            )}
+          >
+            {sandboxMode === "docker-sandbox"
+              ? "Docker Sandbox"
+              : sandboxMode === "local-limited"
+              ? "Local Limited"
+              : "Unknown"}
+          </span>
         </div>
       </div>
     </div>
