@@ -7,12 +7,33 @@ export const SimCockpit: React.FC<{
   batchStats?: unknown;
   simulationStatus?: SimulationStatus;
   sandboxMode?: string;
-}> = React.memo(({ simulationStatus = "idle", sandboxMode = "unknown" }) => {
+  workerIndex?: number;
+  workerTotal?: number;
+}> = React.memo(({ simulationStatus = "idle", sandboxMode = "unknown", workerIndex, workerTotal }) => {
   const { lastHeartbeatAt } = useTelemetryStore();
 
   // Show 0 values when paused or stopped
   const isSimActive = simulationStatus === "running";
   const isActive = isSimActive && lastHeartbeatAt && Date.now() - lastHeartbeatAt < 2000;
+
+  const sandboxModeColor =
+    sandboxMode === "docker-sandbox"
+      ? "text-cyan-300"
+      : sandboxMode === "local-limited"
+      ? "text-amber-300"
+      : "text-white/50";
+
+  const sandboxModeLabel =
+    sandboxMode === "docker-sandbox"
+      ? "Docker Sandbox"
+      : sandboxMode === "local-limited"
+      ? "Local Limited"
+      : "Unknown";
+
+  const workerLabel =
+    workerIndex !== undefined && workerTotal !== undefined
+      ? `#${workerIndex + 1} / ${workerTotal}`
+      : "—";
 
   return (
     <div className="hidden lg:flex items-center gap-6 bg-black/20 backdrop-blur-md border border-white/10 rounded-lg px-4 py-2 text-[10px] uppercase tracking-wider font-medium shadow-2xl">
@@ -34,22 +55,15 @@ export const SimCockpit: React.FC<{
       <div className="flex items-center gap-3">
         <div className="flex flex-col items-end">
           <span className="text-white/40 leading-none mb-1 text-right">Sandbox Mode</span>
-          <span
-            className={clsx(
-              "text-[9px] font-bold",
-              sandboxMode === "docker-sandbox"
-                ? "text-cyan-300"
-                : sandboxMode === "local-limited"
-                ? "text-amber-300"
-                : "text-white/50",
-            )}
-          >
-            {sandboxMode === "docker-sandbox"
-              ? "Docker Sandbox"
-              : sandboxMode === "local-limited"
-              ? "Local Limited"
-              : "Unknown"}
+          <span className={clsx("text-[9px] font-bold", sandboxModeColor)}>
+            {sandboxModeLabel}
           </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col items-end">
+          <span className="text-white/40 leading-none mb-1 text-right">Worker</span>
+          <span className="text-[9px] font-bold text-violet-300">{workerLabel}</span>
         </div>
       </div>
     </div>

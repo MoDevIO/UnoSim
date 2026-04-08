@@ -267,6 +267,10 @@ class SandboxRunnerPool {
     };
   }
 
+  getRunnerIndex(runner: SandboxRunner): number {
+    return this.runners.findIndex((p) => p.runner === runner);
+  }
+
   async shutdown(): Promise<void> {
     this.logger.info("[SandboxRunnerPool] Shutting down...");
 
