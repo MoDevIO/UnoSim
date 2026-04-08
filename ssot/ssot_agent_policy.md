@@ -14,6 +14,7 @@
 2.2 Test-Integrität:
 
 - Kompletter lokaler Test-Lauf (unit, integration, e2e) vor jedem Push.
+- **`git push --no-verify` ist VERBOTEN** – der pre-push Hook ist ein nicht umgehbares Security Gate.
 - Bestehende Tests sind unantastbare Spezifikationen (Immutability).
 - Test-Anpassungen erfordern technische Begründung und explizite User-Genehmigung.
 
@@ -32,7 +33,7 @@
 ## 4. Checkliste für jeden Agenten-Durchlauf
 - [ ] Working-Branch genutzt?
 - [ ] State/DOM-Bindung korrekt (Sichtbarkeit/Klassen)?
-- [ ] Alle 826 Tests lokal ohne unautorisierte Änderungen bestanden?
+- [ ] Alle Tests lokal ohne unautorisierte Änderungen bestanden?
 - [ ] User-Intent gewahrt?
 - [ ] Numerische/DOM Evidenzen dokumentiert?
 

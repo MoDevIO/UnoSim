@@ -1,16 +1,16 @@
 #!/bin/sh
+# ⚠️  SECURITY GATE – KEIN BYPASS ERLAUBT
+# git push --no-verify ist verboten (ssot_agent_policy.md §2.2).
+# Fehlschlagende Tests müssen behoben werden, nicht umgangen.
 
 echo "🔍 Starte Qualitäts-Checks vor dem Push..."
 
-# 1. Schnelle Tests mit Coverage ausführen
-# Hinweis: Falls Tests zu lange dauern, können Sie diese Hook mit:
-#   git push --no-verify
-# umgehen (nicht empfohlen!)
+# 1. Schnelle Tests ausführen (Quality Gate – blockierend)
 echo "⏳ Starte npm run test:fast..."
 LOG_LEVEL=warn npx vitest run --exclude tests/server/load-suite.test.ts --exclude tests/integration/serial-flow.test.ts
 if [ $? -ne 0 ]; then
   echo "❌ Fehler: Die schnellen Tests sind fehlgeschlagen!"
-  echo "💡 Tipp: Um den Hook zu überspringen, verwende: git push --no-verify"
+  echo "   → Tests reparieren, dann erneut pushen."
   exit 1
 fi
 
