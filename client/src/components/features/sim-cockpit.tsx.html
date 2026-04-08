@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">73.33% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>11/15</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.66% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>14/21</span>
+                <span class='fraction'>21/21</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">73.33% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>11/15</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -143,30 +143,30 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -201,7 +201,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span></td><td class="text"><pre class="prettyprint lang-js">import React from "react";
+<span class="cline-any cline-yes">3x</span></td><td class="text"><pre class="prettyprint lang-js">import React from "react";
 import clsx from "clsx";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import type { SimulationStatus } from "@shared/types/arduino.types";
@@ -222,17 +222,17 @@ export const SimCockpit: React.FC&lt;{
   let sandboxModeColor = "text-white/50";
   let sandboxModeLabel = "Unknown";
 &nbsp;
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (sandboxMode === "docker-sandbox") {
-<span class="cstat-no" title="statement not covered" >    sandboxModeColor = "text-cyan-300";</span>
-<span class="cstat-no" title="statement not covered" >    sandboxModeLabel = "Docker Sandbox";</span>
-  <span class="missing-if-branch" title="if path not taken" >I</span>} else if (sandboxMode === "local-limited") {
-<span class="cstat-no" title="statement not covered" >    sandboxModeColor = "text-amber-300";</span>
-<span class="cstat-no" title="statement not covered" >    sandboxModeLabel = "Local Limited";</span>
+  if (sandboxMode === "docker-sandbox") {
+    sandboxModeColor = "text-cyan-300";
+    sandboxModeLabel = "Docker Sandbox";
+  } else if (sandboxMode === "local-limited") {
+    sandboxModeColor = "text-amber-300";
+    sandboxModeLabel = "Local Limited";
   }
 &nbsp;
   const workerLabel =
-    workerIndex !== undefined &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >workerTotal !== undefined</span>
-      ? <span class="branch-0 cbranch-no" title="branch not covered" >`#${workerIndex + 1} / ${workerTotal}`</span>
+    workerIndex !== undefined &amp;&amp; workerTotal !== undefined
+      ? `#${workerIndex + 1} / ${workerTotal}`
       : "—";
 &nbsp;
   return (
@@ -241,15 +241,15 @@ export const SimCockpit: React.FC&lt;{
       &lt;div className="flex items-center gap-3"&gt;
         &lt;div className="flex flex-col items-end"&gt;
           &lt;span className="text-white/40 leading-none mb-1 text-right"&gt;Link State&lt;/span&gt;
-          &lt;span className={clsx("text-[9px] font-bold", isActive ? "text-emerald-400" : <span class="branch-1 cbranch-no" title="branch not covered" >"text-red-500")</span>}&gt;
-            {isActive ? "STABLE" : <span class="branch-1 cbranch-no" title="branch not covered" >"DISCONNECTED"}</span>
+          &lt;span className={clsx("text-[9px] font-bold", isActive ? "text-emerald-400" : "text-red-500")}&gt;
+            {isActive ? "STABLE" : "DISCONNECTED"}
           &lt;/span&gt;
         &lt;/div&gt;
         &lt;div className="relative flex h-3 w-3"&gt;
           {isActive &amp;&amp; (
             &lt;span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"&gt;&lt;/span&gt;
           )}
-          &lt;span className={clsx("relative inline-flex rounded-full h-3 w-3", isActive ? "bg-emerald-500" : <span class="branch-1 cbranch-no" title="branch not covered" >"bg-red-600")</span>}&gt;&lt;/span&gt;
+          &lt;span className={clsx("relative inline-flex rounded-full h-3 w-3", isActive ? "bg-emerald-500" : "bg-red-600")}&gt;&lt;/span&gt;
         &lt;/div&gt;
       &lt;/div&gt;
       &lt;div className="flex items-center gap-3"&gt;
@@ -277,7 +277,7 @@ SimCockpit.displayName = "SimCockpit";</pre></td></tr></table></pre>
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-08T10:05:27.525Z
+                at 2026-04-08T10:48:28.563Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
