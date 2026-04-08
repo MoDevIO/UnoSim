@@ -45,11 +45,11 @@ COPY --from=builder /app/dist ./dist
 
 # Copy package metadata and install dependencies
 COPY package.json package-lock.json ./
-RUN npm install --legacy-peer-deps --production=false
+RUN npm install --legacy-peer-deps --production=false \
+    && chown -R node:node /app
 
 # Run as non-root user for production
 # node:slim already provides a 'node' user at UID 1000
-RUN chown -R node:node /app
 USER node
 
 EXPOSE 3000
