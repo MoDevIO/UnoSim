@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">69.69% </span>
+                <span class="strong">69.3% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>138/198</span>
+                <span class='fraction'>140/202</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">59.5% </span>
+                <span class="strong">59.2% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>72/121</span>
+                <span class='fraction'>74/125</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">74.31% </span>
+                <span class="strong">73.79% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>136/183</span>
+                <span class='fraction'>138/187</span>
             </div>
         
             
@@ -526,7 +526,17 @@
 <a name='L461'></a><a href='#L461'>461</a>
 <a name='L462'></a><a href='#L462'>462</a>
 <a name='L463'></a><a href='#L463'>463</a>
-<a name='L464'></a><a href='#L464'>464</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L464'></a><a href='#L464'>464</a>
+<a name='L465'></a><a href='#L465'>465</a>
+<a name='L466'></a><a href='#L466'>466</a>
+<a name='L467'></a><a href='#L467'>467</a>
+<a name='L468'></a><a href='#L468'>468</a>
+<a name='L469'></a><a href='#L469'>469</a>
+<a name='L470'></a><a href='#L470'>470</a>
+<a name='L471'></a><a href='#L471'>471</a>
+<a name='L472'></a><a href='#L472'>472</a>
+<a name='L473'></a><a href='#L473'>473</a>
+<a name='L474'></a><a href='#L474'>474</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -582,6 +592,10 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -751,6 +765,12 @@
 <span class="cline-any cline-yes">26x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1085,6 +1105,8 @@ export type UseWebSocketHandlerParams = {
 &nbsp;
   setParserMessages: React.Dispatch&lt;React.SetStateAction&lt;ParserMessage[]&gt;&gt;;
   setSandboxMode: React.Dispatch&lt;React.SetStateAction&lt;string&gt;&gt;;
+  setWorkerIndex: React.Dispatch&lt;React.SetStateAction&lt;number | undefined&gt;&gt;;
+  setWorkerTotal: React.Dispatch&lt;React.SetStateAction&lt;number | undefined&gt;&gt;;
 };
 &nbsp;
 export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
@@ -1105,6 +1127,8 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setCompilationStatus,
     setSimulationStatus,
     setSandboxMode,
+    setWorkerIndex,
+    setWorkerTotal,
     stopRendering,
     pauseRendering,
     resumeRendering,
@@ -1217,6 +1241,12 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     }
     <span class="missing-if-branch" title="if path not taken" >I</span>if (message.sandboxMode !== undefined) {
 <span class="cstat-no" title="statement not covered" >      setSandboxMode(message.sandboxMode);</span>
+    }
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (message.workerIndex !== undefined) {
+<span class="cstat-no" title="statement not covered" >      setWorkerIndex(message.workerIndex);</span>
+    }
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (message.workerTotal !== undefined) {
+<span class="cstat-no" title="statement not covered" >      setWorkerTotal(message.workerTotal);</span>
     }
     <span class="missing-if-branch" title="else path not taken" >E</span>if (message.message) {
       setCliOutput(message.message);
@@ -1459,7 +1489,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-08T07:42:02.242Z
+                at 2026-04-08T10:05:27.525Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
