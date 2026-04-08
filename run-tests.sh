@@ -15,10 +15,13 @@ export LOG_LEVEL=1
 export NODE_ENV=test
 
 # Docker-Konfiguration (überschreibbar per Umgebungsvariable)
-DOCKER_HOST="${DOCKER_HOST:-unix:///$(echo $HOME)/.docker/run/docker.sock}"
+# unix:// + absolute path = 3 slashes total; $HOME already starts with /
+DOCKER_HOST="${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock}"
 DOCKER_IMAGE="unosim:latest"
 DOCKER_SANDBOX_IMAGE="${DOCKER_SANDBOX_IMAGE:-unosim-sandbox:latest}"
-export DOCKER_HOST DOCKER_SANDBOX_IMAGE
+# Temp-Verzeichnis unter /Users/… damit Docker Desktop es per default mounten kann
+UNOSIM_SHARED_TEMP_DIR="${UNOSIM_SHARED_TEMP_DIR:-$(pwd)/temp}"
+export DOCKER_HOST DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR
 
 # Farben & Icons
 G="\033[32m"; Y="\033[33m"; R="\033[31m"; C="\033[36m"; B="\033[1m"; D="\033[2m"; RS="\033[0m"
@@ -153,7 +156,7 @@ export PORT=3000
 # Server startet im Hintergrund (NODE_ENV=development für Vite-Snapshots)
 # FORCE_DOCKER + DOCKER_SANDBOX_IMAGE werden gesetzt, wenn Docker verfügbar ist (s. oben)
 if docker info > /dev/null 2>&1; then
-    FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
+    FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR=$UNOSIM_SHARED_TEMP_DIR NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 else
     NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
 fi
