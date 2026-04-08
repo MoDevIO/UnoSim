@@ -16,19 +16,16 @@ export const SimCockpit: React.FC<{
   const isSimActive = simulationStatus === "running";
   const isActive = isSimActive && lastHeartbeatAt && Date.now() - lastHeartbeatAt < 2000;
 
-  const sandboxModeColor =
-    sandboxMode === "docker-sandbox"
-      ? "text-cyan-300"
-      : sandboxMode === "local-limited"
-      ? "text-amber-300"
-      : "text-white/50";
+  let sandboxModeColor = "text-white/50";
+  let sandboxModeLabel = "Unknown";
 
-  const sandboxModeLabel =
-    sandboxMode === "docker-sandbox"
-      ? "Docker Sandbox"
-      : sandboxMode === "local-limited"
-      ? "Local Limited"
-      : "Unknown";
+  if (sandboxMode === "docker-sandbox") {
+    sandboxModeColor = "text-cyan-300";
+    sandboxModeLabel = "Docker Sandbox";
+  } else if (sandboxMode === "local-limited") {
+    sandboxModeColor = "text-amber-300";
+    sandboxModeLabel = "Local Limited";
+  }
 
   const workerLabel =
     workerIndex !== undefined && workerTotal !== undefined

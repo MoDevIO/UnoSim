@@ -1,9 +1,13 @@
 # Multi-stage build using Node 25.2.1
 FROM node:25.2.1 AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 RUN npm install
-COPY . .
+COPY tsconfig.json tsconfig.eslint.json vite.config.ts postcss.config.js tailwind.config.ts components.json ./
+COPY public ./public
+COPY client ./client
+COPY server ./server
+COPY shared ./shared
 RUN npm run build
 
 ########################################
@@ -40,8 +44,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /app/dist ./dist
 
 # Copy package metadata and install dependencies
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 RUN npm install --legacy-peer-deps --production=false
+
+# Run as non-root user for production
+RUN useradd -m -u 1000 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 3000
 CMD ["npm", "run", "start"]

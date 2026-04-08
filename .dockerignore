@@ -11,7 +11,12 @@ playwright-report
 npm-debug.log
 yarn-error.log
 pnpm-lock.yaml
-package-lock.json
+
+# Sensitive and local files
+.git
+.github
+.env*
+server/arduino-cache
 
 # Temporary files
 temp
