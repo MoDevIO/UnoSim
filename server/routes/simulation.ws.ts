@@ -416,20 +416,30 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       );
     }
 
-    // Start sketch execution
-    clientState.runner.runSketch({
-      code: lastCompiledCode,
-      onOutput: callbacks.onOutput,
-      onError: callbacks.onError,
-      onExit: callbacks.onExit,
-      onCompileError: callbacks.onCompileError,
-      onCompileSuccess: callbacks.onCompileSuccess,
-      onPinState: callbacks.onPinState,
-      timeoutSec: timeoutValue,
-      onIORegistry: callbacks.onIORegistry,
-      onTelemetry: callbacks.onTelemetry,
-      onPinStateBatch: callbacks.onPinStateBatch,
-      context: { sessionId: clientState.testRunId, label: "default-ws" },
+    // Start sketch execution and publish sandbox mode once the runner has resolved
+    try {
+      await clientState.runner.runSketch({
+        code: lastCompiledCode,
+        onOutput: callbacks.onOutput,
+        onError: callbacks.onError,
+        onExit: callbacks.onExit,
+        onCompileError: callbacks.onCompileError,
+        onCompileSuccess: callbacks.onCompileSuccess,
+        onPinState: callbacks.onPinState,
+        timeoutSec: timeoutValue,
+        onIORegistry: callbacks.onIORegistry,
+        onTelemetry: callbacks.onTelemetry,
+        onPinStateBatch: callbacks.onPinStateBatch,
+        context: { sessionId: clientState.testRunId, label: "default-ws" },
+      });
+    } catch (error) {
+      logger.error(`[Simulation] runSketch failed: ${error}`);
+    }
+
+    const sandboxStatus = clientState.runner.getSandboxStatus();
+    sendMessageToClient(ws, {
+      type: "compilation_status",
+      sandboxMode: sandboxStatus.mode,
     });
   }
 

@@ -93,6 +93,7 @@ export type UseWebSocketHandlerParams = {
   pinToNumber: (pin: string) => number | null;
 
   setParserMessages: React.Dispatch<React.SetStateAction<ParserMessage[]>>;
+  setSandboxMode: React.Dispatch<React.SetStateAction<string>>;
 };
 
 export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
@@ -112,6 +113,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setActiveOutputTab,
     setCompilationStatus,
     setSimulationStatus,
+    setSandboxMode,
     stopRendering,
     pauseRendering,
     resumeRendering,
@@ -221,6 +223,9 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   const handleCompilationStatus = (message: CompilationStatusPayload) => {
     if (message.arduinoCliStatus !== undefined) {
       setArduinoCliStatus(message.arduinoCliStatus);
+    }
+    if (message.sandboxMode !== undefined) {
+      setSandboxMode(message.sandboxMode);
     }
     if (message.message) {
       setCliOutput(message.message);

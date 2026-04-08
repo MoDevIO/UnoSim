@@ -60,6 +60,7 @@ export function ArduinoSimulatorPageLayout(
     showCompilationOutput,
     setParserPanelDismissed,
     debugMode,
+    sandboxMode,
     batchStats,
     renderedSerialOutput,
     serialOutput,
@@ -191,6 +192,7 @@ export function ArduinoSimulatorPageLayout(
         rightSlot={
           debugMode ? (
             <SimCockpit
+              sandboxMode={sandboxMode}
               batchStats={batchStats}
               simulationStatus={simulationStatus}
             />

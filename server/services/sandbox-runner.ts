@@ -410,7 +410,7 @@ export class SandboxRunner {
     await this.cleanupDockerContainer(containerName);
   }
 
-  getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean; mode: string } {
+  getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean; mode: "docker-sandbox" | "local-limited" } {
     // Docker check is started in constructor, so just return cached values
     return {
       dockerAvailable: this.dockerAvailable,
