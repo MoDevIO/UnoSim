@@ -646,6 +646,8 @@ export function useArduinoSimulatorPage() {
     onLoadCode: setCode,
     onStartSimulation: compileAndStartAction,
     onStopSimulation: handleStop,
+    onPauseSimulation: handlePause,
+    onResumeSimulation: handleResume,
     onSetPinState: (pin, value) => {
       sendMessage({ type: "pin_state", pin, stateType: "value", value });
     },
@@ -653,6 +655,12 @@ export function useArduinoSimulatorPage() {
       const found = pinStates.find((p) => p.pin === pin);
       return found?.value ?? 0;
     },
+    onSerialInput: (data) => {
+      handleSerialSend(data);
+    },
+    onSetSimulationTimeout: setSimulationTimeout,
+    onSetOutputTab: setActiveOutputTab,
+    getSimulationState: () => simulationStatus,
   });
 
   const state = {

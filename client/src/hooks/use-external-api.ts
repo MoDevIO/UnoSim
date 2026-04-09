@@ -11,10 +11,22 @@ export interface UseExternalApiParams {
   onStartSimulation: () => void;
   /** Called when a STOP_SIMULATION message is received. */
   onStopSimulation: () => void;
+  /** Called when a PAUSE_SIMULATION message is received. */
+  onPauseSimulation: () => void;
+  /** Called when a RESUME_SIMULATION message is received. */
+  onResumeSimulation: () => void;
   /** Called when a SET_PIN_STATE message is received. */
   onSetPinState: (pin: number, value: number) => void;
   /** Returns the current value of a pin (used for GET_PIN_STATE responses). */
   getPinState: (pin: number) => number;
+  /** Called when a SERIAL_INPUT message is received. */
+  onSerialInput: (data: string) => void;
+  /** Called when a SET_SIMULATION_TIMEOUT message is received. */
+  onSetSimulationTimeout: (timeout: number) => void;
+  /** Called when a SET_OUTPUT_TAB message is received. */
+  onSetOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") => void;
+  /** Returns the current simulation state (used for GET_SIMULATION_STATE responses). */
+  getSimulationState: () => string;
 }
 
 // Global storage for the allowed origin (set by useExternalApi hook)
@@ -37,7 +49,7 @@ export function sendMessageToParent(
     ...response,
     version: API_VERSION,
   } as SimulatorResponse;
-  globalThis.postMessage(withVersion, targetOrigin);
+  (globalThis.parent ?? globalThis).postMessage(withVersion, targetOrigin);
 }
 
 /**
@@ -51,7 +63,7 @@ export function sendEventToParent(
   event: SimulatorEventMessage,
   targetOrigin: string,
 ): void {
-  globalThis.postMessage(event, targetOrigin);
+  (globalThis.parent ?? globalThis).postMessage(event, targetOrigin);
 }
 
 /**
@@ -67,8 +79,14 @@ export function useExternalApi(params: UseExternalApiParams): void {
     onLoadCode,
     onStartSimulation,
     onStopSimulation,
+    onPauseSimulation,
+    onResumeSimulation,
     onSetPinState,
     getPinState,
+    onSerialInput,
+    onSetSimulationTimeout,
+    onSetOutputTab,
+    getSimulationState,
   } = params;
 
   // Store the allowed origin globally for use by event-sending functions
@@ -76,76 +94,142 @@ export function useExternalApi(params: UseExternalApiParams): void {
     _allowedOriginRef.value = allowedOrigin;
   }, [allowedOrigin]);
 
+  // ── Action handler dispatchers ──────────────────────────────────────────
+  const handleLoadCode = (payload: unknown): void => {
+    if (typeof (payload as { code?: unknown })?.code !== "string") {
+      sendMessageToParent({ type: SimulatorActionType.LOAD_CODE, success: false, error: "payload.code must be a string" }, allowedOrigin);
+      return;
+    }
+    onLoadCode((payload as { code: string }).code);
+    sendMessageToParent({ type: SimulatorActionType.LOAD_CODE, success: true }, allowedOrigin);
+  };
+
+  const handlePinState = (payload: unknown): void => {
+    const p = payload as { pin?: unknown; value?: unknown };
+    if (typeof p?.pin !== "number" || typeof p?.value !== "number") {
+      sendMessageToParent({ type: SimulatorActionType.SET_PIN_STATE, success: false, error: "payload.pin and payload.value must be numbers" }, allowedOrigin);
+      return;
+    }
+    onSetPinState(p.pin, p.value);
+    sendMessageToParent({ type: SimulatorActionType.SET_PIN_STATE, success: true }, allowedOrigin);
+  };
+
+  const handleGetPinState = (payload: unknown): void => {
+    if (typeof (payload as { pin?: unknown })?.pin !== "number") {
+      sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: false, error: "payload.pin must be a number" }, allowedOrigin);
+      return;
+    }
+    const value = getPinState((payload as { pin: number }).pin);
+    sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: true, data: value }, allowedOrigin);
+  };
+
+  const handleBatchSetPinState = (payload: unknown): void => {
+    if (!Array.isArray((payload as { pins?: unknown })?.pins)) {
+      sendMessageToParent({ type: SimulatorActionType.BATCH_SET_PIN_STATE, success: false, error: "payload.pins must be an array" }, allowedOrigin);
+      return;
+    }
+    for (const pinState of (payload as { pins: Array<{ pin?: unknown; value?: unknown }> }).pins) {
+      if (typeof pinState?.pin === "number" && typeof pinState?.value === "number") {
+        onSetPinState(pinState.pin, pinState.value);
+      }
+    }
+    sendMessageToParent({ type: SimulatorActionType.BATCH_SET_PIN_STATE, success: true }, allowedOrigin);
+  };
+
+  const handleSerialInput = (payload: unknown): void => {
+    if (typeof (payload as { data?: unknown })?.data !== "string") {
+      sendMessageToParent({ type: SimulatorActionType.SERIAL_INPUT, success: false, error: "payload.data must be a string" }, allowedOrigin);
+      return;
+    }
+    onSerialInput((payload as { data: string }).data);
+    sendMessageToParent({ type: SimulatorActionType.SERIAL_INPUT, success: true }, allowedOrigin);
+  };
+
+  const handleSetTimeout = (payload: unknown): void => {
+    if (typeof (payload as { timeout?: unknown })?.timeout !== "number" || (payload as { timeout: number }).timeout < 0) {
+      sendMessageToParent({ type: SimulatorActionType.SET_SIMULATION_TIMEOUT, success: false, error: "payload.timeout must be a non-negative number" }, allowedOrigin);
+      return;
+    }
+    onSetSimulationTimeout((payload as { timeout: number }).timeout / 1000);
+    sendMessageToParent({ type: SimulatorActionType.SET_SIMULATION_TIMEOUT, success: true }, allowedOrigin);
+  };
+
+  const handleSetOutputTab = (payload: unknown): void => {
+    const validTabs = ["compiler", "messages", "registry", "debug"];
+    if (typeof (payload as { tab?: unknown })?.tab !== "string" || !validTabs.includes((payload as { tab: string }).tab)) {
+      sendMessageToParent({ type: SimulatorActionType.SET_OUTPUT_TAB, success: false, error: `payload.tab must be one of: ${validTabs.join(", ")}` }, allowedOrigin);
+      return;
+    }
+    onSetOutputTab((payload as { tab: "compiler" | "messages" | "registry" | "debug" }).tab);
+    sendMessageToParent({ type: SimulatorActionType.SET_OUTPUT_TAB, success: true }, allowedOrigin);
+  };
+
+  const handleGetState = (): void => {
+    const state = getSimulationState();
+    sendMessageToParent({ type: SimulatorActionType.GET_SIMULATION_STATE, success: true, data: state }, allowedOrigin);
+  };
+
   useEffect(() => {
     const handleMessage = (event: MessageEvent): void => {
-      // ── Security check ──────────────────────────────────────────────────
-      if (allowedOrigin !== "*" && event.origin !== allowedOrigin) {
-        return;
-      }
-
+      if (allowedOrigin !== "*" && event.origin !== allowedOrigin) return;
       const msg = event.data;
-
-      // ── Guard: must be a plain object with a `type` string ───────────────
-      if (typeof msg !== "object" || msg === null || typeof msg.type !== "string") {
-        return;
-      }
-
+      if (typeof msg !== "object" || msg === null || typeof msg.type !== "string") return;
       const message = msg as SimulatorMessage;
 
       switch (message.type) {
-        case SimulatorActionType.LOAD_CODE: {
-          const payload = message.payload as { code: string };
-          onLoadCode(payload.code);
+        case SimulatorActionType.LOAD_CODE:
+          handleLoadCode(message.payload);
           break;
-        }
-
-        case SimulatorActionType.START_SIMULATION: {
+        case SimulatorActionType.START_SIMULATION:
           onStartSimulation();
+          sendMessageToParent({ type: SimulatorActionType.START_SIMULATION, success: true }, allowedOrigin);
           break;
-        }
-
-        case SimulatorActionType.STOP_SIMULATION: {
+        case SimulatorActionType.STOP_SIMULATION:
           onStopSimulation();
+          sendMessageToParent({ type: SimulatorActionType.STOP_SIMULATION, success: true }, allowedOrigin);
           break;
-        }
-
-        case SimulatorActionType.SET_PIN_STATE: {
-          const payload = message.payload as { pin: number; value: number };
-          onSetPinState(payload.pin, payload.value);
+        case SimulatorActionType.PAUSE_SIMULATION:
+          onPauseSimulation();
+          sendMessageToParent({ type: SimulatorActionType.PAUSE_SIMULATION, success: true }, allowedOrigin);
           break;
-        }
-
-        case SimulatorActionType.GET_PIN_STATE: {
-          const payload = message.payload as { pin: number };
-          const value = getPinState(payload.pin);
-          sendMessageToParent(
-            { type: SimulatorActionType.GET_PIN_STATE, success: true, data: value },
-            allowedOrigin,
-          );
+        case SimulatorActionType.RESUME_SIMULATION:
+          onResumeSimulation();
+          sendMessageToParent({ type: SimulatorActionType.RESUME_SIMULATION, success: true }, allowedOrigin);
           break;
-        }
-
-        case SimulatorActionType.BATCH_SET_PIN_STATE: {
-          const payload = message.payload as { pins: Array<{ pin: number; value: number }> };
-          if (Array.isArray(payload.pins)) {
-            for (const pinState of payload.pins) {
-              onSetPinState(pinState.pin, pinState.value);
-            }
-          }
+        case SimulatorActionType.SET_PIN_STATE:
+          handlePinState(message.payload);
           break;
-        }
-
-        default:
-          // Unknown action — silently ignore
+        case SimulatorActionType.GET_PIN_STATE:
+          handleGetPinState(message.payload);
           break;
+        case SimulatorActionType.BATCH_SET_PIN_STATE:
+          handleBatchSetPinState(message.payload);
+          break;
+        case SimulatorActionType.SERIAL_INPUT:
+          handleSerialInput(message.payload);
+          break;
+        case SimulatorActionType.SET_SIMULATION_TIMEOUT:
+          handleSetTimeout(message.payload);
+          break;
+        case SimulatorActionType.SET_OUTPUT_TAB:
+          handleSetOutputTab(message.payload);
+          break;
+        case SimulatorActionType.GET_SIMULATION_STATE:
+          handleGetState();
+          break;
+        // default: silently ignore unknown actions
       }
     };
 
-    window.addEventListener("message", handleMessage);
+    globalThis.addEventListener("message", handleMessage);
     return () => {
-      window.removeEventListener("message", handleMessage);
+      globalThis.removeEventListener("message", handleMessage);
     };
-  }, [allowedOrigin, onLoadCode, onStartSimulation, onStopSimulation, onSetPinState, getPinState]);
+  }, [
+    allowedOrigin, onLoadCode, onStartSimulation, onStopSimulation,
+    onPauseSimulation, onResumeSimulation, onSetPinState, getPinState,
+    onSerialInput, onSetSimulationTimeout, onSetOutputTab, getSimulationState,
+  ]);
 }
 
 /**

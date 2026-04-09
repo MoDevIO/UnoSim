@@ -6,7 +6,7 @@
  */
 
 /** API Version for backward compatibility and feature negotiation. */
-export const API_VERSION = "1.1.0";
+export const API_VERSION = "1.2.0";
 
 /**
  * All actions supported by the simulator's remote control interface (inbound).
@@ -18,12 +18,24 @@ export enum SimulatorActionType {
   START_SIMULATION = "START_SIMULATION",
   /** Stop the running simulation */
   STOP_SIMULATION = "STOP_SIMULATION",
+  /** Pause a running simulation (preserves state) */
+  PAUSE_SIMULATION = "PAUSE_SIMULATION",
+  /** Resume a paused simulation */
+  RESUME_SIMULATION = "RESUME_SIMULATION",
   /** Set the value of a digital or analog pin */
   SET_PIN_STATE = "SET_PIN_STATE",
   /** Request the current value of a pin (triggers a RESPONSE message) */
   GET_PIN_STATE = "GET_PIN_STATE",
   /** Set multiple pins in a single operation (batch) */
   BATCH_SET_PIN_STATE = "BATCH_SET_PIN_STATE",
+  /** Send serial input data to the running simulation */
+  SERIAL_INPUT = "SERIAL_INPUT",
+  /** Change the simulation timeout (in milliseconds) */
+  SET_SIMULATION_TIMEOUT = "SET_SIMULATION_TIMEOUT",
+  /** Switch the active output tab (compiler, messages, registry, debug) */
+  SET_OUTPUT_TAB = "SET_OUTPUT_TAB",
+  /** Query the current simulation state (triggers a RESPONSE message) */
+  GET_SIMULATION_STATE = "GET_SIMULATION_STATE",
 }
 
 /**
@@ -69,14 +81,41 @@ export interface BatchSetPinStatePayload {
   pins: Array<{ pin: number; value: number }>;
 }
 
+/**
+ * Payload for SERIAL_INPUT messages.
+ */
+export interface SerialInputPayload {
+  data: string;
+}
+
+/**
+ * Payload for SET_SIMULATION_TIMEOUT messages.
+ */
+export interface SetSimulationTimeoutPayload {
+  timeout: number;
+}
+
+/**
+ * Payload for SET_OUTPUT_TAB messages.
+ */
+export interface SetOutputTabPayload {
+  tab: "compiler" | "messages" | "registry" | "debug";
+}
+
 /** Union of all payload types keyed by action type */
 type PayloadMap = {
   [SimulatorActionType.LOAD_CODE]: LoadCodePayload;
   [SimulatorActionType.START_SIMULATION]: undefined;
   [SimulatorActionType.STOP_SIMULATION]: undefined;
+  [SimulatorActionType.PAUSE_SIMULATION]: undefined;
+  [SimulatorActionType.RESUME_SIMULATION]: undefined;
   [SimulatorActionType.SET_PIN_STATE]: SetPinStatePayload;
   [SimulatorActionType.GET_PIN_STATE]: GetPinStatePayload;
   [SimulatorActionType.BATCH_SET_PIN_STATE]: BatchSetPinStatePayload;
+  [SimulatorActionType.SERIAL_INPUT]: SerialInputPayload;
+  [SimulatorActionType.SET_SIMULATION_TIMEOUT]: SetSimulationTimeoutPayload;
+  [SimulatorActionType.SET_OUTPUT_TAB]: SetOutputTabPayload;
+  [SimulatorActionType.GET_SIMULATION_STATE]: undefined;
 };
 
 /**
