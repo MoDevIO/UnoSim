@@ -563,3 +563,114 @@ describe("SandboxRunnerPool – idle runner cleanup", () => {
     await pool.shutdown();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCALABILITY PROOF: 20 concurrent simulations without queuing
+// ─────────────────────────────────────────────────────────────────────────────
+describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
+  const origEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const k of ["SANDBOX_POOL_MIN_RUNNERS", "SANDBOX_POOL_MAX_RUNNERS", "SANDBOX_POOL_IDLE_TIMEOUT_MS"]) {
+      origEnv[k] = process.env[k];
+    }
+  });
+
+  afterEach(async () => {
+    for (const [k, v] of Object.entries(origEnv)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    vi.resetModules();
+  });
+
+  it("serves 20 simultaneous acquire() calls without any queuing", async () => {
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "20";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // All 20 acquire calls resolve immediately – no runner ends up queued
+    const runners = await Promise.all(
+      Array.from({ length: 20 }, () => pool.acquireRunner()),
+    );
+
+    const stats = pool.getStats();
+    expect(stats.totalRunners).toBe(20);       // 5 warm + 15 on-demand
+    expect(stats.inUseRunners).toBe(20);       // all in use
+    expect(stats.queuedRequests).toBe(0);      // zero waiting
+
+    await Promise.all(runners.map((r) => pool.releaseRunner(r)));
+    await pool.shutdown();
+  });
+
+  it("queues the 21st request when pool is full (max=20)", async () => {
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "20";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Fill the pool
+    const runners = await Promise.all(
+      Array.from({ length: 20 }, () => pool.acquireRunner()),
+    );
+
+    // The 21st request must queue (not resolve until a runner is freed)
+    let resolved = false;
+    const pending = pool.acquireRunner().then((r) => {
+      resolved = true;
+      return r;
+    });
+
+    expect(pool.getStats().queuedRequests).toBe(1);
+    expect(resolved).toBe(false);
+
+    // Release one runner → the queued request is satisfied
+    await pool.releaseRunner(runners[0]);
+    const extra = await pending;
+    expect(resolved).toBe(true);
+    expect(pool.getStats().queuedRequests).toBe(0);
+
+    await pool.releaseRunner(extra);
+    await Promise.all(runners.slice(1).map((r) => pool.releaseRunner(r)));
+    await pool.shutdown();
+  });
+
+  it("old default (max=5) would have queued requests 6-20", async () => {
+    // Reproduces the pre-fix bug: without MAX_RUNNERS the pool defaults to 5
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
+    delete process.env.SANDBOX_POOL_MAX_RUNNERS; // intentionally omit
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    expect(pool.getStats().maxRunners).toBe(5); // defaults to minRunners
+
+    // Acquire 5 (max); the 6th would queue
+    const runners = await Promise.all(
+      Array.from({ length: 5 }, () => pool.acquireRunner()),
+    );
+    expect(pool.getStats().inUseRunners).toBe(5);
+
+    // 6th acquire queues
+    let q6resolved = false;
+    const q6 = pool.acquireRunner().then((r) => { q6resolved = true; return r; });
+    expect(pool.getStats().queuedRequests).toBe(1);
+    expect(q6resolved).toBe(false); // still waiting
+
+    // Free one → q6 resolves
+    await pool.releaseRunner(runners[0]);
+    const r6 = await q6;
+    expect(q6resolved).toBe(true);
+
+    await pool.releaseRunner(r6);
+    await Promise.all(runners.slice(1).map((r) => pool.releaseRunner(r)));
+    await pool.shutdown();
+  });
+});
+
