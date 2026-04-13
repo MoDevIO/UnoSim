@@ -23,6 +23,8 @@ services:
       - SANDBOX_CPU_LIMIT=0.5
       # Compilation worker threads (per-worker temp dir eliminates arduino-cli races)
       - WORKER_COUNT=8
+      # Max simultaneous Docker containers in compile phase (prevents CPU starvation)
+      - DOCKER_COMPILE_CONCURRENT=8
     ports:
       - "3000:3000"
     volumes:

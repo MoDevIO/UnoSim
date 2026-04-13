@@ -18,6 +18,7 @@ export type SimulationStatus =
   | "idle"
   | "running"
   | "compiling"
+  | "queued"
   | "stopped"
   | "paused";
 

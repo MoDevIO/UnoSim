@@ -290,7 +290,7 @@ export function emitPinStateChange(pin: number, value: number): void {
  * @param message - Optional human-readable message
  */
 export function emitSimulationStateEvent(
-  state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR",
+  state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR" | "COMPILING" | "QUEUED",
   message?: string,
 ): void {
   try {

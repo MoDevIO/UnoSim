@@ -17,6 +17,7 @@ import { PinStateBatcher, type PinStateBatch } from "../pin-state-batcher";
 import { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RunSketchOptions } from "../run-sketch-types";
 import { getCompileGatekeeper } from "../compile-gatekeeper";
+import { getDockerCompileSemaphore } from "./docker-compile-semaphore";
 import { DockerManager } from "./docker-manager";
 import { StreamHandler } from "./stream-handler";
 import { FilesystemHelper } from "./filesystem-helper";
@@ -408,6 +409,41 @@ export class ExecutionManager {
 
     const { onCompileError, onCompileSuccess, onExit } = opts;
 
+    // ── Docker compile gating ─────────────────────────────────────────────────
+    // Limit the number of simultaneous g++ compilations inside Docker containers
+    // to prevent CPU starvation when many students start simulations at once.
+    // The slot is released once [[RUNTIME_START]] is detected (compile done) or
+    // on any error, so the semaphore only covers the compile phase.
+    const releaseSemaphore = await getDockerCompileSemaphore().acquire(() => {
+      opts.onCompileQueued?.();
+    });
+
+    // Guard: abort if the simulation was stopped while we were waiting
+    if (state.processKilled || state.pendingCleanup || state.state === SimulationState.STOPPED) {
+      releaseSemaphore();
+      return;
+    }
+
+    // Release wrapper – idempotent, called from compile-phase callbacks or onClose
+    let semaphoreReleased = false;
+    const releaseOnce = () => {
+      if (!semaphoreReleased) {
+        semaphoreReleased = true;
+        releaseSemaphore();
+      }
+    };
+
+    // Wrap compile callbacks so the semaphore is released as soon as the
+    // compile phase ends (success or error), freeing the slot for the next waiter.
+    const wrappedOnCompileSuccess = () => {
+      releaseOnce();
+      onCompileSuccess?.();
+    };
+    const wrappedOnCompileError = (err: string) => {
+      releaseOnce();
+      onCompileError?.(err);
+    };
+
     try {
       state.processController.clearListeners();
       await state.processController.spawn("docker", dockerArgs);
@@ -440,7 +476,10 @@ export class ExecutionManager {
       // Note: compile callbacks, batchers, and onExit are handled exclusively
       // by dockerManager.setupDockerHandlers → handleDockerExit to avoid
       // double invocation (which previously caused a double "stopped" event).
+      // releaseOnce() here is a safety net for edge cases where the container
+      // dies before emitting any compile output.
       state.processController.onClose((_code) => {
+        releaseOnce();
         this.transitionTo(state, SimulationState.STOPPED);
         if (state.flushTimer) {
           clearTimeout(state.flushTimer);
@@ -460,12 +499,13 @@ export class ExecutionManager {
           executionTimeout,
         },
         {
-          onCompileError,
-          onCompileSuccess,
+          onCompileError: wrappedOnCompileError,
+          onCompileSuccess: wrappedOnCompileSuccess,
           onExit,
         },
       );
     } catch (err) {
+      releaseOnce();
       this.logger.error(`Docker process spawn failed: ${err instanceof Error ? err.message : String(err)}`);
       this.transitionTo(state, SimulationState.STOPPED);
       state.processController.destroySockets();

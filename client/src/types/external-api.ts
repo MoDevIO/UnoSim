@@ -130,7 +130,7 @@ export interface PinStateChangeEventData {
  * Data for SIMULATION_STATE_EVENT events.
  */
 export interface SimulationStateEventData {
-  state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR";
+  state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR" | "COMPILING" | "QUEUED";
   message?: string;
 }
 

@@ -240,6 +240,12 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     if (message.message) {
       setCliOutput(message.message);
     }
+    // Propagate Docker compile phase to external API (parent frame/test dashboard)
+    if (message.gccStatus === "queued") {
+      emitSimulationStateEvent("QUEUED");
+    } else if (message.gccStatus === "compiling") {
+      emitSimulationStateEvent("COMPILING");
+    }
   };
 
   /** Handle compilation_error messages. */

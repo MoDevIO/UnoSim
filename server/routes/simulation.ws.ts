@@ -255,6 +255,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       }
     };
 
+    const onCompileQueued = () => {
+      sendMessageToClient(ws, { type: "compilation_status", gccStatus: "queued" });
+    };
+
     const onPinState = (pin: number, type: "mode" | "value" | "pwm", value: number) => {
       sendMessageToClient(ws, { type: "pin_state", pin, stateType: type, value });
     };
@@ -314,6 +318,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       onExit,
       onCompileError,
       onCompileSuccess,
+      onCompileQueued,
       onPinState,
       onIORegistry,
       onTelemetry,
@@ -429,6 +434,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
         onExit: callbacks.onExit,
         onCompileError: callbacks.onCompileError,
         onCompileSuccess: callbacks.onCompileSuccess,
+        onCompileQueued: callbacks.onCompileQueued,
         onPinState: callbacks.onPinState,
         timeoutSec: timeoutValue,
         onIORegistry: callbacks.onIORegistry,
