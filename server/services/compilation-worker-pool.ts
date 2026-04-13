@@ -14,8 +14,7 @@
  */
 
 import { Worker } from "node:worker_threads";
-import path from "node:path";
-import { join } from "node:path";
+import path, { join } from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import { Logger } from "@shared/logger";
