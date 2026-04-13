@@ -730,9 +730,6 @@ export class ArduinoCompiler {
     if (config.buildPath) {
       args.push("--build-path", config.buildPath);
     }
-    if (config.buildCachePath) {
-      args.push("--build-cache-path", config.buildCachePath);
-    }
     args.push(sketchDir);
     return args;
   }

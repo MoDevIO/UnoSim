@@ -10,16 +10,16 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - ARDUINO_CACHE_DIR=/app/arduino-cache
-      - UNOSIM_SHARED_TEMP_DIR=/app/temp
+      - ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache
+      - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
       - DOCKER_HOST=unix:///var/run/docker.sock
       - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
     ports:
       - "3000:3000"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./server/arduino-cache:/app/arduino-cache
-      - ./temp:/app/temp
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/server/arduino-cache:${PWD}/server/arduino-cache
+      - ${PWD}/temp:${PWD}/temp
       - ./storage:/app/storage
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]

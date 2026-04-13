@@ -183,6 +183,12 @@ run_task "Unit-Tests" "NODE_OPTIONS='--no-warnings' npm run test:fast -- --repor
 parse_test_results "Tests.*passed"
 
 # 3+4. Sandbox Image Build & Docker-Tests (optional, wenn Docker verfügbar)
+# Docker nach den Unit-Tests erneut prüfen: Heavy-Load kann den Daemon kurz einfrieren.
+if [ "$DOCKER_AVAILABLE" -eq 1 ] && ! docker info >/dev/null 2>&1; then
+    echo -e "  ${WARN} Docker nach Unit-Tests nicht mehr erreichbar – Docker-Tests werden übersprungen"
+    DOCKER_AVAILABLE=0
+fi
+
 if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
     # Sandbox Image nur bauen wenn es noch nicht existiert
     if ! docker image inspect "$DOCKER_SANDBOX_IMAGE" > /dev/null 2>&1; then

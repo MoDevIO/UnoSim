@@ -6,6 +6,23 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function getAllowedFrameAncestors(): string {
+  const envValue = process.env.SIMULATOR_ALLOWED_PARENT_ORIGINS ?? process.env.ALLOW_EMBED_ORIGINS;
+  const defaultOrigins = [
+    "'self'",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ];
+  const customOrigins = envValue
+    ? envValue.split(",").map((origin) => origin.trim()).filter(Boolean)
+    : [];
+
+  const origins = Array.from(new Set([...defaultOrigins, ...customOrigins]));
+  return `frame-ancestors ${origins.join(" ")}`;
+}
+
 export default defineConfig({
   plugins: [tsconfigPaths(), react()],
   resolve: {
@@ -42,6 +59,14 @@ export default defineConfig({
   server: {
     host: true,
     port: 3001, // Vite devserver Port
+    hmr: {
+      host: "localhost",
+      port: 3001,
+      protocol: "ws",
+    },
+    headers: {
+      "Content-Security-Policy": getAllowedFrameAncestors(),
+    },
     proxy: {
       // Leitet API-Aufrufe an Backend auf Port 3000 weiter
       "/api": {

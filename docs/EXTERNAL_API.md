@@ -12,6 +12,25 @@ The simulator only processes messages whose `event.origin` exactly matches the d
 When the simulator runs top-level (not in an iframe) the effective allowed origin is `"*"` (any).  
 Messages from all other origins are silently discarded.
 
+> Important: iframe embedding is controlled by the simulator page's own CSP header, not by the parent page.
+
+For local development, the simulator allows embedding from common local test hosts by default:
+- `'self'`
+- `http://localhost:3000`
+- `http://127.0.0.1:3000`
+- `http://localhost:5173`
+- `http://127.0.0.1:5173`
+
+If your test application runs on `http://localhost:5173`, the simulator origin must explicitly allow that host in its `frame-ancestors` CSP directive.
+
+If you need to allow additional parent origins, set the environment variable `SIMULATOR_ALLOWED_PARENT_ORIGINS` with a comma-separated list of origins before starting the simulator. For example:
+
+```bash
+SIMULATOR_ALLOWED_PARENT_ORIGINS=http://localhost:3000
+```
+
+This is required when your test website is hosted on a different origin than the simulator.
+
 ---
 
 ## Inbound Messages (Website → Simulator)
