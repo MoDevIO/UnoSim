@@ -15,6 +15,7 @@
 
 import { Worker } from "node:worker_threads";
 import path from "node:path";
+import { join } from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import { Logger } from "@shared/logger";
@@ -64,12 +65,13 @@ export class CompilationWorkerPool {
   };
 
   constructor(numWorkers?: number) {
-    // CRITICAL: Limit to 4 workers to prevent race conditions in arduino-cli
-    // Each worker can spawn arduino-cli subprocesses that compete for temp/ directory access.
-    // More than 4 workers causes "fatal error: opening dependency file" failures.
-    const maxSafeWorkers = 4;
+    // With per-worker temp dirs each worker has its own isolated directory,
+    // so race conditions in arduino-cli no longer occur.
+    // Safe upper bound raised to 8; WORKER_COUNT env var overrides.
+    const maxSafeWorkers = 8;
+    const envCount = process.env.WORKER_COUNT ? Number.parseInt(process.env.WORKER_COUNT, 10) : undefined;
     const recommendedWorkers = Math.max(2, Math.floor(os.cpus().length * 0.5));
-    this.numWorkers = numWorkers ?? Math.min(maxSafeWorkers, recommendedWorkers);
+    this.numWorkers = numWorkers ?? Math.min(maxSafeWorkers, envCount ?? recommendedWorkers);
     
     this.logger.info(`[CompilationWorkerPool] Initializing with ${this.numWorkers} workers (max: ${maxSafeWorkers})`);
     this.initializeWorkers();
@@ -100,8 +102,10 @@ export class CompilationWorkerPool {
 
     for (let i = 0; i < this.numWorkers; i++) {
       try {
+        // Each worker gets its own temp directory to avoid arduino-cli race conditions
+        const workerTempRoot = join(os.tmpdir(), `unosim-worker-${i}`);
         const worker = new Worker(workerScript, {
-          workerData: { workerId: i + 1 },
+          workerData: { workerId: i + 1, tempRoot: workerTempRoot },
         });
         const workerId = i;
 

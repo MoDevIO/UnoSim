@@ -32,7 +32,8 @@ export enum SimulationState {
 export const SANDBOX_CONFIG = {
   dockerImage: process.env.DOCKER_SANDBOX_IMAGE ?? "unosim-sandbox:latest",
   useDocker: true,
-  maxMemoryMB: 256,
+  maxMemoryMB: Number.parseInt(process.env.SANDBOX_MEMORY_MB ?? "256", 10),
+  cpuLimit: process.env.SANDBOX_CPU_LIMIT ?? "0.5",
   maxCpuPercent: 50,
   maxExecutionTimeSec: 60,
   maxOutputBytes: 100 * 1024 * 1024,
@@ -397,7 +398,7 @@ export class ExecutionManager {
     const dockerArgs = DockerCommandBuilder.buildSecureRunCommand({
       sketchDir: files.sketchDir,
       memoryMB: SANDBOX_CONFIG.maxMemoryMB,
-      cpuLimit: "0.5",
+      cpuLimit: SANDBOX_CONFIG.cpuLimit,
       pidsLimit: 50,
       imageName: SANDBOX_CONFIG.dockerImage,
       command: DockerCommandBuilder.buildCompileAndRunCommand(),

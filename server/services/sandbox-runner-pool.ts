@@ -51,16 +51,22 @@ type SandboxRunnerInternal = {
 };
 
 class SandboxRunnerPool {
-  private readonly numRunners: number;
+  private readonly minRunners: number;
+  private readonly maxRunners: number;
+  private readonly idleTimeoutMs: number;
   private readonly runners: PooledRunner[] = [];
   private readonly queue: QueueEntry[] = [];
   private readonly logger = new Logger("SandboxRunnerPool");
   private readonly acquireTimeoutMs = 60000;
   private initialized = false;
 
-  constructor(numRunners: number = 5) {
-    this.numRunners = numRunners;
-    this.logger.info(`[SandboxRunnerPool] Initialized with target pool size: ${this.numRunners}`);
+  constructor(options: { minRunners?: number; maxRunners?: number; idleTimeoutMs?: number } = {}) {
+    this.minRunners = options.minRunners ?? 5;
+    this.maxRunners = options.maxRunners ?? this.minRunners;
+    this.idleTimeoutMs = options.idleTimeoutMs ?? 120000;
+    this.logger.info(
+      `[SandboxRunnerPool] Pool config: min=${this.minRunners}, max=${this.maxRunners}, idleTimeout=${this.idleTimeoutMs}ms`,
+    );
   }
 
   async initialize(): Promise<void> {
@@ -68,19 +74,19 @@ class SandboxRunnerPool {
       return;
     }
 
-    this.logger.info(`[SandboxRunnerPool] Initializing ${this.numRunners} runner instances...`);
-    for (let i = 0; i < this.numRunners; i++) {
+    this.logger.info(`[SandboxRunnerPool] Initializing ${this.minRunners} warm runner instances...`);
+    for (let i = 0; i < this.minRunners; i++) {
       const runner = new SandboxRunner();
       this.runners.push({
         runner,
         inUse: false,
         lastReleasedTime: Date.now(),
       });
-      this.logger.debug(`[SandboxRunnerPool] Created runner [${i}]`);
+      this.logger.debug(`[SandboxRunnerPool] Created warm runner [${i}]`);
     }
 
     this.initialized = true;
-    this.logger.info(`[SandboxRunnerPool] Pool ready with ${this.numRunners} runners`);
+    this.logger.info(`[SandboxRunnerPool] Pool ready with ${this.minRunners} warm runners (max: ${this.maxRunners})`);
   }
 
   async acquireRunner(): Promise<SandboxRunner> {
@@ -92,9 +98,19 @@ class SandboxRunnerPool {
     if (available) {
       available.inUse = true;
       this.logger.debug(
-        `[SandboxRunnerPool] Runner acquired (available: ${this.runners.filter((p) => !p.inUse).length}/${this.numRunners})`,
+        `[SandboxRunnerPool] Runner acquired (available: ${this.runners.filter((p) => !p.inUse).length}/${this.runners.length})`,
       );
       return available.runner;
+    }
+
+    // On-demand creation: create a new runner if below maxRunners
+    if (this.runners.length < this.maxRunners) {
+      const runner = new SandboxRunner();
+      this.runners.push({ runner, inUse: true, lastReleasedTime: Date.now() });
+      this.logger.debug(
+        `[SandboxRunnerPool] On-demand runner created (total: ${this.runners.length}/${this.maxRunners})`,
+      );
+      return runner;
     }
 
     return new Promise<SandboxRunner>((resolve, reject) => {
@@ -114,7 +130,8 @@ class SandboxRunnerPool {
       entry = { resolve, reject, timeout };
       this.queue.push(entry);
       this.logger.debug(
-        `[SandboxRunnerPool] Runner queued (queue length: ${this.queue.length}/${this.numRunners})`,
+        `[SandboxRunnerPool] Runner queued (queue length: ${this.queue.length}, at maxRunners: ${this.maxRunners})`,
+      
       );
     });
   }
@@ -136,7 +153,8 @@ class SandboxRunnerPool {
     pooledRunner.inUse = false;
     pooledRunner.lastReleasedTime = Date.now();
     this.logger.debug(
-      `[SandboxRunnerPool] Runner released and reset (available: ${this.runners.filter((p) => !p.inUse).length}/${this.numRunners})`,
+      `[SandboxRunnerPool] Runner released and reset (available: ${this.runners.filter((p) => !p.inUse).length}/${this.runners.length})`,
+      
     );
 
     if (this.queue.length > 0) {
@@ -259,7 +277,9 @@ class SandboxRunnerPool {
 
   getStats() {
     return {
-      totalRunners: this.numRunners,
+      totalRunners: this.runners.length,
+      minRunners: this.minRunners,
+      maxRunners: this.maxRunners,
       availableRunners: this.runners.filter((p) => !p.inUse).length,
       inUseRunners: this.runners.filter((p) => p.inUse).length,
       queuedRequests: this.queue.length,
@@ -297,7 +317,12 @@ class SandboxRunnerPool {
 let poolInstance: SandboxRunnerPool | null = null;
 
 export function getSandboxRunnerPool(): SandboxRunnerPool {
-  poolInstance ??= new SandboxRunnerPool(5);
+  if (!poolInstance) {
+    const minRunners = Number.parseInt(process.env.SANDBOX_POOL_MIN_RUNNERS ?? "5", 10);
+    const maxRunners = Number.parseInt(process.env.SANDBOX_POOL_MAX_RUNNERS ?? String(minRunners), 10);
+    const idleTimeoutMs = Number.parseInt(process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS ?? "120000", 10);
+    poolInstance = new SandboxRunnerPool({ minRunners, maxRunners, idleTimeoutMs });
+  }
   return poolInstance;
 }
 
