@@ -458,3 +458,108 @@ describe("SandboxRunnerPool – env-var configuration", () => {
     await pool.shutdown();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 2.3 – Idle runner cleanup after timeout
+// ---------------------------------------------------------------------------
+describe("SandboxRunnerPool – idle runner cleanup", () => {
+  afterEach(() => {
+    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
+    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS;
+    vi.useRealTimers();
+  });
+
+  it("destroys on-demand runners after idle timeout when above minRunners", async () => {
+    vi.useFakeTimers();
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
+    process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "5000";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Create an on-demand runner by acquiring 2 (minRunners=1)
+    const r1 = await pool.acquireRunner();
+    const r2 = await pool.acquireRunner(); // on-demand
+    expect(pool.getStats().totalRunners).toBe(2);
+
+    // Release both – r2 is above minRunners, should be scheduled for idle removal
+    await pool.releaseRunner(r1);
+    await pool.releaseRunner(r2);
+    expect(pool.getStats().totalRunners).toBe(2); // still 2 immediately after release
+
+    // Advance past idle timeout – r2 (the on-demand one above min) should be removed
+    vi.advanceTimersByTime(6000);
+    expect(pool.getStats().totalRunners).toBe(1); // back to minRunners
+
+    await pool.shutdown();
+  });
+
+  it("does NOT destroy warm runners (minRunners floor) even after idle timeout", async () => {
+    vi.useFakeTimers();
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "2";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
+    process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "5000";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Acquire and release both warm runners
+    const r1 = await pool.acquireRunner();
+    const r2 = await pool.acquireRunner();
+    await pool.releaseRunner(r1);
+    await pool.releaseRunner(r2);
+
+    vi.advanceTimersByTime(10000);
+    // Should remain at minRunners (2)
+    expect(pool.getStats().totalRunners).toBe(2);
+
+    await pool.shutdown();
+  });
+
+  it("cancels idle timer if runner is re-acquired before timeout", async () => {
+    vi.useFakeTimers();
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
+    process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "5000";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Acquire warm runner (index 0) to force on-demand creation
+    const warm = await pool.acquireRunner(); // warm in-use
+    const onDemand = await pool.acquireRunner(); // on-demand created
+
+    // Release on-demand while warm is still in use → idle timer starts
+    await pool.releaseRunner(onDemand);
+    expect(pool.getStats().totalRunners).toBe(2);
+
+    // Advance halfway through timeout
+    vi.advanceTimersByTime(2500);
+    expect(pool.getStats().totalRunners).toBe(2);
+
+    // Re-acquire – only onDemand is available → timer must be cancelled
+    const r3 = await pool.acquireRunner();
+    expect(pool.getStats().inUseRunners).toBe(2); // warm + onDemand in-use
+
+    // Advance past original timer deadline – timer was cancelled, so no removal
+    vi.advanceTimersByTime(5000);
+    expect(pool.getStats().totalRunners).toBe(2); // still 2
+
+    // Release both; on-demand is now free again – new idle timer starts
+    await pool.releaseRunner(warm);
+    await pool.releaseRunner(r3);
+
+    // Advance full idle period from last release
+    vi.advanceTimersByTime(6000);
+    // warm (index 0) is below minRunners floor, not removed
+    // onDemand (index 1) is above floor and idle → removed
+    expect(pool.getStats().totalRunners).toBe(1);
+
+    await pool.shutdown();
+  });
+});

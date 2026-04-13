@@ -7,6 +7,7 @@ interface PooledRunner {
   runner: SandboxRunner;
   inUse: boolean;
   lastReleasedTime: number;
+  idleTimer: ReturnType<typeof setTimeout> | null;
 }
 
 interface QueueEntry {
@@ -81,6 +82,7 @@ class SandboxRunnerPool {
         runner,
         inUse: false,
         lastReleasedTime: Date.now(),
+        idleTimer: null,
       });
       this.logger.debug(`[SandboxRunnerPool] Created warm runner [${i}]`);
     }
@@ -97,6 +99,11 @@ class SandboxRunnerPool {
     const available = this.runners.find((p) => !p.inUse);
     if (available) {
       available.inUse = true;
+      // Cancel any pending idle-cleanup timer for this runner
+      if (available.idleTimer !== null) {
+        clearTimeout(available.idleTimer);
+        available.idleTimer = null;
+      }
       this.logger.debug(
         `[SandboxRunnerPool] Runner acquired (available: ${this.runners.filter((p) => !p.inUse).length}/${this.runners.length})`,
       );
@@ -106,7 +113,7 @@ class SandboxRunnerPool {
     // On-demand creation: create a new runner if below maxRunners
     if (this.runners.length < this.maxRunners) {
       const runner = new SandboxRunner();
-      this.runners.push({ runner, inUse: true, lastReleasedTime: Date.now() });
+      this.runners.push({ runner, inUse: true, lastReleasedTime: Date.now(), idleTimer: null });
       this.logger.debug(
         `[SandboxRunnerPool] On-demand runner created (total: ${this.runners.length}/${this.maxRunners})`,
       );
@@ -162,12 +169,44 @@ class SandboxRunnerPool {
       if (entry) {
         clearTimeout(entry.timeout);
         pooledRunner.inUse = true;
-        entry.resolve(runner);
+        entry.resolve(pooledRunner.runner);
         this.logger.debug(
           `[SandboxRunnerPool] Queued request granted (queue: ${this.queue.length} remaining)`,
         );
       }
+    } else {
+      // Schedule idle cleanup for on-demand runners above minRunners floor
+      this.scheduleIdleCleanup(pooledRunner);
     }
+  }
+
+  /**
+   * Schedule idle cleanup for runners above the minRunners floor.
+   * If the runner is re-acquired before the timer fires, the timer is cancelled.
+   */
+  private scheduleIdleCleanup(pooledRunner: PooledRunner): void {
+    // Only schedule cleanup for runners above the warm floor
+    const warmRunners = this.runners.slice(0, this.minRunners);
+    if (warmRunners.includes(pooledRunner)) {
+      return; // This is a warm runner – never clean it up
+    }
+
+    // Cancel existing timer if any
+    if (pooledRunner.idleTimer !== null) {
+      clearTimeout(pooledRunner.idleTimer);
+    }
+
+    pooledRunner.idleTimer = setTimeout(() => {
+      pooledRunner.idleTimer = null;
+      if (pooledRunner.inUse) return; // Reacquired before timer fired
+      const idx = this.runners.indexOf(pooledRunner);
+      if (idx !== -1) {
+        this.runners.splice(idx, 1);
+        this.logger.debug(
+          `[SandboxRunnerPool] Idle runner removed (total: ${this.runners.length}/${this.maxRunners})`,
+        );
+      }
+    }, this.idleTimeoutMs);
   }
 
   private clearRunnerListeners(runner: SandboxRunnerInternal): void {
@@ -299,6 +338,14 @@ class SandboxRunnerPool {
       entry.reject(new Error("SandboxRunnerPool shutting down"));
     }
     this.queue.length = 0;
+
+    // Cancel all idle timers
+    for (const pooledRunner of this.runners) {
+      if (pooledRunner.idleTimer !== null) {
+        clearTimeout(pooledRunner.idleTimer);
+        pooledRunner.idleTimer = null;
+      }
+    }
 
     for (const { runner } of this.runners) {
       try {
