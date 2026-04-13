@@ -54,8 +54,8 @@ export class DockerCompileSemaphore {
       released = true;
       this._active--;
       if (this.queue.length > 0) {
-        const next = this.queue.shift()!;
-        next();
+        const next = this.queue.shift();
+        next?.();
       }
     };
   }
