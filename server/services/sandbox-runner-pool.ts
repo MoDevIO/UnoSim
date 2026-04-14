@@ -6,6 +6,7 @@ import type { ExecutionState, TelemetryMetrics } from "./sandbox/execution-manag
 interface PooledRunner {
   runner: SandboxRunner;
   inUse: boolean;
+  resetting: boolean;
   lastReleasedTime: number;
   idleTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -82,6 +83,7 @@ class SandboxRunnerPool {
       this.runners.push({
         runner,
         inUse: false,
+        resetting: false,
         lastReleasedTime: Date.now(),
         idleTimer: null,
       });
@@ -97,7 +99,7 @@ class SandboxRunnerPool {
       throw new Error("SandboxRunnerPool not initialized. Call initialize() first.");
     }
 
-    const available = this.runners.find((p) => !p.inUse);
+    const available = this.runners.find((p) => !p.inUse && !p.resetting);
     if (available) {
       available.inUse = true;
       // Cancel any pending idle-cleanup timer for this runner
@@ -114,7 +116,7 @@ class SandboxRunnerPool {
     // On-demand creation: create a new runner if below maxRunners
     if (this.runners.length < this.maxRunners) {
       const runner = new SandboxRunner();
-      this.runners.push({ runner, inUse: true, lastReleasedTime: Date.now(), idleTimer: null });
+      this.runners.push({ runner, inUse: true, resetting: false, lastReleasedTime: Date.now(), idleTimer: null });
       this.logger.debug(
         `[SandboxRunnerPool] On-demand runner created (total: ${this.runners.length}/${this.maxRunners})`,
       );
@@ -158,6 +160,7 @@ class SandboxRunnerPool {
 
     // Always mark as free FIRST, even if reset hangs — prevents permanent pool deadlock
     pooledRunner.inUse = false;
+    pooledRunner.resetting = true;
     pooledRunner.lastReleasedTime = Date.now();
 
     // Reset with a timeout guard so a stuck runner.stop() cannot block forever
@@ -168,6 +171,7 @@ class SandboxRunnerPool {
           setTimeout(() => reject(new Error("Runner reset timed out")), this.resetTimeoutMs),
         ),
       ]);
+      pooledRunner.resetting = false;
     } catch (error) {
       this.logger.error(
         `[SandboxRunnerPool] Runner reset failed or timed out: ${error}. Force-replacing runner.`,
@@ -179,6 +183,7 @@ class SandboxRunnerPool {
         this.runners[index] = {
           runner: freshRunner,
           inUse: false,
+          resetting: false,
           lastReleasedTime: Date.now(),
           idleTimer: null,
         };
@@ -188,7 +193,9 @@ class SandboxRunnerPool {
 
     // Find the (possibly replaced) pooled runner for queue dispatch
     const currentPooled = this.runners.find((p) => p.runner === (pooledRunner.runner ?? runner) || p === pooledRunner);
-    const freeRunner = currentPooled && !currentPooled.inUse ? currentPooled : this.runners.find((p) => !p.inUse);
+    const freeRunner = currentPooled && !currentPooled.inUse && !currentPooled.resetting
+      ? currentPooled
+      : this.runners.find((p) => !p.inUse && !p.resetting);
 
     this.logger.debug(
       `[SandboxRunnerPool] Runner released and reset (available: ${this.runners.filter((p) => !p.inUse).length}/${this.runners.length})`,
@@ -348,8 +355,9 @@ class SandboxRunnerPool {
       totalRunners: this.runners.length,
       minRunners: this.minRunners,
       maxRunners: this.maxRunners,
-      availableRunners: this.runners.filter((p) => !p.inUse).length,
+      availableRunners: this.runners.filter((p) => !p.inUse && !p.resetting).length,
       inUseRunners: this.runners.filter((p) => p.inUse).length,
+      resettingRunners: this.runners.filter((p) => p.resetting).length,
       queuedRequests: this.queue.length,
       initialized: this.initialized,
     };

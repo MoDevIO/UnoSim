@@ -337,6 +337,82 @@ describe("Scalability stress: SandboxRunnerPool", () => {
     delete process.env.SANDBOX_POOL_MAX_RUNNERS;
     await pool.shutdown();
   }, 60000);
+
+  it("4 simulations stop + immediate restart — no mid-reset runner reuse", async () => {
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Phase 1: Acquire 4 runners (simulating 4 concurrent simulations)
+    const firstAcquired: any[] = [];
+    for (let i = 0; i < 4; i++) {
+      const runner = await pool.acquireRunner();
+      runner.isRunning = true;
+      runner._state = "running";
+      firstAcquired.push(runner);
+    }
+
+    const statsAfterAcquire = pool.getStats();
+    expect(statsAfterAcquire.inUseRunners).toBe(4);
+    expect(statsAfterAcquire.availableRunners).toBe(1);
+
+    // Phase 2: Make runner.stop() slow (simulates Docker container cleanup)
+    for (const runner of firstAcquired) {
+      const origStop = runner.stop;
+      runner.stop = vi.fn().mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 50)); // 50ms Docker cleanup delay
+        runner.isRunning = false;
+        runner._state = "stopped";
+        if (origStop) await origStop.call(runner);
+      });
+    }
+
+    // Phase 3: Release all 4 simultaneously (simulates 4 users clicking "stop")
+    const releasePromises = firstAcquired.map((r) => pool.releaseRunner(r));
+
+    // Phase 4: IMMEDIATELY acquire 4 runners again (simulates 4 users clicking "start" right after stop)
+    const reacquirePromises = Array.from({ length: 4 }, () => pool.acquireRunner());
+
+    // Wait for all operations to complete
+    await Promise.all(releasePromises);
+    const secondAcquired = await Promise.all(reacquirePromises);
+
+    // CRITICAL: All 4 re-acquired runners must be fully reset and usable
+    expect(secondAcquired).toHaveLength(4);
+    for (const runner of secondAcquired) {
+      expect(runner).toBeDefined();
+      // Runner must NOT be in a resetting state
+      expect(runner._state).not.toBe("running");
+      // Runner's executionState must be clean
+      expect(runner.executionState.processKilled).toBe(false);
+      expect(runner.executionState.totalPausedTime).toBe(0);
+      expect(runner.executionState.pauseStartTime).toBeNull();
+    }
+
+    // Pool health: no resetting runners, no queue
+    const finalStats = pool.getStats();
+    expect(finalStats.resettingRunners).toBe(0);
+    expect(finalStats.queuedRequests).toBe(0);
+    expect(finalStats.inUseRunners).toBe(4); // 4 are acquired by us
+
+    // Phase 5: Release all and verify clean state
+    for (const runner of secondAcquired) {
+      await pool.releaseRunner(runner);
+    }
+    const cleanStats = pool.getStats();
+    expect(cleanStats.inUseRunners).toBe(0);
+    expect(cleanStats.resettingRunners).toBe(0);
+    expect(cleanStats.availableRunners).toBe(5);
+
+    console.log(`[4-sim restart] All 4 runners re-acquired successfully without mid-reset reuse`);
+
+    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
+    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    await pool.shutdown();
+  }, 30000);
 });
 
 // ── Compile semaphore stress tests ───────────────────────────────────────
