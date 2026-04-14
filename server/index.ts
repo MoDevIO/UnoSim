@@ -117,14 +117,15 @@ const isTestMode =
   process.env.NODE_ENV === "test" || process.env.DISABLE_RATE_LIMIT === "true";
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 Minuten
-  max: isTestMode ? 10000 : 100, // 10000 in Test-Modus, 100 in Produktion
+  max: isTestMode ? 10000 : 300, // 10000 in Test-Modus, 300 in Produktion
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) =>
     isTestMode ||
     req.originalUrl === "/api/examples" ||
-    req.originalUrl === "/api/health", // Skip for lightweight endpoints
+    req.originalUrl === "/api/status" ||
+    req.originalUrl === "/api/health", // Skip for lightweight/polling endpoints
 });
 
 // Apply rate limiting to API routes
