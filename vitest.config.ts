@@ -38,7 +38,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
-      reportBase: 'coverage',
+      reportsDirectory: 'coverage',
       exclude: [
         'tests/**',
         'e2e/**',
