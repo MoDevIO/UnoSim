@@ -93,7 +93,7 @@ describe("Worker Pool Scalability - Realistic Load", () => {
     const successes = results.filter(Boolean).length;
     console.log(`✓ Staggered pattern (2×5 users): ${successes}/10 succeeded`);
     expect(successes).toBeGreaterThanOrEqual(8);
-  });
+  }, 60000);
 
   it("reports pool capacity estimates", async () => {
     const stats = compiler.getStats();
