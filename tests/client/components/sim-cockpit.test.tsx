@@ -26,60 +26,58 @@ describe("SimCockpit", () => {
     mockedUseTelemetryStore.mockReset();
   });
 
-  it("shows Server ONLINE when backend is reachable and connected", () => {
+  it("shows SERVER in normal mode when backend is reachable", () => {
     mockedUseTelemetryStore.mockReturnValue(
       createTelemetryStoreMock({ lastHeartbeatAt: null }),
     );
 
     const { getByText } = render(<SimCockpit backendReachable={true} isConnected={true} />);
 
-    expect(getByText("Server")).toBeInTheDocument();
-    expect(getByText("ONLINE")).toBeInTheDocument();
+    expect(getByText("SERVER")).toBeInTheDocument();
   });
 
-  it("shows WS DOWN when HTTP is reachable but WebSocket is disconnected", () => {
+  it("shows WS ✗ in normal mode when HTTP is reachable but WS disconnected", () => {
     mockedUseTelemetryStore.mockReturnValue(
       createTelemetryStoreMock({ lastHeartbeatAt: null }),
     );
 
     const { getByText } = render(<SimCockpit backendReachable={true} isConnected={false} />);
 
-    expect(getByText("WS DOWN")).toBeInTheDocument();
+    expect(getByText("WS ✗")).toBeInTheDocument();
   });
 
-  it("shows HTTP DOWN when backend HTTP is unreachable", () => {
+  it("shows OFFLINE in normal mode when backend HTTP is unreachable", () => {
     mockedUseTelemetryStore.mockReturnValue(
       createTelemetryStoreMock({ lastHeartbeatAt: null }),
     );
 
     const { getByText } = render(<SimCockpit backendReachable={false} isConnected={false} />);
 
-    expect(getByText("HTTP DOWN")).toBeInTheDocument();
+    expect(getByText("OFFLINE")).toBeInTheDocument();
   });
 
-  it("shows simulation state label", () => {
+  it("shows simulation state in debug mode", () => {
     mockedUseTelemetryStore.mockReturnValue(
       createTelemetryStoreMock({ lastHeartbeatAt: null }),
     );
 
-    const { getByText } = render(<SimCockpit simulationStatus="running" />);
+    const { getByText } = render(<SimCockpit simulationStatus="running" debugMode={true} />);
 
-    expect(getByText("State")).toBeInTheDocument();
     expect(getByText("RUNNING")).toBeInTheDocument();
   });
 
-  it("shows WS link state in debugMode", () => {
+  it("shows WS indicator dot in debug mode", () => {
     mockedUseTelemetryStore.mockReturnValue(
       createTelemetryStoreMock({ lastHeartbeatAt: null }),
     );
 
-    const { getByText } = render(<SimCockpit debugMode={true} />);
+    const { getByText, container } = render(<SimCockpit debugMode={true} />);
 
-    expect(getByText("WS Link")).toBeInTheDocument();
-    expect(getByText("DISCONNECTED")).toBeInTheDocument();
+    expect(getByText("WS")).toBeInTheDocument();
+    expect(container.querySelector(".bg-red-500")).toBeInTheDocument();
   });
 
-  it("shows Docker Sandbox label in debugMode when heartbeat is recent", () => {
+  it("shows Docker label in debug mode when heartbeat is recent", () => {
     mockedUseTelemetryStore.mockReturnValue(
       createTelemetryStoreMock({ lastHeartbeatAt: Date.now() }),
     );
@@ -88,13 +86,12 @@ describe("SimCockpit", () => {
       <SimCockpit simulationStatus="running" sandboxMode="docker-sandbox" workerIndex={1} workerTotal={3} debugMode={true} />,
     );
 
-    expect(getByText("STABLE")).toBeInTheDocument();
-    expect(getByText("Docker Sandbox")).toBeInTheDocument();
-    expect(getByText("#2 / 3")).toBeInTheDocument();
-    expect(container.querySelector(".bg-emerald-500")).toBeInTheDocument();
+    expect(getByText("Docker")).toBeInTheDocument();
+    expect(getByText("#2/3")).toBeInTheDocument();
+    expect(container.querySelector(".bg-emerald-400")).toBeInTheDocument();
   });
 
-  it("shows local-limited sandbox label in debugMode", () => {
+  it("shows Local label in debug mode for local-limited sandbox", () => {
     mockedUseTelemetryStore.mockReturnValue(
       createTelemetryStoreMock({ lastHeartbeatAt: null }),
     );
@@ -103,10 +100,10 @@ describe("SimCockpit", () => {
       <SimCockpit sandboxMode="local-limited" debugMode={true} />,
     );
 
-    expect(getByText("Local Limited")).toBeInTheDocument();
+    expect(getByText("Local")).toBeInTheDocument();
   });
 
-  it("shows pool and compile stats when serverStatus is provided", () => {
+  it("shows pool and compile stats in debug mode when serverStatus is provided", () => {
     mockedUseTelemetryStore.mockReturnValue(
       createTelemetryStoreMock({ lastHeartbeatAt: null }),
     );
@@ -116,10 +113,10 @@ describe("SimCockpit", () => {
       compile: { active: 2, queued: 0, maxConcurrent: 8 },
     };
 
-    const { getByText } = render(<SimCockpit serverStatus={serverStatus} />);
+    const { getByText } = render(<SimCockpit serverStatus={serverStatus} debugMode={true} />);
 
-    expect(getByText("Runners")).toBeInTheDocument();
-    expect(getByText("Compile")).toBeInTheDocument();
+    expect(getByText("Pool")).toBeInTheDocument();
+    expect(getByText("GCC")).toBeInTheDocument();
     expect(getByText("3/8")).toBeInTheDocument();
   });
 });

@@ -59,6 +59,7 @@ class SandboxRunnerPool {
   private readonly queue: QueueEntry[] = [];
   private readonly logger = new Logger("SandboxRunnerPool");
   private readonly acquireTimeoutMs = 60000;
+  private readonly resetTimeoutMs = 10000;
   private initialized = false;
 
   constructor(options: { minRunners?: number; maxRunners?: number; idleTimeoutMs?: number } = {}) {
@@ -155,28 +156,56 @@ class SandboxRunnerPool {
       return;
     }
 
-    await this.resetRunnerState(runner);
-
+    // Always mark as free FIRST, even if reset hangs — prevents permanent pool deadlock
     pooledRunner.inUse = false;
     pooledRunner.lastReleasedTime = Date.now();
+
+    // Reset with a timeout guard so a stuck runner.stop() cannot block forever
+    try {
+      await Promise.race([
+        this.resetRunnerState(runner),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error("Runner reset timed out")), this.resetTimeoutMs),
+        ),
+      ]);
+    } catch (error) {
+      this.logger.error(
+        `[SandboxRunnerPool] Runner reset failed or timed out: ${error}. Force-replacing runner.`,
+      );
+      // Replace the stuck runner with a fresh one
+      const index = this.runners.indexOf(pooledRunner);
+      if (index !== -1) {
+        const freshRunner = new SandboxRunner();
+        this.runners[index] = {
+          runner: freshRunner,
+          inUse: false,
+          lastReleasedTime: Date.now(),
+          idleTimer: null,
+        };
+        this.logger.info(`[SandboxRunnerPool] Replaced stuck runner at index ${index} with fresh instance`);
+      }
+    }
+
+    // Find the (possibly replaced) pooled runner for queue dispatch
+    const currentPooled = this.runners.find((p) => p.runner === (pooledRunner.runner ?? runner) || p === pooledRunner);
+    const freeRunner = currentPooled && !currentPooled.inUse ? currentPooled : this.runners.find((p) => !p.inUse);
+
     this.logger.debug(
       `[SandboxRunnerPool] Runner released and reset (available: ${this.runners.filter((p) => !p.inUse).length}/${this.runners.length})`,
-      
     );
 
-    if (this.queue.length > 0) {
+    if (this.queue.length > 0 && freeRunner) {
       const entry = this.queue.shift();
       if (entry) {
         clearTimeout(entry.timeout);
-        pooledRunner.inUse = true;
-        entry.resolve(pooledRunner.runner);
+        freeRunner.inUse = true;
+        entry.resolve(freeRunner.runner);
         this.logger.debug(
           `[SandboxRunnerPool] Queued request granted (queue: ${this.queue.length} remaining)`,
         );
       }
-    } else {
-      // Schedule idle cleanup for on-demand runners above minRunners floor
-      this.scheduleIdleCleanup(pooledRunner);
+    } else if (freeRunner) {
+      this.scheduleIdleCleanup(freeRunner);
     }
   }
 

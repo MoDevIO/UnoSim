@@ -365,6 +365,52 @@ describe("SandboxRunnerPool", () => {
     // Should not throw even when reset() fails
     await expect(pool.releaseRunner(runner)).resolves.toBeUndefined();
   });
+
+  it("replaces stuck runner when stop() hangs beyond reset timeout", async () => {
+    const pool = getSandboxRunnerPool();
+    await pool.initialize();
+
+    const runner = await pool.acquireRunner();
+    runner.isRunning = true;
+    // Make stop() hang forever
+    runner.stop = vi.fn().mockReturnValue(new Promise(() => {}));
+
+    const statsBefore = pool.getStats();
+    expect(statsBefore.inUseRunners).toBe(1);
+
+    // Release should not hang — the 10s timeout fires and the runner is replaced
+    await pool.releaseRunner(runner);
+
+    const statsAfter = pool.getStats();
+    // Runner was freed (either original or replaced)
+    expect(statsAfter.inUseRunners).toBe(0);
+    expect(statsAfter.availableRunners).toBe(5);
+  }, 15000);
+
+  it("releases pool slot immediately even if reset hangs", async () => {
+    const pool = getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Acquire all 5 runners
+    const runners = [];
+    for (let i = 0; i < 5; i++) {
+      runners.push(await pool.acquireRunner());
+    }
+
+    // Make runner[0].stop() hang
+    runners[0].isRunning = true;
+    runners[0].stop = vi.fn().mockReturnValue(new Promise(() => {}));
+
+    // Queue a new request
+    const pendingAcquire = pool.acquireRunner();
+
+    // Release the hanging runner — slot should still free so queued request resolves
+    await pool.releaseRunner(runners[0]);
+
+    const queuedRunner = await pendingAcquire;
+    expect(queuedRunner).toBeDefined();
+    expect(pool.getStats().queuedRequests).toBe(0);
+  }, 15000);
 });
 
 // ---------------------------------------------------------------------------

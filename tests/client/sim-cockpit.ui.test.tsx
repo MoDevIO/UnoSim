@@ -27,7 +27,7 @@ describe("SimCockpit UI", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders SimCockpit with Server and State display", () => {
+  it("renders SimCockpit with SERVER indicator in normal mode", () => {
     telemetryStore.pushTelemetry(baseMetrics);
 
     const batchStats: BatchStats = {
@@ -38,10 +38,7 @@ describe("SimCockpit UI", () => {
 
     render(<SimCockpit batchStats={batchStats} simulationStatus="running" backendReachable={true} isConnected={true} />);
 
-    // SimCockpit should render server status and simulation state
-    expect(screen.getByText("Server")).toBeDefined();
-    expect(screen.getByText("ONLINE")).toBeDefined();
-    expect(screen.getByText("State")).toBeDefined();
-    expect(screen.getByText("RUNNING")).toBeDefined();
+    // Normal mode: only shows SERVER indicator
+    expect(screen.getByText("SERVER")).toBeDefined();
   });
 });

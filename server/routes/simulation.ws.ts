@@ -200,12 +200,15 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     };
 
     const onExit = (exitCode: number | null) => {
+      // Capture runner reference immediately — the clientRunners map entry
+      // may be deleted by the ws "close" handler before the setTimeout fires.
+      const capturedCs = clientRunners.get(ws);
+
       setTimeout(async () => {
         try {
           flushSerialOutputBuffer(ws);
-          const cs = clientRunners.get(ws);
-          if (cs) {
-            await safeReleaseRunner(cs, "onExit");
+          if (capturedCs) {
+            await safeReleaseRunner(capturedCs, "onExit");
           }
 
           if (!shouldSendSimulationEndMessage(compileFailed)) return;
