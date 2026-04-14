@@ -2,11 +2,21 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { QueryClient } from "@tanstack/react-query";
+import type { ServerStatusEventData } from "@/types/external-api";
+
+export type PoolStats = ServerStatusEventData["pool"];
+export type CompileStats = ServerStatusEventData["compile"];
+
+export type ServerStatus = {
+  pool: PoolStats;
+  compile: CompileStats;
+} | null;
 
 export function useBackendHealth(queryClient: QueryClient) {
   const [backendReachable, setBackendReachable] = useState(true);
   const [backendPingError, setBackendPingError] = useState<string | null>(null);
   const [showErrorGlitch, setShowErrorGlitch] = useState(false);
+  const [serverStatus, setServerStatus] = useState<ServerStatus>(null);
 
   // Ref to track if backend was ever unreachable (for recovery toast)
   const wasBackendUnreachableRef = useRef(false);
@@ -55,6 +65,36 @@ export function useBackendHealth(queryClient: QueryClient) {
 
     const interval = setInterval(ping, 1000);
     ping();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Poll /api/status every 3 seconds for pool / compile-queue stats
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchStatus = async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      try {
+        const res = await fetch("/api/status", { cache: "no-store", signal: controller.signal });
+        if (!res.ok) return;
+        const data = await res.json() as { pool: PoolStats; compile: CompileStats };
+        if (!cancelled) {
+          setServerStatus({ pool: data.pool, compile: data.compile });
+        }
+      } catch {
+        // status fetch failure is non-critical – silently ignore
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+
+    const interval = setInterval(fetchStatus, 3000);
+    fetchStatus();
 
     return () => {
       cancelled = true;
@@ -144,6 +184,7 @@ export function useBackendHealth(queryClient: QueryClient) {
     backendReachable,
     backendPingError,
     showErrorGlitch,
+    serverStatus,
     ensureBackendConnected,
     isBackendUnreachableError,
     triggerErrorGlitch,

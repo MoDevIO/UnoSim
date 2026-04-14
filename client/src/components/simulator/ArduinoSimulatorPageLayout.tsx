@@ -67,6 +67,7 @@ export function ArduinoSimulatorPageLayout(
     renderedSerialOutput,
     serialOutput,
     isConnected,
+    serverStatus,
     handleSerialSend,
     handleClearSerialOutput,
     showSerialMonitor,
@@ -192,15 +193,17 @@ export function ArduinoSimulatorPageLayout(
         }}
         showCompilationOutput={showCompilationOutput}
         rightSlot={
-          debugMode ? (
-            <SimCockpit
-              sandboxMode={sandboxMode}
-              workerIndex={workerIndex}
-              workerTotal={workerTotal}
-              batchStats={batchStats}
-              simulationStatus={simulationStatus}
-            />
-          ) : undefined
+          <SimCockpit
+            sandboxMode={sandboxMode}
+            workerIndex={workerIndex}
+            workerTotal={workerTotal}
+            batchStats={batchStats}
+            simulationStatus={simulationStatus}
+            backendReachable={backendReachable}
+            isConnected={isConnected}
+            serverStatus={serverStatus}
+            debugMode={debugMode}
+          />
         }
       />
       {/* Hidden file input used by File → Load Files */}

@@ -6,7 +6,7 @@
  */
 
 /** API Version for backward compatibility and feature negotiation. */
-export const API_VERSION = "1.2.0";
+export const API_VERSION = "1.3.0";
 
 /**
  * All actions supported by the simulator's remote control interface (inbound).
@@ -36,6 +36,8 @@ export enum SimulatorActionType {
   SET_OUTPUT_TAB = "SET_OUTPUT_TAB",
   /** Query the current simulation state (triggers a RESPONSE message) */
   GET_SIMULATION_STATE = "GET_SIMULATION_STATE",
+  /** Query the current server/pool status (triggers a RESPONSE message) */
+  GET_SERVER_STATUS = "GET_SERVER_STATUS",
 }
 
 /**
@@ -49,6 +51,8 @@ export enum SimulatorEventType {
   SIMULATION_STATE_EVENT = "SIMULATION_STATE_EVENT",
   /** Data has been output over the serial interface (Serial.print, etc.) */
   SERIAL_OUTPUT_EVENT = "SERIAL_OUTPUT_EVENT",
+  /** The server/pool status has changed (runner pool, compile queue, reachability) */
+  SERVER_STATUS_EVENT = "SERVER_STATUS_EVENT",
 }
 
 /**
@@ -116,6 +120,7 @@ type PayloadMap = {
   [SimulatorActionType.SET_SIMULATION_TIMEOUT]: SetSimulationTimeoutPayload;
   [SimulatorActionType.SET_OUTPUT_TAB]: SetOutputTabPayload;
   [SimulatorActionType.GET_SIMULATION_STATE]: undefined;
+  [SimulatorActionType.GET_SERVER_STATUS]: undefined;
 };
 
 /**
@@ -132,6 +137,33 @@ export interface PinStateChangeEventData {
 export interface SimulationStateEventData {
   state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR" | "COMPILING" | "QUEUED";
   message?: string;
+}
+
+/**
+ * Data for SERVER_STATUS_EVENT events.
+ * Reports server reachability, runner pool stats, and compile queue stats.
+ */
+export interface ServerStatusEventData {
+  /** True when the server HTTP endpoint is reachable */
+  serverReachable: boolean;
+  pool: {
+    /** Total runner slots allocated */
+    total: number;
+    /** Runner slots currently idle */
+    available: number;
+    /** Runner slots actively running a simulation */
+    inUse: number;
+    /** Requests waiting for a free runner */
+    queued: number;
+  };
+  compile: {
+    /** Compile jobs currently in progress */
+    active: number;
+    /** Compile jobs waiting for a free slot */
+    queued: number;
+    /** Maximum concurrent compile jobs allowed */
+    maxConcurrent: number;
+  };
 }
 
 
@@ -178,5 +210,7 @@ export type SimulatorEventMessage<T extends SimulatorEventType = SimulatorEventT
       ? SimulationStateEventData
       : T extends SimulatorEventType.SERIAL_OUTPUT_EVENT
         ? string
-        : never;
+        : T extends SimulatorEventType.SERVER_STATUS_EVENT
+          ? ServerStatusEventData
+          : never;
 }

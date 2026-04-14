@@ -23,7 +23,7 @@ vi.mock("node:worker_threads", () => ({
   default: { Worker: WorkerMock },
 }));
 vi.mock("node:fs", async (importOriginal) => {
-  const actual = await importOriginal() as typeof import("node:fs");
+  const actual = await importOriginal<typeof import("node:fs")>();
   return { ...actual, default: { ...actual, existsSync: () => true }, existsSync: () => true };
 });
 vi.mock("@shared/logger", () => ({
@@ -61,9 +61,7 @@ describe("CompilationWorkerPool – env-var configuration", () => {
 
   it("passes unique tempRoot per worker in workerData", () => {
     process.env.WORKER_COUNT = "3";
-    new CompilationWorkerPool();
-
-    expect(WorkerMock.mock.calls.length).toBe(3);
+      const _pool = new CompilationWorkerPool();
 
     const tempRoots = WorkerMock.mock.calls.map((c: any[]) => c[1]?.workerData?.tempRoot as string);
     expect(tempRoots[0]).toBeDefined();

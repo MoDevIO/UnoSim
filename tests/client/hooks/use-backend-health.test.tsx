@@ -58,21 +58,24 @@ describe("useBackendHealth", () => {
   it("should poll health endpoint every second", async () => {
     renderHook(() => useBackendHealth(mockQueryClient));
 
-    // Initial call
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy).toHaveBeenCalledWith("/api/health", {
-      method: "GET",
-      cache: "no-store",
-      signal: expect.any(AbortSignal),
+    // Initial calls: /api/health + /api/status both fire immediately
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith("/api/health", {
+        method: "GET",
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      });
     });
 
-    // Wait for next interval
+    const callsAfterMount = fetchSpy.mock.calls.length;
+
+    // Advance 1000ms — health interval fires once more
     act(() => {
       vi.advanceTimersByTime(1000);
     });
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(fetchSpy.mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 

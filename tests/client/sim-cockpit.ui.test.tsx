@@ -27,7 +27,7 @@ describe("SimCockpit UI", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders SimCockpit with Link State display", () => {
+  it("renders SimCockpit with Server and State display", () => {
     telemetryStore.pushTelemetry(baseMetrics);
 
     const batchStats: BatchStats = {
@@ -36,11 +36,12 @@ describe("SimCockpit UI", () => {
       lastFrameAt: fixedNow,
     };
 
-    render(<SimCockpit batchStats={batchStats} simulationStatus="running" />);
+    render(<SimCockpit batchStats={batchStats} simulationStatus="running" backendReachable={true} isConnected={true} />);
 
-    // SimCockpit should render with Link State indicator
-    // According to Phase C.3 concept, this component only shows Link State now
-    expect(screen.getByText("Link State")).toBeDefined();
-    expect(screen.getByText("STABLE")).toBeDefined();
+    // SimCockpit should render server status and simulation state
+    expect(screen.getByText("Server")).toBeDefined();
+    expect(screen.getByText("ONLINE")).toBeDefined();
+    expect(screen.getByText("State")).toBeDefined();
+    expect(screen.getByText("RUNNING")).toBeDefined();
   });
 });

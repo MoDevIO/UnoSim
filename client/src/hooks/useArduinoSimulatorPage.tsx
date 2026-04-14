@@ -26,7 +26,7 @@ import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
-import { useExternalApi } from "@/hooks/use-external-api";
+import { useExternalApi, emitServerStatusEvent } from "@/hooks/use-external-api";
 import { parseStaticIORegistry } from "@shared/io-registry-parser";
 
 import type {
@@ -204,6 +204,7 @@ export function useArduinoSimulatorPage() {
     ensureBackendConnected,
     isBackendUnreachableError,
     triggerErrorGlitch,
+    serverStatus,
   } = useBackendHealth(queryClient);
 
   // placeholder for compilation-start callback
@@ -661,7 +662,22 @@ export function useArduinoSimulatorPage() {
     onSetSimulationTimeout: setSimulationTimeout,
     onSetOutputTab: setActiveOutputTab,
     getSimulationState: () => simulationStatus,
+    getServerStatus: () => serverStatus && {
+      serverReachable: backendReachable,
+      pool: serverStatus.pool,
+      compile: serverStatus.compile,
+    },
   });
+
+  // Emit SERVER_STATUS_EVENT whenever pool / health state changes
+  useEffect(() => {
+    if (!serverStatus) return;
+    emitServerStatusEvent({
+      serverReachable: backendReachable,
+      pool: serverStatus.pool,
+      compile: serverStatus.compile,
+    });
+  }, [serverStatus, backendReachable]);
 
   const state = {
     showErrorGlitch,
@@ -734,6 +750,7 @@ export function useArduinoSimulatorPage() {
     sandboxMode,
     workerIndex,
     workerTotal,
+    serverStatus,
     mobilePanel,
     setMobilePanel,
     headerHeight,
