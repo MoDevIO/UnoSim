@@ -358,9 +358,12 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       return;
     }
 
-    // Verify compiled code exists
-    const lastCompiledCode = getLastCompiledCode();
-    if (!lastCompiledCode) {
+    // Use per-client code from the WS message if provided (multi-client isolation),
+    // otherwise fall back to the global lastCompiledCode (backward compatibility).
+    const code = ("code" in data && typeof data.code === "string" && data.code.trim().length > 0)
+      ? data.code
+      : getLastCompiledCode();
+    if (!code) {
       if (clientState.runner) {
         await safeReleaseRunner(clientState, "missing-compiled-code");
       }
@@ -413,7 +416,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     // Log consolidated payload for audit
     try {
       const payload = {
-        code: lastCompiledCode,
+        code,
         timeoutSec: timeoutValue,
         context: { sessionId: clientState.testRunId, label: "default-ws" },
       };
@@ -431,7 +434,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     // Start sketch execution and publish sandbox mode once the runner has resolved
     try {
       await clientState.runner.runSketch({
-        code: lastCompiledCode,
+        code,
         onOutput: callbacks.onOutput,
         onError: callbacks.onError,
         onExit: callbacks.onExit,

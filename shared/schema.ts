@@ -35,6 +35,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("start_simulation"),
     timeout: z.number().optional(), // Timeout in seconds, 0 = infinite
+    code: z.string().optional(),     // Per-client code (overrides global lastCompiledCode)
   }),
   z.object({
     type: z.literal("pause_simulation"),
