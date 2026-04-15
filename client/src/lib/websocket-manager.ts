@@ -38,10 +38,14 @@ const CONFIG = {
   // Reconnection settings
   RECONNECT_BASE_DELAY_MS: 1000,
   RECONNECT_MAX_DELAY_MS: 30000,
-  RECONNECT_MAX_ATTEMPTS: 10,
+  RECONNECT_MAX_ATTEMPTS: 15,
   
   // Connection settings
-  CONNECTION_TIMEOUT_MS: 5000,
+  CONNECTION_TIMEOUT_MS: 10000,
+  
+  // Thundering-herd mitigation: stagger initial connection when embedded in an
+  // iframe so that 50+ simultaneous instances don't all hit the server at once.
+  IFRAME_STAGGER_MAX_MS: 3000,
 } as const;
 
 class WebSocketManager {
@@ -52,6 +56,7 @@ class WebSocketManager {
   private reconnectAttempts = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private connectionTimeout: ReturnType<typeof setTimeout> | null = null;
+  private staggerTimeout: ReturnType<typeof setTimeout> | null = null;
   
   // Message buffer for batching
   private messageBuffer: WSMessage[] = [];
@@ -65,6 +70,9 @@ class WebSocketManager {
   
   // Track if we ever successfully connected (for UI messaging)
   private _hasEverConnected = false;
+  
+  // Whether initial connection stagger has been applied (one-time only)
+  private initialStaggerApplied = false;
   
   // Test isolation: unique ID for E2E tests
   private testRunId: string | null = null;
@@ -100,6 +108,29 @@ class WebSocketManager {
   }
   
   /**
+   * Check if we're inside an iframe and should stagger the initial connection.
+   * Returns true if a stagger was scheduled (caller should return early).
+   */
+  private applyIframeStagger(): boolean {
+    if (this.initialStaggerApplied) return false;
+    this.initialStaggerApplied = true;
+    try {
+      const inIframe = globalThis.window !== undefined && globalThis.window !== globalThis.window.parent;
+      if (!inIframe) return false;
+    } catch {
+      // Cross-origin iframe access may throw — connect immediately
+      return false;
+    }
+    const staggerMs = (crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * CONFIG.IFRAME_STAGGER_MAX_MS;
+    logger.info(`[Iframe] Staggering initial connection by ${Math.round(staggerMs)}ms`);
+    this.staggerTimeout = setTimeout(() => {
+      this.staggerTimeout = null;
+      this.connect();
+    }, staggerMs);
+    return true;
+  }
+
+  /**
    * Initialize and connect WebSocket
    * Safe to call multiple times - will not create duplicate connections
    */
@@ -120,6 +151,10 @@ class WebSocketManager {
       logger.debug("WebSocket already connecting, skipping");
       return;
     }
+    
+    // Thundering-herd mitigation: stagger the very first connection when
+    // embedded in an iframe so 50+ instances don't handshake simultaneously.
+    if (this.applyIframeStagger()) return;
     
     this.isConnecting = true;
     this.setState("connecting");
@@ -261,6 +296,10 @@ class WebSocketManager {
    */
   public disconnect(): void {
     logger.info("Disconnecting WebSocket");
+    if (this.staggerTimeout) {
+      clearTimeout(this.staggerTimeout);
+      this.staggerTimeout = null;
+    }
     this.cancelReconnect();
     this.cleanupConnection();
     this.setState("disconnected");

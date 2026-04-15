@@ -18,6 +18,18 @@ export function useBackendHealth(queryClient: QueryClient) {
   const [showErrorGlitch, setShowErrorGlitch] = useState(false);
   const [serverStatus, setServerStatus] = useState<ServerStatus>(null);
 
+  // Startup grace period: suppress error toasts during initial connection phase.
+  // When many instances (e.g. 50 iframes) load simultaneously, initial health
+  // checks and WebSocket handshakes may fail briefly. Showing error toasts
+  // during this transient period is misleading — wait before alerting the user.
+  const STARTUP_GRACE_MS = 5000;
+  const [startupGraceOver, setStartupGraceOver] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setStartupGraceOver(true), STARTUP_GRACE_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Ref to track if backend was ever unreachable (for recovery toast)
   const wasBackendUnreachableRef = useRef(false);
 
@@ -41,7 +53,7 @@ export function useBackendHealth(queryClient: QueryClient) {
 
     const ping = async () => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 800);
+      const timeout = setTimeout(() => controller.abort(), 2000);
       try {
         const res = await fetch("/api/health", {
           method: "GET",
@@ -102,8 +114,9 @@ export function useBackendHealth(queryClient: QueryClient) {
     };
   }, []);
 
-  // WebSocket reachability notifications
+  // WebSocket reachability notifications (suppressed during startup grace period)
   useEffect(() => {
+    if (!startupGraceOver) return;
     if (connectionError) {
       toast({
         title: "Backend unreachable",
@@ -117,26 +130,33 @@ export function useBackendHealth(queryClient: QueryClient) {
         variant: "destructive",
       });
     }
-  }, [connectionError, isConnected, hasEverConnected, toast]);
+  }, [startupGraceOver, connectionError, isConnected, hasEverConnected, toast]);
 
   // Show toast when HTTP backend becomes unreachable or recovers
+  // Toast display is suppressed during startup grace period, but the
+  // wasBackendUnreachableRef tracking always runs so that post-grace
+  // transitions are detected correctly.
   useEffect(() => {
     if (!backendReachable) {
       wasBackendUnreachableRef.current = true;
-      toast({
-        title: "Backend unreachable",
-        description: backendPingError || "Could not reach API server.",
-        variant: "destructive",
-      });
+      if (startupGraceOver) {
+        toast({
+          title: "Backend unreachable",
+          description: backendPingError || "Could not reach API server.",
+          variant: "destructive",
+        });
+      }
     } else if (backendReachable && wasBackendUnreachableRef.current) {
       // Backend recovered after being unreachable
       wasBackendUnreachableRef.current = false;
-      toast({
-        title: "Backend reachable again",
-        description: "Connection restored.",
-      });
+      if (startupGraceOver) {
+        toast({
+          title: "Backend reachable again",
+          description: "Connection restored.",
+        });
+      }
     }
-  }, [backendReachable, backendPingError, toast]);
+  }, [startupGraceOver, backendReachable, backendPingError, toast]);
 
   // Refetch sketches when backend becomes reachable again (false -> true transition)
   useEffect(() => {
