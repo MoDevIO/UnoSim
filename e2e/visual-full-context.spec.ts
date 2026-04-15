@@ -114,6 +114,7 @@ test.describe('Visual Full-Context Baselines', () => {
     // the board always renders with the canonical color (#00979D) in snapshots.
     await page.addInitScript(() => {
       localStorage.setItem('unoBoardColor', '#00979D');
+      (globalThis as any).__DISABLE_TOASTS = true;
     });
     await page.goto('/', { waitUntil: 'networkidle' });
     await page.waitForTimeout(400);
