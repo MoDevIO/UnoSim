@@ -2,6 +2,7 @@ import { SandboxRunner } from "./sandbox-runner";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord } from "@shared/schema";
 import type { ExecutionState, TelemetryMetrics } from "./sandbox/execution-manager";
+import { config } from "../config";
 
 interface PooledRunner {
   runner: SandboxRunner;
@@ -402,10 +403,11 @@ let poolInstance: SandboxRunnerPool | null = null;
 
 export function getSandboxRunnerPool(): SandboxRunnerPool {
   if (!poolInstance) {
-    const minRunners = Number.parseInt(process.env.SANDBOX_POOL_MIN_RUNNERS ?? "5", 10);
-    const maxRunners = Number.parseInt(process.env.SANDBOX_POOL_MAX_RUNNERS ?? String(minRunners), 10);
-    const idleTimeoutMs = Number.parseInt(process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS ?? "120000", 10);
-    poolInstance = new SandboxRunnerPool({ minRunners, maxRunners, idleTimeoutMs });
+    poolInstance = new SandboxRunnerPool({
+      minRunners: config.sandbox.pool.minRunners,
+      maxRunners: config.sandbox.pool.maxRunners,
+      idleTimeoutMs: config.sandbox.pool.idleTimeoutMs,
+    });
   }
   return poolInstance;
 }

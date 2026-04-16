@@ -29,19 +29,19 @@ describe("SANDBOX_CONFIG – env-var resource limits", () => {
     expect(SANDBOX_CONFIG.cpuLimit).toBe("0.25");
   });
 
-  it("falls back to default 256 MB when SANDBOX_MEMORY_MB not set", async () => {
+  it("falls back to default 64 MB when SANDBOX_MEMORY_MB not set", async () => {
     vi.resetModules();
     const { SANDBOX_CONFIG } = await import(
       "../../../server/services/sandbox/execution-manager"
     );
-    expect(SANDBOX_CONFIG.maxMemoryMB).toBe(256);
+    expect(SANDBOX_CONFIG.maxMemoryMB).toBe(64);
   });
 
-  it("falls back to default 0.5 CPU when SANDBOX_CPU_LIMIT not set", async () => {
+  it("falls back to default 0.25 CPU when SANDBOX_CPU_LIMIT not set", async () => {
     vi.resetModules();
     const { SANDBOX_CONFIG } = await import(
       "../../../server/services/sandbox/execution-manager"
     );
-    expect(SANDBOX_CONFIG.cpuLimit).toBe("0.5");
+    expect(SANDBOX_CONFIG.cpuLimit).toBe("0.25");
   });
 });

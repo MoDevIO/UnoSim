@@ -55,7 +55,7 @@ describe("useBackendHealth", () => {
     expect(result.current.showErrorGlitch).toBe(false);
   });
 
-  it("should poll health endpoint every second", async () => {
+  it("should poll health endpoint every 5 seconds", async () => {
     renderHook(() => useBackendHealth(mockQueryClient));
 
     // Initial calls: /api/health + /api/status both fire immediately
@@ -69,9 +69,9 @@ describe("useBackendHealth", () => {
 
     const callsAfterMount = fetchSpy.mock.calls.length;
 
-    // Advance 1000ms — health interval fires once more
+    // Advance 5000ms — health interval fires once more
     act(() => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
@@ -86,7 +86,7 @@ describe("useBackendHealth", () => {
     await act(async () => {
       const hook = renderHook(() => useBackendHealth(mockQueryClient));
       result = hook.result;
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
@@ -102,7 +102,7 @@ describe("useBackendHealth", () => {
 
     // Wait for initial health check to fail
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
@@ -137,7 +137,7 @@ describe("useBackendHealth", () => {
 
     // Wait for initial health check to fail
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
@@ -163,7 +163,7 @@ describe("useBackendHealth", () => {
     shouldFail = false;
 
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
@@ -192,9 +192,9 @@ describe("useBackendHealth", () => {
       expect(result.current.backendReachable).toBe(false);
     });
 
-    // Second ping succeeds after 1000ms
+    // Second ping succeeds after 5000ms
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {

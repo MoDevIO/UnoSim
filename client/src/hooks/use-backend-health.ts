@@ -75,7 +75,7 @@ export function useBackendHealth(queryClient: QueryClient) {
       }
     };
 
-    const interval = setInterval(ping, 1000);
+    const interval = setInterval(ping, 5000);
     ping();
 
     return () => {
@@ -105,7 +105,7 @@ export function useBackendHealth(queryClient: QueryClient) {
       }
     };
 
-    const interval = setInterval(fetchStatus, 3000);
+    const interval = setInterval(fetchStatus, 15000);
     fetchStatus();
 
     return () => {

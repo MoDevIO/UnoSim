@@ -16,11 +16,11 @@ services:
       - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
       # Scalability: pool grows on-demand up to MAX_RUNNERS, shrinks after IDLE_TIMEOUT_MS
       - SANDBOX_POOL_MIN_RUNNERS=5
-      - SANDBOX_POOL_MAX_RUNNERS=30
+      - SANDBOX_POOL_MAX_RUNNERS=100
       - SANDBOX_POOL_IDLE_TIMEOUT_MS=300000
-      # Per-sandbox Docker resource limits
-      - SANDBOX_MEMORY_MB=256
-      - SANDBOX_CPU_LIMIT=0.5
+      # Per-sandbox Docker resource limits (AVR sketches need <30 MB real memory)
+      - SANDBOX_MEMORY_MB=64
+      - SANDBOX_CPU_LIMIT=0.25
       # Compilation worker threads (per-worker temp dir eliminates arduino-cli races)
       - WORKER_COUNT=8
       # Max simultaneous Docker containers in compile phase (prevents CPU starvation)

@@ -21,6 +21,7 @@ import { getDockerCompileSemaphore } from "./docker-compile-semaphore";
 import { DockerManager } from "./docker-manager";
 import { StreamHandler } from "./stream-handler";
 import { FilesystemHelper } from "./filesystem-helper";
+import { config } from "../../config";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -31,13 +32,13 @@ export enum SimulationState {
 }
 
 export const SANDBOX_CONFIG = {
-  dockerImage: process.env.DOCKER_SANDBOX_IMAGE ?? "unosim-sandbox:latest",
-  useDocker: true,
-  maxMemoryMB: Number.parseInt(process.env.SANDBOX_MEMORY_MB ?? "256", 10),
-  cpuLimit: process.env.SANDBOX_CPU_LIMIT ?? "0.5",
-  maxCpuPercent: 50,
-  maxExecutionTimeSec: 60,
-  maxOutputBytes: 100 * 1024 * 1024,
+  dockerImage: config.sandbox.dockerImage,
+  useDocker: config.simulationMode === "docker-sandbox",
+  maxMemoryMB: config.sandbox.resources.memoryMB,
+  cpuLimit: config.sandbox.resources.cpuLimit,
+  maxCpuPercent: Math.round(Number.parseFloat(config.sandbox.resources.cpuLimit) * 100),
+  maxExecutionTimeSec: config.sandbox.resources.maxExecutionTimeSec,
+  maxOutputBytes: config.sandbox.resources.maxOutputBytes,
   noNetwork: true,
   readOnlyFs: true,
   dropCapabilities: true,
