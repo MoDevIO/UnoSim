@@ -34,11 +34,12 @@ describe("useBackendHealth", () => {
       hasEverConnected: true,
     });
 
-    // Mock fetch for health check
+    // Mock fetch for health check and /api/config
     fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValue({
       ok: true,
       status: 200,
+      json: async () => ({}),
     } as Response);
   });
 
@@ -176,13 +177,18 @@ describe("useBackendHealth", () => {
 
   it("should refetch queries when backend recovers", async () => {
     // Start unreachable
-    let callCount = 0;
-    fetchSpy.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
+    let healthCallCount = 0;
+    fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      if (urlStr === "/api/config" || urlStr === "/api/status") {
+        return { ok: true, status: 200, json: async () => ({ pool: {}, compile: {} }) } as Response;
+      }
+      // Only count /api/health calls
+      healthCallCount++;
+      if (healthCallCount === 1) {
         throw new Error("Down");
       }
-      return { ok: true, status: 200 } as Response;
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
     });
     
     const { result } = renderHook(() => useBackendHealth(mockQueryClient));

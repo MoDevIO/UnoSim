@@ -21,6 +21,7 @@ import { registerCompilerRoutes } from "./routes/compiler.routes";
 import { registerSimulationWebSocket } from "./routes/simulation.ws";
 import { registerAuthRoutes } from "./routes/auth.routes";
 import { registerStatusRoutes } from "./routes/status.routes";
+import { registerConfigRoutes } from "./routes/config.routes";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,6 +46,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Detailed status endpoint: pool stats + compile semaphore stats
   registerStatusRoutes(app);
+
+  // Client configuration endpoint
+  registerConfigRoutes(app);
 
   // Test Reset Endpoint: Cleanup all running simulations for idempotent test isolation
   // Each E2E test can call this before starting to ensure a clean backend state

@@ -16,6 +16,7 @@ import { CompilationWorkerPool, getCompilationPool } from "./compilation-worker-
 import { ArduinoCompiler } from "./arduino-compiler";
 import type { CompilationResult, CompileRequestOptions } from "./arduino-compiler";
 import type { CompileRequestPayload } from "@shared/worker-protocol";
+import { config } from "../config";
 
 export class PooledCompiler {
   private readonly pool: CompilationWorkerPool | null;
@@ -27,7 +28,7 @@ export class PooledCompiler {
     this.directCompiler = new ArduinoCompiler();
     
     // Try to use worker pool in production if available
-    this.usePool = process.env.NODE_ENV === "production";
+    this.usePool = config.serverMode === "docker";
     
     if (this.usePool && pool) {
       this.pool = pool;

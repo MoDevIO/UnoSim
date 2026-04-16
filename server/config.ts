@@ -24,7 +24,7 @@ export type SimulationMode = "local" | "docker-sandbox";
 
 function envInt(key: string, fallback: number): number {
   const v = process.env[key];
-  return v !== undefined ? Number.parseInt(v, 10) : fallback;
+  return v ? Number.parseInt(v, 10) : fallback;
 }
 
 function envStr(key: string, fallback: string): string {
@@ -37,6 +37,12 @@ function envBool(key: string, fallback: boolean): boolean {
   return v === "1" || v.toLowerCase() === "true";
 }
 
+function envList(key: string, fallback: string[]): string[] {
+  const v = process.env[key];
+  if (v === undefined) return fallback;
+  return v.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 // ── Derived pool values ─────────────────────────────────────────────
 
 const poolMinRunners = envInt("SANDBOX_POOL_MIN_RUNNERS", 5);
@@ -45,24 +51,47 @@ const poolMinRunners = envInt("SANDBOX_POOL_MIN_RUNNERS", 5);
 const poolMaxRunners = envInt("SANDBOX_POOL_MAX_RUNNERS", poolMinRunners);
 
 const cwd = process.cwd();
-const defaultWorkers = Math.min(8, Math.max(2, Math.floor(os.cpus().length * 0.5)));
+const cpuCount = os.cpus().length;
+const defaultWorkers = Math.min(8, Math.max(2, Math.floor(cpuCount * 0.5)));
+const defaultCompileMaxConcurrent = Math.max(1, cpuCount - 1);
 
 // ── Config ──────────────────────────────────────────────────────────
 
 export const config = {
   /**
-   * Server mode is informational — detected from NODE_ENV.
-   * "docker" when running inside docker-compose, "local" otherwise.
+   * Server mode: "local" (dev) or "docker" (docker-compose).
+   * Set via UNOSIM_SERVER_MODE env var; falls back to NODE_ENV detection.
    */
-  serverMode: (process.env.NODE_ENV === "production" ? "docker" : "local") as ServerMode,
+  serverMode: (envStr("UNOSIM_SERVER_MODE", "") || (process.env.NODE_ENV === "production" ? "docker" : "local")) as ServerMode,
 
   /**
    * Simulation execution mode.
    * "docker-sandbox" uses isolated Docker containers per sketch.
    * "local" compiles and runs sketches as native child processes.
-   * Controlled by FORCE_DOCKER env var; auto-detected at runtime otherwise.
+   * Set via UNOSIM_SIMULATION_MODE or legacy FORCE_DOCKER env var.
    */
-  simulationMode: (envBool("FORCE_DOCKER", false) ? "docker-sandbox" : "local") as SimulationMode,
+  simulationMode: (envStr("UNOSIM_SIMULATION_MODE", "") || (envBool("FORCE_DOCKER", false) ? "docker-sandbox" : "local")) as SimulationMode,
+
+  /** True when running under a test framework */
+  isTest: process.env.NODE_ENV === "test",
+
+  // ── Server ──────────────────────────────────────────────────────
+
+  server: {
+    /** CSP frame-ancestors: origins allowed to embed UnoSim in an iframe */
+    allowedFrameAncestors: envList(
+      "SIMULATOR_ALLOWED_PARENT_ORIGINS",
+      envList("ALLOW_EMBED_ORIGINS", [
+        "'self'",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+      ]),
+    ),
+    /** Completely bypass rate limiting (for E2E tests) */
+    disableRateLimit: envBool("DISABLE_RATE_LIMIT", false),
+  },
 
   // ── Sandbox Pool ────────────────────────────────────────────────
 
@@ -110,6 +139,8 @@ export const config = {
     workerCount: envInt("WORKER_COUNT", defaultWorkers),
     /** Max simultaneous g++ processes inside Docker containers */
     dockerCompileConcurrent: envInt("DOCKER_COMPILE_CONCURRENT", 8),
+    /** Max simultaneous compile operations (gatekeeper) */
+    maxConcurrent: envInt("COMPILE_MAX_CONCURRENT", defaultCompileMaxConcurrent),
     /** Compilation timeout (ms) */
     timeoutMs: 60_000,
     /** Arduino Fully Qualified Board Name */
@@ -120,9 +151,11 @@ export const config = {
     buildCacheDir: envStr("BUILD_CACHE_DIR", path.join(cwd, "storage/cache")),
     /** LRU eviction trigger for build cache (bytes) */
     buildCacheMaxBytes: envInt("BUILD_CACHE_MAX_BYTES", 2 * 1024 * 1024 * 1024),
+    /** Bypass gatekeeper in E2E tests */
+    disableGatekeeper: envBool("DISABLE_COMPILE_GATEKEEPER", false),
   },
 
-  // ── Client Polling (reference values for use-backend-health.ts) ─
+  // ── Client Polling (served via GET /api/config) ─────────────────
 
   client: {
     /** /api/health ping interval */
@@ -135,5 +168,10 @@ export const config = {
     fetchTimeoutMs: 2_000,
   },
 };
+
+/** Subset of config safe to expose to the browser via GET /api/config */
+export function getClientConfig() {
+  return config.client;
+}
 
 export type UnoSimConfig = typeof config;

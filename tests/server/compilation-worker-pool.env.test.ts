@@ -18,6 +18,14 @@ const { WorkerMock } = vi.hoisted(() => {
   return { WorkerMock: mock };
 });
 
+// Mock config module with mutable workerCount
+const { mockConfig } = vi.hoisted(() => ({
+  mockConfig: { compilation: { workerCount: 4 }, serverMode: "local" },
+}));
+vi.mock("../../server/config", () => ({
+  config: mockConfig,
+}));
+
 vi.mock("node:worker_threads", () => ({
   Worker: WorkerMock,
   default: { Worker: WorkerMock },
@@ -44,23 +52,23 @@ describe("CompilationWorkerPool – env-var configuration", () => {
   });
 
   afterEach(() => {
-    delete process.env.WORKER_COUNT;
+    mockConfig.compilation.workerCount = 4;
   });
 
   it("uses WORKER_COUNT env var to set worker thread count", () => {
-    process.env.WORKER_COUNT = "6";
+    mockConfig.compilation.workerCount = 6;
     const pool = new CompilationWorkerPool();
     expect((pool as any).numWorkers).toBe(6);
   });
 
   it("caps WORKER_COUNT at MAX_SAFE_WORKERS (8)", () => {
-    process.env.WORKER_COUNT = "20";
+    mockConfig.compilation.workerCount = 20;
     const pool = new CompilationWorkerPool();
     expect((pool as any).numWorkers).toBeLessThanOrEqual(8);
   });
 
   it("passes unique tempRoot per worker in workerData", () => {
-    process.env.WORKER_COUNT = "3";
+    mockConfig.compilation.workerCount = 3;
       const _pool = new CompilationWorkerPool();
 
     const tempRoots = WorkerMock.mock.calls.map((c: any[]) => c[1]?.workerData?.tempRoot as string);

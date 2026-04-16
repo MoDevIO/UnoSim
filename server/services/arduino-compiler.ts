@@ -12,7 +12,7 @@ import { reservedNamesValidator } from "@shared/reserved-names-validator";
 import { getCompileGatekeeper } from "./compile-gatekeeper";
 import { ProcessExecutor } from "./process-executor";
 import { CompilationError, CompilerOutputParser } from "./compiler/compiler-output-parser";
-// Removed unused mock imports to satisfy TypeScript
+import { config } from "../config";
 
 // Re-export for backwards compatibility
 export type { CompilationError } from "./compiler/compiler-output-parser";
@@ -46,11 +46,8 @@ export class ArduinoCompiler {
   private readonly logger = new Logger("ArduinoCompiler");
   private readonly gatekeeper = getCompileGatekeeper();
   private readonly processExecutor = new ProcessExecutor();
-  private readonly defaultFqbn = process.env.ARDUINO_FQBN || "arduino:avr:uno";
-  private readonly defaultBuildCacheDir =
-    process.env.ARDUINO_CACHE_DIR ||
-    process.env.BUILD_CACHE_DIR ||
-    join(process.cwd(), "server", "arduino-cache");
+  private readonly defaultFqbn = config.compilation.fqbn;
+  private readonly defaultBuildCacheDir = config.compilation.cacheDir;
   private readonly defaultBinaryStorageDir = join(this.defaultBuildCacheDir, "binaries");
   private readonly defaultHexCacheDir = join(this.defaultBuildCacheDir, "hex-cache");
   private readonly defaultBuildCachePath = join(this.defaultBuildCacheDir, "build-cache");

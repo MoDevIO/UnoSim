@@ -7,6 +7,7 @@
 
 import { Logger } from "@shared/logger";
 import { getUnifiedGatekeeper, TaskPriority } from "./unified-gatekeeper";
+import { config } from "../config";
 
 class CompileGatekeeper {
   private readonly logger = new Logger("CompileGatekeeper");
@@ -16,17 +17,13 @@ class CompileGatekeeper {
     // In worker threads, disable gatekeeper since the worker pool controls concurrency
     const isWorkerThread = process.env.COMPILE_GATEKEEPER_DISABLED === "true";
     
-    // Allow explicit bypass via env var (for E2E test debugging)
-    const isDisabledViaEnv = process.env.DISABLE_COMPILE_GATEKEEPER === "true";
-    
-    if (isWorkerThread || isDisabledViaEnv) {
+    if (isWorkerThread || config.compilation.disableGatekeeper) {
       this.maxConcurrent = Infinity;
       this.logger.debug(
         `CompileGatekeeper disabled - gatekeeper passes through immediately`,
       );
     } else {
-      this.maxConcurrent =
-        maxConcurrent || Number.parseInt(process.env.COMPILE_MAX_CONCURRENT || "4", 10);
+      this.maxConcurrent = maxConcurrent || config.compilation.maxConcurrent;
 
       this.logger.info(
         `CompileGatekeeper initialized with max ${this.maxConcurrent} concurrent compiles`,

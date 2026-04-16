@@ -12,21 +12,53 @@ export type ServerStatus = {
   compile: CompileStats;
 } | null;
 
+/** Polling intervals fetched from /api/config (fallbacks match server defaults) */
+interface ClientConfig {
+  healthPollIntervalMs: number;
+  statusPollIntervalMs: number;
+  startupGraceMs: number;
+  fetchTimeoutMs: number;
+}
+
+const DEFAULT_CLIENT_CONFIG: ClientConfig = {
+  healthPollIntervalMs: 5_000,
+  statusPollIntervalMs: 15_000,
+  startupGraceMs: 5_000,
+  fetchTimeoutMs: 2_000,
+};
+
 export function useBackendHealth(queryClient: QueryClient) {
   const [backendReachable, setBackendReachable] = useState(true);
   const [backendPingError, setBackendPingError] = useState<string | null>(null);
   const [showErrorGlitch, setShowErrorGlitch] = useState(false);
   const [serverStatus, setServerStatus] = useState<ServerStatus>(null);
 
+  // Store polling config in a ref so effect callbacks always read current values
+  // without re-triggering interval setup when /api/config responds.
+  const configRef = useRef<ClientConfig>(DEFAULT_CLIENT_CONFIG);
+
+  // Fetch dynamic config from server once on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/config", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) configRef.current = { ...DEFAULT_CLIENT_CONFIG, ...data };
+        }
+      } catch {
+        // Use defaults on failure
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Startup grace period: suppress error toasts during initial connection phase.
-  // When many instances (e.g. 50 iframes) load simultaneously, initial health
-  // checks and WebSocket handshakes may fail briefly. Showing error toasts
-  // during this transient period is misleading — wait before alerting the user.
-  const STARTUP_GRACE_MS = 5000;
   const [startupGraceOver, setStartupGraceOver] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setStartupGraceOver(true), STARTUP_GRACE_MS);
+    const timer = setTimeout(() => setStartupGraceOver(true), configRef.current.startupGraceMs);
     return () => clearTimeout(timer);
   }, []);
 
@@ -47,13 +79,13 @@ export function useBackendHealth(queryClient: QueryClient) {
     } catch {}
   }, []);
 
-  // Lightweight backend ping every second
+  // Lightweight backend ping
   useEffect(() => {
     let cancelled = false;
 
     const ping = async () => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
+      const timeout = setTimeout(() => controller.abort(), configRef.current.fetchTimeoutMs);
       try {
         const res = await fetch("/api/health", {
           method: "GET",
@@ -75,7 +107,7 @@ export function useBackendHealth(queryClient: QueryClient) {
       }
     };
 
-    const interval = setInterval(ping, 5000);
+    const interval = setInterval(ping, configRef.current.healthPollIntervalMs);
     ping();
 
     return () => {
@@ -84,13 +116,13 @@ export function useBackendHealth(queryClient: QueryClient) {
     };
   }, []);
 
-  // Poll /api/status every 3 seconds for pool / compile-queue stats
+  // Poll /api/status for pool / compile-queue stats
   useEffect(() => {
     let cancelled = false;
 
     const fetchStatus = async () => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
+      const timeout = setTimeout(() => controller.abort(), configRef.current.fetchTimeoutMs);
       try {
         const res = await fetch("/api/status", { cache: "no-store", signal: controller.signal });
         if (!res.ok) return;
@@ -105,7 +137,7 @@ export function useBackendHealth(queryClient: QueryClient) {
       }
     };
 
-    const interval = setInterval(fetchStatus, 15000);
+    const interval = setInterval(fetchStatus, configRef.current.statusPollIntervalMs);
     fetchStatus();
 
     return () => {

@@ -402,13 +402,11 @@ class SandboxRunnerPool {
 let poolInstance: SandboxRunnerPool | null = null;
 
 export function getSandboxRunnerPool(): SandboxRunnerPool {
-  if (!poolInstance) {
-    poolInstance = new SandboxRunnerPool({
-      minRunners: config.sandbox.pool.minRunners,
-      maxRunners: config.sandbox.pool.maxRunners,
-      idleTimeoutMs: config.sandbox.pool.idleTimeoutMs,
-    });
-  }
+  poolInstance ??= new SandboxRunnerPool({
+    minRunners: config.sandbox.pool.minRunners,
+    maxRunners: config.sandbox.pool.maxRunners,
+    idleTimeoutMs: config.sandbox.pool.idleTimeoutMs,
+  });
   return poolInstance;
 }
 

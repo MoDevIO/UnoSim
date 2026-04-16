@@ -7,29 +7,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { getCompilationPool } from "./services/compilation-worker-pool";
+import { config } from "./config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function parseAllowedFrameAncestors(): string[] {
-  const envValue = process.env.SIMULATOR_ALLOWED_PARENT_ORIGINS ?? process.env.ALLOW_EMBED_ORIGINS;
-  const defaultOrigins = [
-    "'self'",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-  ];
-
-  if (!envValue) {
-    return defaultOrigins;
-  }
-
-  const customOrigins = envValue
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-
-  return Array.from(new Set([...defaultOrigins, ...customOrigins]));
+  return Array.from(new Set(config.server.allowedFrameAncestors));
 }
 
 // Cleanup service: Delete old .cleanup.json files and .cleanup directories (> 5 minutes old)
@@ -113,8 +96,7 @@ app.use((_, res, next) => {
 
 // Security: Rate limiting to prevent DoS attacks
 // In test/development mode, use higher limits
-const isTestMode =
-  process.env.NODE_ENV === "test" || process.env.DISABLE_RATE_LIMIT === "true";
+const isTestMode = config.isTest || config.server.disableRateLimit;
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 Minuten
   max: isTestMode ? 10000 : 300, // 10000 in Test-Modus, 300 in Produktion
@@ -125,7 +107,8 @@ const apiLimiter = rateLimit({
     isTestMode ||
     req.originalUrl === "/api/examples" ||
     req.originalUrl === "/api/status" ||
-    req.originalUrl === "/api/health", // Skip for lightweight/polling endpoints
+    req.originalUrl === "/api/health" ||
+    req.originalUrl === "/api/config", // Skip for lightweight/polling endpoints
 });
 
 // Apply rate limiting to API routes
@@ -194,7 +177,7 @@ process.on("unhandledRejection", (reason, promise) => {
 process.on("uncaughtException", (error) => {
   console.error(`[ERROR] Uncaught Exception:`, error);
   // In development, keep running; in production may want to restart
-  if (process.env.NODE_ENV === "production") {
+  if (config.serverMode === "docker") {
     console.error("Shutting down due to uncaught exception");
     process.exit(1);
   }
@@ -225,7 +208,7 @@ const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const isProduction = process.env.NODE_ENV === "production";
+    const isProduction = config.serverMode === "docker";
 
     // In Production: keine Details leaken
     const message =

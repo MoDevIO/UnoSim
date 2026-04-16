@@ -27,6 +27,7 @@ import {
   isReadyMessage,
   isCompileResponse,
 } from "@shared/worker-protocol";
+import { config } from "../config";
 
 /**
  * Statistic tracking for monitoring pool health
@@ -68,9 +69,8 @@ export class CompilationWorkerPool {
     // so race conditions in arduino-cli no longer occur.
     // Safe upper bound raised to 8; WORKER_COUNT env var overrides.
     const maxSafeWorkers = 8;
-    const envCount = process.env.WORKER_COUNT ? Number.parseInt(process.env.WORKER_COUNT, 10) : undefined;
     const recommendedWorkers = Math.max(2, Math.floor(os.cpus().length * 0.5));
-    this.numWorkers = numWorkers ?? Math.min(maxSafeWorkers, envCount ?? recommendedWorkers);
+    this.numWorkers = numWorkers ?? Math.min(maxSafeWorkers, config.compilation.workerCount ?? recommendedWorkers);
     
     this.logger.info(`[CompilationWorkerPool] Initializing with ${this.numWorkers} workers (max: ${maxSafeWorkers})`);
     this.initializeWorkers();

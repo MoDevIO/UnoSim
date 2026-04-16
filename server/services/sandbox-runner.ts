@@ -20,6 +20,7 @@ import { DockerManager } from "./sandbox/docker-manager";
 import { StreamHandler } from "./sandbox/stream-handler";
 import { FilesystemHelper } from "./sandbox/filesystem-helper";
 import { ExecutionManager, type ExecutionState, SimulationState, SANDBOX_CONFIG } from "./sandbox/execution-manager";
+import { config } from "../config";
 
 export class SandboxRunner {
   private static missingDockerSocketLogEmitted = false;
@@ -177,7 +178,7 @@ export class SandboxRunner {
 
   private async ensureDockerChecked(): Promise<void> {
     if (this.dockerChecked) return;
-    if (process.env.FORCE_DOCKER === "1") {
+    if (config.simulationMode === "docker-sandbox") {
       this.dockerAvailable = true; this.dockerImageBuilt = true; this.dockerChecked = true; return;
     }
     
@@ -246,8 +247,8 @@ export class SandboxRunner {
   }
 
   private getDockerSocketPath(): string | null {
-    const dockerHost = process.env.DOCKER_HOST?.trim();
-    if (!dockerHost) {
+    const dockerHost = config.sandbox.dockerHost.trim();
+    if (dockerHost === "unix:///var/run/docker.sock") {
       return "/var/run/docker.sock";
     }
 

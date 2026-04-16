@@ -12,6 +12,7 @@
  *
  * Environment variable: DOCKER_COMPILE_CONCURRENT (default 8)
  */
+import { config } from "../../config";
 
 export class DockerCompileSemaphore {
   private readonly queue: Array<() => void> = [];
@@ -83,8 +84,7 @@ let _instance: DockerCompileSemaphore | null = null;
 export function getDockerCompileSemaphore(maxOverride?: number): DockerCompileSemaphore {
   if (maxOverride !== undefined || _instance === null) {
     const max =
-      maxOverride ??
-      Number.parseInt(process.env.DOCKER_COMPILE_CONCURRENT ?? "8", 10);
+      maxOverride ?? config.compilation.dockerCompileConcurrent;
     _instance = new DockerCompileSemaphore(max);
   }
   return _instance;

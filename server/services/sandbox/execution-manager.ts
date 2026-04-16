@@ -405,7 +405,7 @@ export class ExecutionManager {
       imageName: SANDBOX_CONFIG.dockerImage,
       command: DockerCommandBuilder.buildCompileAndRunCommand(),
       containerName,
-      arduinoCacheDir: process.env.ARDUINO_CACHE_DIR,
+      arduinoCacheDir: config.compilation.cacheDir,
     });
 
     const { onCompileError, onCompileSuccess, onExit } = opts;
