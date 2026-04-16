@@ -114,8 +114,9 @@ export const config = {
     // ── Per-Container Resource Limits ───────────────────────────
 
     resources: {
-      /** Docker --memory flag (MB). AVR sketches need <30 MB real. */
-      memoryMB: envInt("SANDBOX_MEMORY_MB", 64),
+      /** Docker --memory flag (MB). Compilation (g++/cc1plus) needs ~150-300 MB;
+       *  the AVR sketch itself uses <30 MB at runtime. Must be ≥256 for CI. */
+      memoryMB: envInt("SANDBOX_MEMORY_MB", 256),
       /** Docker --cpus flag. 0.25 = 25% of one core. */
       cpuLimit: envStr("SANDBOX_CPU_LIMIT", "0.25"),
       /** Max PIDs per container (prevents fork bombs) */
