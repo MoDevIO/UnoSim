@@ -114,8 +114,21 @@ export const config = {
     // ── Per-Container Resource Limits ───────────────────────────
 
     resources: {
-      /** Docker --memory flag (MB). Compilation (g++/cc1plus) needs ~150-300 MB;
-       *  the AVR sketch itself uses <30 MB at runtime. Must be ≥256 for CI. */
+      /**
+       * Docker --memory (and --memory-swap) limit in MB applied to every sandbox
+       * container.  Two very different phases share this budget:
+       *
+       *   • Compile phase  g++/cc1plus needs 150–300 MB per invocation.
+       *     Linux cgroup v2 (GitHub Actions / production) hard-kills the process
+       *     the moment it exceeds the limit → must be ≥ 256 MB.
+       *
+       *   • Runtime phase  The pre-compiled AVR sketch typically uses < 30 MB.
+       *     A tighter limit (e.g. 64 MB) would be safe here, but since compile
+       *     and run happen in the same container, the compile-phase floor wins.
+       *
+       * Override with SANDBOX_MEMORY_MB.  docker-compose.yml mirrors this value
+       * explicitly so all environments stay in sync.
+       */
       memoryMB: envInt("SANDBOX_MEMORY_MB", 256),
       /** Docker --cpus flag. 0.25 = 25% of one core. */
       cpuLimit: envStr("SANDBOX_CPU_LIMIT", "0.25"),

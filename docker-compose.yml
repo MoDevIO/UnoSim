@@ -18,8 +18,17 @@ services:
       - SANDBOX_POOL_MIN_RUNNERS=5
       - SANDBOX_POOL_MAX_RUNNERS=100
       - SANDBOX_POOL_IDLE_TIMEOUT_MS=300000
-      # Per-sandbox Docker resource limits (AVR sketches need <30 MB real memory)
-      - SANDBOX_MEMORY_MB=64
+      # Per-sandbox Docker resource limits
+      # ┌─ Scenario breakdown ────────────────────────────────────────────────────┐
+      # │ Dev (default, no docker-compose): uses config.ts defaults             │
+      # │   SANDBOX_MEMORY_MB = 256 MB  (safe floor: g++/cc1plus needs 150-300 MB │
+      # │                               when compiling inside the container)     │
+      # │ CI (GitHub Actions ubuntu-latest): same defaults, no override needed  │
+      # │   Linux cgroup v2 hard-kills cc1plus at 64 MB → must be ≥ 256        │
+      # │ Production (this docker-compose): explicit override – can be tuned    │
+      # │   256 MB covers compile phase; AVR runtime alone only needs ~30 MB   │
+      # └─────────────────────────────────────────────────────────────────────────┘
+      - SANDBOX_MEMORY_MB=256
       - SANDBOX_CPU_LIMIT=0.25
       # Compilation worker threads (per-worker temp dir eliminates arduino-cli races)
       - WORKER_COUNT=8
