@@ -86,11 +86,17 @@ interface StatCellProps {
 /** A compact 2-row stat cell: dim label on top, bright value below. */
 function StatCell({ label, value, valueClass }: StatCellProps) {
   return (
-    <div className="flex flex-col items-start">
-      <span className="text-[7px] text-white/40 uppercase tracking-widest leading-none whitespace-nowrap">
+    <div className="flex flex-col items-start leading-tight">
+      <span
+        className="uppercase tracking-wider text-cyan-500/50 whitespace-nowrap"
+        style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}
+      >
         {label}
       </span>
-      <span className={clsx("text-[10px] font-bold font-mono leading-tight whitespace-nowrap", valueClass ?? "text-white/50")}>
+      <span
+        className={clsx("font-bold font-mono whitespace-nowrap", valueClass ?? "text-white/50")}
+        style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}
+      >
         {value}
       </span>
     </div>
