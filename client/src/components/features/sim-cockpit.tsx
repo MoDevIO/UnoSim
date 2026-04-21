@@ -1,172 +1,259 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import clsx from "clsx";
-import { useTelemetryStore } from "@/hooks/use-telemetry-store";
-import type { SimulationStatus } from "@shared/types/arduino.types";
-import type { ServerStatus } from "@/hooks/use-backend-health";
+import type { SimulationStatus, ClientState } from "@shared/types/arduino.types";
+import type { ConnectionState } from "@/lib/websocket-manager";
 
-// ── Pure helpers (extracted to keep component CC ≤ 15) ───────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-function simStateColor(status: SimulationStatus): string {
-  switch (status) {
-    case "running": return "text-emerald-400";
-    case "paused": return "text-amber-300";
-    case "compiling": return "text-blue-300";
-    case "queued": return "text-violet-300";
-    case "stopped": return "text-white/60";
-    default: return "text-white/40";
+type CompilationStatus = "ready" | "compiling" | "success" | "error";
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/** Minimum ms any state label stays visible before switching to a new one. */
+const STATE_MIN_MS = 600;
+
+// ── Pure helpers ──────────────────────────────────────────────────────────────
+
+function deriveClientState(
+  simulationStatus: SimulationStatus,
+  compilationStatus: CompilationStatus,
+): ClientState {
+  if (simulationStatus === "queued") return "QUEUED_FOR_SIMULATION";
+  if (simulationStatus === "running") return "RUNNING";
+  if (simulationStatus === "paused") return "PAUSED";
+  if (compilationStatus === "compiling") return "COMPILING";
+  if (compilationStatus === "success" && simulationStatus === "idle") return "QUEUED_FOR_RUNNING";
+  if (compilationStatus === "error") return "ERROR";
+  return "IDLE";
+}
+
+function clientStateColor(state: ClientState): string {
+  switch (state) {
+    case "RUNNING": return "text-emerald-400";
+    case "PAUSED": return "text-amber-300";
+    case "COMPILING":
+    case "QUEUED_FOR_COMPILING": return "text-blue-300";
+    case "QUEUED_FOR_RUNNING":
+    case "QUEUED_FOR_SIMULATION": return "text-violet-300";
+    case "ERROR": return "text-red-400";
+    default: return "text-white/50";
   }
 }
 
-/** Full label for normal-mode server indicator. */
-function serverStatusLabel(serverOnline: boolean, backendReachable: boolean): string {
-  if (serverOnline) return "SERVER";
-  if (backendReachable) return "WS ✗";
-  return "OFFLINE";
+function compileDotClass(status: CompilationStatus): string {
+  if (status === "compiling") return "bg-blue-400 animate-pulse";
+  if (status === "error") return "bg-red-500";
+  return "bg-white/30";
 }
 
-/** Abbreviated label used in the debug strip. */
-function serverStatusShortLabel(serverOnline: boolean, backendReachable: boolean): string {
-  if (serverOnline) return "ON";
-  if (backendReachable) return "WS✗";
-  return "OFF";
+/**
+ * WS dot — based on wsConnectionState only (not simulation telemetry).
+ * gray = never connected | amber(pulse) = connecting | green = connected | red = connection lost
+ */
+function wsDotClass(wsState: ConnectionState, hasEverConnected: boolean): string {
+  if (wsState === "connected") return "bg-emerald-400";
+  if (wsState === "connecting" || wsState === "reconnecting") return "bg-amber-400 animate-pulse";
+  if (hasEverConnected) return "bg-red-500";
+  return "bg-white/30";
 }
 
-function sandboxModeLabel(sandboxMode: string): string {
-  if (sandboxMode === "docker-sandbox") return "Docker";
-  if (sandboxMode === "local-limited") return "Local";
+/** True when WS previously connected but is now disconnected/lost. */
+function isWsError(wsState: ConnectionState, hasEverConnected: boolean): boolean {
+  if (wsState === "connected" || wsState === "connecting" || wsState === "reconnecting") return false;
+  return hasEverConnected;
+}
+
+function simulationModeLabel(sandboxMode: string): string {
+  if (sandboxMode === "docker-sandbox") return "DOCKER";
+  if (sandboxMode === "local-limited") return "LOCAL";
   return "—";
 }
 
-function sandboxModeColorClass(sandboxMode: string): string {
+function simulationModeColorClass(sandboxMode: string): string {
   if (sandboxMode === "docker-sandbox") return "text-cyan-300";
   if (sandboxMode === "local-limited") return "text-amber-300";
   return "text-white/40";
 }
 
-function runnerIndexLabel(workerIndex?: number, workerTotal?: number): string {
-  if (workerIndex !== undefined && workerTotal !== undefined) {
-    return `#${workerIndex + 1}/${workerTotal}`;
-  }
-  return "—";
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+interface StatCellProps {
+  readonly label: string;
+  readonly value: string;
+  readonly valueClass?: string;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+/** A compact 2-row stat cell: dim label on top, bright value below. */
+function StatCell({ label, value, valueClass }: StatCellProps) {
+  return (
+    <div className="flex flex-col items-start">
+      <span className="text-[7px] text-white/40 uppercase tracking-widest leading-none whitespace-nowrap">
+        {label}
+      </span>
+      <span className={clsx("text-[10px] font-bold font-mono leading-tight whitespace-nowrap", valueClass ?? "text-white/50")}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function ColSep() {
+  return <div className="w-px h-5 bg-white/10 self-center mx-0.5 shrink-0" />;
+}
+
+// ── Component interface ───────────────────────────────────────────────────────
 
 export interface SimCockpitProps {
   batchStats?: unknown;
   simulationStatus?: SimulationStatus;
+  compilationStatus?: CompilationStatus;
   sandboxMode?: string;
   workerIndex?: number;
   workerTotal?: number;
   backendReachable?: boolean;
   isConnected?: boolean;
-  serverStatus?: ServerStatus;
+  wsConnectionState?: ConnectionState;
+  wsHasEverConnected?: boolean;
+  baudRate?: number;
   debugMode?: boolean;
+  /** @deprecated kept for prop compatibility; no longer used for WS dot logic */
+  serverStatus?: unknown;
 }
 
 export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
   simulationStatus = "idle",
+  compilationStatus = "ready",
   sandboxMode = "unknown",
+  backendReachable = true,
+  wsConnectionState = "disconnected",
+  wsHasEverConnected = false,
   workerIndex,
   workerTotal,
-  backendReachable = true,
-  isConnected = true,
-  serverStatus = null,
   debugMode = false,
 }) => {
-  const { lastHeartbeatAt } = useTelemetryStore();
 
-  const wsActive = isConnected && !!lastHeartbeatAt && Date.now() - lastHeartbeatAt < 2000;
-  const serverOnline = backendReachable && isConnected;
+  // ── Compilation dot visual delay ───────────────────────────────────────
+  // Keep the blue dot visible for at least STATE_MIN_MS even on fast compiles.
+  const [visualCompStatus, setVisualCompStatus] = useState<CompilationStatus>(compilationStatus);
+  const httpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Pre-compute all conditional class names — keeps JSX branch-free
-  const dotClass = serverOnline ? "bg-emerald-500" : "bg-red-600";
-  const textClass = serverOnline ? "text-emerald-400" : "text-red-400";
-  const wsClass = wsActive ? "bg-emerald-400" : "bg-red-500";
+  useEffect(() => {
+    if (compilationStatus === "compiling") {
+      if (httpTimerRef.current) clearTimeout(httpTimerRef.current);
+      setVisualCompStatus("compiling");
+    } else {
+      httpTimerRef.current = setTimeout(() => {
+        setVisualCompStatus(compilationStatus);
+      }, STATE_MIN_MS);
+    }
+    return () => {
+      if (httpTimerRef.current) {
+        clearTimeout(httpTimerRef.current);
+        httpTimerRef.current = null;
+      }
+    };
+  }, [compilationStatus]);
 
-  // ── Debug mode: compact single-line strip ──────────────────────────────
+  // ── Client state visual delay ──────────────────────────────────────────
+  // Show active states immediately; delay the downgrade back to IDLE so it
+  // stays readable for at least STATE_MIN_MS.
+  const clientState = deriveClientState(simulationStatus, compilationStatus);
+  const [visualClientState, setVisualClientState] = useState<ClientState>(clientState);
+  const clientStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (clientState === "IDLE") {
+      clientStateTimerRef.current = setTimeout(() => {
+        setVisualClientState(clientState);
+      }, STATE_MIN_MS);
+    } else {
+      if (clientStateTimerRef.current) clearTimeout(clientStateTimerRef.current);
+      setVisualClientState(clientState);
+    }
+    return () => {
+      if (clientStateTimerRef.current) {
+        clearTimeout(clientStateTimerRef.current);
+        clientStateTimerRef.current = null;
+      }
+    };
+  }, [clientState]);
+
+  const wsError = isWsError(wsConnectionState, wsHasEverConnected);
+
+  // ── Debug mode: 3-group status row ───────────────────────────────────
   if (debugMode) {
-    return (
-      <div className="hidden lg:flex items-center gap-3 bg-black/20 backdrop-blur-md border border-white/10 rounded-lg px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium shadow-2xl">
+    const slotVal = !wsError && workerIndex !== undefined && workerTotal !== undefined
+      ? `#${workerIndex + 1}/${workerTotal}`
+      : "—";
 
-        {/* Server dot + short label */}
-        <div className="flex items-center gap-1.5">
-          <div className="relative flex h-2.5 w-2.5">
-            {serverOnline && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            )}
-            <span className={clsx("relative inline-flex rounded-full h-2.5 w-2.5", dotClass)} />
-          </div>
-          <span className={clsx("text-[9px] font-bold", textClass)}>
-            {serverStatusShortLabel(serverOnline, backendReachable)}
+    return (
+      <div
+        className="hidden lg:flex items-center gap-2 text-[10px] font-medium"
+        data-testid="sim-cockpit-debug"
+      >
+        {/* GROUP 1: CLIENT state */}
+        <StatCell
+          label="CLIENT"
+          value={visualClientState}
+          valueClass={clientStateColor(visualClientState)}
+        />
+
+        <ColSep />
+
+        {/* GROUP 2: COMPILATION — HTTP dot + slot */}
+        <div className="flex flex-col items-start">
+          <span className="text-[7px] text-white/40 uppercase tracking-widest leading-none whitespace-nowrap">
+            COMPILATION
           </span>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-[10px] font-bold font-mono text-white/50 whitespace-nowrap">HTTP:</span>
+            <span className={clsx("inline-block w-2 h-2 rounded-full", compileDotClass(visualCompStatus))} />
+            <span className="text-white/30 text-[10px] leading-none">|</span>
+            <span className="text-[10px] font-bold font-mono text-white/50 whitespace-nowrap">SLOT:</span>
+            <span className="text-[10px] font-bold font-mono text-white/50 whitespace-nowrap">{slotVal}</span>
+          </div>
         </div>
 
-        <span className="text-white/15">|</span>
+        <ColSep />
 
-        {/* Simulation state */}
-        <span className={clsx("text-[9px] font-bold", simStateColor(simulationStatus))}>
-          {simulationStatus.toUpperCase()}
-        </span>
-
-        {/* Pool + GCC stats when server status is available */}
-        {serverStatus && (
-          <>
-            <span className="text-white/15">|</span>
-            <span className="text-[9px]">
-              <span className="text-white/40">Pool </span>
-              <span className="text-cyan-300 font-bold">
-                {serverStatus.pool.inUse}/{serverStatus.pool.total}
-              </span>
-              {serverStatus.pool.queued > 0 && (
-                <span className="text-amber-300 font-bold ml-0.5">+{serverStatus.pool.queued}q</span>
-              )}
-            </span>
-            <span className="text-[9px]">
-              <span className="text-white/40">GCC </span>
-              <span className="text-blue-300 font-bold">
-                {serverStatus.compile.active}/{serverStatus.compile.maxConcurrent}
-              </span>
-              {serverStatus.compile.queued > 0 && (
-                <span className="text-amber-300 font-bold ml-0.5">+{serverStatus.compile.queued}q</span>
-              )}
-            </span>
-          </>
-        )}
-
-        <span className="text-white/15">|</span>
-
-        {/* WS heartbeat dot */}
-        <span className="text-[9px]">
-          <span className="text-white/40">WS </span>
-          <span className={clsx("inline-block h-1.5 w-1.5 rounded-full align-middle", wsClass)} />
-        </span>
-
-        {/* Sandbox mode */}
-        <span className={clsx("text-[9px] font-bold", sandboxModeColorClass(sandboxMode))}>
-          {sandboxModeLabel(sandboxMode)}
-        </span>
-
-        {/* Runner index */}
-        <span className="text-[9px]">
-          <span className="text-white/40">Runner </span>
-          <span className="text-violet-300 font-bold">{runnerIndexLabel(workerIndex, workerTotal)}</span>
-        </span>
+        {/* GROUP 3: SIMULATION — WS dot + mode + slot */}
+        <div className="flex flex-col items-start">
+          <span className="text-[7px] text-white/40 uppercase tracking-widest leading-none whitespace-nowrap">
+            SIMULATION
+          </span>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-[10px] font-bold font-mono text-white/50 whitespace-nowrap">WS:</span>
+            <span className={clsx("inline-block w-2 h-2 rounded-full", wsDotClass(wsConnectionState, wsHasEverConnected))} />
+            {!wsError && (
+              <>
+                <span className="text-white/30 text-[10px] leading-none">|</span>
+                <span className={clsx("text-[10px] font-bold font-mono whitespace-nowrap", simulationModeColorClass(sandboxMode))}>
+                  {simulationModeLabel(sandboxMode)}
+                </span>
+                <span className="text-white/30 text-[10px] leading-none">|</span>
+                <span className="text-[10px] font-bold font-mono text-cyan-300 whitespace-nowrap">{slotVal}</span>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
 
-  // ── Normal mode: minimal server indicator only ─────────────────────────
+  // ── Normal mode: minimal SERVER/OFFLINE pill ──────────────────────────
+  const httpDotClass = backendReachable ? "bg-emerald-500" : "bg-red-600";
+  const httpTextClass = backendReachable ? "text-emerald-400" : "text-red-400";
+
   return (
     <div className="hidden lg:flex items-center gap-2 bg-black/20 backdrop-blur-md border border-white/10 rounded-lg px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium shadow-2xl">
       <div className="relative flex h-2.5 w-2.5">
-        {serverOnline && (
+        {backendReachable && (
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
         )}
-        <span className={clsx("relative inline-flex rounded-full h-2.5 w-2.5", dotClass)} />
+        <span className={clsx("relative inline-flex rounded-full h-2.5 w-2.5", httpDotClass)} />
       </div>
-      <span className={clsx("text-[9px] font-bold", textClass)}>
-        {serverStatusLabel(serverOnline, backendReachable)}
+      <span className={clsx("text-[9px] font-bold", httpTextClass)}>
+        {backendReachable ? "SERVER" : "OFFLINE"}
       </span>
     </div>
   );
