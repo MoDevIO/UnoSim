@@ -79,7 +79,7 @@ function simulationModeColorClass(sandboxMode: string): string {
 
 interface StatCellProps {
   readonly label: string;
-  readonly value: string;
+  readonly value: React.ReactNode;
   readonly valueClass?: string;
 }
 
@@ -201,41 +201,41 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
         <ColSep />
 
         {/* GROUP 2: COMPILATION — HTTP dot + slot */}
-        <div className="flex flex-col items-start">
-          <span className="text-[7px] text-white/40 uppercase tracking-widest leading-none whitespace-nowrap">
-            COMPILATION
-          </span>
-          <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-[10px] font-bold font-mono text-white/50 whitespace-nowrap">HTTP:</span>
-            <span className={clsx("inline-block w-2 h-2 rounded-full", compileDotClass(visualCompStatus))} />
-            <span className="text-white/30 text-[10px] leading-none">|</span>
-            <span className="text-[10px] font-bold font-mono text-white/50 whitespace-nowrap">SLOT:</span>
-            <span className="text-[10px] font-bold font-mono text-white/50 whitespace-nowrap">{slotVal}</span>
-          </div>
-        </div>
+        <StatCell
+          label="COMPILATION"
+          value={(
+            <span className="flex items-center gap-1">
+              <span className="text-white/50">HTTP:</span>
+              <span className={clsx("inline-block w-2 h-2 rounded-full", compileDotClass(visualCompStatus))} />
+              <span className="text-white/30">|</span>
+              <span className="text-white/50">SLOT:</span>
+              <span className="text-white/50">{slotVal}</span>
+            </span>
+          )}
+        />
 
         <ColSep />
 
         {/* GROUP 3: SIMULATION — WS dot + mode + slot */}
-        <div className="flex flex-col items-start">
-          <span className="text-[7px] text-white/40 uppercase tracking-widest leading-none whitespace-nowrap">
-            SIMULATION
-          </span>
-          <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-[10px] font-bold font-mono text-white/50 whitespace-nowrap">WS:</span>
-            <span className={clsx("inline-block w-2 h-2 rounded-full", wsDotClass(wsConnectionState, wsHasEverConnected))} />
-            {!wsError && (
-              <>
-                <span className="text-white/30 text-[10px] leading-none">|</span>
-                <span className={clsx("text-[10px] font-bold font-mono whitespace-nowrap", simulationModeColorClass(sandboxMode))}>
-                  {simulationModeLabel(sandboxMode)}
-                </span>
-                <span className="text-white/30 text-[10px] leading-none">|</span>
-                <span className="text-[10px] font-bold font-mono text-cyan-300 whitespace-nowrap">{slotVal}</span>
-              </>
-            )}
-          </div>
-        </div>
+        <StatCell
+          label="SIMULATION"
+          value={(
+            <span className="flex items-center gap-1">
+              <span className="text-white/50">WS:</span>
+              <span className={clsx("inline-block w-2 h-2 rounded-full", wsDotClass(wsConnectionState, wsHasEverConnected))} />
+              {!wsError && (
+                <>
+                  <span className="text-white/30">|</span>
+                  <span className={clsx("font-bold font-mono whitespace-nowrap", simulationModeColorClass(sandboxMode))}>
+                    {simulationModeLabel(sandboxMode)}
+                  </span>
+                  <span className="text-white/30">|</span>
+                  <span className="text-cyan-300 font-bold font-mono whitespace-nowrap">{slotVal}</span>
+                </>
+              )}
+            </span>
+          )}
+        />
       </div>
     );
   }
