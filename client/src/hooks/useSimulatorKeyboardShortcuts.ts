@@ -3,7 +3,7 @@ import type { ToastFn } from "@/hooks/use-toast";
 
 type UseSimulatorKeyboardShortcutsOptions = {
   isMac: boolean;
-  simulationStatus: "running" | "stopped" | "paused";
+  simulationStatus: "idle" | "running" | "compiling" | "queued" | "paused";
   compilePending: boolean;
   startPending: boolean;
   handleCompile: () => void;

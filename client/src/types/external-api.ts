@@ -6,7 +6,7 @@
  */
 
 /** API Version for backward compatibility and feature negotiation. */
-export const API_VERSION = "1.3.0";
+export const API_VERSION = "1.4.0";
 
 /**
  * All actions supported by the simulator's remote control interface (inbound).
@@ -133,35 +133,55 @@ export interface PinStateChangeEventData {
 
 /**
  * Data for SIMULATION_STATE_EVENT events.
+ *
+ * States follow the full client lifecycle:
+ *   IDLE → QUEUED_FOR_COMPILING → COMPILING → QUEUED_FOR_RUNNING → RUNNING ⇄ PAUSED
+ *
+ * Legacy values STOPPED and QUEUED are accepted for backward compatibility
+ * but will no longer be emitted starting with API v1.4.0.
  */
 export interface SimulationStateEventData {
-  state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR" | "COMPILING" | "QUEUED";
+  state:
+    | "IDLE"
+    | "QUEUED_FOR_COMPILING"
+    | "COMPILING"
+    | "QUEUED_FOR_RUNNING"
+    | "QUEUED_FOR_SIMULATION"
+    | "RUNNING"
+    | "PAUSED"
+    | "ERROR";
   message?: string;
 }
 
 /**
  * Data for SERVER_STATUS_EVENT events.
- * Reports server reachability, runner pool stats, and compile queue stats.
+ * Reports server reachability, sandbox runner stats, and compile slot stats.
+ *
+ * Canonical terms (used across UI, API, banner, and docs):
+ * - pool → "Sandbox Runners" (container pool for docker-sandbox mode)
+ * - compile → "Compile Slots" (max concurrent compilation processes)
  */
 export interface ServerStatusEventData {
   /** True when the server HTTP endpoint is reachable */
   serverReachable: boolean;
+  /** Sandbox Runners — container pool stats (docker-sandbox mode) */
   pool: {
-    /** Total runner slots allocated */
+    /** Total sandbox runner slots allocated */
     total: number;
-    /** Runner slots currently idle */
+    /** Sandbox runner slots currently idle */
     available: number;
-    /** Runner slots actively running a simulation */
+    /** Sandbox runner slots actively running a simulation */
     inUse: number;
-    /** Requests waiting for a free runner */
+    /** Requests waiting for a free sandbox runner */
     queued: number;
   };
+  /** Compile Slots — concurrent compilation stats */
   compile: {
     /** Compile jobs currently in progress */
     active: number;
     /** Compile jobs waiting for a free slot */
     queued: number;
-    /** Maximum concurrent compile jobs allowed */
+    /** Maximum concurrent compile slots allowed */
     maxConcurrent: number;
   };
 }

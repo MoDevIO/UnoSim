@@ -2,7 +2,7 @@ import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
 import type { BatchStats, PinState } from "@/hooks/use-simulation-store";
 
-type SimulationStatus = "running" | "stopped" | "paused";
+type SimulationStatus = "idle" | "running" | "compiling" | "queued" | "paused";
 
 type PinMonitorViewProps = {
   readonly pinMonitorVisible: boolean;
@@ -31,7 +31,7 @@ export function PinMonitorView({
   onAnalogChange,
   isMobile = false,
 }: PinMonitorViewProps) {
-  const isRunning = simulationStatus !== "stopped";
+  const isRunning = simulationStatus !== "idle";
 
   return (
     <div className={isMobile ? "h-full w-full" : "h-full w-full flex flex-col gap-3 p-2 overflow-y-auto"}>
@@ -45,7 +45,7 @@ export function PinMonitorView({
         <ArduinoBoard
           pinStates={pinStates}
           isSimulationRunning={isRunning}
-          simulationStatus={simulationStatus}
+          simulationStatus={simulationStatus === "running" || simulationStatus === "paused" ? simulationStatus : "idle"}
           txActive={txActivity}
           rxActive={rxActivity}
           onReset={onReset}

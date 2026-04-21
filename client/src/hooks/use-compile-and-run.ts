@@ -42,7 +42,7 @@ function determineCodeSource(
 }
 
 // reused helpers from previous hooks
-type SimulationStatus = "running" | "stopped" | "paused";
+type SimulationStatus = "idle" | "running" | "compiling" | "queued" | "paused";
 type CliStatus = "idle" | "compiling" | "success" | "error";
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
@@ -145,7 +145,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   const [cliOutput, setCliOutput] = useState("");
   const [compilerErrors, setCompilerErrors] = useState<CompilerError[]>([]);
 
-  const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>("stopped");
+  const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>("idle");
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
 
@@ -400,7 +400,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       return { success: true };
     },
     onSuccess: () => {
-      setSimulationStatus("stopped");
+      setSimulationStatus("idle");
       params.serialEventQueueRef.current = [];
       params.resetPinUI({ keepDetected: true });
     },
@@ -725,7 +725,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     if (!params.ensureBackendConnected("Reset simulation")) return;
     if (simulationStatus === "running") {
       params.sendMessage({ type: "stop_simulation" });
-      setSimulationStatus("stopped");
+      setSimulationStatus("idle");
     }
     clearOutputs();
     params.resetPinUI({ keepDetected: true });

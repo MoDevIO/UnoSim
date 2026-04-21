@@ -11,6 +11,8 @@
 
 A web-based Arduino simulator that provides an interactive code editor, compilation and Arduino Preview for Arduino sketches directly in the browser.
 
+> **Admin configuration:** For deployment and runtime environment variable settings, see `README_ADMIN.md`.
+
 ## Preview
 
 <p align="center">

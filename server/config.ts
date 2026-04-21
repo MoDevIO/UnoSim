@@ -185,7 +185,11 @@ export const config = {
 
 /** Subset of config safe to expose to the browser via GET /api/config */
 export function getClientConfig() {
-  return config.client;
+  return {
+    ...config.client,
+    serverMode: config.serverMode,
+    simulationMode: config.simulationMode,
+  };
 }
 
 export type UnoSimConfig = typeof config;

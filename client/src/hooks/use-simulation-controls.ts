@@ -3,7 +3,7 @@ import type { MutableRefObject } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 
-export type SimulationStatus = "running" | "stopped" | "paused";
+export type SimulationStatus = "idle" | "running" | "compiling" | "queued" | "paused";
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
 

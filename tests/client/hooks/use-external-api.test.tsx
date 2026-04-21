@@ -26,7 +26,7 @@ const buildParams = () => ({
   onSerialInput: vi.fn<[string], void>(),
   onSetSimulationTimeout: vi.fn<[number], void>(),
   onSetOutputTab: vi.fn<[string], void>(),
-  getSimulationState: vi.fn<[], string>(() => "stopped"),
+  getSimulationState: vi.fn<[], string>(() => "IDLE"),
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -671,6 +671,6 @@ describe("emitSimulationStateEvent", () => {
       throw new Error("cross-origin blocked");
     });
 
-    expect(() => emitSimulationStateEvent("STOPPED")).not.toThrow();
+    expect(() => emitSimulationStateEvent("IDLE")).not.toThrow();
   });
 });

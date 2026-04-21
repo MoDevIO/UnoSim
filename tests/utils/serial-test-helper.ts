@@ -266,6 +266,16 @@ export async function runSketchWithOutput(
             success: false,
             error: `Process compiled but never exited (timeout ${fallbackTimeout}ms).`,
           });
+        } else {
+          // exited=true, compiled=false, outputs may be empty - process exited before
+          // compilation was acknowledged; surface whatever we collected so far.
+          safeResolve({
+            outputs,
+            success: outputs.length > 0,
+            error: outputs.length === 0
+              ? `Process exited without compiling or producing output (timeout ${fallbackTimeout}ms).`
+              : undefined,
+          });
         }
       }, fallbackTimeout);
     }

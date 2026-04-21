@@ -12,7 +12,7 @@ import {
 } from "@shared/worker-protocol";
 
 describe("worker-protocol", () => {
-  describe("WorkerCommand enum", () => {
+  describe("WorkerCommand values", () => {
     it("has correct command values", () => {
       expect(WorkerCommand.COMPILE).toBe("compile");
       expect(WorkerCommand.READY).toBe("ready");

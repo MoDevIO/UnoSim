@@ -4,7 +4,7 @@ import { useSimulatorKeyboardShortcuts } from "../../../client/src/hooks/useSimu
 
 const createDefaultOptions = (overrides: Record<string, unknown> = {}) => ({
   isMac: false,
-  simulationStatus: "stopped" as const,
+  simulationStatus: "idle" as const,
   compilePending: false,
   startPending: false,
   handleCompile: vi.fn(),
@@ -55,8 +55,8 @@ describe("useSimulatorKeyboardShortcuts", () => {
     expect(options.handleStop).toHaveBeenCalled();
   });
 
-  it("Escape does nothing when simulation is stopped", () => {
-    const options = createDefaultOptions({ simulationStatus: "stopped" });
+  it("Escape does nothing when simulation is idle", () => {
+    const options = createDefaultOptions({ simulationStatus: "idle" });
     renderHook(() => useSimulatorKeyboardShortcuts(options));
     fireKeyDown({ key: "Escape" });
     expect(options.handleStop).not.toHaveBeenCalled();

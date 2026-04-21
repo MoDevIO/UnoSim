@@ -187,6 +187,8 @@ export function useArduinoSimulatorPage() {
   
   const {
     isConnected,
+    connectionState: wsConnectionState,
+    hasEverConnected: wsHasEverConnected,
     lastMessage: _lastMessage,
     sendMessage: sendMessageRaw,
     sendMessageImmediate,
@@ -334,7 +336,7 @@ export function useArduinoSimulatorPage() {
     setCompilationStatus("ready");
     setArduinoCliStatus("idle");
     setLastCompilationResult(null);
-    setSimulationStatus("stopped");
+    setSimulationStatus("idle");
     setHasCompiledOnce(false);
   }, [
     simulationStatus,
@@ -363,7 +365,7 @@ export function useArduinoSimulatorPage() {
     setCompilationStatus("ready");
     setArduinoCliStatus("idle");
     setLastCompilationResult(null);
-    setSimulationStatus("stopped");
+    setSimulationStatus("idle");
     setHasCompiledOnce(false);
   }, [
     simulationStatus,
@@ -625,7 +627,7 @@ export function useArduinoSimulatorPage() {
     resumeMutation.isPending;
 
   const simulateDisabled =
-    ((simulationStatus === "stopped" || simulationStatus === "paused") &&
+    ((simulationStatus === "idle" || simulationStatus === "paused") &&
       (!backendReachable || !isConnected)) ||
     simControlBusy;
 
@@ -641,6 +643,18 @@ export function useArduinoSimulatorPage() {
   // The allowed origin is detected from the parent frame (ancestorOrigins).
   const externalAllowedOrigin =
     globalThis.location.ancestorOrigins?.[0] ?? "*";
+
+  // Derive high-level ClientState from runtime + compilation state.
+  // This is the single label shown in the debug header and exposed via API.
+  const deriveClientState = useCallback((): string => {
+    if (simulationStatus === "queued") return "QUEUED_FOR_SIMULATION";
+    if (simulationStatus === "running") return "RUNNING";
+    if (simulationStatus === "paused") return "PAUSED";
+    if (compilationStatus === "compiling") return "COMPILING";
+    // After compile success but before server confirms running → queued_for_running
+    if (compilationStatus === "success" && simulationStatus === "idle") return "QUEUED_FOR_RUNNING";
+    return "IDLE";
+  }, [simulationStatus, compilationStatus]);
 
   useExternalApi({
     allowedOrigin: externalAllowedOrigin,
@@ -661,7 +675,7 @@ export function useArduinoSimulatorPage() {
     },
     onSetSimulationTimeout: setSimulationTimeout,
     onSetOutputTab: setActiveOutputTab,
-    getSimulationState: () => simulationStatus,
+    getSimulationState: deriveClientState,
     getServerStatus: () => serverStatus && {
       serverReachable: backendReachable,
       pool: serverStatus.pool,
@@ -684,6 +698,7 @@ export function useArduinoSimulatorPage() {
     backendReachable,
     isMobile,
     simulationStatus,
+    compilationStatus,
     simulateDisabled,
     compileMutation,
     startMutation,
@@ -726,6 +741,8 @@ export function useArduinoSimulatorPage() {
     renderedSerialOutput,
     serialOutput,
     isConnected,
+    wsConnectionState,
+    wsHasEverConnected,
     handleSerialSend,
     handleClearSerialOutput,
     showSerialMonitor,

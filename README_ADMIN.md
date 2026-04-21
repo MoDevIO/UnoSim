@@ -1,0 +1,127 @@
+# UnoSim Administration & Configuration Guide
+
+This guide explains how to configure the UnoSim server instance and sandbox environments using environment variables.
+
+## 🎯 Target Audience
+This guide is intended for **system administrators** and **DevOps engineers** who deploy UnoSim in development, test, or production environments.
+
+## ⚙️ Configuration Principles
+UnoSim follows the "Twelve-Factor App" principle: configuration is strictly separated from code.
+
+* **Central definition:** `server/config.ts` defines all available parameters and their default values.
+* **No hardcoding:** Values are not stored in that file; they are read from the runtime environment.
+* **Precedence:** Explicitly set environment variables always override internal defaults.
+
+---
+
+## 🚀 Deployment Scenarios
+
+### 1. Local Development
+Optimized for speed and minimal resource usage without requiring Docker.
+
+* **Mode:** Both server and simulation run locally in the same process.
+* **Start:**
+    ```bash
+    export UNOSIM_SERVER_MODE=local
+    export UNOSIM_SIMULATION_MODE=local
+    npm run dev:full
+    ```
+
+### 2. Standard Docker Operation (Shared Container)
+Suitable for performance testing or environments with limited resources where isolation is secondary.
+
+* **Behavior:** Simulations (sketches) are executed directly inside the backend container.
+* **Configuration (`docker-compose.yml`):**
+    ```yaml
+    services:
+      unosim-backend:
+        environment:
+          - UNOSIM_SERVER_MODE=docker
+          - UNOSIM_SIMULATION_MODE=local
+          - WORKER_COUNT=8
+    ```
+
+### 3. High-Availability Production (Isolated Sandbox)
+Recommended for public deployments or multi-user systems to maximize security and resource control.
+
+* **Behavior:** Each sketch runs in its own short-lived Docker sandbox.
+* **Configuration (`docker-compose.yml`):**
+    ```yaml
+    services:
+      unosim-backend:
+        environment:
+          - NODE_ENV=production
+          - UNOSIM_SIMULATION_MODE=docker-sandbox
+          - SANDBOX_POOL_MIN_RUNNERS=10
+          - SANDBOX_POOL_MAX_RUNNERS=100
+          - SANDBOX_MEMORY_MB=256
+          - SANDBOX_CPU_LIMIT=0.5
+    ```
+
+---
+
+## 🛠️ Environment Variable Reference
+
+### Core Settings
+| Variable | Default / Fallback | Description |
+| :--- | :--- | :--- |
+| `UNOSIM_SERVER_MODE` | `local` (or `docker` in production) | `local` or `docker`. Affects paths and defaults. |
+| `UNOSIM_SIMULATION_MODE` | `local` | `local` or `docker-sandbox`. Defines the simulation runtime. |
+| `DISABLE_RATE_LIMIT` | `false` | Disables API rate limiting (recommended only for internal tests). |
+
+### Sandbox Resources (only for `docker-sandbox`)
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `SANDBOX_POOL_MIN_RUNNERS` | `5` | **Sandbox Runners** — number of always-on ("warm") containers. |
+| `SANDBOX_POOL_MAX_RUNNERS` | `minRunners` | **Sandbox Runners** — upper limit for concurrent simulations. |
+| `SANDBOX_MEMORY_MB` | `256` | RAM limit per sandbox instance. |
+| `SANDBOX_CPU_LIMIT` | `0.25` | CPU share per instance (e.g. `0.5` for half a core). |
+| `DOCKER_SANDBOX_IMAGE` | `unosim-sandbox:latest` | Sandbox image used for simulation. |
+
+### Compilation & Performance
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `WORKER_COUNT` | CPU-dependent | **Compile Workers** — number of parallel background worker threads for compilation jobs. |
+| `COMPILE_MAX_CONCURRENT` | CPU - 1 | **Compile Slots** — maximum number of concurrent `g++` processes. |
+| `ARDUINO_FQBN` | `arduino:avr:uno` | Target board architecture for the compiler. |
+| `BUILD_CACHE_MAX_BYTES` | `2 GiB` | Maximum on-disk build cache size. |
+
+---
+
+## 🔒 Fixed Parameters (Not configurable via env vars)
+The following safety and stability limits are hardcoded to prevent system overload:
+
+* **Execution timeout:** 60 seconds (maximum sketch runtime).
+* **Output limit:** 100 MB (maximum simulation log output).
+* **PIDs limit:** 50 (maximum processes inside a sandbox).
+* **Queue size:** 500 (maximum queue length for pending simulations).
+
+---
+
+## � Canonical Terminology
+
+The following terms are used consistently across the UI debug header, API responses (`/api/status`), the server startup banner, and this documentation:
+
+| Canonical Term | Meaning | Where Visible |
+| :--- | :--- | :--- |
+| **Server Mode** | `local` or `docker` — how the server itself runs | Banner, API |
+| **Simulation Mode** | `local` or `docker-sandbox` — how sketches are executed | Banner, API, Header |
+| **HTTP** | REST endpoint reachability (connected / disconnected) | Header |
+| **WS (WebSocket)** | Real-time channel state (connected / connecting / reconnecting / disconnected) | Header |
+| **Compile Workers** | Parallel background worker threads (`WORKER_COUNT`) | Banner |
+| **Compile Slots** | Max concurrent `g++` processes (`COMPILE_MAX_CONCURRENT`) | Banner, API, Header |
+| **Sandbox Runners** | Docker container pool for `docker-sandbox` mode | Banner, API, Header |
+| **Runner** | Individual sandbox container assigned to a client | Header |
+| **Simulation** | Client-side state: idle / compiling / queued / running / paused / stopped | Header |
+
+---
+
+## �💡 Admin Best Practices
+
+1. **Configuration source:** **Never** change values directly in `server/config.ts`. Those changes are overwritten on future updates.
+2. **Validation:** After changing configuration, the following commands should succeed:
+    * `npm run check` (type safety)
+    * `npm run test:fast` (baseline functionality)
+    * `./run-tests.sh` (full test suite before commit)
+3. **Monitoring:** In `docker-sandbox` mode, monitor Docker host CPU load because starting many containers can create short spikes.
+4. **Security:** Use `SIMULATOR_ALLOWED_PARENT_ORIGINS` to allow iframe embedding only on trusted domains.

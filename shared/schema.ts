@@ -66,7 +66,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("simulation_status"),
-    status: z.enum(["running", "stopped", "paused"]),
+    status: z.enum(["running", "stopped", "paused", "queued"]),
   }),
   z.object({
     type: z.literal("handshake"),

@@ -242,6 +242,24 @@ const server = await registerRoutes(app);
   // this serves both the API and the client.
   const PORT = 3000;
   const httpServer = server.listen(PORT, "0.0.0.0", async () => {
+    console.log(`\n┌──────────────────────────────────────────────────┐`);
+    console.log(`│  UnoSim – Active Configuration                   │`);
+    console.log(`├──────────────────────────────────────────────────┤`);
+    console.log(`│  Server Mode:         ${config.serverMode.padEnd(27)}│`);
+    console.log(`│  Simulation Mode:     ${config.simulationMode.padEnd(27)}│`);
+    console.log(`│  NODE_ENV:            ${(process.env.NODE_ENV ?? "undefined").padEnd(27)}│`);
+    console.log(`│  Compile Workers:     ${String(config.compilation.workerCount).padEnd(27)}│`);
+    console.log(`│  Compile Slots:       ${String(config.compilation.maxConcurrent).padEnd(27)}│`);
+    console.log(`│  Docker Compile Conc.:${String(config.compilation.dockerCompileConcurrent).padEnd(28)}│`);
+    console.log(`│  Rate Limit Disabled: ${String(config.server.disableRateLimit).padEnd(27)}│`);
+    if (config.simulationMode === "docker-sandbox") {
+      console.log(`│  Sandbox Runners Min: ${String(config.sandbox.pool.minRunners).padEnd(27)}│`);
+      console.log(`│  Sandbox Runners Max: ${String(config.sandbox.pool.maxRunners).padEnd(27)}│`);
+      console.log(`│  Sandbox Memory MB:   ${String(config.sandbox.resources.memoryMB).padEnd(27)}│`);
+      console.log(`│  Sandbox CPU Limit:   ${String(config.sandbox.resources.cpuLimit).padEnd(27)}│`);
+    }
+    console.log(`│  FQBN:               ${config.compilation.fqbn.padEnd(28)}│`);
+    console.log(`└──────────────────────────────────────────────────┘\n`);
     console.log(`[express] Server running at http://0.0.0.0:${PORT}`);
     console.log(`[startup] Warming up Docker checks asynchronously...`);
 

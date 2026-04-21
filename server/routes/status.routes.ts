@@ -13,6 +13,21 @@ export function registerStatusRoutes(app: Express): void {
     res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
+      serverMode: config.serverMode,
+      simulationMode: config.simulationMode,
+      compileWorkers: config.compilation.workerCount,
+      compileSlots: {
+        active: semaphore.activeCount,
+        queued: semaphore.queueLength,
+        maxConcurrent,
+      },
+      sandboxRunners: {
+        total: poolStats.totalRunners,
+        available: poolStats.availableRunners,
+        inUse: poolStats.inUseRunners,
+        queued: poolStats.queuedRequests,
+      },
+      // Backward-compatible aliases (deprecated — prefer compileSlots/sandboxRunners)
       pool: {
         total: poolStats.totalRunners,
         available: poolStats.availableRunners,

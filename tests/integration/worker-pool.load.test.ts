@@ -1,4 +1,6 @@
 /**
+ * @vitest-environment node
+ *
  * Worker Pool Load Test
  * 
  * Tests the worker pool under realistic load conditions:

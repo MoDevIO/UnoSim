@@ -383,7 +383,16 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       await safeReleaseRunner(clientState, "start-replace-existing");
     }
 
-    // Acquire new runner from pool
+    // If the pool is saturated, notify client it is queued and wait for a slot
+    const statsBeforeAcquire = pool.getStats();
+    const willQueue = statsBeforeAcquire.availableRunners === 0 &&
+      statsBeforeAcquire.totalRunners >= statsBeforeAcquire.maxRunners;
+    if (willQueue) {
+      logger.debug(`[SandboxRunnerPool] Pool saturated — client queued (queue length: ${statsBeforeAcquire.queuedRequests + 1})`);
+      sendMessageToClient(ws, { type: "simulation_status", status: "queued" });
+    }
+
+    // Acquire new runner from pool (may block until a slot is released)
     try {
       clientState.runner = await pool.acquireRunner();
       logger.debug(
@@ -402,11 +411,20 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       return;
     }
 
-    // Update client state
+    // Slot assignment: tell client which runner slot they own immediately
+    const acquiredWorkerIndex = pool.getRunnerIndex(clientState.runner);
+    const poolStatsAfterAcquire = pool.getStats();
+
+    // Update client state and notify running
     clientState.isRunning = true;
     clientState.isPaused = false;
     sendMessageToClient(ws, { type: "simulation_status", status: "running" });
-    sendMessageToClient(ws, { type: "compilation_status", gccStatus: "compiling" });
+    sendMessageToClient(ws, {
+      type: "compilation_status",
+      gccStatus: "compiling",
+      workerIndex: acquiredWorkerIndex,
+      workerTotal: poolStatsAfterAcquire.totalRunners,
+    });
 
     // Build callbacks
     const callbacks = buildRunSketchCallbacks(ws, clientState);
@@ -453,13 +471,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     }
 
     const sandboxStatus = runnerForStatus.getSandboxStatus();
-    const poolStats = pool.getStats();
-    const workerIndex = pool.getRunnerIndex(clientState.runner);
     sendMessageToClient(ws, {
       type: "compilation_status",
       sandboxMode: sandboxStatus.mode,
-      workerIndex,
-      workerTotal: poolStats.totalRunners,
     });
   }
 

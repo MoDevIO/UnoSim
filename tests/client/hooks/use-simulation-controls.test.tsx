@@ -49,7 +49,7 @@ describe("useSimulationControls", () => {
     const wrapper = createWrapper();
     const { result } = renderHook(() => useSimulationControls(params), { wrapper });
 
-    expect(result.current.simulationStatus).toBe("stopped");
+    expect(result.current.simulationStatus).toBe("idle");
     expect(result.current.hasCompiledOnce).toBe(false);
     expect(result.current.simulationTimeout).toBe(60);
     expect(typeof params.startSimulationRef.current).toBe("function");
@@ -85,7 +85,7 @@ describe("useSimulationControls", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.simulationStatus).toBe("stopped");
+      expect(result.current.simulationStatus).toBe("idle");
     });
 
     expect(params.serialEventQueueRef.current).toEqual([]);
@@ -469,7 +469,7 @@ describe("useSimulationControls", () => {
     });
 
     expect(params.sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
-    expect(result.current.simulationStatus).toBe("stopped");
+    expect(result.current.simulationStatus).toBe("idle");
 
     vi.useRealTimers();
   });

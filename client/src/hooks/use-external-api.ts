@@ -301,7 +301,7 @@ export function emitPinStateChange(pin: number, value: number): void {
  * @param message - Optional human-readable message
  */
 export function emitSimulationStateEvent(
-  state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR" | "COMPILING" | "QUEUED",
+  state: "IDLE" | "QUEUED_FOR_COMPILING" | "COMPILING" | "QUEUED_FOR_RUNNING" | "QUEUED_FOR_SIMULATION" | "RUNNING" | "PAUSED" | "ERROR",
   message?: string,
 ): void {
   try {

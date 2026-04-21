@@ -296,7 +296,7 @@ function useDebugMode(): boolean {
 export function ArduinoBoard({
   pinStates = [],
   isSimulationRunning = false,
-  simulationStatus = "stopped",
+  simulationStatus = "idle",
   txActive = 0,
   rxActive = 0,
   onReset,

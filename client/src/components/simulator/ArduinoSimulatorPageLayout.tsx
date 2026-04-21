@@ -22,6 +22,7 @@ export function ArduinoSimulatorPageLayout(
     backendReachable,
     isMobile,
     simulationStatus,
+    compilationStatus,
     simulateDisabled,
     compileMutation,
     startMutation,
@@ -67,7 +68,8 @@ export function ArduinoSimulatorPageLayout(
     renderedSerialOutput,
     serialOutput,
     isConnected,
-    serverStatus,
+    wsConnectionState,
+    wsHasEverConnected,
     handleSerialSend,
     handleClearSerialOutput,
     showSerialMonitor,
@@ -199,9 +201,12 @@ export function ArduinoSimulatorPageLayout(
             workerTotal={workerTotal}
             batchStats={batchStats}
             simulationStatus={simulationStatus}
+            compilationStatus={compilationStatus}
             backendReachable={backendReachable}
             isConnected={isConnected}
-            serverStatus={serverStatus}
+            wsConnectionState={wsConnectionState}
+            wsHasEverConnected={wsHasEverConnected}
+            baudRate={baudRate}
             debugMode={debugMode}
           />
         }

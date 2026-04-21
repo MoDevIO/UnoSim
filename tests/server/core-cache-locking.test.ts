@@ -1,4 +1,6 @@
 /**
+ * @vitest-environment node
+ *
  * Core-Cache Locking Integration Test
  *
  * Validates that the cache-stampede protection works correctly under parallel load.

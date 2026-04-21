@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Comprehensive Unit Test Suite for UnifiedGatekeeper
  * 
@@ -22,8 +23,11 @@ import {
 
 describe("UnifiedGatekeeper", () => {
   let gatekeeper: UnifiedGatekeeper;
+  const savedCompileMaxConcurrent = process.env.COMPILE_MAX_CONCURRENT;
 
   beforeEach(() => {
+    // Remove env override so the constructor parameter (3) takes effect
+    delete process.env.COMPILE_MAX_CONCURRENT;
     resetUnifiedGatekeeper();
     gatekeeper = new UnifiedGatekeeper(3); // Test with 3 concurrent slots
   });
@@ -31,6 +35,10 @@ describe("UnifiedGatekeeper", () => {
   afterEach(() => {
     gatekeeper.stopLockMonitoring();
     resetUnifiedGatekeeper();
+    // Restore env var
+    if (savedCompileMaxConcurrent !== undefined) {
+      process.env.COMPILE_MAX_CONCURRENT = savedCompileMaxConcurrent;
+    }
   });
 
   describe("Compile Slot Acquisition - Basic", () => {

@@ -23,7 +23,7 @@ export function useSimulatorPinControls(params: {
 
   const handlePinToggle = useCallback(
     (pin: number, newValue: number) => {
-      if (simulationStatus === "stopped") {
+      if (simulationStatus === "idle") {
         showSimulationNotActiveToast();
         return;
       }
@@ -49,7 +49,7 @@ export function useSimulatorPinControls(params: {
 
   const handleAnalogChange = useCallback(
     (pin: number, newValue: number) => {
-      if (simulationStatus === "stopped") {
+      if (simulationStatus === "idle") {
         showSimulationNotActiveToast();
         return;
       }

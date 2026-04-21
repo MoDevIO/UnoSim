@@ -52,7 +52,7 @@ interface UseSimulatorUIStateParams {
 
   renderedSerialOutput: OutputLine[];
   isConnected: boolean;
-  simulationStatus: "running" | "stopped" | "paused";
+  simulationStatus: "idle" | "running" | "compiling" | "queued" | "paused";
   handleSerialSend: (message: string) => void;
   handleClearSerialOutput: () => void;
   showSerialMonitor: boolean;
@@ -313,7 +313,7 @@ export function useSimulatorUIState({
         <SerialMonitor
           output={renderedSerialOutput}
           isConnected={isConnected}
-          isSimulationRunning={simulationStatus !== "stopped"}
+          isSimulationRunning={simulationStatus !== "idle"}
           onSendMessage={handleSerialSend}
           onClear={handleClearSerialOutput}
           showMonitor={showSerialMonitor}

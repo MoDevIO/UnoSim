@@ -27,93 +27,115 @@ const LEAK_CHECK_SCRIPT = join(process.cwd(), "check-leaks.sh");
 // Teardown
 // ---------------------------------------------------------------------------
 
+const SAFE_PATH = "/bin:/usr/bin";
+
+type RaceConditionDetection = {
+  testTitle: string;
+  wasFlaky: boolean;
+  finalStatus: string;
+  triggerLine: string;
+};
+
+type RaceConditionSummary = {
+  total: number;
+  flaky: number;
+  suppressed: number;
+  detections: RaceConditionDetection[];
+};
+
 async function globalTeardown(): Promise<void> {
-  const HR = "═".repeat(60);
-  console.log(`\n${HR}`);
+  const hr = "═".repeat(60);
+  console.log(`\n${hr}`);
   console.log("  GLOBAL TEARDOWN — STABILITY INTEGRITY CHECK");
-  console.log(HR);
+  console.log(hr);
 
-  // ── 1. Race condition summary ──────────────────────────────────────────
-  let total = 0;
-  let flaky = 0;
-  let suppressed = 0;
+  const summary = readRaceConditionSummary();
+  printRaceConditionSummary(summary);
+  runLeakCheckIfEnabled();
+  enforceThreshold(summary.total);
 
-  if (existsSync(SUMMARY_FILE)) {
-    try {
-      const raw = readFileSync(SUMMARY_FILE, "utf8");
-      const summary = JSON.parse(raw) as {
-        total: number;
-        flaky: number;
-        suppressed: number;
-        detections: Array<{
-          testTitle: string;
-          wasFlaky: boolean;
-          finalStatus: string;
-          triggerLine: string;
-        }>;
-      };
+  console.log(`\n${hr}\n`);
+}
 
-      total      = summary.total      ?? 0;
-      flaky      = summary.flaky      ?? 0;
-      suppressed = summary.suppressed ?? 0;
-
-      console.log(`\n  📊  Race Condition Summary`);
-      console.log(`      Total detected  : ${total}`);
-      console.log(`      Suppressed      : ${suppressed}  (test ultimately passed)`);
-      console.log(`      Flaky           : ${flaky}  (failed then passed on retry)`);
-
-      if (total > 0) {
-        console.log("\n  Affected tests:");
-        for (const d of summary.detections ?? []) {
-          const tag = d.wasFlaky ? "[FLAKY+STABILITY_WARNING]" : "[STABILITY_WARNING]";
-          const icon = d.finalStatus === "passed" ? "⚠️ " : "❌";
-          console.log(`    ${icon}  ${d.testTitle}  ${tag}`);
-          console.log(`         ${d.triggerLine.trim()}`);
-        }
-      }
-    } catch (err) {
-      console.error("  ⚠️  Could not parse race-condition summary:", err);
-    }
-  } else {
+function readRaceConditionSummary(): RaceConditionSummary {
+  if (!existsSync(SUMMARY_FILE)) {
     console.log(
       "\n  ℹ️  No race-condition summary file found — reporter may not have run.",
     );
+    return { total: 0, flaky: 0, suppressed: 0, detections: [] };
   }
 
-  // ── 2. Leaked-process check (CI or explicit opt-in) ───────────────────
-  const runLeakCheck =
+  try {
+    const raw = readFileSync(SUMMARY_FILE, "utf8");
+    const summary = JSON.parse(raw) as RaceConditionSummary;
+
+    return {
+      total: summary.total ?? 0,
+      flaky: summary.flaky ?? 0,
+      suppressed: summary.suppressed ?? 0,
+      detections: summary.detections ?? [],
+    };
+  } catch (err) {
+    console.error("  ⚠️  Could not parse race-condition summary:", err);
+    return { total: 0, flaky: 0, suppressed: 0, detections: [] };
+  }
+}
+
+function printRaceConditionSummary(summary: RaceConditionSummary): void {
+  console.log(`\n  📊  Race Condition Summary`);
+  console.log(`      Total detected  : ${summary.total}`);
+  console.log(`      Suppressed      : ${summary.suppressed}  (test ultimately passed)`);
+  console.log(`      Flaky           : ${summary.flaky}  (failed then passed on retry)`);
+
+  if (summary.total > 0) {
+    console.log("\n  Affected tests:");
+    for (const detection of summary.detections) {
+      const tag = detection.wasFlaky
+        ? "[FLAKY+STABILITY_WARNING]"
+        : "[STABILITY_WARNING]";
+      const icon = detection.finalStatus === "passed" ? "⚠️ " : "❌";
+      console.log(`    ${icon}  ${detection.testTitle}  ${tag}`);
+      console.log(`         ${detection.triggerLine.trim()}`);
+    }
+  }
+}
+
+function runLeakCheckIfEnabled(): void {
+  const shouldRunLeakCheck =
     process.env.CI === "true" ||
     process.env.CI === "1" ||
     process.env.LEAK_CHECK === "1";
 
-  if (runLeakCheck && existsSync(LEAK_CHECK_SCRIPT)) {
-    console.log("\n  🔍  Running compiler-process leak check…");
-    try {
-      const output = execFileSync("bash", [LEAK_CHECK_SCRIPT, "--cleanup"], {
-        encoding: "utf8",
-        timeout: 15_000,
-      });
-      // Print indented so it's clearly nested under the teardown block
-      for (const line of output.split("\n")) {
-        console.log("  " + line);
-      }
-    } catch (err: any) {
-      // execFileSync throws for non-zero exit
-      const output: string = err.stdout ?? "";
-      const stderr: string = err.stderr ?? "";
-      for (const line of (output + stderr).split("\n")) {
-        console.log("  " + line);
-      }
-      console.error(
-        "\n  ❌  check-leaks.sh reported leaked compiler processes — see output above.",
-      );
-      // Don't throw here; let the threshold check below decide the final code
-      // so both issues are reported together.
-      process.exitCode = 1;
-    }
+  if (!shouldRunLeakCheck || !existsSync(LEAK_CHECK_SCRIPT)) {
+    return;
   }
 
-  // ── 3. Threshold enforcement ──────────────────────────────────────────
+  console.log("\n  🔍  Running compiler-process leak check…");
+
+  try {
+    const output = execFileSync("/bin/bash", [LEAK_CHECK_SCRIPT, "--cleanup"], {
+      encoding: "utf8",
+      timeout: 15_000,
+      env: { PATH: SAFE_PATH },
+    });
+
+    for (const line of output.split("\n")) {
+      console.log("  " + line);
+    }
+  } catch (err: any) {
+    const output: string = err.stdout ?? "";
+    const stderr: string = err.stderr ?? "";
+    for (const line of (output + stderr).split("\n")) {
+      console.log("  " + line);
+    }
+    console.error(
+      "\n  ❌  check-leaks.sh reported leaked compiler processes — see output above.",
+    );
+    process.exitCode = 1;
+  }
+}
+
+function enforceThreshold(total: number): void {
   if (total > RACE_CONDITION_THRESHOLD) {
     console.log(
       `\n  ❌  INTEGRITY FAILURE: ${total} race conditions exceed threshold of ${RACE_CONDITION_THRESHOLD}.`,
@@ -126,17 +148,11 @@ async function globalTeardown(): Promise<void> {
     );
     process.exitCode = 1;
   } else if (total > 0) {
-    console.log(
-      `\n  ⚠️   ${total} race condition(s) detected and suppressed.`,
-    );
-    console.log(
-      "      Within acceptable threshold — suite continues as passed.",
-    );
+    console.log(`\n  ⚠️   ${total} race condition(s) detected and suppressed.`);
+    console.log("      Within acceptable threshold — suite continues as passed.");
   } else {
     console.log("\n  ✅  No race conditions detected. Environment is stable.");
   }
-
-  console.log(`\n${HR}\n`);
 }
 
 export default globalTeardown;

@@ -13,8 +13,8 @@
  */
 
 import { parentPort, workerData } from "node:worker_threads";
-import { Logger } from "@shared/logger";
-import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
+import { Logger } from "../../../shared/logger.ts";
+import { getFastTmpBaseDir } from "../../../shared/utils/temp-paths.ts";
 import {
   type CompileRequestPayload,
   type AnyWorkerMessage,
@@ -22,7 +22,7 @@ import {
   createReadyMessage,
   createWorkerError,
   isCompileRequest,
-} from "@shared/worker-protocol";
+} from "../../../shared/worker-protocol.ts";
 import { mkdir, unlink, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -35,7 +35,7 @@ import {
   ensureDirectories,
   execArduinoCliJson,
   normalizeLibraries,
-} from "./compile-worker-utils";
+} from "./compile-worker-utils.ts";
 
 // Disable the CompileGatekeeper in worker threads since the pool controls concurrency
 process.env.COMPILE_GATEKEEPER_DISABLED = "true";

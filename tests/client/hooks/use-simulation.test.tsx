@@ -52,7 +52,7 @@ describe("useSimulation", () => {
     const wrapper = createWrapper();
     const { result } = renderHook(() => useSimulation(params), { wrapper });
 
-    expect(result.current.simulationStatus).toBe("stopped");
+    expect(result.current.simulationStatus).toBe("idle");
     expect(typeof result.current.handleStart).toBe("function");
     expect(typeof result.current.handleStop).toBe("function");
     expect(typeof result.current.suppressAutoStopOnce).toBe("function");

@@ -72,7 +72,7 @@ const SerialContentArea = ({
               <SerialMonitor
                 output={renderedSerialOutput}
                 isConnected={isConnected}
-                isSimulationRunning={simulationStatus !== "stopped"}
+                isSimulationRunning={simulationStatus !== "idle"}
                 onSendMessage={handleSerialSend}
                 onClear={handleClearSerialOutput}
                 showMonitor={showSerialMonitor}
@@ -101,7 +101,7 @@ const SerialContentArea = ({
           <SerialMonitor
             output={renderedSerialOutput}
             isConnected={isConnected}
-            isSimulationRunning={simulationStatus !== "stopped"}
+            isSimulationRunning={simulationStatus !== "idle"}
             onSendMessage={handleSerialSend}
             onClear={handleClearSerialOutput}
             showMonitor={showSerialMonitor}

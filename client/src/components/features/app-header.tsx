@@ -106,7 +106,7 @@ function _getDesktopSimulateButtonClass(
     {
       "!bg-status-warning hover:!bg-accent-amber": status === "running" && !disabled,
       "!bg-status-success hover:!bg-status-success-dark":
-        (status === "stopped" || status === "paused") && !disabled,
+        (status === "idle" || status === "paused") && !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
     },
   );
@@ -128,7 +128,7 @@ function _getMobileSimulateButtonClass(
     {
       "!bg-orange-600 hover:!bg-orange-700": status === "running" && !disabled,
       "!bg-green-600 hover:!bg-green-700":
-        (status === "stopped" || status === "paused") && !disabled,
+        (status === "idle" || status === "paused") && !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
     },
   );

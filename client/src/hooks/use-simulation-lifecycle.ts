@@ -3,8 +3,8 @@ import type { IncomingArduinoMessage } from "@/types/websocket";
 
 interface UseSimulationLifecycleOptions {
   code: string;
-  simulationStatus: "running" | "stopped" | "paused";
-  setSimulationStatus: (s: "running" | "stopped" | "paused") => void;
+  simulationStatus: "idle" | "running" | "compiling" | "queued" | "paused";
+  setSimulationStatus: (s: "idle" | "running" | "compiling" | "queued" | "paused") => void;
   sendMessage: (msg: IncomingArduinoMessage) => void;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   clearOutputs?: () => void;
@@ -45,7 +45,7 @@ export function useSimulationLifecycle({
       sendMessage({ type: "stop_simulation" });
     } catch {}
     try {
-      setSimulationStatus("stopped");
+      setSimulationStatus("idle");
     } catch {}
     try {
       resetPinUI();
