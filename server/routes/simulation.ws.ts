@@ -331,6 +331,25 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
   }
 
   /**
+   * Log consolidated run payload for audit/evidence.
+   * Extracted to keep handleStartSimulation below cognitive complexity threshold.
+   */
+  function logRunPayloadAudit(code: string, timeoutSec: number | undefined, sessionId: string | undefined): void {
+    try {
+      const payload = {
+        code,
+        timeoutSec,
+        context: { sessionId, label: "default-ws" },
+      };
+      logger.debug(`[B1-Evidence] Payload: ${JSON.stringify(payload, null, 2)}`);
+    } catch (err) {
+      logger.warn(
+        `Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
    * Handle "start_simulation" WebSocket message
    * Checks rate limits, acquires runner, and starts sketch execution.
    */
@@ -432,18 +451,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     logger.info(`[Simulation] Starting with timeout: ${timeoutValue}s`);
 
     // Log consolidated payload for audit
-    try {
-      const payload = {
-        code,
-        timeoutSec: timeoutValue,
-        context: { sessionId: clientState.testRunId, label: "default-ws" },
-      };
-      logger.debug(`[B1-Evidence] Payload: ${JSON.stringify(payload, null, 2)}`);
-    } catch (err) {
-      logger.warn(
-        `Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    logRunPayloadAudit(code, timeoutValue, clientState.testRunId);
 
     // Capture runner reference before await – ws-close may set clientState.runner=null
     // concurrently while runSketch is awaited, causing a null-dereference on getSandboxStatus.
