@@ -135,7 +135,7 @@ export interface PinStateChangeEventData {
  * Data for SIMULATION_STATE_EVENT events.
  *
  * States follow the full client lifecycle:
- *   IDLE → QUEUED_FOR_COMPILING → COMPILING → QUEUED_FOR_RUNNING → RUNNING ⇄ PAUSED
+ *   IDLE → QUEUED_FOR_COMPILING → COMPILING → QUEUED_FOR_SIMULATION → RUNNING ⇄ PAUSED
  *
  * Legacy values STOPPED and QUEUED are accepted for backward compatibility
  * but will no longer be emitted starting with API v1.4.0.
@@ -145,7 +145,6 @@ export interface SimulationStateEventData {
     | "IDLE"
     | "QUEUED_FOR_COMPILING"
     | "COMPILING"
-    | "QUEUED_FOR_RUNNING"
     | "QUEUED_FOR_SIMULATION"
     | "RUNNING"
     | "PAUSED"

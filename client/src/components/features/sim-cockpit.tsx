@@ -22,7 +22,6 @@ function deriveClientState(
   if (simulationStatus === "running") return "RUNNING";
   if (simulationStatus === "paused") return "PAUSED";
   if (compilationStatus === "compiling") return "COMPILING";
-  if (compilationStatus === "success" && simulationStatus === "idle") return "QUEUED_FOR_RUNNING";
   if (compilationStatus === "error") return "ERROR";
   return "IDLE";
 }
@@ -33,7 +32,6 @@ function clientStateColor(state: ClientState): string {
     case "PAUSED": return "text-amber-300";
     case "COMPILING":
     case "QUEUED_FOR_COMPILING": return "text-blue-300";
-    case "QUEUED_FOR_RUNNING":
     case "QUEUED_FOR_SIMULATION": return "text-violet-300";
     case "ERROR": return "text-red-400";
     default: return "text-white/50";
@@ -188,9 +186,22 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
 
   // ── Debug mode: 3-group status row ───────────────────────────────────
   if (debugMode) {
-    const slotVal = !wsError && workerIndex !== undefined && workerTotal !== undefined
+    // Compile slot: only visible while a compilation is in progress.
+    const compileSlotVal = visualCompStatus === "compiling"
+      && !wsError
+      && workerIndex !== undefined
+      && workerTotal !== undefined
       ? `#${workerIndex + 1}/${workerTotal}`
-      : "—";
+      : null;
+
+    // Simulation runner: only visible while simulation is active (running/paused/queued).
+    const simActive = simulationStatus === "running" || simulationStatus === "paused" || simulationStatus === "queued";
+    const simSlotVal = simActive
+      && !wsError
+      && workerIndex !== undefined
+      && workerTotal !== undefined
+      ? `#${workerIndex + 1}/${workerTotal}`
+      : null;
 
     return (
       <div
@@ -206,37 +217,41 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
 
         <ColSep />
 
-        {/* GROUP 2: COMPILATION — HTTP dot + slot */}
+        {/* GROUP 2: COMPILATION — HTTP dot + slot (slot only while compiling) */}
         <StatCell
           label="COMPILATION"
           value={(
             <span className="flex items-center gap-1">
               <span className="text-white/50">HTTP:</span>
               <span className={clsx("inline-block w-2 h-2 rounded-full", compileDotClass(visualCompStatus))} />
-              <span className="text-white/30">|</span>
-              <span className="text-white/50">SLOT:</span>
-              <span className="text-white/50">{slotVal}</span>
+              {compileSlotVal && (
+                <>
+                  <span className="text-white/30">|</span>
+                  <span className="text-white/50">SLOT:</span>
+                  <span className="text-white/50">{compileSlotVal}</span>
+                </>
+              )}
             </span>
           )}
         />
 
         <ColSep />
 
-        {/* GROUP 3: SIMULATION — WS dot + mode + slot */}
+        {/* GROUP 3: SIMULATION — WS dot + mode + runner (mode/runner only while active) */}
         <StatCell
           label="SIMULATION"
           value={(
             <span className="flex items-center gap-1">
               <span className="text-white/50">WS:</span>
               <span className={clsx("inline-block w-2 h-2 rounded-full", wsDotClass(wsConnectionState, wsHasEverConnected))} />
-              {!wsError && (
+              {!wsError && simSlotVal && (
                 <>
                   <span className="text-white/30">|</span>
                   <span className={clsx("font-bold font-mono whitespace-nowrap", simulationModeColorClass(sandboxMode))}>
                     {simulationModeLabel(sandboxMode)}
                   </span>
                   <span className="text-white/30">|</span>
-                  <span className="text-cyan-300 font-bold font-mono whitespace-nowrap">{slotVal}</span>
+                  <span className="text-cyan-300 font-bold font-mono whitespace-nowrap">{simSlotVal}</span>
                 </>
               )}
             </span>

@@ -26,14 +26,15 @@ describe("SimCockpit — normal mode (no debugMode prop)", () => {
 });
 
 describe("SimCockpit — debug mode — stat cell labels", () => {
-  it("renders CLIENT, COMPILATION, SIMULATION group labels plus HTTP:, WS:, SLOT: inline labels", () => {
+  it("renders CLIENT, COMPILATION, SIMULATION group labels plus HTTP: and WS: inline labels", () => {
     const { getByText, queryByText } = render(<SimCockpit debugMode={true} />);
     expect(getByText("CLIENT")).toBeInTheDocument();
     expect(getByText("COMPILATION")).toBeInTheDocument();
     expect(getByText("SIMULATION")).toBeInTheDocument();
     expect(getByText("HTTP:")).toBeInTheDocument();
     expect(getByText("WS:")).toBeInTheDocument();
-    expect(getByText("SLOT:")).toBeInTheDocument();
+    // SLOT: is only shown while actively compiling
+    expect(queryByText("SLOT:")).not.toBeInTheDocument();
     // BAUD / TEL/S / BYTES/TEL removed from new 3-group layout
     expect(queryByText("BAUD")).not.toBeInTheDocument();
     expect(queryByText("TEL/S")).not.toBeInTheDocument();
@@ -64,11 +65,11 @@ describe("SimCockpit — debug mode — CLIENT state", () => {
     expect(getByText("COMPILING")).toBeInTheDocument();
   });
 
-  it("shows QUEUED_FOR_RUNNING after compile success + idle sim", () => {
+  it("shows IDLE when compilationStatus is success but simulationStatus is idle (e.g. after stop)", () => {
     const { getByText } = render(
       <SimCockpit simulationStatus="idle" compilationStatus="success" debugMode={true} />,
     );
-    expect(getByText("QUEUED_FOR_RUNNING")).toBeInTheDocument();
+    expect(getByText("IDLE")).toBeInTheDocument();
   });
 
   it("shows QUEUED_FOR_SIMULATION when simulationStatus is queued", () => {
@@ -130,69 +131,76 @@ describe("SimCockpit — debug mode — WS dot", () => {
 });
 
 describe("SimCockpit — debug mode — SLOT", () => {
-  it("shows '—' when no workerIndex is provided", () => {
-    const { getAllByText } = render(<SimCockpit debugMode={true} />);
-    const dashes = getAllByText("—");
-    expect(dashes.length).toBeGreaterThan(0);
+  it("hides SLOT: when not actively compiling", () => {
+    const { queryByText } = render(<SimCockpit debugMode={true} workerIndex={0} workerTotal={10} />);
+    expect(queryByText("SLOT:")).not.toBeInTheDocument();
+    expect(queryByText("#1/10")).not.toBeInTheDocument();
   });
 
-  it("shows '#1/10' when workerIndex=0 and workerTotal=10", () => {
-    const { getAllByText } = render(
-      <SimCockpit debugMode={true} workerIndex={0} workerTotal={10} />,
+  it("shows SLOT: and '#1/10' while compiling (workerIndex=0, workerTotal=10)", () => {
+    const { getByText } = render(
+      <SimCockpit debugMode={true} compilationStatus="compiling" workerIndex={0} workerTotal={10} />,
     );
-    // slot value appears in both COMPILATION and SIMULATION groups
-    expect(getAllByText("#1/10").length).toBeGreaterThan(0);
+    expect(getByText("SLOT:")).toBeInTheDocument();
+    expect(getByText("#1/10")).toBeInTheDocument();
   });
 
-  it("shows '#3/5' when workerIndex=2 and workerTotal=5", () => {
-    const { getAllByText } = render(
-      <SimCockpit debugMode={true} workerIndex={2} workerTotal={5} />,
+  it("shows '#3/5' in SLOT while compiling (workerIndex=2, workerTotal=5)", () => {
+    const { getByText } = render(
+      <SimCockpit debugMode={true} compilationStatus="compiling" workerIndex={2} workerTotal={5} />,
     );
-    expect(getAllByText("#3/5").length).toBeGreaterThan(0);
+    expect(getByText("#3/5")).toBeInTheDocument();
   });
 
-  it("shows '—' for SLOT when wsError (was connected, now disconnected)", () => {
-    const { getAllByText } = render(
+  it("hides SLOT on wsError even while compiling", () => {
+    const { queryByText } = render(
       <SimCockpit
         debugMode={true}
+        compilationStatus="compiling"
         workerIndex={0}
         workerTotal={10}
         wsHasEverConnected={true}
         wsConnectionState="disconnected"
       />,
     );
-    // SLOT shows "—" on wsError even if workerIndex is provided
-    expect(getAllByText("—").length).toBeGreaterThan(0);
+    expect(queryByText("SLOT:")).not.toBeInTheDocument();
+    expect(queryByText("#1/10")).not.toBeInTheDocument();
   });
 });
 
 describe("SimCockpit — debug mode — MODE", () => {
-  it("shows DOCKER for docker-sandbox mode", () => {
-    const { getByText } = render(<SimCockpit sandboxMode="docker-sandbox" debugMode={true} />);
+  it("shows DOCKER for docker-sandbox mode while simulation is running", () => {
+    const { getByText } = render(
+      <SimCockpit sandboxMode="docker-sandbox" simulationStatus="running" workerIndex={0} workerTotal={5} debugMode={true} />,
+    );
     expect(getByText("DOCKER")).toBeInTheDocument();
   });
 
-  it("shows LOCAL for local-limited mode", () => {
-    const { getByText } = render(<SimCockpit sandboxMode="local-limited" debugMode={true} />);
+  it("hides DOCKER when simulation is idle (not active)", () => {
+    const { queryByText } = render(<SimCockpit sandboxMode="docker-sandbox" debugMode={true} />);
+    expect(queryByText("DOCKER")).not.toBeInTheDocument();
+  });
+
+  it("shows LOCAL for local-limited mode while simulation is running", () => {
+    const { getByText } = render(
+      <SimCockpit sandboxMode="local-limited" simulationStatus="running" workerIndex={0} workerTotal={5} debugMode={true} />,
+    );
     expect(getByText("LOCAL")).toBeInTheDocument();
   });
 
-  it("hides MODE cell on WS error (previously connected, now disconnected)", () => {
+  it("hides MODE and runner on WS error (previously connected, now disconnected)", () => {
     const { queryByText } = render(
       <SimCockpit
         sandboxMode="docker-sandbox"
+        simulationStatus="running"
+        workerIndex={0}
+        workerTotal={5}
         debugMode={true}
         wsHasEverConnected={true}
         wsConnectionState="disconnected"
       />,
     );
     expect(queryByText("DOCKER")).not.toBeInTheDocument();
-  });
-
-  it("shows '—' for unknown sandbox mode", () => {
-    const { container } = render(<SimCockpit sandboxMode="unknown" debugMode={true} />);
-    // MODE value is "—" for unknown mode
-    expect(container.textContent).toContain("—");
   });
 });
 

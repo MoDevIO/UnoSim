@@ -225,7 +225,7 @@ iframe.contentWindow.postMessage(
 );
 ```
 
-**Response `data`**: `"IDLE"` | `"QUEUED_FOR_COMPILING"` | `"COMPILING"` | `"QUEUED_FOR_RUNNING"` | `"RUNNING"` | `"PAUSED"` | `"ERROR"`
+**Response `data`**: `"IDLE"` | `"QUEUED_FOR_COMPILING"` | `"COMPILING"` | `"QUEUED_FOR_SIMULATION"` | `"RUNNING"` | `"PAUSED"` | `"ERROR"`
 
 > **Migration note (v1.4.0):** Previously returned lowercase values (`"stopped"`, `"running"`, `"paused"`, `"compiling"`). Now returns uppercase `ClientState` values matching the `SIMULATION_STATE_EVENT`.
 
@@ -331,9 +331,9 @@ Fired when the simulation changes state.
 }
 ```
 
-`data.state`: `"IDLE"` | `"QUEUED_FOR_COMPILING"` | `"COMPILING"` | `"QUEUED_FOR_RUNNING"` | `"RUNNING"` | `"PAUSED"` | `"ERROR"`
+`data.state`: `"IDLE"` | `"QUEUED_FOR_COMPILING"` | `"COMPILING"` | `"QUEUED_FOR_SIMULATION"` | `"RUNNING"` | `"PAUSED"` | `"ERROR"`
 
-> **Migration note (v1.4.0):** The `"STOPPED"` and `"QUEUED"` values are replaced by `"IDLE"` and `"QUEUED_FOR_COMPILING"` respectively. New states `"QUEUED_FOR_RUNNING"` and `"COMPILING"` have been added.
+> **Migration note (v1.4.0):** The `"STOPPED"` and `"QUEUED"` values are replaced by `"IDLE"` and `"QUEUED_FOR_COMPILING"` respectively. `"COMPILING"` and `"QUEUED_FOR_SIMULATION"` have been added. `"QUEUED_FOR_RUNNING"` has been removed.
 
 ---
 

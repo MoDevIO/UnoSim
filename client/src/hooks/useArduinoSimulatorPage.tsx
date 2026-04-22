@@ -651,8 +651,6 @@ export function useArduinoSimulatorPage() {
     if (simulationStatus === "running") return "RUNNING";
     if (simulationStatus === "paused") return "PAUSED";
     if (compilationStatus === "compiling") return "COMPILING";
-    // After compile success but before server confirms running → queued_for_running
-    if (compilationStatus === "success" && simulationStatus === "idle") return "QUEUED_FOR_RUNNING";
     return "IDLE";
   }, [simulationStatus, compilationStatus]);
 

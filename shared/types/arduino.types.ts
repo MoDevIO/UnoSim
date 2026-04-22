@@ -32,7 +32,7 @@ export type RuntimeSimulationStatus = Extract<SimulationStatus, "running" | "pau
  * Derived from `simulationStatus` + `compilationStatus` to give a single
  * label that covers the full lifecycle:
  *
- *   IDLE → QUEUED_FOR_COMPILING → COMPILING → QUEUED_FOR_RUNNING → RUNNING ⇄ PAUSED
+ *   IDLE → QUEUED_FOR_COMPILING → COMPILING → QUEUED_FOR_SIMULATION → RUNNING ⇄ PAUSED
  *
  * The header debug strip groups these into three functional areas:
  *   1. Client-Status  (this type)
@@ -43,7 +43,6 @@ export type ClientState =
   | "IDLE"
   | "QUEUED_FOR_COMPILING"
   | "COMPILING"
-  | "QUEUED_FOR_RUNNING"
   | "QUEUED_FOR_SIMULATION"
   | "RUNNING"
   | "PAUSED"
