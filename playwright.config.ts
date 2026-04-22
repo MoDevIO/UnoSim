@@ -17,7 +17,9 @@ if (process.env.PW_WORKER_INDEX) {
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 90000, 
+  // In CI, Arduino CLI compilation (cold start) can take 60-90 s, so we need
+  // a larger per-test budget.  Locally 90 s is still the default.
+  timeout: process.env.CI ? 180000 : 90000,
   
   // Global teardown: prints race-condition summary and runs leak check in CI
   globalTeardown: path.resolve(__dirname, "e2e/global-teardown.ts"),
