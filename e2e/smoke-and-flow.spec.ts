@@ -38,7 +38,7 @@ void loop() {
   }, code);
 
   // STEP 1: Compile the code first (set lastCompiledCode on server)
-  const compileRes = await page.request.post('http://localhost:3000/api/compile', {
+  const compileRes = await page.request.post('/api/compile', {
     data: { code },
     timeout: 120000, // 120s timeout for compilation
   }).catch(err => {

@@ -4,16 +4,12 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// choose a unique port per worker to avoid collisions when tests start their own server
-// PW_WORKER_INDEX is provided by Playwright when spawning workers.
-// ensure we don't end up with NaN if the env var is missing or corrupt
-let basePort = 3000;
-if (process.env.PW_WORKER_INDEX) {
-  const idx = Number.parseInt(process.env.PW_WORKER_INDEX, 10);
-  if (!Number.isNaN(idx)) {
-    basePort += idx;
-  }
-}
+// All workers share the single webServer on port 3000.
+// The previous per-worker port logic (basePort += PW_WORKER_INDEX) caused Worker 1
+// to connect to the standalone Vite dev server on port 3001, which has its own HMR
+// WebSocket.  HMR full-reloads triggered by that separate Vite instance were
+// disconnecting the simulation WebSocket mid-test → killing Docker → no serial output.
+const basePort = 3000;
 
 export default defineConfig({
   testDir: "./e2e",
