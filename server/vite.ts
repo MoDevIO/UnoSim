@@ -27,9 +27,17 @@ export async function setupVite(app: Express, server: Server) {
   const { createServer: createViteServer, createLogger } = await import("vite");
 
   const viteLogger = createLogger();
+  // Disable HMR when VITE_DISABLE_HMR=true (set during E2E / Playwright runs).
+  // In CI, Vite has no pre-bundled dependency cache.  The first-time dep
+  // optimisation fires a full-page reload via HMR mid-test, destroying the
+  // execution context and breaking every test that runs Monaco or starts a
+  // simulation.  With HMR disabled, Vite still serves the app correctly —
+  // it just won't push reload events to the browser.
+  const hmrConfig =
+    process.env.VITE_DISABLE_HMR === "true" ? false : { server };
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    hmr: hmrConfig,
     allowedHosts: true as const,
   };
 

@@ -44,8 +44,14 @@ export default defineConfig({
   },
   // ... restliche Config
   webServer: {
-    // Übergibt den dynamischen Port an den Server-Startbefehl mit zusätzlichen gatekeeper-overrides
-    command: `PORT=${basePort} VITE_DISABLE_TOASTS=true DISABLE_COMPILE_GATEKEEPER=true DISABLE_RATE_LIMIT=true npm run dev:full`,
+    // Use only the Express+Vite server (npm run dev), NOT dev:full.
+    // dev:full also starts a standalone Vite dev server on port 3001; two
+    // concurrent Vite instances watching the same files can trigger HMR
+    // full-page reloads in the shared port-3000 server, destroying the test
+    // execution context mid-test.
+    // VITE_DISABLE_HMR=true suppresses the HMR full-reload that Vite sends
+    // after its first-run dependency pre-bundling (no cache in CI).
+    command: `PORT=${basePort} VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true DISABLE_COMPILE_GATEKEEPER=true DISABLE_RATE_LIMIT=true npm run dev`,
     url: `http://localhost:${basePort}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000, 
