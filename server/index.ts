@@ -10,6 +10,28 @@ import { getCompilationPool } from "./services/compilation-worker-pool";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function parseAllowedFrameAncestors(): string[] {
+  const envValue = process.env.SIMULATOR_ALLOWED_PARENT_ORIGINS ?? process.env.ALLOW_EMBED_ORIGINS;
+  const defaultOrigins = [
+    "'self'",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ];
+
+  if (!envValue) {
+    return defaultOrigins;
+  }
+
+  const customOrigins = envValue
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  return Array.from(new Set([...defaultOrigins, ...customOrigins]));
+}
+
 // Cleanup service: Delete old .cleanup.json files and .cleanup directories (> 5 minutes old)
 function startCleanupService() {
   const CLEANUP_INTERVAL_MS = 60 * 1000; // Check every minute
@@ -61,8 +83,13 @@ function startCleanupService() {
 const app = express();
 
 // Security: Helmet adds various HTTP headers for protection
+function getFrameAncestorsHeader(): string {
+  return `frame-ancestors ${parseAllowedFrameAncestors().join(" ")}`;
+}
+
 app.use(
   helmet({
+    frameguard: false, // Deactivate X-Frame-Options; we use CSP frame-ancestors instead
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -73,10 +100,16 @@ app.use(
         fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
         workerSrc: ["'self'", "blob:", "data:"],
         childSrc: ["'self'", "blob:"], // Wichtig für ältere Browser/Playwright
+        frameAncestors: parseAllowedFrameAncestors(),
       },
     },
   }),
 );
+
+app.use((_, res, next) => {
+  res.setHeader("Content-Security-Policy", getFrameAncestorsHeader());
+  next();
+});
 
 // Security: Rate limiting to prevent DoS attacks
 // In test/development mode, use higher limits
