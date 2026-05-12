@@ -4,10 +4,10 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import type { QueryClient } from "@tanstack/react-query";
 import type { ServerStatusEventData } from "@/types/external-api";
 
-export type PoolStats = ServerStatusEventData["pool"];
-export type CompileStats = ServerStatusEventData["compile"];
+type PoolStats = ServerStatusEventData["pool"];
+type CompileStats = ServerStatusEventData["compile"];
 
-export type ServerStatus = {
+type ServerStatus = {
   pool: PoolStats;
   compile: CompileStats;
 } | null;

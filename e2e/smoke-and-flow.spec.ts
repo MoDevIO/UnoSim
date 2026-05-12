@@ -58,6 +58,12 @@ void loop() {
     throw new Error(`Compilation failed: ${compileResult?.stderr || 'unknown error'}`);
   }
 
+  // Inject compiled source into client ref for per-client isolation in parallel runs
+  await page.evaluate((c: string) => {
+    const setter = (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ as ((code: string) => void) | undefined;
+    if (setter) setter(c);
+  }, code);
+
   // start simulation - use accessible role lookup
   const startButton = page.getByRole('button', { name: /start simulation/i });
   await expect(startButton).toBeVisible({ timeout: 10000 });

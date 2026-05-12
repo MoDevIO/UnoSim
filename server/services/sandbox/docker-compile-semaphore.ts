@@ -89,8 +89,3 @@ export function getDockerCompileSemaphore(maxOverride?: number): DockerCompileSe
   }
   return _instance;
 }
-
-/** Reset the singleton (for tests). */
-export function resetDockerCompileSemaphore(): void {
-  _instance = null;
-}

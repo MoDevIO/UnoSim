@@ -1,9 +1,11 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject, MutableRefObject } from "react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
+import type { SimulationStatus } from "@shared/types/arduino.types";
+import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import {
@@ -17,10 +19,6 @@ import type {
   HexResult,
   IncomingArduinoMessage,
 } from "@/types/websocket";
-
-// status types
-type CompilationStatus = "ready" | "compiling" | "success" | "error";
-type CompilationResultType = "success" | "error" | null;
 
 const logger = new Logger("useCompileAndRun");
 
@@ -42,7 +40,6 @@ function determineCodeSource(
 }
 
 // reused helpers from previous hooks
-type SimulationStatus = "idle" | "running" | "compiling" | "queued" | "paused";
 type CliStatus = "idle" | "compiling" | "success" | "error";
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
@@ -154,6 +151,20 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   const lastCompilePayloadRef = useRef<{ code: string; headers?: Array<{ name: string; content: string }> } | null>(null);
   /** Stores the last successfully compiled code so start_simulation can send it per-client. */
   const lastCompiledCodeRef = useRef<string | null>(null);
+
+  // Expose a test-only setter so E2E tests can inject the REST-compiled code
+  // into this ref, ensuring start_simulation always sends code per-client and
+  // avoids races with the shared server-side lastCompiledCode.
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ = (code: string) => {
+        lastCompiledCodeRef.current = code;
+      };
+      return () => {
+        delete (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__;
+      };
+    }
+  }, []);
 
   // ensure we offer a ref to caller
   const internalStartRef = useRef<(() => void) | null>(null);

@@ -6,7 +6,7 @@
 
 # Konfiguration
 LOG_FILE="run-tests_output.log"
-TOTAL_STEPS=8
+TOTAL_STEPS=9
 STEP=0
 SERVER_PID=""
 
@@ -177,11 +177,25 @@ fi
 # 1. Static analysis
 run_task "Static Analysis" "npm run check"
 
-# 2. Unit tests
+# 3. Dead-code check (knip) — non-blocking, zeigt unused exports/types als Warnung
+STEP=$((STEP+1))
+echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] Dead-Code Check (knip)${RS}"
+KNIP_OUT=$(npx knip 2>&1)
+KNIP_EXIT=$?
+if [ $KNIP_EXIT -eq 0 ]; then
+    echo -e "  ${OK} Dead-Code Check                    no issues"
+else
+    KNIP_LINES=$(echo "$KNIP_OUT" | wc -l | tr -d ' ')
+    echo -e "  ${WARN} Dead-Code Check                    ${KNIP_LINES} line(s) – see $LOG_FILE"
+    echo "=== knip output ==" >> "$LOG_FILE"
+    echo "$KNIP_OUT" >> "$LOG_FILE"
+fi
+
+# 3. Unit tests
 run_task "Unit Tests" "NODE_OPTIONS='--no-warnings' npm run test:fast -- --reporter=default --maxConcurrency=2"
 parse_test_results "Tests.*passed"
 
-# 3+4. Sandbox image build & Docker tests (optional, requires Docker)
+# 4+5. Sandbox image build & Docker tests (optional, requires Docker)
 # Re-check Docker: heavy load can temporarily freeze the daemon after unit tests.
 DOCKER_LOST=0
 if [ "$DOCKER_AVAILABLE" -eq 1 ] && ! docker info >/dev/null 2>&1; then
@@ -218,7 +232,7 @@ if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
         echo "$stale_after" | xargs docker rm -f >/dev/null 2>&1
     fi
 else
-    [ "$DOCKER_LOST" -eq 0 ] && echo -e "  ${WARN} Docker not available – Docker tests skipped (Steps 3+4)"
+    [ "$DOCKER_LOST" -eq 0 ] && echo -e "  ${WARN} Docker not available – Docker tests skipped (Steps 4+5)"
     STEP=$((STEP+2))
 fi
 
@@ -262,21 +276,21 @@ for i in {1..15}; do
     sleep 1
 done
 
-# 3. E2E-Tests (Playwright)
+# 6. E2E-Tests (Playwright)
 run_task "E2E-Tests (Playwright)" "npx playwright test --timeout 60000"
 parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
 
-# 4. Post-test integrity check (leak detection after all tests)
+# 7. Post-test integrity check (leak detection after all tests)
 run_task "Post-Test Integrity Check" "./check-leaks.sh --cleanup"
 
 # Stop server before build
 cleanup
 SERVER_PID=""
 
-# 5. Production build
+# 8. Production build
 run_task "Production Build" "npm run build"
 
-# 6. SonarQube Quality Gate Check
+# 9. SonarQube Quality Gate Check
 if [ -n "$SONAR_TOKEN" ] && curl -sf http://localhost:9000/api/system/status > /dev/null 2>&1; then
     STEP=$((STEP+1))
     echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] SonarQube Quality Gate${RS}"

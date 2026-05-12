@@ -1,7 +1,7 @@
 import type { ParserMessage } from "./schema";
 import { randomUUID } from "node:crypto";
 
-type SeverityLevel = 1 | 2 | 3;
+export type SeverityLevel = 1 | 2 | 3;
 
 /**
  * Reserved names that conflict with standard C/C++ and Arduino libraries

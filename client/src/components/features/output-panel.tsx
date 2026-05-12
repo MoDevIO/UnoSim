@@ -9,8 +9,7 @@ import clsx from "clsx";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import { pinModeToString } from "@shared/utils/arduino-utils";
 import type { DebugMessage } from "@/hooks/use-debug-console";
-
-type OutputTab = "compiler" | "messages" | "registry" | "debug";
+import type { OutputTab } from "@/types/compilation.types";
 
 interface OutputPanelProps {
   /* State */

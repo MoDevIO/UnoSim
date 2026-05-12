@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { SimulatorActionType, API_VERSION, SimulatorEventType } from "@/types/external-api";
 import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage, SimulationStateEventData, ServerStatusEventData } from "@/types/external-api";
 
-export interface UseExternalApiParams {
+interface UseExternalApiParams {
   /** Restrict inbound messages to this origin. Use "*" to allow all origins. */
   allowedOrigin: string;
   /** Called when a LOAD_CODE message is received. */
@@ -248,7 +248,7 @@ export function useExternalApi(params: UseExternalApiParams): void {
  * Defaults to "*" if useExternalApi has not been called yet.
  * @internal Used by other hooks to send events with the correct origin.
  */
-export function getAllowedOrigin(): string {
+function getAllowedOrigin(): string {
   return _allowedOriginRef.value;
 }
 

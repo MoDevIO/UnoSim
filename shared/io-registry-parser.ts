@@ -60,8 +60,6 @@ type OpName =
   | "analogRead"
   | "analogWrite";
 
-type PinModeType = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
-
 interface CallEntry {
   op: OpName;
   pinId: number;
@@ -328,10 +326,10 @@ function detectPinConflicts(
   pinModeConflict: boolean;
   operationConflict: boolean;
   outputReadConflict: boolean;
-  uniqueModes: PinModeType[];
+  uniqueModes: PinMode[];
 } {
   const allModes = pmCalls.map((c) => c.mode);
-  const uniqueModes = [...new Set(allModes)] as PinModeType[];
+  const uniqueModes = [...new Set(allModes)] as PinMode[];
 
   // TC 11: same pin configured with multiple DIFFERENT modes
   const pinModeConflict = uniqueModes.length > 1;
@@ -364,7 +362,7 @@ function generateConflictMessage(
   pinModeConflict: boolean,
   operationConflict: boolean,
   outputReadConflict: boolean,
-  uniqueModes: PinModeType[],
+  uniqueModes: PinMode[],
 ): string {
   if (pinModeConflict) {
     return `Multiple modes: ${[...uniqueModes].join(", ")}`;

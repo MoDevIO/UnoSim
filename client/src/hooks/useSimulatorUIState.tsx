@@ -7,13 +7,12 @@ import { OutputPanel } from "@/components/features/output-panel";
 import { useSimulatorOutputPanel } from "@/hooks/useSimulatorOutputPanel";
 import type { ToastFn } from "@/hooks/use-toast";
 import type { ParserMessage, IOPinRecord, OutputLine } from "@shared/schema";
+import type { OutputTab } from "@/types/compilation.types";
 const CodeEditor = lazy(() =>
   import("@/components/features/code-editor").then((m) => ({
     default: m.CodeEditor,
-  })),
+  }))
 );
-
-type OutputTab = "compiler" | "messages" | "registry" | "debug";
 
 interface UseSimulatorUIStateParams {
   code: string;

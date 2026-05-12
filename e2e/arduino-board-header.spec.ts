@@ -33,7 +33,12 @@ async function setCode(page: import('@playwright/test').Page, code: string) {
 /** Compile the sketch via the REST API, then click Start and wait for the
  *  Stop button.  Compiling first guarantees that the server has
  *  lastCompiledCode set so the simulation can start even if
- *  lastCompiledCodeRef is null on the client side. */
+ *  lastCompiledCodeRef is null on the client side.
+ *
+ *  After a successful REST compile, the source code is injected into the
+ *  client's lastCompiledCodeRef via __SET_LAST_COMPILED_CODE__ so that the
+ *  start_simulation WS message includes the code per-client. This prevents
+ *  parallel tests from racing on the shared server-side lastCompiledCode. */
 async function compileAndStart(
   page: import('@playwright/test').Page,
   code: string,
@@ -48,6 +53,13 @@ async function compileAndStart(
   if (!compileResult?.success) {
     throw new Error(`Compilation failed: ${compileResult?.stderr ?? 'unknown error'}`);
   }
+
+  // Inject the compiled source code into the client's ref so the WS
+  // start_simulation frame includes code (per-client isolation in parallel runs).
+  await page.evaluate((c: string) => {
+    const setter = (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ as ((code: string) => void) | undefined;
+    if (setter) setter(c);
+  }, code);
 
   const startButton = page.getByRole('button', { name: /start simulation/i });
   await expect(startButton).toBeEnabled({ timeout: 15000 });

@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import clsx from "clsx";
 import type { SimulationStatus, ClientState } from "@shared/types/arduino.types";
+import type { CompilationStatus } from "@/types/compilation.types";
 import type { ConnectionState } from "@/lib/websocket-manager";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type CompilationStatus = "ready" | "compiling" | "success" | "error";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -107,7 +104,7 @@ function ColSep() {
 
 // ── Component interface ───────────────────────────────────────────────────────
 
-export interface SimCockpitProps {
+interface SimCockpitProps {
   batchStats?: unknown;
   simulationStatus?: SimulationStatus;
   compilationStatus?: CompilationStatus;
