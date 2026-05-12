@@ -1,15 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import type { ParserMessage } from "@shared/schema";
-
-type CompilationResultType = "success" | "error" | null;
-type OutputTabType = "compiler" | "messages" | "registry" | "debug";
+import type { CompilationResultType, OutputTab } from "@/types/compilation.types";
 
 interface OutputPanelStateHandlers {
   readonly showCompilationOutput: boolean;
   readonly setShowCompilationOutput: (value: boolean | ((prev: boolean) => boolean)) => void;
   readonly setParserPanelDismissed: (value: boolean) => void;
-  readonly setActiveOutputTab: (tab: OutputTabType) => void;
+  readonly setActiveOutputTab: (tab: OutputTab) => void;
 }
 
 /**
@@ -83,7 +81,7 @@ export function useOutputPanel(
 
   // Helper function to open the output panel (via double-click on tabs)
   const openOutputPanel = useCallback(
-    (targetTab: OutputTabType) => {
+    (targetTab: OutputTab) => {
       // Mark as manually resized FIRST before showing panel (update both state and ref)
       outputPanelManuallyResizedRef.current = true;
       setOutputPanelManuallyResized(true);

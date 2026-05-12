@@ -365,4 +365,358 @@ describe("SandboxRunnerPool", () => {
     // Should not throw even when reset() fails
     await expect(pool.releaseRunner(runner)).resolves.toBeUndefined();
   });
+
+  it("replaces stuck runner when stop() hangs beyond reset timeout", async () => {
+    const pool = getSandboxRunnerPool();
+    await pool.initialize();
+
+    const runner = await pool.acquireRunner();
+    runner.isRunning = true;
+    // Make stop() hang forever
+    runner.stop = vi.fn().mockReturnValue(new Promise(() => {}));
+
+    const statsBefore = pool.getStats();
+    expect(statsBefore.inUseRunners).toBe(1);
+
+    // Release should not hang — the 10s timeout fires and the runner is replaced
+    await pool.releaseRunner(runner);
+
+    const statsAfter = pool.getStats();
+    // Runner was freed (either original or replaced)
+    expect(statsAfter.inUseRunners).toBe(0);
+    expect(statsAfter.availableRunners).toBe(5);
+  }, 15000);
+
+  it("releases pool slot immediately even if reset hangs", async () => {
+    const pool = getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Acquire all 5 runners
+    const runners = [];
+    for (let i = 0; i < 5; i++) {
+      runners.push(await pool.acquireRunner());
+    }
+
+    // Make runner[0].stop() hang
+    runners[0].isRunning = true;
+    runners[0].stop = vi.fn().mockReturnValue(new Promise(() => {}));
+
+    // Queue a new request
+    const pendingAcquire = pool.acquireRunner();
+
+    // Release the hanging runner — slot should still free so queued request resolves
+    await pool.releaseRunner(runners[0]);
+
+    const queuedRunner = await pendingAcquire;
+    expect(queuedRunner).toBeDefined();
+    expect(pool.getStats().queuedRequests).toBe(0);
+  }, 15000);
 });
+
+// ---------------------------------------------------------------------------
+// Phase 1.1 – Env-var configuration & on-demand runner creation
+// ---------------------------------------------------------------------------
+describe("SandboxRunnerPool – env-var configuration", () => {
+  afterEach(() => {
+    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
+    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS;
+  });
+
+  it("uses SANDBOX_POOL_MIN_RUNNERS env var for initial pool size", async () => {
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "3";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+    const stats = pool.getStats();
+    expect(stats.totalRunners).toBe(3);
+    await pool.shutdown();
+  });
+
+  it("uses SANDBOX_POOL_MAX_RUNNERS env var to cap on-demand creation", async () => {
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "3";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Acquire min+1 (on-demand) and max concurrently
+    const r1 = await pool.acquireRunner();
+    const r2 = await pool.acquireRunner();
+    const r3 = await pool.acquireRunner();
+    expect(pool.getStats().totalRunners).toBe(3);
+    expect(pool.getStats().inUseRunners).toBe(3);
+
+    // 4th acquire must queue (maxRunners=3 reached)
+    let resolved = false;
+    const pending = pool.acquireRunner().then((r) => { resolved = true; return r; });
+    // Must not resolve yet
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+    expect(pool.getStats().queuedRequests).toBe(1);
+
+    // Release one → queued resolves
+    await pool.releaseRunner(r1);
+    const r4 = await pending;
+    expect(r4).toBeDefined();
+    expect(resolved).toBe(true);
+
+    await pool.releaseRunner(r2);
+    await pool.releaseRunner(r3);
+    await pool.releaseRunner(r4);
+    await pool.shutdown();
+  });
+
+  it("creates runners on-demand beyond minRunners when needed", async () => {
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    expect(pool.getStats().totalRunners).toBe(1);
+
+    // Acquiring a 2nd runner should create it on-demand
+    const r1 = await pool.acquireRunner();
+    const r2 = await pool.acquireRunner(); // on-demand
+    expect(pool.getStats().totalRunners).toBe(2);
+    expect(pool.getStats().inUseRunners).toBe(2);
+
+    await pool.releaseRunner(r1);
+    await pool.releaseRunner(r2);
+    await pool.shutdown();
+  });
+
+  it("getStats exposes maxRunners and minRunners", async () => {
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "2";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "50";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+    const stats = pool.getStats();
+    expect(stats.maxRunners).toBe(50);
+    expect(stats.minRunners).toBe(2);
+    await pool.shutdown();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2.3 – Idle runner cleanup after timeout
+// ---------------------------------------------------------------------------
+describe("SandboxRunnerPool – idle runner cleanup", () => {
+  afterEach(() => {
+    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
+    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS;
+    vi.useRealTimers();
+  });
+
+  it("destroys on-demand runners after idle timeout when above minRunners", async () => {
+    vi.useFakeTimers();
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
+    process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "5000";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Create an on-demand runner by acquiring 2 (minRunners=1)
+    const r1 = await pool.acquireRunner();
+    const r2 = await pool.acquireRunner(); // on-demand
+    expect(pool.getStats().totalRunners).toBe(2);
+
+    // Release both – r2 is above minRunners, should be scheduled for idle removal
+    await pool.releaseRunner(r1);
+    await pool.releaseRunner(r2);
+    expect(pool.getStats().totalRunners).toBe(2); // still 2 immediately after release
+
+    // Advance past idle timeout – r2 (the on-demand one above min) should be removed
+    vi.advanceTimersByTime(6000);
+    expect(pool.getStats().totalRunners).toBe(1); // back to minRunners
+
+    await pool.shutdown();
+  });
+
+  it("does NOT destroy warm runners (minRunners floor) even after idle timeout", async () => {
+    vi.useFakeTimers();
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "2";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
+    process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "5000";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Acquire and release both warm runners
+    const r1 = await pool.acquireRunner();
+    const r2 = await pool.acquireRunner();
+    await pool.releaseRunner(r1);
+    await pool.releaseRunner(r2);
+
+    vi.advanceTimersByTime(10000);
+    // Should remain at minRunners (2)
+    expect(pool.getStats().totalRunners).toBe(2);
+
+    await pool.shutdown();
+  });
+
+  it("cancels idle timer if runner is re-acquired before timeout", async () => {
+    vi.useFakeTimers();
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
+    process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "5000";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Acquire warm runner (index 0) to force on-demand creation
+    const warm = await pool.acquireRunner(); // warm in-use
+    const onDemand = await pool.acquireRunner(); // on-demand created
+
+    // Release on-demand while warm is still in use → idle timer starts
+    await pool.releaseRunner(onDemand);
+    expect(pool.getStats().totalRunners).toBe(2);
+
+    // Advance halfway through timeout
+    vi.advanceTimersByTime(2500);
+    expect(pool.getStats().totalRunners).toBe(2);
+
+    // Re-acquire – only onDemand is available → timer must be cancelled
+    const r3 = await pool.acquireRunner();
+    expect(pool.getStats().inUseRunners).toBe(2); // warm + onDemand in-use
+
+    // Advance past original timer deadline – timer was cancelled, so no removal
+    vi.advanceTimersByTime(5000);
+    expect(pool.getStats().totalRunners).toBe(2); // still 2
+
+    // Release both; on-demand is now free again – new idle timer starts
+    await pool.releaseRunner(warm);
+    await pool.releaseRunner(r3);
+
+    // Advance full idle period from last release
+    vi.advanceTimersByTime(6000);
+    // warm (index 0) is below minRunners floor, not removed
+    // onDemand (index 1) is above floor and idle → removed
+    expect(pool.getStats().totalRunners).toBe(1);
+
+    await pool.shutdown();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCALABILITY PROOF: 20 concurrent simulations without queuing
+// ─────────────────────────────────────────────────────────────────────────────
+describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
+  const origEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const k of ["SANDBOX_POOL_MIN_RUNNERS", "SANDBOX_POOL_MAX_RUNNERS", "SANDBOX_POOL_IDLE_TIMEOUT_MS"]) {
+      origEnv[k] = process.env[k];
+    }
+  });
+
+  afterEach(async () => {
+    for (const [k, v] of Object.entries(origEnv)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    vi.resetModules();
+  });
+
+  it("serves 20 simultaneous acquire() calls without any queuing", async () => {
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "20";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // All 20 acquire calls resolve immediately – no runner ends up queued
+    const runners = await Promise.all(
+      Array.from({ length: 20 }, () => pool.acquireRunner()),
+    );
+
+    const stats = pool.getStats();
+    expect(stats.totalRunners).toBe(20);       // 5 warm + 15 on-demand
+    expect(stats.inUseRunners).toBe(20);       // all in use
+    expect(stats.queuedRequests).toBe(0);      // zero waiting
+
+    await Promise.all(runners.map((r) => pool.releaseRunner(r)));
+    await pool.shutdown();
+  });
+
+  it("queues the 21st request when pool is full (max=20)", async () => {
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
+    process.env.SANDBOX_POOL_MAX_RUNNERS = "20";
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    // Fill the pool
+    const runners = await Promise.all(
+      Array.from({ length: 20 }, () => pool.acquireRunner()),
+    );
+
+    // The 21st request must queue (not resolve until a runner is freed)
+    let resolved = false;
+    const pending = pool.acquireRunner().then((r) => {
+      resolved = true;
+      return r;
+    });
+
+    expect(pool.getStats().queuedRequests).toBe(1);
+    expect(resolved).toBe(false);
+
+    // Release one runner → the queued request is satisfied
+    await pool.releaseRunner(runners[0]);
+    const extra = await pending;
+    expect(resolved).toBe(true);
+    expect(pool.getStats().queuedRequests).toBe(0);
+
+    await pool.releaseRunner(extra);
+    await Promise.all(runners.slice(1).map((r) => pool.releaseRunner(r)));
+    await pool.shutdown();
+  });
+
+  it("old default (max=5) would have queued requests 6-20", async () => {
+    // Reproduces the pre-fix bug: without MAX_RUNNERS the pool defaults to 5
+    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
+    delete process.env.SANDBOX_POOL_MAX_RUNNERS; // intentionally omit
+    vi.resetModules();
+    const mod = await import("../../../server/services/sandbox-runner-pool");
+    const pool = mod.getSandboxRunnerPool();
+    await pool.initialize();
+
+    expect(pool.getStats().maxRunners).toBe(5); // defaults to minRunners
+
+    // Acquire 5 (max); the 6th would queue
+    const runners = await Promise.all(
+      Array.from({ length: 5 }, () => pool.acquireRunner()),
+    );
+    expect(pool.getStats().inUseRunners).toBe(5);
+
+    // 6th acquire queues
+    let q6resolved = false;
+    const q6 = pool.acquireRunner().then((r) => { q6resolved = true; return r; });
+    expect(pool.getStats().queuedRequests).toBe(1);
+    expect(q6resolved).toBe(false); // still waiting
+
+    // Free one → q6 resolves
+    await pool.releaseRunner(runners[0]);
+    const r6 = await q6;
+    expect(q6resolved).toBe(true);
+
+    await pool.releaseRunner(r6);
+    await Promise.all(runners.slice(1).map((r) => pool.releaseRunner(r)));
+    await pool.shutdown();
+  });
+});
+

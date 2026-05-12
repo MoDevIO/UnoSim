@@ -35,6 +35,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("start_simulation"),
     timeout: z.number().optional(), // Timeout in seconds, 0 = infinite
+    code: z.string().optional(),     // Per-client code (overrides global lastCompiledCode)
   }),
   z.object({
     type: z.literal("pause_simulation"),
@@ -57,7 +58,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     arduinoCliStatus: z
       .enum(["idle", "compiling", "success", "error"])
       .optional(),
-    gccStatus: z.enum(["idle", "compiling", "success", "error"]).optional(),
+    gccStatus: z.enum(["idle", "compiling", "queued", "success", "error"]).optional(),
     sandboxMode: z.enum(["docker-sandbox", "local-limited"]).optional(),
     workerIndex: z.number().int().min(0).optional(),
     workerTotal: z.number().int().min(1).optional(),
@@ -65,7 +66,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("simulation_status"),
-    status: z.enum(["running", "stopped", "paused"]),
+    status: z.enum(["running", "stopped", "paused", "queued"]),
   }),
   z.object({
     type: z.literal("handshake"),

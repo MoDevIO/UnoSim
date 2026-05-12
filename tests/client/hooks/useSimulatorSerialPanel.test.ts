@@ -43,7 +43,7 @@ describe("useSimulatorSerialPanel", () => {
     expect(params.sendMessage).not.toHaveBeenCalled();
   });
 
-  it("shows toast when simulation is stopped", () => {
+  it("shows toast when simulation is idle", () => {
     const params = createParams({ simulationStatus: "idle" as any });
     const { result } = renderHook(() => useSimulatorSerialPanel(params));
 

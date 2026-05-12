@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 import { ChildProcess, spawn } from "node:child_process";
 import { Logger } from "@shared/logger";
 import { ProcessExecutor } from "./process-executor";
+import { config } from "../config";
 
 /**
  * Custom error type for compiler-specific failures
@@ -74,7 +75,7 @@ export class LocalCompiler {
     coverageActive: boolean;
     spawnIsMock: boolean;
   } {
-    const usingTestEnv = process.env.NODE_ENV === "test";
+    const usingTestEnv = config.isTest;
     const coverageActive = !!process.env.NODE_V8_COVERAGE || !!process.env.VITEST_COVERAGE;
 
     if (coverageActive) {

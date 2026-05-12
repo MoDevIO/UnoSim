@@ -2,7 +2,7 @@
 
 The Arduino Simulator can be embedded in an `<iframe>` and controlled by its parent page via the [Window.postMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).
 
-**API Version: 1.2.0**
+**API Version: 1.4.0**
 
 ---
 
@@ -225,7 +225,9 @@ iframe.contentWindow.postMessage(
 );
 ```
 
-**Response `data`**: `"stopped"` | `"running"` | `"paused"` | `"compiling"`
+**Response `data`**: `"IDLE"` | `"QUEUED_FOR_COMPILING"` | `"COMPILING"` | `"QUEUED_FOR_SIMULATION"` | `"RUNNING"` | `"PAUSED"` | `"ERROR"`
+
+> **Migration note (v1.4.0):** Previously returned lowercase values (`"stopped"`, `"running"`, `"paused"`, `"compiling"`). Now returns uppercase `ClientState` values matching the `SIMULATION_STATE_EVENT`.
 
 ---
 
@@ -246,7 +248,7 @@ Every inbound action receives a response. This enables the caller to confirm the
 
 ```ts
 interface SimulatorResponse {
-  version: string;    // API version (e.g. "1.2.0")
+  version: string;    // API version (e.g. "1.4.0")
   type: string;       // The action type the response corresponds to
   success: boolean;   // Whether the action was handled successfully
   data?: unknown;     // Optional data (e.g. pin value for GET_PIN_STATE)
@@ -258,19 +260,19 @@ interface SimulatorResponse {
 
 ```js
 // Response to LOAD_CODE:
-{ version: "1.2.0", type: "LOAD_CODE", success: true }
+{ version: "1.4.0", type: "LOAD_CODE", success: true }
 
 // Response to GET_PIN_STATE:
-{ version: "1.2.0", type: "GET_PIN_STATE", success: true, data: 1 }
+{ version: "1.4.0", type: "GET_PIN_STATE", success: true, data: 1 }
 
 // Response to GET_SIMULATION_STATE:
-{ version: "1.2.0", type: "GET_SIMULATION_STATE", success: true, data: "running" }
+{ version: "1.4.0", type: "GET_SIMULATION_STATE", success: true, data: "running" }
 ```
 
 #### Example: Error response (payload validation failed)
 
 ```js
-{ version: "1.2.0", type: "SET_PIN_STATE", success: false, error: "payload.pin and payload.value must be numbers" }
+{ version: "1.4.0", type: "SET_PIN_STATE", success: false, error: "payload.pin and payload.value must be numbers" }
 ```
 
 ---
@@ -283,7 +285,7 @@ Event messages are sent **without request** to inform the parent of state change
 
 ```ts
 interface SimulatorEventMessage {
-  version: string;    // API version (e.g. "1.2.0")
+  version: string;    // API version (e.g. "1.4.0")
   type: string;       // Event type
   success: true;      // Events always report success:true
   data?: unknown;     // Event-specific payload
@@ -297,7 +299,7 @@ Fired every time the simulator outputs data over the serial interface (Serial.pr
 ```js
 {
   type: "SERIAL_OUTPUT_EVENT",
-  version: "1.2.0",
+  version: "1.4.0",
   success: true,
   data: "Hello World\n"
 }
@@ -310,7 +312,7 @@ Fired when a digital or analog pin changes value during simulation.
 ```js
 {
   type: "PIN_STATE_CHANGE_EVENT",
-  version: "1.2.0",
+  version: "1.4.0",
   success: true,
   data: { pin: 13, value: 1 }
 }
@@ -323,13 +325,15 @@ Fired when the simulation changes state.
 ```js
 {
   type: "SIMULATION_STATE_EVENT",
-  version: "1.2.0",
+  version: "1.4.0",
   success: true,
   data: { state: "RUNNING", message: "Simulation started" }
 }
 ```
 
-`data.state`: `"RUNNING"` | `"STOPPED"` | `"PAUSED"` | `"ERROR"`
+`data.state`: `"IDLE"` | `"QUEUED_FOR_COMPILING"` | `"COMPILING"` | `"QUEUED_FOR_SIMULATION"` | `"RUNNING"` | `"PAUSED"` | `"ERROR"`
+
+> **Migration note (v1.4.0):** The `"STOPPED"` and `"QUEUED"` values are replaced by `"IDLE"` and `"QUEUED_FOR_COMPILING"` respectively. `"COMPILING"` and `"QUEUED_FOR_SIMULATION"` have been added. `"QUEUED_FOR_RUNNING"` has been removed.
 
 ---
 

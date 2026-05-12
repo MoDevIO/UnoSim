@@ -25,6 +25,7 @@ const logger = new Logger("WebSocketHook");
  */
 export function useWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
   const [lastMessage, setLastMessage] = useState<WSMessage | null>(null);
   const [messageQueue, setMessageQueue] = useState<WSMessage[]>([]);
   const [hasEverConnected, setHasEverConnected] = useState(false);
@@ -39,6 +40,7 @@ export function useWebSocket() {
     
     // Set initial state from manager
     setIsConnected(manager.isConnected());
+    setConnectionState(manager.getState());
     setHasEverConnected(manager.hasEverConnected());
     
     // Subscribe to state changes
@@ -47,6 +49,7 @@ export function useWebSocket() {
       
       logger.debug(`Connection state changed: ${state}`);
       setIsConnected(state === "connected");
+      setConnectionState(state);
       
       if (state === "connected") {
         setHasEverConnected(true);
@@ -135,6 +138,7 @@ export function useWebSocket() {
 
   return {
     isConnected,
+    connectionState,
     lastMessage,
     messageQueue,
     consumeMessages,

@@ -26,7 +26,7 @@ describe("useSimulationLifecycle", () => {
     });
 
     expect(sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
-    expect(setSimulationStatus).toHaveBeenCalledWith("stopped");
+    expect(setSimulationStatus).toHaveBeenCalledWith("idle");
     // resetPinUI should be called at least once (preserve detected)
     expect(resetPinUI).toHaveBeenCalled();
   });
@@ -83,6 +83,6 @@ describe("useSimulationLifecycle", () => {
     });
 
     expect(sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
-    expect(setSimulationStatus).toHaveBeenCalledWith("stopped");
+    expect(setSimulationStatus).toHaveBeenCalledWith("idle");
   });
 });

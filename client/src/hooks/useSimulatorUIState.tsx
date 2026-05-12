@@ -7,13 +7,12 @@ import { OutputPanel } from "@/components/features/output-panel";
 import { useSimulatorOutputPanel } from "@/hooks/useSimulatorOutputPanel";
 import type { ToastFn } from "@/hooks/use-toast";
 import type { ParserMessage, IOPinRecord, OutputLine } from "@shared/schema";
+import type { OutputTab } from "@/types/compilation.types";
 const CodeEditor = lazy(() =>
   import("@/components/features/code-editor").then((m) => ({
     default: m.CodeEditor,
-  })),
+  }))
 );
-
-type OutputTab = "compiler" | "messages" | "registry" | "debug";
 
 interface UseSimulatorUIStateParams {
   code: string;
@@ -52,7 +51,7 @@ interface UseSimulatorUIStateParams {
 
   renderedSerialOutput: OutputLine[];
   isConnected: boolean;
-  simulationStatus: "running" | "stopped" | "paused";
+  simulationStatus: "idle" | "running" | "compiling" | "queued" | "paused";
   handleSerialSend: (message: string) => void;
   handleClearSerialOutput: () => void;
   showSerialMonitor: boolean;
@@ -313,7 +312,7 @@ export function useSimulatorUIState({
         <SerialMonitor
           output={renderedSerialOutput}
           isConnected={isConnected}
-          isSimulationRunning={simulationStatus !== "stopped"}
+          isSimulationRunning={simulationStatus !== "idle"}
           onSendMessage={handleSerialSend}
           onClear={handleClearSerialOutput}
           showMonitor={showSerialMonitor}

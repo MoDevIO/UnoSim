@@ -315,8 +315,8 @@ describe("WebSocketManager", () => {
     mgr.connect();
     wsInstances[0]._simulateOpen();
 
-    // Simulate repeated failures (max attempts = 10)
-    for (let i = 0; i < 11; i++) {
+    // Simulate repeated failures (max attempts = 15)
+    for (let i = 0; i < 16; i++) {
       const ws = wsInstances.at(-1)!;
       ws._simulateClose(1006);
       vi.advanceTimersByTime(60000); // past any backoff
@@ -330,8 +330,8 @@ describe("WebSocketManager", () => {
   it("handles connection timeout", () => {
     const mgr = getWebSocketManager();
     mgr.connect();
-    // Don't open - let timeout fire (CONNECTION_TIMEOUT_MS = 5000)
-    vi.advanceTimersByTime(5100);
+    // Don't open - let timeout fire (CONNECTION_TIMEOUT_MS = 10000)
+    vi.advanceTimersByTime(10100);
     expect(mgr.getState()).toBe("reconnecting");
   });
 

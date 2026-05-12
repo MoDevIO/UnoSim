@@ -26,7 +26,7 @@ import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
-import { useExternalApi } from "@/hooks/use-external-api";
+import { useExternalApi, emitServerStatusEvent, emitSimulationStateEvent } from "@/hooks/use-external-api";
 import { parseStaticIORegistry } from "@shared/io-registry-parser";
 
 import type {
@@ -36,6 +36,7 @@ import type {
 } from "@shared/schema";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
+import type { OutputTab } from "@/types/compilation.types";
 import { isMac } from "@/lib/platform";
 import {
   DIGITAL_PIN_COUNT,
@@ -98,9 +99,7 @@ export function useArduinoSimulatorPage() {
     return pins;
   });
 
-  const [activeOutputTab, setActiveOutputTab] = useState<
-    "compiler" | "messages" | "registry" | "debug"
-  >("compiler");
+  const [activeOutputTab, setActiveOutputTab] = useState<OutputTab>("compiler");
   const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(
     () => {
       try {
@@ -187,6 +186,8 @@ export function useArduinoSimulatorPage() {
   
   const {
     isConnected,
+    connectionState: wsConnectionState,
+    hasEverConnected: wsHasEverConnected,
     lastMessage: _lastMessage,
     sendMessage: sendMessageRaw,
     sendMessageImmediate,
@@ -204,6 +205,7 @@ export function useArduinoSimulatorPage() {
     ensureBackendConnected,
     isBackendUnreachableError,
     triggerErrorGlitch,
+    serverStatus,
   } = useBackendHealth(queryClient);
 
   // placeholder for compilation-start callback
@@ -333,7 +335,7 @@ export function useArduinoSimulatorPage() {
     setCompilationStatus("ready");
     setArduinoCliStatus("idle");
     setLastCompilationResult(null);
-    setSimulationStatus("stopped");
+    setSimulationStatus("idle");
     setHasCompiledOnce(false);
   }, [
     simulationStatus,
@@ -362,7 +364,7 @@ export function useArduinoSimulatorPage() {
     setCompilationStatus("ready");
     setArduinoCliStatus("idle");
     setLastCompilationResult(null);
-    setSimulationStatus("stopped");
+    setSimulationStatus("idle");
     setHasCompiledOnce(false);
   }, [
     simulationStatus,
@@ -616,6 +618,39 @@ export function useArduinoSimulatorPage() {
 
   // Status info can be computed dynamically when needed per getStatusInfo
 
+  // Track START_SIMULATION requests that arrived before the WebSocket connected.
+  // Instances that are still in the iframe-stagger phase would otherwise stay on
+  // IDLE forever because ensureBackendConnected() returns false and exits early.
+  const [pendingExternalStart, setPendingExternalStart] = useState(false);
+
+  // When the WS reconnects after a pending start was queued, automatically
+  // trigger the compile-and-start flow.
+  useEffect(() => {
+    if (pendingExternalStart && isConnected && backendReachable) {
+      setPendingExternalStart(false);
+      compileAndStartAction();
+    }
+  }, [pendingExternalStart, isConnected, backendReachable, compileAndStartAction]);
+
+  // External START_SIMULATION handler that supports the queued-for-compiling state.
+  // If the WebSocket is not yet connected (iframe stagger), the request is queued
+  // instead of silently dropped.
+  const handleExternalStartSimulation = useCallback(() => {
+    if (isConnected && backendReachable) {
+      compileAndStartAction();
+    } else {
+      setPendingExternalStart(true);
+      setSimulationStatus("queued");
+      emitSimulationStateEvent("QUEUED_FOR_COMPILING");
+    }
+  }, [isConnected, backendReachable, compileAndStartAction, setSimulationStatus]);
+
+  // External STOP_SIMULATION handler that also clears any pending queued start.
+  const handleExternalStopSimulation = useCallback(() => {
+    setPendingExternalStart(false);
+    handleStop();
+  }, [handleStop]);
+
   const simControlBusy =
     compileMutation.isPending ||
     startMutation.isPending ||
@@ -624,7 +659,7 @@ export function useArduinoSimulatorPage() {
     resumeMutation.isPending;
 
   const simulateDisabled =
-    ((simulationStatus === "stopped" || simulationStatus === "paused") &&
+    ((simulationStatus === "idle" || simulationStatus === "paused") &&
       (!backendReachable || !isConnected)) ||
     simControlBusy;
 
@@ -641,11 +676,23 @@ export function useArduinoSimulatorPage() {
   const externalAllowedOrigin =
     globalThis.location.ancestorOrigins?.[0] ?? "*";
 
+  // Derive high-level ClientState from runtime + compilation state.
+  // This is the single label shown in the debug header and exposed via API.
+  const deriveClientState = useCallback((): string => {
+    // Waiting for WS connection before compile can begin
+    if (pendingExternalStart && !isConnected) return "QUEUED_FOR_COMPILING";
+    if (simulationStatus === "queued") return "QUEUED_FOR_SIMULATION";
+    if (simulationStatus === "running") return "RUNNING";
+    if (simulationStatus === "paused") return "PAUSED";
+    if (compilationStatus === "compiling") return "COMPILING";
+    return "IDLE";
+  }, [pendingExternalStart, isConnected, simulationStatus, compilationStatus]);
+
   useExternalApi({
     allowedOrigin: externalAllowedOrigin,
     onLoadCode: setCode,
-    onStartSimulation: compileAndStartAction,
-    onStopSimulation: handleStop,
+    onStartSimulation: handleExternalStartSimulation,
+    onStopSimulation: handleExternalStopSimulation,
     onPauseSimulation: handlePause,
     onResumeSimulation: handleResume,
     onSetPinState: (pin, value) => {
@@ -660,14 +707,30 @@ export function useArduinoSimulatorPage() {
     },
     onSetSimulationTimeout: setSimulationTimeout,
     onSetOutputTab: setActiveOutputTab,
-    getSimulationState: () => simulationStatus,
+    getSimulationState: deriveClientState,
+    getServerStatus: () => serverStatus && {
+      serverReachable: backendReachable,
+      pool: serverStatus.pool,
+      compile: serverStatus.compile,
+    },
   });
+
+  // Emit SERVER_STATUS_EVENT whenever pool / health state changes
+  useEffect(() => {
+    if (!serverStatus) return;
+    emitServerStatusEvent({
+      serverReachable: backendReachable,
+      pool: serverStatus.pool,
+      compile: serverStatus.compile,
+    });
+  }, [serverStatus, backendReachable]);
 
   const state = {
     showErrorGlitch,
     backendReachable,
     isMobile,
     simulationStatus,
+    compilationStatus,
     simulateDisabled,
     compileMutation,
     startMutation,
@@ -710,6 +773,8 @@ export function useArduinoSimulatorPage() {
     renderedSerialOutput,
     serialOutput,
     isConnected,
+    wsConnectionState,
+    wsHasEverConnected,
     handleSerialSend,
     handleClearSerialOutput,
     showSerialMonitor,
@@ -734,6 +799,7 @@ export function useArduinoSimulatorPage() {
     sandboxMode,
     workerIndex,
     workerTotal,
+    serverStatus,
     mobilePanel,
     setMobilePanel,
     headerHeight,

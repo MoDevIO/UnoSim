@@ -4,6 +4,7 @@ import { getWebSocketManager } from "@/lib/websocket-manager";
 import { Logger } from "@shared/logger";
 import { buildGccCompilationErrorState } from "@/lib/compilation-error-state";
 import type { ParserMessage, IOPinRecord, OutputLine, WSMessage } from "@shared/schema";
+import type { SimulationStatus } from "@shared/types/arduino.types";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import type { PinState, PinStateType } from "@/hooks/use-simulation-store";
 import { emitPinStateChange, emitSimulationStateEvent } from "@/hooks/use-external-api";
@@ -58,7 +59,7 @@ function mergeParserWarnings(
 
 export type UseWebSocketHandlerParams = {
   // read-only state used inside the handler
-  simulationStatus: "running" | "stopped" | "paused";
+  simulationStatus: SimulationStatus;
 
   // callbacks / setters from parent scope
   addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http") => void;
@@ -74,7 +75,7 @@ export type UseWebSocketHandlerParams = {
   setParserPanelDismissed: React.Dispatch<React.SetStateAction<boolean>>;
   setActiveOutputTab: React.Dispatch<React.SetStateAction<"compiler" | "messages" | "registry" | "debug">>;
   setCompilationStatus: React.Dispatch<React.SetStateAction<"ready" | "compiling" | "success" | "error">>;
-  setSimulationStatus: React.Dispatch<React.SetStateAction<"running" | "stopped" | "paused">>;
+  setSimulationStatus: React.Dispatch<React.SetStateAction<SimulationStatus>>;
 
   stopRendering: () => void;
   pauseRendering: () => void;
@@ -240,6 +241,12 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     if (message.message) {
       setCliOutput(message.message);
     }
+    // Propagate Docker compile phase to external API (parent frame/test dashboard)
+    if (message.gccStatus === "queued") {
+      emitSimulationStateEvent("QUEUED_FOR_COMPILING");
+    } else if (message.gccStatus === "compiling") {
+      emitSimulationStateEvent("COMPILING");
+    }
   };
 
   /** Handle compilation_error messages. */
@@ -253,13 +260,15 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setParserPanelDismissed(gccErrorState.parserPanelDismissed);
     setActiveOutputTab(gccErrorState.activeOutputTab);
     setCompilationStatus("error");
-    setSimulationStatus("stopped");
+    setSimulationStatus("idle");
   };
 
   /** Handle simulation_status messages. */
   const handleSimulationStatus = (message: SimulationStatusPayload) => {
     const { status } = message;
-    setSimulationStatus(status);
+    // Map server wire protocol "stopped" → client "idle"
+    const clientStatus = status === "stopped" ? "idle" : status;
+    setSimulationStatus(clientStatus);
 
     if (status === "stopped") {
       stopRendering();
@@ -270,7 +279,9 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       setAnalogPinsUsed([]);
       resetPinUI({ keepDetected: true });
       setCompilationStatus("ready");
-      emitSimulationStateEvent("STOPPED");
+      emitSimulationStateEvent("IDLE");
+    } else if (status === "queued") {
+      emitSimulationStateEvent("QUEUED_FOR_SIMULATION");
     } else if (status === "paused") {
       pauseRendering();
       emitSimulationStateEvent("PAUSED");

@@ -14,7 +14,7 @@ interface SimulatorOutputContainerProps {
   readonly renderedSerialOutput: OutputLine[];
   readonly serialOutput: OutputLine[];
   readonly isConnected: boolean;
-  readonly simulationStatus: "running" | "stopped" | "paused";
+  readonly simulationStatus: "idle" | "running" | "compiling" | "queued" | "paused";
   readonly handleSerialSend: (message: string) => void;
   readonly handleClearSerialOutput: () => void;
   readonly showSerialMonitor: boolean;
@@ -80,7 +80,7 @@ export default function SimulatorOutputContainer({
             renderedSerialOutput={renderedSerialOutput}
             serialOutput={serialOutput}
             isConnected={isConnected}
-            simulationStatus={simulationStatus}
+            simulationStatus={simulationStatus === "running" || simulationStatus === "paused" ? simulationStatus : "idle"}
             handleSerialSend={handleSerialSend}
             handleClearSerialOutput={handleClearSerialOutput}
             showSerialMonitor={showSerialMonitor}

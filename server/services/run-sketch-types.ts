@@ -7,6 +7,7 @@ interface RunSketchCallbacks {
   onExit: (code: number | null) => void;
   onCompileError?: (error: string) => void;
   onCompileSuccess?: () => void;
+  onCompileQueued?: () => void;
   onPinState?: (
     pin: number,
     type: "mode" | "value" | "pwm",

@@ -235,6 +235,7 @@ import { mkdir, writeFile, rm, chmod, rename } from "node:fs/promises";
 import { existsSync, renameSync } from "node:fs";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 import { LocalCompiler } from "../../../server/services/local-compiler";
+import { config } from "../../../server/config";
 
 // Typed aliases to avoid `as any` for common mocks
 const spawnMock = vi.mocked(spawn);
@@ -283,13 +284,19 @@ describe("SandboxRunner", () => {
   let activeRunners: SandboxRunner[] = [];
   let savedForceDocker: string | undefined;
   let savedDockerHost: string | undefined;
+  let savedConfigDockerHost: string;
+  let savedConfigSimulationMode: string;
 
   beforeEach(() => {
     // Isolate Docker-mock tests from real FORCE_DOCKER env var
     savedForceDocker = process.env.FORCE_DOCKER;
     savedDockerHost = process.env.DOCKER_HOST;
+    savedConfigDockerHost = config.sandbox.dockerHost;
+    savedConfigSimulationMode = config.simulationMode;
     delete process.env.FORCE_DOCKER;
     delete process.env.DOCKER_HOST;
+    config.sandbox.dockerHost = "unix:///var/run/docker.sock";
+    (config as any).simulationMode = "local";
 
     activeRunners = [];
     spawnInstances.length = 0;
@@ -344,6 +351,8 @@ describe("SandboxRunner", () => {
     } else {
       process.env.DOCKER_HOST = savedDockerHost;
     }
+    config.sandbox.dockerHost = savedConfigDockerHost;
+    (config as any).simulationMode = savedConfigSimulationMode;
   });
 
   // Helper to track runners for cleanup
@@ -390,7 +399,7 @@ describe("SandboxRunner", () => {
     });
 
     it("should fallback without spawning docker when unix socket is missing", async () => {
-      process.env.DOCKER_HOST = "unix:///definitely-missing/unosim-docker.sock";
+      config.sandbox.dockerHost = "unix:///definitely-missing/unosim-docker.sock";
       vi.mocked(existsSync).mockImplementation((path) => path !== "/definitely-missing/unosim-docker.sock");
 
       const runner = new SandboxRunner();

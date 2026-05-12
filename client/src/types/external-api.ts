@@ -6,7 +6,7 @@
  */
 
 /** API Version for backward compatibility and feature negotiation. */
-export const API_VERSION = "1.2.0";
+export const API_VERSION = "1.4.0";
 
 /**
  * All actions supported by the simulator's remote control interface (inbound).
@@ -36,6 +36,8 @@ export enum SimulatorActionType {
   SET_OUTPUT_TAB = "SET_OUTPUT_TAB",
   /** Query the current simulation state (triggers a RESPONSE message) */
   GET_SIMULATION_STATE = "GET_SIMULATION_STATE",
+  /** Query the current server/pool status (triggers a RESPONSE message) */
+  GET_SERVER_STATUS = "GET_SERVER_STATUS",
 }
 
 /**
@@ -49,6 +51,8 @@ export enum SimulatorEventType {
   SIMULATION_STATE_EVENT = "SIMULATION_STATE_EVENT",
   /** Data has been output over the serial interface (Serial.print, etc.) */
   SERIAL_OUTPUT_EVENT = "SERIAL_OUTPUT_EVENT",
+  /** The server/pool status has changed (runner pool, compile queue, reachability) */
+  SERVER_STATUS_EVENT = "SERVER_STATUS_EVENT",
 }
 
 /**
@@ -116,6 +120,7 @@ type PayloadMap = {
   [SimulatorActionType.SET_SIMULATION_TIMEOUT]: SetSimulationTimeoutPayload;
   [SimulatorActionType.SET_OUTPUT_TAB]: SetOutputTabPayload;
   [SimulatorActionType.GET_SIMULATION_STATE]: undefined;
+  [SimulatorActionType.GET_SERVER_STATUS]: undefined;
 };
 
 /**
@@ -128,10 +133,56 @@ export interface PinStateChangeEventData {
 
 /**
  * Data for SIMULATION_STATE_EVENT events.
+ *
+ * States follow the full client lifecycle:
+ *   IDLE → QUEUED_FOR_COMPILING → COMPILING → QUEUED_FOR_SIMULATION → RUNNING ⇄ PAUSED
+ *
+ * Legacy values STOPPED and QUEUED are accepted for backward compatibility
+ * but will no longer be emitted starting with API v1.4.0.
  */
 export interface SimulationStateEventData {
-  state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR";
+  state:
+    | "IDLE"
+    | "QUEUED_FOR_COMPILING"
+    | "COMPILING"
+    | "QUEUED_FOR_SIMULATION"
+    | "RUNNING"
+    | "PAUSED"
+    | "ERROR";
   message?: string;
+}
+
+/**
+ * Data for SERVER_STATUS_EVENT events.
+ * Reports server reachability, sandbox runner stats, and compile slot stats.
+ *
+ * Canonical terms (used across UI, API, banner, and docs):
+ * - pool → "Sandbox Runners" (container pool for docker-sandbox mode)
+ * - compile → "Compile Slots" (max concurrent compilation processes)
+ */
+export interface ServerStatusEventData {
+  /** True when the server HTTP endpoint is reachable */
+  serverReachable: boolean;
+  /** Sandbox Runners — container pool stats (docker-sandbox mode) */
+  pool: {
+    /** Total sandbox runner slots allocated */
+    total: number;
+    /** Sandbox runner slots currently idle */
+    available: number;
+    /** Sandbox runner slots actively running a simulation */
+    inUse: number;
+    /** Requests waiting for a free sandbox runner */
+    queued: number;
+  };
+  /** Compile Slots — concurrent compilation stats */
+  compile: {
+    /** Compile jobs currently in progress */
+    active: number;
+    /** Compile jobs waiting for a free slot */
+    queued: number;
+    /** Maximum concurrent compile slots allowed */
+    maxConcurrent: number;
+  };
 }
 
 
@@ -178,5 +229,7 @@ export type SimulatorEventMessage<T extends SimulatorEventType = SimulatorEventT
       ? SimulationStateEventData
       : T extends SimulatorEventType.SERIAL_OUTPUT_EVENT
         ? string
-        : never;
+        : T extends SimulatorEventType.SERVER_STATUS_EVENT
+          ? ServerStatusEventData
+          : never;
 }

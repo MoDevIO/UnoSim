@@ -14,6 +14,26 @@ services:
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
       - DOCKER_HOST=unix:///var/run/docker.sock
       - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
+      # Scalability: pool grows on-demand up to MAX_RUNNERS, shrinks after IDLE_TIMEOUT_MS
+      - SANDBOX_POOL_MIN_RUNNERS=5
+      - SANDBOX_POOL_MAX_RUNNERS=100
+      - SANDBOX_POOL_IDLE_TIMEOUT_MS=300000
+      # Per-sandbox Docker resource limits
+      # ┌─ Scenario breakdown ────────────────────────────────────────────────────┐
+      # │ Dev (default, no docker-compose): uses config.ts defaults             │
+      # │   SANDBOX_MEMORY_MB = 256 MB  (safe floor: g++/cc1plus needs 150-300 MB │
+      # │                               when compiling inside the container)     │
+      # │ CI (GitHub Actions ubuntu-latest): same defaults, no override needed  │
+      # │   Linux cgroup v2 hard-kills cc1plus at 64 MB → must be ≥ 256        │
+      # │ Production (this docker-compose): explicit override – can be tuned    │
+      # │   256 MB covers compile phase; AVR runtime alone only needs ~30 MB   │
+      # └─────────────────────────────────────────────────────────────────────────┘
+      - SANDBOX_MEMORY_MB=256
+      - SANDBOX_CPU_LIMIT=0.25
+      # Compilation worker threads (per-worker temp dir eliminates arduino-cli races)
+      - WORKER_COUNT=8
+      # Max simultaneous Docker containers in compile phase (prevents CPU starvation)
+      - DOCKER_COMPILE_CONCURRENT=8
     ports:
       - "3000:3000"
     volumes:
@@ -22,7 +42,7 @@ services:
       - ${PWD}/temp:${PWD}/temp
       - ./storage:/app/storage
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

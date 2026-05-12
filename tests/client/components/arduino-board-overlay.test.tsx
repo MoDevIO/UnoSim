@@ -31,7 +31,7 @@ const OverlayCorrect: React.FC = () => (
 function OverlayConditional({
   simulationStatus,
 }: {
-  readonly simulationStatus: "running" | "paused" | "stopped";
+  readonly simulationStatus: "running" | "paused" | "idle";
 }): JSX.Element {
   return (
     <div
@@ -58,8 +58,8 @@ describe("ArduinoBoard overlay - CORRECT implementation (always hidden)", () => 
 // ─── Tests documenting the BUGGY behaviour caused by incorrect opacity logic ───
 
 describe("ArduinoBoard overlay - regression detection", () => {
-  it("conditional overlay is dark when stopped (documents pre-fix bug)", () => {
-    const { getByTestId } = render(<OverlayConditional simulationStatus="stopped" />);
+  it("conditional overlay is dark when idle (documents pre-fix bug)", () => {
+    const { getByTestId } = render(<OverlayConditional simulationStatus="idle" />);
     expect(getByTestId("overlay").style.opacity).toBe("1");
   });
 

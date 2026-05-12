@@ -4,20 +4,18 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// choose a unique port per worker to avoid collisions when tests start their own server
-// PW_WORKER_INDEX is provided by Playwright when spawning workers.
-// ensure we don't end up with NaN if the env var is missing or corrupt
-let basePort = 3000;
-if (process.env.PW_WORKER_INDEX) {
-  const idx = Number.parseInt(process.env.PW_WORKER_INDEX, 10);
-  if (!Number.isNaN(idx)) {
-    basePort += idx;
-  }
-}
+// All workers share the single webServer on port 3000.
+// The previous per-worker port logic (basePort += PW_WORKER_INDEX) caused Worker 1
+// to connect to the standalone Vite dev server on port 3001, which has its own HMR
+// WebSocket.  HMR full-reloads triggered by that separate Vite instance were
+// disconnecting the simulation WebSocket mid-test → killing Docker → no serial output.
+const basePort = 3000;
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 90000, 
+  // In CI, Arduino CLI compilation (cold start) can take 60-90 s, so we need
+  // a larger per-test budget.  Locally 90 s is still the default.
+  timeout: process.env.CI ? 180000 : 90000,
   
   // Global teardown: prints race-condition summary and runs leak check in CI
   globalTeardown: path.resolve(__dirname, "e2e/global-teardown.ts"),
@@ -46,8 +44,14 @@ export default defineConfig({
   },
   // ... restliche Config
   webServer: {
-    // Übergibt den dynamischen Port an den Server-Startbefehl mit zusätzlichen gatekeeper-overrides
-    command: `PORT=${basePort} VITE_DISABLE_TOASTS=true DISABLE_COMPILE_GATEKEEPER=true DISABLE_RATE_LIMIT=true npm run dev:full`,
+    // Use only the Express+Vite server (npm run dev), NOT dev:full.
+    // dev:full also starts a standalone Vite dev server on port 3001; two
+    // concurrent Vite instances watching the same files can trigger HMR
+    // full-page reloads in the shared port-3000 server, destroying the test
+    // execution context mid-test.
+    // VITE_DISABLE_HMR=true suppresses the HMR full-reload that Vite sends
+    // after its first-run dependency pre-bundling (no cache in CI).
+    command: `PORT=${basePort} VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true DISABLE_COMPILE_GATEKEEPER=true DISABLE_RATE_LIMIT=true npm run dev`,
     url: `http://localhost:${basePort}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000, 

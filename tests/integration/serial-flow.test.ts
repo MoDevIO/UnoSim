@@ -13,12 +13,17 @@ import { vi } from "vitest";
 // allow longer integration tests
 vi.setConfig({ testTimeout: 60000 });
 import { SandboxRunner } from '../../server/services/sandbox-runner';
+import { resetUnifiedGatekeeper } from '../../server/services/unified-gatekeeper';
 import { extractPlainText, runSketchWithOutput } from '../utils/serial-test-helper';
 
 describe('Serial Output Flow Integration', () => {
   let runner: SandboxRunner;
 
   beforeEach(() => {
+    // Guard against fake-timer contamination from earlier test files and reset
+    // any stuck compile slots the singleton gatekeeper may have accumulated.
+    vi.useRealTimers();
+    resetUnifiedGatekeeper();
     runner = new SandboxRunner();
   });
 
@@ -28,6 +33,7 @@ describe('Serial Output Flow Integration', () => {
     }
     // Short delay to allow cleanup
     await new Promise(resolve => setTimeout(resolve, 50));
+    vi.useRealTimers();
   });
 
   test('Serial.print with delayed dots should arrive in separate chunks', async () => {

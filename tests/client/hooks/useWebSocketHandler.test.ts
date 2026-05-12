@@ -147,7 +147,7 @@ describe("useWebSocketHandler", () => {
 
     renderHook(() => useWebSocketHandler(params));
 
-    expect(params.setSimulationStatus).toHaveBeenCalledWith("stopped");
+    expect(params.setSimulationStatus).toHaveBeenCalledWith("idle");
     expect(params.stopRendering).toHaveBeenCalled();
     expect(params.setPinStates).toHaveBeenCalledWith([]);
     expect(params.setCompilationStatus).toHaveBeenCalledWith("ready");
@@ -239,7 +239,7 @@ describe("useWebSocketHandler", () => {
     renderHook(() => useWebSocketHandler(params));
 
     expect(params.setCompilationStatus).toHaveBeenCalledWith("error");
-    expect(params.setSimulationStatus).toHaveBeenCalledWith("stopped");
+    expect(params.setSimulationStatus).toHaveBeenCalledWith("idle");
     expect(params.setHasCompilationErrors).toHaveBeenCalledWith(true);
   });
 

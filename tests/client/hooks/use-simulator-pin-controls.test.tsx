@@ -29,8 +29,8 @@ describe("useSimulatorPinControls", () => {
       expect(params.setPinStates).toHaveBeenCalled();
     });
 
-    it("shows toast and does not send when simulation is stopped", () => {
-      const params = createParams({ simulationStatus: "stopped" });
+    it("shows toast and does not send when simulation is idle", () => {
+      const params = createParams({ simulationStatus: "idle" });
       const { result } = renderHook(() => useSimulatorPinControls(params));
 
       act(() => {
@@ -78,8 +78,8 @@ describe("useSimulatorPinControls", () => {
       });
     });
 
-    it("shows toast when simulation is stopped", () => {
-      const params = createParams({ simulationStatus: "stopped" });
+    it("shows toast when simulation is idle", () => {
+      const params = createParams({ simulationStatus: "idle" });
       const { result } = renderHook(() => useSimulatorPinControls(params));
 
       act(() => {

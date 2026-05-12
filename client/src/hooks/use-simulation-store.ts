@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from "react";
-
-type PinMode = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
+import type { PinMode } from "@shared/types/arduino.types";
 export type PinStateType = "mode" | "value" | "pwm";
 
 export interface PinState {

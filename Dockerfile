@@ -45,7 +45,7 @@ COPY --from=builder /app/dist ./dist
 
 # Copy package metadata and install dependencies
 COPY package.json package-lock.json ./
-RUN npm install --legacy-peer-deps --production=false \
+RUN npm ci --omit=dev --legacy-peer-deps --ignore-scripts \
     && chown -R node:node /app \
     && usermod -aG root node
 

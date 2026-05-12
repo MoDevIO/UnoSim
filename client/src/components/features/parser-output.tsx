@@ -13,9 +13,7 @@ import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import { clsx } from "clsx";
 import { useState } from "react";
 import * as React from "react";
-
-// Type alias for severity levels (S4323 - avoid union types)
-type SeverityLevel = 1 | 2 | 3;
+import type { SeverityLevel } from "@shared/reserved-names-validator";
 
 // Module-level constants (not re-created on every render)
 const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);

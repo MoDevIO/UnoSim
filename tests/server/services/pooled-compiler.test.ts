@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { PooledCompiler, getPooledCompiler } from "../../../server/services/pooled-compiler";
 import type { CompilationResult } from "../../../server/services/arduino-compiler";
+
+// Mock the config module so we can change serverMode per test
+const { mockConfig } = vi.hoisted(() => ({
+  mockConfig: {
+    serverMode: "local" as string,
+    compilation: { workerCount: 2 },
+  },
+}));
+vi.mock("../../../server/config", () => ({
+  config: mockConfig,
+}));
 
 // Mock the compilation pool
 vi.mock("../../../server/services/compilation-worker-pool", () => ({
@@ -29,17 +39,18 @@ vi.mock("../../../server/services/arduino-compiler", () => ({
   }),
 }));
 
-describe("PooledCompiler", () => {
-  const originalNodeEnv = process.env.NODE_ENV;
+// Import after mocks
+import { PooledCompiler, getPooledCompiler } from "../../../server/services/pooled-compiler";
 
+describe("PooledCompiler", () => {
   afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv;
+    mockConfig.serverMode = "local";
     vi.resetModules();
   });
 
-  describe("Development mode (NODE_ENV != production)", () => {
+  describe("Development mode (serverMode = local)", () => {
     it("uses direct compiler in development mode", async () => {
-      process.env.NODE_ENV = "test";
+      mockConfig.serverMode = "local";
       const compiler = new PooledCompiler();
 
       const result = await compiler.compile("void setup() {} void loop() {}");
@@ -49,7 +60,7 @@ describe("PooledCompiler", () => {
     });
 
     it("getStats returns zero stats without pool in development", () => {
-      process.env.NODE_ENV = "test";
+      mockConfig.serverMode = "local";
       const compiler = new PooledCompiler();
 
       const stats = compiler.getStats();
@@ -65,16 +76,16 @@ describe("PooledCompiler", () => {
     });
 
     it("shutdown is a no-op without pool in development", async () => {
-      process.env.NODE_ENV = "test";
+      mockConfig.serverMode = "local";
       const compiler = new PooledCompiler();
 
       await expect(compiler.shutdown()).resolves.toBeUndefined();
     });
   });
 
-  describe("Production mode (NODE_ENV = production)", () => {
+  describe("Production mode (serverMode = docker)", () => {
     it("uses pool in production mode", async () => {
-      process.env.NODE_ENV = "production";
+      mockConfig.serverMode = "docker";
       const mockPool = {
         compile: vi.fn(async () => ({ success: true, binary: "pool-binary" } as CompilationResult)),
         getStats: vi.fn(() => ({ activeWorkers: 1, totalTasks: 5, completedTasks: 4, failedTasks: 0, avgCompileTimeMs: 300, queuedTasks: 1 })),
@@ -89,7 +100,7 @@ describe("PooledCompiler", () => {
     });
 
     it("getStats returns pool stats in production", () => {
-      process.env.NODE_ENV = "production";
+      mockConfig.serverMode = "docker";
       const mockPool = {
         compile: vi.fn(),
         getStats: vi.fn(() => ({
@@ -112,7 +123,7 @@ describe("PooledCompiler", () => {
     });
 
     it("shutdown calls pool.shutdown in production", async () => {
-      process.env.NODE_ENV = "production";
+      mockConfig.serverMode = "docker";
       const mockPool = {
         compile: vi.fn(),
         getStats: vi.fn(),
@@ -127,7 +138,7 @@ describe("PooledCompiler", () => {
 
     it("compile throws when neither pool nor direct compiler is available", async () => {
       // This case shouldn't happen normally but tests the error path
-      process.env.NODE_ENV = "test";
+      mockConfig.serverMode = "local";
       const compiler = new PooledCompiler();
 
       // Forcibly remove both by hacking internal state

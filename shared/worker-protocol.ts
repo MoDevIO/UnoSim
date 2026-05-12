@@ -13,14 +13,16 @@
 import type { CompilationResult } from "../server/services/arduino-compiler";
 
 /**
- * Commands that can be sent to worker threads
+ * Commands that can be sent to worker threads.
+ * Uses a const object instead of enum for Node.js native TS strip-mode compatibility.
  */
-export enum WorkerCommand {
-  COMPILE = "compile",
-  READY = "ready",
-  SHUTDOWN = "shutdown",
-  COMPILE_RESULT = "compile_result",
-}
+export const WorkerCommand = {
+  COMPILE: "compile",
+  READY: "ready",
+  SHUTDOWN: "shutdown",
+  COMPILE_RESULT: "compile_result",
+} as const;
+export type WorkerCommand = (typeof WorkerCommand)[keyof typeof WorkerCommand];
 
 /**
  * Compilation request payload sent from main thread to worker
@@ -67,21 +69,21 @@ export interface WorkerMessage<T = void> {
  */
 
 export interface CompileRequestMessage extends WorkerMessage<CompileRequestPayload> {
-  type: WorkerCommand.COMPILE;
+  type: typeof WorkerCommand.COMPILE;
   payload: CompileRequestPayload;
 }
 
 export interface CompileResponseMessage extends WorkerMessage<CompileResponsePayload> {
-  type: WorkerCommand.COMPILE_RESULT;
+  type: typeof WorkerCommand.COMPILE_RESULT;
   payload: CompileResponsePayload;
 }
 
 export interface ReadyMessage extends WorkerMessage<void> {
-  type: WorkerCommand.READY;
+  type: typeof WorkerCommand.READY;
 }
 
 export interface ShutdownMessage extends WorkerMessage<void> {
-  type: WorkerCommand.SHUTDOWN;
+  type: typeof WorkerCommand.SHUTDOWN;
 }
 
 /**

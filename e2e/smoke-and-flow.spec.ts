@@ -38,7 +38,7 @@ void loop() {
   }, code);
 
   // STEP 1: Compile the code first (set lastCompiledCode on server)
-  const compileRes = await page.request.post('http://localhost:3000/api/compile', {
+  const compileRes = await page.request.post('/api/compile', {
     data: { code },
     timeout: 120000, // 120s timeout for compilation
   }).catch(err => {
@@ -58,6 +58,12 @@ void loop() {
     throw new Error(`Compilation failed: ${compileResult?.stderr || 'unknown error'}`);
   }
 
+  // Inject compiled source into client ref for per-client isolation in parallel runs
+  await page.evaluate((c: string) => {
+    const setter = (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ as ((code: string) => void) | undefined;
+    if (setter) setter(c);
+  }, code);
+
   // start simulation - use accessible role lookup
   const startButton = page.getByRole('button', { name: /start simulation/i });
   await expect(startButton).toBeVisible({ timeout: 10000 });
@@ -69,8 +75,9 @@ void loop() {
 
   // serial monitor shows LED ON or similar output
   const serial = page.locator('[data-testid="serial-output"]');
-  // CI runners are slower; give them up to 30 seconds to start emitting
-  const serialTimeout = process.env.CI ? 30000 : 10000;
+  // CI runners are slower; give them up to 60 seconds to start emitting
+  // (Docker g++ compilation with limited CPU can take 20-30 s in CI).
+  const serialTimeout = process.env.CI ? 60000 : 10000;
   await expect(serial).toContainText(/LED/i, { timeout: serialTimeout });
 });
 
@@ -78,6 +85,9 @@ void loop() {
 
 test('dialogs - open and close settings menu', async ({ page }) => {
   await page.goto('/');
+  // Wait for the app to fully mount so the 'open-settings' event listener is registered.
+  // Without this wait, the event fires before the React effect has attached the listener.
+  await expect(page.getByRole('button', { name: /start simulation/i })).toBeVisible({ timeout: 15000 });
   // use app event to open settings dialog instead of clicking header
   await page.evaluate(() => {
     globalThis.dispatchEvent(new CustomEvent('open-settings'));

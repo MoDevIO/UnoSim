@@ -34,11 +34,12 @@ describe("useBackendHealth", () => {
       hasEverConnected: true,
     });
 
-    // Mock fetch for health check
+    // Mock fetch for health check and /api/config
     fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValue({
       ok: true,
       status: 200,
+      json: async () => ({}),
     } as Response);
   });
 
@@ -55,24 +56,27 @@ describe("useBackendHealth", () => {
     expect(result.current.showErrorGlitch).toBe(false);
   });
 
-  it("should poll health endpoint every second", async () => {
+  it("should poll health endpoint every 5 seconds", async () => {
     renderHook(() => useBackendHealth(mockQueryClient));
 
-    // Initial call
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy).toHaveBeenCalledWith("/api/health", {
-      method: "GET",
-      cache: "no-store",
-      signal: expect.any(AbortSignal),
+    // Initial calls: /api/health + /api/status both fire immediately
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith("/api/health", {
+        method: "GET",
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      });
     });
 
-    // Wait for next interval
+    const callsAfterMount = fetchSpy.mock.calls.length;
+
+    // Advance 5000ms — health interval fires once more
     act(() => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(fetchSpy.mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 
@@ -83,7 +87,7 @@ describe("useBackendHealth", () => {
     await act(async () => {
       const hook = renderHook(() => useBackendHealth(mockQueryClient));
       result = hook.result;
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
@@ -95,9 +99,20 @@ describe("useBackendHealth", () => {
   it("should show toast when backend becomes unreachable", async () => {
     fetchSpy.mockRejectedValue(new Error("Connection refused"));
 
+    const { result } = renderHook(() => useBackendHealth(mockQueryClient));
+
+    // Wait for initial health check to fail
     await act(async () => {
-      renderHook(() => useBackendHealth(mockQueryClient));
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
+    });
+
+    await waitFor(() => {
+      expect(result.current.backendReachable).toBe(false);
+    });
+
+    // Now advance past the 5s startup grace period so toasts are enabled
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
@@ -110,28 +125,46 @@ describe("useBackendHealth", () => {
   });
 
   it("should show recovery toast when backend becomes reachable again", async () => {
-    // Start with failing backend
-    let callCount = 0;
-    fetchSpy.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
+    // Start with failing backend — fail for all calls during grace period
+    let shouldFail = true;
+    fetchSpy.mockImplementation(async (url: string) => {
+      if (shouldFail && typeof url === "string" && url.includes("/api/health")) {
         throw new Error("Down");
       }
-      return { ok: true, status: 200 } as Response;
+      return { ok: true, status: 200, json: async () => ({ pool: {}, compile: {} }) } as Response;
     });
     
     const { result } = renderHook(() => useBackendHealth(mockQueryClient));
 
-    // First ping happens immediately on mount and fails
+    // Wait for initial health check to fail
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
     await waitFor(() => {
       expect(result.current.backendReachable).toBe(false);
     });
 
+    // Advance past grace period — backend still failing, toast fires
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: "Backend unreachable",
+        description: "Down",
+        variant: "destructive",
+      });
+    });
+
     mockToast.mockClear();
 
-    // Second ping succeeds after 1000ms
+    // Now let backend recover
+    shouldFail = false;
+
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
@@ -144,13 +177,18 @@ describe("useBackendHealth", () => {
 
   it("should refetch queries when backend recovers", async () => {
     // Start unreachable
-    let callCount = 0;
-    fetchSpy.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
+    let healthCallCount = 0;
+    fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      if (urlStr === "/api/config" || urlStr === "/api/status") {
+        return { ok: true, status: 200, json: async () => ({ pool: {}, compile: {} }) } as Response;
+      }
+      // Only count /api/health calls
+      healthCallCount++;
+      if (healthCallCount === 1) {
         throw new Error("Down");
       }
-      return { ok: true, status: 200 } as Response;
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
     });
     
     const { result } = renderHook(() => useBackendHealth(mockQueryClient));
@@ -160,9 +198,9 @@ describe("useBackendHealth", () => {
       expect(result.current.backendReachable).toBe(false);
     });
 
-    // Second ping succeeds after 1000ms
+    // Second ping succeeds after 5000ms
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {
@@ -190,14 +228,14 @@ describe("useBackendHealth", () => {
     });
   });
 
-  it("should timeout health checks after 800ms", async () => {
+  it("should timeout health checks after 2000ms", async () => {
     // Mock a slow response that never resolves
     fetchSpy.mockImplementation(() => new Promise(() => {}));
 
     renderHook(() => useBackendHealth(mockQueryClient));
 
     await act(async () => {
-      vi.advanceTimersByTime(800);
+      vi.advanceTimersByTime(2000);
     });
 
     // Fetch should have been aborted
@@ -209,7 +247,7 @@ describe("useBackendHealth", () => {
     );
   });
 
-  it("should show toast for WebSocket connection error", () => {
+  it("should show toast for WebSocket connection error", async () => {
     mockUseWebSocket.mockReturnValue({
       isConnected: false,
       connectionError: "WebSocket connection failed",
@@ -218,6 +256,11 @@ describe("useBackendHealth", () => {
 
     renderHook(() => useBackendHealth(mockQueryClient));
 
+    // Advance past the 5s startup grace period so toasts are enabled
+    await act(async () => {
+      vi.advanceTimersByTime(6000);
+    });
+
     expect(mockToast).toHaveBeenCalledWith({
       title: "Backend unreachable",
       description: "WebSocket connection failed",
@@ -225,7 +268,7 @@ describe("useBackendHealth", () => {
     });
   });
 
-  it("should show toast when WebSocket connection is lost", () => {
+  it("should show toast when WebSocket connection is lost", async () => {
     mockUseWebSocket.mockReturnValue({
       isConnected: false,
       connectionError: null,
@@ -234,11 +277,35 @@ describe("useBackendHealth", () => {
 
     renderHook(() => useBackendHealth(mockQueryClient));
 
+    // Advance past the 5s startup grace period so toasts are enabled
+    await act(async () => {
+      vi.advanceTimersByTime(6000);
+    });
+
     expect(mockToast).toHaveBeenCalledWith({
       title: "Connection lost",
       description: "Trying to re-establish backend connection...",
       variant: "destructive",
     });
+  });
+
+  it("should suppress error toasts during startup grace period", async () => {
+    fetchSpy.mockRejectedValue(new Error("Connection refused"));
+    mockUseWebSocket.mockReturnValue({
+      isConnected: false,
+      connectionError: "WebSocket failed",
+      hasEverConnected: false,
+    });
+
+    renderHook(() => useBackendHealth(mockQueryClient));
+
+    // Advance 3 seconds — still within the 5s grace period
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    // No toast should have been fired during grace period
+    expect(mockToast).not.toHaveBeenCalled();
   });
 
   it("ensureBackendConnected should return false when backend unreachable", async () => {

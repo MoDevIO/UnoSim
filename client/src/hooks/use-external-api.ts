@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { SimulatorActionType, API_VERSION, SimulatorEventType } from "@/types/external-api";
-import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage, SimulationStateEventData } from "@/types/external-api";
+import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage, SimulationStateEventData, ServerStatusEventData } from "@/types/external-api";
 
-export interface UseExternalApiParams {
+interface UseExternalApiParams {
   /** Restrict inbound messages to this origin. Use "*" to allow all origins. */
   allowedOrigin: string;
   /** Called when a LOAD_CODE message is received. */
@@ -27,6 +27,8 @@ export interface UseExternalApiParams {
   onSetOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") => void;
   /** Returns the current simulation state (used for GET_SIMULATION_STATE responses). */
   getSimulationState: () => string;
+  /** Returns the current server status for GET_SERVER_STATUS responses. */
+  getServerStatus: () => ServerStatusEventData | null;
 }
 
 // Global storage for the allowed origin (set by useExternalApi hook)
@@ -87,6 +89,7 @@ export function useExternalApi(params: UseExternalApiParams): void {
     onSetSimulationTimeout,
     onSetOutputTab,
     getSimulationState,
+    getServerStatus,
   } = params;
 
   // Store the allowed origin globally for use by event-sending functions
@@ -169,6 +172,11 @@ export function useExternalApi(params: UseExternalApiParams): void {
     sendMessageToParent({ type: SimulatorActionType.GET_SIMULATION_STATE, success: true, data: state }, allowedOrigin);
   };
 
+  const handleGetServerStatus = (): void => {
+    const status = getServerStatus();
+    sendMessageToParent({ type: SimulatorActionType.GET_SERVER_STATUS, success: true, data: status }, allowedOrigin);
+  };
+
   useEffect(() => {
     const handleMessage = (event: MessageEvent): void => {
       if (allowedOrigin !== "*" && event.origin !== allowedOrigin) return;
@@ -217,6 +225,9 @@ export function useExternalApi(params: UseExternalApiParams): void {
         case SimulatorActionType.GET_SIMULATION_STATE:
           handleGetState();
           break;
+        case SimulatorActionType.GET_SERVER_STATUS:
+          handleGetServerStatus();
+          break;
         // default: silently ignore unknown actions
       }
     };
@@ -228,7 +239,7 @@ export function useExternalApi(params: UseExternalApiParams): void {
   }, [
     allowedOrigin, onLoadCode, onStartSimulation, onStopSimulation,
     onPauseSimulation, onResumeSimulation, onSetPinState, getPinState,
-    onSerialInput, onSetSimulationTimeout, onSetOutputTab, getSimulationState,
+    onSerialInput, onSetSimulationTimeout, onSetOutputTab, getSimulationState, getServerStatus,
   ]);
 }
 
@@ -237,7 +248,7 @@ export function useExternalApi(params: UseExternalApiParams): void {
  * Defaults to "*" if useExternalApi has not been called yet.
  * @internal Used by other hooks to send events with the correct origin.
  */
-export function getAllowedOrigin(): string {
+function getAllowedOrigin(): string {
   return _allowedOriginRef.value;
 }
 
@@ -290,7 +301,7 @@ export function emitPinStateChange(pin: number, value: number): void {
  * @param message - Optional human-readable message
  */
 export function emitSimulationStateEvent(
-  state: "RUNNING" | "STOPPED" | "PAUSED" | "ERROR",
+  state: "IDLE" | "QUEUED_FOR_COMPILING" | "COMPILING" | "QUEUED_FOR_SIMULATION" | "RUNNING" | "PAUSED" | "ERROR",
   message?: string,
 ): void {
   try {
@@ -299,6 +310,25 @@ export function emitSimulationStateEvent(
     const event: SimulatorEventMessage<typeof SimulatorEventType.SIMULATION_STATE_EVENT> = {
       version: API_VERSION,
       type: SimulatorEventType.SIMULATION_STATE_EVENT,
+      success: true,
+      data,
+    };
+    sendEventToParent(event, getAllowedOrigin());
+  } catch {
+    // Silently ignore — postMessage errors are expected when not embedded
+  }
+}
+
+/**
+ * Sends a SERVER_STATUS_EVENT to the parent frame with current pool / compile stats.
+ * Called periodically so test harnesses can measure queue times.
+ * @param data - Server status snapshot from use-backend-health
+ */
+export function emitServerStatusEvent(data: ServerStatusEventData): void {
+  try {
+    const event: SimulatorEventMessage<typeof SimulatorEventType.SERVER_STATUS_EVENT> = {
+      version: API_VERSION,
+      type: SimulatorEventType.SERVER_STATUS_EVENT,
       success: true,
       data,
     };

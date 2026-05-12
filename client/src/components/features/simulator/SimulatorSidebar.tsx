@@ -2,7 +2,7 @@ import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
 import type { PinState, BatchStats } from "@/hooks/use-simulation-store";
 
-type SimulationStatus = "running" | "stopped" | "paused";
+type SimulationStatus = "idle" | "running" | "compiling" | "queued" | "paused";
 
 type SimulatorSidebarProps = {
   readonly pinMonitorVisible: boolean;
@@ -32,7 +32,7 @@ export default function SimulatorSidebar({
   isMobile = false,
 }: SimulatorSidebarProps) {
   // Pure UI/presentation component — receives data + callbacks from parent hooks.
-  const isRunning = simulationStatus !== "stopped";
+  const isRunning = simulationStatus !== "idle";
 
   return (
     <div className={isMobile ? "h-full w-full" : "h-full w-full flex flex-col gap-3 p-2 overflow-y-auto"}>
@@ -47,7 +47,7 @@ export default function SimulatorSidebar({
         <ArduinoBoard
           pinStates={pinStates}
           isSimulationRunning={isRunning}
-          simulationStatus={simulationStatus}
+          simulationStatus={simulationStatus === "running" || simulationStatus === "paused" ? simulationStatus : "idle"}
           txActive={txActivity}
           rxActive={rxActivity}
           onReset={onReset}

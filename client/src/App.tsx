@@ -21,7 +21,10 @@ function Router() {
 
 function App() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const disableToasts = import.meta.env.VITE_DISABLE_TOASTS === "true";
+  const disableToasts =
+    import.meta.env.VITE_DISABLE_TOASTS === "true" ||
+    (typeof globalThis !== "undefined" &&
+      (globalThis as any).__DISABLE_TOASTS === true);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

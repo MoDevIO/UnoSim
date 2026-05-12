@@ -65,16 +65,45 @@ async function waitForSerial(
   return false;
 }
 
-/** Click "Start Simulation" and wait for it to be running */
-async function startAndAwaitRunning(page: import('@playwright/test').Page) {
+/** Click "Start Simulation" and wait for it to be running.
+ *  @param code - When provided the sketch is compiled via REST API first so
+ *                that the server has lastCompiledCode set.  This is required
+ *                on a fresh CI server where no prior compilation exists. */
+async function startAndAwaitRunning(
+  page: import('@playwright/test').Page,
+  code?: string,
+) {
+  // Ensure the server has compiled code available before starting the simulation.
+  // Without this, a fresh CI server returns "No compiled code" and the Stop button
+  // never appears.
+  if (code) {
+    const compileRes = await page.request.post('/api/compile', {
+      data: { code },
+      timeout: 120000,
+    }).catch((err: Error) => {
+      throw new Error(`/api/compile unreachable: ${err.message}`);
+    });
+    const compileResult = await compileRes.json();
+    if (!compileResult?.success) {
+      throw new Error(`Compilation failed: ${compileResult?.stderr ?? 'unknown error'}`);
+    }
+
+    // Inject compiled source into client ref for per-client isolation in parallel runs
+    await page.evaluate((c: string) => {
+      const setter = (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ as ((code: string) => void) | undefined;
+      if (setter) setter(c);
+    }, code);
+  }
+
   const startBtn = page.getByRole('button', { name: /start simulation/i });
-  await expect(startBtn).toBeVisible({ timeout: 12000 });
+  await expect(startBtn).toBeEnabled({ timeout: 15000 });
   await startBtn.click();
   
-  // Wait for "Stop Simulation" button which appears when simulation is running
-  // (alternative: wait for button text to change from "Start" to "Stop")
+  // Wait for "Stop Simulation" button which appears when simulation is running.
+  // Use an extended timeout in CI where Docker + g++ compilation can take longer.
+  const stopBtnTimeout = process.env.CI ? 40000 : 25000;
   const stopBtn = page.getByRole('button', { name: /stop simulation/i });
-  await expect(stopBtn).toBeVisible({ timeout: 25000 });
+  await expect(stopBtn).toBeVisible({ timeout: stopBtnTimeout });
 }
 
 /** Double-click a tab to force-expand the output panel, then single-click to
@@ -114,6 +143,7 @@ test.describe('Visual Full-Context Baselines', () => {
     // the board always renders with the canonical color (#00979D) in snapshots.
     await page.addInitScript(() => {
       localStorage.setItem('unoBoardColor', '#00979D');
+      (globalThis as any).__DISABLE_TOASTS = true;
     });
     await page.goto('/', { waitUntil: 'networkidle' });
     await page.waitForTimeout(400);
@@ -134,17 +164,18 @@ void loop() {
 }`;
 
     await setCode(page, code);
-    await startAndAwaitRunning(page);
+    await startAndAwaitRunning(page, code);
 
     // Proof: "Hello World" must appear in serial monitor BEFORE screenshot.
     // On GitHub Actions the Docker sandbox startup may take longer than local.
+    const serialTimeout = process.env.CI ? 60000 : 10000;
     const serial = page.locator('[data-testid="serial-output"]');
     await expect(serial).toBeVisible({ timeout: 5000 });
     await expect(serial).not.toContainText(
       'Serial output will appear here...',
-      { timeout: 10000 },
+      { timeout: serialTimeout },
     );
-    await expect(serial).toContainText('Hello World', { timeout: 10000 });
+    await expect(serial).toContainText('Hello World', { timeout: serialTimeout });
 
     // Allow the editor and serial output to finish rendering before capturing the snapshot.
     await page.waitForTimeout(2000);
@@ -174,7 +205,7 @@ void loop() {
 }`;
 
     await setCode(page, code);
-    await startAndAwaitRunning(page);
+    await startAndAwaitRunning(page, code);
 
     // Give the SVG board time to render all active-pin states
     await page.waitForTimeout(1500);
@@ -198,7 +229,7 @@ void loop() {
 }`;
 
     await setCode(page, code);
-    await startAndAwaitRunning(page);
+    await startAndAwaitRunning(page, code);
 
     // ─── OPEN + EXPAND COMPILER PANEL ────────────────────────────────────────
     // Double-click invokes openOutputPanel("compiler") which resizes the panel
@@ -250,7 +281,7 @@ void loop() {
 }`;
 
     await setCode(page, code);
-    await startAndAwaitRunning(page);
+    await startAndAwaitRunning(page, code);
 
     // Let the static linter and simulation settle
     await page.waitForTimeout(2000);
@@ -364,10 +395,11 @@ void loop() {
 }`;
 
     await setCode(page, code);
-    await startAndAwaitRunning(page);
+    await startAndAwaitRunning(page, code);
 
     // Proof: simulation is producing output
-    const found = await waitForSerial(page, 'DebugReady');
+    const serialWaitTimeout = process.env.CI ? 60000 : 30000;
+    const found = await waitForSerial(page, 'DebugReady', serialWaitTimeout);
     if (!found) throw new Error('Proof failed: "DebugReady" never appeared in serial output');
 
     // Enable debug mode via keyboard shortcut (⌘+D on Mac, Ctrl+D on others)

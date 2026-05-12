@@ -8,6 +8,7 @@ import { Logger } from "@shared/logger";
 import { computePinConflict, ensurePinModeOperation } from "./utils/pin-validator";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { join } from "node:path";
+import { config } from "../config";
 
 type RegistryUpdateCallback = (
   registry: IOPinRecord[],
@@ -384,7 +385,7 @@ export class RegistryManager {
         `Telemetry: intended: ${intendedPinChangesPerSecond} pin/s, actual: ${actualPinChangesPerSecond} pin/s (dropped: ${droppedPinChangesPerSecond}), ${batchesPerSecond} bat/s, ${avgStatesPerBatch} st/bat, ${serialOutputPerSecond} serial/s, SERIAL: intended=${batcherTelemetry?.intended ?? 0} bytes, actual=${batcherTelemetry?.actual ?? 0} bytes, dropped=${batcherTelemetry?.dropped ?? 0} bytes (${serialDroppedBytesPerSecond} B/s)`,
       );
 
-      if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
+      if (!config.isTest) {
         // DEBUG: Write telemetry to file for inspection
         try {
           const debugPath = join(process.cwd(), "temp", "telemetry-debug.jsonl");

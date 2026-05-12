@@ -1,8 +1,6 @@
 /// <reference types="node" />
 import { test, expect } from '@playwright/test';
 
-const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
-
 /**
  * E2E Tests for Arduino Board Pin State Header Synchronization
  * 
@@ -12,6 +10,65 @@ const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
  * 3. UI respects header-height tokens and doesn't get clipped
  * 4. Sampling/Dropping in the backend doesn't affect visible UI state
  */
+
+/** CI-aware timeouts */
+const STOP_BTN_TIMEOUT = process.env.CI ? 30000 : 10000;
+const SERIAL_TIMEOUT = process.env.CI ? 60000 : 15000;
+
+/** Set Monaco editor content via the global setValue API.
+ *  Waits for Monaco to be fully initialised before injecting code, which
+ *  avoids the page-navigation side-effect caused by keyboard simulation. */
+async function setCode(page: import('@playwright/test').Page, code: string) {
+  await page.waitForFunction(
+    () => Boolean((globalThis as any).__MONACO_EDITOR__),
+    { timeout: 15000 },
+  );
+  await page.evaluate((c: string) => {
+    const editor = (globalThis as any).__MONACO_EDITOR__ as { setValue: (v: string) => void };
+    editor.setValue(c);
+  }, code);
+  await page.waitForTimeout(200);
+}
+
+/** Compile the sketch via the REST API, then click Start and wait for the
+ *  Stop button.  Compiling first guarantees that the server has
+ *  lastCompiledCode set so the simulation can start even if
+ *  lastCompiledCodeRef is null on the client side.
+ *
+ *  After a successful REST compile, the source code is injected into the
+ *  client's lastCompiledCodeRef via __SET_LAST_COMPILED_CODE__ so that the
+ *  start_simulation WS message includes the code per-client. This prevents
+ *  parallel tests from racing on the shared server-side lastCompiledCode. */
+async function compileAndStart(
+  page: import('@playwright/test').Page,
+  code: string,
+) {
+  const compileRes = await page.request.post('/api/compile', {
+    data: { code },
+    timeout: 120000,
+  }).catch((err: Error) => {
+    throw new Error(`/api/compile unreachable: ${err.message}`);
+  });
+  const compileResult = await compileRes.json();
+  if (!compileResult?.success) {
+    throw new Error(`Compilation failed: ${compileResult?.stderr ?? 'unknown error'}`);
+  }
+
+  // Inject the compiled source code into the client's ref so the WS
+  // start_simulation frame includes code (per-client isolation in parallel runs).
+  await page.evaluate((c: string) => {
+    const setter = (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ as ((code: string) => void) | undefined;
+    if (setter) setter(c);
+  }, code);
+
+  const startButton = page.getByRole('button', { name: /start simulation/i });
+  await expect(startButton).toBeEnabled({ timeout: 15000 });
+  await startButton.click();
+
+  await expect(
+    page.getByRole('button', { name: /stop simulation/i }),
+  ).toBeVisible({ timeout: STOP_BTN_TIMEOUT });
+}
 
 test.describe('Arduino Board Header - Pin State Synchronization', () => {
   
@@ -32,22 +89,8 @@ void loop() {
   delay(100);
 }`;
 
-    // Insert code into editor
-    const editor = page.locator('[data-testid="code-editor"]');
-    await editor.click();
-    await page.keyboard.down(MOD);
-    await page.keyboard.press('KeyA');
-    await page.keyboard.up(MOD);
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type(code, { delay: 20 });
-
-    // Start simulation
-    const startButton = page.getByRole('button', { name: /start simulation/i });
-    await expect(startButton).toBeVisible({ timeout: 10000 });
-    await startButton.click();
-
-    // Wait for simulation to be running by checking the toggle button state.
-    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 15000 });
+    await setCode(page, code);
+    await compileAndStart(page, code);
 
     // Wait a moment for pins to be registered and displayed
     await page.waitForTimeout(500);
@@ -58,7 +101,7 @@ void loop() {
 
     // Verify serial output shows setup completed (generous timeout for cold-start compiles)
     const serial = page.locator('[data-testid="serial-output"]');
-    await expect(serial).toContainText(/pins set to high/i, { timeout: 15000 });
+    await expect(serial).toContainText(/pins set to high/i, { timeout: SERIAL_TIMEOUT });
   });
 
   test('should display correct pin state changes when multiple pins toggle rapidly', async ({ page }) => {
@@ -93,23 +136,12 @@ void loop() {
   delay(100);
 }`;
 
-    const editor = page.locator('[data-testid="code-editor"]');
-    await editor.click();
-    await page.keyboard.down(MOD);
-    await page.keyboard.press('KeyA');
-    await page.keyboard.up(MOD);
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type(code, { delay: 20 });
-
-    const startButton = page.getByRole('button', { name: /start simulation/i });
-    await startButton.click();
-
-    // Wait for simulation running by checking the toggle button state.
-    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
+    await setCode(page, code);
+    await compileAndStart(page, code);
 
     // Wait for state transitions to be visible
     const serial = page.locator('[data-testid="serial-output"]');
-    await expect(serial).toContainText(/state/i, { timeout: 10000 });
+    await expect(serial).toContainText(/state/i, { timeout: SERIAL_TIMEOUT });
 
     // Verify board is visible and responds to state changes
     const board = page.locator('[data-testid*="arduino"], svg').first();
@@ -131,18 +163,8 @@ void loop() {
   delay(10000);
 }`;
 
-    const editor = page.locator('[data-testid="code-editor"]');
-    await editor.click();
-    await page.keyboard.down(MOD);
-    await page.keyboard.press('KeyA');
-    await page.keyboard.up(MOD);
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type(code, { delay: 20 });
-
-    const startButton = page.getByRole('button', { name: /start simulation/i });
-    await startButton.click();
-
-    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
+    await setCode(page, code);
+    await compileAndStart(page, code);
     await page.waitForTimeout(500);
 
     // Get the arduino board SVG container
@@ -203,22 +225,12 @@ void loop() {
   }
 }`;
 
-    const editor = page.locator('[data-testid="code-editor"]');
-    await editor.click();
-    await page.keyboard.down(MOD);
-    await page.keyboard.press('KeyA');
-    await page.keyboard.up(MOD);
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type(code, { delay: 20 });
-
-    const startButton = page.getByRole('button', { name: /start simulation/i });
-    await startButton.click();
-
-    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
+    await setCode(page, code);
+    await compileAndStart(page, code);
 
     // Wait for PWM messages
     const serial = page.locator('[data-testid="serial-output"]');
-    await expect(serial).toContainText(/PWM/i, { timeout: 15000 });
+    await expect(serial).toContainText(/PWM/i, { timeout: SERIAL_TIMEOUT });
 
     // Verify board is still responsive and visible
     const board = page.locator('[data-testid*="arduino"], svg').first();
@@ -269,24 +281,14 @@ void loop() {
   delay(200);
 }`;
 
-    const editor = page.locator('[data-testid="code-editor"]');
-    await editor.click();
-    await page.keyboard.down(MOD);
-    await page.keyboard.press('KeyA');
-    await page.keyboard.up(MOD);
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type(code, { delay: 20 });
-
-    const startButton = page.getByRole('button', { name: /start simulation/i });
-    await startButton.click();
-
-    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
+    await setCode(page, code);
+    await compileAndStart(page, code);
 
     const serial = page.locator('[data-testid="serial-output"]');
-    await expect(serial).toContainText(/configured/i, { timeout: 10000 });
+    await expect(serial).toContainText(/configured/i, { timeout: SERIAL_TIMEOUT });
 
     // Wait for at least one analog read cycle
-    await expect(serial).toContainText(/A0=/i, { timeout: 10000 });
+    await expect(serial).toContainText(/A0=/i, { timeout: SERIAL_TIMEOUT });
 
     // Verify board is rendered with all pin states
     const board = page.locator('svg').first();
@@ -314,21 +316,11 @@ void loop() {
   delay(100);
 }`;
 
-    const editor = page.locator('[data-testid="code-editor"]');
-    await editor.click();
-    await page.keyboard.down(MOD);
-    await page.keyboard.press('KeyA');
-    await page.keyboard.up(MOD);
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type(code, { delay: 20 });
-
-    const startButton = page.getByRole('button', { name: /start simulation/i });
-    await startButton.click();
-
-    await expect(page.getByRole('button', { name: /stop simulation/i })).toBeVisible({ timeout: 10000 });
+    await setCode(page, code);
+    await compileAndStart(page, code);
 
     const serial = page.locator('[data-testid="serial-output"]');
-    await expect(serial).toContainText(/update batch/i, { timeout: 10000 });
+    await expect(serial).toContainText(/update batch/i, { timeout: SERIAL_TIMEOUT });
 
     // Capture board state and verify it responds to updates
     const board = page.locator('svg').first();

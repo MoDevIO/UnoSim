@@ -1,9 +1,11 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject, MutableRefObject } from "react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
+import type { SimulationStatus } from "@shared/types/arduino.types";
+import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import {
@@ -17,10 +19,6 @@ import type {
   HexResult,
   IncomingArduinoMessage,
 } from "@/types/websocket";
-
-// status types
-type CompilationStatus = "ready" | "compiling" | "success" | "error";
-type CompilationResultType = "success" | "error" | null;
 
 const logger = new Logger("useCompileAndRun");
 
@@ -42,7 +40,6 @@ function determineCodeSource(
 }
 
 // reused helpers from previous hooks
-type SimulationStatus = "running" | "stopped" | "paused";
 type CliStatus = "idle" | "compiling" | "success" | "error";
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
@@ -145,13 +142,29 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   const [cliOutput, setCliOutput] = useState("");
   const [compilerErrors, setCompilerErrors] = useState<CompilerError[]>([]);
 
-  const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>("stopped");
+  const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>("idle");
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
 
   // refs used internally
   const doUploadOnCompileSuccessRef = useRef(false);
   const lastCompilePayloadRef = useRef<{ code: string; headers?: Array<{ name: string; content: string }> } | null>(null);
+  /** Stores the last successfully compiled code so start_simulation can send it per-client. */
+  const lastCompiledCodeRef = useRef<string | null>(null);
+
+  // Expose a test-only setter so E2E tests can inject the REST-compiled code
+  // into this ref, ensuring start_simulation always sends code per-client and
+  // avoids races with the shared server-side lastCompiledCode.
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ = (code: string) => {
+        lastCompiledCodeRef.current = code;
+      };
+      return () => {
+        delete (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__;
+      };
+    }
+  }, []);
 
   // ensure we offer a ref to caller
   const internalStartRef = useRef<(() => void) | null>(null);
@@ -398,7 +411,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       return { success: true };
     },
     onSuccess: () => {
-      setSimulationStatus("stopped");
+      setSimulationStatus("idle");
       params.serialEventQueueRef.current = [];
       params.resetPinUI({ keepDetected: true });
     },
@@ -454,26 +467,36 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     mutationFn: async () => {
       logger.debug(`[CLIENT] startMutation invoked, simulationTimeout=${simulationTimeout}`);
       params.resetPinUI({ keepDetected: true });
+
+      // Build the start message with per-client code for multi-instance isolation
+      const startMsg: { type: "start_simulation"; timeout: number; code?: string } = {
+        type: "start_simulation",
+        timeout: simulationTimeout,
+      };
+      if (lastCompiledCodeRef.current) {
+        startMsg.code = lastCompiledCodeRef.current;
+      }
+
       params.addDebugMessage({
         source: "frontend",
         type: "start_simulation",
-        data: JSON.stringify({ type: "start_simulation", timeout: simulationTimeout }, null, 2),
+        data: JSON.stringify(startMsg, null, 2),
         protocol: "websocket",
       });
       // Use immediate send for start_simulation when available to ensure
       // WS frame is emitted deterministically for E2E tests and real-time control.
       if (typeof params.sendMessageImmediate === "function") {
-        const sent = params.sendMessageImmediate({ type: "start_simulation", timeout: simulationTimeout });
+        const sent = params.sendMessageImmediate(startMsg);
         logger.debug(`[CLIENT] sendMessageImmediate returned ${String(sent)}`);
         // If immediate send failed (socket not open) fall back to buffered send
         if (!sent) {
           logger.debug("[CLIENT] falling back to buffered send for start_simulation");
           params.addDebugMessage({ source: "frontend", type: "start_simulation", data: "Immediate send failed, falling back to buffered send", protocol: "websocket" });
-          params.sendMessage({ type: "start_simulation", timeout: simulationTimeout });
+          params.sendMessage(startMsg);
         }
       } else {
         logger.debug("[CLIENT] using buffered send for start_simulation (no immediate available)");
-        params.sendMessage({ type: "start_simulation", timeout: simulationTimeout });
+        params.sendMessage(startMsg);
       }
       return { success: true };
     },
@@ -642,6 +665,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         logger.info(`[CLIENT] Compile response: ${JSON.stringify(data, null, 2)}`);
 
         if (data.success) {
+          lastCompiledCodeRef.current = mainSketchCode;
           initializeEmptyRegistry();
           (startSimulationRef.current ?? startSimulationInternal)();
           setCompilationStatus("success");
@@ -712,7 +736,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     if (!params.ensureBackendConnected("Reset simulation")) return;
     if (simulationStatus === "running") {
       params.sendMessage({ type: "stop_simulation" });
-      setSimulationStatus("stopped");
+      setSimulationStatus("idle");
     }
     clearOutputs();
     params.resetPinUI({ keepDetected: true });

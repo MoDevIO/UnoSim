@@ -2,6 +2,13 @@ import { defineConfig } from 'vitest/config';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'node:path';
 
+// Force NODE_ENV to 'test' regardless of shell environment.
+// Vitest uses `process.env.NODE_ENV ??= "test"` which cannot override a
+// pre-existing shell value (e.g. NODE_ENV=production from .env Scenario 2).
+// React reads process.env.NODE_ENV at require() time; production builds lack
+// act() support, which breaks all client-side tests.
+process.env.NODE_ENV = 'test';
+
 const __dirname = path.resolve();
 
 export default defineConfig({
@@ -38,7 +45,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
-      reportBase: 'coverage',
+      reportsDirectory: 'coverage',
       exclude: [
         'tests/**',
         'e2e/**',

@@ -1,4 +1,6 @@
 /**
+ * @vitest-environment node
+ *
  * Worker Pool Production Readiness Verification
  * 
  * Final comprehensive test suite verifying production capability

@@ -200,12 +200,15 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     };
 
     const onExit = (exitCode: number | null) => {
+      // Capture runner reference immediately — the clientRunners map entry
+      // may be deleted by the ws "close" handler before the setTimeout fires.
+      const capturedCs = clientRunners.get(ws);
+
       setTimeout(async () => {
         try {
           flushSerialOutputBuffer(ws);
-          const cs = clientRunners.get(ws);
-          if (cs) {
-            await safeReleaseRunner(cs, "onExit");
+          if (capturedCs) {
+            await safeReleaseRunner(capturedCs, "onExit");
           }
 
           if (!shouldSendSimulationEndMessage(compileFailed)) return;
@@ -253,6 +256,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
         gccSuccessSent = true;
         sendMessageToClient(ws, { type: "compilation_status", gccStatus: "success" });
       }
+    };
+
+    const onCompileQueued = () => {
+      sendMessageToClient(ws, { type: "compilation_status", gccStatus: "queued" });
     };
 
     const onPinState = (pin: number, type: "mode" | "value" | "pwm", value: number) => {
@@ -314,12 +321,32 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       onExit,
       onCompileError,
       onCompileSuccess,
+      onCompileQueued,
       onPinState,
       onIORegistry,
       onTelemetry,
       onPinStateBatch,
       compileFailed: () => compileFailed,
     };
+  }
+
+  /**
+   * Log consolidated run payload for audit/evidence.
+   * Extracted to keep handleStartSimulation below cognitive complexity threshold.
+   */
+  function logRunPayloadAudit(code: string, timeoutSec: number | undefined, sessionId: string | undefined): void {
+    try {
+      const payload = {
+        code,
+        timeoutSec,
+        context: { sessionId, label: "default-ws" },
+      };
+      logger.debug(`[B1-Evidence] Payload: ${JSON.stringify(payload, null, 2)}`);
+    } catch (err) {
+      logger.warn(
+        `Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   /**
@@ -350,9 +377,12 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       return;
     }
 
-    // Verify compiled code exists
-    const lastCompiledCode = getLastCompiledCode();
-    if (!lastCompiledCode) {
+    // Use per-client code from the WS message if provided (multi-client isolation),
+    // otherwise fall back to the global lastCompiledCode (backward compatibility).
+    const code = ("code" in data && typeof data.code === "string" && data.code.trim().length > 0)
+      ? data.code
+      : getLastCompiledCode();
+    if (!code) {
       if (clientState.runner) {
         await safeReleaseRunner(clientState, "missing-compiled-code");
       }
@@ -372,7 +402,16 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       await safeReleaseRunner(clientState, "start-replace-existing");
     }
 
-    // Acquire new runner from pool
+    // If the pool is saturated, notify client it is queued and wait for a slot
+    const statsBeforeAcquire = pool.getStats();
+    const willQueue = statsBeforeAcquire.availableRunners === 0 &&
+      statsBeforeAcquire.totalRunners >= statsBeforeAcquire.maxRunners;
+    if (willQueue) {
+      logger.debug(`[SandboxRunnerPool] Pool saturated — client queued (queue length: ${statsBeforeAcquire.queuedRequests + 1})`);
+      sendMessageToClient(ws, { type: "simulation_status", status: "queued" });
+    }
+
+    // Acquire new runner from pool (may block until a slot is released)
     try {
       clientState.runner = await pool.acquireRunner();
       logger.debug(
@@ -391,11 +430,20 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       return;
     }
 
-    // Update client state
+    // Slot assignment: tell client which runner slot they own immediately
+    const acquiredWorkerIndex = pool.getRunnerIndex(clientState.runner);
+    const poolStatsAfterAcquire = pool.getStats();
+
+    // Update client state and notify running
     clientState.isRunning = true;
     clientState.isPaused = false;
     sendMessageToClient(ws, { type: "simulation_status", status: "running" });
-    sendMessageToClient(ws, { type: "compilation_status", gccStatus: "compiling" });
+    sendMessageToClient(ws, {
+      type: "compilation_status",
+      gccStatus: "compiling",
+      workerIndex: acquiredWorkerIndex,
+      workerTotal: poolStatsAfterAcquire.totalRunners,
+    });
 
     // Build callbacks
     const callbacks = buildRunSketchCallbacks(ws, clientState);
@@ -403,18 +451,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     logger.info(`[Simulation] Starting with timeout: ${timeoutValue}s`);
 
     // Log consolidated payload for audit
-    try {
-      const payload = {
-        code: lastCompiledCode,
-        timeoutSec: timeoutValue,
-        context: { sessionId: clientState.testRunId, label: "default-ws" },
-      };
-      logger.debug(`[B1-Evidence] Payload: ${JSON.stringify(payload, null, 2)}`);
-    } catch (err) {
-      logger.warn(
-        `Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    logRunPayloadAudit(code, timeoutValue, clientState.testRunId);
 
     // Capture runner reference before await – ws-close may set clientState.runner=null
     // concurrently while runSketch is awaited, causing a null-dereference on getSandboxStatus.
@@ -423,12 +460,13 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     // Start sketch execution and publish sandbox mode once the runner has resolved
     try {
       await clientState.runner.runSketch({
-        code: lastCompiledCode,
+        code,
         onOutput: callbacks.onOutput,
         onError: callbacks.onError,
         onExit: callbacks.onExit,
         onCompileError: callbacks.onCompileError,
         onCompileSuccess: callbacks.onCompileSuccess,
+        onCompileQueued: callbacks.onCompileQueued,
         onPinState: callbacks.onPinState,
         timeoutSec: timeoutValue,
         onIORegistry: callbacks.onIORegistry,
@@ -441,13 +479,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     }
 
     const sandboxStatus = runnerForStatus.getSandboxStatus();
-    const poolStats = pool.getStats();
-    const workerIndex = pool.getRunnerIndex(clientState.runner);
     sendMessageToClient(ws, {
       type: "compilation_status",
       sandboxMode: sandboxStatus.mode,
-      workerIndex,
-      workerTotal: poolStats.totalRunners,
     });
   }
 

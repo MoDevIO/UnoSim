@@ -2,13 +2,10 @@ import express, { type Express } from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "node:http";
-import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const viteLogger = createLogger();
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -22,15 +19,29 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Dynamic imports so the vite package (dev-only) is never resolved at
+  // module load time — the production bundle would fail to find it.
+  // vite.config.ts is NOT imported here; Vite auto-discovers it via configFile,
+  // which keeps vite.config.ts (and its own `import from "vite"`) out of the
+  // server bundle entirely.
+  const { createServer: createViteServer, createLogger } = await import("vite");
+
+  const viteLogger = createLogger();
+  // Disable HMR when VITE_DISABLE_HMR=true (set during E2E / Playwright runs).
+  // In CI, Vite has no pre-bundled dependency cache.  The first-time dep
+  // optimisation fires a full-page reload via HMR mid-test, destroying the
+  // execution context and breaking every test that runs Monaco or starts a
+  // simulation.  With HMR disabled, Vite still serves the app correctly —
+  // it just won't push reload events to the browser.
+  const hmrConfig =
+    process.env.VITE_DISABLE_HMR === "true" ? false : { server };
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    hmr: hmrConfig,
     allowedHosts: true as const,
   };
 
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
