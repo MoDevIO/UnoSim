@@ -338,7 +338,7 @@ export class ExecutionManager {
     let release: () => void;
     try {
       release = await Promise.race([
-        ExecutionManager.compileGatekeeper.acquireHighPriority(),
+        ExecutionManager.compileGatekeeper.acquireHighPriority(opts.onCompileQueued),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
         ),

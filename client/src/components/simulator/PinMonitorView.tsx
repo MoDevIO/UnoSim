@@ -1,8 +1,7 @@
 import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
 import type { BatchStats, PinState } from "@/hooks/use-simulation-store";
-
-type SimulationStatus = "idle" | "running" | "compiling" | "queued" | "paused";
+import type { SimulationStatus } from "@shared/types/arduino.types";
 
 type PinMonitorViewProps = {
   readonly pinMonitorVisible: boolean;

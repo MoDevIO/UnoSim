@@ -53,7 +53,7 @@ describe("CompileGatekeeper", () => {
     const gk = getCompileGatekeeper(4);
     const release = await gk.acquireHighPriority();
 
-    expect(mockUnified.acquireCompileSlotHighPriority).toHaveBeenCalledWith("simulation-start");
+    expect(mockUnified.acquireCompileSlotHighPriority).toHaveBeenCalledWith("simulation-start", undefined);
     expect(release).toBe(releaseFn);
   });
 

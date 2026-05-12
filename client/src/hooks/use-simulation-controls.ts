@@ -2,8 +2,8 @@ import { useCompileAndRun, CompileAndRunParams } from "./use-compile-and-run";
 import type { MutableRefObject } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
 import type { IncomingArduinoMessage } from "@/types/websocket";
-
-export type SimulationStatus = "idle" | "running" | "compiling" | "queued" | "paused";
+import type { SimulationStatus } from "@shared/types/arduino.types";
+export type { SimulationStatus } from "@shared/types/arduino.types";
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
 

@@ -132,8 +132,8 @@ export class UnifiedGatekeeper extends EventEmitter {
    * Acquire a compile slot with HIGH priority (for user-initiated simulations)
    * Ensures interactive tasks get prompt access
    */
-  async acquireCompileSlotHighPriority(owner: string = "simulation-start"): Promise<() => void> {
-    return this.acquireCompileSlot(TaskPriority.HIGH, 30000, owner);
+  async acquireCompileSlotHighPriority(owner: string = "simulation-start", onQueued?: () => void): Promise<() => void> {
+    return this.acquireCompileSlot(TaskPriority.HIGH, 30000, owner, onQueued);
   }
 
   /**
@@ -143,6 +143,7 @@ export class UnifiedGatekeeper extends EventEmitter {
     priority: TaskPriority = TaskPriority.NORMAL,
     timeoutMs: number = 30000,
     owner: string = "unknown",
+    onQueued?: () => void,
   ): Promise<() => void> {
     this.stats.totalCompileSlotRequests++;
     const ownerId = `${owner}-${Date.now()}-${crypto.randomUUID()}`;
@@ -186,6 +187,7 @@ export class UnifiedGatekeeper extends EventEmitter {
         grant();
       } else {
         // Slow path: queue the request with timeout
+        onQueued?.();
         const queuedTask: QueuedTask = {
           priority,
           resolver: (release) => {
