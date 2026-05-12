@@ -246,6 +246,10 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       emitSimulationStateEvent("QUEUED_FOR_COMPILING");
     } else if (message.gccStatus === "compiling") {
       emitSimulationStateEvent("COMPILING");
+    } else if (message.gccStatus === "success") {
+      // Compile phase ended — transition badge back to RUNNING so dashboards
+      // that were showing QUEUED_FOR_COMPILING or COMPILING reflect the true state.
+      emitSimulationStateEvent("RUNNING");
     }
   };
 

@@ -87,12 +87,14 @@ function _getSimulateAction(
 function _getSimulateAriaLabel(status: SimulationStatus): string {
   if (status === "running") return "Stop Simulation";
   if (status === "paused") return "Resume Simulation";
+  if (status === "queued") return "Simulation queued";
   return "Start Simulation";
 }
 
 function _getSimulateText(status: SimulationStatus): string {
   if (status === "running") return "Stop";
   if (status === "paused") return "Resume";
+  if (status === "queued") return "Queued";
   return "Start";
 }
 
@@ -107,6 +109,7 @@ function _getDesktopSimulateButtonClass(
       "!bg-status-warning hover:!bg-accent-amber": status === "running" && !disabled,
       "!bg-status-success hover:!bg-status-success-dark":
         (status === "idle" || status === "paused") && !disabled,
+      "!bg-yellow-600 hover:!bg-yellow-700": status === "queued" && !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
     },
   );
@@ -129,6 +132,7 @@ function _getMobileSimulateButtonClass(
       "!bg-orange-600 hover:!bg-orange-700": status === "running" && !disabled,
       "!bg-green-600 hover:!bg-green-700":
         (status === "idle" || status === "paused") && !disabled,
+      "!bg-yellow-600 hover:!bg-yellow-700": status === "queued" && !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
     },
   );
