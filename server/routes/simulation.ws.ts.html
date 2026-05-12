@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for client/src/hooks/useArduinoSimulatorPage.tsx</title>
+    <title>Code coverage report for server/routes/simulation.ws.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../../prettify.css" />
-    <link rel="stylesheet" href="../../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../../sort-arrow-sprite.png);
+            background-image: url(../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">client/src/hooks</a> useArduinoSimulatorPage.tsx</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">server/routes</a> simulation.ws.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">57.41% </span>
+                <span class="strong">57.5% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>89/155</span>
+                <span class='fraction'>161/280</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">40.35% </span>
+                <span class="strong">40.14% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>23/57</span>
+                <span class='fraction'>57/142</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">41.37% </span>
+                <span class="strong">59.45% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>12/29</span>
+                <span class='fraction'>22/37</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">60.71% </span>
+                <span class="strong">59.19% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>85/140</span>
+                <span class='fraction'>161/272</span>
             </div>
         
             
@@ -781,222 +781,67 @@
 <a name='L716'></a><a href='#L716'>716</a>
 <a name='L717'></a><a href='#L717'>717</a>
 <a name='L718'></a><a href='#L718'>718</a>
-<a name='L719'></a><a href='#L719'>719</a>
-<a name='L720'></a><a href='#L720'>720</a>
-<a name='L721'></a><a href='#L721'>721</a>
-<a name='L722'></a><a href='#L722'>722</a>
-<a name='L723'></a><a href='#L723'>723</a>
-<a name='L724'></a><a href='#L724'>724</a>
-<a name='L725'></a><a href='#L725'>725</a>
-<a name='L726'></a><a href='#L726'>726</a>
-<a name='L727'></a><a href='#L727'>727</a>
-<a name='L728'></a><a href='#L728'>728</a>
-<a name='L729'></a><a href='#L729'>729</a>
-<a name='L730'></a><a href='#L730'>730</a>
-<a name='L731'></a><a href='#L731'>731</a>
-<a name='L732'></a><a href='#L732'>732</a>
-<a name='L733'></a><a href='#L733'>733</a>
-<a name='L734'></a><a href='#L734'>734</a>
-<a name='L735'></a><a href='#L735'>735</a>
-<a name='L736'></a><a href='#L736'>736</a>
-<a name='L737'></a><a href='#L737'>737</a>
-<a name='L738'></a><a href='#L738'>738</a>
-<a name='L739'></a><a href='#L739'>739</a>
-<a name='L740'></a><a href='#L740'>740</a>
-<a name='L741'></a><a href='#L741'>741</a>
-<a name='L742'></a><a href='#L742'>742</a>
-<a name='L743'></a><a href='#L743'>743</a>
-<a name='L744'></a><a href='#L744'>744</a>
-<a name='L745'></a><a href='#L745'>745</a>
-<a name='L746'></a><a href='#L746'>746</a>
-<a name='L747'></a><a href='#L747'>747</a>
-<a name='L748'></a><a href='#L748'>748</a>
-<a name='L749'></a><a href='#L749'>749</a>
-<a name='L750'></a><a href='#L750'>750</a>
-<a name='L751'></a><a href='#L751'>751</a>
-<a name='L752'></a><a href='#L752'>752</a>
-<a name='L753'></a><a href='#L753'>753</a>
-<a name='L754'></a><a href='#L754'>754</a>
-<a name='L755'></a><a href='#L755'>755</a>
-<a name='L756'></a><a href='#L756'>756</a>
-<a name='L757'></a><a href='#L757'>757</a>
-<a name='L758'></a><a href='#L758'>758</a>
-<a name='L759'></a><a href='#L759'>759</a>
-<a name='L760'></a><a href='#L760'>760</a>
-<a name='L761'></a><a href='#L761'>761</a>
-<a name='L762'></a><a href='#L762'>762</a>
-<a name='L763'></a><a href='#L763'>763</a>
-<a name='L764'></a><a href='#L764'>764</a>
-<a name='L765'></a><a href='#L765'>765</a>
-<a name='L766'></a><a href='#L766'>766</a>
-<a name='L767'></a><a href='#L767'>767</a>
-<a name='L768'></a><a href='#L768'>768</a>
-<a name='L769'></a><a href='#L769'>769</a>
-<a name='L770'></a><a href='#L770'>770</a>
-<a name='L771'></a><a href='#L771'>771</a>
-<a name='L772'></a><a href='#L772'>772</a>
-<a name='L773'></a><a href='#L773'>773</a>
-<a name='L774'></a><a href='#L774'>774</a>
-<a name='L775'></a><a href='#L775'>775</a>
-<a name='L776'></a><a href='#L776'>776</a>
-<a name='L777'></a><a href='#L777'>777</a>
-<a name='L778'></a><a href='#L778'>778</a>
-<a name='L779'></a><a href='#L779'>779</a>
-<a name='L780'></a><a href='#L780'>780</a>
-<a name='L781'></a><a href='#L781'>781</a>
-<a name='L782'></a><a href='#L782'>782</a>
-<a name='L783'></a><a href='#L783'>783</a>
-<a name='L784'></a><a href='#L784'>784</a>
-<a name='L785'></a><a href='#L785'>785</a>
-<a name='L786'></a><a href='#L786'>786</a>
-<a name='L787'></a><a href='#L787'>787</a>
-<a name='L788'></a><a href='#L788'>788</a>
-<a name='L789'></a><a href='#L789'>789</a>
-<a name='L790'></a><a href='#L790'>790</a>
-<a name='L791'></a><a href='#L791'>791</a>
-<a name='L792'></a><a href='#L792'>792</a>
-<a name='L793'></a><a href='#L793'>793</a>
-<a name='L794'></a><a href='#L794'>794</a>
-<a name='L795'></a><a href='#L795'>795</a>
-<a name='L796'></a><a href='#L796'>796</a>
-<a name='L797'></a><a href='#L797'>797</a>
-<a name='L798'></a><a href='#L798'>798</a>
-<a name='L799'></a><a href='#L799'>799</a>
-<a name='L800'></a><a href='#L800'>800</a>
-<a name='L801'></a><a href='#L801'>801</a>
-<a name='L802'></a><a href='#L802'>802</a>
-<a name='L803'></a><a href='#L803'>803</a>
-<a name='L804'></a><a href='#L804'>804</a>
-<a name='L805'></a><a href='#L805'>805</a>
-<a name='L806'></a><a href='#L806'>806</a>
-<a name='L807'></a><a href='#L807'>807</a>
-<a name='L808'></a><a href='#L808'>808</a>
-<a name='L809'></a><a href='#L809'>809</a>
-<a name='L810'></a><a href='#L810'>810</a>
-<a name='L811'></a><a href='#L811'>811</a>
-<a name='L812'></a><a href='#L812'>812</a>
-<a name='L813'></a><a href='#L813'>813</a>
-<a name='L814'></a><a href='#L814'>814</a>
-<a name='L815'></a><a href='#L815'>815</a>
-<a name='L816'></a><a href='#L816'>816</a>
-<a name='L817'></a><a href='#L817'>817</a>
-<a name='L818'></a><a href='#L818'>818</a>
-<a name='L819'></a><a href='#L819'>819</a>
-<a name='L820'></a><a href='#L820'>820</a>
-<a name='L821'></a><a href='#L821'>821</a>
-<a name='L822'></a><a href='#L822'>822</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L719'></a><a href='#L719'>719</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">28x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1006,406 +851,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1413,107 +860,99 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">714x</span>
+<span class="cline-any cline-yes">714x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">173x</span>
+<span class="cline-any cline-yes">173x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">173x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">173x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1521,38 +960,372 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1560,22 +1333,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1583,17 +1340,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1602,930 +1348,875 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">90x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-yes">90x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">90x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">86x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// arduino-simulator.tsx
-&nbsp;
-import { useState, useEffect, useRef, useCallback } from "react";
-&nbsp;
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-&nbsp;
-import { useWebSocket } from "@/hooks/use-websocket";
-import { useCompilation } from "@/hooks/use-compilation";
-import { useSimulation } from "@/hooks/use-simulation";
-import { useSimulatorActions } from "@/hooks/useSimulatorActions";
-import { usePinState } from "@/hooks/use-pin-state";
-import { useToast } from "@/hooks/use-toast";
-import { useBackendHealth } from "@/hooks/use-backend-health";
-import { useMobileLayout } from "@/hooks/use-mobile-layout";
-import { useDebugMode } from "@/hooks/use-debug-mode-store";
-import { useSerialIO } from "@/hooks/use-serial-io";
-import { useSimulatorSerialPanel } from "@/hooks/useSimulatorSerialPanel";
-import { useSimulatorPinControls } from "@/hooks/useSimulatorPinControls";
-import { useSimulatorUIState } from "@/hooks/useSimulatorUIState";
-import { useSimulatorKeyboardShortcuts } from "@/hooks/useSimulatorKeyboardShortcuts";
-import { useSimulatorWebSocketBridge } from "@/hooks/useSimulatorWebSocketBridge";
-import { useSimulationStore } from "@/hooks/use-simulation-store";
-import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
-import { useTelemetryStore } from "@/hooks/use-telemetry-store";
-import { useDebugConsole } from "@/hooks/use-debug-console";
-import { useEditorCommands } from "@/hooks/use-editor-commands";
-import { useFileSystem } from "@/hooks/useFileSystem";
-import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
-import { useExternalApi, emitServerStatusEvent, emitSimulationStateEvent } from "@/hooks/use-external-api";
-import { parseStaticIORegistry } from "@shared/io-registry-parser";
-&nbsp;
-import type {
-  Sketch,
-  ParserMessage,
-  IOPinRecord,
-} from "@shared/schema";
-import type { IncomingArduinoMessage } from "@/types/websocket";
-import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
-import type { OutputTab } from "@/types/compilation.types";
-import { isMac } from "@/lib/platform";
-import {
-  DIGITAL_PIN_COUNT,
-  ANALOG_PIN_COUNT,
-} from "@/components/simulator/ArduinoSimulatorPage.styles";
-&nbsp;
-export function useArduinoSimulatorPage() {
-  const editorRef = useRef&lt;{
-    getValue: () =&gt; string;
-    insertSuggestionSmartly?: (suggestion: string, line?: number) =&gt; void;
-  } | null&gt;(null);
-&nbsp;
-  // File system orchestration (currentSketch, code, isModified state)
-  const {
-    code,
-    setCode,
-    isModified,
-    setIsModified,
-    tabs,
-    setTabs,
-    activeTabId,
-    setActiveTabId,
-    initializeDefaultSketch,
-  } = useFileSystem({ sketches: undefined });
-&nbsp;
-  // CHANGED: Store OutputLine objects instead of plain strings
-  const {
-    serialOutput,
-    setSerialOutput,
-    serialViewMode,
-    autoScrollEnabled,
-    setAutoScrollEnabled,
-    serialInputValue,
-    setSerialInputValue,
-    showSerialMonitor,
-    showSerialPlotter,
-    cycleSerialViewMode,
-    clearSerialOutput,
-    // Baudrate rendering (Phase 3-4)
-    renderedSerialOutput, // Use this for SerialMonitor (baudrate-simulated)
-    appendSerialOutput,
-    setBaudrate: setSerialBaudrate,
-    pauseRendering,
-    resumeRendering,
-    stopRendering,
-    appendRenderedText,
-  } = useSerialIO();
-  const [parserMessages, setParserMessages] = useState&lt;ParserMessage[]&gt;([]);
-  // Initialize I/O Registry with all 20 Arduino pins (will be populated at runtime)
-  const [ioRegistry, setIoRegistry] = useState&lt;IOPinRecord[]&gt;(() =&gt; {
-    const pins: IOPinRecord[] = [];
-    // Digital pins 0-13
-    for (let i = 0; i &lt; DIGITAL_PIN_COUNT; i++) {
-      pins.push({ pin: String(i), defined: false, usedAt: [] });
-    }
-    // Analog pins A0-A5
-    for (let i = 0; i &lt; ANALOG_PIN_COUNT; i++) {
-      pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
-    }
-    return pins;
-  });
-&nbsp;
-  const [activeOutputTab, setActiveOutputTab] = useState&lt;OutputTab&gt;("compiler");
-  const [showCompilationOutput, setShowCompilationOutput] = useState&lt;boolean&gt;(
-    () =&gt; {
-      try {
-        const stored = globalThis.localStorage?.getItem("unoShowCompileOutput");
-        return stored === null ? true : <span class="branch-1 cbranch-no" title="branch not covered" >stored === "1";</span>
-      } catch {
-<span class="cstat-no" title="statement not covered" >        return true;</span>
-      }
-    },
-  );
-  const [parserPanelDismissed, setParserPanelDismissed] = useState&lt;boolean&gt;(false);
-  const {
-    debugMode,
-    debugMessages,
-    setDebugMessages,
-    debugMessageFilter,
-    setDebugMessageFilter,
-    debugViewMode,
-    setDebugViewMode,
-    debugMessagesContainerRef,
-    addDebugMessage,
-  } = useDebugConsole(activeOutputTab);
-&nbsp;
-  const {
-    pinStates,
-    setPinStates,
-    resetPinStates,
-    enqueuePinEvent,
-    batchStats,
-  } = useSimulationStore();
-&nbsp;
-  // Pin state management via hook
-  const {
-    analogPinsUsed,
-    setAnalogPinsUsed,
-    setDetectedPinModes,
-    pendingPinConflicts,
-    setPendingPinConflicts,
-    pinMonitorVisible,
-    resetPinUI,
-    pinToNumber,
-  } = usePinState({ resetPinStates });
-&nbsp;
-  // Serial view mode state handled by useSerialIO
-&nbsp;
-  // Selected board and baud rate (moved to Tools menu)
-  const [board] = useState&lt;string&gt;("Arduino UNO");
-  const [baudRate, setBaudRate] = useState&lt;number&gt;(115200);
-  const [sandboxMode, setSandboxMode] = useState&lt;string&gt;("unknown");
-  const [workerIndex, setWorkerIndex] = useState&lt;number | undefined&gt;(undefined);
-  const [workerTotal, setWorkerTotal] = useState&lt;number | undefined&gt;(undefined);
-&nbsp;
-  // Serial input box state handled by useSerialIO
-&nbsp;
-  // File manager hook — instantiated after `handleFilesLoaded` to avoid TDZ (see below)
-&nbsp;
-  // Subscribe to telemetry updates (to re-render when metrics change)
-  const telemetryData = useTelemetryStore();
-&nbsp;
-  // Helper to request the global Settings dialog to open (App listens for this event)
-  const openSettings = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    try {</span>
-<span class="cstat-no" title="statement not covered" >      globalThis.dispatchEvent(new CustomEvent("open-settings"));</span>
-    } catch {}
-  };
-&nbsp;
-&nbsp;
-  // RX/TX LED activity counters (increment on activity for change detection)
-  const [txActivity, setTxActivity] = useState(0);
-  const [rxActivity, setRxActivity] = useState(0);
-  // Queue for incoming serial_events - use ref to avoid React batching issues
-  const serialEventQueueRef = useRef&lt;
-    Array&lt;{ payload: IncomingArduinoMessage; receivedAt: number }&gt;
-  &gt;([]);
-  // Mobile layout (responsive design and panel management)
-  const { isMobile, mobilePanel, setMobilePanel, headerHeight, overlayZ } = useMobileLayout();
-&nbsp;
-&nbsp;
-&nbsp;
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { setDebugMode } = useDebugMode();
-  
-  
-  const {
-    isConnected,
-    connectionState: wsConnectionState,
-    hasEverConnected: wsHasEverConnected,
-    lastMessage: _lastMessage,
-    sendMessage: sendMessageRaw,
-    sendMessageImmediate,
-  } = useWebSocket();
-&nbsp;
-  // Wrapper for sendMessage that sends raw to backend
-  const sendMessage = useCallback(<span class="fstat-no" title="function not covered" >(m</span>essage: IncomingArduinoMessage) =&gt; {
-<span class="cstat-no" title="statement not covered" >    sendMessageRaw(message);</span>
-  }, [sendMessageRaw]);
-&nbsp;
-  // Backend health check and recovery
-  const {
-    backendReachable,
-    showErrorGlitch,
-    ensureBackendConnected,
-    isBackendUnreachableError,
-    triggerErrorGlitch,
-    serverStatus,
-  } = useBackendHealth(queryClient);
-&nbsp;
-  // placeholder for compilation-start callback
-  const startSimulationRef = useRef&lt;(() =&gt; void) | null&gt;(null);
-&nbsp;
-&nbsp;
-&nbsp;
-  const {
-    compilationStatus,
-    setCompilationStatus,
-    setArduinoCliStatus,
-    hasCompilationErrors,
-    setHasCompilationErrors,
-    lastCompilationResult,
-    setLastCompilationResult,
-    cliOutput,
-    setCliOutput,
-    compileMutation,
-    handleCompile,
-    handleCompileAndStart,
-    handleClearCompilationOutput,
-    clearOutputs,
-  } = useCompilation({
-    editorRef,
-    tabs,
-    activeTabId,
-    code,
-    setSerialOutput,
-    clearSerialOutput,
-    setParserMessages,
-    setParserPanelDismissed,
-    resetPinUI,
-    setIoRegistry,
-    setIsModified,
-    setDebugMessages,
-    addDebugMessage: <span class="fstat-no" title="function not covered" >(p</span>arams: DebugMessageParams) =&gt;
-<span class="cstat-no" title="statement not covered" >      addDebugMessage(</span>
-        params.source,
-        params.type,
-        params.data,
-        params.protocol,
-      ),
-    ensureBackendConnected,
-    isBackendUnreachableError,
-    triggerErrorGlitch,
-    toast,
-    sendMessage,
-    sendMessageImmediate,
-    startSimulationRef,
-  });
-&nbsp;
-  // now that compilation helpers exist we can initialise the full simulation
-  // hook. pass the earlier ref so the placeholder callback will be wired up.
-  const {
-    simulationStatus,
-    setSimulationStatus,
-    setHasCompiledOnce,
-    simulationTimeout,
-    setSimulationTimeout,
-    startMutation,
-    stopMutation,
-    pauseMutation,
-    resumeMutation,
-    handleStop: simHandleStop,
-    handlePause: simHandlePause,
-    handleResume: simHandleResume,
-    handleReset: simHandleReset,
-    suppressAutoStopOnce,
-    handleStart: simHandleStart,
-  } = useSimulation({
-    ensureBackendConnected,
-    sendMessage,
-    sendMessageImmediate,
-    resetPinUI,
-    clearOutputs,
-    addDebugMessage: <span class="fstat-no" title="function not covered" >(p</span>arams: DebugMessageParams) =&gt;
-<span class="cstat-no" title="statement not covered" >      addDebugMessage(</span>
-        params.source,
-        params.type,
-        params.data,
-        params.protocol,
-      ),
-    serialEventQueueRef,
-    toast,
-    pendingPinConflicts,
-    setPendingPinConflicts,
-    setCliOutput,
-    isModified,
-    handleCompileAndStart,
-    code,
-    hasCompilationErrors,
-    startSimulationRef,
-  });
-&nbsp;
-  // Centralize simulator actions (start, stop, pause, resume, reset, compile &amp; start)
-  // This extracts control logic into a reusable hook for better testability and modularity
-  const {
-    handleStart: _handleStart, // reserved for future use
-    handleStop,
-    handlePause,
-    handleResume,
-    handleReset,
-    handleCompileAndStart: actionsCompileAndStart,
-  } = useSimulatorActions({
-    onStart: simHandleStart,
-    onStop: simHandleStop,
-    onPause: simHandlePause,
-    onResume: simHandleResume,
-    onReset: simHandleReset,
-    onCompileAndStart: handleCompileAndStart,
-  });
-&nbsp;
-  // Use the memoized compile-and-start from actions for consistent behavior
-  const compileAndStartAction = actionsCompileAndStart;
-&nbsp;
-&nbsp;
-&nbsp;
-  // Use centralized output panel hook for all output-related state and callbacks
-&nbsp;
-  const onReplaceAllFiles = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (simulationStatus === "running") {</span>
-<span class="cstat-no" title="statement not covered" >      sendMessage({ type: "stop_simulation" });</span>
-    }
-&nbsp;
-<span class="cstat-no" title="statement not covered" >    clearOutputs();</span>
-<span class="cstat-no" title="statement not covered" >    resetPinUI();</span>
-<span class="cstat-no" title="statement not covered" >    setCompilationStatus("ready");</span>
-<span class="cstat-no" title="statement not covered" >    setArduinoCliStatus("idle");</span>
-<span class="cstat-no" title="statement not covered" >    setLastCompilationResult(null);</span>
-<span class="cstat-no" title="statement not covered" >    setSimulationStatus("idle");</span>
-<span class="cstat-no" title="statement not covered" >    setHasCompiledOnce(false);</span>
-  }, [
-    simulationStatus,
-    sendMessage,
-    clearOutputs,
-    resetPinUI,
-    setCompilationStatus,
-    setArduinoCliStatus,
-    setLastCompilationResult,
-    setSimulationStatus,
-    setHasCompiledOnce,
-  ]);
-&nbsp;
-  const onLoadExample = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (simulationStatus === "running") {</span>
-<span class="cstat-no" title="statement not covered" >      sendMessage({ type: "stop_simulation" });</span>
-    }
-&nbsp;
-<span class="cstat-no" title="statement not covered" >    clearOutputs();</span>
-<span class="cstat-no" title="statement not covered" >    setIoRegistry(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-      const pins: IOPinRecord[] = <span class="cstat-no" title="statement not covered" >[];</span>
-<span class="cstat-no" title="statement not covered" >      for (let i = <span class="cstat-no" title="statement not covered" >0; i</span> &lt;= 13; i++) <span class="cstat-no" title="statement not covered" >pins.push({ pin: String(i), defined: false, usedAt: [] });</span></span>
-<span class="cstat-no" title="statement not covered" >      for (let i = <span class="cstat-no" title="statement not covered" >0; i</span> &lt;= 5; i++) <span class="cstat-no" title="statement not covered" >pins.push({ pin: `A${i}`, defined: false, usedAt: [] });</span></span>
-<span class="cstat-no" title="statement not covered" >      return pins;</span>
-    });
-<span class="cstat-no" title="statement not covered" >    setCompilationStatus("ready");</span>
-<span class="cstat-no" title="statement not covered" >    setArduinoCliStatus("idle");</span>
-<span class="cstat-no" title="statement not covered" >    setLastCompilationResult(null);</span>
-<span class="cstat-no" title="statement not covered" >    setSimulationStatus("idle");</span>
-<span class="cstat-no" title="statement not covered" >    setHasCompiledOnce(false);</span>
-  }, [
-    simulationStatus,
-    sendMessage,
-    clearOutputs,
-    resetPinUI,
-    setIoRegistry,
-    setCompilationStatus,
-    setArduinoCliStatus,
-    setLastCompilationResult,
-    setSimulationStatus,
-    setHasCompiledOnce,
-  ]);
-&nbsp;
-  const {
-    fileInputRef,
-    onLoadFiles,
-    downloadAllFiles,
-    handleHiddenFileInput,
-    handleTabClick,
-    handleTabAdd,
-    handleTabClose,
-    handleTabRename,
-    handleFilesLoaded,
-    handleLoadExample,
-  } = useSimulatorFileSystem({
-    code,
-    setCode,
-    isModified,
-    setIsModified,
-    tabs,
-    setTabs,
-    activeTabId,
-    setActiveTabId,
-    initializeDefaultSketch,
-    toast,
-    onReplaceAllFiles,
-    onLoadExample,
-  });
-&nbsp;
-  // Fetch default sketch (must come before effects which use it)
-  const { data: sketches } = useQuery&lt;Sketch[]&gt;({
-    queryKey: ["/api/sketches"],
-    retry: 3,
-    retryDelay: <span class="fstat-no" title="function not covered" >(a</span>ttemptIndex) =&gt; <span class="cstat-no" title="statement not covered" >Math.min(1000 * 2 ** attemptIndex, 30000),</span>
-    enabled: backendReachable, // Only query if backend is reachable
-  });
-&nbsp;
-  // Initialize default sketch when sketch list becomes available
-  useEffect(() =&gt; {
-    initializeDefaultSketch(sketches);
-  }, [initializeDefaultSketch, sketches]);
-&nbsp;
-&nbsp;
-  // editor commands moved to hook
-  const {
-    undo,
-    redo,
-    find,
-    selectAll,
-    copy,
-    cut,
-    paste,
-    goToLine,
-    formatCode,
-  } = useEditorCommands(editorRef, {
-    toast,
-    suppressAutoStopOnce,
-    code,
-    setCode,
-  });
-&nbsp;
-  // Keyboard shortcuts (F5 / Escape / ⌘+U / Debug toggle / Format / New file)
-  useSimulatorKeyboardShortcuts({
-    isMac,
-    simulationStatus,
-    compilePending: compileMutation.isPending,
-    startPending: startMutation.isPending,
-    handleCompile,
-    handleCompileAndStart,
-    handleStop,
-    handleFormatCode: formatCode,
-    handleNewFile: handleTabAdd,
-    setDebugMode,
-    toast,
-  });
-&nbsp;
-  // WebSocket message handling moved to `useSimulatorWebSocketBridge` (extracts the large parameter list from the main hook)
-  useSimulatorWebSocketBridge({
-    simulationStatus,
-    addDebugMessage,
-    setRxActivity,
-    appendSerialOutput,
-    appendRenderedText,
-    setSerialOutput,
-    setArduinoCliStatus,
-    setCliOutput,
-    setHasCompilationErrors,
-    setLastCompilationResult,
-    setShowCompilationOutput,
-    setParserPanelDismissed,
-    setActiveOutputTab,
-    setCompilationStatus,
-    setSimulationStatus,
-    setSandboxMode,
-    setWorkerIndex,
-    setWorkerTotal,
-    stopRendering,
-    pauseRendering,
-    resumeRendering,
-    serialEventQueueRef,
-    setPinStates,
-    setAnalogPinsUsed,
-    resetPinUI,
-    enqueuePinEvent,
-    setIoRegistry,
-    setBaudRate,
-    setSerialBaudrate,
-    pinToNumber,
-    setParserMessages,
-  });
-&nbsp;
-  // Parse the current code to detect which analog pins are used by name or channel
-  // (extracted to `useSketchAnalysis` for testability and reuse)
-  const _sketchCode = code || (tabs.length &gt; 0 ? <span class="branch-0 cbranch-no" title="branch not covered" >tabs[0].content || "" : "</span>");
-  const {
-    analogPins: _analogPins,
-    varMap: _varMap,
-    detectedPinModes: _detectedPinModes,
-    pendingPinConflicts: _pendingPinConflicts,
-  } = useSketchAnalysis(_sketchCode);
-&nbsp;
-  // Mirror results into local state (previously done inside the big useEffect)
-  useEffect(() =&gt; {
-    setDetectedPinModes(_detectedPinModes);
-    setPendingPinConflicts(_pendingPinConflicts);
-    setAnalogPinsUsed(_analogPins);
-  }, [
-    _detectedPinModes,
-    _pendingPinConflicts,
-    _analogPins,
-    setDetectedPinModes,
-    setPendingPinConflicts,
-    setAnalogPinsUsed,
-  ]);
-&nbsp;
-  // Populate I/O registry from static code analysis whenever code changes or compilation completes
-  useEffect(() =&gt; {
-    const timer = setTimeout(() =&gt; {
-      setIoRegistry(parseStaticIORegistry(code));
-    }, 300);
-    return () =&gt; clearTimeout(timer);
-  }, [code, compilationStatus, setIoRegistry]);
-&nbsp;
-  const { handleSerialSend, handleSerialInputKeyDown, handleClearSerialOutput } =
-    useSimulatorSerialPanel({
-      sendMessage,
-      simulationStatus,
-      toast,
-      setTxActivity,
-      serialInputValue,
-      setSerialInputValue,
-      clearSerialOutput,
-      ensureBackendConnected,
-    });
-&nbsp;
-  const handleSerialInputSend = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (!serialInputValue.trim()) <span class="cstat-no" title="statement not covered" >return;</span></span>
-<span class="cstat-no" title="statement not covered" >    handleSerialSend(serialInputValue);</span>
-  };
-&nbsp;
-  // Remaining handlers for OutputPanel integration
-  const handleInsertSuggestion = useCallback(<span class="fstat-no" title="function not covered" >(s</span>uggestion: string, line?: number) =&gt; {
-    const insertSmartly = <span class="cstat-no" title="statement not covered" >editorRef.current?.insertSuggestionSmartly;</span>
-<span class="cstat-no" title="statement not covered" >    if (insertSmartly) {</span>
-<span class="cstat-no" title="statement not covered" >      suppressAutoStopOnce();</span>
-<span class="cstat-no" title="statement not covered" >      insertSmartly(suggestion, line);</span>
-<span class="cstat-no" title="statement not covered" >      toast({</span>
-        title: "Suggestion inserted",
-        description: "Code added to the appropriate location",
-      });
-    } else {
-      // insertSuggestionSmartly method not available on editor
-    }
-  }, [suppressAutoStopOnce, toast]);
-&nbsp;
-  // Pin control handlers are extracted into a dedicated hook for better separation of concerns.
-  const { handlePinToggle, handleAnalogChange } = useSimulatorPinControls({
-    sendMessage,
-    simulationStatus,
-    toast,
-    setPinStates,
-  });
-&nbsp;
-  const {
-    outputPanelRef,
-    compilationPanelSize,
-    outputPanelMinPercent,
-    outputPanelManuallyResizedRef,
-    codeSlot,
-    compileSlot,
-    serialSlot,
-  } = useSimulatorUIState({
-    code,
-    setCode,
-    tabs,
-    activeTabId,
-    handleTabClick,
-    handleTabAdd,
-    handleTabClose,
-    handleTabRename,
-    handleFilesLoaded,
-    handleLoadExample,
-    formatCode,
-    handleCompileAndStart,
-    editorRef,
-    backendReachable,
-    activeOutputTab,
-    parserMessages,
-    ioRegistry,
-    cliOutput,
-    hasCompilationErrors,
-    lastCompilationResult,
-    handleClearCompilationOutput,
-    handleInsertSuggestion,
-    renderedSerialOutput,
-    isConnected,
-    simulationStatus,
-    handleSerialSend,
-    handleClearSerialOutput,
-    showSerialMonitor,
-    autoScrollEnabled,
-    showCompilationOutput,
-    parserPanelDismissed,
-    setShowCompilationOutput,
-    setActiveOutputTab,
-    setParserPanelDismissed,
-    debugMode,
-    setDebugMode,
-    debugMessages,
-    setDebugMessages,
-    debugMessageFilter,
-    setDebugMessageFilter,
-    debugViewMode,
-    setDebugViewMode,
-    debugMessagesContainerRef,
-    addDebugMessage,
-    isModified,
-    toast,
-  });
-&nbsp;
-  // Status info can be computed dynamically when needed per getStatusInfo
-&nbsp;
-  // Track START_SIMULATION requests that arrived before the WebSocket connected.
-  // Instances that are still in the iframe-stagger phase would otherwise stay on
-  // IDLE forever because ensureBackendConnected() returns false and exits early.
-  const [pendingExternalStart, setPendingExternalStart] = useState(false);
-&nbsp;
-  // When the WS reconnects after a pending start was queued, automatically
-  // trigger the compile-and-start flow.
-  useEffect(() =&gt; {
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (pendingExternalStart &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >isConnected &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >b</span>ackendReachable) {</span>
-<span class="cstat-no" title="statement not covered" >      setPendingExternalStart(false);</span>
-<span class="cstat-no" title="statement not covered" >      compileAndStartAction();</span>
-    }
-  }, [pendingExternalStart, isConnected, backendReachable, compileAndStartAction]);
-&nbsp;
-  // External START_SIMULATION handler that supports the queued-for-compiling state.
-  // If the WebSocket is not yet connected (iframe stagger), the request is queued
-  // instead of silently dropped.
-  const handleExternalStartSimulation = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (isConnected &amp;&amp; backendReachable) {</span>
-<span class="cstat-no" title="statement not covered" >      compileAndStartAction();</span>
-    } else {
-<span class="cstat-no" title="statement not covered" >      setPendingExternalStart(true);</span>
-<span class="cstat-no" title="statement not covered" >      setSimulationStatus("queued");</span>
-<span class="cstat-no" title="statement not covered" >      emitSimulationStateEvent("QUEUED_FOR_COMPILING");</span>
-    }
-  }, [isConnected, backendReachable, compileAndStartAction, setSimulationStatus]);
-&nbsp;
-  // External STOP_SIMULATION handler that also clears any pending queued start.
-  const handleExternalStopSimulation = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    setPendingExternalStart(false);</span>
-<span class="cstat-no" title="statement not covered" >    handleStop();</span>
-  }, [handleStop]);
-&nbsp;
-  const simControlBusy =
-    compileMutation.isPending ||
-    startMutation.isPending ||
-    stopMutation.isPending ||
-    pauseMutation.isPending ||
-    resumeMutation.isPending;
-&nbsp;
-  const simulateDisabled =
-    ((simulationStatus === "idle" || simulationStatus === "paused") &amp;&amp;
-      (!backendReachable || !isConnected)) ||
-    simControlBusy;
-&nbsp;
-  // Ensure the output panel is visible once a simulation starts so that the
-  // output tabs (Compiler / Messages / Registry / Debug) are always accessible.
-  useEffect(() =&gt; {
-    if (simulationStatus === "running") {
-      setShowCompilationOutput(true);
-    }
-  }, [simulationStatus, setShowCompilationOutput]);
-&nbsp;
-  // External postMessage API — remote control for embedding websites.
-  // The allowed origin is detected from the parent frame (ancestorOrigins).
-  const externalAllowedOrigin =
-    globalThis.location.ancestorOrigins?.[0] ?? "*";
-&nbsp;
-  // Derive high-level ClientState from runtime + compilation state.
-  // This is the single label shown in the debug header and exposed via API.
-  const deriveClientState = useCallback(<span class="fstat-no" title="function not covered" >(): string =&gt; {</span>
-    // Waiting for WS connection before compile can begin
-<span class="cstat-no" title="statement not covered" >    if (pendingExternalStart &amp;&amp; !isConnected) <span class="cstat-no" title="statement not covered" >return "QUEUED_FOR_COMPILING";</span></span>
-<span class="cstat-no" title="statement not covered" >    if (simulationStatus === "queued") <span class="cstat-no" title="statement not covered" >return "QUEUED_FOR_SIMULATION";</span></span>
-<span class="cstat-no" title="statement not covered" >    if (simulationStatus === "running") <span class="cstat-no" title="statement not covered" >return "RUNNING";</span></span>
-<span class="cstat-no" title="statement not covered" >    if (simulationStatus === "paused") <span class="cstat-no" title="statement not covered" >return "PAUSED";</span></span>
-<span class="cstat-no" title="statement not covered" >    if (compilationStatus === "compiling") <span class="cstat-no" title="statement not covered" >return "COMPILING";</span></span>
-<span class="cstat-no" title="statement not covered" >    return "IDLE";</span>
-  }, [pendingExternalStart, isConnected, simulationStatus, compilationStatus]);
-&nbsp;
-  useExternalApi({
-    allowedOrigin: externalAllowedOrigin,
-    onLoadCode: setCode,
-    onStartSimulation: handleExternalStartSimulation,
-    onStopSimulation: handleExternalStopSimulation,
-    onPauseSimulation: handlePause,
-    onResumeSimulation: handleResume,
-    onSetPinState: <span class="fstat-no" title="function not covered" >(p</span>in, value) =&gt; {
-<span class="cstat-no" title="statement not covered" >      sendMessage({ type: "pin_state", pin, stateType: "value", value });</span>
-    },
-    getPinState: (pin) =&gt; {
-      const found = pinStates.find(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; <span class="cstat-no" title="statement not covered" >p.pin === pin)</span>;
-      return found?.value ?? 0;
-    },
-    onSerialInput: <span class="fstat-no" title="function not covered" >(d</span>ata) =&gt; {
-<span class="cstat-no" title="statement not covered" >      handleSerialSend(data);</span>
-    },
-    onSetSimulationTimeout: setSimulationTimeout,
-    onSetOutputTab: setActiveOutputTab,
-    getSimulationState: deriveClientState,
-    getServerStatus: <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >s</span>erverStatus &amp;&amp; {</span>
-      serverReachable: backendReachable,
-      pool: serverStatus.pool,
-      compile: serverStatus.compile,
-    },
-  });
-&nbsp;
-  // Emit SERVER_STATUS_EVENT whenever pool / health state changes
-  useEffect(() =&gt; {
-    <span class="missing-if-branch" title="else path not taken" >E</span>if (!serverStatus) return;
-<span class="cstat-no" title="statement not covered" >    emitServerStatusEvent({</span>
-      serverReachable: backendReachable,
-      pool: serverStatus.pool,
-      compile: serverStatus.compile,
-    });
-  }, [serverStatus, backendReachable]);
-&nbsp;
-  const state = {
-    showErrorGlitch,
-    backendReachable,
-    isMobile,
-    simulationStatus,
-    compilationStatus,
-    simulateDisabled,
-    compileMutation,
-    startMutation,
-    stopMutation,
-    pauseMutation,
-    resumeMutation,
-    compileAndStartAction,
-    handleStop,
-    handlePause,
-    handleResume,
-    board,
-    baudRate,
-    simulationTimeout,
-    setSimulationTimeout,
-    isMac,
-    handleTabAdd,
-    activeTabId,
-    tabs,
-    handleTabRename,
-    toast,
-    formatCode,
-    onLoadFiles,
-    downloadAllFiles,
-    openSettings,
-    undo,
-    redo,
-    cut,
-    copy,
-    paste,
-    selectAll,
-    goToLine,
-    find,
-    handleCompile,
-    handleCompileAndStart,
-    setShowCompilationOutput,
-    showCompilationOutput,
-    setParserPanelDismissed,
-    debugMode,
-    batchStats,
-    renderedSerialOutput,
-    serialOutput,
-    isConnected,
-    wsConnectionState,
-    wsHasEverConnected,
-    handleSerialSend,
-    handleClearSerialOutput,
-    showSerialMonitor,
-    showSerialPlotter,
-    serialViewMode,
-    cycleSerialViewMode,
-    autoScrollEnabled,
-    setAutoScrollEnabled,
-    serialInputValue,
-    setSerialInputValue,
-    handleSerialInputKeyDown,
-    handleSerialInputSend,
-    telemetryData,
-    txActivity,
-    rxActivity,
-    handleReset,
-    handlePinToggle,
-    analogPinsUsed,
-    handleAnalogChange,
-    pinMonitorVisible,
-    pinStates,
-    sandboxMode,
-    workerIndex,
-    workerTotal,
-    serverStatus,
-    mobilePanel,
-    setMobilePanel,
-    headerHeight,
-    overlayZ,
-    codeSlot,
-    compileSlot,
-    serialSlot,
-    outputPanelRef,
-    compilationPanelSize,
-    outputPanelMinPercent,
-    outputPanelManuallyResizedRef,
-    fileInputRef,
-    handleHiddenFileInput,
-  };
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { WebSocketServer, WebSocket } from "ws";
+import type { Server } from "node:http";
+import type { SandboxRunner } from "../services/sandbox-runner";
+import type { IOPinRecord, WSMessage } from "@shared/schema";
+import type { Logger } from "@shared/logger";
+import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
+import path from "node:path";
+import { constants as zlibConstants } from "node:zlib";
+import { writeFile, access } from "node:fs/promises";
+import type { RawData } from "ws";
 &nbsp;
-  return state;
+/** Safely convert WebSocket RawData (Buffer | ArrayBuffer | Buffer[]) to a string. */
+function rawDataToString(data: RawData): string {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (Array.isArray(data)) <span class="cstat-no" title="statement not covered" >return Buffer.concat(data).toString();</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (data instanceof ArrayBuffer) <span class="cstat-no" title="statement not covered" >return Buffer.from(data).toString();</span>
+  return data.toString();
 }
 &nbsp;
-export type ArduinoSimulatorPageState = ReturnType&lt;typeof useArduinoSimulatorPage&gt;;
+type SimulationDeps = {
+  SandboxRunner: typeof SandboxRunner;
+  getSimulationRateLimiter: () =&gt; { checkLimit: (ws: WebSocket) =&gt; { allowed: boolean; retryAfter?: number }; removeClient: (ws: WebSocket) =&gt; void };
+  shouldSendSimulationEndMessage: (compileFailed: boolean) =&gt; boolean;
+  getLastCompiledCode: () =&gt; string | null;
+  logger: Logger;
+  runnerPool?: ReturnType&lt;typeof getSandboxRunnerPool&gt;;
+};
+&nbsp;
+// Return type exposes a small API used by other modules (test-reset)
+export function registerSimulationWebSocket(httpServer: Server, deps: SimulationDeps) {
+  const { getSimulationRateLimiter, shouldSendSimulationEndMessage, getLastCompiledCode, logger, runnerPool } = deps;
+  const pool = <span class="branch-1 cbranch-no" title="branch not covered" >runnerPool ?? getSandboxRunnerPool();</span>
+&nbsp;
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: "/ws",
+    // Enable WebSocket message compression (RFC 7692)
+    // Reduces bandwidth by ~40-50% for repetitive JSON payloads (pin-state batches)
+    perMessageDeflate: {
+      // Use fast compression (Level 1) to minimize CPU overhead with 200+ clients
+      zlibDeflateOptions: {
+        level: zlibConstants.Z_BEST_SPEED, // Level 1: fastest compression
+        memLevel: 8, // Default memory usage (1-9, higher = more memory but better compression)
+      },
+      zlibInflateOptions: {
+        chunkSize: 10 * 1024, // 10KB chunks for decompression
+      },
+      // Client-to-server compression parameters
+      clientNoContextTakeover: true, // Disable context reuse for simpler memory management
+      serverNoContextTakeover: true, // Disable context reuse to reduce server memory
+      // Negotiate compression threshold (compress messages &gt; 256 bytes)
+      threshold: 256, // Only compress messages larger than 256 bytes
+      // Concurrency limit for parallel compressions (default: 10)
+      concurrencyLimit: 10,
+    }
+  });
+&nbsp;
+  const clientRunners = new Map&lt;
+    WebSocket,
+    { runner: InstanceType&lt;typeof SandboxRunner&gt; | null; isRunning: boolean; isPaused: boolean; testRunId?: string }
+  &gt;();
+&nbsp;
+  // Serial output batching: collect output lines over 50ms before sending to reduce
+  // WebSocket message count (e.g., from 100 msg/batch to 1 msg/batch at 20 batches/sec)
+  // 
+  // STRUCTURE: Buffer stores both data AND semantic flag (isComplete) so we can
+  // intelligently reconstruct newlines without duplication. The client also adds 
+  // newlines based on isComplete flag, so we must be careful:
+  // - Store each line with its isComplete flag
+  // - When flushing, add newlines BETWEEN lines (not after final line)
+  // - Let client add the final newline if needed
+  const clientSerialBuffers = new Map&lt;
+    WebSocket,
+    { 
+      lines: Array&lt;{ data: string; isComplete: boolean }&gt;;
+      flushTimer: NodeJS.Timeout | null;
+    }
+  &gt;();
+&nbsp;
+  function sendMessageToClient(ws: WebSocket, message: WSMessage): void {
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message));
+    }
+  }
+&nbsp;
+  /**
+   * Flush buffered serial output for a client
+   * Combines all lines with proper newline handling:
+   * - Add newline after EVERY complete line (not just between)
+   * - Don't add newline after incomplete lines
+   * - Let the isComplete flag tell the client whether to add final newline
+   * 
+   * CRITICAL: This prevents lost newlines at batch boundaries.
+   * If batch 1 ends with isComplete=false and batch 2 starts with isComplete=true,
+   * we must ensure newlines are added correctly.
+   */
+  function flushSerialOutputBuffer(ws: WebSocket): void {
+    const bufferState = clientSerialBuffers.get(ws);
+    if (!bufferState || bufferState.lines.length === 0) {
+      return;
+    }
+&nbsp;
+    bufferState.flushTimer = null;
+&nbsp;
+    // Add newline after EVERY complete line (not just between them)
+    // This prevents lost newlines at batch boundaries
+    const combinedData = bufferState.lines
+      .map((lineObj) =&gt; {
+        // If line is complete (had newline originally), add it back
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (lineObj.isComplete) {
+          return lineObj.data + '\n';
+        }
+        // If line is incomplete, don't add newline
+<span class="cstat-no" title="statement not covered" >        return lineObj.data;</span>
+      })
+      .join('');
+&nbsp;
+    // The isComplete flag for the WebSocket message is based on the last line
+    const lastLine = bufferState.lines.at(-1);
+    const finalIsComplete = lastLine?.isComplete ?? <span class="branch-1 cbranch-no" title="branch not covered" >true;</span>
+&nbsp;
+    bufferState.lines = [];
+&nbsp;
+    sendMessageToClient(ws, {
+      type: "serial_output",
+      data: combinedData,
+      isComplete: finalIsComplete,
+    });
+  }
+&nbsp;
+  /**
+   * Send serial output with 50ms batching
+   * Accumulates lines for 50ms before sending them as a single batched message
+   * Preserves isComplete semantic so client-side newline injection works correctly
+   */
+  function sendSerialOutputBatched(ws: WebSocket, line: string, isComplete?: boolean): void {
+    // Ensure buffer state exists for this client
+    let bufferState = clientSerialBuffers.get(ws);
+    bufferState ??= { lines: [], flushTimer: null };
+    clientSerialBuffers.set(ws, bufferState);
+&nbsp;
+    // Store line WITH its isComplete semantic for later intelligent combination
+    const lineObj = { data: line, isComplete: isComplete ?? <span class="branch-1 cbranch-no" title="branch not covered" >true }</span>;
+    bufferState.lines.push(lineObj);
+&nbsp;
+    // Schedule flush if not already scheduled
+    bufferState.flushTimer ??= setTimeout(() =&gt; {
+      flushSerialOutputBuffer(ws);
+    }, 50);
+  }
+&nbsp;
+  async function safeReleaseRunner(
+    state: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean },
+    reason: string,
+  ): Promise&lt;void&gt; {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!state.runner) {
+<span class="cstat-no" title="statement not covered" >      return;</span>
+    }
+&nbsp;
+    const runner = state.runner;
+    state.runner = null;
+    state.isRunning = false;
+    state.isPaused = false;
+&nbsp;
+    try {
+      await runner.stop();
+    } catch (error) {
+<span class="cstat-no" title="statement not covered" >      logger.debug(`[SandboxRunnerPool] runner.stop() failed during ${reason}: ${error}`);</span>
+    }
+&nbsp;
+    try {
+      await pool.releaseRunner(runner);
+    } catch (error) {
+<span class="cstat-no" title="statement not covered" >      logger.warn(`[SandboxRunnerPool] releaseRunner failed during ${reason}: ${error}`);</span>
+    }
+  }
+&nbsp;
+  /**
+   * Build all callback functions for sketch execution (onOutput, onError, etc.)
+   * Extracted to reduce cognitive complexity of message handler.
+   */
+  function buildRunSketchCallbacks(
+    ws: WebSocket,
+    clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean },
+  ) {
+    let gccSuccessSent = false;
+    let compileFailed = false;
+&nbsp;
+    const onOutput = (line: string, isComplete?: boolean) =&gt; {
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (!gccSuccessSent) {
+<span class="cstat-no" title="statement not covered" >        gccSuccessSent = true;</span>
+<span class="cstat-no" title="statement not covered" >        sendMessageToClient(ws, { type: "compilation_status", gccStatus: "success" });</span>
+      }
+      sendSerialOutputBatched(ws, line, isComplete);
+    };
+&nbsp;
+    const onError = <span class="fstat-no" title="function not covered" >(e</span>rr: string) =&gt; {
+<span class="cstat-no" title="statement not covered" >      logger.warn(`[Client WS][ERR]: ${err}`);</span>
+<span class="cstat-no" title="statement not covered" >      flushSerialOutputBuffer(ws);</span>
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "serial_output", data: "[ERR] " + err });</span>
+    };
+&nbsp;
+    const onExit = (exitCode: number | null) =&gt; {
+      // Capture runner reference immediately — the clientRunners map entry
+      // may be deleted by the ws "close" handler before the setTimeout fires.
+      const capturedCs = clientRunners.get(ws);
+&nbsp;
+      setTimeout(async () =&gt; {
+        try {
+          flushSerialOutputBuffer(ws);
+          <span class="missing-if-branch" title="else path not taken" >E</span>if (capturedCs) {
+            await safeReleaseRunner(capturedCs, "onExit");
+          }
+&nbsp;
+          <span class="missing-if-branch" title="if path not taken" >I</span>if (!shouldSendSimulationEndMessage(compileFailed)) <span class="cstat-no" title="statement not covered" >return;</span>
+&nbsp;
+          <span class="missing-if-branch" title="if path not taken" >I</span>if (exitCode === 0 &amp;&amp; !gccSuccessSent) {
+<span class="cstat-no" title="statement not covered" >            gccSuccessSent = true;</span>
+<span class="cstat-no" title="statement not covered" >            sendMessageToClient(ws, { type: "compilation_status", gccStatus: "success" });</span>
+          }
+&nbsp;
+          sendMessageToClient(ws, {
+            type: "serial_output",
+            data: "--- Simulation ended: Loop cycles completed ---\n",
+            isComplete: true,
+          });
+          sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });
+&nbsp;
+          const bufferState = clientSerialBuffers.get(ws);
+          <span class="missing-if-branch" title="if path not taken" >I</span>if (bufferState?.flushTimer) {
+<span class="cstat-no" title="statement not covered" >            clearTimeout(bufferState.flushTimer);</span>
+          }
+        } catch (err) {
+<span class="cstat-no" title="statement not covered" >          logger.error(</span>
+            `Error sending stop message: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }, 100);
+    };
+&nbsp;
+    const onCompileError = <span class="fstat-no" title="function not covered" >(c</span>ompileErr: string) =&gt; {
+<span class="cstat-no" title="statement not covered" >      compileFailed = true;</span>
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "compilation_error", data: compileErr });</span>
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "compilation_status", gccStatus: "error" });</span>
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });</span>
+      const cs = <span class="cstat-no" title="statement not covered" >clientRunners.get(ws);</span>
+<span class="cstat-no" title="statement not covered" >      if (cs) {</span>
+<span class="cstat-no" title="statement not covered" >        safeReleaseRunner(cs, "onCompileError").catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >          logger.warn(`[SandboxRunnerPool] safeReleaseRunner failed in onCompileError: ${error}`);</span>
+        });
+      }
+<span class="cstat-no" title="statement not covered" >      logger.error(`[Client Compile Error]: ${compileErr}`);</span>
+    };
+&nbsp;
+    const onCompileSuccess = () =&gt; {
+      <span class="missing-if-branch" title="else path not taken" >E</span>if (!gccSuccessSent) {
+        gccSuccessSent = true;
+        sendMessageToClient(ws, { type: "compilation_status", gccStatus: "success" });
+      }
+    };
+&nbsp;
+    const onCompileQueued = () =&gt; {
+      sendMessageToClient(ws, { type: "compilation_status", gccStatus: "queued" });
+    };
+&nbsp;
+    const onPinState = <span class="fstat-no" title="function not covered" >(p</span>in: number, type: "mode" | "value" | "pwm", value: number) =&gt; {
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "pin_state", pin, stateType: type, value });</span>
+    };
+&nbsp;
+    const onIORegistry = <span class="fstat-no" title="function not covered" >(</span>
+      registry: IOPinRecord[],
+      baudrate: number | undefined,
+      reason?: string,
+    ) =&gt; {
+      const message: Extract&lt;WSMessage, { type: "io_registry" }&gt; = <span class="cstat-no" title="statement not covered" >{ type: "io_registry", registry };</span>
+<span class="cstat-no" title="statement not covered" >      if (baudrate !== undefined) <span class="cstat-no" title="statement not covered" >message.baudrate = baudrate;</span></span>
+<span class="cstat-no" title="statement not covered" >      if (reason !== undefined) <span class="cstat-no" title="statement not covered" >message.reason = reason;</span></span>
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, message);</span>
+      const baudSuffix = <span class="cstat-no" title="statement not covered" >baudrate === undefined ? "" : `, baud=${baudrate}`;</span>
+<span class="cstat-no" title="statement not covered" >      logger.info(</span>
+        `[io_registry] ${registry.length} pins${baudSuffix}`,
+      );
+&nbsp;
+      // Async save without blocking — fire-and-forget with error handling
+<span class="cstat-no" title="statement not covered" >      (<span class="fstat-no" title="function not covered" >async () =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >        try {</span>
+          const sketchDir = <span class="cstat-no" title="statement not covered" >clientState?.runner?.getSketchDir();</span>
+<span class="cstat-no" title="statement not covered" >          if (!sketchDir) <span class="cstat-no" title="statement not covered" >return;</span></span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >          try {</span>
+<span class="cstat-no" title="statement not covered" >            await access(sketchDir);</span>
+          } catch {
+<span class="cstat-no" title="statement not covered" >            return;</span>
+          }
+&nbsp;
+          const registryFile = <span class="cstat-no" title="statement not covered" >path.join(sketchDir, `io-registry-${Date.now()}.pending.json`);</span>
+<span class="cstat-no" title="statement not covered" >          await writeFile(registryFile, JSON.stringify(registry, null, 2));</span>
+<span class="cstat-no" title="statement not covered" >          logger.debug(`Registry saved: ${path.basename(registryFile)}`);</span>
+<span class="cstat-no" title="statement not covered" >          if (clientState.runner) <span class="cstat-no" title="statement not covered" >clientState.runner.setRegistryFile(registryFile);</span></span>
+        } catch (err) {
+<span class="cstat-no" title="statement not covered" >          logger.warn(</span>
+            `Failed to save I/O Registry file: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      })();
+    };
+&nbsp;
+    const onTelemetry = <span class="fstat-no" title="function not covered" >(m</span>etrics: { timestamp: number; intendedPinChangesPerSecond: number; actualPinChangesPerSecond: number; droppedPinChangesPerSecond: number; batchesPerSecond: number; avgStatesPerBatch: number; serialOutputPerSecond: number; serialBytesPerSecond: number; serialBytesTotal: number; serialIntendedBytesPerSecond: number; serialDroppedBytesPerSecond: number }) =&gt; {
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "sim_telemetry", metrics });</span>
+    };
+&nbsp;
+    const onPinStateBatch = <span class="fstat-no" title="function not covered" >(b</span>atch: {
+      states: Array&lt;{ pin: number; stateType: "mode" | "value" | "pwm"; value: number }&gt;;
+      timestamp: number;
+    }) =&gt; {
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "pin_state_batch", states: batch.states, timestamp: batch.timestamp });</span>
+    };
+&nbsp;
+    return {
+      onOutput,
+      onError,
+      onExit,
+      onCompileError,
+      onCompileSuccess,
+      onCompileQueued,
+      onPinState,
+      onIORegistry,
+      onTelemetry,
+      onPinStateBatch,
+      compileFailed: <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >c</span>ompileFailed,</span>
+    };
+  }
+&nbsp;
+  /**
+   * Log consolidated run payload for audit/evidence.
+   * Extracted to keep handleStartSimulation below cognitive complexity threshold.
+   */
+  function logRunPayloadAudit(code: string, timeoutSec: number | undefined, sessionId: string | undefined): void {
+    try {
+      const payload = {
+        code,
+        timeoutSec,
+        context: { sessionId, label: "default-ws" },
+      };
+      logger.debug(`[B1-Evidence] Payload: ${JSON.stringify(payload, null, 2)}`);
+    } catch (err) {
+<span class="cstat-no" title="statement not covered" >      logger.warn(</span>
+        `Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+&nbsp;
+  /**
+   * Handle "start_simulation" WebSocket message
+   * Checks rate limits, acquires runner, and starts sketch execution.
+   */
+  async function handleStartSimulation(
+    ws: WebSocket,
+    data: Extract&lt;WSMessage, { type: "start_simulation" }&gt;,
+    clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
+  ): Promise&lt;void&gt; {
+    // Rate limiting check
+    const rateLimiter = getSimulationRateLimiter();
+    const limitCheck = rateLimiter.checkLimit(ws);
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!limitCheck.allowed) {
+      const retryAfter = <span class="cstat-no" title="statement not covered" >limitCheck.retryAfter || 30;</span>
+<span class="cstat-no" title="statement not covered" >      logger.warn(`[RateLimit] Simulation start rejected. Retry after ${retryAfter}s`);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >      if (clientState?.runner) {</span>
+<span class="cstat-no" title="statement not covered" >        await safeReleaseRunner(clientState, "rate-limit");</span>
+      }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, {</span>
+        type: "serial_output",
+        data: `[ERR] Rate limit exceeded. Too many simulation starts. Please wait ${retryAfter} seconds before starting again.\n`,
+      });
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });</span>
+<span class="cstat-no" title="statement not covered" >      return;</span>
+    }
+&nbsp;
+    // Use per-client code from the WS message if provided (multi-client isolation),
+    // otherwise fall back to the global lastCompiledCode (backward compatibility).
+    const code = ("code" in data &amp;&amp; typeof data.code === "string" &amp;&amp; data.code.trim().length &gt; 0)
+      ? data.code
+      : <span class="branch-1 cbranch-no" title="branch not covered" >getLastCompiledCode();</span>
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!code) {
+<span class="cstat-no" title="statement not covered" >      if (clientState.runner) {</span>
+<span class="cstat-no" title="statement not covered" >        await safeReleaseRunner(clientState, "missing-compiled-code");</span>
+      }
+<span class="cstat-no" title="statement not covered" >      clientState.isRunning = false;</span>
+<span class="cstat-no" title="statement not covered" >      clientState.isPaused = false;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, {</span>
+        type: "serial_output",
+        data: "[ERR] No compiled code available. Please compile first.\n",
+      });
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });</span>
+<span class="cstat-no" title="statement not covered" >      return;</span>
+    }
+&nbsp;
+    // Release any existing runner
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (clientState.runner) {
+<span class="cstat-no" title="statement not covered" >      await safeReleaseRunner(clientState, "start-replace-existing");</span>
+    }
+&nbsp;
+    // If the pool is saturated, notify client it is queued and wait for a slot
+    const statsBeforeAcquire = pool.getStats();
+    const willQueue = statsBeforeAcquire.availableRunners === 0 &amp;&amp;
+      statsBeforeAcquire.totalRunners &gt;= statsBeforeAcquire.maxRunners;
+    if (willQueue) {
+      logger.debug(`[SandboxRunnerPool] Pool saturated — client queued (queue length: ${statsBeforeAcquire.queuedRequests + 1})`);
+      sendMessageToClient(ws, { type: "simulation_status", status: "queued" });
+    }
+&nbsp;
+    // Acquire new runner from pool (may block until a slot is released)
+    try {
+      clientState.runner = await pool.acquireRunner();
+      logger.debug(
+        `[SandboxRunnerPool] Acquired runner for client. Pool stats: ${JSON.stringify(pool.getStats())}`,
+      );
+    } catch (error) {
+<span class="cstat-no" title="statement not covered" >      logger.error(`[SandboxRunnerPool] Failed to acquire runner: ${error}`);</span>
+<span class="cstat-no" title="statement not covered" >      clientState.runner = null;</span>
+<span class="cstat-no" title="statement not covered" >      clientState.isRunning = false;</span>
+<span class="cstat-no" title="statement not covered" >      clientState.isPaused = false;</span>
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, {</span>
+        type: "serial_output",
+        data: "[ERR] Server overloaded. All runners busy. Please try again.\n",
+      });
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });</span>
+<span class="cstat-no" title="statement not covered" >      return;</span>
+    }
+&nbsp;
+    // Slot assignment: tell client which runner slot they own immediately
+    const acquiredWorkerIndex = pool.getRunnerIndex(clientState.runner);
+    const poolStatsAfterAcquire = pool.getStats();
+&nbsp;
+    // Update client state and notify running
+    clientState.isRunning = true;
+    clientState.isPaused = false;
+    sendMessageToClient(ws, { type: "simulation_status", status: "running" });
+    sendMessageToClient(ws, {
+      type: "compilation_status",
+      gccStatus: "compiling",
+      workerIndex: acquiredWorkerIndex,
+      workerTotal: poolStatsAfterAcquire.totalRunners,
+    });
+&nbsp;
+    // Build callbacks
+    const callbacks = buildRunSketchCallbacks(ws, clientState);
+    const timeoutValue = "timeout" in data ? <span class="branch-0 cbranch-no" title="branch not covered" >data.timeout : u</span>ndefined;
+    logger.info(`[Simulation] Starting with timeout: ${timeoutValue}s`);
+&nbsp;
+    // Log consolidated payload for audit
+    logRunPayloadAudit(code, timeoutValue, clientState.testRunId);
+&nbsp;
+    // Capture runner reference before await – ws-close may set clientState.runner=null
+    // concurrently while runSketch is awaited, causing a null-dereference on getSandboxStatus.
+    const runnerForStatus = clientState.runner;
+&nbsp;
+    // Start sketch execution and publish sandbox mode once the runner has resolved
+    try {
+      await clientState.runner.runSketch({
+        code,
+        onOutput: callbacks.onOutput,
+        onError: callbacks.onError,
+        onExit: callbacks.onExit,
+        onCompileError: callbacks.onCompileError,
+        onCompileSuccess: callbacks.onCompileSuccess,
+        onCompileQueued: callbacks.onCompileQueued,
+        onPinState: callbacks.onPinState,
+        timeoutSec: timeoutValue,
+        onIORegistry: callbacks.onIORegistry,
+        onTelemetry: callbacks.onTelemetry,
+        onPinStateBatch: callbacks.onPinStateBatch,
+        context: { sessionId: clientState.testRunId, label: "default-ws" },
+      });
+    } catch (error) {
+<span class="cstat-no" title="statement not covered" >      logger.error(`[Simulation] runSketch failed: ${error}`);</span>
+    }
+&nbsp;
+    const sandboxStatus = runnerForStatus.getSandboxStatus();
+    sendMessageToClient(ws, {
+      type: "compilation_status",
+      sandboxMode: sandboxStatus.mode,
+    });
+  }
+&nbsp;
+  /**
+   * Handle "code_changed" WebSocket message
+   */
+  async function <span class="fstat-no" title="function not covered" >handleCodeChanged(</span>
+    _ws: WebSocket,
+    clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
+  ): Promise&lt;void&gt; {
+<span class="cstat-no" title="statement not covered" >    if (clientState?.runner &amp;&amp; (clientState?.isRunning || clientState?.isPaused)) {</span>
+<span class="cstat-no" title="statement not covered" >      await safeReleaseRunner(clientState, "code_changed");</span>
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(_ws, { type: "simulation_status", status: "stopped" });</span>
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(_ws, { type: "serial_output", data: "--- Simulation stopped due to code change ---\n" });</span>
+    }
+  }
+&nbsp;
+  /**
+   * Handle "stop_simulation" WebSocket message
+   */
+  async function handleStopSimulation(
+    _ws: WebSocket,
+    clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
+  ): Promise&lt;void&gt; {
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (clientState?.runner) {
+      await safeReleaseRunner(clientState, "stop_simulation");
+    }
+    sendMessageToClient(_ws, { type: "simulation_status", status: "stopped" });
+    sendMessageToClient(_ws, { type: "serial_output", data: "--- Simulation stopped ---\n" });
+  }
+&nbsp;
+  /**
+   * Handle "pause_simulation" WebSocket message
+   */
+  function handlePauseSimulation(
+    _ws: WebSocket,
+    clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
+  ): void {
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (clientState?.runner &amp;&amp; clientState.isRunning) {
+      const paused = clientState.runner.pause();
+      <span class="missing-if-branch" title="else path not taken" >E</span>if (paused) {
+        clientState.isPaused = true;
+        sendMessageToClient(_ws, { type: "simulation_status", status: "paused" });
+        sendMessageToClient(_ws, { type: "serial_output", data: "--- Simulation paused ---\n" });
+      }
+    }
+  }
+&nbsp;
+  /**
+   * Handle "resume_simulation" WebSocket message
+   */
+  function handleResumeSimulation(
+    _ws: WebSocket,
+    clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
+  ): void {
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (clientState?.runner &amp;&amp; clientState.isPaused) {
+      const resumed = clientState.runner.resume();
+      <span class="missing-if-branch" title="else path not taken" >E</span>if (resumed) {
+        clientState.isPaused = false;
+        clientState.isRunning = true;
+        sendMessageToClient(_ws, { type: "simulation_status", status: "running" });
+        sendMessageToClient(_ws, { type: "serial_output", data: "--- Simulation resumed ---\n" });
+      }
+    }
+  }
+&nbsp;
+  /**
+   * Handle "serial_input" WebSocket message
+   */
+  function <span class="fstat-no" title="function not covered" >handleSerialInput(</span>
+    _ws: WebSocket,
+    data: Extract&lt;WSMessage, { type: "serial_input" }&gt;,
+    clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
+  ): void {
+<span class="cstat-no" title="statement not covered" >    if (clientState?.runner &amp;&amp; clientState?.isRunning &amp;&amp; !clientState.isPaused) {</span>
+<span class="cstat-no" title="statement not covered" >      clientState.runner.sendSerialInput(data.data);</span>
+    }
+  }
+&nbsp;
+  /**
+   * Handle "set_pin_value" WebSocket message
+   */
+  function <span class="fstat-no" title="function not covered" >handleSetPinValue(</span>
+    _ws: WebSocket,
+    data: Extract&lt;WSMessage, { type: "set_pin_value" }&gt;,
+    clientState: { runner: SandboxRunner | null; isRunning: boolean; isPaused: boolean; testRunId?: string },
+  ): void {
+<span class="cstat-no" title="statement not covered" >    if (clientState?.runner &amp;&amp; (clientState.isRunning || clientState.isPaused)) {</span>
+<span class="cstat-no" title="statement not covered" >      clientState.runner.setPinValue(data.pin, data.value);</span>
+    }
+  }
+&nbsp;
+  wss.on("connection", (ws, req) =&gt; {
+    const url = req.url || <span class="branch-1 cbranch-no" title="branch not covered" >"";</span>
+    const urlParams = new URLSearchParams(url.split("?")[1] || "");
+    const testRunId = urlParams.get("testRunId") || undefined;
+    const testRunIdSuffix = testRunId ? <span class="branch-0 cbranch-no" title="branch not covered" >` [testRunId: ${testRunId}]` : "</span>";
+&nbsp;
+    logger.info(`New WebSocket client connected${testRunIdSuffix}. Total clients: ${wss.clients.size}`);
+&nbsp;
+    clientRunners.set(ws, { runner: null, isRunning: false, isPaused: false, testRunId });
+&nbsp;
+    const clientState = clientRunners.get(ws);
+    let simStatus: "paused" | "running" | "stopped";
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (clientState?.isPaused) {
+<span class="cstat-no" title="statement not covered" >      simStatus = "paused";</span>
+    <span class="missing-if-branch" title="if path not taken" >I</span>} else if (clientState?.isRunning) {
+<span class="cstat-no" title="statement not covered" >      simStatus = "running";</span>
+    } else {
+      simStatus = "stopped";
+    }
+    sendMessageToClient(ws, {
+      type: "simulation_status",
+      status: simStatus,
+    });
+&nbsp;
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (testRunId) {
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, {</span>
+        type: "handshake",
+        testRunId,
+      });
+    }
+&nbsp;
+    ws.on("message", async (message) =&gt; {
+      try {
+        // Debug: log raw incoming WS messages for E2E troubleshooting
+        const msgText = rawDataToString(message);
+        logger.debug(`[WS-IN] ${msgText}`);
+        const data = JSON.parse(msgText);
+        const type = data.type;
+        const clientState = clientRunners.get(ws);
+&nbsp;
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (!clientState) {
+<span class="cstat-no" title="statement not covered" >          logger.warn(`[WS] Message received but clientState not found for type: ${type}`);</span>
+<span class="cstat-no" title="statement not covered" >          return;</span>
+        }
+&nbsp;
+        switch (type) {
+          case "start_simulation":
+            await handleStartSimulation(ws, data, clientState);
+            break;
+&nbsp;
+<span class="branch-1 cbranch-no" title="branch not covered" >          case "code_changed":</span>
+<span class="cstat-no" title="statement not covered" >            await handleCodeChanged(ws, clientState);</span>
+<span class="cstat-no" title="statement not covered" >            break;</span>
+&nbsp;
+          case "stop_simulation":
+            await handleStopSimulation(ws, clientState);
+            break;
+&nbsp;
+          case "pause_simulation":
+            handlePauseSimulation(ws, clientState);
+            break;
+&nbsp;
+          case "resume_simulation":
+            handleResumeSimulation(ws, clientState);
+            break;
+&nbsp;
+<span class="branch-5 cbranch-no" title="branch not covered" >          case "serial_input":</span>
+<span class="cstat-no" title="statement not covered" >            handleSerialInput(ws, data, clientState);</span>
+<span class="cstat-no" title="statement not covered" >            break;</span>
+&nbsp;
+<span class="branch-6 cbranch-no" title="branch not covered" >          case "set_pin_value":</span>
+<span class="cstat-no" title="statement not covered" >            handleSetPinValue(ws, data, clientState);</span>
+<span class="cstat-no" title="statement not covered" >            break;</span>
+&nbsp;
+<span class="branch-7 cbranch-no" title="branch not covered" >          default:</span>
+<span class="cstat-no" title="statement not covered" >            logger.warn(`Unknown WS message type: ${JSON.stringify(data?.type)}`);</span>
+<span class="cstat-no" title="statement not covered" >            break;</span>
+        }
+      } catch (error) {
+<span class="cstat-no" title="statement not covered" >        logger.error(</span>
+          `Invalid WebSocket message: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
+&nbsp;
+    ws.on("close", async () =&gt; {
+      const clientState = clientRunners.get(ws);
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (clientState?.runner) {
+<span class="cstat-no" title="statement not covered" >        await safeReleaseRunner(clientState, "ws-close");</span>
+      }
+      clientRunners.delete(ws);
+      
+      // Clean up serial output buffer and timer
+      const bufferState = clientSerialBuffers.get(ws);
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (bufferState?.flushTimer) {
+<span class="cstat-no" title="statement not covered" >        clearTimeout(bufferState.flushTimer);</span>
+      }
+      clientSerialBuffers.delete(ws);
+      
+      const rateLimiter = getSimulationRateLimiter();
+      rateLimiter.removeClient(ws);
+      logger.info(`Client disconnected. Remaining clients: ${wss.clients.size}`);
+    });
+&nbsp;
+    ws.on("error", <span class="fstat-no" title="function not covered" >async (e</span>rror) =&gt; {
+      const clientState = <span class="cstat-no" title="statement not covered" >clientRunners.get(ws);</span>
+<span class="cstat-no" title="statement not covered" >      if (clientState?.runner) {</span>
+<span class="cstat-no" title="statement not covered" >        await safeReleaseRunner(clientState, "ws-error");</span>
+      }
+      
+      // Clean up serial output buffer and timer
+      const bufferState = <span class="cstat-no" title="statement not covered" >clientSerialBuffers.get(ws);</span>
+<span class="cstat-no" title="statement not covered" >      if (bufferState?.flushTimer) {</span>
+<span class="cstat-no" title="statement not covered" >        clearTimeout(bufferState.flushTimer);</span>
+      }
+<span class="cstat-no" title="statement not covered" >      clientSerialBuffers.delete(ws);</span>
+      
+<span class="cstat-no" title="statement not covered" >      logger.error(`WebSocket error: ${error instanceof Error ? error.message : String(error)}`);</span>
+    });
+  });
+&nbsp;
+  async function <span class="fstat-no" title="function not covered" >stopAllRunnersAndNotify() {</span>
+    const cleanedUpCount = <span class="cstat-no" title="statement not covered" >clientRunners.size;</span>
+    const cleanedTestRunIds: (string | undefined)[] = <span class="cstat-no" title="statement not covered" >[];</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    for (const [ws, clientState] of clientRunners.entries()) {</span>
+<span class="cstat-no" title="statement not covered" >      if (clientState.runner) {</span>
+<span class="cstat-no" title="statement not covered" >        await safeReleaseRunner(clientState, "test-reset");</span>
+      }
+<span class="cstat-no" title="statement not covered" >      clientState.isRunning = false;</span>
+<span class="cstat-no" title="statement not covered" >      clientState.isPaused = false;</span>
+<span class="cstat-no" title="statement not covered" >      cleanedTestRunIds.push(clientState.testRunId);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: "simulation_status", status: "stopped" });</span>
+    }
+&nbsp;
+    const cleaned = <span class="cstat-no" title="statement not covered" >cleanedTestRunIds.filter(<span class="fstat-no" title="function not covered" >(i</span>d): id is string =&gt; <span class="cstat-no" title="statement not covered" >Boolean(id))</span>;</span>
+<span class="cstat-no" title="statement not covered" >    return { cleanedUpCount, cleanedTestRunIds: cleaned };</span>
+  }
+&nbsp;
+  return { wss, stopAllRunnersAndNotify };
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -2535,14 +2226,14 @@ export type ArduinoSimulatorPageState = ReturnType&lt;typeof useArduinoSimulator
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
                 at 2026-05-12T08:09:46.527Z
             </div>
-        <script src="../../../prettify.js"></script>
+        <script src="../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../../sorter.js"></script>
-        <script src="../../../block-navigation.js"></script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
     </body>
 </html>
     

@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.38% </span>
+                <span class="strong">68.4% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>199/291</span>
+                <span class='fraction'>210/307</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">64.7% </span>
+                <span class="strong">64.88% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>88/136</span>
+                <span class='fraction'>85/131</span>
             </div>
         
             
@@ -879,14 +879,11 @@
 <a name='L814'></a><a href='#L814'>814</a>
 <a name='L815'></a><a href='#L815'>815</a>
 <a name='L816'></a><a href='#L816'>816</a>
-<a name='L817'></a><a href='#L817'>817</a>
-<a name='L818'></a><a href='#L818'>818</a>
-<a name='L819'></a><a href='#L819'>819</a>
-<a name='L820'></a><a href='#L820'>820</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L817'></a><a href='#L817'>817</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -931,10 +928,7 @@
 <span class="cline-any cline-yes">66x</span>
 <span class="cline-any cline-yes">66x</span>
 <span class="cline-any cline-yes">66x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">66x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">66x</span>
 <span class="cline-any cline-yes">66x</span>
 <span class="cline-any cline-yes">66x</span>
@@ -1715,7 +1709,7 @@ import { reservedNamesValidator } from "@shared/reserved-names-validator";
 import { getCompileGatekeeper } from "./compile-gatekeeper";
 import { ProcessExecutor } from "./process-executor";
 import { CompilationError, CompilerOutputParser } from "./compiler/compiler-output-parser";
-// Removed unused mock imports to satisfy TypeScript
+import { config } from "../config";
 &nbsp;
 // Re-export for backwards compatibility
 export type { CompilationError } from "./compiler/compiler-output-parser";
@@ -1749,11 +1743,8 @@ export class ArduinoCompiler {
   private readonly logger = new Logger("ArduinoCompiler");
   private readonly gatekeeper = getCompileGatekeeper();
   private readonly processExecutor = new ProcessExecutor();
-  private readonly defaultFqbn = process.env.ARDUINO_FQBN || "arduino:avr:uno";
-  private readonly defaultBuildCacheDir =
-    process.env.ARDUINO_CACHE_DIR ||
-<span class="branch-1 cbranch-no" title="branch not covered" >    process.env.BUILD_CACHE_DIR ||</span>
-<span class="branch-2 cbranch-no" title="branch not covered" >    join(process.cwd(), "server", "arduino-cache");</span>
+  private readonly defaultFqbn = config.compilation.fqbn;
+  private readonly defaultBuildCacheDir = config.compilation.cacheDir;
   private readonly defaultBinaryStorageDir = join(this.defaultBuildCacheDir, "binaries");
   private readonly defaultHexCacheDir = join(this.defaultBuildCacheDir, "hex-cache");
   private readonly defaultBuildCachePath = join(this.defaultBuildCacheDir, "build-cache");
@@ -1866,7 +1857,7 @@ export class ArduinoCompiler {
   }
 &nbsp;
   private async <span class="fstat-no" title="function not covered" >writeBinaryToStorage(s</span>ketchHash: string, binary: Buffer): Promise&lt;void&gt; {
-    const targetPath = <span class="cstat-no" title="statement not covered" >join(this.defaultBinaryStorageDir, `${sketchHash}.hex`);</span>
+    const <span class="cstat-no" title="statement not covered" >targetPath = <span class="cstat-no" title="statement not covered" >join(this.defaultBinaryStorageDir, `${sketchHash}.hex`);</span></span>
     const tmpPath = <span class="cstat-no" title="statement not covered" >`${targetPath}.tmp-${process.pid}-${Date.now()}`;</span>
 <span class="cstat-no" title="statement not covered" >    await mkdir(this.defaultBinaryStorageDir, { recursive: true });</span>
 <span class="cstat-no" title="statement not covered" >    await writeFile(tmpPath, binary);</span>
@@ -1874,12 +1865,12 @@ export class ArduinoCompiler {
   }
 &nbsp;
   private async <span class="fstat-no" title="function not covered" >_writeOutputToCache(s</span>torageDir: string, sketchHash: string, output: string): Promise&lt;void&gt; {
-    const outputPath = <span class="cstat-no" title="statement not covered" >join(storageDir, `${sketchHash}.output.txt`);</span>
+    const <span class="cstat-no" title="statement not covered" >outputPath = <span class="cstat-no" title="statement not covered" >join(storageDir, `${sketchHash}.output.txt`);</span></span>
 <span class="cstat-no" title="statement not covered" >    await writeFile(outputPath, output, "utf8");</span>
   }
 &nbsp;
   private async <span class="fstat-no" title="function not covered" >_readOutputFromCache(s</span>torageDir: string, sketchHash: string): Promise&lt;string | null&gt; {
-    const outputPath = <span class="cstat-no" title="statement not covered" >join(storageDir, `${sketchHash}.output.txt`);</span>
+    const <span class="cstat-no" title="statement not covered" >outputPath = <span class="cstat-no" title="statement not covered" >join(storageDir, `${sketchHash}.output.txt`);</span></span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
 <span class="cstat-no" title="statement not covered" >      return await readFile(outputPath, "utf8");</span>
     } catch {
@@ -1907,7 +1898,7 @@ export class ArduinoCompiler {
     hexCacheDir: string,
     binary: Buffer,
   ): Promise&lt;void&gt; {
-    const cachePath = <span class="cstat-no" title="statement not covered" >join(hexCacheDir, `${sketchHash}.hex`);</span>
+    const <span class="cstat-no" title="statement not covered" >cachePath = <span class="cstat-no" title="statement not covered" >join(hexCacheDir, `${sketchHash}.hex`);</span></span>
     const tmpPath = <span class="cstat-no" title="statement not covered" >`${cachePath}.tmp-${process.pid}-${Date.now()}`;</span>
 <span class="cstat-no" title="statement not covered" >    await mkdir(hexCacheDir, { recursive: true });</span>
 <span class="cstat-no" title="statement not covered" >    await writeFile(tmpPath, binary);</span>
@@ -1922,7 +1913,7 @@ export class ArduinoCompiler {
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      for (const entry of entries) {</span>
 <span class="cstat-no" title="statement not covered" >        if (!entry.endsWith(".hex")) <span class="cstat-no" title="statement not covered" >continue;</span></span>
-        const fullPath = <span class="cstat-no" title="statement not covered" >join(hexCacheDir, entry);</span>
+        const <span class="cstat-no" title="statement not covered" >fullPath = <span class="cstat-no" title="statement not covered" >join(hexCacheDir, entry);</span></span>
 <span class="cstat-no" title="statement not covered" >        try {</span>
           const fileStat = <span class="cstat-no" title="statement not covered" >await stat(fullPath);</span>
 <span class="cstat-no" title="statement not covered" >          if (!fileStat.isFile()) <span class="cstat-no" title="statement not covered" >continue;</span></span>
@@ -2527,7 +2518,7 @@ export class ArduinoCompiler {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-07T09:08:49.294Z
+                at 2026-05-12T08:09:46.527Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
