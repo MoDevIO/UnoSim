@@ -626,7 +626,12 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   ]);
 
   const handleCompileAndStart = useCallback(() => {
-    if (!params.ensureBackendConnected("Simulation starten")) return;
+    if (!params.ensureBackendConnected("Simulation starten")) {
+      // Backend not reachable — reset any pending "queued" state so the badge
+      // doesn't get stuck in QUEUED_FOR_SIMULATION forever.
+      setSimulationStatus("idle");
+      return;
+    }
     params.setDebugMessages([]);
 
     // Extract code
@@ -675,6 +680,9 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         } else {
           handleCompileError(data);
           setCompilationStatus("error");
+          // Reset any pending "queued" simulationStatus so the badge doesn't
+          // get stuck in QUEUED_FOR_SIMULATION after a compile failure.
+          setSimulationStatus("idle");
           params.toast({
             title: "Compilation Completed with Errors",
             description: "Simulation will not start due to compilation errors.",
@@ -686,6 +694,9 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       onError: () => {
         setCompilationStatus("error");
         setArduinoCliStatus("error");
+        // Reset any pending "queued" simulationStatus so the badge doesn't
+        // get stuck in QUEUED_FOR_SIMULATION after a network/compile error.
+        setSimulationStatus("idle");
         params.toast({
           title: "Compilation Failed",
           description: "Simulation will not start due to compilation errors.",

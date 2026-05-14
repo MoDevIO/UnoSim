@@ -2,7 +2,7 @@
  * Worker Pool Integration Tests - Minimal Smoke Test
  * 
  * These tests verify that:
- * 1. The PooledCompiler can be instantiated
+ * 1. The CompilerWithFallback can be instantiated
  * 2. Pool serialization doesn't block the main thread
  * 3. StatisticsAPI works
  * 
@@ -13,14 +13,14 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { CompilationWorkerPool } from "../../server/services/compilation-worker-pool";
-import { PooledCompiler } from "../../server/services/pooled-compiler";
+import { CompilerWithFallback } from "../../server/services/compiler-with-fallback";
 
-describe("PooledCompiler - Integration", () => {
-  let compiler: PooledCompiler;
+describe("CompilerWithFallback - Integration", () => {
+  let compiler: CompilerWithFallback;
 
   beforeEach(() => {
-    // In development/test mode, PooledCompiler falls back to direct compilation
-    compiler = new PooledCompiler();
+    // In development/test mode, CompilerWithFallback falls back to direct compilation
+    compiler = new CompilerWithFallback();
   });
 
   afterEach(async () => {

@@ -679,7 +679,7 @@ export class RegistryManager {
   /**
    * Enable message queuing until first registry is sent
    */
-  enableWaitMode(timeoutMs: number = 1500): void {
+  enableWaitMode(timeoutMs: number = config.timeouts.registryWaitModeDefaultMs): void {
     if (this.destroyed) return;
     this.waitingForRegistry = true;
 

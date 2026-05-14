@@ -169,6 +169,23 @@ export const config = {
     disableGatekeeper: envBool("DISABLE_COMPILE_GATEKEEPER", false),
   },
 
+  // ── Scattered Timeouts (centralized) ────────────────────────────
+
+  timeouts: {
+    /** Max time to wait for a compile slot from the gatekeeper */
+    compileGatekeeperAcquireMs: 30_000,
+    /** Unified gatekeeper distributed-lock TTL */
+    gatekeeperLockTTLMs: 60_000,
+    /** Interval for the gatekeeper to scan for expired locks */
+    gatekeeperLockCheckIntervalMs: 5_000,
+    /** Default registry collection wait-mode duration */
+    registryWaitModeDefaultMs: 1_500,
+    /** Registry wait-mode duration applied after sketch start */
+    registryWaitModeAfterStartMs: 5_000,
+    /** Default tick interval for stream batchers (pin/serial) */
+    batcherTickIntervalMs: 50,
+  },
+
   // ── Client Polling (served via GET /api/config) ─────────────────
 
   client: {

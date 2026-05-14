@@ -679,14 +679,15 @@ export function useArduinoSimulatorPage() {
   // Derive high-level ClientState from runtime + compilation state.
   // This is the single label shown in the debug header and exposed via API.
   const deriveClientState = useCallback((): string => {
-    // Waiting for WS connection before compile can begin
-    if (pendingExternalStart && !isConnected) return "QUEUED_FOR_COMPILING";
+    // Any pending external start — covers both "WS not connected" and
+    // "WS connected but health-check not yet resolved" phases.
+    if (pendingExternalStart) return "QUEUED_FOR_COMPILING";
+    if (compilationStatus === "compiling") return "COMPILING";
     if (simulationStatus === "queued") return "QUEUED_FOR_SIMULATION";
     if (simulationStatus === "running") return "RUNNING";
     if (simulationStatus === "paused") return "PAUSED";
-    if (compilationStatus === "compiling") return "COMPILING";
     return "IDLE";
-  }, [pendingExternalStart, isConnected, simulationStatus, compilationStatus]);
+  }, [pendingExternalStart, simulationStatus, compilationStatus]);
 
   useExternalApi({
     allowedOrigin: externalAllowedOrigin,
@@ -813,6 +814,7 @@ export function useArduinoSimulatorPage() {
     outputPanelManuallyResizedRef,
     fileInputRef,
     handleHiddenFileInput,
+    pendingExternalStart,
   };
 
   return state;

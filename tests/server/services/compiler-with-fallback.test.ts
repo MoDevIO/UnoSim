@@ -40,9 +40,9 @@ vi.mock("../../../server/services/arduino-compiler", () => ({
 }));
 
 // Import after mocks
-import { PooledCompiler, getPooledCompiler } from "../../../server/services/pooled-compiler";
+import { CompilerWithFallback, getCompilerWithFallback } from "../../../server/services/compiler-with-fallback";
 
-describe("PooledCompiler", () => {
+describe("CompilerWithFallback", () => {
   afterEach(() => {
     mockConfig.serverMode = "local";
     vi.resetModules();
@@ -51,7 +51,7 @@ describe("PooledCompiler", () => {
   describe("Development mode (serverMode = local)", () => {
     it("uses direct compiler in development mode", async () => {
       mockConfig.serverMode = "local";
-      const compiler = new PooledCompiler();
+      const compiler = new CompilerWithFallback();
 
       const result = await compiler.compile("void setup() {} void loop() {}");
 
@@ -61,7 +61,7 @@ describe("PooledCompiler", () => {
 
     it("getStats returns zero stats without pool in development", () => {
       mockConfig.serverMode = "local";
-      const compiler = new PooledCompiler();
+      const compiler = new CompilerWithFallback();
 
       const stats = compiler.getStats();
 
@@ -77,7 +77,7 @@ describe("PooledCompiler", () => {
 
     it("shutdown is a no-op without pool in development", async () => {
       mockConfig.serverMode = "local";
-      const compiler = new PooledCompiler();
+      const compiler = new CompilerWithFallback();
 
       await expect(compiler.shutdown()).resolves.toBeUndefined();
     });
@@ -92,7 +92,7 @@ describe("PooledCompiler", () => {
         shutdown: vi.fn(async () => {}),
       };
 
-      const compiler = new PooledCompiler(mockPool as any);
+      const compiler = new CompilerWithFallback(mockPool as any);
       const result = await compiler.compile("void setup() {}");
 
       expect(mockPool.compile).toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe("PooledCompiler", () => {
         shutdown: vi.fn(),
       };
 
-      const compiler = new PooledCompiler(mockPool as any);
+      const compiler = new CompilerWithFallback(mockPool as any);
       const stats = compiler.getStats();
 
       expect(mockPool.getStats).toHaveBeenCalled();
@@ -130,7 +130,7 @@ describe("PooledCompiler", () => {
         shutdown: vi.fn(async () => {}),
       };
 
-      const compiler = new PooledCompiler(mockPool as any);
+      const compiler = new CompilerWithFallback(mockPool as any);
       await compiler.shutdown();
 
       expect(mockPool.shutdown).toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe("PooledCompiler", () => {
     it("compile throws when neither pool nor direct compiler is available", async () => {
       // This case shouldn't happen normally but tests the error path
       mockConfig.serverMode = "local";
-      const compiler = new PooledCompiler();
+      const compiler = new CompilerWithFallback();
 
       // Forcibly remove both by hacking internal state
       (compiler as any).pool = null;
@@ -152,10 +152,10 @@ describe("PooledCompiler", () => {
     });
   });
 
-  describe("getPooledCompiler singleton", () => {
-    it("returns a PooledCompiler instance", () => {
-      const compiler = getPooledCompiler();
-      expect(compiler).toBeInstanceOf(PooledCompiler);
+  describe("getCompilerWithFallback singleton", () => {
+    it("returns a CompilerWithFallback instance", () => {
+      const compiler = getCompilerWithFallback();
+      expect(compiler).toBeInstanceOf(CompilerWithFallback);
     });
   });
 });

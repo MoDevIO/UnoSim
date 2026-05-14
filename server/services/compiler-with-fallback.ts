@@ -1,15 +1,18 @@
 /**
- * Compilation Pool Adapter
- * 
- * Wraps the CompilationWorkerPool to provide the same interface
- * as the direct ArduinoCompiler, but routes work through worker threads.
- * 
- * In development mode (tsx), falls back to direct compilation because
- * worker threads don't have access to TypeScript path mappings (@shared/*).
- * In production (transpiled .js), uses worker pool for parallelization.
- * 
- * This allows minimal changes to existing code that expects a `compiler`
- * object with a `compile()` method.
+ * CompilerWithFallback — Adapter that routes compile work to the worker pool
+ * (production) or to the in-process ArduinoCompiler (development).
+ *
+ * NOTE: This is NOT the worker pool itself. The pool lives in
+ *       `compilation-worker-pool.ts`. This class is the adapter that picks
+ *       a backend at runtime and exposes a `compile()` method that matches
+ *       ArduinoCompiler for drop-in compatibility.
+ *
+ * Mode selection:
+ *   • production (server runs in docker)      → CompilationWorkerPool
+ *   • development (tsx, worker @shared/* fail) → direct ArduinoCompiler fallback
+ *
+ * Renamed from `PooledCompiler` — the old name suggested this class WAS the
+ * pool, which was misleading.
  */
 
 import { CompilationWorkerPool, getCompilationPool } from "./compilation-worker-pool";
@@ -18,7 +21,7 @@ import type { CompilationResult, CompileRequestOptions } from "./arduino-compile
 import type { CompileRequestPayload } from "@shared/worker-protocol";
 import { config } from "../config";
 
-export class PooledCompiler {
+export class CompilerWithFallback {
   private readonly pool: CompilationWorkerPool | null;
   private readonly directCompiler: ArduinoCompiler;
   private readonly usePool: boolean;
@@ -115,11 +118,11 @@ export class PooledCompiler {
 /**
  * Singleton instance for application-wide use
  */
-let pooledCompilerInstance: PooledCompiler | null = null;
+let compilerInstance: CompilerWithFallback | null = null;
 
-export function getPooledCompiler(): PooledCompiler {
-  pooledCompilerInstance ??= new PooledCompiler();
-  return pooledCompilerInstance;
+export function getCompilerWithFallback(): CompilerWithFallback {
+  compilerInstance ??= new CompilerWithFallback();
+  return compilerInstance;
 }
 
-// setPooledCompiler removed; not needed
+// setCompilerWithFallback removed; not needed

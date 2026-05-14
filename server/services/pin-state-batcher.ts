@@ -1,9 +1,9 @@
 /**
  * Pin State Batching Layer
- * 
+ *
  * Batches high-frequency pin state changes into lower-frequency batches
  * to reduce WebSocket message overhead (2000 msg/sec → 20 msg/sec).
- * 
+ *
  * Key Features:
  * - Tick-based batching (default 50ms = 20 batches/sec)
  * - "Last value wins" deduplication per pin:stateType
@@ -12,9 +12,11 @@
  * - Flush on stop
  */
 
+import type { PinStateChange } from "@shared/types/arduino.types";
+
 export interface PinStateEvent {
   pin: number;
-  stateType: "mode" | "value" | "pwm";
+  stateType: PinStateChange;
   value: number;
 }
 
@@ -49,7 +51,7 @@ export class PinStateBatcher {
    * Enqueue a pin state change.
    * Called for every pin change from the simulator (~2000/sec).
    */
-  enqueue(pin: number, stateType: "mode" | "value" | "pwm", value: number): void {
+  enqueue(pin: number, stateType: PinStateChange, value: number): void {
     const key = `${pin}:${stateType}`;
     this.pendingStates.set(key, { pin, stateType, value });
     this.intendedCount++;

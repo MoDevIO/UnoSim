@@ -115,16 +115,16 @@ vi.mock("../../server/services/registry-manager", () => ({
   })),
 }));
 
-vi.mock("../../server/services/pooled-compiler", () => {
-  class MockPooledCompiler {
+vi.mock("../../server/services/compiler-with-fallback", () => {
+  class MockCompilerWithFallback {
     async compile(code: string) {
       return { success: true, firmware: "deadbeef", errors: [], parsed: [] };
     }
     async shutdown() { /* no-op */ }
   }
   return {
-    PooledCompiler: MockPooledCompiler,
-    getPooledCompiler: () => new MockPooledCompiler(),
+    CompilerWithFallback: MockCompilerWithFallback,
+    getCompilerWithFallback: () => new MockCompilerWithFallback(),
   };
 });
 

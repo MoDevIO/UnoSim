@@ -7,10 +7,11 @@ import type { IProcessController } from "../process-controller";
 import type { ArduinoOutputParser, ParsedStderrOutput } from "../arduino-output-parser";
 import { Logger } from "@shared/logger";
 import type { SimulationTimeoutManager } from "../simulation-timeout-manager";
+import type { PinStateChange } from "@shared/types/arduino.types";
 
 interface DockerManagerCallbacks {
   onOutput: (line: string, isComplete?: boolean) => void;
-  onPinState: (pin: number, type: "mode" | "value" | "pwm", value: number) => void;
+  onPinState: (pin: number, type: PinStateChange, value: number) => void;
   onError: (line: string) => void;
 }
 

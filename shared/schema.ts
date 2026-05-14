@@ -21,6 +21,34 @@ export const insertSketchSchema = z.object({
   content: z.string(),
 });
 
+/**
+ * Canonical WebSocket message type identifiers.
+ *
+ * Use this constant instead of inline string literals when constructing
+ * messages. The literal type narrowing (via `as const`) keeps the
+ * discriminated union in `wsMessageSchema` fully type-safe.
+ *
+ * Example:  sendMessageToClient(ws, { type: WSMessageType.SERIAL_OUTPUT, data })
+ */
+export const WSMessageType = {
+  SERIAL_OUTPUT: "serial_output",
+  SERIAL_INPUT: "serial_input",
+  START_SIMULATION: "start_simulation",
+  PAUSE_SIMULATION: "pause_simulation",
+  RESUME_SIMULATION: "resume_simulation",
+  STOP_SIMULATION: "stop_simulation",
+  CODE_CHANGED: "code_changed",
+  COMPILATION_ERROR: "compilation_error",
+  COMPILATION_STATUS: "compilation_status",
+  SIMULATION_STATUS: "simulation_status",
+  HANDSHAKE: "handshake",
+  PIN_STATE: "pin_state",
+  PIN_STATE_BATCH: "pin_state_batch",
+  SET_PIN_VALUE: "set_pin_value",
+  IO_REGISTRY: "io_registry",
+  SIM_TELEMETRY: "sim_telemetry",
+} as const;
+
 // WebSocket message types
 export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({

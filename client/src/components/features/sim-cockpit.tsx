@@ -14,11 +14,19 @@ const STATE_MIN_MS = 600;
 function deriveClientState(
   simulationStatus: SimulationStatus,
   compilationStatus: CompilationStatus,
+  pendingExternalStart: boolean = false,
 ): ClientState {
+  // pendingExternalStart means START_SIMULATION was received before the WS
+  // connected (or before the backend was reachable).  The instance is waiting
+  // for the compile + WS handshake phase — NOT for a simulation runner slot.
+  // Without this check, simulationStatus === "queued" (set client-side by
+  // handleExternalStartSimulation) would make the badge show QUEUED_FOR_SIMULATION
+  // while the instance is actually queued for compilation.
+  if (pendingExternalStart) return "QUEUED_FOR_COMPILING";
+  if (compilationStatus === "compiling") return "COMPILING";
   if (simulationStatus === "queued") return "QUEUED_FOR_SIMULATION";
   if (simulationStatus === "running") return "RUNNING";
   if (simulationStatus === "paused") return "PAUSED";
-  if (compilationStatus === "compiling") return "COMPILING";
   if (compilationStatus === "error") return "ERROR";
   return "IDLE";
 }
@@ -117,6 +125,12 @@ interface SimCockpitProps {
   wsHasEverConnected?: boolean;
   baudRate?: number;
   debugMode?: boolean;
+  /** When true, a START_SIMULATION arrived before the WS connected; the instance
+   *  is waiting for compilation, not for a simulation runner slot. Without this
+   *  flag deriveClientState incorrectly shows QUEUED_FOR_SIMULATION instead of
+   *  QUEUED_FOR_COMPILING because simulationStatus is set to "queued" client-side
+   *  by handleExternalStartSimulation. */
+  pendingExternalStart?: boolean;
   /** @deprecated kept for prop compatibility; no longer used for WS dot logic */
   serverStatus?: unknown;
 }
@@ -131,6 +145,7 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
   workerIndex,
   workerTotal,
   debugMode = false,
+  pendingExternalStart = false,
 }) => {
 
   // ── Compilation dot visual delay ───────────────────────────────────────
@@ -158,7 +173,7 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
   // ── Client state visual delay ──────────────────────────────────────────
   // Show active states immediately; delay the downgrade back to IDLE so it
   // stays readable for at least STATE_MIN_MS.
-  const clientState = deriveClientState(simulationStatus, compilationStatus);
+  const clientState = deriveClientState(simulationStatus, compilationStatus, pendingExternalStart);
   const [visualClientState, setVisualClientState] = useState<ClientState>(clientState);
   const clientStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -208,7 +223,7 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
         {/* GROUP 1: CLIENT state */}
         <StatCell
           label="CLIENT"
-          value={visualClientState}
+          value={<span data-testid="client-state-badge">{visualClientState}</span>}
           valueClass={clientStateColor(visualClientState)}
         />
 

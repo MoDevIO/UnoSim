@@ -1,4 +1,5 @@
 import type { IOPinRecord } from "@shared/schema";
+import type { PinStateChange } from "@shared/types/arduino.types";
 import type { PinStateBatch } from "./pin-state-batcher";
 
 interface RunSketchCallbacks {
@@ -8,11 +9,7 @@ interface RunSketchCallbacks {
   onCompileError?: (error: string) => void;
   onCompileSuccess?: () => void;
   onCompileQueued?: () => void;
-  onPinState?: (
-    pin: number,
-    type: "mode" | "value" | "pwm",
-    value: number,
-  ) => void;
+  onPinState?: (pin: number, type: PinStateChange, value: number) => void;
   onIORegistry?: (
     registry: IOPinRecord[],
     baudrate?: number,

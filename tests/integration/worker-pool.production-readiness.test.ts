@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { PooledCompiler } from "../../server/services/pooled-compiler";
+import { CompilerWithFallback } from "../../server/services/compiler-with-fallback";
 
 const VALID_SKETCH = `
 void setup() {
@@ -24,10 +24,10 @@ void loop() {
 `;
 
 describe("Worker Pool Production Readiness", () => {
-  let compiler: PooledCompiler;
+  let compiler: CompilerWithFallback;
 
   beforeAll(() => {
-    compiler = new PooledCompiler();
+    compiler = new CompilerWithFallback();
   });
 
   afterAll(async () => {
@@ -121,7 +121,7 @@ describe("Worker Pool Production Readiness", () => {
 
     console.log("[PRODUCTION CHECK]", {
       NODE_ENV: nodeEnv,
-      PoolType: "PooledCompiler instance",
+      PoolType: "CompilerWithFallback instance",
       Stats: {
         activeWorkers: stats.activeWorkers,
         avgCompileTime: Math.round(stats.avgCompileTimeMs) + "ms",

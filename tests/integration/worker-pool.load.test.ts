@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { PooledCompiler } from "../../server/services/pooled-compiler";
+import { CompilerWithFallback } from "../../server/services/compiler-with-fallback";
 
 const VALID_SKETCH = `
 void setup() {
@@ -33,10 +33,10 @@ void setup() {
 `;
 
 describe("Worker Pool Load Test", () => {
-  let compiler: PooledCompiler;
+  let compiler: CompilerWithFallback;
 
   beforeAll(() => {
-    compiler = new PooledCompiler();
+    compiler = new CompilerWithFallback();
   });
 
   afterAll(async () => {

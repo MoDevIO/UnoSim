@@ -5,7 +5,7 @@ import { createServer, type Server } from "node:http";
 import { createHash } from "node:crypto";
 import { readdir, stat } from "node:fs/promises";
 import { storage } from "./storage";
-import { getPooledCompiler } from "./services/pooled-compiler";
+import { getCompilerWithFallback } from "./services/compiler-with-fallback";
 import { SandboxRunner } from "./services/sandbox-runner";
 import { getSimulationRateLimiter } from "./services/rate-limiter";
 import { shouldSendSimulationEndMessage } from "./services/simulation-end";
@@ -198,10 +198,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // the compilation cache + lastCompiledCode setter so behaviour is
   // unchanged but implementation is modularized.
   // 
-  // Use PooledCompiler which routes work through worker threads for parallelization
-  const pooledCompiler = getPooledCompiler();
+  // Use CompilerWithFallback which routes work through worker threads for parallelization
+  const compiler = getCompilerWithFallback();
   registerCompilerRoutes(app, {
-    compiler: pooledCompiler,
+    compiler,
     compilationCache,
     hashCode,
     CACHE_TTL,

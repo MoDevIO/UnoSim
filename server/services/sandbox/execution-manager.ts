@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { Logger } from "@shared/logger";
 import { ProcessExecutor } from "../process-executor";
 import type { IOPinRecord } from "@shared/schema";
+import type { PinStateChange } from "@shared/types/arduino.types";
 import type { IProcessController } from "../process-controller";
 import { ArduinoOutputParser as StderrParser } from "../arduino-output-parser";
 import { RegistryManager } from "../registry-manager";
@@ -16,7 +17,7 @@ import { LocalCompiler } from "../local-compiler";
 import { PinStateBatcher, type PinStateBatch } from "../pin-state-batcher";
 import { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RunSketchOptions } from "../run-sketch-types";
-import { getCompileGatekeeper } from "../compile-gatekeeper";
+import { getUnifiedGatekeeper } from "../unified-gatekeeper";
 import { getDockerCompileSemaphore } from "./docker-compile-semaphore";
 import { DockerManager } from "./docker-manager";
 import { StreamHandler } from "./stream-handler";
@@ -47,7 +48,7 @@ export const SANDBOX_CONFIG = {
 // Type aliases for callbacks
 // Output / error / pin state callbacks (from sandbox runner to consumers)
 type OutputCallback = (line: string, isComplete?: boolean) => void;
-type PinStateCallback = (pin: number, type: "mode" | "value" | "pwm", value: number) => void;
+type PinStateCallback = (pin: number, type: PinStateChange, value: number) => void;
 type ErrorCallback = (line: string) => void;
 
 export interface TelemetryMetrics {
@@ -67,7 +68,7 @@ export interface TelemetryMetrics {
 type TelemetryCallback = (metrics: TelemetryMetrics) => void;
 
 type ProcessMessage =
-  | { type: "pinState"; data: { pin: number; stateType: "mode" | "value" | "pwm"; value: number } }
+  | { type: "pinState"; data: { pin: number; stateType: PinStateChange; value: number } }
   | { type: "output"; data: { line: string; isComplete?: boolean } }
   | { type: "error"; data: { line: string } };
 
@@ -158,7 +159,7 @@ export class ExecutionManager {
   }
 
   private static get compileGatekeeper() {
-    return getCompileGatekeeper();
+    return getUnifiedGatekeeper();
   }
 
   /**
@@ -180,7 +181,7 @@ export class ExecutionManager {
 
     // Create and start PinStateBatcher
     state.pinStateBatcher = new PinStateBatcher({
-      tickIntervalMs: 50,
+      tickIntervalMs: config.timeouts.batcherTickIntervalMs,
       onBatch: (batch: PinStateBatch) => {
         if (state.messageQueue && this.registryManager.isWaiting()) {
           for (const s of batch.states) {
@@ -213,7 +214,7 @@ export class ExecutionManager {
     // Create and start SerialOutputBatcher
     state.serialOutputBatcher = new SerialOutputBatcher({
       baudrate: state.baudrate,
-      tickIntervalMs: 50,
+      tickIntervalMs: config.timeouts.batcherTickIntervalMs,
       onChunk: (data: string, firstLineIncomplete?: boolean) => {
         if (typeof onOutput !== "function") return;
 
@@ -302,7 +303,7 @@ export class ExecutionManager {
     state.totalPausedTime = 0;
     this.registryManager.reset();
     this.registryManager.setBaudrate(state.baudrate);
-    this.registryManager.enableWaitMode(5000); // Original 5s timeout
+    this.registryManager.enableWaitMode(config.timeouts.registryWaitModeAfterStartMs);
     state.messageQueue = [];
     state.outputBuffer = "";
     state.outputBufferIndex = 0;
@@ -334,11 +335,14 @@ export class ExecutionManager {
     opts: RunSketchOptions,
     state: ExecutionState,
   ): Promise<void> {
-    const WAIT_TIMEOUT_MS = 30000;
+    const WAIT_TIMEOUT_MS = config.timeouts.compileGatekeeperAcquireMs;
     let release: () => void;
     try {
       release = await Promise.race([
-        ExecutionManager.compileGatekeeper.acquireHighPriority(opts.onCompileQueued),
+        ExecutionManager.compileGatekeeper.acquireCompileSlotHighPriority(
+          "simulation-start",
+          opts.onCompileQueued,
+        ),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
         ),
@@ -676,7 +680,7 @@ export class ExecutionManager {
           onOutput(line, isComplete);
         }
       },
-      onPinState: (pin: number, stateType: "mode" | "value" | "pwm", value: number) => {
+      onPinState: (pin: number, stateType: PinStateChange, value: number) => {
         if (state && this.registryManager.isWaiting()) {
           state.messageQueue.push({
             type: "pinState",
@@ -699,7 +703,7 @@ export class ExecutionManager {
    */
   private delegateParsedLineToStreamHandler(
     parsed: ParsedStderrOutput,
-    onPinState?: (pin: number, type: "mode" | "value" | "pwm", value: number) => void,
+    onPinState?: (pin: number, type: PinStateChange, value: number) => void,
     onOutput?: (line: string, isComplete?: boolean) => void,
     onError?: (line: string) => void,
     state?: ExecutionState,

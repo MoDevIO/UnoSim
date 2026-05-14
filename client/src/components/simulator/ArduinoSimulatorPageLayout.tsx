@@ -104,6 +104,7 @@ export function ArduinoSimulatorPageLayout(
     compilationPanelSize,
     outputPanelMinPercent,
     outputPanelManuallyResizedRef,
+    pendingExternalStart,
   } = props;
   return (
     <div
@@ -208,6 +209,7 @@ export function ArduinoSimulatorPageLayout(
             wsHasEverConnected={wsHasEverConnected}
             baudRate={baudRate}
             debugMode={debugMode}
+            pendingExternalStart={pendingExternalStart}
           />
         }
       />

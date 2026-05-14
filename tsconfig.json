@@ -29,6 +29,12 @@
       "@shared/*": ["./shared/*"]
     }
   },
-  "include": ["client/src", "server", "shared", "vite.config.ts"],
+  "include": [
+    "client/src",
+    "server",
+    "shared",
+    "vite.config.ts",
+    "playwright.config.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
