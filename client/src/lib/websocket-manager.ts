@@ -38,14 +38,14 @@ const CONFIG = {
   // Reconnection settings
   RECONNECT_BASE_DELAY_MS: 1000,
   RECONNECT_MAX_DELAY_MS: 30000,
-  RECONNECT_MAX_ATTEMPTS: 15,
+  RECONNECT_MAX_ATTEMPTS: Infinity,
   
   // Connection settings
-  CONNECTION_TIMEOUT_MS: 10000,
+  CONNECTION_TIMEOUT_MS: 30_000,
   
   // Thundering-herd mitigation: stagger initial connection when embedded in an
   // iframe so that 50+ simultaneous instances don't all hit the server at once.
-  IFRAME_STAGGER_MAX_MS: 3000,
+  IFRAME_STAGGER_MAX_MS: 10_000,
 } as const;
 
 class WebSocketManager {
@@ -419,7 +419,7 @@ class WebSocketManager {
     this.reconnectAttempts++;
     this.setState("reconnecting");
     
-    logger.debug(`Scheduling reconnect in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts}/${CONFIG.RECONNECT_MAX_ATTEMPTS})`);
+    logger.debug(`Scheduling reconnect in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts})`);
     
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectTimeout = null;
