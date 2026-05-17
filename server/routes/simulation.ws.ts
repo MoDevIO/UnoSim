@@ -6,7 +6,6 @@ import type { Logger } from "@shared/logger";
 import type { PinStateChange } from "@shared/types/arduino.types";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import path from "node:path";
-import { constants as zlibConstants } from "node:zlib";
 import { writeFile, access } from "node:fs/promises";
 import type { RawData } from "ws";
 
@@ -42,25 +41,11 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
   const wss = new WebSocketServer({ 
     server: httpServer, 
     path: "/ws",
-    // Enable WebSocket message compression (RFC 7692)
-    // Reduces bandwidth by ~40-50% for repetitive JSON payloads (pin-state batches)
-    perMessageDeflate: {
-      // Use fast compression (Level 1) to minimize CPU overhead with 200+ clients
-      zlibDeflateOptions: {
-        level: zlibConstants.Z_BEST_SPEED, // Level 1: fastest compression
-        memLevel: 8, // Default memory usage (1-9, higher = more memory but better compression)
-      },
-      zlibInflateOptions: {
-        chunkSize: 10 * 1024, // 10KB chunks for decompression
-      },
-      // Client-to-server compression parameters
-      clientNoContextTakeover: true, // Disable context reuse for simpler memory management
-      serverNoContextTakeover: true, // Disable context reuse to reduce server memory
-      // Negotiate compression threshold (compress messages > 256 bytes)
-      threshold: 256, // Only compress messages larger than 256 bytes
-      // Concurrency limit for parallel compressions (default: 10)
-      concurrencyLimit: 10,
-    }
+    // Disable per-message compression to eliminate zlib concurrency bottleneck.
+    // With 200+ simultaneous clients, the default concurrencyLimit:10 caused CPU
+    // starvation during pin-state bursts; disabling deflate entirely removes that
+    // constraint at the cost of slightly higher bandwidth (tolerable on LAN).
+    perMessageDeflate: false,
   });
 
   const clientRunners = new Map<WebSocket, ClientState>();

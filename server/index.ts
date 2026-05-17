@@ -303,6 +303,15 @@ const server = await registerRoutes(app);
     }
   });
 
+  // Keep-alive tuning: set these AFTER listen() to ensure the values take effect.
+  // Node's default keepAliveTimeout is 5 s, which is shorter than many reverse-proxy
+  // idle timeouts (e.g. nginx default 75 s, AWS ALB 60 s).  When the proxy closes a
+  // connection that Node has already released, the next request on that slot gets a
+  // "socket hang up" ECONNRESET.  Setting to 65 s prevents this.
+  // headersTimeout must be > keepAliveTimeout to avoid a race on pipelined requests.
+  httpServer.keepAliveTimeout = 65_000;
+  httpServer.headersTimeout = 70_000;
+
   // Graceful shutdown handler for worker pool and server
   async function gracefulShutdown(signal: string) {
     console.log(`[Shutdown] Received ${signal}, starting graceful shutdown...`);
