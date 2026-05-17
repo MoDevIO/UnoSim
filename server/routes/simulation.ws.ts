@@ -607,13 +607,19 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     }
   }
 
+  let _wsConnectAttempts = 0;
+
   wss.on("connection", (ws, req) => {
     const url = req.url || "";
     const urlParams = new URLSearchParams(url.split("?")[1] || "");
     const testRunId = urlParams.get("testRunId") || undefined;
     const testRunIdSuffix = testRunId ? ` [testRunId: ${testRunId}]` : "";
 
-    logger.info(`New WebSocket client connected${testRunIdSuffix}. Total clients: ${wss.clients.size}`);
+    _wsConnectAttempts++;
+    logger.warn(`New WebSocket client connected${testRunIdSuffix}. Total clients: ${wss.clients.size} (attempt #${_wsConnectAttempts})`);
+    if (_wsConnectAttempts % 10 === 0) {
+      logger.warn(`[WS milestone] ${_wsConnectAttempts} total connect attempts, ${wss.clients.size} currently open`);
+    }
 
     clientRunners.set(ws, { runner: null, isRunning: false, isPaused: false, testRunId, queueAbortController: null });
 
@@ -692,7 +698,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       }
     });
 
-    ws.on("close", async () => {
+    ws.on("close", async (code: number, reason: Buffer) => {
       const clientState = clientRunners.get(ws);
       if (clientState) {
         // Cancel any pending pool-queue wait to prevent orphaned runner slot leaks.
@@ -719,7 +725,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       
       const rateLimiter = getSimulationRateLimiter();
       rateLimiter.removeClient(ws);
-      logger.info(`Client disconnected. Remaining clients: ${wss.clients.size}`);
+      logger.warn(`Client disconnected (code=${code}, reason=${reason.toString() || "—"}). Remaining clients: ${wss.clients.size}`);
     });
 
     ws.on("error", async (error) => {
