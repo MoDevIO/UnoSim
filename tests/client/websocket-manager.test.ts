@@ -307,7 +307,7 @@ describe("WebSocketManager", () => {
     expect(wsInstances.length).toBe(1); // no new WS
   });
 
-  it("gives up after max reconnect attempts", () => {
+  it("retries indefinitely – does not give up after many reconnect failures", () => {
     const mgr = getWebSocketManager();
     const errors: string[] = [];
     mgr.on("error", (e: string) => errors.push(e));
@@ -315,23 +315,24 @@ describe("WebSocketManager", () => {
     mgr.connect();
     wsInstances[0]._simulateOpen();
 
-    // Simulate repeated failures (max attempts = 15)
-    for (let i = 0; i < 16; i++) {
+    // Simulate 20 repeated failures – manager should keep reconnecting (RECONNECT_MAX_ATTEMPTS = Infinity)
+    for (let i = 0; i < 20; i++) {
       const ws = wsInstances.at(-1)!;
       ws._simulateClose(1006);
       vi.advanceTimersByTime(60000); // past any backoff
     }
 
-    expect(mgr.getState()).toBe("disconnected");
-    expect(errors.some((e) => e.includes("Max reconnection"))).toBe(true);
+    // Manager must still be in reconnecting/connecting state, never give up
+    expect(mgr.getState()).not.toBe("disconnected");
+    expect(errors.some((e) => e.includes("Max reconnection"))).toBe(false);
   });
 
   // ---- Connection timeout ----
   it("handles connection timeout", () => {
     const mgr = getWebSocketManager();
     mgr.connect();
-    // Don't open - let timeout fire (CONNECTION_TIMEOUT_MS = 10000)
-    vi.advanceTimersByTime(10100);
+    // Don't open - let timeout fire (CONNECTION_TIMEOUT_MS = 30 000)
+    vi.advanceTimersByTime(30100);
     expect(mgr.getState()).toBe("reconnecting");
   });
 
