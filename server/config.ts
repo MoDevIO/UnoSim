@@ -190,9 +190,9 @@ export const config = {
 
   client: {
     /** /api/health ping interval */
-    healthPollIntervalMs: 5_000,
+    healthPollIntervalMs: 15_000,
     /** /api/status fetch interval */
-    statusPollIntervalMs: 15_000,
+    statusPollIntervalMs: 60_000,
     /** Suppress error toasts during startup */
     startupGraceMs: 5_000,
     /** Abort health/status fetch after this */
