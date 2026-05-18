@@ -149,8 +149,19 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
     const runner = state.runner;
     state.runner = null;
+    const wasRunning = state.isRunning;
     state.isRunning = false;
     state.isPaused = false;
+
+    // Broadcast SYNCHRONOUSLY before any await so concurrent safeReleaseRunner
+    // calls (e.g. 40 simulations ending at once) don't race: by the time the
+    // second call broadcasts, this client already has isRunning=false and is
+    // excluded from the count — no N² message storm.
+    // This also handles the "simulation ends naturally, WS stays open" case
+    // where ws.on('close') never fires but the count must still decrease.
+    if (wasRunning) {
+      broadcastWorkerTotal();
+    }
 
     try {
       await runner.stop();
