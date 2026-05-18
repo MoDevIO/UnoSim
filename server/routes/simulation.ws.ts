@@ -163,9 +163,6 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     } catch (error) {
       logger.warn(`[SandboxRunnerPool] releaseRunner failed during ${reason}: ${error}`);
     }
-
-    // isRunning is already false → countRunningClients() reflects the decrease.
-    broadcastWorkerTotal();
   }
 
   /**
@@ -736,14 +733,18 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
         }
       }
       clientRunners.delete(ws);
-      
+
+      // Broadcast updated count now that this client is fully removed from the
+      // map, so countRunningClients() already reflects the decrease.
+      broadcastWorkerTotal();
+
       // Clean up serial output buffer and timer
       const bufferState = clientSerialBuffers.get(ws);
       if (bufferState?.flushTimer) {
         clearTimeout(bufferState.flushTimer);
       }
       clientSerialBuffers.delete(ws);
-      
+
       const rateLimiter = getSimulationRateLimiter();
       rateLimiter.removeClient(ws);
       logger.warn(`Client disconnected (code=${code}, reason=${reason.toString() || "—"}). Remaining clients: ${wss.clients.size}`);
