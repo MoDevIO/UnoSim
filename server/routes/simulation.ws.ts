@@ -322,6 +322,23 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
   }
 
   /**
+   * Notify all currently-running clients of the updated pool size.
+   * Called after a new runner is acquired so stale tabs (e.g. an earlier
+   * UnoSim-Test tab that connected when the pool was smaller) stay in sync.
+   * Only workerTotal is pushed; each client keeps its own workerIndex.
+   */
+  function broadcastWorkerTotal(excludeWs: WebSocket, newTotal: number): void {
+    for (const [otherWs, otherState] of clientRunners.entries()) {
+      if (otherWs !== excludeWs && otherState.isRunning) {
+        sendMessageToClient(otherWs, {
+          type: WSMessageType.COMPILATION_STATUS,
+          workerTotal: newTotal,
+        });
+      }
+    }
+  }
+
+  /**
    * Acquires a runner from the pool for the given client.
    * Manages the AbortController and handles pool-exhaustion / cancel errors.
    * Returns false when the caller should return early.
@@ -462,6 +479,11 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       workerIndex: acquiredWorkerIndex,
       workerTotal: poolStatsAfterAcquire.totalRunners,
     });
+
+    // Broadcast updated workerTotal to all other running clients so stale tabs
+    // (e.g. an earlier UnoSim-Test tab that connected when pool was smaller) stay
+    // in sync. Only workerTotal changes; workerIndex is client-specific and kept.
+    broadcastWorkerTotal(ws, poolStatsAfterAcquire.totalRunners);
 
     // Build callbacks
     const callbacks = buildRunSketchCallbacks(ws, clientState);
