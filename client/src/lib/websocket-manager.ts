@@ -121,8 +121,19 @@ class WebSocketManager {
       // Cross-origin iframe access may throw — connect immediately
       return false;
     }
-    const staggerMs = (crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * CONFIG.IFRAME_STAGGER_MAX_MS;
-    logger.info(`[Iframe] Staggering initial connection by ${Math.round(staggerMs)}ms`);
+    // Prefer deterministic stagger from ?iframeIndex=N URL param.
+    // This is immune to Chromium's background-timer throttling which defeats
+    // Math.random()-based stagger (all timers end up in the same 1-s throttle
+    // bucket when Chrome classifies the iframe as "hidden").
+    const params = new URLSearchParams(globalThis.location?.search ?? "");
+    const iframeIndex = Number.parseInt(params.get("iframeIndex") ?? "", 10);
+    const staggerMs = Number.isNaN(iframeIndex)
+      ? (crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * CONFIG.IFRAME_STAGGER_MAX_MS
+      : Math.min(iframeIndex * 250, CONFIG.IFRAME_STAGGER_MAX_MS);
+    logger.info(
+      `[Iframe] Staggering initial connection by ${Math.round(staggerMs)}ms` +
+      (Number.isNaN(iframeIndex) ? " (random)" : ` (iframeIndex=${iframeIndex})`),
+    );
     this.staggerTimeout = setTimeout(() => {
       this.staggerTimeout = null;
       this.connect();
