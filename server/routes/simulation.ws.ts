@@ -163,6 +163,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     } catch (error) {
       logger.warn(`[SandboxRunnerPool] releaseRunner failed during ${reason}: ${error}`);
     }
+
+    // isRunning is already false → countRunningClients() reflects the decrease.
+    broadcastWorkerTotal();
   }
 
   /**
@@ -321,13 +324,24 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     };
   }
 
+  /** Returns the number of clients currently running a simulation. */
+  function countRunningClients(): number {
+    let n = 0;
+    for (const state of clientRunners.values()) {
+      if (state.isRunning) n++;
+    }
+    return n;
+  }
+
   /**
-   * Notify all currently-running clients of the updated pool size.
-   * Called after a new runner is acquired so stale tabs (e.g. an earlier
-   * UnoSim-Test tab that connected when the pool was smaller) stay in sync.
-   * Only workerTotal is pushed; each client keeps its own workerIndex.
+   * Push the current live running-client count to all running clients.
+   * Optionally exclude one WebSocket (e.g. the caller that already received
+   * the full workerIndex+workerTotal message).
+   * Called after acquire (pool grows) and after release (pool shrinks) so the
+   * denominator in #N/M is always up-to-date in every open tab.
    */
-  function broadcastWorkerTotal(excludeWs: WebSocket, newTotal: number): void {
+  function broadcastWorkerTotal(excludeWs?: WebSocket): void {
+    const newTotal = countRunningClients();
     for (const [otherWs, otherState] of clientRunners.entries()) {
       if (otherWs !== excludeWs && otherState.isRunning) {
         sendMessageToClient(otherWs, {
@@ -467,9 +481,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
     // Slot assignment: tell client which runner slot they own immediately
     const acquiredWorkerIndex = pool.getRunnerIndex(acquiredRunner);
-    const poolStatsAfterAcquire = pool.getStats();
 
-    // Update client state and notify running
+    // Update client state and notify running.
+    // isRunning is set BEFORE countRunningClients() so the new client is
+    // included in the total it (and others) receive.
     clientState.isRunning = true;
     clientState.isPaused = false;
     sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "running" });
@@ -477,13 +492,12 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       type: WSMessageType.COMPILATION_STATUS,
       gccStatus: "compiling",
       workerIndex: acquiredWorkerIndex,
-      workerTotal: poolStatsAfterAcquire.totalRunners,
+      workerTotal: countRunningClients(),
     });
 
-    // Broadcast updated workerTotal to all other running clients so stale tabs
-    // (e.g. an earlier UnoSim-Test tab that connected when pool was smaller) stay
-    // in sync. Only workerTotal changes; workerIndex is client-specific and kept.
-    broadcastWorkerTotal(ws, poolStatsAfterAcquire.totalRunners);
+    // Broadcast updated count to all OTHER running clients (ws excluded because
+    // it just received the full workerIndex+workerTotal message above).
+    broadcastWorkerTotal(ws);
 
     // Build callbacks
     const callbacks = buildRunSketchCallbacks(ws, clientState);
