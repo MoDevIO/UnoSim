@@ -38,6 +38,67 @@
 
 import { test, expect, type Frame } from "@playwright/test";
 
+// ── Shared types & helpers ────────────────────────────────────────────────────
+
+type WsState = "connected" | "disconnected" | "connecting" | "reconnecting" | "not-loaded" | "error";
+
+async function getFrameWsState(frame: Frame): Promise<WsState> {
+  try {
+    return await frame.evaluate((): WsState => {
+      const mgr = (globalThis as unknown as { __wsManager?: () => { getState(): WsState } }).__wsManager;
+      if (typeof mgr !== "function") return "not-loaded";
+      return mgr().getState();
+    });
+  } catch {
+    return "error";
+  }
+}
+
+async function pollUntilConnected(
+  frames: Frame[],
+  deadline: number,
+  tick: (ms: number) => Promise<void>,
+): Promise<number[]> {
+  let disconnectedIndices: number[] = [];
+  let lastProgressLog = Date.now();
+
+  while (Date.now() < deadline) {
+    const results = await Promise.all(
+      frames.map(async (frame, idx) => ({
+        idx,
+        state: await getFrameWsState(frame),
+      })),
+    );
+
+    disconnectedIndices = results
+      .filter((r) => r.state !== "connected")
+      .map((r) => r.idx);
+
+    if (disconnectedIndices.length === 0) break;
+
+    // Print progress every ~5 s
+    if (Date.now() - lastProgressLog >= 5_000) {
+      const stateGroups: Record<string, number> = {};
+      for (const r of results) {
+        if (r.state !== "connected")
+          stateGroups[r.state] = (stateGroups[r.state] ?? 0) + 1;
+      }
+      const summary = Object.entries(stateGroups)
+        .map(([k, v]) => `${k}:${v}`)
+        .join(", ");
+      console.log(
+        `[scalability] ${frames.length - disconnectedIndices.length}/${frames.length} connected. ` +
+        `Still waiting — ${summary}`,
+      );
+      lastProgressLog = Date.now();
+    }
+
+    await tick(1_000);
+  }
+
+  return disconnectedIndices;
+}
+
 // ── Parameters ────────────────────────────────────────────────────────────────
 
 const CLIENT_COUNT = Number.parseInt(process.env.CLIENT_COUNT ?? "40", 10);
@@ -100,21 +161,6 @@ test.describe("Scalability: many-client iframe load", () => {
 
     const targetFrames = iframeFrames.slice(0, CLIENT_COUNT);
 
-    // ── Helper: query WS state from one frame ─────────────────────────────────
-    type WsState = "connected" | "disconnected" | "connecting" | "reconnecting" | "not-loaded" | "error";
-
-    async function getFrameWsState(frame: (typeof targetFrames)[number]): Promise<WsState> {
-      try {
-        return await frame.evaluate((): WsState => {
-          const mgr = (window as unknown as { __wsManager?: () => { getState(): WsState } }).__wsManager;
-          if (typeof mgr !== "function") return "not-loaded";
-          return mgr().getState() as WsState;
-        });
-      } catch {
-        return "error";
-      }
-    }
-
     // ── Poll until all iframes are connected or timeout ───────────────────────
     console.log(
       `[scalability] Waiting for ${CLIENT_COUNT} iframes to connect ` +
@@ -122,42 +168,11 @@ test.describe("Scalability: many-client iframe load", () => {
     );
 
     const deadline = Date.now() + CONNECT_TIMEOUT_MS;
-    let disconnectedIndices: number[] = [];
-    let lastProgressLog = Date.now();
-
-    while (Date.now() < deadline) {
-      const results = await Promise.all(
-        targetFrames.map(async (frame, idx) => ({
-          idx,
-          state: await getFrameWsState(frame),
-        })),
-      );
-
-      disconnectedIndices = results
-        .filter((r) => r.state !== "connected")
-        .map((r) => r.idx);
-
-      if (disconnectedIndices.length === 0) break;
-
-      // Print progress every ~5 s
-      if (Date.now() - lastProgressLog >= 5_000) {
-        const stateGroups: Record<string, number> = {};
-        for (const r of results) {
-          if (r.state !== "connected")
-            stateGroups[r.state] = (stateGroups[r.state] ?? 0) + 1;
-        }
-        const summary = Object.entries(stateGroups)
-          .map(([k, v]) => `${k}:${v}`)
-          .join(", ");
-        console.log(
-          `[scalability] ${CLIENT_COUNT - disconnectedIndices.length}/${CLIENT_COUNT} connected. ` +
-          `Still waiting — ${summary}`,
-        );
-        lastProgressLog = Date.now();
-      }
-
-      await page.waitForTimeout(1_000);
-    }
+    const disconnectedIndices = await pollUntilConnected(
+      targetFrames,
+      deadline,
+      (ms) => page.waitForTimeout(ms),
+    );
 
     // ── Report any persistent failures ────────────────────────────────────────
     if (disconnectedIndices.length > 0) {

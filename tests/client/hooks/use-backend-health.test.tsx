@@ -40,7 +40,7 @@ describe("useBackendHealth", () => {
       ok: true,
       status: 200,
       json: async () => ({}),
-    } as Response);
+    });
   });
 
   afterEach(() => {
@@ -180,7 +180,14 @@ describe("useBackendHealth", () => {
     // Start unreachable
     let healthCallCount = 0;
     fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
-      const urlStr = typeof url === "string" ? url : url.toString();
+      let urlStr: string;
+      if (url instanceof URL) {
+        urlStr = url.href;
+      } else if (typeof url === "string") {
+        urlStr = url;
+      } else {
+        urlStr = url.url;
+      }
       if (urlStr === "/api/config" || urlStr === "/api/status") {
         return { ok: true, status: 200, json: async () => ({ pool: {}, compile: {} }) } as Response;
       }
@@ -215,7 +222,7 @@ describe("useBackendHealth", () => {
     fetchSpy.mockResolvedValue({
       ok: false,
       status: 503,
-    } as Response);
+    });
 
     const { result } = renderHook(() => useBackendHealth(mockQueryClient));
 
@@ -449,7 +456,7 @@ describe("useBackendHealth", () => {
 
   it("should not update state after unmount", async () => {
     fetchSpy.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({ ok: true } as Response), 100)),
+      () => new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 100)),
     );
 
     const { result, unmount } = renderHook(() => useBackendHealth(mockQueryClient));

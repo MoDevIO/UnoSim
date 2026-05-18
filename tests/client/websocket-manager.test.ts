@@ -317,8 +317,7 @@ describe("WebSocketManager", () => {
 
     // Simulate 20 repeated failures – manager should keep reconnecting (RECONNECT_MAX_ATTEMPTS = Infinity)
     for (let i = 0; i < 20; i++) {
-      const ws = wsInstances.at(-1)!;
-      ws._simulateClose(1006);
+      wsInstances.at(-1)?._simulateClose(1006);
       vi.advanceTimersByTime(60000); // past any backoff
     }
 
@@ -349,8 +348,7 @@ describe("WebSocketManager", () => {
     mgr.clearTestRunId();
     mgr.disconnect();
     mgr.connect();
-    const lastWs = wsInstances.at(-1)!;
-    expect(lastWs.url).not.toContain("testRunId=test-123");
+    expect(wsInstances.at(-1)?.url).not.toContain("testRunId=test-123");
   });
 
   // ---- Buffer flush on disconnect ----
