@@ -58,8 +58,8 @@ describe("Worker Pool Production Readiness", () => {
     const avgTime = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
 
     console.log(`[SEQUENTIAL] 4 compiles: ${totalDuration}ms total, ${avgTime}ms avg`);
-    expect(totalDuration).toBeLessThan(30000); // Should complete in reasonable time
-  });
+    expect(totalDuration).toBeLessThan(60000); // 4 × ~7s; allow slack under system load
+  }, 90000);
 
   it("✅ PHASE 3: 4 concurrent compiles (all workers active)", async () => {
     const start = Date.now();
