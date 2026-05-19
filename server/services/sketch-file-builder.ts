@@ -98,11 +98,12 @@ export class SketchFileBuilder {
     ]);
 
     // Match top-level function definitions (no leading indentation).
-    // The return type may span multiple words, e.g. "unsigned long".
-    // Including space in the character class allows that while the lazy
-    // quantifier ensures the function name is captured in group 2.
-    // The opening brace is required so declarations/prototypes are not matched.
-    const funcDef = /^(\w[\w*& ]*?)\s+(\w+)\s*(\([^)]*\))\s*\{/gm;
+    // The return type may span multiple words, e.g. "unsigned long":
+    // (?:\w[\w*&]*[ \t]+)* captures each word of the type (space/tab after each),
+    // \w[\w*&]* captures the final word (e.g. "long" or "char*").
+    // Using [ \t] instead of \s and keeping [\w*&] without spaces ensures
+    // the character classes are disjoint and the regex cannot backtrack catastrophically.
+    const funcDef = /^((?:\w[\w*&]*[ \t]+)*\w[\w*&]*)[ \t]+(\w+)[ \t]*(\([^)]*\))[ \t]*\{/gm;
 
     const seen = new Set<string>();
     const decls: string[] = [];

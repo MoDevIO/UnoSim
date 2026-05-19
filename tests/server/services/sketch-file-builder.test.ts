@@ -1,17 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { SketchFileBuilder } from "../../../server/services/sketch-file-builder";
-import { readFile } from "node:fs/promises";
+import { readFile, mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { mkdtemp } from "node:fs/promises";
+
+async function buildSketch(code: string): Promise<string> {
+  const tmpDir = await mkdtemp(join(tmpdir(), "sfb-test-"));
+  const builder = new SketchFileBuilder(tmpDir);
+  const { sketchFile } = await builder.build(code, "test-sketch");
+  return readFile(sketchFile, "utf8");
+}
 
 describe("SketchFileBuilder", () => {
-  async function buildSketch(code: string): Promise<string> {
-    const tmpDir = await mkdtemp(join(tmpdir(), "sfb-test-"));
-    const builder = new SketchFileBuilder(tmpDir);
-    const { sketchFile } = await builder.build(code, "test-sketch");
-    return readFile(sketchFile, "utf8");
-  }
 
   describe("forward declarations (Arduino IDE compatibility)", () => {
     it("adds a forward declaration for a helper function called before its definition", async () => {
