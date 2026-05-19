@@ -6,10 +6,6 @@ import { cn } from "@/lib/utils";
 
 const MenubarMenu = MenubarPrimitive.Menu;
 
-const MenubarGroup = MenubarPrimitive.Group;
-
-const MenubarPortal = MenubarPrimitive.Portal;
-
 const MenubarSub = MenubarPrimitive.Sub;
 
 const MenubarRadioGroup = MenubarPrimitive.RadioGroup;
@@ -247,10 +243,8 @@ export {
   MenubarCheckboxItem,
   MenubarRadioGroup,
   MenubarRadioItem,
-  MenubarPortal,
   MenubarSubContent,
   MenubarSubTrigger,
-  MenubarGroup,
   MenubarSub,
   MenubarShortcut,
 };
