@@ -4,19 +4,20 @@ import clsx from "clsx";
 import { Button } from "@/components/ui/button";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuItem,
-  DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
+  Menubar,
+  MenubarMenu,
+  MenubarTrigger,
+  MenubarContent,
+  MenubarItem,
+  MenubarSeparator,
+  MenubarLabel,
+  MenubarShortcut,
+  MenubarSub,
+  MenubarSubTrigger,
+  MenubarSubContent,
+  MenubarRadioGroup,
+  MenubarRadioItem,
+} from "@/components/ui/menubar";
 
 interface AppHeaderProps {
   readonly isMobile?: boolean;
@@ -285,157 +286,137 @@ function DesktopMenuBar({
   onTimeoutChange,
 }: DesktopMenuBarProps) {
   return (
-    <div
-      role="menubar"
-      className="app-menu no-drag flex items-center gap-0 flex-shrink-0"
-      aria-label="Application menu"
-    >
+    <Menubar className="app-menu no-drag border-0 bg-transparent p-0 h-auto flex-shrink-0">
       {/* File Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-            File
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
-          <DropdownMenuLabel>File</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => onFileAdd()}>
+      <MenubarMenu>
+        <MenubarTrigger>File</MenubarTrigger>
+        <MenubarContent>
+          <MenubarLabel>File</MenubarLabel>
+          <MenubarSeparator />
+          <MenubarItem onSelect={() => onFileAdd()}>
             New File
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⇧⌥⌘N" : "Ctrl+Alt+Shift+N"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onFileRename()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={() => onFileRename()}>
             Rename
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onFormatCode()}>
+          </MenubarItem>
+          <MenubarItem onSelect={() => onFormatCode()}>
             Format Code
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⇧⌘F" : "Ctrl+Shift+F"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onLoadFiles()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={() => onLoadFiles()}>
             Load Files
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onDownloadAllFiles()}>
+          </MenubarItem>
+          <MenubarItem onSelect={() => onDownloadAllFiles()}>
             Download All Files
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => onSettings()}>
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem onSelect={() => onSettings()}>
             Settings
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⌘," : "Ctrl+,"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            </MenubarShortcut>
+          </MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
 
       {/* Edit Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-            Edit
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
-          <DropdownMenuLabel>Edit</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => onUndo()}>
+      <MenubarMenu>
+        <MenubarTrigger>Edit</MenubarTrigger>
+        <MenubarContent>
+          <MenubarLabel>Edit</MenubarLabel>
+          <MenubarSeparator />
+          <MenubarItem onSelect={() => onUndo()}>
             Undo
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⌘Z" : "Ctrl+Z"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onRedo()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={() => onRedo()}>
             Redo
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⇧⌘Z" : "Ctrl+Y"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => onCut()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem onSelect={() => onCut()}>
             Cut
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⌘X" : "Ctrl+X"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onCopy()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={() => onCopy()}>
             Copy
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⌘C" : "Ctrl+C"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onPaste()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={() => onPaste()}>
             Paste
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⌘V" : "Ctrl+V"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onSelectAll()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={() => onSelectAll()}>
             Select All
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⌘A" : "Ctrl+A"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => onGoToLine()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem onSelect={() => onGoToLine()}>
             Go to Line…
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⌘G" : "Ctrl+G"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onFind()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={() => onFind()}>
             Find
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⌘F" : "Ctrl+F"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            </MenubarShortcut>
+          </MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
 
       {/* Sketch Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-            Sketch
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
-          <DropdownMenuItem onSelect={() => onCompile()}>
+      <MenubarMenu>
+        <MenubarTrigger>Sketch</MenubarTrigger>
+        <MenubarContent>
+          <MenubarItem onSelect={() => onCompile()}>
             Compile
-            <DropdownMenuShortcut>F5</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => onCompileAndStart()}>
+            <MenubarShortcut>F5</MenubarShortcut>
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem onSelect={() => onCompileAndStart()}>
             Compile/Upload
-            <DropdownMenuShortcut>
+            <MenubarShortcut>
               {isMac ? "⌘U" : "Ctrl+U"}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => onOutputPanelToggle()}>
+            </MenubarShortcut>
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem onSelect={() => onOutputPanelToggle()}>
             <div className="flex items-center justify-between w-full">
               <span>Output Panel</span>
               {showCompilationOutput && (
                 <span className="text-ui-xs">✓</span>
               )}
             </div>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
 
       {/* Tools Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-            Tools
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
-          <DropdownMenuLabel>Tools</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
+      <MenubarMenu>
+        <MenubarTrigger>Tools</MenubarTrigger>
+        <MenubarContent>
+          <MenubarLabel>Tools</MenubarLabel>
+          <MenubarSeparator />
+          <MenubarItem
             className="cursor-default"
             onSelect={(e) => e.preventDefault()}
           >
@@ -445,8 +426,8 @@ function DesktopMenuBar({
                 {board}
               </span>
             </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem
+          </MenubarItem>
+          <MenubarItem
             className="cursor-default"
             onSelect={(e) => e.preventDefault()}
           >
@@ -456,39 +437,35 @@ function DesktopMenuBar({
                 {baudRate}
               </span>
             </div>
-          </DropdownMenuItem>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="w-full text-left">
+          </MenubarItem>
+          <MenubarSub>
+            <MenubarSubTrigger className="w-full text-left">
               Timeout
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuRadioGroup
+            </MenubarSubTrigger>
+            <MenubarSubContent>
+              <MenubarRadioGroup
                 value={String(simulationTimeout)}
                 onValueChange={(v) => onTimeoutChange(Number(v))}
               >
-                <DropdownMenuRadioItem value="5">5s</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="10">10s</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="30">30s</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="60">60s</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="120">2min</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="300">5min</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="600">10min</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="0">∞</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        </DropdownMenuContent>
-      </DropdownMenu>
+                <MenubarRadioItem value="5">5s</MenubarRadioItem>
+                <MenubarRadioItem value="10">10s</MenubarRadioItem>
+                <MenubarRadioItem value="30">30s</MenubarRadioItem>
+                <MenubarRadioItem value="60">60s</MenubarRadioItem>
+                <MenubarRadioItem value="120">2min</MenubarRadioItem>
+                <MenubarRadioItem value="300">5min</MenubarRadioItem>
+                <MenubarRadioItem value="600">10min</MenubarRadioItem>
+                <MenubarRadioItem value="0">∞</MenubarRadioItem>
+              </MenubarRadioGroup>
+            </MenubarSubContent>
+          </MenubarSub>
+        </MenubarContent>
+      </MenubarMenu>
 
       {/* Help Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="inline-flex items-center justify-center px-2 py-1" tabIndex={0}>
-            Help
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
-          <DropdownMenuItem
+      <MenubarMenu>
+        <MenubarTrigger>Help</MenubarTrigger>
+        <MenubarContent>
+          <MenubarItem
             onSelect={() => {
               globalThis.open(
                 "https://github.com/MoDevIO/UnoSim",
@@ -498,10 +475,10 @@ function DesktopMenuBar({
             }}
           >
             Github
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+          </MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
+    </Menubar>
   );
 }
 
