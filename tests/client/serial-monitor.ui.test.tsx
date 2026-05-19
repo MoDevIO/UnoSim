@@ -138,7 +138,7 @@ describe("SerialMonitor UI", () => {
     await waitFor(() => expect(output.textContent).toContain("A    B"));
   });
 
-  it("replaces bell character with visible marker", async () => {
+  it("strips bell character without visible marker", async () => {
     render(
       <SerialMonitor
         {...baseProps}
@@ -147,7 +147,7 @@ describe("SerialMonitor UI", () => {
       />,
     );
 
-    expect(await screen.findByText("Bell␇End")).not.toBeNull();
+    expect(await screen.findByText("BellEnd")).not.toBeNull();
   });
 
   it("normalizes form feed to newline", async () => {
