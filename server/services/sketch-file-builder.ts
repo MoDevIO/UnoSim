@@ -86,8 +86,8 @@ export class SketchFileBuilder {
   private extractForwardDeclarations(code: string): string {
     // Strip single-line and block comments to avoid false positives
     const stripped = code
-      .replace(/\/\/[^\n]*/g, "")
-      .replace(/\/\*[\s\S]*?\*\//g, "");
+      .replaceAll(/\/\/[^\n]*/g, "")
+      .replaceAll(/\/\*[\s\S]*?\*\//g, "");
 
     // Keywords that are never function names
     const SKIP = new Set([
