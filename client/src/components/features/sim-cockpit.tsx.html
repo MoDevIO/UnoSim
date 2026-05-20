@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">92.85% </span>
+                <span class="strong">91.86% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>78/84</span>
+                <span class='fraction'>79/86</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.69% </span>
+                <span class="strong">94.84% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>89/93</span>
+                <span class='fraction'>92/97</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.02% </span>
+                <span class="strong">94.11% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>63/67</span>
+                <span class='fraction'>64/68</span>
             </div>
         
             
@@ -344,7 +344,22 @@
 <a name='L279'></a><a href='#L279'>279</a>
 <a name='L280'></a><a href='#L280'>280</a>
 <a name='L281'></a><a href='#L281'>281</a>
-<a name='L282'></a><a href='#L282'>282</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -361,10 +376,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">28x</span>
-<span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-yes">22x</span>
-<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -467,7 +490,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -641,11 +671,19 @@ const STATE_MIN_MS = 600;
 function deriveClientState(
   simulationStatus: SimulationStatus,
   compilationStatus: CompilationStatus,
+  pendingExternalStart: boolean = false,
 ): ClientState {
+  // pendingExternalStart means START_SIMULATION was received before the WS
+  // connected (or before the backend was reachable).  The instance is waiting
+  // for the compile + WS handshake phase — NOT for a simulation runner slot.
+  // Without this check, simulationStatus === "queued" (set client-side by
+  // handleExternalStartSimulation) would make the badge show QUEUED_FOR_SIMULATION
+  // while the instance is actually queued for compilation.
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (pendingExternalStart) <span class="cstat-no" title="statement not covered" >return "QUEUED_FOR_COMPILING";</span>
+  if (compilationStatus === "compiling") return "COMPILING";
   if (simulationStatus === "queued") return "QUEUED_FOR_SIMULATION";
   if (simulationStatus === "running") return "RUNNING";
   if (simulationStatus === "paused") return "PAUSED";
-  if (compilationStatus === "compiling") return "COMPILING";
   if (compilationStatus === "error") return "ERROR";
   return "IDLE";
 }
@@ -744,6 +782,12 @@ interface SimCockpitProps {
   wsHasEverConnected?: boolean;
   baudRate?: number;
   debugMode?: boolean;
+  /** When true, a START_SIMULATION arrived before the WS connected; the instance
+   *  is waiting for compilation, not for a simulation runner slot. Without this
+   *  flag deriveClientState incorrectly shows QUEUED_FOR_SIMULATION instead of
+   *  QUEUED_FOR_COMPILING because simulationStatus is set to "queued" client-side
+   *  by handleExternalStartSimulation. */
+  pendingExternalStart?: boolean;
   /** @deprecated kept for prop compatibility; no longer used for WS dot logic */
   serverStatus?: unknown;
 }
@@ -758,6 +802,7 @@ export const SimCockpit: React.FC&lt;SimCockpitProps&gt; = React.memo(({
   workerIndex,
   workerTotal,
   debugMode = false,
+  pendingExternalStart = false,
 }) =&gt; {
 &nbsp;
   // ── Compilation dot visual delay ───────────────────────────────────────
@@ -785,7 +830,7 @@ export const SimCockpit: React.FC&lt;SimCockpitProps&gt; = React.memo(({
   // ── Client state visual delay ──────────────────────────────────────────
   // Show active states immediately; delay the downgrade back to IDLE so it
   // stays readable for at least STATE_MIN_MS.
-  const clientState = deriveClientState(simulationStatus, compilationStatus);
+  const clientState = deriveClientState(simulationStatus, compilationStatus, pendingExternalStart);
   const [visualClientState, setVisualClientState] = useState&lt;ClientState&gt;(clientState);
   const clientStateTimerRef = useRef&lt;ReturnType&lt;typeof setTimeout&gt; | null&gt;(null);
 &nbsp;
@@ -835,7 +880,7 @@ export const SimCockpit: React.FC&lt;SimCockpitProps&gt; = React.memo(({
         {/* GROUP 1: CLIENT state */}
         &lt;StatCell
           label="CLIENT"
-          value={visualClientState}
+          value={&lt;span data-testid="client-state-badge"&gt;{visualClientState}&lt;/span&gt;}
           valueClass={clientStateColor(visualClientState)}
         /&gt;
 &nbsp;
@@ -913,7 +958,7 @@ SimCockpit.displayName = "SimCockpit";
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-12T08:18:07.388Z
+                at 2026-05-20T07:41:51.359Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
