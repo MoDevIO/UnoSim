@@ -53,19 +53,18 @@ interface WorkerMessage {
 }
 
 function parseWorkerMessage(raw: WebSocket.RawData): WorkerMessage {
-  const json =
-    typeof raw === "string"
-      ? raw
-      : Buffer.isBuffer(raw)
-      ? Buffer.from(raw).toString("utf8")
-      : raw instanceof ArrayBuffer
-      ? Buffer.from(raw).toString("utf8")
-      : Array.isArray(raw) && raw.every((item): item is Buffer => Buffer.isBuffer(item))
-      ? Buffer.concat(raw).toString("utf8")
-      : (() => {
-          throw new Error("Unsupported WebSocket message data type");
-        })();
-
+  let json: string;
+  if (typeof raw === "string") {
+    json = raw;
+  } else if (Buffer.isBuffer(raw)) {
+    json = Buffer.from(raw).toString("utf8");
+  } else if (raw instanceof ArrayBuffer) {
+    json = Buffer.from(raw).toString("utf8");
+  } else if (Array.isArray(raw) && raw.every((item): item is Buffer => Buffer.isBuffer(item))) {
+    json = Buffer.concat(raw).toString("utf8");
+  } else {
+    throw new Error("Unsupported WebSocket message data type");
+  }
   return JSON.parse(json);
 }
 

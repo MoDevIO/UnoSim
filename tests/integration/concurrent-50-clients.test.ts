@@ -41,17 +41,18 @@ interface MockExecutionState {
 }
 
 function parseWebSocketMessage(raw: WebSocket.RawData): Record<string, unknown> {
-  const text =
-    typeof raw === "string"
-      ? raw
-      : Buffer.isBuffer(raw)
-      ? Buffer.from(raw).toString("utf8")
-      : raw instanceof ArrayBuffer
-      ? Buffer.from(raw).toString("utf8")
-      : Array.isArray(raw) && raw.every((item): item is Buffer => Buffer.isBuffer(item))
-      ? Buffer.concat(raw).toString("utf8")
-      : (() => { throw new Error("Unsupported WebSocket message data type"); })();
-
+  let text: string;
+  if (typeof raw === "string") {
+    text = raw;
+  } else if (Buffer.isBuffer(raw)) {
+    text = Buffer.from(raw).toString("utf8");
+  } else if (raw instanceof ArrayBuffer) {
+    text = Buffer.from(raw).toString("utf8");
+  } else if (Array.isArray(raw) && raw.every((item): item is Buffer => Buffer.isBuffer(item))) {
+    text = Buffer.concat(raw).toString("utf8");
+  } else {
+    throw new Error("Unsupported WebSocket message data type");
+  }
   return JSON.parse(text);
 }
 
