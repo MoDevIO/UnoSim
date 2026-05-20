@@ -46,7 +46,7 @@ storage/binaries/
 /cache/
 /test-results/
 /playwright-report/
-/screenshots/
+# /screenshots/
 .scannerwork/
 .scannerwork/*
 /scannerwork/
