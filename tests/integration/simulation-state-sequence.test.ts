@@ -53,23 +53,20 @@ interface WorkerMessage {
 }
 
 function parseWorkerMessage(raw: WebSocket.RawData): WorkerMessage {
-  if (typeof raw === "string") {
-    return JSON.parse(raw) as WorkerMessage;
-  }
+  const json =
+    typeof raw === "string"
+      ? raw
+      : Buffer.isBuffer(raw)
+      ? Buffer.from(raw).toString("utf8")
+      : raw instanceof ArrayBuffer
+      ? Buffer.from(raw).toString("utf8")
+      : Array.isArray(raw) && raw.every((item): item is Buffer => Buffer.isBuffer(item))
+      ? Buffer.concat(raw).toString("utf8")
+      : (() => {
+          throw new Error("Unsupported WebSocket message data type");
+        })();
 
-  if (Buffer.isBuffer(raw)) {
-    return JSON.parse(raw.toString("utf8")) as WorkerMessage;
-  }
-
-  if (raw instanceof ArrayBuffer) {
-    return JSON.parse(Buffer.from(raw).toString("utf8")) as WorkerMessage;
-  }
-
-  if (Array.isArray(raw)) {
-    return JSON.parse(Buffer.concat(raw as Buffer[]).toString("utf8")) as WorkerMessage;
-  }
-
-  throw new Error("Unsupported WebSocket message data type");
+  return JSON.parse(json);
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));

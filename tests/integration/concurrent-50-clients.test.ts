@@ -15,6 +15,46 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import WebSocket from "ws";
 
+interface MockExecutionState {
+  state: string;
+  pauseStartTime: number | null;
+  totalPausedTime: number;
+  processKilled: boolean;
+  pendingCleanup: boolean;
+  pinStateBatcher: unknown;
+  serialOutputBatcher: unknown;
+  onOutputCallback: unknown;
+  errorCallback: unknown;
+  telemetryCallback: unknown;
+  pinStateCallback: unknown;
+  ioRegistryCallback: unknown;
+  outputBuffer: string;
+  outputBufferIndex: number;
+  totalOutputBytes: number;
+  isSendingOutput: boolean;
+  messageQueue: unknown[];
+  stderrFallbackBuffer: string;
+  backpressurePaused: boolean;
+  flushTimer: NodeJS.Timeout | null;
+  dockerAvailable: boolean;
+  dockerImageBuilt: boolean;
+}
+
+function parseWebSocketMessage(raw: WebSocket.RawData): Record<string, unknown> {
+  const text =
+    typeof raw === "string"
+      ? raw
+      : Buffer.isBuffer(raw)
+      ? Buffer.from(raw).toString("utf8")
+      : raw instanceof ArrayBuffer
+      ? Buffer.from(raw).toString("utf8")
+      : Array.isArray(raw) && raw.every((item): item is Buffer => Buffer.isBuffer(item))
+      ? Buffer.concat(raw).toString("utf8")
+      : (() => { throw new Error("Unsupported WebSocket message data type"); })();
+
+  return JSON.parse(text);
+}
+
 // ── Heavy mocks (must be hoisted before any server import) ──────────────
 
 class MockSandboxRunner {
@@ -22,27 +62,27 @@ class MockSandboxRunner {
   _state = "stopped";
   get state() { return this._state; }
   set state(v: string) { this._state = v; this.executionState.state = v; }
-  executionState = {
-    state: "stopped" as string,
-    pauseStartTime: null as number | null,
+  executionState: MockExecutionState = {
+    state: "stopped",
+    pauseStartTime: null,
     totalPausedTime: 0,
     processKilled: false,
     pendingCleanup: false,
-    pinStateBatcher: null as unknown,
-    serialOutputBatcher: null as unknown,
-    onOutputCallback: null as unknown,
-    errorCallback: null as unknown,
-    telemetryCallback: null as unknown,
-    pinStateCallback: null as unknown,
-    ioRegistryCallback: undefined as unknown,
+    pinStateBatcher: null,
+    serialOutputBatcher: null,
+    onOutputCallback: null,
+    errorCallback: null,
+    telemetryCallback: null,
+    pinStateCallback: null,
+    ioRegistryCallback: undefined,
     outputBuffer: "",
     outputBufferIndex: 0,
     totalOutputBytes: 0,
     isSendingOutput: false,
-    messageQueue: [] as unknown[],
+    messageQueue: [],
     stderrFallbackBuffer: "",
     backpressurePaused: false,
-    flushTimer: null as NodeJS.Timeout | null,
+    flushTimer: null,
     dockerAvailable: false,
     dockerImageBuilt: false,
   };
@@ -58,11 +98,11 @@ class MockSandboxRunner {
   async runSketch(options: Record<string, unknown>): Promise<void> {
     this.isRunning = true;
     this._state = "running";
-    this.lastSketchCode = (options.code as string) ?? null;
+    this.lastSketchCode = typeof options.code === "string" ? options.code : null;
 
-    const onCompileSuccess = options.onCompileSuccess as (() => void) | undefined;
-    const onOutput = options.onOutput as ((line: string, isComplete?: boolean) => void) | undefined;
-    const onExit = options.onExit as ((code: number | null) => void) | undefined;
+    const onCompileSuccess = typeof options.onCompileSuccess === "function" ? options.onCompileSuccess as () => void : undefined;
+    const onOutput = typeof options.onOutput === "function" ? options.onOutput as (line: string, isComplete?: boolean) => void : undefined;
+    const onExit = typeof options.onExit === "function" ? options.onExit as (code: number | null) => void : undefined;
 
     // Extract a marker from the code for per-client verification.
     // If the code contains CLIENT_<N>, echo that marker so the test can check isolation.
@@ -184,7 +224,7 @@ async function createWsClient(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
     });
-    const json = (await res.json()) as Record<string, unknown>;
+    const json = await res.json() as Record<string, unknown>;
     result.compiled = json.success === true;
     if (!result.compiled) {
       result.compileError = JSON.stringify(json.error ?? json.errors ?? "unknown");
@@ -220,7 +260,7 @@ async function createWsClient(
 
     ws.on("message", (raw) => {
       try {
-        const msg = JSON.parse(raw.toString()) as Record<string, unknown>;
+        const msg = parseWebSocketMessage(raw);
 
         if (msg.type === "compilation_status" && msg.gccStatus === "success") {
           result.receivedCompilationStatus = true;

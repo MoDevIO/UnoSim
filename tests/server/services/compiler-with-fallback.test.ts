@@ -2,11 +2,11 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import type { CompilationResult } from "../../../server/services/arduino-compiler";
 
 // Mock the config module so we can change serverMode per test
-const { mockConfig } = vi.hoisted(() => ({
+const { mockConfig } = vi.hoisted<{ mockConfig: { serverMode: string; compilation: { workerCount: number } } }>(() => ({
   mockConfig: {
     serverMode: "local",
     compilation: { workerCount: 2 },
-  } as { serverMode: string; compilation: { workerCount: number } },
+  },
 }));
 vi.mock("../../../server/config", () => ({
   config: mockConfig,
