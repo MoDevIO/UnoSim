@@ -9,9 +9,10 @@ import type { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RegistryManager } from "../registry-manager";
 import type { ParsedStderrOutput } from "../arduino-output-parser";
 import { Logger } from "@shared/logger";
+import type { PinStateChange } from "@shared/types/arduino.types";
 
 interface StreamHandlerCallbacks {
-  onPinState?: (pin: number, type: "mode" | "value" | "pwm", value: number) => void;
+  onPinState?: (pin: number, type: PinStateChange, value: number) => void;
   onOutput?: (line: string, isComplete?: boolean) => void;
   onError?: (line: string) => void;
 }
@@ -35,7 +36,7 @@ export class StreamHandler {
    */
   handlePinStateChange(
     pin: number,
-    type: "mode" | "value" | "pwm",
+    type: PinStateChange,
     value: number,
     state: StreamHandlerState,
     callbacks: StreamHandlerCallbacks,

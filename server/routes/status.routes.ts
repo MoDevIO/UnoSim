@@ -26,6 +26,7 @@ export function registerStatusRoutes(app: Express): void {
         available: poolStats.availableRunners,
         inUse: poolStats.inUseRunners,
         queued: poolStats.queuedRequests,
+        max: poolStats.maxRunners,
       },
       // Backward-compatible aliases (deprecated — prefer compileSlots/sandboxRunners)
       pool: {
@@ -33,6 +34,7 @@ export function registerStatusRoutes(app: Express): void {
         available: poolStats.availableRunners,
         inUse: poolStats.inUseRunners,
         queued: poolStats.queuedRequests,
+        max: poolStats.maxRunners,
       },
       compile: {
         active: semaphore.activeCount,

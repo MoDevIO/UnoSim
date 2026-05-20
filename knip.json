@@ -5,6 +5,7 @@
   "entry": [
     "client/src/types/external-api.ts",
     "shared/worker-protocol.ts",
-    "server/config.ts"
+    "server/config.ts",
+    "playwright.scalability.config.ts"
   ]
 }

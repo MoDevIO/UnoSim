@@ -21,6 +21,16 @@ interface ProcessedLine {
   incomplete: boolean;
 }
 
+function createAudioContext(): AudioContext | null {
+  const ctor = (globalThis as any).AudioContext ?? (globalThis as any).webkitAudioContext;
+  if (!ctor) return null;
+  try {
+    return new ctor();
+  } catch {
+    return null;
+  }
+}
+
 const ROW_HEIGHT = 20; // Exact line height in pixels (matches Monaco editor: 14px font + 20px line-height)
 const OVERSCAN_COUNT = 10; // Extra lines above/below viewport for smooth scrolling
 const ENABLE_VIRTUAL_SCROLL = true; // Feature flag for virtual scrolling
@@ -58,9 +68,10 @@ function processAnsiCodes(text: string): string {
     processed = processed.replaceAll("\t", "    ");
   }
 
-  // Bell character: replace with visible marker (so it's not silently dropped)
+  // Bell character: remove from visible output.
+  // Actual sound is emitted by the SerialMonitor component itself.
   if (processed.includes("\x07")) {
-    processed = processed.replaceAll("\x07", "␇");
+    processed = processed.replaceAll("\x07", "");
   }
 
   // Form feed and vertical tab => normalize to newline
@@ -209,6 +220,60 @@ export function SerialMonitor({
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(600); // Default height
   const rafIdRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const prevRenderedTextLengthRef = useRef(0);
+
+  const playBellSound = useCallback(() => {
+    const audioCtx = audioCtxRef.current ?? createAudioContext();
+    if (!audioCtx) return;
+
+    audioCtxRef.current = audioCtx;
+
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+
+    const oscillator = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
+    gain.gain.value = 0.08;
+
+    oscillator.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    const now = audioCtx.currentTime;
+    oscillator.start(now);
+    oscillator.stop(now + 0.08);
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    oscillator.onended = () => {
+      if (audioCtxRef.current === audioCtx) {
+        audioCtx.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Reconstruct the full rendered text from OutputLine[] to get an exact
+    // delta of new characters since the last render. This is necessary because
+    // \x07 can appear inside an already-counted line (same line count, text grew),
+    // which a length-based line-count comparison would silently miss.
+    const fullText = output.map((l) => l.text).join("\n");
+    const prevLength = prevRenderedTextLengthRef.current;
+    prevRenderedTextLengthRef.current = fullText.length;
+
+    const newText = fullText.length >= prevLength
+      ? fullText.slice(prevLength)
+      : fullText; // output was cleared
+
+    if (newText.includes("\x07")) {
+      playBellSound();
+    }
+  }, [output, playBellSound]);
 
   useEffect(() => {
     // enable/disable autoscroll according to parent prop

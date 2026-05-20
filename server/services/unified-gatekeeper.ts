@@ -13,6 +13,7 @@
  */
 
 import { Logger } from "@shared/logger";
+import { config } from "../config";
 import { cpus } from "node:os";
 import { EventEmitter } from "node:events";
 
@@ -75,8 +76,8 @@ export class UnifiedGatekeeper extends EventEmitter {
   
   // Lock monitoring
   private lockCheckInterval: NodeJS.Timeout | null = null;
-  private readonly lockTTL = 60000; // 60 seconds default TTL
-  private readonly checkIntervalMs = 5000; // Check for expired locks every 5 seconds
+  private readonly lockTTL = config.timeouts.gatekeeperLockTTLMs;
+  private readonly checkIntervalMs = config.timeouts.gatekeeperLockCheckIntervalMs;
   
   // Queue size limit to prevent unbounded memory growth under extreme load
   private readonly maxQueueSize = 500;

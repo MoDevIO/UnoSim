@@ -93,7 +93,7 @@ export class CompilationWorkerPool {
     if (!fs.existsSync(workerScript)) {
       this.logger.error(`[CompilationWorkerPool] Worker file not found: ${workerScript}`);
       this.logger.warn(`[CompilationWorkerPool] Worker pool disabled - falling back to synchronous compilation`);
-      // Don't throw - let PooledCompiler handle fallback to direct compiler
+      // Don't throw - let CompilerWithFallback handle fallback to direct compiler
       return;
     }
 

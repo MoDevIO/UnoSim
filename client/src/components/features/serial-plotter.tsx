@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   LineChart,
   Line,
@@ -9,16 +9,27 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import type { Props as LegendProps } from "recharts/types/component/DefaultLegendContent";
 import type { OutputLine } from "@shared/schema";
+
+/** Default palette mirrors the --plot-N CSS variables in index.css */
+const DEFAULT_COLORS = [
+  "#3b82f6", // --plot-1 blue
+  "#ef4444", // --plot-2 red
+  "#10b981", // --plot-3 green
+  "#f59e0b", // --plot-4 amber
+  "#8b5cf6", // --plot-5 purple
+  "#ec4899", // --plot-6 pink
+  "#06b6d4", // --plot-7 cyan
+  "#f97316", // --plot-8 orange
+];
 
 interface SerialPlotterProps {
   readonly output: OutputLine[];
 }
 
-// Series colors are provided by Tailwind tokens (mapped to CSS variables)
-// We'll apply them via `currentColor` + `text-plot-*` so Recharts picks up the color.
-
 export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
+  const [customColors, setCustomColors] = useState<Record<string, string>>({});
   const { chartData, seriesKeys, seriesNames } = useMemo(() => {
     const data: Array<{ index: number; [key: string]: number | string }> = [];
     const seriesRegistry = new Map<string, number>(); // Maps "Name" -> unique stable index
@@ -99,6 +110,56 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
     return chartData.slice(-200);
   }, [chartData]);
 
+  const handleColorChange = useCallback(
+    (key: string, color: string) => {
+      setCustomColors((prev) => ({ ...prev, [key]: color }));
+    },
+    [],
+  );
+
+  /**
+   * Custom legend: each item shows a colored swatch + series name.
+   * Clicking / activating the label opens a native color picker so the user
+   * can change the line color for that series.
+   */
+  const renderLegend = useCallback(
+    (props: LegendProps) => {
+      const { payload } = props;
+      if (!payload?.length) return null;
+      return (
+        <div className="flex flex-wrap gap-3 justify-center mt-1 px-2">
+          {payload.map((entry) => {
+            const key = String(entry.dataKey ?? "");
+            const color = customColors[key] ?? (entry.color as string);
+            return (
+              <label
+                key={key}
+                className="flex items-center gap-1.5 cursor-pointer select-none group"
+                title="Klicken zum Ändern der Farbe"
+              >
+                <span
+                  className="inline-block w-3 h-3 rounded-sm ring-1 ring-inset ring-white/20 group-hover:ring-white/60 transition-shadow shrink-0"
+                  style={{ background: color }}
+                />
+                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                  {entry.value}
+                </span>
+                {/* visually hidden color input; clicking the label triggers it */}
+                <input
+                  type="color"
+                  className="sr-only"
+                  value={color}
+                  onChange={(e) => handleColorChange(key, e.target.value)}
+                />
+              </label>
+            );
+          })}
+        </div>
+      );
+    },
+    [customColors, handleColorChange],
+  );
+
   if (displayData.length === 0) {
     return (
       <div className="h-full flex flex-col" data-testid="serial-plotter">
@@ -135,7 +196,7 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
                 "",
               ]}
             />
-            <Legend />
+            <Legend content={renderLegend} />
             {seriesKeys.map((key, idx) => {
               // Extract the stable index from the internal key
               const match = /^series_(\d+)_\d+$/.exec(key);
@@ -147,18 +208,16 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
                   ? seriesNames.get(stableIndex)!
                   : key;
 
-              // Use Tailwind color token mapped to CSS variable. Set stroke to
-              // `currentColor` and apply `text-plot-*` so the SVG path uses the
-              // Tailwind color without embedding hex values here.
-              const colorClass = `text-plot-${(idx % 8) + 1}`;
+              // Resolve color: user-chosen override first, then default palette
+              const defaultColor = DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
+              const color = customColors[key] ?? defaultColor;
 
               return (
                 <Line
                   key={key}
                   type="monotone"
                   dataKey={key}
-                  stroke="currentColor"
-                  className={colorClass}
+                  stroke={color}
                   isAnimationActive={false}
                   dot={false}
                   name={displayName}

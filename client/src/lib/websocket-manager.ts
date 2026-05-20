@@ -38,14 +38,14 @@ const CONFIG = {
   // Reconnection settings
   RECONNECT_BASE_DELAY_MS: 1000,
   RECONNECT_MAX_DELAY_MS: 30000,
-  RECONNECT_MAX_ATTEMPTS: 15,
+  RECONNECT_MAX_ATTEMPTS: Infinity,
   
   // Connection settings
-  CONNECTION_TIMEOUT_MS: 10000,
+  CONNECTION_TIMEOUT_MS: 30_000,
   
   // Thundering-herd mitigation: stagger initial connection when embedded in an
   // iframe so that 50+ simultaneous instances don't all hit the server at once.
-  IFRAME_STAGGER_MAX_MS: 3000,
+  IFRAME_STAGGER_MAX_MS: 10_000,
 } as const;
 
 class WebSocketManager {
@@ -121,8 +121,19 @@ class WebSocketManager {
       // Cross-origin iframe access may throw — connect immediately
       return false;
     }
-    const staggerMs = (crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * CONFIG.IFRAME_STAGGER_MAX_MS;
-    logger.info(`[Iframe] Staggering initial connection by ${Math.round(staggerMs)}ms`);
+    // Prefer deterministic stagger from ?iframeIndex=N URL param.
+    // This is immune to Chromium's background-timer throttling which defeats
+    // Math.random()-based stagger (all timers end up in the same 1-s throttle
+    // bucket when Chrome classifies the iframe as "hidden").
+    const params = new URLSearchParams(globalThis.location?.search ?? "");
+    const iframeIndex = Number.parseInt(params.get("iframeIndex") ?? "", 10);
+    const staggerMs = Number.isNaN(iframeIndex)
+      ? (crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF) * CONFIG.IFRAME_STAGGER_MAX_MS
+      : Math.min(iframeIndex * 250, CONFIG.IFRAME_STAGGER_MAX_MS);
+    logger.info(
+      `[Iframe] Staggering initial connection by ${Math.round(staggerMs)}ms` +
+      (Number.isNaN(iframeIndex) ? " (random)" : ` (iframeIndex=${iframeIndex})`),
+    );
     this.staggerTimeout = setTimeout(() => {
       this.staggerTimeout = null;
       this.connect();
@@ -419,7 +430,7 @@ class WebSocketManager {
     this.reconnectAttempts++;
     this.setState("reconnecting");
     
-    logger.debug(`Scheduling reconnect in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts}/${CONFIG.RECONNECT_MAX_ATTEMPTS})`);
+    logger.debug(`Scheduling reconnect in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts})`);
     
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectTimeout = null;

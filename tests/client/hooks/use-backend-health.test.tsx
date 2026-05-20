@@ -40,7 +40,7 @@ describe("useBackendHealth", () => {
       ok: true,
       status: 200,
       json: async () => ({}),
-    } as Response);
+    });
   });
 
   afterEach(() => {
@@ -56,7 +56,7 @@ describe("useBackendHealth", () => {
     expect(result.current.showErrorGlitch).toBe(false);
   });
 
-  it("should poll health endpoint every 5 seconds", async () => {
+  it("should poll health endpoint every 15 seconds", async () => {
     renderHook(() => useBackendHealth(mockQueryClient));
 
     // Initial calls: /api/health + /api/status both fire immediately
@@ -64,15 +64,16 @@ describe("useBackendHealth", () => {
       expect(fetchSpy).toHaveBeenCalledWith("/api/health", {
         method: "GET",
         cache: "no-store",
+        headers: { Connection: "close" },
         signal: expect.any(AbortSignal),
       });
     });
 
     const callsAfterMount = fetchSpy.mock.calls.length;
 
-    // Advance 5000ms — health interval fires once more
+    // Advance 15 000 ms — health interval fires once more
     act(() => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(15000);
     });
 
     await waitFor(() => {
@@ -179,7 +180,14 @@ describe("useBackendHealth", () => {
     // Start unreachable
     let healthCallCount = 0;
     fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
-      const urlStr = typeof url === "string" ? url : url.toString();
+      let urlStr: string;
+      if (url instanceof URL) {
+        urlStr = url.href;
+      } else if (typeof url === "string") {
+        urlStr = url;
+      } else {
+        urlStr = url.url;
+      }
       if (urlStr === "/api/config" || urlStr === "/api/status") {
         return { ok: true, status: 200, json: async () => ({ pool: {}, compile: {} }) } as Response;
       }
@@ -214,7 +222,7 @@ describe("useBackendHealth", () => {
     fetchSpy.mockResolvedValue({
       ok: false,
       status: 503,
-    } as Response);
+    });
 
     const { result } = renderHook(() => useBackendHealth(mockQueryClient));
 
@@ -448,7 +456,7 @@ describe("useBackendHealth", () => {
 
   it("should not update state after unmount", async () => {
     fetchSpy.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({ ok: true } as Response), 100)),
+      () => new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 100)),
     );
 
     const { result, unmount } = renderHook(() => useBackendHealth(mockQueryClient));

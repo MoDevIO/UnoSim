@@ -90,6 +90,7 @@ export function useBackendHealth(queryClient: QueryClient) {
         const res = await fetch("/api/health", {
           method: "GET",
           cache: "no-store",
+          headers: { Connection: "close" },
           signal: controller.signal,
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -124,7 +125,7 @@ export function useBackendHealth(queryClient: QueryClient) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), configRef.current.fetchTimeoutMs);
       try {
-        const res = await fetch("/api/status", { cache: "no-store", signal: controller.signal });
+        const res = await fetch("/api/status", { cache: "no-store", headers: { Connection: "close" }, signal: controller.signal });
         if (!res.ok) return;
         const data = await res.json() as { pool: PoolStats; compile: CompileStats };
         if (!cancelled) {

@@ -9,6 +9,17 @@
 export type PinMode = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
 
 /**
+ * Categories of pin state changes emitted by the simulator over WebSocket.
+ *
+ * - "mode" : pinMode() was called (digital input/output/pullup configuration)
+ * - "value": digitalRead/Write value changed (HIGH/LOW)
+ * - "pwm"  : analogWrite/analogRead value changed (0-1023)
+ *
+ * Must stay aligned with the `stateType` Zod enum in shared/schema.ts.
+ */
+export type PinStateChange = "mode" | "value" | "pwm";
+
+/**
  * Represents the simulator runtime status across UI and backend.
  *
  * This type is used in multiple components and services for consistent

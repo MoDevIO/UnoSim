@@ -108,6 +108,7 @@ describe("GET /api/status", () => {
       available: mockPoolStats.availableRunners,
       inUse: mockPoolStats.inUseRunners,
       queued: mockPoolStats.queuedRequests,
+      max: mockPoolStats.maxRunners,
     });
   });
 

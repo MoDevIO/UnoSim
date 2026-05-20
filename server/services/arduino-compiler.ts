@@ -9,7 +9,7 @@ import { CodeParser } from "@shared/code-parser";
 import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { reservedNamesValidator } from "@shared/reserved-names-validator";
-import { getCompileGatekeeper } from "./compile-gatekeeper";
+import { getUnifiedGatekeeper, TaskPriority } from "./unified-gatekeeper";
 import { ProcessExecutor } from "./process-executor";
 import { CompilationError, CompilerOutputParser } from "./compiler/compiler-output-parser";
 import { config } from "../config";
@@ -44,12 +44,13 @@ export interface CompileRequestOptions {
 export class ArduinoCompiler {
   private readonly tempDir = join(process.cwd(), "temp");
   private readonly logger = new Logger("ArduinoCompiler");
-  private readonly gatekeeper = getCompileGatekeeper();
   private readonly processExecutor = new ProcessExecutor();
   private readonly defaultFqbn = config.compilation.fqbn;
   private readonly defaultBuildCacheDir = config.compilation.cacheDir;
-  private readonly defaultBinaryStorageDir = join(this.defaultBuildCacheDir, "binaries");
-  private readonly defaultHexCacheDir = join(this.defaultBuildCacheDir, "hex-cache");
+  // Hex and binary outputs use the shared storage dir (storage/cache) so that
+  // both worker-pool compiles and direct-compiler compiles share the same cache.
+  private readonly defaultBinaryStorageDir = join(config.compilation.buildCacheDir, "binaries");
+  private readonly defaultHexCacheDir = join(config.compilation.buildCacheDir, "hex-cache");
   private readonly defaultBuildCachePath = join(this.defaultBuildCacheDir, "build-cache");
 
   /**
@@ -455,7 +456,11 @@ export class ArduinoCompiler {
     options?: CompileRequestOptions,
   ): Promise<CompilationResult> {
     // GATEKEEPER: Acquire a compile slot to prevent race conditions
-    const release = await this.gatekeeper.acquire();
+    const release = await getUnifiedGatekeeper().acquireCompileSlot(
+      TaskPriority.NORMAL,
+      30000,
+      "arduino-compiler",
+    );
 
     try {
       return await this.compileInternal(code, headers, tempRoot, options);

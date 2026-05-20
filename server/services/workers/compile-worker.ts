@@ -37,7 +37,7 @@ import {
   normalizeLibraries,
 } from "./compile-worker-utils.ts";
 
-// Disable the CompileGatekeeper in worker threads since the pool controls concurrency
+// Disable the compile gatekeeper in worker threads since the pool controls concurrency
 process.env.COMPILE_GATEKEEPER_DISABLED = "true";
 
 const logger = new Logger("compile-worker");

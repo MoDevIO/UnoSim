@@ -55,7 +55,12 @@ export class SketchFileBuilder {
     const footer = this.buildFooter(hasSetup, hasLoop);
     const cleanedCode = code.replaceAll(/#include\s*[<"]Arduino\.h[>"]/g, "");
 
-    const combined = `${ARDUINO_MOCK_CODE}\n\n// --- User code follows ---\n${cleanedCode}\n\n// --- Footer ---\n${footer}`;
+    const forwardDecls = this.extractForwardDeclarations(cleanedCode);
+    const forwardSection = forwardDecls
+      ? `// --- Forward declarations (auto-generated, mirrors Arduino IDE behaviour) ---\n${forwardDecls}\n\n`
+      : "";
+
+    const combined = `${ARDUINO_MOCK_CODE}\n\n${forwardSection}// --- User code follows ---\n${cleanedCode}\n\n// --- Footer ---\n${footer}`;
 
     await writeFile(sketchFile, combined);
 
@@ -68,6 +73,54 @@ export class SketchFileBuilder {
 
   clearCreatedSketchDir(dir: string): void {
     this.createdSketchDirs.delete(dir);
+  }
+
+  /**
+   * Extracts forward declarations for all user-defined functions.
+   *
+   * The Arduino IDE automatically generates prototypes for every function in a
+   * sketch so that helper functions can be called before they are defined (just
+   * like in a real Arduino sketch).  We replicate that behaviour here so that
+   * the local g++ compiler accepts the same code the Arduino IDE would accept.
+   */
+  private extractForwardDeclarations(code: string): string {
+    // Strip single-line and block comments to avoid false positives
+    const stripped = code
+      .replaceAll(/\/\/[^\n]*/g, "")
+      .replaceAll(/\/\*[\s\S]*?\*\//g, "");
+
+    // Keywords that are never function names
+    const SKIP = new Set([
+      "if", "else", "while", "for", "do", "switch", "case",
+      "return", "break", "continue", "goto",
+      "class", "struct", "union", "enum", "namespace", "typedef",
+      "setup", "loop", "main",
+    ]);
+
+    // Match top-level function definitions (no leading indentation).
+    // The return type may span multiple words, e.g. "unsigned long":
+    // (?:\w[\w*&]*[ \t]+)* captures each word of the type (space/tab after each),
+    // \w[\w*&]* captures the final word (e.g. "long" or "char*").
+    // Using [ \t] instead of \s and keeping [\w*&] without spaces ensures
+    // the character classes are disjoint and the regex cannot backtrack catastrophically.
+    const funcDef = /^((?:\w[\w*&]*[ \t]+)*\w[\w*&]*)[ \t]+(\w+)[ \t]*(\([^)]*\))[ \t]*\{/gm;
+
+    const seen = new Set<string>();
+    const decls: string[] = [];
+
+    for (const match of stripped.matchAll(funcDef)) {
+      const returnType = match[1].trim();
+      const funcName = match[2];
+      const params = match[3];
+
+      if (SKIP.has(funcName)) continue;
+      if (seen.has(funcName)) continue;
+
+      seen.add(funcName);
+      decls.push(`${returnType} ${funcName}${params};`);
+    }
+
+    return decls.join("\n");
   }
 
   /**

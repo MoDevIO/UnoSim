@@ -95,7 +95,7 @@ class SandboxRunnerPool {
     this.logger.info(`[SandboxRunnerPool] Pool ready with ${this.minRunners} warm runners (max: ${this.maxRunners})`);
   }
 
-  async acquireRunner(): Promise<SandboxRunner> {
+  async acquireRunner(signal?: AbortSignal): Promise<SandboxRunner> {
     if (!this.initialized) {
       throw new Error("SandboxRunnerPool not initialized. Call initialize() first.");
     }
@@ -125,6 +125,11 @@ class SandboxRunnerPool {
     }
 
     return new Promise<SandboxRunner>((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new Error("SandboxRunnerPool: acquire cancelled (client disconnected)"));
+        return;
+      }
+
       let entry: QueueEntry;
       const timeout = setTimeout(() => {
         const index = this.queue.indexOf(entry);
@@ -137,6 +142,21 @@ class SandboxRunnerPool {
           ),
         );
       }, this.acquireTimeoutMs);
+
+      const onAbort = () => {
+        const index = this.queue.indexOf(entry);
+        if (index !== -1) {
+          this.queue.splice(index, 1);
+        }
+        clearTimeout(timeout);
+        this.logger.debug(
+          `[SandboxRunnerPool] Queued request cancelled by AbortSignal (queue: ${this.queue.length} remaining)`,
+        );
+        reject(new Error("SandboxRunnerPool: acquire cancelled (client disconnected)"));
+      };
+      if (signal) {
+        signal.addEventListener("abort", onAbort, { once: true });
+      }
 
       entry = { resolve, reject, timeout };
       this.queue.push(entry);
