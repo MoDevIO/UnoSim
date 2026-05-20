@@ -128,12 +128,12 @@ docker run --rm -p 3000:3000 \
    -e NODE_ENV=production \
    -e DOCKER_HOST=unix:///var/run/docker.sock \
    -e DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest \
-   -e ARDUINO_CACHE_DIR=/Users/to/Documents/TT_Web/UnoSim/server/arduino-cache \
-   -e UNOSIM_SHARED_TEMP_DIR=/Users/to/Documents/TT_Web/UnoSim/temp \
+   -e ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache \
+   -e UNOSIM_SHARED_TEMP_DIR=${PWD}/temp \
    -v /var/run/docker.sock:/var/run/docker.sock \
-   -v /Users/to/Documents/TT_Web/UnoSim/server/arduino-cache:/Users/to/Documents/TT_Web/UnoSim/server/arduino-cache \
-   -v /Users/to/Documents/TT_Web/UnoSim/temp:/Users/to/Documents/TT_Web/UnoSim/temp \
-   -v /Users/to/Documents/TT_Web/UnoSim/storage:/app/storage \
+   -v ${PWD}/server/arduino-cache:${PWD}/server/arduino-cache \
+   -v ${PWD}/temp:${PWD}/temp \
+   -v ${PWD}/storage:/app/storage \
    unosim-server:latest
 ```
 
@@ -148,9 +148,9 @@ If you need SonarQube, run it separately in its own stack or service; the UnoSim
 
 The application runs inside a container and is available at `http://localhost:3000`.
 
-For sandboxed sketch execution, the server container must use a temp directory that is bind-mounted from the host at the same absolute path. The provided Compose file does this via `UNOSIM_SHARED_TEMP_DIR=/Users/to/Documents/TT_Web/UnoSim/temp` and `./temp:/Users/to/Documents/TT_Web/UnoSim/temp`.
+For sandboxed sketch execution, the server container must use a temp directory that is bind-mounted from the host at the same absolute path. The provided Compose file does this via `UNOSIM_SHARED_TEMP_DIR=${PWD}/temp` and `${PWD}/temp:${PWD}/temp`.
 
-On macOS, make sure `/Users/to/Documents/TT_Web/UnoSim` is allowed under Docker Desktop file sharing, otherwise the inner sandbox container cannot see generated files such as `sketch.cpp`.
+On macOS, make sure your project directory is allowed under Docker Desktop file sharing, otherwise the inner sandbox container cannot see generated files such as `sketch.cpp`.
 
 ### Available Scripts
 
