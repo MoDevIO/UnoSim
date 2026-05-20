@@ -45,6 +45,33 @@ const mockBehavior: MockBehavior = {
   supportsPause: false,
 };
 
+interface WorkerMessage {
+  type: string;
+  status?: string;
+  gccStatus?: string;
+  data?: string;
+}
+
+function parseWorkerMessage(raw: WebSocket.RawData): WorkerMessage {
+  if (typeof raw === "string") {
+    return JSON.parse(raw) as WorkerMessage;
+  }
+
+  if (Buffer.isBuffer(raw)) {
+    return JSON.parse(raw.toString("utf8")) as WorkerMessage;
+  }
+
+  if (raw instanceof ArrayBuffer) {
+    return JSON.parse(Buffer.from(raw).toString("utf8")) as WorkerMessage;
+  }
+
+  if (Array.isArray(raw)) {
+    return JSON.parse(Buffer.concat(raw as Buffer[]).toString("utf8")) as WorkerMessage;
+  }
+
+  throw new Error("Unsupported WebSocket message data type");
+}
+
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // ── MockSandboxRunner ────────────────────────────────────────────────────────
@@ -57,27 +84,50 @@ class MockSandboxRunner {
   get state() { return this._state; }
   set state(v: string) { this._state = v; this.executionState.state = v; }
 
-  executionState = {
-    state: "stopped" as string,
-    pauseStartTime: null as number | null,
+  executionState: {
+    state: string;
+    pauseStartTime: number | null;
+    totalPausedTime: number;
+    processKilled: boolean;
+    pendingCleanup: boolean;
+    pinStateBatcher: unknown;
+    serialOutputBatcher: unknown;
+    onOutputCallback: unknown;
+    errorCallback: unknown;
+    telemetryCallback: unknown;
+    pinStateCallback: unknown;
+    ioRegistryCallback: unknown;
+    outputBuffer: string;
+    outputBufferIndex: number;
+    totalOutputBytes: number;
+    isSendingOutput: boolean;
+    messageQueue: unknown[];
+    stderrFallbackBuffer: string;
+    backpressurePaused: boolean;
+    flushTimer: NodeJS.Timeout | null;
+    dockerAvailable: boolean;
+    dockerImageBuilt: boolean;
+  } = {
+    state: "stopped",
+    pauseStartTime: null,
     totalPausedTime: 0,
     processKilled: false,
     pendingCleanup: false,
-    pinStateBatcher: null as unknown,
-    serialOutputBatcher: null as unknown,
-    onOutputCallback: null as unknown,
-    errorCallback: null as unknown,
-    telemetryCallback: null as unknown,
-    pinStateCallback: null as unknown,
-    ioRegistryCallback: undefined as unknown,
+    pinStateBatcher: null,
+    serialOutputBatcher: null,
+    onOutputCallback: null,
+    errorCallback: null,
+    telemetryCallback: null,
+    pinStateCallback: null,
+    ioRegistryCallback: undefined,
     outputBuffer: "",
     outputBufferIndex: 0,
     totalOutputBytes: 0,
     isSendingOutput: false,
-    messageQueue: [] as unknown[],
+    messageQueue: [],
     stderrFallbackBuffer: "",
     backpressurePaused: false,
-    flushTimer: null as NodeJS.Timeout | null,
+    flushTimer: null,
     dockerAvailable: false,
     dockerImageBuilt: false,
   };
@@ -258,12 +308,12 @@ async function runClient(
 
     ws.on("message", (raw) => {
       try {
-        const msg = JSON.parse(raw.toString()) as Record<string, unknown>;
+        const msg = parseWorkerMessage(raw);
         result.wsMessages.push({
-          type: msg.type as string,
-          status: msg.status as string | undefined,
-          gccStatus: msg.gccStatus as string | undefined,
-          data: msg.data as string | undefined,
+          type: msg.type,
+          status: msg.status,
+          gccStatus: msg.gccStatus,
+          data: msg.data,
           timestamp: Date.now(),
         });
 
@@ -524,12 +574,12 @@ describe("Simulation state sequence", () => {
       });
 
       ws.on("message", (raw) => {
-        const msg = JSON.parse(raw.toString()) as Record<string, unknown>;
+        const msg = parseWorkerMessage(raw);
         result.wsMessages.push({
-          type: msg.type as string,
-          status: msg.status as string | undefined,
-          gccStatus: msg.gccStatus as string | undefined,
-          data: msg.data as string | undefined,
+          type: msg.type,
+          status: msg.status,
+          gccStatus: msg.gccStatus,
+          data: msg.data,
           timestamp: Date.now(),
         });
 
@@ -619,12 +669,12 @@ describe("Simulation state sequence", () => {
       });
 
       ws.on("message", (raw) => {
-        const msg = JSON.parse(raw.toString()) as Record<string, unknown>;
+        const msg = parseWorkerMessage(raw);
         result.wsMessages.push({
-          type: msg.type as string,
-          status: msg.status as string | undefined,
-          gccStatus: msg.gccStatus as string | undefined,
-          data: msg.data as string | undefined,
+          type: msg.type,
+          status: msg.status,
+          gccStatus: msg.gccStatus,
+          data: msg.data,
           timestamp: Date.now(),
         });
 

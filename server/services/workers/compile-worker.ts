@@ -269,18 +269,19 @@ async function processCompileRequest(task: CompileRequestPayload) {
  * Main message handler with strict type safety
  */
 if (parentPort) {
-  parentPort.on("message", async (msg: AnyWorkerMessage) => {
+  const port = parentPort;
+  port.on("message", async (msg: AnyWorkerMessage) => {
     try {
       if (isCompileRequest(msg)) {
         const result = await processCompileRequest(msg.payload);
-        parentPort!.postMessage(
+        port.postMessage(
           createCompileResponse({
             result,
           })
         );
       }
     } catch (err) {
-      parentPort!.postMessage(
+      port.postMessage(
         createCompileResponse({
           error: createWorkerError(err),
         })

@@ -4,9 +4,9 @@ import type { CompilationResult } from "../../../server/services/arduino-compile
 // Mock the config module so we can change serverMode per test
 const { mockConfig } = vi.hoisted(() => ({
   mockConfig: {
-    serverMode: "local" as string,
+    serverMode: "local",
     compilation: { workerCount: 2 },
-  },
+  } as { serverMode: string; compilation: { workerCount: number } },
 }));
 vi.mock("../../../server/config", () => ({
   config: mockConfig,
