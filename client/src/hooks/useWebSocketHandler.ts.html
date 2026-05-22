@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.72% </span>
+                <span class="strong">67.9% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>145/211</span>
+                <span class='fraction'>146/215</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">72.95% </span>
+                <span class="strong">72% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>143/196</span>
+                <span class='fraction'>144/200</span>
             </div>
         
             
@@ -551,7 +551,16 @@
 <a name='L486'></a><a href='#L486'>486</a>
 <a name='L487'></a><a href='#L487'>487</a>
 <a name='L488'></a><a href='#L488'>488</a>
-<a name='L489'></a><a href='#L489'>489</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L489'></a><a href='#L489'>489</a>
+<a name='L490'></a><a href='#L490'>490</a>
+<a name='L491'></a><a href='#L491'>491</a>
+<a name='L492'></a><a href='#L492'>492</a>
+<a name='L493'></a><a href='#L493'>493</a>
+<a name='L494'></a><a href='#L494'>494</a>
+<a name='L495'></a><a href='#L495'>495</a>
+<a name='L496'></a><a href='#L496'>496</a>
+<a name='L497'></a><a href='#L497'>497</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -608,6 +617,8 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -795,11 +806,15 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -828,6 +843,7 @@
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -1049,6 +1065,7 @@ import type { SimulationStatus } from "@shared/types/arduino.types";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import type { PinState, PinStateType } from "@/hooks/use-simulation-store";
 import { emitPinStateChange, emitSimulationStateEvent } from "@/hooks/use-external-api";
+import type { DockerGccPhase } from "@/hooks/use-compile-and-run";
 import type {
   IncomingArduinoMessage,
   SerialPayload,
@@ -1138,6 +1155,8 @@ export type UseWebSocketHandlerParams = {
   setSandboxMode: React.Dispatch&lt;React.SetStateAction&lt;string&gt;&gt;;
   setWorkerIndex: React.Dispatch&lt;React.SetStateAction&lt;number | undefined&gt;&gt;;
   setWorkerTotal: React.Dispatch&lt;React.SetStateAction&lt;number | undefined&gt;&gt;;
+  /** Tracks the Docker/sandbox GCC compile phase for granular UI feedback. Optional to avoid breaking tests. */
+  setDockerGccPhase?: React.Dispatch&lt;React.SetStateAction&lt;DockerGccPhase&gt;&gt;;
 };
 &nbsp;
 export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
@@ -1283,11 +1302,15 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       setCliOutput(message.message);
     }
     // Propagate Docker compile phase to external API (parent frame/test dashboard)
+    // and to the button state via setDockerGccPhase for granular UI feedback.
     <span class="missing-if-branch" title="if path not taken" >I</span>if (message.gccStatus === "queued") {
+<span class="cstat-no" title="statement not covered" >      params.setDockerGccPhase?.("queued");</span>
 <span class="cstat-no" title="statement not covered" >      emitSimulationStateEvent("QUEUED_FOR_COMPILING");</span>
     <span class="missing-if-branch" title="if path not taken" >I</span>} else if (message.gccStatus === "compiling") {
+<span class="cstat-no" title="statement not covered" >      params.setDockerGccPhase?.("active");</span>
 <span class="cstat-no" title="statement not covered" >      emitSimulationStateEvent("COMPILING");</span>
     <span class="missing-if-branch" title="if path not taken" >I</span>} else if (message.gccStatus === "success") {
+<span class="cstat-no" title="statement not covered" >      params.setDockerGccPhase?.("idle");</span>
       // Compile phase ended — transition badge back to RUNNING so dashboards
       // that were showing QUEUED_FOR_COMPILING or COMPILING reflect the true state.
 <span class="cstat-no" title="statement not covered" >      emitSimulationStateEvent("RUNNING");</span>
@@ -1316,6 +1339,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setSimulationStatus(clientStatus);
 &nbsp;
     if (status === "stopped") {
+      params.setDockerGccPhase?.("idle");
       stopRendering();
       <span class="missing-if-branch" title="else path not taken" >E</span>if (serialEventQueueRef?.current) {
         serialEventQueueRef.current = [];
@@ -1534,7 +1558,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-20T12:16:18.116Z
+                at 2026-05-22T12:50:01.507Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
