@@ -22,6 +22,9 @@ import type {
 
 const logger = new Logger("useCompileAndRun");
 
+/** Tracks the Docker/sandbox GCC compile phase for granular UI feedback. */
+export type DockerGccPhase = "idle" | "queued" | "active";
+
 /** Resets Arduino CLI status to idle after the standard 2-second delay. */
 function scheduleCliIdle(setArduinoCliStatus: (s: "idle" | "compiling" | "success" | "error") => void) {
   setTimeout(() => {
@@ -114,6 +117,9 @@ interface UseCompileAndRunResult {
   setHasCompiledOnce: SetState<boolean>;
   simulationTimeout: number;
   setSimulationTimeout: SetState<number>;
+  /** Docker/sandbox GCC compile phase for granular button feedback. */
+  dockerGccPhase: DockerGccPhase;
+  setDockerGccPhase: SetState<DockerGccPhase>;
   startMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
   stopMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
   pauseMutation: UseMutationResult<{ success: boolean }, unknown, void, unknown>;
@@ -145,6 +151,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>("idle");
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
+  /** Tracks the Docker/sandbox GCC compile phase for granular button feedback. */
+  const [dockerGccPhase, setDockerGccPhase] = useState<DockerGccPhase>("idle");
 
   // refs used internally
   const doUploadOnCompileSuccessRef = useRef(false);
@@ -809,6 +817,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setHasCompiledOnce,
     simulationTimeout,
     setSimulationTimeout,
+    dockerGccPhase,
+    setDockerGccPhase,
     startMutation,
     stopMutation,
     pauseMutation,

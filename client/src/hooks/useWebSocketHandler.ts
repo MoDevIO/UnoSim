@@ -8,6 +8,7 @@ import type { SimulationStatus } from "@shared/types/arduino.types";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import type { PinState, PinStateType } from "@/hooks/use-simulation-store";
 import { emitPinStateChange, emitSimulationStateEvent } from "@/hooks/use-external-api";
+import type { DockerGccPhase } from "@/hooks/use-compile-and-run";
 import type {
   IncomingArduinoMessage,
   SerialPayload,
@@ -97,6 +98,8 @@ export type UseWebSocketHandlerParams = {
   setSandboxMode: React.Dispatch<React.SetStateAction<string>>;
   setWorkerIndex: React.Dispatch<React.SetStateAction<number | undefined>>;
   setWorkerTotal: React.Dispatch<React.SetStateAction<number | undefined>>;
+  /** Tracks the Docker/sandbox GCC compile phase for granular UI feedback. Optional to avoid breaking tests. */
+  setDockerGccPhase?: React.Dispatch<React.SetStateAction<DockerGccPhase>>;
 };
 
 export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
@@ -242,11 +245,15 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       setCliOutput(message.message);
     }
     // Propagate Docker compile phase to external API (parent frame/test dashboard)
+    // and to the button state via setDockerGccPhase for granular UI feedback.
     if (message.gccStatus === "queued") {
+      params.setDockerGccPhase?.("queued");
       emitSimulationStateEvent("QUEUED_FOR_COMPILING");
     } else if (message.gccStatus === "compiling") {
+      params.setDockerGccPhase?.("active");
       emitSimulationStateEvent("COMPILING");
     } else if (message.gccStatus === "success") {
+      params.setDockerGccPhase?.("idle");
       // Compile phase ended — transition badge back to RUNNING so dashboards
       // that were showing QUEUED_FOR_COMPILING or COMPILING reflect the true state.
       emitSimulationStateEvent("RUNNING");
@@ -275,6 +282,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setSimulationStatus(clientStatus);
 
     if (status === "stopped") {
+      params.setDockerGccPhase?.("idle");
       stopRendering();
       if (serialEventQueueRef?.current) {
         serialEventQueueRef.current = [];

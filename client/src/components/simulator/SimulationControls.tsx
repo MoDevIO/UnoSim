@@ -1,10 +1,14 @@
 import React from "react";
 import { AppHeader } from "@/components/features/app-header";
 import type { SimulationStatus } from "@shared/types/arduino.types";
+import type { CompilationStatus } from "@/types/compilation.types";
 
 interface SimulationControlsProps {
   readonly isMobile: boolean;
   readonly simulationStatus: SimulationStatus;
+  readonly compilationStatus: CompilationStatus;
+  readonly dockerGccPhase: "idle" | "queued" | "active";
+  readonly pendingExternalStart?: boolean;
   readonly simulateDisabled: boolean;
   readonly isCompiling: boolean;
   readonly isStarting: boolean;

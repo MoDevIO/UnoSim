@@ -105,6 +105,7 @@ export function ArduinoSimulatorPageLayout(
     outputPanelMinPercent,
     outputPanelManuallyResizedRef,
     pendingExternalStart,
+    dockerGccPhase,
   } = props;
   return (
     <div
@@ -140,6 +141,9 @@ export function ArduinoSimulatorPageLayout(
       <SimulationControls
         isMobile={isMobile}
         simulationStatus={simulationStatus}
+        compilationStatus={compilationStatus}
+        dockerGccPhase={dockerGccPhase}
+        pendingExternalStart={pendingExternalStart}
         simulateDisabled={simulateDisabled}
         isCompiling={compileMutation.isPending}
         isStarting={startMutation.isPending}

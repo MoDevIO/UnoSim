@@ -2,7 +2,8 @@ import React from "react";
 import { Cpu, Loader2, Play, Square, Pause } from "lucide-react";
 import clsx from "clsx";
 import { Button } from "@/components/ui/button";
-import type { SimulationStatus } from "@shared/types/arduino.types";
+import type { SimulationStatus, ClientState } from "@shared/types/arduino.types";
+import type { CompilationStatus } from "@/types/compilation.types";
 import {
   Menubar,
   MenubarMenu,
@@ -22,6 +23,9 @@ import {
 interface AppHeaderProps {
   readonly isMobile?: boolean;
   readonly simulationStatus: SimulationStatus;
+  readonly compilationStatus: CompilationStatus;
+  readonly dockerGccPhase: "idle" | "queued" | "active";
+  readonly pendingExternalStart?: boolean;
   readonly simulateDisabled: boolean;
   readonly isCompiling: boolean;
   readonly isStarting: boolean;
@@ -85,32 +89,34 @@ function _getSimulateAction(
   return onSimulate;
 }
 
-function _getSimulateAriaLabel(status: SimulationStatus): string {
-  if (status === "running") return "Stop Simulation";
-  if (status === "paused") return "Resume Simulation";
-  if (status === "queued") return "Simulation queued";
+function _getSimulateAriaLabel(clientState: ClientState): string {
+  if (clientState === "RUNNING") return "Stop Simulation";
+  if (clientState === "PAUSED") return "Resume Simulation";
+  if (clientState === "QUEUED_FOR_COMPILING") return "Waiting for compile slot";
+  if (clientState === "COMPILING") return "Compiling code";
+  if (clientState === "QUEUED_FOR_SIMULATION") return "Waiting for simulation slot";
   return "Start Simulation";
 }
 
-function _getSimulateText(status: SimulationStatus): string {
-  if (status === "running") return "Stop";
-  if (status === "paused") return "Resume";
-  if (status === "queued") return "Queued";
-  return "Start";
+function _getSimulateText(clientState: ClientState): string {
+  if (clientState === "PAUSED") return "Resume";
+  if (clientState === "IDLE" || clientState === "ERROR") return "Start";
+  return "Stop";
 }
 
 function _getDesktopSimulateButtonClass(
-  status: SimulationStatus,
+  clientState: ClientState,
   disabled: boolean,
 ): string {
   return clsx(
     "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
     "!text-white font-medium transition-colors",
     {
-      "!bg-status-warning hover:!bg-accent-amber": status === "running" && !disabled,
+      "!bg-status-warning hover:!bg-accent-amber": clientState === "RUNNING" && !disabled,
       "!bg-status-success hover:!bg-status-success-dark":
-        (status === "idle" || status === "paused") && !disabled,
-      "!bg-yellow-600 hover:!bg-yellow-700": status === "queued" && !disabled,
+        (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") && !disabled,
+      "!bg-blue-600 hover:!bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") && !disabled,
+      "!bg-violet-600 hover:!bg-violet-700": clientState === "QUEUED_FOR_SIMULATION" && !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
     },
   );
@@ -123,20 +129,40 @@ function getMobileSimulateIcon(isLoading: boolean, isRunning: boolean): JSX.Elem
 }
 
 function _getMobileSimulateButtonClass(
-  status: SimulationStatus,
+  clientState: ClientState,
   disabled: boolean,
 ): string {
   return clsx(
     "h-[var(--ui-button-height)] px-6 pr-12 flex items-center justify-center gap-2 relative",
     "!text-white font-medium transition-colors whitespace-nowrap",
     {
-      "!bg-orange-600 hover:!bg-orange-700": status === "running" && !disabled,
+      "!bg-orange-600 hover:!bg-orange-700": clientState === "RUNNING" && !disabled,
       "!bg-green-600 hover:!bg-green-700":
-        (status === "idle" || status === "paused") && !disabled,
-      "!bg-yellow-600 hover:!bg-yellow-700": status === "queued" && !disabled,
+        (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") && !disabled,
+      "!bg-blue-600 hover:!bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") && !disabled,
+      "!bg-violet-600 hover:!bg-violet-700": clientState === "QUEUED_FOR_SIMULATION" && !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
     },
   );
+}
+
+// ─── ClientState derivation for button ───────────────────────────────────────
+
+function _deriveClientStateForButton(
+  simulationStatus: SimulationStatus,
+  compilationStatus: CompilationStatus,
+  dockerGccPhase: "idle" | "queued" | "active",
+  pendingExternalStart: boolean,
+): ClientState {
+  if (pendingExternalStart) return "QUEUED_FOR_COMPILING";
+  if (compilationStatus === "compiling") return "COMPILING";
+  if (dockerGccPhase === "queued") return "QUEUED_FOR_COMPILING";
+  if (dockerGccPhase === "active") return "COMPILING";
+  if (simulationStatus === "queued") return "QUEUED_FOR_SIMULATION";
+  if (simulationStatus === "running") return "RUNNING";
+  if (simulationStatus === "paused") return "PAUSED";
+  if (compilationStatus === "error") return "ERROR";
+  return "IDLE";
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -498,6 +524,9 @@ function DesktopMenuBar({
 export const AppHeader: React.FC<AppHeaderProps> = ({
   isMobile = false,
   simulationStatus,
+  compilationStatus,
+  dockerGccPhase,
+  pendingExternalStart,
   simulateDisabled,
   isCompiling,
   isStarting,
@@ -561,10 +590,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   }, [isMobile]);
 
   const simulateAction = _getSimulateAction(simulationStatus, onStop, onResume, onSimulate);
-  const simulateLabel = _getSimulateAriaLabel(simulationStatus);
-  const simulateText = _getSimulateText(simulationStatus);
+  const clientState = _deriveClientStateForButton(
+    simulationStatus,
+    compilationStatus,
+    dockerGccPhase,
+    pendingExternalStart ?? false,
+  );
+  const simulateLabel = _getSimulateAriaLabel(clientState);
+  const simulateText = _getSimulateText(clientState);
   const isRunning = simulationStatus === "running";
-  const pauseProps = { isPausing, simulateDisabled, isLoading, onPause };
+  const isLoadingFull =
+    isLoading ||
+    clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING" ||
+    clientState === "QUEUED_FOR_SIMULATION";
+  const pauseProps = { isPausing, simulateDisabled, isLoading: isLoadingFull, onPause };
 
   // Desktop Header
   if (!isMobile) {
@@ -631,12 +670,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <Button
               onClick={simulateAction}
               disabled={simulateDisabled}
-              className={_getDesktopSimulateButtonClass(simulationStatus, simulateDisabled)}
+              className={_getDesktopSimulateButtonClass(clientState, simulateDisabled)}
               data-testid="button-simulate-toggle"
               aria-label={simulateLabel}
             >
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
-                <DesktopSimulateIcon isLoading={isLoading} isRunning={isRunning} />
+                <DesktopSimulateIcon isLoading={isLoadingFull} isRunning={isRunning} />
                 <span className="font-semibold leading-none">{simulateText}</span>
               </div>
             </Button>
@@ -662,11 +701,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <Button
           onClick={simulateAction}
           disabled={simulateDisabled}
-          className={_getMobileSimulateButtonClass(simulationStatus, simulateDisabled)}
+          className={_getMobileSimulateButtonClass(clientState, simulateDisabled)}
           data-testid="button-simulate-toggle-mobile"
           aria-label={simulateLabel}
         >
-          <MobileSimulateContent isLoading={isLoading} isRunning={isRunning} text={simulateText} />
+          <MobileSimulateContent isLoading={isLoadingFull} isRunning={isRunning} text={simulateText} />
         </Button>
         {isRunning && <PauseButton {...pauseProps} />}
       </div>

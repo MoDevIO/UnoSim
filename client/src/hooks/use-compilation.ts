@@ -44,7 +44,7 @@ export function useCompilation(params: UseCompilationParams) {
     setPendingPinConflicts: () => {},
     isModified: false,
     handleCompileAndStart: () => {},
-    startSimulationRef: params.startSimulationRef ?? ({ current: null } as MutableRefObject<(() => void) | null>),
+    startSimulationRef: params.startSimulationRef ?? { current: null },
   });
 
   // notify caller of compile successes in the old style and trigger
@@ -93,5 +93,7 @@ export function useCompilation(params: UseCompilationParams) {
     handleCompileAndStart,
     handleClearCompilationOutput: merged.handleClearCompilationOutput,
     clearOutputs: merged.clearOutputs,
+    dockerGccPhase: merged.dockerGccPhase,
+    setDockerGccPhase: merged.setDockerGccPhase,
   };
 }
