@@ -91,8 +91,7 @@ function _getSimulateAction(
 }
 
 function _getSimulateAriaLabel(clientState: ClientState): string {
-  if (clientState === "RUNNING_STARTING") return "Starting simulation";
-  if (clientState === "RUNNING") return "Stop Simulation";
+  if (clientState === "RUNNING" || clientState === "RUNNING_STARTING") return "Stop Simulation";
   if (clientState === "PAUSED") return "Resume Simulation";
   if (clientState === "QUEUED_FOR_COMPILING") return "Waiting for compile slot";
   if (clientState === "COMPILING") return "Compiling code";
