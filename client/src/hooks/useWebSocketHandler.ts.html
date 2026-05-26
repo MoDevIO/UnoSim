@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">67.9% </span>
+                <span class="strong">68.63% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>146/215</span>
+                <span class='fraction'>151/220</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">72% </span>
+                <span class="strong">72.68% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>144/200</span>
+                <span class='fraction'>149/205</span>
             </div>
         
             
@@ -559,7 +559,17 @@
 <a name='L494'></a><a href='#L494'>494</a>
 <a name='L495'></a><a href='#L495'>495</a>
 <a name='L496'></a><a href='#L496'>496</a>
-<a name='L497'></a><a href='#L497'>497</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L497'></a><a href='#L497'>497</a>
+<a name='L498'></a><a href='#L498'>498</a>
+<a name='L499'></a><a href='#L499'>499</a>
+<a name='L500'></a><a href='#L500'>500</a>
+<a name='L501'></a><a href='#L501'>501</a>
+<a name='L502'></a><a href='#L502'>502</a>
+<a name='L503'></a><a href='#L503'>503</a>
+<a name='L504'></a><a href='#L504'>504</a>
+<a name='L505'></a><a href='#L505'>505</a>
+<a name='L506'></a><a href='#L506'>506</a>
+<a name='L507'></a><a href='#L507'>507</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -696,6 +706,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">26x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -732,9 +744,12 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
@@ -847,6 +862,7 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -859,6 +875,8 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -870,6 +888,7 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -878,6 +897,7 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1157,6 +1177,8 @@ export type UseWebSocketHandlerParams = {
   setWorkerTotal: React.Dispatch&lt;React.SetStateAction&lt;number | undefined&gt;&gt;;
   /** Tracks the Docker/sandbox GCC compile phase for granular UI feedback. Optional to avoid breaking tests. */
   setDockerGccPhase?: React.Dispatch&lt;React.SetStateAction&lt;DockerGccPhase&gt;&gt;;
+  /** Called once when the first real output (serial or pin) arrives after simulation starts. Optional. */
+  setHasFirstOutput?: (value: boolean) =&gt; void;
 };
 &nbsp;
 export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
@@ -1227,6 +1249,9 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     if (text.includes("[[TIME_RESUMED:") || text.includes("[[TIME_FROZEN:")) {
       return;
     }
+&nbsp;
+    // Signal that the first real output has arrived
+    params.setHasFirstOutput?.(true);
 &nbsp;
     setRxActivity(<span class="fstat-no" title="function not covered" >(p</span>rev) =&gt; <span class="cstat-no" title="statement not covered" >prev + 1)</span>;
 &nbsp;
@@ -1340,6 +1365,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
 &nbsp;
     if (status === "stopped") {
       params.setDockerGccPhase?.("idle");
+      params.setHasFirstOutput?.(false);
       stopRendering();
       <span class="missing-if-branch" title="else path not taken" >E</span>if (serialEventQueueRef?.current) {
         serialEventQueueRef.current = [];
@@ -1355,6 +1381,8 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       pauseRendering();
       emitSimulationStateEvent("PAUSED");
     <span class="missing-if-branch" title="else path not taken" >E</span>} else if (status === "running") {
+      // Reset first-output flag: sketch just started, output may arrive shortly
+      params.setHasFirstOutput?.(false);
       resumeRendering();
       emitSimulationStateEvent("RUNNING");
     }
@@ -1366,6 +1394,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     enqueuePinEvent(pin, stateType, value);
     if (stateType === "value" || stateType === "pwm") {
       emitPinStateChange(pin, value);
+      params.setHasFirstOutput?.(true);
     }
   };
 &nbsp;
@@ -1375,6 +1404,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       enqueuePinEvent(pin, stateType, value);
       if (stateType === "value" || stateType === "pwm") {
         emitPinStateChange(pin, value);
+        params.setHasFirstOutput?.(true);
       }
     }
   };
@@ -1558,7 +1588,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-22T12:50:01.507Z
+                at 2026-05-26T15:03:17.785Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
