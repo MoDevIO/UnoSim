@@ -156,11 +156,16 @@ function _deriveClientStateForButton(
 ): ClientState {
   if (pendingExternalStart) return "QUEUED_FOR_COMPILING";
   if (compilationStatus === "compiling") return "COMPILING";
+  // simulationStatus takes priority over dockerGccPhase: once a runner is
+  // acquired the server sends simulation_status:running then immediately
+  // compilation_status:compiling (Docker g++ starting inside the runner).
+  // If both arrive in the same React batch the button must still show RUNNING
+  // so the E2E locator /stop simulation/i matches immediately.
+  if (simulationStatus === "running") return "RUNNING";
+  if (simulationStatus === "paused") return "PAUSED";
   if (dockerGccPhase === "queued") return "QUEUED_FOR_COMPILING";
   if (dockerGccPhase === "active") return "COMPILING";
   if (simulationStatus === "queued") return "QUEUED_FOR_SIMULATION";
-  if (simulationStatus === "running") return "RUNNING";
-  if (simulationStatus === "paused") return "PAUSED";
   if (compilationStatus === "error") return "ERROR";
   return "IDLE";
 }
@@ -231,7 +236,7 @@ function DesktopSimulateIcon({ isLoading, isRunning }: DesktopSimulateIconProps)
         })}
       />
       <Loader2
-        className={clsx("absolute inset-0 m-auto h-4 w-4 transition-opacity duration-150", {
+        className={clsx("absolute inset-0 m-auto h-4 w-4 animate-spin transition-opacity duration-150", {
           "opacity-100": isLoading,
           "opacity-0": !isLoading,
         })}
