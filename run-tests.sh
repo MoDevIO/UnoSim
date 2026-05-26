@@ -255,37 +255,45 @@ if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
     done
 fi
 
-export PORT=3000
-# Server startet im Hintergrund (NODE_ENV=development für Vite-Snapshots)
-if [ "$DOCKER_FOR_E2E" -eq 1 ]; then
+if [ "$DOCKER_FOR_E2E" -eq 0 ]; then
+    echo -e "  ${WARN} Docker nicht verfügbar – E2E-Tests erfordern Docker-Sandbox"
+    STEP=$((STEP+1))
+    echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] E2E-Tests (Playwright)${RS}"
+    echo -e "  ${WARN} Übersprungen – Docker nicht verfügbar (Sandbox benötigt)"
+    STEP=$((STEP+1))
+    echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] Post-Test Integrity Check${RS}"
+    echo -e "  ${WARN} Übersprungen – kein E2E-Lauf"
+else
+    export PORT=3000
     echo -e "  ${OK} Docker available – E2E with sandbox support"
     export FORCE_DOCKER=1
-    DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR=$UNOSIM_SHARED_TEMP_DIR NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
-else
-    echo -e "  ${WARN} Docker not available – E2E in local mode"
+    DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR=$UNOSIM_SHARED_TEMP_DIR \
+    DISABLE_COMPILE_GATEKEEPER=true DISABLE_RATE_LIMIT=true \
+    VITE_DISABLE_HMR=true VITE_DISABLE_TOASTS=true \
+    SANDBOX_POOL_MIN_RUNNERS=5 SANDBOX_POOL_MAX_RUNNERS=5 \
     NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
+    SERVER_PID=$!
+
+    for i in {1..15}; do
+        if curl -s http://localhost:3000 > /dev/null; then
+            echo -e "    ${G}${OK} Server ready (PID $SERVER_PID)${RS}"
+            break
+        fi
+        [ $i -eq 15 ] && echo -e "    ${R}${FAIL} Server startup timeout!${RS}" && exit 1
+        sleep 1
+    done
+
+    # 6. E2E-Tests (Playwright)
+    run_task "E2E-Tests (Playwright)" "npx playwright test --timeout 60000"
+    parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
+
+    # 7. Post-test integrity check (leak detection after all tests)
+    run_task "Post-Test Integrity Check" "./check-leaks.sh --cleanup"
+
+    # Stop server before build
+    cleanup
+    SERVER_PID=""
 fi
-SERVER_PID=$!
-
-for i in {1..15}; do
-    if curl -s http://localhost:3000 > /dev/null; then
-        echo -e "    ${G}${OK} Server ready (PID $SERVER_PID)${RS}"
-        break
-    fi
-    [ $i -eq 15 ] && echo -e "    ${R}${FAIL} Server startup timeout!${RS}" && exit 1
-    sleep 1
-done
-
-# 6. E2E-Tests (Playwright)
-run_task "E2E-Tests (Playwright)" "npx playwright test --timeout 60000"
-parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
-
-# 7. Post-test integrity check (leak detection after all tests)
-run_task "Post-Test Integrity Check" "./check-leaks.sh --cleanup"
-
-# Stop server before build
-cleanup
-SERVER_PID=""
 
 # 8. Production build
 run_task "Production Build" "npm run build"
