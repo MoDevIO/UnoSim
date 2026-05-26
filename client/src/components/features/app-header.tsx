@@ -25,6 +25,7 @@ interface AppHeaderProps {
   readonly simulationStatus: SimulationStatus;
   readonly compilationStatus: CompilationStatus;
   readonly dockerGccPhase: "idle" | "queued" | "active";
+  readonly hasFirstOutput: boolean;
   readonly pendingExternalStart?: boolean;
   readonly simulateDisabled: boolean;
   readonly isCompiling: boolean;
@@ -90,6 +91,7 @@ function _getSimulateAction(
 }
 
 function _getSimulateAriaLabel(clientState: ClientState): string {
+  if (clientState === "RUNNING_STARTING") return "Starting simulation";
   if (clientState === "RUNNING") return "Stop Simulation";
   if (clientState === "PAUSED") return "Resume Simulation";
   if (clientState === "QUEUED_FOR_COMPILING") return "Waiting for compile slot";
@@ -112,7 +114,7 @@ function _getDesktopSimulateButtonClass(
     "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
     "text-white font-medium transition-colors",
     {
-      "bg-orange-500 hover:bg-orange-600": clientState === "RUNNING" && !disabled,
+      "bg-orange-500 hover:bg-orange-600": (clientState === "RUNNING" || clientState === "RUNNING_STARTING") && !disabled,
       "bg-green-600 hover:bg-green-700":
         (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") && !disabled,
       "bg-blue-600 hover:bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") && !disabled,
@@ -136,7 +138,7 @@ function _getMobileSimulateButtonClass(
     "h-[var(--ui-button-height)] px-6 pr-12 flex items-center justify-center gap-2 relative",
     "!text-white font-medium transition-colors whitespace-nowrap",
     {
-      "!bg-orange-600 hover:!bg-orange-700": clientState === "RUNNING" && !disabled,
+      "!bg-orange-600 hover:!bg-orange-700": (clientState === "RUNNING" || clientState === "RUNNING_STARTING") && !disabled,
       "!bg-green-600 hover:!bg-green-700":
         (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") && !disabled,
       "!bg-blue-600 hover:!bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") && !disabled,
@@ -153,6 +155,7 @@ function _deriveClientStateForButton(
   compilationStatus: CompilationStatus,
   dockerGccPhase: "idle" | "queued" | "active",
   pendingExternalStart: boolean,
+  hasFirstOutput: boolean,
 ): ClientState {
   if (pendingExternalStart) return "QUEUED_FOR_COMPILING";
   if (compilationStatus === "compiling") return "COMPILING";
@@ -161,7 +164,11 @@ function _deriveClientStateForButton(
   // compilation_status:compiling (Docker g++ starting inside the runner).
   // If both arrive in the same React batch the button must still show RUNNING
   // so the E2E locator /stop simulation/i matches immediately.
-  if (simulationStatus === "running") return "RUNNING";
+  if (simulationStatus === "running") {
+    // Show a distinct "booting" state until the first serial output or pin
+    // value change arrives, indicating the sketch is actively producing output.
+    return hasFirstOutput ? "RUNNING" : "RUNNING_STARTING";
+  }
   if (simulationStatus === "paused") return "PAUSED";
   if (dockerGccPhase === "queued") return "QUEUED_FOR_COMPILING";
   if (dockerGccPhase === "active") return "COMPILING";
@@ -531,6 +538,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   simulationStatus,
   compilationStatus,
   dockerGccPhase,
+  hasFirstOutput,
   pendingExternalStart,
   simulateDisabled,
   isCompiling,
@@ -600,6 +608,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     compilationStatus,
     dockerGccPhase,
     pendingExternalStart ?? false,
+    hasFirstOutput,
   );
   const simulateLabel = _getSimulateAriaLabel(clientState);
   const simulateText = _getSimulateText(clientState);
@@ -607,7 +616,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const isLoadingFull =
     isLoading ||
     clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING" ||
-    clientState === "QUEUED_FOR_SIMULATION";
+    clientState === "QUEUED_FOR_SIMULATION" || clientState === "RUNNING_STARTING";
   const pauseProps = { isPausing, simulateDisabled, isLoading: isLoadingFull, onPause };
 
   // Desktop Header

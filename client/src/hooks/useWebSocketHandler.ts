@@ -100,6 +100,8 @@ export type UseWebSocketHandlerParams = {
   setWorkerTotal: React.Dispatch<React.SetStateAction<number | undefined>>;
   /** Tracks the Docker/sandbox GCC compile phase for granular UI feedback. Optional to avoid breaking tests. */
   setDockerGccPhase?: React.Dispatch<React.SetStateAction<DockerGccPhase>>;
+  /** Called once when the first real output (serial or pin) arrives after simulation starts. Optional. */
+  setHasFirstOutput?: (value: boolean) => void;
 };
 
 export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
@@ -170,6 +172,9 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     if (text.includes("[[TIME_RESUMED:") || text.includes("[[TIME_FROZEN:")) {
       return;
     }
+
+    // Signal that the first real output has arrived
+    params.setHasFirstOutput?.(true);
 
     setRxActivity((prev) => prev + 1);
 
@@ -283,6 +288,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
 
     if (status === "stopped") {
       params.setDockerGccPhase?.("idle");
+      params.setHasFirstOutput?.(false);
       stopRendering();
       if (serialEventQueueRef?.current) {
         serialEventQueueRef.current = [];
@@ -298,6 +304,8 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       pauseRendering();
       emitSimulationStateEvent("PAUSED");
     } else if (status === "running") {
+      // Reset first-output flag: sketch just started, output may arrive shortly
+      params.setHasFirstOutput?.(false);
       resumeRendering();
       emitSimulationStateEvent("RUNNING");
     }
@@ -309,6 +317,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     enqueuePinEvent(pin, stateType, value);
     if (stateType === "value" || stateType === "pwm") {
       emitPinStateChange(pin, value);
+      params.setHasFirstOutput?.(true);
     }
   };
 
@@ -318,6 +327,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       enqueuePinEvent(pin, stateType, value);
       if (stateType === "value" || stateType === "pwm") {
         emitPinStateChange(pin, value);
+        params.setHasFirstOutput?.(true);
       }
     }
   };

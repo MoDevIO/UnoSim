@@ -34,6 +34,7 @@ function deriveClientState(
 function clientStateColor(state: ClientState): string {
   switch (state) {
     case "RUNNING": return "text-emerald-400";
+    case "RUNNING_STARTING": return "text-orange-400";
     case "PAUSED": return "text-amber-300";
     case "COMPILING":
     case "QUEUED_FOR_COMPILING": return "text-blue-300";

@@ -8,6 +8,7 @@ interface SimulationControlsProps {
   readonly simulationStatus: SimulationStatus;
   readonly compilationStatus: CompilationStatus;
   readonly dockerGccPhase: "idle" | "queued" | "active";
+  readonly hasFirstOutput: boolean;
   readonly pendingExternalStart?: boolean;
   readonly simulateDisabled: boolean;
   readonly isCompiling: boolean;

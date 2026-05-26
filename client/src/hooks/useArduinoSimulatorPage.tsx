@@ -211,6 +211,8 @@ export function useArduinoSimulatorPage() {
   // placeholder for compilation-start callback
   const startSimulationRef = useRef<(() => void) | null>(null);
 
+  /** True once the first real output (serial or pin value/pwm) arrives after simulation starts. */
+  const [hasFirstOutput, setHasFirstOutput] = useState(false);
 
 
   const {
@@ -488,6 +490,7 @@ export function useArduinoSimulatorPage() {
     setSerialBaudrate,
     pinToNumber,
     setParserMessages,
+    setHasFirstOutput,
   });
 
   // Parse the current code to detect which analog pins are used by name or channel
@@ -819,6 +822,7 @@ export function useArduinoSimulatorPage() {
     fileInputRef,
     handleHiddenFileInput,
     pendingExternalStart,
+    hasFirstOutput,
   };
 
   return state;

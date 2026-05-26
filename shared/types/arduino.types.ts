@@ -55,6 +55,7 @@ export type ClientState =
   | "QUEUED_FOR_COMPILING"
   | "COMPILING"
   | "QUEUED_FOR_SIMULATION"
+  | "RUNNING_STARTING"
   | "RUNNING"
   | "PAUSED"
   | "ERROR";
