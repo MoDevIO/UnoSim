@@ -110,14 +110,14 @@ function _getDesktopSimulateButtonClass(
 ): string {
   return clsx(
     "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
-    "!text-white font-medium transition-colors",
+    "text-white font-medium transition-colors",
     {
-      "!bg-status-warning hover:!bg-accent-amber": clientState === "RUNNING" && !disabled,
-      "!bg-status-success hover:!bg-status-success-dark":
+      "bg-orange-500 hover:bg-orange-600": clientState === "RUNNING" && !disabled,
+      "bg-green-600 hover:bg-green-700":
         (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") && !disabled,
-      "!bg-blue-600 hover:!bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") && !disabled,
-      "!bg-violet-600 hover:!bg-violet-700": clientState === "QUEUED_FOR_SIMULATION" && !disabled,
-      "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
+      "bg-blue-600 hover:bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") && !disabled,
+      "bg-violet-600 hover:bg-violet-700": clientState === "QUEUED_FOR_SIMULATION" && !disabled,
+      "opacity-50 cursor-not-allowed bg-gray-500 hover:bg-gray-500": disabled,
     },
   );
 }
@@ -675,6 +675,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <Button
               onClick={simulateAction}
               disabled={simulateDisabled}
+              variant="ghost"
               className={_getDesktopSimulateButtonClass(clientState, simulateDisabled)}
               data-testid="button-simulate-toggle"
               aria-label={simulateLabel}
@@ -706,6 +707,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <Button
           onClick={simulateAction}
           disabled={simulateDisabled}
+          variant="ghost"
           className={_getMobileSimulateButtonClass(clientState, simulateDisabled)}
           data-testid="button-simulate-toggle-mobile"
           aria-label={simulateLabel}
