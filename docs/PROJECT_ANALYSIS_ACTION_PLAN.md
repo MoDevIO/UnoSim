@@ -67,15 +67,16 @@ explizit nutzen.
     Zeit beziehungsweise injizierte Uhren umstellen.
   - [x] AP-00.5c: Verbleibende Zustandssequenz- und Stress-Wartezeiten durch
     kontrollierbare Scheduler ersetzen oder aus dem Unit-Gate verschieben.
-- [ ] AP-00.6: Echte Compilerfälle konsolidieren.
+- [x] AP-00.6: Echte Compilerfälle konsolidieren.
   - [x] AP-00.6a: Queue-, Fehler-, Shutdown- und Backpressure-Semantik mit
     kontrollierten Fake-Workern testen; abgestürzte Worker dürfen aktive oder
     wartende Compiles nicht hängen lassen.
   - [x] AP-00.6b: Die vier redundanten Worker-Pool-„Lasttests“ durch wenige echte
     Canaries mit jeweils einzigartiger Invariante ersetzen; Reporting-only- und
     tautologische Assertions entfernen.
-  - [ ] AP-00.6c: Parallele Cache-Lock-Kompilation auf einen eindeutigen Canary
-    reduzieren und verbleibende reale Kompilationen inventarisieren.
+  - [x] AP-00.6c: Den vermeintlichen Cache-Lock-Compilerfall auf die tatsächlich
+    verwendete File-Lock-Grenze korrigieren und verbleibende reale
+    Kompilationen inventarisieren.
 - [ ] AP-00.7: `serial-flow` stabilisieren: Formatvarianten auf Parser-/Mock-Ebene
   testen, einen echten End-to-End-Smoke behalten, Helper-Timeout muss Runner und
   Kindprozess garantiert abbrechen, und Toolchain-/Docker-Suites mit begrenzter
@@ -122,6 +123,14 @@ abgelehnt; `activeWorkers` zählt tatsächlich laufende Aufträge.
 überwiegend identischen Kompilationen wurden durch zwei echte Canaries ersetzt.
 Der Erfolgsfall verlangt ein nichtleeres HEX-Binary, der Fehlerfall konkrete
 Arduino-CLI-Diagnostik. Das gesamte Toolchain-Gate sank von 93,21 s auf 18,24 s.
+
+**Nachmessung AP-00.6c:** Der entfernte „Core-Cache“-Integrationstest verwendete
+den Worker-Lock nicht und verglich entgegen seinem Namen keine Binaries. Die
+tatsächliche exklusive File-Erzeugung, Timeout- und Freigabesemantik wird nun mit
+injizierbarem 1-ms-Pollintervall dreimal stabil in 58–70 ms geprüft. Nur die zwei
+Canaries in `compiler-canaries.test.ts` rufen im Standard-Gate Arduino CLI zur
+Sketch-Kompilation auf; alle Compiler-Unit-Tests mocken Prozess oder
+Compile-Grenze. Das Toolchain-Gate benötigt jetzt 12,44 s.
 
 ### 0.4 Akzeptanzkriterien
 

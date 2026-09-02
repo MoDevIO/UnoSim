@@ -16,7 +16,11 @@ import {
 } from "../../../server/services/workers/compile-worker-utils";
 
 // Use a unique temp dir per test run to avoid collisions
-const TEST_BASE = join(process.cwd(), "temp", `worker-utils-test-${randomUUID().slice(0, 8)}`);
+const TEST_BASE = join(
+  process.cwd(),
+  "temp",
+  `worker-utils-test-${randomUUID().slice(0, 8)}`,
+);
 
 beforeEach(async () => {
   await mkdir(TEST_BASE, { recursive: true });
@@ -36,11 +40,17 @@ describe("normalizeLibraries", () => {
   });
 
   it("trims whitespace from entries", () => {
-    expect(normalizeLibraries(["  Servo  ", " WiFi"])).toEqual(["Servo", "WiFi"]);
+    expect(normalizeLibraries(["  Servo  ", " WiFi"])).toEqual([
+      "Servo",
+      "WiFi",
+    ]);
   });
 
   it("filters out empty strings", () => {
-    expect(normalizeLibraries(["Servo", "", "  ", "WiFi"])).toEqual(["Servo", "WiFi"]);
+    expect(normalizeLibraries(["Servo", "", "  ", "WiFi"])).toEqual([
+      "Servo",
+      "WiFi",
+    ]);
   });
 
   it("sorts entries alphabetically", () => {
@@ -121,7 +131,9 @@ describe("checkBinaryExists", () => {
   });
 
   it("returns false for non-existent directory", async () => {
-    expect(await checkBinaryExists(join(TEST_BASE, "no-dir"), "hash")).toBe(false);
+    expect(await checkBinaryExists(join(TEST_BASE, "no-dir"), "hash")).toBe(
+      false,
+    );
   });
 });
 
@@ -139,23 +151,23 @@ describe("acquireCoreCacheLock", () => {
     const lockPath = join(TEST_BASE, "held.lock");
     // Create existing lock file
     await writeFile(lockPath, "other-process");
-    const result = await acquireCoreCacheLock(lockPath, 200);
+    const result = await acquireCoreCacheLock(lockPath, 5, 1);
     expect(result.acquired).toBe(false);
-    expect(result.waitedMs).toBeGreaterThanOrEqual(150);
+    expect(result.waitedMs).toBeGreaterThanOrEqual(5);
   });
 
   it("acquires lock after it is released", async () => {
     const lockPath = join(TEST_BASE, "released.lock");
     await writeFile(lockPath, "other-process");
 
-    // Release the lock after 100ms
+    // Release the lock shortly after the waiter starts.
     setTimeout(async () => {
       await rm(lockPath, { force: true });
-    }, 100);
+    }, 2);
 
-    const result = await acquireCoreCacheLock(lockPath, 5000);
+    const result = await acquireCoreCacheLock(lockPath, 50, 1);
     expect(result.acquired).toBe(true);
-    expect(result.waitedMs).toBeGreaterThanOrEqual(80);
+    expect(result.waitedMs).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -213,7 +225,9 @@ describe("evictLruEntries", () => {
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, "keep.txt"), "data");
 
-    const records = [{ fullPath: join(dir, "keep.txt"), size: 4, atimeMs: Date.now() }];
+    const records = [
+      { fullPath: join(dir, "keep.txt"), size: 4, atimeMs: Date.now() },
+    ];
     await evictLruEntries(records, 4, 100);
 
     expect(await checkFileExists(join(dir, "keep.txt"))).toBe(true);

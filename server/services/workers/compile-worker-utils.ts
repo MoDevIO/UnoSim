@@ -45,7 +45,10 @@ export async function checkFileExists(filePath: string): Promise<boolean> {
 /**
  * Check whether a compiled binary (.hex or .elf) exists in the given directory.
  */
-export async function checkBinaryExists(binaryDir: string, sketchHash: string): Promise<boolean> {
+export async function checkBinaryExists(
+  binaryDir: string,
+  sketchHash: string,
+): Promise<boolean> {
   try {
     await stat(join(binaryDir, `${sketchHash}.hex`));
     return true;
@@ -65,6 +68,7 @@ export async function checkBinaryExists(binaryDir: string, sketchHash: string): 
 export async function acquireCoreCacheLock(
   lockPath: string,
   timeoutMs: number = 120000,
+  pollIntervalMs: number = 50,
 ): Promise<{ acquired: boolean; waitedMs: number }> {
   const start = Date.now();
 
@@ -80,7 +84,7 @@ export async function acquireCoreCacheLock(
       }
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
 
   return { acquired: false, waitedMs: Date.now() - start };
@@ -91,10 +95,14 @@ export async function acquireCoreCacheLock(
  */
 export async function collectDirectoryRecords(
   targetDir: string,
-): Promise<{ records: Array<{ fullPath: string; size: number; atimeMs: number }>; totalSize: number }> {
+): Promise<{
+  records: Array<{ fullPath: string; size: number; atimeMs: number }>;
+  totalSize: number;
+}> {
   await mkdir(targetDir, { recursive: true });
   const entries = await readdir(targetDir);
-  const records: Array<{ fullPath: string; size: number; atimeMs: number }> = [];
+  const records: Array<{ fullPath: string; size: number; atimeMs: number }> =
+    [];
   let totalSize = 0;
 
   for (const entry of entries) {
@@ -159,7 +167,9 @@ export async function cleanupCacheLru(
     // continue cleanup if marker doesn't exist
   }
 
-  const effectiveMax = maxBytes ?? Number(process.env.BUILD_CACHE_MAX_BYTES || 2 * 1024 * 1024 * 1024);
+  const effectiveMax =
+    maxBytes ??
+    Number(process.env.BUILD_CACHE_MAX_BYTES || 2 * 1024 * 1024 * 1024);
 
   for (const targetDir of targets) {
     try {

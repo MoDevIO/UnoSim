@@ -82,7 +82,6 @@ export default defineConfig({
             "tests/integration/compiler-canaries.test.ts",
             "tests/integration/worker-pool.*.test.ts",
             "tests/integration/concurrent-50-clients.test.ts",
-            "tests/server/core-cache-locking.test.ts",
             "tests/server/services/scalability-stress.test.ts",
             "tests/server/load-suite.test.ts",
             "tests/server/pause-resume-digitalread.test.ts",
@@ -103,7 +102,6 @@ export default defineConfig({
           name: "integration-toolchain",
           include: [
             "tests/integration/compiler-canaries.test.ts",
-            "tests/server/core-cache-locking.test.ts",
             "tests/server/telemetry-heartbeat-integration.test.ts",
             "tests/core/sandbox-stress.test.ts",
           ],
