@@ -22,6 +22,8 @@ import { registerSimulationWebSocket } from "./routes/simulation.ws";
 import { registerAuthRoutes } from "./routes/auth.routes";
 import { registerStatusRoutes } from "./routes/status.routes";
 import { registerConfigRoutes } from "./routes/config.routes";
+import { registerTestResetRoute } from "./routes/test-reset.routes";
+import { config } from "./config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,28 +52,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Client configuration endpoint
   registerConfigRoutes(app);
 
-  // Test Reset Endpoint: Cleanup all running simulations for idempotent test isolation
-  // Each E2E test can call this before starting to ensure a clean backend state
-  app.post("/api/test-reset", async (_req, res) => {
-    try {
-      // Delegate cleanup to the WebSocket module which owns runner state
-      if (!simulationApi) {
-        logger.warn("/api/test-reset called before WS module initialized");
-        return res.json({ status: "reset", message: "No active runners", cleanedTestRunIds: [], timestamp: new Date().toISOString() });
-      }
-
-      const { cleanedUpCount, cleanedTestRunIds } = await simulationApi.stopAllRunnersAndNotify();
-
-      logger.info(`[Test Reset] Cleaned up ${cleanedUpCount} client runner(s). TestRunIds: ${cleanedTestRunIds.join(", ") || "none"}`);
-      res.json({ status: "reset", message: `Backend reset complete. Cleaned up ${cleanedUpCount} runner(s).`, cleanedTestRunIds, timestamp: new Date().toISOString() });
-    } catch (error) {
-      logger.error(`[Test Reset] Error during reset: ${error}`);
-      res.status(500).json({ error: "Reset failed", message: String(error) });
-    }
-  });
-
-
-
   let lastCompiledCode: string | null = null;
 
   // Compilation Cache: Map<codeHash, CompilationResult>
@@ -83,6 +63,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Placeholder for simulation websocket API (populated when WS module is registered)
   let simulationApi: { stopAllRunnersAndNotify: () => Promise<{ cleanedUpCount: number; cleanedTestRunIds: string[] }> } | null = null;
+
+  registerTestResetRoute(app, {
+    isTest: config.isTest,
+    enabled: config.server.enableTestEndpoints,
+    getSimulationApi: () => simulationApi,
+    logger,
+  });
 
 
   // --- Examples API endpoint ---

@@ -78,6 +78,12 @@ export const config = {
   // ── Server ──────────────────────────────────────────────────────
 
   server: {
+    /**
+     * Register destructive endpoints used for test isolation.
+     * NODE_ENV=test is checked separately at the registration site so this
+     * flag cannot expose them in production by itself.
+     */
+    enableTestEndpoints: envBool("ENABLE_TEST_ENDPOINTS", false),
     /** CSP frame-ancestors: origins allowed to embed UnoSim in an iframe */
     allowedFrameAncestors: envList(
       "SIMULATOR_ALLOWED_PARENT_ORIGINS",

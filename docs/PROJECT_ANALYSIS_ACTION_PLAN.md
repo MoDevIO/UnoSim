@@ -303,6 +303,14 @@ Ein Arbeitspaket gilt erst als abgeschlossen, wenn Implementierung, Tests, gegeb
 **Akzeptanz:** Produktion liefert für `/api/test-reset` 404; unautorisierte HTTP-/WS-Aufrufe werden abgelehnt; Reconnect umgeht Limits nicht.  
 **Aufwand:** M–L.
 
+**Umsetzungstasks:**
+
+- [x] AP-01.1: Destruktiven Test-Reset fail-closed hinter `NODE_ENV=test` und `ENABLE_TEST_ENDPOINTS=true` registrieren; 404-Negativtests ergänzen.
+- [ ] AP-01.2: Authentifizierungs- beziehungsweise Gateway-Vertrag und Betriebsmodi als ADR festlegen.
+- [ ] AP-01.3: Gemeinsame Autorisierung für Compile, Sketch-CRUD und WebSocket-Upgrade implementieren.
+- [ ] AP-01.4: WebSocket-Originprüfung anhand einer expliziten Allowlist implementieren und negativ testen.
+- [ ] AP-01.5: Rate-Limit an eine reconnect-stabile Identität binden und Umgehungstest ergänzen.
+
 #### AP-02: Alle Eingänge schematisch validieren
 
 **Umfang:** REST-Compile-Schema, richtungsspezifische WS-Schemas, `maxPayload`, Code-/Header-/Arraylimits, Pinbereiche, Timeoutbereich, sichere Headernamen und Test-ID.  
