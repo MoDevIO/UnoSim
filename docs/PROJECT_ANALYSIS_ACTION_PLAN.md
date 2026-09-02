@@ -77,10 +77,13 @@ explizit nutzen.
   - [x] AP-00.6c: Den vermeintlichen Cache-Lock-Compilerfall auf die tatsächlich
     verwendete File-Lock-Grenze korrigieren und verbleibende reale
     Kompilationen inventarisieren.
-- [ ] AP-00.7: `serial-flow` stabilisieren: Formatvarianten auf Parser-/Mock-Ebene
-  testen, einen echten End-to-End-Smoke behalten, Helper-Timeout muss Runner und
-  Kindprozess garantiert abbrechen, und Toolchain-/Docker-Suites mit begrenzter
-  Workerzahl ohne Ressourcenkonkurrenz ausführen.
+- [ ] AP-00.7: `serial-flow` stabilisieren.
+  - [x] AP-00.7a: Helper-Timeout und Fehlerpfade müssen Runner und Kindprozess
+    garantiert stoppen; losgelöste Diagnose-Timer entfernen.
+  - [ ] AP-00.7b: Format-, Flush- und Reihenfolgevarianten in einen eindeutigen
+    echten End-to-End-Smoke konsolidieren; redundante Kompilationen entfernen.
+  - [ ] AP-00.7c: Toolchain-/Docker-Suites ressourcenbegrenzt dreimal ohne
+    Timeout oder Prozessleck ausführen.
 - [ ] AP-00.8: Messbares Budget-Gate ergänzen: JSON/JUnit-Artefakt, zehn langsamste
   Tests, Suite-Gesamtdauer und drei aufeinanderfolgende grüne Referenzläufe.
 - [ ] AP-00.9: Coverage nur aus deterministischen Unit-/gezielten
@@ -131,6 +134,11 @@ injizierbarem 1-ms-Pollintervall dreimal stabil in 58–70 ms geprüft. Nur die 
 Canaries in `compiler-canaries.test.ts` rufen im Standard-Gate Arduino CLI zur
 Sketch-Kompilation auf; alle Compiler-Unit-Tests mocken Prozess oder
 Compile-Grenze. Das Toolchain-Gate benötigt jetzt 12,44 s.
+
+**Nachmessung AP-00.7a:** Vier deterministische Helper-Tests beweisen in zusammen
+5 ms, dass Fallback-Timeout, Compile- und Laufzeitfehler erst nach abgeschlossenem
+`runner.stop()` zurückkehren und der Erfolgsfall seinen Fallback-Timer löscht. Der
+zuvor losgelöste, bis zu 30 s weiterpollende Diagnose-Loop wurde entfernt.
 
 ### 0.4 Akzeptanzkriterien
 
