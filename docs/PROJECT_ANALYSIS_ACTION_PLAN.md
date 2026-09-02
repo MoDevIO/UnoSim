@@ -60,12 +60,12 @@ explizit nutzen.
   `test:unit`; `test:related` nutzt Vitests Importgraph; Hook, CI und
   `run-tests.sh` rufen ausschließlich diese Skripte auf und duplizieren keine
   Exclude-Listen.
-- [ ] AP-00.5: Zeit abstrahieren. Kein Unit-Test darf absichtlich Sekunden warten.
+- [x] AP-00.5: Zeit abstrahieren. Kein Unit-Test darf absichtlich Sekunden warten.
   - [x] AP-00.5a: Pool-Reset- und Acquire-Grenzen injizierbar machen; Timeout-Timer
     nach erfolgreichem Reset zuverlässig löschen.
   - [x] AP-00.5b: Cache-TTL-, Registry-Debounce- und Batcher-Tests auf virtuelle
     Zeit beziehungsweise injizierte Uhren umstellen.
-  - [ ] AP-00.5c: Verbleibende Zustandssequenz- und Stress-Wartezeiten durch
+  - [x] AP-00.5c: Verbleibende Zustandssequenz- und Stress-Wartezeiten durch
     kontrollierbare Scheduler ersetzen oder aus dem Unit-Gate verschieben.
 - [ ] AP-00.6: Echte Compilerfälle konsolidieren. Queue-, Fehler- und
   Backpressure-Semantik mit kontrollierten Fake-Workern testen; nur je ein
@@ -98,6 +98,14 @@ Recovery-Stresstest sank von 10,06 s auf 70 ms.
 Pin-State-Batcher-Fälle benötigen zusammen nur noch 32 ms Testzeit statt rund
 7,5 s realer Wartezeit. Der Hochfrequenzfall erzeugt nun tatsächlich 200
 Änderungen und prüft die zwei erwarteten deduplizierten Zustände exakt.
+
+**Nachmessung AP-00.5c:** Prozess-/Sandbox-Stress sowie der 50-Client-Test sind
+jetzt den Toolchain-/Load-Projekten zugeordnet. Die verbleibende gemockte
+WebSocket-Zustandsfolge nutzt kurze kontrollierte Laufzeiten; kein einzelner
+Unit-Test benötigt noch eine Sekunde. Der Unit-Gesamtlauf sank auf 7,58 s (118
+Dateien, 1.472 Tests), der zuvor 20,24 s lange Related-Lauf auf 3,08 s. Das um
+zwei Prozessfälle erweiterte Toolchain-Gate bleibt mit 93,21 s unter seinem
+120-s-Budget.
 
 ### 0.4 Akzeptanzkriterien
 

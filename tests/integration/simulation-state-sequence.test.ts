@@ -23,7 +23,15 @@
  * they must NOT stay permanently "gray" (stopped/unknown) after resources free up.
  */
 
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "vitest";
 import WebSocket from "ws";
 
 // ── Configurable mock behaviour ──────────────────────────────────────────────
@@ -40,7 +48,7 @@ interface MockBehavior {
 }
 
 const mockBehavior: MockBehavior = {
-  runDurationMs: 150,
+  runDurationMs: 60,
   callCompileQueued: false,
   supportsPause: false,
 };
@@ -60,7 +68,10 @@ function parseWorkerMessage(raw: WebSocket.RawData): WorkerMessage {
     json = Buffer.from(raw).toString("utf8");
   } else if (raw instanceof ArrayBuffer) {
     json = Buffer.from(raw).toString("utf8");
-  } else if (Array.isArray(raw) && raw.every((item): item is Buffer => Buffer.isBuffer(item))) {
+  } else if (
+    Array.isArray(raw) &&
+    raw.every((item): item is Buffer => Buffer.isBuffer(item))
+  ) {
     json = Buffer.concat(raw).toString("utf8");
   } else {
     throw new Error("Unsupported WebSocket message data type");
@@ -77,8 +88,13 @@ class MockSandboxRunner {
   _state = "stopped";
   _isPaused = false;
 
-  get state() { return this._state; }
-  set state(v: string) { this._state = v; this.executionState.state = v; }
+  get state() {
+    return this._state;
+  }
+  set state(v: string) {
+    this._state = v;
+    this.executionState.state = v;
+  }
 
   executionState: {
     state: string;
@@ -140,18 +156,27 @@ class MockSandboxRunner {
     this._state = "running";
 
     const onCompileQueued = options.onCompileQueued as (() => void) | undefined;
-    const onCompileSuccess = options.onCompileSuccess as (() => void) | undefined;
-    const onOutput = options.onOutput as ((line: string, isComplete?: boolean) => void) | undefined;
-    const onExit = options.onExit as ((code: number | null) => void) | undefined;
+    const onCompileSuccess = options.onCompileSuccess as
+      | (() => void)
+      | undefined;
+    const onOutput = options.onOutput as
+      | ((line: string, isComplete?: boolean) => void)
+      | undefined;
+    const onExit = options.onExit as
+      | ((code: number | null) => void)
+      | undefined;
 
     await new Promise<void>((resolve) => {
       setTimeout(async () => {
-        if (this._state !== "running") { resolve(); return; }
+        if (this._state !== "running") {
+          resolve();
+          return;
+        }
 
         // Optionally simulate waiting for a compile slot
         if (mockBehavior.callCompileQueued) {
           onCompileQueued?.();
-          await sleep(20);
+          await sleep(1);
         }
 
         onCompileSuccess?.();
@@ -160,13 +185,16 @@ class MockSandboxRunner {
 
         // Wait runDurationMs before exit so tests can observe the running state
         setTimeout(() => {
-          if (this._state === "stopped") { resolve(); return; }
+          if (this._state === "stopped") {
+            resolve();
+            return;
+          }
           this.isRunning = false;
           this._state = "stopped";
           onExit?.(0);
           resolve();
         }, mockBehavior.runDurationMs);
-      }, 10);
+      }, 1);
     });
   }
 
@@ -191,12 +219,24 @@ class MockSandboxRunner {
   }
 
   getSandboxStatus() {
-    return { dockerAvailable: false, dockerImageBuilt: false, mode: "local-limited" as const };
+    return {
+      dockerAvailable: false,
+      dockerImageBuilt: false,
+      mode: "local-limited" as const,
+    };
   }
-  getSketchDir() { return this._sketchDir; }
-  setRegistryFile() { /* no-op */ }
-  setPinValue() { /* no-op */ }
-  sendSerialInput() { /* no-op */ }
+  getSketchDir() {
+    return this._sketchDir;
+  }
+  setRegistryFile() {
+    /* no-op */
+  }
+  setPinValue() {
+    /* no-op */
+  }
+  sendSerialInput() {
+    /* no-op */
+  }
 }
 
 // ── Vitest module mocks ──────────────────────────────────────────────────────
@@ -217,7 +257,9 @@ vi.mock("../../server/services/compiler-with-fallback", () => {
     async compile() {
       return { success: true, firmware: "deadbeef", errors: [], parsed: [] };
     }
-    async shutdown() { /* no-op */ }
+    async shutdown() {
+      /* no-op */
+    }
   }
   return {
     CompilerWithFallback: MockCompilerWithFallback,
@@ -232,10 +274,18 @@ vi.mock("../../server/services/compilation-worker-pool", () => ({
 
 vi.mock("@shared/logger", () => ({
   Logger: class {
-    info() { /* no-op */ }
-    debug() { /* no-op */ }
-    warn() { /* no-op */ }
-    error() { /* no-op */ }
+    info() {
+      /* no-op */
+    }
+    debug() {
+      /* no-op */
+    }
+    warn() {
+      /* no-op */
+    }
+    error() {
+      /* no-op */
+    }
   },
 }));
 
@@ -319,12 +369,18 @@ async function runClient(
 
         // Ignore the initial "stopped" sent on connection — only close after
         // the simulation has actually started (i.e., we saw a "running" first).
-        if (msg.type === "simulation_status" && msg.status === "stopped" && simulationStarted) {
+        if (
+          msg.type === "simulation_status" &&
+          msg.status === "stopped" &&
+          simulationStarted
+        ) {
           result.receivedStopped = true;
           // Give the serial batcher a moment to flush before closing
-          setTimeout(finish, 200);
+          setTimeout(finish, 1);
         }
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
     });
 
     ws.on("error", (err) => {
@@ -373,7 +429,8 @@ describe("Simulation state sequence", () => {
     process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "60000";
     process.env.DISABLE_RATE_LIMIT = "true";
 
-    const { _resetPoolSingleton } = await import("../../server/services/sandbox-runner-pool");
+    const { _resetPoolSingleton } =
+      await import("../../server/services/sandbox-runner-pool");
     _resetPoolSingleton();
 
     const express = (await import("express")).default;
@@ -398,13 +455,14 @@ describe("Simulation state sequence", () => {
     if (server) {
       await new Promise<void>((resolve) => server?.close(() => resolve()));
     }
-    const { _resetPoolSingleton } = await import("../../server/services/sandbox-runner-pool");
+    const { _resetPoolSingleton } =
+      await import("../../server/services/sandbox-runner-pool");
     _resetPoolSingleton();
   }, 10_000);
 
   beforeEach(() => {
     // Reset to safe defaults before every test
-    mockBehavior.runDurationMs = 150;
+    mockBehavior.runDurationMs = 60;
     mockBehavior.callCompileQueued = false;
     mockBehavior.supportsPause = false;
   });
@@ -425,7 +483,9 @@ describe("Simulation state sequence", () => {
     expect(simSeq).not.toContain("queued");
     expect(simSeq).toContain("running");
     expect(simSeq).toContain("stopped");
-    expect(simSeq.indexOf("running")).toBeLessThan(simSeq.lastIndexOf("stopped"));
+    expect(simSeq.indexOf("running")).toBeLessThan(
+      simSeq.lastIndexOf("stopped"),
+    );
 
     // Compile phase: compiling → success
     expect(gccSeq).toContain("compiling");
@@ -437,14 +497,18 @@ describe("Simulation state sequence", () => {
 
   it("pool saturated — extra client receives queued before running", async () => {
     // Pool has 3 runners. Start 4 clients simultaneously so the 4th must queue.
-    mockBehavior.runDurationMs = 500; // long enough that pool is still full when #4 starts
+    mockBehavior.runDurationMs = 75; // long enough that the fourth client is queued
 
     const results = await Promise.all(
-      Array.from({ length: 4 }, (_, i) => runClient(port, i, BLINK_SKETCH, 12_000)),
+      Array.from({ length: 4 }, (_, i) =>
+        runClient(port, i, BLINK_SKETCH, 12_000),
+      ),
     );
 
     // At least one client should have seen queued — the one that had to wait
-    const queuedClients = results.filter((r) => simStatuses(r).includes("queued"));
+    const queuedClients = results.filter((r) =>
+      simStatuses(r).includes("queued"),
+    );
     expect(queuedClients.length).toBeGreaterThanOrEqual(1);
 
     // ALL clients must eventually complete — no stuck-gray instances
@@ -452,7 +516,10 @@ describe("Simulation state sequence", () => {
     if (stopped.length < 4) {
       const stuck = results.filter((r) => !r.receivedStopped);
       const detail = stuck
-        .map((r) => `#${r.index}: statuses=[${simStatuses(r).join(",")}] errors=[${r.errors.join(";")}]`)
+        .map(
+          (r) =>
+            `#${r.index}: statuses=[${simStatuses(r).join(",")}] errors=[${r.errors.join(";")}]`,
+        )
         .join(" | ");
       expect.fail(
         `Only ${stopped.length}/4 clients reached stopped. Stuck: ${detail}`,
@@ -477,11 +544,13 @@ describe("Simulation state sequence", () => {
   // Clients 4–7 must be picked up and complete — not stuck.
 
   it("queue drain — all queued clients eventually complete after pool frees up", async () => {
-    mockBehavior.runDurationMs = 300; // runners hold for 300ms before releasing
+    mockBehavior.runDurationMs = 60;
 
     const N = 7;
     const results = await Promise.all(
-      Array.from({ length: N }, (_, i) => runClient(port, i, BLINK_SKETCH, 15_000)),
+      Array.from({ length: N }, (_, i) =>
+        runClient(port, i, BLINK_SKETCH, 15_000),
+      ),
     );
 
     const stopped = results.filter((r) => r.receivedStopped);
@@ -535,7 +604,7 @@ describe("Simulation state sequence", () => {
 
   it("pause/resume — simulation_status transitions to paused then running", async () => {
     mockBehavior.supportsPause = true;
-    mockBehavior.runDurationMs = 2_000; // long run so we can pause mid-way
+    mockBehavior.runDurationMs = 150; // long enough to pause and resume mid-run
 
     const clientPromise = new Promise<ClientResult>((resolve) => {
       const result: ClientResult = {
@@ -551,22 +620,26 @@ describe("Simulation state sequence", () => {
       let pauseSent = false;
       let resumeSent = false;
       let simulationStarted = false;
+      let safetyTimer: ReturnType<typeof setTimeout> | undefined;
 
       function finishPause() {
         if (finished) return;
         finished = true;
+        if (safetyTimer !== undefined) clearTimeout(safetyTimer);
         if (ws.readyState <= WebSocket.OPEN) ws.close();
         resolve(result);
       }
 
-      setTimeout(() => {
+      safetyTimer = setTimeout(() => {
         result.timedOut = true;
         result.errors.push("timeout");
         finishPause();
       }, 10_000);
 
       ws.on("open", () => {
-        ws.send(JSON.stringify({ type: "start_simulation", code: BLINK_SKETCH }));
+        ws.send(
+          JSON.stringify({ type: "start_simulation", code: BLINK_SKETCH }),
+        );
       });
 
       ws.on("message", (raw) => {
@@ -580,19 +653,28 @@ describe("Simulation state sequence", () => {
         });
 
         // Send pause shortly after compile success
-        if (!pauseSent && msg.type === "compilation_status" && msg.gccStatus === "success") {
+        if (
+          !pauseSent &&
+          msg.type === "compilation_status" &&
+          msg.gccStatus === "success"
+        ) {
           pauseSent = true;
           setTimeout(() => {
             ws.send(JSON.stringify({ type: "pause_simulation" }));
-          }, 50);
+          }, 1);
         }
 
         // Send resume after receiving paused
-        if (!resumeSent && msg.type === "simulation_status" && msg.status === "paused") {
+        if (
+          !resumeSent &&
+          msg.type === "simulation_status" &&
+          msg.status === "paused"
+        ) {
           resumeSent = true;
-          setTimeout(() => {  // prettier-ignore
+          setTimeout(() => {
+            // prettier-ignore
             ws.send(JSON.stringify({ type: "resume_simulation" }));
-          }, 100);
+          }, 1);
         }
 
         if (msg.type === "simulation_status" && msg.status === "running") {
@@ -600,13 +682,20 @@ describe("Simulation state sequence", () => {
         }
 
         // Only close when stopped arrives after the simulation has actually run.
-        if (msg.type === "simulation_status" && msg.status === "stopped" && simulationStarted) {
+        if (
+          msg.type === "simulation_status" &&
+          msg.status === "stopped" &&
+          simulationStarted
+        ) {
           result.receivedStopped = true;
-          setTimeout(finishPause, 200);
+          setTimeout(finishPause, 1);
         }
       });
 
-      ws.on("error", (err) => { result.errors.push(`ws: ${err.message}`); finishPause(); });
+      ws.on("error", (err) => {
+        result.errors.push(`ws: ${err.message}`);
+        finishPause();
+      });
       ws.on("close", finishPause);
     });
 
@@ -636,7 +725,7 @@ describe("Simulation state sequence", () => {
   // ─── 6: Stop simulation aborts a running instance ─────────────────────────
 
   it("stop simulation — simulation_status:stopped emitted after stop command", async () => {
-    mockBehavior.runDurationMs = 5_000; // long run so we can stop it
+    mockBehavior.runDurationMs = 100; // long enough to issue stop after compile
     let stopSent = false;
 
     const clientPromise = new Promise<ClientResult>((resolve) => {
@@ -647,7 +736,10 @@ describe("Simulation state sequence", () => {
         timedOut: false,
         errors: [],
       };
-      const timer = setTimeout(() => { result.timedOut = true; finishStop(); }, 8_000);
+      const timer = setTimeout(() => {
+        result.timedOut = true;
+        finishStop();
+      }, 8_000);
       const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
       let finished = false;
       let simStarted = false;
@@ -661,7 +753,9 @@ describe("Simulation state sequence", () => {
       }
 
       ws.on("open", () => {
-        ws.send(JSON.stringify({ type: "start_simulation", code: BLINK_SKETCH }));
+        ws.send(
+          JSON.stringify({ type: "start_simulation", code: BLINK_SKETCH }),
+        );
       });
 
       ws.on("message", (raw) => {
@@ -679,19 +773,33 @@ describe("Simulation state sequence", () => {
         }
 
         // Send stop after compile succeeds
-        if (!stopSent && msg.type === "compilation_status" && msg.gccStatus === "success") {
+        if (
+          !stopSent &&
+          msg.type === "compilation_status" &&
+          msg.gccStatus === "success"
+        ) {
           stopSent = true;
-          setTimeout(() => ws.send(JSON.stringify({ type: "stop_simulation" })), 50);
+          setTimeout(
+            () => ws.send(JSON.stringify({ type: "stop_simulation" })),
+            1,
+          );
         }
 
         // Only close after the simulation has run (ignore initial stopped-on-connect).
-        if (msg.type === "simulation_status" && msg.status === "stopped" && simStarted) {
+        if (
+          msg.type === "simulation_status" &&
+          msg.status === "stopped" &&
+          simStarted
+        ) {
           result.receivedStopped = true;
-          setTimeout(finishStop, 200);
+          setTimeout(finishStop, 1);
         }
       });
 
-      ws.on("error", (err) => { result.errors.push(`ws: ${err.message}`); finishStop(); });
+      ws.on("error", (err) => {
+        result.errors.push(`ws: ${err.message}`);
+        finishStop();
+      });
       ws.on("close", finishStop);
     });
 
@@ -713,11 +821,13 @@ describe("Simulation state sequence", () => {
   // without any client being silently dropped.
 
   it("large burst (12 clients, pool=3) — all 12 complete, none stuck", async () => {
-    mockBehavior.runDurationMs = 250;
+    mockBehavior.runDurationMs = 60;
 
     const N = 12;
     const results = await Promise.all(
-      Array.from({ length: N }, (_, i) => runClient(port, i, BLINK_SKETCH, 30_000)),
+      Array.from({ length: N }, (_, i) =>
+        runClient(port, i, BLINK_SKETCH, 30_000),
+      ),
     );
 
     const stopped = results.filter((r) => r.receivedStopped);
@@ -823,32 +933,45 @@ describe("External API state consistency (unit)", () => {
       "ERROR",
     ]);
     for (const [event, state] of Object.entries(wsEventToApiState)) {
-      expect(validClientStates.has(state), `Event ${event} maps to unknown state: ${state}`).toBe(true);
+      expect(
+        validClientStates.has(state),
+        `Event ${event} maps to unknown state: ${state}`,
+      ).toBe(true);
     }
   });
 
   it("sim:running event maps to same state as deriveApiState(running, *)", () => {
     // The SIMULATION_STATE_EVENT RUNNING must match what GET_SIMULATION_STATE returns
-    expect(wsEventToApiState["sim:running"]).toBe(deriveApiState("running", "success"));
+    expect(wsEventToApiState["sim:running"]).toBe(
+      deriveApiState("running", "success"),
+    );
   });
 
   it("sim:paused event maps to same state as deriveApiState(paused, *)", () => {
-    expect(wsEventToApiState["sim:paused"]).toBe(deriveApiState("paused", "success"));
+    expect(wsEventToApiState["sim:paused"]).toBe(
+      deriveApiState("paused", "success"),
+    );
   });
 
   it("sim:stopped event maps to same state as deriveApiState(idle, ready)", () => {
-    expect(wsEventToApiState["sim:stopped"]).toBe(deriveApiState("idle", "ready"));
+    expect(wsEventToApiState["sim:stopped"]).toBe(
+      deriveApiState("idle", "ready"),
+    );
   });
 
   it("gcc:compiling event maps to same state as deriveApiState(idle, compiling)", () => {
-    expect(wsEventToApiState["gcc:compiling"]).toBe(deriveApiState("idle", "compiling"));
+    expect(wsEventToApiState["gcc:compiling"]).toBe(
+      deriveApiState("idle", "compiling"),
+    );
   });
 
   it("gcc:success re-emits RUNNING — consistent with running state after compile phase", () => {
     // After gccStatus:success the simulation is executing its loop()
     // → RUNNING is the correct external API state
     expect(wsEventToApiState["gcc:success"]).toBe("RUNNING");
-    expect(wsEventToApiState["gcc:success"]).toBe(deriveApiState("running", "success"));
+    expect(wsEventToApiState["gcc:success"]).toBe(
+      deriveApiState("running", "success"),
+    );
   });
 
   it("ERROR state: API does not expose ERROR (known gap — only shown in UI label)", () => {

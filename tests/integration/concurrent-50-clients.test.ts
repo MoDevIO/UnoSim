@@ -40,7 +40,9 @@ interface MockExecutionState {
   dockerImageBuilt: boolean;
 }
 
-function parseWebSocketMessage(raw: WebSocket.RawData): Record<string, unknown> {
+function parseWebSocketMessage(
+  raw: WebSocket.RawData,
+): Record<string, unknown> {
   let text: string;
   if (typeof raw === "string") {
     text = raw;
@@ -48,7 +50,10 @@ function parseWebSocketMessage(raw: WebSocket.RawData): Record<string, unknown> 
     text = Buffer.from(raw).toString("utf8");
   } else if (raw instanceof ArrayBuffer) {
     text = Buffer.from(raw).toString("utf8");
-  } else if (Array.isArray(raw) && raw.every((item): item is Buffer => Buffer.isBuffer(item))) {
+  } else if (
+    Array.isArray(raw) &&
+    raw.every((item): item is Buffer => Buffer.isBuffer(item))
+  ) {
     text = Buffer.concat(raw).toString("utf8");
   } else {
     throw new Error("Unsupported WebSocket message data type");
@@ -61,8 +66,13 @@ function parseWebSocketMessage(raw: WebSocket.RawData): Record<string, unknown> 
 class MockSandboxRunner {
   isRunning = false;
   _state = "stopped";
-  get state() { return this._state; }
-  set state(v: string) { this._state = v; this.executionState.state = v; }
+  get state() {
+    return this._state;
+  }
+  set state(v: string) {
+    this._state = v;
+    this.executionState.state = v;
+  }
   executionState: MockExecutionState = {
     state: "stopped",
     pauseStartTime: null,
@@ -99,11 +109,21 @@ class MockSandboxRunner {
   async runSketch(options: Record<string, unknown>): Promise<void> {
     this.isRunning = true;
     this._state = "running";
-    this.lastSketchCode = typeof options.code === "string" ? options.code : null;
+    this.lastSketchCode =
+      typeof options.code === "string" ? options.code : null;
 
-    const onCompileSuccess = typeof options.onCompileSuccess === "function" ? options.onCompileSuccess as () => void : undefined;
-    const onOutput = typeof options.onOutput === "function" ? options.onOutput as (line: string, isComplete?: boolean) => void : undefined;
-    const onExit = typeof options.onExit === "function" ? options.onExit as (code: number | null) => void : undefined;
+    const onCompileSuccess =
+      typeof options.onCompileSuccess === "function"
+        ? (options.onCompileSuccess as () => void)
+        : undefined;
+    const onOutput =
+      typeof options.onOutput === "function"
+        ? (options.onOutput as (line: string, isComplete?: boolean) => void)
+        : undefined;
+    const onExit =
+      typeof options.onExit === "function"
+        ? (options.onExit as (code: number | null) => void)
+        : undefined;
 
     // Extract a marker from the code for per-client verification.
     // If the code contains CLIENT_<N>, echo that marker so the test can check isolation.
@@ -112,20 +132,23 @@ class MockSandboxRunner {
 
     // Simulate a short compile + output cycle — the gap between output
     // and exit must be large enough for the 50ms serial batcher to flush.
-    const delay = 20 + (this.lastSketchCode?.length ?? 0) % 20; // deterministic per-code jitter
+    const delay = 1 + ((this.lastSketchCode?.length ?? 0) % 3);
     await new Promise<void>((resolve) => {
       setTimeout(() => {
-        if (this._state !== "running") { resolve(); return; }
+        if (this._state !== "running") {
+          resolve();
+          return;
+        }
         onCompileSuccess?.();
         onOutput?.(marker, true);
         onOutput?.("LED OFF", true);
-        // Wait 120ms so the batch timer (50ms) fires before onExit
+        // Wait one 50ms batch interval so serial output is emitted before exit.
         setTimeout(() => {
           this.isRunning = false;
           this._state = "stopped";
           onExit?.(0);
           resolve();
-        }, 120);
+        }, 55);
       }, delay);
     });
   }
@@ -135,14 +158,28 @@ class MockSandboxRunner {
     this._state = "stopped";
   }
 
-  pause(): boolean { return false; }
-  resume(): boolean { return false; }
-  getSandboxStatus() {
-    return { dockerAvailable: false, dockerImageBuilt: false, mode: "local-limited" as const };
+  pause(): boolean {
+    return false;
   }
-  getSketchDir() { return this._sketchDir; }
-  setRegistryFile() { /* no-op */ }
-  setPinValue() { /* no-op */ }
+  resume(): boolean {
+    return false;
+  }
+  getSandboxStatus() {
+    return {
+      dockerAvailable: false,
+      dockerImageBuilt: false,
+      mode: "local-limited" as const,
+    };
+  }
+  getSketchDir() {
+    return this._sketchDir;
+  }
+  setRegistryFile() {
+    /* no-op */
+  }
+  setPinValue() {
+    /* no-op */
+  }
 }
 
 vi.mock("../../server/services/sandbox-runner", () => ({
@@ -161,7 +198,9 @@ vi.mock("../../server/services/compiler-with-fallback", () => {
     async compile(code: string) {
       return { success: true, firmware: "deadbeef", errors: [], parsed: [] };
     }
-    async shutdown() { /* no-op */ }
+    async shutdown() {
+      /* no-op */
+    }
   }
   return {
     CompilerWithFallback: MockCompilerWithFallback,
@@ -179,10 +218,18 @@ vi.mock("../../server/services/compilation-worker-pool", () => ({
 
 vi.mock("@shared/logger", () => ({
   Logger: class {
-    info() { /* no-op */ }
-    debug() { /* no-op */ }
-    warn() { /* no-op */ }
-    error() { /* no-op */ }
+    info() {
+      /* no-op */
+    }
+    debug() {
+      /* no-op */
+    }
+    warn() {
+      /* no-op */
+    }
+    error() {
+      /* no-op */
+    }
   },
 }));
 
@@ -225,14 +272,18 @@ async function createWsClient(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
     });
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     result.compiled = json.success === true;
     if (!result.compiled) {
-      result.compileError = JSON.stringify(json.error ?? json.errors ?? "unknown");
+      result.compileError = JSON.stringify(
+        json.error ?? json.errors ?? "unknown",
+      );
       return result;
     }
   } catch (err) {
-    result.errors.push(`compile fetch error: ${err instanceof Error ? err.message : "unknown"}`);
+    result.errors.push(
+      `compile fetch error: ${err instanceof Error ? err.message : "unknown"}`,
+    );
     return result;
   }
 
@@ -245,6 +296,7 @@ async function createWsClient(
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     let resolved = false;
+    let simulationStarted = false;
 
     function done() {
       if (resolved) return;
@@ -267,17 +319,26 @@ async function createWsClient(
           result.receivedCompilationStatus = true;
         }
 
+        if (msg.type === "simulation_status" && msg.status === "running") {
+          simulationStarted = true;
+        }
+
         if (msg.type === "serial_output" && typeof msg.data === "string") {
           result.receivedSerialOutput = true;
           result.serialData += msg.data;
         }
 
-        if (msg.type === "simulation_status" && msg.status === "stopped") {
+        if (
+          msg.type === "simulation_status" &&
+          msg.status === "stopped" &&
+          simulationStarted
+        ) {
           result.receivedSimulationStopped = true;
-          // Allow time for serial batches to flush (50ms batcher + network delay)
-          setTimeout(done, 500);
+          setTimeout(done, 1);
         }
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
     });
 
     ws.on("error", (err) => {
@@ -305,7 +366,8 @@ describe("50 concurrent clients — compile + simulate + output", () => {
 
     // Reset the pool singleton so our env vars take effect even if
     // a previously-run test file already initialized the pool.
-    const { _resetPoolSingleton } = await import("../../server/services/sandbox-runner-pool");
+    const { _resetPoolSingleton } =
+      await import("../../server/services/sandbox-runner-pool");
     _resetPoolSingleton();
 
     // Dynamically import after mocks are in place
@@ -336,7 +398,8 @@ describe("50 concurrent clients — compile + simulate + output", () => {
       await new Promise<void>((resolve) => s.close(() => resolve()));
     }
     // Reset pool so subsequent test files get a fresh singleton
-    const { _resetPoolSingleton } = await import("../../server/services/sandbox-runner-pool");
+    const { _resetPoolSingleton } =
+      await import("../../server/services/sandbox-runner-pool");
     _resetPoolSingleton();
   }, 10_000);
 
@@ -368,10 +431,12 @@ void loop() { digitalWrite(13, HIGH); Serial.println("LED ON"); delay(500); digi
     // All must receive serial output (the key user-visible requirement)
     if (gotOutput.length < N) {
       const missing = results.filter((r) => !r.receivedSerialOutput);
-      const summary = missing.slice(0, 5).map((r) => `#${r.index}: errors=[${r.errors.join("; ")}]`);
+      const summary = missing
+        .slice(0, 5)
+        .map((r) => `#${r.index}: errors=[${r.errors.join("; ")}]`);
       expect.fail(
         `Only ${gotOutput.length}/${N} clients received serial output. ` +
-        `Missing examples: ${summary.join(" | ")}`,
+          `Missing examples: ${summary.join(" | ")}`,
       );
     }
 
@@ -398,7 +463,9 @@ void loop() { digitalWrite(13, HIGH); Serial.println("LED ON"); delay(500); digi
     );
 
     // All should compile and receive output
-    const gotOutput = results.filter((r) => r.compiled && r.receivedSerialOutput);
+    const gotOutput = results.filter(
+      (r) => r.compiled && r.receivedSerialOutput,
+    );
     expect(gotOutput.length).toBe(N);
 
     // Each client MUST see its own marker in the serial output.
