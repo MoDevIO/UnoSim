@@ -12,6 +12,11 @@ services:
       - UNOSIM_SERVER_MODE=docker
       - UNOSIM_SIMULATION_MODE=docker-sandbox
       - NODE_ENV=production
+      # Public/multi-user deployments must sit behind an authenticating gateway.
+      # Compose fails before startup when either required secret is absent.
+      - UNOSIM_TRUST_MODE=gateway
+      - UNOSIM_GATEWAY_SECRET=${UNOSIM_GATEWAY_SECRET:?Set UNOSIM_GATEWAY_SECRET to at least 32 characters}
+      - UNOSIM_TRUSTED_PROXY=${UNOSIM_TRUSTED_PROXY:?Set UNOSIM_TRUSTED_PROXY to the gateway IP or CIDR}
       - ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
       - DOCKER_HOST=unix:///var/run/docker.sock
@@ -37,7 +42,9 @@ services:
       # Max simultaneous Docker containers in compile phase (prevents CPU starvation)
       - DOCKER_COMPILE_CONCURRENT=8
     ports:
-      - "3000:3000"
+      # Secure default: a host-local gateway can reach UnoSim, LAN clients cannot
+      # bypass it. Override only with a private gateway-facing bind address.
+      - "${UNOSIM_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${PWD}/server/arduino-cache:${PWD}/server/arduino-cache

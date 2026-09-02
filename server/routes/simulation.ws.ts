@@ -8,6 +8,11 @@ import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import path from "node:path";
 import { writeFile, access } from "node:fs/promises";
 import type { RawData } from "ws";
+import {
+  authorizeHeaders,
+  createWebSocketAuthorizationVerifier,
+  type TrustConfig,
+} from "../security/access-control";
 
 /** Safely convert WebSocket RawData (Buffer | ArrayBuffer | Buffer[]) to a string. */
 function rawDataToString(data: RawData): string {
@@ -23,9 +28,11 @@ type SimulationDeps = {
   getLastCompiledCode: () => string | null;
   logger: Logger;
   runnerPool?: ReturnType<typeof getSandboxRunnerPool>;
+  trust: TrustConfig;
 };
 
 type ClientState = {
+  subject: string;
   runner: InstanceType<typeof SandboxRunner> | null;
   isRunning: boolean;
   isPaused: boolean;
@@ -46,6 +53,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     // starvation during pin-state bursts; disabling deflate entirely removes that
     // constraint at the cost of slightly higher bandwidth (tolerable on LAN).
     perMessageDeflate: false,
+    verifyClient: createWebSocketAuthorizationVerifier(deps.trust),
   });
 
   const clientRunners = new Map<WebSocket, ClientState>();
@@ -639,18 +647,24 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
   let _wsConnectAttempts = 0;
 
   wss.on("connection", (ws, req) => {
+    const authorization = authorizeHeaders(req.headers, deps.trust);
+    if (!authorization.allowed) {
+      ws.close(1008, "Unauthorized");
+      return;
+    }
+    const identity = authorization.identity;
     const url = req.url || "";
     const urlParams = new URLSearchParams(url.split("?")[1] || "");
     const testRunId = urlParams.get("testRunId") || undefined;
     const testRunIdSuffix = testRunId ? ` [testRunId: ${testRunId}]` : "";
 
     _wsConnectAttempts++;
-    logger.warn(`New WebSocket client connected${testRunIdSuffix}. Total clients: ${wss.clients.size} (attempt #${_wsConnectAttempts})`);
+    logger.warn(`New WebSocket client connected for subject ${identity.subject}${testRunIdSuffix}. Total clients: ${wss.clients.size} (attempt #${_wsConnectAttempts})`);
     if (_wsConnectAttempts % 10 === 0) {
       logger.warn(`[WS milestone] ${_wsConnectAttempts} total connect attempts, ${wss.clients.size} currently open`);
     }
 
-    clientRunners.set(ws, { runner: null, isRunning: false, isPaused: false, testRunId, queueAbortController: null });
+    clientRunners.set(ws, { subject: identity.subject, runner: null, isRunning: false, isPaused: false, testRunId, queueAbortController: null });
 
     const clientState = clientRunners.get(ws);
     let simStatus: "paused" | "running" | "stopped";

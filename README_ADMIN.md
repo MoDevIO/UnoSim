@@ -125,3 +125,21 @@ The following terms are used consistently across the UI debug header, API respon
     * `./run-tests.sh` (full test suite before commit)
 3. **Monitoring:** In `docker-sandbox` mode, monitor Docker host CPU load because starting many containers can create short spikes.
 4. **Security:** Use `SIMULATOR_ALLOWED_PARENT_ORIGINS` to allow iframe embedding only on trusted domains.
+
+### Authentication gateway
+
+Docker/production mode is fail-closed and requires an authenticating reverse
+proxy. Set `UNOSIM_GATEWAY_SECRET` to a random value with at least 32 characters
+and `UNOSIM_TRUSTED_PROXY` to the exact proxy IP or CIDR before running Compose.
+Compose publishes port 3000 on loopback by default; `UNOSIM_BIND_ADDRESS` may
+override this only with a private address reachable by the gateway.
+The proxy must remove incoming `X-UnoSim-*` headers and inject the authenticated
+subject and `user` role on both HTTP requests and WebSocket upgrades. The UnoSim
+backend port must not be reachable by end users without passing through that
+proxy. The complete contract and route matrix are defined in
+[`docs/adr/0001-authentication-and-gateway-contract.md`](docs/adr/0001-authentication-and-gateway-contract.md).
+
+For a trusted single-user development process, `UNOSIM_TRUST_MODE=local` is the
+default and the server binds only to `127.0.0.1`. Production refuses local mode
+unless `UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL=true` is explicitly set; that
+override is only suitable for an otherwise isolated development environment.

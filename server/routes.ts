@@ -24,6 +24,7 @@ import { registerStatusRoutes } from "./routes/status.routes";
 import { registerConfigRoutes } from "./routes/config.routes";
 import { registerTestResetRoute } from "./routes/test-reset.routes";
 import { config } from "./config";
+import { createUserAuthorizationMiddleware } from "./security/access-control";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,6 +46,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
   });
+
+  const requireUser = createUserAuthorizationMiddleware(config.trust);
+  app.use("/api/status", requireUser);
+  app.use("/api/compile", requireUser);
+  app.use("/api/sketches", requireUser);
 
   // Detailed status endpoint: pool stats + compile semaphore stats
   registerStatusRoutes(app);
@@ -212,6 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     getLastCompiledCode: () => lastCompiledCode,
     logger,
     runnerPool,
+    trust: config.trust,
   });
 
   // (WS implementation moved to server/routes/simulation.ws.ts)

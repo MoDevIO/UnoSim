@@ -11,6 +11,7 @@
  */
 import os from "node:os";
 import path from "node:path";
+import { parseTrustConfig } from "./security/access-control";
 
 // ── Mode Types ──────────────────────────────────────────────────────
 
@@ -74,6 +75,9 @@ export const config = {
 
   /** True when running under a test framework */
   isTest: process.env.NODE_ENV === "test",
+
+  /** HTTP and WebSocket authentication boundary. */
+  trust: parseTrustConfig(process.env),
 
   // ── Server ──────────────────────────────────────────────────────
 

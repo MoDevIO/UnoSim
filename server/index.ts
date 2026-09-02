@@ -65,6 +65,10 @@ function startCleanupService() {
 
 const app = express();
 
+if (config.trust.mode === "gateway") {
+  app.set("trust proxy", config.trust.trustedProxy);
+}
+
 // Security: Helmet adds various HTTP headers for protection
 function getFrameAncestorsHeader(): string {
   return `frame-ancestors ${parseAllowedFrameAncestors().join(" ")}`;
@@ -241,12 +245,14 @@ const server = await registerRoutes(app);
   // ALWAYS serve the app on port 3000
   // this serves both the API and the client.
   const PORT = 3000;
-  const httpServer = server.listen(PORT, "0.0.0.0", async () => {
+  const listenHost = config.trust.mode === "local" ? "127.0.0.1" : "0.0.0.0";
+  const httpServer = server.listen(PORT, listenHost, async () => {
     console.log(`\n┌──────────────────────────────────────────────────┐`);
     console.log(`│  UnoSim – Active Configuration                   │`);
     console.log(`├──────────────────────────────────────────────────┤`);
     console.log(`│  Server Mode:         ${config.serverMode.padEnd(27)}│`);
     console.log(`│  Simulation Mode:     ${config.simulationMode.padEnd(27)}│`);
+    console.log(`│  Trust Mode:          ${config.trust.mode.padEnd(27)}│`);
     console.log(`│  NODE_ENV:            ${(process.env.NODE_ENV ?? "undefined").padEnd(27)}│`);
     console.log(`│  Compile Workers:     ${String(config.compilation.workerCount).padEnd(27)}│`);
     console.log(`│  Compile Slots:       ${String(config.compilation.maxConcurrent).padEnd(27)}│`);
@@ -260,7 +266,7 @@ const server = await registerRoutes(app);
     }
     console.log(`│  FQBN:               ${config.compilation.fqbn.padEnd(28)}│`);
     console.log(`└──────────────────────────────────────────────────┘\n`);
-    console.log(`[express] Server running at http://0.0.0.0:${PORT}`);
+    console.log(`[express] Server running at http://${listenHost}:${PORT}`);
     console.log(`[startup] Warming up Docker checks asynchronously...`);
 
     // Start cleanup service for old temp files

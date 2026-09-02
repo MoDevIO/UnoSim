@@ -307,7 +307,7 @@ Ein Arbeitspaket gilt erst als abgeschlossen, wenn Implementierung, Tests, gegeb
 
 - [x] AP-01.1: Destruktiven Test-Reset fail-closed hinter `NODE_ENV=test` und `ENABLE_TEST_ENDPOINTS=true` registrieren; 404-Negativtests ergänzen.
 - [x] AP-01.2: Authentifizierungs- beziehungsweise Gateway-Vertrag und Betriebsmodi als [ADR 0001](adr/0001-authentication-and-gateway-contract.md) festlegen.
-- [ ] AP-01.3: Gemeinsame Autorisierung für Compile, Sketch-CRUD und WebSocket-Upgrade implementieren.
+- [x] AP-01.3: Gemeinsame Autorisierung für Compile, Sketch-CRUD und WebSocket-Upgrade implementieren.
 - [ ] AP-01.4: WebSocket-Originprüfung anhand einer expliziten Allowlist implementieren und negativ testen.
 - [ ] AP-01.5: Rate-Limit an eine reconnect-stabile Identität binden und Umgehungstest ergänzen.
 
