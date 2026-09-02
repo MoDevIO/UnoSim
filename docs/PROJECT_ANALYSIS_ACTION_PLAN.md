@@ -4,6 +4,104 @@
 **Analysierter Stand:** Branch `main`, Commit `ca653dde`  
 **Umfang:** Frontend, Backend, Shared Code, Docker/Deployment, CI, Tests und Dokumentation
 
+## 0. AP-00 — Testfeedback vor weiteren Refactorings beschleunigen
+
+**Priorität:** sofort, vor AP-01.4 und allen weiteren größeren Arbeitspaketen.
+**Ziel:** Die häufige Refactoring-Schleife muss deterministisch in unter 30 Sekunden
+antworten. Echte Arduino-, Docker-, Browser- und Lasttests bleiben verbindliche
+separate Gates, laufen aber nicht bei jeder kleinen Codeänderung gemeinsam.
+
+### 0.1 Gemessener Ist-Zustand
+
+Die Analyse basiert auf den Läufen vom 2. September 2026 und dem vorhandenen
+`run-tests_output.log`:
+
+| Beobachtung | Evidenz | Auswirkung |
+|---|---:|---|
+| `npm test` vermischt alle Testklassen | regulär ca. 111–133 s, Ausreißer 929 s | keine verlässliche lokale Feedbackzeit |
+| Das heutige `test:fast` ist nicht schnell | 58,66 s im protokollierten Lauf | Pre-Push bleibt unnötig teuer |
+| Fünf Worker-/Cache-Suites kompilieren vielfach real | je ca. 27–87 s; zusammen Dutzende nahezu identische Sketch-Kompilationen | CPU-/I/O-Konkurrenz und lange Schleifen |
+| `serial-flow.test.ts` läuft parallel zu anderen Toolchain-Suites | wiederholt 3–4 Timeouts; ein Einzeltest-Ausreißer mit 821 s | rotes und stark schwankendes Gesamt-Gate |
+| Globale Umgebung ist `jsdom` | nur 7 von 136 Testdateien wählen explizit `node`; aggregiert ca. 108–146 s Environment-Zeit | Server-/Shared-Tests bezahlen Browserkosten |
+| `tests/setup.ts` gilt für jede Testdatei | Setup aggregiert ca. 16–24 s; Docker-Aufräumprüfung wird über den globalen `afterAll` pro Datei registriert | unnötige Prozesse und Seiteneffekte |
+| `test:unit`, `test:ci` und Coverage starten faktisch die Gesamtsuite | CI installiert deshalb selbst für den „Unit“-Job Arduino CLI/Core | langsame CI und falsche Taxonomie |
+| Mindestens 133 reale `setTimeout`-Nutzungen in Tests | zwei Pool-Tests warten absichtlich je 10 s; ein Cache-Test real 3,1 s | vermeidbare Wall-Clock-Zeit und Flakes |
+| Mehrere Lasttests prüfen nur `toBeDefined`, Promise-Anzahl oder immer erfüllte `allSettled`-Resultate | besonders in den vier Worker-Pool-Suites | hohe Kosten bei geringer Defekterkennung |
+
+Vitest 4 führt Testdateien standardmäßig parallel aus; `maxWorkers` und
+`fileParallelism` sind die aktuellen Steuergrößen. Die vorhandene Option
+`threads: false` bildet diesen Vertrag nicht nachvollziehbar ab. Außerdem laufen
+`setupFiles` vor jeder Testdatei, während `globalSetup`/Teardown einmal pro
+Testprojekt ausgeführt werden. Diese Unterschiede müssen die neue Konfiguration
+explizit nutzen.
+
+### 0.2 Verbindliche Ziel-Taxonomie
+
+| Suite | Inhalt | Externe Voraussetzungen | Lokales Budget | Ausführung |
+|---|---|---|---:|---|
+| `test:unit` | reine Client-, Server- und Shared-Unit-Tests; gemockte Prozess-/Zeitgrenzen | keine | <30 s | während Refactoring, Pre-Push, erster CI-Job |
+| `test:related` | statisch abhängige Unit-Tests zu geänderten Dateien plus explizite Characterization Tests | keine | <15 s | nach jedem kleinen Implementierungsschritt |
+| `test:integration` | Dateisystem, Worker und wenige echte `arduino-cli`-Canaries | Arduino CLI/Core | <120 s | pro abgeschlossenem Arbeitspaket |
+| `test:docker` | Sandbox-FS, Netzwerk, Limits, Lifecycle und ein Serial-End-to-End-Smoke | Docker + Sandbox-Image | <180 s | P0-/Sandbox-Änderungen und CI |
+| `test:e2e` | Nutzerflüsse im Browser | Browser + laufendes System | <180 s | Epic-/Merge-Gate |
+| `test:load` | explizite 50/100/200-Client-Kapazitätsläufe | definierter Testhost | separat | geplant/manuell, nicht Pre-Push |
+
+### 0.3 Umsetzungstasks
+
+- [x] AP-00.1: Laufzeiten, externe Abhängigkeiten, Umgebungen und schwache
+  Assertions inventarisieren.
+- [ ] AP-00.2: Vitest in benannte Projekte `unit-node`, `unit-client` und
+  `integration-toolchain` teilen. Node ist Standard; JSDOM und React-Setup gelten
+  ausschließlich für Clienttests.
+- [ ] AP-00.3: Globales Setup teilen: minimales gemeinsames Logger-/Mock-Cleanup,
+  React/JSDOM-Setup nur im Clientprojekt und Docker-Cleanup einmalig im
+  Docker-Gate statt einmal pro Testdatei.
+- [ ] AP-00.4: Kanonische npm-Skripte implementieren. `test:fast` wird Alias für
+  `test:unit`; `test:related` nutzt Vitests Importgraph; Hook, CI und
+  `run-tests.sh` rufen ausschließlich diese Skripte auf und duplizieren keine
+  Exclude-Listen.
+- [ ] AP-00.5: Zeit abstrahieren: Pool-Reset-, Acquire-, TTL-, Batcher- und
+  Debounce-Tests erhalten injizierbare Zeitgrenzen oder Fake Timer. Kein Unit-Test
+  darf absichtlich Sekunden warten.
+- [ ] AP-00.6: Echte Compilerfälle konsolidieren. Queue-, Fehler- und
+  Backpressure-Semantik mit kontrollierten Fake-Workern testen; nur je ein
+  erfolgreicher, fehlerhafter, paralleler Cache-Lock- und Worker-Canary kompiliert
+  real. Reporting-only- und tautologische Assertions entfernen.
+- [ ] AP-00.7: `serial-flow` stabilisieren: Formatvarianten auf Parser-/Mock-Ebene
+  testen, einen echten End-to-End-Smoke behalten, Helper-Timeout muss Runner und
+  Kindprozess garantiert abbrechen, und Toolchain-/Docker-Suites mit begrenzter
+  Workerzahl ohne Ressourcenkonkurrenz ausführen.
+- [ ] AP-00.8: Messbares Budget-Gate ergänzen: JSON/JUnit-Artefakt, zehn langsamste
+  Tests, Suite-Gesamtdauer und drei aufeinanderfolgende grüne Referenzläufe.
+- [ ] AP-00.9: Coverage nur aus deterministischen Unit-/gezielten
+  Integrationsprojekten aggregieren; Last-, Reporting- und redundante
+  Toolchain-Szenarien nicht für Statement-Coverage ausführen.
+
+### 0.4 Akzeptanzkriterien
+
+- `npm run test:unit` benötigt weder Docker noch Arduino CLI, läuft dreimal in
+  Folge grün und auf der dokumentierten Referenzmaschine jeweils unter 30 s.
+- Kein Server-/Shared-Test startet JSDOM; Docker-Cleanup läuft höchstens einmal pro
+  Docker-Testlauf.
+- Die Unit-Suite enthält keine reale Wartezeit über 100 ms und keine echte
+  Sketch-Kompilation.
+- Toolchain-Tests laufen ressourcenbegrenzt und `serial-flow` besteht dreimal in
+  Folge ohne Timeout; ein Fehler beendet Runner, Prozesse und Timer sofort.
+- Jede verbleibende echte Kompilation prüft eine einzigartige Invariante. Tests,
+  die beide Ausgänge akzeptieren oder nur ihre eigene Promise-Anzahl bestätigen,
+  sind ersetzt oder entfernt.
+- Pre-Push führt die Unit-Suite aus; CI startet Unit, Toolchain, Docker und E2E als
+  getrennte, parallel planbare Jobs mit eigenen Zeitbudgets und Artefakten.
+- Der vollständige Epic-/Merge-Lauf ist grün und reproduzierbar; Lasttests bleiben
+  außerhalb dieses Standard-Gates.
+
+**Technische Referenzen:** [Vitest Test Projects](https://vitest.dev/guide/projects),
+[Test Environments](https://vitest.dev/config/environment),
+[Setup Files](https://vitest.dev/config/setupfiles),
+[Parallelism](https://vitest.dev/guide/parallelism),
+[CLI/related](https://vitest.dev/guide/cli) und
+[Reporters](https://vitest.dev/guide/reporters).
+
 ## 1. Management Summary
 
 UnoSim besitzt eine tragfähige technische Basis: TypeScript ist strikt konfiguriert, Frontend und Backend sind grundsätzlich getrennt, die Simulationslogik wurde in spezialisierte Services zerlegt und die Testabdeckung ist mit rund 80 % Statements beziehungsweise 70 % Branches ordentlich. Der Produktions-Build funktioniert und Knip findet im konfigurierten Importgraphen keine unreferenzierten Dateien oder Exporte.
@@ -288,9 +386,21 @@ Ein Docs-Check sollte interne Links, referenzierte Dateien, Env-Variablen und do
 
 Jede Maßnahme wird vor der Umsetzung in ein eng abgegrenztes Arbeitspaket mit betroffenen Komponenten, Abhängigkeiten und überprüfbaren Akzeptanzkriterien zerlegt. Für jedes dieser Arbeitspakete gilt derselbe Arbeitszyklus:
 
-1. **Vollständiger Test vorher:** Die kanonische vollständige Testsuite vor der ersten Änderung ausführen und Ergebnis, Laufzeit sowie bereits vorhandene Fehler als Baseline festhalten. Ein bereits roter Ausgangszustand muss verstanden und vom neuen Arbeitspaket abgrenzbar sein.
+1. **Passende Baseline vorher:** Vor einem kleinen Implementierungsschritt die
+   deterministische Unit-Suite und direkt betroffene Characterization Tests
+   ausführen. Vor dem ersten Schritt eines Arbeitspakets zusätzlich die dazu
+   gehörige Integrations-, Docker- oder E2E-Suite als Baseline erfassen. Die
+   vollständige Systempipeline ist am Epic-/Merge-Gate erforderlich, nicht vor
+   jeder atomaren Teiländerung. Ein bereits roter Ausgangszustand muss verstanden
+   und vom neuen Arbeitspaket abgrenzbar sein.
 2. **Implementierung ↔ Test:** Änderungen in kleinen Schritten umsetzen. Nach jedem fachlich zusammengehörigen Schritt die direkt betroffenen Unit-, Integrations- oder End-to-End-Tests ausführen, Fehler unmittelbar korrigieren und bei behobenen Defekten zuerst einen Regressionstest sichern.
-3. **Vollständiger Test nachher:** Nach Abschluss erneut dieselbe vollständige Testsuite ausführen und mit der Baseline vergleichen. Zusätzlich müssen die spezifischen Akzeptanztests des Arbeitspakets, Typprüfung, nicht mutierendes Linting und Produktionsbuild erfolgreich sein oder verbleibende, nachweislich vorbestehende Abweichungen dokumentiert werden.
+3. **Gestuftes Gate nachher:** Nach jedem Task laufen Unit-Suite und spezifische
+   Akzeptanztests. Nach Abschluss des Arbeitspakets läuft dieselbe betroffene
+   Integrations-/Docker-/E2E-Suite wie in der Baseline. Die vollständige
+   Systempipeline läuft nach Abschluss eines Epics beziehungsweise vor Merge.
+   Typprüfung, nicht mutierendes Linting und Produktionsbuild müssen erfolgreich
+   sein oder verbleibende, nachweislich vorbestehende Abweichungen dokumentiert
+   werden.
 4. **Regelmäßig und atomar committen:** Nach jedem abgeschlossenen, getesteten Zwischenstand einen kleinen Commit mit aussagekräftiger Nachricht erstellen. Keine unzusammenhängenden Änderungen und keine wissentlich defekten Zwischenstände gemeinsam committen. Vor jedem Commit Diff und Teststatus prüfen; bestehende Änderungen anderer Arbeiten nicht aufnehmen.
 
 Ein Arbeitspaket gilt erst als abgeschlossen, wenn Implementierung, Tests, gegebenenfalls Dokumentation und Commit-Historie gemeinsam die Akzeptanzkriterien nachvollziehbar erfüllen.
@@ -337,9 +447,12 @@ Ein Arbeitspaket gilt erst als abgeschlossen, wenn Implementierung, Tests, gegeb
 
 ### P1 — Stabilität und Architektur, nächster Zyklus
 
-#### AP-06: Testpyramide neu schneiden und Baseline grün machen
+#### AP-06: Testpyramide neu schneiden und Baseline grün machen — in AP-00 vorgezogen
 
-Den fehlgeschlagenen Worker-Pool-Test klassifizieren, echte Toolchain-Tests aus `test:fast` entfernen, Zeitbudgets pro Suite festlegen und CI-/Hook-Skripte auf dieselben kanonischen Befehle umstellen.
+Dieses Arbeitspaket wird wegen seines Hebels für alle folgenden Refactorings als
+[AP-00](#0-ap-00--testfeedback-vor-weiteren-refactorings-beschleunigen) vorgezogen
+und dort detailliert umgesetzt. AP-06 bleibt nur als ursprüngliche
+Prioritätsreferenz bestehen und erzeugt kein zweites, paralleles Testvorhaben.
 
 #### AP-07: Einen einzigen Simulator-Controller etablieren
 
@@ -394,6 +507,10 @@ Monaco auf Editor-Core plus benötigte C++-Beiträge begrenzen, unnötige Sprach
 Node-Version vereinheitlichen, `engines`/`.nvmrc` oder Volta ergänzen, Builder auf `npm ci` umstellen, Images/Installer pinnen, CI-Berechtigungen minimieren und Auto-Commit aus Testjobs entfernen.
 
 ## 10. Empfohlene Umsetzungsreihenfolge für die ersten vier Wochen
+
+Vor Woche 1 wird AP-00 umgesetzt. Erst die grüne, deterministische Unit-Suite ist
+das schnelle Gate für die nachfolgenden Arbeitspakete; Toolchain-, Docker- und
+E2E-Gates bleiben entsprechend ihrer Taxonomie verbindlich.
 
 ### Woche 1: Sicherheits- und Test-Baseline
 
