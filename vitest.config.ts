@@ -79,6 +79,7 @@ export default defineConfig({
           exclude: [
             "tests/integration/serial-flooding.test.ts",
             "tests/integration/serial-flow.test.ts",
+            "tests/integration/compiler-canaries.test.ts",
             "tests/integration/worker-pool.*.test.ts",
             "tests/integration/concurrent-50-clients.test.ts",
             "tests/server/core-cache-locking.test.ts",
@@ -101,7 +102,7 @@ export default defineConfig({
         test: {
           name: "integration-toolchain",
           include: [
-            "tests/integration/worker-pool.*.test.ts",
+            "tests/integration/compiler-canaries.test.ts",
             "tests/server/core-cache-locking.test.ts",
             "tests/server/telemetry-heartbeat-integration.test.ts",
             "tests/core/sandbox-stress.test.ts",

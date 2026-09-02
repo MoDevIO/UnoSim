@@ -71,7 +71,7 @@ explizit nutzen.
   - [x] AP-00.6a: Queue-, Fehler-, Shutdown- und Backpressure-Semantik mit
     kontrollierten Fake-Workern testen; abgestürzte Worker dürfen aktive oder
     wartende Compiles nicht hängen lassen.
-  - [ ] AP-00.6b: Die vier redundanten Worker-Pool-„Lasttests“ durch wenige echte
+  - [x] AP-00.6b: Die vier redundanten Worker-Pool-„Lasttests“ durch wenige echte
     Canaries mit jeweils einzigartiger Invariante ersetzen; Reporting-only- und
     tautologische Assertions entfernen.
   - [ ] AP-00.6c: Parallele Cache-Lock-Kompilation auf einen eindeutigen Canary
@@ -117,6 +117,11 @@ aller Worker vor Queueing, strukturierte und fehlerhafte Antworten, Worker-Crash
 sowie Shutdown in zusammen 6 ms ab. Bei `error`/`exit` werden der aktive Auftrag
 und – falls kein Worker mehr lebt – alle wartenden Aufträge jetzt garantiert
 abgelehnt; `activeWorkers` zählt tatsächlich laufende Aufträge.
+
+**Nachmessung AP-00.6b:** Vier Suiten mit 21 Tests und insgesamt 135 aufgerufenen,
+überwiegend identischen Kompilationen wurden durch zwei echte Canaries ersetzt.
+Der Erfolgsfall verlangt ein nichtleeres HEX-Binary, der Fehlerfall konkrete
+Arduino-CLI-Diagnostik. Das gesamte Toolchain-Gate sank von 93,21 s auf 18,24 s.
 
 ### 0.4 Akzeptanzkriterien
 
