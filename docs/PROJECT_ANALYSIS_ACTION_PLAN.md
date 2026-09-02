@@ -80,7 +80,7 @@ explizit nutzen.
 - [ ] AP-00.7: `serial-flow` stabilisieren.
   - [x] AP-00.7a: Helper-Timeout und Fehlerpfade müssen Runner und Kindprozess
     garantiert stoppen; losgelöste Diagnose-Timer entfernen.
-  - [ ] AP-00.7b: Format-, Flush- und Reihenfolgevarianten in einen eindeutigen
+  - [x] AP-00.7b: Format-, Flush- und Reihenfolgevarianten in einen eindeutigen
     echten End-to-End-Smoke konsolidieren; redundante Kompilationen entfernen.
   - [ ] AP-00.7c: Toolchain-/Docker-Suites ressourcenbegrenzt dreimal ohne
     Timeout oder Prozessleck ausführen.
@@ -139,6 +139,12 @@ Compile-Grenze. Das Toolchain-Gate benötigt jetzt 12,44 s.
 5 ms, dass Fallback-Timeout, Compile- und Laufzeitfehler erst nach abgeschlossenem
 `runner.stop()` zurückkehren und der Erfolgsfall seinen Fallback-Timer löscht. Der
 zuvor losgelöste, bis zu 30 s weiterpollende Diagnose-Loop wurde entfernt.
+
+**Nachmessung AP-00.7b:** Zwölf separat kompilierte Serial-Szenarien wurden durch
+einen 3,11-s-Smoke ersetzt. Ein Sketch prüft nun gemeinsam verzögerte Prints,
+HEX-, Float-, beliebige und ungültige Basen, Byte-/Write-Ausgabe,
+Steuerzeichen, Flush beim schnellen Exit sowie die Reihenfolge von `setup()` und
+`loop()`.
 
 ### 0.4 Akzeptanzkriterien
 
