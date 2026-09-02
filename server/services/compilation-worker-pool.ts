@@ -1,14 +1,14 @@
 /**
  * Compilation Worker Pool
- * 
+ *
  * Manages a pool of worker threads for parallel C++ compilation.
  * Decouples compilation from the main request thread to prevent blocking.
- * 
+ *
  * Architecture:
  * - Main Thread (Express): Receives /api/compile request → enqueues work
  * - Worker Threads (N parallel): Each thread runs G++ compile independently
  * - Queue Manager: Distributes work fairly when workers are busy
- * 
+ *
  * Impact: Reduces compilation latency by ~30% under concurrent load
  * (200 parallel requests sequentially → 4–8 workers process in parallel)
  */
@@ -41,6 +41,18 @@ interface PoolStats {
   queuedTasks: number;
 }
 
+interface CompilationTask {
+  task: CompileRequestPayload;
+  resolve: (result: CompilationResult) => void;
+  reject: (error: Error) => void;
+  startTime: number;
+}
+
+interface ActiveCompilation {
+  item: CompilationTask;
+  messageHandler: (msg: AnyWorkerMessage) => void;
+}
+
 /**
  * CompilationWorkerPool: Manage parallel compilation across worker threads
  */
@@ -48,13 +60,10 @@ export class CompilationWorkerPool {
   private readonly logger = new Logger("CompilationWorkerPool");
   private readonly numWorkers: number;
   private readonly workers: Worker[] = [];
+  private readonly liveWorkers = new Set<number>();
   private readonly availableWorkers: Set<number> = new Set();
-  private readonly queue: Array<{
-    task: CompileRequestPayload;
-    resolve: (result: CompilationResult) => void;
-    reject: (error: Error) => void;
-    startTime: number;
-  }> = [];
+  private readonly queue: CompilationTask[] = [];
+  private readonly activeCompilations = new Map<number, ActiveCompilation>();
   private isInitialized: boolean = false;
 
   private readonly stats = {
@@ -70,9 +79,16 @@ export class CompilationWorkerPool {
     // Safe upper bound raised to 8; WORKER_COUNT env var overrides.
     const maxSafeWorkers = 8;
     const recommendedWorkers = Math.max(2, Math.floor(os.cpus().length * 0.5));
-    this.numWorkers = numWorkers ?? Math.min(maxSafeWorkers, config.compilation.workerCount ?? recommendedWorkers);
-    
-    this.logger.info(`[CompilationWorkerPool] Initializing with ${this.numWorkers} workers (max: ${maxSafeWorkers})`);
+    this.numWorkers =
+      numWorkers ??
+      Math.min(
+        maxSafeWorkers,
+        config.compilation.workerCount ?? recommendedWorkers,
+      );
+
+    this.logger.info(
+      `[CompilationWorkerPool] Initializing with ${this.numWorkers} workers (max: ${maxSafeWorkers})`,
+    );
     this.initializeWorkers();
   }
 
@@ -82,7 +98,7 @@ export class CompilationWorkerPool {
   private initializeWorkers(): void {
     // In development, workers are .ts; in production, they're .js after transpilation
     const dirname = path.dirname(new URL(import.meta.url).pathname);
-    
+
     // Try .js first (production), fallback to .ts (development with tsx)
     let workerScript = path.join(dirname, "workers", "compile-worker.js");
     if (!fs.existsSync(workerScript)) {
@@ -91,13 +107,19 @@ export class CompilationWorkerPool {
 
     // Validate worker file exists
     if (!fs.existsSync(workerScript)) {
-      this.logger.error(`[CompilationWorkerPool] Worker file not found: ${workerScript}`);
-      this.logger.warn(`[CompilationWorkerPool] Worker pool disabled - falling back to synchronous compilation`);
+      this.logger.error(
+        `[CompilationWorkerPool] Worker file not found: ${workerScript}`,
+      );
+      this.logger.warn(
+        `[CompilationWorkerPool] Worker pool disabled - falling back to synchronous compilation`,
+      );
       // Don't throw - let CompilerWithFallback handle fallback to direct compiler
       return;
     }
 
-    this.logger.info(`[CompilationWorkerPool] Using worker script: ${workerScript}`);
+    this.logger.info(
+      `[CompilationWorkerPool] Using worker script: ${workerScript}`,
+    );
 
     for (let i = 0; i < this.numWorkers; i++) {
       try {
@@ -110,7 +132,12 @@ export class CompilationWorkerPool {
 
         worker.on("message", (msg: AnyWorkerMessage) => {
           if (isReadyMessage(msg)) {
-            this.availableWorkers.add(workerId);
+            if (
+              this.liveWorkers.has(workerId) &&
+              !this.activeCompilations.has(workerId)
+            ) {
+              this.availableWorkers.add(workerId);
+            }
             this.logger.debug(`[Worker ${workerId}] Ready`);
             this.processQueue();
           }
@@ -118,24 +145,33 @@ export class CompilationWorkerPool {
 
         worker.on("error", (err) => {
           this.logger.error(`[Worker ${workerId}] Error: ${err.message}`);
-          this.availableWorkers.delete(workerId);
+          this.handleWorkerFailure(workerId, err);
         });
 
         worker.on("exit", (code) => {
           this.logger.warn(`[Worker ${workerId}] Exited with code ${code}`);
-          this.availableWorkers.delete(workerId);
+          this.handleWorkerFailure(
+            workerId,
+            new Error(
+              `Compilation worker ${workerId} exited with code ${code}`,
+            ),
+          );
           // Optionally restart worker for resilience (not implemented in MVP)
         });
 
         this.workers[workerId] = worker;
-        this.availableWorkers.add(workerId);
+        this.liveWorkers.add(workerId);
         this.logger.debug(`[Worker ${workerId}] Started`);
       } catch (err) {
-        this.logger.error(`Failed to start worker ${i}: ${err instanceof Error ? err.message : String(err)}`);
+        this.logger.error(
+          `Failed to start worker ${i}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
 
-    this.logger.info(`[CompilationWorkerPool] ${this.availableWorkers.size} workers ready`);
+    this.logger.info(
+      `[CompilationWorkerPool] ${this.liveWorkers.size} workers started`,
+    );
     this.isInitialized = true;
   }
 
@@ -143,7 +179,7 @@ export class CompilationWorkerPool {
    * Check if the pool is operational
    */
   isOperational(): boolean {
-    return this.isInitialized && this.workers.length > 0;
+    return this.isInitialized && this.liveWorkers.size > 0;
   }
 
   /**
@@ -151,7 +187,9 @@ export class CompilationWorkerPool {
    */
   async compile(task: CompileRequestPayload): Promise<CompilationResult> {
     if (!this.isOperational()) {
-      throw new Error("Compilation worker pool is not operational. Worker files may not be available.");
+      throw new Error(
+        "Compilation worker pool is not operational. Worker files may not be available.",
+      );
     }
 
     this.stats.totalTasks++;
@@ -187,7 +225,7 @@ export class CompilationWorkerPool {
       const messageHandler = (msg: AnyWorkerMessage) => {
         if (isCompileResponse(msg)) {
           const { payload } = msg;
-          
+
           if (payload.error) {
             this.stats.failedTasks++;
             const errorMsg = payload.error.message || "Unknown worker error";
@@ -200,26 +238,58 @@ export class CompilationWorkerPool {
             const compileTimeMs = Date.now() - startTime;
             this.stats.completedTasks++;
             this.stats.compileTimes.push(compileTimeMs);
-            this.logger.info(`[Worker ${workerId}] Compiled in ${compileTimeMs}ms`);
+            this.logger.info(
+              `[Worker ${workerId}] Compiled in ${compileTimeMs}ms`,
+            );
             resolve(payload.result);
           } else {
             // Malformed response
             this.stats.failedTasks++;
             reject(new Error("Worker returned malformed response"));
           }
-          
+
           // Clean up listener and mark worker as available
           worker.off("message", messageHandler);
-          this.availableWorkers.add(workerId);
+          this.activeCompilations.delete(workerId);
+          if (this.liveWorkers.has(workerId)) {
+            this.availableWorkers.add(workerId);
+          }
           this.processQueue(); // Process next in queue
         }
       };
 
+      this.activeCompilations.set(workerId, {
+        item: { task, resolve, reject, startTime },
+        messageHandler,
+      });
       worker.on("message", messageHandler);
 
       // Send compile task to worker using strict protocol
       const message: CompileRequestMessage = createCompileRequest(task);
       worker.postMessage(message);
+    }
+  }
+
+  private handleWorkerFailure(workerId: number, error: Error): void {
+    this.liveWorkers.delete(workerId);
+    this.availableWorkers.delete(workerId);
+
+    const active = this.activeCompilations.get(workerId);
+    if (active) {
+      this.workers[workerId]?.off("message", active.messageHandler);
+      this.activeCompilations.delete(workerId);
+      this.stats.failedTasks++;
+      active.item.reject(error);
+    }
+
+    if (this.liveWorkers.size === 0 && this.queue.length > 0) {
+      const queued = this.queue.splice(0);
+      this.stats.failedTasks += queued.length;
+      for (const item of queued) {
+        item.reject(
+          new Error("Compilation worker pool has no operational workers"),
+        );
+      }
     }
   }
 
@@ -234,7 +304,7 @@ export class CompilationWorkerPool {
         : 0;
 
     return {
-      activeWorkers: this.numWorkers - this.availableWorkers.size,
+      activeWorkers: this.activeCompilations.size,
       totalTasks: this.stats.totalTasks,
       completedTasks: this.stats.completedTasks,
       failedTasks: this.stats.failedTasks,
@@ -248,6 +318,20 @@ export class CompilationWorkerPool {
    */
   async shutdown(): Promise<void> {
     this.logger.info("[CompilationWorkerPool] Shutting down...");
+    this.isInitialized = false;
+
+    const shutdownError = new Error("Compilation worker pool is shutting down");
+    for (const item of this.queue.splice(0)) {
+      item.reject(shutdownError);
+    }
+    for (const [workerId, active] of this.activeCompilations) {
+      this.workers[workerId]?.off("message", active.messageHandler);
+      active.item.reject(shutdownError);
+    }
+    this.activeCompilations.clear();
+    this.availableWorkers.clear();
+    this.liveWorkers.clear();
+
     const promises = this.workers.map((worker, idx) => {
       return worker
         .terminate()
@@ -255,7 +339,9 @@ export class CompilationWorkerPool {
           this.logger.debug(`[Worker ${idx}] Terminated`);
         })
         .catch((err) => {
-          this.logger.error(`[Worker ${idx}] Termination error: ${err.message}`);
+          this.logger.error(
+            `[Worker ${idx}] Termination error: ${err.message}`,
+          );
         });
     });
     await Promise.all(promises);
@@ -272,4 +358,3 @@ export function getCompilationPool(): CompilationWorkerPool {
   poolInstance ??= new CompilationWorkerPool();
   return poolInstance;
 }
-

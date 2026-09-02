@@ -67,10 +67,15 @@ explizit nutzen.
     Zeit beziehungsweise injizierte Uhren umstellen.
   - [x] AP-00.5c: Verbleibende Zustandssequenz- und Stress-Wartezeiten durch
     kontrollierbare Scheduler ersetzen oder aus dem Unit-Gate verschieben.
-- [ ] AP-00.6: Echte Compilerfälle konsolidieren. Queue-, Fehler- und
-  Backpressure-Semantik mit kontrollierten Fake-Workern testen; nur je ein
-  erfolgreicher, fehlerhafter, paralleler Cache-Lock- und Worker-Canary kompiliert
-  real. Reporting-only- und tautologische Assertions entfernen.
+- [ ] AP-00.6: Echte Compilerfälle konsolidieren.
+  - [x] AP-00.6a: Queue-, Fehler-, Shutdown- und Backpressure-Semantik mit
+    kontrollierten Fake-Workern testen; abgestürzte Worker dürfen aktive oder
+    wartende Compiles nicht hängen lassen.
+  - [ ] AP-00.6b: Die vier redundanten Worker-Pool-„Lasttests“ durch wenige echte
+    Canaries mit jeweils einzigartiger Invariante ersetzen; Reporting-only- und
+    tautologische Assertions entfernen.
+  - [ ] AP-00.6c: Parallele Cache-Lock-Kompilation auf einen eindeutigen Canary
+    reduzieren und verbleibende reale Kompilationen inventarisieren.
 - [ ] AP-00.7: `serial-flow` stabilisieren: Formatvarianten auf Parser-/Mock-Ebene
   testen, einen echten End-to-End-Smoke behalten, Helper-Timeout muss Runner und
   Kindprozess garantiert abbrechen, und Toolchain-/Docker-Suites mit begrenzter
@@ -106,6 +111,12 @@ Unit-Test benötigt noch eine Sekunde. Der Unit-Gesamtlauf sank auf 7,58 s (118
 Dateien, 1.472 Tests), der zuvor 20,24 s lange Related-Lauf auf 3,08 s. Das um
 zwei Prozessfälle erweiterte Toolchain-Gate bleibt mit 93,21 s unter seinem
 120-s-Budget.
+
+**Nachmessung AP-00.6a:** Fünf kontrollierte Worker-Tests decken FIFO, Nutzung
+aller Worker vor Queueing, strukturierte und fehlerhafte Antworten, Worker-Crash
+sowie Shutdown in zusammen 6 ms ab. Bei `error`/`exit` werden der aktive Auftrag
+und – falls kein Worker mehr lebt – alle wartenden Aufträge jetzt garantiert
+abgelehnt; `activeWorkers` zählt tatsächlich laufende Aufträge.
 
 ### 0.4 Akzeptanzkriterien
 
