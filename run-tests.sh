@@ -6,7 +6,7 @@
 
 # Konfiguration
 LOG_FILE="run-tests_output.log"
-TOTAL_STEPS=9
+TOTAL_STEPS=10
 STEP=0
 SERVER_PID=""
 
@@ -177,7 +177,7 @@ fi
 # 1. Static analysis
 run_task "Static Analysis" "npm run check"
 
-# 3. Dead-code check (knip) — non-blocking, zeigt unused exports/types als Warnung
+# 2. Dead-code check (knip) — non-blocking, zeigt unused exports/types als Warnung
 STEP=$((STEP+1))
 echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] Dead-Code Check (knip)${RS}"
 KNIP_OUT=$(npx knip 2>&1)
@@ -192,10 +192,14 @@ else
 fi
 
 # 3. Unit tests
-run_task "Unit Tests" "NODE_OPTIONS='--no-warnings' npm run test:fast -- --reporter=default --maxConcurrency=2"
+run_task "Unit Tests" "NODE_OPTIONS='--no-warnings' npm run test:unit -- --reporter=default"
 parse_test_results "Tests.*passed"
 
-# 4+5. Sandbox image build & Docker tests (optional, requires Docker)
+# 4. Real Arduino CLI integration tests, isolated from the fast unit gate
+run_task "Toolchain Integration Tests" "NODE_OPTIONS='--no-warnings' npm run test:integration -- --reporter=default"
+parse_test_results "Tests.*passed"
+
+# 5+6. Sandbox image build & Docker tests (optional, requires Docker)
 # Re-check Docker: heavy load can temporarily freeze the daemon after unit tests.
 DOCKER_LOST=0
 if [ "$DOCKER_AVAILABLE" -eq 1 ] && ! docker info >/dev/null 2>&1; then
@@ -215,15 +219,7 @@ if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
     fi
 
     run_task "Docker Tests (Timing/Pause/Sandbox/Flow)" \
-        "FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE SKIP_HEAVY_TESTS=false LOG_LEVEL=warn \
-        npx vitest run --reporter=default --maxWorkers=1 \
-        tests/server/timing-delay.test.ts \
-        tests/server/pause-resume-timing.test.ts \
-        tests/server/pause-resume-digitalread.test.ts \
-        tests/integration/serial-flooding.test.ts \
-        tests/integration/serial-flow.test.ts \
-        tests/server/services/sandbox-lifecycle.integration.test.ts \
-        tests/server/services/serial-backpressure.test.ts"
+        "DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE npm run test:docker -- --reporter=default"
     parse_test_results "Tests.*passed"
 
     # Container cleanup after Docker tests: reduce load on Docker Desktop before E2E phase
@@ -232,7 +228,7 @@ if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
         echo "$stale_after" | xargs docker rm -f >/dev/null 2>&1
     fi
 else
-    [ "$DOCKER_LOST" -eq 0 ] && echo -e "  ${WARN} Docker not available – Docker tests skipped (Steps 4+5)"
+    [ "$DOCKER_LOST" -eq 0 ] && echo -e "  ${WARN} Docker not available – Docker tests skipped (Steps 5+6)"
     STEP=$((STEP+2))
 fi
 
@@ -283,11 +279,11 @@ else
         sleep 1
     done
 
-    # 6. E2E-Tests (Playwright)
-    run_task "E2E-Tests (Playwright)" "npx playwright test --timeout 60000"
+    # 7. E2E-Tests (Playwright)
+    run_task "E2E-Tests (Playwright)" "npm run test:e2e -- --timeout 60000"
     parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
 
-    # 7. Post-test integrity check (leak detection after all tests)
+    # 8. Post-test integrity check (leak detection after all tests)
     run_task "Post-Test Integrity Check" "./check-leaks.sh --cleanup"
 
     # Stop server before build
@@ -295,10 +291,10 @@ else
     SERVER_PID=""
 fi
 
-# 8. Production build
+# 9. Production build
 run_task "Production Build" "npm run build"
 
-# 9. SonarQube Quality Gate Check
+# 10. SonarQube Quality Gate Check
 if [ -n "$SONAR_TOKEN" ] && curl -sf http://localhost:9000/api/system/status > /dev/null 2>&1; then
     STEP=$((STEP+1))
     echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] SonarQube Quality Gate${RS}"

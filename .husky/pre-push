@@ -6,8 +6,8 @@
 echo "🔍 Starte Qualitäts-Checks vor dem Push..."
 
 # 1. Schnelle Tests ausführen (Quality Gate – blockierend)
-echo "⏳ Starte npm run test:fast..."
-if LOG_LEVEL=warn npx vitest run --exclude tests/server/load-suite.test.ts --exclude tests/integration/serial-flow.test.ts; then
+echo "⏳ Starte npm run test:unit..."
+if npm run test:unit; then
   echo "✅ Alle Tests bestanden"
 else
   echo "❌ Fehler: Die schnellen Tests sind fehlgeschlagen!"

@@ -2,9 +2,9 @@ name: CI (Quality Gate & Coverage)
 
 on:
   push:
-    branches: [ '**' ]
+    branches: ["**"]
   pull_request:
-    branches: [ '**' ]
+    branches: ["**"]
 
 permissions:
   contents: write
@@ -22,32 +22,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
-      # Neu: Auch Unit-Tests brauchen die Toolchain zum Kompilieren
-      - name: Cache Arduino Toolchain (Unit)
-        uses: actions/cache@v4
-        with:
-          path: |
-            /usr/local/bin/arduino-cli
-            ~/.arduino15
-          key: ${{ runner.os }}-arduino-unit-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Arduino CLI & Core
-        run: |
-          if ! command -v arduino-cli &> /dev/null; then
-            curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
-          fi
-          arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
-
       - name: Static Analysis & Unit Tests
-        env:
-          # Separater Pfad für Unit-Tests, um Seiteneffekte zu vermeiden
-          ARDUINO_CACHE_DIR: /tmp/arduino-unit-cache
         run: |
           npm run check
           npm run lint
@@ -80,7 +61,7 @@ jobs:
           publish_dir: ./coverage/lcov-report
           publish_branch: gh-pages
 
-  # JOB 2: Schwergewicht (Docker & E2E)
+  # JOB 2: Browser-End-to-End-Tests
   e2e-tests:
     name: Playwright E2E
     needs: build-and-test
@@ -91,8 +72,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -135,7 +116,7 @@ jobs:
       - name: Run E2E Tests
         env:
           ARDUINO_CACHE_DIR: ${{ github.workspace }}/server/arduino-cache
-        run: npx playwright test --workers=2
+        run: npm run test:e2e -- --workers=2
 
       - name: Commit new Linux visual baselines
         if: always()
@@ -164,3 +145,70 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 1
+
+  # JOB 3: Echte Arduino-CLI-Integration, getrennt vom schnellen Unit-Gate
+  toolchain-tests:
+    name: Arduino Toolchain Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Arduino Toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/bin/arduino-cli
+            ~/.arduino15
+          key: ${{ runner.os }}-arduino-toolchain-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Arduino CLI & Core
+        run: |
+          if ! command -v arduino-cli &> /dev/null; then
+            curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          fi
+          arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
+
+      - name: Run toolchain integration tests
+        env:
+          ARDUINO_CACHE_DIR: /tmp/arduino-toolchain-cache
+        run: npm run test:integration
+
+  # JOB 4: Sandbox-Integration mit eigenem Docker-Budget
+  docker-tests:
+    name: Docker Sandbox Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Sandbox Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: unosim-sandbox:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Docker sandbox tests
+        run: npm run test:docker

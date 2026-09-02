@@ -27,7 +27,7 @@ async function removeSandboxContainers(): Promise<void> {
       process.on("close", () => resolve());
     });
   } catch {
-    // Docker is optional for non-Docker toolchain tests.
+    // Docker may become unavailable during teardown; never mask test failures.
   }
 }
 

@@ -50,13 +50,13 @@ explizit nutzen.
 
 - [x] AP-00.1: Laufzeiten, externe Abhängigkeiten, Umgebungen und schwache
   Assertions inventarisieren.
-- [x] AP-00.2: Vitest in benannte Projekte `unit-node`, `unit-client` und
-  `integration-toolchain` teilen. Node ist Standard; JSDOM und React-Setup gelten
-  ausschließlich für Clienttests.
+- [x] AP-00.2: Vitest in benannte Projekte `unit-node`, `unit-client`,
+  `integration-toolchain`, `integration-docker` und `load` teilen. Node ist
+  Standard; JSDOM und React-Setup gelten ausschließlich für Clienttests.
 - [x] AP-00.3: Globales Setup teilen: minimales gemeinsames Logger-/Mock-Cleanup,
   React/JSDOM-Setup nur im Clientprojekt und Docker-Cleanup einmalig im
   Docker-Gate statt einmal pro Testdatei.
-- [ ] AP-00.4: Kanonische npm-Skripte implementieren. `test:fast` wird Alias für
+- [x] AP-00.4: Kanonische npm-Skripte implementieren. `test:fast` wird Alias für
   `test:unit`; `test:related` nutzt Vitests Importgraph; Hook, CI und
   `run-tests.sh` rufen ausschließlich diese Skripte auf und duplizieren keine
   Exclude-Listen.
@@ -76,6 +76,14 @@ explizit nutzen.
 - [ ] AP-00.9: Coverage nur aus deterministischen Unit-/gezielten
   Integrationsprojekten aggregieren; Last-, Reporting- und redundante
   Toolchain-Szenarien nicht für Statement-Coverage ausführen.
+
+**Zwischenmessung nach AP-00.4 (2. September 2026):** Drei aufeinanderfolgende
+Unit-Läufe waren mit 25,97 s, 25,70 s und 25,47 s grün (je 122 Dateien, 1.494
+Tests plus ein Skip). Das isolierte Toolchain-Gate lief in 86,00 s grün (5
+Dateien, 24 Tests), das Docker-Gate in 106,37 s (7 Dateien, 32 Tests). Der
+Importgraph-Lauf für die zentrale Datei `server/security/access-control.ts` war
+mit 20,24 s zwar grün, überschreitet aber noch das Zielbudget von 15 s und bleibt
+Optimierungsbedarf für AP-00.5 bis AP-00.8.
 
 ### 0.4 Akzeptanzkriterien
 
