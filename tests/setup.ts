@@ -1,4 +1,4 @@
-import { afterEach, afterAll, vi } from "vitest";
+import { afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { initializeGlobalErrorHandlers, markTestAsFailed, setLogLevel } from "@shared/logger";
 
@@ -117,27 +117,5 @@ afterEach(() => {
 afterEach((ctx) => {
   if (ctx?.state === 'fail') {
     markTestAsFailed(`${ctx.title}`);
-  }
-});
-
-afterAll(async () => {
-  // Remove any unowebsim Docker containers that survived the test run.
-  // This is a safety net for cases where individual afterEach cleanup didn't
-  // complete (e.g., fake timers, test worker termination).
-  try {
-    const { spawn } = await import("node:child_process");
-    const containerIds = await new Promise<string[]>((resolve) => {
-      const proc = spawn("docker", ["ps", "-aq", "--filter", "name=unosim-sandbox-"]);
-      let output = "";
-      proc.stdout?.on("data", (d: Buffer) => { output += d.toString(); });
-      proc.on("close", () => resolve(output.split("\n").filter(Boolean)));
-    });
-    if (containerIds.length > 0) {
-      await new Promise<void>((resolve) => {
-        spawn("docker", ["rm", "-f", ...containerIds]).on("close", () => resolve());
-      });
-    }
-  } catch {
-    // Docker not available or no containers – ignore
   }
 });

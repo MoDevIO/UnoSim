@@ -22,7 +22,6 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: 'jsdom',
     environmentOptions: {
       jsdom: {
         // Use in-memory storage instead of file-based to avoid --localstorage-file warning
@@ -32,8 +31,6 @@ export default defineConfig({
         pretendToBeVisual: true,
       },
     },
-    setupFiles: ['./tests/setup.ts'],
-    threads: false,
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
@@ -58,5 +55,65 @@ export default defineConfig({
     silent: false,
     testTimeout: 30000,
     hookTimeout: 10000,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit-client',
+          include: ['tests/client/**/*.test.{ts,tsx}'],
+          environment: 'jsdom',
+          setupFiles: ['./tests/setup.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'unit-node',
+          include: [
+            'tests/server/**/*.test.ts',
+            'tests/shared/**/*.test.ts',
+            'tests/core/**/*.test.ts',
+            'tests/utils/**/*.test.ts',
+            'tests/integration/**/*.test.ts',
+          ],
+          exclude: [
+            'tests/integration/serial-flooding.test.ts',
+            'tests/integration/serial-flow.test.ts',
+            'tests/integration/worker-pool.*.test.ts',
+            'tests/server/core-cache-locking.test.ts',
+            'tests/server/load-suite.test.ts',
+            'tests/server/pause-resume-digitalread.test.ts',
+            'tests/server/pause-resume-timing.test.ts',
+            'tests/server/timing-delay.test.ts',
+            'tests/server/services/sandbox-lifecycle.integration.test.ts',
+            'tests/server/services/serial-backpressure.test.ts',
+          ],
+          environment: 'node',
+          setupFiles: ['./tests/setup.node.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'integration-toolchain',
+          include: [
+            'tests/integration/serial-flooding.test.ts',
+            'tests/integration/serial-flow.test.ts',
+            'tests/integration/worker-pool.*.test.ts',
+            'tests/server/core-cache-locking.test.ts',
+            'tests/server/pause-resume-digitalread.test.ts',
+            'tests/server/pause-resume-timing.test.ts',
+            'tests/server/timing-delay.test.ts',
+            'tests/server/services/sandbox-lifecycle.integration.test.ts',
+            'tests/server/services/serial-backpressure.test.ts',
+          ],
+          environment: 'node',
+          setupFiles: ['./tests/setup.node.ts'],
+          globalSetup: ['./tests/global-setup.toolchain.ts'],
+          fileParallelism: false,
+          maxWorkers: 1,
+        },
+      },
+    ],
   },
 });

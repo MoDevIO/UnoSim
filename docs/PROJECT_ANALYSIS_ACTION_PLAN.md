@@ -50,10 +50,10 @@ explizit nutzen.
 
 - [x] AP-00.1: Laufzeiten, externe Abhängigkeiten, Umgebungen und schwache
   Assertions inventarisieren.
-- [ ] AP-00.2: Vitest in benannte Projekte `unit-node`, `unit-client` und
+- [x] AP-00.2: Vitest in benannte Projekte `unit-node`, `unit-client` und
   `integration-toolchain` teilen. Node ist Standard; JSDOM und React-Setup gelten
   ausschließlich für Clienttests.
-- [ ] AP-00.3: Globales Setup teilen: minimales gemeinsames Logger-/Mock-Cleanup,
+- [x] AP-00.3: Globales Setup teilen: minimales gemeinsames Logger-/Mock-Cleanup,
   React/JSDOM-Setup nur im Clientprojekt und Docker-Cleanup einmalig im
   Docker-Gate statt einmal pro Testdatei.
 - [ ] AP-00.4: Kanonische npm-Skripte implementieren. `test:fast` wird Alias für
