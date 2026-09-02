@@ -63,7 +63,7 @@ explizit nutzen.
 - [ ] AP-00.5: Zeit abstrahieren. Kein Unit-Test darf absichtlich Sekunden warten.
   - [x] AP-00.5a: Pool-Reset- und Acquire-Grenzen injizierbar machen; Timeout-Timer
     nach erfolgreichem Reset zuverlässig löschen.
-  - [ ] AP-00.5b: Cache-TTL-, Registry-Debounce- und Batcher-Tests auf virtuelle
+  - [x] AP-00.5b: Cache-TTL-, Registry-Debounce- und Batcher-Tests auf virtuelle
     Zeit beziehungsweise injizierte Uhren umstellen.
   - [ ] AP-00.5c: Verbleibende Zustandssequenz- und Stress-Wartezeiten durch
     kontrollierbare Scheduler ersetzen oder aus dem Unit-Gate verschieben.
@@ -93,6 +93,11 @@ Optimierungsbedarf für AP-00.5 bis AP-00.8.
 Tests und das Löschen erledigter Timeout-Timer sank der Unit-Gesamtlauf auf
 13,73 s. Die zuvor je 10 s wartenden Resetfälle benötigen nun je 6 ms; der
 Recovery-Stresstest sank von 10,06 s auf 70 ms.
+
+**Nachmessung AP-00.5b:** Cache-TTL, zwei Registry-Heartbeatfolgen und vier
+Pin-State-Batcher-Fälle benötigen zusammen nur noch 32 ms Testzeit statt rund
+7,5 s realer Wartezeit. Der Hochfrequenzfall erzeugt nun tatsächlich 200
+Änderungen und prüft die zwei erwarteten deduplizierten Zustände exakt.
 
 ### 0.4 Akzeptanzkriterien
 

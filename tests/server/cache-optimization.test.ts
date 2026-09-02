@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import http from "node:http";
 import { createHash } from "node:crypto";
 
@@ -71,7 +71,9 @@ describe("Compilation Cache Optimization", () => {
   let stubServer: http.Server;
 
   // Realistic compilation cache with TTL
-  const CACHE_TTL_MS = 3000; // 3s TTL — robust against pre-push hook load
+  const CACHE_TTL_MS = 3000;
+  let clockMs = 0;
+  const nowMs = () => clockMs;
   const compilationCache = new Map<
     string,
     { output: string; cachedAt: number; headers?: unknown }
@@ -87,37 +89,39 @@ describe("Compilation Cache Optimization", () => {
         }
 
         if (req.url === "/api/compile" && req.method === "POST") {
-        let body = "";
-        req.on("data", (chunk) => (body += chunk));
-        req.on("end", () => {
-          const parsed = JSON.parse(body);
-          const hash = hashCode(parsed.code, parsed.headers);
-          const now = Date.now();
+          let body = "";
+          req.on("data", (chunk) => (body += chunk));
+          req.on("end", () => {
+            const parsed = JSON.parse(body);
+            const hash = hashCode(parsed.code, parsed.headers);
+            const now = nowMs();
 
-          // Check cache with TTL
-          const entry = compilationCache.get(hash);
-          if (entry && now - entry.cachedAt < CACHE_TTL_MS) {
-            // Cache hit
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(
-              JSON.stringify({
-                success: true,
-                output: entry.output,
-                cached: true,
-              }),
-            );
-            return;
-          }
+            // Check cache with TTL
+            const entry = compilationCache.get(hash);
+            if (entry && now - entry.cachedAt < CACHE_TTL_MS) {
+              // Cache hit
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(
+                JSON.stringify({
+                  success: true,
+                  output: entry.output,
+                  cached: true,
+                }),
+              );
+              return;
+            }
 
-          // Evict expired entry if present
-          if (entry) {
-            compilationCache.delete(hash);
-          }
+            // Evict expired entry if present
+            if (entry) {
+              compilationCache.delete(hash);
+            }
 
-          // Cache miss — simulate compilation delay (5ms)
-          setTimeout(() => {
             const output = `Compiled: ${hash.slice(0, 8)}`;
-            compilationCache.set(hash, { output, cachedAt: Date.now(), headers: parsed.headers });
+            compilationCache.set(hash, {
+              output,
+              cachedAt: nowMs(),
+              headers: parsed.headers,
+            });
 
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(
@@ -127,20 +131,24 @@ describe("Compilation Cache Optimization", () => {
                 cached: false,
               }),
             );
-          }, 5);
-        });
-        return;
-      }
+          });
+          return;
+        }
 
-      res.writeHead(404);
-      res.end();
-    });
+        res.writeHead(404);
+        res.end();
+      });
 
       stubServer.listen(0, () => {
         API_BASE = `http://localhost:${(stubServer.address() as any).port}`;
         resolve();
       });
     });
+  });
+
+  beforeEach(() => {
+    clockMs = 0;
+    compilationCache.clear();
   });
 
   afterAll(async () => {
@@ -258,8 +266,8 @@ void loop() { delay(100); }
     const result2 = await response2.json();
     expect(result2.cached).toBe(true);
 
-    // Wait for TTL to expire (3000ms + margin)
-    await new Promise((resolve) => setTimeout(resolve, 3100));
+    // Advance the cache's injected clock past the TTL without wall-clock waiting.
+    clockMs += CACHE_TTL_MS + 1;
 
     // After TTL — miss again
     const response3 = await fetchHttp(`${API_BASE}/api/compile`, {
