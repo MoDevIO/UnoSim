@@ -1,7 +1,10 @@
 import { SandboxRunner } from "./sandbox-runner";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord } from "@shared/schema";
-import type { ExecutionState, TelemetryMetrics } from "./sandbox/execution-manager";
+import type {
+  ExecutionState,
+  TelemetryMetrics,
+} from "./sandbox/execution-manager";
 import { config } from "../config";
 
 interface PooledRunner {
@@ -42,9 +45,15 @@ type SandboxRunnerInternal = {
   outputCallback?: ((line: string, isComplete?: boolean) => void) | null;
   errorCallback?: ((line: string) => void) | null;
   telemetryCallback?: ((metrics: TelemetryMetrics) => void) | null;
-  pinStateCallback?: ((pin: number, type: string, value: number) => void) | null;
+  pinStateCallback?:
+    | ((pin: number, type: string, value: number) => void)
+    | null;
   ioRegistryCallback?:
-    | ((registry: IOPinRecord[], baudrate: number | undefined, reason?: string) => void)
+    | ((
+        registry: IOPinRecord[],
+        baudrate: number | undefined,
+        reason?: string,
+      ) => void)
     | null;
   timeoutManager?: { clear: () => void };
   fileBuilder?: { reset: () => void };
@@ -53,21 +62,31 @@ type SandboxRunnerInternal = {
   [key: string]: unknown;
 };
 
-class SandboxRunnerPool {
+export interface SandboxRunnerPoolOptions {
+  minRunners?: number;
+  maxRunners?: number;
+  idleTimeoutMs?: number;
+  acquireTimeoutMs?: number;
+  resetTimeoutMs?: number;
+}
+
+export class SandboxRunnerPool {
   private readonly minRunners: number;
   private readonly maxRunners: number;
   private readonly idleTimeoutMs: number;
   private readonly runners: PooledRunner[] = [];
   private readonly queue: QueueEntry[] = [];
   private readonly logger = new Logger("SandboxRunnerPool");
-  private readonly acquireTimeoutMs = 60000;
-  private readonly resetTimeoutMs = 10000;
+  private readonly acquireTimeoutMs: number;
+  private readonly resetTimeoutMs: number;
   private initialized = false;
 
-  constructor(options: { minRunners?: number; maxRunners?: number; idleTimeoutMs?: number } = {}) {
+  constructor(options: SandboxRunnerPoolOptions = {}) {
     this.minRunners = options.minRunners ?? 5;
     this.maxRunners = options.maxRunners ?? this.minRunners;
     this.idleTimeoutMs = options.idleTimeoutMs ?? 120000;
+    this.acquireTimeoutMs = options.acquireTimeoutMs ?? 60_000;
+    this.resetTimeoutMs = options.resetTimeoutMs ?? 10_000;
     this.logger.info(
       `[SandboxRunnerPool] Pool config: min=${this.minRunners}, max=${this.maxRunners}, idleTimeout=${this.idleTimeoutMs}ms`,
     );
@@ -78,7 +97,9 @@ class SandboxRunnerPool {
       return;
     }
 
-    this.logger.info(`[SandboxRunnerPool] Initializing ${this.minRunners} warm runner instances...`);
+    this.logger.info(
+      `[SandboxRunnerPool] Initializing ${this.minRunners} warm runner instances...`,
+    );
     for (let i = 0; i < this.minRunners; i++) {
       const runner = new SandboxRunner();
       this.runners.push({
@@ -92,12 +113,16 @@ class SandboxRunnerPool {
     }
 
     this.initialized = true;
-    this.logger.info(`[SandboxRunnerPool] Pool ready with ${this.minRunners} warm runners (max: ${this.maxRunners})`);
+    this.logger.info(
+      `[SandboxRunnerPool] Pool ready with ${this.minRunners} warm runners (max: ${this.maxRunners})`,
+    );
   }
 
   async acquireRunner(signal?: AbortSignal): Promise<SandboxRunner> {
     if (!this.initialized) {
-      throw new Error("SandboxRunnerPool not initialized. Call initialize() first.");
+      throw new Error(
+        "SandboxRunnerPool not initialized. Call initialize() first.",
+      );
     }
 
     const available = this.runners.find((p) => !p.inUse && !p.resetting);
@@ -117,7 +142,13 @@ class SandboxRunnerPool {
     // On-demand creation: create a new runner if below maxRunners
     if (this.runners.length < this.maxRunners) {
       const runner = new SandboxRunner();
-      this.runners.push({ runner, inUse: true, resetting: false, lastReleasedTime: Date.now(), idleTimer: null });
+      this.runners.push({
+        runner,
+        inUse: true,
+        resetting: false,
+        lastReleasedTime: Date.now(),
+        idleTimer: null,
+      });
       this.logger.debug(
         `[SandboxRunnerPool] On-demand runner created (total: ${this.runners.length}/${this.maxRunners})`,
       );
@@ -126,7 +157,11 @@ class SandboxRunnerPool {
 
     return new Promise<SandboxRunner>((resolve, reject) => {
       if (signal?.aborted) {
-        reject(new Error("SandboxRunnerPool: acquire cancelled (client disconnected)"));
+        reject(
+          new Error(
+            "SandboxRunnerPool: acquire cancelled (client disconnected)",
+          ),
+        );
         return;
       }
 
@@ -152,7 +187,11 @@ class SandboxRunnerPool {
         this.logger.debug(
           `[SandboxRunnerPool] Queued request cancelled by AbortSignal (queue: ${this.queue.length} remaining)`,
         );
-        reject(new Error("SandboxRunnerPool: acquire cancelled (client disconnected)"));
+        reject(
+          new Error(
+            "SandboxRunnerPool: acquire cancelled (client disconnected)",
+          ),
+        );
       };
       if (signal) {
         signal.addEventListener("abort", onAbort, { once: true });
@@ -162,7 +201,6 @@ class SandboxRunnerPool {
       this.queue.push(entry);
       this.logger.debug(
         `[SandboxRunnerPool] Runner queued (queue length: ${this.queue.length}, at maxRunners: ${this.maxRunners})`,
-      
       );
     });
   }
@@ -170,12 +208,16 @@ class SandboxRunnerPool {
   async releaseRunner(runner: SandboxRunner): Promise<void> {
     const pooledRunner = this.runners.find((p) => p.runner === runner);
     if (!pooledRunner) {
-      this.logger.warn("[SandboxRunnerPool] Attempt to release unknown runner (ignored)");
+      this.logger.warn(
+        "[SandboxRunnerPool] Attempt to release unknown runner (ignored)",
+      );
       return;
     }
 
     if (!pooledRunner.inUse) {
-      this.logger.warn("[SandboxRunnerPool] Attempt to release already-released runner (ignored)");
+      this.logger.warn(
+        "[SandboxRunnerPool] Attempt to release already-released runner (ignored)",
+      );
       return;
     }
 
@@ -185,12 +227,16 @@ class SandboxRunnerPool {
     pooledRunner.lastReleasedTime = Date.now();
 
     // Reset with a timeout guard so a stuck runner.stop() cannot block forever
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
         this.resetRunnerState(runner),
-        new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error("Runner reset timed out")), this.resetTimeoutMs),
-        ),
+        new Promise<void>((_, reject) => {
+          resetTimer = setTimeout(
+            () => reject(new Error("Runner reset timed out")),
+            this.resetTimeoutMs,
+          );
+        }),
       ]);
       pooledRunner.resetting = false;
     } catch (error) {
@@ -208,15 +254,24 @@ class SandboxRunnerPool {
           lastReleasedTime: Date.now(),
           idleTimer: null,
         };
-        this.logger.info(`[SandboxRunnerPool] Replaced stuck runner at index ${index} with fresh instance`);
+        this.logger.info(
+          `[SandboxRunnerPool] Replaced stuck runner at index ${index} with fresh instance`,
+        );
+      }
+    } finally {
+      if (resetTimer !== undefined) {
+        clearTimeout(resetTimer);
       }
     }
 
     // Find the (possibly replaced) pooled runner for queue dispatch
-    const currentPooled = this.runners.find((p) => p.runner === (pooledRunner.runner ?? runner) || p === pooledRunner);
-    const freeRunner = currentPooled && !currentPooled.inUse && !currentPooled.resetting
-      ? currentPooled
-      : this.runners.find((p) => !p.inUse && !p.resetting);
+    const currentPooled = this.runners.find(
+      (p) => p.runner === (pooledRunner.runner ?? runner) || p === pooledRunner,
+    );
+    const freeRunner =
+      currentPooled && !currentPooled.inUse && !currentPooled.resetting
+        ? currentPooled
+        : this.runners.find((p) => !p.inUse && !p.resetting);
 
     this.logger.debug(
       `[SandboxRunnerPool] Runner released and reset (available: ${this.runners.filter((p) => !p.inUse).length}/${this.runners.length})`,
@@ -280,7 +335,9 @@ class SandboxRunnerPool {
       try {
         (maybe.removeAllListeners as () => void)();
       } catch (error) {
-        this.logger.debug(`[SandboxRunnerPool] Failed removeAllListeners on ${label}: ${error}`);
+        this.logger.debug(
+          `[SandboxRunnerPool] Failed removeAllListeners on ${label}: ${error}`,
+        );
       }
     };
 
@@ -289,8 +346,14 @@ class SandboxRunnerPool {
     const processController = runner.processController;
     safeRemoveAll(processController, "processController");
     safeRemoveAll(processController?.proc, "processController.proc");
-    safeRemoveAll(processController?.proc?.stdout, "processController.proc.stdout");
-    safeRemoveAll(processController?.proc?.stderr, "processController.proc.stderr");
+    safeRemoveAll(
+      processController?.proc?.stdout,
+      "processController.proc.stdout",
+    );
+    safeRemoveAll(
+      processController?.proc?.stderr,
+      "processController.proc.stderr",
+    );
 
     safeRemoveAll(runner.registryManager, "registryManager");
     safeRemoveAll(runner.serialOutputBatcher, "serialOutputBatcher");
@@ -357,7 +420,9 @@ class SandboxRunnerPool {
         try {
           r.registryManager.reset();
         } catch (error) {
-          this.logger.debug(`[SandboxRunnerPool] RegistryManager reset failed: ${error}`);
+          this.logger.debug(
+            `[SandboxRunnerPool] RegistryManager reset failed: ${error}`,
+          );
         }
       }
 
@@ -365,9 +430,13 @@ class SandboxRunnerPool {
         r.timeoutManager.clear();
       }
 
-      this.logger.debug("[SandboxRunnerPool] Runner state reset complete (isolation verified)");
+      this.logger.debug(
+        "[SandboxRunnerPool] Runner state reset complete (isolation verified)",
+      );
     } catch (error) {
-      this.logger.error(`[SandboxRunnerPool] Error during runner reset: ${error}`);
+      this.logger.error(
+        `[SandboxRunnerPool] Error during runner reset: ${error}`,
+      );
     }
   }
 
@@ -376,7 +445,8 @@ class SandboxRunnerPool {
       totalRunners: this.runners.length,
       minRunners: this.minRunners,
       maxRunners: this.maxRunners,
-      availableRunners: this.runners.filter((p) => !p.inUse && !p.resetting).length,
+      availableRunners: this.runners.filter((p) => !p.inUse && !p.resetting)
+        .length,
       inUseRunners: this.runners.filter((p) => p.inUse).length,
       resettingRunners: this.runners.filter((p) => p.resetting).length,
       queuedRequests: this.queue.length,
@@ -411,7 +481,9 @@ class SandboxRunnerPool {
           await runner.stop();
         }
       } catch (error) {
-        this.logger.warn(`[SandboxRunnerPool] Error stopping runner during shutdown: ${error}`);
+        this.logger.warn(
+          `[SandboxRunnerPool] Error stopping runner during shutdown: ${error}`,
+        );
       }
     }
 
@@ -426,6 +498,8 @@ export function getSandboxRunnerPool(): SandboxRunnerPool {
     minRunners: config.sandbox.pool.minRunners,
     maxRunners: config.sandbox.pool.maxRunners,
     idleTimeoutMs: config.sandbox.pool.idleTimeoutMs,
+    acquireTimeoutMs: config.sandbox.pool.acquireTimeoutMs,
+    resetTimeoutMs: config.sandbox.pool.resetTimeoutMs,
   });
   return poolInstance;
 }

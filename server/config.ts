@@ -41,7 +41,10 @@ function envBool(key: string, fallback: boolean): boolean {
 function envList(key: string, fallback: string[]): string[] {
   const v = process.env[key];
   if (v === undefined) return fallback;
-  return v.split(",").map((s) => s.trim()).filter(Boolean);
+  return v
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 // ── Derived pool values ─────────────────────────────────────────────
@@ -63,7 +66,8 @@ export const config = {
    * Server mode: "local" (dev) or "docker" (docker-compose).
    * Set via UNOSIM_SERVER_MODE env var; falls back to NODE_ENV detection.
    */
-  serverMode: (envStr("UNOSIM_SERVER_MODE", "") || (process.env.NODE_ENV === "production" ? "docker" : "local")) as ServerMode,
+  serverMode: (envStr("UNOSIM_SERVER_MODE", "") ||
+    (process.env.NODE_ENV === "production" ? "docker" : "local")) as ServerMode,
 
   /**
    * Simulation execution mode.
@@ -71,7 +75,10 @@ export const config = {
    * "local" compiles and runs sketches as native child processes.
    * Set via UNOSIM_SIMULATION_MODE or legacy FORCE_DOCKER env var.
    */
-  simulationMode: (envStr("UNOSIM_SIMULATION_MODE", "") || (envBool("FORCE_DOCKER", false) ? "docker-sandbox" : "local")) as SimulationMode,
+  simulationMode: (envStr("UNOSIM_SIMULATION_MODE", "") ||
+    (envBool("FORCE_DOCKER", false)
+      ? "docker-sandbox"
+      : "local")) as SimulationMode,
 
   /** True when running under a test framework */
   isTest: process.env.NODE_ENV === "test",
@@ -117,6 +124,8 @@ export const config = {
       idleTimeoutMs: envInt("SANDBOX_POOL_IDLE_TIMEOUT_MS", 120_000),
       /** Max time to wait for a runner before rejecting */
       acquireTimeoutMs: 60_000,
+      /** Max time to wait while resetting a released runner */
+      resetTimeoutMs: 10_000,
       /** Max queued acquire requests before rejecting immediately */
       maxQueueSize: 500,
     },
@@ -164,13 +173,19 @@ export const config = {
     /** Max simultaneous g++ processes inside Docker containers */
     dockerCompileConcurrent: envInt("DOCKER_COMPILE_CONCURRENT", 8),
     /** Max simultaneous compile operations (gatekeeper) */
-    maxConcurrent: envInt("COMPILE_MAX_CONCURRENT", defaultCompileMaxConcurrent),
+    maxConcurrent: envInt(
+      "COMPILE_MAX_CONCURRENT",
+      defaultCompileMaxConcurrent,
+    ),
     /** Compilation timeout (ms) */
     timeoutMs: 60_000,
     /** Arduino Fully Qualified Board Name */
     fqbn: envStr("ARDUINO_FQBN", "arduino:avr:uno"),
     /** Arduino CLI core/library cache directory */
-    cacheDir: envStr("ARDUINO_CACHE_DIR", path.join(cwd, "server/arduino-cache")),
+    cacheDir: envStr(
+      "ARDUINO_CACHE_DIR",
+      path.join(cwd, "server/arduino-cache"),
+    ),
     /** Build artifact cache directory */
     buildCacheDir: envStr("BUILD_CACHE_DIR", path.join(cwd, "storage/cache")),
     /** LRU eviction trigger for build cache (bytes) */

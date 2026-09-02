@@ -6,15 +6,20 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock SandboxRunner  
+// Mock SandboxRunner
 vi.mock("../../../server/services/sandbox-runner", () => {
   class MockSandboxRunner {
     isRunning = false;
     stop = vi.fn().mockResolvedValue(undefined);
     // The real SandboxRunner uses a getter/setter that delegates to executionState.state
     _state = "stopped";
-    get state() { return this._state; }
-    set state(v: string) { this._state = v; this.executionState.state = v; }
+    get state() {
+      return this._state;
+    }
+    set state(v: string) {
+      this._state = v;
+      this.executionState.state = v;
+    }
     executionState = {
       state: "stopped" as string,
       pauseStartTime: null as number | null,
@@ -93,25 +98,42 @@ vi.mock("../../../server/services/registry-manager", () => ({
 // Suppress logger output
 vi.mock("@shared/logger", () => ({
   Logger: class {
-    info() { /* no-op */ }
-    debug() { /* no-op */ }
-    warn() { /* no-op */ }
-    error() { /* no-op */ }
+    info() {
+      /* no-op */
+    }
+    debug() {
+      /* no-op */
+    }
+    warn() {
+      /* no-op */
+    }
+    error() {
+      /* no-op */
+    }
   },
 }));
 
 let getSandboxRunnerPool: () => any;
 let initializeSandboxRunnerPool: () => Promise<void>;
+let SandboxRunnerPool: new (options?: {
+  minRunners?: number;
+  maxRunners?: number;
+  idleTimeoutMs?: number;
+  acquireTimeoutMs?: number;
+  resetTimeoutMs?: number;
+}) => any;
 
 beforeEach(async () => {
   vi.resetModules();
   const mod = await import("../../../server/services/sandbox-runner-pool");
   getSandboxRunnerPool = mod.getSandboxRunnerPool;
   initializeSandboxRunnerPool = mod.initializeSandboxRunnerPool;
+  SandboxRunnerPool = mod.SandboxRunnerPool;
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("SandboxRunnerPool", () => {
@@ -210,7 +232,11 @@ describe("SandboxRunnerPool", () => {
 
   it("acquire timeout rejects if no runner available", async () => {
     vi.useFakeTimers();
-    const pool = getSandboxRunnerPool();
+    const pool = new SandboxRunnerPool({
+      minRunners: 5,
+      maxRunners: 5,
+      acquireTimeoutMs: 25,
+    });
     await pool.initialize();
 
     // Acquire all runners
@@ -220,10 +246,9 @@ describe("SandboxRunnerPool", () => {
 
     const pendingAcquire = pool.acquireRunner();
 
-    // Advance past timeout (60s)
-    vi.advanceTimersByTime(61000);
+    vi.advanceTimersByTime(25);
 
-    await expect(pendingAcquire).rejects.toThrow("acquire timeout");
+    await expect(pendingAcquire).rejects.toThrow("acquire timeout after 25ms");
 
     vi.useRealTimers();
   });
@@ -273,7 +298,7 @@ describe("SandboxRunnerPool", () => {
     await pool.initialize();
 
     const runner = await pool.acquireRunner();
-    
+
     // Simulate runner had been used — set executionState fields
     runner.executionState.outputBuffer = "some output";
     runner.executionState.totalOutputBytes = 1000;
@@ -324,6 +349,21 @@ describe("SandboxRunnerPool", () => {
     expect(runner.stop).toHaveBeenCalled();
   });
 
+  it("clears the reset timeout after a successful release", async () => {
+    vi.useFakeTimers();
+    const pool = new SandboxRunnerPool({
+      minRunners: 1,
+      maxRunners: 1,
+      resetTimeoutMs: 100,
+    });
+    await pool.initialize();
+
+    const runner = await pool.acquireRunner();
+    await pool.releaseRunner(runner);
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("handles error during runner reset gracefully", async () => {
     const pool = getSandboxRunnerPool();
     await pool.initialize();
@@ -342,7 +382,11 @@ describe("SandboxRunnerPool", () => {
     await pool.initialize();
 
     const runner = await pool.acquireRunner();
-    const mockRegistryManager = { destroy: vi.fn(), reset: vi.fn(), removeAllListeners: vi.fn() };
+    const mockRegistryManager = {
+      destroy: vi.fn(),
+      reset: vi.fn(),
+      removeAllListeners: vi.fn(),
+    };
     runner.registryManager = mockRegistryManager;
 
     await pool.releaseRunner(runner);
@@ -357,7 +401,9 @@ describe("SandboxRunnerPool", () => {
     const runner = await pool.acquireRunner();
     const mockRegistryManager = {
       destroy: vi.fn(),
-      reset: vi.fn().mockImplementation(() => { throw new Error("reset failed"); }),
+      reset: vi.fn().mockImplementation(() => {
+        throw new Error("reset failed");
+      }),
       removeAllListeners: vi.fn(),
     };
     runner.registryManager = mockRegistryManager;
@@ -367,7 +413,11 @@ describe("SandboxRunnerPool", () => {
   });
 
   it("replaces stuck runner when stop() hangs beyond reset timeout", async () => {
-    const pool = getSandboxRunnerPool();
+    const pool = new SandboxRunnerPool({
+      minRunners: 5,
+      maxRunners: 5,
+      resetTimeoutMs: 5,
+    });
     await pool.initialize();
 
     const runner = await pool.acquireRunner();
@@ -378,17 +428,21 @@ describe("SandboxRunnerPool", () => {
     const statsBefore = pool.getStats();
     expect(statsBefore.inUseRunners).toBe(1);
 
-    // Release should not hang — the 10s timeout fires and the runner is replaced
+    // Release should not hang — the injected timeout fires and replaces the runner.
     await pool.releaseRunner(runner);
 
     const statsAfter = pool.getStats();
     // Runner was freed (either original or replaced)
     expect(statsAfter.inUseRunners).toBe(0);
     expect(statsAfter.availableRunners).toBe(5);
-  }, 15000);
+  });
 
   it("releases pool slot immediately even if reset hangs", async () => {
-    const pool = getSandboxRunnerPool();
+    const pool = new SandboxRunnerPool({
+      minRunners: 5,
+      maxRunners: 5,
+      resetTimeoutMs: 5,
+    });
     await pool.initialize();
 
     // Acquire all 5 runners
@@ -410,7 +464,7 @@ describe("SandboxRunnerPool", () => {
     const queuedRunner = await pendingAcquire;
     expect(queuedRunner).toBeDefined();
     expect(pool.getStats().queuedRequests).toBe(0);
-  }, 15000);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -451,7 +505,10 @@ describe("SandboxRunnerPool – env-var configuration", () => {
 
     // 4th acquire must queue (maxRunners=3 reached)
     let resolved = false;
-    const pending = pool.acquireRunner().then((r) => { resolved = true; return r; });
+    const pending = pool.acquireRunner().then((r) => {
+      resolved = true;
+      return r;
+    });
     // Must not resolve yet
     await Promise.resolve();
     await Promise.resolve();
@@ -617,7 +674,11 @@ describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
   const origEnv: Record<string, string | undefined> = {};
 
   beforeEach(() => {
-    for (const k of ["SANDBOX_POOL_MIN_RUNNERS", "SANDBOX_POOL_MAX_RUNNERS", "SANDBOX_POOL_IDLE_TIMEOUT_MS"]) {
+    for (const k of [
+      "SANDBOX_POOL_MIN_RUNNERS",
+      "SANDBOX_POOL_MAX_RUNNERS",
+      "SANDBOX_POOL_IDLE_TIMEOUT_MS",
+    ]) {
       origEnv[k] = process.env[k];
     }
   });
@@ -644,9 +705,9 @@ describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
     );
 
     const stats = pool.getStats();
-    expect(stats.totalRunners).toBe(20);       // 5 warm + 15 on-demand
-    expect(stats.inUseRunners).toBe(20);       // all in use
-    expect(stats.queuedRequests).toBe(0);      // zero waiting
+    expect(stats.totalRunners).toBe(20); // 5 warm + 15 on-demand
+    expect(stats.inUseRunners).toBe(20); // all in use
+    expect(stats.queuedRequests).toBe(0); // zero waiting
 
     await Promise.all(runners.map((r) => pool.releaseRunner(r)));
     await pool.shutdown();
@@ -705,7 +766,10 @@ describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
 
     // 6th acquire queues
     let q6resolved = false;
-    const q6 = pool.acquireRunner().then((r) => { q6resolved = true; return r; });
+    const q6 = pool.acquireRunner().then((r) => {
+      q6resolved = true;
+      return r;
+    });
     expect(pool.getStats().queuedRequests).toBe(1);
     expect(q6resolved).toBe(false); // still waiting
 
@@ -719,4 +783,3 @@ describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
     await pool.shutdown();
   });
 });
-

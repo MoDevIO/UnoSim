@@ -60,9 +60,13 @@ explizit nutzen.
   `test:unit`; `test:related` nutzt Vitests Importgraph; Hook, CI und
   `run-tests.sh` rufen ausschließlich diese Skripte auf und duplizieren keine
   Exclude-Listen.
-- [ ] AP-00.5: Zeit abstrahieren: Pool-Reset-, Acquire-, TTL-, Batcher- und
-  Debounce-Tests erhalten injizierbare Zeitgrenzen oder Fake Timer. Kein Unit-Test
-  darf absichtlich Sekunden warten.
+- [ ] AP-00.5: Zeit abstrahieren. Kein Unit-Test darf absichtlich Sekunden warten.
+  - [x] AP-00.5a: Pool-Reset- und Acquire-Grenzen injizierbar machen; Timeout-Timer
+    nach erfolgreichem Reset zuverlässig löschen.
+  - [ ] AP-00.5b: Cache-TTL-, Registry-Debounce- und Batcher-Tests auf virtuelle
+    Zeit beziehungsweise injizierte Uhren umstellen.
+  - [ ] AP-00.5c: Verbleibende Zustandssequenz- und Stress-Wartezeiten durch
+    kontrollierbare Scheduler ersetzen oder aus dem Unit-Gate verschieben.
 - [ ] AP-00.6: Echte Compilerfälle konsolidieren. Queue-, Fehler- und
   Backpressure-Semantik mit kontrollierten Fake-Workern testen; nur je ein
   erfolgreicher, fehlerhafter, paralleler Cache-Lock- und Worker-Canary kompiliert
@@ -84,6 +88,11 @@ Dateien, 24 Tests), das Docker-Gate in 106,37 s (7 Dateien, 32 Tests). Der
 Importgraph-Lauf für die zentrale Datei `server/security/access-control.ts` war
 mit 20,24 s zwar grün, überschreitet aber noch das Zielbudget von 15 s und bleibt
 Optimierungsbedarf für AP-00.5 bis AP-00.8.
+
+**Nachmessung AP-00.5a:** Durch injizierte 5-ms-Resetgrenzen in den betroffenen
+Tests und das Löschen erledigter Timeout-Timer sank der Unit-Gesamtlauf auf
+13,73 s. Die zuvor je 10 s wartenden Resetfälle benötigen nun je 6 ms; der
+Recovery-Stresstest sank von 10,06 s auf 70 ms.
 
 ### 0.4 Akzeptanzkriterien
 

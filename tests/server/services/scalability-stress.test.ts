@@ -21,8 +21,13 @@ vi.mock("../../../server/services/sandbox-runner", () => {
     isRunning = false;
     stop = vi.fn().mockResolvedValue(undefined);
     _state = "stopped";
-    get state() { return this._state; }
-    set state(v: string) { this._state = v; this.executionState.state = v; }
+    get state() {
+      return this._state;
+    }
+    set state(v: string) {
+      this._state = v;
+      this.executionState.state = v;
+    }
     executionState = {
       state: "stopped" as string,
       pauseStartTime: null as number | null,
@@ -63,10 +68,18 @@ vi.mock("../../../server/services/registry-manager", () => ({
 
 vi.mock("@shared/logger", () => ({
   Logger: class {
-    info() { /* no-op */ }
-    debug() { /* no-op */ }
-    warn() { /* no-op */ }
-    error() { /* no-op */ }
+    info() {
+      /* no-op */
+    }
+    debug() {
+      /* no-op */
+    }
+    warn() {
+      /* no-op */
+    }
+    error() {
+      /* no-op */
+    }
   },
 }));
 
@@ -167,15 +180,26 @@ async function runStressTest(
   clearInterval(healthTimer);
 
   for (const r of allResults) {
-    results.push(r.status === "fulfilled" ? r.value : {
-      index: -1, acquireMs: 0, holdMs: 0, totalMs: 0, error: String(r.reason),
-    });
+    results.push(
+      r.status === "fulfilled"
+        ? r.value
+        : {
+            index: -1,
+            acquireMs: 0,
+            holdMs: 0,
+            totalMs: 0,
+            error: String(r.reason),
+          },
+    );
   }
 
   const elapsedMs = Date.now() - start;
   const succeeded = results.filter((r) => !r.error).length;
   const failed = results.filter((r) => r.error).length;
-  const acquireTimes = results.filter((r) => !r.error).map((r) => r.acquireMs).sort((a, b) => a - b);
+  const acquireTimes = results
+    .filter((r) => !r.error)
+    .map((r) => r.acquireMs)
+    .sort((a, b) => a - b);
   const totalTimes = results.filter((r) => !r.error).map((r) => r.totalMs);
 
   return {
@@ -183,10 +207,14 @@ async function runStressTest(
     results,
     succeeded,
     failed,
-    avgAcquireMs: acquireTimes.length ? acquireTimes.reduce((a, b) => a + b, 0) / acquireTimes.length : 0,
+    avgAcquireMs: acquireTimes.length
+      ? acquireTimes.reduce((a, b) => a + b, 0) / acquireTimes.length
+      : 0,
     maxAcquireMs: acquireTimes.length ? (acquireTimes.at(-1) ?? 0) : 0,
     p95AcquireMs: acquireTimes.length ? percentile(acquireTimes, 95) : 0,
-    avgTotalMs: totalTimes.length ? totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length : 0,
+    avgTotalMs: totalTimes.length
+      ? totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length
+      : 0,
     throughputPerSec: succeeded / (elapsedMs / 1000),
     peakQueueDepth,
     healthChecks,
@@ -195,14 +223,8 @@ async function runStressTest(
 
 // ── Pool stress tests ────────────────────────────────────────────────────
 
-let getSandboxRunnerPool: () => any;
-let initializeSandboxRunnerPool: () => Promise<void>;
-
-beforeEach(async () => {
+beforeEach(() => {
   vi.resetModules();
-  const mod = await import("../../../server/services/sandbox-runner-pool");
-  getSandboxRunnerPool = mod.getSandboxRunnerPool;
-  initializeSandboxRunnerPool = mod.initializeSandboxRunnerPool;
 });
 
 afterEach(() => {
@@ -229,7 +251,9 @@ describe("Scalability stress: SandboxRunnerPool", () => {
     expect(finalStats.inUseRunners).toBe(0);
     expect(finalStats.queuedRequests).toBe(0);
 
-    console.log(`[10 sims] avg acquire: ${report.avgAcquireMs.toFixed(0)}ms, p95: ${report.p95AcquireMs.toFixed(0)}ms, peak queue: ${report.peakQueueDepth}, throughput: ${report.throughputPerSec.toFixed(1)}/s`);
+    console.log(
+      `[10 sims] avg acquire: ${report.avgAcquireMs.toFixed(0)}ms, p95: ${report.p95AcquireMs.toFixed(0)}ms, peak queue: ${report.peakQueueDepth}, throughput: ${report.throughputPerSec.toFixed(1)}/s`,
+    );
 
     delete process.env.SANDBOX_POOL_MIN_RUNNERS;
     delete process.env.SANDBOX_POOL_MAX_RUNNERS;
@@ -257,7 +281,9 @@ describe("Scalability stress: SandboxRunnerPool", () => {
     expect(finalStats.inUseRunners).toBe(0);
     expect(finalStats.queuedRequests).toBe(0);
 
-    console.log(`[50 sims] avg acquire: ${report.avgAcquireMs.toFixed(0)}ms, p95: ${report.p95AcquireMs.toFixed(0)}ms, max: ${report.maxAcquireMs.toFixed(0)}ms, peak queue: ${report.peakQueueDepth}, throughput: ${report.throughputPerSec.toFixed(1)}/s`);
+    console.log(
+      `[50 sims] avg acquire: ${report.avgAcquireMs.toFixed(0)}ms, p95: ${report.p95AcquireMs.toFixed(0)}ms, max: ${report.maxAcquireMs.toFixed(0)}ms, peak queue: ${report.peakQueueDepth}, throughput: ${report.throughputPerSec.toFixed(1)}/s`,
+    );
 
     delete process.env.SANDBOX_POOL_MIN_RUNNERS;
     delete process.env.SANDBOX_POOL_MAX_RUNNERS;
@@ -285,12 +311,16 @@ describe("Scalability stress: SandboxRunnerPool", () => {
     expect(finalStats.queuedRequests).toBe(0);
 
     // Verify health snapshots show queue draining progressively
-    const maxHealthQueue = Math.max(...report.healthChecks.map((h) => h.queuedRequests));
+    const maxHealthQueue = Math.max(
+      ...report.healthChecks.map((h) => h.queuedRequests),
+    );
     expect(maxHealthQueue).toBeGreaterThan(0); // Queue was actually used
     const lastHealth = report.healthChecks.at(-1)!;
     expect(lastHealth.queuedRequests).toBe(0); // Queue drained
 
-    console.log(`[100 sims] avg acquire: ${report.avgAcquireMs.toFixed(0)}ms, p95: ${report.p95AcquireMs.toFixed(0)}ms, max: ${report.maxAcquireMs.toFixed(0)}ms, peak queue: ${report.peakQueueDepth}, throughput: ${report.throughputPerSec.toFixed(1)}/s`);
+    console.log(
+      `[100 sims] avg acquire: ${report.avgAcquireMs.toFixed(0)}ms, p95: ${report.p95AcquireMs.toFixed(0)}ms, max: ${report.maxAcquireMs.toFixed(0)}ms, peak queue: ${report.peakQueueDepth}, throughput: ${report.throughputPerSec.toFixed(1)}/s`,
+    );
 
     delete process.env.SANDBOX_POOL_MIN_RUNNERS;
     delete process.env.SANDBOX_POOL_MAX_RUNNERS;
@@ -298,11 +328,14 @@ describe("Scalability stress: SandboxRunnerPool", () => {
   }, 30000);
 
   it("100 concurrent with stuck runners — pool recovers via timeout", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
     vi.resetModules();
-    const mod = await import("../../../server/services/sandbox-runner-pool");
-    const pool = mod.getSandboxRunnerPool();
+    const { SandboxRunnerPool } =
+      await import("../../../server/services/sandbox-runner-pool");
+    const pool = new SandboxRunnerPool({
+      minRunners: 5,
+      maxRunners: 10,
+      resetTimeoutMs: 5,
+    });
     await pool.initialize();
 
     // First acquire 3 runners and make their stop() hang
@@ -314,7 +347,7 @@ describe("Scalability stress: SandboxRunnerPool", () => {
       stuckRunners.push(runner);
     }
 
-    // Release all 3 stuck runners — they should be replaced within 10s each
+    // Release all 3 stuck runners — the injected timeout replaces them quickly.
     const releasePromises = stuckRunners.map((r: any) => pool.releaseRunner(r));
     await Promise.all(releasePromises);
 
@@ -331,12 +364,12 @@ describe("Scalability stress: SandboxRunnerPool", () => {
     const finalStats = pool.getStats();
     expect(finalStats.inUseRunners).toBe(0);
 
-    console.log(`[Recovery] 3 stuck runners replaced. 20 sims after recovery: avg acquire ${report.avgAcquireMs.toFixed(0)}ms`);
+    console.log(
+      `[Recovery] 3 stuck runners replaced. 20 sims after recovery: avg acquire ${report.avgAcquireMs.toFixed(0)}ms`,
+    );
 
-    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
     await pool.shutdown();
-  }, 60000);
+  });
 
   it("4 simulations stop + immediate restart — no mid-reset runner reuse", async () => {
     process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
@@ -374,7 +407,9 @@ describe("Scalability stress: SandboxRunnerPool", () => {
     const releasePromises = firstAcquired.map((r) => pool.releaseRunner(r));
 
     // Phase 4: IMMEDIATELY acquire 4 runners again (simulates 4 users clicking "start" right after stop)
-    const reacquirePromises = Array.from({ length: 4 }, () => pool.acquireRunner());
+    const reacquirePromises = Array.from({ length: 4 }, () =>
+      pool.acquireRunner(),
+    );
 
     // Wait for all operations to complete
     await Promise.all(releasePromises);
@@ -407,7 +442,9 @@ describe("Scalability stress: SandboxRunnerPool", () => {
     expect(cleanStats.resettingRunners).toBe(0);
     expect(cleanStats.availableRunners).toBe(5);
 
-    console.log(`[4-sim restart] All 4 runners re-acquired successfully without mid-reset reuse`);
+    console.log(
+      `[4-sim restart] All 4 runners re-acquired successfully without mid-reset reuse`,
+    );
 
     delete process.env.SANDBOX_POOL_MIN_RUNNERS;
     delete process.env.SANDBOX_POOL_MAX_RUNNERS;
@@ -420,9 +457,8 @@ describe("Scalability stress: SandboxRunnerPool", () => {
 describe("Scalability stress: DockerCompileSemaphore", () => {
   it("10 concurrent compiles — all acquire and release correctly", async () => {
     vi.resetModules();
-    const { DockerCompileSemaphore } = await import(
-      "../../../server/services/sandbox/docker-compile-semaphore"
-    );
+    const { DockerCompileSemaphore } =
+      await import("../../../server/services/sandbox/docker-compile-semaphore");
     const semaphore = new DockerCompileSemaphore(8);
 
     let peakActive = 0;
@@ -446,14 +482,15 @@ describe("Scalability stress: DockerCompileSemaphore", () => {
     expect(semaphore.activeCount).toBe(0);
     expect(semaphore.queueLength).toBe(0);
     expect(peakActive).toBeLessThanOrEqual(8);
-    console.log(`[Semaphore 10] peak active: ${peakActive}, avg time: ${(times.reduce((a, b) => a + b, 0) / times.length).toFixed(0)}ms, queued: ${queuings.length}`);
+    console.log(
+      `[Semaphore 10] peak active: ${peakActive}, avg time: ${(times.reduce((a, b) => a + b, 0) / times.length).toFixed(0)}ms, queued: ${queuings.length}`,
+    );
   });
 
   it("50 concurrent compiles — FIFO ordering maintained, no deadlock", async () => {
     vi.resetModules();
-    const { DockerCompileSemaphore } = await import(
-      "../../../server/services/sandbox/docker-compile-semaphore"
-    );
+    const { DockerCompileSemaphore } =
+      await import("../../../server/services/sandbox/docker-compile-semaphore");
     const semaphore = new DockerCompileSemaphore(8);
 
     let peakActive = 0;
@@ -479,14 +516,15 @@ describe("Scalability stress: DockerCompileSemaphore", () => {
     expect(results).toHaveLength(50);
 
     const totalTimes = results.map((r) => r.totalMs);
-    console.log(`[Semaphore 50] peak active: ${peakActive}, peak queued: ${peakQueued}, avg: ${(totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length).toFixed(0)}ms, max: ${Math.max(...totalTimes)}ms`);
+    console.log(
+      `[Semaphore 50] peak active: ${peakActive}, peak queued: ${peakQueued}, avg: ${(totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length).toFixed(0)}ms, max: ${Math.max(...totalTimes)}ms`,
+    );
   });
 
   it("100 concurrent compiles — measures queue wait time under pressure", async () => {
     vi.resetModules();
-    const { DockerCompileSemaphore } = await import(
-      "../../../server/services/sandbox/docker-compile-semaphore"
-    );
+    const { DockerCompileSemaphore } =
+      await import("../../../server/services/sandbox/docker-compile-semaphore");
     const semaphore = new DockerCompileSemaphore(8);
 
     let peakActive = 0;
@@ -523,7 +561,9 @@ describe("Scalability stress: DockerCompileSemaphore", () => {
     // All should complete without deadlock
     expect(results).toHaveLength(100);
 
-    console.log(`[Semaphore 100] peak active: ${peakActive}, peak queued: ${peakQueued}, queued: ${queuedCount}, avg acquire: ${avg.toFixed(0)}ms, p95: ${p95.toFixed(0)}ms`);
+    console.log(
+      `[Semaphore 100] peak active: ${peakActive}, peak queued: ${peakQueued}, queued: ${queuedCount}, avg acquire: ${avg.toFixed(0)}ms, p95: ${p95.toFixed(0)}ms`,
+    );
   });
 });
 
@@ -534,15 +574,22 @@ describe("Scalability stress: combined pool + semaphore", () => {
     process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
     process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
     vi.resetModules();
-    const poolMod = await import("../../../server/services/sandbox-runner-pool");
-    const { DockerCompileSemaphore } = await import(
-      "../../../server/services/sandbox/docker-compile-semaphore"
-    );
+    const poolMod =
+      await import("../../../server/services/sandbox-runner-pool");
+    const { DockerCompileSemaphore } =
+      await import("../../../server/services/sandbox/docker-compile-semaphore");
     const pool = poolMod.getSandboxRunnerPool();
     await pool.initialize();
     const semaphore = new DockerCompileSemaphore(8);
 
-    const results: Array<{ index: number; acquireMs: number; compileMs: number; runMs: number; totalMs: number; error?: string }> = [];
+    const results: Array<{
+      index: number;
+      acquireMs: number;
+      compileMs: number;
+      runMs: number;
+      totalMs: number;
+      error?: string;
+    }> = [];
     const healthSnapshots: HealthSnapshot[] = [];
 
     const healthTimer = setInterval(() => {
@@ -573,7 +620,13 @@ describe("Scalability stress: combined pool + semaphore", () => {
           const runMs = Date.now() - t0 - acquireMs - compileMs;
 
           await pool.releaseRunner(runner);
-          results.push({ index: i, acquireMs, compileMs, runMs, totalMs: Date.now() - t0 });
+          results.push({
+            index: i,
+            acquireMs,
+            compileMs,
+            runMs,
+            totalMs: Date.now() - t0,
+          });
         } catch (error) {
           results.push({
             index: i,
@@ -604,10 +657,14 @@ describe("Scalability stress: combined pool + semaphore", () => {
     const peakInUse = Math.max(...healthSnapshots.map((h) => h.inUseRunners));
     expect(peakInUse).toBeGreaterThan(0);
 
-    const acquireTimes = succeeded.map((r) => r.acquireMs).sort((a, b) => a - b);
+    const acquireTimes = succeeded
+      .map((r) => r.acquireMs)
+      .sort((a, b) => a - b);
     const totalTimes = succeeded.map((r) => r.totalMs).sort((a, b) => a - b);
 
-    console.log(`[Combined 50] peak in-use: ${peakInUse}, avg acquire: ${(acquireTimes.reduce((a, b) => a + b, 0) / acquireTimes.length).toFixed(0)}ms, p95 acquire: ${percentile(acquireTimes, 95).toFixed(0)}ms, avg total: ${(totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length).toFixed(0)}ms`);
+    console.log(
+      `[Combined 50] peak in-use: ${peakInUse}, avg acquire: ${(acquireTimes.reduce((a, b) => a + b, 0) / acquireTimes.length).toFixed(0)}ms, p95 acquire: ${percentile(acquireTimes, 95).toFixed(0)}ms, avg total: ${(totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length).toFixed(0)}ms`,
+    );
 
     delete process.env.SANDBOX_POOL_MIN_RUNNERS;
     delete process.env.SANDBOX_POOL_MAX_RUNNERS;
@@ -618,16 +675,23 @@ describe("Scalability stress: combined pool + semaphore", () => {
     process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
     process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
     vi.resetModules();
-    const poolMod = await import("../../../server/services/sandbox-runner-pool");
-    const { DockerCompileSemaphore } = await import(
-      "../../../server/services/sandbox/docker-compile-semaphore"
-    );
+    const poolMod =
+      await import("../../../server/services/sandbox-runner-pool");
+    const { DockerCompileSemaphore } =
+      await import("../../../server/services/sandbox/docker-compile-semaphore");
     const pool = poolMod.getSandboxRunnerPool();
     await pool.initialize();
     const semaphore = new DockerCompileSemaphore(8);
 
-    const results: Array<{ index: number; totalMs: number; error?: string }> = [];
-    const healthLog: Array<{ ts: number; poolInUse: number; poolQueued: number; semActive: number; semQueued: number }> = [];
+    const results: Array<{ index: number; totalMs: number; error?: string }> =
+      [];
+    const healthLog: Array<{
+      ts: number;
+      poolInUse: number;
+      poolQueued: number;
+      semActive: number;
+      semQueued: number;
+    }> = [];
 
     // Server health monitor — checks every 10ms
     const healthTimer = setInterval(() => {
@@ -653,7 +717,11 @@ describe("Scalability stress: combined pool + semaphore", () => {
           await pool.releaseRunner(runner);
           results.push({ index: i, totalMs: Date.now() - t0 });
         } catch (error) {
-          results.push({ index: i, totalMs: Date.now() - t0, error: String(error) });
+          results.push({
+            index: i,
+            totalMs: Date.now() - t0,
+            error: String(error),
+          });
         }
       })(),
     );
@@ -680,8 +748,13 @@ describe("Scalability stress: combined pool + semaphore", () => {
     expect(peakPoolInUse).toBeGreaterThan(0);
     expect(peakSemActive).toBeGreaterThan(0);
 
-    const totalTimes = results.filter((r) => !r.error).map((r) => r.totalMs).sort((a, b) => a - b);
-    console.log(`[Combined 100] all ${succeeded} succeeded, peak pool: ${peakPoolInUse} in-use / ${peakPoolQueued} queued, peak sem: ${peakSemActive}, avg: ${(totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length).toFixed(0)}ms, p95: ${percentile(totalTimes, 95).toFixed(0)}ms, max: ${totalTimes.at(-1)}ms`);
+    const totalTimes = results
+      .filter((r) => !r.error)
+      .map((r) => r.totalMs)
+      .sort((a, b) => a - b);
+    console.log(
+      `[Combined 100] all ${succeeded} succeeded, peak pool: ${peakPoolInUse} in-use / ${peakPoolQueued} queued, peak sem: ${peakSemActive}, avg: ${(totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length).toFixed(0)}ms, p95: ${percentile(totalTimes, 95).toFixed(0)}ms, max: ${totalTimes.at(-1)}ms`,
+    );
 
     delete process.env.SANDBOX_POOL_MIN_RUNNERS;
     delete process.env.SANDBOX_POOL_MAX_RUNNERS;
