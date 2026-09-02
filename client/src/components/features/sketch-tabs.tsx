@@ -517,7 +517,7 @@ export function SketchTabs({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={downloadAllTabs}>
                 <Download className="h-4 w-4 mr-2" />
-                Download All Files
+                Save All Files
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

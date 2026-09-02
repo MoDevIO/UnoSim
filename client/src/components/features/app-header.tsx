@@ -349,7 +349,7 @@ function DesktopMenuBar({
             Load Files
           </MenubarItem>
           <MenubarItem onSelect={() => onDownloadAllFiles()}>
-            Download All Files
+            Save All Files
           </MenubarItem>
           <MenubarSeparator />
           <MenubarItem onSelect={() => onSettings()}>

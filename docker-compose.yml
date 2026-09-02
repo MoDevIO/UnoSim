@@ -9,6 +9,8 @@ services:
     container_name: unosim-server
     restart: unless-stopped
     environment:
+      - UNOSIM_SERVER_MODE=docker
+      - UNOSIM_SIMULATION_MODE=docker-sandbox
       - NODE_ENV=production
       - ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
