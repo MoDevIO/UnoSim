@@ -770,6 +770,16 @@ Prioritätsreferenz bestehen und erzeugt kein zweites, paralleles Testvorhaben.
 
 Zuerst Characterization Tests für Compile→Start→Pause→Reset schreiben. Danach `useCompileAndRun` in einen Compile-Service, eine Simulation-State-Machine und dünne UI-Actions zerlegen. `useCompilation` und `useSimulationControls` dürfen den Gesamthook nicht mehr unabhängig instanziieren.
 
+**Teilaufgaben:**
+
+- [x] AP-07.1: Hauptseite auf genau eine Controller-Instanz umstellen.
+- [ ] AP-07.2: Characterization-Tests für Compile→Start→Pause→Resume→Reset
+  als explizite Zustandssequenzen ergänzen.
+- [ ] AP-07.3: Compile-Zustand und Simulationszustand in getrennte interne
+  Controller-Module extrahieren, ohne den öffentlichen Hook-Vertrag zu ändern.
+- [ ] AP-07.4: Legacy-Wrapper auf reine Adapter reduzieren und ihre Entfernung
+  nachgelagert vorbereiten.
+
 **Umsetzungsnachweis AP-07 (Schritt 1):** Die Hauptseite verwendet nun genau
 eine `useCompileAndRun`-Instanz für Compile- und Simulationszustand. Die
 bisherigen Kompatibilitäts-Hooks bleiben für isolierte Verbraucher und Tests
