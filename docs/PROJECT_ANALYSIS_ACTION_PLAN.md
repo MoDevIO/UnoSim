@@ -922,7 +922,7 @@ sondern als Blocker gemeldet.
 - [x] AP-12.1: Characterization-Tests für einen vor `setup()`/`loop()`
   aufgerufenen, darunter definierten Funktionskörper ergänzen; Varianten mit
   Parametern und Rückgabewert abdecken. Gate: gezielter Unit-/Integrationstest.
-- [ ] AP-12.2: Die Prototyperzeugung als reine Funktion isolieren und einfache
+- [x] AP-12.2: Die Prototyperzeugung als reine Funktion isolieren und einfache
   Signaturen, Kommentare sowie bereits vorhandene Deklarationen testen. Keine
   Einbindung in Compilerpfade in diesem Task. Gate: neue Unit-Testdatei.
 - [ ] AP-12.3: Den Prototyp-Parser um mehrzeilige Signaturen,

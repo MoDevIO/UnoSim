@@ -17,6 +17,20 @@ interface SketchBuildResult {
   exeFile: string;
 }
 
+export function extractForwardDeclarations(code: string): string {
+  const stripped = code.replaceAll(/\/\/[^\n]*/g, "").replaceAll(/\/\*[\s\S]*?\*\//g, "");
+  const skipped = new Set(["if", "else", "while", "for", "do", "switch", "case", "return", "break", "continue", "goto", "class", "struct", "union", "enum", "namespace", "typedef", "setup", "loop", "main"]);
+  const definition = /^((?:\w[\w*&]*[ \t]+)*\w[\w*&]*)[ \t]+(\w+)[ \t]*(\([^)]*\))[ \t]*\{/gm;
+  const seen = new Set<string>();
+  const declarations: string[] = [];
+  for (const match of stripped.matchAll(definition)) {
+    if (skipped.has(match[2]) || seen.has(match[2])) continue;
+    seen.add(match[2]);
+    declarations.push(`${match[1].trim()} ${match[2]}${match[3]};`);
+  }
+  return declarations.join("\n");
+}
+
 export class SketchFileBuilder {
   private readonly logger = new Logger("SketchFileBuilder");
   private readonly createdSketchDirs = new Set<string>();
@@ -84,43 +98,7 @@ export class SketchFileBuilder {
    * the local g++ compiler accepts the same code the Arduino IDE would accept.
    */
   private extractForwardDeclarations(code: string): string {
-    // Strip single-line and block comments to avoid false positives
-    const stripped = code
-      .replaceAll(/\/\/[^\n]*/g, "")
-      .replaceAll(/\/\*[\s\S]*?\*\//g, "");
-
-    // Keywords that are never function names
-    const SKIP = new Set([
-      "if", "else", "while", "for", "do", "switch", "case",
-      "return", "break", "continue", "goto",
-      "class", "struct", "union", "enum", "namespace", "typedef",
-      "setup", "loop", "main",
-    ]);
-
-    // Match top-level function definitions (no leading indentation).
-    // The return type may span multiple words, e.g. "unsigned long":
-    // (?:\w[\w*&]*[ \t]+)* captures each word of the type (space/tab after each),
-    // \w[\w*&]* captures the final word (e.g. "long" or "char*").
-    // Using [ \t] instead of \s and keeping [\w*&] without spaces ensures
-    // the character classes are disjoint and the regex cannot backtrack catastrophically.
-    const funcDef = /^((?:\w[\w*&]*[ \t]+)*\w[\w*&]*)[ \t]+(\w+)[ \t]*(\([^)]*\))[ \t]*\{/gm;
-
-    const seen = new Set<string>();
-    const decls: string[] = [];
-
-    for (const match of stripped.matchAll(funcDef)) {
-      const returnType = match[1].trim();
-      const funcName = match[2];
-      const params = match[3];
-
-      if (SKIP.has(funcName)) continue;
-      if (seen.has(funcName)) continue;
-
-      seen.add(funcName);
-      decls.push(`${returnType} ${funcName}${params};`);
-    }
-
-    return decls.join("\n");
+    return extractForwardDeclarations(code);
   }
 
   /**

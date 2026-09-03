@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { SketchFileBuilder } from "../../../server/services/sketch-file-builder";
+import {
+  extractForwardDeclarations,
+  SketchFileBuilder,
+} from "../../../server/services/sketch-file-builder";
 import { readFile, mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -12,6 +15,12 @@ async function buildSketch(code: string): Promise<string> {
 }
 
 describe("SketchFileBuilder", () => {
+
+  it("exposes pure prototype extraction for simple declarations", () => {
+    expect(extractForwardDeclarations("// int fake() {}\nint real() { return 1; }")).toBe(
+      "int real();",
+    );
+  });
 
   describe("forward declarations (Arduino IDE compatibility)", () => {
     it("adds a forward declaration for a helper function called before its definition", async () => {
