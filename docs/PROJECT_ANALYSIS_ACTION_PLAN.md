@@ -788,7 +788,7 @@ Zuerst Characterization Tests für Compile→Start→Pause→Reset schreiben. Da
 - [x] AP-07.1: Hauptseite auf genau eine Controller-Instanz umstellen.
 - [x] AP-07.2: Characterization-Tests für Compile→Start→Pause→Resume→Reset
   als explizite Zustandssequenzen ergänzen.
-- [ ] AP-07.3: Compile-Zustand und Simulationszustand in getrennte interne
+- [x] AP-07.3: Compile-Zustand und Simulationszustand in getrennte interne
   Controller-Module extrahieren, ohne den öffentlichen Hook-Vertrag zu ändern.
 - [ ] AP-07.4: Legacy-Wrapper auf reine Adapter reduzieren und ihre Entfernung
   nachgelagert vorbereiten.
@@ -807,7 +807,13 @@ bestehen.
 wurde in `useSimulatorControllerState` ausgelagert. Compile- und
 Simulationsaktionen verwenden weiterhin denselben Vertrag, aber die
 State-Ownership ist jetzt als eigenes, testbares Modul isoliert. Die
-vollständige Trennung der Aktionsmodule bleibt als Rest von AP-07.3 offen.
+Die vollständige Reduktion der Legacy-Wrapper bleibt als Rest von AP-07.4 offen.
+
+**Umsetzungsnachweis AP-07.3:** Compile-State und Simulations-State sind in
+separate interne Hooks (`use-compile-controller-state` und
+`use-simulation-controller-state`) zerlegt und werden nur noch durch die
+gemeinsame Controller-State-Fassade komponiert. Die öffentliche API bleibt
+unverändert; die betroffenen 50 Hook-Tests bestehen.
 
 #### AP-08: Protokollrichtungen trennen und externe API reparieren
 
