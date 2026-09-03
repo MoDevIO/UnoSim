@@ -847,6 +847,15 @@ Protokoll-Hauptversion zur Entfernung vorgesehen.
 
 Liveness/Readiness trennen, Middleware-Reihenfolge korrigieren, Docker/CLI/Image prüfen und alle Pools, Sockets, Timer und Container zentral herunterfahren.
 
+**Teilaufgaben:**
+
+- [x] AP-10.1: Separaten `/api/readiness`-Endpunkt mit 503 während der
+  Initialisierung und 200 nach erfolgreicher Pool-Initialisierung einführen.
+- [ ] AP-10.2: Readiness um Docker-/Compiler-Abhängigkeiten und einen
+  expliziten Startup-Zustand erweitern.
+- [ ] AP-10.3: Shutdown aller Worker, Runner, Sockets und Timer mit einem
+  gemeinsamen, getesteten Lifecycle koordinieren.
+
 #### AP-11: Betriebsmodell ehrlich festlegen
 
 Entscheiden, ob UnoSim ein Einzelknoten-Dienst oder horizontal skalierbar sein soll. Bis zur Umsetzung „High Availability“ aus der Doku entfernen. Für echte Skalierung MemStorage, lokale Singletons und Sticky-Session-Anforderungen adressieren.
