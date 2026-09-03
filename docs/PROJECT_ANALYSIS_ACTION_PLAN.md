@@ -652,7 +652,7 @@ bei 15-s-Budget. Anschließend lief die gesamte Unit-Suite mit 122 Dateien und
 - [x] AP-03.1: Den Laufcontainer auf ein read-only Root-Dateisystem begrenzen,
   ein größenbegrenztes `tmpfs` nur für `/tmp` bereitstellen und sämtliche
   gemeinsam beschreibbaren Cache-Mounts aus dem Sandbox-Prozess entfernen.
-- [ ] AP-03.2: Eine zentrale kombinierte stdout-/stderr-Bytegrenze einführen;
+- [x] AP-03.2: Eine zentrale kombinierte stdout-/stderr-Bytegrenze einführen;
   bei Überschreitung muss der Container beendet und ein eindeutiger Fehler an
   den Client gemeldet werden.
 - [ ] AP-03.3: Timeout-Vertrag konsolidieren: Jeder Docker-Run erhält eine
@@ -673,6 +673,12 @@ Arbeitsfläche; die Laufbinärdatei wird folgerichtig dort erzeugt. Der bisherig
 gemeinsam beschreibbare Arduino-Cache-Mount wurde aus dem Sandbox-Aufruf
 entfernt. Der Argumentvertrag ist unit-getestet; die echte Docker-Suite bestand
 nach der Änderung mit 21 Tests in 89,18 s.
+
+**Umsetzungsnachweis AP-03.2:** `DockerManager` zählt stdout und stderr über
+einen gemeinsamen, zustandsgeteilten Zähler in UTF-8-Bytes. Überschreitungen
+werden nur einmal als definierter Fehler gemeldet und beenden den Container
+sofort per `SIGKILL`; der gezielte Unit-Test deckt die kanalübergreifende
+Grenze und Mehrbytezeichen ab.
 
 #### AP-04: Hochriskante Runtime-Abhängigkeiten aktualisieren
 
