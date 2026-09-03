@@ -12,7 +12,7 @@ type CompilerDeps = {
     compile: (code: string, headers?: CompilerHeader[], tempRoot?: string, options?: CompileRequestOptions) => Promise<CompilationResult>;
   };
   compilationCache: Map<string, { result: CompilationResult; timestamp: number }>;
-  hashCode: (code: string, headers?: CompilerHeader[]) => string;
+  hashCode: (code: string, headers?: CompilerHeader[], options?: CompileRequestOptions) => string;
   CACHE_TTL: number;
   setLastCompiledCode: (code: string | null) => void;
   logger: Logger;
@@ -40,7 +40,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         return res.status(400).json({ error: "Code is required" });
       }
 
-      const codeHash = hashCode(code, headers);
+      const codeHash = hashCode(code, headers, { fqbn, libraries });
       const cachedEntry = compilationCache.get(codeHash);
 
       if (cachedEntry) {

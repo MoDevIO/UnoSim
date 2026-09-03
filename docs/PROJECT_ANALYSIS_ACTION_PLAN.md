@@ -825,6 +825,21 @@ sind die AP-08-Maßnahmen abgeschlossen.
 
 Kanonischen Request-Fingerprint verwenden, In-Memory-LRU begrenzen, Versionierung/Eviction dokumentieren und globale `lastCompiledCode`-Fallbacklogik mit Deprecation versehen.
 
+**Teilaufgaben:**
+
+- [x] AP-09.1: Kanonischen Compile-Fingerprint einschließlich FQBN und
+  sortierter Libraries verwenden.
+- [x] AP-09.2: In-Memory-Compile-Cache auf 100 Einträge begrenzen und Zugriff
+  als LRU behandeln.
+- [ ] AP-09.3: Cache-Versionierung und die verbleibende globale
+  `lastCompiledCode`-Fallbacklogik dokumentieren beziehungsweise deprecaten.
+
+**Umsetzungsnachweis AP-09.1/AP-09.2:** Der Compile-Hash berücksichtigt jetzt
+Code, Header, FQBN und unabhängig von ihrer Eingabereihenfolge sortierte
+Libraries. Der Route-Cache evicted den jeweils ältesten Eintrag ab 100
+Einträgen und erneuert die LRU-Reihenfolge bei Treffern. Bestehende
+Compiler- und Cache-Regressionstests sowie der Typecheck bestehen.
+
 #### AP-10: Lifecycle und Health korrigieren
 
 Liveness/Readiness trennen, Middleware-Reihenfolge korrigieren, Docker/CLI/Image prüfen und alle Pools, Sockets, Timer und Container zentral herunterfahren.

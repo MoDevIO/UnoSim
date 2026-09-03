@@ -34,9 +34,41 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function hashCode(
   code: string,
   headers?: Array<{ name: string; content: string }>,
+  options?: { fqbn?: string; libraries?: string[] },
 ): string {
-  const combinedInput = code + JSON.stringify(headers || []);
+  const combinedInput = JSON.stringify({
+    code,
+    headers: headers || [],
+    fqbn: options?.fqbn || "",
+    libraries: [...(options?.libraries || [])].sort(),
+  });
   return createHash("sha256").update(combinedInput).digest("hex");
+}
+
+class CompilationCache extends Map<string, { result: CompilationResult; timestamp: number }> {
+  constructor(private readonly maxEntries = 100) {
+    super();
+  }
+
+  override get(key: string) {
+    const entry = super.get(key);
+    if (entry) {
+      super.delete(key);
+      super.set(key, entry);
+    }
+    return entry;
+  }
+
+  override set(key: string, value: { result: CompilationResult; timestamp: number }) {
+    super.delete(key);
+    super.set(key, value);
+    while (this.size > this.maxEntries) {
+      const oldest = this.keys().next().value;
+      if (oldest === undefined) break;
+      super.delete(oldest);
+    }
+    return this;
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -64,10 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   let lastCompiledCode: string | null = null;
 
   // Compilation Cache: Map<codeHash, CompilationResult>
-  const compilationCache = new Map<
-    string,
-    { result: CompilationResult; timestamp: number }
-  >();
+  const compilationCache = new CompilationCache(100);
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   // Placeholder for simulation websocket API (populated when WS module is registered)
