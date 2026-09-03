@@ -724,6 +724,37 @@ describe("SandboxRunner", () => {
       runner.sendSerialInput("test input");
       expect(pc.writeStdin).toHaveBeenCalledWith("test input\n");
     });
+
+    it("pauses and resumes the Docker container instead of only stopping docker CLI", async () => {
+      const runner = new SandboxRunner();
+      const pc = getProcessController(runner);
+      vi.spyOn(pc, "hasProcess").mockReturnValue(true);
+      const state = (runner as any).executionState;
+      state.state = "running";
+      state.currentContainerName = "unosim-sandbox-test";
+      const execute = vi
+        .spyOn((runner as any).processExecutor, "execute")
+        .mockResolvedValue({ code: 0 });
+      const kill = vi.spyOn(pc, "kill");
+
+      expect(runner.pause()).toBe(true);
+      await Promise.resolve();
+      expect(execute).toHaveBeenCalledWith(
+        "docker",
+        ["pause", "unosim-sandbox-test"],
+        expect.objectContaining({ timeout: 5000 }),
+      );
+      expect(kill).not.toHaveBeenCalledWith("SIGSTOP");
+
+      expect(runner.resume()).toBe(true);
+      await Promise.resolve();
+      expect(execute).toHaveBeenCalledWith(
+        "docker",
+        ["unpause", "unosim-sandbox-test"],
+        expect.objectContaining({ timeout: 5000 }),
+      );
+      expect(kill).not.toHaveBeenCalledWith("SIGCONT");
+    });
   });
 
   describe("Resource Limits", () => {

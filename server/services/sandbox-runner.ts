@@ -302,7 +302,21 @@ export class SandboxRunner {
     if (!s.processKilled) this.processController.writeStdin("[[PAUSE_TIME]]\n");
     s.pauseStartTime = Date.now();
     this.registryManager.markPauseTime(s.pauseStartTime);
-    this.processController.kill("SIGSTOP");
+    // SIGSTOP only suspends the local `docker run` client process; the
+    // container itself would continue producing output into the pipe. Pause
+    // the container when running in Docker so the sketch really stops at the
+    // exact instruction boundary and no ten-second backlog accumulates.
+    if (s.currentContainerName) {
+      const containerName = s.currentContainerName;
+      void this.processExecutor.execute("docker", ["pause", containerName], {
+        timeout: 5000,
+        stdio: "pipe",
+      }).catch((error) => {
+        this.logger.warn(`Docker pause failed for ${containerName}: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    } else {
+      this.processController.kill("SIGSTOP");
+    }
     this.logger.info("Simulation paused (SIGSTOP)");
     return true;
   }
@@ -310,10 +324,25 @@ export class SandboxRunner {
   resume(): boolean {
     const s = this.executionState;
     if (this.state !== SimulationState.PAUSED || !this.processController.hasProcess()) return false;
-    this.processController.kill("SIGCONT");
+    const containerName = s.currentContainerName;
+    if (!containerName) this.processController.kill("SIGCONT");
     const pauseDuration = Date.now() - (this.pauseStartTime ?? Date.now());
     s.totalPausedTime += pauseDuration;
-    if (!s.processKilled) this.processController.writeStdin(`[[RESUME_TIME:${pauseDuration}]]\n`);
+    const resumeContainer = containerName
+      ? this.processExecutor.execute("docker", ["unpause", containerName], {
+          timeout: 5000,
+          stdio: "pipe",
+        })
+      : Promise.resolve();
+    void resumeContainer
+      .catch((error) => {
+        this.logger.warn(`Docker resume failed for ${containerName}: ${error instanceof Error ? error.message : String(error)}`);
+      })
+      .finally(() => {
+        if (!s.processKilled) {
+          this.processController.writeStdin(`[[RESUME_TIME:${pauseDuration}]]\n`);
+        }
+      });
     s.pauseStartTime = null;
     this.registryManager.markPauseTime(null);
     this.state = SimulationState.RUNNING;
@@ -322,7 +351,7 @@ export class SandboxRunner {
     s.serialOutputBatcher?.resume();
     this.registryManager.resumeTelemetry();
     this.logger.info(`Simulation resumed after ${pauseDuration}ms (SIGCONT)`);
-    if (!s.processKilled) this.processController.writeStdin("\n");
+    if (!containerName && !s.processKilled) this.processController.writeStdin("\n");
     if (s.outputBuffer.length > 0 && s.onOutputCallback && !s.isSendingOutput) {
       this.sendOutputWithDelay(s.onOutputCallback);
     }

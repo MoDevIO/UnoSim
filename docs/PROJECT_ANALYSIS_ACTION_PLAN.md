@@ -664,6 +664,9 @@ bei 15-s-Budget. Anschließend lief die gesamte Unit-Suite mit 122 Dateien und
 - [ ] AP-03.5: Echte Docker-Integrationstests für Netzwerkisolation,
   Capability-Drop, Root-FS-Schreibschutz, Timeout und Output-Kill ergänzen;
   sie laufen im bestehenden Docker-Testprojekt.
+- [x] AP-03.6: Pause/Resume im Docker-Modus muss den Container selbst
+  einfrieren bzw. fortsetzen; ein Signal an den lokalen `docker run`-Prozess
+  allein darf keinen Output-Rückstau erzeugen.
 
 **Umsetzungsnachweis AP-03.1:** `DockerCommandBuilder` startet jeden
 Sandbox-Container mit `--read-only`, `--cap-drop ALL`, `no-new-privileges`
@@ -679,6 +682,13 @@ einen gemeinsamen, zustandsgeteilten Zähler in UTF-8-Bytes. Überschreitungen
 werden nur einmal als definierter Fehler gemeldet und beenden den Container
 sofort per `SIGKILL`; der gezielte Unit-Test deckt die kanalübergreifende
 Grenze und Mehrbytezeichen ab.
+
+**Umsetzungsnachweis AP-03.6:** Für Docker-Runs verwendet `SandboxRunner` beim
+Pausieren `docker pause` und beim Fortsetzen `docker unpause`. Dadurch steht
+der Sketch samt seinen Pipes tatsächlich still; der bisherige lokale
+`SIGSTOP`/`SIGCONT`-Pfad bleibt für lokale Runs erhalten. Ein Regressionstest
+prüft die korrekten Docker-Kommandos und stellt sicher, dass dort keine lokalen
+Prozesssignale als Ersatz verwendet werden.
 
 #### AP-04: Hochriskante Runtime-Abhängigkeiten aktualisieren
 

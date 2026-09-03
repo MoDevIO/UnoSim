@@ -50,6 +50,8 @@ const ALLOWED_COMMANDS: Record<string, { allowedArgs?: RegExp[] }> = {
       /^image$/,
       /^inspect$/,
       /^run$/,
+      /^pause$/,
+      /^unpause$/,
       /^[a-z0-9:./-]+$/i, // Image names, paths, config values
     ],
   },
