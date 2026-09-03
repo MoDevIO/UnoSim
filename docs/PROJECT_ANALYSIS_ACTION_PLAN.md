@@ -1131,7 +1131,7 @@ Monaco auf Editor-Core plus benötigte C++-Beiträge begrenzen, unnötige Sprach
 - [x] AP-17.4: Telemetrie ausschließlich statisch oder ausschließlich
   dynamisch importieren, sodass kein Modul in beiden Chunkpfaden landet. Gate:
   Build ohne entsprechende Vite-Warnung.
-- [ ] AP-17.5: Große, initial nicht benötigte UI-Bereiche gezielt lazy laden;
+- [x] AP-17.5: Große, initial nicht benötigte UI-Bereiche gezielt lazy laden;
   Lade- und Fehlerzustand testen. Gate: Navigationstest und Bundlevergleich.
 - [x] AP-17.6: Maschinenlesbare Budgets für initiales JS, größten Chunk und
   Gesamt-JS definieren; Überschreitung muss den Check fehlschlagen lassen. Gate:
@@ -1147,6 +1147,12 @@ direkten Editor-API-Import werden jetzt 3.826.342 Bytes Gesamt-JS und 2.537.698
 Bytes im größten Chunk ausgeliefert; initiales JS bleibt bei 510.372 Bytes.
 Nicht benötigte Sprachmodule werden nicht mehr aus dem Paket-Root gebündelt.
 Der Telemetrie-Store wird ausschließlich statisch importiert.
+
+Für AP-17.5 wird ausschließlich der nicht-realtimekritische Settings-Dialog
+on-demand geladen. Board-/LED-/Pin-State, Serial-Ausgabe und WebSocket-
+Controller bleiben synchron verfügbar; damit entstehen beim Betrieb keine
+Lücken in Echtzeitaktualisierungen. Der Build weist den Dialog als separaten
+12,69-kB-Chunk aus.
 
 #### AP-18: Build und CI reproduzierbar machen
 

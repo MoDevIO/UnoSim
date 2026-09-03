@@ -7,8 +7,10 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import ArduinoSimulator from "@/pages/arduino-simulator";
 import NotFound from "@/pages/not-found";
 import React from "react";
-import SettingsDialog from "@/components/features/settings-dialog";
 import { isMac } from "@/lib/platform";
+
+// Settings is opened on demand and has no realtime simulation state.
+const SettingsDialog = React.lazy(() => import("@/components/features/settings-dialog"));
 
 function Router() {
   return (
@@ -56,7 +58,9 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           {!disableToasts && <Toaster />}
-          <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+          <React.Suspense fallback={null}>
+            <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+          </React.Suspense>
           <Router />
         </TooltipProvider>
       </QueryClientProvider>
