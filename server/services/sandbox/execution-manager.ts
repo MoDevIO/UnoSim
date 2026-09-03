@@ -24,6 +24,7 @@ import { StreamHandler } from "./stream-handler";
 import { FilesystemHelper } from "./filesystem-helper";
 import { config } from "../../config";
 import { normalizeBaudrate, normalizeSimulationTimeout } from "@shared/input-limits";
+import { canTransition } from "../simulation-state-machine";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -825,29 +826,7 @@ export class ExecutionManager {
    * State transition (delegated from runner)
    */
   private transitionTo(state: ExecutionState, newState: SimulationState): boolean {
-    // Guard: no transition from ERROR
-    if (state.state === SimulationState.ERROR) {
-      return false;
-    }
-
-    // Guard: can't stop paused simulation
-    if (newState === SimulationState.STOPPED && state.state === SimulationState.PAUSED) {
-      return true; // Allow stop from paused
-    }
-
-    // Check valid transitions
-    const validTransitions: Record<SimulationState, SimulationState[]> = {
-      [SimulationState.STOPPED]: [SimulationState.STARTING],
-      [SimulationState.STARTING]: [SimulationState.STOPPED, SimulationState.RUNNING, SimulationState.ERROR],
-      [SimulationState.RUNNING]: [SimulationState.PAUSED, SimulationState.STOPPED, SimulationState.ERROR],
-      [SimulationState.PAUSED]: [SimulationState.RUNNING, SimulationState.STOPPED, SimulationState.ERROR],
-      [SimulationState.ERROR]: [],
-    };
-
-    if (!validTransitions[state.state].includes(newState)) {
-      return false;
-    }
-
+    if (!canTransition(state.state, newState)) return false;
     state.state = newState;
     return true;
   }
