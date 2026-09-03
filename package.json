@@ -3,6 +3,14 @@
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
+  "overrides": {
+    "express": {
+      "path-to-regexp": "0.1.13",
+      "qs": "6.16.0"
+    },
+    "postcss-selector-parser": "6.1.3",
+    "yaml": "2.9.0"
+  },
   "scripts": {
     "sonar": "sonar-scanner -Dsonar.projectKey=unosim -Dsonar.sources=client/src,server,shared -Dsonar.tests=tests -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONAR_TOKEN -Dsonar.scm.exclusions.disabled=true",
     "dev": "tsx server/index.ts --host",

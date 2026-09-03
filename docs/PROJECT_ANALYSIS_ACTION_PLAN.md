@@ -734,6 +734,14 @@ Typecheck und die vollständige Unit-Suite (1.498 Tests) bestehen. Die noch
 verbleibenden Audit-Befunde sind transitive oder erfordern Major-Upgrades und
 werden in AP-04.3 mit Kompatibilitätsnachweisen behandelt.
 
+**Zwischenstand AP-04.2:** Kompatible transitive Overrides für Express’
+`path-to-regexp`/`qs` sowie `postcss-selector-parser` und `yaml` sind in
+`package.json` verankert und im Lockfile reproduzierbar aufgelöst. Dadurch
+sank das produktive Audit auf drei Befunde: `esbuild` (Toolchain), `lodash`
+(Recharts) und `picomatch` (mehrere Toolchain-Abhängigkeitslinien). Diese
+erfordern eine separate Major-/Toolchain-Entscheidung und bleiben deshalb für
+AP-04.3 offen.
+
 #### AP-05: Warteschlangen wirklich begrenzen
 
 **Umfang:** `maxQueueSize` und Timeouts im RunnerPool nutzen; Ablehnungen und Abbrüche beobachten; Lasttests für Queue-Sättigung.  
