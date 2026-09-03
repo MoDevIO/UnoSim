@@ -118,6 +118,7 @@ let initializeSandboxRunnerPool: () => Promise<void>;
 let SandboxRunnerPool: new (options?: {
   minRunners?: number;
   maxRunners?: number;
+  maxQueueSize?: number;
   idleTimeoutMs?: number;
   acquireTimeoutMs?: number;
   resetTimeoutMs?: number;
@@ -347,6 +348,53 @@ describe("SandboxRunnerPool", () => {
 
     await pool.releaseRunner(runner);
     expect(runner.stop).toHaveBeenCalled();
+  });
+
+  it("rejects requests beyond the configured queue limit", async () => {
+    const pool = new SandboxRunnerPool({
+      minRunners: 1,
+      maxRunners: 1,
+      maxQueueSize: 2,
+      acquireTimeoutMs: 5_000,
+    });
+    await pool.initialize();
+
+    const runner = await pool.acquireRunner();
+    const queued1 = pool.acquireRunner();
+    const queued2 = pool.acquireRunner();
+
+    expect(pool.getStats().queuedRequests).toBe(2);
+    await expect(pool.acquireRunner()).rejects.toThrow("queue full (2 pending)");
+
+    await pool.releaseRunner(runner);
+    const granted1 = await queued1;
+    await pool.releaseRunner(granted1);
+    const granted2 = await queued2;
+    await pool.releaseRunner(granted2);
+    await pool.shutdown();
+  });
+
+  it("rejects the 501st request at the default limit of 500", async () => {
+    const pool = new SandboxRunnerPool({
+      minRunners: 1,
+      maxRunners: 1,
+      acquireTimeoutMs: 5_000,
+    });
+    await pool.initialize();
+    const runner = await pool.acquireRunner();
+    const pending = Array.from({ length: 500 }, () => {
+      const controller = new AbortController();
+      const promise = pool.acquireRunner(controller.signal).catch((error) => error);
+      return { controller, promise };
+    });
+
+    expect(pool.getStats().queuedRequests).toBe(500);
+    await expect(pool.acquireRunner()).rejects.toThrow("queue full (500 pending)");
+
+    pending.forEach(({ controller }) => controller.abort());
+    await Promise.all(pending.map(({ promise }) => promise));
+    await pool.releaseRunner(runner);
+    await pool.shutdown();
   });
 
   it("clears the reset timeout after a successful release", async () => {

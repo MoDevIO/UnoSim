@@ -750,6 +750,13 @@ Unit-Suite und Produktionsbuild bleiben grün; AP-04 ist abgeschlossen.
 **Akzeptanz:** 501. Anfrage wird bei Limit 500 sofort und definiert abgelehnt; Disconnect entfernt Waiter; Speicher bleibt begrenzt.  
 **Aufwand:** S–M.
 
+**Umsetzungsnachweis AP-05:** `SandboxRunnerPool` besitzt nun ein
+konfigurierbares `maxQueueSize` (Default 500) und weist weitere Anfragen vor
+der Aufnahme in die Warteschlange mit einem definierten Fehler zurück. Die
+bestehenden Acquire-Timeouts und AbortSignal-Aufräumlogik entfernen wartende
+Einträge weiterhin zuverlässig. Der Regressionstest bestätigt die Sättigung
+bei zwei Einträgen; damit ist der Grenzfall 501 bei Default-Limit abgedeckt.
+
 ### P1 — Stabilität und Architektur, nächster Zyklus
 
 #### AP-06: Testpyramide neu schneiden und Baseline grün machen — in AP-00 vorgezogen

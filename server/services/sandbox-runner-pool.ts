@@ -65,6 +65,7 @@ type SandboxRunnerInternal = {
 export interface SandboxRunnerPoolOptions {
   minRunners?: number;
   maxRunners?: number;
+  maxQueueSize?: number;
   idleTimeoutMs?: number;
   acquireTimeoutMs?: number;
   resetTimeoutMs?: number;
@@ -73,6 +74,7 @@ export interface SandboxRunnerPoolOptions {
 export class SandboxRunnerPool {
   private readonly minRunners: number;
   private readonly maxRunners: number;
+  private readonly maxQueueSize: number;
   private readonly idleTimeoutMs: number;
   private readonly runners: PooledRunner[] = [];
   private readonly queue: QueueEntry[] = [];
@@ -84,6 +86,7 @@ export class SandboxRunnerPool {
   constructor(options: SandboxRunnerPoolOptions = {}) {
     this.minRunners = options.minRunners ?? 5;
     this.maxRunners = options.maxRunners ?? this.minRunners;
+    this.maxQueueSize = options.maxQueueSize ?? 500;
     this.idleTimeoutMs = options.idleTimeoutMs ?? 120000;
     this.acquireTimeoutMs = options.acquireTimeoutMs ?? 60_000;
     this.resetTimeoutMs = options.resetTimeoutMs ?? 10_000;
@@ -153,6 +156,12 @@ export class SandboxRunnerPool {
         `[SandboxRunnerPool] On-demand runner created (total: ${this.runners.length}/${this.maxRunners})`,
       );
       return runner;
+    }
+
+    if (this.queue.length >= this.maxQueueSize) {
+      throw new Error(
+        `SandboxRunnerPool queue full (${this.maxQueueSize} pending). Try again later.`,
+      );
     }
 
     return new Promise<SandboxRunner>((resolve, reject) => {
@@ -445,6 +454,7 @@ export class SandboxRunnerPool {
       totalRunners: this.runners.length,
       minRunners: this.minRunners,
       maxRunners: this.maxRunners,
+      maxQueueSize: this.maxQueueSize,
       availableRunners: this.runners.filter((p) => !p.inUse && !p.resetting)
         .length,
       inUseRunners: this.runners.filter((p) => p.inUse).length,
