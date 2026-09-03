@@ -95,10 +95,10 @@ export function useSimulationControls(
     startSimulationRef: params.startSimulationRef,
   } as CompileAndRunParams);
 
-  // override some handlers to satisfy legacy/test expectations
+  // Compatibility adapter for the legacy conflict warning contract.
   const handleStart = () => {
     merged.handleStart();
-    if (params.pendingPinConflicts && params.pendingPinConflicts.length > 0) {
+    if (params.pendingPinConflicts.length > 0) {
       const names = params.pendingPinConflicts
         .map((p) => (p >= 14 && p <= 19 ? `A${p - 14}` : `${p}`))
         .join(", ");
@@ -112,10 +112,7 @@ export function useSimulationControls(
   };
 
   const handleReset = () => {
-    // match original behaviour: bail if backend not reachable
     if (!params.ensureBackendConnected("Reset simulation")) return;
-
-    // external clearOutputs must be called first (tests rely on this)
     params.clearOutputs();
     merged.handleReset();
 
