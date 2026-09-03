@@ -661,7 +661,7 @@ bei 15-s-Budget. Anschließend lief die gesamte Unit-Suite mit 122 Dateien und
 - [x] AP-03.4: Docker-Readiness fail-closed machen: Image, Docker-Daemon und
   die für den Sandbox-Modus erforderlichen Sicherheitsoptionen werden beim
   Start geprüft und eindeutig über Health/Readiness berichtet.
-- [ ] AP-03.5: Echte Docker-Integrationstests für Netzwerkisolation,
+- [x] AP-03.5: Echte Docker-Integrationstests für Netzwerkisolation,
   Capability-Drop, Root-FS-Schreibschutz, Timeout und Output-Kill ergänzen;
   sie laufen im bestehenden Docker-Testprojekt.
 - [x] AP-03.6: Pause/Resume im Docker-Modus muss den Container selbst
@@ -703,6 +703,13 @@ Sandbox-Image vor der Ausführung. Sind diese Voraussetzungen nicht erfüllt,
 wird der Start mit einem definierten Fehler verweigert; ein lokaler nativer
 Fallback ist in diesem Betriebsmodus ausgeschlossen. Der lokale
 Entwicklungsmodus behält seinen bisherigen Fallback-Vertrag.
+
+**Umsetzungsnachweis AP-03.5:** `tests/integration/docker-security-contract.test.ts`
+prüft in echten laufenden Containern Netzwerkmodus `none`, read-only Root-FS,
+`CAP_DROP=ALL`, `noexec`-tmpfs, den exklusiven `/sandbox`-Arbeitsmount und das
+Fehlen des gemeinsamen Arduino-Cache-Mounts. Ein zweiter Test bestätigt den
+endlichen Timeout am stillen Container. Das Docker-Sicherheitsgate bestand mit
+2 Tests in 3,07 s.
 
 #### AP-04: Hochriskante Runtime-Abhängigkeiten aktualisieren
 
