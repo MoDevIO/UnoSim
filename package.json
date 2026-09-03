@@ -1,6 +1,9 @@
 {
   "name": "rest-express",
   "version": "1.0.0",
+  "engines": {
+    "node": "20.19.1"
+  },
   "type": "module",
   "license": "MIT",
   "overrides": {
@@ -27,6 +30,7 @@
     "build:sandbox": "docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
+    "check:node-version": "node scripts/check-node-version.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:raw-hex": "node scripts/check-raw-hex.cjs",
     "lint:colors": "npm run check:raw-hex",

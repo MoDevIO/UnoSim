@@ -1,11 +1,11 @@
 # Pull Docker CLI binary from official image to avoid apt repo complexity
 FROM docker:27-cli AS docker-cli
 
-# Multi-stage build using Node 25.2.1
-FROM node:25.2.1 AS builder
+# Multi-stage build using the repository's pinned Node LTS.
+FROM node:20.19.1 AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm install
+RUN npm ci
 COPY tsconfig.json tsconfig.eslint.json vite.config.ts postcss.config.js tailwind.config.ts components.json ./
 COPY public ./public
 COPY client ./client
@@ -15,7 +15,7 @@ RUN npm run build
 
 ########################################
 # Production image
-FROM node:25.2.1-slim AS runner
+FROM node:20.19.1-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV ARDUINO_CACHE_DIR=/app/server/arduino-cache

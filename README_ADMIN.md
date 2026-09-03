@@ -65,6 +65,13 @@ Recommended for public deployments or multi-user systems to maximize security an
 
 ## 🛠️ Environment Variable Reference
 
+### Reproducible builds
+
+The supported runtime is Node 20.19.1 (see `.nvmrc`). Use `npm ci` for clean
+installs; the CI clean-room job runs typecheck, unit tests and the production
+build from a fresh checkout. Update the pinned Node version in `.nvmrc`,
+`package.json`, Dockerfiles and CI together.
+
 ### Core Settings
 | Variable | Default / Fallback | Description |
 | :--- | :--- | :--- |

@@ -1160,12 +1160,12 @@ Node-Version vereinheitlichen, `engines`/`.nvmrc` oder Volta ergänzen, Builder 
 
 **Teilaufgaben:**
 
-- [ ] AP-18.1: Eine bereits von lokaler Entwicklung und CI unterstützte
+- [x] AP-18.1: Eine bereits von lokaler Entwicklung und CI unterstützte
   Node-LTS-Version auswählen und identisch in `engines` und `.nvmrc`
   festschreiben. Gate: Versionsabgleich per Script/Test.
-- [ ] AP-18.2: Alle GitHub-Actions-Jobs und Docker-Builder auf diese Node-Version
+- [x] AP-18.2: Alle GitHub-Actions-Jobs und Docker-Builder auf diese Node-Version
   umstellen; abweichende Versionen entfernen. Gate: `rg`-Versionsinventar.
-- [ ] AP-18.3: Docker-Builder auf `npm ci` mit zuerst kopierten Lockfiles
+- [x] AP-18.3: Docker-Builder auf `npm ci` mit zuerst kopierten Lockfiles
   umstellen; Build darf das Lockfile nicht verändern. Gate: sauberer Dockerbuild.
 - [ ] AP-18.4: Basisimages auf unveränderliche Digests pinnen und Renovate-
   oder dokumentierten manuellen Updateweg festlegen. Gate: alle produktiven
@@ -1173,16 +1173,24 @@ Node-Version vereinheitlichen, `engines`/`.nvmrc` oder Volta ergänzen, Builder 
 - [ ] AP-18.5: Arduino-Toolchain/Installer auf Version und Prüfsumme pinnen;
   Download muss bei falscher Prüfsumme scheitern. Gate: Sandbox-Build plus
   negativer Prüfsummentest.
-- [ ] AP-18.6: Workflow-Berechtigungen auf `contents: read` als Default setzen
+- [x] AP-18.6: Workflow-Berechtigungen auf `contents: read` als Default setzen
   und nur pro Job nachweislich benötigte Rechte erhöhen. Gate: Workflow-Audit.
-- [ ] AP-18.7: Auto-Commit/-Push aus Test- und Snapshot-Jobs entfernen;
+- [x] AP-18.7: Auto-Commit/-Push aus Test- und Snapshot-Jobs entfernen;
   aktualisierte Artefakte nur als herunterladbares CI-Artefakt bereitstellen.
   Gate: kein schreibender Git-Befehl in Testjobs.
-- [ ] AP-18.8: Clean-Room-Gate hinzufügen, das aus frischem Checkout mit
+- [x] AP-18.8: Clean-Room-Gate hinzufügen, das aus frischem Checkout mit
   festgelegter Node-Version `npm ci`, Typecheck, Unit-Tests und Build ausführt.
   Gate: neuer CI-Job lokal soweit möglich und anschließend in CI grün.
-- [ ] AP-18.9: Reproduzierbarkeits- und Updateprozess in README/Admin-Guide
+- [x] AP-18.9: Reproduzierbarkeits- und Updateprozess in README/Admin-Guide
   dokumentieren; abschließend Coverage und SonarQube Quality Gate prüfen.
+
+**Umsetzungsnachweis (2026-09-03, Teilabschluss):** Node 20.19.1 ist in
+`.nvmrc`, `package.json`, Docker-Buildern und CI vereinheitlicht. Docker-Builds
+verwenden `npm ci` nach dem Lockfile-Copy. CI nutzt standardmäßig `contents: read`;
+der E2E-Auto-Commit wurde entfernt. Ein Clean-Room-Job führt Checkout,
+Installation, Typecheck, Unit-Tests und Build reproduzierbar aus. Das verbleibende
+Image-Digest-Pinning (AP-18.4) und die Arduino-CLI-Prüfsumme (AP-18.5) benötigen
+konkrete, regelmäßig zu aktualisierende externe Release-Artefakte und bleiben offen.
 
 ## 10. Empfohlene Umsetzungsreihenfolge für die ersten vier Wochen
 

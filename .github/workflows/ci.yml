@@ -7,15 +7,31 @@ on:
     branches: ["**"]
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 jobs:
+  clean-room:
+    name: Clean-room reproducibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check:node-version
+      - run: npm run check
+      - run: npm run test:unit
+      - run: npm run build
+
   # JOB 1: Schnellläufer (Unit Tests, Linting, TypeCheck)
   build-and-test:
     name: Lint & Unit Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -127,14 +143,6 @@ jobs:
         env:
           ARDUINO_CACHE_DIR: ${{ github.workspace }}/server/arduino-cache
         run: npm run test:e2e -- --workers=2
-
-      - name: Commit new Linux visual baselines
-        if: always()
-        run: |
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git add 'e2e/visual-full-context.spec.ts-snapshots/*-linux.png'
-          git diff --staged --quiet || (git commit -m "chore(e2e): update linux visual baselines [skip ci]" && git push)
 
       - name: Upload Playwright report artifacts
         if: always()
