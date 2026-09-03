@@ -12,8 +12,8 @@ export function resolvePathWithinRoot(root: string, ...segments: string[]): stri
   if (
     pathFromRoot === "" ||
     pathFromRoot === ".." ||
-    pathFromRoot.startsWith(`..${String.fromCharCode(47)}`) ||
-    pathFromRoot.startsWith(`..${String.fromCharCode(92)}`)
+    pathFromRoot.startsWith(`..${String.fromCodePoint(47)}`) ||
+    pathFromRoot.startsWith(`..${String.fromCodePoint(92)}`)
   ) {
     throw new Error("Resolved path escapes its allowed root");
   }

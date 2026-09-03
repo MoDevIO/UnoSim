@@ -16,4 +16,10 @@ describe("resolvePathWithinRoot", () => {
       /escapes its allowed root/,
     );
   });
+
+  it("rejects resolving the root itself", () => {
+    expect(() => resolvePathWithinRoot("/tmp/unosim")).toThrow(
+      /escapes its allowed root/,
+    );
+  });
 });
