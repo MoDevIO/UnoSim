@@ -717,6 +717,20 @@ endlichen Timeout am stillen Container. Das Docker-Sicherheitsgate bestand mit
 **Akzeptanz:** kein ungeklärter High-Befund in produktiv erreichbaren Pfaden; HTTP-/WS-/E2E-Regression grün.  
 **Aufwand:** S–M.
 
+**Umsetzungstasks:**
+
+- [x] AP-04.1: `ws` auf die erste fehlerbereinigte Version aktualisieren und
+  HTTP-/WebSocket-Regressionen ausführen.
+- [ ] AP-04.2: Express, Rate-Limit, Nanoid und relevante transitive Runtime-
+  Abhängigkeiten aktualisieren; inkompatible Änderungen separat testen.
+- [ ] AP-04.3: Verbleibende Audit-Befunde bewerten, begründete Ausnahmen mit
+  Ablaufdatum dokumentieren und das produktive Audit-Gate erneut ausführen.
+
+**Umsetzungsnachweis AP-04.1:** `ws` wurde von `^8.18.0` auf `^8.21.3`
+aktualisiert. Der produktive Audit-Befund für `ws` ist damit beseitigt;
+Typecheck sowie die gezielten Compile-, WebSocket- und Zustandssequenztests
+bestanden mit 38 Tests.
+
 #### AP-05: Warteschlangen wirklich begrenzen
 
 **Umfang:** `maxQueueSize` und Timeouts im RunnerPool nutzen; Ablehnungen und Abbrüche beobachten; Lasttests für Queue-Sättigung.  
