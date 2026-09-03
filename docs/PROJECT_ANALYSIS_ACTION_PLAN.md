@@ -1069,7 +1069,7 @@ Priorität: Frontend-Controller, WS-Session-Service, ExecutionManager, RegistryM
 - [x] AP-16.1: Für jedes Zielmodul öffentliche Exporte, Seiteneffekte,
   Zustandsbesitz und Aufrufer dokumentieren; vorhandene Characterization-Tests
   als Refactoring-Gate benennen. Keine Produktivänderung.
-- [ ] AP-16.2: Aus dem Frontend-Controller reine Compile-/Start-Kommandos in
+- [x] AP-16.2: Aus dem Frontend-Controller reine Compile-/Start-Kommandos in
   ein Modul extrahieren; bestehende Hook-Signatur unverändert lassen. Gate:
   Controller-/Hook-Tests.
 - [x] AP-16.3: Pause/Resume/Stop-Übergänge und Laufzeitzustand aus dem
@@ -1083,7 +1083,7 @@ fehlerfestem ERROR-Zustand). Die weiteren Modul-Schnitte bleiben bis zur
 jeweiligen Umsetzung offen.
 - [ ] AP-16.4: Aus dem WS-Session-Service Verbindungslebenszyklus und
   Ressourcenregistrierung extrahieren. Gate: Connect/Disconnect-/Shutdown-Tests.
-- [ ] AP-16.5: WS-Nachrichtendekodierung und Dispatch in eine reine,
+- [x] AP-16.5: WS-Nachrichtendekodierung und Dispatch in eine reine,
   richtungsabhängig getestete Einheit extrahieren. Gate: WS-Vertragstests.
 - [ ] AP-16.6: Aus dem ExecutionManager Prozessstart/Abbruch in einen Port mit
   injizierbaren Abhängigkeiten extrahieren. Gate: Prozess- und Timeout-Tests.

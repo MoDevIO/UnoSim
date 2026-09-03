@@ -17,6 +17,7 @@ import type {
   CompilerError,
   IncomingArduinoMessage,
 } from "@/types/websocket";
+import { buildCompileCommand } from "./compile-command-builder";
 
 const logger = new Logger("useCompileAndRun");
 
@@ -488,11 +489,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
    */
   const buildCompilePayload = useCallback(
     (mainSketchCode: string) => {
-      const headers = params.tabs.slice(1).map((tab) => ({
-        name: tab.name,
-        content: tab.content,
-      }));
-      return { code: mainSketchCode, headers };
+      return buildCompileCommand(mainSketchCode, params.tabs);
     },
     [params.tabs],
   );
@@ -534,10 +531,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       return;
     }
 
-    const headers = params.tabs.slice(1).map((tab) => ({
-      name: tab.name,
-      content: tab.content,
-    }));
+    const { headers } = buildCompileCommand(mainSketchCode, params.tabs);
     logger.info(`[CLIENT] Compiling with ${headers.length} headers`);
     compileMutation.mutate({ code: mainSketchCode, headers });
   }, [

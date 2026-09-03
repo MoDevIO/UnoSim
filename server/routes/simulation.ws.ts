@@ -7,10 +7,10 @@ import {
   type ServerToClientWSMessage,
   type WSMessage,
   WSMessageType,
-  clientToServerWSMessageSchema,
 } from "@shared/schema";
 import type { Logger } from "@shared/logger";
 import type { PinStateChange } from "@shared/types/arduino.types";
+import { decodeClientMessage } from "../services/ws-message-decoder";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import path from "node:path";
 import { writeFile, access } from "node:fs/promises";
@@ -863,17 +863,14 @@ export function registerSimulationWebSocket(
         // Debug: log raw incoming WS messages for E2E troubleshooting
         const msgText = rawDataToString(message);
         logger.debug(`[WS-IN] ${msgText}`);
-        const parsedMessage = clientToServerWSMessageSchema.safeParse(
-          JSON.parse(msgText),
-        );
-        if (!parsedMessage.success) {
+        const data = decodeClientMessage(msgText);
+        if (!data) {
           logger.warn(
-            `[WS] Rejected invalid client message: ${parsedMessage.error.message}`,
+            "[WS] Rejected invalid client message",
           );
           ws.close(1008, "Invalid message");
           return;
         }
-        const data = parsedMessage.data;
         const type = data.type;
         const clientState = clientRunners.get(ws);
 
