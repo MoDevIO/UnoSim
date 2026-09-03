@@ -10,15 +10,11 @@ import type { CompilationStatus, CompilationResultType } from "@/types/compilati
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
-import {
-  isCompileResult,
-  isHexResult,
-} from "@/types/websocket";
+import { isCompileResult } from "@/types/websocket";
 import type {
   CompileConfig,
   CompileResult,
   CompilerError,
-  HexResult,
   IncomingArduinoMessage,
 } from "@/types/websocket";
 
@@ -153,8 +149,6 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   /** Tracks the Docker/sandbox GCC compile phase for granular button feedback. */
 
   // refs used internally
-  const doUploadOnCompileSuccessRef = useRef(false);
-  const lastCompilePayloadRef = useRef<{ code: string; headers?: Array<{ name: string; content: string }> } | null>(null);
   /** Stores the last successfully compiled code so start_simulation can send it per-client. */
   const lastCompiledCodeRef = useRef<string | null>(null);
 
@@ -182,73 +176,6 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     params.clearSerialOutput();
     params.setParserMessages([]);
   }, [params]);
-
-  // upload mutation used by compile success
-  const uploadMutation = useMutation<HexResult, unknown, CompileConfig, unknown>({
-    mutationFn: async (payload: CompileConfig): Promise<HexResult> => {
-      params.addDebugMessage({
-        source: "frontend",
-        type: "upload_request",
-        data: JSON.stringify({ endpoint: "POST /api/upload", codeLength: payload.code.length }, null, 2),
-        protocol: "http",
-      });
-      const response = await apiRequest("POST", "/api/upload", payload);
-      const ct = (response.headers.get("content-type") || "").toLowerCase();
-
-      if (ct.includes("application/json")) {
-        try {
-          const parsed = await response.json();
-          return isHexResult(parsed) ? parsed : { success: response.ok, raw: JSON.stringify(parsed) };
-        } catch {
-          const txt = await response.text();
-          return { success: response.ok, raw: txt };
-        }
-      }
-
-      const txt = await response.text();
-      return { success: response.ok, raw: txt };
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        params.toast({
-          title: "Upload started",
-          description: "Upload initiated to connected device.",
-        });
-        return;
-      }
-
-      const txt = (data.raw ?? "").trim();
-      if (txt.length === 0) {
-        params.toast({
-          title: "Upload started",
-          description: "Upload initiated to connected device.",
-        });
-        return;
-      }
-
-      params.toast({
-        title: "Upload response",
-        description: txt.slice(0, 200),
-      });
-    },
-    onError: (err: unknown) => {
-      const backendDown = params.isBackendUnreachableError(err);
-      const message = err instanceof Error ? err.message : JSON.stringify(err, null, 2);
-      params.toast({
-        title: backendDown ? "Backend unreachable" : "Upload failed",
-        description: backendDown
-          ? "API server unreachable. Please check the backend or reload."
-          : message || "Upload failed",
-        variant: "destructive",
-      });
-    },
-    onSettled: () => {
-      try {
-        doUploadOnCompileSuccessRef.current = false;
-        lastCompilePayloadRef.current = null;
-      } catch { }
-    },
-  });
 
   // simple compile mutation (callbacks moved to handlers above)
   const compileMutation = useMutation<CompileResult, unknown, CompileConfig, unknown>({
@@ -327,23 +254,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         description: "Your sketch has been compiled successfully",
       });
 
-      // Handle queued upload
-      if (doUploadOnCompileSuccessRef.current && data.success) {
-        const payload = lastCompilePayloadRef.current;
-        if (payload) {
-          logger.info(`[CLIENT] Uploading compiled artifact... ${JSON.stringify(payload)}`);
-          uploadMutation.mutate(payload);
-        } else {
-          params.toast({
-            title: "Upload failed",
-            description: "No compiled artifact available to upload.",
-            variant: "destructive",
-          });
-        }
-      }
-      doUploadOnCompileSuccessRef.current = false;
     },
-    [params, uploadMutation],
+    [params],
   );
 
   /**
@@ -396,7 +308,6 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         description: "There were errors in your sketch",
         variant: "destructive",
       });
-      doUploadOnCompileSuccessRef.current = false;
     },
     [params],
   );
@@ -628,7 +539,6 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       content: tab.content,
     }));
     logger.info(`[CLIENT] Compiling with ${headers.length} headers`);
-    lastCompilePayloadRef.current = { code: mainSketchCode, headers };
     compileMutation.mutate({ code: mainSketchCode, headers });
   }, [
     params.activeTabId,

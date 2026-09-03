@@ -55,8 +55,6 @@ export const compileRequestSchema = z
   })
   .strict();
 
-export type CompileRequest = z.infer<typeof compileRequestSchema>;
-
 /**
  * Canonical WebSocket message type identifiers.
  *

@@ -283,7 +283,6 @@ export function useArduinoSimulatorPage() {
   // Centralize simulator actions (start, stop, pause, resume, reset, compile & start)
   // This extracts control logic into a reusable hook for better testability and modularity
   const {
-    handleStart: _handleStart, // reserved for future use
     handleStop,
     handlePause,
     handleResume,

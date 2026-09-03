@@ -40,31 +40,6 @@ describe("MemStorage", () => {
     });
   });
 
-  describe("getSketchByName", () => {
-    it("should return sketch by name", async () => {
-      const sketches = await storage.getAllSketches();
-      const defaultSketch = sketches[0];
-      const result = await storage.getSketchByName("sketch.ino");
-      expect(result).toEqual(defaultSketch);
-    });
-
-    it("should return undefined for non-existent name", async () => {
-      const result = await storage.getSketchByName("nonexistent.ino");
-      expect(result).toBeUndefined();
-    });
-
-    it("should find sketch by name after creation", async () => {
-      const newSketch: InsertSketch = {
-        name: "test.ino",
-        content: "// test code",
-      };
-      const created = await storage.createSketch(newSketch);
-      const found = await storage.getSketchByName("test.ino");
-      expect(found).toEqual(created);
-      expect(found?.id).toBe(created.id);
-    });
-  });
-
   describe("createSketch", () => {
     it("should create a new sketch", async () => {
       const newSketch: InsertSketch = {

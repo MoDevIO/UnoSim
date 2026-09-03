@@ -31,12 +31,6 @@ export interface CompileConfig {
   libraries?: string[];
 }
 
-export interface HexResult {
-  success: boolean;
-  raw?: string;
-  error?: string;
-}
-
 export interface CompileResult {
   success: boolean;
   output?: string;
@@ -63,10 +57,6 @@ function hasSuccessProperty(value: unknown): boolean {
       return typeof maybe.success === "boolean";
     })()
   );
-}
-
-export function isHexResult(value: unknown): value is HexResult {
-  return hasSuccessProperty(value);
 }
 
 export function isCompileResult(value: unknown): value is CompileResult {

@@ -22,7 +22,6 @@ import { Logger } from "@shared/logger"; // Pfad ggf. anpassen
 // modular route registrations
 import { registerCompilerRoutes } from "./routes/compiler.routes";
 import { registerSimulationWebSocket } from "./routes/simulation.ws";
-import { registerAuthRoutes } from "./routes/auth.routes";
 import { registerStatusRoutes } from "./routes/status.routes";
 import { registerConfigRoutes } from "./routes/config.routes";
 import { registerTestResetRoute } from "./routes/test-reset.routes";
@@ -249,9 +248,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
     logger,
   });
-
-  // Register auth/session routes (placeholder)
-  registerAuthRoutes(app);
 
   // --- WebSocket handler (moved to modular WS file) ---
   // Register WS handlers and receive a small API back so other routes

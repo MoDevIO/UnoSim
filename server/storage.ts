@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 
 interface IStorage {
   getSketch(id: string): Promise<Sketch | undefined>;
-  getSketchByName(name: string): Promise<Sketch | undefined>;
   createSketch(sketch: InsertSketch): Promise<Sketch>;
   updateSketch(
     id: string,
@@ -40,12 +39,6 @@ void loop() {
 
   async getSketch(id: string): Promise<Sketch | undefined> {
     return this.sketches.get(id);
-  }
-
-  async getSketchByName(name: string): Promise<Sketch | undefined> {
-    return Array.from(this.sketches.values()).find(
-      (sketch) => sketch.name === name,
-    );
   }
 
   async createSketch(insertSketch: InsertSketch): Promise<Sketch> {

@@ -996,27 +996,34 @@ Auth-No-op, unerreichbaren Upload-Zweig, `_handleStart`, ungenutzte Storage-Meth
 
 **Teilaufgaben:**
 
-- [ ] AP-14.1: Auth-No-op samt Importen und Tests lokalisieren, aktuellen
+- [x] AP-14.1: Auth-No-op samt Importen und Tests lokalisieren, aktuellen
   No-op-Vertrag charakterisieren und anschließend vollständig entfernen. Gate:
   Auth-/Routen-Tests und `npm run check`.
-- [ ] AP-14.2: Unerreichbaren Upload-Zweig durch einen Test als unerreichbar
+- [x] AP-14.2: Unerreichbaren Upload-Zweig durch einen Test als unerreichbar
   belegen und danach Branch, Hilfsfunktionen und tote Imports entfernen. Gate:
   Upload-/Compiler-Routentests.
-- [ ] AP-14.3: `_handleStart` und ausschließlich davon genutzten Code nach
+- [x] AP-14.3: `_handleStart` und ausschließlich davon genutzten Code nach
   Referenzsuche entfernen. Gate: Simulation-/WebSocket-Tests.
-- [ ] AP-14.4: Ungenutzte Storage-Methode aus Interface, Implementierung,
+- [x] AP-14.4: Ungenutzte Storage-Methode aus Interface, Implementierung,
   Mocks und Tests in einem Task entfernen. Gate: Storage-Tests.
-- [ ] AP-14.5: Produktive Testseite und ihre Route/Navigation aus dem Build
+- [x] AP-14.5: Produktive Testseite und ihre Route/Navigation aus dem Build
   entfernen oder ausschließlich als Test-Fixture führen. Gate: Client-Build
   plus Navigationstest.
-- [ ] AP-14.6: Für deprecated Status-Aliasse konkrete Entfernungsversion und
+- [x] AP-14.6: Für deprecated Status-Aliasse konkrete Entfernungsversion und
   Migration dokumentieren; Warn-/Kompatibilitätstest ergänzen. Noch keine
   vorzeitige Entfernung. Gate: Shared-Schema-Tests.
-- [ ] AP-14.7: Deprecated IO-Registry-Felder analog versionieren, Migration
+- [x] AP-14.7: Deprecated IO-Registry-Felder analog versionieren, Migration
   dokumentieren und Kompatibilität testen. Gate: Registry-Tests.
-- [ ] AP-14.8: Verwaiste Exporte/Dateien nach den Einzelbereinigungen mit der
+- [x] AP-14.8: Verwaiste Exporte/Dateien nach den Einzelbereinigungen mit der
   bestehenden Totcode-Prüfung entfernen. Gate: `npm run check`, `npm run build`
   und vollständige Unit-Suite.
+
+**Umsetzungsnachweis AP-14 (3. September 2026):** Der importierte Auth-Stub,
+der unerreichbare `/api/upload`-Erfolgspfad, `_handleStart`,
+`MemStorage.getSketchByName` und `public/api-test.html` wurden entfernt. Die
+Status-Aliasse `pool`/`compile` und die Legacy-I/O-Felder bleiben bis zur
+Entfernungsversion **2.0.0** als getestete Kompatibilität erhalten; ihre
+Migration ist damit explizit terminiert.
 
 #### AP-15: Zentrale Konfiguration vollenden
 
