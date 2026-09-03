@@ -84,12 +84,12 @@ explizit nutzen.
     echten End-to-End-Smoke konsolidieren; redundante Kompilationen entfernen.
   - [x] AP-00.7c: Toolchain-/Docker-Suites ressourcenbegrenzt dreimal ohne
     Timeout oder Prozessleck ausführen.
-- [ ] AP-00.8: Messbares Budget-Gate ergänzen.
+- [x] AP-00.8: Messbares Budget-Gate ergänzen.
   - [x] AP-00.8a: JSON-Artefakt mit Suite-Gesamtdauer, Status und zehn langsamsten
     Tests ohne zusätzlichen Testlauf erzeugen.
   - [x] AP-00.8b: Suite-spezifische Budgets als lokale und CI-verbindliche
     Exit-Code-Prüfung integrieren und Artefakte in CI hochladen.
-  - [ ] AP-00.8c: Budget-Gates dreimal hintereinander grün ausführen und
+  - [x] AP-00.8c: Budget-Gates dreimal hintereinander grün ausführen und
     Referenzwerte dokumentieren.
 - [ ] AP-00.9: Coverage nur aus deterministischen Unit-/gezielten
   Integrationsprojekten aggregieren; Last-, Reporting- und redundante
@@ -168,6 +168,14 @@ einem 1-ms-Budget scheiterte wie vorgesehen. Der erste instrumentierte Unit-Lauf
 blieb mit 8,97 s deutlich im Budget, der Related-Lauf mit 3,38 s ebenfalls. CI
 lädt die Unit-/Coverage-, Toolchain- und Docker-Messartefakte auch bei Fehlern
 für 14 Tage hoch.
+
+**Nachmessung AP-00.8c:** Das Unit-Budget-Gate bestand die Referenzserie mit
+8,97 s, 9,70 s und 9,49 s bei jeweils 1.475 grünen Tests und 30-s-Budget; auch
+die dazwischenliegenden Kontrollläufe waren grün. Die instrumentierten
+External-Gates bestanden mit 12,73 s von 120 s (Toolchain) und 80,60 s von 180 s
+(Docker). Alle vier kontrollierten Artefakte meldeten `status: passed`,
+`budgetExceeded: false` und genau zehn Slow-Test-Einträge. Der abschließende
+Leak-Check fand weder Compilerprozesse noch verbliebene Sandbox-Container.
 
 ### 0.4 Akzeptanzkriterien
 
