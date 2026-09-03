@@ -5,7 +5,8 @@ import { config } from "../config";
 
 export function registerStatusRoutes(app: Express): void {
   app.get("/api/readiness", (_req, res) => {
-    const ready = getSandboxRunnerPool().getStats().initialized;
+    const stats = getSandboxRunnerPool().getStats();
+    const ready = stats.initialized && stats.sandboxReady;
     res.status(ready ? 200 : 503).json({
       status: ready ? "ready" : "starting",
     });

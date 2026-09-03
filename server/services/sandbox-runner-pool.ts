@@ -450,6 +450,16 @@ export class SandboxRunnerPool {
   }
 
   getStats() {
+    const sandboxStatuses = this.runners.map((entry) =>
+      (entry.runner as SandboxRunner & {
+        getSandboxStatus?: () => { dockerAvailable: boolean; dockerImageBuilt: boolean };
+      }).getSandboxStatus?.(),
+    );
+    const sandboxReady = config.serverMode !== "docker" ||
+      (sandboxStatuses.length > 0 && sandboxStatuses.every(
+        (status) => status?.dockerAvailable && status.dockerImageBuilt,
+      ));
+
     return {
       totalRunners: this.runners.length,
       minRunners: this.minRunners,
@@ -461,6 +471,7 @@ export class SandboxRunnerPool {
       resettingRunners: this.runners.filter((p) => p.resetting).length,
       queuedRequests: this.queue.length,
       initialized: this.initialized,
+      sandboxReady,
     };
   }
 

@@ -26,6 +26,7 @@ const mockPoolStats = {
   inUseRunners: 2,
   queuedRequests: 1,
   initialized: true,
+  sandboxReady: true,
 };
 
 vi.mock("../../../server/services/sandbox-runner-pool", () => ({
