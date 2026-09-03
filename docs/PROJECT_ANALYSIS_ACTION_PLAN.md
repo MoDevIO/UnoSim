@@ -550,6 +550,45 @@ innerhalb des Fensters abgewiesen wird.
 **Akzeptanz:** Traversal-, Oversize-, falsche Typ- und Grenzwerttests bestehen; kein Request kann außerhalb eines dedizierten Temp-Roots schreiben.  
 **Aufwand:** M.
 
+**Umsetzungstasks:**
+
+- [ ] AP-02.1: Eingangsflächen und bestehende implizite Verträge inventarisieren;
+  zentrale Grenzwerte für Code, Header, Bibliotheken, Payload, Pins, Timeout und
+  Test-ID festlegen, ohne sie bereits an mehreren Stellen zu duplizieren.
+- [ ] AP-02.2: Ein strikt typisiertes Zod-Schema für `POST /api/compile`
+  implementieren und die Route ausschließlich mit dem geparsten Ergebnis
+  weiterarbeiten lassen. Fehlende Felder, falsche Typen, unbekannte Felder und
+  Grenzwertüberschreitungen müssen mit 400 beantwortet werden.
+- [ ] AP-02.3: Header- und Testartefakt-Pfade absichern.
+  - [ ] AP-02.3a: Headernamen auf einen portablen Basename-Vertrag begrenzen,
+    Duplikate eindeutig behandeln und Traversal, absolute Pfade, Separatoren,
+    Steuerzeichen sowie reservierte Namen negativ testen.
+  - [ ] AP-02.3b: Jeden erzeugten Pfad nach `resolve()` gegen einen dedizierten
+    Temp-Root prüfen und diese Grenze unabhängig von der Vorvalidierung testen.
+  - [ ] AP-02.3c: `x-test-run-id` auf ein kurzes, URL-sicheres Format begrenzen
+    und sicherstellen, dass ungültige IDs nie Bestandteil eines Dateipfads
+    werden.
+- [ ] AP-02.4: Gemeinsame WebSocket-Union in richtungsspezifische Zod-Schemas und
+  abgeleitete TypeScript-Typen für Client→Server und Server→Client teilen; die
+  erlaubten Nachrichtentypen pro Richtung explizit festlegen.
+- [ ] AP-02.5: Eingehende WebSocket-Nachrichten direkt nach dem JSON-Parsing mit
+  `safeParse` validieren. Ungültiges JSON, falsche Richtung, unbekannte Felder
+  und falsche Datentypen müssen kontrolliert abgewiesen werden, ohne Runner-
+  oder Sessionzustand zu verändern.
+- [ ] AP-02.6: Transport- und Größenbudgets durchsetzen.
+  - [ ] AP-02.6a: Am `WebSocketServer` ein explizites `maxPayload` setzen und
+    Oversize-Verbindungen mit einem definierten Close-Code beenden.
+  - [ ] AP-02.6b: Code-, Headerinhalt-, String-, Bibliotheks- und Arraylimits in
+    REST- und WS-Schemas konsistent anwenden und Boundary-Tests für exakt am,
+    unter und über dem Limit ergänzen.
+- [ ] AP-02.7: Fachliche Wertebereiche validieren: digitale/analoge Pins,
+  Pinwerte, Baudrate und Simulations-Timeout erhalten zentrale Min-/Max-Grenzen;
+  insbesondere darf `timeout=0` keine unbegrenzte Laufzeit aktivieren.
+- [ ] AP-02.8: Sicherheitsregression als zusammenhängendes Gate ergänzen:
+  Traversal-, Oversize-, Typ- und Grenzwertfälle für REST und WebSocket müssen
+  bestehen und ein Dateisystem-Canary muss beweisen, dass keine Eingabe außerhalb
+  des pro Request erzeugten Temp-Roots schreibt.
+
 #### AP-03: Sandbox-Vertrag härten und testen
 
 **Umfang:** gemeinsamer Cache-Mount entfernen, read-only Root-FS plus tmpfs, harter Maximal-Timeout, kombinierte Output-Grenze mit Kill, echte Docker-/Image-Readiness.  
