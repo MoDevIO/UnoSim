@@ -230,6 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     runnerPool,
     trust: config.trust,
     allowedWebSocketOrigins: config.server.allowedWebSocketOrigins,
+    disableRateLimit: config.server.disableRateLimit,
   });
 
   // (WS implementation moved to server/routes/simulation.ws.ts)

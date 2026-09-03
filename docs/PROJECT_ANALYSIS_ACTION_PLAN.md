@@ -526,7 +526,7 @@ Ein Arbeitspaket gilt erst als abgeschlossen, wenn Implementierung, Tests, gegeb
 - [x] AP-01.2: Authentifizierungs- beziehungsweise Gateway-Vertrag und Betriebsmodi als [ADR 0001](adr/0001-authentication-and-gateway-contract.md) festlegen.
 - [x] AP-01.3: Gemeinsame Autorisierung für Compile, Sketch-CRUD und WebSocket-Upgrade implementieren.
 - [x] AP-01.4: WebSocket-Originprüfung anhand einer expliziten Allowlist implementieren und negativ testen.
-- [ ] AP-01.5: Rate-Limit an eine reconnect-stabile Identität binden und Umgehungstest ergänzen.
+- [x] AP-01.5: Rate-Limit an eine reconnect-stabile Identität binden und Umgehungstest ergänzen.
 
 **Umsetzungsnachweis AP-01.4:** `UNOSIM_ALLOWED_WS_ORIGINS` konfiguriert eine
 von CSP-Embeddingrechten getrennte, exakte Origin-Allowlist. Authentifizierte
@@ -535,6 +535,14 @@ mehrfachem Origin-Header werden vor dem Protokollwechsel mit 403 abgewiesen.
 Originlose lokale CLI-/Testclients bleiben zulässig; sobald sie einen Origin
 senden, wird auch dieser geprüft. Compose verlangt die Allowlist explizit und
 die Betriebsdokumentation beschreibt den Vertrag.
+
+**Umsetzungsnachweis AP-01.5:** Das Simulation-Start-Limit ist nicht mehr an
+eine `WebSocket`-Objektidentität, sondern an den bereits autorisierten
+`subject` gebunden. Ein Disconnect löscht den Eintrag nicht; ein Reconnect mit
+derselben Identität übernimmt deshalb Fenster und Blockstatus. Inaktive
+Identitäten werden weiterhin nach zehn Minuten bereinigt. Der Umgehungstest
+beweist, dass ein neu erzeugter Socket-/Identitätswert mit demselben Subject
+innerhalb des Fensters abgewiesen wird.
 
 #### AP-02: Alle Eingänge schematisch validieren
 

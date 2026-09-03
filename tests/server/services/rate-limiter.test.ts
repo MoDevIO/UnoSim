@@ -1,24 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SimulationRateLimiter } from "../../../server/services/rate-limiter";
-import { WebSocket } from "ws";
 
 describe("SimulationRateLimiter", () => {
   let rateLimiter: SimulationRateLimiter;
-  let mockWs1: WebSocket;
-  let mockWs2: WebSocket;
+  const identity1 = "student-1";
+  const identity2 = "student-2";
+  const mockWs1 = identity1;
+  const mockWs2 = identity2;
 
   beforeEach(() => {
     vi.useFakeTimers();
     
-    // Create mock WebSocket instances
-    mockWs1 = {
-      readyState: WebSocket.OPEN,
-    } as WebSocket;
-    
-    mockWs2 = {
-      readyState: WebSocket.OPEN,
-    } as WebSocket;
-
     // Create new instance with short test intervals
     rateLimiter = SimulationRateLimiter.getInstance({
       maxRequests: 1,
@@ -36,7 +28,7 @@ describe("SimulationRateLimiter", () => {
   });
 
   it("should allow first request from new client", () => {
-    const result = rateLimiter.checkLimit(mockWs1);
+    const result = rateLimiter.checkLimit(identity1);
 
     expect(result.allowed).toBe(true);
     expect(result.retryAfter).toBeUndefined();
@@ -44,11 +36,11 @@ describe("SimulationRateLimiter", () => {
 
   it("should block second request within window", () => {
     // First request
-    rateLimiter.checkLimit(mockWs1);
+    rateLimiter.checkLimit(identity1);
 
     // Second request immediately after (within 2000ms window)
     vi.advanceTimersByTime(500);
-    const result = rateLimiter.checkLimit(mockWs1);
+    const result = rateLimiter.checkLimit(identity1);
 
     expect(result.allowed).toBe(false);
     expect(result.retryAfter).toBeDefined();
@@ -57,12 +49,12 @@ describe("SimulationRateLimiter", () => {
 
   it("should allow request after window expires", () => {
     // First request
-    rateLimiter.checkLimit(mockWs1);
+    rateLimiter.checkLimit(identity1);
 
     // Wait for window to expire (2000ms + 100ms buffer)
     vi.advanceTimersByTime(2100);
     
-    const result = rateLimiter.checkLimit(mockWs1);
+    const result = rateLimiter.checkLimit(identity1);
 
     expect(result.allowed).toBe(true);
     expect(result.retryAfter).toBeUndefined();
@@ -107,16 +99,16 @@ describe("SimulationRateLimiter", () => {
     expect(result2Again.allowed).toBe(false);
   });
 
-  it("should remove client from limits", () => {
+  it("should retain a limit across a reconnect with the same identity", () => {
     rateLimiter.checkLimit(mockWs1);
-    
-    const statsBefore = rateLimiter.getStats();
-    expect(statsBefore.activeClients).toBe(1);
+    const reconnectedSocketIdentity = `${mockWs1}`;
+    vi.advanceTimersByTime(500);
 
-    rateLimiter.removeClient(mockWs1);
-
-    const statsAfter = rateLimiter.getStats();
-    expect(statsAfter.activeClients).toBe(0);
+    expect(rateLimiter.checkLimit(reconnectedSocketIdentity)).toEqual({
+      allowed: false,
+      retryAfter: 5,
+    });
+    expect(rateLimiter.getStats().activeClients).toBe(1);
   });
 
   it("should calculate correct retryAfter in seconds", () => {
@@ -155,21 +147,17 @@ describe("SimulationRateLimiter", () => {
     expect(stats.config.blockDurationMs).toBe(5000);
   });
 
-  it("should cleanup inactive clients", () => {
-    // Create clients
+  it("should keep recently active identities during cleanup", () => {
     rateLimiter.checkLimit(mockWs1);
     rateLimiter.checkLimit(mockWs2);
 
     expect(rateLimiter.getStats().activeClients).toBe(2);
 
-    // Simulate closed WebSocket
-    mockWs1.readyState = WebSocket.CLOSED;
-
     // Trigger cleanup interval (5 minutes)
     vi.advanceTimersByTime(5 * 60 * 1000 + 1000);
 
     const stats = rateLimiter.getStats();
-    expect(stats.activeClients).toBe(1); // Only mockWs2 remains
+    expect(stats.activeClients).toBe(2);
   });
 
   it("should cleanup clients inactive for 10 minutes", () => {

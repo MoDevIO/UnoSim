@@ -28,8 +28,10 @@ function rawDataToString(data: RawData): string {
 type SimulationDeps = {
   SandboxRunner: typeof SandboxRunner;
   getSimulationRateLimiter: () => {
-    checkLimit: (ws: WebSocket) => { allowed: boolean; retryAfter?: number };
-    removeClient: (ws: WebSocket) => void;
+    checkLimit: (identity: string) => {
+      allowed: boolean;
+      retryAfter?: number;
+    };
   };
   shouldSendSimulationEndMessage: (compileFailed: boolean) => boolean;
   getLastCompiledCode: () => string | null;
@@ -37,6 +39,7 @@ type SimulationDeps = {
   runnerPool?: ReturnType<typeof getSandboxRunnerPool>;
   trust: TrustConfig;
   allowedWebSocketOrigins: readonly string[];
+  disableRateLimit: boolean;
 };
 
 type ClientState = {
@@ -530,7 +533,9 @@ export function registerSimulationWebSocket(
   ): Promise<void> {
     // Rate limiting check
     const rateLimiter = getSimulationRateLimiter();
-    const limitCheck = rateLimiter.checkLimit(ws);
+    const limitCheck = deps.disableRateLimit
+      ? { allowed: true }
+      : rateLimiter.checkLimit(clientState.subject);
     if (!limitCheck.allowed) {
       const retryAfter = limitCheck.retryAfter || 30;
       logger.warn(
@@ -931,8 +936,6 @@ export function registerSimulationWebSocket(
       }
       clientSerialBuffers.delete(ws);
 
-      const rateLimiter = getSimulationRateLimiter();
-      rateLimiter.removeClient(ws);
       logger.warn(
         `Client disconnected (code=${code}, reason=${reason.toString() || "—"}). Remaining clients: ${wss.clients.size}`,
       );

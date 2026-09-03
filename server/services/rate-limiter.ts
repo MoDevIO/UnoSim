@@ -5,12 +5,11 @@
  * und dadurch den Server überlasten.
  * 
  * Strategie:
- * - Pro Client (WebSocket): Max. 1 Start pro 2 Sekunden
+ * - Pro authentifizierter Identität: Max. 1 Start pro 2 Sekunden
  * - Sliding Window (nicht Token Bucket für simplere Implementierung)
  * - Zu schnelle Requests werden abgelehnt mit Retry-After Header
  */
 
-import { WebSocket } from "ws";
 import { Logger } from "@shared/logger";
 
 const logger = new Logger("RateLimiter");
@@ -19,6 +18,7 @@ interface RateLimitEntry {
   timestamps: number[];
   blocked: boolean;
   blockedUntil: number;
+  lastActivity: number;
 }
 
 interface RateLimitConfig {
@@ -35,7 +35,7 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 
 export class SimulationRateLimiter {
   private static instance: SimulationRateLimiter | null = null;
-  private readonly clientLimits = new Map<WebSocket, RateLimitEntry>();
+  private readonly clientLimits = new Map<string, RateLimitEntry>();
   private readonly config: RateLimitConfig;
   private readonly cleanupInterval: NodeJS.Timeout;
 
@@ -56,19 +56,26 @@ export class SimulationRateLimiter {
   }
 
   /**
-   * Prüfe ob ein Client ein neues Simulation-Start Request machen darf
+   * Prüfe, ob eine Identität eine neue Simulation starten darf.
    * @returns { allowed: boolean, retryAfter?: number }
    */
-  public checkLimit(ws: WebSocket): { allowed: boolean; retryAfter?: number } {
+  public checkLimit(identity: string): { allowed: boolean; retryAfter?: number } {
     const now = Date.now();
-    let entry = this.clientLimits.get(ws);
+    let entry = this.clientLimits.get(identity);
 
     // Neuer Client
     if (!entry) {
-      entry = { timestamps: [now], blocked: false, blockedUntil: 0 };
-      this.clientLimits.set(ws, entry);
+      entry = {
+        timestamps: [now],
+        blocked: false,
+        blockedUntil: 0,
+        lastActivity: now,
+      };
+      this.clientLimits.set(identity, entry);
       return { allowed: true };
     }
+
+    entry.lastActivity = now;
 
     // Prüfe ob Client aktuell blockiert ist
     if (entry.blocked && now < entry.blockedUntil) {
@@ -113,36 +120,20 @@ export class SimulationRateLimiter {
   }
 
   /**
-   * Client-Verbindung beendet → Cleanup
-   */
-  public removeClient(ws: WebSocket): void {
-    this.clientLimits.delete(ws);
-  }
-
-  /**
    * Cleanup alte Einträge
    */
   private cleanup(): void {
     const now = Date.now();
-    const entriesToDelete: WebSocket[] = [];
+    const entriesToDelete: string[] = [];
 
-    for (const [ws, entry] of this.clientLimits.entries()) {
-      // Lösche wenn:
-      // 1. WebSocket ist geschlossen
-      // 2. Keine Timestamps in den letzten 10 Minuten
-      if (ws.readyState !== WebSocket.OPEN) {
-        entriesToDelete.push(ws);
-        continue;
-      }
-
-      const lastActivity = entry.timestamps.at(-1) || 0;
-      if (now - lastActivity > 10 * 60 * 1000) {
-        entriesToDelete.push(ws);
+    for (const [identity, entry] of this.clientLimits.entries()) {
+      if (now - entry.lastActivity > 10 * 60 * 1000) {
+        entriesToDelete.push(identity);
       }
     }
 
-    entriesToDelete.forEach(ws => {
-      this.clientLimits.delete(ws);
+    entriesToDelete.forEach((identity) => {
+      this.clientLimits.delete(identity);
     });
 
     if (entriesToDelete.length > 0) {
