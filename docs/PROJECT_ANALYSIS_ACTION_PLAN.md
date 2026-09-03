@@ -721,12 +721,12 @@ endlichen Timeout am stillen Container. Das Docker-Sicherheitsgate bestand mit
 
 - [x] AP-04.1: `ws` auf die erste fehlerbereinigte Version aktualisieren und
   HTTP-/WebSocket-Regressionen ausführen.
-- [ ] AP-04.2: Express, Rate-Limit, Nanoid und relevante transitive Runtime-
+- [x] AP-04.2: Express, Rate-Limit, Nanoid und relevante transitive Runtime-
   Abhängigkeiten aktualisieren; inkompatible Änderungen separat testen.
 - [ ] AP-04.3: Verbleibende Audit-Befunde bewerten, begründete Ausnahmen mit
   Ablaufdatum dokumentieren und das produktive Audit-Gate erneut ausführen.
 
-**Umsetzungsnachweis AP-04.1 und Zwischenstand AP-04.2:** `ws` wurde von `^8.18.0` auf
+**Umsetzungsnachweis AP-04.1 und AP-04.2:** `ws` wurde von `^8.18.0` auf
 `^8.21.3`, Express auf `^4.22.2`, express-rate-limit auf `^8.7.0`, Nanoid
 auf `^5.1.16` und PostCSS auf `^8.5.27` aktualisiert. Der produktive
 `ws`-Befund sowie die direkten Nanoid-/Rate-Limit-Befunde sind beseitigt.
