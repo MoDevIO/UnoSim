@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import * as monaco from "monaco-editor";
+// Import the editor API directly; the package root pulls every Monaco language.
+import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import { Logger } from "@shared/logger";
 
 const logger = new Logger("CodeEditor");

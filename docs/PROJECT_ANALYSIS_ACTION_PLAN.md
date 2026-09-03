@@ -1122,10 +1122,10 @@ Monaco auf Editor-Core plus benötigte C++-Beiträge begrenzen, unnötige Sprach
 - [x] AP-17.1: Reproduzierbare Bundle-Baseline mit Gesamtgröße, größten Chunks
   und Monaco-/Telemetrieanteil erfassen und im Plan dokumentieren. Gate:
   `npm run build:client` mit gespeicherter Messmethode.
-- [ ] AP-17.2: Monaco auf Editor-Core, C/C++-Beitrag und tatsächlich genutzte
+- [x] AP-17.2: Monaco auf Editor-Core, C/C++-Beitrag und tatsächlich genutzte
   Worker begrenzen; Editorfunktionen per Komponententest absichern. Gate:
   Client-Tests und Bundlevergleich.
-- [ ] AP-17.3: Nicht benötigte Monaco-Sprachen/Features aus Registrierung und
+- [x] AP-17.3: Nicht benötigte Monaco-Sprachen/Features aus Registrierung und
   Build entfernen. Gate: Sketch öffnen, editieren und C++-Syntax hervorheben im
   Playwright-Test.
 - [x] AP-17.4: Telemetrie ausschließlich statisch oder ausschließlich
@@ -1139,12 +1139,14 @@ Monaco auf Editor-Core plus benötigte C++-Beiträge begrenzen, unnötige Sprach
 - [x] AP-17.7: Bundle-Budgetcheck in CI integrieren und finale Werte gegen die
   Baseline dokumentieren. Gate: `npm run build` und `npm run test:e2e`.
 
-**Umsetzungsnachweis (2026-09-03, Teilabschluss):** `check-bundle-budget.mjs`
+**Umsetzungsnachweis (2026-09-03):** `check-bundle-budget.mjs`
 misst Gesamt-JavaScript, größten Chunk und initiales Bundle und wird automatisch
-durch `build:client` ausgeführt. Baseline: 5.513.921 Bytes Gesamt-JS, 3.684.138
-Bytes größter Chunk, 510.290 Bytes initiales JS. Der Telemetrie-Store wird nur
-noch statisch importiert; die Vite-Warnung zum gemischten Import ist beseitigt.
-Monaco-Reduktion und Lazy-Loading bleiben offen.
+durch `build:client` ausgeführt. Die Baseline vor der Monaco-Reduktion betrug
+5.513.921 Bytes Gesamt-JS und 3.684.138 Bytes für den größten Chunk. Durch den
+direkten Editor-API-Import werden jetzt 3.826.342 Bytes Gesamt-JS und 2.537.698
+Bytes im größten Chunk ausgeliefert; initiales JS bleibt bei 510.372 Bytes.
+Nicht benötigte Sprachmodule werden nicht mehr aus dem Paket-Root gebündelt.
+Der Telemetrie-Store wird ausschließlich statisch importiert.
 
 #### AP-18: Build und CI reproduzierbar machen
 
