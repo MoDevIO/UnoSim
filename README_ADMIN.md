@@ -41,10 +41,12 @@ Suitable for performance testing or environments with limited resources where is
           - WORKER_COUNT=8
     ```
 
-### 3. High-Availability Production (Isolated Sandbox)
+### 3. Production Docker Operation (Single Stateful Node)
 Recommended for public deployments or multi-user systems to maximize security and resource control.
 
-* **Behavior:** Each sketch runs in its own short-lived Docker sandbox.
+* **Behavior:** Each sketch runs in its own short-lived Docker sandbox. This
+  deployment is a single stateful backend node; horizontal high availability
+  is not provided.
 * **Configuration (`docker-compose.yml`):**
     ```yaml
     services:

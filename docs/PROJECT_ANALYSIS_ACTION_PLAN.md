@@ -860,6 +860,13 @@ Liveness/Readiness trennen, Middleware-Reihenfolge korrigieren, Docker/CLI/Image
 
 Entscheiden, ob UnoSim ein Einzelknoten-Dienst oder horizontal skalierbar sein soll. Bis zur Umsetzung „High Availability“ aus der Doku entfernen. Für echte Skalierung MemStorage, lokale Singletons und Sticky-Session-Anforderungen adressieren.
 
+**Teilaufgaben:**
+
+- [x] AP-11.1: Betriebsdokumentation auf den tatsächlich unterstützten
+  zustandsbehafteten Einzelknotenbetrieb korrigieren.
+- [ ] AP-11.2: Anforderungen für spätere horizontale Skalierung dokumentieren
+  (persistenter Storage, verteilte Limits/Queues, Session-Affinität).
+
 #### AP-12: Arduino-kompatible INO-Vorverarbeitung und getrennte Fehlerkanäle herstellen
 
 **Umfang:** Gemeldeten Sketch als Regressionstest aufnehmen; Prototyperzeugung für relevante Arduino-Signaturen robust implementieren; lokalen und Docker-Pfad angleichen; Compile-, Runtime- und Serial-Ausgaben protokollseitig trennen; Quellzeilen auf die ursprüngliche `.ino` abbilden. Funktionen werden nicht physisch umsortiert, sondern wie bei Arduino vorwärts deklariert.  
