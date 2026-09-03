@@ -15,11 +15,6 @@ interface DockerRunOptions {
   imageName: string;
   command: string[];
   containerName?: string;
-  /** Host path for the Arduino compiler cache. When set, the directory is
-   *  bind-mounted into the container at the same path and ARDUINO_CACHE_DIR
-   *  is forwarded as an environment variable so the compiler inside the
-   *  container writes artefacts to the persisted host location. */
-  arduinoCacheDir?: string;
 }
 
 export class DockerCommandBuilder {
@@ -52,17 +47,11 @@ export class DockerCommandBuilder {
       "no-new-privileges", // Prevent privilege escalation
       "--cap-drop",
       "ALL", // Drop all Linux capabilities
+      "--read-only", // Keep the container root filesystem immutable
+      "--tmpfs",
+      "/tmp:rw,nosuid,nodev,noexec,mode=1777,size=64m", // Only bounded transient runtime storage
       "-v",
       `${realSketchDir}:/sandbox:rw`, // Mount sketch directory (realpath resolves macOS /tmp symlink)
-      // Cache volume: only added when a host cache dir is configured
-      ...(options.arduinoCacheDir
-        ? [
-            "-v",
-            `${options.arduinoCacheDir}:${options.arduinoCacheDir}`,
-            "-e",
-            `ARDUINO_CACHE_DIR=${options.arduinoCacheDir}`,
-          ]
-        : []),
       options.imageName,
       ...options.command, // Execution command
     ];
@@ -81,7 +70,7 @@ export class DockerCommandBuilder {
       // Without this, isCompilePhase would stay true and all runtime stderr
       // (SERIAL_EVENT, IO_REGISTRY, …) would accumulate in compileErrorBuffer,
       // causing a spurious 'compilation_error' message on process exit.
-      "g++ /sandbox/sketch.cpp -o /tmp/sketch -pthread 2>&1 && echo '[[RUNTIME_START]]' && /tmp/sketch",
+      "g++ /sandbox/sketch.cpp -o /sandbox/sketch -pthread 2>&1 && echo '[[RUNTIME_START]]' && /sandbox/sketch",
     ];
   }
 }

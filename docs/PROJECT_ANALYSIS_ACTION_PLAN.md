@@ -647,6 +647,33 @@ bei 15-s-Budget. Anschließend lief die gesamte Unit-Suite mit 122 Dateien und
 **Akzeptanz:** Integrationstests beweisen fehlendes Netzwerk, fehlende Capabilities, Schreibschutz außerhalb `/sandbox`/tmpfs, Timeout und Output-Kill.  
 **Aufwand:** M–L.
 
+**Umsetzungstasks:**
+
+- [x] AP-03.1: Den Laufcontainer auf ein read-only Root-Dateisystem begrenzen,
+  ein größenbegrenztes `tmpfs` nur für `/tmp` bereitstellen und sämtliche
+  gemeinsam beschreibbaren Cache-Mounts aus dem Sandbox-Prozess entfernen.
+- [ ] AP-03.2: Eine zentrale kombinierte stdout-/stderr-Bytegrenze einführen;
+  bei Überschreitung muss der Container beendet und ein eindeutiger Fehler an
+  den Client gemeldet werden.
+- [ ] AP-03.3: Timeout-Vertrag konsolidieren: Jeder Docker-Run erhält eine
+  harte endliche Obergrenze, die auch während Compile- und Queue-Übergängen
+  zuverlässig aufräumt.
+- [ ] AP-03.4: Docker-Readiness fail-closed machen: Image, Docker-Daemon und
+  die für den Sandbox-Modus erforderlichen Sicherheitsoptionen werden beim
+  Start geprüft und eindeutig über Health/Readiness berichtet.
+- [ ] AP-03.5: Echte Docker-Integrationstests für Netzwerkisolation,
+  Capability-Drop, Root-FS-Schreibschutz, Timeout und Output-Kill ergänzen;
+  sie laufen im bestehenden Docker-Testprojekt.
+
+**Umsetzungsnachweis AP-03.1:** `DockerCommandBuilder` startet jeden
+Sandbox-Container mit `--read-only`, `--cap-drop ALL`, `no-new-privileges`
+und einem auf 64 MiB begrenzten, nicht ausführbaren `/tmp`-tmpfs. Der
+Sketch-Mount `/sandbox` bleibt die einzige beschreibbare und ausführbare
+Arbeitsfläche; die Laufbinärdatei wird folgerichtig dort erzeugt. Der bisherige
+gemeinsam beschreibbare Arduino-Cache-Mount wurde aus dem Sandbox-Aufruf
+entfernt. Der Argumentvertrag ist unit-getestet; die echte Docker-Suite bestand
+nach der Änderung mit 21 Tests in 89,18 s.
+
 #### AP-04: Hochriskante Runtime-Abhängigkeiten aktualisieren
 
 **Umfang:** `ws` zuerst, danach Express/Rate-Limit/Nanoid und relevante Transitiven; Audit-Ausnahmen nur mit Begründung und Ablaufdatum.  
