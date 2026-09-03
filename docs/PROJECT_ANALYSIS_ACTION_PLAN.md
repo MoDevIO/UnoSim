@@ -559,13 +559,13 @@ innerhalb des Fensters abgewiesen wird.
   implementieren und die Route ausschließlich mit dem geparsten Ergebnis
   weiterarbeiten lassen. Fehlende Felder, falsche Typen, unbekannte Felder und
   Grenzwertüberschreitungen müssen mit 400 beantwortet werden.
-- [ ] AP-02.3: Header- und Testartefakt-Pfade absichern.
-  - [ ] AP-02.3a: Headernamen auf einen portablen Basename-Vertrag begrenzen,
+- [x] AP-02.3: Header- und Testartefakt-Pfade absichern.
+  - [x] AP-02.3a: Headernamen auf einen portablen Basename-Vertrag begrenzen,
     Duplikate eindeutig behandeln und Traversal, absolute Pfade, Separatoren,
     Steuerzeichen sowie reservierte Namen negativ testen.
-  - [ ] AP-02.3b: Jeden erzeugten Pfad nach `resolve()` gegen einen dedizierten
+  - [x] AP-02.3b: Jeden erzeugten Pfad nach `resolve()` gegen einen dedizierten
     Temp-Root prüfen und diese Grenze unabhängig von der Vorvalidierung testen.
-  - [ ] AP-02.3c: `x-test-run-id` auf ein kurzes, URL-sicheres Format begrenzen
+  - [x] AP-02.3c: `x-test-run-id` auf ein kurzes, URL-sicheres Format begrenzen
     und sicherstellen, dass ungültige IDs nie Bestandteil eines Dateipfads
     werden.
 - [ ] AP-02.4: Gemeinsame WebSocket-Union in richtungsspezifische Zod-Schemas und
@@ -601,6 +601,13 @@ den erwarteten Compile-Vertrag und begrenzt Code, Header, FQBN und Bibliotheken
 über die zentrale Grenzwertquelle. Die Route arbeitet nur noch mit dem geparsten
 Ergebnis; unbekannte Felder, falsche Typen, ungültige verschachtelte Header und
 Oversize-Requests werden vor Cache und Compiler mit 400 abgewiesen.
+
+**Umsetzungsnachweis AP-02.3:** Headernamen müssen portable, eindeutige
+Basenames sein; Traversal, absolute Pfade, Separatoren und reservierte Namen
+werden am API-Rand abgelehnt. `x-test-run-id` folgt einem kurzen URL-sicheren
+Format. Zusätzlich löst `resolvePathWithinRoot` jeden Sketch- und Headerpfad
+gegen seinen Temp-Root auf und verweigert Ausbrüche unabhängig von der
+Vorvalidierung. Die Negativtests decken beide Schutzschichten ab.
 
 #### AP-03: Sandbox-Vertrag härten und testen
 

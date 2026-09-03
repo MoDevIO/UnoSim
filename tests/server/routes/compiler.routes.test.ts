@@ -146,6 +146,24 @@ describe("compiler.routes - /api/compile", () => {
     expect(deps.compiler.compile).not.toHaveBeenCalled();
   });
 
+  it("rejects unsafe and duplicate header names before compilation", async () => {
+    const traversal = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      headers: [{ name: "../escape.h", content: "" }],
+    });
+    const duplicate = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      headers: [
+        { name: "helper.h", content: "" },
+        { name: "HELPER.H", content: "" },
+      ],
+    });
+
+    expect(traversal.status).toBe(400);
+    expect(duplicate.status).toBe(400);
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
+  });
+
   it("compiles code successfully", async () => {
     const res = await post(baseUrl, "/api/compile", { code: "void setup(){}" });
     expect(res.status).toBe(200);
@@ -189,6 +207,19 @@ describe("compiler.routes - /api/compile", () => {
     expect(res.status).toBe(200);
     const callArgs = deps.compiler.compile.mock.calls[0];
     expect(callArgs[2]).toContain("test-abc");
+  });
+
+  it("rejects an unsafe x-test-run-id before constructing a temp path", async () => {
+    const res = await post(
+      baseUrl,
+      "/api/compile",
+      { code: "test code" },
+      { "x-test-run-id": "../escape" },
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Invalid test run ID");
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
   });
 
   it("passes fqbn and libraries to compiler", async () => {

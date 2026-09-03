@@ -13,6 +13,7 @@ import { getUnifiedGatekeeper, TaskPriority } from "./unified-gatekeeper";
 import { ProcessExecutor } from "./process-executor";
 import { CompilationError, CompilerOutputParser } from "./compiler/compiler-output-parser";
 import { config } from "../config";
+import { resolvePathWithinRoot } from "../security/safe-paths";
 
 // Re-export for backwards compatibility
 export type { CompilationError } from "./compiler/compiler-output-parser";
@@ -364,7 +365,7 @@ export class ArduinoCompiler {
     if (sketchDir) {
       this.logger.debug(`Writing ${headers.length} header files to ${sketchDir}`);
       for (const header of headers) {
-        const headerPath = join(sketchDir, header.name);
+        const headerPath = resolvePathWithinRoot(sketchDir, header.name);
         this.logger.debug(`Writing header: ${headerPath}`);
         await writeFile(headerPath, header.content);
       }
@@ -490,8 +491,8 @@ export class ArduinoCompiler {
     const baseTempDir =
       tempRoot || (await mkdtemp(join(getFastTmpBaseDir(), "unosim-")));
 
-    const sketchDir = join(baseTempDir, sketchId);
-    const sketchFile = join(sketchDir, `${sketchId}.ino`);
+    const sketchDir = resolvePathWithinRoot(baseTempDir, sketchId);
+    const sketchFile = resolvePathWithinRoot(sketchDir, `${sketchId}.ino`);
 
     // Pre-compilation validation and parsing
     const parser = new CodeParser();

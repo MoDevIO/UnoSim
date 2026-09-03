@@ -2,6 +2,8 @@ import type { Express } from "express";
 import type { CompilationResult, CompileRequestOptions } from "../services/arduino-compiler";
 import type { Logger } from "@shared/logger";
 import { compileRequestSchema } from "@shared/schema";
+import { TEST_RUN_ID_PATTERN } from "@shared/input-limits";
+import { resolvePathWithinRoot } from "../security/safe-paths";
 
 type CompilerHeader = { name: string; content: string };
 
@@ -53,9 +55,12 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         }
       }
 
-      const testRunIdHeader = req.header("x-test-run-id") || undefined;
+      const testRunIdHeader = req.header("x-test-run-id");
+      if (testRunIdHeader !== undefined && !TEST_RUN_ID_PATTERN.test(testRunIdHeader)) {
+        return res.status(400).json({ error: "Invalid test run ID" });
+      }
       const compileTempRoot = testRunIdHeader
-        ? path.join(process.cwd(), "temp", testRunIdHeader)
+        ? resolvePathWithinRoot(path.join(process.cwd(), "temp"), testRunIdHeader)
         : undefined;
 
       const result: CompilationResult = await compiler.compile(

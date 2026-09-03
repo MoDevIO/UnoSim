@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   HEADER_NAME_PATTERN,
   INPUT_LIMITS,
+  isSafeHeaderName,
   TEST_RUN_ID_PATTERN,
 } from "../../shared/input-limits";
 
@@ -26,5 +27,6 @@ describe("input boundary contract", () => {
     expect(HEADER_NAME_PATTERN.test("helper.h")).toBe(true);
     expect(HEADER_NAME_PATTERN.test("../helper.h")).toBe(false);
     expect(HEADER_NAME_PATTERN.test("/tmp/helper.h")).toBe(false);
+    expect(isSafeHeaderName("CON.h")).toBe(false);
   });
 });

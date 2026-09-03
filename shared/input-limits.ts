@@ -32,7 +32,42 @@ export const INPUT_LIMITS = {
 } as const;
 
 /** URL-safe identifier accepted for test-only artifact namespaces. */
-export const TEST_RUN_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+export const TEST_RUN_ID_PATTERN = new RegExp(
+  `^[A-Za-z0-9_-]{1,${INPUT_LIMITS.webSocket.maxTestRunIdChars}}$`,
+);
 
 /** Portable header basename; separators and traversal tokens cannot match. */
-export const HEADER_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
+export const HEADER_NAME_PATTERN = new RegExp(
+  `^[A-Za-z0-9][A-Za-z0-9_.-]{0,${INPUT_LIMITS.compile.maxHeaderNameChars - 1}}$`,
+);
+
+const WINDOWS_RESERVED_BASENAMES = new Set([
+  "CON",
+  "PRN",
+  "AUX",
+  "NUL",
+  "COM1",
+  "COM2",
+  "COM3",
+  "COM4",
+  "COM5",
+  "COM6",
+  "COM7",
+  "COM8",
+  "COM9",
+  "LPT1",
+  "LPT2",
+  "LPT3",
+  "LPT4",
+  "LPT5",
+  "LPT6",
+  "LPT7",
+  "LPT8",
+  "LPT9",
+]);
+
+export function isSafeHeaderName(name: string): boolean {
+  if (!HEADER_NAME_PATTERN.test(name)) return false;
+  const basename = name.split(".")[0]?.toUpperCase();
+  return !WINDOWS_RESERVED_BASENAMES.has(basename);
+}

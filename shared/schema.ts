@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { PinMode } from "./types/arduino.types";
-import { INPUT_LIMITS } from "./input-limits";
+import { INPUT_LIMITS, isSafeHeaderName } from "./input-limits";
 
 // Sketch types (non-DB, for MemStorage)
 export interface Sketch {
@@ -30,7 +30,9 @@ export const compileRequestSchema = z
       .array(
         z
           .object({
-            name: z.string().min(1).max(INPUT_LIMITS.compile.maxHeaderNameChars),
+            name: z
+              .string()
+              .refine(isSafeHeaderName, "Header name must be a safe basename"),
             content: z
               .string()
               .max(INPUT_LIMITS.compile.maxHeaderContentChars),
@@ -38,6 +40,12 @@ export const compileRequestSchema = z
           .strict(),
       )
       .max(INPUT_LIMITS.compile.maxHeaders)
+      .refine(
+        (headers) =>
+          new Set(headers.map((header) => header.name.toLowerCase())).size ===
+          headers.length,
+        "Header names must be unique",
+      )
       .optional(),
     fqbn: z.string().min(1).max(INPUT_LIMITS.compile.maxFqbnChars).optional(),
     libraries: z
