@@ -91,7 +91,7 @@ explizit nutzen.
     Exit-Code-Prüfung integrieren und Artefakte in CI hochladen.
   - [x] AP-00.8c: Budget-Gates dreimal hintereinander grün ausführen und
     Referenzwerte dokumentieren.
-- [ ] AP-00.9: Coverage nur aus deterministischen Unit-/gezielten
+- [x] AP-00.9: Coverage nur aus deterministischen Unit-/gezielten
   Integrationsprojekten aggregieren; Last-, Reporting- und redundante
   Toolchain-Szenarien nicht für Statement-Coverage ausführen.
 
@@ -176,6 +176,13 @@ External-Gates bestanden mit 12,73 s von 120 s (Toolchain) und 80,60 s von 180 s
 (Docker). Alle vier kontrollierten Artefakte meldeten `status: passed`,
 `budgetExceeded: false` und genau zehn Slow-Test-Einträge. Der abschließende
 Leak-Check fand weder Compilerprozesse noch verbliebene Sandbox-Container.
+
+**Nachmessung AP-00.9:** `test:coverage` führt ausschließlich die Projekte
+`unit-client` und `unit-node` aus. Der grüne Lauf umfasste 119 Dateien und 1.475
+Tests, benötigte inklusive V8-Coverage 11,67 s von 60 s Budget und erreichte
+77,90 % Statements, 67,98 % Branches, 77,30 % Functions sowie 79,13 % Lines.
+Das Coverage-JSON enthält weder Testdateien noch Load-, Toolchain- oder
+Docker-Szenarien.
 
 ### 0.4 Akzeptanzkriterien
 
