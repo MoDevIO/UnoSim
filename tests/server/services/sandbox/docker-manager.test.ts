@@ -2,10 +2,8 @@
  * Tests for DockerManager.setupDockerTimeout()
  *
  * Verifies:
- *  - Bug #2 regression: executionTimeout=0 (user selected ∞) must NOT
- *    schedule any timer. Previously the falsy-check `executionTimeout && …`
- *    caused 0 to fall back to the 60 s default, so ∞ simulations stopped
- *    unexpectedly after 60 seconds.
+ *  - Security regression: executionTimeout=0 must fall back to the finite
+ *    60-second default; untrusted clients cannot request infinite execution.
  *  - Positive value is forwarded correctly to the timeout manager.
  *  - Undefined falls back to SANDBOX_CONFIG.maxExecutionTimeSec (60 s).
  */
@@ -78,14 +76,12 @@ describe("DockerManager.setupDockerTimeout", () => {
     vi.useRealTimers();
   });
 
-  // ── Bug #2 regression test ───────────────────────────────────────────────
+  // ── Finite timeout regression test ───────────────────────────────────────
 
-  it("Bug #2: executionTimeout=0 (∞) must NOT schedule any timer", () => {
-    // Before the fix, `0 && 0 > 0` evaluated to falsy and the
-    // code fell back to maxExecutionTimeSec (60 s).
+  it("normalizes executionTimeout=0 to the finite default", () => {
     manager.setupDockerTimeout(0, mockCallbacks);
 
-    expect(timeoutManager.schedule).not.toHaveBeenCalled();
+    expect(timeoutManager.schedule).toHaveBeenCalledWith(60_000, expect.any(Function));
   });
 
   // ── Correct forwarding of user-configured positive values ────────────────

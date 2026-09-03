@@ -584,7 +584,7 @@ innerhalb des Fensters abgewiesen wird.
 - [x] AP-02.7: Fachliche Wertebereiche validieren: digitale/analoge Pins,
   Pinwerte, Baudrate und Simulations-Timeout erhalten zentrale Min-/Max-Grenzen;
   insbesondere darf `timeout=0` keine unbegrenzte Laufzeit aktivieren.
-- [ ] AP-02.8: Sicherheitsregression als zusammenhängendes Gate ergänzen:
+- [x] AP-02.8: Sicherheitsregression als zusammenhängendes Gate ergänzen:
   Traversal-, Oversize-, Typ- und Grenzwertfälle für REST und WebSocket müssen
   bestehen und ein Dateisystem-Canary muss beweisen, dass keine Eingabe außerhalb
   des pro Request erzeugten Temp-Roots schreibt.
@@ -634,6 +634,12 @@ Aufrufe defensiv: fehlende oder ungültige Timeouts werden endlich auf 60 s
 gesetzt, zu große Werte auf 300 s begrenzt und Baudraten außerhalb 300–115.200
 auf 9.600 zurückgeführt. Damit kann `timeout=0` keine unbegrenzte Ausführung
 mehr aktivieren.
+
+**Umsetzungsnachweis AP-02.8:** `npm run test:security:inputs` bündelt
+Compile-Schema, Header-/Temp-Root-Canary, Wertebereiche, WS-Richtung und echte
+Oversize-/Policy-Close-Fälle. Der Referenzlauf bestand mit 43 Tests in 2,59 s
+bei 15-s-Budget. Anschließend lief die gesamte Unit-Suite mit 122 Dateien und
+1.492 Tests in 8,94 s bei 30-s-Budget grün.
 
 #### AP-03: Sandbox-Vertrag härten und testen
 

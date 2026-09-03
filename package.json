@@ -25,6 +25,7 @@
     "test:related": "TEST_BUDGET_SUITE=related TEST_BUDGET_MS=15000 LOG_LEVEL=warn vitest related --run --project=unit-client --project=unit-node --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:integration": "TEST_BUDGET_SUITE=integration-toolchain TEST_BUDGET_MS=120000 LOG_LEVEL=warn vitest run --project=integration-toolchain --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:docker": "TEST_BUDGET_SUITE=integration-docker TEST_BUDGET_MS=180000 FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest SKIP_HEAVY_TESTS=false LOG_LEVEL=warn vitest run --project=integration-docker --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
+    "test:security:inputs": "TEST_BUDGET_SUITE=security-inputs TEST_BUDGET_MS=15000 LOG_LEVEL=warn vitest run --project=unit-node tests/shared/input-limits.test.ts tests/shared/websocket-direction-schemas.test.ts tests/server/security/safe-paths.test.ts tests/server/routes/compiler.routes.test.ts tests/integration/simulation-state-sequence.test.ts --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:docker",
     "test:watch": "LOG_LEVEL=info vitest --project=unit-client --project=unit-node",
     "test:coverage": "TEST_BUDGET_SUITE=unit-coverage TEST_BUDGET_MS=60000 LOG_LEVEL=warn vitest run --coverage --project=unit-client --project=unit-node --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
