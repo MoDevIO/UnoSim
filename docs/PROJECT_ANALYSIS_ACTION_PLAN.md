@@ -507,10 +507,23 @@ Jede Maßnahme wird vor der Umsetzung in ein eng abgegrenztes Arbeitspaket mit b
    Systempipeline läuft nach Abschluss eines Epics beziehungsweise vor Merge.
    Typprüfung, nicht mutierendes Linting und Produktionsbuild müssen erfolgreich
    sein oder verbleibende, nachweislich vorbestehende Abweichungen dokumentiert
-   werden.
+   werden. Zusätzlich wird nach jedem abgeschlossenen Epic und vor jedem
+   Merge eine aktuelle SonarQube-Analyse mit `npm run test:coverage` und
+   `npm run sonar` ausgeführt. Das Quality Gate muss **OK/grün** sein; neue
+   Issues oder eine unterschrittene New-Code-Coverage blockieren den Abschluss.
+   Die Analyse verwendet immer den aktuellen Commit und den Projekt-Key
+   `unosim`.
 4. **Regelmäßig und atomar committen:** Nach jedem abgeschlossenen, getesteten Zwischenstand einen kleinen Commit mit aussagekräftiger Nachricht erstellen. Keine unzusammenhängenden Änderungen und keine wissentlich defekten Zwischenstände gemeinsam committen. Vor jedem Commit Diff und Teststatus prüfen; bestehende Änderungen anderer Arbeiten nicht aufnehmen.
 
 Ein Arbeitspaket gilt erst als abgeschlossen, wenn Implementierung, Tests, gegebenenfalls Dokumentation und Commit-Historie gemeinsam die Akzeptanzkriterien nachvollziehbar erfüllen.
+
+### Fortschrittsbericht
+
+Jeder Abschlussbericht weist den Fortschritt ausdrücklich bezogen auf den
+**Gesamtplan** aus. Dabei werden erledigte und offene Teilaufgaben sowie die
+noch nicht zerlegten Arbeitspakete separat genannt; ein Prozentsatz aus einer
+Teilmenge darf nicht als Gesamtplan-Fortschritt ausgegeben werden. Zusätzlich
+werden die aktuelle SonarQube-Revision und der Quality-Gate-Status angegeben.
 
 ### P0 — vor öffentlichem oder nicht vertrauenswürdigem Betrieb
 
