@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { getCompilationPool } from "./services/compilation-worker-pool";
+import { getSandboxRunnerPool } from "./services/sandbox-runner-pool";
 import { config } from "./config";
 import { INPUT_LIMITS } from "@shared/input-limits";
 
@@ -17,11 +18,11 @@ function parseAllowedFrameAncestors(): string[] {
 }
 
 // Cleanup service: Delete old .cleanup.json files and .cleanup directories (> 5 minutes old)
-function startCleanupService() {
+function startCleanupService(): NodeJS.Timeout {
   const CLEANUP_INTERVAL_MS = 60 * 1000; // Check every minute
   const CLEANUP_AGE_MS = 5 * 60 * 1000; // Delete files/dirs older than 5 minutes
 
-  setInterval(async () => {
+  return setInterval(async () => {
     try {
       const tempDir = path.join(process.cwd(), "temp");
       try {
@@ -194,6 +195,7 @@ let isServerReady = false; // Flag to indicate server initialization complete
 fs.mkdirSync(path.join(process.cwd(), "temp"), { recursive: true });
 
 const server = await registerRoutes(app);
+let cleanupTimer: NodeJS.Timeout | null = null;
 
   // Middleware to prevent requests during initialization
   // Returns 503 (Service Unavailable) until Docker checks complete
@@ -271,7 +273,7 @@ const server = await registerRoutes(app);
     console.log(`[startup] Warming up Docker checks asynchronously...`);
 
     // Start cleanup service for old temp files
-    startCleanupService();
+    cleanupTimer = startCleanupService();
 
     // Warm up Docker checks asynchronously without blocking requests
     // This runs in the background and doesn't prevent incoming requests
@@ -348,6 +350,16 @@ const server = await registerRoutes(app);
         }
       } catch (error_) {
         console.error(`[Shutdown] Pool shutdown error:`, error_);
+      }
+
+      if (cleanupTimer) {
+        clearInterval(cleanupTimer);
+        cleanupTimer = null;
+      }
+      try {
+        await getSandboxRunnerPool().shutdown();
+      } catch (error_) {
+        console.error(`[Shutdown] Sandbox runner pool error:`, error_);
       }
 
       clearTimeout(shutdownTimeout);
