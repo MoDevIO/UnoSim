@@ -107,6 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Placeholder for simulation websocket API (populated when WS module is registered)
   let simulationApi: {
+    wss: { close: (callback?: () => void) => void };
     stopAllRunnersAndNotify: () => Promise<{
       cleanedUpCount: number;
       cleanedTestRunIds: string[];
@@ -267,6 +268,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     allowedWebSocketOrigins: config.server.allowedWebSocketOrigins,
     disableRateLimit: config.server.disableRateLimit,
   });
+
+  (httpServer as Server & { shutdownServices?: () => Promise<void> }).shutdownServices = async () => {
+    await simulationApi?.stopAllRunnersAndNotify();
+    await new Promise<void>((resolve) => {
+      if (!simulationApi) return resolve();
+      simulationApi.wss.close(() => resolve());
+    });
+    await runnerPool.shutdown();
+  };
 
   // (WS implementation moved to server/routes/simulation.ws.ts)
 

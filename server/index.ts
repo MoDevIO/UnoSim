@@ -6,8 +6,8 @@ import { setupVite, serveStatic, log } from "./vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
+import type { Server } from "node:http";
 import { getCompilationPool } from "./services/compilation-worker-pool";
-import { getSandboxRunnerPool } from "./services/sandbox-runner-pool";
 import { config } from "./config";
 import { INPUT_LIMITS } from "@shared/input-limits";
 
@@ -356,11 +356,8 @@ let cleanupTimer: NodeJS.Timeout | null = null;
         clearInterval(cleanupTimer);
         cleanupTimer = null;
       }
-      try {
-        await getSandboxRunnerPool().shutdown();
-      } catch (error_) {
-        console.error(`[Shutdown] Sandbox runner pool error:`, error_);
-      }
+      await (server as Server & { shutdownServices?: () => Promise<void> })
+        .shutdownServices?.();
 
       clearTimeout(shutdownTimeout);
       console.log(`[Shutdown] Graceful shutdown complete`);

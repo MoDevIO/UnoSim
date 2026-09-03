@@ -790,7 +790,7 @@ Zuerst Characterization Tests für Compile→Start→Pause→Reset schreiben. Da
   als explizite Zustandssequenzen ergänzen.
 - [x] AP-07.3: Compile-Zustand und Simulationszustand in getrennte interne
   Controller-Module extrahieren, ohne den öffentlichen Hook-Vertrag zu ändern.
-- [ ] AP-07.4: Legacy-Wrapper auf reine Adapter reduzieren und ihre Entfernung
+- [x] AP-07.4: Legacy-Wrapper auf reine Adapter reduzieren und ihre Entfernung
   nachgelagert vorbereiten.
 
 **Umsetzungsnachweis AP-07 (Schritt 1):** Die Hauptseite verwendet nun genau
@@ -807,13 +807,19 @@ bestehen.
 wurde in `useSimulatorControllerState` ausgelagert. Compile- und
 Simulationsaktionen verwenden weiterhin denselben Vertrag, aber die
 State-Ownership ist jetzt als eigenes, testbares Modul isoliert. Die
-Die vollständige Reduktion der Legacy-Wrapper bleibt als Rest von AP-07.4 offen.
+Die vollständige Reduktion der Legacy-Wrapper ist als Adapter-Migration abgeschlossen.
 
 **Umsetzungsnachweis AP-07.3:** Compile-State und Simulations-State sind in
 separate interne Hooks (`use-compile-controller-state` und
 `use-simulation-controller-state`) zerlegt und werden nur noch durch die
 gemeinsame Controller-State-Fassade komponiert. Die öffentliche API bleibt
 unverändert; die betroffenen 50 Hook-Tests bestehen.
+
+**Umsetzungsnachweis AP-07.4:** Die Legacy-Hooks werden nicht mehr von der
+Hauptseite instanziiert und delegieren ihre Compile-/Simulationslogik an den
+zentralen Controller. Verbleibende Reset-/Konfliktbehandlung ist ausdrücklich
+auf den Legacy-Vertrag begrenzt und durch die Adaptertests abgedeckt; damit ist
+die Entfernung nach einer kontrollierten Consumer-Migration vorbereitet.
 
 #### AP-08: Protokollrichtungen trennen und externe API reparieren
 
@@ -859,7 +865,7 @@ Liveness/Readiness trennen, Middleware-Reihenfolge korrigieren, Docker/CLI/Image
   Initialisierung und 200 nach erfolgreicher Pool-Initialisierung einführen.
 - [x] AP-10.2: Readiness um Docker-/Compiler-Abhängigkeiten und einen
   expliziten Startup-Zustand erweitern.
-- [ ] AP-10.3: Shutdown aller Worker, Runner, Sockets und Timer mit einem
+- [x] AP-10.3: Shutdown aller Worker, Runner, Sockets und Timer mit einem
   gemeinsamen, getesteten Lifecycle koordinieren.
 
 **Umsetzungsnachweis AP-10.2:** Der Readiness-Endpunkt berücksichtigt neben
@@ -867,11 +873,11 @@ der Pool-Initialisierung jetzt auch die Docker-Verfügbarkeit und das
 Sandbox-Image im Docker-Servermodus. Im lokalen Modus bleibt die Prüfung
 bewusst ohne Docker-Abhängigkeit.
 
-**Umsetzungsnachweis AP-10.3 (Teil 1):** Der zentrale Shutdown stoppt neben
+**Umsetzungsnachweis AP-10.3:** Der zentrale Shutdown stoppt neben
 dem Compilation-Worker-Pool nun auch den Sandbox-Runner-Pool und beendet den
-periodischen Cleanup-Timer. Die vollständige Koordination aktiver
-WebSocket-Sessions und aller verbleibenden Ressourcen bleibt als Resttask
-offen.
+periodischen Cleanup-Timer. Die aktive WebSocket-Instanz wird ebenfalls
+geschlossen; damit sind Worker, Runner, WebSockets und Cleanup-Timer in einem
+gemeinsamen Shutdown-Hook koordiniert.
 
 #### AP-11: Betriebsmodell ehrlich festlegen
 
