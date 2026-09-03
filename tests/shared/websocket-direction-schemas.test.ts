@@ -24,6 +24,18 @@ describe("WebSocket direction schemas", () => {
     expect(
       clientToServerWSMessageSchema.safeParse({
         type: "serial_input",
+        data: "x".repeat(4 * 1024 + 1),
+      }).success,
+    ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "start_simulation",
+        code: "x".repeat(128 * 1024 + 1),
+      }).success,
+    ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "serial_input",
         data: "hello",
         unexpected: true,
       }).success,

@@ -20,6 +20,7 @@ import {
   createWebSocketAuthorizationVerifier,
   type TrustConfig,
 } from "../security/access-control";
+import { INPUT_LIMITS } from "@shared/input-limits";
 
 /** Safely convert WebSocket RawData (Buffer | ArrayBuffer | Buffer[]) to a string. */
 function rawDataToString(data: RawData): string {
@@ -71,6 +72,7 @@ export function registerSimulationWebSocket(
   const wss = new WebSocketServer({
     server: httpServer,
     path: "/ws",
+    maxPayload: INPUT_LIMITS.webSocket.maxPayloadBytes,
     // Disable per-message compression to eliminate zlib concurrency bottleneck.
     // With 200+ simultaneous clients, the default concurrencyLimit:10 caused CPU
     // starvation during pin-state bursts; disabling deflate entirely removes that

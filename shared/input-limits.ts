@@ -6,6 +6,9 @@
  * relevant; JavaScript string limits are measured in UTF-16 code units by Zod.
  */
 export const INPUT_LIMITS = {
+  rest: {
+    maxBodyBytes: 1024 * 1024,
+  },
   compile: {
     maxCodeChars: 128 * 1024,
     maxHeaders: 20,

@@ -521,6 +521,32 @@ describe("Simulation state sequence", () => {
     expect(close).toEqual({ code: 1008, reason: "Invalid message" });
   });
 
+  it("closes an oversized WebSocket payload at the transport boundary", async () => {
+    const close = await new Promise<number>((resolve, reject) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      const timeout = setTimeout(() => {
+        ws.close();
+        reject(new Error("oversized WebSocket payload was not rejected"));
+      }, 2_000);
+
+      ws.on("open", () => {
+        ws.send(
+          JSON.stringify({
+            type: "serial_input",
+            data: "x".repeat(256 * 1024),
+          }),
+        );
+      });
+      ws.on("close", (code) => {
+        clearTimeout(timeout);
+        resolve(code);
+      });
+      ws.on("error", reject);
+    });
+
+    expect(close).toBe(1009);
+  });
+
   // ─── 2: Pool saturated — client is queued_for_simulation ──────────────────
 
   it("pool saturated — extra client receives queued before running", async () => {

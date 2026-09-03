@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { getCompilationPool } from "./services/compilation-worker-pool";
 import { config } from "./config";
+import { INPUT_LIMITS } from "@shared/input-limits";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -118,8 +119,8 @@ const apiLimiter = rateLimit({
 // Apply rate limiting to API routes
 app.use("/api/", apiLimiter);
 
-app.use(express.json({ limit: "1mb" })); // Limit payload size
-app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+app.use(express.json({ limit: INPUT_LIMITS.rest.maxBodyBytes }));
+app.use(express.urlencoded({ extended: false, limit: INPUT_LIMITS.rest.maxBodyBytes }));
 
 // Resolve public folder for both dev (repo root) and prod (dist/public)
 const publicPathCandidates = [

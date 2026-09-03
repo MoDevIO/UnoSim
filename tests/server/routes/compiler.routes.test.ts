@@ -146,6 +146,24 @@ describe("compiler.routes - /api/compile", () => {
     expect(deps.compiler.compile).not.toHaveBeenCalled();
   });
 
+  it("rejects oversized header content and too many headers", async () => {
+    const oversizedHeader = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      headers: [{ name: "helper.h", content: "x".repeat(32 * 1024 + 1) }],
+    });
+    const tooManyHeaders = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      headers: Array.from({ length: 21 }, (_, index) => ({
+        name: `helper-${index}.h`,
+        content: "",
+      })),
+    });
+
+    expect(oversizedHeader.status).toBe(400);
+    expect(tooManyHeaders.status).toBe(400);
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
+  });
+
   it("rejects unsafe and duplicate header names before compilation", async () => {
     const traversal = await post(baseUrl, "/api/compile", {
       code: "void setup(){}",

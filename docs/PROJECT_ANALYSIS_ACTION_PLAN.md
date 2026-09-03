@@ -575,10 +575,10 @@ innerhalb des Fensters abgewiesen wird.
   `safeParse` validieren. Ungültiges JSON, falsche Richtung, unbekannte Felder
   und falsche Datentypen müssen kontrolliert abgewiesen werden, ohne Runner-
   oder Sessionzustand zu verändern.
-- [ ] AP-02.6: Transport- und Größenbudgets durchsetzen.
-  - [ ] AP-02.6a: Am `WebSocketServer` ein explizites `maxPayload` setzen und
+- [x] AP-02.6: Transport- und Größenbudgets durchsetzen.
+  - [x] AP-02.6a: Am `WebSocketServer` ein explizites `maxPayload` setzen und
     Oversize-Verbindungen mit einem definierten Close-Code beenden.
-  - [ ] AP-02.6b: Code-, Headerinhalt-, String-, Bibliotheks- und Arraylimits in
+  - [x] AP-02.6b: Code-, Headerinhalt-, String-, Bibliotheks- und Arraylimits in
     REST- und WS-Schemas konsistent anwenden und Boundary-Tests für exakt am,
     unter und über dem Limit ergänzen.
 - [ ] AP-02.7: Fachliche Wertebereiche validieren: digitale/analoge Pins,
@@ -621,6 +621,12 @@ Frontend-Refactorings bei AP-08.
 unbekannte Felder und falsche Typen werden vor jedem Zugriff auf Session oder
 Runner mit Policy-Close 1008 abgewiesen. Ein echter Socket-Test prüft diesen
 Pfad; die regulären Zustandssequenzen bleiben unverändert grün.
+
+**Umsetzungsnachweis AP-02.6:** REST verwendet das zentrale 1-MiB-Bodybudget;
+der `WebSocketServer` begrenzt einzelne Frames auf 256 KiB. Ein echter
+Oversize-Test bestätigt den Close-Code 1009. Code, Headerinhalt, Header-/
+Bibliotheksarrays und Serial-Eingaben verwenden ergänzende Schema-Grenzen; die
+Tests prüfen Werte am beziehungsweise über dem jeweiligen Limit.
 
 #### AP-03: Sandbox-Vertrag härten und testen
 
