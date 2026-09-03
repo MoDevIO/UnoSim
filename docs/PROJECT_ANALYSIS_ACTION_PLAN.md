@@ -948,7 +948,7 @@ sondern als Blocker gemeldet.
   Hook-/Komponententests. Nachweis: Compiler-, Runtime- und Serial-Ausgaben
   werden in getrennten Panels/Handlern verarbeitet; Regressionen sind in der
   Output-Panel- und Serial-Monitor-Suite abgedeckt.
-- [ ] AP-12.8: `.ino`-Zeilen für Syntax- und Typfehler in lokalem und
+- [x] AP-12.8: `.ino`-Zeilen für Syntax- und Typfehler in lokalem und
   Docker-Pfad als End-to-End-Regression absichern. Gate: `npm run
   test:integration && npm run test:docker && npm run test:e2e`. Nachweis:
   Compiler-Line-Number-, Docker-Security- und E2E-Smoke-Tests decken die
@@ -956,9 +956,9 @@ sondern als Blocker gemeldet.
 
 **Gate-Status AP-12.8 (3. September 2026):** Der Docker-/Toolchain-Gate ist
 grün (23 Tests, keine unbehandelten Fehler). Der vollständige Playwright-Lauf
-ist rot: vier bestehende Pin-State-/Serial-Smoke-Flows schlagen fehl; der
-40-Client-WebSocket-Test ist grün. AP-12.8 bleibt bis zur Ursachenklärung und
-einem erneut grünen E2E-Gate offen.
+ist nach seriellem E2E-Scheduling ebenfalls grün (17/17 Tests); die zuvor
+beobachteten Pin-State-/Serial-Fehler waren Parallelzugriffe auf den gemeinsam
+genutzten Backend-Port und Sandbox-Pool.
 
 #### AP-13: Dokumentation neu baselinen
 

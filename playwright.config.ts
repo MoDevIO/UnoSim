@@ -30,10 +30,11 @@ export default defineConfig({
     [path.resolve(__dirname, "e2e/race-condition-reporter.ts")],
   ],
 
-  // PARALLELISIERUNG AKTIVIERT
-  // Nutzt 4 Worker lokal, in der CI (GitHub Actions etc.) 2, um Überlastung zu vermeiden
-  workers: process.env.CI ? 2 : 4,               
-  fullyParallel: true, // Erlaubt Playwright, Tests innerhalb einer Datei parallel auszuführen
+  // E2E-Szenarien teilen sich absichtlich einen Backend-Port und einen
+  // zustandsbehafteten Sandbox-Pool. Serielle Ausführung verhindert, dass
+  // parallele Browser-Kontexte Compile-/WebSocket-Zustände vermischen.
+  workers: 1,
+  fullyParallel: false,
   retries: 1, // 1 Retry für flaky Cold-Start-Timing-Probleme
 
   expect: {
