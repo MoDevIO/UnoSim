@@ -723,7 +723,7 @@ endlichen Timeout am stillen Container. Das Docker-Sicherheitsgate bestand mit
   HTTP-/WebSocket-Regressionen ausführen.
 - [x] AP-04.2: Express, Rate-Limit, Nanoid und relevante transitive Runtime-
   Abhängigkeiten aktualisieren; inkompatible Änderungen separat testen.
-- [ ] AP-04.3: Verbleibende Audit-Befunde bewerten, begründete Ausnahmen mit
+- [x] AP-04.3: Verbleibende Audit-Befunde bewerten, begründete Ausnahmen mit
   Ablaufdatum dokumentieren und das produktive Audit-Gate erneut ausführen.
 
 **Umsetzungsnachweis AP-04.1 und AP-04.2:** `ws` wurde von `^8.18.0` auf
@@ -737,10 +737,12 @@ werden in AP-04.3 mit Kompatibilitätsnachweisen behandelt.
 **Zwischenstand AP-04.2:** Kompatible transitive Overrides für Express’
 `path-to-regexp`/`qs` sowie `postcss-selector-parser` und `yaml` sind in
 `package.json` verankert und im Lockfile reproduzierbar aufgelöst. Zusätzlich
-wird `lodash` für den Recharts-Clientpfad auf `4.18.1` festgelegt. Dadurch
-sank das produktive Audit auf zwei Befunde: `esbuild` (Toolchain) und
-`picomatch` (mehrere Toolchain-Abhängigkeitslinien). Diese erfordern eine
-separate Major-/Toolchain-Entscheidung und bleiben deshalb für AP-04.3 offen.
+wird `lodash` für den Recharts-Clientpfad auf `4.18.1` festgelegt. Die nur für
+den Build benötigten Tailwind-Plugins wurden aus `dependencies` nach
+`devDependencies` verschoben; damit gelangen deren verwundbare
+`picomatch`-Linien nicht mehr in den Produktionsgraphen. Das produktive
+Audit-Gate (`npm audit --omit=dev`) ist damit ohne Befunde. Typecheck,
+Unit-Suite und Produktionsbuild bleiben grün; AP-04 ist abgeschlossen.
 
 #### AP-05: Warteschlangen wirklich begrenzen
 
