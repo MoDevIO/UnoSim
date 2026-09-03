@@ -4,7 +4,6 @@
 
 import { randomUUID } from "node:crypto";
 import { Logger } from "@shared/logger";
-import { ProcessExecutor } from "../process-executor";
 import type { IOPinRecord } from "@shared/schema";
 import type { PinStateChange } from "@shared/types/arduino.types";
 import type { IProcessController } from "../process-controller";
@@ -25,6 +24,8 @@ import { FilesystemHelper } from "./filesystem-helper";
 import { config } from "../../config";
 import { normalizeBaudrate, normalizeSimulationTimeout } from "@shared/input-limits";
 import { canTransition } from "../simulation-state-machine";
+import { createProcessExecutionPort, type ProcessExecution } from "../process-execution-port";
+import { OutputCollector } from "../output-collector";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -127,6 +128,7 @@ export interface ExecutionState {
   currentContainerName?: string;
   dockerAvailable?: boolean;
   dockerImageBuilt?: boolean;
+  outputCollector?: OutputCollector;
 }
 
 export class ExecutionManager {
@@ -139,7 +141,7 @@ export class ExecutionManager {
   private readonly dockerManager: DockerManager;
   private readonly streamHandler: StreamHandler;
   private readonly filesystemHelper: FilesystemHelper;
-  private readonly processExecutor: ProcessExecutor;
+  private readonly processExecutor: ProcessExecution;
 
   constructor(
     registryManager: RegistryManager,
@@ -157,7 +159,7 @@ export class ExecutionManager {
     this.dockerManager = dockerManager;
     this.streamHandler = streamHandler;
     this.filesystemHelper = filesystemHelper;
-    this.processExecutor = new ProcessExecutor();
+    this.processExecutor = createProcessExecutionPort();
   }
 
   private static get compileGatekeeper() {
@@ -254,7 +256,7 @@ export class ExecutionManager {
     try {
       // Prepare environment
       const files = await this.prepareEnvironment(code, state);
-      state.processKilled = false;
+    state.processKilled = false;
 
       if (state.pendingCleanup || state.processKilled || state.state === SimulationState.STOPPED) {
         this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
@@ -313,6 +315,7 @@ export class ExecutionManager {
     state.outputBufferIndex = 0;
     state.isSendingOutput = false;
     state.totalOutputBytes = 0;
+    state.outputCollector = new OutputCollector(SANDBOX_CONFIG.maxOutputBytes);
     state.onOutputCallback = onOutput;
     state.ioRegistryCallback = onIORegistry;
   }
@@ -581,8 +584,9 @@ export class ExecutionManager {
 
     state.processController.onStdout((data) => {
       const str = data.toString();
-      state.totalOutputBytes += str.length;
-      if (state.totalOutputBytes > SANDBOX_CONFIG.maxOutputBytes) {
+      const withinLimit = state.outputCollector?.append(str) ?? false;
+      state.totalOutputBytes = state.outputCollector?.totalBytes ?? state.totalOutputBytes + str.length;
+      if (!withinLimit) {
         state.processController.kill("SIGKILL"); // Trigger stop
         callbacks.onError("Output size limit exceeded");
         return;

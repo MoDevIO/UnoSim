@@ -11,6 +11,7 @@ import {
 import type { Logger } from "@shared/logger";
 import type { PinStateChange } from "@shared/types/arduino.types";
 import { decodeClientMessage } from "../services/ws-message-decoder";
+import { WsSessionLifecycle } from "../services/ws-session-lifecycle";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import path from "node:path";
 import { writeFile, access } from "node:fs/promises";
@@ -84,7 +85,7 @@ export function registerSimulationWebSocket(
     ),
   });
 
-  const clientRunners = new Map<WebSocket, ClientState>();
+  const clientRunners = new WsSessionLifecycle<WebSocket, ClientState>();
 
   // Serial output batching: collect output lines over 50ms before sending to reduce
   // WebSocket message count (e.g., from 100 msg/batch to 1 msg/batch at 20 batches/sec)
@@ -828,7 +829,7 @@ export function registerSimulationWebSocket(
       );
     }
 
-    clientRunners.set(ws, {
+    clientRunners.register(ws, {
       subject: identity.subject,
       runner: null,
       isRunning: false,
@@ -934,7 +935,7 @@ export function registerSimulationWebSocket(
           await safeReleaseRunner(clientState, "ws-close");
         }
       }
-      clientRunners.delete(ws);
+      clientRunners.remove(ws);
 
       // Broadcast updated count now that this client is fully removed from the
       // map, so countRunningClients() already reflects the decrease.

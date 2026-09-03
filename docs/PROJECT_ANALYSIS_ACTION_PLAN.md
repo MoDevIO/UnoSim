@@ -1081,13 +1081,13 @@ Lifecycle-Übergänge des `ExecutionManager` laufen jetzt über die reine,
 getestete `simulation-state-machine` (inklusive Pause/Resume/Stop und
 fehlerfestem ERROR-Zustand). Die weiteren Modul-Schnitte bleiben bis zur
 jeweiligen Umsetzung offen.
-- [ ] AP-16.4: Aus dem WS-Session-Service Verbindungslebenszyklus und
+- [x] AP-16.4: Aus dem WS-Session-Service Verbindungslebenszyklus und
   Ressourcenregistrierung extrahieren. Gate: Connect/Disconnect-/Shutdown-Tests.
 - [x] AP-16.5: WS-Nachrichtendekodierung und Dispatch in eine reine,
   richtungsabhängig getestete Einheit extrahieren. Gate: WS-Vertragstests.
-- [ ] AP-16.6: Aus dem ExecutionManager Prozessstart/Abbruch in einen Port mit
+- [x] AP-16.6: Aus dem ExecutionManager Prozessstart/Abbruch in einen Port mit
   injizierbaren Abhängigkeiten extrahieren. Gate: Prozess- und Timeout-Tests.
-- [ ] AP-16.7: Output-Sammlung und Ergebnisbildung des ExecutionManager separat
+- [x] AP-16.7: Output-Sammlung und Ergebnisbildung des ExecutionManager separat
   kapseln; Output-Limit und Fehlersemantik beibehalten. Gate: Output-Kill-Tests.
 - [ ] AP-16.8: RegistryManager in Parsing/Validierung und atomare
   Zustandsaktualisierung teilen. Gate: Registry- und Concurrent-Update-Tests.
@@ -1097,6 +1097,14 @@ jeweiligen Umsetzung offen.
 - [ ] AP-16.10: Nur nach grünen Einzel-Refactorings überflüssige Adapter und
   Re-Exports entfernen; öffentliche Imports gesammelt migrieren. Gate:
   `npm run test:unit && npm run build`.
+
+**Umsetzungsnachweis (2026-09-03, weiterer Teilabschluss):** WS-Sessions werden
+über einen gekapselten Lifecycle-Store verwaltet. Der ExecutionManager nutzt
+einen injizierbaren Process-Execution-Port und einen separaten OutputCollector,
+der das bestehende Größenlimit vor der Weiterverarbeitung erzwingt. Die
+Charakterisierungs- und Integrationsprüfungen blieben grün. Parsing/atomare
+Registry-Aufteilung, ArduinoCompiler-Schnitt und abschließende Adapterbereinigung
+(AP-16.8 bis AP-16.10) sind noch offen.
 
 #### AP-17: Browserbundle reduzieren
 
