@@ -319,6 +319,7 @@ describe("useArduinoSimulatorPage", () => {
 
     const params = externalApi.mock.calls[0][0];
     expect(params).toHaveProperty("allowedOrigin");
+    expect(params.allowedOrigin).not.toBe("*");
     expect(params).toHaveProperty("onStartSimulation");
     expect(params).toHaveProperty("onStopSimulation");
     expect(typeof params.onSetPinState).toBe("function");

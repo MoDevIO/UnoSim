@@ -654,9 +654,10 @@ export function useArduinoSimulatorPage() {
   }, [simulationStatus, setShowCompilationOutput]);
 
   // External postMessage API — remote control for embedding websites.
-  // The allowed origin is detected from the parent frame (ancestorOrigins).
+  // Prefer the embedding parent origin; same-origin is the safe fallback for
+  // standalone use. A wildcard would allow cross-origin control messages.
   const externalAllowedOrigin =
-    globalThis.location.ancestorOrigins?.[0] ?? "*";
+    globalThis.location.ancestorOrigins?.[0] ?? globalThis.location.origin;
 
   // Derive high-level ClientState from runtime + compilation state.
   // This is the single label shown in the debug header and exposed via API.
