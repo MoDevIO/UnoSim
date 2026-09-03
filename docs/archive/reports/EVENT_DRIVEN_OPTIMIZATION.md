@@ -288,7 +288,7 @@ Track these metrics in production:
 - **PR:** TD-2: Event-Driven Performance Optimization
 - **Branch:** `feature/gatekeeper-performance`
 - **Related:** TD-3 (Unit Testing), Phase 0.3 (Load Testing)
-- **Documentation:** [PERFORMANCE_AUDIT.md](../../../PERFORMANCE_AUDIT.md)
+- **Documentation:** [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md)
 
 ---
 
