@@ -817,7 +817,9 @@ vollständige Trennung der Aktionsmodule bleibt als Rest von AP-07.3 offen.
 richtige Client→Server-Protokoll `set_pin_value` statt des ausschließlich vom
 Server emittierten `pin_state`-Typs. Die richtungsspezifischen Zod-Schemas
 bleiben das Validierungs-Gate; der verbleibende Origin-Fallback ist als
-separater Teil von AP-08 offen.
+separater Teil von AP-08 offen. Der Origin-Fallback ist nun fail-closed auf
+`location.origin` geändert und mit einem Seiten-Hook-Test abgesichert; damit
+sind die AP-08-Maßnahmen abgeschlossen.
 
 #### AP-09: Cache-Schichten konsolidieren
 
