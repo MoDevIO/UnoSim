@@ -679,7 +679,7 @@ export function useArduinoSimulatorPage() {
     onPauseSimulation: handlePause,
     onResumeSimulation: handleResume,
     onSetPinState: (pin, value) => {
-      sendMessage({ type: "pin_state", pin, stateType: "value", value });
+      sendMessage({ type: "set_pin_value", pin, value });
     },
     getPinState: (pin) => {
       const found = pinStates.find((p) => p.pin === pin);

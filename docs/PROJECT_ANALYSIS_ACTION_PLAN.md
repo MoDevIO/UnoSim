@@ -813,6 +813,12 @@ vollständige Trennung der Aktionsmodule bleibt als Rest von AP-07.3 offen.
 
 `ClientToServerMessage` und `ServerToClientMessage` definieren, falsches `pin_state` korrigieren und External-API-Vertrag end-to-end testen. Die `ancestorOrigins`-Fallbackstrategie muss browserübergreifend und fail-closed werden.
 
+**Umsetzungsnachweis AP-08 (Teil 1):** Die External-Pin-API sendet nun das
+richtige Client→Server-Protokoll `set_pin_value` statt des ausschließlich vom
+Server emittierten `pin_state`-Typs. Die richtungsspezifischen Zod-Schemas
+bleiben das Validierungs-Gate; der verbleibende Origin-Fallback ist als
+separater Teil von AP-08 offen.
+
 #### AP-09: Cache-Schichten konsolidieren
 
 Kanonischen Request-Fingerprint verwenden, In-Memory-LRU begrenzen, Versionierung/Eviction dokumentieren und globale `lastCompiledCode`-Fallbacklogik mit Deprecation versehen.
