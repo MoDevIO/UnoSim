@@ -726,10 +726,13 @@ endlichen Timeout am stillen Container. Das Docker-Sicherheitsgate bestand mit
 - [ ] AP-04.3: Verbleibende Audit-Befunde bewerten, begründete Ausnahmen mit
   Ablaufdatum dokumentieren und das produktive Audit-Gate erneut ausführen.
 
-**Umsetzungsnachweis AP-04.1:** `ws` wurde von `^8.18.0` auf `^8.21.3`
-aktualisiert. Der produktive Audit-Befund für `ws` ist damit beseitigt;
-Typecheck sowie die gezielten Compile-, WebSocket- und Zustandssequenztests
-bestanden mit 38 Tests.
+**Umsetzungsnachweis AP-04.1 und Zwischenstand AP-04.2:** `ws` wurde von `^8.18.0` auf
+`^8.21.3`, Express auf `^4.22.2`, express-rate-limit auf `^8.7.0`, Nanoid
+auf `^5.1.16` und PostCSS auf `^8.5.27` aktualisiert. Der produktive
+`ws`-Befund sowie die direkten Nanoid-/Rate-Limit-Befunde sind beseitigt.
+Typecheck und die vollständige Unit-Suite (1.498 Tests) bestehen. Die noch
+verbleibenden Audit-Befunde sind transitive oder erfordern Major-Upgrades und
+werden in AP-04.3 mit Kompatibilitätsnachweisen behandelt.
 
 #### AP-05: Warteschlangen wirklich begrenzen
 
