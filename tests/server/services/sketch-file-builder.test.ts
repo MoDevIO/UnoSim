@@ -55,6 +55,20 @@ char* getLabel() { return nullptr; }
       expect(content).toContain("char* getLabel();");
     });
 
+    it("adds a prototype with parameters and preserves the return type", async () => {
+      const code = `
+void setup() { int result = add(2, 3); }
+void loop() {}
+int add(int left, int right) { return left + right; }
+`.trim();
+      const content = await buildSketch(code);
+      const declaration = "int add(int left, int right);";
+      const declarationIndex = content.indexOf(declaration);
+      const userCodeIndex = content.indexOf("// --- User code follows ---");
+      expect(declarationIndex).toBeGreaterThan(-1);
+      expect(declarationIndex).toBeLessThan(userCodeIndex);
+    });
+
     it("does not duplicate declarations for overloaded or repeated function names", async () => {
       const code = `
 void setup() { blink(3); }

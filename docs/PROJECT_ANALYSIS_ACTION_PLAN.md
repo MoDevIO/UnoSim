@@ -919,7 +919,7 @@ sondern als Blocker gemeldet.
 
 **Teilaufgaben:**
 
-- [ ] AP-12.1: Characterization-Tests für einen vor `setup()`/`loop()`
+- [x] AP-12.1: Characterization-Tests für einen vor `setup()`/`loop()`
   aufgerufenen, darunter definierten Funktionskörper ergänzen; Varianten mit
   Parametern und Rückgabewert abdecken. Gate: gezielter Unit-/Integrationstest.
 - [ ] AP-12.2: Die Prototyperzeugung als reine Funktion isolieren und einfache
