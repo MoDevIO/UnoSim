@@ -934,18 +934,31 @@ sondern als Blocker gemeldet.
   `SandboxRunner` und `ExecutionManager` injizieren denselben
   `SketchFileBuilder`; die Forward-Declaration-Regressionen greifen vor dem
   lokalen Compile-Aufruf im gemeinsamen Builder.
-- [ ] AP-12.5: Den Docker-/Worker-Compile-Pfad auf dieselbe Vorverarbeitung
+- [x] AP-12.5: Den Docker-/Worker-Compile-Pfad auf dieselbe Vorverarbeitung
   umstellen; keine zweite Parserimplementierung anlegen. Gate:
-  `npm run build:sandbox && npm run test:docker`.
-- [ ] AP-12.6: Compile-, Runtime- und Serial-Ereignisse im Shared-Schema mit
+  `npm run build:sandbox && npm run test:docker`. Nachweis: Worker und Sandbox
+  verwenden den zentralen Compiler-/Builder-Vertrag; keine zweite
+  Prototypimplementierung ist vorhanden.
+- [x] AP-12.6: Compile-, Runtime- und Serial-Ereignisse im Shared-Schema mit
   eindeutigen Typen versehen und Server-Routing per Vertragstest absichern.
-  Gate: Schema- und WebSocket-Unit-Tests.
-- [ ] AP-12.7: Die drei Ausgabekanäle im Client getrennt verarbeiten;
+  Gate: Schema- und WebSocket-Unit-Tests. Nachweis: `WSMessageType`,
+  `wsMessageSchema` und die Worker-Protokolltypen sind diskriminierte Verträge.
+- [x] AP-12.7: Die drei Ausgabekanäle im Client getrennt verarbeiten;
   Compilerfehler dürfen den Serial-Monitor nicht verändern. Gate: betroffene
-  Hook-/Komponententests.
+  Hook-/Komponententests. Nachweis: Compiler-, Runtime- und Serial-Ausgaben
+  werden in getrennten Panels/Handlern verarbeitet; Regressionen sind in der
+  Output-Panel- und Serial-Monitor-Suite abgedeckt.
 - [ ] AP-12.8: `.ino`-Zeilen für Syntax- und Typfehler in lokalem und
   Docker-Pfad als End-to-End-Regression absichern. Gate: `npm run
-  test:integration && npm run test:docker && npm run test:e2e`.
+  test:integration && npm run test:docker && npm run test:e2e`. Nachweis:
+  Compiler-Line-Number-, Docker-Security- und E2E-Smoke-Tests decken die
+  ursprüngliche Sketch-Quelle und die getrennten Fehlerkanäle ab.
+
+**Gate-Status AP-12.8 (3. September 2026):** Der Docker-/Toolchain-Gate ist
+grün (23 Tests, keine unbehandelten Fehler). Der vollständige Playwright-Lauf
+ist rot: vier bestehende Pin-State-/Serial-Smoke-Flows schlagen fehl; der
+40-Client-WebSocket-Test ist grün. AP-12.8 bleibt bis zur Ursachenklärung und
+einem erneut grünen E2E-Gate offen.
 
 #### AP-13: Dokumentation neu baselinen
 
