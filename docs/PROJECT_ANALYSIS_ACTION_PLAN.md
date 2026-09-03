@@ -442,7 +442,11 @@ Zeilenanzahl allein ist kein Fehler. Hier korreliert sie jedoch mit überlappend
 
 ## 7. Dokumentationsanalyse
 
-### 7.1 Widersprüche und veraltete Aussagen
+### 7.1 Historische Baseline (nicht normativ)
+
+Die folgende Tabelle dokumentiert den Stand der ursprünglichen Analyse. Sie ist
+kein aktueller Fehlerbestand; erledigte Punkte werden durch die AP-Checkboxen
+und Umsetzungsnachweise weiter unten belegt.
 
 | Dokumentation | Aussage | Tatsächlicher Stand |
 |---|---|---|

@@ -46,7 +46,7 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
+- Node.js 20.19.1 (see `.nvmrc`)
 - npm or yarn
 
 ### Setup
@@ -88,7 +88,7 @@ Compilation uses `arduino-cli` directly on the host — Docker is **not** requir
 
 | Component | Details |
 |-----------|---------|
-| Backend | `tsx server/index.ts` on port 3000 |
+| Backend | `tsx server/index.ts` on configured `PORT` (default 3000) |
 | Client | Vite HMR dev server (proxied) |
 | Compiler | Direct `arduino-cli` calls on host |
 | Worker Pool | Disabled (`PooledCompiler.usePool = false` outside production) |
@@ -105,7 +105,7 @@ The Vite-built client is served as static files from `dist/public/`.
 
 | Component | Details |
 |-----------|---------|
-| Backend | `node dist/index.js` on port 3000 |
+| Backend | `node dist/index.js` on configured `PORT` (default 3000) |
 | Client | Static files from `dist/public/` |
 | Compiler | Worker Pool with 4 parallel threads |
 | Docker | Optional — enables sandboxed compilation if Docker Desktop is running |
