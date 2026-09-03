@@ -904,9 +904,73 @@ abgeschlossen.
 **Akzeptanz:** Eine unterhalb von `setup()`/`loop()` definierte und zuvor aufgerufene Funktion kompiliert und läuft in allen Simulationsmodi. Tests umfassen mindestens Parameter, mehrzeilige Signaturen, Pointer/Referenzen und Überladungen. Absichtliche Syntax-/Typfehler erscheinen ausschließlich in der Compileranzeige, nie im seriellen Monitor; gemeldete Zeilen beziehen sich auf die `.ino`-Quelle.  
 **Aufwand:** M.
 
+**Arbeitsregeln für AP-12 bis AP-18 (Luna, geringe Reasoning-Stufe):** Jede
+Teilaufgabe wird einzeln bearbeitet und mit genau einem Commit abgeschlossen.
+Vor Änderungen sind die im Task genannten Suchbegriffe mit `rg` zu lokalisieren;
+Dateinamen dürfen daraus abgeleitet, aber keine benachbarten Themen mitbereinigt
+werden. Bei Produktivcode-Änderungen wird zuerst der beschriebene Regressionstest
+rot hinzugefügt und danach nur der kleinste erforderliche Code geändert. Nach
+jedem Task laufen
+`npm run check`, `npm run test:related -- <geänderte Dateien>` und der im Task
+genannte Gate-Befehl. Nach jedem Epic laufen zusätzlich `npm run test:unit`,
+`npm run build`, `npm run test:coverage` und `npm run sonar`; das SonarQube
+Quality Gate muss grün bleiben. Unklare Vertragsänderungen werden nicht geraten,
+sondern als Blocker gemeldet.
+
+**Teilaufgaben:**
+
+- [ ] AP-12.1: Characterization-Tests für einen vor `setup()`/`loop()`
+  aufgerufenen, darunter definierten Funktionskörper ergänzen; Varianten mit
+  Parametern und Rückgabewert abdecken. Gate: gezielter Unit-/Integrationstest.
+- [ ] AP-12.2: Die Prototyperzeugung als reine Funktion isolieren und einfache
+  Signaturen, Kommentare sowie bereits vorhandene Deklarationen testen. Keine
+  Einbindung in Compilerpfade in diesem Task. Gate: neue Unit-Testdatei.
+- [ ] AP-12.3: Den Prototyp-Parser um mehrzeilige Signaturen,
+  Pointer/Referenzen und Überladungen erweitern; Kontrollstrukturen und
+  Funktionsaufrufe dürfen keine Prototypen erzeugen. Gate: Parser-Unit-Tests.
+- [ ] AP-12.4: Die gemeinsame Vorverarbeitung in den lokalen Compile-Pfad
+  einbinden, ohne Funktionskörper umzusortieren. Ursprünglichen Dateinamen und
+  Zeilenversatz explizit testen. Gate: `npm run test:integration`.
+- [ ] AP-12.5: Den Docker-/Worker-Compile-Pfad auf dieselbe Vorverarbeitung
+  umstellen; keine zweite Parserimplementierung anlegen. Gate:
+  `npm run build:sandbox && npm run test:docker`.
+- [ ] AP-12.6: Compile-, Runtime- und Serial-Ereignisse im Shared-Schema mit
+  eindeutigen Typen versehen und Server-Routing per Vertragstest absichern.
+  Gate: Schema- und WebSocket-Unit-Tests.
+- [ ] AP-12.7: Die drei Ausgabekanäle im Client getrennt verarbeiten;
+  Compilerfehler dürfen den Serial-Monitor nicht verändern. Gate: betroffene
+  Hook-/Komponententests.
+- [ ] AP-12.8: `.ino`-Zeilen für Syntax- und Typfehler in lokalem und
+  Docker-Pfad als End-to-End-Regression absichern. Gate: `npm run
+  test:integration && npm run test:docker && npm run test:e2e`.
+
 #### AP-13: Dokumentation neu baselinen
 
 README, Admin-Guide, Scalability-Dokument und Service-README gegen den Code korrigieren; fehlende Lizenzdatei ergänzen oder Verweis entfernen; historische Abschnitte archivieren; Docs-Check in CI aufnehmen.
+
+**Teilaufgaben:**
+
+- [ ] AP-13.1: Dokumentationsinventar erstellen und jede Aussage zu Befehlen,
+  Ports, Betriebsmodus, Tests und Architektur mit Code/Compose/CI abgleichen;
+  Abweichungen als Checkliste im Plan festhalten. Gate: `rg`-Nachweis.
+- [ ] AP-13.2: Root-README auf verifizierte Installations-, Start-, Build- und
+  Testbefehle sowie den unterstützten Einzelknotenbetrieb aktualisieren. Gate:
+  alle dokumentierten npm-Befehle existieren in `package.json`.
+- [ ] AP-13.3: `README_ADMIN.md` mit aktuellem Env-Schema, Docker-Setup,
+  Health/Readiness und Shutdown-Ablauf abgleichen. Gate: Compose-Konfiguration
+  rendern und interne Links prüfen.
+- [ ] AP-13.4: Skalierbarkeitsdokument klar in heutigen Ist-Zustand, gemessene
+  Grenzen und zukünftige Anforderungen gliedern; überholte Aussagen in einen
+  als historisch markierten Abschnitt verschieben. Gate: manueller Linkcheck.
+- [ ] AP-13.5: Service-/Architekturdokumentation gegen die tatsächlichen
+  Modulgrenzen und Message-Verträge aktualisieren. Gate: referenzierte Pfade
+  existieren.
+- [ ] AP-13.6: Lizenzlage anhand `package.json` und vorhandener Hinweise
+  eindeutig machen: passende `LICENSE` ergänzen oder unbelegten Lizenzverweis
+  entfernen. Gate: keine widersprüchlichen Lizenzangaben per `rg`.
+- [ ] AP-13.7: Reproduzierbaren Docs-Check für tote relative Links und
+  nicht existente npm-Skripte ergänzen und als separaten CI-Schritt ausführen.
+  Gate: lokaler Docs-Check und Workflow-Syntax.
 
 ### P2 — Wartbarkeit und Performance
 
@@ -914,21 +978,144 @@ README, Admin-Guide, Scalability-Dokument und Service-README gegen den Code korr
 
 Auth-No-op, unerreichbaren Upload-Zweig, `_handleStart`, ungenutzte Storage-Methode und produktiv ausgelieferte Testseite einzeln mit Tests bereinigen. Deprecated Status-Aliasse und IO-Registry-Felder erhalten konkrete Entfernungsversionen.
 
+**Teilaufgaben:**
+
+- [ ] AP-14.1: Auth-No-op samt Importen und Tests lokalisieren, aktuellen
+  No-op-Vertrag charakterisieren und anschließend vollständig entfernen. Gate:
+  Auth-/Routen-Tests und `npm run check`.
+- [ ] AP-14.2: Unerreichbaren Upload-Zweig durch einen Test als unerreichbar
+  belegen und danach Branch, Hilfsfunktionen und tote Imports entfernen. Gate:
+  Upload-/Compiler-Routentests.
+- [ ] AP-14.3: `_handleStart` und ausschließlich davon genutzten Code nach
+  Referenzsuche entfernen. Gate: Simulation-/WebSocket-Tests.
+- [ ] AP-14.4: Ungenutzte Storage-Methode aus Interface, Implementierung,
+  Mocks und Tests in einem Task entfernen. Gate: Storage-Tests.
+- [ ] AP-14.5: Produktive Testseite und ihre Route/Navigation aus dem Build
+  entfernen oder ausschließlich als Test-Fixture führen. Gate: Client-Build
+  plus Navigationstest.
+- [ ] AP-14.6: Für deprecated Status-Aliasse konkrete Entfernungsversion und
+  Migration dokumentieren; Warn-/Kompatibilitätstest ergänzen. Noch keine
+  vorzeitige Entfernung. Gate: Shared-Schema-Tests.
+- [ ] AP-14.7: Deprecated IO-Registry-Felder analog versionieren, Migration
+  dokumentieren und Kompatibilität testen. Gate: Registry-Tests.
+- [ ] AP-14.8: Verwaiste Exporte/Dateien nach den Einzelbereinigungen mit der
+  bestehenden Totcode-Prüfung entfernen. Gate: `npm run check`, `npm run build`
+  und vollständige Unit-Suite.
+
 #### AP-15: Zentrale Konfiguration vollenden
 
 Alle betrieblichen Werte über validiertes Env-Schema einlesen. Ungültige Zahlen, negative Poolgrößen oder `min > max` müssen beim Start verständlich scheitern. `PORT` entweder unterstützen oder aus Skripten entfernen.
+
+**Teilaufgaben:**
+
+- [ ] AP-15.1: Alle direkten Zugriffe auf `process.env` inventarisieren und
+  nach Server, Compiler, Sandbox, Queue und Logging gruppieren. Ergebnis als
+  Tabelle mit Zielschlüssel im Plan festhalten. Gate: vollständige `rg`-Suche.
+- [ ] AP-15.2: Zentrales, seiteneffektfreies Env-Schema mit getesteten Defaults
+  und verständlichen Fehlermeldungen anlegen. Noch keine Verbraucher migrieren.
+  Gate: Config-Unit-Tests.
+- [ ] AP-15.3: Integer-, Zeit- und Größenwerte gegen `NaN`, Dezimalwerte,
+  negative Werte und Überläufe validieren. Gate: tabellengetriebene Unit-Tests.
+- [ ] AP-15.4: Abhängige Grenzen wie Pool-`min <= max` und Queue-/Worker-Limits
+  als Schema-Invarianten testen. Gate: Startfehler-Unit-Tests.
+- [ ] AP-15.5: Server-, Logging- und WebSocket-Verbraucher auf das validierte
+  Config-Objekt umstellen; direkte Env-Zugriffe dort entfernen. Gate: Server-
+  und WebSocket-Tests.
+- [ ] AP-15.6: Compiler-, Worker-, Sandbox-, Cache- und Queue-Verbraucher auf
+  das validierte Config-Objekt umstellen. Gate: Compiler-/Pool-/Sandbox-Tests.
+- [ ] AP-15.7: `PORT` als einzigen Server-Port unterstützen und Startskripte,
+  Compose, Healthchecks und Tests darauf ausrichten. Gate: Serverstart mit
+  abweichendem Test-Port.
+- [ ] AP-15.8: `.env.example`, Admin-Dokumentation und Compose-Defaults aus dem
+  finalen Schema abgleichen; kein dokumentierter Schlüssel darf wirkungslos
+  sein. Gate: Env-Inventar ohne offene direkte Zugriffe.
 
 #### AP-16: Große Module entlang von Verantwortungen teilen
 
 Priorität: Frontend-Controller, WS-Session-Service, ExecutionManager, RegistryManager und ArduinoCompiler. Ziel ist nicht eine beliebige Zeilenzahl, sondern isolierbare State Ownership und testbare Ports.
 
+**Teilaufgaben:**
+
+- [ ] AP-16.1: Für jedes Zielmodul öffentliche Exporte, Seiteneffekte,
+  Zustandsbesitz und Aufrufer dokumentieren; vorhandene Characterization-Tests
+  als Refactoring-Gate benennen. Keine Produktivänderung.
+- [ ] AP-16.2: Aus dem Frontend-Controller reine Compile-/Start-Kommandos in
+  ein Modul extrahieren; bestehende Hook-Signatur unverändert lassen. Gate:
+  Controller-/Hook-Tests.
+- [ ] AP-16.3: Pause/Resume/Stop-Übergänge und Laufzeitzustand aus dem
+  Frontend-Controller isolieren. Gate: State-Machine- und Pause/Resume-Tests.
+- [ ] AP-16.4: Aus dem WS-Session-Service Verbindungslebenszyklus und
+  Ressourcenregistrierung extrahieren. Gate: Connect/Disconnect-/Shutdown-Tests.
+- [ ] AP-16.5: WS-Nachrichtendekodierung und Dispatch in eine reine,
+  richtungsabhängig getestete Einheit extrahieren. Gate: WS-Vertragstests.
+- [ ] AP-16.6: Aus dem ExecutionManager Prozessstart/Abbruch in einen Port mit
+  injizierbaren Abhängigkeiten extrahieren. Gate: Prozess- und Timeout-Tests.
+- [ ] AP-16.7: Output-Sammlung und Ergebnisbildung des ExecutionManager separat
+  kapseln; Output-Limit und Fehlersemantik beibehalten. Gate: Output-Kill-Tests.
+- [ ] AP-16.8: RegistryManager in Parsing/Validierung und atomare
+  Zustandsaktualisierung teilen. Gate: Registry- und Concurrent-Update-Tests.
+- [ ] AP-16.9: ArduinoCompiler in Workspace, Command-Ausführung und
+  Ergebnis-/Diagnoseabbildung teilen; Cache-Verantwortung nicht duplizieren.
+  Gate: Compiler- und Cache-Tests.
+- [ ] AP-16.10: Nur nach grünen Einzel-Refactorings überflüssige Adapter und
+  Re-Exports entfernen; öffentliche Imports gesammelt migrieren. Gate:
+  `npm run test:unit && npm run build`.
+
 #### AP-17: Browserbundle reduzieren
 
 Monaco auf Editor-Core plus benötigte C++-Beiträge begrenzen, unnötige Sprachmodule vermeiden, statisch/dynamisch gemischten Telemetrieimport bereinigen und Performancebudgets im Build definieren.
 
+**Teilaufgaben:**
+
+- [ ] AP-17.1: Reproduzierbare Bundle-Baseline mit Gesamtgröße, größten Chunks
+  und Monaco-/Telemetrieanteil erfassen und im Plan dokumentieren. Gate:
+  `npm run build:client` mit gespeicherter Messmethode.
+- [ ] AP-17.2: Monaco auf Editor-Core, C/C++-Beitrag und tatsächlich genutzte
+  Worker begrenzen; Editorfunktionen per Komponententest absichern. Gate:
+  Client-Tests und Bundlevergleich.
+- [ ] AP-17.3: Nicht benötigte Monaco-Sprachen/Features aus Registrierung und
+  Build entfernen. Gate: Sketch öffnen, editieren und C++-Syntax hervorheben im
+  Playwright-Test.
+- [ ] AP-17.4: Telemetrie ausschließlich statisch oder ausschließlich
+  dynamisch importieren, sodass kein Modul in beiden Chunkpfaden landet. Gate:
+  Build ohne entsprechende Vite-Warnung.
+- [ ] AP-17.5: Große, initial nicht benötigte UI-Bereiche gezielt lazy laden;
+  Lade- und Fehlerzustand testen. Gate: Navigationstest und Bundlevergleich.
+- [ ] AP-17.6: Maschinenlesbare Budgets für initiales JS, größten Chunk und
+  Gesamt-JS definieren; Überschreitung muss den Check fehlschlagen lassen. Gate:
+  positiver und absichtlich negativer Budgettest.
+- [ ] AP-17.7: Bundle-Budgetcheck in CI integrieren und finale Werte gegen die
+  Baseline dokumentieren. Gate: `npm run build` und `npm run test:e2e`.
+
 #### AP-18: Build und CI reproduzierbar machen
 
 Node-Version vereinheitlichen, `engines`/`.nvmrc` oder Volta ergänzen, Builder auf `npm ci` umstellen, Images/Installer pinnen, CI-Berechtigungen minimieren und Auto-Commit aus Testjobs entfernen.
+
+**Teilaufgaben:**
+
+- [ ] AP-18.1: Eine bereits von lokaler Entwicklung und CI unterstützte
+  Node-LTS-Version auswählen und identisch in `engines` und `.nvmrc`
+  festschreiben. Gate: Versionsabgleich per Script/Test.
+- [ ] AP-18.2: Alle GitHub-Actions-Jobs und Docker-Builder auf diese Node-Version
+  umstellen; abweichende Versionen entfernen. Gate: `rg`-Versionsinventar.
+- [ ] AP-18.3: Docker-Builder auf `npm ci` mit zuerst kopierten Lockfiles
+  umstellen; Build darf das Lockfile nicht verändern. Gate: sauberer Dockerbuild.
+- [ ] AP-18.4: Basisimages auf unveränderliche Digests pinnen und Renovate-
+  oder dokumentierten manuellen Updateweg festlegen. Gate: alle produktiven
+  `FROM`-Zeilen besitzen einen Digest.
+- [ ] AP-18.5: Arduino-Toolchain/Installer auf Version und Prüfsumme pinnen;
+  Download muss bei falscher Prüfsumme scheitern. Gate: Sandbox-Build plus
+  negativer Prüfsummentest.
+- [ ] AP-18.6: Workflow-Berechtigungen auf `contents: read` als Default setzen
+  und nur pro Job nachweislich benötigte Rechte erhöhen. Gate: Workflow-Audit.
+- [ ] AP-18.7: Auto-Commit/-Push aus Test- und Snapshot-Jobs entfernen;
+  aktualisierte Artefakte nur als herunterladbares CI-Artefakt bereitstellen.
+  Gate: kein schreibender Git-Befehl in Testjobs.
+- [ ] AP-18.8: Clean-Room-Gate hinzufügen, das aus frischem Checkout mit
+  festgelegter Node-Version `npm ci`, Typecheck, Unit-Tests und Build ausführt.
+  Gate: neuer CI-Job lokal soweit möglich und anschließend in CI grün.
+- [ ] AP-18.9: Reproduzierbarkeits- und Updateprozess in README/Admin-Guide
+  dokumentieren; abschließend Coverage und SonarQube Quality Gate prüfen.
 
 ## 10. Empfohlene Umsetzungsreihenfolge für die ersten vier Wochen
 
