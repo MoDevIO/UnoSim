@@ -3,6 +3,7 @@ import type { RefObject, MutableRefObject } from "react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Logger } from "@shared/logger";
+import { normalizeSimulationTimeout } from "@shared/input-limits";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
@@ -473,13 +474,14 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
   const startMutation = useMutation({
     mutationFn: async () => {
-      logger.debug(`[CLIENT] startMutation invoked, simulationTimeout=${simulationTimeout}`);
+      const timeout = normalizeSimulationTimeout(simulationTimeout);
+      logger.debug(`[CLIENT] startMutation invoked, simulationTimeout=${timeout}`);
       params.resetPinUI({ keepDetected: true });
 
       // Build the start message with per-client code for multi-instance isolation
       const startMsg: { type: "start_simulation"; timeout: number; code?: string } = {
         type: "start_simulation",
-        timeout: simulationTimeout,
+        timeout,
       };
       if (lastCompiledCodeRef.current) {
         startMsg.code = lastCompiledCodeRef.current;

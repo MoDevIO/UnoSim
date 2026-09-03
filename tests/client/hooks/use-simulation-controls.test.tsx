@@ -400,6 +400,23 @@ describe("useSimulationControls", () => {
     });
   });
 
+  it("normalizes an obsolete unlimited timeout before sending it to the server", async () => {
+    const params = buildParams();
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+
+    act(() => {
+      result.current.setSimulationTimeout(0);
+      result.current.handleStart();
+    });
+
+    await waitFor(() => {
+      expect(params.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "start_simulation", timeout: 60 }),
+      );
+    });
+  });
+
   it("startSimulationRef can trigger start mutation directly", async () => {
     const params = buildParams();
     const wrapper = createWrapper();

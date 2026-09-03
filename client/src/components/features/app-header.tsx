@@ -490,8 +490,6 @@ function DesktopMenuBar({
                 <MenubarRadioItem value="60">60s</MenubarRadioItem>
                 <MenubarRadioItem value="120">2min</MenubarRadioItem>
                 <MenubarRadioItem value="300">5min</MenubarRadioItem>
-                <MenubarRadioItem value="600">10min</MenubarRadioItem>
-                <MenubarRadioItem value="0">∞</MenubarRadioItem>
               </MenubarRadioGroup>
             </MenubarSubContent>
           </MenubarSub>
@@ -729,4 +727,3 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 };
 
 // default export removed; use named export AppHeader only
-
