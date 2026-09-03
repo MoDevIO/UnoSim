@@ -23,6 +23,7 @@ import { DockerManager } from "./docker-manager";
 import { StreamHandler } from "./stream-handler";
 import { FilesystemHelper } from "./filesystem-helper";
 import { config } from "../../config";
+import { normalizeBaudrate, normalizeSimulationTimeout } from "@shared/input-limits";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -291,9 +292,11 @@ export class ExecutionManager {
     if (!state) return;
 
     const baudMatch = /Serial\s*\.\s*begin\s*\(\s*(\d+)\s*\)/.exec(code);
-    state.baudrate = baudMatch ? Number.parseInt(baudMatch[1]) : 9600;
+    state.baudrate = normalizeBaudrate(
+      baudMatch ? Number.parseInt(baudMatch[1]) : 9600,
+    );
 
-    const executionTimeout = timeoutSec ?? SANDBOX_CONFIG.maxExecutionTimeSec;
+    const executionTimeout = normalizeSimulationTimeout(timeoutSec);
     this.logger.info(
       `🕐 runSketch called with timeoutSec=${timeoutSec}, using executionTimeout=${executionTimeout}s`,
     );
@@ -377,7 +380,7 @@ export class ExecutionManager {
     state: ExecutionState,
   ): Promise<void> {
     const { timeoutSec } = opts;
-    const executionTimeout = timeoutSec ?? SANDBOX_CONFIG.maxExecutionTimeSec;
+    const executionTimeout = normalizeSimulationTimeout(timeoutSec);
 
     const useDocker = !!(state.dockerAvailable && state.dockerImageBuilt);
 

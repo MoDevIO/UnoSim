@@ -7,6 +7,7 @@ import type { IProcessController } from "../process-controller";
 import type { ArduinoOutputParser, ParsedStderrOutput } from "../arduino-output-parser";
 import { Logger } from "@shared/logger";
 import type { SimulationTimeoutManager } from "../simulation-timeout-manager";
+import { normalizeSimulationTimeout } from "@shared/input-limits";
 import type { PinStateChange } from "@shared/types/arduino.types";
 
 interface DockerManagerCallbacks {
@@ -60,14 +61,7 @@ export class DockerManager {
    * Setup and configure Docker process timeout
    */
   setupDockerTimeout(executionTimeout: number | undefined, callbacks: DockerManagerCallbacks): void {
-    // executionTimeout === 0 means "infinite" (user selected ∞ in the Tools menu)
-    if (executionTimeout === 0) {
-      this.logger.debug("Infinite timeout configured – no timer scheduled");
-      return;
-    }
-
-    const timeoutSec =
-      executionTimeout && executionTimeout > 0 ? executionTimeout : this.SANDBOX_CONFIG.maxExecutionTimeSec;
+    const timeoutSec = normalizeSimulationTimeout(executionTimeout);
 
     const handleTimeout = () => {
       this.processController.kill("SIGKILL");

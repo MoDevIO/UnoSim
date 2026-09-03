@@ -35,6 +35,19 @@ describe("WebSocket direction schemas", () => {
     ).toBe(false);
     expect(
       clientToServerWSMessageSchema.safeParse({
+        type: "start_simulation",
+        timeout: 0,
+      }).success,
+    ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "set_pin_value",
+        pin: 20,
+        value: 256,
+      }).success,
+    ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
         type: "serial_input",
         data: "hello",
         unexpected: true,

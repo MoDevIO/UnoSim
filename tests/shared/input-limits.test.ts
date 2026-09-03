@@ -3,6 +3,8 @@ import {
   HEADER_NAME_PATTERN,
   INPUT_LIMITS,
   isSafeHeaderName,
+  normalizeBaudrate,
+  normalizeSimulationTimeout,
   TEST_RUN_ID_PATTERN,
 } from "../../shared/input-limits";
 
@@ -28,5 +30,14 @@ describe("input boundary contract", () => {
     expect(HEADER_NAME_PATTERN.test("../helper.h")).toBe(false);
     expect(HEADER_NAME_PATTERN.test("/tmp/helper.h")).toBe(false);
     expect(isSafeHeaderName("CON.h")).toBe(false);
+  });
+
+  it("keeps runtime timeout and baudrate values inside finite limits", () => {
+    expect(normalizeSimulationTimeout(undefined)).toBe(60);
+    expect(normalizeSimulationTimeout(0)).toBe(60);
+    expect(normalizeSimulationTimeout(900)).toBe(300);
+    expect(normalizeBaudrate(115200)).toBe(115200);
+    expect(normalizeBaudrate(0)).toBe(9600);
+    expect(normalizeBaudrate(999999)).toBe(9600);
   });
 });

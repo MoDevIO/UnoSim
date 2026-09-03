@@ -581,7 +581,7 @@ innerhalb des Fensters abgewiesen wird.
   - [x] AP-02.6b: Code-, Headerinhalt-, String-, Bibliotheks- und Arraylimits in
     REST- und WS-Schemas konsistent anwenden und Boundary-Tests für exakt am,
     unter und über dem Limit ergänzen.
-- [ ] AP-02.7: Fachliche Wertebereiche validieren: digitale/analoge Pins,
+- [x] AP-02.7: Fachliche Wertebereiche validieren: digitale/analoge Pins,
   Pinwerte, Baudrate und Simulations-Timeout erhalten zentrale Min-/Max-Grenzen;
   insbesondere darf `timeout=0` keine unbegrenzte Laufzeit aktivieren.
 - [ ] AP-02.8: Sicherheitsregression als zusammenhängendes Gate ergänzen:
@@ -627,6 +627,13 @@ der `WebSocketServer` begrenzt einzelne Frames auf 256 KiB. Ein echter
 Oversize-Test bestätigt den Close-Code 1009. Code, Headerinhalt, Header-/
 Bibliotheksarrays und Serial-Eingaben verwenden ergänzende Schema-Grenzen; die
 Tests prüfen Werte am beziehungsweise über dem jeweiligen Limit.
+
+**Umsetzungsnachweis AP-02.7:** Client-Befehle akzeptieren nur ganzzahlige Pins
+0–19, Werte 0–255 und Timeouts 1–300 s. Die Runtime normalisiert auch direkte
+Aufrufe defensiv: fehlende oder ungültige Timeouts werden endlich auf 60 s
+gesetzt, zu große Werte auf 300 s begrenzt und Baudraten außerhalb 300–115.200
+auf 9.600 zurückgeführt. Damit kann `timeout=0` keine unbegrenzte Ausführung
+mehr aktivieren.
 
 #### AP-03: Sandbox-Vertrag härten und testen
 

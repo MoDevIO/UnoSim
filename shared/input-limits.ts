@@ -44,6 +44,31 @@ export const HEADER_NAME_PATTERN = new RegExp(
   `^[A-Za-z0-9][A-Za-z0-9_.-]{0,${INPUT_LIMITS.compile.maxHeaderNameChars - 1}}$`,
 );
 
+export function normalizeSimulationTimeout(timeoutSeconds: number | undefined): number {
+  if (
+    timeoutSeconds === undefined ||
+    !Number.isFinite(timeoutSeconds)
+  ) {
+    return INPUT_LIMITS.simulation.defaultTimeoutSeconds;
+  }
+  const roundedTimeout = Math.floor(timeoutSeconds);
+  if (roundedTimeout < INPUT_LIMITS.simulation.minTimeoutSeconds) {
+    return INPUT_LIMITS.simulation.defaultTimeoutSeconds;
+  }
+  return Math.min(roundedTimeout, INPUT_LIMITS.simulation.maxTimeoutSeconds);
+}
+
+export function normalizeBaudrate(baudrate: number): number {
+  if (
+    !Number.isInteger(baudrate) ||
+    baudrate < INPUT_LIMITS.simulation.minBaudrate ||
+    baudrate > INPUT_LIMITS.simulation.maxBaudrate
+  ) {
+    return 9600;
+  }
+  return baudrate;
+}
+
 const WINDOWS_RESERVED_BASENAMES = new Set([
   "CON",
   "PRN",

@@ -98,7 +98,12 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   }).strict(),
   z.object({
     type: z.literal("start_simulation"),
-    timeout: z.number().optional(), // Timeout in seconds, 0 = infinite
+    timeout: z
+      .number()
+      .int()
+      .min(INPUT_LIMITS.simulation.minTimeoutSeconds)
+      .max(INPUT_LIMITS.simulation.maxTimeoutSeconds)
+      .optional(),
     code: z.string().max(INPUT_LIMITS.compile.maxCodeChars).optional(),
   }).strict(),
   z.object({
@@ -155,8 +160,12 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("set_pin_value"),
-    pin: z.number(),
-    value: z.number(),
+    pin: z
+      .number()
+      .int()
+      .min(INPUT_LIMITS.simulation.minPin)
+      .max(INPUT_LIMITS.simulation.maxPin),
+    value: z.number().int().min(0).max(255),
   }).strict(),
   z.object({
     type: z.literal("io_registry"),
