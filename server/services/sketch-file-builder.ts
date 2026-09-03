@@ -20,12 +20,13 @@ interface SketchBuildResult {
 export function extractForwardDeclarations(code: string): string {
   const stripped = code.replaceAll(/\/\/[^\n]*/g, "").replaceAll(/\/\*[\s\S]*?\*\//g, "");
   const skipped = new Set(["if", "else", "while", "for", "do", "switch", "case", "return", "break", "continue", "goto", "class", "struct", "union", "enum", "namespace", "typedef", "setup", "loop", "main"]);
-  const definition = /^((?:\w[\w*&]*[ \t]+)*\w[\w*&]*)[ \t]+(\w+)[ \t]*(\([^)]*\))[ \t]*\{/gm;
+  const definition = /^((?:\w[\w*&]*\s+)*\w[\w*&]*)\s+(\w+)\s*(\([^)]*\))\s*\{/gm;
   const seen = new Set<string>();
   const declarations: string[] = [];
   for (const match of stripped.matchAll(definition)) {
-    if (skipped.has(match[2]) || seen.has(match[2])) continue;
-    seen.add(match[2]);
+    const signature = `${match[2]}${match[3]}`;
+    if (skipped.has(match[2]) || seen.has(signature)) continue;
+    seen.add(signature);
     declarations.push(`${match[1].trim()} ${match[2]}${match[3]};`);
   }
   return declarations.join("\n");

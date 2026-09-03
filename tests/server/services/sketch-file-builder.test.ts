@@ -22,6 +22,18 @@ describe("SketchFileBuilder", () => {
     );
   });
 
+  it("extracts multiline, reference, pointer, and overloaded signatures", () => {
+    const code = `
+void setup() { use(1); use(1.0); }
+void loop() {}
+long
+use(const int& value) { return value; }
+long use(double* value) { return static_cast<long>(*value); }
+`;
+    expect(extractForwardDeclarations(code)).toContain("long use(const int& value);");
+    expect(extractForwardDeclarations(code)).toContain("long use(double* value);");
+  });
+
   describe("forward declarations (Arduino IDE compatibility)", () => {
     it("adds a forward declaration for a helper function called before its definition", async () => {
       const code = `

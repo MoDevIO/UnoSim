@@ -925,7 +925,7 @@ sondern als Blocker gemeldet.
 - [x] AP-12.2: Die Prototyperzeugung als reine Funktion isolieren und einfache
   Signaturen, Kommentare sowie bereits vorhandene Deklarationen testen. Keine
   Einbindung in Compilerpfade in diesem Task. Gate: neue Unit-Testdatei.
-- [ ] AP-12.3: Den Prototyp-Parser um mehrzeilige Signaturen,
+- [x] AP-12.3: Den Prototyp-Parser um mehrzeilige Signaturen,
   Pointer/Referenzen und Überladungen erweitern; Kontrollstrukturen und
   Funktionsaufrufe dürfen keine Prototypen erzeugen. Gate: Parser-Unit-Tests.
 - [ ] AP-12.4: Die gemeinsame Vorverarbeitung in den lokalen Compile-Pfad
