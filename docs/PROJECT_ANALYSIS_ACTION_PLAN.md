@@ -552,7 +552,7 @@ innerhalb des Fensters abgewiesen wird.
 
 **Umsetzungstasks:**
 
-- [ ] AP-02.1: Eingangsflächen und bestehende implizite Verträge inventarisieren;
+- [x] AP-02.1: Eingangsflächen und bestehende implizite Verträge inventarisieren;
   zentrale Grenzwerte für Code, Header, Bibliotheken, Payload, Pins, Timeout und
   Test-ID festlegen, ohne sie bereits an mehreren Stellen zu duplizieren.
 - [ ] AP-02.2: Ein strikt typisiertes Zod-Schema für `POST /api/compile`
@@ -588,6 +588,13 @@ innerhalb des Fensters abgewiesen wird.
   Traversal-, Oversize-, Typ- und Grenzwertfälle für REST und WebSocket müssen
   bestehen und ein Dateisystem-Canary muss beweisen, dass keine Eingabe außerhalb
   des pro Request erzeugten Temp-Roots schreibt.
+
+**Umsetzungsnachweis AP-02.1:** `shared/input-limits.ts` bildet die einzige
+Grenzwertquelle für Compile-, WebSocket- und Simulationsdaten. Der Vertrag legt
+endliche Code-, Header-, Bibliotheks-, Payload-, Serial-, Pin-, Baudrate- und
+Timeoutgrenzen sowie sichere Test-ID- und Header-Basename-Pattern fest. Die
+späteren REST- und WS-Schemas verwenden diese Werte, statt lokale Zahlenkopien
+einzuführen.
 
 #### AP-03: Sandbox-Vertrag härten und testen
 
