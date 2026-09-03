@@ -84,8 +84,13 @@ explizit nutzen.
     echten End-to-End-Smoke konsolidieren; redundante Kompilationen entfernen.
   - [x] AP-00.7c: Toolchain-/Docker-Suites ressourcenbegrenzt dreimal ohne
     Timeout oder Prozessleck ausführen.
-- [ ] AP-00.8: Messbares Budget-Gate ergänzen: JSON/JUnit-Artefakt, zehn langsamste
-  Tests, Suite-Gesamtdauer und drei aufeinanderfolgende grüne Referenzläufe.
+- [ ] AP-00.8: Messbares Budget-Gate ergänzen.
+  - [x] AP-00.8a: JSON-Artefakt mit Suite-Gesamtdauer, Status und zehn langsamsten
+    Tests ohne zusätzlichen Testlauf erzeugen.
+  - [x] AP-00.8b: Suite-spezifische Budgets als lokale und CI-verbindliche
+    Exit-Code-Prüfung integrieren und Artefakte in CI hochladen.
+  - [ ] AP-00.8c: Budget-Gates dreimal hintereinander grün ausführen und
+    Referenzwerte dokumentieren.
 - [ ] AP-00.9: Coverage nur aus deterministischen Unit-/gezielten
   Integrationsprojekten aggregieren; Last-, Reporting- und redundante
   Toolchain-Szenarien nicht für Statement-Coverage ausführen.
@@ -153,6 +158,16 @@ und Docker-Gate waren vollständig grün. Die Laufzeiten betrugen 12,31 s / 84,4
 Flooding- und Backpressure-Prüfungen meldeten keine Datenlücken. Nach dem dritten
 Lauf waren weder UnoSim-Sandbox-Container noch Vitest-/Compiler-Prozesse übrig;
 `check-leaks.sh` bestätigte null aktive oder geleakte Compiler-Prozesse.
+
+**Nachmessung AP-00.8a/b:** Der neue Reporter erzeugt während des vorhandenen
+Laufs ein maschinenlesbares JSON-Artefakt mit Status, Gesamtdauer, Zählerständen
+und den zehn langsamsten Einzeltests. Unit (30 s), Related (15 s), Toolchain
+(120 s), Docker (180 s) und Coverage (60 s) besitzen explizite Budgets; eine
+Überschreitung setzt den Prozess auf Exit-Code 1. Der negative Selbsttest mit
+einem 1-ms-Budget scheiterte wie vorgesehen. Der erste instrumentierte Unit-Lauf
+blieb mit 8,97 s deutlich im Budget, der Related-Lauf mit 3,38 s ebenfalls. CI
+lädt die Unit-/Coverage-, Toolchain- und Docker-Messartefakte auch bei Fehlern
+für 14 Tage hoch.
 
 ### 0.4 Akzeptanzkriterien
 

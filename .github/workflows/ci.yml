@@ -61,6 +61,15 @@ jobs:
           publish_dir: ./coverage/lcov-report
           publish_branch: gh-pages
 
+      - name: Upload unit test metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-metrics
+          path: test-results/unit-coverage-metrics.json
+          if-no-files-found: error
+          retention-days: 14
+
   # JOB 2: Browser-End-to-End-Tests
   e2e-tests:
     name: Playwright E2E
@@ -182,6 +191,15 @@ jobs:
           ARDUINO_CACHE_DIR: /tmp/arduino-toolchain-cache
         run: npm run test:integration
 
+      - name: Upload toolchain test metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolchain-test-metrics
+          path: test-results/integration-toolchain-metrics.json
+          if-no-files-found: error
+          retention-days: 14
+
   # JOB 4: Sandbox-Integration mit eigenem Docker-Budget
   docker-tests:
     name: Docker Sandbox Integration
@@ -212,3 +230,12 @@ jobs:
 
       - name: Run Docker sandbox tests
         run: npm run test:docker
+
+      - name: Upload Docker test metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-test-metrics
+          path: test-results/integration-docker-metrics.json
+          if-no-files-found: error
+          retention-days: 14
