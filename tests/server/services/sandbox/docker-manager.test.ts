@@ -21,6 +21,8 @@ function makeProcessController(): IProcessController {
     kill: vi.fn(),
     onClose: vi.fn(),
     onError: vi.fn(),
+    onStdout: vi.fn(),
+    onStderr: vi.fn(),
     onStdoutLine: vi.fn(),
     onStderrLine: vi.fn(),
     supportsStderrLineStreaming: vi.fn(() => false),
@@ -135,5 +137,39 @@ describe("DockerManager.setupDockerTimeout", () => {
       expect.stringContaining("Simulation timeout"),
       true,
     );
+  });
+});
+
+describe("DockerManager output budget", () => {
+  it("kills the process when combined output exceeds the limit", () => {
+    const processController = makeProcessController();
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      makeTimeoutManager(),
+      noop as any,
+    );
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    const stderrHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    vi.mocked(processController.onStderr).mockImplementation((handler) => {
+      stderrHandlers.push(handler as (data: Buffer) => void);
+    });
+    const state = {
+      isCompilePhase: { value: false },
+      compileSuccessSent: { value: false },
+      totalOutputBytes: { value: 100 * 1024 * 1024 - 2 },
+      stderrFallbackBuffer: "",
+    };
+    const callbacks = { ...mockCallbacks, onError: vi.fn() };
+    manager.setupStdoutHandler(callbacks, state);
+    manager.setupStderrHandlers(callbacks, state);
+    stdoutHandlers[0]?.(Buffer.from("é"));
+    stderrHandlers[0]?.(Buffer.from("x"));
+
+    expect(processController.kill).toHaveBeenCalledWith("SIGKILL");
+    expect(callbacks.onError).toHaveBeenCalledWith("Output size limit exceeded");
   });
 });

@@ -79,7 +79,7 @@ type DockerState = {
   isCompilePhase: { value: boolean };
   compileErrorBuffer: { value: string };
   compileSuccessSent: { value: boolean };
-  totalOutputBytes: number;
+  totalOutputBytes: { value: number };
   processStartTime: number | null;
   stderrFallbackBuffer: string;
   flushTimer: NodeJS.Timeout | null;
@@ -462,7 +462,7 @@ export class ExecutionManager {
         isCompilePhase: { value: true },
         compileErrorBuffer: { value: "" },
         compileSuccessSent: { value: false },
-        totalOutputBytes: state.totalOutputBytes,
+        totalOutputBytes: { value: state.totalOutputBytes },
         processStartTime: state.processStartTime,
         stderrFallbackBuffer: state.stderrFallbackBuffer,
         flushTimer: state.flushTimer,

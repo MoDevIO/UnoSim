@@ -35,7 +35,7 @@ interface DockerHandlerState {
   isCompilePhase: { value: boolean };
   compileErrorBuffer: { value: string };
   compileSuccessSent: { value: boolean };
-  totalOutputBytes: number;
+  totalOutputBytes: { value: number };
   processStartTime: number | null;
   stderrFallbackBuffer: string;
   flushTimer: NodeJS.Timeout | null;
@@ -56,6 +56,15 @@ export class DockerManager {
     private readonly timeoutManager: SimulationTimeoutManager,
     private readonly handleParsedLine: HandleParsedLineDelegate,
   ) {}
+
+  private consumeOutputBudget(state: Partial<DockerHandlerState>, data: Buffer | string, callbacks: DockerManagerCallbacks): boolean {
+    const counter = state.totalOutputBytes as { value: number };
+    counter.value += Buffer.byteLength(data);
+    if (counter.value <= this.SANDBOX_CONFIG.maxOutputBytes) return true;
+    this.processController.kill("SIGKILL");
+    callbacks.onError("Output size limit exceeded");
+    return false;
+  }
 
   /**
    * Setup and configure Docker process timeout
@@ -86,6 +95,8 @@ export class DockerManager {
     this.processController.onStdout((data) => {
       const str = data.toString();
 
+      if (!this.consumeOutputBudget(state, data, callbacks)) return;
+
       // Detect end of compile phase
       if (isCompilePhase.value) {
         isCompilePhase.value = false;
@@ -93,14 +104,6 @@ export class DockerManager {
           compileSuccessSent.value = true;
           onCompileSuccess();
         }
-      }
-
-      // Check output size limit
-      const currentBytes = state.totalOutputBytes || 0;
-      state.totalOutputBytes = currentBytes + str.length;
-      if (state.totalOutputBytes > this.SANDBOX_CONFIG.maxOutputBytes) {
-        callbacks.onError("Output size limit exceeded");
-        return;
       }
 
       // Parse stdout lines (safety net for direct binary output)
@@ -129,6 +132,7 @@ export class DockerManager {
 
     // Raw stderr stream for compile aggregation
     this.processController.onStderr((data) => {
+      if (!this.consumeOutputBudget(state, data, callbacks)) return;
       const chunk = data.toString();
       if (isCompilePhase.value) {
         compileErrorBuffer.value += chunk;
