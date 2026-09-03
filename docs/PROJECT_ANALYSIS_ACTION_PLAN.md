@@ -831,7 +831,7 @@ Kanonischen Request-Fingerprint verwenden, In-Memory-LRU begrenzen, Versionierun
   sortierter Libraries verwenden.
 - [x] AP-09.2: In-Memory-Compile-Cache auf 100 Einträge begrenzen und Zugriff
   als LRU behandeln.
-- [ ] AP-09.3: Cache-Versionierung und die verbleibende globale
+- [x] AP-09.3: Cache-Versionierung und die verbleibende globale
   `lastCompiledCode`-Fallbacklogik dokumentieren beziehungsweise deprecaten.
 
 **Umsetzungsnachweis AP-09.1/AP-09.2:** Der Compile-Hash berücksichtigt jetzt
@@ -839,6 +839,9 @@ Code, Header, FQBN und unabhängig von ihrer Eingabereihenfolge sortierte
 Libraries. Der Route-Cache evicted den jeweils ältesten Eintrag ab 100
 Einträgen und erneuert die LRU-Reihenfolge bei Treffern. Bestehende
 Compiler- und Cache-Regressionstests sowie der Typecheck bestehen.
+Der Fingerprint enthält eine explizite Cache-Version (`1`); die globale
+`lastCompiledCode`-Variable ist als Kompatibilitätsfallback für die nächste
+Protokoll-Hauptversion zur Entfernung vorgesehen.
 
 #### AP-10: Lifecycle und Health korrigieren
 

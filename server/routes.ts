@@ -37,6 +37,7 @@ function hashCode(
   options?: { fqbn?: string; libraries?: string[] },
 ): string {
   const combinedInput = JSON.stringify({
+    cacheVersion: 1,
     code,
     headers: headers || [],
     fqbn: options?.fqbn || "",
@@ -93,6 +94,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Client configuration endpoint
   registerConfigRoutes(app);
 
+  /**
+   * @deprecated Compatibility fallback for legacy clients that omit code in
+   * start_simulation. New clients must send the compiled code per session.
+   * Remove after the legacy protocol sunset (target: next major release).
+   */
   let lastCompiledCode: string | null = null;
 
   // Compilation Cache: Map<codeHash, CompilationResult>

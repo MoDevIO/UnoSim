@@ -566,7 +566,8 @@ export function registerSimulationWebSocket(
     }
 
     // Use per-client code from the WS message if provided (multi-client isolation),
-    // otherwise fall back to the global lastCompiledCode (backward compatibility).
+    // Deprecated compatibility fallback. New clients send code per session;
+    // remove this branch at the next protocol-major release.
     const code =
       "code" in data &&
       typeof data.code === "string" &&
