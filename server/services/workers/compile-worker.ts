@@ -26,6 +26,7 @@ import {
 import { mkdir, unlink, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
+import { config } from "../../config";
 import {
   acquireCoreCacheLock,
   buildSketchHash,
@@ -41,7 +42,7 @@ import {
 process.env.COMPILE_GATEKEEPER_DISABLED = "true";
 
 const logger = new Logger("compile-worker");
-const BUILD_CACHE_DIR = process.env.BUILD_CACHE_DIR || join(process.cwd(), "storage", "cache");
+const BUILD_CACHE_DIR = config.compilation.buildCacheDir;
 const HEX_CACHE_DIR = join(BUILD_CACHE_DIR, "hex-cache");
 const CORE_CACHE_DIR = join(process.cwd(), "storage", "core-cache");
 const CORE_CACHE_BUILD_PATH = join(CORE_CACHE_DIR, "build-cache");
@@ -158,7 +159,7 @@ async function buildCoreFingerprint(task: CompileRequestPayload, fqbn: string): 
 }
 
 async function cleanupCacheLruLocal(): Promise<void> {
-  await cleanupCacheLru(BUILD_CACHE_DIR, [HEX_CACHE_DIR, CORE_CACHE_BUILD_PATH]);
+  await cleanupCacheLru(BUILD_CACHE_DIR, [HEX_CACHE_DIR, CORE_CACHE_BUILD_PATH], config.compilation.buildCacheMaxBytes);
 }
 
 async function acquireCoreCache(coreReadyMarker: string, coreLockPath: string, coreFingerprint: string): Promise<{ coreCacheWarm: boolean; acquiredCoreLock: boolean; activeBuildCachePath: string }> {
@@ -199,7 +200,7 @@ async function processCompileRequest(task: CompileRequestPayload) {
     await ensureWorkerDirs();
 
     const requestStartedAt = process.hrtime.bigint();
-    const fqbn = task.fqbn || process.env.ARDUINO_FQBN || "arduino:avr:uno";
+    const fqbn = task.fqbn || config.compilation.fqbn;
     const sketchHash = task.sketchHash || buildSketchHash(task, fqbn);
     const coreFingerprint = task.coreFingerprint || (await buildCoreFingerprint(task, fqbn));
     const coreReadyMarker = join(CORE_CACHE_META_DIR, `${coreFingerprint}.ready`);

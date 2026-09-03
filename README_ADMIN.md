@@ -70,6 +70,7 @@ Recommended for public deployments or multi-user systems to maximize security an
 | :--- | :--- | :--- |
 | `UNOSIM_SERVER_MODE` | `local` (or `docker` in production) | `local` or `docker`. Affects paths and defaults. |
 | `UNOSIM_SIMULATION_MODE` | `local` | `local` or `docker-sandbox`. Defines the simulation runtime. |
+| `PORT` | `3000` | HTTP/WebSocket listener port (1–65535). |
 | `DISABLE_RATE_LIMIT` | `false` | Disables API rate limiting (recommended only for internal tests). |
 
 ### Sandbox Resources (only for `docker-sandbox`)

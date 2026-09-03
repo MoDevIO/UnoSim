@@ -9,6 +9,7 @@ services:
     container_name: unosim-server
     restart: unless-stopped
     environment:
+      - PORT=3000
       - UNOSIM_SERVER_MODE=docker
       - UNOSIM_SIMULATION_MODE=docker-sandbox
       - NODE_ENV=production

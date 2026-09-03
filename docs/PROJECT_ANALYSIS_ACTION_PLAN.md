@@ -1031,27 +1031,34 @@ Alle betrieblichen Werte über validiertes Env-Schema einlesen. Ungültige Zahle
 
 **Teilaufgaben:**
 
-- [ ] AP-15.1: Alle direkten Zugriffe auf `process.env` inventarisieren und
+- [x] AP-15.1: Alle direkten Zugriffe auf `process.env` inventarisieren und
   nach Server, Compiler, Sandbox, Queue und Logging gruppieren. Ergebnis als
   Tabelle mit Zielschlüssel im Plan festhalten. Gate: vollständige `rg`-Suche.
-- [ ] AP-15.2: Zentrales, seiteneffektfreies Env-Schema mit getesteten Defaults
+- [x] AP-15.2: Zentrales, seiteneffektfreies Env-Schema mit getesteten Defaults
   und verständlichen Fehlermeldungen anlegen. Noch keine Verbraucher migrieren.
   Gate: Config-Unit-Tests.
-- [ ] AP-15.3: Integer-, Zeit- und Größenwerte gegen `NaN`, Dezimalwerte,
+- [x] AP-15.3: Integer-, Zeit- und Größenwerte gegen `NaN`, Dezimalwerte,
   negative Werte und Überläufe validieren. Gate: tabellengetriebene Unit-Tests.
-- [ ] AP-15.4: Abhängige Grenzen wie Pool-`min <= max` und Queue-/Worker-Limits
+- [x] AP-15.4: Abhängige Grenzen wie Pool-`min <= max` und Queue-/Worker-Limits
   als Schema-Invarianten testen. Gate: Startfehler-Unit-Tests.
-- [ ] AP-15.5: Server-, Logging- und WebSocket-Verbraucher auf das validierte
+- [x] AP-15.5: Server-, Logging- und WebSocket-Verbraucher auf das validierte
   Config-Objekt umstellen; direkte Env-Zugriffe dort entfernen. Gate: Server-
   und WebSocket-Tests.
-- [ ] AP-15.6: Compiler-, Worker-, Sandbox-, Cache- und Queue-Verbraucher auf
+- [x] AP-15.6: Compiler-, Worker-, Sandbox-, Cache- und Queue-Verbraucher auf
   das validierte Config-Objekt umstellen. Gate: Compiler-/Pool-/Sandbox-Tests.
-- [ ] AP-15.7: `PORT` als einzigen Server-Port unterstützen und Startskripte,
+- [x] AP-15.7: `PORT` als einzigen Server-Port unterstützen und Startskripte,
   Compose, Healthchecks und Tests darauf ausrichten. Gate: Serverstart mit
   abweichendem Test-Port.
-- [ ] AP-15.8: `.env.example`, Admin-Dokumentation und Compose-Defaults aus dem
+- [x] AP-15.8: `.env.example`, Admin-Dokumentation und Compose-Defaults aus dem
   finalen Schema abgleichen; kein dokumentierter Schlüssel darf wirkungslos
   sein. Gate: Env-Inventar ohne offene direkte Zugriffe.
+
+**Umsetzungsnachweis (2026-09-03):** `server/config.ts` validiert Ports, Modi,
+Boolean-, Integer-, Größen- und CPU-Werte einschließlich Pool-Invarianten beim
+Start. Server, Gatekeeper sowie Compile-Worker und Build-Cache verwenden die
+zentralen Werte; `PORT` ist der alleinige Listener-Port und in Compose sowie
+Admin-Dokumentation dokumentiert. Testabdeckung für ungültige Werte und
+Grenzfälle ergänzt.
 
 #### AP-16: Große Module entlang von Verantwortungen teilen
 

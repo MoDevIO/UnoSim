@@ -13,7 +13,7 @@
  */
 
 import { Logger } from "@shared/logger";
-import { config } from "../config";
+import { config, getCompileMaxConcurrent } from "../config";
 import { cpus } from "node:os";
 import { EventEmitter } from "node:events";
 
@@ -109,12 +109,10 @@ export class UnifiedGatekeeper extends EventEmitter {
       // Priority 1: Explicit env override
       // Priority 2: Constructor parameter
       // Priority 3: CPU-adaptive calculation
-      if (process.env.COMPILE_MAX_CONCURRENT) {
-        this.maxCompileConcurrent = Number.parseInt(process.env.COMPILE_MAX_CONCURRENT, 10);
-      } else if (maxConcurrent) {
+      if (maxConcurrent) {
         this.maxCompileConcurrent = maxConcurrent;
       } else {
-        this.maxCompileConcurrent = calculateOptimalConcurrency();
+        this.maxCompileConcurrent = getCompileMaxConcurrent() || calculateOptimalConcurrency();
       }
       
       this.availableSlots = this.maxCompileConcurrent;

@@ -245,9 +245,8 @@ let cleanupTimer: NodeJS.Timeout | null = null;
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 3000
-  // this serves both the API and the client.
-  const PORT = 3000;
+  // Serve both the API and client on the validated configured port.
+  const PORT = config.server.port;
   const listenHost = config.trust.mode === "local" ? "127.0.0.1" : "0.0.0.0";
   const httpServer = server.listen(PORT, listenHost, async () => {
     console.log(`\n┌──────────────────────────────────────────────────┐`);

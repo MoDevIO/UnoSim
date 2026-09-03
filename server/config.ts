@@ -23,19 +23,50 @@ export type SimulationMode = "local" | "docker-sandbox";
 
 // ── Env-var helpers ─────────────────────────────────────────────────
 
-function envInt(key: string, fallback: number): number {
-  const v = process.env[key];
-  return v ? Number.parseInt(v, 10) : fallback;
+export function parseEnvInt(key: string, value: string | undefined, fallback: number, options: { min?: number; max?: number } = {}): number {
+  if (value === undefined || value.trim() === "") return fallback;
+  if (!/^[+-]?\d+$/.test(value.trim())) {
+    throw new Error(`Invalid ${key}: expected an integer, received "${value}"`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || (options.min !== undefined && parsed < options.min) || (options.max !== undefined && parsed > options.max)) {
+    throw new Error(`Invalid ${key}: value must be between ${options.min ?? "-∞"} and ${options.max ?? "∞"}`);
+  }
+  return parsed;
+}
+
+function envInt(key: string, fallback: number, options?: { min?: number; max?: number }): number {
+  return parseEnvInt(key, process.env[key], fallback, options);
 }
 
 function envStr(key: string, fallback: string): string {
   return process.env[key] ?? fallback;
 }
 
+function envEnum<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
+  const value = envStr(key, fallback);
+  if (!allowed.includes(value as T)) {
+    throw new Error(`Invalid ${key}: expected one of ${allowed.join(", ")}, received "${value}"`);
+  }
+  return value as T;
+}
+
 function envBool(key: string, fallback: boolean): boolean {
   const v = process.env[key];
   if (v === undefined) return fallback;
-  return v === "1" || v.toLowerCase() === "true";
+  if (v === "1" || v.toLowerCase() === "true") return true;
+  if (v === "0" || v.toLowerCase() === "false") return false;
+  throw new Error(`Invalid ${key}: expected true/false, received "${v}"`);
+}
+
+function envFloat(key: string, fallback: string): string {
+  const value = process.env[key];
+  if (value === undefined || value.trim() === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid ${key}: expected a positive number, received "${value}"`);
+  }
+  return value.trim();
 }
 
 function envList(key: string, fallback: string[]): string[] {
@@ -49,10 +80,16 @@ function envList(key: string, fallback: string[]): string[] {
 
 // ── Derived pool values ─────────────────────────────────────────────
 
-const poolMinRunners = envInt("SANDBOX_POOL_MIN_RUNNERS", 5);
+const poolMinRunners = envInt("SANDBOX_POOL_MIN_RUNNERS", 5, { min: 0, max: 1000 });
 // In dev (no docker-compose) maxRunners defaults to minRunners for safety.
 // Production sets SANDBOX_POOL_MAX_RUNNERS=100 via docker-compose.yml.
-const poolMaxRunners = envInt("SANDBOX_POOL_MAX_RUNNERS", poolMinRunners);
+const poolMaxRunners = envInt("SANDBOX_POOL_MAX_RUNNERS", poolMinRunners, { min: 0, max: 1000 });
+export function validatePoolBounds(minRunners: number, maxRunners: number): void {
+  if (minRunners > maxRunners) {
+    throw new Error(`Invalid sandbox pool configuration: SANDBOX_POOL_MIN_RUNNERS (${minRunners}) must not exceed SANDBOX_POOL_MAX_RUNNERS (${maxRunners})`);
+  }
+}
+validatePoolBounds(poolMinRunners, poolMaxRunners);
 
 const cwd = process.cwd();
 const cpuCount = os.cpus().length;
@@ -69,12 +106,17 @@ const localWebSocketOrigins = [
 // ── Config ──────────────────────────────────────────────────────────
 
 export const config = {
+  /** Runtime environment name, captured once at startup. */
+  nodeEnv: process.env.NODE_ENV ?? "development",
   /**
    * Server mode: "local" (dev) or "docker" (docker-compose).
    * Set via UNOSIM_SERVER_MODE env var; falls back to NODE_ENV detection.
    */
-  serverMode: (envStr("UNOSIM_SERVER_MODE", "") ||
-    (process.env.NODE_ENV === "production" ? "docker" : "local")) as ServerMode,
+  serverMode: envEnum(
+    "UNOSIM_SERVER_MODE",
+    process.env.NODE_ENV === "production" ? "docker" : "local",
+    ["local", "docker"] as const,
+  ),
 
   /**
    * Simulation execution mode.
@@ -82,10 +124,11 @@ export const config = {
    * "local" compiles and runs sketches as native child processes.
    * Set via UNOSIM_SIMULATION_MODE or legacy FORCE_DOCKER env var.
    */
-  simulationMode: (envStr("UNOSIM_SIMULATION_MODE", "") ||
-    (envBool("FORCE_DOCKER", false)
-      ? "docker-sandbox"
-      : "local")) as SimulationMode,
+  simulationMode: envEnum(
+    "UNOSIM_SIMULATION_MODE",
+    envBool("FORCE_DOCKER", false) ? "docker-sandbox" : "local",
+    ["local", "docker-sandbox"] as const,
+  ),
 
   /** True when running under a test framework */
   isTest: process.env.NODE_ENV === "test",
@@ -96,6 +139,8 @@ export const config = {
   // ── Server ──────────────────────────────────────────────────────
 
   server: {
+    /** HTTP and WebSocket listener port. */
+    port: envInt("PORT", 3000, { min: 1, max: 65535 }),
     /**
      * Register destructive endpoints used for test isolation.
      * NODE_ENV=test is checked separately at the registration site so this
@@ -133,7 +178,7 @@ export const config = {
        *  docker-compose.yml sets this to 100 for production. */
       maxRunners: poolMaxRunners,
       /** Idle containers are destroyed after this duration */
-      idleTimeoutMs: envInt("SANDBOX_POOL_IDLE_TIMEOUT_MS", 120_000),
+      idleTimeoutMs: envInt("SANDBOX_POOL_IDLE_TIMEOUT_MS", 120_000, { min: 1, max: 86_400_000 }),
       /** Max time to wait for a runner before rejecting */
       acquireTimeoutMs: 60_000,
       /** Max time to wait while resetting a released runner */
@@ -160,9 +205,9 @@ export const config = {
        * Override with SANDBOX_MEMORY_MB.  docker-compose.yml mirrors this value
        * explicitly so all environments stay in sync.
        */
-      memoryMB: envInt("SANDBOX_MEMORY_MB", 256),
+      memoryMB: envInt("SANDBOX_MEMORY_MB", 256, { min: 64, max: 65_536 }),
       /** Docker --cpus flag. 0.25 = 25% of one core. */
-      cpuLimit: envStr("SANDBOX_CPU_LIMIT", "0.25"),
+      cpuLimit: envFloat("SANDBOX_CPU_LIMIT", "0.25"),
       /** Max PIDs per container (prevents fork bombs) */
       pidsLimit: 50,
       /** Kill container after this many seconds */
@@ -181,13 +226,14 @@ export const config = {
 
   compilation: {
     /** Number of parallel compilation worker threads */
-    workerCount: envInt("WORKER_COUNT", defaultWorkers),
+    workerCount: envInt("WORKER_COUNT", defaultWorkers, { min: 1, max: 256 }),
     /** Max simultaneous g++ processes inside Docker containers */
-    dockerCompileConcurrent: envInt("DOCKER_COMPILE_CONCURRENT", 8),
+    dockerCompileConcurrent: envInt("DOCKER_COMPILE_CONCURRENT", 8, { min: 1, max: 256 }),
     /** Max simultaneous compile operations (gatekeeper) */
     maxConcurrent: envInt(
       "COMPILE_MAX_CONCURRENT",
       defaultCompileMaxConcurrent,
+      { min: 1, max: 256 },
     ),
     /** Compilation timeout (ms) */
     timeoutMs: 60_000,
@@ -201,7 +247,7 @@ export const config = {
     /** Build artifact cache directory */
     buildCacheDir: envStr("BUILD_CACHE_DIR", path.join(cwd, "storage/cache")),
     /** LRU eviction trigger for build cache (bytes) */
-    buildCacheMaxBytes: envInt("BUILD_CACHE_MAX_BYTES", 2 * 1024 * 1024 * 1024),
+    buildCacheMaxBytes: envInt("BUILD_CACHE_MAX_BYTES", 2 * 1024 * 1024 * 1024, { min: 1, max: Number.MAX_SAFE_INTEGER }),
     /** Bypass gatekeeper in E2E tests */
     disableGatekeeper: envBool("DISABLE_COMPILE_GATEKEEPER", false),
   },
@@ -247,3 +293,8 @@ export function getClientConfig() {
 }
 
 export type UnoSimConfig = typeof config;
+
+/** Read the compile limit for components that support runtime test overrides. */
+export function getCompileMaxConcurrent(): number {
+  return parseEnvInt("COMPILE_MAX_CONCURRENT", process.env.COMPILE_MAX_CONCURRENT, config.compilation.maxConcurrent, { min: 1, max: 256 });
+}

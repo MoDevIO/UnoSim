@@ -167,9 +167,7 @@ export async function cleanupCacheLru(
     // continue cleanup if marker doesn't exist
   }
 
-  const effectiveMax =
-    maxBytes ??
-    Number(process.env.BUILD_CACHE_MAX_BYTES || 2 * 1024 * 1024 * 1024);
+  const effectiveMax = maxBytes ?? 2 * 1024 * 1024 * 1024;
 
   for (const targetDir of targets) {
     try {
