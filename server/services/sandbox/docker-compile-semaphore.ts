@@ -15,7 +15,7 @@
 import { config } from "../../config";
 
 export class DockerCompileSemaphore {
-  private readonly queue: Array<() => void> = [];
+  private readonly queue: Array<{ attempt: () => void; timer: NodeJS.Timeout }> = [];
   private _active = 0;
 
   constructor(private readonly max: number) {}
@@ -27,20 +27,28 @@ export class DockerCompileSemaphore {
    *                  placed in the queue (i.e. no slot is immediately available).
    * @returns         A release function.  Must be called exactly once.
    */
-  acquire(onQueued?: () => void): Promise<() => void> {
-    return new Promise<() => void>((resolve) => {
-      let notifiedQueued = false;
+  acquire(onQueued?: () => void, timeoutMs = 60_000): Promise<() => void> {
+    return new Promise<() => void>((resolve, reject) => {
+      let settled = false;
+      let attempt: () => void;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        const index = this.queue.findIndex((entry) => entry.attempt === attempt);
+        if (index !== -1) this.queue.splice(index, 1);
+        settled = true;
+        reject(new Error(`Docker compile slot timeout after ${timeoutMs}ms`));
+      }, timeoutMs);
 
-      const attempt = () => {
+      attempt = () => {
+        if (settled) return;
         if (this._active < this.max) {
+          settled = true;
+          clearTimeout(timer);
           this._active++;
           resolve(this._makeRelease());
         } else {
-          if (!notifiedQueued) {
-            notifiedQueued = true;
-            onQueued?.();
-          }
-          this.queue.push(attempt);
+          onQueued?.();
+          this.queue.push({ attempt, timer });
         }
       };
 
@@ -56,7 +64,7 @@ export class DockerCompileSemaphore {
       this._active--;
       if (this.queue.length > 0) {
         const next = this.queue.shift();
-        next?.();
+        next?.attempt();
       }
     };
   }

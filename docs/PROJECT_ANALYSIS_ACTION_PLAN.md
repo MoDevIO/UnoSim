@@ -655,7 +655,7 @@ bei 15-s-Budget. Anschließend lief die gesamte Unit-Suite mit 122 Dateien und
 - [x] AP-03.2: Eine zentrale kombinierte stdout-/stderr-Bytegrenze einführen;
   bei Überschreitung muss der Container beendet und ein eindeutiger Fehler an
   den Client gemeldet werden.
-- [ ] AP-03.3: Timeout-Vertrag konsolidieren: Jeder Docker-Run erhält eine
+- [x] AP-03.3: Timeout-Vertrag konsolidieren: Jeder Docker-Run erhält eine
   harte endliche Obergrenze, die auch während Compile- und Queue-Übergängen
   zuverlässig aufräumt.
 - [ ] AP-03.4: Docker-Readiness fail-closed machen: Image, Docker-Daemon und
@@ -689,6 +689,13 @@ der Sketch samt seinen Pipes tatsächlich still; der bisherige lokale
 `SIGSTOP`/`SIGCONT`-Pfad bleibt für lokale Runs erhalten. Ein Regressionstest
 prüft die korrekten Docker-Kommandos und stellt sicher, dass dort keine lokalen
 Prozesssignale als Ersatz verwendet werden.
+
+**Umsetzungsnachweis AP-03.3:** Runtime-Timeouts werden zentral auf endliche
+1–300 Sekunden normalisiert. Zusätzlich begrenzt der Docker-Compile-Semaphor
+jetzt auch die Wartezeit auf einen Compile-Slot mit dem konfigurierten
+Compile-Gatekeeper-Timeout; abgelaufene Wartende werden aus der FIFO-Queue
+entfernt und abgewiesen. Damit existieren keine unbegrenzten Compile-Warte- oder
+Runtime-Timer mehr.
 
 #### AP-04: Hochriskante Runtime-Abhängigkeiten aktualisieren
 

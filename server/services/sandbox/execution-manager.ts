@@ -423,7 +423,7 @@ export class ExecutionManager {
     // on any error, so the semaphore only covers the compile phase.
     const releaseSemaphore = await getDockerCompileSemaphore().acquire(() => {
       opts.onCompileQueued?.();
-    });
+    }, config.timeouts.compileGatekeeperAcquireMs);
 
     // Guard: abort if the simulation was stopped while we were waiting
     if (state.processKilled || state.pendingCleanup || state.state === SimulationState.STOPPED) {
