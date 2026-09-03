@@ -11,9 +11,10 @@ import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { reservedNamesValidator } from "@shared/reserved-names-validator";
 import { getUnifiedGatekeeper, TaskPriority } from "./unified-gatekeeper";
 import { ProcessExecutor } from "./process-executor";
-import { CompilationError, CompilerOutputParser } from "./compiler/compiler-output-parser";
+import { type CompilationError } from "./compiler/compiler-output-parser";
 import { config } from "../config";
 import { resolvePathWithinRoot } from "../security/safe-paths";
+import { parseCompilerDiagnostics } from "./compiler-diagnostics";
 
 // Re-export for backwards compatibility
 export type { CompilationError } from "./compiler/compiler-output-parser";
@@ -641,7 +642,7 @@ export class ArduinoCompiler {
   // sketch lines.  This parameter is _used_ below to mutate parsed line
   // numbers, satisfying the TypeScript checker.
   private parseCompilerErrors(stderr: string, lineOffset: number = 0): CompilationError[] {
-    return CompilerOutputParser.parseErrors(stderr, lineOffset);
+    return parseCompilerDiagnostics(stderr, lineOffset);
   }
 
   private async compileWithArduinoCli(

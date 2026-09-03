@@ -9,6 +9,7 @@ import { computePinConflict, ensurePinModeOperation } from "./utils/pin-validato
 import { createWriteStream, type WriteStream } from "node:fs";
 import { join } from "node:path";
 import { config } from "../config";
+import { cleanRegistryRecord, mergeRegistryUsage } from "./registry-logic";
 
 type RegistryUpdateCallback = (
   registry: IOPinRecord[],
@@ -41,48 +42,6 @@ interface RegistryManagerConfig {
 /**
  * Helper to clean up pin record by removing line: 0 from usedAt/definedAt
  */
-function cleanupPinRecord(pin: IOPinRecord): IOPinRecord {
-  // Use a mutable copy so we can delete optional fields safely
-  const cleaned: IOPinRecord = { ...pin };
-
-  // Remove definedAt if line is 0
-  if (cleaned.definedAt?.line === 0) {
-    delete cleaned.definedAt;
-  }
-
-  // Filter out usedAt entries with line: 0 that have no operation (true placeholders).
-  // Runtime entries always have line: 0 but carry a non-empty operation string
-  // (e.g. "pinMode:0") – those must be preserved so the client can detect conflicts.
-  if (cleaned.usedAt && cleaned.usedAt.length > 0) {
-    cleaned.usedAt = cleaned.usedAt.filter(
-      entry => entry.line !== 0 || !!entry.operation,
-    );
-    // Remove usedAt entirely if empty
-    if (cleaned.usedAt.length === 0) {
-      delete cleaned.usedAt;
-    }
-  }
-
-  return cleaned;
-}
-
-function mergeUsedAtEntries(
-  existing: IOPinRecord["usedAt"],
-  incoming: IOPinRecord["usedAt"],
-): IOPinRecord["usedAt"] {
-  const merged = [...(existing ?? []), ...(incoming ?? [])];
-  if (merged.length === 0) return undefined;
-
-  const unique = new Map<string, (typeof merged)[number]>();
-  for (const entry of merged) {
-    const key = `${entry.operation}@${entry.line}`;
-    if (!unique.has(key)) {
-      unique.set(key, entry);
-    }
-  }
-  return Array.from(unique.values());
-}
-
 /**
  * RegistryManager handles the collection and management of Arduino pin states.
  * It provides debouncing to minimize WebSocket traffic and change detection
@@ -490,7 +449,7 @@ export class RegistryManager {
         ...existing,
         ...pinRecord,
         defined: existing.defined || pinRecord.defined,
-        usedAt: mergeUsedAtEntries(existing.usedAt, pinRecord.usedAt),
+        usedAt: mergeRegistryUsage(existing.usedAt, pinRecord.usedAt),
       };
     } else {
       this.registry.push(pinRecord);
@@ -803,7 +762,7 @@ export class RegistryManager {
         );
       }
       // Clean up registry to remove useless line: 0 entries
-      const cleanedRegistry = this.registry.map(cleanupPinRecord);
+      const cleanedRegistry = this.registry.map(cleanRegistryRecord);
       // Only send baudrate if it was actually defined in the code
       this.onUpdateCallback(cleanedRegistry, this.baudrate, reason);
     }

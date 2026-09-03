@@ -1089,14 +1089,21 @@ jeweiligen Umsetzung offen.
   injizierbaren Abhängigkeiten extrahieren. Gate: Prozess- und Timeout-Tests.
 - [x] AP-16.7: Output-Sammlung und Ergebnisbildung des ExecutionManager separat
   kapseln; Output-Limit und Fehlersemantik beibehalten. Gate: Output-Kill-Tests.
-- [ ] AP-16.8: RegistryManager in Parsing/Validierung und atomare
+- [x] AP-16.8: RegistryManager in Parsing/Validierung und atomare
   Zustandsaktualisierung teilen. Gate: Registry- und Concurrent-Update-Tests.
-- [ ] AP-16.9: ArduinoCompiler in Workspace, Command-Ausführung und
+- [x] AP-16.9: ArduinoCompiler in Workspace, Command-Ausführung und
   Ergebnis-/Diagnoseabbildung teilen; Cache-Verantwortung nicht duplizieren.
   Gate: Compiler- und Cache-Tests.
-- [ ] AP-16.10: Nur nach grünen Einzel-Refactorings überflüssige Adapter und
+- [x] AP-16.10: Nur nach grünen Einzel-Refactorings überflüssige Adapter und
   Re-Exports entfernen; öffentliche Imports gesammelt migrieren. Gate:
   `npm run test:unit && npm run build`.
+
+**Umsetzungsnachweis (2026-09-03):** Registry-Merge und Record-Bereinigung
+liegen in `registry-logic`; Diagnose-Mapping des ArduinoCompilers ist über
+`compiler-diagnostics` gekapselt. Ein Import-Audit (`rg` plus TypeScript- und
+Knip-Prüfung) bestätigte, dass keine weiteren öffentlichen Adapter/Re-Exports
+ohne Verbraucher vorhanden sind; die verbleibenden Typ-Re-Exports werden von
+Worker-Pool, Routen und Legacy-Kompatibilität benötigt.
 
 **Umsetzungsnachweis (2026-09-03, weiterer Teilabschluss):** WS-Sessions werden
 über einen gekapselten Lifecycle-Store verwaltet. Der ExecutionManager nutzt
