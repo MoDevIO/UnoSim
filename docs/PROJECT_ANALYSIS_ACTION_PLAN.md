@@ -864,8 +864,16 @@ Entscheiden, ob UnoSim ein Einzelknoten-Dienst oder horizontal skalierbar sein s
 
 - [x] AP-11.1: Betriebsdokumentation auf den tatsächlich unterstützten
   zustandsbehafteten Einzelknotenbetrieb korrigieren.
-- [ ] AP-11.2: Anforderungen für spätere horizontale Skalierung dokumentieren
+- [x] AP-11.2: Anforderungen für spätere horizontale Skalierung dokumentieren
   (persistenter Storage, verteilte Limits/Queues, Session-Affinität).
+
+**Umsetzungsnachweis AP-11.2:** Eine spätere horizontale Skalierung benötigt
+persistent geteilten Sketch-/Compile-Storage statt `MemStorage`, verteilte
+Rate-Limits und Queues, eine gemeinsame Cache-/Lock-Strategie sowie
+WebSocket-Session-Affinität oder einen zentralen Session-Broker. Diese
+Anforderungen sind dokumentiert; bis zu ihrer Umsetzung bleibt der
+Einzelknotenbetrieb das verbindliche Betriebsmodell. AP-11 ist damit
+abgeschlossen.
 
 #### AP-12: Arduino-kompatible INO-Vorverarbeitung und getrennte Fehlerkanäle herstellen
 
