@@ -154,19 +154,15 @@ function _deriveClientStateForButton(
   compilationStatus: CompilationStatus,
   dockerGccPhase: "idle" | "queued" | "active",
   pendingExternalStart: boolean,
-  hasFirstOutput: boolean,
 ): ClientState {
   if (pendingExternalStart) return "QUEUED_FOR_COMPILING";
   if (compilationStatus === "compiling") return "COMPILING";
-  // simulationStatus takes priority over dockerGccPhase: once a runner is
-  // acquired the server sends simulation_status:running then immediately
-  // compilation_status:compiling (Docker g++ starting inside the runner).
-  // If both arrive in the same React batch the button must still show RUNNING
-  // so the E2E locator /stop simulation/i matches immediately.
+  // The runner reports "running" before its sandbox compilation completes.
+  // Keep the spinner only while that explicit compiler state is active. A
+  // sketch without serial output or pin changes is nevertheless running and
+  // must not leave the control in a perpetual loading state.
   if (simulationStatus === "running") {
-    // Show a distinct "booting" state until the first serial output or pin
-    // value change arrives, indicating the sketch is actively producing output.
-    return hasFirstOutput ? "RUNNING" : "RUNNING_STARTING";
+    return dockerGccPhase === "active" ? "RUNNING_STARTING" : "RUNNING";
   }
   if (simulationStatus === "paused") return "PAUSED";
   if (dockerGccPhase === "queued") return "QUEUED_FOR_COMPILING";
@@ -535,7 +531,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   simulationStatus,
   compilationStatus,
   dockerGccPhase,
-  hasFirstOutput,
   pendingExternalStart,
   simulateDisabled,
   isCompiling,
@@ -605,7 +600,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     compilationStatus,
     dockerGccPhase,
     pendingExternalStart ?? false,
-    hasFirstOutput,
   );
   const simulateLabel = _getSimulateAriaLabel(clientState);
   const simulateText = _getSimulateText(clientState);
