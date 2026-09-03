@@ -773,7 +773,7 @@ Zuerst Characterization Tests für Compile→Start→Pause→Reset schreiben. Da
 **Teilaufgaben:**
 
 - [x] AP-07.1: Hauptseite auf genau eine Controller-Instanz umstellen.
-- [ ] AP-07.2: Characterization-Tests für Compile→Start→Pause→Resume→Reset
+- [x] AP-07.2: Characterization-Tests für Compile→Start→Pause→Resume→Reset
   als explizite Zustandssequenzen ergänzen.
 - [ ] AP-07.3: Compile-Zustand und Simulationszustand in getrennte interne
   Controller-Module extrahieren, ohne den öffentlichen Hook-Vertrag zu ändern.
@@ -785,7 +785,10 @@ eine `useCompileAndRun`-Instanz für Compile- und Simulationszustand. Die
 bisherigen Kompatibilitäts-Hooks bleiben für isolierte Verbraucher und Tests
 erhalten; die doppelte Instanziierung im zentralen Seiten-Controller ist
 entfernt. Der Seiten-Hook-Test wurde auf den kombinierten Controllervertrag
-umgestellt; Typecheck und der Characterization-Test bestehen.
+umgestellt; die Zustandssequenz Start→Pause→Resume→Reset ist als
+Characterization-Test abgedeckt, ergänzt durch die bestehenden Compile-
+and-Start-Erfolg-/Fehlerfälle. Typecheck und die betroffenen Hook-Tests
+bestehen.
 
 #### AP-08: Protokollrichtungen trennen und externe API reparieren
 

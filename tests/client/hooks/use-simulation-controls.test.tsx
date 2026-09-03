@@ -91,6 +91,28 @@ describe("useSimulationControls", () => {
     expect(params.serialEventQueueRef.current).toEqual([]);
   });
 
+  it("preserves the controller state sequence across start, pause, resume and reset", async () => {
+    vi.useFakeTimers();
+    const params = buildParams();
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+
+    act(() => result.current.handleStart());
+    await waitFor(() => expect(result.current.simulationStatus).toBe("running"));
+
+    act(() => result.current.handlePause());
+    await waitFor(() => expect(result.current.simulationStatus).toBe("paused"));
+
+    act(() => result.current.handleResume());
+    await waitFor(() => expect(result.current.simulationStatus).toBe("running"));
+
+    act(() => result.current.handleReset());
+    expect(result.current.simulationStatus).toBe("idle");
+    expect(params.clearOutputs).toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(100));
+    expect(params.handleCompileAndStart).toHaveBeenCalledOnce();
+  });
+
   it("handleReset clears outputs and recompiles after delay", async () => {
     vi.useFakeTimers();
     const params = buildParams();
