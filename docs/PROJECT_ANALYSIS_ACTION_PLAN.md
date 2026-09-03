@@ -555,7 +555,7 @@ innerhalb des Fensters abgewiesen wird.
 - [x] AP-02.1: Eingangsflächen und bestehende implizite Verträge inventarisieren;
   zentrale Grenzwerte für Code, Header, Bibliotheken, Payload, Pins, Timeout und
   Test-ID festlegen, ohne sie bereits an mehreren Stellen zu duplizieren.
-- [ ] AP-02.2: Ein strikt typisiertes Zod-Schema für `POST /api/compile`
+- [x] AP-02.2: Ein strikt typisiertes Zod-Schema für `POST /api/compile`
   implementieren und die Route ausschließlich mit dem geparsten Ergebnis
   weiterarbeiten lassen. Fehlende Felder, falsche Typen, unbekannte Felder und
   Grenzwertüberschreitungen müssen mit 400 beantwortet werden.
@@ -595,6 +595,12 @@ endliche Code-, Header-, Bibliotheks-, Payload-, Serial-, Pin-, Baudrate- und
 Timeoutgrenzen sowie sichere Test-ID- und Header-Basename-Pattern fest. Die
 späteren REST- und WS-Schemas verwenden diese Werte, statt lokale Zahlenkopien
 einzuführen.
+
+**Umsetzungsnachweis AP-02.2:** `compileRequestSchema` akzeptiert ausschließlich
+den erwarteten Compile-Vertrag und begrenzt Code, Header, FQBN und Bibliotheken
+über die zentrale Grenzwertquelle. Die Route arbeitet nur noch mit dem geparsten
+Ergebnis; unbekannte Felder, falsche Typen, ungültige verschachtelte Header und
+Oversize-Requests werden vor Cache und Compiler mit 400 abgewiesen.
 
 #### AP-03: Sandbox-Vertrag härten und testen
 

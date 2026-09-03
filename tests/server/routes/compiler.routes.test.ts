@@ -113,6 +113,37 @@ describe("compiler.routes - /api/compile", () => {
   it("rejects request with non-string code", async () => {
     const res = await post(baseUrl, "/api/compile", { code: 123 });
     expect(res.status).toBe(400);
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown fields and malformed nested headers before compilation", async () => {
+    const unknownField = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      unexpected: true,
+    });
+    const malformedHeader = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      headers: [{ name: "helper.h", content: "int x;", extra: true }],
+    });
+
+    expect(unknownField.status).toBe(400);
+    expect(malformedHeader.status).toBe(400);
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
+  });
+
+  it("rejects compile fields above their shared size limits", async () => {
+    const oversizedFqbn = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      fqbn: "x".repeat(129),
+    });
+    const tooManyLibraries = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      libraries: Array.from({ length: 21 }, (_, index) => `Lib${index}`),
+    });
+
+    expect(oversizedFqbn.status).toBe(400);
+    expect(tooManyLibraries.status).toBe(400);
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
   });
 
   it("compiles code successfully", async () => {

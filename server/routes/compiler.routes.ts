@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import type { CompilationResult, CompileRequestOptions } from "../services/arduino-compiler";
 import type { Logger } from "@shared/logger";
+import { compileRequestSchema } from "@shared/schema";
 
 type CompilerHeader = { name: string; content: string };
 
@@ -22,8 +23,18 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
 
   app.post("/api/compile", async (req, res) => {
     try {
-      const { code, headers, fqbn, libraries } = req.body;
-      if (!code || typeof code !== "string") {
+      const parsedRequest = compileRequestSchema.safeParse(req.body);
+      if (!parsedRequest.success) {
+        const codeMissing = parsedRequest.error.issues.some(
+          (issue) => issue.path[0] === "code" && issue.code === "invalid_type",
+        );
+        if (codeMissing) {
+          return res.status(400).json({ error: "Code is required" });
+        }
+        return res.status(400).json({ error: "Invalid compile request" });
+      }
+      const { code, headers, fqbn, libraries } = parsedRequest.data;
+      if (!code) {
         return res.status(400).json({ error: "Code is required" });
       }
 
@@ -53,7 +64,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         compileTempRoot,
         {
           fqbn,
-          libraries: Array.isArray(libraries) ? libraries : undefined,
+          libraries,
         },
       );
 

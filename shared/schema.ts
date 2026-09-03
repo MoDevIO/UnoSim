@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { PinMode } from "./types/arduino.types";
+import { INPUT_LIMITS } from "./input-limits";
 
 // Sketch types (non-DB, for MemStorage)
 export interface Sketch {
@@ -20,6 +21,33 @@ export const insertSketchSchema = z.object({
   name: z.string(),
   content: z.string(),
 });
+
+/** Runtime contract for the public REST compiler endpoint. */
+export const compileRequestSchema = z
+  .object({
+    code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
+    headers: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1).max(INPUT_LIMITS.compile.maxHeaderNameChars),
+            content: z
+              .string()
+              .max(INPUT_LIMITS.compile.maxHeaderContentChars),
+          })
+          .strict(),
+      )
+      .max(INPUT_LIMITS.compile.maxHeaders)
+      .optional(),
+    fqbn: z.string().min(1).max(INPUT_LIMITS.compile.maxFqbnChars).optional(),
+    libraries: z
+      .array(z.string().min(1).max(INPUT_LIMITS.compile.maxLibraryNameChars))
+      .max(INPUT_LIMITS.compile.maxLibraries)
+      .optional(),
+  })
+  .strict();
+
+export type CompileRequest = z.infer<typeof compileRequestSchema>;
 
 /**
  * Canonical WebSocket message type identifiers.
