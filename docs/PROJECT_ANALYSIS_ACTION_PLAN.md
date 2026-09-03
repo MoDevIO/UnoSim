@@ -803,6 +803,12 @@ Characterization-Test abgedeckt, ergänzt durch die bestehenden Compile-
 and-Start-Erfolg-/Fehlerfälle. Typecheck und die betroffenen Hook-Tests
 bestehen.
 
+**Umsetzungsnachweis AP-07.3 (Teil 1):** Die gemeinsame mutable State-Hülle
+wurde in `useSimulatorControllerState` ausgelagert. Compile- und
+Simulationsaktionen verwenden weiterhin denselben Vertrag, aber die
+State-Ownership ist jetzt als eigenes, testbares Modul isoliert. Die
+vollständige Trennung der Aktionsmodule bleibt als Rest von AP-07.3 offen.
+
 #### AP-08: Protokollrichtungen trennen und externe API reparieren
 
 `ClientToServerMessage` und `ServerToClientMessage` definieren, falsches `pin_state` korrigieren und External-API-Vertrag end-to-end testen. Die `ancestorOrigins`-Fallbackstrategie muss browserübergreifend und fail-closed werden.

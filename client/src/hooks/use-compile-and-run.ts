@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { RefObject, MutableRefObject } from "react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -9,6 +9,7 @@ import type { SimulationStatus } from "@shared/types/arduino.types";
 import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { DebugMessage } from "@/hooks/use-debug-console";
+import { useSimulatorControllerState } from "./use-simulator-controller-state";
 import {
   isCompileResult,
   isHexResult,
@@ -141,19 +142,15 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   // ------------------------------------------------------------
   // shared state (compile + simulation)
   // ------------------------------------------------------------
-  const [compilationStatus, setCompilationStatus] = useState<CompilationStatus>("ready");
-  const [arduinoCliStatus, setArduinoCliStatus] = useState<CliStatus>("idle");
+  const { compilationStatus, setCompilationStatus, arduinoCliStatus, setArduinoCliStatus,
+    hasCompilationErrors, setHasCompilationErrors, lastCompilationResult,
+    setLastCompilationResult, cliOutput, setCliOutput, compilerErrors, setCompilerErrors,
+    simulationStatus, setSimulationStatus, hasCompiledOnce, setHasCompiledOnce,
+    simulationTimeout, setSimulationTimeout, dockerGccPhase, setDockerGccPhase,
+  } = useSimulatorControllerState();
   // gccStatus removed - compiler results are tracked via errors array & flags
-  const [hasCompilationErrors, setHasCompilationErrors] = useState(false);
-  const [lastCompilationResult, setLastCompilationResult] = useState<CompilationResultType>(null);
-  const [cliOutput, setCliOutput] = useState("");
-  const [compilerErrors, setCompilerErrors] = useState<CompilerError[]>([]);
 
-  const [simulationStatus, setSimulationStatus] = useState<SimulationStatus>("idle");
-  const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
-  const [simulationTimeout, setSimulationTimeout] = useState<number>(60);
   /** Tracks the Docker/sandbox GCC compile phase for granular button feedback. */
-  const [dockerGccPhase, setDockerGccPhase] = useState<DockerGccPhase>("idle");
 
   // refs used internally
   const doUploadOnCompileSuccessRef = useRef(false);
