@@ -10,6 +10,47 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: () => ({ data: undefined }),
 }));
 
+vi.mock("@/hooks/use-compile-and-run", () => ({
+  useCompileAndRun: () => ({
+    compilationStatus: "ready",
+    setCompilationStatus: noop,
+    setArduinoCliStatus: noop,
+    hasCompilationErrors: false,
+    setHasCompilationErrors: noop,
+    lastCompilationResult: null,
+    setLastCompilationResult: noop,
+    cliOutput: "",
+    setCliOutput: noop,
+    compilerErrors: [],
+    setCompilerErrors: noop,
+    compileMutation: { isPending: false },
+    handleCompile: noop,
+    handleCompileAndStart: noop,
+    handleClearCompilationOutput: noop,
+    clearOutputs: noop,
+    dockerGccPhase: "idle",
+    setDockerGccPhase: noop,
+    simulationStatus: "stopped",
+    setSimulationStatus: noop,
+    hasCompiledOnce: false,
+    setHasCompiledOnce: noop,
+    simulationTimeout: 0,
+    setSimulationTimeout: noop,
+    startMutation: { isPending: false },
+    stopMutation: { isPending: false },
+    pauseMutation: { isPending: false },
+    resumeMutation: { isPending: false },
+    handleStart: noop,
+    handleStop: noop,
+    handlePause: noop,
+    handleResume: noop,
+    handleReset: noop,
+    startSimulation: noop,
+    startSimulationRef: { current: null },
+    suppressAutoStopOnce: noop,
+  }),
+}));
+
 vi.mock("@/hooks/use-websocket", () => ({
   useWebSocket: () => ({
     isConnected: false,

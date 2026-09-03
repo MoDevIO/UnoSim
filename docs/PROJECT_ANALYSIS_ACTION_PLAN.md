@@ -770,6 +770,13 @@ Prioritätsreferenz bestehen und erzeugt kein zweites, paralleles Testvorhaben.
 
 Zuerst Characterization Tests für Compile→Start→Pause→Reset schreiben. Danach `useCompileAndRun` in einen Compile-Service, eine Simulation-State-Machine und dünne UI-Actions zerlegen. `useCompilation` und `useSimulationControls` dürfen den Gesamthook nicht mehr unabhängig instanziieren.
 
+**Umsetzungsnachweis AP-07 (Schritt 1):** Die Hauptseite verwendet nun genau
+eine `useCompileAndRun`-Instanz für Compile- und Simulationszustand. Die
+bisherigen Kompatibilitäts-Hooks bleiben für isolierte Verbraucher und Tests
+erhalten; die doppelte Instanziierung im zentralen Seiten-Controller ist
+entfernt. Der Seiten-Hook-Test wurde auf den kombinierten Controllervertrag
+umgestellt; Typecheck und der Characterization-Test bestehen.
+
 #### AP-08: Protokollrichtungen trennen und externe API reparieren
 
 `ClientToServerMessage` und `ServerToClientMessage` definieren, falsches `pin_state` korrigieren und External-API-Vertrag end-to-end testen. Die `ancestorOrigins`-Fallbackstrategie muss browserübergreifend und fail-closed werden.

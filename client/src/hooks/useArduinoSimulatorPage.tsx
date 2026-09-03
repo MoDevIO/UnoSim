@@ -5,8 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useWebSocket } from "@/hooks/use-websocket";
-import { useCompilation } from "@/hooks/use-compilation";
-import { useSimulation } from "@/hooks/use-simulation";
+import { useCompileAndRun } from "@/hooks/use-compile-and-run";
 import { useSimulatorActions } from "@/hooks/useSimulatorActions";
 import { usePinState } from "@/hooks/use-pin-state";
 import { useToast } from "@/hooks/use-toast";
@@ -232,7 +231,22 @@ export function useArduinoSimulatorPage() {
     clearOutputs,
     dockerGccPhase,
     setDockerGccPhase,
-  } = useCompilation({
+    simulationStatus,
+    setSimulationStatus,
+    setHasCompiledOnce,
+    simulationTimeout,
+    setSimulationTimeout,
+    startMutation,
+    stopMutation,
+    pauseMutation,
+    resumeMutation,
+    handleStart: controllerHandleStart,
+    handleStop: controllerHandleStop,
+    handlePause: controllerHandlePause,
+    handleResume: controllerHandleResume,
+    handleReset: controllerHandleReset,
+    suppressAutoStopOnce,
+  } = useCompileAndRun({
     editorRef,
     tabs,
     activeTabId,
@@ -258,49 +272,11 @@ export function useArduinoSimulatorPage() {
     toast,
     sendMessage,
     sendMessageImmediate,
-    startSimulationRef,
-  });
-
-  // now that compilation helpers exist we can initialise the full simulation
-  // hook. pass the earlier ref so the placeholder callback will be wired up.
-  const {
-    simulationStatus,
-    setSimulationStatus,
-    setHasCompiledOnce,
-    simulationTimeout,
-    setSimulationTimeout,
-    startMutation,
-    stopMutation,
-    pauseMutation,
-    resumeMutation,
-    handleStop: simHandleStop,
-    handlePause: simHandlePause,
-    handleResume: simHandleResume,
-    handleReset: simHandleReset,
-    suppressAutoStopOnce,
-    handleStart: simHandleStart,
-  } = useSimulation({
-    ensureBackendConnected,
-    sendMessage,
-    sendMessageImmediate,
-    resetPinUI,
-    clearOutputs,
-    addDebugMessage: (params: DebugMessageParams) =>
-      addDebugMessage(
-        params.source,
-        params.type,
-        params.data,
-        params.protocol,
-      ),
     serialEventQueueRef,
-    toast,
     pendingPinConflicts,
     setPendingPinConflicts,
-    setCliOutput,
     isModified,
-    handleCompileAndStart,
-    code,
-    hasCompilationErrors,
+    handleCompileAndStart: () => {},
     startSimulationRef,
   });
 
@@ -314,11 +290,11 @@ export function useArduinoSimulatorPage() {
     handleReset,
     handleCompileAndStart: actionsCompileAndStart,
   } = useSimulatorActions({
-    onStart: simHandleStart,
-    onStop: simHandleStop,
-    onPause: simHandlePause,
-    onResume: simHandleResume,
-    onReset: simHandleReset,
+    onStart: controllerHandleStart,
+    onStop: controllerHandleStop,
+    onPause: controllerHandlePause,
+    onResume: controllerHandleResume,
+    onReset: controllerHandleReset,
     onCompileAndStart: handleCompileAndStart,
   });
 
