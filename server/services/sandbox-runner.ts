@@ -178,7 +178,7 @@ export class SandboxRunner {
 
   private async ensureDockerChecked(): Promise<void> {
     if (this.dockerChecked) return;
-    if (config.simulationMode === "docker-sandbox") {
+    if (config.simulationMode === "docker-sandbox" && config.serverMode !== "docker") {
       this.dockerAvailable = true; this.dockerImageBuilt = true; this.dockerChecked = true; return;
     }
     

@@ -658,7 +658,7 @@ bei 15-s-Budget. Anschließend lief die gesamte Unit-Suite mit 122 Dateien und
 - [x] AP-03.3: Timeout-Vertrag konsolidieren: Jeder Docker-Run erhält eine
   harte endliche Obergrenze, die auch während Compile- und Queue-Übergängen
   zuverlässig aufräumt.
-- [ ] AP-03.4: Docker-Readiness fail-closed machen: Image, Docker-Daemon und
+- [x] AP-03.4: Docker-Readiness fail-closed machen: Image, Docker-Daemon und
   die für den Sandbox-Modus erforderlichen Sicherheitsoptionen werden beim
   Start geprüft und eindeutig über Health/Readiness berichtet.
 - [ ] AP-03.5: Echte Docker-Integrationstests für Netzwerkisolation,
@@ -696,6 +696,13 @@ jetzt auch die Wartezeit auf einen Compile-Slot mit dem konfigurierten
 Compile-Gatekeeper-Timeout; abgelaufene Wartende werden aus der FIFO-Queue
 entfernt und abgewiesen. Damit existieren keine unbegrenzten Compile-Warte- oder
 Runtime-Timer mehr.
+
+**Umsetzungsnachweis AP-03.4:** Produktionsprozesse im Modus
+`serverMode=docker` prüfen Docker-Daemon, Socket und das konfigurierte
+Sandbox-Image vor der Ausführung. Sind diese Voraussetzungen nicht erfüllt,
+wird der Start mit einem definierten Fehler verweigert; ein lokaler nativer
+Fallback ist in diesem Betriebsmodus ausgeschlossen. Der lokale
+Entwicklungsmodus behält seinen bisherigen Fallback-Vertrag.
 
 #### AP-04: Hochriskante Runtime-Abhängigkeiten aktualisieren
 

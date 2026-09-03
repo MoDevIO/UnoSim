@@ -386,6 +386,8 @@ export class ExecutionManager {
 
     if (useDocker) {
       await this.runDocker(files, callbacks, opts, state, executionTimeout);
+    } else if (config.serverMode === "docker" && config.simulationMode === "docker-sandbox") {
+      throw new Error("Docker sandbox is unavailable; refusing local fallback in production mode");
     } else {
       await this.runLocal(files, callbacks, opts, state, executionTimeout);
     }
