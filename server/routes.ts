@@ -41,7 +41,7 @@ function hashCode(
     code,
     headers: headers || [],
     fqbn: options?.fqbn || "",
-    libraries: [...(options?.libraries || [])].sort(),
+    libraries: [...(options?.libraries || [])].sort((a, b) => a.localeCompare(b)),
   });
   return createHash("sha256").update(combinedInput).digest("hex");
 }
@@ -95,9 +95,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerConfigRoutes(app);
 
   /**
-   * @deprecated Compatibility fallback for legacy clients that omit code in
+   * Legacy compatibility fallback for clients that omit code in
    * start_simulation. New clients must send the compiled code per session.
-   * Remove after the legacy protocol sunset (target: next major release).
+   * Planned for removal after the legacy protocol sunset (next major release).
    */
   let lastCompiledCode: string | null = null;
 
