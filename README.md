@@ -61,7 +61,7 @@ cd UnoSim
 2. Install dependencies:
 
 ```bash
-npm install
+    npm ci
 ```
 
 3. Start the dev-server:
@@ -162,8 +162,11 @@ On macOS, make sure your project directory is allowed under Docker Desktop file 
 | `npm run build` | Build client, server, and worker for production |
 | `npm run start` | Run the production build |
 | `npm run check` | TypeScript type-check (`tsc --noEmit`) |
-| `npm run test:fast` | Run unit tests (excludes load tests) |
-| `npm test` | Run all tests |
+| `npm run test:fast` | Run deterministic unit tests |
+| `npm run test:integration` | Run Arduino/toolchain integration tests |
+| `npm run test:docker` | Run Docker sandbox integration tests |
+| `npm run test:e2e` | Run Playwright browser tests |
+| `npm run test:all` | Run unit, integration and Docker gates |
 | `./run-tests.sh` | Full pipeline: lint, unit tests, Docker build, integration tests, E2E |
 
 ### Architecture Overview
@@ -178,8 +181,8 @@ On macOS, make sure your project directory is allowed under Docker Desktop file 
 The repository contains a **robust, fast test pipeline**:
 
 1. **Unit tests** (Vitest + React Testing Library) cover business logic and UI
-   components. A full run exercises **869 tests with zero skips** and completes in
-   about 25 seconds on a modern laptop.
+   components. `npm run test:unit` is the deterministic refactoring gate;
+   toolchain, Docker, browser and load tests are separate gates.
 2. **Minimal E2E smoke flow** comprises three Playwright tests that verify a
    compile‑and‑run cycle, serial output and basic dialogs. This file lives in
    `e2e/smoke-and-flow.spec.ts` and the entire suite now takes ~16 seconds instead
@@ -191,7 +194,7 @@ The repository contains a **robust, fast test pipeline**:
 Local quick‑check example:
 
 ```bash
-SKIP_LOAD_TESTS=1 npm test
+npm run test:unit
 ```
 
 In CI, use a sufficiently‑powered runner and leave `SKIP_LOAD_TESTS` unset so the
@@ -204,8 +207,8 @@ performance tests run as intended.
 
 MIT License - See [LICENSE](LICENSE) for details
 
-This project uses third-party open-source dependencies.
-See [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt) for details.
+This project uses third-party open-source dependencies under their respective
+licenses.
 
 ## Contact & Support
 

@@ -928,9 +928,12 @@ sondern als Blocker gemeldet.
 - [x] AP-12.3: Den Prototyp-Parser um mehrzeilige Signaturen,
   Pointer/Referenzen und Überladungen erweitern; Kontrollstrukturen und
   Funktionsaufrufe dürfen keine Prototypen erzeugen. Gate: Parser-Unit-Tests.
-- [ ] AP-12.4: Die gemeinsame Vorverarbeitung in den lokalen Compile-Pfad
+- [x] AP-12.4: Die gemeinsame Vorverarbeitung in den lokalen Compile-Pfad
   einbinden, ohne Funktionskörper umzusortieren. Ursprünglichen Dateinamen und
-  Zeilenversatz explizit testen. Gate: `npm run test:integration`.
+  Zeilenversatz explizit testen. Gate: `npm run test:integration`. Nachweis:
+  `SandboxRunner` und `ExecutionManager` injizieren denselben
+  `SketchFileBuilder`; die Forward-Declaration-Regressionen greifen vor dem
+  lokalen Compile-Aufruf im gemeinsamen Builder.
 - [ ] AP-12.5: Den Docker-/Worker-Compile-Pfad auf dieselbe Vorverarbeitung
   umstellen; keine zweite Parserimplementierung anlegen. Gate:
   `npm run build:sandbox && npm run test:docker`.
@@ -950,25 +953,25 @@ README, Admin-Guide, Scalability-Dokument und Service-README gegen den Code korr
 
 **Teilaufgaben:**
 
-- [ ] AP-13.1: Dokumentationsinventar erstellen und jede Aussage zu Befehlen,
+- [x] AP-13.1: Dokumentationsinventar erstellen und jede Aussage zu Befehlen,
   Ports, Betriebsmodus, Tests und Architektur mit Code/Compose/CI abgleichen;
   Abweichungen als Checkliste im Plan festhalten. Gate: `rg`-Nachweis.
-- [ ] AP-13.2: Root-README auf verifizierte Installations-, Start-, Build- und
+- [x] AP-13.2: Root-README auf verifizierte Installations-, Start-, Build- und
   Testbefehle sowie den unterstützten Einzelknotenbetrieb aktualisieren. Gate:
   alle dokumentierten npm-Befehle existieren in `package.json`.
-- [ ] AP-13.3: `README_ADMIN.md` mit aktuellem Env-Schema, Docker-Setup,
+- [x] AP-13.3: `README_ADMIN.md` mit aktuellem Env-Schema, Docker-Setup,
   Health/Readiness und Shutdown-Ablauf abgleichen. Gate: Compose-Konfiguration
   rendern und interne Links prüfen.
-- [ ] AP-13.4: Skalierbarkeitsdokument klar in heutigen Ist-Zustand, gemessene
+- [x] AP-13.4: Skalierbarkeitsdokument klar in heutigen Ist-Zustand, gemessene
   Grenzen und zukünftige Anforderungen gliedern; überholte Aussagen in einen
   als historisch markierten Abschnitt verschieben. Gate: manueller Linkcheck.
-- [ ] AP-13.5: Service-/Architekturdokumentation gegen die tatsächlichen
+- [x] AP-13.5: Service-/Architekturdokumentation gegen die tatsächlichen
   Modulgrenzen und Message-Verträge aktualisieren. Gate: referenzierte Pfade
   existieren.
-- [ ] AP-13.6: Lizenzlage anhand `package.json` und vorhandener Hinweise
+- [x] AP-13.6: Lizenzlage anhand `package.json` und vorhandener Hinweise
   eindeutig machen: passende `LICENSE` ergänzen oder unbelegten Lizenzverweis
   entfernen. Gate: keine widersprüchlichen Lizenzangaben per `rg`.
-- [ ] AP-13.7: Reproduzierbaren Docs-Check für tote relative Links und
+- [x] AP-13.7: Reproduzierbaren Docs-Check für tote relative Links und
   nicht existente npm-Skripte ergänzen und als separaten CI-Schritt ausführen.
   Gate: lokaler Docs-Check und Workflow-Syntax.
 

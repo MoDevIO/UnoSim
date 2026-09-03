@@ -31,6 +31,7 @@ jobs:
       - name: Static Analysis & Unit Tests
         run: |
           npm run check
+          npm run check:docs
           npm run lint
           npm run test:coverage
 

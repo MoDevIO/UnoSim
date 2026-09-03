@@ -24,6 +24,7 @@ Optimized for speed and minimal resource usage without requiring Docker.
     ```bash
     export UNOSIM_SERVER_MODE=local
     export UNOSIM_SIMULATION_MODE=local
+    npm ci
     npm run dev:full
     ```
 
@@ -121,10 +122,13 @@ The following terms are used consistently across the UI debug header, API respon
 ## �💡 Admin Best Practices
 
 1. **Configuration source:** **Never** change values directly in `server/config.ts`. Those changes are overwritten on future updates.
-2. **Validation:** After changing configuration, the following commands should succeed:
+2. **Validation:** After changing configuration, run the deterministic and
+   relevant external gates:
     * `npm run check` (type safety)
-    * `npm run test:fast` (baseline functionality)
-    * `./run-tests.sh` (full test suite before commit)
+    * `npm run test:unit` (baseline functionality)
+    * `npm run test:integration` or `npm run test:docker` as applicable
+    * `npm run build` (production build)
+    * `npm run sonar` with a local SonarQube server; the Quality Gate must be green
 3. **Monitoring:** In `docker-sandbox` mode, monitor Docker host CPU load because starting many containers can create short spikes.
 4. **Security:** Use `SIMULATOR_ALLOWED_PARENT_ORIGINS` to allow iframe embedding only on trusted domains.
 

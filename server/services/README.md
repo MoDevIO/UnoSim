@@ -222,21 +222,20 @@ case "analog_read":
 
 ```bash
 # Test individual managers
-npm test -- arduino-output-parser.test.ts
-npm test -- registry-manager.test.ts
-npm test -- simulation-timeout-manager.test.ts
+npx vitest run tests/server/services/arduino-output-parser.test.ts --project=unit-node
+npx vitest run tests/server/services/registry-manager.test.ts --project=unit-node
+npx vitest run tests/server/services/simulation-timeout-manager.test.ts --project=unit-node
 
 # Test integration
-npm test -- sandbox-runner.test.ts
+npx vitest run tests/server/services/sandbox-runner.test.ts --project=unit-node
 ```
 
 ### Integration Tests
 
 ```bash
 # E2E scenarios
-npm test -- pause-resume-timing.test.ts
-npm test -- io-registry-pinmode-tracking.test.ts
-npm test -- backspace-e2e.test.ts
+npx vitest run tests/server/pause-resume-timing.test.ts --project=unit-node
+npx vitest run tests/server/io-registry-pinmode-tracking.test.ts --project=unit-node
 ```
 
 ### Coverage Targets

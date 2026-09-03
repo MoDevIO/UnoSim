@@ -1,5 +1,11 @@
 
-# Analyse: Limit auf 29 Instanzen & Skalierung auf 200
+# Skalierbarkeit: Ist-Zustand und zukünftige Kapazitätsziele
+
+> **Stand 3. September 2026:** Dieses Dokument trennt gemessene bzw.
+> konfigurationsabhängige Grenzen vom Zielbild. Der verbindliche Betrieb ist
+> heute ein einzelner zustandsbehafteter Backend-Knoten; die Abschnitte zu 100
+> bzw. 200 Clients sind Planungs- und Messszenarien, keine zugesicherte
+> Produktionskapazität.
 
 ## 1. Wie genau kommt es zur Beschränkung auf 29 Instanzen?
 Die Beschränkung ergibt sich aus einer Kette von drei Engpässen, wobei der erste der unmittelbar limitierende ist:
