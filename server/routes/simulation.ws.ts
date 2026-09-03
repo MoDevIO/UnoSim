@@ -1,7 +1,11 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "node:http";
 import type { SandboxRunner } from "../services/sandbox-runner";
-import { type IOPinRecord, type WSMessage, WSMessageType } from "@shared/schema";
+import {
+  type IOPinRecord,
+  type WSMessage,
+  WSMessageType,
+} from "@shared/schema";
 import type { Logger } from "@shared/logger";
 import type { PinStateChange } from "@shared/types/arduino.types";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
@@ -23,12 +27,16 @@ function rawDataToString(data: RawData): string {
 
 type SimulationDeps = {
   SandboxRunner: typeof SandboxRunner;
-  getSimulationRateLimiter: () => { checkLimit: (ws: WebSocket) => { allowed: boolean; retryAfter?: number }; removeClient: (ws: WebSocket) => void };
+  getSimulationRateLimiter: () => {
+    checkLimit: (ws: WebSocket) => { allowed: boolean; retryAfter?: number };
+    removeClient: (ws: WebSocket) => void;
+  };
   shouldSendSimulationEndMessage: (compileFailed: boolean) => boolean;
   getLastCompiledCode: () => string | null;
   logger: Logger;
   runnerPool?: ReturnType<typeof getSandboxRunnerPool>;
   trust: TrustConfig;
+  allowedWebSocketOrigins: readonly string[];
 };
 
 type ClientState = {
@@ -41,35 +49,47 @@ type ClientState = {
 };
 
 // Return type exposes a small API used by other modules (test-reset)
-export function registerSimulationWebSocket(httpServer: Server, deps: SimulationDeps) {
-  const { getSimulationRateLimiter, shouldSendSimulationEndMessage, getLastCompiledCode, logger, runnerPool } = deps;
+export function registerSimulationWebSocket(
+  httpServer: Server,
+  deps: SimulationDeps,
+) {
+  const {
+    getSimulationRateLimiter,
+    shouldSendSimulationEndMessage,
+    getLastCompiledCode,
+    logger,
+    runnerPool,
+  } = deps;
   const pool = runnerPool ?? getSandboxRunnerPool();
 
-  const wss = new WebSocketServer({ 
-    server: httpServer, 
+  const wss = new WebSocketServer({
+    server: httpServer,
     path: "/ws",
     // Disable per-message compression to eliminate zlib concurrency bottleneck.
     // With 200+ simultaneous clients, the default concurrencyLimit:10 caused CPU
     // starvation during pin-state bursts; disabling deflate entirely removes that
     // constraint at the cost of slightly higher bandwidth (tolerable on LAN).
     perMessageDeflate: false,
-    verifyClient: createWebSocketAuthorizationVerifier(deps.trust),
+    verifyClient: createWebSocketAuthorizationVerifier(
+      deps.trust,
+      deps.allowedWebSocketOrigins,
+    ),
   });
 
   const clientRunners = new Map<WebSocket, ClientState>();
 
   // Serial output batching: collect output lines over 50ms before sending to reduce
   // WebSocket message count (e.g., from 100 msg/batch to 1 msg/batch at 20 batches/sec)
-  // 
+  //
   // STRUCTURE: Buffer stores both data AND semantic flag (isComplete) so we can
-  // intelligently reconstruct newlines without duplication. The client also adds 
+  // intelligently reconstruct newlines without duplication. The client also adds
   // newlines based on isComplete flag, so we must be careful:
   // - Store each line with its isComplete flag
   // - When flushing, add newlines BETWEEN lines (not after final line)
   // - Let client add the final newline if needed
   const clientSerialBuffers = new Map<
     WebSocket,
-    { 
+    {
       lines: Array<{ data: string; isComplete: boolean }>;
       flushTimer: NodeJS.Timeout | null;
     }
@@ -87,7 +107,7 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
    * - Add newline after EVERY complete line (not just between)
    * - Don't add newline after incomplete lines
    * - Let the isComplete flag tell the client whether to add final newline
-   * 
+   *
    * CRITICAL: This prevents lost newlines at batch boundaries.
    * If batch 1 ends with isComplete=false and batch 2 starts with isComplete=true,
    * we must ensure newlines are added correctly.
@@ -106,12 +126,12 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       .map((lineObj) => {
         // If line is complete (had newline originally), add it back
         if (lineObj.isComplete) {
-          return lineObj.data + '\n';
+          return lineObj.data + "\n";
         }
         // If line is incomplete, don't add newline
         return lineObj.data;
       })
-      .join('');
+      .join("");
 
     // The isComplete flag for the WebSocket message is based on the last line
     const lastLine = bufferState.lines.at(-1);
@@ -131,7 +151,11 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
    * Accumulates lines for 50ms before sending them as a single batched message
    * Preserves isComplete semantic so client-side newline injection works correctly
    */
-  function sendSerialOutputBatched(ws: WebSocket, line: string, isComplete?: boolean): void {
+  function sendSerialOutputBatched(
+    ws: WebSocket,
+    line: string,
+    isComplete?: boolean,
+  ): void {
     // Ensure buffer state exists for this client
     let bufferState = clientSerialBuffers.get(ws);
     bufferState ??= { lines: [], flushTimer: null };
@@ -174,13 +198,17 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     try {
       await runner.stop();
     } catch (error) {
-      logger.debug(`[SandboxRunnerPool] runner.stop() failed during ${reason}: ${error}`);
+      logger.debug(
+        `[SandboxRunnerPool] runner.stop() failed during ${reason}: ${error}`,
+      );
     }
 
     try {
       await pool.releaseRunner(runner);
     } catch (error) {
-      logger.warn(`[SandboxRunnerPool] releaseRunner failed during ${reason}: ${error}`);
+      logger.warn(
+        `[SandboxRunnerPool] releaseRunner failed during ${reason}: ${error}`,
+      );
     }
   }
 
@@ -188,17 +216,17 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
    * Build all callback functions for sketch execution (onOutput, onError, etc.)
    * Extracted to reduce cognitive complexity of message handler.
    */
-  function buildRunSketchCallbacks(
-    ws: WebSocket,
-    clientState: ClientState,
-  ) {
+  function buildRunSketchCallbacks(ws: WebSocket, clientState: ClientState) {
     let gccSuccessSent = false;
     let compileFailed = false;
 
     const onOutput = (line: string, isComplete?: boolean) => {
       if (!gccSuccessSent) {
         gccSuccessSent = true;
-        sendMessageToClient(ws, { type: WSMessageType.COMPILATION_STATUS, gccStatus: "success" });
+        sendMessageToClient(ws, {
+          type: WSMessageType.COMPILATION_STATUS,
+          gccStatus: "success",
+        });
       }
       sendSerialOutputBatched(ws, line, isComplete);
     };
@@ -206,7 +234,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     const onError = (err: string) => {
       logger.warn(`[Client WS][ERR]: ${err}`);
       flushSerialOutputBuffer(ws);
-      sendMessageToClient(ws, { type: WSMessageType.SERIAL_OUTPUT, data: "[ERR] " + err });
+      sendMessageToClient(ws, {
+        type: WSMessageType.SERIAL_OUTPUT,
+        data: "[ERR] " + err,
+      });
     };
 
     const onExit = (exitCode: number | null) => {
@@ -225,7 +256,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
           if (exitCode === 0 && !gccSuccessSent) {
             gccSuccessSent = true;
-            sendMessageToClient(ws, { type: WSMessageType.COMPILATION_STATUS, gccStatus: "success" });
+            sendMessageToClient(ws, {
+              type: WSMessageType.COMPILATION_STATUS,
+              gccStatus: "success",
+            });
           }
 
           sendMessageToClient(ws, {
@@ -233,7 +267,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
             data: "--- Simulation ended: Loop cycles completed ---\n",
             isComplete: true,
           });
-          sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "stopped" });
+          sendMessageToClient(ws, {
+            type: WSMessageType.SIMULATION_STATUS,
+            status: "stopped",
+          });
 
           const bufferState = clientSerialBuffers.get(ws);
           if (bufferState?.flushTimer) {
@@ -249,13 +286,24 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
     const onCompileError = (compileErr: string) => {
       compileFailed = true;
-      sendMessageToClient(ws, { type: WSMessageType.COMPILATION_ERROR, data: compileErr });
-      sendMessageToClient(ws, { type: WSMessageType.COMPILATION_STATUS, gccStatus: "error" });
-      sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "stopped" });
+      sendMessageToClient(ws, {
+        type: WSMessageType.COMPILATION_ERROR,
+        data: compileErr,
+      });
+      sendMessageToClient(ws, {
+        type: WSMessageType.COMPILATION_STATUS,
+        gccStatus: "error",
+      });
+      sendMessageToClient(ws, {
+        type: WSMessageType.SIMULATION_STATUS,
+        status: "stopped",
+      });
       const cs = clientRunners.get(ws);
       if (cs) {
         safeReleaseRunner(cs, "onCompileError").catch((error) => {
-          logger.warn(`[SandboxRunnerPool] safeReleaseRunner failed in onCompileError: ${error}`);
+          logger.warn(
+            `[SandboxRunnerPool] safeReleaseRunner failed in onCompileError: ${error}`,
+          );
         });
       }
       logger.error(`[Client Compile Error]: ${compileErr}`);
@@ -264,16 +312,27 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     const onCompileSuccess = () => {
       if (!gccSuccessSent) {
         gccSuccessSent = true;
-        sendMessageToClient(ws, { type: WSMessageType.COMPILATION_STATUS, gccStatus: "success" });
+        sendMessageToClient(ws, {
+          type: WSMessageType.COMPILATION_STATUS,
+          gccStatus: "success",
+        });
       }
     };
 
     const onCompileQueued = () => {
-      sendMessageToClient(ws, { type: WSMessageType.COMPILATION_STATUS, gccStatus: "queued" });
+      sendMessageToClient(ws, {
+        type: WSMessageType.COMPILATION_STATUS,
+        gccStatus: "queued",
+      });
     };
 
     const onPinState = (pin: number, type: PinStateChange, value: number) => {
-      sendMessageToClient(ws, { type: WSMessageType.PIN_STATE, pin, stateType: type, value });
+      sendMessageToClient(ws, {
+        type: WSMessageType.PIN_STATE,
+        pin,
+        stateType: type,
+        value,
+      });
     };
 
     const onIORegistry = (
@@ -281,14 +340,15 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       baudrate: number | undefined,
       reason?: string,
     ) => {
-      const message: Extract<WSMessage, { type: "io_registry" }> = { type: WSMessageType.IO_REGISTRY, registry };
+      const message: Extract<WSMessage, { type: "io_registry" }> = {
+        type: WSMessageType.IO_REGISTRY,
+        registry,
+      };
       if (baudrate !== undefined) message.baudrate = baudrate;
       if (reason !== undefined) message.reason = reason;
       sendMessageToClient(ws, message);
       const baudSuffix = baudrate === undefined ? "" : `, baud=${baudrate}`;
-      logger.info(
-        `[io_registry] ${registry.length} pins${baudSuffix}`,
-      );
+      logger.info(`[io_registry] ${registry.length} pins${baudSuffix}`);
 
       // Async save without blocking — fire-and-forget with error handling
       (async () => {
@@ -302,10 +362,14 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
             return;
           }
 
-          const registryFile = path.join(sketchDir, `io-registry-${Date.now()}.pending.json`);
+          const registryFile = path.join(
+            sketchDir,
+            `io-registry-${Date.now()}.pending.json`,
+          );
           await writeFile(registryFile, JSON.stringify(registry, null, 2));
           logger.debug(`Registry saved: ${path.basename(registryFile)}`);
-          if (clientState.runner) clientState.runner.setRegistryFile(registryFile);
+          if (clientState.runner)
+            clientState.runner.setRegistryFile(registryFile);
         } catch (err) {
           logger.warn(
             `Failed to save I/O Registry file: ${err instanceof Error ? err.message : String(err)}`,
@@ -314,7 +378,19 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       })();
     };
 
-    const onTelemetry = (metrics: { timestamp: number; intendedPinChangesPerSecond: number; actualPinChangesPerSecond: number; droppedPinChangesPerSecond: number; batchesPerSecond: number; avgStatesPerBatch: number; serialOutputPerSecond: number; serialBytesPerSecond: number; serialBytesTotal: number; serialIntendedBytesPerSecond: number; serialDroppedBytesPerSecond: number }) => {
+    const onTelemetry = (metrics: {
+      timestamp: number;
+      intendedPinChangesPerSecond: number;
+      actualPinChangesPerSecond: number;
+      droppedPinChangesPerSecond: number;
+      batchesPerSecond: number;
+      avgStatesPerBatch: number;
+      serialOutputPerSecond: number;
+      serialBytesPerSecond: number;
+      serialBytesTotal: number;
+      serialIntendedBytesPerSecond: number;
+      serialDroppedBytesPerSecond: number;
+    }) => {
       sendMessageToClient(ws, { type: WSMessageType.SIM_TELEMETRY, metrics });
     };
 
@@ -322,7 +398,11 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       states: Array<{ pin: number; stateType: PinStateChange; value: number }>;
       timestamp: number;
     }) => {
-      sendMessageToClient(ws, { type: WSMessageType.PIN_STATE_BATCH, states: batch.states, timestamp: batch.timestamp });
+      sendMessageToClient(ws, {
+        type: WSMessageType.PIN_STATE_BATCH,
+        states: batch.states,
+        timestamp: batch.timestamp,
+      });
     };
 
     return {
@@ -389,17 +469,23 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       return true;
     } catch (error) {
       clientState.queueAbortController = null;
-      const isCancelled = error instanceof Error && error.message.includes("cancelled");
+      const isCancelled =
+        error instanceof Error && error.message.includes("cancelled");
       if (isCancelled) {
         // Client disconnected while waiting — nothing to send, WS is already closed
-        logger.debug(`[SandboxRunnerPool] Acquire cancelled because WS closed while queued`);
+        logger.debug(
+          `[SandboxRunnerPool] Acquire cancelled because WS closed while queued`,
+        );
       } else {
         logger.error(`[SandboxRunnerPool] Failed to acquire runner: ${error}`);
         sendMessageToClient(ws, {
           type: WSMessageType.SERIAL_OUTPUT,
           data: "[ERR] Server overloaded. All runners busy. Please try again.\n",
         });
-        sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "stopped" });
+        sendMessageToClient(ws, {
+          type: WSMessageType.SIMULATION_STATUS,
+          status: "stopped",
+        });
       }
       clientState.runner = null;
       clientState.isRunning = false;
@@ -412,14 +498,20 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
    * Log consolidated run payload for audit/evidence.
    * Extracted to keep handleStartSimulation below cognitive complexity threshold.
    */
-  function logRunPayloadAudit(code: string, timeoutSec: number | undefined, sessionId: string | undefined): void {
+  function logRunPayloadAudit(
+    code: string,
+    timeoutSec: number | undefined,
+    sessionId: string | undefined,
+  ): void {
     try {
       const payload = {
         code,
         timeoutSec,
         context: { sessionId, label: "default-ws" },
       };
-      logger.debug(`[B1-Evidence] Payload: ${JSON.stringify(payload, null, 2)}`);
+      logger.debug(
+        `[B1-Evidence] Payload: ${JSON.stringify(payload, null, 2)}`,
+      );
     } catch (err) {
       logger.warn(
         `Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`,
@@ -441,7 +533,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     const limitCheck = rateLimiter.checkLimit(ws);
     if (!limitCheck.allowed) {
       const retryAfter = limitCheck.retryAfter || 30;
-      logger.warn(`[RateLimit] Simulation start rejected. Retry after ${retryAfter}s`);
+      logger.warn(
+        `[RateLimit] Simulation start rejected. Retry after ${retryAfter}s`,
+      );
 
       if (clientState?.runner) {
         await safeReleaseRunner(clientState, "rate-limit");
@@ -451,15 +545,21 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
         type: WSMessageType.SERIAL_OUTPUT,
         data: `[ERR] Rate limit exceeded. Too many simulation starts. Please wait ${retryAfter} seconds before starting again.\n`,
       });
-      sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "stopped" });
+      sendMessageToClient(ws, {
+        type: WSMessageType.SIMULATION_STATUS,
+        status: "stopped",
+      });
       return;
     }
 
     // Use per-client code from the WS message if provided (multi-client isolation),
     // otherwise fall back to the global lastCompiledCode (backward compatibility).
-    const code = ("code" in data && typeof data.code === "string" && data.code.trim().length > 0)
-      ? data.code
-      : getLastCompiledCode();
+    const code =
+      "code" in data &&
+      typeof data.code === "string" &&
+      data.code.trim().length > 0
+        ? data.code
+        : getLastCompiledCode();
     if (!code) {
       if (clientState.runner) {
         await safeReleaseRunner(clientState, "missing-compiled-code");
@@ -471,7 +571,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
         type: WSMessageType.SERIAL_OUTPUT,
         data: "[ERR] No compiled code available. Please compile first.\n",
       });
-      sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "stopped" });
+      sendMessageToClient(ws, {
+        type: WSMessageType.SIMULATION_STATUS,
+        status: "stopped",
+      });
       return;
     }
 
@@ -482,17 +585,23 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
     // If the pool is saturated, notify client it is queued and wait for a slot
     const statsBeforeAcquire = pool.getStats();
-    const willQueue = statsBeforeAcquire.availableRunners === 0 &&
+    const willQueue =
+      statsBeforeAcquire.availableRunners === 0 &&
       statsBeforeAcquire.totalRunners >= statsBeforeAcquire.maxRunners;
     if (willQueue) {
-      logger.debug(`[SandboxRunnerPool] Pool saturated — client queued (queue length: ${statsBeforeAcquire.queuedRequests + 1})`);
-      sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "queued" });
+      logger.debug(
+        `[SandboxRunnerPool] Pool saturated — client queued (queue length: ${statsBeforeAcquire.queuedRequests + 1})`,
+      );
+      sendMessageToClient(ws, {
+        type: WSMessageType.SIMULATION_STATUS,
+        status: "queued",
+      });
     }
 
     // Acquire new runner from pool (may block until a slot is released).
     // The AbortController is managed inside acquireRunnerForClient; it is set on
     // clientState so the WS-close handler can cancel the wait on disconnect.
-    if (!await acquireRunnerForClient(ws, clientState)) return;
+    if (!(await acquireRunnerForClient(ws, clientState))) return;
     const acquiredRunner = clientState.runner!; // non-null: acquireRunnerForClient returned true
 
     // Slot assignment: tell client which runner slot they own immediately
@@ -503,7 +612,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     // included in the total it (and others) receive.
     clientState.isRunning = true;
     clientState.isPaused = false;
-    sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "running" });
+    sendMessageToClient(ws, {
+      type: WSMessageType.SIMULATION_STATUS,
+      status: "running",
+    });
     sendMessageToClient(ws, {
       type: WSMessageType.COMPILATION_STATUS,
       gccStatus: "compiling",
@@ -562,10 +674,19 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     _ws: WebSocket,
     clientState: ClientState,
   ): Promise<void> {
-    if (clientState?.runner && (clientState?.isRunning || clientState?.isPaused)) {
+    if (
+      clientState?.runner &&
+      (clientState?.isRunning || clientState?.isPaused)
+    ) {
       await safeReleaseRunner(clientState, "code_changed");
-      sendMessageToClient(_ws, { type: WSMessageType.SIMULATION_STATUS, status: "stopped" });
-      sendMessageToClient(_ws, { type: WSMessageType.SERIAL_OUTPUT, data: "--- Simulation stopped due to code change ---\n" });
+      sendMessageToClient(_ws, {
+        type: WSMessageType.SIMULATION_STATUS,
+        status: "stopped",
+      });
+      sendMessageToClient(_ws, {
+        type: WSMessageType.SERIAL_OUTPUT,
+        data: "--- Simulation stopped due to code change ---\n",
+      });
     }
   }
 
@@ -579,8 +700,14 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     if (clientState?.runner) {
       await safeReleaseRunner(clientState, "stop_simulation");
     }
-    sendMessageToClient(_ws, { type: WSMessageType.SIMULATION_STATUS, status: "stopped" });
-    sendMessageToClient(_ws, { type: WSMessageType.SERIAL_OUTPUT, data: "--- Simulation stopped ---\n" });
+    sendMessageToClient(_ws, {
+      type: WSMessageType.SIMULATION_STATUS,
+      status: "stopped",
+    });
+    sendMessageToClient(_ws, {
+      type: WSMessageType.SERIAL_OUTPUT,
+      data: "--- Simulation stopped ---\n",
+    });
   }
 
   /**
@@ -594,8 +721,14 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       const paused = clientState.runner.pause();
       if (paused) {
         clientState.isPaused = true;
-        sendMessageToClient(_ws, { type: WSMessageType.SIMULATION_STATUS, status: "paused" });
-        sendMessageToClient(_ws, { type: WSMessageType.SERIAL_OUTPUT, data: "--- Simulation paused ---\n" });
+        sendMessageToClient(_ws, {
+          type: WSMessageType.SIMULATION_STATUS,
+          status: "paused",
+        });
+        sendMessageToClient(_ws, {
+          type: WSMessageType.SERIAL_OUTPUT,
+          data: "--- Simulation paused ---\n",
+        });
       }
     }
   }
@@ -612,8 +745,14 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       if (resumed) {
         clientState.isPaused = false;
         clientState.isRunning = true;
-        sendMessageToClient(_ws, { type: WSMessageType.SIMULATION_STATUS, status: "running" });
-        sendMessageToClient(_ws, { type: WSMessageType.SERIAL_OUTPUT, data: "--- Simulation resumed ---\n" });
+        sendMessageToClient(_ws, {
+          type: WSMessageType.SIMULATION_STATUS,
+          status: "running",
+        });
+        sendMessageToClient(_ws, {
+          type: WSMessageType.SERIAL_OUTPUT,
+          data: "--- Simulation resumed ---\n",
+        });
       }
     }
   }
@@ -626,7 +765,11 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     data: Extract<WSMessage, { type: "serial_input" }>,
     clientState: ClientState,
   ): void {
-    if (clientState?.runner && clientState?.isRunning && !clientState.isPaused) {
+    if (
+      clientState?.runner &&
+      clientState?.isRunning &&
+      !clientState.isPaused
+    ) {
       clientState.runner.sendSerialInput(data.data);
     }
   }
@@ -639,7 +782,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     data: Extract<WSMessage, { type: "set_pin_value" }>,
     clientState: ClientState,
   ): void {
-    if (clientState?.runner && (clientState.isRunning || clientState.isPaused)) {
+    if (
+      clientState?.runner &&
+      (clientState.isRunning || clientState.isPaused)
+    ) {
       clientState.runner.setPinValue(data.pin, data.value);
     }
   }
@@ -659,12 +805,23 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
     const testRunIdSuffix = testRunId ? ` [testRunId: ${testRunId}]` : "";
 
     _wsConnectAttempts++;
-    logger.warn(`New WebSocket client connected for subject ${identity.subject}${testRunIdSuffix}. Total clients: ${wss.clients.size} (attempt #${_wsConnectAttempts})`);
+    logger.warn(
+      `New WebSocket client connected for subject ${identity.subject}${testRunIdSuffix}. Total clients: ${wss.clients.size} (attempt #${_wsConnectAttempts})`,
+    );
     if (_wsConnectAttempts % 10 === 0) {
-      logger.warn(`[WS milestone] ${_wsConnectAttempts} total connect attempts, ${wss.clients.size} currently open`);
+      logger.warn(
+        `[WS milestone] ${_wsConnectAttempts} total connect attempts, ${wss.clients.size} currently open`,
+      );
     }
 
-    clientRunners.set(ws, { subject: identity.subject, runner: null, isRunning: false, isPaused: false, testRunId, queueAbortController: null });
+    clientRunners.set(ws, {
+      subject: identity.subject,
+      runner: null,
+      isRunning: false,
+      isPaused: false,
+      testRunId,
+      queueAbortController: null,
+    });
 
     const clientState = clientRunners.get(ws);
     let simStatus: "paused" | "running" | "stopped";
@@ -697,7 +854,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
         const clientState = clientRunners.get(ws);
 
         if (!clientState) {
-          logger.warn(`[WS] Message received but clientState not found for type: ${type}`);
+          logger.warn(
+            `[WS] Message received but clientState not found for type: ${type}`,
+          );
           return;
         }
 
@@ -731,7 +890,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
             break;
 
           default:
-            logger.warn(`Unknown WS message type: ${JSON.stringify(data?.type)}`);
+            logger.warn(
+              `Unknown WS message type: ${JSON.stringify(data?.type)}`,
+            );
             break;
         }
       } catch (error) {
@@ -772,7 +933,9 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
 
       const rateLimiter = getSimulationRateLimiter();
       rateLimiter.removeClient(ws);
-      logger.warn(`Client disconnected (code=${code}, reason=${reason.toString() || "—"}). Remaining clients: ${wss.clients.size}`);
+      logger.warn(
+        `Client disconnected (code=${code}, reason=${reason.toString() || "—"}). Remaining clients: ${wss.clients.size}`,
+      );
     });
 
     ws.on("error", async (error) => {
@@ -786,15 +949,17 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
           await safeReleaseRunner(clientState, "ws-error");
         }
       }
-      
+
       // Clean up serial output buffer and timer
       const bufferState = clientSerialBuffers.get(ws);
       if (bufferState?.flushTimer) {
         clearTimeout(bufferState.flushTimer);
       }
       clientSerialBuffers.delete(ws);
-      
-      logger.error(`WebSocket error: ${error instanceof Error ? error.message : String(error)}`);
+
+      logger.error(
+        `WebSocket error: ${error instanceof Error ? error.message : String(error)}`,
+      );
     });
   });
 
@@ -810,7 +975,10 @@ export function registerSimulationWebSocket(httpServer: Server, deps: Simulation
       clientState.isPaused = false;
       cleanedTestRunIds.push(clientState.testRunId);
 
-      sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "stopped" });
+      sendMessageToClient(ws, {
+        type: WSMessageType.SIMULATION_STATUS,
+        status: "stopped",
+      });
     }
 
     const cleaned = cleanedTestRunIds.filter((id): id is string => Boolean(id));

@@ -9,7 +9,10 @@ import { getCompilerWithFallback } from "./services/compiler-with-fallback";
 import { SandboxRunner } from "./services/sandbox-runner";
 import { getSimulationRateLimiter } from "./services/rate-limiter";
 import { shouldSendSimulationEndMessage } from "./services/simulation-end";
-import { getSandboxRunnerPool, initializeSandboxRunnerPool } from "./services/sandbox-runner-pool";
+import {
+  getSandboxRunnerPool,
+  initializeSandboxRunnerPool,
+} from "./services/sandbox-runner-pool";
 import { insertSketchSchema } from "@shared/schema";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -68,7 +71,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   // Placeholder for simulation websocket API (populated when WS module is registered)
-  let simulationApi: { stopAllRunnersAndNotify: () => Promise<{ cleanedUpCount: number; cleanedTestRunIds: string[] }> } | null = null;
+  let simulationApi: {
+    stopAllRunnersAndNotify: () => Promise<{
+      cleanedUpCount: number;
+      cleanedTestRunIds: string[];
+    }>;
+  } | null = null;
 
   registerTestResetRoute(app, {
     isTest: config.isTest,
@@ -76,7 +84,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     getSimulationApi: () => simulationApi,
     logger,
   });
-
 
   // --- Examples API endpoint ---
 
@@ -87,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         path.resolve(__dirname, "..", "public"),
         path.resolve(__dirname, "public"),
       ];
-      
+
       // Find first existing public dir (async)
       let publicDir = publicCandidates[0];
       for (const candidate of publicCandidates) {
@@ -99,12 +106,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Continue to next candidate
         }
       }
-      
+
       const examplesDir = path.resolve(publicDir, "examples");
       const exampleFiles: string[] = [];
 
       // Recursively read all .ino and .h files from examples and subdirectories (async)
-      async function readExamplesRecursive(dir: string, basePath: string = ""): Promise<void> {
+      async function readExamplesRecursive(
+        dir: string,
+        basePath: string = "",
+      ): Promise<void> {
         try {
           const files = await readdir(dir);
 
@@ -190,7 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delegate the /api/compile handler to the compiler module and inject
   // the compilation cache + lastCompiledCode setter so behaviour is
   // unchanged but implementation is modularized.
-  // 
+  //
   // Use CompilerWithFallback which routes work through worker threads for parallelization
   const compiler = getCompilerWithFallback();
   registerCompilerRoutes(app, {
@@ -219,6 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     logger,
     runnerPool,
     trust: config.trust,
+    allowedWebSocketOrigins: config.server.allowedWebSocketOrigins,
   });
 
   // (WS implementation moved to server/routes/simulation.ws.ts)

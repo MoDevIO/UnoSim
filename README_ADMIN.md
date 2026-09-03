@@ -131,6 +131,9 @@ The following terms are used consistently across the UI debug header, API respon
 Docker/production mode is fail-closed and requires an authenticating reverse
 proxy. Set `UNOSIM_GATEWAY_SECRET` to a random value with at least 32 characters
 and `UNOSIM_TRUSTED_PROXY` to the exact proxy IP or CIDR before running Compose.
+`UNOSIM_ALLOWED_WS_ORIGINS` must contain the comma-separated, exact browser
+origins allowed to open `/ws`, for example `https://classroom.example`. Paths,
+wildcards and a missing `Origin` are rejected in gateway mode.
 Compose publishes port 3000 on loopback by default; `UNOSIM_BIND_ADDRESS` may
 override this only with a private address reachable by the gateway.
 The proxy must remove incoming `X-UnoSim-*` headers and inject the authenticated

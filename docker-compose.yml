@@ -17,6 +17,7 @@ services:
       - UNOSIM_TRUST_MODE=gateway
       - UNOSIM_GATEWAY_SECRET=${UNOSIM_GATEWAY_SECRET:?Set UNOSIM_GATEWAY_SECRET to at least 32 characters}
       - UNOSIM_TRUSTED_PROXY=${UNOSIM_TRUSTED_PROXY:?Set UNOSIM_TRUSTED_PROXY to the gateway IP or CIDR}
+      - UNOSIM_ALLOWED_WS_ORIGINS=${UNOSIM_ALLOWED_WS_ORIGINS:?Set UNOSIM_ALLOWED_WS_ORIGINS to the comma-separated browser origins}
       - ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
       - DOCKER_HOST=unix:///var/run/docker.sock

@@ -45,7 +45,10 @@ export function parseTrustConfig(
   }
 
   if (rawMode === "local") {
-    if (nodeEnv === "production" && env.UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL !== "true") {
+    if (
+      nodeEnv === "production" &&
+      env.UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL !== "true"
+    ) {
       throw new Error(
         "Production requires UNOSIM_TRUST_MODE=gateway; set UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL=true only for an isolated development deployment",
       );
@@ -55,20 +58,50 @@ export function parseTrustConfig(
 
   const gatewaySecret = env.UNOSIM_GATEWAY_SECRET;
   if (!gatewaySecret || gatewaySecret.length < 32) {
-    throw new Error("UNOSIM_GATEWAY_SECRET must contain at least 32 characters in gateway mode");
+    throw new Error(
+      "UNOSIM_GATEWAY_SECRET must contain at least 32 characters in gateway mode",
+    );
   }
 
   const trustedProxy = env.UNOSIM_TRUSTED_PROXY?.trim();
   if (!trustedProxy || !isIpOrCidr(trustedProxy)) {
-    throw new Error("UNOSIM_TRUSTED_PROXY must be an explicit IP address or CIDR in gateway mode");
+    throw new Error(
+      "UNOSIM_TRUSTED_PROXY must be an explicit IP address or CIDR in gateway mode",
+    );
   }
 
   return { mode: rawMode, gatewaySecret, trustedProxy };
 }
 
-function singleHeader(headers: IncomingHttpHeaders, name: string): string | undefined {
+function singleHeader(
+  headers: IncomingHttpHeaders,
+  name: string,
+): string | undefined {
   const value = headers[name];
   return Array.isArray(value) ? undefined : value;
+}
+
+export function isWebSocketOriginAllowed(
+  headers: IncomingHttpHeaders,
+  trust: TrustConfig,
+  allowedOrigins: readonly string[],
+): boolean {
+  const origin = singleHeader(headers, "origin");
+  if (!origin) return trust.mode === "local";
+
+  try {
+    const parsed = new URL(origin);
+    if (
+      parsed.origin !== origin ||
+      !["http:", "https:"].includes(parsed.protocol)
+    ) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  return allowedOrigins.includes(origin);
 }
 
 function secretsEqual(actual: string | undefined, expected: string): boolean {
@@ -86,7 +119,12 @@ export function authorizeHeaders(
     return { allowed: true, identity: { subject: "local", roles: ["user"] } };
   }
 
-  if (!secretsEqual(singleHeader(headers, "x-unosim-gateway-secret"), trust.gatewaySecret!)) {
+  if (
+    !secretsEqual(
+      singleHeader(headers, "x-unosim-gateway-secret"),
+      trust.gatewaySecret!,
+    )
+  ) {
     return { allowed: false, status: 401 };
   }
 
@@ -97,19 +135,29 @@ export function authorizeHeaders(
 
   const rolesHeader = singleHeader(headers, "x-unosim-roles");
   if (!rolesHeader) return { allowed: false, status: 403 };
-  const roles = rolesHeader.split(",").map((role) => role.trim()).filter(Boolean);
-  if (!roles.includes("user") || roles.some((role) => !ALLOWED_ROLES.has(role))) {
+  const roles = rolesHeader
+    .split(",")
+    .map((role) => role.trim())
+    .filter(Boolean);
+  if (
+    !roles.includes("user") ||
+    roles.some((role) => !ALLOWED_ROLES.has(role))
+  ) {
     return { allowed: false, status: 403 };
   }
 
   return { allowed: true, identity: { subject, roles } };
 }
 
-export function createUserAuthorizationMiddleware(trust: TrustConfig): RequestHandler {
+export function createUserAuthorizationMiddleware(
+  trust: TrustConfig,
+): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
     const result = authorizeHeaders(req.headers, trust);
     if (!result.allowed) {
-      res.status(result.status).json({ error: result.status === 401 ? "Unauthorized" : "Forbidden" });
+      res
+        .status(result.status)
+        .json({ error: result.status === 401 ? "Unauthorized" : "Forbidden" });
       return;
     }
 
@@ -120,6 +168,7 @@ export function createUserAuthorizationMiddleware(trust: TrustConfig): RequestHa
 
 export function createWebSocketAuthorizationVerifier(
   trust: TrustConfig,
+  allowedOrigins: readonly string[],
 ): VerifyClientCallbackAsync {
   return ({ req }, done) => {
     const result = authorizeHeaders(req.headers, trust);
@@ -129,6 +178,10 @@ export function createWebSocketAuthorizationVerifier(
         result.status,
         result.status === 401 ? "Unauthorized" : "Forbidden",
       );
+      return;
+    }
+    if (!isWebSocketOriginAllowed(req.headers, trust, allowedOrigins)) {
+      done(false, 403, "Forbidden origin");
       return;
     }
     done(true);

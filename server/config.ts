@@ -58,6 +58,13 @@ const cwd = process.cwd();
 const cpuCount = os.cpus().length;
 const defaultWorkers = Math.min(8, Math.max(2, Math.floor(cpuCount * 0.5)));
 const defaultCompileMaxConcurrent = Math.max(1, cpuCount - 1);
+const trust = parseTrustConfig(process.env);
+const localWebSocketOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+];
 
 // ── Config ──────────────────────────────────────────────────────────
 
@@ -84,7 +91,7 @@ export const config = {
   isTest: process.env.NODE_ENV === "test",
 
   /** HTTP and WebSocket authentication boundary. */
-  trust: parseTrustConfig(process.env),
+  trust,
 
   // ── Server ──────────────────────────────────────────────────────
 
@@ -105,6 +112,11 @@ export const config = {
         "http://localhost:5173",
         "http://127.0.0.1:5173",
       ]),
+    ),
+    /** Exact browser origins allowed to open the simulation WebSocket. */
+    allowedWebSocketOrigins: envList(
+      "UNOSIM_ALLOWED_WS_ORIGINS",
+      trust.mode === "local" ? localWebSocketOrigins : [],
     ),
     /** Completely bypass rate limiting (for E2E tests) */
     disableRateLimit: envBool("DISABLE_RATE_LIMIT", false),

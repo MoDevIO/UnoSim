@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-02
 - Owners: UnoSim maintainers and platform operators
-- Implements: AP-01.2
+- Implements: AP-01.2, AP-01.3, AP-01.4
 
 ## Context
 
@@ -95,6 +95,9 @@ The implementation task AP-01.3 will introduce validated startup configuration:
 - `UNOSIM_GATEWAY_SECRET`, required in gateway mode and rejected in local mode.
 - `UNOSIM_TRUSTED_PROXY`, required in gateway mode and limited to an explicit IP
   address or CIDR.
+- `UNOSIM_ALLOWED_WS_ORIGINS`, required by the deployment and interpreted as a
+  comma-separated exact allowlist. Gateway WebSocket upgrades without an
+  allowed browser `Origin` are rejected.
 
 Startup fails when gateway mode is incomplete. A production/Docker process must
 not start in local mode unless an explicit development override is present.
