@@ -159,6 +159,26 @@ describe("useCompilation", () => {
     expect(apiRequest).not.toHaveBeenCalled();
   });
 
+  it("does not submit an empty sketch from the compile action", () => {
+    const params = buildParams();
+    params.editorRef.current = { getValue: () => "" };
+    params.tabs = [];
+    params.code = "";
+
+    const { result } = renderHook(() => useCompilation(params), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleCompile();
+    });
+
+    expect(params.toast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "No Code" }),
+    );
+    expect(apiRequest).not.toHaveBeenCalled();
+  });
+
   it("handles compile failure and shows error", async () => {
     const params = buildParams();
     const wrapper = createWrapper();

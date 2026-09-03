@@ -615,6 +615,15 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       mainSketchCode = params.tabs[0]?.content || params.code;
     }
 
+    if (!mainSketchCode || mainSketchCode.trim().length === 0) {
+      params.toast({
+        title: "No Code",
+        description: "Please write some code before compiling",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const headers = params.tabs.slice(1).map((tab) => ({
       name: tab.name,
       content: tab.content,

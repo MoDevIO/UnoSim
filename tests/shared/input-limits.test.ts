@@ -21,6 +21,7 @@ describe("input boundary contract", () => {
     expect(INPUT_LIMITS.simulation.maxPin).toBeGreaterThanOrEqual(
       INPUT_LIMITS.simulation.minPin,
     );
+    expect(INPUT_LIMITS.simulation.maxPinValue).toBe(1023);
   });
 
   it("accepts only safe artifact identifiers and header basenames", () => {

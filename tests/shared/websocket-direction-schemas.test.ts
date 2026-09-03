@@ -42,8 +42,22 @@ describe("WebSocket direction schemas", () => {
     expect(
       clientToServerWSMessageSchema.safeParse({
         type: "set_pin_value",
+        pin: 14,
+        value: 1023,
+      }).success,
+    ).toBe(true);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "set_pin_value",
         pin: 20,
-        value: 256,
+        value: 1,
+      }).success,
+    ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "set_pin_value",
+        pin: 14,
+        value: 1024,
       }).success,
     ).toBe(false);
     expect(

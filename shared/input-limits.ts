@@ -29,6 +29,9 @@ export const INPUT_LIMITS = {
     maxTimeoutSeconds: 300,
     minPin: 0,
     maxPin: 19,
+    // Arduino UNO ADC readings use the full 10-bit range. Digital writes use
+    // only 0/1, but this shared WebSocket command also carries analog inputs.
+    maxPinValue: 1023,
     minBaudrate: 300,
     maxBaudrate: 115_200,
   },

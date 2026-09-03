@@ -165,7 +165,11 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       .int()
       .min(INPUT_LIMITS.simulation.minPin)
       .max(INPUT_LIMITS.simulation.maxPin),
-    value: z.number().int().min(0).max(255),
+    value: z
+      .number()
+      .int()
+      .min(0)
+      .max(INPUT_LIMITS.simulation.maxPinValue),
   }).strict(),
   z.object({
     type: z.literal("io_registry"),
