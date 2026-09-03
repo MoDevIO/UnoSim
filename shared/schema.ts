@@ -95,24 +95,24 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("serial_input"),
     data: z.string(),
-  }),
+  }).strict(),
   z.object({
     type: z.literal("start_simulation"),
     timeout: z.number().optional(), // Timeout in seconds, 0 = infinite
     code: z.string().optional(),     // Per-client code (overrides global lastCompiledCode)
-  }),
+  }).strict(),
   z.object({
     type: z.literal("pause_simulation"),
-  }),
+  }).strict(),
   z.object({
     type: z.literal("resume_simulation"),
-  }),
+  }).strict(),
   z.object({
     type: z.literal("stop_simulation"),
-  }),
+  }).strict(),
   z.object({
     type: z.literal("code_changed"),
-  }),
+  }).strict(),
   z.object({
     type: z.literal("compilation_error"),
     data: z.string(),
@@ -157,7 +157,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("set_pin_value"),
     pin: z.number(),
     value: z.number(),
-  }),
+  }).strict(),
   z.object({
     type: z.literal("io_registry"),
     registry: z.array(

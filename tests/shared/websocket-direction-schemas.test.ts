@@ -21,6 +21,20 @@ describe("WebSocket direction schemas", () => {
         value: 1,
       }).success,
     ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "serial_input",
+        data: "hello",
+        unexpected: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "set_pin_value",
+        pin: "13",
+        value: 1,
+      }).success,
+    ).toBe(false);
   });
 
   it("accepts only server events on the server-to-client boundary", () => {

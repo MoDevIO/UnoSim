@@ -571,7 +571,7 @@ innerhalb des Fensters abgewiesen wird.
 - [x] AP-02.4: Gemeinsame WebSocket-Union in richtungsspezifische Zod-Schemas und
   abgeleitete TypeScript-Typen für Client→Server und Server→Client teilen; die
   erlaubten Nachrichtentypen pro Richtung explizit festlegen.
-- [ ] AP-02.5: Eingehende WebSocket-Nachrichten direkt nach dem JSON-Parsing mit
+- [x] AP-02.5: Eingehende WebSocket-Nachrichten direkt nach dem JSON-Parsing mit
   `safeParse` validieren. Ungültiges JSON, falsche Richtung, unbekannte Felder
   und falsche Datentypen müssen kontrolliert abgewiesen werden, ohne Runner-
   oder Sessionzustand zu verändern.
@@ -615,6 +615,12 @@ Tests beweisen die Ablehnung einer Nachricht in falscher Richtung. Der Server
 nutzt bereits den präzisen Ausgangstyp. Die schrittweise Durchmigration der
 historisch gemeinsamen Client-Union bleibt zur Vermeidung eines großen
 Frontend-Refactorings bei AP-08.
+
+**Umsetzungsnachweis AP-02.5:** Der WebSocket-Handler ruft unmittelbar nach
+`JSON.parse` `clientToServerWSMessageSchema.safeParse` auf. Falsche Richtung,
+unbekannte Felder und falsche Typen werden vor jedem Zugriff auf Session oder
+Runner mit Policy-Close 1008 abgewiesen. Ein echter Socket-Test prüft diesen
+Pfad; die regulären Zustandssequenzen bleiben unverändert grün.
 
 #### AP-03: Sandbox-Vertrag härten und testen
 

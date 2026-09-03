@@ -7,6 +7,7 @@ import {
   type ServerToClientWSMessage,
   type WSMessage,
   WSMessageType,
+  clientToServerWSMessageSchema,
 } from "@shared/schema";
 import type { Logger } from "@shared/logger";
 import type { PinStateChange } from "@shared/types/arduino.types";
@@ -859,7 +860,17 @@ export function registerSimulationWebSocket(
         // Debug: log raw incoming WS messages for E2E troubleshooting
         const msgText = rawDataToString(message);
         logger.debug(`[WS-IN] ${msgText}`);
-        const data = JSON.parse(msgText);
+        const parsedMessage = clientToServerWSMessageSchema.safeParse(
+          JSON.parse(msgText),
+        );
+        if (!parsedMessage.success) {
+          logger.warn(
+            `[WS] Rejected invalid client message: ${parsedMessage.error.message}`,
+          );
+          ws.close(1008, "Invalid message");
+          return;
+        }
+        const data = parsedMessage.data;
         const type = data.type;
         const clientState = clientRunners.get(ws);
 
@@ -899,11 +910,6 @@ export function registerSimulationWebSocket(
             handleSetPinValue(ws, data, clientState);
             break;
 
-          default:
-            logger.warn(
-              `Unknown WS message type: ${JSON.stringify(data?.type)}`,
-            );
-            break;
         }
       } catch (error) {
         logger.error(

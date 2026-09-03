@@ -493,6 +493,34 @@ describe("Simulation state sequence", () => {
     expect(gccSeq.indexOf("compiling")).toBeLessThan(gccSeq.indexOf("success"));
   }, 15_000);
 
+  it("rejects a malformed client message before it can start a simulation", async () => {
+    const close = await new Promise<{ code: number; reason: string }>(
+      (resolve, reject) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+        const timeout = setTimeout(() => {
+          ws.close();
+          reject(new Error("invalid WebSocket message was not rejected"));
+        }, 2_000);
+
+        ws.on("open", () => {
+          ws.send(
+            JSON.stringify({
+              type: "start_simulation",
+              unexpected: true,
+            }),
+          );
+        });
+        ws.on("close", (code, reason) => {
+          clearTimeout(timeout);
+          resolve({ code, reason: reason.toString() });
+        });
+        ws.on("error", reject);
+      },
+    );
+
+    expect(close).toEqual({ code: 1008, reason: "Invalid message" });
+  });
+
   // ─── 2: Pool saturated — client is queued_for_simulation ──────────────────
 
   it("pool saturated — extra client receives queued before running", async () => {
