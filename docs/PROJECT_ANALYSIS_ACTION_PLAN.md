@@ -851,10 +851,21 @@ Liveness/Readiness trennen, Middleware-Reihenfolge korrigieren, Docker/CLI/Image
 
 - [x] AP-10.1: Separaten `/api/readiness`-Endpunkt mit 503 während der
   Initialisierung und 200 nach erfolgreicher Pool-Initialisierung einführen.
-- [ ] AP-10.2: Readiness um Docker-/Compiler-Abhängigkeiten und einen
+- [x] AP-10.2: Readiness um Docker-/Compiler-Abhängigkeiten und einen
   expliziten Startup-Zustand erweitern.
 - [ ] AP-10.3: Shutdown aller Worker, Runner, Sockets und Timer mit einem
   gemeinsamen, getesteten Lifecycle koordinieren.
+
+**Umsetzungsnachweis AP-10.2:** Der Readiness-Endpunkt berücksichtigt neben
+der Pool-Initialisierung jetzt auch die Docker-Verfügbarkeit und das
+Sandbox-Image im Docker-Servermodus. Im lokalen Modus bleibt die Prüfung
+bewusst ohne Docker-Abhängigkeit.
+
+**Umsetzungsnachweis AP-10.3 (Teil 1):** Der zentrale Shutdown stoppt neben
+dem Compilation-Worker-Pool nun auch den Sandbox-Runner-Pool und beendet den
+periodischen Cleanup-Timer. Die vollständige Koordination aktiver
+WebSocket-Sessions und aller verbleibenden Ressourcen bleibt als Resttask
+offen.
 
 #### AP-11: Betriebsmodell ehrlich festlegen
 
