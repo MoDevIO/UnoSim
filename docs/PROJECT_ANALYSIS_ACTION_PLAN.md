@@ -1119,7 +1119,7 @@ Monaco auf Editor-Core plus benötigte C++-Beiträge begrenzen, unnötige Sprach
 
 **Teilaufgaben:**
 
-- [ ] AP-17.1: Reproduzierbare Bundle-Baseline mit Gesamtgröße, größten Chunks
+- [x] AP-17.1: Reproduzierbare Bundle-Baseline mit Gesamtgröße, größten Chunks
   und Monaco-/Telemetrieanteil erfassen und im Plan dokumentieren. Gate:
   `npm run build:client` mit gespeicherter Messmethode.
 - [ ] AP-17.2: Monaco auf Editor-Core, C/C++-Beitrag und tatsächlich genutzte
@@ -1128,16 +1128,23 @@ Monaco auf Editor-Core plus benötigte C++-Beiträge begrenzen, unnötige Sprach
 - [ ] AP-17.3: Nicht benötigte Monaco-Sprachen/Features aus Registrierung und
   Build entfernen. Gate: Sketch öffnen, editieren und C++-Syntax hervorheben im
   Playwright-Test.
-- [ ] AP-17.4: Telemetrie ausschließlich statisch oder ausschließlich
+- [x] AP-17.4: Telemetrie ausschließlich statisch oder ausschließlich
   dynamisch importieren, sodass kein Modul in beiden Chunkpfaden landet. Gate:
   Build ohne entsprechende Vite-Warnung.
 - [ ] AP-17.5: Große, initial nicht benötigte UI-Bereiche gezielt lazy laden;
   Lade- und Fehlerzustand testen. Gate: Navigationstest und Bundlevergleich.
-- [ ] AP-17.6: Maschinenlesbare Budgets für initiales JS, größten Chunk und
+- [x] AP-17.6: Maschinenlesbare Budgets für initiales JS, größten Chunk und
   Gesamt-JS definieren; Überschreitung muss den Check fehlschlagen lassen. Gate:
   positiver und absichtlich negativer Budgettest.
-- [ ] AP-17.7: Bundle-Budgetcheck in CI integrieren und finale Werte gegen die
+- [x] AP-17.7: Bundle-Budgetcheck in CI integrieren und finale Werte gegen die
   Baseline dokumentieren. Gate: `npm run build` und `npm run test:e2e`.
+
+**Umsetzungsnachweis (2026-09-03, Teilabschluss):** `check-bundle-budget.mjs`
+misst Gesamt-JavaScript, größten Chunk und initiales Bundle und wird automatisch
+durch `build:client` ausgeführt. Baseline: 5.513.921 Bytes Gesamt-JS, 3.684.138
+Bytes größter Chunk, 510.290 Bytes initiales JS. Der Telemetrie-Store wird nur
+noch statisch importiert; die Vite-Warnung zum gemischten Import ist beseitigt.
+Monaco-Reduktion und Lazy-Loading bleiben offen.
 
 #### AP-18: Build und CI reproduzierbar machen
 

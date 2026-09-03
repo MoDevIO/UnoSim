@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { telemetryStore } from "./use-telemetry-store";
 import type { PinMode, PinStateChange } from "@shared/types/arduino.types";
 /** Alias kept for backward compatibility with existing client imports. */
 export type PinStateType = PinStateChange;
@@ -234,13 +235,7 @@ if (globalThis.window !== undefined) {
       // Reset simulation store
       simulationStore.resetToInitial();
       
-      // Reset telemetry store (lazy import to avoid circular dependencies)
-      try {
-        const { telemetryStore } = await import('./use-telemetry-store');
-        telemetryStore.resetToInitial();
-      } catch (err) {
-        console.warn('[SIM_DEBUG] Could not reset telemetry store:', err);
-      }
+      telemetryStore.resetToInitial();
     },
   };
 }
