@@ -127,3 +127,16 @@ describe("GET /api/status", () => {
     expect(body.compile.maxConcurrent).toBe(8);
   });
 });
+
+describe("GET /api/readiness", () => {
+  it("returns ready when the runner pool is initialized", async () => {
+    const app = express();
+    const { registerStatusRoutes } = await import("../../../server/routes/status.routes");
+    registerStatusRoutes(app);
+    const { baseUrl, server } = await listen(app);
+    const response = await get(baseUrl, "/api/readiness");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ status: "ready" });
+    await new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
+  });
+});
