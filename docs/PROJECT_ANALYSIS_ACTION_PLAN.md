@@ -1,6 +1,6 @@
 # UnoSim: Projektanalyse und priorisierter Handlungsplan
 
-**Stand:** 2. September 2026  
+**Stand:** 3. September 2026
 **Analysierter Stand:** Branch `main`, Commit `ca653dde`  
 **Umfang:** Frontend, Backend, Shared Code, Docker/Deployment, CI, Tests und Dokumentation
 
@@ -77,12 +77,12 @@ explizit nutzen.
   - [x] AP-00.6c: Den vermeintlichen Cache-Lock-Compilerfall auf die tatsächlich
     verwendete File-Lock-Grenze korrigieren und verbleibende reale
     Kompilationen inventarisieren.
-- [ ] AP-00.7: `serial-flow` stabilisieren.
+- [x] AP-00.7: `serial-flow` stabilisieren.
   - [x] AP-00.7a: Helper-Timeout und Fehlerpfade müssen Runner und Kindprozess
     garantiert stoppen; losgelöste Diagnose-Timer entfernen.
   - [x] AP-00.7b: Format-, Flush- und Reihenfolgevarianten in einen eindeutigen
     echten End-to-End-Smoke konsolidieren; redundante Kompilationen entfernen.
-  - [ ] AP-00.7c: Toolchain-/Docker-Suites ressourcenbegrenzt dreimal ohne
+  - [x] AP-00.7c: Toolchain-/Docker-Suites ressourcenbegrenzt dreimal ohne
     Timeout oder Prozessleck ausführen.
 - [ ] AP-00.8: Messbares Budget-Gate ergänzen: JSON/JUnit-Artefakt, zehn langsamste
   Tests, Suite-Gesamtdauer und drei aufeinanderfolgende grüne Referenzläufe.
@@ -145,6 +145,14 @@ einen 3,11-s-Smoke ersetzt. Ein Sketch prüft nun gemeinsam verzögerte Prints,
 HEX-, Float-, beliebige und ungültige Basen, Byte-/Write-Ausgabe,
 Steuerzeichen, Flush beim schnellen Exit sowie die Reihenfolge von `setup()` und
 `loop()`.
+
+**Nachmessung AP-00.7c:** Drei aufeinanderfolgende Referenzläufe von Toolchain-
+und Docker-Gate waren vollständig grün. Die Laufzeiten betrugen 12,31 s / 84,41 s
+(gesamt 97,61 s), 14,93 s / 84,57 s (gesamt 101,18 s) und 12,81 s / 86,96 s
+(gesamt 100,91 s). Alle 21 Docker-Tests bestanden in jedem Lauf; die seriellen
+Flooding- und Backpressure-Prüfungen meldeten keine Datenlücken. Nach dem dritten
+Lauf waren weder UnoSim-Sandbox-Container noch Vitest-/Compiler-Prozesse übrig;
+`check-leaks.sh` bestätigte null aktive oder geleakte Compiler-Prozesse.
 
 ### 0.4 Akzeptanzkriterien
 
