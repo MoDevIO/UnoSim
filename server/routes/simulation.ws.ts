@@ -3,6 +3,8 @@ import type { Server } from "node:http";
 import type { SandboxRunner } from "../services/sandbox-runner";
 import {
   type IOPinRecord,
+  type ClientToServerWSMessage,
+  type ServerToClientWSMessage,
   type WSMessage,
   WSMessageType,
 } from "@shared/schema";
@@ -98,7 +100,10 @@ export function registerSimulationWebSocket(
     }
   >();
 
-  function sendMessageToClient(ws: WebSocket, message: WSMessage): void {
+  function sendMessageToClient(
+    ws: WebSocket,
+    message: ServerToClientWSMessage,
+  ): void {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message));
     }
@@ -528,7 +533,7 @@ export function registerSimulationWebSocket(
    */
   async function handleStartSimulation(
     ws: WebSocket,
-    data: Extract<WSMessage, { type: "start_simulation" }>,
+    data: Extract<ClientToServerWSMessage, { type: "start_simulation" }>,
     clientState: ClientState,
   ): Promise<void> {
     // Rate limiting check
@@ -767,7 +772,7 @@ export function registerSimulationWebSocket(
    */
   function handleSerialInput(
     _ws: WebSocket,
-    data: Extract<WSMessage, { type: "serial_input" }>,
+    data: Extract<ClientToServerWSMessage, { type: "serial_input" }>,
     clientState: ClientState,
   ): void {
     if (
@@ -784,7 +789,7 @@ export function registerSimulationWebSocket(
    */
   function handleSetPinValue(
     _ws: WebSocket,
-    data: Extract<WSMessage, { type: "set_pin_value" }>,
+    data: Extract<ClientToServerWSMessage, { type: "set_pin_value" }>,
     clientState: ClientState,
   ): void {
     if (

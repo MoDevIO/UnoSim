@@ -568,7 +568,7 @@ innerhalb des Fensters abgewiesen wird.
   - [x] AP-02.3c: `x-test-run-id` auf ein kurzes, URL-sicheres Format begrenzen
     und sicherstellen, dass ungültige IDs nie Bestandteil eines Dateipfads
     werden.
-- [ ] AP-02.4: Gemeinsame WebSocket-Union in richtungsspezifische Zod-Schemas und
+- [x] AP-02.4: Gemeinsame WebSocket-Union in richtungsspezifische Zod-Schemas und
   abgeleitete TypeScript-Typen für Client→Server und Server→Client teilen; die
   erlaubten Nachrichtentypen pro Richtung explizit festlegen.
 - [ ] AP-02.5: Eingehende WebSocket-Nachrichten direkt nach dem JSON-Parsing mit
@@ -608,6 +608,13 @@ werden am API-Rand abgelehnt. `x-test-run-id` folgt einem kurzen URL-sicheren
 Format. Zusätzlich löst `resolvePathWithinRoot` jeden Sketch- und Headerpfad
 gegen seinen Temp-Root auf und verweigert Ausbrüche unabhängig von der
 Vorvalidierung. Die Negativtests decken beide Schutzschichten ab.
+
+**Umsetzungsnachweis AP-02.4:** `clientToServerWSMessageSchema` und
+`serverToClientWSMessageSchema` trennen die zulässigen Runtime-Nachrichtungen;
+Tests beweisen die Ablehnung einer Nachricht in falscher Richtung. Der Server
+nutzt bereits den präzisen Ausgangstyp. Die schrittweise Durchmigration der
+historisch gemeinsamen Client-Union bleibt zur Vermeidung eines großen
+Frontend-Refactorings bei AP-08.
 
 #### AP-03: Sandbox-Vertrag härten und testen
 

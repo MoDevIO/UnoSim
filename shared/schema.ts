@@ -221,6 +221,46 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
 
 export type WSMessage = z.infer<typeof wsMessageSchema>;
 
+const CLIENT_TO_SERVER_MESSAGE_TYPES = [
+  WSMessageType.SERIAL_INPUT,
+  WSMessageType.START_SIMULATION,
+  WSMessageType.PAUSE_SIMULATION,
+  WSMessageType.RESUME_SIMULATION,
+  WSMessageType.STOP_SIMULATION,
+  WSMessageType.CODE_CHANGED,
+  WSMessageType.SET_PIN_VALUE,
+] as const;
+
+type ClientToServerMessageType = (typeof CLIENT_TO_SERVER_MESSAGE_TYPES)[number];
+
+/** Messages the browser is allowed to send to the simulation server. */
+export type ClientToServerWSMessage = Extract<
+  WSMessage,
+  { type: ClientToServerMessageType }
+>;
+
+/** Messages emitted by the simulation server and consumed by the browser. */
+export type ServerToClientWSMessage = Exclude<
+  WSMessage,
+  ClientToServerWSMessage
+>;
+
+export const clientToServerWSMessageSchema = wsMessageSchema.refine(
+  (message): message is ClientToServerWSMessage =>
+    CLIENT_TO_SERVER_MESSAGE_TYPES.includes(
+      message.type as ClientToServerMessageType,
+    ),
+  { message: "Message type is not allowed from client to server" },
+);
+
+export const serverToClientWSMessageSchema = wsMessageSchema.refine(
+  (message): message is ServerToClientWSMessage =>
+    !CLIENT_TO_SERVER_MESSAGE_TYPES.includes(
+      message.type as ClientToServerMessageType,
+    ),
+  { message: "Message type is not allowed from server to client" },
+);
+
 // Parser Message Types
 export type ParserMessage = {
   id: string;
