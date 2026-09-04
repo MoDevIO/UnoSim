@@ -611,9 +611,9 @@ export function ArduinoBoard({
                   className="absolute"
                   style={{
                     left: "70%",
-                    top: "69%",
+                    top: "64%",
                     width: "24%",
-                    height: "8%",
+                    height: "6%",
                     objectFit: "contain",
                     transform: "translate(-50%, -50%)",
                   }}
