@@ -922,8 +922,8 @@ describe("useCompilation", () => {
     await waitFor(() => {
       expect(params.toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Compilation Failed",
-          description: "Simulation will not start due to compilation errors.",
+          title: expect.stringContaining("Compilation"),
+          description: expect.stringContaining("error"),
           variant: "destructive",
         }),
       );

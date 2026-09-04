@@ -11,6 +11,7 @@ import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
 import { isCompileResult } from "@/types/websocket";
+import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
 import type {
   CompileConfig,
   CompileResult,
@@ -145,6 +146,17 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     simulationStatus, setSimulationStatus, hasCompiledOnce, setHasCompiledOnce,
     simulationTimeout, setSimulationTimeout, dockerGccPhase, setDockerGccPhase,
   } = useSimulatorControllerState();
+
+  // ------------------------------------------------------------
+  // UI Feedback Adapter (extrahiert für Schritt 1 von Phase 2.1)
+  // ------------------------------------------------------------
+  const uiFeedback = useUiFeedbackAdapter({
+    toast: params.toast,
+    addDebugMessage: params.addDebugMessage,
+    triggerErrorGlitch: params.triggerErrorGlitch,
+    setCliOutput,
+    setPendingPinConflicts: params.setPendingPinConflicts,
+  });
   // gccStatus removed - compiler results are tracked via errors array & flags
 
   /** Tracks the Docker/sandbox GCC compile phase for granular button feedback. */
@@ -183,12 +195,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     mutationFn: async (payload: CompileConfig): Promise<CompileResult> => {
       setArduinoCliStatus("compiling");
       setLastCompilationResult(null);
-      params.addDebugMessage({
-        source: "frontend",
-        type: "compile_request",
-        data: JSON.stringify({ endpoint: "POST /api/compile", codeLength: payload.code.length }, null, 2),
-        protocol: "http",
-      });
+      uiFeedback.logCompileRequest(payload.code.length);
       const response = await apiRequest("POST", "/api/compile", payload);
       const ct = (response.headers.get("content-type") || "").toLowerCase();
 
@@ -216,15 +223,13 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     },
     onError: (error: unknown) => {
       setArduinoCliStatus("error");
-      params.triggerErrorGlitch();
+      uiFeedback.triggerCompileErrorGlitch();
       const backendDown = params.isBackendUnreachableError(error);
-      params.toast({
-        title: backendDown ? "Backend unreachable" : "Compilation with Arduino-CLI Failed",
-        description: backendDown
-          ? "API server unreachable. Please check the backend or reload."
-          : "There were errors in your sketch",
-        variant: "destructive",
-      });
+      if (backendDown) {
+        uiFeedback.showBackendUnreachableToast();
+      } else {
+        uiFeedback.showCompileErrorToast();
+      }
     },
   });
 
@@ -239,24 +244,16 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       setHasCompilationErrors(false);
       setLastCompilationResult("success");
       setCompilerErrors([]);
-      setCliOutput(data.output || "✓ Arduino-CLI Compilation succeeded.");
-      params.addDebugMessage({
-        source: "server",
-        type: "compilation_status",
-        data: JSON.stringify({ success: true }, null, 2),
-        protocol: "http",
-      });
+      uiFeedback.setCompileSuccessOutput(data.output);
+      uiFeedback.logCompilationSuccess();
       params.setParserMessages(data.parserMessages ?? []);
       if (data.parserMessages && data.parserMessages.length > 0) {
         params.setParserPanelDismissed(false);
       }
-      params.toast({
-        title: "Arduino-CLI Compilation succeeded",
-        description: "Your sketch has been compiled successfully",
-      });
+      uiFeedback.showCompileSuccessToast();
 
     },
-    [params],
+    [uiFeedback, params],
   );
 
   /**
@@ -268,61 +265,31 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       setHasCompilationErrors(true);
       setLastCompilationResult("error");
       let errs: CompilerError[] = [];
-      let errText = "";
 
       if (Array.isArray(data.errors)) {
         errs = data.errors;
-        errText = errs
-          .map((e) => {
-            const lineStr = e.line ? `:${e.line}` : "";
-            const columnStr = e.column ? `:${e.column}` : "";
-            const location = `${e.file}${lineStr}${columnStr}`;
-            return `${location} ${e.type}: ${e.message}`;
-          })
-          .join("\n");
       } else if (typeof data.errors === "string") {
         errs = [{ file: "", line: 0, column: 0, type: "error", message: data.errors }];
-        errText = data.errors;
       }
 
       setCompilerErrors(errs);
-      params.triggerErrorGlitch();
-      setCliOutput(errText || "✗ Arduino-CLI Compilation failed.");
-      params.addDebugMessage({
-        source: "server",
-        type: "compilation_error",
-        data: JSON.stringify({ type: "compilation_error", data: data.errors }, null, 2),
-        protocol: "http",
-      });
-      params.addDebugMessage({
-        source: "server",
-        type: "compilation_status",
-        data: JSON.stringify({ success: false }, null, 2),
-        protocol: "http",
-      });
+      uiFeedback.triggerCompileErrorGlitch();
+      uiFeedback.setCompileErrorOutput(data.errors);
+      uiFeedback.logCompilationError(data.errors);
       params.setParserMessages(data.parserMessages ?? []);
       if (data.parserMessages && data.parserMessages.length > 0) {
         params.setParserPanelDismissed(false);
       }
-      params.toast({
-        title: "Arduino-CLI Compilation failed",
-        description: "There were errors in your sketch",
-        variant: "destructive",
-      });
+      uiFeedback.showCompileErrorToast();
     },
-    [params],
+    [uiFeedback, params],
   );
 
   // ─── Simulation control mutations ─────────────────────────────────────────
 
   const stopMutation = useMutation({
     mutationFn: async () => {
-      params.addDebugMessage({
-        source: "frontend",
-        type: "stop_simulation",
-        data: JSON.stringify({ type: "stop_simulation" }, null, 2),
-        protocol: "websocket",
-      });
+      uiFeedback.logStopSimulation();
       const immediate = params.sendMessageImmediate ?? undefined;
       if (immediate) immediate({ type: "stop_simulation" });
       else params.sendMessage({ type: "stop_simulation" });
@@ -337,12 +304,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
   const pauseMutation = useMutation({
     mutationFn: async () => {
-      params.addDebugMessage({
-        source: "frontend",
-        type: "pause_simulation",
-        data: JSON.stringify({ type: "pause_simulation" }, null, 2),
-        protocol: "websocket",
-      });
+      uiFeedback.logPauseSimulation();
       params.sendMessage({ type: "pause_simulation" });
       return { success: true };
     },
@@ -350,22 +312,13 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       setSimulationStatus("paused");
     },
     onError: () => {
-      params.toast({
-        title: "Pause failed",
-        description: "Could not pause simulation",
-        variant: "destructive",
-      });
+      uiFeedback.showPauseFailedToast();
     },
   });
 
   const resumeMutation = useMutation({
     mutationFn: async () => {
-      params.addDebugMessage({
-        source: "frontend",
-        type: "resume_simulation",
-        data: JSON.stringify({ type: "resume_simulation" }, null, 2),
-        protocol: "websocket",
-      });
+      uiFeedback.logResumeSimulation();
       params.sendMessage({ type: "resume_simulation" });
       return { success: true };
     },
@@ -373,11 +326,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       setSimulationStatus("running");
     },
     onError: () => {
-      params.toast({
-        title: "Resume failed",
-        description: "Could not resume simulation",
-        variant: "destructive",
-      });
+      uiFeedback.showResumeFailedToast();
     },
   });
 
@@ -396,12 +345,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         startMsg.code = lastCompiledCodeRef.current;
       }
 
-      params.addDebugMessage({
-        source: "frontend",
-        type: "start_simulation",
-        data: JSON.stringify(startMsg, null, 2),
-        protocol: "websocket",
-      });
+      uiFeedback.logStartSimulation(timeout, !!lastCompiledCodeRef.current);
       // Use immediate send for start_simulation when available to ensure
       // WS frame is emitted deterministically for E2E tests and real-time control.
       if (typeof params.sendMessageImmediate === "function") {
@@ -410,7 +354,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         // If immediate send failed (socket not open) fall back to buffered send
         if (!sent) {
           logger.debug("[CLIENT] falling back to buffered send for start_simulation");
-          params.addDebugMessage({ source: "frontend", type: "start_simulation", data: "Immediate send failed, falling back to buffered send", protocol: "websocket" });
+          uiFeedback.logStartSimulationFallback();
           params.sendMessage(startMsg);
         }
       } else {
@@ -421,36 +365,18 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     },
     onSuccess: () => {
       setSimulationStatus("running");
-      params.toast({
-        title: "Simulation Started",
-        description: "Arduino simulation is now running",
-      });
+      uiFeedback.showSimulationStartedToast();
       try {
         if (params.pendingPinConflicts && params.pendingPinConflicts.length > 0) {
-          const names = params.pendingPinConflicts
-            .map((p) => (p >= 14 && p <= 19 ? `A${p - 14}` : `${p}`))
-            .join(", ");
-          setCliOutput(
-            (prev) =>
-              (prev ? prev + "\n\n" : "") +
-              `⚠️ Pin usage conflict: Pins used as digital via pinMode(...) and also read with analogRead(): ${names}. This may be unintended.`,
-          );
-          params.setPendingPinConflicts([]);
+          uiFeedback.showPinConflictWarning(params.pendingPinConflicts);
         }
       } catch { }
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : JSON.stringify(error, null, 2);
-      params.toast({
-        title: "Start Failed",
-        description: message || "Could not start simulation",
-        variant: "destructive",
-      });
+      const message = uiFeedback.extractErrorMessage(error);
+      uiFeedback.showStartFailedToast(message);
       if (params.isModified && hasCompiledOnce) {
-        params.toast({
-          title: "Code Modified",
-          description: "Compile to apply your latest changes",
-        });
+        uiFeedback.showCodeModifiedToast();
       }
     },
   });
@@ -523,11 +449,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     }
 
     if (!mainSketchCode || mainSketchCode.trim().length === 0) {
-      params.toast({
-        title: "No Code",
-        description: "Please write some code before compiling",
-        variant: "destructive",
-      });
+      uiFeedback.showNoCodeToast();
       return;
     }
 
@@ -543,6 +465,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     params.resetPinUI,
     params.tabs,
     initializeEmptyRegistry,
+    uiFeedback,
   ]);
 
   const handleCompileAndStart = useCallback(() => {
@@ -557,11 +480,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     // Extract code
     const mainSketchCode = extractMainSketchCode();
     if (!mainSketchCode || mainSketchCode.trim().length === 0) {
-      params.toast({
-        title: "No Code",
-        description: "Please write some code before compiling",
-        variant: "destructive",
-      });
+      uiFeedback.showNoCodeToast();
       return;
     }
 
@@ -603,11 +522,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
           // Reset any pending "queued" simulationStatus so the badge doesn't
           // get stuck in QUEUED_FOR_SIMULATION after a compile failure.
           setSimulationStatus("idle");
-          params.toast({
-            title: "Compilation Completed with Errors",
-            description: "Simulation will not start due to compilation errors.",
-            variant: "destructive",
-          });
+          uiFeedback.showCompilationFailedWithErrorsToast();
           scheduleCliIdle(setArduinoCliStatus);
         }
       },
@@ -617,11 +532,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         // Reset any pending "queued" simulationStatus so the badge doesn't
         // get stuck in QUEUED_FOR_SIMULATION after a network/compile error.
         setSimulationStatus("idle");
-        params.toast({
-          title: "Compilation Failed",
-          description: "Simulation will not start due to compilation errors.",
-          variant: "destructive",
-        });
+        uiFeedback.showCompilationFailedWithErrorsToast();
         scheduleCliIdle(setArduinoCliStatus);
       },
     });
@@ -635,6 +546,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     startSimulationRef,
     initializeEmptyRegistry,
     handleCompileError,
+    uiFeedback,
   ]);
 
   const handleClearCompilationOutput = useCallback(() => {
@@ -672,10 +584,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     clearOutputs();
     params.resetPinUI({ keepDetected: true });
 
-    params.toast({
-      title: "Resetting...",
-      description: "Recompiling and restarting simulation",
-    });
+    uiFeedback.showResettingToast();
 
     setTimeout(() => {
       handleCompileAndStart();
@@ -687,7 +596,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     params.resetPinUI,
     params.sendMessage,
     simulationStatus,
-    params.toast,
+    uiFeedback,
   ]);
 
   // lifecycle automation (reuse earlier hook)
