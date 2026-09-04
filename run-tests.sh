@@ -205,7 +205,13 @@ run_task "Unit Tests" "NODE_OPTIONS='--no-warnings' npm run test:unit -- --repor
 parse_test_results "Tests.*passed"
 
 # 4. Real Arduino CLI integration tests, isolated from the fast unit gate
-run_task "Toolchain Integration Tests" "NODE_OPTIONS='--no-warnings' npm run test:integration -- --reporter=default"
+HEAVY_TEST_ENV="RUN_HEAVY_TESTS=${RUN_HEAVY_TESTS:-0}"
+if [ "${RUN_HEAVY_TESTS:-0}" = "1" ] || [ "${RUN_HEAVY_TESTS:-0}" = "true" ]; then
+    echo -e "  ${OK} Heavy stress tests enabled"
+else
+    echo -e "  ${D} Heavy stress tests disabled (use RUN_HEAVY_TESTS=1)${RS}"
+fi
+run_task "Toolchain Integration Tests" "$HEAVY_TEST_ENV NODE_OPTIONS='--no-warnings' npm run test:integration -- --reporter=default"
 parse_test_results "Tests.*passed"
 
 # 5+6. Sandbox image build & Docker tests (optional, requires Docker)

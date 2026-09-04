@@ -15,6 +15,20 @@ Some tests run on shared CI runners where system load, CPU scheduling, and conta
 
 ## Notes
 
+### Heavy stress tests
+
+The multi-instance Arduino CLI stress test is disabled in the regular pipeline
+because it performs concurrent real compilations and is comparatively slow. Run
+it explicitly when validating runner isolation and cleanup:
+
+```bash
+RUN_HEAVY_TESTS=1 ./run-tests.sh
+```
+
+Without the variable, the standard pipeline remains unchanged. The test itself
+is selected through `RUN_HEAVY_TESTS=1` (or `true`) and is reported as skipped
+otherwise.
+
 - Do **not** use `npx playwright test --update-snapshots` or similarly destructive flags in CI; snapshot changes must be reviewed explicitly.
 - When modifying timing-sensitive tests, ensure they still pass on low-end CI hosts by running:
   1. `npm run check`

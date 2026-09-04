@@ -168,6 +168,7 @@ On macOS, make sure your project directory is allowed under Docker Desktop file 
 | `npm run test:e2e` | Run Playwright browser tests |
 | `npm run test:all` | Run unit, integration and Docker gates |
 | `./run-tests.sh` | Full pipeline: lint, unit tests, Docker build, integration tests, E2E |
+| `RUN_HEAVY_TESTS=1 ./run-tests.sh` | Full pipeline inklusive langsamem Parallel-Instanz-Stresstest |
 
 ### Architecture Overview
 

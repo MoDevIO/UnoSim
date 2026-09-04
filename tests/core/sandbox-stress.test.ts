@@ -19,6 +19,8 @@ interface RunSketchCallbacks {
 }
 
 const STRESS_SCALE = Number(process.env.STRESS_TEST_SCALE ?? "0.05"); // Reduced scale factor further (was 0.35, then 0.1)
+const runHeavyTests = process.env.RUN_HEAVY_TESTS === "1" || process.env.RUN_HEAVY_TESTS === "true";
+const maybeIt = runHeavyTests ? it : it.skip;
 const scaleMsLong = (value: number, min = 100) => // Reduced min (was 250)
   Math.max(min, Math.round(value * STRESS_SCALE));
 const scaleMsShort = (value: number, min = 1) => // Reduced min (was 5)
@@ -499,7 +501,7 @@ void loop() {
     // any reasonable CI timeout. Concurrency isolation is covered by:
     // - unified-gatekeeper semaphore tests (load-suite.test.ts)
     // - temp directory isolation in cleanup test below
-    it.skip("should handle 3 concurrent simulations with isolated temp directories", async () => {
+    maybeIt("should handle 3 concurrent simulations with isolated temp directories", async () => {
       // Use concurrentCount=2 for CI stability while still testing concurrency isolation
       const concurrentCount = 2;
       const runners = Array.from({ length: concurrentCount }, () => new SandboxRunner());
@@ -570,7 +572,8 @@ void loop() {
       }
 
       // Stop all concurrently
-      await Promise.all(runners.map((r) => r.stop()));
+      // Stop is best-effort here: a real CLI process may already have exited.
+      await Promise.all(runners.map((r) => withTimeout(r.stop(), 10_000, undefined)));
 
       // Wait for all exit callbacks
       await Promise.all(promises);
