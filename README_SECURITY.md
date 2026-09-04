@@ -51,17 +51,43 @@ für Betreiber von Entwicklungs- und Produktionsinstanzen bestimmt.
 
 ## Potenzielle und verbleibende Risiken
 
-| Risiko | Auswirkung | Gegenmaßnahme für Betreiber |
+### Docker-Betrieb (alle Docker-Varianten)
+
+Diese Risiken gelten für alle Docker-basierten Betriebsarten (mit oder ohne Sandbox).
+
+| Risiko | Auswirkung | Schweregrad |
 | --- | --- | --- |
-| Lokaler Modus ohne Authentifizierung | Jeder erreichbare Client kann Simulationen und Steuerkanäle verwenden | Nur lokal/isoliert nutzen; Produktion im Gateway-Modus betreiben |
-| Docker-Socket-Mount im Backend | Eine Kompromittierung des Backends kann den Docker-Host gefährden | Host nicht öffentlich exponieren, Least-Privilege-Host verwenden, Zugriff überwachen |
-| Ressourcen- oder Verbindungs-DoS | Viele WebSockets, große Eingaben oder Warteschlangen können CPU/RAM binden | Rate-Limits aktiv lassen, Pool-/Containerlimits passend setzen, Monitoring und Proxy-Limits verwenden |
-| Mutable Image-/Toolchain-Tags | Ein späteres Update kann Verhalten oder Schwachstellen einführen | Images und Arduino-CLI in Releases versionieren und regelmäßig aktualisieren; Digests sind derzeit optional/offen |
-| Compiler-/Parser-Schwachstellen | Fehler in Toolchain oder Parser können zu Absturz oder Umgehung führen | Updates zeitnah prüfen, Sandbox-Modus bevorzugen, Sonar- und Sicherheitsgates ausführen |
-| Schreibbarer Sketch-Mount | Der ausgeführte Sketch kann Dateien in seinem Arbeitsbereich verändern | Arbeitsverzeichnisse pro Lauf isolieren und nach Ende bereinigen; keine sensiblen Host-Pfade mounten |
-| Fehlkonfigurierte Proxy-Header | Gefälschte Identitäten oder ungewollter Zugriff | Proxy-IP/CIDR exakt konfigurieren, `X-UnoSim-*`-Header am Eingang entfernen und nur vom Proxy setzen |
-| Geheimnisverlust in Umgebung/Logs | Gateway-Zugang kann missbraucht werden | Secrets nicht committen oder ausgeben, Rotation vornehmen, Logs und CI-Artefakte schützen |
-| Veraltete Abhängigkeiten | Bekannte Schwachstellen in Node-, WebSocket- oder Build-Paketen | `npm audit`/Dependabot bzw. vergleichbare Updates und Regressionstests regelmäßig ausführen |
+| Backend-Kompromittierung über Docker-Socket | Wenn das Backend selbst angegriffen wird, kann über den Docker-Socket der Host gefährdet werden | Mittel–Hoch |
+| Mutable Image-/Toolchain-Tags | Ein späteres Update kann Verhalten oder Schwachstellen einführen | Mittel |
+
+### Sandbox-isolierte Container-Umgebung
+
+Docker-basierte Ausführung mit Prozess-Isolation (docker-sandbox mode, empfohlen für Produktion). Dies ist die sicherste Betriebsart mit der höchsten Isolation.
+
+| Risiko | Auswirkung | Schweregrad |
+| --- | --- | --- |
+| Compiler-/Parser-Schwachstellen | Fehler in Toolchain oder Parser können zu DoS oder Absturz führen (isoliert in Sandbox) | Gering–Mittel |
+
+### Containerisierte Ausführung ohne Prozess-Isolation
+
+Docker-basierte Ausführung ohne zusätzliche Prozess-Isolation (vereinfachte Container-Variante). Bietet Container-Isolation vom Host, aber keine Prozess-Isolation zwischen Sketch-Ausführungen.
+
+| Risiko | Auswirkung | Schweregrad |
+| --- | --- | --- |
+| Schreibbarer Sketch-Mount | Der ausgeführte Sketch kann andere Container-Prozesse oder Dateien beeinflussen | Hoch |
+| Compiler-/Parser-Schwachstellen | Fehler in Toolchain oder Parser können andere Container-Prozesse beeinträchtigen | Mittel |
+| Ressourcen- oder Verbindungs-DoS | Viele WebSockets, große Eingaben oder Warteschlangen können CPU/RAM binden | Mittel |
+
+### Host-native Ausführung
+
+Direkte native Ausführung ohne Container-Isolation. Dies ist die unsicherste Betriebsart; nur für isolierte Entwicklungsumgebungen empfohlen.
+
+| Risiko | Auswirkung | Schweregrad |
+| --- | --- | --- |
+| Lokaler Modus ohne Authentifizierung | Jeder erreichbare Client kann Simulationen und Steuerkanäle verwenden | Kritisch |
+| Schreibbarer Sketch-Mount | Der ausgeführte Sketch kann Host-Dateien direkt beschädigen oder verändern | Kritisch |
+| Compiler-/Parser-Schwachstellen | Fehler in Toolchain oder Parser können den Host direkt kompromittieren | Hoch |
+| Ressourcen- oder Verbindungs-DoS | Viele WebSockets, große Eingaben oder Warteschlangen können den Host lahmlegen | Hoch |
 
 ## Mindestanforderungen für Produktion
 
