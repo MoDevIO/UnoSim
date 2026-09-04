@@ -55,11 +55,12 @@ cleanup() {
 trap cleanup EXIT
 
 run_task() {
-    local label=$1 cmd=$2 
+    local label=$1 cmd=$2 note=${3:-}
     STEP=$((STEP+1))
     local start=$(date +%s)
     
     echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] $label${RS}"
+    [ -n "$note" ] && echo -e "  $note"
     
     # Verzeichnisse sicherstellen
     mkdir -p temp build
@@ -207,11 +208,11 @@ parse_test_results "Tests.*passed"
 # 4. Real Arduino CLI integration tests, isolated from the fast unit gate
 HEAVY_TEST_ENV="RUN_HEAVY_TESTS=${RUN_HEAVY_TESTS:-0}"
 if [ "${RUN_HEAVY_TESTS:-0}" = "1" ] || [ "${RUN_HEAVY_TESTS:-0}" = "true" ]; then
-    echo -e "  ${OK} Heavy stress tests enabled"
+    HEAVY_TEST_NOTE="${OK} Heavy stress tests enabled"
 else
-    echo -e "  ${D} Heavy stress tests disabled (use RUN_HEAVY_TESTS=1)${RS}"
+    HEAVY_TEST_NOTE="${D} Heavy stress tests disabled (use RUN_HEAVY_TESTS=1)${RS}"
 fi
-run_task "Toolchain Integration Tests" "$HEAVY_TEST_ENV NODE_OPTIONS='--no-warnings' npm run test:integration -- --reporter=default"
+run_task "Toolchain Integration Tests" "$HEAVY_TEST_ENV NODE_OPTIONS='--no-warnings' npm run test:integration -- --reporter=default" "$HEAVY_TEST_NOTE"
 parse_test_results "Tests.*passed"
 
 # 5+6. Sandbox image build & Docker tests (optional, requires Docker)
