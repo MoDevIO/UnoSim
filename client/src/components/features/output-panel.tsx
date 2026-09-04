@@ -10,6 +10,7 @@ import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import { pinModeToString } from "@shared/utils/arduino-utils";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import type { OutputTab } from "@/types/compilation.types";
+import { TabBar } from "@/components/ui/tab-bar";
 
 interface OutputPanelProps {
   /* State */
@@ -83,9 +84,9 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
 
   return (
     <Tabs value={activeOutputTab} onValueChange={(v) => onTabChange(v as OutputTab)} className="h-full flex flex-col">
-      <div ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="flex items-center justify-start px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b">
-        <TabsList className="h-auto flex gap-1 bg-transparent items-center">
-          <TabsTrigger value="compiler" onDoubleClick={() => openOutputPanel("compiler")} className={clsx("h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center", {
+      <TabBar ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="unified-tab-bar--output justify-start px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b">
+        <TabsList className="h-full flex gap-0 bg-transparent items-center">
+          <TabsTrigger value="compiler" onDoubleClick={() => openOutputPanel("compiler")} className={clsx("h-full px-2 text-[11px] uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 leading-none flex items-center", {
             "text-gray-400": lastCompilationResult === null,
             "text-green-400": isSuccessState && lastCompilationResult !== null,
             "text-red-400": hasCompilationErrors,
@@ -99,7 +100,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             </span>
           </TabsTrigger>
 
-          <TabsTrigger value="messages" onDoubleClick={() => openOutputPanel("messages")} className={clsx("h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center", {
+          <TabsTrigger value="messages" onDoubleClick={() => openOutputPanel("messages")} className={clsx("h-full px-2 text-[11px] uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 leading-none flex items-center", {
             "text-orange-400": parserMessages.length > 0,
             "text-gray-400": parserMessages.length === 0,
           })}>
@@ -111,7 +112,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             </span>
           </TabsTrigger>
 
-          <TabsTrigger value="registry" onDoubleClick={() => openOutputPanel("registry")} className={clsx("h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center", {
+          <TabsTrigger value="registry" onDoubleClick={() => openOutputPanel("registry")} className={clsx("h-full px-2 text-[11px] uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 leading-none flex items-center", {
             "text-blue-400": ioRegistry.some((r) => {
               const ops = r.usedAt || [];
               const digitalReads = ops.filter((u) => u.operation.includes("digitalRead"));
@@ -152,7 +153,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
           </TabsTrigger>
 
           {debugMode && (
-            <TabsTrigger value="debug" onDoubleClick={() => openOutputPanel("debug")} className="h-[var(--ui-button-height)] px-2 text-ui-xs data-[state=active]:bg-background rounded-sm py-0 leading-none flex items-center text-cyan-400 gap-1.5">
+            <TabsTrigger value="debug" onDoubleClick={() => openOutputPanel("debug")} className="h-full px-2 text-[11px] uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 leading-none flex items-center text-cyan-400 gap-1.5">
               Debug
               {debugMessages.length > 0 && (
                 <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyan-600/30 text-cyan-300 text-[9px] font-mono leading-none overflow-hidden">
@@ -169,7 +170,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             <X className="h-4 w-4" />
           </Button>
         </div>
-      </div>
+      </TabBar>
 
       <TabsContent value="compiler" className="flex-1 overflow-hidden m-0">
         <CompilationOutput output={cliOutput} onClear={onClearCompilationOutput} isSuccess={isSuccessState} showSuccessMessage={isSuccessState && !isModified} hideHeader={true} />

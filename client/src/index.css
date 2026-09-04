@@ -57,6 +57,26 @@ html, body {
   min-width: 0;
 }
 
+.unified-tab-bar--output {
+  background: #181818;
+  border-color: #2b2b2b;
+}
+
+.unified-tab-bar--output [role="tab"] {
+  color: #858585;
+  position: relative;
+}
+
+.unified-tab-bar--output [role="tab"][data-state="active"]::after {
+  background: #007acc;
+  bottom: 0;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
 .unified-scroll-area__viewport::-webkit-scrollbar {
   display: none;
 }
