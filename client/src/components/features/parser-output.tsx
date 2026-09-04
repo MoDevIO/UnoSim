@@ -277,13 +277,13 @@ export function ParserOutput({
               <TabsList>
                 <TabsTrigger
                   value="messages"
-                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
+                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background data-[state=inactive]:text-muted-foreground rounded"
                 >
                   Messages {messages.length > 0 && `(${messages.length})`}
                 </TabsTrigger>
                 <TabsTrigger
                   value="registry"
-                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
+                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background data-[state=inactive]:text-muted-foreground rounded"
                 >
                   I/O Registry{" "}
                   {(showAllPins ? ioRegistry.length : totalProgrammedPins) >

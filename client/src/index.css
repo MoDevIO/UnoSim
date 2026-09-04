@@ -67,6 +67,11 @@ html, body {
   position: relative;
 }
 
+.unified-tab-bar--output [role="tab"][data-state="active"] {
+  background: #121212;
+  color: #f0f0f0;
+}
+
 .unified-tab-bar--output [role="tab"][data-state="active"]::after {
   background: #007acc;
   bottom: 0;
