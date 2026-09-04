@@ -602,6 +602,20 @@ export function ArduinoBoard({
                 style={{ position: "relative", width: "100%", height: "100%" }}
                 dangerouslySetInnerHTML={{ __html: modifiedSvg }}
               />
+              {/* TH Köln identity mark, positioned below the board's UNO wordmark. */}
+              <img
+                src="/TH_Koeln_Logo.svg"
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute"
+                style={{
+                  left: "143px",
+                  top: "91px",
+                  width: "38px",
+                  height: "21px",
+                  objectFit: "contain",
+                }}
+              />
               {/* Overlay SVG - dynamic visualization and click handling */}
               <button
                 type="button"
