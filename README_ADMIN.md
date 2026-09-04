@@ -2,6 +2,8 @@
 
 This guide explains how to configure the UnoSim server instance and sandbox environments using environment variables.
 
+For the security controls and residual risks, see [`README_SECURITY.md`](README_SECURITY.md).
+
 ## 🎯 Target Audience
 This guide is intended for **system administrators** and **DevOps engineers** who deploy UnoSim in development, test, or production environments.
 
