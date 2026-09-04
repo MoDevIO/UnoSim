@@ -123,7 +123,16 @@ if ! command -v npm &>/dev/null; then
     echo -e "  ${FAIL} npm not found – please install Node.js"
     exit 1
 fi
-echo -e "  ${OK} Node.js $(node -v)"
+EXPECTED_NODE=""
+if [ -f ".nvmrc" ]; then
+    EXPECTED_NODE=$(tr -d '[:space:]' < .nvmrc)
+fi
+ACTUAL_NODE=$(node -p 'process.versions.node')
+if [ -n "$EXPECTED_NODE" ] && [ "$ACTUAL_NODE" != "$EXPECTED_NODE" ]; then
+    echo -e "  ${FAIL} Node.js v${ACTUAL_NODE} (repository requires v${EXPECTED_NODE}; run: nvm use)"
+    exit 1
+fi
+echo -e "  ${OK} Node.js v${ACTUAL_NODE}"
 
 # Docker
 DOCKER_AVAILABLE=0
