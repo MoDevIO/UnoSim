@@ -115,11 +115,43 @@ The Vite-built client is served as static files from `dist/public/`.
 
 ### Docker Mode
 
+#### **Step 1: Check docker group ID of the host**
+
 ```bash
+getent group docker
+```
+
+Output example:
+```bash
+docker:x:992:
+```
+
+#### **Step 2: Edit docker-compose.yml file**
+Change the group ID under `group_add` to the group ID determined earlier
+```bash
+services:
+  unosim:
+      ...
+      ...
+    group_add:
+      - "992"
+```
+
+#### **Step 3: Build the docker container**
+```bash
+sudo chown -R 1000:1000 ./temp ./storage ./server/arduino-cache
 docker build -t unosim-sandbox:latest -f Dockerfile.sandbox .
 docker build -t unosim:latest .
+```
+
+#### **Step 4: Run the docker container**
+
+**Methode 1:**
+```bash
 docker run --rm -p 3000:3000 -e NODE_ENV=production unosim:latest
 ```
+
+**Methode 2:**
 
 If you start the image manually and want full Docker sandbox mode instead of the local fallback, use the same mounts and environment variables as Compose:
 
@@ -137,12 +169,16 @@ docker run --rm -p 3000:3000 \
    unosim-server:latest
 ```
 
+**Methode 3:**
+
 Or with Docker Compose (backend only):
 
 ```bash
 docker compose up --build
 ```
 This will start the UnoSim backend only. Sandbox execution remains dynamic and uses the Docker socket at runtime.
+
+**Notes:**
 
 If you need SonarQube, run it separately in its own stack or service; the UnoSim compose file does not include SonarQube or MCP.
 

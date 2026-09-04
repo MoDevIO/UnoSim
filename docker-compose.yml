@@ -8,6 +8,8 @@ services:
     image: unosim-server:latest
     container_name: unosim-server
     restart: unless-stopped
+    group_add:
+      - "117"
     environment:
       - NODE_ENV=production
       - ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache
@@ -38,8 +40,8 @@ services:
       - "3000:3000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${PWD}/server/arduino-cache:${PWD}/server/arduino-cache
-      - ${PWD}/temp:${PWD}/temp
+      - ${PWD}/server/arduino-cache:${PWD}/server/arduino-cache 
+      - ${PWD}/temp:${PWD}/temp 
       - ./storage:/app/storage
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
