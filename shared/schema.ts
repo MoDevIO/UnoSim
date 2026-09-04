@@ -83,16 +83,6 @@ export const WSMessageType = {
   SIM_TELEMETRY: "sim_telemetry",
 } as const;
 
-/**
- * Messages sent from client to server (direction-specific type)
- */
-export type IncomingArduinoMessage = ClientToServerWSMessage;
-
-/**
- * Messages sent from server to client (direction-specific type)
- */
-export type OutgoingArduinoMessage = ServerToClientWSMessage;
-
 // WebSocket message types
 export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
@@ -255,19 +245,19 @@ const CLIENT_TO_SERVER_MESSAGE_TYPES = [
 type ClientToServerMessageType = (typeof CLIENT_TO_SERVER_MESSAGE_TYPES)[number];
 
 /** Messages the browser is allowed to send to the simulation server. */
-export type IncomingArduinoMessage = Extract<
+export type ClientToServerWSMessage = Extract<
   WSMessage,
   { type: ClientToServerMessageType }
 >;
 
 /** Messages emitted by the simulation server and consumed by the browser. */
-export type OutgoingArduinoMessage = Exclude<
+export type ServerToClientWSMessage = Exclude<
   WSMessage,
-  IncomingArduinoMessage
+  ClientToServerWSMessage
 >;
 
 export const clientToServerWSMessageSchema = wsMessageSchema.refine(
-  (message): message is IncomingArduinoMessage =>
+  (message): message is ClientToServerWSMessage =>
     CLIENT_TO_SERVER_MESSAGE_TYPES.includes(
       message.type as ClientToServerMessageType,
     ),
@@ -275,7 +265,7 @@ export const clientToServerWSMessageSchema = wsMessageSchema.refine(
 );
 
 export const serverToClientWSMessageSchema = wsMessageSchema.refine(
-  (message): message is OutgoingArduinoMessage =>
+  (message): message is ServerToClientWSMessage =>
     !CLIENT_TO_SERVER_MESSAGE_TYPES.includes(
       message.type as ClientToServerMessageType,
     ),

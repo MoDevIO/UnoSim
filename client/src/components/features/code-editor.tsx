@@ -482,6 +482,22 @@ export function CodeEditor({
           editor.setPosition({ lineNumber: line, column: 1 });
           editor.revealPositionInCenter({ lineNumber: line, column: 1 });
         },
+        formatCode: () => {
+          const currentCode = editor.getValue();
+          const formatted = formatCode(currentCode);
+
+          if (formatted !== currentCode) {
+            const model = editor.getModel();
+            if (model) {
+              editor.executeEdits("format", [
+                {
+                  range: model.getFullModelRange(),
+                  text: formatted,
+                },
+              ]);
+            }
+          }
+        },
       };
     }
 
