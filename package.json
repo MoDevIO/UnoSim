@@ -2,7 +2,7 @@
   "name": "rest-express",
   "version": "1.0.0",
   "engines": {
-    "node": "20.19.1"
+    "node": "24.20.0"
   },
   "type": "module",
   "license": "MIT",

@@ -2,7 +2,7 @@
 FROM docker:27-cli AS docker-cli
 
 # Multi-stage build using the repository's pinned Node LTS.
-FROM node:20.19.1 AS builder
+FROM node:24.20.0 AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -15,7 +15,7 @@ RUN npm run build
 
 ########################################
 # Production image
-FROM node:20.19.1-slim AS runner
+FROM node:24.20.0-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV ARDUINO_CACHE_DIR=/app/server/arduino-cache

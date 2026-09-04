@@ -46,7 +46,7 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 
 ### Prerequisites
 
-- Node.js 20.19.1 (see `.nvmrc`)
+- Node.js 24.20.0 LTS (see `.nvmrc`)
 - npm or yarn
 
 ### Setup

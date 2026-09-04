@@ -1188,7 +1188,7 @@ Node-Version vereinheitlichen, `engines`/`.nvmrc` oder Volta ergänzen, Builder 
 - [x] AP-18.9: Reproduzierbarkeits- und Updateprozess in README/Admin-Guide
   dokumentieren; abschließend Coverage und SonarQube Quality Gate prüfen.
 
-**Umsetzungsnachweis (2026-09-03, Teilabschluss):** Node 20.19.1 ist in
+**Umsetzungsnachweis (2026-09-04):** Node 24.20.0 LTS ist in
 `.nvmrc`, `package.json`, Docker-Buildern und CI vereinheitlicht. Docker-Builds
 verwenden `npm ci` nach dem Lockfile-Copy. CI nutzt standardmäßig `contents: read`;
 der E2E-Auto-Commit wurde entfernt. Ein Clean-Room-Job führt Checkout,
