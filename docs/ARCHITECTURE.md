@@ -23,7 +23,10 @@ graph TD
 - **Technologie:** React 18, TypeScript, Vite, TailwindCSS
 - **Hauptkomponenten:**
   - `ArduinoSimulatorPage` – Haupt-Seite mit Simulator-UI
-  - `useCompileAndRun` – Hook für Compile- und Run-Logik
+  - `useCompileAndRun` – Orchestrator für Compile→Start und State-Komposition
+  - `use-compile-controller.ts` – Compile-Mutation, Parser-/Registry-Updates und Compile-State
+  - `use-simulation-controller.ts` – Simulation-Mutationen, WebSocket-Kommandos und Lifecycle
+  - `use-ui-feedback-adapter.ts` – Toasts, Debug-Meldungen, Glitch- und Pin-Konflikt-Feedback
   - `useArduinoSimulatorPage` – Composition Root für ViewModels
 
 ### 2. UnoSim Server (Backend)
@@ -82,7 +85,10 @@ graph TD
 | Komponente | Verantwortung |
 |-----------|---------------|
 | `ArduinoSimulatorPage` | UI-State und ViewModel-Komposition |
-| `useCompileAndRun` | Compile- und Run-Logik |
+| `useCompileAndRun` | Props-Merging, State-Komposition und Compile→Start-Orchestrierung |
+| `use-compile-controller.ts` | Compile-Mutation, Compile-State, Parser-Messages und I/O-Registry |
+| `use-simulation-controller.ts` | Simulation-State, Start/Stop/Pause/Resume und WebSocket-Sendelogik |
+| `use-ui-feedback-adapter.ts` | UI-Seiteneffekte für Toasts, Debug-Ausgaben und Konfliktwarnungen |
 | `useArduinoSimulatorPage` | State-Derivation und UI-Seiten-Effekte |
 | `simulation.ws.ts` | WebSocket-Lifecycle und Nachrichten-Routing |
 | `sandbox-runner-pool.ts` | Runner-Lebenszyklus und Pool-Management |

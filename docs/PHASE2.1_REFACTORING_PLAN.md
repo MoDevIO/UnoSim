@@ -1,6 +1,6 @@
 # Phase 2.1: Refactoring-Plan für `use-compile-and-run.ts`
 
-Status: planning
+Status: completed
 
 **Ziel:** Zerlegung des 900-Zeilen-Monolithen in testbare, spezialisierte Hooks mit klarer Trennung der Verantwortlichkeiten.
 
@@ -9,6 +9,23 @@ Status: planning
 - > 80% Testabdeckung pro Sub-Hook
 - Charakterisierungstests bleiben als Integrationssafety-Net erhalten
 - Keine funktionalen Änderungen (Behavior bleibt identisch)
+
+## Abschlussstatus
+
+Phase 2.1 ist mit Commit `7c8dd6c6` formal abgeschlossen. Die vier geplanten
+Schritte wurden umgesetzt, die Charakterisierungstests blieben unverändert und
+die Orchestrator-Verdrahtung wurde durch gemockte Sub-Hook-Tests abgesichert.
+
+| Kriterium | Ergebnis |
+|-----------|----------|
+| Compile-, Simulation- und UI-Sub-Hooks extrahiert | ✅ Erfüllt |
+| Statement-Coverage je Sub-Hook bzw. Orchestrator >80% | ✅ Erfüllt (`use-compile-controller` 94,0%, `use-simulation-controller` 100,0%, `use-ui-feedback-adapter` 98,8%, Orchestrator 85,5%) |
+| Charakterisierungstests erhalten | ✅ Erfüllt, 5/5 Szenarien grün |
+| Verhalten unverändert | ✅ Erfüllt durch Unit-, E2E- und Charakterisierungstests |
+| Zielgröße der Module <300 Zeilen | ⚠️ Teilweise: UI-Adapter 310 Zeilen, Orchestrator 361 Zeilen |
+
+Die Größenabweichung ist als offener Wartbarkeitspunkt dokumentiert. Sie ist
+kein Bestandteil von Phase 2.2 und wird dort nicht implizit weiterrefaktoriert.
 
 ---
 
@@ -71,7 +88,7 @@ Status: planning
 
 ## 3. Inkrementeller Extraktionsplan
 
-### **Schritt 1: UI Feedback Adapter extrahieren** (Empfohlener Start)
+### **Schritt 1: UI Feedback Adapter extrahieren** (abgeschlossen)
 
 **Verantwortung:** Kapselt alle UI-Seiteneffekte (Toasts, Debug-Messages, Error-Glitch, Pin-Conflict-Warnungen)
 
@@ -127,7 +144,7 @@ interface UseUiFeedbackAdapterResult {
 
 ---
 
-### **Schritt 2: Compile Controller extrahieren**
+### **Schritt 2: Compile Controller extrahieren** (abgeschlossen)
 
 **Verantwortung:** Kapselt gesamte Compile-Logik (Mutation, Success/Error-Handler, Parser-Messages, Io-Registry)
 
@@ -202,7 +219,7 @@ interface UseCompileControllerResult {
 
 ---
 
-### **Schritt 3: Simulation Controller extrahieren**
+### **Schritt 3: Simulation Controller extrahieren** (abgeschlossen)
 
 **Verantwortung:** Kapselt gesamte Simulations-Logik (Start, Stop, Pause, Resume, WebSocket-Send)
 
@@ -293,7 +310,7 @@ interface UseSimulationControllerResult {
 
 ---
 
-### **Schritt 4: Orchestrator Hook refaktorieren**
+### **Schritt 4: Orchestrator Hook refaktorieren** (abgeschlossen)
 
 **Verantwortung:** Koordiniert die extrahierten Hooks, behält Compile→Start-Orchestrierung
 
@@ -480,37 +497,26 @@ use-compile-and-run (Orchestrator)
 
 ---
 
-## 7. Empfohlene Vorgehensweise
+## 7. Umsetzungsergebnis
 
-### **Starte mit Schritt 1: UI Feedback Adapter**
+Die geplante Reihenfolge wurde eingehalten: UI-Feedback-Adapter, Compile-
+Controller, Simulation-Controller und abschließend der Orchestrator. Die
+öffentliche Kompatibilitätsoberfläche von `useCompileAndRun` blieb erhalten.
 
-**Begründung:**
-1. ⭐ **Niedrigstes Risiko:** Rein seiteneffektbehaftet, keine Zustandslogik
-2. 🎯 **Klare Schnittstelle:** Einfache Inputs (Callbacks), einfache Outputs (Funktionen)
-3. 🔍 **Leicht testbar:** Toast-Calls, String-Extraktion, Pin-Warnungen isoliert testbar
-4. 📦 **Keine Dependencies:** Benötigt keine anderen Extraktionsschritte
-5. 🛡️ **Charakterisierungstests vorhanden:** Fangen Regressionen sofort ab
-6. 🚀 **Schneller Erfolg:** 2-3 Stunden für vollständige Extraktion inkl. Tests
+Die abschließenden Gates waren erfolgreich:
 
-**Konkrete nächste Schritte:**
-1. ✅ `client/src/hooks/use-ui-feedback-adapter.ts` erstellen
-2. ✅ UI-Logik aus `use-compile-and-run.ts` extrahieren (kopieren, anpassen)
-3. ✅ Unit-Tests schreiben (`use-ui-feedback-adapter.test.ts`)
-4. ✅ `use-compile-and-run.ts` anpassen (Adapter importieren, verwenden)
-5. ✅ Charakterisierungstests laufen lassen (müssen weiterhin passen)
-6. ✅ SonarQube-Analyse (sauber?)
-7. ✅ Commit: `refactor: extract UI feedback adapter (Phase 2.1, Step 1)`
-
-**Danach weiter mit Schritt 2 (Compile Controller), da:**
-- Compile-Logik unabhängiger von Simulation
-- Weniger komplexe Dependencies (kein WebSocket)
-- Parser-Messages und Io-Registry klar abgrenzbar
+- `npm run check`
+- `npm run test:unit` (1.569 Tests)
+- `npm run test:coverage` (Gesamtzeilen-Coverage 79,15%; Phase-2.1-Hooks siehe oben)
+- `npm run build`
+- `npm run test:e2e` (17 Tests)
+- SonarQube Quality Gate `OK`, 0 offene Issues, 0 neue Violations
 
 ---
 
 ## 8. Git-Strategie (aus Action-Plan)
 
-**Branch:** `feature/refactor/phase-2-1` (von `feature/refactor/phase-1-low-hanging` abzweigen)
+**Branch:** `feature/refactor/phase-1-low-hanging`
 
 **Commit-Granularität:**
 ```
@@ -545,26 +551,20 @@ Final:
 
 **Phase 2.1 Refactoring-Plan im Überblick:**
 
-| Schritt | Extraktion | Zeilen (neu) | Risiko | Aufwand | Priorität |
+| Schritt | Extraktion | Zeilen (Ist) | Risiko | Aufwand | Status |
 |---------|------------|--------------|--------|---------|-----------|
-| 1 | UI Feedback Adapter | ~120 | ⭐ Niedrig | 2-3h | **Start hier** |
-| 2 | Compile Controller | ~250 | ⭐⭐ Mittel | 4-5h | Danach |
-| 3 | Simulation Controller | ~280 | ⭐⭐⭐ Mittel-Hoch | 5-6h | Danach |
-| 4 | Orchestrator | ~150 | ⭐⭐⭐⭐ Hoch | 3-4h | Zuletzt |
-| **Gesamt** | | **~800** | | **14-18h** | |
+| 1 | UI Feedback Adapter | 310 | ⭐ Niedrig | 2-3h | ✅ Abgeschlossen |
+| 2 | Compile Controller | 253 | ⭐⭐ Mittel | 4-5h | ✅ Abgeschlossen |
+| 3 | Simulation Controller | 209 | ⭐⭐⭐ Mittel-Hoch | 5-6h | ✅ Abgeschlossen |
+| 4 | Orchestrator | 361 | ⭐⭐⭐⭐ Hoch | 3-4h | ✅ Abgeschlossen |
+| **Gesamt** | | **1.133** | | **14-18h** | |
 
-**Empfehlung:** Beginne mit **Schritt 1 (UI Feedback Adapter)** als risikoärmsten Einstieg.成功后 weiter mit Compile Controller (unabhängig von Simulation), dann Simulation Controller, zuletzt Orchestrator-Vereinfachung.
-
-**Nächste Aktion:** 
-- [ ] User bestätigen, dass Plan verständlich ist
-- [ ] Schritt 1 implementieren (UI Feedback Adapter extrahieren)
-- [ ] Unit-Tests schreiben
-- [ ] Charakterisierungstests validieren
-- [ ] SonarQube-Analyse
-- [ ] Commit
+**Abschluss:** Die Umsetzung ist abgeschlossen. Phase 2.2 kann als
+eigenständiger nächster Arbeitsschritt geplant werden; die dokumentierte
+Größenabweichung bleibt dabei ein bewusst offener Punkt.
 
 ---
 
 **Erstellt:** 2026-09-04  
 **Basierend auf:** `use-compile-and-run.ts` (900 Zeilen, unverändert)  
-**Status:** Planungsphase abgeschlossen, bereit für Implementierung
+**Status:** Umsetzung abgeschlossen am 2026-09-04

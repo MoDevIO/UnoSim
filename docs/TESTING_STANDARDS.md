@@ -21,13 +21,15 @@ Folgende Dateien sind aktuell die größten Hotspots und sollten gezielt mit Tes
 
 | Datei | Aktuelle Coverage | Ziel | Verantwortung |
 |-------|------------------|------|---------------|
-| `client/src/hooks/use-compile-and-run.ts` | ~65% | >80% | Frontend-Logik |
+| `client/src/hooks/use-compile-and-run.ts` | 85,5% | >80% | Compile→Start-Orchestrierung |
 | `server/routes/simulation.ws.ts` | ~55% | >70% | WebSocket-Lifecycle |
 | `server/services/arduino-compiler.ts` | ~60% | >75% | Compiler-Logik |
 | `server/services/execution-manager.ts` | ~45% | >70% | Sandbox-Ausführung |
 | `client/src/hooks/useArduinoSimulatorPage.tsx` | ~50% | >75% | ViewModel-Komposition |
 
-**Maßnahme 1.10:** Diese Coverage-Ziele sind dokumentiert und sollten vor größeren Refactorings (Phase 2) erreicht werden.
+**Phase 2.1 abgeschlossen:** Die extrahierten Hooks liegen bei mindestens 94,0%
+Statement-Coverage; der Orchestrator liegt bei 85,5%. Die Größenabweichungen
+des UI-Adapters und des Orchestrators sind im Phase-2.1-Plan dokumentiert.
 
 ---
 

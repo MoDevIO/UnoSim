@@ -7,7 +7,8 @@ Dieser Einstiegspunkt trennt aktuelle, planende und archivierte Dokumente. Für 
 ## Status-Klassen
 
 - `Status: current` — aktuell gültige oder normative Dokumentation.
-- `Status: planning` — aktive Analyse-, Planungs- oder Zielbild-Dokumente; nicht als Ist-Zustand missverstehen.
+- `Status: planning` — aktive Analyse- oder Zielbild-Dokumente; nicht als Ist-Zustand missverstehen.
+- `Status: completed` — abgeschlossene Pläne mit dokumentiertem Ist-Ergebnis.
 - `Status: archived` — historische Dokumente, Reports oder Pläne; nur zur Nachvollziehbarkeit.
 
 ## Current
@@ -25,8 +26,13 @@ Dieser Einstiegspunkt trennt aktuelle, planende und archivierte Dokumente. Für 
 | Dokument | Zweck |
 | --- | --- |
 | [`PROJECT_ANALYSIS_REPORT_2026-09-04.md`](PROJECT_ANALYSIS_REPORT_2026-09-04.md) | Aktuelle Projektanalyse und priorisierte Maßnahmen. |
-| [`PHASE2.1_REFACTORING_PLAN.md`](PHASE2.1_REFACTORING_PLAN.md) | Aktiver Plan für das Phase-2.1-Refactoring. |
 | [`SCALABILITY_100_STUDENTS.md`](SCALABILITY_100_STUDENTS.md) | Skalierbarkeitsanalyse und Mess-/Zielszenarien. |
+
+## Completed
+
+| Dokument | Zweck |
+| --- | --- |
+| [`PHASE2.1_REFACTORING_PLAN.md`](PHASE2.1_REFACTORING_PLAN.md) | Abgeschlossener Plan und Ist-Ergebnis der Hook-Zerlegung. |
 
 ## Archived
 
