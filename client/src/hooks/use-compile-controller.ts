@@ -16,13 +16,6 @@ const logger = new Logger("use-compile-controller");
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
 
-export type DebugMessageParams = {
-  source: "frontend" | "server";
-  type: string;
-  data: string;
-  protocol?: "websocket" | "http";
-};
-
 /** UI Feedback Adapter interface for compile controller */
 interface UiFeedbackAdapter {
   logCompileRequest: (codeLength: number) => void;
