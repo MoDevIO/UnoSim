@@ -610,9 +610,9 @@ export function ArduinoBoard({
                 className="pointer-events-none absolute"
                 style={{
                   left: "175px",
-                  top: "135px",
+                  top: "138px",
                   width: "54px",
-                  height: "18px",
+                  height: "12px",
                   objectFit: "contain",
                 }}
               />
