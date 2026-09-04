@@ -1,5 +1,7 @@
 # UnoSim Architekturübersicht
 
+Status: current
+
 Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Datenflüsse und Verantwortlichkeiten.
 
 ## 📊 Datenfluss-Diagramm

@@ -1,6 +1,8 @@
 
 # Skalierbarkeit: Ist-Zustand und zukünftige Kapazitätsziele
 
+Status: planning
+
 > **Stand 3. September 2026:** Dieses Dokument trennt gemessene bzw.
 > konfigurationsabhängige Grenzen vom Zielbild. Der verbindliche Betrieb ist
 > heute ein einzelner zustandsbehafteter Backend-Knoten; die Abschnitte zu 100

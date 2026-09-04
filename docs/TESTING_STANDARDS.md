@@ -1,5 +1,7 @@
 # Testing Standards
 
+Status: current
+
 ## CI Timing Tolerances
 
 ### 🕒 Timing tests are inherently flaky in CI

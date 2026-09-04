@@ -1,9 +1,11 @@
 # UnoSim: Projektanalyse und priorisierter Handlungsplan
 
+Status: archived
+
 ⚠️ **HISTORISCHES DOKUMENT**
 
 Dieses Dokument enthält historische Analysen und Empfehlungen aus früheren Untersuchungen (Stand: 2024).
-Die aktuellen Maßnahmen und Entscheidungen sind im Hauptbericht `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md` dokumentiert.
+Die aktuellen Maßnahmen und Entscheidungen sind im Hauptbericht [`docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`](../../PROJECT_ANALYSIS_REPORT_2026-09-04.md) dokumentiert.
 
 Für neue Entwicklungen und Refactorings bitte die aktuelle Dokumentation konsultieren.
 
@@ -1261,14 +1263,14 @@ E2E-Gates bleiben entsprechend ihrer Taxonomie verbindlich.
 - [`server/routes/simulation.ws.ts`](../server/routes/simulation.ws.ts)
 - [`server/config.ts`](../server/config.ts)
 - [`server/services/sandbox/execution-manager.ts`](../server/services/sandbox/execution-manager.ts)
-- [`server/services/docker-command-builder.ts`](../server/services/docker-command-builder.ts)
-- [`server/services/sandbox-runner-pool.ts`](../server/services/sandbox-runner-pool.ts)
-- [`client/src/hooks/use-compile-and-run.ts`](../client/src/hooks/use-compile-and-run.ts)
-- [`client/src/hooks/useArduinoSimulatorPage.tsx`](../client/src/hooks/useArduinoSimulatorPage.tsx)
-- [`client/src/hooks/use-external-api.ts`](../client/src/hooks/use-external-api.ts)
-- [`docker-compose.yml`](../docker-compose.yml)
-- [`README.md`](../README.md)
-- [`README_ADMIN.md`](../README_ADMIN.md)
-- [`docs/SCALABILITY_100_STUDENTS.md`](SCALABILITY_100_STUDENTS.md)
-- [`ssot/ssot_function_description_scalability.md`](../ssot/ssot_function_description_scalability.md)
-- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+- [`server/services/docker-command-builder.ts`](../../../server/services/docker-command-builder.ts)
+- [`server/services/sandbox-runner-pool.ts`](../../../server/services/sandbox-runner-pool.ts)
+- [`client/src/hooks/use-compile-and-run.ts`](../../../client/src/hooks/use-compile-and-run.ts)
+- [`client/src/hooks/useArduinoSimulatorPage.tsx`](../../../client/src/hooks/useArduinoSimulatorPage.tsx)
+- [`client/src/hooks/use-external-api.ts`](../../../client/src/hooks/use-external-api.ts)
+- [`docker-compose.yml`](../../../docker-compose.yml)
+- [`README.md`](../../../README.md)
+- [`README_ADMIN.md`](../../../README_ADMIN.md)
+- [`docs/SCALABILITY_100_STUDENTS.md`](../../SCALABILITY_100_STUDENTS.md)
+- [`ssot/ssot_function_description_scalability.md`](../../../ssot/ssot_function_description_scalability.md)
+- [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)

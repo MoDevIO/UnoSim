@@ -1,5 +1,7 @@
 # External API (postMessage Protocol)
 
+Status: current
+
 The Arduino Simulator can be embedded in an `<iframe>` and controlled by its parent page via the [Window.postMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).
 
 **API Version: 1.4.0**
