@@ -129,14 +129,7 @@ interface UseCompileAndRunResult {
 }
 
 export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunResult {
-  // ------------------------------------------------------------
-  // shared state (compile + simulation)
-  // ------------------------------------------------------------
-  const { compilationStatus, setCompilationStatus, arduinoCliStatus, setArduinoCliStatus,
-    hasCompilationErrors, setHasCompilationErrors, lastCompilationResult,
-    setLastCompilationResult, cliOutput, setCliOutput, compilerErrors, setCompilerErrors,
-    dockerGccPhase, setDockerGccPhase,
-  } = useSimulatorControllerState();
+  const controllerState = useSimulatorControllerState();
 
   // ------------------------------------------------------------
   // UI Feedback Adapter (extrahiert für Schritt 1 von Phase 2.1)
@@ -145,7 +138,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     toast: params.toast,
     addDebugMessage: params.addDebugMessage,
     triggerErrorGlitch: params.triggerErrorGlitch,
-    setCliOutput,
+    setCliOutput: controllerState.setCliOutput,
     setPendingPinConflicts: params.setPendingPinConflicts,
   });
 
@@ -153,12 +146,6 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   // Compile Controller (extrahiert für Schritt 2 von Phase 2.1)
   // ------------------------------------------------------------
   const {
-    compileMutation,
-    handleCompile,
-    handleClearCompilationOutput,
-    clearOutputs,
-  } = useCompileController({
-    // State
     compilationStatus,
     setCompilationStatus,
     arduinoCliStatus,
@@ -171,7 +158,12 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setLastCompilationResult,
     cliOutput,
     setCliOutput,
-
+    compileMutation,
+    handleCompile,
+    handleClearCompilationOutput,
+    clearOutputs,
+  } = useCompileController({
+    ...controllerState,
     // Callbacks
     setParserMessages: params.setParserMessages,
     setParserPanelDismissed: params.setParserPanelDismissed,
@@ -350,8 +342,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setHasCompiledOnce: simulation.setHasCompiledOnce,
     simulationTimeout: simulation.simulationTimeout,
     setSimulationTimeout: simulation.setSimulationTimeout,
-    dockerGccPhase,
-    setDockerGccPhase,
+    dockerGccPhase: controllerState.dockerGccPhase,
+    setDockerGccPhase: controllerState.setDockerGccPhase,
     startMutation: simulation.startMutation,
     stopMutation: simulation.stopMutation,
     pauseMutation: simulation.pauseMutation,

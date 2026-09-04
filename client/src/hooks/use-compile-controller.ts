@@ -15,6 +15,7 @@ import { isCompileResult } from "@/types/websocket";
 const logger = new Logger("use-compile-controller");
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
+type ArduinoCliStatus = "idle" | "compiling" | "success" | "error";
 
 /** UI Feedback Adapter interface for compile controller */
 interface UiFeedbackAdapter {
@@ -37,8 +38,8 @@ export interface UseCompileControllerParams {
   // State
   compilationStatus: CompilationStatus;
   setCompilationStatus: SetState<CompilationStatus>;
-  arduinoCliStatus: "idle" | "compiling" | "success" | "error";
-  setArduinoCliStatus: SetState<"idle" | "compiling" | "success" | "error">;
+  arduinoCliStatus: ArduinoCliStatus;
+  setArduinoCliStatus: SetState<ArduinoCliStatus>;
   hasCompilationErrors: boolean;
   setHasCompilationErrors: SetState<boolean>;
   compilerErrors: CompilerError[];
@@ -71,6 +72,18 @@ export interface UseCompileControllerParams {
 }
 
 interface UseCompileControllerResult {
+  compilationStatus: CompilationStatus;
+  setCompilationStatus: SetState<CompilationStatus>;
+  arduinoCliStatus: ArduinoCliStatus;
+  setArduinoCliStatus: SetState<ArduinoCliStatus>;
+  hasCompilationErrors: boolean;
+  setHasCompilationErrors: SetState<boolean>;
+  compilerErrors: CompilerError[];
+  setCompilerErrors: SetState<CompilerError[]>;
+  lastCompilationResult: CompilationResultType;
+  setLastCompilationResult: SetState<CompilationResultType>;
+  cliOutput: string;
+  setCliOutput: SetState<string>;
   compileMutation: UseMutationResult<CompileResult, unknown, CompileConfig, unknown>;
   handleCompile: () => void;
   handleClearCompilationOutput: () => void;
@@ -220,6 +233,18 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
   }, [params]);
 
   return {
+    compilationStatus: params.compilationStatus,
+    setCompilationStatus: params.setCompilationStatus,
+    arduinoCliStatus: params.arduinoCliStatus,
+    setArduinoCliStatus: params.setArduinoCliStatus,
+    hasCompilationErrors: params.hasCompilationErrors,
+    setHasCompilationErrors: params.setHasCompilationErrors,
+    compilerErrors: params.compilerErrors,
+    setCompilerErrors: params.setCompilerErrors,
+    lastCompilationResult: params.lastCompilationResult,
+    setLastCompilationResult: params.setLastCompilationResult,
+    cliOutput: params.cliOutput,
+    setCliOutput: params.setCliOutput,
     compileMutation,
     handleCompile,
     handleClearCompilationOutput,
