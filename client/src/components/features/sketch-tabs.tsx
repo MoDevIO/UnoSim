@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { TabBar } from "@/components/ui/tab-bar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -306,7 +307,7 @@ export function SketchTabs({
   };
 
   return (
-    <div
+    <TabBar
       className="relative flex items-center bg-[#181818] border-b border-[#2b2b2b] px-0"
       style={{ height: "var(--ui-header-height)" }}
     >
@@ -600,6 +601,6 @@ export function SketchTabs({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </TabBar>
   );
 }

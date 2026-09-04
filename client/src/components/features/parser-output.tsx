@@ -15,6 +15,7 @@ import { useState } from "react";
 import * as React from "react";
 import type { SeverityLevel } from "@shared/reserved-names-validator";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
+import { TabBar } from "@/components/ui/tab-bar";
 
 // Module-level constants (not re-created on every render)
 const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
@@ -272,23 +273,25 @@ export function ParserOutput({
               </span>
             </div>
             {/* Tabs integrated in header */}
-            <TabsList className="bg-transparent h-auto ml-4 p-0 gap-1">
-              <TabsTrigger
-                value="messages"
-                className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
-              >
-                Messages {messages.length > 0 && `(${messages.length})`}
-              </TabsTrigger>
-              <TabsTrigger
-                value="registry"
-                className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
-              >
-                I/O Registry{" "}
-                {(showAllPins ? ioRegistry.length : totalProgrammedPins) >
-                  0 &&
-                  `(${showAllPins ? ioRegistry.length : totalProgrammedPins})`}
-              </TabsTrigger>
-            </TabsList>
+            <TabBar asChild className="bg-transparent h-auto ml-4 p-0 gap-1">
+              <TabsList>
+                <TabsTrigger
+                  value="messages"
+                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
+                >
+                  Messages {messages.length > 0 && `(${messages.length})`}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="registry"
+                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
+                >
+                  I/O Registry{" "}
+                  {(showAllPins ? ioRegistry.length : totalProgrammedPins) >
+                    0 &&
+                    `(${showAllPins ? ioRegistry.length : totalProgrammedPins})`}
+                </TabsTrigger>
+              </TabsList>
+            </TabBar>
             <div className="flex items-center gap-3 ml-4 text-ui-sm">
               {totalErrors > 0 && (
                 <span className="flex items-center gap-1">

@@ -50,6 +50,13 @@ html, body {
   width: 100%;
 }
 
+/* Shared shell keeps editor and output tab strips aligned. */
+.unified-tab-bar {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
 .unified-scroll-area__viewport::-webkit-scrollbar {
   display: none;
 }
