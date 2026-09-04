@@ -374,8 +374,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
         const pinNum = pinToNumber(record.pin);
         if (pinNum === null) continue;
 
-        const exists = newStates.find((p) => p.pin === pinNum);
-        if (!exists) {
+        if (!newStates.some((p) => p.pin === pinNum)) {
           newStates.push({
             pin: pinNum,
             mode: "INPUT",

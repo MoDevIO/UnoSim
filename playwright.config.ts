@@ -56,7 +56,7 @@ export default defineConfig({
     // execution context mid-test.
     // VITE_DISABLE_HMR=true suppresses the HMR full-reload that Vite sends
     // after its first-run dependency pre-bundling (no cache in CI).
-    command: `PORT=${basePort} SANDBOX_POOL_MIN_RUNNERS=5 SANDBOX_POOL_MAX_RUNNERS=5 VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true DISABLE_COMPILE_GATEKEEPER=true DISABLE_RATE_LIMIT=true npm run dev`,
+    command: `PORT=${basePort} SANDBOX_POOL_MIN_RUNNERS=5 SANDBOX_POOL_MAX_RUNNERS=5 VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true DISABLE_COMPILE_GATEKEEPER=true npm run dev:e2e`,
     url: `http://localhost:${basePort}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000, 

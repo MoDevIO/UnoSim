@@ -309,11 +309,11 @@ export interface IOPinRecord {
   conflictMessage?: string;
   // ── Legacy fields (kept for runtime path + backward compat) ─────────────
   /**
-   * @deprecated Use pinModeLines and pinModeModes instead. Will be removed in next major release.
+   * Legacy runtime field. Prefer pinModeLines and pinModeModes for static data.
    */
   pinMode?: number; // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
   /**
-   * @deprecated Use pinModeLines instead. Will be removed in next major release.
+   * Legacy runtime field. Prefer pinModeLines for static data.
    */
   definedAt?: {
     line: number;
@@ -326,7 +326,7 @@ export interface IOPinRecord {
     };
   };
   /**
-   * @deprecated Use usedAt instead. Will be removed in next major release.
+   * Legacy runtime and compatibility field for operation usage data.
    */
   usedAt?: Array<{
     line: number;

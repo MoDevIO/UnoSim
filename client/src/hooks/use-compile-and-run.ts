@@ -1,5 +1,4 @@
-import { useCallback, useEffect } from "react";
-import type { RefObject, MutableRefObject } from "react";
+import { useCallback, useEffect, type MutableRefObject, type RefObject } from "react";
 import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
