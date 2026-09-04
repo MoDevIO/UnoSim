@@ -31,6 +31,7 @@ interface UiFeedbackAdapter {
   triggerCompileErrorGlitch: () => void;
   showCompileSuccessToast: () => void;
   showCompileErrorToast: () => void;
+  showBackendUnreachableToast: () => void;
   showCompilationFailedWithErrorsToast: () => void;
   showNoCodeToast: () => void;
   setCompileSuccessOutput: (output: string) => void;
@@ -63,6 +64,7 @@ export interface UseCompileControllerParams {
 
   // UI Feedback
   uiFeedback: UiFeedbackAdapter;
+  isBackendUnreachableError: (error: unknown) => boolean;
 
   // Editor
   editorRef: React.RefObject<{ getValue: () => string } | null>;
@@ -118,6 +120,15 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
         handleCompileSuccess(data);
       } else {
         handleCompileError(data);
+      }
+    },
+    onError: (error: unknown) => {
+      params.setArduinoCliStatus("error");
+      params.uiFeedback.triggerCompileErrorGlitch();
+      if (params.isBackendUnreachableError(error)) {
+        params.uiFeedback.showBackendUnreachableToast();
+      } else {
+        params.uiFeedback.showCompileErrorToast();
       }
     },
   });

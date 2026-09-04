@@ -9,10 +9,9 @@ import type { CompilationStatus, CompilationResultType } from "@/types/compilati
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
-import type { IncomingArduinoMessage } from "@/types/websocket";
+import type { IncomingArduinoMessage, CompileConfig, CompileResult, CompilerError } from "@/types/websocket";
 import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
 import { useCompileController } from "./use-compile-controller";
-import type { CompileConfig, CompileResult, CompilerError } from "@/types/websocket";
 import { buildCompileCommand } from "./compile-command-builder";
 
 const logger = new Logger("useCompileAndRun");
@@ -191,11 +190,13 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       triggerCompileErrorGlitch: uiFeedback.triggerCompileErrorGlitch,
       showCompileSuccessToast: uiFeedback.showCompileSuccessToast,
       showCompileErrorToast: uiFeedback.showCompileErrorToast,
+      showBackendUnreachableToast: uiFeedback.showBackendUnreachableToast,
       showCompilationFailedWithErrorsToast: uiFeedback.showCompilationFailedWithErrorsToast,
       showNoCodeToast: uiFeedback.showNoCodeToast,
       setCompileSuccessOutput: uiFeedback.setCompileSuccessOutput,
       setCompileErrorOutput: uiFeedback.setCompileErrorOutput,
     },
+    isBackendUnreachableError: params.isBackendUnreachableError,
 
     // Editor
     editorRef: params.editorRef,
