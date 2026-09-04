@@ -609,10 +609,10 @@ export function ArduinoBoard({
                 aria-hidden="true"
                 className="pointer-events-none absolute"
                 style={{
-                  left: "175px",
-                  top: "138px",
-                  width: "54px",
-                  height: "12px",
+                  left: "170px",
+                  top: "135px",
+                  width: "64px",
+                  height: "15px",
                   objectFit: "contain",
                 }}
               />
