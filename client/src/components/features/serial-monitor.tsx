@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo, ReactNode } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { Button } from "@/components/ui/button";
 import { Trash2, Monitor } from "lucide-react";
 import type { OutputLine } from "@shared/schema";
@@ -377,13 +377,15 @@ export function SerialMonitor({
         const content = document.createElement("div");
         content.style.transform = `translateY(${offsetY}px)`;
         content.style.willChange = "transform";
+        content.style.width = "max-content";
 
         visibleLines.forEach((ln) => {
           const div = document.createElement("div");
-          div.className = "text-foreground whitespace-pre-wrap break-words";
+          div.className = "text-foreground whitespace-pre";
           div.style.height = `${ROW_HEIGHT}px`;
           div.style.lineHeight = `${ROW_HEIGHT}px`;
           div.style.fontSize = "var(--fs-code-base)"; // Scales with global --ui-font-scale
+          div.style.width = "max-content";
           div.textContent = ln.text;
           content.appendChild(div);
         });
@@ -394,9 +396,10 @@ export function SerialMonitor({
         // Standard rendering mode (for small outputs or when virtualization disabled)
         processedLines.forEach((ln) => {
           const div = document.createElement("div");
-          div.className = "text-foreground whitespace-pre-wrap break-words";
+          div.className = "text-foreground whitespace-pre";
           div.style.fontSize = "var(--fs-code-base)"; // Scales with global --ui-font-scale
           div.style.lineHeight = "var(--lh-code-base)"; // Scales with global --ui-font-scale
+          div.style.width = "max-content";
           div.textContent = ln.text;
           el.appendChild(div);
         });
@@ -478,13 +481,15 @@ export function SerialMonitor({
       {/* Content area - flex-1 for remaining space */}
       <div className="flex-1 min-h-0">
         {showMonitor ? (
-          <ScrollArea
+          <UnifiedScrollArea
+            orientation="both"
             className="h-full"
             viewportRef={outputRef}
             viewportTestId="serial-output"
-            viewportProps={{ onScroll: handleScroll }}
-            viewportClassName="p-3 font-mono"
-            thumbClassName="bg-status-success"
+            viewportProps={{
+              onScroll: handleScroll,
+            }}
+            viewportClassName="p-3 font-mono whitespace-nowrap"
           />
         ) : (
           <div className="h-full" />

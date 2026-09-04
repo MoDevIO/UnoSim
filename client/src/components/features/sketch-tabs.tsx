@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import {
   X,
-  ChevronLeft,
-  ChevronRight,
   MoreVertical,
   Wand2,
   Pen,
@@ -10,6 +8,8 @@ import {
   Plus,
   Download,
   Upload,
+  FileCode2,
+  Code2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { clsx } from "clsx";
+import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 
 interface Tab {
   id: string;
@@ -60,6 +61,10 @@ interface SketchTabsProps {
   ) => void;
   readonly onFormatCode?: () => void;
   readonly examplesMenu?: React.ReactNode;
+}
+
+function getDisplayFileName(path: string): string {
+  return path.split(/[\\/]/).pop() || path;
 }
 
 export function SketchTabs({
@@ -87,31 +92,7 @@ export function SketchTabs({
     content: string;
   }> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const tabsContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-
-  const checkScroll = () => {
-    const container = tabsContainerRef.current;
-    if (container) {
-      setCanScrollLeft(container.scrollLeft > 0);
-      setCanScrollRight(
-        container.scrollLeft < container.scrollWidth - container.clientWidth,
-      );
-    }
-  };
-
-  useEffect(() => {
-    checkScroll();
-    const container = tabsContainerRef.current;
-    container?.addEventListener("scroll", checkScroll);
-    globalThis.addEventListener("resize", checkScroll);
-    return () => {
-      container?.removeEventListener("scroll", checkScroll);
-      globalThis.removeEventListener("resize", checkScroll);
-    };
-  }, [tabs]);
 
   useEffect(() => {
     // Focus and select text in input when renaming starts
@@ -120,17 +101,6 @@ export function SketchTabs({
       inputRef.current.select();
     }
   }, [renamingTabId]);
-
-  const scroll = (direction: "left" | "right") => {
-    const container = tabsContainerRef.current;
-    if (container) {
-      const scrollAmount = 200;
-      container.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
-      });
-    }
-  };
 
   const handleRenameStart = (tabId: string, currentName: string) => {
     setRenamingTabId(tabId);
@@ -337,48 +307,41 @@ export function SketchTabs({
 
   return (
     <div
-      className="flex items-center bg-muted border-b border-border px-[var(--header-padding-x)]"
+      className="relative flex items-center bg-[#181818] border-b border-[#2b2b2b] px-0"
       style={{ height: "var(--ui-header-height)" }}
     >
-      {/* Scroll left button */}
-      {canScrollLeft && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
-          onClick={() => scroll("left")}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-      )}
-
       {/* Tabs container with overflow */}
-      <div
-        ref={tabsContainerRef}
-        className="flex items-center overflow-x-auto flex-1 scrollbar-hide"
-        style={{
-          scrollBehavior: "smooth",
-          height: "var(--ui-header-height)",
-        }}
+      <UnifiedScrollArea
+        orientation="horizontal"
+        className="flex-1 h-full"
+        viewportClassName="flex items-center overflow-y-hidden"
+        viewportProps={{ style: { scrollBehavior: "smooth", touchAction: "pan-x" } }}
       >
         {tabs.map((tab) => (
           <div
             key={tab.id}
             className={clsx(
-              "flex items-center flex-shrink-0 group rounded-md mr-2",
+              "relative flex items-center flex-shrink-0 group mr-0 border-r border-[#2b2b2b]",
               activeTabId === tab.id
-                ? "bg-background shadow-sm ring-1 ring-border"
-                : "",
+                ? "bg-[#121212] tabs-active"
+                : "bg-[#181818]",
             )}
             style={{
               height: "var(--ui-button-height)",
               display: "flex",
               alignItems: "center",
               fontSize: "var(--ui-control-font-size)",
+              maxWidth: "200px",
             }}
           >
+            {activeTabId === tab.id && (
+              <span
+                aria-hidden="true"
+                className="absolute top-0 left-0 right-0 h-0.5 bg-[#007acc] z-10 pointer-events-none"
+              />
+            )}
             {renamingTabId === tab.id ? (
-              <div className="px-4 flex items-center" style={{ height: "var(--ui-button-height)" }}>
+              <div className="px-3 flex items-center" style={{ height: "var(--ui-button-height)" }}>
                 <Input
                   ref={inputRef}
                   value={newName}
@@ -405,10 +368,10 @@ export function SketchTabs({
                 <button
                   type="button"
                   className={clsx(
-                    "flex items-center space-x-2 px-4 cursor-pointer transition-colors",
+                    "flex items-center gap-2 px-3 cursor-pointer transition-colors min-w-0",
                     activeTabId === tab.id
-                      ? "text-foreground"
-                      : "hover:bg-muted/80 text-muted-foreground",
+                      ? "text-[#f3f3f3]"
+                      : "hover:bg-[#252526] text-[#9d9d9d]",
                   )}
                   style={{
                     height: "var(--ui-button-height)",
@@ -418,6 +381,8 @@ export function SketchTabs({
                     fontSize: "var(--ui-control-font-size)",
                     background: "transparent",
                     border: "none",
+                    flex: "1",
+                    minWidth: "0",
                   }}
                   onClick={() => onTabClick(tab.id)}
                   tabIndex={0}
@@ -431,30 +396,40 @@ export function SketchTabs({
                     }
                   }}
                   onDoubleClick={() => handleRenameStart(tab.id, tab.name)}
+                  title={getDisplayFileName(tab.name)}
                 >
+                  {getDisplayFileName(tab.name).toLowerCase().endsWith(".ino") ? (
+                    <Code2 className="h-3 w-3 flex-shrink-0 text-[#2aa198]" strokeWidth={2} />
+                  ) : (
+                    <FileCode2 className="h-3 w-3 flex-shrink-0 text-[#c586c0]" strokeWidth={2} />
+                  )}
                   <span
-                    className="text-ui-sm whitespace-nowrap"
+                    className="text-ui-sm whitespace-nowrap overflow-hidden text-ellipsis"
                     style={{
                       fontSize: "var(--ui-control-font-size)",
                       lineHeight: "var(--ui-button-height)",
                       height: "var(--ui-button-height)",
                       display: "flex",
                       alignItems: "center",
+                      minWidth: "0",
+                      flex: "1",
                     }}
                   >
-                    {tab.name}
-                    {modifiedTabId === tab.id && <span className="ml-1">•</span>}
+                    {getDisplayFileName(tab.name)}
+                    {modifiedTabId === tab.id && <span className="ml-1 flex-shrink-0">•</span>}
                   </span>
                 </button>
                 {tabs[0]?.id !== tab.id && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 ml-2"
+                    className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-100 transition-opacity text-[#cccccc] hover:bg-[#333333]"
+                    data-active={activeTabId === tab.id}
                     onClick={(e) => {
                       e.stopPropagation();
                       setDeleteConfirmTabId(tab.id);
                     }}
+                    title="Close file"
                   >
                     <X className="h-3 w-3" />
                   </Button>
@@ -537,19 +512,7 @@ export function SketchTabs({
         <div className="ml-auto flex items-center px-2 flex-shrink-0">
           {examplesMenu}
         </div>
-      </div>
-
-      {/* Scroll right button */}
-      {canScrollRight && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0"
-          onClick={() => scroll("right")}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      )}
+      </UnifiedScrollArea>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

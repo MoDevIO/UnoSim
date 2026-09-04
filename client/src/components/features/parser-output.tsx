@@ -14,14 +14,10 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import * as React from "react";
 import type { SeverityLevel } from "@shared/reserved-names-validator";
+import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 
 // Module-level constants (not re-created on every render)
 const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
-
-const HIDE_SCROLLBAR_STYLE = `
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  .no-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
-`;
 
 // Module-level pure helpers — fix S6481 (no re-creation on render)
 function getSeverityIcon(severity: SeverityLevel): JSX.Element {
@@ -331,16 +327,17 @@ export function ParserOutput({
           value="messages"
           className="flex-1 flex flex-col overflow-hidden m-0 data-[state=inactive]:hidden"
         >
-          <style>{HIDE_SCROLLBAR_STYLE}</style>
           {messages.length === 0 ? (
             <div className="text-muted-foreground p-4 text-center text-ui-xs">
               No parser messages
             </div>
           ) : (
-            <div
-              className="p-3 text-ui-xs space-y-2 overflow-auto no-scrollbar flex-1"
-              ref={messagesContainerRef}
-              data-testid="parser-messages-container"
+            <UnifiedScrollArea
+              className="flex-1"
+              orientation="both"
+              viewportClassName="p-3 text-ui-xs space-y-2"
+              viewportRef={messagesContainerRef}
+              viewportTestId="parser-messages-container"
             >
               {Object.entries(messagesByCategory).map(
                 ([category, categoryMessages]) => (
@@ -424,14 +421,14 @@ export function ParserOutput({
                   </div>
                 ),
               )}
-            </div>
+            </UnifiedScrollArea>
           )}
         </TabsContent>
 
         {/* I/O Registry Tab */}
         <TabsContent
           value="registry"
-          className="flex-1 overflow-auto custom-scrollbar m-0 flex flex-col data-[state=inactive]:hidden"
+          className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
         >
           {/* Toggle Button for Pin Visibility */}
           <div className="sticky top-0 bg-muted/50 border-b border-muted-foreground/30 px-3 h-[var(--ui-button-height)] flex items-center justify-between z-10">
@@ -469,8 +466,7 @@ export function ParserOutput({
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto no-scrollbar">
-            <style>{HIDE_SCROLLBAR_STYLE}</style>
+          <UnifiedScrollArea className="flex-1" orientation="both">
             {filteredRegistry.length === 0 ? (
               <div className="text-muted-foreground p-4 text-center text-ui-xs">
                 {showAllPins ? (
@@ -490,7 +486,7 @@ export function ParserOutput({
                 )}
               </div>
             ) : (
-              <div className="h-full overflow-auto">
+              <div className="min-w-max">
                 <table className="w-full text-ui-xs border-collapse">
                   <thead>
                     <tr className="sticky top-0 z-40 border-b border-muted-foreground/30 bg-muted">
@@ -677,7 +673,7 @@ export function ParserOutput({
                 </table>
               </div>
             )}
-          </div>
+          </UnifiedScrollArea>
         </TabsContent>
       </Tabs>
     </div>

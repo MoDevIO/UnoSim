@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Terminal, Trash2, CheckCircle2 } from "lucide-react";
+import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 
 interface CompilationError {
   file: string;
@@ -69,7 +70,7 @@ export function CompilationOutput({
         </div>
       )}
 
-      <div className="flex-1 overflow-auto custom-scrollbar">
+      <UnifiedScrollArea className="flex-1" orientation="both" viewportClassName="h-full">
         {errors && errors.length > 0 ? (
           <div data-testid="compilation-errors" className="p-3 font-mono whitespace-pre-wrap">
             {errors.map((e) => (
@@ -93,7 +94,7 @@ export function CompilationOutput({
             )}
           </div>
         )}
-      </div>
+      </UnifiedScrollArea>
     </div>
   );
 }

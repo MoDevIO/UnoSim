@@ -8,7 +8,107 @@ html, body {
   overflow-y: hidden !important;
 }
 
+/* VS Code-style tab strip: scrolling remains available without a persistent bar. */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.tabs-active {
+  position: relative;
+}
+
+.tabs-active::before {
+  /* Absolute marker cannot change layout or be displaced by the scrollbar. */
+  background: #007acc;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+/* Shared, browser-independent scrollbar used by all UnoSim content panels. */
+.unified-scroll-area {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.unified-scroll-area__viewport {
+  height: 100%;
+  overflow: auto;
+  scrollbar-width: none;
+  width: 100%;
+}
+
+.unified-scroll-area__viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.unified-scrollbar {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  touch-action: none;
+  transition: opacity 120ms ease;
+  z-index: 50;
+}
+
+.unified-scroll-area:hover > .unified-scrollbar,
+.unified-scroll-area:focus-within > .unified-scrollbar,
+.unified-scroll-area[data-scrollbar-visibility="always"] > .unified-scrollbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.unified-scrollbar--horizontal {
+  bottom: 0;
+  cursor: ew-resize;
+  height: var(--ui-scrollbar-size);
+  left: 0;
+  right: var(--ui-scrollbar-size);
+}
+
+.unified-scrollbar--vertical {
+  bottom: var(--ui-scrollbar-size);
+  cursor: ns-resize;
+  right: 0;
+  top: 0;
+  width: var(--ui-scrollbar-size);
+}
+
+.unified-scrollbar__thumb {
+  background: #424242;
+  border-radius: calc(var(--ui-scrollbar-size) / 2);
+  display: block;
+  position: absolute;
+}
+
+.unified-scrollbar:hover .unified-scrollbar__thumb {
+  background: #5a5a5a;
+}
+
+.unified-scrollbar--horizontal .unified-scrollbar__thumb {
+  height: 100%;
+  top: 0;
+}
+
+.unified-scrollbar--vertical .unified-scrollbar__thumb {
+  left: 0;
+  width: 100%;
+}
+
 :root {
+  --ui-scrollbar-size: 8px;
   --background: hsl(0 0% 7%);
   --foreground: hsl(0 0% 98%);
   --card: hsl(0 0% 11%);
@@ -231,4 +331,3 @@ button:not(.arduino-overlay):not(.parser-message-btn) * {
     @apply text-ui-xs text-muted-foreground;
   }
 }
-
