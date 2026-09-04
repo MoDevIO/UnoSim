@@ -1,8 +1,10 @@
-import { useCompileAndRun, CompileAndRunParams } from "./use-compile-and-run";
+import { useCallback } from "react";
 import type { MutableRefObject } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { SimulationStatus } from "@shared/types/arduino.types";
+import { useSimulationController } from "./use-simulation-controller";
+import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
 export type { SimulationStatus } from "@shared/types/arduino.types";
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
@@ -55,89 +57,63 @@ type UseSimulationControlsResult = {
   handlePause: () => void;
   handleResume: () => void;
   handleReset: () => void;
+  suppressAutoStopOnce: () => void;
 };
 
 export function useSimulationControls(
   params: UseSimulationControlsParams,
 ): UseSimulationControlsResult {
-  // delegate to unified hook, supplying no-op placeholders for the compile
-  // side so that tests which only define simulation props don't crash.
-  const merged = useCompileAndRun({
-    // compile portion defaults
-    editorRef: { current: null },
-    tabs: [],
-    activeTabId: null,
-    code: "",
-    setSerialOutput: () => {},
-    clearSerialOutput: () => {},
-    setParserMessages: () => {},
-    setParserPanelDismissed: () => {},
-    // use the real resetPinUI from params when available (important for tests)
-    resetPinUI: params.resetPinUI,
-    setIoRegistry: () => {},
-    setIsModified: () => {},
-    setDebugMessages: () => {},
-    addDebugMessage: params.addDebugMessage,
-    ensureBackendConnected: params.ensureBackendConnected,
-    isBackendUnreachableError: () => false,
-    triggerErrorGlitch: () => {},
+  const uiFeedback = useUiFeedbackAdapter({
     toast: params.toast,
-
-    // simulation-specific inputs
+    addDebugMessage: params.addDebugMessage,
+    triggerErrorGlitch: () => {},
+    setCliOutput: params.setCliOutput,
+    setPendingPinConflicts: params.setPendingPinConflicts,
+  });
+  const controller = useSimulationController({
+    code: "",
+    hasCompilationErrors: false,
+    isModified: params.isModified,
+    ensureBackendConnected: params.ensureBackendConnected,
     sendMessage: params.sendMessage,
     sendMessageImmediate: params.sendMessageImmediate,
+    resetPinUI: params.resetPinUI,
+    clearOutputs: params.clearOutputs,
     serialEventQueueRef: params.serialEventQueueRef,
     pendingPinConflicts: params.pendingPinConflicts,
-    setPendingPinConflicts: params.setPendingPinConflicts,
-    setCliOutput: params.setCliOutput,
-    isModified: params.isModified,
-    handleCompileAndStart: params.handleCompileAndStart,
     startSimulationRef: params.startSimulationRef,
-  } as CompileAndRunParams);
+    uiFeedback,
+  });
 
-  // Compatibility adapter for the legacy conflict warning contract.
-  const handleStart = () => {
-    merged.handleStart();
-    if (params.pendingPinConflicts.length > 0) {
-      const names = params.pendingPinConflicts
-        .map((p) => (p >= 14 && p <= 19 ? `A${p - 14}` : `${p}`))
-        .join(", ");
-      params.setCliOutput(
-        (prev) =>
-          (prev ? prev + "\n\n" : "") +
-          `⚠️ Pin usage conflict: Pins used as digital via pinMode(...) and also read with analogRead(): ${names}. This may be unintended.`,
-      );
-      params.setPendingPinConflicts([]);
-    }
-  };
-
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     if (!params.ensureBackendConnected("Reset simulation")) return;
     params.clearOutputs();
-    merged.handleReset();
-
-    // also notify external compile-and-start after the same delay used internally
+    if (controller.simulationStatus === "running") controller.stopSimulationImmediately();
+    controller.setSimulationStatus("idle");
+    params.resetPinUI({ keepDetected: true });
+    uiFeedback.showResettingToast();
     setTimeout(() => {
       params.handleCompileAndStart();
     }, 100);
-  };
+  }, [controller, params, uiFeedback]);
 
   // mirror original return shape exactly
   return {
-    simulationStatus: merged.simulationStatus,
-    setSimulationStatus: merged.setSimulationStatus,
-    hasCompiledOnce: merged.hasCompiledOnce,
-    setHasCompiledOnce: merged.setHasCompiledOnce,
-    simulationTimeout: merged.simulationTimeout,
-    setSimulationTimeout: merged.setSimulationTimeout,
-    startMutation: merged.startMutation,
-    stopMutation: merged.stopMutation,
-    pauseMutation: merged.pauseMutation,
-    resumeMutation: merged.resumeMutation,
-    handleStart,
-    handleStop: merged.handleStop,
-    handlePause: merged.handlePause,
-    handleResume: merged.handleResume,
+    simulationStatus: controller.simulationStatus,
+    setSimulationStatus: controller.setSimulationStatus,
+    hasCompiledOnce: controller.hasCompiledOnce,
+    setHasCompiledOnce: controller.setHasCompiledOnce,
+    simulationTimeout: controller.simulationTimeout,
+    setSimulationTimeout: controller.setSimulationTimeout,
+    startMutation: controller.startMutation,
+    stopMutation: controller.stopMutation,
+    pauseMutation: controller.pauseMutation,
+    resumeMutation: controller.resumeMutation,
+    handleStart: controller.handleStart,
+    handleStop: controller.handleStop,
+    handlePause: controller.handlePause,
+    handleResume: controller.handleResume,
     handleReset,
+    suppressAutoStopOnce: controller.suppressAutoStopOnce,
   };
 }

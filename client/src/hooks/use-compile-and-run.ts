@@ -1,17 +1,16 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import type { RefObject, MutableRefObject } from "react";
-import { useMutation, type UseMutationResult } from "@tanstack/react-query";
+import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
-import { normalizeSimulationTimeout } from "@shared/input-limits";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
-import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
 import type { IncomingArduinoMessage, CompileConfig, CompileResult, CompilerError } from "@/types/websocket";
 import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
 import { useCompileController } from "./use-compile-controller";
+import { useSimulationController } from "./use-simulation-controller";
 import { buildCompileCommand } from "./compile-command-builder";
 
 const logger = new Logger("useCompileAndRun");
@@ -137,8 +136,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   const { compilationStatus, setCompilationStatus, arduinoCliStatus, setArduinoCliStatus,
     hasCompilationErrors, setHasCompilationErrors, lastCompilationResult,
     setLastCompilationResult, cliOutput, setCliOutput, compilerErrors, setCompilerErrors,
-    simulationStatus, setSimulationStatus, hasCompiledOnce, setHasCompiledOnce,
-    simulationTimeout, setSimulationTimeout, dockerGccPhase, setDockerGccPhase,
+    dockerGccPhase, setDockerGccPhase,
   } = useSimulatorControllerState();
 
   // ------------------------------------------------------------
@@ -209,134 +207,37 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setSerialOutput: params.setSerialOutput,
   });
 
-  // refs used internally
-  /** Stores the last successfully compiled code so start_simulation can send it per-client. */
-  const lastCompiledCodeRef = useRef<string | null>(null);
+  const simulation = useSimulationController({
+    code: params.code,
+    hasCompilationErrors,
+    isModified: params.isModified,
+    ensureBackendConnected: params.ensureBackendConnected,
+    sendMessage: params.sendMessage,
+    sendMessageImmediate: params.sendMessageImmediate,
+    resetPinUI: params.resetPinUI,
+    clearOutputs,
+    serialEventQueueRef: params.serialEventQueueRef,
+    pendingPinConflicts: params.pendingPinConflicts,
+    startSimulationRef: params.startSimulationRef,
+    uiFeedback,
+  });
 
   // Expose a test-only setter so E2E tests can inject the REST-compiled code
-  // into this ref, ensuring start_simulation always sends code per-client and
-  // avoids races with the shared server-side lastCompiledCode.
+  // into the simulation controller before starting a simulation.
   useEffect(() => {
     if (import.meta.env.DEV) {
       (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ = (code: string) => {
-        lastCompiledCodeRef.current = code;
+        simulation.setCompiledCode(code);
       };
       return () => {
         delete (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__;
       };
     }
-  }, []);
-
-  // ensure we offer a ref to caller
-  const internalStartRef = useRef<(() => void) | null>(null);
-  const startSimulationRef = params.startSimulationRef ?? internalStartRef;
-
-  // ─── Simulation control mutations ─────────────────────────────────────────
-
-  const stopMutation = useMutation({
-    mutationFn: async () => {
-      uiFeedback.logStopSimulation();
-      const immediate = params.sendMessageImmediate ?? undefined;
-      if (immediate) immediate({ type: "stop_simulation" });
-      else params.sendMessage({ type: "stop_simulation" });
-      return { success: true };
-    },
-    onSuccess: () => {
-      setSimulationStatus("idle");
-      params.serialEventQueueRef.current = [];
-      params.resetPinUI({ keepDetected: true });
-    },
-  });
-
-  const pauseMutation = useMutation({
-    mutationFn: async () => {
-      uiFeedback.logPauseSimulation();
-      params.sendMessage({ type: "pause_simulation" });
-      return { success: true };
-    },
-    onSuccess: () => {
-      setSimulationStatus("paused");
-    },
-    onError: () => {
-      uiFeedback.showPauseFailedToast();
-    },
-  });
-
-  const resumeMutation = useMutation({
-    mutationFn: async () => {
-      uiFeedback.logResumeSimulation();
-      params.sendMessage({ type: "resume_simulation" });
-      return { success: true };
-    },
-    onSuccess: () => {
-      setSimulationStatus("running");
-    },
-    onError: () => {
-      uiFeedback.showResumeFailedToast();
-    },
-  });
-
-  const startMutation = useMutation({
-    mutationFn: async () => {
-      const timeout = normalizeSimulationTimeout(simulationTimeout);
-      logger.debug(`[CLIENT] startMutation invoked, simulationTimeout=${timeout}`);
-      params.resetPinUI({ keepDetected: true });
-
-      // Build the start message with per-client code for multi-instance isolation
-      const startMsg: { type: "start_simulation"; timeout: number; code?: string } = {
-        type: "start_simulation",
-        timeout,
-      };
-      if (lastCompiledCodeRef.current) {
-        startMsg.code = lastCompiledCodeRef.current;
-      }
-
-      uiFeedback.logStartSimulation(timeout, !!lastCompiledCodeRef.current);
-      // Use immediate send for start_simulation when available to ensure
-      // WS frame is emitted deterministically for E2E tests and real-time control.
-      if (typeof params.sendMessageImmediate === "function") {
-        const sent = params.sendMessageImmediate(startMsg);
-        logger.debug(`[CLIENT] sendMessageImmediate returned ${String(sent)}`);
-        // If immediate send failed (socket not open) fall back to buffered send
-        if (!sent) {
-          logger.debug("[CLIENT] falling back to buffered send for start_simulation");
-          uiFeedback.logStartSimulationFallback();
-          params.sendMessage(startMsg);
-        }
-      } else {
-        logger.debug("[CLIENT] using buffered send for start_simulation (no immediate available)");
-        params.sendMessage(startMsg);
-      }
-      return { success: true };
-    },
-    onSuccess: () => {
-      setSimulationStatus("running");
-      uiFeedback.showSimulationStartedToast();
-      try {
-        if (params.pendingPinConflicts && params.pendingPinConflicts.length > 0) {
-          uiFeedback.showPinConflictWarning(params.pendingPinConflicts);
-        }
-      } catch { }
-    },
-    onError: (error: unknown) => {
-      const message = uiFeedback.extractErrorMessage(error);
-      uiFeedback.showStartFailedToast(message);
-      if (params.isModified && hasCompiledOnce) {
-        uiFeedback.showCodeModifiedToast();
-      }
-    },
-  });
-
-  // internal start function used by compilation success handler
-  const startSimulationInternal = useCallback(() => {
-    startMutation.mutate();
-  }, [startMutation]);
-
-  startSimulationRef.current = startSimulationInternal;
+  }, [simulation.setCompiledCode]);
 
   const handleCompileAndStart = useCallback(() => {
     if (!params.ensureBackendConnected("Simulation starten")) {
-      setSimulationStatus("idle");
+      simulation.setSimulationStatus("idle");
       return;
     }
     params.setDebugMessages([]);
@@ -383,61 +284,31 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         logger.info(`[CLIENT] Compile response: ${JSON.stringify(data, null, 2)}`);
 
         if (data.success) {
-          lastCompiledCodeRef.current = mainSketchCode;
-          (startSimulationRef.current ?? startSimulationInternal)();
+          simulation.setCompiledCode(mainSketchCode);
+          simulation.startSimulation();
           setCompilationStatus("success");
-          setHasCompiledOnce(true);
+          simulation.setHasCompiledOnce(true);
           params.setIsModified(false);
           scheduleCliIdle(setArduinoCliStatus);
         } else {
           setCompilationStatus("error");
-          setSimulationStatus("idle");
+          simulation.setSimulationStatus("idle");
           uiFeedback.showCompilationFailedWithErrorsToast();
           scheduleCliIdle(setArduinoCliStatus);
         }
       },
       onError: () => {
         setCompilationStatus("error");
-        setSimulationStatus("idle");
+        simulation.setSimulationStatus("idle");
         uiFeedback.showCompilationFailedWithErrorsToast();
         scheduleCliIdle(setArduinoCliStatus);
       },
     });
-  }, [
-    params,
-    clearOutputs,
-    compileMutation,
-    startSimulationInternal,
-    startSimulationRef,
-    uiFeedback,
-  ]);
-
-  const handleStart = useCallback(() => {
-    if (!params.ensureBackendConnected("Simulation starten")) return;
-    startMutation.mutate();
-  }, [params.ensureBackendConnected, startMutation]);
-
-  const handleStop = useCallback(() => {
-    if (!params.ensureBackendConnected("Simulation stoppen")) return;
-    stopMutation.mutate();
-  }, [params.ensureBackendConnected, stopMutation]);
-
-  const handlePause = useCallback(() => {
-    if (!params.ensureBackendConnected("Simulation pausieren")) return;
-    pauseMutation.mutate();
-  }, [params.ensureBackendConnected, pauseMutation]);
-
-  const handleResume = useCallback(() => {
-    if (!params.ensureBackendConnected("Simulation fortsetzen")) return;
-    resumeMutation.mutate();
-  }, [params.ensureBackendConnected, resumeMutation]);
+  }, [params, clearOutputs, compileMutation, simulation, uiFeedback]);
 
   const handleReset = useCallback(() => {
     if (!params.ensureBackendConnected("Reset simulation")) return;
-    if (simulationStatus === "running") {
-      params.sendMessage({ type: "stop_simulation" });
-      setSimulationStatus("idle");
-    }
+    if (simulation.simulationStatus === "running") simulation.handleStop();
     clearOutputs();
     params.resetPinUI({ keepDetected: true });
 
@@ -451,24 +322,9 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     params.ensureBackendConnected,
     handleCompileAndStart,
     params.resetPinUI,
-    params.sendMessage,
-    simulationStatus,
+    simulation,
     uiFeedback,
   ]);
-
-  // lifecycle automation (reuse earlier hook)
-  const { suppressAutoStopOnce } = useSimulationLifecycle({
-    code: params.code,
-    simulationStatus,
-    setSimulationStatus,
-    sendMessage: params.sendMessage,
-    resetPinUI: params.resetPinUI,
-    clearOutputs,
-    handlePause,
-    handleResume,
-    handleReset,
-    hasCompilationErrors,
-  });
 
   return {
     compilationStatus,
@@ -489,26 +345,26 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     handleClearCompilationOutput,
     clearOutputs,
 
-    simulationStatus,
-    setSimulationStatus,
-    hasCompiledOnce,
-    setHasCompiledOnce,
-    simulationTimeout,
-    setSimulationTimeout,
+    simulationStatus: simulation.simulationStatus,
+    setSimulationStatus: simulation.setSimulationStatus,
+    hasCompiledOnce: simulation.hasCompiledOnce,
+    setHasCompiledOnce: simulation.setHasCompiledOnce,
+    simulationTimeout: simulation.simulationTimeout,
+    setSimulationTimeout: simulation.setSimulationTimeout,
     dockerGccPhase,
     setDockerGccPhase,
-    startMutation,
-    stopMutation,
-    pauseMutation,
-    resumeMutation,
-    handleStart,
-    handleStop,
-    handlePause,
-    handleResume,
+    startMutation: simulation.startMutation,
+    stopMutation: simulation.stopMutation,
+    pauseMutation: simulation.pauseMutation,
+    resumeMutation: simulation.resumeMutation,
+    handleStart: simulation.handleStart,
+    handleStop: simulation.handleStop,
+    handlePause: simulation.handlePause,
+    handleResume: simulation.handleResume,
     handleReset,
 
-    startSimulation: startSimulationInternal,
-    startSimulationRef,
-    suppressAutoStopOnce,
+    startSimulation: simulation.startSimulation,
+    startSimulationRef: simulation.startSimulationRef,
+    suppressAutoStopOnce: simulation.suppressAutoStopOnce,
   };
 }
