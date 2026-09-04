@@ -497,12 +497,14 @@ void loop() {
   });
 
   describe("Test 3: Concurrency & Cleanup - Multi-Instance Stress", () => {
-    // Skipped: Requires 2× real Arduino CLI compilations (~10s each) which exceeds
-    // any reasonable CI timeout. Concurrency isolation is covered by:
+    // Opt-in: Requires 2× real Arduino CLI compilations. The test uses real timers
+    // so that compiler/process events are not blocked by the suite's fake timers.
+    // Concurrency isolation is additionally covered by:
     // - unified-gatekeeper semaphore tests (load-suite.test.ts)
     // - temp directory isolation in cleanup test below
-    maybeIt("should handle 3 concurrent simulations with isolated temp directories", async () => {
-      // Use concurrentCount=2 for CI stability while still testing concurrency isolation
+    maybeIt("should handle concurrent simulations with isolated temp directories", async () => {
+      // Two instances keep the test representative while limiting local resource use.
+      vi.useRealTimers();
       const concurrentCount = 2;
       const runners = Array.from({ length: concurrentCount }, () => new SandboxRunner());
       activeRunners.push(...runners);
@@ -552,8 +554,8 @@ void loop() {
         )
       );
 
-      // Wait for all to start
-      vi.advanceTimersByTime(scaleMsShort(500)); // Reduced from 1000
+      // Give both real compiler processes a chance to create their isolated directories.
+      await new Promise<void>((resolve) => originalSetTimeout(resolve, scaleMsShort(500)));
 
       // Check temp directory isolation
       const tempEntries = readdirSync(tempDir);
@@ -597,8 +599,8 @@ void loop() {
         }
       }
 
-      // Wait for cleanup
-      await new Promise((resolve) => setTimeout(resolve, scaleMsShort(1000)));
+      // Wait for cleanup (real timer; this test explicitly opted out of fake timers).
+      await new Promise<void>((resolve) => originalSetTimeout(resolve, scaleMsShort(1000)));
 
       // Check cleanup: .cleanup directories should exist, or all cleaned
       const afterCleanup = readdirSync(tempDir);
@@ -608,7 +610,7 @@ void loop() {
       });
 
       expect(remainingSketchDirs.length).toBe(0); // All sketch dirs should be cleaned/renamed
-    }, 45000); // Needs time for 2 real Arduino compilations in parallel
+    }, 120000); // Needs time for 2 real Arduino compilations in parallel
 
     it("should cleanup temp directory after rapid start/stop cycles", async () => {
       const runner = new SandboxRunner();

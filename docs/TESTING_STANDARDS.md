@@ -25,9 +25,17 @@ it explicitly when validating runner isolation and cleanup:
 RUN_HEAVY_TESTS=1 ./run-tests.sh
 ```
 
-Without the variable, the standard pipeline remains unchanged. The test itself
-is selected through `RUN_HEAVY_TESTS=1` (or `true`) and is reported as skipped
-otherwise.
+The test is an opt-in production-like check: it starts two real SandboxRunner
+instances concurrently, verifies that their serial output cannot cross over,
+and checks that temporary sketch directories are removed. It uses real timers
+because Docker/Arduino-CLI process events must continue while the test waits.
+The test has a 120-second per-test budget to accommodate two local compilations;
+this is a diagnostic gate, not a substitute for the fast deterministic tests.
+
+Without `RUN_HEAVY_TESTS=1` (or `true`), the regular pipeline deliberately skips
+this resource-intensive check and reports it as skipped. This keeps every local
+default run fast while still making the stronger isolation check reproducible on
+developer machines and in a dedicated CI job.
 
 - Do **not** use `npx playwright test --update-snapshots` or similarly destructive flags in CI; snapshot changes must be reviewed explicitly.
 - When modifying timing-sensitive tests, ensure they still pass on low-end CI hosts by running:
