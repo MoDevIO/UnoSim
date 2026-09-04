@@ -13,6 +13,33 @@ Some tests run on shared CI runners where system load, CPU scheduling, and conta
 
 ---
 
+## Coverage-Hotspots
+
+Folgende Dateien sind aktuell die größten Hotspots und sollten gezielt mit Tests abgedeckt werden:
+
+| Datei | Aktuelle Coverage | Ziel | Verantwortung |
+|-------|------------------|------|---------------|
+| `client/src/hooks/use-compile-and-run.ts` | ~65% | >80% | Frontend-Logik |
+| `server/routes/simulation.ws.ts` | ~55% | >70% | WebSocket-Lifecycle |
+| `server/services/arduino-compiler.ts` | ~60% | >75% | Compiler-Logik |
+| `server/services/execution-manager.ts` | ~45% | >70% | Sandbox-Ausführung |
+| `client/src/hooks/useArduinoSimulatorPage.tsx` | ~50% | >75% | ViewModel-Komposition |
+
+**Maßnahme 1.10:** Diese Coverage-Ziele sind dokumentiert und sollten vor größeren Refactorings (Phase 2) erreicht werden.
+
+---
+
+## Hook-Namenskonvention
+
+UnoSim verwendet **camelCase** für alle Hooks:
+
+- ✅ Korrekt: `useCompileAndRun`, `useArduinoSimulatorPage`
+- ❌ Falsch: `use_compile_and_run`, `use-arduino-simulator-page`
+
+Diese Konvention gilt für alle neuen und bestehenden Hooks im Projekt.
+
+---
+
 ## Notes
 
 ### Heavy stress tests

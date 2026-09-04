@@ -83,6 +83,16 @@ export const WSMessageType = {
   SIM_TELEMETRY: "sim_telemetry",
 } as const;
 
+/**
+ * Messages sent from client to server (direction-specific type)
+ */
+export type IncomingArduinoMessage = ClientToServerWSMessage;
+
+/**
+ * Messages sent from server to client (direction-specific type)
+ */
+export type OutgoingArduinoMessage = ServerToClientWSMessage;
+
 // WebSocket message types
 export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
@@ -245,19 +255,19 @@ const CLIENT_TO_SERVER_MESSAGE_TYPES = [
 type ClientToServerMessageType = (typeof CLIENT_TO_SERVER_MESSAGE_TYPES)[number];
 
 /** Messages the browser is allowed to send to the simulation server. */
-export type ClientToServerWSMessage = Extract<
+export type IncomingArduinoMessage = Extract<
   WSMessage,
   { type: ClientToServerMessageType }
 >;
 
 /** Messages emitted by the simulation server and consumed by the browser. */
-export type ServerToClientWSMessage = Exclude<
+export type OutgoingArduinoMessage = Exclude<
   WSMessage,
-  ClientToServerWSMessage
+  IncomingArduinoMessage
 >;
 
 export const clientToServerWSMessageSchema = wsMessageSchema.refine(
-  (message): message is ClientToServerWSMessage =>
+  (message): message is IncomingArduinoMessage =>
     CLIENT_TO_SERVER_MESSAGE_TYPES.includes(
       message.type as ClientToServerMessageType,
     ),
@@ -265,7 +275,7 @@ export const clientToServerWSMessageSchema = wsMessageSchema.refine(
 );
 
 export const serverToClientWSMessageSchema = wsMessageSchema.refine(
-  (message): message is ServerToClientWSMessage =>
+  (message): message is OutgoingArduinoMessage =>
     !CLIENT_TO_SERVER_MESSAGE_TYPES.includes(
       message.type as ClientToServerMessageType,
     ),
@@ -308,7 +318,13 @@ export interface IOPinRecord {
   conflict?: boolean;
   conflictMessage?: string;
   // ── Legacy fields (kept for runtime path + backward compat) ─────────────
+  /**
+   * @deprecated Use pinModeLines and pinModeModes instead. Will be removed in next major release.
+   */
   pinMode?: number; // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
+  /**
+   * @deprecated Use pinModeLines instead. Will be removed in next major release.
+   */
   definedAt?: {
     line: number;
     loopContext?: {
@@ -319,6 +335,9 @@ export interface IOPinRecord {
       endLine: number;
     };
   };
+  /**
+   * @deprecated Use usedAt instead. Will be removed in next major release.
+   */
   usedAt?: Array<{
     line: number;
     operation: string;

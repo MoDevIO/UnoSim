@@ -1,5 +1,16 @@
 # UnoSim: Projektanalyse und priorisierter Handlungsplan
 
+⚠️ **HISTORISCHES DOKUMENT**
+
+Dieses Dokument enthält historische Analysen und Empfehlungen aus früheren Untersuchungen (Stand: 2024).
+Die aktuellen Maßnahmen und Entscheidungen sind im Hauptbericht `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md` dokumentiert.
+
+Für neue Entwicklungen und Refactorings bitte die aktuelle Dokumentation konsultieren.
+
+---
+
+# UnoSim: Projektanalyse und priorisierter Handlungsplan
+
 **Stand:** 3. September 2026
 **Analysierter Stand:** Branch `main`, Commit `ca653dde`  
 **Umfang:** Frontend, Backend, Shared Code, Docker/Deployment, CI, Tests und Dokumentation

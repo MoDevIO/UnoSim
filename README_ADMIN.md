@@ -34,6 +34,7 @@ Optimized for speed and minimal resource usage without requiring Docker.
 Suitable for performance testing or environments with limited resources where isolation is secondary.
 
 * **Behavior:** Simulations (sketches) are executed directly inside the backend container.
+* **Warm Containers:** Der Sandbox-Runner kann **vorgehaltene Container ("warm containers")** nutzen, um die Startzeit zu verkürzen. Diese Container werden vom SandboxRunnerPool vorgehalten und bei Bedarf reaktiviert, anstatt neue Container zu starten.
 * **Configuration (`docker-compose.yml`):**
     ```yaml
     services:
