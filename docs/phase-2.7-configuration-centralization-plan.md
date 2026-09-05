@@ -1156,7 +1156,7 @@ Separater Commit, nur Worker-/Cache-Dateien.
 
 # Teilstep 2.7.13 — Sicherheitsrelevante Rate-Limits zuletzt zentralisieren
 
-Status: planned
+Status: completed
 
 ## Zweck
 
