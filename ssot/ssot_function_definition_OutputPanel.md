@@ -4,6 +4,13 @@ Status: current
 Zielrolle: feature-contract  
 Ziel-SSOT für OutputPanel-Autoverhalten. ScrollArea-Architekturentscheidungen liegen in `docs/adr/0002-unified-scroll-area.md`.
 
+## Governance-Grenzen
+
+- Dieses Dokument beschreibt das fachliche Auto-Verhalten des Output Panels.
+- Die verbindliche ScrollArea-Architektur liegt in `docs/adr/0002-unified-scroll-area.md`.
+- Dieses Dokument definiert keine alternative Scrollbar-, Radix- oder Native-Scroll-Architektur.
+- Tests in diesem Dokument sind Akzeptanzanforderungen für das Feature, nicht Ersatz für `docs/TESTING_STANDARDS.md`.
+
 ## 1. Ziel der Funktion
 
 Das **Output Panel** reagiert automatisch auf Compiler-Ergebnisse und Parser-Messages im Arduino-Simulator. Es öffnet, schließt oder passt seine Größe dynamisch an, um relevante Informationen sichtbar zu machen, ohne den Editor unnötig zu blockieren. Manuelle Benutzeraktionen (X-Button, Menü-Toggle) werden respektiert, jedoch bei neuen relevanten Ereignissen übersteuert.

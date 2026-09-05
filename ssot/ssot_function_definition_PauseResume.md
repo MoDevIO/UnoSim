@@ -20,6 +20,13 @@ Die **Pause/Resume-Funktionalität** ermöglicht es dem Benutzer, die laufende A
 - **Trigger**: Benutzerklick auf Pause/Resume Button
 - **Nicht-Ziel**: UI-Redesign oder Breaking Changes an bestehenden Features
 
+### 2.1 Governance-Grenzen
+
+- Dieses Dokument beschreibt das fachliche Pause/Resume-Verhalten innerhalb der Simulation.
+- Der normative externe `postMessage`-Vertrag für `PAUSE_SIMULATION` und `RESUME_SIMULATION` liegt ausschließlich in `docs/EXTERNAL_API.md`.
+- Interne WebSocket- und Implementierungsbeispiele in diesem Dokument sind erläuternd; bei Vertragsabweichungen gilt `docs/EXTERNAL_API.md` für iframe-Integrationen.
+- Testanforderungen in diesem Dokument ergänzen `docs/TESTING_STANDARDS.md`, ersetzen es aber nicht.
+
 ---
 
 ## 3. Simulation-Zustandsübergänge
@@ -175,25 +182,11 @@ Sketch: Erhält neuen Wert (wird beim Resume berücksichtigt)
 
 ### 7.1 Timer pausieren und fortsetzen
 
-**Konstante:**  
- `currentTimeoutMs = 0` wird gespeichert beim Pausieren
+**Timeout-Semantik bei Pause/Resume:**
 
-**Berechnung:**
+Beim Start der Simulation wird ein Execution-Timeout geplant. Beim Pausieren wird die verbleibende Restzeit bis zum Timeout berechnet und gespeichert; der aktive Timeout-Timer wird gelöscht. Während der Pause läuft der Execution-Timeout daher nicht weiter.
 
-```typescript
-// Beim Pausieren
-pausedAt = Date.now()
-remainingTimeoutMs = originalTimeoutMs - elapsedTimeMs
-
-// Beim Fortsetzen
-resumedAt = Date.now()
-newTimeoutMs = remainingTimeoutMs - (resumedAt - pausedAt)
-```
-
-**Verhalten:**
-- Timeout **pausiert sich nicht automatisch** (weiterhin aktiv)
-- Wenn Pause > Timeout-Rest → Simulation stoppt nach Resume
-- Beispiel: 60s Timeout, 50s gelaufen, dann pausiert 15s → Nach Resume nur noch 5s
+Beim Fortsetzen wird ein neuer Timeout-Timer mit der gespeicherten Restzeit gestartet. Die reale Dauer der Pause zählt nicht gegen das Simulations-Timeout. Für Benutzer bedeutet das: Eine Simulation, die z. B. nach 50 von 60 Sekunden pausiert wird, hat nach Resume weiterhin etwa 10 Sekunden Restlaufzeit.
 
 ---
 
@@ -436,7 +429,7 @@ Die Funktion gilt als abgeschlossen, wenn:
 4. ✅ Resume lädt Sketch weiter (SIGCONT), Output wird aktualisiert
 5. ✅ Pin-Slider können während Pause bewegt werden
 6. ✅ Serial Input ist während Pause blockiert
-7. ✅ Timeout läuft weiter (auch während Pause), wird aber beim Pause-Zeitpunkt berücksichtigt
+7. ✅ Timeout pausiert während Pause und läuft nach Resume mit gespeicherter Restzeit weiter
 8. ✅ Code-Änderung während Pause stoppt Simulation komplett
 9. ✅ Alle WebSocket-Messages sind konsistent
 10. ✅ Keine Breaking Changes an bestehenden Features

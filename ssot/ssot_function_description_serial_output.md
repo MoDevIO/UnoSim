@@ -4,6 +4,14 @@ Status: current
 Zielrolle: feature-contract  
 Ziel-SSOT für Serial-Output-Verhalten und Batching. Architekturüberblick, externe API und historische Performanceberichte bleiben separate Quellen.
 
+## Governance-Grenzen
+
+- Dieses Dokument beschreibt Serial-Output-Verhalten, serverseitiges Batching, Baudrate-Behandlung und Feature-spezifische Telemetrie.
+- `docs/ARCHITECTURE.md` beschreibt nur den übergeordneten Datenfluss und darf dieses Detailverhalten nicht duplizieren.
+- Externe iframe-API-Verträge liegen in `docs/EXTERNAL_API.md`; dieses Dokument definiert keine `postMessage`-API.
+- Historische Post-Mortems und alte Arbeitslisten in Anhängen sind ausdrücklich nicht normativ, bleiben aber zur Nachvollziehbarkeit erhalten.
+- Tests in diesem Dokument sind Feature-Akzeptanzanforderungen und müssen gegen `docs/TESTING_STANDARDS.md` abgeglichen werden.
+
 ## 1. Übersicht
 Das System emuliert die serielle Schnittstelle eines Arduino-Sketches. Es fängt die Ausgabe des kompilierten C++ Programms ab, formatiert sie gemäß den Arduino-Regeln, drosselt sie realistisch auf Basis der Baudrate und streamt sie an das Frontend.
 
