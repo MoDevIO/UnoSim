@@ -59,7 +59,7 @@ export class DockerManager {
   ) {}
 
   private consumeOutputBudget(state: Partial<DockerHandlerState>, data: Buffer | string, callbacks: DockerManagerCallbacks): boolean {
-    const counter = state.totalOutputBytes as { value: number };
+    const counter = state.totalOutputBytes!;
     counter.value += Buffer.byteLength(data);
     if (counter.value <= this.SANDBOX_CONFIG.maxOutputBytes) return true;
     this.processController.kill("SIGKILL");
@@ -90,8 +90,8 @@ export class DockerManager {
     state: Partial<DockerHandlerState>,
     onCompileSuccess?: () => void,
   ): void {
-    const isCompilePhase = state.isCompilePhase as { value: boolean };
-    const compileSuccessSent = state.compileSuccessSent as { value: boolean };
+    const isCompilePhase = state.isCompilePhase!;
+    const compileSuccessSent = state.compileSuccessSent!;
 
     this.processController.onStdout((data) => {
       const str = data.toString();
@@ -127,8 +127,8 @@ export class DockerManager {
     callbacks: DockerManagerCallbacks,
     state: Partial<DockerHandlerState>,
   ): void {
-    const isCompilePhase = state.isCompilePhase as { value: boolean };
-    const compileErrorBuffer = state.compileErrorBuffer as { value: string };
+    const isCompilePhase = state.isCompilePhase!;
+    const compileErrorBuffer = state.compileErrorBuffer!;
     const useFallbackParser = !this.processController.supportsStderrLineStreaming();
 
     // Raw stderr stream for compile aggregation
@@ -172,8 +172,8 @@ export class DockerManager {
     config: DockerProcessConfig,
     handlers: DockerEventHandlers,
   ): void {
-    const isCompilePhase = state.isCompilePhase as { value: boolean };
-    const compileErrorBuffer = state.compileErrorBuffer as { value: string };
+    const isCompilePhase = state.isCompilePhase!;
+    const compileErrorBuffer = state.compileErrorBuffer!;
     const useFallbackParser = !this.processController.supportsStderrLineStreaming();
 
     // Flush any remaining data in stderr fallback buffer
