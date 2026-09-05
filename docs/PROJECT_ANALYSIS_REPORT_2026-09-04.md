@@ -1,6 +1,9 @@
 # UnoSim Projektanalyse
 
-Status: planning
+Status: planning  
+Zielrolle: planning-context
+
+> Dieses Dokument ist eine Planungs-, Risiko- und Maßnahmenquelle. Es beschreibt keine verbindliche Ist-Architektur und ersetzt weder `ARCHITECTURE.md`, ADRs noch thematische SSOT-Dateien.
 
 **Datum:** 2026-09-04  
 **Repository:** `MoDevIO/UnoSim`  

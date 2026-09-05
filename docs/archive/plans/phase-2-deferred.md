@@ -1,6 +1,7 @@
 # Phase 2 Deferred Plans Summary
 
 **Status:** deferred  
+**Zielrolle:** deferred-work-index  
 **Datum:** 2026-09-05  
 **Branch:** `feature/refactor/phase-2-execution-manager`
 
@@ -9,6 +10,8 @@
 ## Übersicht
 
 Dieses Dokument fasst die zurückgestellten (deferred) Teile von Phase 2 zusammen. Diese Items wurden bewusst nicht in der aktuellen Implementierung umgesetzt, bleiben aber als verbindliche Planung erhalten.
+
+Für den aktuellen Architekturüberblick gilt `../../ARCHITECTURE.md`. Dieses Dokument ist ausschließlich der Nachweis offener Phase-2-Reste und kein Ersatz für die Architektur- oder Config-SSOTs.
 
 **Hinweis:** Phase 2.8 (Wrapper-Hooks) und Phase 2.9 (Characterization Tests) wurden abgeschlossen und sind nicht mehr deferred.
 

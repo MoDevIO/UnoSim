@@ -1,8 +1,16 @@
 # UnoSim Architekturübersicht
 
-Status: current
+Status: current  
+Zielrolle: architecture-overview
 
 Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Datenflüsse und Verantwortlichkeiten.
+
+## Governance-Grenzen
+
+- Dieses Dokument ist der aktuelle Architekturüberblick. Es beschreibt Komponenten, Datenflüsse, State Ownership und Betriebsmodell bewusst zusammenfassend.
+- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`.
+- Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
+- Planungs- und Risikoquellen wie `PROJECT_ANALYSIS_REPORT_2026-09-04.md` sind nicht normativ für den Ist-Zustand.
 
 ## 📊 Datenfluss-Diagramm
 
@@ -135,6 +143,8 @@ ViewModels gegliedert:
 
 ## 🔒 Sicherheits- und Betriebsmodell
 
+Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authentication-and-gateway-contract.md`). Die folgenden Punkte sind eine Architektur-Zusammenfassung und ersetzen die ADR nicht.
+
 ### Sandbox-Sicherheit
 - **Isolation:** Jeder Sketch läuft in eigenem Docker-Container
 - **Ressourcenlimits:** CPU, Memory, PID-Limits pro Container
@@ -155,7 +165,7 @@ ViewModels gegliedert:
 ### Config-Zentralisierung (Phase 2.7)
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth
 - **Environment-Variablen:** Validierte Parser mit Type-Safety
-- **Status:** Teilweise umgesetzt (einige deferred items)
+- **Status:** Teilweise umgesetzt; offene Phase-2.7-Reste sind in `archive/plans/phase-2-deferred.md` dokumentiert.
 
 ## 📊 Metriken und Observability
 
@@ -178,5 +188,6 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar.
 ---
 
 **Siehe auch:**
+- `docs/adr/0001-authentication-and-gateway-contract.md` – Verbindlicher Gateway-/Auth-Vertrag
 - `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md` – Detaillierte Projektanalyse
 - `docs/TESTING_STANDARDS.md` – Teststrategie und -konventionen
