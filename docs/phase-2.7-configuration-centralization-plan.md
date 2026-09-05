@@ -86,7 +86,7 @@ Sonar-Gate:
 
 # Teilstep 2.7.1 — Start-Logging auf vorhandene Config umstellen
 
-Status: planned
+Status: completed
 
 ## Zweck
 
@@ -176,7 +176,7 @@ Nur `server/index.ts`.
 
 # Teilstep 2.7.2 — DockerManager Output-/Runtime-Limits aus bestehender Sandbox-Config lesen
 
-Status: planned
+Status: completed
 
 ## Zweck
 
@@ -280,7 +280,7 @@ Nur `server/services/sandbox/docker-manager.ts`.
 
 # Teilstep 2.7.3 — Docker `pidsLimit` aus bestehender Sandbox-Config verwenden
 
-Status: planned
+Status: completed
 
 ## Zweck
 
@@ -392,7 +392,9 @@ Nur:
 
 # Teilstep 2.7.4 — Arduino CLI Timeout zentralen Compile-Timeout verwenden
 
-Status: planned
+Status: deferred
+
+Deferred-Begründung: Die Realität weicht vom Plan ab. `CLICompileConfig` enthält keinen Timeoutwert; eine Umsetzung wäre nicht nur ein Wertetausch, sondern ein zusätzlicher Import/API-Umbau. Wegen der Planvorgabe, bei abweichender Realität zu stoppen, wurde dieser Teilstep nicht umgesetzt.
 
 ## Zweck
 
