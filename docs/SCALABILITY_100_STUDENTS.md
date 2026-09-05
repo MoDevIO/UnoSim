@@ -1,7 +1,9 @@
 
 # Skalierbarkeit: Ist-Zustand und zukünftige Kapazitätsziele
 
-Status: planning
+Status: planning  
+Zielrolle: capacity-planning  
+Ziel-SSOT: Dieses Dokument ist die einzige aktive Skalierungs- und Kapazitätsquelle. Die frühere SSOT-Datei `../ssot/ssot_function_description_scalability.md` ist archiviert und nur historischer Kontext.
 
 > **Stand 3. September 2026:** Dieses Dokument trennt gemessene bzw.
 > konfigurationsabhängige Grenzen vom Zielbild. Der verbindliche Betrieb ist

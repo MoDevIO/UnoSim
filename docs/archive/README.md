@@ -13,6 +13,7 @@ Archived legacy documents:
 - `reports/phase2-characterization-tests-summary-2026-09-04.md` — historical implementation summary for Phase 2.1 characterization tests
 - `reports/` — dated performance, optimization and implementation reports
 - `plans/` — superseded or historical planning documents
+- `../../ssot/ssot_function_description_scalability.md` — archived in-place scalability SSOT draft; current capacity planning lives in `../SCALABILITY_100_STUDENTS.md`
 
 Archive governance:
 
