@@ -29,6 +29,7 @@ import { OutputCollector } from "../output-collector";
 import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "./execution-phases/cleanup-phase";
 import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
+import { runLocalStart, type LocalStartContext, type TransitionToFn } from "./execution-phases/start-phase";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -555,10 +556,14 @@ export class ExecutionManager {
         return;
       }
 
-      state.processController.clearListeners();
-      await state.processController.spawn(files.exeFile);
-      state.processStartTime = Date.now();
-      this.transitionTo(state, SimulationState.RUNNING);
+      // Start-Phase extrahiert: Process-Spawn + processStartTime + RUNNING-Transition
+      const startContext: LocalStartContext = {
+        processController: state.processController,
+        transitionTo: this.transitionTo.bind(this) as TransitionToFn,
+      };
+      await runLocalStart(files.exeFile, state, startContext);
+      
+      // Stream-Phase: Event-Handler registrieren
       this.setupLocalHandlers(callbacks, onExit, executionTimeout, state);
     } catch (err) {
       state.isCompiling = false;
