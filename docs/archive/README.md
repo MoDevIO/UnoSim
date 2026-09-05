@@ -13,3 +13,10 @@ Archived legacy documents:
 - `reports/phase2-characterization-tests-summary-2026-09-04.md` — historical implementation summary for Phase 2.1 characterization tests
 - `reports/` — dated performance, optimization and implementation reports
 - `plans/` — superseded or historical planning documents
+
+Archive governance:
+
+- Active SSOT documents live under `../../ssot/` and are indexed from `../README.md`.
+- Historical implementation notes, completed checklists and superseded roadmaps belong here, not in active SSOT contracts.
+- When content is moved out of an active document, keep either a direct link or an archive index entry so traceability is preserved.
+- Archived documents are retained for context and must not be used as current behavior contracts unless an active document explicitly references them.
