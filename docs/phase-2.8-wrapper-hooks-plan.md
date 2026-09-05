@@ -118,15 +118,15 @@ Alle anderen Hooks fallen in eine dieser Kategorien:
 - **Store-Zugriff:** Kapseln Zugriff auf externe Stores (Zustand, Telemetry)
 - **Kompatibilität:** Bieten kompatible APIs für bestehende Components/Tests
 
-### 3.3 Review-Kandidaten (weitere Prüfung erforderlich)
+### 3.3 Review-Kandidaten (nach 2.8.2 abgeschlossen)
 
-| Hook | Offene Frage |
-|------|--------------|
-| `useSimulatorSerialPanel` | Wird in Analyse nicht vollständig gelesen – könnte reiner Props-Wrapper sein |
-| `useSimulatorPinControls` | Unklar ob eigene Logik oder nur Props-Mapping |
-| `useSimulatorOutputPanel` | Enthält DOM-Messung – wahrscheinlich bewahren |
-| `useSimulatorExternalControl` | External-API-Integration – wahrscheinlich bewahren |
-| `useSimulatorKeyboardShortcuts` | Keyboard-Handling – wahrscheinlich bewahren |
+| Hook | Entscheidung | Begründung |
+|------|-------------|------------|
+| `useSimulatorSerialPanel` | **bewahren** | Eigene Logik: Serial-Input-Handling, TX-LED-Trigger, Simulation-Status-Checks, Toast-Notifications |
+| `useSimulatorPinControls` | **bewahren** | Eigene Logik: Pin-Toggle/Analog-Change-Handler, lokale Pin-State-Updates, Simulation-Status-Checks |
+| `useSimulatorExternalControl` | **bewahren** | Eigene Logik: External-API-Integration, State-Management (pendingExternalStart), useEffect-Lifecycle |
+| `useSimulatorKeyboardShortcuts` | **bewahren** | Eigene Logik: Keyboard-Event-Listener, Debug-Mode-Toggle, Shortcut-Handling (F5, Escape, Strg+U) |
+| `useSimulatorOutputPanel` | **bewahren** | Eigene Logik: DOM-Messung, Panel-Size-Berechnung, Resize-Handling |
 
 ---
 
@@ -195,37 +195,17 @@ No semantic change, no test adaptation.
 
 ### Teilstep 2.8.2 — Review der verbleibenden Wrapper-Kandidaten
 
-**Ziel:** Klären, ob weitere Hooks entfernbar sind.
+**Status:** completed
 
-**Zu prüfende Hooks:**
+**Ergebnis:** Alle vier Review-Kandidaten haben eigene Logik und werden bewahrt:
 
-- `useSimulatorSerialPanel`
-- `useSimulatorPinControls`
-- `useSimulatorExternalControl`
-- `useSimulatorKeyboardShortcuts`
+- `useSimulatorSerialPanel`: Serial-Input-Handling, TX-LED-Trigger, Simulation-Status-Checks
+- `useSimulatorPinControls`: Pin-Toggle/Analog-Change-Handler, lokale Pin-State-Updates
+- `useSimulatorExternalControl`: External-API-Integration, State-Management (pendingExternalStart)
+- `useSimulatorKeyboardShortcuts`: Keyboard-Event-Listener, Debug-Mode-Toggle, Shortcut-Handling
+- `useSimulatorOutputPanel`: DOM-Messung, Panel-Size-Berechnung (zusätzlich identifiziert)
 
-**Vorgehen:**
-
-1. Jede Datei lesen und auf Eigenlogik prüfen
-2. Wenn nur Props weitergereicht werden → als entfernbar markieren
-3. Wenn eigene Logik vorhanden → als "bewahren" markieren
-4. Entscheidung im Plan dokumentieren
-
-**Ergebnis:**
-
-- Liste der entfernbar Hooks
-- Liste der zu bewahrenden Hooks
-- Begründung je Hook
-
-**Commit-Grenze:**
-
-- Nur Plan-Datei aktualisieren (docs-only)
-
-**Empfohlene Commit-Message:**
-
-```
-docs: classify remaining wrapper hooks for phase 2.8
-```
+**Keine weiteren entfernbar Hooks identifiziert.**
 
 ---
 
@@ -264,10 +244,11 @@ docs: classify remaining wrapper hooks for phase 2.8
 
 | Hook | Status | Begründung |
 |------|--------|------------|
-| `useSimulatorSerialPanel` | review | Nicht vollständig analysiert – könnte reiner Wrapper sein |
-| `useSimulatorPinControls` | review | Unklar ob eigene Logik oder nur Props-Mapping |
-| `useSimulatorExternalControl` | review | External-API-Integration – wahrscheinlich bewahren |
-| `useSimulatorKeyboardShortcuts` | review | Keyboard-Handling – wahrscheinlich bewahren |
+| `useSimulatorSerialPanel` | bewahren | Eigene Logik: Serial-Input-Handling, TX-LED, Status-Checks |
+| `useSimulatorPinControls` | bewahren | Eigene Logik: Pin-Handler, lokale State-Updates |
+| `useSimulatorExternalControl` | bewahren | Eigene Logik: External-API, State-Management |
+| `useSimulatorKeyboardShortcuts` | bewahren | Eigene Logik: Keyboard-Event-Listener, Shortcuts |
+| `useSimulatorOutputPanel` | bewahren | Eigene Logik: DOM-Messung, Panel-Size |
 | `useSimulation` | bewahren | Bietet Kompatibilität für Compile-only-Szenarien |
 | `useCompilation` | bewahren | Kapselt Compile-only-API mit Start-Simulation-Integration |
 
@@ -303,7 +284,7 @@ Phase 2.8 gilt als abgeschlossen, wenn:
 
 **Identifizierte Wrapper-Kandidaten:** 1 (eindeutig entfernbar: `useSimulatorWebSocketBridge`)
 
-**Geplante Teilsteps:** 2 (2.8.1: Entfernung, 2.8.2: Review)
+**Geplante Teilsteps:** 2 (2.8.1: Entfernung, 2.8.2: Review abgeschlossen)
 
 **Wichtigste Risiken:** Unentdeckte Eigenlogik, Test-Brecher
 
