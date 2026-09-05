@@ -10,7 +10,6 @@ import type { IProcessController } from "../process-controller";
 import { ArduinoOutputParser as StderrParser } from "../arduino-output-parser";
 import { RegistryManager } from "../registry-manager";
 import { SimulationTimeoutManager } from "../simulation-timeout-manager";
-import { DockerCommandBuilder } from "../docker-command-builder";
 import { SketchFileBuilder } from "../sketch-file-builder";
 import { LocalCompiler } from "../local-compiler";
 import { PinStateBatcher, type PinStateBatch } from "../pin-state-batcher";
@@ -29,7 +28,7 @@ import { OutputCollector } from "../output-collector";
 import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "./execution-phases/cleanup-phase";
 import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
-import { runLocalStart, type LocalStartContext, type TransitionToFn } from "./execution-phases/start-phase";
+import { runLocalStart, runDockerStart, type LocalStartContext, type DockerStartContext, type DockerStartParams, type TransitionToFn } from "./execution-phases/start-phase";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -414,16 +413,6 @@ export class ExecutionManager {
     const containerName = `unosim-sandbox-${randomUUID()}`;
     state.currentContainerName = containerName;
 
-    const dockerArgs = DockerCommandBuilder.buildSecureRunCommand({
-      sketchDir: files.sketchDir,
-      memoryMB: SANDBOX_CONFIG.maxMemoryMB,
-      cpuLimit: SANDBOX_CONFIG.cpuLimit,
-      pidsLimit: 50,
-      imageName: SANDBOX_CONFIG.dockerImage,
-      command: DockerCommandBuilder.buildCompileAndRunCommand(),
-      containerName,
-    });
-
     const { onCompileError, onCompileSuccess, onExit } = opts;
 
     // ── Docker compile gating ─────────────────────────────────────────────────
@@ -462,11 +451,17 @@ export class ExecutionManager {
     };
 
     try {
-      state.processController.clearListeners();
-      await state.processController.spawn("docker", dockerArgs);
+      // Start-Phase extrahiert: Docker-Command + Spawn + processStartTime + RUNNING-Transition
+      const dockerStartContext: DockerStartContext = {
+        processController: state.processController,
+        transitionTo: this.transitionTo.bind(this) as TransitionToFn,
+      };
+      const dockerStartParams: DockerStartParams = {
+        sketchDir: files.sketchDir,
+        containerName,
+      };
+      await runDockerStart(dockerStartParams, state, dockerStartContext);
       this.logger.info("🚀 Docker: Compile + Run in single container");
-      state.processStartTime = Date.now();
-      this.transitionTo(state, SimulationState.RUNNING);
 
       const dockerState: DockerState = {
         isCompilePhase: { value: true },
