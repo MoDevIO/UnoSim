@@ -45,6 +45,7 @@ export const SANDBOX_CONFIG = {
   maxMemoryMB: config.sandbox.resources.memoryMB,
   cpuLimit: config.sandbox.resources.cpuLimit,
   maxCpuPercent: Math.round(Number.parseFloat(config.sandbox.resources.cpuLimit) * 100),
+  pidsLimit: config.sandbox.resources.pidsLimit,
   maxExecutionTimeSec: config.sandbox.resources.maxExecutionTimeSec,
   maxOutputBytes: config.sandbox.resources.maxOutputBytes,
   noNetwork: true,

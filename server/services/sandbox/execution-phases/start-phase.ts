@@ -92,7 +92,7 @@ export async function runDockerStart(
     sketchDir: params.sketchDir,
     memoryMB: SANDBOX_CONFIG.maxMemoryMB,
     cpuLimit: SANDBOX_CONFIG.cpuLimit,
-    pidsLimit: 50,
+    pidsLimit: SANDBOX_CONFIG.pidsLimit,
     imageName: SANDBOX_CONFIG.dockerImage,
     command: DockerCommandBuilder.buildCompileAndRunCommand(),
     containerName: params.containerName,
