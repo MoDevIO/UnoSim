@@ -4,6 +4,13 @@ Status: current
 Zielrolle: ui-design-contract  
 Ziel-SSOT für die zentrale Button-Komponente. Historische Konvertierungs- und Testdetails sind nicht normativ.
 
+## Governance-Grenzen
+
+- Der normative Kern dieses Dokuments sind Ziel, Architektur, API, Varianten, Größen, Zustände, Accessibility und Best Practices der zentralen Button-Komponente.
+- Implementierte Instanzen, Testnotizen, Produktionsstatus, Versionen und Konvertierungsdetails sind historische Nachweise oder Snapshots und nicht normativ.
+- Aktuelle Test- und Validierungsregeln liegen in `docs/TESTING_STANDARDS.md`; dieses Dokument ersetzt sie nicht.
+- Dieses Dokument definiert keine produktive Änderung an `client/src/components/ui/button.tsx`, sondern beschreibt den UI-Design-Vertrag.
+
 Zentrale, konsistente Button-Komponente für die gesamte Anwendung.
 Basiert auf `class-variance-authority` (CVA) für flexible Variant-Management.
 
@@ -94,7 +101,9 @@ Basiert auf `class-variance-authority` (CVA) für flexible Variant-Management.
 
 ---
 
-## Implementierte Button-Instanzen
+## Implementierte Button-Instanzen (nicht normativer Snapshot)
+
+Dieser Abschnitt dokumentiert einen historischen Stand der Migration und dient nur als Orientierung. Der aktuelle Nutzungsstand ergibt sich aus der Codebasis.
 
 ### arduino-simulator.tsx
 - 5 Menü-Buttons: File, Edit, Sketch, Tools, Help (`variant="ghost"`)
@@ -179,7 +188,10 @@ client/src/components/ui/button.tsx
 
 ---
 
-## Tests
+## Tests (nicht normativer Nachweis)
+
+Dieser Abschnitt bleibt als historischer Nachweis erhalten. Aktuelle Testanforderungen und Gates sind in `docs/TESTING_STANDARDS.md` definiert.
+
 - ✅ Build erfolgreich ohne TypeScript-Fehler
 - ✅ Alle 14 nativen `<button>` Elemente konvertiert
 - ✅ Kein mehr nativen HTML-Buttons im Codebase
@@ -188,7 +200,10 @@ client/src/components/ui/button.tsx
 
 ---
 
-## Status
+## Status (historischer Abschlussstand)
+
+Dieser Abschnitt beschreibt den Abschlussstand der ursprünglichen Button-Konvertierung und ist kein aktueller Umsetzungsplan.
+
 - ✅ **PRODUCTION-READY**
 - Komplette Konvertierung aller nativen Buttons abgeschlossen
 - Zentrale Source-of-Truth etabliert
@@ -200,7 +215,7 @@ client/src/components/ui/button.tsx
 
 ---
 
-## Tests - Details (Archiv)
+## Tests - Details (Archiv, nicht normativ)
 
  ---
 

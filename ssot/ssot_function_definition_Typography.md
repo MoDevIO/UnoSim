@@ -4,6 +4,13 @@ Status: current
 Zielrolle: ui-design-contract  
 Ziel-SSOT für globale Font-Scale-Regeln. Roadmap-, Mess- und Historienabschnitte sind nicht normativ, sofern sie als Planung oder Nachweis gekennzeichnet sind.
 
+## Governance-Grenzen
+
+- Der normative Kern dieses Dokuments sind Ziel, Geltungsbereich, Font-Scale-Optionen, Bedienung, Persistenz, State-Management und nicht-funktionale Anforderungen in den Abschnitten 1 bis 10.
+- Roadmap-, Mess-, Nachweis- und Abschlussabschnitte dokumentieren Implementierungs- oder Prüfkontext. Sie sind nicht normativ, solange sie nicht in einem aktuellen Plan explizit als Gate referenziert werden.
+- Aktuelle Test- und Validierungsregeln liegen in `docs/TESTING_STANDARDS.md`; dieses Dokument darf dortige Gates nicht ersetzen.
+- Dieses Dokument definiert keine neue UI-Architektur außerhalb der globalen Font-Scale-Regeln.
+
 ## 1. Ziel der Funktion
 
 Die **globale Schriftgröße** der Anwendung soll einheitlich über alle UI-Komponenten hinweg steuerbar sein. Benutzer können die Schriftgröße über einen Settings-Dialog oder über Tastenkürzel anpassen. Die gewählte Einstellung wird persistent gespeichert und bei jedem Start der Anwendung wiederhergestellt.
@@ -209,7 +216,9 @@ Es dürfen keine Breaking Changes an der bestehenden CSS-Variable-basierten Impl
 
 ---
 
-## 11. Implementierungs-Roadmap
+## 11. Implementierungs-Roadmap (nicht normativ, historisch)
+
+Dieser Abschnitt bleibt als historische Umsetzungsnotiz erhalten. Er ist kein aktueller Arbeitsplan für neue Änderungen.
 
 ### Phase 1: Tastenkürzel (Priority: HIGH)
 
@@ -232,7 +241,9 @@ Es dürfen keine Breaking Changes an der bestehenden CSS-Variable-basierten Impl
 
 ---
 
-## 12. Nachweis der Schriftgrößen-Konsistenz (verbindlich)
+## 12. Nachweis der Schriftgrößen-Konsistenz (nicht normativer Prüfkontext)
+
+Dieser Abschnitt beschreibt den ursprünglichen Prüf- und Nachweisansatz. Verbindliche aktuelle Test-Gates liegen in `docs/TESTING_STANDARDS.md` oder in einem explizit aktiven Umsetzungsplan.
 
 ### 12.1 Anforderung
 
@@ -452,7 +463,9 @@ Bei jeder identifizierten Abweichung MUSS dokumentiert werden:
 
 ---
 
-## 13. Akzeptanzkriterium
+## 13. Historische Akzeptanzkriterien (nicht normativer Abschlussnachweis)
+
+Diese Kriterien dokumentieren den erwarteten Abschlusszustand der Font-Scale-Funktion. Für neue Arbeiten gelten sie als Kontext; verbindliche aktuelle Gates müssen aus `docs/TESTING_STANDARDS.md` oder einem aktuellen Plan abgeleitet werden.
 
 Die Funktion gilt als abgeschlossen, wenn:
 
