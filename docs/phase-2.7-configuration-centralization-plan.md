@@ -483,7 +483,7 @@ Nur `server/services/compiler/cli-runner.ts`.
 
 # Teilstep 2.7.5 — Compile-Route-Cache-Konfiguration zentralisieren
 
-Status: planned
+Status: completed
 
 ## Zweck
 
@@ -579,7 +579,7 @@ Nur:
 
 # Teilstep 2.7.6 — Sandbox-Pool-Constructor-Defaults an zentrale Config angleichen, ohne DI zu verlieren
 
-Status: planned
+Status: completed
 
 ## Zweck
 
@@ -668,7 +668,7 @@ Nur `server/services/sandbox-runner-pool.ts`.
 
 # Teilstep 2.7.7 — UnifiedGatekeeper Queue- und Timeout-Werte trennen prüfen
 
-Status: planned
+Status: completed
 
 ## Zweck
 
@@ -766,7 +766,9 @@ Nur:
 
 # Teilstep 2.7.8 — Gatekeeper-Disable-Mechanik separat analysieren und ggf. kapseln
 
-Status: planned
+Status: deferred
+
+Deferred-Begründung: Die Mechanik ist ein runtime-mutiertes Worker-Thread-Signal (`COMPILE_GATEKEEPER_DISABLED`) und kein normaler statischer Config-Wert. Wegen der Verwechslungsgefahr mit `config.compilation.disableGatekeeper` bleibt der direkte Zugriff zunächst bewusst lokal.
 
 ## Zweck
 
