@@ -11,6 +11,7 @@
  */
 
 import { Logger } from "@shared/logger";
+import { config as serverConfig } from "../config";
 
 const logger = new Logger("RateLimiter");
 
@@ -28,9 +29,9 @@ interface RateLimitConfig {
 }
 
 const DEFAULT_CONFIG: RateLimitConfig = {
-  maxRequests: 1,            // 1 Start
-  windowMs: 2 * 1000,        // pro 2 Sekunden
-  blockDurationMs: 5 * 1000  // Dann 5s blockieren
+  maxRequests: serverConfig.server.simulationRateLimitMaxRequests, // 1 Start
+  windowMs: serverConfig.server.simulationRateLimitWindowMs, // pro 2 Sekunden
+  blockDurationMs: serverConfig.server.simulationRateLimitBlockDurationMs, // Dann 5s blockieren
 };
 
 export class SimulationRateLimiter {
@@ -45,7 +46,7 @@ export class SimulationRateLimiter {
     // Cleanup alte Einträge alle 5 Minuten
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
-    }, 5 * 60 * 1000);
+    }, serverConfig.server.simulationRateLimitCleanupIntervalMs);
     
     logger.info(`Rate Limiter initialized: ${this.config.maxRequests} request(s) per ${this.config.windowMs}ms`);
   }
@@ -127,7 +128,7 @@ export class SimulationRateLimiter {
     const entriesToDelete: string[] = [];
 
     for (const [identity, entry] of this.clientLimits.entries()) {
-      if (now - entry.lastActivity > 10 * 60 * 1000) {
+      if (now - entry.lastActivity > serverConfig.server.simulationRateLimitInactiveTtlMs) {
         entriesToDelete.push(identity);
       }
     }

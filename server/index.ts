@@ -104,8 +104,8 @@ app.use((_, res, next) => {
 // In test/development mode, use higher limits
 const isTestMode = config.isTest || config.server.disableRateLimit;
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 Minuten
-  max: isTestMode ? 10000 : 300, // 10000 in Test-Modus, 300 in Produktion
+  windowMs: config.server.apiRateLimitWindowMs, // 15 Minuten
+  max: isTestMode ? config.server.apiRateLimitTestMax : config.server.apiRateLimitMax, // 10000 in Test-Modus, 300 in Produktion
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,

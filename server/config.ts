@@ -165,6 +165,22 @@ export const config = {
     ),
     /** Completely bypass rate limiting (for E2E tests) */
     disableRateLimit: envBool("DISABLE_RATE_LIMIT", false),
+    /** API route rate limit window */
+    apiRateLimitWindowMs: 15 * 60 * 1000,
+    /** API route rate limit in normal operation */
+    apiRateLimitMax: 300,
+    /** API route rate limit used when tests disable production throttling */
+    apiRateLimitTestMax: 10_000,
+    /** Simulation start rate limit window */
+    simulationRateLimitWindowMs: 2 * 1000,
+    /** Simulation starts allowed per window */
+    simulationRateLimitMaxRequests: 1,
+    /** Simulation start block duration after exceeding the limit */
+    simulationRateLimitBlockDurationMs: 5 * 1000,
+    /** Cleanup interval for inactive simulation rate-limit entries */
+    simulationRateLimitCleanupIntervalMs: 5 * 60 * 1000,
+    /** Inactive simulation rate-limit entries are removed after this duration */
+    simulationRateLimitInactiveTtlMs: 10 * 60 * 1000,
   },
 
   // ── Sandbox Pool ────────────────────────────────────────────────
