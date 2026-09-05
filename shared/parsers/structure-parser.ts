@@ -9,8 +9,7 @@
 
 import type { ParserMessage } from "../schema";
 import { randomUUID } from "node:crypto";
-import { STRUCTURE_PATTERNS } from "../parser-patterns";
-import { findLineNumber } from "../parser-patterns";
+import { STRUCTURE_PATTERNS, findLineNumber } from "../parser-patterns";
 
 /**
  * Analyzer for structure (setup/loop) issues

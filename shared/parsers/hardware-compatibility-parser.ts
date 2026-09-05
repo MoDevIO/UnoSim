@@ -44,7 +44,7 @@ function addPinModeEntry(result: Map<string, PinModeEntry>, pin: string, mode: P
  * 5. OUTPUT pins being read
  */
 export class HardwareCompatibilityParser {
-  private pinModeCalls: Map<string, PinModeEntry>;
+  private readonly pinModeCalls: Map<string, PinModeEntry>;
 
   constructor(private readonly code: string) {
     this.code = code;

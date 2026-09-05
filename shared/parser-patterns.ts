@@ -8,7 +8,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Common Regex Patterns
 // ─────────────────────────────────────────────────────────────────────────────
-
 /** Two separate for-loop regexes to avoid super-linear backtracking (S5843). */
 // Groups: 1=type/empty, 2=var, 3=start, 4=op, 5=limit
 export const FOR_LOOP_TYPED = /\bfor\s*\(\s*(\w+)\s+(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*([<>]=?)\s*(\w+)\s*;[^)]*\)/g;
