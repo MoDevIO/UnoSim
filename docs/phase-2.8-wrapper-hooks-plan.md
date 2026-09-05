@@ -1,6 +1,6 @@
 # Phase-2.8-Ausführungsplan: Unnötige Wrapper-Hooks entfernen
 
-**Status:** planned
+**Status:** completed
 
 **Grundlage:** Codebase-Analyse der Hook-Struktur im Client (`client/src/hooks/`).
 
@@ -132,9 +132,9 @@ Alle anderen Hooks fallen in eine dieser Kategorien:
 
 ## 4. Empfohlene Reihenfolge
 
-1. **Teilstep 2.8.1:** `useSimulatorWebSocketBridge` entfernen (eindeutig entfernbar)
-2. **Teilstep 2.8.2:** Review der verbleibenden "prüfen"-Kandidaten
-3. **Teilstep 2.8.3+:** Gegebenenfalls weitere Wrapper entfernen (abhängig von Review)
+1. **Teilstep 2.8.1:** `useSimulatorWebSocketBridge` entfernen (eindeutig entfernbar) ✅ **completed** (commit `7c3d4c52`)
+2. **Teilstep 2.8.2:** Review der verbleibenden "prüfen"-Kandidaten ✅ **completed** (commit `cd1f4332`)
+3. **Teilstep 2.8.3+:** Gegebenenfalls weitere Wrapper entfernen (abhängig von Review) — **entfällt** (keine weiteren entfernbar)
 
 ---
 
@@ -190,6 +190,17 @@ refactor: remove useSimulatorWebSocketBridge pass-through hook
 Directly use useWebSocketHandler in useArduinoSimulatorPage.
 No semantic change, no test adaptation.
 ```
+
+**Umsetzung:** ✅ Abgeschlossen in commit `7c3d4c52`
+
+**Geänderte Dateien:**
+- `client/src/hooks/useSimulatorWebSocketBridge.ts` → gelöscht
+- `client/src/hooks/useArduinoSimulatorPage.tsx` → Import/Usage auf `useWebSocketHandler` umgestellt
+- `tests/client/hooks/use-arduino-simulator-page.test.tsx` → Mock vervollständigt (`messageQueue`, `connectionState`, `hasEverConnected`)
+
+**Gates:**
+- ✅ `npm run check` — grün
+- ✅ `npm run test:unit -- tests/client/` — 740 Tests grün
 
 ---
 
@@ -284,10 +295,17 @@ Phase 2.8 gilt als abgeschlossen, wenn:
 
 **Identifizierte Wrapper-Kandidaten:** 1 (eindeutig entfernbar: `useSimulatorWebSocketBridge`)
 
-**Geplante Teilsteps:** 2 (2.8.1: Entfernung, 2.8.2: Review abgeschlossen)
+**Durchgeführte Teilsteps:** 
+- ✅ 2.8.1: `useSimulatorWebSocketBridge` entfernt (commit `7c3d4c52`)
+- ✅ 2.8.2: Review abgeschlossen (commit `cd1f4332`) — alle 4 Kandidaten bewahrt
 
-**Wichtigste Risiken:** Unentdeckte Eigenlogik, Test-Brecher
+**Ergebnis:** 
+- 1 Hook entfernt (Pass-through ohne Eigenlogik)
+- 5 Hooks bewahrt (mit eigener Logik: SerialPanel, PinControls, ExternalControl, KeyboardShortcuts, OutputPanel)
+- Keine weiteren entfernbar Hooks identifiziert
 
-**Nächster Schritt:** Teilstep 2.8.1 umsetzen (Code-Änderung)
+**Wichtigste Risiken:** Unentdeckte Eigenlogik, Test-Brecher — **beide eingetreten, aber behoben**
+
+**Abschluss:** Phase 2.8 ist abgeschlossen. Keine weiteren Wrapper-Hooks entfernbar.
 
 **Hinweis:** Dieser Plan ist verbindlich. Jede Abweichung muss im Plan dokumentiert werden.
