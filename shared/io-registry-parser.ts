@@ -21,9 +21,15 @@
 
 import type { IOPinRecord } from "./schema";
 import type { PinMode } from "@shared/types/arduino.types";
+import {
+  FOR_LOOP_TYPED,
+  FOR_LOOP_BARE,
+  stripComments,
+  lineAt,
+} from "@shared/parser-patterns";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Constants & Regex Patterns
+// Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Built-in Arduino pin-name constants mapped to numeric IDs (0-19). */
@@ -44,11 +50,6 @@ const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
 const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const ARRAY_PATTERN = /\b(?:int|byte|uint8_t) +([A-Za-z_]\w*) *\[ *\d* *\] *= *\{([^}]+)\}/g; // NOSONAR S5843
-// Two separate for-loop regexes to avoid super-linear backtracking (S5843):
-// 1. With type prefix: for (int i = 0; ...)
-const FOR_LOOP_TYPED = /\bfor\s*\(\s*\w+\s+(\w+)\s*=\s*(\d+)\s*;\s*(\w+)\s*([<>]=?)\s*(\w+)\s*;[^)]*\)/g;
-// 2. Without type prefix: for (i = 0; ...)
-const FOR_LOOP_BARE = /\bfor\s*\(\s*(\w+)\s*=\s*(\d+)\s*;\s*(\w+)\s*([<>]=?)\s*(\w+)\s*;[^)]*\)/g;
 const FOR_BRACE_TAIL_RE = /^ *(\{)?/;
 const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/;
 const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*(\w+(?:\[\d+\])?)(?:\s*,\s*(\w+))?/g;
@@ -65,29 +66,6 @@ interface CallEntry {
   pinId: number;
   line: number;
   mode?: PinMode;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Comment stripping (position-preserving)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Strip comments while preserving character positions (newlines kept intact).
- * This allows line numbers in the stripped code to match the original source.
- */
-function stripComments(code: string): string {
-  // Multi-line comments → spaces (preserve newlines for correct line counting)
-  let result = code.replaceAll(/\/\*[^*]*(?:\*+[^*/][^*]*)*\*\//g, (m) =>
-    m.replaceAll(/[^\n]/g, " "),
-  );
-  // Single-line comments → spaces (preserve line length)
-  result = result.replaceAll(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
-  return result;
-}
-
-/** 1-based line number for a character position in a string. */
-function lineAt(code: string, pos: number): number {
-  return code.slice(0, pos).split("\n").length;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -282,8 +260,10 @@ function findLoopRanges(
   for (const forRe of [FOR_LOOP_TYPED, FOR_LOOP_BARE]) {
     forRe.lastIndex = 0;
     while ((m = forRe.exec(clean)) !== null) {
-      const variable = m[1];
-      const start = Number.parseInt(m[2], 10);
+      // FOR_LOOP_TYPED: groups are [full, type, var, start, op, limit]
+      // FOR_LOOP_BARE: groups are [full, empty, var, start, op, limit]
+      const variable = m[2];
+      const start = Number.parseInt(m[3], 10);
       const op = m[4];
       const limitVal = resolveToken(m[5], syms) ?? Number.parseInt(m[5], 10);
       if (Number.isNaN(limitVal)) continue;

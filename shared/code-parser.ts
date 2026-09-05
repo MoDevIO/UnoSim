@@ -1,63 +1,70 @@
 import type { ParserMessage } from "./schema";
 import type { PinMode } from "@shared/types/arduino.types";
 import { randomUUID } from "node:crypto";
-
-/**
- * Centralized patterns and constants for Arduino code parsing
- * Extracted to reduce cognitive complexity and enable reuse
- */
-// Two separate for-loop regexes to avoid super-linear backtracking (S5843):
-const FOR_LOOP_TYPED = /for\s*\(\s*\w+\s+(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;[^)]*\)/g;
-const FOR_LOOP_BARE = /for\s*\(\s*(\w+)\s*=\s*(\d+)\s*;\s*\w+\s*(<=?)\s*(\d+)\s*;[^)]*\)/g;
-// Two separate function-def regexes to reduce alternation complexity (S5843):
-const FUNCTION_DEF_BASIC = /(?:void|int|bool|byte|long|float|double|char|String)\s+(\w+)\s*\([^)]*\)\s*\{/g;
-const FUNCTION_DEF_UNSIGNED = /unsigned\s+(?:int|long)\s+(\w+)\s*\([^)]*\)\s*\{/g;
-const PARSER_PATTERNS = {
-  // Serial configuration patterns
-  SERIAL_USAGE: /Serial\s*\.\s*(print|println|write|read|available|peek|readString|readBytes|parseInt|parseFloat|find|findUntil)/,
-  SERIAL_BEGIN: /Serial\s*\.\s*begin\s*\(\s*\d+\s*\)/,
-  SERIAL_BEGIN_EXTRACT: /Serial\s*\.\s*begin\s*\(\s*(\d+)\s*\)/,
-  SERIAL_WHILE_NOT: /while\s*\(\s*!\s*Serial\s*\)/,
-  SERIAL_READ: /Serial\s*\.\s*read\s*\(\s*\)/,
-  SERIAL_AVAILABLE: /Serial\s*\.\s*available\s*\(\s*\)/,
-
-  // Structure patterns
-  SETUP_FUNCTION: /void\s+setup\s*\(\s*\)/,
-  SETUP_ANY: /void\s+setup\s*\([^)]*\)/,
-  LOOP_FUNCTION: /void\s+loop\s*\(\s*\)/,
-  LOOP_ANY: /void\s+loop\s*\([^)]*\)/,
-
-  // Pin-related patterns
+import {
   FOR_LOOP_TYPED,
   FOR_LOOP_BARE,
-  PIN_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,/g,
-  PIN_MODE_WITH_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g,
-  PIN_MODE_VAR: /pinMode\s*\(\s*([a-zA-Z_]\w*)\s*,/g,
-  ANALOG_WRITE: /analogWrite\s*\(\s*(\d+|A\d+)\s*,/g,
-  DIGITAL_READ_WRITE: /digital(?:Read|Write)\s*\(\s*(\d+|A\d+|[a-zA-Z_]\w*)/g,
-  DIGITAL_READ_LITERAL: /\bdigitalRead\s*\(\s*(\d+|A\d+)\s*\)/g,
-  DIGITAL_WRITE_READ_PIN: /pinMode\s*\(\s*(\d+|A\d+)/gi,
-  DIGITAL_WRITE_READ_DIO: /digital(?:Write|Read)\s*\(\s*(\d+|A\d+)/gi,
-  ANALOG_READ_WRITE: /analog(?:Read|Write)\s*\(\s*(\d+|A\d+)/gi,
+  FUNCTION_DEF_BASIC,
+  FUNCTION_DEF_UNSIGNED,
+  SERIAL_PATTERNS,
+  STRUCTURE_PATTERNS,
+  PIN_PATTERNS,
+  PERFORMANCE_PATTERNS,
+  COMMENT_PATTERNS,
+  findLineNumber,
+  removeComments,
+  parsePinNumber,
+} from "@shared/parser-patterns";
 
-  // Performance patterns
-  WHILE_TRUE: /while\s*\(\s*true\s*\)/,
-  FOR_NO_EXIT: /for *\( *[^;\n]+; *; *[^)\n]+\)/, // NOSONAR S5843
-  LARGE_ARRAY: /\[\s*(\d{4,})\s*\]/,
+/**
+ * @deprecated Use SERIAL_PATTERNS from @shared/parser-patterns
+ */
+const PARSER_PATTERNS = {
+  // Serial configuration patterns (deprecated, use SERIAL_PATTERNS)
+  SERIAL_USAGE: SERIAL_PATTERNS.USAGE,
+  SERIAL_BEGIN: SERIAL_PATTERNS.BEGIN,
+  SERIAL_BEGIN_EXTRACT: SERIAL_PATTERNS.BEGIN_EXTRACT,
+  SERIAL_WHILE_NOT: SERIAL_PATTERNS.WHILE_NOT,
+  SERIAL_READ: SERIAL_PATTERNS.READ,
+  SERIAL_AVAILABLE: SERIAL_PATTERNS.AVAILABLE,
+
+  // Structure patterns (deprecated, use STRUCTURE_PATTERNS)
+  SETUP_FUNCTION: STRUCTURE_PATTERNS.SETUP_FUNCTION,
+  SETUP_ANY: STRUCTURE_PATTERNS.SETUP_ANY,
+  LOOP_FUNCTION: STRUCTURE_PATTERNS.LOOP_FUNCTION,
+  LOOP_ANY: STRUCTURE_PATTERNS.LOOP_ANY,
+
+  // Pin-related patterns (deprecated, use PIN_PATTERNS)
+  FOR_LOOP_TYPED,
+  FOR_LOOP_BARE,
+  PIN_MODE: PIN_PATTERNS.MODE,
+  PIN_MODE_WITH_MODE: PIN_PATTERNS.MODE_WITH_MODE,
+  PIN_MODE_VAR: PIN_PATTERNS.MODE_VAR,
+  ANALOG_WRITE: PIN_PATTERNS.ANALOG_WRITE,
+  DIGITAL_READ_WRITE: PIN_PATTERNS.DIGITAL_READ_WRITE,
+  DIGITAL_READ_LITERAL: PIN_PATTERNS.DIGITAL_READ_LITERAL,
+  DIGITAL_WRITE_READ_PIN: PIN_PATTERNS.WRITE_READ_PIN,
+  DIGITAL_WRITE_READ_DIO: PIN_PATTERNS.WRITE_READ_DIO,
+  ANALOG_READ_WRITE: PIN_PATTERNS.ANALOG_READ_WRITE,
+
+  // Performance patterns (deprecated, use PERFORMANCE_PATTERNS)
+  WHILE_TRUE: PERFORMANCE_PATTERNS.WHILE_TRUE,
+  FOR_NO_EXIT: PERFORMANCE_PATTERNS.FOR_NO_EXIT,
+  LARGE_ARRAY: PERFORMANCE_PATTERNS.LARGE_ARRAY,
   FUNCTION_DEF_BASIC,
   FUNCTION_DEF_UNSIGNED,
 
-  // Comment patterns (consolidated from inline)
-  COMMENT_SINGLE_LINE: /\/\/[^\n]*$/gm, // NOSONAR S5843
-  COMMENT_MULTI_LINE: /\/\*[^*]*(?:\*+[^*/][^*]*)*\*\//g,
+  // Comment patterns (deprecated, use COMMENT_PATTERNS)
+  COMMENT_SINGLE_LINE: COMMENT_PATTERNS.SINGLE_LINE,
+  COMMENT_MULTI_LINE: COMMENT_PATTERNS.MULTI_LINE,
 
-  // Additional pin patterns (consolidated from inline)
-  PIN_MODE_ANY: /pinMode *\( *[^,)\n]+,/, // NOSONAR S5843
-  DIGITAL_DYNAMIC_PIN_READ: /digitalRead\s*\(\s*[^0-9A\s][^,)]*/,
-  DIGITAL_DYNAMIC_PIN_WRITE: /digitalWrite\s*\(\s*[^0-9A\s][^,)]*/,
+  // Additional pin patterns (deprecated, use PIN_PATTERNS)
+  PIN_MODE_ANY: PIN_PATTERNS.MODE_ANY,
+  DIGITAL_DYNAMIC_PIN_READ: PIN_PATTERNS.DYNAMIC_PIN_READ,
+  DIGITAL_DYNAMIC_PIN_WRITE: PIN_PATTERNS.DYNAMIC_PIN_WRITE,
   
-  // Utility patterns
-  ANALOG_PIN_FORMAT: /^A\d+$/,
+  // Utility patterns (deprecated, use PIN_PATTERNS)
+  ANALOG_PIN_FORMAT: PIN_PATTERNS.ANALOG_PIN_FORMAT,
 } as const;
 
 interface PinModeCall {
@@ -203,7 +210,7 @@ class SerialConfigurationParser {
 
   parse(): ParserMessage[] {
     const messages: ParserMessage[] = [];
-    const uncommentedCode = removeCommentsHelper(this.code);
+    const uncommentedCode = removeComments(this.code);
 
     // Check if Serial is used
     if (!PARSER_PATTERNS.SERIAL_USAGE.test(uncommentedCode)) return messages;
@@ -225,7 +232,7 @@ class SerialConfigurationParser {
           ? "Serial.begin() is commented out! Serial output may not work correctly."
           : "Serial.begin(115200) is missing in setup(). Serial output may not work correctly.",
         suggestion: "Serial.begin(115200);",
-        line: findLineNumberHelper(this.code, /Serial\s*\.\s*begin/),
+        line: findLineNumber(this.code, /Serial\s*\.\s*begin/),
       });
     }
 
@@ -238,7 +245,7 @@ class SerialConfigurationParser {
         severity: 2,
         message: "while (!Serial) loop detected. This blocks the simulator - not recommended.",
         suggestion: "// while (!Serial) { }",
-        line: findLineNumberHelper(this.code, PARSER_PATTERNS.SERIAL_WHILE_NOT),
+        line: findLineNumber(this.code, SERIAL_PATTERNS.WHILE_NOT),
       });
     }
 
@@ -259,7 +266,7 @@ class SerialConfigurationParser {
         severity: 2,
         message: `Serial.begin(${baudRateMatch[1]}) uses wrong baud rate. This simulator expects Serial.begin(115200).`,
         suggestion: "Serial.begin(115200);",
-        line: findLineNumberHelper(
+        line: findLineNumber(
           this.code,
           new RegExp(String.raw`Serial\s*\.\s*begin\s*\(\s*${baudRateMatch[1]}`),
         ),
@@ -286,7 +293,7 @@ class SerialConfigurationParser {
           severity: 2,
           message: "Serial.read() used without checking Serial.available(). This may return -1 when no data is available.",
           suggestion: "if (Serial.available()) { }",
-          line: findLineNumberHelper(this.code, PARSER_PATTERNS.SERIAL_READ),
+          line: findLineNumber(this.code, SERIAL_PATTERNS.READ),
         };
       }
     }
@@ -297,6 +304,9 @@ class SerialConfigurationParser {
 /**
  * Specialized analyzer for structure (setup/loop) issues
  */
+// eslint-disable-next-line unused-imports/no-unused-imports -- Used by SerialConfigurationParser
+
+
 class StructureParser {
   constructor(private readonly code: string) {}
 
@@ -314,7 +324,7 @@ class StructureParser {
         severity: 2,
         message: "setup() has parameters, but Arduino setup() should have no parameters.",
         suggestion: "void setup()",
-        line: findLineNumberHelper(this.code, PARSER_PATTERNS.SETUP_ANY),
+        line: findLineNumber(this.code, STRUCTURE_PATTERNS.SETUP_ANY),
       });
     } else if (!setupMatch) {
       messages.push({
@@ -338,7 +348,7 @@ class StructureParser {
         severity: 2,
         message: "loop() has parameters, but Arduino loop() should have no parameters.",
         suggestion: "void loop()",
-        line: findLineNumberHelper(this.code, PARSER_PATTERNS.LOOP_ANY),
+        line: findLineNumber(this.code, STRUCTURE_PATTERNS.LOOP_ANY),
       });
     } else if (!loopMatch) {
       messages.push({
@@ -355,28 +365,7 @@ class StructureParser {
   }
 }
 
-/**
- * Helper function to remove comments (used by sub-parsers)
- */
-function removeCommentsHelper(code: string): string {
-  let result = code.replaceAll(PARSER_PATTERNS.COMMENT_SINGLE_LINE, "");
-  result = result.replaceAll(PARSER_PATTERNS.COMMENT_MULTI_LINE, "");
-  return result;
-}
 
-/**
- * Helper function to find line numbers (used by sub-parsers)
- */
-function findLineNumberHelper(
-  code: string,
-  pattern: RegExp | string,
-): number | undefined {
-  const regex = typeof pattern === "string" ? new RegExp(pattern) : pattern;
-  const match = regex.exec(code);
-  if (!match) return undefined;
-  const upToMatch = code.slice(0, Math.max(0, match.index));
-  return upToMatch.split("\n").length;
-}
 
 /**
  * Analyzer for pin conflicts (same pin used as digital and analog)
@@ -392,15 +381,15 @@ class PinConflictAnalyzer {
     for (const re of [PARSER_PATTERNS.DIGITAL_WRITE_READ_PIN, PARSER_PATTERNS.DIGITAL_WRITE_READ_DIO]) {
       re.lastIndex = 0;
       while ((match = re.exec(this.code)) !== null) {
-        const pin = parsePinNumberHelper(match[1]);
+        const pin = parsePinNumber(match[1]);
         if (pin !== undefined) digitalPins.add(pin);
       }
     }
 
     const analogPins = new Set<number>();
-    const analogRegex = PARSER_PATTERNS.ANALOG_READ_WRITE;
+    const analogRegex = PIN_PATTERNS.ANALOG_READ_WRITE;
     while ((match = analogRegex.exec(this.code)) !== null) {
-      const pin = parsePinNumberHelper(match[1]);
+      const pin = parsePinNumber(match[1]);
       if (pin !== undefined) analogPins.add(pin);
     }
 
@@ -421,19 +410,7 @@ class PinConflictAnalyzer {
   }
 }
 
-/**
- * Helper function for parsing pin numbers (used by sub-parsers)
- */
-function parsePinNumberHelper(pinStr: string): number | undefined {
-  if (PARSER_PATTERNS.ANALOG_PIN_FORMAT.test(pinStr)) {
-    const analogNum = Number.parseInt(pinStr.slice(1));
-    if (analogNum >= 0 && analogNum <= 5) return 14 + analogNum;
-  } else {
-    const digitalNum = Number.parseInt(pinStr);
-    if (!Number.isNaN(digitalNum) && digitalNum >= 0 && digitalNum <= 19) return digitalNum;
-  }
-  return undefined;
-}
+
 
 /**
  * Specialized analyzer for performance issues
@@ -622,10 +599,11 @@ export class CodeParser {
 
       let forMatch: RegExpExecArray | null;
       while ((forMatch = forHeaderRe.exec(code)) !== null) {
-        const varName = forMatch[1];
-        const startVal = Number.parseInt(forMatch[2], 10);
-        const op = forMatch[3];
-        const endVal = Number.parseInt(forMatch[4], 10);
+        // Groups: [1]=type/empty, [2]=var, [3]=start, [4]=op, [5]=limit
+        const varName = forMatch[2];
+        const startVal = Number.parseInt(forMatch[3], 10);
+        const op = forMatch[4];
+        const endVal = Number.parseInt(forMatch[5], 10);
         const lastVal = op === "<=" ? endVal : endVal - 1;
         const forLine = code.slice(0, Math.max(0, forMatch.index)).split("\n").length;
 
@@ -650,7 +628,7 @@ export class CodeParser {
    */
   private getLoopConfiguredPins(code: string): Set<number> {
     const configuredPins = new Set<number>();
-    for (const { pin } of this.getLoopPinModeCalls(removeCommentsHelper(code))) {
+    for (const { pin } of this.getLoopPinModeCalls(removeComments(code))) {
       configuredPins.add(pin);
     }
     return configuredPins;
@@ -664,7 +642,7 @@ export class CodeParser {
     
     while ((match = analogWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
-      const pin = parsePinNumberHelper(pinStr);
+      const pin = parsePinNumber(pinStr);
       if (pin !== undefined && !PWM_PINS.has(pin)) {
         messages.push({
           id: randomUUID(),
@@ -673,7 +651,7 @@ export class CodeParser {
           severity: 2,
           message: `analogWrite(${pinStr}, ...) used on pin ${pin}, which doesn't support PWM on Arduino UNO. PWM pins: 3, 5, 6, 9, 10, 11.`,
           suggestion: `// Use PWM pin instead: analogWrite(3, value);`,
-          line: findLineNumberHelper(code, new RegExp(String.raw`analogWrite\s*\(\s*${pinStr}`)),
+          line: findLineNumber(code, new RegExp(String.raw`analogWrite\s*\(\s*${pinStr}`)),
         });
       }
     }
@@ -689,7 +667,7 @@ export class CodeParser {
     while ((match = digitalReadWriteRegex.exec(code)) !== null) {
       const pinStr = match[1];
       if (/^\d+/.test(pinStr) || /^A\d+/.test(pinStr)) {
-        const pin = parsePinNumberHelper(pinStr);
+        const pin = parsePinNumber(pinStr);
         if (!pinModeSet.has(pinStr) && (pin === undefined || !loopConfiguredPins.has(pin)) && !warnedPins.has(pinStr)) {
           warnedPins.add(pinStr);
           messages.push({
@@ -699,7 +677,7 @@ export class CodeParser {
             severity: 2,
             message: `Pin ${pinStr} used with digitalRead/digitalWrite but pinMode() was not called for this pin.`,
             suggestion: `pinMode(${pinStr}, INPUT);`,
-            line: findLineNumberHelper(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
+            line: findLineNumber(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
           });
         }
       }
@@ -732,7 +710,7 @@ export class CodeParser {
             severity: 2,
             message: `Variable '${pinStr}' used in digitalRead/digitalWrite but no pinMode() call found for this variable.`,
             suggestion: `pinMode(${pinStr}, INPUT);`,
-            line: findLineNumberHelper(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
+            line: findLineNumber(code, new RegExp(String.raw`digital(?:Read|Write)\s*\(\s*${pinStr}`)),
           });
           foundUnconfiguredVariable = true;
         }
@@ -751,7 +729,7 @@ export class CodeParser {
           severity: 2,
           message: "digitalRead/digitalWrite uses variable pins without any pinMode() calls. Configure pinMode for the pins being read/written.",
           suggestion: "pinMode(<pin>, INPUT);",
-          line: findLineNumberHelper(code, PARSER_PATTERNS.DIGITAL_READ_WRITE),
+          line: findLineNumber(code, PIN_PATTERNS.DIGITAL_READ_WRITE),
         });
       }
     }
@@ -761,7 +739,7 @@ export class CodeParser {
 
   parseHardwareCompatibility(code: string): ParserMessage[] {
     const messages: ParserMessage[] = [];
-    const uncommentedCode = removeCommentsHelper(code);
+    const uncommentedCode = removeComments(code);
     const pinChecker = new PinCompatibilityChecker(uncommentedCode);
 
     // Check analogWrite on non-PWM pins
@@ -787,13 +765,13 @@ export class CodeParser {
     // Check OUTPUT pins being read
     const outputPins = new Set<number>();
     for (const [pin, entry] of pinModeCalls.entries()) {
-      const pinNum = parsePinNumberHelper(pin);
+      const pinNum = parsePinNumber(pin);
       if (pinNum !== undefined && entry.modes.includes("OUTPUT")) outputPins.add(pinNum);
     }
     for (const { pin, mode } of this.getLoopPinModeCalls(uncommentedCode)) {
       if (mode === "OUTPUT") outputPins.add(pin);
     }
-    messages.push(...pinChecker.checkOutputPinsReadAsInput(uncommentedCode, outputPins, parsePinNumberHelper));
+    messages.push(...pinChecker.checkOutputPinsReadAsInput(uncommentedCode, outputPins, parsePinNumber));
 
     return messages;
   }
@@ -810,7 +788,7 @@ export class CodeParser {
    * Parse performance issues
    */
   parsePerformance(code: string): ParserMessage[] {
-    const uncommentedCode = removeCommentsHelper(code);
+    const uncommentedCode = removeComments(code);
     const analyzer = new PerformanceAnalyzer(uncommentedCode, code);
 
     return [
