@@ -26,6 +26,9 @@ import { normalizeBaudrate, normalizeSimulationTimeout } from "@shared/input-lim
 import { canTransition } from "../simulation-state-machine";
 import { createProcessExecutionPort, type ProcessExecution } from "../process-execution-port";
 import { OutputCollector } from "../output-collector";
+import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "./execution-phases/cleanup-phase";
+import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
+import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -74,8 +77,6 @@ type ProcessMessage =
   | { type: "pinState"; data: { pin: number; stateType: PinStateChange; value: number } }
   | { type: "output"; data: { line: string; isComplete?: boolean } }
   | { type: "error"; data: { line: string } };
-
-type ParsedStderrOutput = ReturnType<InstanceType<typeof StderrParser>["parseStderrLine"]>;
 
 type DockerState = {
   isCompilePhase: { value: boolean };
@@ -167,11 +168,10 @@ export class ExecutionManager {
   }
 
   /**
-   * Main execution entry point: prepare, compile, and run a sketch
+   * Main execution entry point: orchestrates prepare → start → stream → timeout → cleanup
    */
   async runSketch(options: RunSketchOptions, state: ExecutionState): Promise<void> {
-    const opts = options;
-    const { code, onOutput, onError, onExit, onCompileError, onPinState, timeoutSec, onIORegistry, onTelemetry, onPinStateBatch } = opts;
+    const { code, onOutput, onError, onExit, onCompileError, onPinState, timeoutSec, onIORegistry, onTelemetry, onPinStateBatch } = options;
 
     // Transition to STARTING state
     const canStart = this.transitionTo(state, SimulationState.STARTING);
@@ -264,10 +264,13 @@ export class ExecutionManager {
       }
 
       // Create wrapped callbacks
-      const wrapped = this.createWrappedCallbacks(onOutput, onError, onPinState, state);
+      const wrapped = createStreamCallbacks(onOutput, onError, onPinState, state, {
+        registryManager: this.registryManager,
+        logger: this.logger,
+      });
 
       // Setup and run simulation
-      await this.setupSimulationProcess(files, wrapped, opts, state);
+      await this.setupSimulationProcess(files, wrapped, options, state);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       this.logger.error(`Kompilierfehler oder Timeout: ${errorMessage}`);
@@ -498,7 +501,10 @@ export class ExecutionManager {
           clearTimeout(state.flushTimer);
           state.flushTimer = null;
         }
-        void this.cleanupDockerContainer(state.currentContainerName);
+        void cleanupDockerContainer(state.currentContainerName, {
+          processExecutor: this.processExecutor,
+          logger: this.logger,
+        });
         this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
       });
 
@@ -506,8 +512,8 @@ export class ExecutionManager {
         dockerCallbacks,
         dockerState,
         {
-          flushBatchers: () => this.flushBatchers(state),
-          flushMessageQueue: () => this.flushMessageQueue(state),
+        flushBatchers: () => flushBatchers(state),
+        flushMessageQueue: () => flushMessageQueue(state),
           getProcessKilled: () => state.processKilled,
           executionTimeout,
         },
@@ -576,11 +582,10 @@ export class ExecutionManager {
   ): void {
     if (!state) return;
 
-    const handleTimeout = () => {
-      this.handleExecutionTimeout(executionTimeout, state, callbacks);
-    };
-
-    this.timeoutManager.schedule(executionTimeout && executionTimeout > 0 ? executionTimeout * 1000 : null, handleTimeout);
+    scheduleExecutionTimeout(this.timeoutManager, executionTimeout, state, callbacks, {
+      processExecutor: this.processExecutor,
+      logger: this.logger,
+    });
 
     state.processController.onStdout((data) => {
       const str = data.toString();
@@ -596,7 +601,10 @@ export class ExecutionManager {
       lines.forEach((line) => {
         if (!line) return;
         const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime);
-        this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError, state);
+        delegateParsedLineToStreamHandler(parsed, state, callbacks, {
+          registryManager: this.registryManager,
+          streamHandler: this.streamHandler,
+        });
       });
     });
 
@@ -605,14 +613,21 @@ export class ExecutionManager {
 
     state.processController.onStderr((data) => {
       if (useFallbackParser) {
-        this.handleStderrFallbackData(data, state, callbacks);
+        handleStderrFallbackData(data, state, callbacks, {
+          registryManager: this.registryManager,
+          streamHandler: this.streamHandler,
+          stderrParser: this.stderrParser,
+        });
       }
     });
 
     state.processController.onStderrLine((line) => {
       if (line.length === 0) return;
       const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime);
-      this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError, state);
+      delegateParsedLineToStreamHandler(parsed, state, callbacks, {
+        registryManager: this.registryManager,
+        streamHandler: this.streamHandler,
+      });
     });
 
     state.processController.onClose((code) => {
@@ -629,14 +644,17 @@ export class ExecutionManager {
         state.stderrFallbackBuffer = "";
         if (buffered.trim()) {
           const parsed = this.stderrParser.parseStderrLine(buffered, state.processStartTime);
-          this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError, state);
+          delegateParsedLineToStreamHandler(parsed, state, callbacks, {
+            registryManager: this.registryManager,
+            streamHandler: this.streamHandler,
+          });
         }
       }
 
-      this.flushMessageQueue(state);
+      flushMessageQueue(state);
 
       if (wasRunning) {
-        this.flushBatchers(state);
+        flushBatchers(state);
         if (state.serialOutputBatcher) {
           state.serialOutputBatcher.destroy();
           state.serialOutputBatcher = null;
@@ -657,173 +675,6 @@ export class ExecutionManager {
       if (!state.processKilled && onExit) onExit(code);
       this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
     });
-  }
-
-  /**
-   * Create wrapped callbacks for message queuing
-   */
-  private createWrappedCallbacks(
-    onOutput: OutputCallback,
-    onError: ErrorCallback,
-    onPinState?: PinStateCallback,
-    state?: ExecutionState,
-  ) {
-    return {
-      onOutput: (line: string, isComplete?: boolean) => {
-        if (typeof line === "string" && line.startsWith("[[SIM_TELEMETRY:") && line.endsWith("]]")) {
-          try {
-            const jsonStr = line.slice("[[SIM_TELEMETRY:".length, -2);
-            const metrics = JSON.parse(jsonStr);
-            if (state?.telemetryCallback) {
-              state.telemetryCallback(metrics);
-            }
-            return;
-          } catch (err) {
-            this.logger.warn(`Failed to parse telemetry marker: ${err}`);
-          }
-        }
-
-        if (state?.serialOutputBatcher) {
-          state.serialOutputBatcher.enqueue(line);
-        } else if (onOutput && state?.processKilled === false) {
-          onOutput(line, isComplete);
-        }
-      },
-      onPinState: (pin: number, stateType: PinStateChange, value: number) => {
-        if (state && this.registryManager.isWaiting()) {
-          state.messageQueue.push({
-            type: "pinState",
-            data: { pin, stateType, value },
-          });
-        } else if (onPinState) {
-          onPinState(pin, stateType, value);
-        }
-      },
-      onError: (line: string) => {
-        if (onError) {
-          onError(line);
-        }
-      },
-    };
-  }
-
-  /**
-   * Delegate parsed line to StreamHandler
-   */
-  private delegateParsedLineToStreamHandler(
-    parsed: ParsedStderrOutput,
-    onPinState?: (pin: number, type: PinStateChange, value: number) => void,
-    onOutput?: (line: string, isComplete?: boolean) => void,
-    onError?: (line: string) => void,
-    state?: ExecutionState,
-  ): void {
-    if (!state) return;
-
-    const streamState = {
-      pinStateBatcher: state.pinStateBatcher,
-      serialOutputBatcher: state.serialOutputBatcher,
-      backpressurePaused: state.backpressurePaused,
-      isPaused: state.state === SimulationState.PAUSED,
-      baudrate: state.baudrate,
-      registryManager: this.registryManager,
-    };
-
-    const callbacks = {
-      onPinState,
-      onOutput,
-      onError,
-    };
-
-    this.streamHandler.handleParsedLine(parsed, streamState, callbacks);
-    state.backpressurePaused = streamState.backpressurePaused;
-  }
-
-  /**
-   * Flush message queue
-   */
-  flushMessageQueue(state: ExecutionState): void {
-    if (state.messageQueue.length === 0) {
-      return;
-    }
-
-    this.logger.debug(`[Registry] Flushing ${state.messageQueue.length} queued messages`);
-
-    const queue = state.messageQueue;
-    state.messageQueue = [];
-
-    for (const msg of queue) {
-      if (msg.type === "pinState" && state.pinStateCallback) {
-        state.pinStateCallback(msg.data.pin, msg.data.stateType, msg.data.value);
-      } else if (msg.type === "output" && state.onOutputCallback) {
-        state.onOutputCallback(msg.data.line, msg.data.isComplete);
-      } else if (msg.type === "error" && state.errorCallback) {
-        state.errorCallback(msg.data.line);
-      }
-    }
-  }
-
-  /**
-   * Flush batchers
-   */
-  private flushBatchers(state: ExecutionState): void {
-    if (state.serialOutputBatcher) {
-      state.serialOutputBatcher.stop();
-    }
-    if (state.pinStateBatcher) {
-      state.pinStateBatcher.stop();
-    }
-  }
-
-  /**
-   * Handle execution timeout by killing process and notifying output
-   */
-  private handleExecutionTimeout(
-    executionTimeout: number | undefined,
-    state: ExecutionState,
-    callbacks: ExecutionCallbacks,
-  ): void {
-    state.processController.kill("SIGKILL");
-    callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
-
-    void this.cleanupDockerContainer(state.currentContainerName);
-  }
-
-  /**
-   * Ensure no container remains after Docker process exit or timeout.
-   */
-  private async cleanupDockerContainer(containerName?: string): Promise<void> {
-    if (!containerName) {
-      return;
-    }
-
-    try {
-      await this.processExecutor.execute("docker", ["rm", "-f", containerName], {
-        timeout: 5000,
-        stdio: "pipe",
-      });
-      this.logger.info(`Docker container cleanup: ${containerName}`);
-    } catch (error) {
-      this.logger.debug(`Docker cleanup failed for ${containerName}: ${error}`);
-    }
-  }
-
-  /**
-   * Process buffered stderr data in fallback mode
-   */
-  private handleStderrFallbackData(
-    data: Buffer,
-    state: ExecutionState,
-    callbacks: ExecutionCallbacks,
-  ): void {
-    state.stderrFallbackBuffer += data.toString();
-    const lines = state.stderrFallbackBuffer.split(/\r?\n/);
-    state.stderrFallbackBuffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (!line) continue;
-      const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime);
-      this.delegateParsedLineToStreamHandler(parsed, callbacks.onPinState, callbacks.onOutput, callbacks.onError, state);
-    }
   }
 
   /**

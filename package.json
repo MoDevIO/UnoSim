@@ -16,8 +16,9 @@
     "yaml": "2.9.0"
   },
   "scripts": {
-    "sonar": "sonar-scanner -Dsonar.projectKey=unosim -Dsonar.sources=client/src,server,shared -Dsonar.tests=tests -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONAR_TOKEN -Dsonar.scm.exclusions.disabled=true",
-    "dev": "tsx server/index.ts --host",
+    "sonar": "npm run test:coverage && sonar-scanner -Dsonar.projectKey=unosim -Dsonar.sources=client/src,server,shared -Dsonar.tests=tests -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONAR_TOKEN -Dsonar.scm.exclusions.disabled=true",
+    "dev": "NODE_ENV=development UNOSIM_TRUST_MODE=local UNOSIM_SERVER_MODE=local UNOSIM_SIMULATION_MODE=local tsx server/index.ts --host",
+    "dev:e2e": "NODE_ENV=test UNOSIM_SERVER_MODE=local UNOSIM_SIMULATION_MODE=local ENABLE_TEST_ENDPOINTS=true DISABLE_RATE_LIMIT=true tsx server/index.ts --host",
     "dev:full": "concurrently -n \"BACKEND,CLIENT\" -c \"bgBlue,bgMagenta\" \"npm run dev\" \"node scripts/wait-for-backend.mjs && npm run dev:client\"",
     "dev:client": "vite",
     "preview": "vite preview",

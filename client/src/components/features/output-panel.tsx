@@ -12,6 +12,23 @@ import type { DebugMessage } from "@/hooks/use-debug-console";
 import type { OutputTab } from "@/types/compilation.types";
 import { TabBar } from "@/components/ui/tab-bar";
 
+function hasRegistryConflict(record: IOPinRecord): boolean {
+  const ops = record.usedAt || [];
+  const digitalReads = ops.filter((u) => u.operation.includes("digitalRead"));
+  const digitalWrites = ops.filter((u) => u.operation.includes("digitalWrite"));
+  const pinModes = ops
+    .filter((u) => u.operation.includes("pinMode"))
+    .map((u) => {
+      const match = /pinMode:(\d+)/.exec(u.operation);
+      return pinModeToString(match ? Number.parseInt(match[1]) : -1);
+    });
+  const uniqueModes = [...new Set(pinModes)];
+  return (
+    ((digitalReads.length > 0 || digitalWrites.length > 0) && pinModes.length === 0) ||
+    uniqueModes.length > 1
+  );
+}
+
 interface OutputPanelProps {
   /* State */
   readonly activeOutputTab: OutputTab;
@@ -81,6 +98,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
     onCopyDebugMessages,
     onClearDebugMessages,
   } = props;
+  const registryHasConflict = ioRegistry.some(hasRegistryConflict);
 
   return (
     <Tabs value={activeOutputTab} onValueChange={(v) => onTabChange(v as OutputTab)} className="h-full flex flex-col">
@@ -113,40 +131,12 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
           </TabsTrigger>
 
           <TabsTrigger value="registry" onDoubleClick={() => openOutputPanel("registry")} className={clsx("h-full px-2 text-[11px] uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 leading-none flex items-center", {
-            "text-blue-400": ioRegistry.some((r) => {
-              const ops = r.usedAt || [];
-              const digitalReads = ops.filter((u) => u.operation.includes("digitalRead"));
-              const digitalWrites = ops.filter((u) => u.operation.includes("digitalWrite"));
-              const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
-                const pinModeRe = /pinMode:(\d+)/;
-                const match = pinModeRe.exec(u.operation);
-                const mode = match ? Number.parseInt(match[1]) : -1;
-                return pinModeToString(mode);
-              });
-              const uniqueModes = [...new Set(pinModes)];
-              const hasMultipleModes = uniqueModes.length > 1;
-              const hasIOWithoutMode = (digitalReads.length > 0 || digitalWrites.length > 0) && pinModes.length === 0;
-              return hasIOWithoutMode || hasMultipleModes;
-            }),
-            "text-gray-400": !ioRegistry.some(() => false),
+            "text-blue-400": registryHasConflict,
+            "text-gray-400": !registryHasConflict,
           })}>
             <span className={clsx({
-              "text-blue-400": ioRegistry.some((r) => {
-                const ops = r.usedAt || [];
-                const digitalReads = ops.filter((u) => u.operation.includes("digitalRead"));
-                const digitalWrites = ops.filter((u) => u.operation.includes("digitalWrite"));
-                const pinModes = ops.filter((u) => u.operation.includes("pinMode")).map((u) => {
-                  const pinModeRe = /pinMode:(\d+)/;
-                  const match = pinModeRe.exec(u.operation);
-                  const mode = match ? Number.parseInt(match[1]) : -1;
-                  return pinModeToString(mode);
-                });
-                const uniqueModes = [...new Set(pinModes)];
-                const hasMultipleModes = uniqueModes.length > 1;
-                const hasIOWithoutMode = (digitalReads.length > 0 || digitalWrites.length > 0) && pinModes.length === 0;
-                return hasIOWithoutMode || hasMultipleModes;
-              }),
-              "text-gray-400": !ioRegistry.some(() => false),
+              "text-blue-400": registryHasConflict,
+              "text-gray-400": !registryHasConflict,
             })}>
               I/O Registry
             </span>
@@ -180,7 +170,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
         <ParserOutput
           messages={parserMessages}
           ioRegistry={ioRegistry}
-          messagesContainerRef={parserMessagesContainerRef as unknown as React.RefObject<HTMLDivElement>}
+          messagesContainerRef={parserMessagesContainerRef}
           onClear={onParserMessagesClear}
           onGoToLine={onParserGoToLine}
           onInsertSuggestion={onInsertSuggestion}
@@ -217,7 +207,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             </div>
 
             {debugViewMode === "table" && (
-              <ScrollArea className="flex-1" viewportRef={debugMessagesContainerRef as React.Ref<HTMLDivElement>} thumbClassName="bg-status-success">
+              <ScrollArea className="flex-1" viewportRef={debugMessagesContainerRef} thumbClassName="bg-status-success">
                 <table className="w-full text-ui-xs border-collapse">
                   <thead>
                     <tr className="sticky top-0 z-40 bg-muted border-b border-muted-foreground/20">
@@ -249,7 +239,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             )}
 
             {debugViewMode === "tiles" && (
-              <ScrollArea className="flex-1" viewportRef={debugMessagesContainerRef as React.Ref<HTMLDivElement>} thumbClassName="bg-status-success">
+              <ScrollArea className="flex-1" viewportRef={debugMessagesContainerRef} thumbClassName="bg-status-success">
                 <div className="p-3">
                   <div className="space-y-3">
                     {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice(-50).map((msg) => (

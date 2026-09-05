@@ -91,7 +91,7 @@ Compilation uses `arduino-cli` directly on the host — Docker is **not** requir
 | Backend | `tsx server/index.ts` on configured `PORT` (default 3000) |
 | Client | Vite HMR dev server (proxied) |
 | Compiler | Direct `arduino-cli` calls on host |
-| Worker Pool | Disabled (`PooledCompiler.usePool = false` outside production) |
+| Worker Pool | Disabled (`CompilerWithFallback.usePool = false` outside production) |
 
 ### Production Mode
 
@@ -173,7 +173,7 @@ On macOS, make sure your project directory is allowed under Docker Desktop file 
 ### Architecture Overview
 
 - **Sandbox Runner Pool** — Manages a pool of sandbox processes that execute compiled Arduino binaries. Each simulation runs in an isolated child process with stdout/stderr capture for serial output and pin state reporting.
-- **Compilation Worker Pool** — In production mode, 4 Node.js Worker Threads handle compilations in parallel via the `PooledCompiler`. Each worker runs `arduino-cli` and caches build artifacts (hex files, core objects) for faster recompilation.
+- **Compilation Worker Pool** — In production mode, 4 Node.js Worker Threads handle compilations in parallel via the `CompilerWithFallback`. Each worker runs `arduino-cli` and caches build artifacts (hex files, core objects) for faster recompilation.
 - **WebSocket Layer** — Real-time communication between client and server for serial output, pin state batches, and simulation control (start/stop/pause/resume).
 - **SonarQube Integration** — Quality gate checks are built into the pre-push hook and the test pipeline (`./run-tests.sh`). Coverage reports are generated automatically.
 
@@ -233,7 +233,7 @@ licenses.
 
 The backend utilizes an Adapter Pattern for compilation:
 
-- PooledCompiler: Automatically manages task distribution.
+- CompilerWithFallback: Automatically manages task distribution.
 
 - Worker Isolation: Each compilation task runs in a separate thread, reducing API latency by ~30% under concurrent load.
 

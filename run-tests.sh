@@ -201,8 +201,8 @@ else
     echo "$KNIP_OUT" >> "$LOG_FILE"
 fi
 
-# 3. Unit tests
-run_task "Unit Tests" "NODE_OPTIONS='--no-warnings' npm run test:unit -- --reporter=default"
+# 3. Unit tests and complete coverage report for the SonarQube scan
+run_task "Unit Tests" "NODE_OPTIONS='--no-warnings' npm run test:coverage"
 parse_test_results "Tests.*passed"
 
 # 4. Real Arduino CLI integration tests, isolated from the fast unit gate

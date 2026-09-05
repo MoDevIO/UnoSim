@@ -1,5 +1,7 @@
 # Testing Standards
 
+Status: current
+
 ## CI Timing Tolerances
 
 ### 🕒 Timing tests are inherently flaky in CI
@@ -10,6 +12,35 @@ Some tests run on shared CI runners where system load, CPU scheduling, and conta
 - That test asserts that `delay(1000)` measurements are within **750ms–1250ms**, which is the guardrail we use for all timing-based assertions.
 
 > ✅ If you adjust timing tests, keep the ±250ms window in mind and ensure CI builds remain stable.
+
+---
+
+## Coverage-Hotspots
+
+Folgende Dateien sind aktuell die größten Hotspots und sollten gezielt mit Tests abgedeckt werden:
+
+| Datei | Aktuelle Coverage | Ziel | Verantwortung |
+|-------|------------------|------|---------------|
+| `client/src/hooks/use-compile-and-run.ts` | 85,5% | >80% | Compile→Start-Orchestrierung |
+| `server/routes/simulation.ws.ts` | ~55% | >70% | WebSocket-Lifecycle |
+| `server/services/arduino-compiler.ts` | ~60% | >75% | Compiler-Logik |
+| `server/services/execution-manager.ts` | ~45% | >70% | Sandbox-Ausführung |
+| `client/src/hooks/useArduinoSimulatorPage.tsx` | ~50% | >75% | ViewModel-Komposition |
+
+**Phase 2.1 abgeschlossen:** Die extrahierten Hooks liegen bei mindestens 94,0%
+Statement-Coverage; der Orchestrator liegt bei 85,5%. Die Größenabweichungen
+des UI-Adapters und des Orchestrators sind im Phase-2.1-Plan dokumentiert.
+
+---
+
+## Hook-Namenskonvention
+
+UnoSim verwendet **camelCase** für alle Hooks:
+
+- ✅ Korrekt: `useCompileAndRun`, `useArduinoSimulatorPage`
+- ❌ Falsch: `use_compile_and_run`, `use-arduino-simulator-page`
+
+Diese Konvention gilt für alle neuen und bestehenden Hooks im Projekt.
 
 ---
 

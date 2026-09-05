@@ -1,6 +1,5 @@
 import { useRef } from "react";
 import { useSimulationControls, UseSimulationControlsParams, SimulationStatus } from "./use-simulation-controls";
-import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 
 // re-export types removed (unused exports per knip)
 
@@ -62,23 +61,9 @@ export function useSimulation(params: UseSimulationParams): UseSimulationResult 
   // ref so the underlying hook can populate it for callers.
   const controls = useSimulationControls({ ...params, startSimulationRef });
 
-  // plug in lifecycle automation
-  const { suppressAutoStopOnce } = useSimulationLifecycle({
-    code: params.code,
-    simulationStatus: controls.simulationStatus,
-    setSimulationStatus: controls.setSimulationStatus,
-    sendMessage: params.sendMessage,
-    resetPinUI: params.resetPinUI,
-    clearOutputs: params.clearOutputs,
-    handlePause: controls.handlePause,
-    handleResume: controls.handleResume,
-    handleReset: controls.handleReset,
-    hasCompilationErrors: params.hasCompilationErrors,
-  });
-
   return {
     ...controls,
-    suppressAutoStopOnce,
+    suppressAutoStopOnce: controls.suppressAutoStopOnce,
     startSimulationRef,
     startSimulation: controls.handleStart,
   };

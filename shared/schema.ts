@@ -308,7 +308,13 @@ export interface IOPinRecord {
   conflict?: boolean;
   conflictMessage?: string;
   // ── Legacy fields (kept for runtime path + backward compat) ─────────────
+  /**
+   * Legacy runtime field. Prefer pinModeLines and pinModeModes for static data.
+   */
   pinMode?: number; // 0=INPUT, 1=OUTPUT, 2=INPUT_PULLUP
+  /**
+   * Legacy runtime field. Prefer pinModeLines for static data.
+   */
   definedAt?: {
     line: number;
     loopContext?: {
@@ -319,6 +325,9 @@ export interface IOPinRecord {
       endLine: number;
     };
   };
+  /**
+   * Legacy runtime and compatibility field for operation usage data.
+   */
   usedAt?: Array<{
     line: number;
     operation: string;

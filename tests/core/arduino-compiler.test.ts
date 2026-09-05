@@ -1,4 +1,5 @@
 import { ArduinoCompiler } from "../../server/services/arduino-compiler";
+import * as cliRunner from "../../server/services/compiler/cli-runner";
 
 describe("ArduinoCompiler", () => {
   afterEach(() => {
@@ -7,7 +8,7 @@ describe("ArduinoCompiler", () => {
 
   it("succeeds for a valid sketch and embeds headers", async () => {
     vi
-      .spyOn(ArduinoCompiler.prototype, "compileWithArduinoCli")
+      .spyOn(cliRunner, "compileWithArduinoCli")
       .mockResolvedValue({
         success: true,
         output:
@@ -32,10 +33,17 @@ describe("ArduinoCompiler", () => {
   it("returns error when arduino-cli reports compilation failures", async () => {
     // simulate compileWithArduinoCli returning errors (already cleaned)
     vi
-      .spyOn(ArduinoCompiler.prototype, "compileWithArduinoCli")
+      .spyOn(cliRunner, "compileWithArduinoCli")
       .mockResolvedValue({
         success: false,
         errors: "sketch.ino:10: error: expected ';' before '}\n",
+        parsedErrors: [{
+          file: "sketch.ino",
+          line: 10,
+          column: 0,
+          type: "error",
+          message: "expected ';' before '}'",
+        }],
       } as any);
 
     const compiler = await ArduinoCompiler.create();
@@ -56,7 +64,7 @@ describe("ArduinoCompiler", () => {
 
   it("rejects invalid sketch missing setup or loop", async () => {
     const compileSpy = vi.spyOn(
-      ArduinoCompiler.prototype,
+      cliRunner,
       "compileWithArduinoCli",
     );
 
@@ -74,7 +82,7 @@ describe("ArduinoCompiler", () => {
 
   it("handles arduino-cli not available (spawn error)", async () => {
     vi
-      .spyOn(ArduinoCompiler.prototype, "compileWithArduinoCli")
+      .spyOn(cliRunner, "compileWithArduinoCli")
       .mockResolvedValue({
         success: false,
         output: "",

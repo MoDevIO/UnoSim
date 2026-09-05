@@ -602,6 +602,23 @@ export function ArduinoBoard({
                 style={{ position: "relative", width: "100%", height: "100%" }}
                 dangerouslySetInnerHTML={{ __html: modifiedSvg }}
               />
+              {/* TH Köln identity mark, anchored to the ATmega chip in ViewBox percentages. */}
+              <div className="pointer-events-none absolute inset-0">
+                <img
+                  src="/TH_Koeln_Logo.svg"
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute"
+                  style={{
+                    left: "70%",
+                    top: "66%",
+                    width: "24%",
+                    height: "8%",
+                    objectFit: "contain",
+                    transform: "translate(-50%, -50%)",
+                  }}
+                />
+              </div>
               {/* Overlay SVG - dynamic visualization and click handling */}
               <button
                 type="button"

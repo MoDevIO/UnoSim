@@ -20,6 +20,7 @@ import { DockerManager } from "./sandbox/docker-manager";
 import { StreamHandler } from "./sandbox/stream-handler";
 import { FilesystemHelper } from "./sandbox/filesystem-helper";
 import { ExecutionManager, type ExecutionState, SimulationState, SANDBOX_CONFIG } from "./sandbox/execution-manager";
+import { flushMessageQueue } from "./sandbox/execution-phases/cleanup-phase";
 import { config } from "../config";
 
 export class SandboxRunner {
@@ -61,7 +62,7 @@ export class SandboxRunner {
         if (this.executionState?.ioRegistryCallback) {
           this.executionState.ioRegistryCallback(registry, baudrate, reason);
         }
-        this.executionManager.flushMessageQueue(this.executionState);
+        flushMessageQueue(this.executionState);
       },
       onTelemetry: (metrics) => {
         if (this.executionState?.telemetryCallback) {

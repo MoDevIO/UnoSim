@@ -4,30 +4,102 @@ import type { SandboxRunner } from "../services/sandbox-runner";
 import {
   type IOPinRecord,
   type ClientToServerWSMessage,
-  type ServerToClientWSMessage,
   type WSMessage,
   WSMessageType,
 } from "@shared/schema";
 import type { Logger } from "@shared/logger";
 import type { PinStateChange } from "@shared/types/arduino.types";
-import { decodeClientMessage } from "../services/ws-message-decoder";
-import { WsSessionLifecycle } from "../services/ws-session-lifecycle";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import path from "node:path";
 import { writeFile, access } from "node:fs/promises";
-import type { RawData } from "ws";
 import {
   authorizeHeaders,
   createWebSocketAuthorizationVerifier,
   type TrustConfig,
 } from "../security/access-control";
 import { INPUT_LIMITS } from "@shared/input-limits";
+import { WsMessageRouter } from "./simulation/ws-message-router";
+import { type ClientState, WsSessionManager } from "./simulation/ws-session-manager";
+import { sendMessageToClient, WsOutputBuffer } from "./simulation/ws-output-buffer";
 
-/** Safely convert WebSocket RawData (Buffer | ArrayBuffer | Buffer[]) to a string. */
-function rawDataToString(data: RawData): string {
-  if (Array.isArray(data)) return Buffer.concat(data).toString();
-  if (data instanceof ArrayBuffer) return Buffer.from(data).toString();
-  return data.toString();
+/**
+ * Handle "pause_simulation" WebSocket message
+ */
+function handlePauseSimulation(
+  _ws: WebSocket,
+  clientState: ClientState,
+): void {
+  if (clientState?.runner && clientState.isRunning) {
+    const paused = clientState.runner.pause();
+    if (paused) {
+      clientState.isPaused = true;
+      sendMessageToClient(_ws, {
+        type: WSMessageType.SIMULATION_STATUS,
+        status: "paused",
+      });
+      sendMessageToClient(_ws, {
+        type: WSMessageType.SERIAL_OUTPUT,
+        data: "--- Simulation paused ---\n",
+      });
+    }
+  }
+}
+
+/**
+ * Handle "resume_simulation" WebSocket message
+ */
+function handleResumeSimulation(
+  _ws: WebSocket,
+  clientState: ClientState,
+): void {
+  if (clientState?.runner && clientState.isPaused) {
+    const resumed = clientState.runner.resume();
+    if (resumed) {
+      clientState.isPaused = false;
+      clientState.isRunning = true;
+      sendMessageToClient(_ws, {
+        type: WSMessageType.SIMULATION_STATUS,
+        status: "running",
+      });
+      sendMessageToClient(_ws, {
+        type: WSMessageType.SERIAL_OUTPUT,
+        data: "--- Simulation resumed ---\n",
+      });
+    }
+  }
+}
+
+/**
+ * Handle "serial_input" WebSocket message
+ */
+function handleSerialInput(
+  _ws: WebSocket,
+  data: Extract<ClientToServerWSMessage, { type: "serial_input" }>,
+  clientState: ClientState,
+): void {
+  if (
+    clientState?.runner &&
+    clientState?.isRunning &&
+    !clientState.isPaused
+  ) {
+    clientState.runner.sendSerialInput(data.data);
+  }
+}
+
+/**
+ * Handle "set_pin_value" WebSocket message
+ */
+function handleSetPinValue(
+  _ws: WebSocket,
+  data: Extract<ClientToServerWSMessage, { type: "set_pin_value" }>,
+  clientState: ClientState,
+): void {
+  if (
+    clientState?.runner &&
+    (clientState.isRunning || clientState.isPaused)
+  ) {
+    clientState.runner.setPinValue(data.pin, data.value);
+  }
 }
 
 type SimulationDeps = {
@@ -45,15 +117,6 @@ type SimulationDeps = {
   trust: TrustConfig;
   allowedWebSocketOrigins: readonly string[];
   disableRateLimit: boolean;
-};
-
-type ClientState = {
-  subject: string;
-  runner: InstanceType<typeof SandboxRunner> | null;
-  isRunning: boolean;
-  isPaused: boolean;
-  testRunId?: string;
-  queueAbortController: AbortController | null;
 };
 
 // Return type exposes a small API used by other modules (test-reset)
@@ -85,143 +148,14 @@ export function registerSimulationWebSocket(
     ),
   });
 
-  const clientRunners = new WsSessionLifecycle<WebSocket, ClientState>();
+  const sessionManager = new WsSessionManager({ pool, logger });
+  const outputBuffer = new WsOutputBuffer();
 
-  // Serial output batching: collect output lines over 50ms before sending to reduce
-  // WebSocket message count (e.g., from 100 msg/batch to 1 msg/batch at 20 batches/sec)
-  //
-  // STRUCTURE: Buffer stores both data AND semantic flag (isComplete) so we can
-  // intelligently reconstruct newlines without duplication. The client also adds
-  // newlines based on isComplete flag, so we must be careful:
-  // - Store each line with its isComplete flag
-  // - When flushing, add newlines BETWEEN lines (not after final line)
-  // - Let client add the final newline if needed
-  const clientSerialBuffers = new Map<
-    WebSocket,
-    {
-      lines: Array<{ data: string; isComplete: boolean }>;
-      flushTimer: NodeJS.Timeout | null;
-    }
-  >();
-
-  function sendMessageToClient(
-    ws: WebSocket,
-    message: ServerToClientWSMessage,
-  ): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
-    }
-  }
-
-  /**
-   * Flush buffered serial output for a client
-   * Combines all lines with proper newline handling:
-   * - Add newline after EVERY complete line (not just between)
-   * - Don't add newline after incomplete lines
-   * - Let the isComplete flag tell the client whether to add final newline
-   *
-   * CRITICAL: This prevents lost newlines at batch boundaries.
-   * If batch 1 ends with isComplete=false and batch 2 starts with isComplete=true,
-   * we must ensure newlines are added correctly.
-   */
-  function flushSerialOutputBuffer(ws: WebSocket): void {
-    const bufferState = clientSerialBuffers.get(ws);
-    if (!bufferState || bufferState.lines.length === 0) {
-      return;
-    }
-
-    bufferState.flushTimer = null;
-
-    // Add newline after EVERY complete line (not just between them)
-    // This prevents lost newlines at batch boundaries
-    const combinedData = bufferState.lines
-      .map((lineObj) => {
-        // If line is complete (had newline originally), add it back
-        if (lineObj.isComplete) {
-          return lineObj.data + "\n";
-        }
-        // If line is incomplete, don't add newline
-        return lineObj.data;
-      })
-      .join("");
-
-    // The isComplete flag for the WebSocket message is based on the last line
-    const lastLine = bufferState.lines.at(-1);
-    const finalIsComplete = lastLine?.isComplete ?? true;
-
-    bufferState.lines = [];
-
-    sendMessageToClient(ws, {
-      type: WSMessageType.SERIAL_OUTPUT,
-      data: combinedData,
-      isComplete: finalIsComplete,
-    });
-  }
-
-  /**
-   * Send serial output with 50ms batching
-   * Accumulates lines for 50ms before sending them as a single batched message
-   * Preserves isComplete semantic so client-side newline injection works correctly
-   */
-  function sendSerialOutputBatched(
-    ws: WebSocket,
-    line: string,
-    isComplete?: boolean,
-  ): void {
-    // Ensure buffer state exists for this client
-    let bufferState = clientSerialBuffers.get(ws);
-    bufferState ??= { lines: [], flushTimer: null };
-    clientSerialBuffers.set(ws, bufferState);
-
-    // Store line WITH its isComplete semantic for later intelligent combination
-    const lineObj = { data: line, isComplete: isComplete ?? true };
-    bufferState.lines.push(lineObj);
-
-    // Schedule flush if not already scheduled
-    bufferState.flushTimer ??= setTimeout(() => {
-      flushSerialOutputBuffer(ws);
-    }, 50);
-  }
-
-  async function safeReleaseRunner(
+  function safeReleaseRunner(
     state: ClientState,
     reason: string,
   ): Promise<void> {
-    if (!state.runner) {
-      return;
-    }
-
-    const runner = state.runner;
-    state.runner = null;
-    const wasRunning = state.isRunning;
-    state.isRunning = false;
-    state.isPaused = false;
-
-    // Broadcast SYNCHRONOUSLY before any await so concurrent safeReleaseRunner
-    // calls (e.g. 40 simulations ending at once) don't race: by the time the
-    // second call broadcasts, this client already has isRunning=false and is
-    // excluded from the count — no N² message storm.
-    // This also handles the "simulation ends naturally, WS stays open" case
-    // where ws.on('close') never fires but the count must still decrease.
-    if (wasRunning) {
-      broadcastWorkerTotal();
-    }
-
-    try {
-      await runner.stop();
-    } catch (error) {
-      logger.debug(
-        `[SandboxRunnerPool] runner.stop() failed during ${reason}: ${error}`,
-      );
-    }
-
-    try {
-      await pool.releaseRunner(runner);
-    } catch (error) {
-      logger.warn(
-        `[SandboxRunnerPool] releaseRunner failed during ${reason}: ${error}`,
-      );
-    }
+    return sessionManager.safeReleaseRunner(state, reason);
   }
 
   /**
@@ -240,12 +174,12 @@ export function registerSimulationWebSocket(
           gccStatus: "success",
         });
       }
-      sendSerialOutputBatched(ws, line, isComplete);
+      outputBuffer.sendSerialOutputBatched(ws, line, isComplete);
     };
 
     const onError = (err: string) => {
       logger.warn(`[Client WS][ERR]: ${err}`);
-      flushSerialOutputBuffer(ws);
+      outputBuffer.flushSerialOutputBuffer(ws);
       sendMessageToClient(ws, {
         type: WSMessageType.SERIAL_OUTPUT,
         data: "[ERR] " + err,
@@ -253,13 +187,13 @@ export function registerSimulationWebSocket(
     };
 
     const onExit = (exitCode: number | null) => {
-      // Capture runner reference immediately — the clientRunners map entry
+      // Capture client state immediately — the session entry
       // may be deleted by the ws "close" handler before the setTimeout fires.
-      const capturedCs = clientRunners.get(ws);
+      const capturedCs = sessionManager.get(ws);
 
       setTimeout(async () => {
         try {
-          flushSerialOutputBuffer(ws);
+          outputBuffer.flushSerialOutputBuffer(ws);
           if (capturedCs) {
             await safeReleaseRunner(capturedCs, "onExit");
           }
@@ -284,10 +218,7 @@ export function registerSimulationWebSocket(
             status: "stopped",
           });
 
-          const bufferState = clientSerialBuffers.get(ws);
-          if (bufferState?.flushTimer) {
-            clearTimeout(bufferState.flushTimer);
-          }
+          outputBuffer.clearClient(ws);
         } catch (err) {
           logger.error(
             `Error sending stop message: ${err instanceof Error ? err.message : String(err)}`,
@@ -310,7 +241,7 @@ export function registerSimulationWebSocket(
         type: WSMessageType.SIMULATION_STATUS,
         status: "stopped",
       });
-      const cs = clientRunners.get(ws);
+      const cs = sessionManager.get(ws);
       if (cs) {
         safeReleaseRunner(cs, "onCompileError").catch((error) => {
           logger.warn(
@@ -430,34 +361,6 @@ export function registerSimulationWebSocket(
       onPinStateBatch,
       compileFailed: () => compileFailed,
     };
-  }
-
-  /** Returns the number of clients currently running a simulation. */
-  function countRunningClients(): number {
-    let n = 0;
-    for (const state of clientRunners.values()) {
-      if (state.isRunning) n++;
-    }
-    return n;
-  }
-
-  /**
-   * Push the current live running-client count to all running clients.
-   * Optionally exclude one WebSocket (e.g. the caller that already received
-   * the full workerIndex+workerTotal message).
-   * Called after acquire (pool grows) and after release (pool shrinks) so the
-   * denominator in #N/M is always up-to-date in every open tab.
-   */
-  function broadcastWorkerTotal(excludeWs?: WebSocket): void {
-    const newTotal = countRunningClients();
-    for (const [otherWs, otherState] of clientRunners.entries()) {
-      if (otherWs !== excludeWs && otherState.isRunning) {
-        sendMessageToClient(otherWs, {
-          type: WSMessageType.COMPILATION_STATUS,
-          workerTotal: newTotal,
-        });
-      }
-    }
   }
 
   /**
@@ -635,12 +538,12 @@ export function registerSimulationWebSocket(
       type: WSMessageType.COMPILATION_STATUS,
       gccStatus: "compiling",
       workerIndex: acquiredWorkerIndex,
-      workerTotal: countRunningClients(),
+      workerTotal: sessionManager.countRunningClients(),
     });
 
     // Broadcast updated count to all OTHER running clients (ws excluded because
     // it just received the full workerIndex+workerTotal message above).
-    broadcastWorkerTotal(ws);
+    sessionManager.broadcastWorkerTotal(ws);
 
     // Build callbacks
     const callbacks = buildRunSketchCallbacks(ws, clientState);
@@ -725,87 +628,21 @@ export function registerSimulationWebSocket(
     });
   }
 
-  /**
-   * Handle "pause_simulation" WebSocket message
-   */
-  function handlePauseSimulation(
-    _ws: WebSocket,
-    clientState: ClientState,
-  ): void {
-    if (clientState?.runner && clientState.isRunning) {
-      const paused = clientState.runner.pause();
-      if (paused) {
-        clientState.isPaused = true;
-        sendMessageToClient(_ws, {
-          type: WSMessageType.SIMULATION_STATUS,
-          status: "paused",
-        });
-        sendMessageToClient(_ws, {
-          type: WSMessageType.SERIAL_OUTPUT,
-          data: "--- Simulation paused ---\n",
-        });
-      }
-    }
-  }
-
-  /**
-   * Handle "resume_simulation" WebSocket message
-   */
-  function handleResumeSimulation(
-    _ws: WebSocket,
-    clientState: ClientState,
-  ): void {
-    if (clientState?.runner && clientState.isPaused) {
-      const resumed = clientState.runner.resume();
-      if (resumed) {
-        clientState.isPaused = false;
-        clientState.isRunning = true;
-        sendMessageToClient(_ws, {
-          type: WSMessageType.SIMULATION_STATUS,
-          status: "running",
-        });
-        sendMessageToClient(_ws, {
-          type: WSMessageType.SERIAL_OUTPUT,
-          data: "--- Simulation resumed ---\n",
-        });
-      }
-    }
-  }
-
-  /**
-   * Handle "serial_input" WebSocket message
-   */
-  function handleSerialInput(
-    _ws: WebSocket,
-    data: Extract<ClientToServerWSMessage, { type: "serial_input" }>,
-    clientState: ClientState,
-  ): void {
-    if (
-      clientState?.runner &&
-      clientState?.isRunning &&
-      !clientState.isPaused
-    ) {
-      clientState.runner.sendSerialInput(data.data);
-    }
-  }
-
-  /**
-   * Handle "set_pin_value" WebSocket message
-   */
-  function handleSetPinValue(
-    _ws: WebSocket,
-    data: Extract<ClientToServerWSMessage, { type: "set_pin_value" }>,
-    clientState: ClientState,
-  ): void {
-    if (
-      clientState?.runner &&
-      (clientState.isRunning || clientState.isPaused)
-    ) {
-      clientState.runner.setPinValue(data.pin, data.value);
-    }
-  }
-
   let _wsConnectAttempts = 0;
+
+  const messageRouter = new WsMessageRouter({
+    logger,
+    getClientState: (ws) => sessionManager.get(ws),
+    handlers: {
+      startSimulation: handleStartSimulation,
+      codeChanged: (ws, _data, clientState) => handleCodeChanged(ws, clientState),
+      stopSimulation: (ws, _data, clientState) => handleStopSimulation(ws, clientState),
+      pauseSimulation: (ws, _data, clientState) => handlePauseSimulation(ws, clientState),
+      resumeSimulation: (ws, _data, clientState) => handleResumeSimulation(ws, clientState),
+      serialInput: handleSerialInput,
+      setPinValue: handleSetPinValue,
+    },
+  });
 
   wss.on("connection", (ws, req) => {
     const authorization = authorizeHeaders(req.headers, deps.trust);
@@ -829,7 +666,7 @@ export function registerSimulationWebSocket(
       );
     }
 
-    clientRunners.register(ws, {
+    sessionManager.register(ws, {
       subject: identity.subject,
       runner: null,
       isRunning: false,
@@ -838,7 +675,7 @@ export function registerSimulationWebSocket(
       queueAbortController: null,
     });
 
-    const clientState = clientRunners.get(ws);
+    const clientState = sessionManager.get(ws);
     let simStatus: "paused" | "running" | "stopped";
     if (clientState?.isPaused) {
       simStatus = "paused";
@@ -860,93 +697,14 @@ export function registerSimulationWebSocket(
     }
 
     ws.on("message", async (message) => {
-      try {
-        // Debug: log raw incoming WS messages for E2E troubleshooting
-        const msgText = rawDataToString(message);
-        logger.debug(`[WS-IN] ${msgText}`);
-        const data = decodeClientMessage(msgText);
-        if (!data) {
-          logger.warn(
-            "[WS] Rejected invalid client message",
-          );
-          ws.close(1008, "Invalid message");
-          return;
-        }
-        const type = data.type;
-        const clientState = clientRunners.get(ws);
-
-        if (!clientState) {
-          logger.warn(
-            `[WS] Message received but clientState not found for type: ${type}`,
-          );
-          return;
-        }
-
-        switch (type) {
-          case "start_simulation":
-            await handleStartSimulation(ws, data, clientState);
-            break;
-
-          case "code_changed":
-            await handleCodeChanged(ws, clientState);
-            break;
-
-          case "stop_simulation":
-            await handleStopSimulation(ws, clientState);
-            break;
-
-          case "pause_simulation":
-            handlePauseSimulation(ws, clientState);
-            break;
-
-          case "resume_simulation":
-            handleResumeSimulation(ws, clientState);
-            break;
-
-          case "serial_input":
-            handleSerialInput(ws, data, clientState);
-            break;
-
-          case "set_pin_value":
-            handleSetPinValue(ws, data, clientState);
-            break;
-
-        }
-      } catch (error) {
-        logger.error(
-          `Invalid WebSocket message: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
+      await messageRouter.route(ws, message);
     });
 
     ws.on("close", async (code: number, reason: Buffer) => {
-      const clientState = clientRunners.get(ws);
-      if (clientState) {
-        // Cancel any pending pool-queue wait to prevent orphaned runner slot leaks.
-        // Without this, a client that disconnects while QUEUED_FOR_SIMULATION would
-        // leave a dangling acquireRunner() promise in the pool queue.  When a slot
-        // eventually freed up, the orphaned runner would be assigned and held forever
-        // (the simulation runs with no WS to stop it), consuming pool capacity.
-        if (clientState.queueAbortController) {
-          clientState.queueAbortController.abort();
-          clientState.queueAbortController = null;
-        }
-        if (clientState.runner) {
-          await safeReleaseRunner(clientState, "ws-close");
-        }
-      }
-      clientRunners.remove(ws);
-
-      // Broadcast updated count now that this client is fully removed from the
-      // map, so countRunningClients() already reflects the decrease.
-      broadcastWorkerTotal();
+      await sessionManager.cleanupClient(ws, "ws-close");
 
       // Clean up serial output buffer and timer
-      const bufferState = clientSerialBuffers.get(ws);
-      if (bufferState?.flushTimer) {
-        clearTimeout(bufferState.flushTimer);
-      }
-      clientSerialBuffers.delete(ws);
+      outputBuffer.clearClient(ws);
 
       logger.warn(
         `Client disconnected (code=${code}, reason=${reason.toString() || "—"}). Remaining clients: ${wss.clients.size}`,
@@ -954,23 +712,10 @@ export function registerSimulationWebSocket(
     });
 
     ws.on("error", async (error) => {
-      const clientState = clientRunners.get(ws);
-      if (clientState) {
-        if (clientState.queueAbortController) {
-          clientState.queueAbortController.abort();
-          clientState.queueAbortController = null;
-        }
-        if (clientState.runner) {
-          await safeReleaseRunner(clientState, "ws-error");
-        }
-      }
+      await sessionManager.cleanupClient(ws, "ws-error");
 
       // Clean up serial output buffer and timer
-      const bufferState = clientSerialBuffers.get(ws);
-      if (bufferState?.flushTimer) {
-        clearTimeout(bufferState.flushTimer);
-      }
-      clientSerialBuffers.delete(ws);
+      outputBuffer.clearClient(ws);
 
       logger.error(
         `WebSocket error: ${error instanceof Error ? error.message : String(error)}`,
@@ -979,10 +724,10 @@ export function registerSimulationWebSocket(
   });
 
   async function stopAllRunnersAndNotify() {
-    const cleanedUpCount = clientRunners.size;
+    const cleanedUpCount = sessionManager.size;
     const cleanedTestRunIds: (string | undefined)[] = [];
 
-    for (const [ws, clientState] of clientRunners.entries()) {
+    for (const [ws, clientState] of sessionManager.entries()) {
       if (clientState.runner) {
         await safeReleaseRunner(clientState, "test-reset");
       }

@@ -18,6 +18,7 @@ interface EditorAPI {
   goToLine?: (lineNumber: number) => void;
   getValue?: () => string;
   insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
+  formatCode?: () => void;
 }
 
 interface EditorCommandsOptions {
@@ -148,6 +149,20 @@ export function useEditorCommands(
   );
 
   const formatCode = useCallback(() => {
+    const ed = editorRef.current;
+    
+    // Prefer using the editor's formatCode method if available (works even without focus)
+    if (ed && typeof ed.formatCode === "function") {
+      try {
+        ed.formatCode();
+        toast?.({ title: "Code Formatted", description: "Code has been automatically formatted" });
+        return;
+      } catch (err) {
+        console.error("Format code failed", err);
+      }
+    }
+    
+    // Fallback to state-based formatting (legacy behavior)
     if (typeof code !== "string" || !setCode) return;
     // original formatting logic copied verbatim
     let formatted = code;
@@ -180,7 +195,7 @@ export function useEditorCommands(
 
     setCode(formatted);
     toast?.({ title: "Code Formatted", description: "Code has been automatically formatted" });
-  }, [code, setCode, toast]);
+  }, [code, setCode, toast, editorRef]);
 
   return {
     undo: () => runCmd("undo"),
