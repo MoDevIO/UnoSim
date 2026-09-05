@@ -54,7 +54,10 @@ vi.mock("@/hooks/use-compile-and-run", () => ({
 vi.mock("@/hooks/use-websocket", () => ({
   useWebSocket: () => ({
     isConnected: false,
+    connectionState: "disconnected" as const,
+    hasEverConnected: false,
     lastMessage: null,
+    messageQueue: [],
     sendMessage: noop,
     sendMessageImmediate: noop,
   }),

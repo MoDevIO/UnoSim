@@ -17,7 +17,7 @@ import { useSimulatorSerialPanel } from "@/hooks/useSimulatorSerialPanel";
 import { useSimulatorPinControls } from "@/hooks/useSimulatorPinControls";
 import { useSimulatorUIState } from "@/hooks/useSimulatorUIState";
 import { useSimulatorKeyboardShortcuts } from "@/hooks/useSimulatorKeyboardShortcuts";
-import { useSimulatorWebSocketBridge } from "@/hooks/useSimulatorWebSocketBridge";
+import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { useSimulationStore } from "@/hooks/use-simulation-store";
 import { useSketchAnalysis } from "@/hooks/use-sketch-analysis";
 import { useTelemetryStore } from "@/hooks/use-telemetry-store";
@@ -431,8 +431,8 @@ export function useArduinoSimulatorPage() {
     toast,
   });
 
-  // WebSocket message handling moved to `useSimulatorWebSocketBridge` (extracts the large parameter list from the main hook)
-  useSimulatorWebSocketBridge({
+  // WebSocket message handling (centralized handler for all incoming messages)
+  useWebSocketHandler({
     simulationStatus,
     addDebugMessage,
     setRxActivity,
