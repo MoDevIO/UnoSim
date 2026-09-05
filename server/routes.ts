@@ -101,8 +101,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   let lastCompiledCode: string | null = null;
 
   // Compilation Cache: Map<codeHash, CompilationResult>
-  const compilationCache = new CompilationCache(100);
-  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  const compilationCache = new CompilationCache(config.compilation.resultCacheMaxEntries);
+  const CACHE_TTL = config.compilation.resultCacheTtlMs; // 5 minutes
 
   // Placeholder for simulation websocket API (populated when WS module is registered)
   let simulationApi: {
