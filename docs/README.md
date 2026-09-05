@@ -32,7 +32,7 @@ Dieser Einstiegspunkt trennt aktuelle, planende und archivierte Dokumente. Für 
 
 | Dokument | Zweck |
 | --- | --- |
-| [`PHASE2.1_REFACTORING_PLAN.md`](PHASE2.1_REFACTORING_PLAN.md) | Abgeschlossener Plan und Ist-Ergebnis der Hook-Zerlegung. |
+| [`archive/refactoring/phase-2.1-refactoring-plan.md`](archive/refactoring/phase-2.1-refactoring-plan.md) | Abgeschlossener Plan und Ist-Ergebnis der Hook-Zerlegung. |
 
 ## Archived
 
