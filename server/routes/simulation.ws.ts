@@ -578,7 +578,7 @@ export function registerSimulationWebSocket(
       logger.error(`[Simulation] runSketch failed: ${error}`);
     }
 
-    const sandboxStatus = runnerForStatus!.getSandboxStatus();
+    const sandboxStatus = runnerForStatus.getSandboxStatus();
     sendMessageToClient(ws, {
       type: WSMessageType.COMPILATION_STATUS,
       sandboxMode: sandboxStatus.mode,
