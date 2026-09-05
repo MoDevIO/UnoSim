@@ -1,6 +1,6 @@
 # Phase-2.7-Ausführungsplan: Konfigurationszugriffe zentralisieren
 
-Status: planned
+Status: completed with deferred items
 
 Grundlage: `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`, Abschnitt **2.7 Konfigurationsbündelung** und Befund **Konfigurationsdrift**.
 
@@ -35,6 +35,7 @@ Keine Codeänderungen in diesem Schritt.
 | `planned` | Teilstep ist geplant, aber noch nicht begonnen. |
 | `in progress` | Teilstep wird gerade umgesetzt. |
 | `completed` | Teilstep ist umgesetzt, geprüft und commitfähig/committed. |
+| `deferred` | Teilstep wurde geprüft, aber wegen fachlicher Unsicherheit bewusst zurückgestellt. |
 
 ## Kritische Prüfung des bisherigen ersten Umsetzungsschnitts
 
