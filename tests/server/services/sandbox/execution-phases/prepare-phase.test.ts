@@ -8,6 +8,7 @@ import type { RunSketchOptions } from "../../../../../server/services/sandbox/ru
 import type { LocalCompiler } from "../../../../../server/services/sandbox/local-compiler";
 import { Logger } from "@shared/logger";
 import { SimulationState } from "../../../../../server/services/sandbox/execution-manager";
+import * as gatekeeperModule from "../../../../../server/services/unified-gatekeeper";
 
 describe("prepare-phase", () => {
   let mockLocalCompiler: LocalCompiler;
@@ -127,5 +128,34 @@ describe("prepare-phase", () => {
     await performCompilation("/tmp/sketch.cpp", "/tmp/sketch.exe", mockOpts, mockState, contextWithoutCompiler);
 
     expect(mockLocalCompiler.compile).not.toHaveBeenCalled();
+  });
+
+  it("should handle gatekeeper timeout error", async () => {
+    // Mock getUnifiedGatekeeper to return a gatekeeper that times out immediately
+    const mockGatekeeper = {
+      acquireCompileSlotHighPriority: vi.fn().mockImplementation(() => {
+        return new Promise<never>((_, reject) => {
+          // Reject immediately to trigger timeout path
+          reject(new Error("compile-gatekeeper timeout"));
+        });
+      }),
+    };
+
+    // Spy on getUnifiedGatekeeper and return our mock
+    vi.spyOn(gatekeeperModule, "getUnifiedGatekeeper").mockReturnValue(mockGatekeeper as any);
+
+    const context: PrepareContext = {
+      localCompiler: mockLocalCompiler,
+      logger: mockLogger,
+      transitionTo: mockTransitionTo,
+    };
+
+    await expect(
+      performCompilation("/tmp/sketch.cpp", "/tmp/sketch.exe", mockOpts, mockState, context),
+    ).rejects.toThrow("compile-gatekeeper timeout");
+
+    // Verify error was logged and state transition occurred
+    expect(mockLogger.error).toHaveBeenCalledWith("Gatekeeper wait failed: compile-gatekeeper timeout");
+    expect(mockTransitionTo).toHaveBeenCalledWith(mockState, SimulationState.ERROR);
   });
 });
