@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 import { ArduinoCompiler } from "../../../server/services/arduino-compiler";
+import * as cliRunner from "../../../server/services/compiler/cli-runner";
+import * as cacheManager from "../../../server/services/compiler/cache-manager";
 
 describe("ArduinoCompiler - additional", () => {
 
@@ -17,7 +19,7 @@ describe("ArduinoCompiler - additional", () => {
 
   test("processes header includes and returns processedCode", async () => {
     const compileSpy = vi
-      .spyOn(ArduinoCompiler.prototype as any, "compileWithArduinoCli")
+      .spyOn(cliRunner, "compileWithArduinoCli")
       .mockResolvedValue({ success: true, output: "Board: Arduino UNO" });
 
     const compiler = await ArduinoCompiler.create();
@@ -33,7 +35,7 @@ describe("ArduinoCompiler - additional", () => {
 
   test("falls through to recompile when binary cache exists but output sidecar is missing", async () => {
     // Simulate old cache entry: binary present, but no .output.txt sidecar
-    vi.spyOn(ArduinoCompiler.prototype as any, "checkCacheHits").mockResolvedValue({
+    vi.spyOn(cacheManager, "checkCacheHits").mockResolvedValue({
       cached: true,
       binary: Buffer.from("fake-hex"),
       cacheType: "instant",
@@ -42,7 +44,7 @@ describe("ArduinoCompiler - additional", () => {
 
     const fullOutput = "Sketch uses 2762 bytes (8% of program storage space).\nGlobal variables use 224 bytes (10% of dynamic memory).\n\nBoard: Arduino UNO";
     const compileSpy = vi
-      .spyOn(ArduinoCompiler.prototype as any, "compileWithArduinoCli")
+      .spyOn(cliRunner, "compileWithArduinoCli")
       .mockResolvedValue({ success: true, output: fullOutput });
 
     const compiler = await ArduinoCompiler.create();

@@ -24,6 +24,7 @@ graph TD
 - **Hauptkomponenten:**
   - `ArduinoSimulatorPage` – Haupt-Seite mit Simulator-UI
   - `useCompileAndRun` – Orchestrator für Compile→Start und State-Komposition
+  - `useSimulatorExternalControl` – Externe Steuerung, Reconnect-Queue und Status-Events
   - `use-compile-controller.ts` – Compile-Mutation, Parser-/Registry-Updates und Compile-State
   - `use-simulation-controller.ts` – Simulation-Mutationen, WebSocket-Kommandos und Lifecycle
   - `use-ui-feedback-adapter.ts` – Toasts, Debug-Meldungen, Glitch- und Pin-Konflikt-Feedback
@@ -34,7 +35,10 @@ graph TD
 - **Technologie:** Node.js/Express, TypeScript, WebSocket (ws)
 - **Hauptkomponenten:**
   - `routes/status.routes.ts` – Status- und Metriken-Endpunkte
-  - `routes/simulation.ws.ts` – WebSocket-Lifecycle und Nachrichten-Routing
+  - `routes/simulation.ws.ts` – WebSocket-Registration und Komposition der Simulations-Handler
+  - `routes/simulation/ws-message-router.ts` – Dekodierung, Validierung und Dispatch eingehender WebSocket-Nachrichten
+  - `routes/simulation/ws-session-manager.ts` – Client-Session-State, Runner-Release und Worker-Total-Broadcasts
+  - `routes/simulation/ws-output-buffer.ts` – Serial-Output-Batching und WebSocket-Sende-Helper
   - `services/compiler-with-fallback.ts` – Compilation mit Fallback-Mechanismus
   - `services/sandbox-runner-pool.ts` – Pool für Docker-Sandboxen
   - `services/sandbox-runner.ts` – Einzelne Sandbox-Instanz
@@ -89,10 +93,27 @@ graph TD
 | `use-compile-controller.ts` | Compile-Mutation, Compile-State, Parser-Messages und I/O-Registry |
 | `use-simulation-controller.ts` | Simulation-State, Start/Stop/Pause/Resume und WebSocket-Sendelogik |
 | `use-ui-feedback-adapter.ts` | UI-Seiteneffekte für Toasts, Debug-Ausgaben und Konfliktwarnungen |
-| `useArduinoSimulatorPage` | State-Derivation und UI-Seiten-Effekte |
-| `simulation.ws.ts` | WebSocket-Lifecycle und Nachrichten-Routing |
+| `useArduinoSimulatorPage` | Composition Root für Hook-Wiring, State-Derivation und UI-Seiten-Effekte |
+| `useSimulatorExternalControl` | Externe API, Reconnect-Queue und Simulation-/Server-Status-Events |
+| `simulation.ws.ts` | WebSocket-Registration, Handler-Komposition und Simulations-Orchestrierung |
+| `ws-message-router.ts` | Raw-Message-Konvertierung, Protokollvalidierung und Handler-Dispatch |
+| `ws-session-manager.ts` | Client-Session-State, Runner-Cleanup und Worker-Total-Broadcasts |
+| `ws-output-buffer.ts` | Serial-Output-Batching und sichere WebSocket-Ausgabe |
 | `sandbox-runner-pool.ts` | Runner-Lebenszyklus und Pool-Management |
 | `arduino-compiler.ts` | Compilation und Cache-Logik |
+
+`ArduinoSimulatorPageState` wird für die Page-Übergabe in sieben fachliche
+ViewModels gegliedert:
+
+| ViewModel | Inhalt |
+|-----------|--------|
+| `compile` | Compile-Status, Compile-Aktionen und Compiler-Panel-Zustand |
+| `simulation` | Start/Stop/Pause/Resume, Simulation-Status und Timeout |
+| `serial` | Serial-Ausgabe, Eingabe, View-Modus und Aktivitätsanzeigen |
+| `pins` | Pin-Zustände, Pin-Monitor und Analog-/Digital-Steuerung |
+| `files` | Tabs, Dateiaktionen, Editorbefehle und Datei-Input |
+| `connection` | Backend-/WebSocket-Status, Worker- und Telemetriedaten |
+| `layout` | Responsive Layout, Slots, Panel-Refs und globale UI-Aktionen |
 
 ## 🔒 Sicherheits- und Betriebsmodell
 

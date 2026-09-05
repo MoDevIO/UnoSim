@@ -5,62 +5,45 @@
  * are batched together into single WebSocket messages instead of being sent
  * individually.
  * 
- * The batching is implemented in simulation.ws.ts:
+ * The batching is implemented in WsOutputBuffer:
  * - Lines are accumulated in a buffer for 50ms
  * - After 50ms, all buffered lines are sent as a single WebSocket message
  * - If a new line arrives while timer is running, it's added to the buffer
  * - On stop_simulation, the buffer is flushed immediately (no data loss)
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-
-type BufferEntry = { lines: Array<{ data: string; isComplete: boolean }>; flushTimer: NodeJS.Timeout | null };
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { WebSocket } from "ws";
+import { WsOutputBuffer } from "../../../server/routes/simulation/ws-output-buffer";
 
 function createBatcher(): {
   messages: any[];
-  ws: { readyState: number; send: ReturnType<typeof vi.fn> };
+  ws: WebSocket;
   send: (line: string, isComplete?: boolean) => void;
+  flush: () => void;
 } {
   const messages: any[] = [];
+  const outputBuffer = new WsOutputBuffer();
   const ws = {
-    readyState: 1,
+    readyState: WebSocket.OPEN,
     send: vi.fn((msg: string) => {
       messages.push(JSON.parse(msg));
     }),
-  };
-  const clientSerialBuffers = new Map<typeof ws, BufferEntry>();
-
-  function flushBuffer(): void {
-    const bufferState = clientSerialBuffers.get(ws);
-    if (!bufferState || bufferState.lines.length === 0) {
-      return;
-    }
-    bufferState.flushTimer = null;
-    const combinedData = bufferState.lines
-      .map((lineObj) => (lineObj.isComplete ? lineObj.data + '\n' : lineObj.data))
-      .join('');
-    const lastLine = bufferState.lines.at(-1);
-    const finalIsComplete = lastLine?.isComplete ?? true;
-    bufferState.lines = [];
-    if (ws.readyState === 1) {
-      ws.send(JSON.stringify({ type: "serial_output", data: combinedData, isComplete: finalIsComplete }));
-    }
-  }
+  } as unknown as WebSocket;
 
   function send(line: string, isComplete?: boolean): void {
-    let bufferState = clientSerialBuffers.get(ws);
-    if (!bufferState) {
-      bufferState = { lines: [], flushTimer: null };
-      clientSerialBuffers.set(ws, bufferState);
-    }
-    bufferState.lines.push({ data: line, isComplete: isComplete ?? true });
-    bufferState.flushTimer ??= setTimeout(() => flushBuffer(), 50) as unknown as NodeJS.Timeout;
+    outputBuffer.sendSerialOutputBatched(ws, line, isComplete);
   }
 
-  return { messages, ws, send };
+  return {
+    messages,
+    ws,
+    send,
+    flush: () => outputBuffer.flushSerialOutputBuffer(ws),
+  };
 }
 
-describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
+describe("serial_output WebSocket Batching (WsOutputBuffer)", () => {
   
   beforeEach(() => {
     vi.useFakeTimers();
@@ -74,36 +57,36 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
     const { messages, send } = createBatcher();
 
     // Send 3 lines with isComplete=true (simulating println output)
-    send('Hello', true);
-    send('World', true);
-    send('Test', true);
+    send("Hello", true);
+    send("World", true);
+    send("Test", true);
 
     expect(messages.length).toBe(0);
     vi.advanceTimersByTime(50);
 
     // All lines have newlines after them (newline AFTER every complete line)
     expect(messages.length).toBe(1);
-    expect(messages[0].type).toBe('serial_output');
-    expect(messages[0].data).toBe('Hello\nWorld\nTest\n');
+    expect(messages[0].type).toBe("serial_output");
+    expect(messages[0].data).toBe("Hello\nWorld\nTest\n");
     expect(messages[0].isComplete).toBe(true);
   });
 
   it('T02: should send separate batches if 50ms gap occurs between messages', () => {
     const { messages, send } = createBatcher();
 
-    send('Line1', true);
-    send('Line2', true);
+    send("Line1", true);
+    send("Line2", true);
     
     vi.advanceTimersByTime(50);
     expect(messages.length).toBe(1);
-    expect(messages[0].data).toBe('Line1\nLine2\n');
+    expect(messages[0].data).toBe("Line1\nLine2\n");
     expect(messages[0].isComplete).toBe(true);
 
-    send('Line3', true);
+    send("Line3", true);
     
     vi.advanceTimersByTime(50);
     expect(messages.length).toBe(2);
-    expect(messages[1].data).toBe('Line3\n');
+    expect(messages[1].data).toBe("Line3\n");
     expect(messages[1].isComplete).toBe(true);
   });
 
@@ -111,27 +94,27 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
     const { messages, send } = createBatcher();
 
     // Simulate Serial.print (incomplete) followed by Serial.println (complete)
-    send('Partial', false);
-    send(' Output', true);
+    send("Partial", false);
+    send(" Output", true);
     
     vi.advanceTimersByTime(50);
     
     // Incomplete lines don't get newlines, complete ones do
     expect(messages.length).toBe(1);
-    expect(messages[0].data).toBe('Partial Output\n');
+    expect(messages[0].data).toBe("Partial Output\n");
     expect(messages[0].isComplete).toBe(true);
   });
 
   it('T04: should handle incomplete line at buffer flush', () => {
     const { messages, send } = createBatcher();
 
-    send('Still typing', false);
+    send("Still typing", false);
     
     vi.advanceTimersByTime(50);
     
     // Incomplete line has no newline
     expect(messages.length).toBe(1);
-    expect(messages[0].data).toBe('Still typing');
+    expect(messages[0].data).toBe("Still typing");
     expect(messages[0].isComplete).toBe(false);
   });
 
@@ -145,11 +128,21 @@ describe('serial_output WebSocket Batching (simulation.ws.ts)', () => {
     vi.advanceTimersByTime(50);
     
     expect(messages.length).toBe(1);
-    let expectedData = '';
+    let expectedData = "";
     for (let i = 0; i < 10; i++) {
       expectedData += `Line${i}\n`;
     }
     expect(messages[0].data).toBe(expectedData);
     expect(messages[0].isComplete).toBe(true);
+  });
+
+  it("T06: should flush immediately on explicit flush", () => {
+    const { messages, send, flush } = createBatcher();
+
+    send("Before stop", true);
+    flush();
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0].data).toBe("Before stop\n");
   });
 });

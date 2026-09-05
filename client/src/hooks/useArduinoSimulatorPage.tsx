@@ -25,7 +25,7 @@ import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
-import { useExternalApi, emitServerStatusEvent, emitSimulationStateEvent } from "@/hooks/use-external-api";
+import { useSimulatorExternalControl } from "@/hooks/useSimulatorExternalControl";
 import { parseStaticIORegistry } from "@shared/io-registry-parser";
 
 import type {
@@ -597,40 +597,28 @@ export function useArduinoSimulatorPage() {
     toast,
   });
 
-  // Status info can be computed dynamically when needed per getStatusInfo
+  const externalAllowedOrigin =
+    globalThis.location.ancestorOrigins?.[0] ?? globalThis.location.origin;
 
-  // Track START_SIMULATION requests that arrived before the WebSocket connected.
-  // Instances that are still in the iframe-stagger phase would otherwise stay on
-  // IDLE forever because ensureBackendConnected() returns false and exits early.
-  const [pendingExternalStart, setPendingExternalStart] = useState(false);
-
-  // When the WS reconnects after a pending start was queued, automatically
-  // trigger the compile-and-start flow.
-  useEffect(() => {
-    if (pendingExternalStart && isConnected && backendReachable) {
-      setPendingExternalStart(false);
-      compileAndStartAction();
-    }
-  }, [pendingExternalStart, isConnected, backendReachable, compileAndStartAction]);
-
-  // External START_SIMULATION handler that supports the queued-for-compiling state.
-  // If the WebSocket is not yet connected (iframe stagger), the request is queued
-  // instead of silently dropped.
-  const handleExternalStartSimulation = useCallback(() => {
-    if (isConnected && backendReachable) {
-      compileAndStartAction();
-    } else {
-      setPendingExternalStart(true);
-      setSimulationStatus("queued");
-      emitSimulationStateEvent("QUEUED_FOR_COMPILING");
-    }
-  }, [isConnected, backendReachable, compileAndStartAction, setSimulationStatus]);
-
-  // External STOP_SIMULATION handler that also clears any pending queued start.
-  const handleExternalStopSimulation = useCallback(() => {
-    setPendingExternalStart(false);
-    handleStop();
-  }, [handleStop]);
+  const { pendingExternalStart } = useSimulatorExternalControl({
+    allowedOrigin: externalAllowedOrigin,
+    backendReachable,
+    isConnected,
+    compileAndStartAction,
+    handleStop,
+    handlePause,
+    handleResume,
+    setCode,
+    setSimulationStatus,
+    sendMessage,
+    pinStates,
+    handleSerialSend,
+    setSimulationTimeout,
+    setActiveOutputTab,
+    simulationStatus,
+    compilationStatus,
+    serverStatus,
+  });
 
   const simControlBusy =
     compileMutation.isPending ||
@@ -652,153 +640,111 @@ export function useArduinoSimulatorPage() {
     }
   }, [simulationStatus, setShowCompilationOutput]);
 
-  // External postMessage API — remote control for embedding websites.
-  // Prefer the embedding parent origin; same-origin is the safe fallback for
-  // standalone use. A wildcard would allow cross-origin control messages.
-  const externalAllowedOrigin =
-    globalThis.location.ancestorOrigins?.[0] ?? globalThis.location.origin;
-
-  // Derive high-level ClientState from runtime + compilation state.
-  // This is the single label shown in the debug header and exposed via API.
-  const deriveClientState = useCallback((): string => {
-    // Any pending external start — covers both "WS not connected" and
-    // "WS connected but health-check not yet resolved" phases.
-    if (pendingExternalStart) return "QUEUED_FOR_COMPILING";
-    if (compilationStatus === "compiling") return "COMPILING";
-    if (simulationStatus === "queued") return "QUEUED_FOR_SIMULATION";
-    if (simulationStatus === "running") return "RUNNING";
-    if (simulationStatus === "paused") return "PAUSED";
-    return "IDLE";
-  }, [pendingExternalStart, simulationStatus, compilationStatus]);
-
-  useExternalApi({
-    allowedOrigin: externalAllowedOrigin,
-    onLoadCode: setCode,
-    onStartSimulation: handleExternalStartSimulation,
-    onStopSimulation: handleExternalStopSimulation,
-    onPauseSimulation: handlePause,
-    onResumeSimulation: handleResume,
-    onSetPinState: (pin, value) => {
-      sendMessage({ type: "set_pin_value", pin, value });
-    },
-    getPinState: (pin) => {
-      const found = pinStates.find((p) => p.pin === pin);
-      return found?.value ?? 0;
-    },
-    onSerialInput: (data) => {
-      handleSerialSend(data);
-    },
-    onSetSimulationTimeout: setSimulationTimeout,
-    onSetOutputTab: setActiveOutputTab,
-    getSimulationState: deriveClientState,
-    getServerStatus: () => serverStatus && {
-      serverReachable: backendReachable,
-      pool: serverStatus.pool,
-      compile: serverStatus.compile,
-    },
-  });
-
-  // Emit SERVER_STATUS_EVENT whenever pool / health state changes
-  useEffect(() => {
-    if (!serverStatus) return;
-    emitServerStatusEvent({
-      serverReachable: backendReachable,
-      pool: serverStatus.pool,
-      compile: serverStatus.compile,
-    });
-  }, [serverStatus, backendReachable]);
-
   const state = {
-    showErrorGlitch,
-    backendReachable,
-    isMobile,
-    simulationStatus,
-    compilationStatus,
-    dockerGccPhase,
-    simulateDisabled,
-    compileMutation,
-    startMutation,
-    stopMutation,
-    pauseMutation,
-    resumeMutation,
-    compileAndStartAction,
-    handleStop,
-    handlePause,
-    handleResume,
-    board,
-    baudRate,
-    simulationTimeout,
-    setSimulationTimeout,
-    isMac,
-    handleTabAdd,
-    activeTabId,
-    tabs,
-    handleTabRename,
-    toast,
-    formatCode,
-    onLoadFiles,
-    downloadAllFiles,
-    openSettings,
-    undo,
-    redo,
-    cut,
-    copy,
-    paste,
-    selectAll,
-    goToLine,
-    find,
-    handleCompile,
-    handleCompileAndStart,
-    setShowCompilationOutput,
-    showCompilationOutput,
-    setParserPanelDismissed,
-    debugMode,
-    batchStats,
-    renderedSerialOutput,
-    serialOutput,
-    isConnected,
-    wsConnectionState,
-    wsHasEverConnected,
-    handleSerialSend,
-    handleClearSerialOutput,
-    showSerialMonitor,
-    showSerialPlotter,
-    serialViewMode,
-    cycleSerialViewMode,
-    autoScrollEnabled,
-    setAutoScrollEnabled,
-    serialInputValue,
-    setSerialInputValue,
-    handleSerialInputKeyDown,
-    handleSerialInputSend,
-    telemetryData,
-    txActivity,
-    rxActivity,
-    handleReset,
-    handlePinToggle,
-    analogPinsUsed,
-    handleAnalogChange,
-    pinMonitorVisible,
-    pinStates,
-    sandboxMode,
-    workerIndex,
-    workerTotal,
-    serverStatus,
-    mobilePanel,
-    setMobilePanel,
-    headerHeight,
-    overlayZ,
-    codeSlot,
-    compileSlot,
-    serialSlot,
-    outputPanelRef,
-    compilationPanelSize,
-    outputPanelMinPercent,
-    outputPanelManuallyResizedRef,
-    fileInputRef,
-    handleHiddenFileInput,
-    pendingExternalStart,
-    hasFirstOutput,
+    compile: {
+      compilationStatus,
+      dockerGccPhase,
+      simulateDisabled,
+      compileMutation,
+      handleCompile,
+      handleCompileAndStart,
+      showCompilationOutput,
+      setShowCompilationOutput,
+      setParserPanelDismissed,
+      hasFirstOutput,
+    },
+    simulation: {
+      simulationStatus,
+      startMutation,
+      stopMutation,
+      pauseMutation,
+      resumeMutation,
+      compileAndStartAction,
+      handleStop,
+      handlePause,
+      handleResume,
+      handleReset,
+      simulationTimeout,
+      setSimulationTimeout,
+      pendingExternalStart,
+    },
+    serial: {
+      baudRate,
+      renderedSerialOutput,
+      serialOutput,
+      handleSerialSend,
+      handleClearSerialOutput,
+      showSerialMonitor,
+      showSerialPlotter,
+      serialViewMode,
+      cycleSerialViewMode,
+      autoScrollEnabled,
+      setAutoScrollEnabled,
+      serialInputValue,
+      setSerialInputValue,
+      handleSerialInputKeyDown,
+      handleSerialInputSend,
+      txActivity,
+      rxActivity,
+    },
+    pins: {
+      batchStats,
+      handlePinToggle,
+      analogPinsUsed,
+      handleAnalogChange,
+      pinMonitorVisible,
+      pinStates,
+    },
+    files: {
+      handleTabAdd,
+      activeTabId,
+      tabs,
+      handleTabRename,
+      formatCode,
+      onLoadFiles,
+      downloadAllFiles,
+      undo,
+      redo,
+      cut,
+      copy,
+      paste,
+      selectAll,
+      goToLine,
+      find,
+      fileInputRef,
+      handleHiddenFileInput,
+    },
+    connection: {
+      backendReachable,
+      isConnected,
+      wsConnectionState,
+      wsHasEverConnected,
+      telemetryData,
+      sandboxMode,
+      workerIndex,
+      workerTotal,
+      serverStatus,
+    },
+    layout: {
+      showErrorGlitch,
+      isMobile,
+      board,
+      isMac,
+      toast,
+      openSettings,
+      debugMode,
+      mobilePanel,
+      setMobilePanel,
+      headerHeight,
+      overlayZ,
+      codeSlot,
+      compileSlot,
+      serialSlot,
+      outputPanelRef,
+      compilationPanelSize,
+      outputPanelMinPercent,
+      outputPanelManuallyResizedRef,
+    },
   };
 
   return state;

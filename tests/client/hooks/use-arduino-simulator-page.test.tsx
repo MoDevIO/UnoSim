@@ -310,9 +310,9 @@ describe("useArduinoSimulatorPage", () => {
   it("exposes default sandbox mode and worker state and registers external API callbacks", () => {
     const { result } = renderHook(() => useArduinoSimulatorPage());
 
-    expect(result.current.sandboxMode).toBe("unknown");
-    expect(result.current.workerIndex).toBeUndefined();
-    expect(result.current.workerTotal).toBeUndefined();
+    expect(result.current.connection.sandboxMode).toBe("unknown");
+    expect(result.current.connection.workerIndex).toBeUndefined();
+    expect(result.current.connection.workerTotal).toBeUndefined();
 
     const externalApi = vi.mocked(useExternalApi);
     expect(externalApi).toHaveBeenCalledTimes(1);
