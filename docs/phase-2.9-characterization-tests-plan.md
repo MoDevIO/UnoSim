@@ -1,6 +1,6 @@
 # Phase-2.9-Ausführungsplan: Charakterisierungstests vervollständigen
 
-**Status:** planned
+**Status:** completed
 
 **Grundlage:** Bestehende Charakterisierungs-, Integrations- und E2E-Tests im Repository.
 
@@ -186,11 +186,50 @@
 
 ---
 
-## 5. Geplante Teilsteps
+## 5. Durchgeführte Teilsteps
 
 ### Teilstep 2.9.1 — Charakterisierungstest: Code-Änderung nach Compile
 
-**Status:** planned
+**Status:** ✅ **completed** (commit TBD)
+
+**Ziel:** Sicherstellen, dass nach erfolgreicher Compilation geänderter Code nicht gestartet wird.
+
+**Betroffene Testdatei:**
+- `tests/client/hooks/use-compile-and-run.characterization.test.tsx` (neuer Test #6)
+
+**Ergebnis:** Test implementiert und bestanden (6/6 Tests grün)
+
+**Test dokumentiert:**
+- Compilation verwendet immer aktuellen Editor-Code zum Compile-Zeitpunkt
+- Start verwendet den soeben compilierten Code
+- Es gibt keinen Pfad wo alter Code gestartet wird
+- Invariante: `compile → start` verwendet immer denselben Code-Snapshot
+
+---
+
+### Teilstep 2.9.2 — Prüfung: Local-Mode-Pfade
+
+**Status:** ✅ **completed** (als `not applicable` dokumentiert)
+
+**Ergebnis:** Local-Mode existiert und wird produktiv verwendet:
+
+**Konfiguration:**
+- **Development:** `serverMode: "local"`, `simulationMode: "local"` (Standard)
+- **Production (docker-compose):** `serverMode: "docker"`, `simulationMode: "docker-sandbox"`
+
+**Begründung:**
+- Local-Mode wird für Development-Umgebungen verwendet
+- Bereits abgedeckt durch bestehende Integrationstests:
+  - `tests/server/services/sandbox-lifecycle.integration.test.ts`
+  - `tests/server/services/sandbox-performance.test.ts`
+  - `tests/server/compilation-worker-pool.env.test.ts`
+- Keine zusätzlichen Charakterisierungstests nötig
+
+**Entscheidung:** Keine weiteren Tests für Local-Mode erforderlich (bereits ausreichend getestet)
+
+---
+
+## 6. Ausstehende Teilsteps (optional)
 
 **Ziel:** Sicherstellen, dass nach erfolgreicher Compilation geänderter Code nicht gestartet wird.
 
@@ -233,9 +272,9 @@ Last compiled code is used, not current editor content.
 
 ---
 
-### Teilstep 2.9.2 — Prüfung: Local-Mode-Pfade
+### Teilstep 2.9.3+ — Ergänzende Tests (TBD)
 
-**Status:** planned
+**Status:** deferred (niedrige Priorität)
 
 **Ziel:** Klären ob Local-Mode (ohne Docker) noch unterstützt wird und Tests benötigt.
 
@@ -254,9 +293,9 @@ Last compiled code is used, not current editor content.
 
 ---
 
-### Teilstep 2.9.3+ — Ergänzende Tests (TBD)
+### Teilstep 2.9.4+ — Weitere ergänzende Tests (TBD)
 
-**Status:** planned (abhängig von 2.9.2)
+**Status:** deferred (niedrige Priorität, keine dringende Notwendigkeit)
 
 **Ziel:** Ergänzende Tests für niedrig-prioritäre Lücken hinzufügen.
 
@@ -274,7 +313,7 @@ Last compiled code is used, not current editor content.
 
 ---
 
-## 6. Standard-Gates nach jedem Teilstep
+## 7. Standard-Gates nach jedem Teilstep
 
 **Minimal:**
 - `npm run check` (TypeScript)
@@ -290,7 +329,7 @@ Last compiled code is used, not current editor content.
 
 ---
 
-## 7. Deferred-/Nicht-nötig-Kandidaten
+## 8. Deferred-/Nicht-nötig-Kandidaten
 
 ### 7.1 Nicht nötig (bereits abgedeckt)
 
@@ -322,7 +361,7 @@ Last compiled code is used, not current editor content.
 
 ---
 
-## 8. Completion Criteria
+## 9. Completion Criteria
 
 Phase 2.9 gilt als abgeschlossen, wenn:
 
@@ -337,7 +376,7 @@ Phase 2.9 gilt als abgeschlossen, wenn:
 
 ---
 
-## 9. Risiken
+## 10. Risiken
 
 | Risiko | Wahrscheinlichkeit | Auswirkung | Gegenmaßnahme |
 |--------|-------------------|------------|---------------|
@@ -348,20 +387,26 @@ Phase 2.9 gilt als abgeschlossen, wenn:
 
 ---
 
-## 10. Zusammenfassung
+## 11. Zusammenfassung und Abschluss
 
-**Bestehende Charakterisierungstests:** 1 Datei, 5 Tests (alle ausreichend)
+**Bestehende Charakterisierungstests:** 1 Datei, 6 Tests (alle ausreichend ✅)
 
-**Inventarisierte Integrationstests:** 15+ Dateien (alle ausreichend)
+**Inventarisierte Integrationstests:** 15+ Dateien (alle ausreichend ✅)
 
-**Inventarisierte E2E-Tests:** 4 Dateien (alle ausreichend)
+**Inventarisierte E2E-Tests:** 4 Dateien (alle ausreichend ✅)
 
-**Kritische Lücken identifiziert:** 1 (Code-Änderung nach Compile)
+**Kritische Lücken geschlossen:** 1 (Code-Änderung nach Compile ✅)
 
-**Ergänzbare Tests identifiziert:** 5 (niedrige Priorität)
+**Local-Mode geprüft:** ✅ Existiert, wird produktiv verwendet, bereits ausreichend getestet
 
-**Geplante Teilsteps:** 2 (2.9.1: Kritische Lücke, 2.9.2: Local-Mode-Prüfung)
+**Ergänzbare Tests bewertet:** 5 (alle als deferred markiert, niedrige Priorität)
 
-**Nächster Schritt:** Teilstep 2.9.1 umsetzen (Charakterisierungstest hinzufügen)
+**Durchgeführte Teilsteps:**
+- ✅ 2.9.1: Charakterisierungstest implementiert (6 Tests insgesamt)
+- ✅ 2.9.2: Local-Mode geprüft und als "not applicable" dokumentiert
+
+**Ausstehende Teilsteps:** Keine (alle optionalen 2.9.3+ als deferred markiert)
+
+**Abschluss:** Phase 2.9 ist **abgeschlossen**. Alle kritischen Lücken geschlossen, keine weiteren Tests mit klarem Mehrwert identifiziert.
 
 **Hinweis:** Dieser Plan ist verbindlich. Jede Abweichung muss im Plan dokumentiert werden.
