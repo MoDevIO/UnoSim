@@ -9,6 +9,7 @@ import { Logger } from "@shared/logger";
 import type { SimulationTimeoutManager } from "../simulation-timeout-manager";
 import { normalizeSimulationTimeout } from "@shared/input-limits";
 import type { PinStateChange } from "@shared/types/arduino.types";
+import { config } from "../../config";
 
 interface DockerManagerCallbacks {
   onOutput: (line: string, isComplete?: boolean) => void;
@@ -46,8 +47,8 @@ type HandleParsedLineDelegate = (parsed: ParsedStderrOutput, callbacks: DockerMa
 export class DockerManager {
   private readonly logger = new Logger("DockerManager");
   private readonly SANDBOX_CONFIG = {
-    maxOutputBytes: 100 * 1024 * 1024, // Max 100MB output
-    maxExecutionTimeSec: 60, // Max 60 seconds runtime
+    maxOutputBytes: config.sandbox.resources.maxOutputBytes, // Max 100MB output
+    maxExecutionTimeSec: config.sandbox.resources.maxExecutionTimeSec, // Max 60 seconds runtime
   };
 
   constructor(
