@@ -267,6 +267,8 @@ export const config = {
     gatekeeperLockTTLMs: 60_000,
     /** Interval for the gatekeeper to scan for expired locks */
     gatekeeperLockCheckIntervalMs: 5_000,
+    /** Default timeout for generic process execution */
+    processExecutionDefaultMs: 20_000,
     /** Default registry collection wait-mode duration */
     registryWaitModeDefaultMs: 1_500,
     /** Registry wait-mode duration applied after sketch start */

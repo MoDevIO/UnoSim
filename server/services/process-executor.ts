@@ -11,6 +11,7 @@
 
 import { ChildProcess } from "node:child_process";
 import { Logger } from "@shared/logger";
+import { config } from "../config";
 
 /**
  * Extend globalThis for test process tracking
@@ -126,7 +127,7 @@ export class ProcessExecutor {
     // Validate command and arguments
     validateCommand(command, args);
 
-    const { timeout = 20000, detached = false, stdio = "pipe", onData, onProcess } = options;
+    const { timeout = config.timeouts.processExecutionDefaultMs, detached = false, stdio = "pipe", onData, onProcess } = options;
 
     // Dynamic import for test mockability
     const { spawn } = await import("node:child_process");
