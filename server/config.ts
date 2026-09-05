@@ -165,6 +165,22 @@ export const config = {
     ),
     /** Completely bypass rate limiting (for E2E tests) */
     disableRateLimit: envBool("DISABLE_RATE_LIMIT", false),
+    /** API route rate limit window */
+    apiRateLimitWindowMs: 15 * 60 * 1000,
+    /** API route rate limit in normal operation */
+    apiRateLimitMax: 300,
+    /** API route rate limit used when tests disable production throttling */
+    apiRateLimitTestMax: 10_000,
+    /** Simulation start rate limit window */
+    simulationRateLimitWindowMs: 2 * 1000,
+    /** Simulation starts allowed per window */
+    simulationRateLimitMaxRequests: 1,
+    /** Simulation start block duration after exceeding the limit */
+    simulationRateLimitBlockDurationMs: 5 * 1000,
+    /** Cleanup interval for inactive simulation rate-limit entries */
+    simulationRateLimitCleanupIntervalMs: 5 * 60 * 1000,
+    /** Inactive simulation rate-limit entries are removed after this duration */
+    simulationRateLimitInactiveTtlMs: 10 * 60 * 1000,
   },
 
   // ── Sandbox Pool ────────────────────────────────────────────────
@@ -248,6 +264,12 @@ export const config = {
     buildCacheDir: envStr("BUILD_CACHE_DIR", path.join(cwd, "storage/cache")),
     /** LRU eviction trigger for build cache (bytes) */
     buildCacheMaxBytes: envInt("BUILD_CACHE_MAX_BYTES", 2 * 1024 * 1024 * 1024, { min: 1, max: Number.MAX_SAFE_INTEGER }),
+    /** Max entries kept in the compile result cache */
+    resultCacheMaxEntries: 100,
+    /** Time-to-live for compile result cache entries */
+    resultCacheTtlMs: 5 * 60 * 1000,
+    /** Max queued compile requests in the unified gatekeeper */
+    gatekeeperMaxQueueSize: 500,
     /** Bypass gatekeeper in E2E tests */
     disableGatekeeper: envBool("DISABLE_COMPILE_GATEKEEPER", false),
   },
@@ -261,6 +283,8 @@ export const config = {
     gatekeeperLockTTLMs: 60_000,
     /** Interval for the gatekeeper to scan for expired locks */
     gatekeeperLockCheckIntervalMs: 5_000,
+    /** Default timeout for generic process execution */
+    processExecutionDefaultMs: 20_000,
     /** Default registry collection wait-mode duration */
     registryWaitModeDefaultMs: 1_500,
     /** Registry wait-mode duration applied after sketch start */

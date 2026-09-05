@@ -14,8 +14,10 @@ Die Beschränkung ergibt sich aus einer Kette von drei Engpässen, wobei der ers
 
 ### Engpass A: Docker Desktop Arbeitsspeicher (PRIMÄR)
 
+> **Hinweis:** Die folgenden Werte sind **Beispielwerte** aus einer spezifischen Docker Desktop Konfiguration. Die tatsächlichen Werte hängen von den Docker Desktop Settings ab (insbesondere dem zugewiesenen RAM).
+
 ```text
-Docker Desktop Memory:     7.653 GB (7.840 MB)
+Docker Desktop Memory:     7.653 GB (7.840 MB)  ← BEISPIELWERK
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Bereits belegt:
   unosim-server:             369 MB
@@ -29,6 +31,8 @@ Verfügbar für Sandboxen:   ~4.860 MB
 Pro Sandbox (--memory):      256 MB
 → Max Sandboxen:          4860/256 = ~19
 ```
+
+**Tatsächlicher Wert:** Der verfügbare RAM hängt von der Docker Desktop Konfiguration ab. Für Produktions-Deployments sollte der Wert entsprechend der erwarteten Client-Zahl konfiguriert werden (z.B. 16 GB für ~60 Container).
 
 Aber `--memory 256m` ist ein cgroup-Ceiling, keine Reservierung. Ein typischer AVR-Sketch braucht real nur 5–30 MB. Docker schlägt erst zu, wenn ein Container die 256 MB tatsächlich erreicht. Deshalb kommen ~29 Container durch, obwohl die theoretische Summe (29×256 = 7.424 MB) die Gesamtkapazität übersteigt — die reale Nutzung liegt bei ca. 29×20 = 580 MB.
 
@@ -90,13 +94,16 @@ Browser (40 HTTP req/sec durch 6 Slots)
 
 ### Ist-Zustand der Tests
 
-| Test | Echte WS? | Echte Docker? | Clients |
-|------|-----------|---------------|---------|
-| `concurrent-50-clients.test.ts` | ✅ Ja (`ws` Paket) | ❌ MockSandboxRunner | 50 |
-| `scalability-stress.test.ts` | ❌ Nein | ❌ MockRunner | Pool-Logik |
-| `load-suite.test.ts` | ❌ Nein | ❌ Stub-Server | HTTP-only |
+| Test | Echte WS? | Echte Docker? | Clients | Status |
+|------|-----------|---------------|---------|--------|
+| `concurrent-50-clients.test.ts` | ✅ Ja (`ws` Paket) | ❌ MockSandboxRunner | 50 | **Unit-Test** |
+| `scalability-stress.test.ts` | ❌ Nein | ❌ MockRunner | Pool-Logik | **Unit-Test** |
+| `load-suite.test.ts` | ❌ Nein | ❌ Stub-Server | HTTP-only | **Integration-Test** |
+| **Heavy Tests** | ✅ Ja | ✅ Ja (opt-in) | Variabel | **Echte Docker-Tests** |
 
-Problem: Kein einziger Test prüft echte Docker-Container unter Last. Die Mocks simulieren ~20ms Compile+Output; real dauert eine Docker-Compilation 2–10 Sekunden.
+**Problem:** Kein einzelner Test prüft echte Docker-Container unter Last im Standard-Pipeline. Die Mocks simulieren ~20ms Compile+Output; real dauert eine Docker-Compilation 2–10 Sekunden.
+
+**Heavy Tests (opt-in):** Mit `RUN_HEAVY_TESTS=1` können echte Docker-Tests ausgeführt werden (siehe `docs/TESTING_STANDARDS.md`). Diese sind jedoch bewusst aus der Standard-Pipeline ausgeschlossen, da sie ressourcenintensiv sind und einen laufenden Docker-Daemon benötigen.
 
 ### Was benötigt wird
 

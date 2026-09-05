@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useUiFeedbackAdapter } from "../../../client/src/hooks/use-ui-feedback-adapter";
+import { useUiFeedbackAdapter, type UseUiFeedbackAdapterParams, type DebugMessageParams } from "../../../client/src/hooks/use-ui-feedback-adapter";
 import type { CompilerError } from "@/types/websocket";
 
 describe("useUiFeedbackAdapter", () => {
@@ -20,7 +20,7 @@ describe("useUiFeedbackAdapter", () => {
 
   function createParams() {
     return {
-      toast: mockToast,
+      toast: mockToast as unknown as UseUiFeedbackAdapterParams["toast"],
       addDebugMessage: mockAddDebugMessage,
       triggerErrorGlitch: mockTriggerErrorGlitch,
       setCliOutput: mockSetCliOutput,
@@ -234,7 +234,7 @@ describe("useUiFeedbackAdapter", () => {
 
       result.current.logStartSimulation(60, true);
 
-      const call = mockAddDebugMessage.mock.calls[0][0] as { data: string };
+      const call = mockAddDebugMessage.mock.calls[0][0] as DebugMessageParams;
       const parsed = JSON.parse(call.data);
       expect(parsed).toEqual({
         type: "start_simulation",
@@ -251,7 +251,7 @@ describe("useUiFeedbackAdapter", () => {
 
       result.current.logStartSimulation(60, false);
 
-      const call = mockAddDebugMessage.mock.calls[0][0] as { data: string };
+      const call = mockAddDebugMessage.mock.calls[0][0] as DebugMessageParams;
       const parsed = JSON.parse(call.data);
       expect(parsed).toEqual({
         type: "start_simulation",

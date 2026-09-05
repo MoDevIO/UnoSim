@@ -10,13 +10,11 @@ import type { IProcessController } from "../process-controller";
 import { ArduinoOutputParser as StderrParser } from "../arduino-output-parser";
 import { RegistryManager } from "../registry-manager";
 import { SimulationTimeoutManager } from "../simulation-timeout-manager";
-import { DockerCommandBuilder } from "../docker-command-builder";
 import { SketchFileBuilder } from "../sketch-file-builder";
 import { LocalCompiler } from "../local-compiler";
 import { PinStateBatcher, type PinStateBatch } from "../pin-state-batcher";
 import { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RunSketchOptions } from "../run-sketch-types";
-import { getUnifiedGatekeeper } from "../unified-gatekeeper";
 import { getDockerCompileSemaphore } from "./docker-compile-semaphore";
 import { DockerManager } from "./docker-manager";
 import { StreamHandler } from "./stream-handler";
@@ -29,6 +27,9 @@ import { OutputCollector } from "../output-collector";
 import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "./execution-phases/cleanup-phase";
 import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
+import { runLocalStart, runDockerStart, type LocalStartContext, type DockerStartContext, type DockerStartParams, type TransitionToFn } from "./execution-phases/start-phase";
+import { decideExecutionRoute } from "./execution-phases/router-phase";
+import { performCompilation, type PrepareContext } from "./execution-phases/prepare-phase";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -44,6 +45,7 @@ export const SANDBOX_CONFIG = {
   maxMemoryMB: config.sandbox.resources.memoryMB,
   cpuLimit: config.sandbox.resources.cpuLimit,
   maxCpuPercent: Math.round(Number.parseFloat(config.sandbox.resources.cpuLimit) * 100),
+  pidsLimit: config.sandbox.resources.pidsLimit,
   maxExecutionTimeSec: config.sandbox.resources.maxExecutionTimeSec,
   maxOutputBytes: config.sandbox.resources.maxOutputBytes,
   noNetwork: true,
@@ -161,10 +163,6 @@ export class ExecutionManager {
     this.streamHandler = streamHandler;
     this.filesystemHelper = filesystemHelper;
     this.processExecutor = createProcessExecutionPort();
-  }
-
-  private static get compileGatekeeper() {
-    return getUnifiedGatekeeper();
   }
 
   /**
@@ -345,36 +343,13 @@ export class ExecutionManager {
     opts: RunSketchOptions,
     state: ExecutionState,
   ): Promise<void> {
-    const WAIT_TIMEOUT_MS = config.timeouts.compileGatekeeperAcquireMs;
-    let release: () => void;
-    try {
-      release = await Promise.race([
-        ExecutionManager.compileGatekeeper.acquireCompileSlotHighPriority(
-          "simulation-start",
-          opts.onCompileQueued,
-        ),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
-        ),
-      ]);
-    } catch (err) {
-      this.logger.error(`Gatekeeper wait failed: ${err instanceof Error ? err.message : String(err)}`);
-      this.transitionTo(state, SimulationState.ERROR);
-      throw err;
-    }
-    try {
-      if (state.processController && this.localCompiler) {
-        await this.localCompiler.compile(sketchFile, exeFile);
-        if (opts.onCompileSuccess) opts.onCompileSuccess();
-        await this.localCompiler.makeExecutable(exeFile);
-      }
-    } finally {
-      try {
-        release();
-      } catch {
-        // should never happen
-      }
-    }
+    // Delegate to extracted prepare-phase function
+    const prepareContext: PrepareContext = {
+      localCompiler: this.localCompiler,
+      logger: this.logger,
+      transitionTo: this.transitionTo.bind(this) as (state: ExecutionState, newState: SimulationState) => boolean,
+    };
+    await performCompilation(sketchFile, exeFile, opts, state, prepareContext);
   }
 
   /**
@@ -386,17 +361,15 @@ export class ExecutionManager {
     opts: RunSketchOptions,
     state: ExecutionState,
   ): Promise<void> {
-    const { timeoutSec } = opts;
-    const executionTimeout = normalizeSimulationTimeout(timeoutSec);
+    // Router-Phase: Decide between Docker and Local execution
+    const route = decideExecutionRoute(state);
 
-    const useDocker = !!(state.dockerAvailable && state.dockerImageBuilt);
-
-    if (useDocker) {
-      await this.runDocker(files, callbacks, opts, state, executionTimeout);
-    } else if (config.serverMode === "docker" && config.simulationMode === "docker-sandbox") {
+    if (route.useDocker) {
+      await this.runDocker(files, callbacks, opts, state);
+    } else if (route.shouldThrowOnNoDocker) {
       throw new Error("Docker sandbox is unavailable; refusing local fallback in production mode");
     } else {
-      await this.runLocal(files, callbacks, opts, state, executionTimeout);
+      await this.runLocal(files, callbacks, opts, state);
     }
   }
 
@@ -408,20 +381,10 @@ export class ExecutionManager {
     callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
-    executionTimeout: number,
   ): Promise<void> {
+    const executionTimeout = normalizeSimulationTimeout(opts.timeoutSec);
     const containerName = `unosim-sandbox-${randomUUID()}`;
     state.currentContainerName = containerName;
-
-    const dockerArgs = DockerCommandBuilder.buildSecureRunCommand({
-      sketchDir: files.sketchDir,
-      memoryMB: SANDBOX_CONFIG.maxMemoryMB,
-      cpuLimit: SANDBOX_CONFIG.cpuLimit,
-      pidsLimit: 50,
-      imageName: SANDBOX_CONFIG.dockerImage,
-      command: DockerCommandBuilder.buildCompileAndRunCommand(),
-      containerName,
-    });
 
     const { onCompileError, onCompileSuccess, onExit } = opts;
 
@@ -461,11 +424,17 @@ export class ExecutionManager {
     };
 
     try {
-      state.processController.clearListeners();
-      await state.processController.spawn("docker", dockerArgs);
+      // Start-Phase extrahiert: Docker-Command + Spawn + processStartTime + RUNNING-Transition
+      const dockerStartContext: DockerStartContext = {
+        processController: state.processController,
+        transitionTo: this.transitionTo.bind(this) as TransitionToFn,
+      };
+      const dockerStartParams: DockerStartParams = {
+        sketchDir: files.sketchDir,
+        containerName,
+      };
+      await runDockerStart(dockerStartParams, state, dockerStartContext);
       this.logger.info("🚀 Docker: Compile + Run in single container");
-      state.processStartTime = Date.now();
-      this.transitionTo(state, SimulationState.RUNNING);
 
       const dockerState: DockerState = {
         isCompilePhase: { value: true },
@@ -541,8 +510,8 @@ export class ExecutionManager {
     callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
-    executionTimeout: number,
   ): Promise<void> {
+    const executionTimeout = normalizeSimulationTimeout(opts.timeoutSec);
     const { onCompileError, onExit } = opts;
 
     try {
@@ -555,10 +524,14 @@ export class ExecutionManager {
         return;
       }
 
-      state.processController.clearListeners();
-      await state.processController.spawn(files.exeFile);
-      state.processStartTime = Date.now();
-      this.transitionTo(state, SimulationState.RUNNING);
+      // Start-Phase extrahiert: Process-Spawn + processStartTime + RUNNING-Transition
+      const startContext: LocalStartContext = {
+        processController: state.processController,
+        transitionTo: this.transitionTo.bind(this) as TransitionToFn,
+      };
+      await runLocalStart(files.exeFile, state, startContext);
+      
+      // Stream-Phase: Event-Handler registrieren
       this.setupLocalHandlers(callbacks, onExit, executionTimeout, state);
     } catch (err) {
       state.isCompiling = false;

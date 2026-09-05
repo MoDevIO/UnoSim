@@ -104,8 +104,8 @@ app.use((_, res, next) => {
 // In test/development mode, use higher limits
 const isTestMode = config.isTest || config.server.disableRateLimit;
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 Minuten
-  max: isTestMode ? 10000 : 300, // 10000 in Test-Modus, 300 in Produktion
+  windowMs: config.server.apiRateLimitWindowMs, // 15 Minuten
+  max: isTestMode ? config.server.apiRateLimitTestMax : config.server.apiRateLimitMax, // 10000 in Test-Modus, 300 in Produktion
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -255,7 +255,7 @@ let cleanupTimer: NodeJS.Timeout | null = null;
     console.log(`│  Server Mode:         ${config.serverMode.padEnd(27)}│`);
     console.log(`│  Simulation Mode:     ${config.simulationMode.padEnd(27)}│`);
     console.log(`│  Trust Mode:          ${config.trust.mode.padEnd(27)}│`);
-    console.log(`│  NODE_ENV:            ${(process.env.NODE_ENV ?? "undefined").padEnd(27)}│`);
+    console.log(`│  NODE_ENV:            ${config.nodeEnv.padEnd(27)}│`);
     console.log(`│  Compile Workers:     ${String(config.compilation.workerCount).padEnd(27)}│`);
     console.log(`│  Compile Slots:       ${String(config.compilation.maxConcurrent).padEnd(27)}│`);
     console.log(`│  Docker Compile Conc.:${String(config.compilation.dockerCompileConcurrent).padEnd(28)}│`);

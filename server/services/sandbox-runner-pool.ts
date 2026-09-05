@@ -84,12 +84,12 @@ export class SandboxRunnerPool {
   private initialized = false;
 
   constructor(options: SandboxRunnerPoolOptions = {}) {
-    this.minRunners = options.minRunners ?? 5;
-    this.maxRunners = options.maxRunners ?? this.minRunners;
-    this.maxQueueSize = options.maxQueueSize ?? 500;
-    this.idleTimeoutMs = options.idleTimeoutMs ?? 120000;
-    this.acquireTimeoutMs = options.acquireTimeoutMs ?? 60_000;
-    this.resetTimeoutMs = options.resetTimeoutMs ?? 10_000;
+    this.minRunners = options.minRunners ?? config.sandbox.pool.minRunners;
+    this.maxRunners = options.maxRunners ?? config.sandbox.pool.maxRunners;
+    this.maxQueueSize = options.maxQueueSize ?? config.sandbox.pool.maxQueueSize;
+    this.idleTimeoutMs = options.idleTimeoutMs ?? config.sandbox.pool.idleTimeoutMs;
+    this.acquireTimeoutMs = options.acquireTimeoutMs ?? config.sandbox.pool.acquireTimeoutMs;
+    this.resetTimeoutMs = options.resetTimeoutMs ?? config.sandbox.pool.resetTimeoutMs;
     this.logger.info(
       `[SandboxRunnerPool] Pool config: min=${this.minRunners}, max=${this.maxRunners}, idleTimeout=${this.idleTimeoutMs}ms`,
     );

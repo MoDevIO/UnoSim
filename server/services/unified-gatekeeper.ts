@@ -80,7 +80,7 @@ export class UnifiedGatekeeper extends EventEmitter {
   private readonly checkIntervalMs = config.timeouts.gatekeeperLockCheckIntervalMs;
   
   // Queue size limit to prevent unbounded memory growth under extreme load
-  private readonly maxQueueSize = 500;
+  private readonly maxQueueSize = config.compilation.gatekeeperMaxQueueSize;
   
   private readonly logger = new Logger("UnifiedGatekeeper");
   
@@ -132,7 +132,7 @@ export class UnifiedGatekeeper extends EventEmitter {
    * Ensures interactive tasks get prompt access
    */
   async acquireCompileSlotHighPriority(owner: string = "simulation-start", onQueued?: () => void): Promise<() => void> {
-    return this.acquireCompileSlot(TaskPriority.HIGH, 30000, owner, onQueued);
+    return this.acquireCompileSlot(TaskPriority.HIGH, config.timeouts.compileGatekeeperAcquireMs, owner, onQueued);
   }
 
   /**
@@ -140,7 +140,7 @@ export class UnifiedGatekeeper extends EventEmitter {
    */
   async acquireCompileSlot(
     priority: TaskPriority = TaskPriority.NORMAL,
-    timeoutMs: number = 30000,
+    timeoutMs: number = config.timeouts.compileGatekeeperAcquireMs,
     owner: string = "unknown",
     onQueued?: () => void,
   ): Promise<() => void> {
@@ -269,7 +269,7 @@ export class UnifiedGatekeeper extends EventEmitter {
   async acquireCacheLock(
     key: string,
     lockType: "read" | "write" = "read",
-    timeoutMs: number = 30000,
+    timeoutMs: number = config.timeouts.compileGatekeeperAcquireMs,
     owner: string = "unknown",
   ): Promise<() => Promise<void>> {
     this.stats.totalCacheLockRequests++;
