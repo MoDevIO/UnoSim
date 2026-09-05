@@ -252,6 +252,8 @@ export const config = {
     resultCacheMaxEntries: 100,
     /** Time-to-live for compile result cache entries */
     resultCacheTtlMs: 5 * 60 * 1000,
+    /** Max queued compile requests in the unified gatekeeper */
+    gatekeeperMaxQueueSize: 500,
     /** Bypass gatekeeper in E2E tests */
     disableGatekeeper: envBool("DISABLE_COMPILE_GATEKEEPER", false),
   },
