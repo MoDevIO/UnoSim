@@ -29,6 +29,7 @@ import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "./exec
 import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
 import { runLocalStart, runDockerStart, type LocalStartContext, type DockerStartContext, type DockerStartParams, type TransitionToFn } from "./execution-phases/start-phase";
+import { decideExecutionRoute } from "./execution-phases/router-phase";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -386,17 +387,15 @@ export class ExecutionManager {
     opts: RunSketchOptions,
     state: ExecutionState,
   ): Promise<void> {
-    const { timeoutSec } = opts;
-    const executionTimeout = normalizeSimulationTimeout(timeoutSec);
+    // Router-Phase: Decide between Docker and Local execution
+    const route = decideExecutionRoute(state);
 
-    const useDocker = !!(state.dockerAvailable && state.dockerImageBuilt);
-
-    if (useDocker) {
-      await this.runDocker(files, callbacks, opts, state, executionTimeout);
-    } else if (config.serverMode === "docker" && config.simulationMode === "docker-sandbox") {
+    if (route.useDocker) {
+      await this.runDocker(files, callbacks, opts, state);
+    } else if (route.shouldThrowOnNoDocker) {
       throw new Error("Docker sandbox is unavailable; refusing local fallback in production mode");
     } else {
-      await this.runLocal(files, callbacks, opts, state, executionTimeout);
+      await this.runLocal(files, callbacks, opts, state);
     }
   }
 
@@ -408,8 +407,8 @@ export class ExecutionManager {
     callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
-    executionTimeout: number,
   ): Promise<void> {
+    const executionTimeout = normalizeSimulationTimeout(opts.timeoutSec);
     const containerName = `unosim-sandbox-${randomUUID()}`;
     state.currentContainerName = containerName;
 
@@ -537,8 +536,8 @@ export class ExecutionManager {
     callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
-    executionTimeout: number,
   ): Promise<void> {
+    const executionTimeout = normalizeSimulationTimeout(opts.timeoutSec);
     const { onCompileError, onExit } = opts;
 
     try {
