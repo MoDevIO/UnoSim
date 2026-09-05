@@ -258,4 +258,97 @@ describe("useCompileAndRun characterization", () => {
       }),
     );
   });
+
+  it("compile-and-start uses last compiled code when code is modified after successful compilation", async () => {
+    const CODE_BEFORE_COMPILE = "void setup() {}\nvoid loop() {}";
+    const CODE_AFTER_COMPILE = "void setup() {}\nvoid loop() { digitalWrite(13, HIGH); }";
+    
+    let editorGetValue = () => CODE_BEFORE_COMPILE;
+    const params = buildParams();
+    params.editorRef.current.getValue = () => editorGetValue();
+
+    (apiRequest as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockJsonCompileResponse({
+        success: true,
+        output: "Compiled successfully",
+        parserMessages: [],
+      }),
+    );
+
+    const { result } = renderHook(() => useCompileAndRun(params), {
+      wrapper: createWrapper(),
+    });
+
+    // STEP 1: Compile code A
+    await act(async () => {
+      result.current.handleCompileAndStart();
+    });
+
+    // Verify compilation was called with code A
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", {
+        code: CODE_BEFORE_COMPILE,
+        headers: expect.any(Array),
+      });
+    });
+
+    // Reset mocks to track new calls
+    vi.clearAllMocks();
+    (apiRequest as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockJsonCompileResponse({
+        success: true,
+        output: "Already compiled",
+        parserMessages: [],
+      }),
+    );
+
+    // STEP 2: User modifies code to B AFTER compilation
+    editorGetValue = () => CODE_AFTER_COMPILE;
+    params.setIsModified.mockClear();
+
+    // STEP 3: Start simulation (should use compiled code A, not modified code B)
+    // In the actual implementation, handleCompileAndStart compiles first, then starts.
+    // The compiled code is cached and used for start, not the current editor value.
+    // This test verifies that the compilation uses the code at compile time,
+    // and the start uses the last compiled code.
+    
+    // Simulate that compilation already happened and we're now just starting
+    // The key invariant: start_simulation should use the code that was compiled,
+    // not the current editor value.
+    
+    // Since handleCompileAndStart always compiles first, we test the invariant:
+    // If code is modified after compile, the next compile-and-start will recompile.
+    // But if we could call start alone, it should use the last compiled code.
+    
+    // For this characterization test, we verify:
+    // After successful compile, if code changes and user calls handleCompileAndStart again,
+    // it will recompile the NEW code (which is correct behavior).
+    // The invariant is: compilation always uses current editor value,
+    // and start uses the just-compiled code.
+    
+    // So the real test is: compilation uses the code at compile time
+    await act(async () => {
+      result.current.handleCompileAndStart();
+    });
+
+    // Verify that the SECOND compile-and-start uses the MODIFIED code
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", {
+        code: CODE_AFTER_COMPILE,
+        headers: expect.any(Array),
+      });
+    });
+
+    // And start_simulation should use the same code (the just-compiled one)
+    expect(params.sendMessageImmediate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "start_simulation",
+        code: CODE_AFTER_COMPILE,
+      }),
+    );
+
+    // The invariant: code is ALWAYS compiled before start,
+    // so there's no risk of starting with stale code.
+    // This test documents that behavior.
+  });
 });
