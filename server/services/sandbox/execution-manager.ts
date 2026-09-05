@@ -15,7 +15,6 @@ import { LocalCompiler } from "../local-compiler";
 import { PinStateBatcher, type PinStateBatch } from "../pin-state-batcher";
 import { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RunSketchOptions } from "../run-sketch-types";
-import { getUnifiedGatekeeper } from "../unified-gatekeeper";
 import { getDockerCompileSemaphore } from "./docker-compile-semaphore";
 import { DockerManager } from "./docker-manager";
 import { StreamHandler } from "./stream-handler";
@@ -30,6 +29,7 @@ import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
 import { runLocalStart, runDockerStart, type LocalStartContext, type DockerStartContext, type DockerStartParams, type TransitionToFn } from "./execution-phases/start-phase";
 import { decideExecutionRoute } from "./execution-phases/router-phase";
+import { performCompilation, type PrepareContext } from "./execution-phases/prepare-phase";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -162,10 +162,6 @@ export class ExecutionManager {
     this.streamHandler = streamHandler;
     this.filesystemHelper = filesystemHelper;
     this.processExecutor = createProcessExecutionPort();
-  }
-
-  private static get compileGatekeeper() {
-    return getUnifiedGatekeeper();
   }
 
   /**
@@ -346,36 +342,13 @@ export class ExecutionManager {
     opts: RunSketchOptions,
     state: ExecutionState,
   ): Promise<void> {
-    const WAIT_TIMEOUT_MS = config.timeouts.compileGatekeeperAcquireMs;
-    let release: () => void;
-    try {
-      release = await Promise.race([
-        ExecutionManager.compileGatekeeper.acquireCompileSlotHighPriority(
-          "simulation-start",
-          opts.onCompileQueued,
-        ),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
-        ),
-      ]);
-    } catch (err) {
-      this.logger.error(`Gatekeeper wait failed: ${err instanceof Error ? err.message : String(err)}`);
-      this.transitionTo(state, SimulationState.ERROR);
-      throw err;
-    }
-    try {
-      if (state.processController && this.localCompiler) {
-        await this.localCompiler.compile(sketchFile, exeFile);
-        if (opts.onCompileSuccess) opts.onCompileSuccess();
-        await this.localCompiler.makeExecutable(exeFile);
-      }
-    } finally {
-      try {
-        release();
-      } catch {
-        // should never happen
-      }
-    }
+    // Delegate to extracted prepare-phase function
+    const prepareContext: PrepareContext = {
+      localCompiler: this.localCompiler,
+      logger: this.logger,
+      transitionTo: this.transitionTo.bind(this) as (state: ExecutionState, newState: SimulationState) => boolean,
+    };
+    await performCompilation(sketchFile, exeFile, opts, state, prepareContext);
   }
 
   /**
