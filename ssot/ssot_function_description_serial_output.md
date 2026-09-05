@@ -1,5 +1,9 @@
 # Funktionsbeschreibung: Serieller Output-Stream (Arduino Sandbox)
 
+Status: current  
+Zielrolle: feature-contract  
+Ziel-SSOT für Serial-Output-Verhalten und Batching. Architekturüberblick, externe API und historische Performanceberichte bleiben separate Quellen.
+
 ## 1. Übersicht
 Das System emuliert die serielle Schnittstelle eines Arduino-Sketches. Es fängt die Ausgabe des kompilierten C++ Programms ab, formatiert sie gemäß den Arduino-Regeln, drosselt sie realistisch auf Basis der Baudrate und streamt sie an das Frontend.
 

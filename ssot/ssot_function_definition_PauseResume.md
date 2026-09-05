@@ -1,6 +1,10 @@
 ````markdown
 # Funktionsbeschreibung: Pause/Resume der Simulation
 
+Status: current  
+Zielrolle: feature-contract  
+Ziel-SSOT für Pause/Resume-Verhalten. Externe `postMessage`-API-Verträge liegen in `docs/EXTERNAL_API.md`.
+
 ## 1. Ziel der Funktion
 
 Die **Pause/Resume-Funktionalität** ermöglicht es dem Benutzer, die laufende Arduino-Simulation zu pausieren und später fortzusetzen, ohne den aktuellen Zustand zu verlieren. Der Sketch bleibt angehalten (gefrozen), alle bisherigen Ausgaben und Pin-Zustände bleiben erhalten, und der Benutzer kann Eingaben vornehmen, um die Simulation zu testen.

@@ -1,5 +1,9 @@
 # Funktionsbeschreibung: Globale Schriftgrößensteuerung
 
+Status: current  
+Zielrolle: ui-design-contract  
+Ziel-SSOT für globale Font-Scale-Regeln. Roadmap-, Mess- und Historienabschnitte sind nicht normativ, sofern sie als Planung oder Nachweis gekennzeichnet sind.
+
 ## 1. Ziel der Funktion
 
 Die **globale Schriftgröße** der Anwendung soll einheitlich über alle UI-Komponenten hinweg steuerbar sein. Benutzer können die Schriftgröße über einen Settings-Dialog oder über Tastenkürzel anpassen. Die gewählte Einstellung wird persistent gespeichert und bei jedem Start der Anwendung wiederhergestellt.

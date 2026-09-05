@@ -1,5 +1,9 @@
 # Agent Runtime-Evidence & Governance Policy (REV 2026.1)
 
+Status: current  
+Zielrolle: agent-governance  
+Ziel-SSOT für projektspezifische Agentenarbeit; übergeordnete System-, Tool- und Repository-Instruktionen bleiben vorrangig.
+
 ## 1. Grundprinzipien der Verifizierung
 1.1 Getrennte Ebenen prüfen: Code, Runtime/UI-Ebene, Tests.
 1.2 Keine Selbstbehauptungen: Aussagen ohne Beweis sind ungültig.

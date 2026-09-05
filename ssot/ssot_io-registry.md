@@ -1,4 +1,9 @@
 # Textbeschreibung:
+
+Status: current  
+Zielrolle: feature-contract  
+Ziel-SSOT für das fachliche Verhalten der Hybrid-I/O-Registry. Parser-Implementierung, Tests und historische Phase-2.10-Reports sind unterstützende oder historische Quellen.
+
 Die Storyline ist so:
 
 Im ino-File werden Pins verwendet. Die Verwendung der Pins soll in einer Tabelle dargestellt werden. Es geht um die Verwendung der Pins 0-13 und 14-19 (alias A0-A5) mit:

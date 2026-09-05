@@ -1,5 +1,9 @@
 # Button-Komponente - Single Source of Truth
 
+Status: current  
+Zielrolle: ui-design-contract  
+Ziel-SSOT für die zentrale Button-Komponente. Historische Konvertierungs- und Testdetails sind nicht normativ.
+
 Zentrale, konsistente Button-Komponente für die gesamte Anwendung.
 Basiert auf `class-variance-authority` (CVA) für flexible Variant-Management.
 

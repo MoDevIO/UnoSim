@@ -1,5 +1,9 @@
 # Funktionsbeschreibung: Skalierbarkeit – UnoSim
 
+Status: planning  
+Zielrolle: capacity-planning  
+Merge-/Archiv-Kandidat: Die aktive Skalierungs- und Kapazitätsplanung liegt in `docs/SCALABILITY_100_STUDENTS.md`.
+
 **Branch:** `feature/scalability-100-students`  
 **Stand:** Mai 2026
 
