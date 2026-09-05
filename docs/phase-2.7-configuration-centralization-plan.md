@@ -1004,7 +1004,7 @@ Wenn semantisch geändert, nicht ohne Freigabe committen.
 
 # Teilstep 2.7.11 — `ProcessExecutor` Default Timeout separat behandeln
 
-Status: planned
+Status: completed
 
 ## Zweck
 
@@ -1069,7 +1069,9 @@ Nur:
 
 # Teilstep 2.7.12 — Worker-Cache-Konfiguration separat behandeln
 
-Status: planned
+Status: deferred
+
+Deferred-Begründung: Die Pfadabweichung zwischen Worker (`storage/binaries`) und `ArduinoCompiler` (`config.compilation.buildCacheDir/binaries`) ist real und fachlich nicht eindeutig. Eine Zentralisierung könnte Cache-Orte verändern; daher keine Änderung ohne separate Klärung.
 
 ## Zweck
 
