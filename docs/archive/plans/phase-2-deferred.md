@@ -8,7 +8,9 @@
 
 ## Übersicht
 
-Dieses Dokument fasst die zurückgestellten (deferred) und geplanten Teile von Phase 2 zusammen. Diese Items wurden bewusst nicht in der aktuellen Implementierung umgesetzt, bleiben aber als verbindliche Planung erhalten.
+Dieses Dokument fasst die zurückgestellten (deferred) Teile von Phase 2 zusammen. Diese Items wurden bewusst nicht in der aktuellen Implementierung umgesetzt, bleiben aber als verbindliche Planung erhalten.
+
+**Hinweis:** Phase 2.8 (Wrapper-Hooks) und Phase 2.9 (Characterization Tests) wurden abgeschlossen und sind nicht mehr deferred.
 
 ---
 
@@ -22,82 +24,92 @@ Dieses Dokument fasst die zurückgestellten (deferred) und geplanten Teile von P
 - ✅ `server/config.ts` als zentrale Konfigurationsquelle etabliert
 - ✅ Environment-Parser mit Type-Safety implementiert
 - ✅ Start-Logging auf Config umgestellt (Teilstep 2.7.1 completed)
+- ✅ Weitere Teilsteps umgesetzt (2.7.2, 2.7.3, 2.7.5, 2.7.6, 2.7.7, 2.7.9, 2.7.11)
 
 ### Deferred 📋
 
-#### A) Sandbox-Output-/Timeout-Limits
+Folgende Teilsteps wurden bewusst zurückgestellt:
+
+#### Teilstep 2.7.4 — Arduino CLI Timeout zentralen Compile-Timeout verwenden
 
 **Betroffene Dateien:**
-- `server/services/sandbox/docker-manager.ts`
-- `server/services/sandbox/execution-phases/start-phase.ts`
-
-**Werte:**
-- `OUTPUT_BYTE_LIMIT`
-- `OUTPUT_FLUSH_INTERVAL_MS`
-- `EXECUTION_TIMEOUT_MS`
+- `server/services/compiler/cli-runner.ts`
 
 **Grund für Deferred:**
-- Fachliche Unsicherheit über sinnvolle Default-Werte
-- Abhängigkeit von Performance-Tests (noch nicht durchgeführt)
-- Risiko: Falsche Limits könnten Production-Verhalten negativ beeinflussen
+- Die Realität weicht vom Plan ab: `CLICompileConfig` enthält keinen Timeoutwert
+- Eine Umsetzung wäre nicht nur ein Wertetausch, sondern ein zusätzlicher Import/API-Umbau
+- Wegen der Planvorgabe, bei abweichender Realität zu stoppen, wurde dieser Teilstep nicht umgesetzt
 
 **Empfohlenes Vorgehen:**
-1. Performance-Tests mit realistischen Sketchen durchführen
-2. Output-Größen und Timing messen
-3. Limits basierend auf P95/P99-Werten setzen
-4. Config-Werte in `server/config.ts` migrieren
+1. Separate Analyse der `CLICompileConfig`-Struktur
+2. Prüfen, ob Timeout-Property hinzugefügt werden kann ohne Breaking Changes
+3. Ggf. separaten Refactoring-Step planen
 
-#### B) Docker-Container-Sicherheitsparameter
+#### Teilstep 2.7.8 — Gatekeeper-Disable-Mechanik separat analysieren und ggf. kapseln
 
 **Betroffene Dateien:**
-- `server/services/sandbox/docker-manager.ts`
-- `docker-compose.yml`
-
-**Werte:**
-- `--read-only` (Read-Only Filesystem)
-- `--cap-drop=ALL` (Capabilities)
-- `--security-opt` (Security Options)
-- `--network=none` (Network Isolation)
+- `server/services/unified-gatekeeper.ts`
+- `server/services/workers/compile-worker.ts`
 
 **Grund für Deferred:**
-- Deployment-Abhängigkeit (Production-Setup noch nicht final)
-- Gateway-Modus (ADR 0001) muss vollständig implementiert sein
-- Risiko: Zu strikte Isolation könnte legitime Use-Cases brechen
+- Die Mechanik ist ein runtime-mutiertes Worker-Thread-Signal (`COMPILE_GATEKEEPER_DISABLED`)
+- Kein normaler statischer Config-Wert
+- Wegen der Verwechslungsgefahr mit `config.compilation.disableGatekeeper` bleibt der direkte Zugriff zunächst bewusst lokal
 
 **Empfohlenes Vorgehen:**
-1. ADR 0001 (Authentication and Gateway) vollständig umsetzen
-2. Security-Audit durchführen
-3. Security-Parameter schrittweise verschärfen (mit Tests)
-4. Config-Werte in `server/config.ts` migrieren
+1. Separate Analyse der Worker-Thread-Kommunikation
+2. Prüfen, ob Kapselung in `config.isCompileGatekeeperDisabled()` sinnvoll ist
+3. Auf zeitliche Auswertungsreihenfolge achten (statische Config vs. runtime-setzen)
 
-#### C) Worker-Pool-Konfiguration
+#### Teilstep 2.7.10 — `LocalCompiler` Timeout separat behandeln
 
 **Betroffene Dateien:**
-- `server/services/compilation-worker-pool.ts`
-- `docker-compose.yml`
-
-**Werte:**
-- `COMPILATION_WORKER_COUNT`
-- `WORKER_TIMEOUT_MS`
-- `WORKER_QUEUE_SIZE`
+- `server/services/local-compiler.ts`
 
 **Grund für Deferred:**
-- Performance-Tests ausstehend (noch nicht durchgeführt)
-- Abhängigkeit von erwarteter Compile-Last (Production-Daten benötigt)
-- Risiko: Falsche Worker-Zahl könnte Throughput reduzieren
+- `LocalCompiler` verwendet `20_000` mehrfach und erhöht bei Coverage dynamisch auf `60_000`
+- Ob der lokale Default bewusst kürzer als `config.compilation.timeoutMs` ist, ist nicht eindeutig nachweisbar
+- Keine Änderung ohne separate Freigabe
 
 **Empfohlenes Vorgehen:**
-1. Load-Tests mit parallelen Compilations durchführen
-2. Worker-Auslastung messen (CPU, Memory, Queue-Length)
-3. Optimale Worker-Zahl basierend auf CPU-Kernen bestimmen
-4. Config-Werte in `server/config.ts` migrieren
+1. Klären, ob `20_000` bewusst schnellerer lokaler Timeout ist
+2. Prüfen, ob Tests an schnellerem Fail hängen
+3. Separate Entscheidung über Default-Wert
+
+#### Teilstep 2.7.12 — Worker-Cache-Konfiguration separat behandeln
+
+**Betroffene Dateien:**
+- `server/services/workers/compile-worker.ts`
+- `server/services/workers/compile-worker-utils.ts`
+
+**Grund für Deferred:**
+- Die Pfadabweichung zwischen Worker (`storage/binaries`) und `ArduinoCompiler` (`config.compilation.buildCacheDir/binaries`) ist real
+- Fachlich nicht eindeutig, ob historische Drift oder absichtliche Trennung
+- Eine Zentralisierung könnte Cache-Orte verändern
+
+**Empfohlenes Vorgehen:**
+1. Separate Klärung der Cache-Pfad-Strategie
+2. Prüfen, ob Pfade äquivalent sind oder bewusst getrennt
+3. Ggf. separaten Refactoring-Step für Cache-Zentralisierung
 
 ---
 
-## Phase 2.8: Wrapper-Hooks Refactoring (Geplant)
+## Phase 2.8: Wrapper-Hooks Refactoring
 
 **Originalplan:** `docs/phase-2.8-wrapper-hooks-plan.md`  
-**Status:** 📋 **planned** (noch nicht begonnen)
+**Status:** ✅ **completed**
+
+### Zusammenfassung
+
+Phase 2.8 wurde abgeschlossen. Redundante Pass-through-Hooks wurden identifiziert und entfernt, ohne sinnvolle Abstraktionen zu zerstören.
+
+**Ergebnisse:**
+- Inventar aller Hooks im Client erstellt
+- Klassifikation nach: sinnvolle Abstraktion, unnötiger Pass-through, historisch/legacy
+- Entfernung von Hooks ohne eigene Logik
+- Bewahrung von Hooks mit State-Management, Side-Effects oder Fachlichkeit
+
+**Keine deferred Items.**
 
 ### Problemstellung
 
@@ -158,10 +170,30 @@ Es existieren mehrere parallele Namensmuster für Hooks:
 
 ---
 
-## Phase 2.9: Characterization Tests (Geplant)
+## Phase 2.9: Characterization Tests
 
 **Originalplan:** `docs/phase-2.9-characterization-tests-plan.md`  
-**Status:** 📋 **planned** (noch nicht begonnen)
+**Status:** ✅ **completed**
+
+### Zusammenfassung
+
+Phase 2.9 wurde abgeschlossen. Relevante Verhaltenspfade der Arduino-Simulation wurden durch Charakterisierungstests abgesichert.
+
+**Ergebnisse:**
+- Inventarisierung bestehender Charakterisierungs-, Integrations- und E2E-Tests
+- Gap-Analyse gegen relevante Refactoring-Grenzen
+- Klassifikation bestehender Tests
+- Neue Charakterisierungstests für identifizierte Lücken
+
+**Bestehende Tests:**
+- `use-compile-and-run.characterization.test.tsx` (5 Tests)
+- Output-Panel-Integrationstests
+- Parser-Messages-Integrationstests
+- Serial-Renderer-Tests
+- WebSocket-Manager-Tests
+- Backend-Health-Tests
+
+**Keine deferred Items.**
 
 ### Ziel
 
@@ -264,37 +296,22 @@ Für komplexe Flows:
 
 ### Priorität 1: Phase 2.7 Deferred auflösen
 
-**Begründung:** Config-Drift ist technisches Risiko, Security-Parameter sind Production-Blocker
+**Begründung:** Config-Drift ist technisches Risiko, einige deferred Items blockieren Production-Deployment
 
 **Empfohlene Reihenfolge:**
-1. Worker-Pool-Konfiguration (niedrigstes Risiko, schnellste Umsetzung)
-2. Sandbox-Output-/Timeout-Limits (mittleres Risiko, Performance-Tests nötig)
-3. Docker-Container-Sicherheitsparameter (höchstes Risiko, ADR 0001 nötig)
+1. **Teilstep 2.7.4** — Arduino CLI Timeout (niedrigstes Risiko, API-Analyse nötig)
+2. **Teilstep 2.7.10** — LocalCompiler Timeout (mittleres Risiko, Default-Wert klären)
+3. **Teilstep 2.7.8** — Gatekeeper-Disable-Mechanik (höheres Risiko, Worker-Thread-Kommunikation)
+4. **Teilstep 2.7.12** — Worker-Cache-Konfiguration (höchstes Risiko, Cache-Pfade klären)
 
 **Geschätzter Aufwand:** 8-12 Stunden
 
-### Priorität 2: Phase 2.9 Characterization Tests
+### Phase 2.8 und 2.9: Bereits abgeschlossen
 
-**Begründung:** Safety-Netz für zukünftige Refactorings (Phase 3.x)
+- ✅ **Phase 2.8** (Wrapper-Hooks Refactoring) — completed
+- ✅ **Phase 2.9** (Characterization Tests) — completed
 
-**Empfohlene Reihenfolge:**
-1. IORegistryParser (niedrigstes Risiko, isoliert testbar)
-2. ExecutionManager (mittleres Risiko, Phase 2.6 hat schon Tests)
-3. WebSocket-Handler (höchstes Risiko, komplexe Abhängigkeiten)
-
-**Geschätzter Aufwand:** 18-24 Stunden
-
-### Priorität 3: Phase 2.8 Wrapper-Hooks
-
-**Begründung:** Naming-Konsistenz ist wichtig, aber kein Production-Blocker
-
-**Empfohlene Reihenfolge:**
-1. Inventar erstellen (1-2 Stunden)
-2. Namenskonvention definieren (ADR, 2-4 Stunden)
-3. Migrationsplan (4-6 Stunden)
-4. Umsetzung (inkrementell, mehrere Commits)
-
-**Geschätzter Aufwand:** 20-30 Stunden (inkrementell)
+Keine weiteren Maßnahmen erforderlich.
 
 ---
 
@@ -302,20 +319,51 @@ Für komplexe Flows:
 
 Diese deferred Items sind **keine optionalen Verbesserungen**, sondern bewusste Rückstellungen. Sie sollten in folgenden Fällen priorisiert werden:
 
-1. **Production-Deployment:** Phase 2.7 Security-Parameter müssen vor Production-Release umgesetzt werden
-2. **Refactoring-Vorbereitung:** Phase 2.9 Characterization Tests sollten vor Phase 3.x Refactorings geschrieben werden
-3. **Team-Onboarding:** Phase 2.8 Hook-Namenskonvention sollte vor neuen Team-Mitgliedern geklärt werden
+1. **Production-Deployment:** Phase 2.7 Timeout- und Cache-Konfiguration sollten vor Production-Release geklärt werden
+2. **Config-Konsistenz:** Teilstep 2.7.4/2.7.10 für einheitliche Timeout-Behandlung
+3. **Worker-Optimierung:** Teilstep 2.7.12 für konsistente Cache-Pfade
 
 ---
 
 ## Dokumente
 
 - `docs/phase-2.7-configuration-centralization-plan.md` – Originalplan (bleibt in docs/)
-- `docs/phase-2.8-wrapper-hooks-plan.md` – Originalplan (bleibt in docs/)
-- `docs/phase-2.9-characterization-tests-plan.md` – Originalplan (bleibt in docs/)
+- `docs/phase-2.8-wrapper-hooks-plan.md` – Originalplan (completed, bleibt in docs/)
+- `docs/phase-2.9-characterization-tests-plan.md` – Originalplan (completed, bleibt in docs/)
+
+---
+
+## Zusammenfassung der offenen Deferred-Punkte
+
+### Tatsächlich offene Deferred-Items (Phase 2.7)
+
+**Nur 4 Teilsteps sind deferred:**
+
+1. **Teilstep 2.7.4** — Arduino CLI Timeout zentralisieren
+   - Status: deferred (API weicht vom Plan ab)
+   - Risiko: niedrig (API-Analyse nötig)
+
+2. **Teilstep 2.7.8** — Gatekeeper-Disable-Mechanik kapseln
+   - Status: deferred (Worker-Thread-Signal, kein statischer Config-Wert)
+   - Risiko: mittel (zeitliche Auswertungsreihenfolge)
+
+3. **Teilstep 2.7.10** — LocalCompiler Timeout behandeln
+   - Status: deferred (Default-Wert unklar)
+   - Risiko: mittel (semantische Änderung möglich)
+
+4. **Teilstep 2.7.12** — Worker-Cache-Konfiguration zentralisieren
+   - Status: deferred (Cache-Pfade unklar)
+   - Risiko: hoch (könnte Cache-Orte verändern)
+
+### Abgeschlossene Phasen
+
+- ✅ **Phase 2.7** — Konfigurationszentralisierung (completed with deferred items)
+- ✅ **Phase 2.8** — Wrapper-Hooks Refactoring (completed)
+- ✅ **Phase 2.9** — Characterization Tests (completed)
 
 ---
 
 **Erstellt:** 2026-09-05 im Rahmen von Phase 3.1.5  
+**Aktualisiert:** 2026-09-05 (Korrektur: 2.8/2.9 als completed markiert)  
 **Autor:** GitHub Copilot  
 **Status:** Ready for implementation
