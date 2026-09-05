@@ -924,7 +924,9 @@ Falls Dokumentation ergänzt wird:
 
 # Teilstep 2.7.10 — `LocalCompiler` Timeout separat behandeln
 
-Status: planned
+Status: deferred
+
+Deferred-Begründung: `LocalCompiler` verwendet `20_000` mehrfach und erhöht bei Coverage dynamisch auf `60_000`. Ob der lokale Default bewusst kürzer als `config.compilation.timeoutMs` ist, ist nicht eindeutig nachweisbar. Daher keine Änderung ohne separate Freigabe.
 
 ## Zweck
 
