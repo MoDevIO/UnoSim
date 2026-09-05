@@ -1,6 +1,6 @@
 # Phase 3.2: SSOT-Struktur und Architektur-Governance Konsolidierung
 
-**Status:** planning  
+**Status:** completed  
 **Datum:** 2026-09-05  
 **Branch:** `feature/phase-3-architecture-hardening`  
 **Ziel:** SSOT-Struktur und Architektur-Governance konsolidieren, ohne Produktivcode zu ändern.
@@ -330,3 +330,59 @@ flowchart TD
 ```
 
 **Verbindliche Reihenfolge:** 3.2.1 und 3.2.2 zuerst. Danach können 3.2.3, 3.2.4 und 3.2.5 unabhängig umgesetzt werden. 3.2.6 folgt nach den Abgrenzungen. 3.2.7 schließt die Phase ab.
+
+---
+
+## 11. Abschlussbericht
+
+**Status:** completed  
+**Abschluss:** 2026-09-05
+
+### Umgesetzte Teilsteps
+
+| Teilstep | Ergebnis | Commit |
+| --- | --- | --- |
+| 3.2.1 | SSOT-Dateien mit Status und Zielrolle klassifiziert | `a945fa4c` |
+| 3.2.2 | Dokumentationsindex und Archiv-Governance konsolidiert | `08a1b055` |
+| 3.2.3 | Feature-SSOTs von externer API und ADR-Entscheidungen abgegrenzt; Pause/Resume-Timeout-Semantik auf tatsächliches Verhalten korrigiert | `48be1b80` |
+| 3.2.4 | Typography- und Button-SSOTs in normativen UI-Vertrag und historische Nachweise getrennt | `e5c3d8bd` |
+| 3.2.5 | `docs/SCALABILITY_100_STUDENTS.md` als einzige aktive Skalierungs-/Kapazitätsquelle festgelegt; frühere Skalierungs-SSOT-Datei archiviert-in-place | `9c7d6fb6` |
+| 3.2.6 | Architekturüberblick, ADR-Grenzen, Deferred-Liste und Projektanalyse klar voneinander abgegrenzt | `ccc1c6ed` |
+| 3.2.7 | Abschlussstatus, Archivverweise und Completion-Nachweis ergänzt | dieser Commit |
+
+### Geänderte Dokumente
+
+- `docs/README.md`
+- `docs/archive/README.md`
+- `docs/archive/plans/phase-2-deferred.md`
+- `docs/ARCHITECTURE.md`
+- `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`
+- `docs/SCALABILITY_100_STUDENTS.md`
+- `docs/phase-3.2-ssot-governance-plan.md`
+- `ssot/ssot_agent_policy.md`
+- `ssot/ssot_io-registry.md`
+- `ssot/ssot_function_definition_OutputPanel.md`
+- `ssot/ssot_function_definition_PauseResume.md`
+- `ssot/ssot_function_definition_Typography.md`
+- `ssot/ssot_function_description_Buttons.md`
+- `ssot/ssot_function_description_scalability.md`
+- `ssot/ssot_function_description_serial_output.md`
+
+### Verschobene oder archivierte Inhalte
+
+- Es wurden keine Inhalte gelöscht.
+- `ssot/ssot_function_description_scalability.md` wurde archiviert-in-place und verweist auf `docs/SCALABILITY_100_STUDENTS.md` als aktive Quelle.
+- Roadmap-, Mess-, Test- und Abschlussabschnitte in den UI-SSOTs bleiben erhalten, sind aber ausdrücklich nicht normativ.
+- Historische oder deferred Phase-2-Informationen bleiben in `docs/archive/plans/phase-2-deferred.md` nachvollziehbar.
+
+### Verbleibende Risiken
+
+- `docs/SCALABILITY_100_STUDENTS.md` bleibt ein Planungsdokument; belastbare 100/200-Client-Aussagen benötigen weiterhin reproduzierbare Lasttests.
+- `PROJECT_ANALYSIS_REPORT_2026-09-04.md` bleibt als Planungs- und Risikoquelle erhalten und kann bewusst ältere Befunde enthalten.
+- Phase 3.2 hat keine Produktivcode-, Test- oder CI-Änderungen vorgenommen.
+
+### Validierungsbefunde
+
+- `npm run check:docs` wurde nach jedem Teilstep ausgeführt und war grün.
+- Commit-Hooks führten `npm run check` aus und waren bei den Teilstep-Commits grün.
+- Für den zuvor geklärten Pause/Resume-Timeout-Konflikt wurden gezielt `tests/server/services/simulation-timeout-manager.test.ts` und `tests/server/services/sandbox/timeout-phase.test.ts` ausgeführt; 35 Tests bestanden.

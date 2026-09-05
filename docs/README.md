@@ -23,7 +23,7 @@ Dieser Einstiegspunkt trennt aktuelle, planende und archivierte Dokumente. Für 
 
 ## SSOT
 
-Die Dateien unter [`../ssot/`](../ssot/) enthalten thematische Single Sources of Truth. Sie ergänzen die aktuellen `docs/`-Dokumente, ersetzen aber keine ADRs, keine externen API-Verträge und keine Test-Gates.
+Die Dateien unter [`../ssot/`](../ssot/) enthalten thematische Single Sources of Truth oder explizit archivierte frühere SSOT-Entwürfe. Sie ergänzen die aktuellen `docs/`-Dokumente, ersetzen aber keine ADRs, keine externen API-Verträge und keine Test-Gates.
 
 | Dokument | Zielrolle | Zweck |
 | --- | --- | --- |
@@ -34,7 +34,7 @@ Die Dateien unter [`../ssot/`](../ssot/) enthalten thematische Single Sources of
 | [`ssot_function_description_serial_output.md`](../ssot/ssot_function_description_serial_output.md) | `feature-contract` | Serial-Output-Verhalten und Batching. |
 | [`ssot_function_definition_Typography.md`](../ssot/ssot_function_definition_Typography.md) | `ui-design-contract` | Globale Schriftgrößensteuerung. |
 | [`ssot_function_description_Buttons.md`](../ssot/ssot_function_description_Buttons.md) | `ui-design-contract` | Zentrale Button-Komponente. |
-| [`ssot_function_description_scalability.md`](../ssot/ssot_function_description_scalability.md) | `capacity-planning` | Skalierungsbeschreibung; Merge-/Archiv-Kandidat zugunsten `SCALABILITY_100_STUDENTS.md`. |
+| [`ssot_function_description_scalability.md`](../ssot/ssot_function_description_scalability.md) | `historical-capacity-context` | Archivierter früherer Skalierungs-SSOT; aktive Kapazitätsplanung liegt in `SCALABILITY_100_STUDENTS.md`. |
 
 ## Planning
 
