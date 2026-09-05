@@ -255,7 +255,7 @@ let cleanupTimer: NodeJS.Timeout | null = null;
     console.log(`│  Server Mode:         ${config.serverMode.padEnd(27)}│`);
     console.log(`│  Simulation Mode:     ${config.simulationMode.padEnd(27)}│`);
     console.log(`│  Trust Mode:          ${config.trust.mode.padEnd(27)}│`);
-    console.log(`│  NODE_ENV:            ${(process.env.NODE_ENV ?? "undefined").padEnd(27)}│`);
+    console.log(`│  NODE_ENV:            ${config.nodeEnv.padEnd(27)}│`);
     console.log(`│  Compile Workers:     ${String(config.compilation.workerCount).padEnd(27)}│`);
     console.log(`│  Compile Slots:       ${String(config.compilation.maxConcurrent).padEnd(27)}│`);
     console.log(`│  Docker Compile Conc.:${String(config.compilation.dockerCompileConcurrent).padEnd(28)}│`);
