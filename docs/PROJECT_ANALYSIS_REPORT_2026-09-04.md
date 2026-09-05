@@ -74,9 +74,10 @@ Die Architektur hat gute Bausteine, aber mehrere Bausteine sind zu groß und üb
 | --- | --- |
 | `server/routes/simulation.ws.ts` | Bündelt WebSocket-Transport, Session-State, Message-Routing, Runner-Pool-Anbindung, Serial-Batching und Lifecycle. |
 | `server/services/arduino-compiler.ts` | Kombiniert Kompilierung, Caching, Dateisystem, Header-Verarbeitung, CLI-Auswertung und Fehleraufbereitung. |
-| `server/services/sandbox/execution-manager.ts` | Enthält Vorbereitung, Compile-Gatekeeping, Docker/local-Ausführung, Stream-Verarbeitung, Timeout und Cleanup. |
+| `server/services/sandbox/execution-manager.ts` | **Phase 2.6:** Prepare-Phase extrahiert (`prepare-phase.ts`), weitere Phasen in Decomposition (Cleanup, Timeout, Stream, Start, Router). |
 | `client/src/hooks/useArduinoSimulatorPage.tsx` | Ist Composition Root, enthält aber zusätzlich viele Zustandsableitungen und Seiteneffekte. |
-| `client/src/hooks/use-compile-and-run.ts` | Verbindet Compile, Simulation, WebSocket-Kommandos, Debug-Ausgaben, Toasts und UI-Status. |
+| `client/src/hooks/use-compile-and-run.ts` | **Phase 2.1 abgeschlossen:** 4 Sub-Hooks extrahiert (`use-compile-controller`, `use-simulation-controller`, `use-ui-feedback-adapter`, Lifecycle). |
+| `shared/code-parser.ts` | **Phase 2.10 abgeschlossen:** 5 Parser-Module extrahiert (Hardware-Compatibility, Pin-Conflicts, Structure, Performance, Serial-Configuration). |
 
 **Kernbefund:** Die Modulgrenzen sind vorhanden, aber zentrale Orchestratoren sind noch zu breit. Dadurch ist das Projekt zwar gut lauffähig, aber Änderungen an Kernflüssen sind schwerer sicher umzusetzen.
 
@@ -85,6 +86,19 @@ Die Architektur hat gute Bausteine, aber mehrere Bausteine sind zu groß und üb
 ### 4.1 Backend
 
 Das Backend ist fachlich gut segmentiert. Routen, Compiler, Sandbox, Pooling und Security sind grundsätzlich getrennt. Besonders positiv ist die Entwicklung weg von monolithischen Routen hin zu spezialisierten Modulen wie `compiler.routes.ts` und eigenen Security-Komponenten.
+
+**Phase 2.6 Decomposition:** `execution-manager.ts` wird schrittweise decomposed:
+- ✅ `prepare-phase.ts` extrahiert (Compilation mit Gatekeeper, 95.7% Coverage)
+- ✅ `cleanup-phase.ts`, `router-phase.ts`, `start-phase.ts`, `stream-phase.ts`, `timeout-phase.ts` vorhanden
+- 🔄 Weitere Extraktionen in Planung
+
+**Phase 2.10 Parser-Extraktion:** `code-parser.ts` erfolgreich decomposed:
+- ✅ `hardware-compatibility-parser.ts` (13.097 Zeilen → 380 Zeilen extrahiert)
+- ✅ `pin-conflicts-parser.ts` (Pin-Konflikte, Mehrfachverwendung)
+- ✅ `structure-parser.ts` (Setup/Loop-Struktur)
+- ✅ `performance-parser.ts` (Timing-Muster)
+- ✅ `serial-configuration-parser.ts` (Baud-Rate, Serial-Konfiguration)
+- ✅ `code-parser.ts` auf 68 Zeilen reduziert (von 835 Zeilen)
 
 Verbesserungspotenzial besteht bei der Laufzeit- und WebSocket-Schicht. `simulation.ws.ts` sollte langfristig nicht gleichzeitig Transport, Session-Management und Simulationssteuerung enthalten. Eine mögliche Zielstruktur wäre:
 
@@ -98,7 +112,14 @@ Verbesserungspotenzial besteht bei der Laufzeit- und WebSocket-Schicht. `simulat
 
 Das Frontend ist komponentenorientiert und nutzt Hooks zur Kapselung von Verhalten. Die Page-Komponente ist gut lesbar, aber der zentrale Hook `useArduinoSimulatorPage.tsx` ist sehr breit. Er verbindet unter anderem WebSocket, Compile/Run, Pin-State, Backend-Health, File-System, externe API, Serial IO, Mobile Layout und Output-Panel.
 
-Auch `use-compile-and-run.ts` sollte mittelfristig zerlegt werden. Sinnvolle Zielgrenzen wären:
+**Phase 2.1 Hook-Extraktion abgeschlossen:**
+- ✅ `use-compile-controller.ts` (Compile-Mutation, Parser-Messages, I/O-Registry, 94% Coverage)
+- ✅ `use-simulation-controller.ts` (Simulation-State, WebSocket-Commands, 100% Coverage)
+- ✅ `use-ui-feedback-adapter.ts` (Toasts, Debug-Messages, Pin-Conflict, 98.8% Coverage)
+- ✅ `use-simulation-lifecycle.ts` (Lifecycle-Automatik)
+- ✅ Orchestrator `use-compile-and-run.ts` auf 361 Zeilen reduziert (von 748 Zeilen)
+
+Sinnvolle weitere Zielgrenzen wären:
 
 - Compile-Controller
 - Simulation-Lifecycle-Controller
@@ -113,17 +134,19 @@ Die größten produktiven Dateien sind:
 | Datei | Zeilen | Risiko |
 | --- | ---: | --- |
 | `server/routes/simulation.ws.ts` | 1004 | Sehr breiter Backend-Orchestrator. |
-| `server/services/sandbox/execution-manager.ts` | 850 | Viele Sandbox-Lifecycle-Verantwortlichkeiten. |
-| `shared/code-parser.ts` | 835 | Umfangreiche Parser- und Hilfslogik. |
+| `server/services/sandbox/execution-manager.ts` | 674 | **Phase 2.6:** Prepare-Phase extrahiert, weitere Phasen in Decomposition. |
+| `shared/code-parser.ts` | 68 | **Phase 2.10:** Von 835 auf 68 Zeilen reduziert (92% Verbesserung). |
 | `server/services/arduino-compiler.ts` | 823 | Compiler, Cache, Dateisystem und CLI gekoppelt. |
-| `client/src/hooks/useArduinoSimulatorPage.tsx` | 807 | Frontend-Composition plus Fachlogik. |
+| `client/src/hooks/useArduinoSimulatorPage.tsx` | 753 | Frontend-Composition plus Fachlogik. |
 | `client/src/components/features/arduino-board.tsx` | 792 | Große UI-/Board-Komponente. |
 | `server/services/registry-manager.ts` | 785 | Umfangreiche Registry-/Analyse-Logik. |
-| `client/src/hooks/use-compile-and-run.ts` | 748 | Compile + Simulation + UI-Seiteneffekte. |
+| `client/src/hooks/use-compile-and-run.ts` | 361 | **Phase 2.1:** Von 748 auf 361 Zeilen reduziert (52% Verbesserung). |
 | `client/src/components/features/app-header.tsx` | 723 | Header mit vielen Zuständen. |
 | `client/src/components/features/code-editor.tsx` | 688 | Editor-Integration komplex. |
 | `client/src/components/features/parser-output.tsx` | 684 | Parserdarstellung umfangreich. |
 | `shared/io-registry-parser.ts` | 665 | Parser-/Registrylogik umfangreich. |
+| `shared/parsers/hardware-compatibility-parser.ts` | 380 | **Phase 2.10:** Extrahiert aus code-parser.ts.
+
 
 **Bewertung:** Die Dateigröße ist nicht automatisch problematisch, korreliert hier aber oft mit gemischten Verantwortlichkeiten. Diese Dateien sollten bevorzugt durch Tests abgesichert und dann schrittweise entlastet werden.
 
