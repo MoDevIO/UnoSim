@@ -857,7 +857,9 @@ Separater Commit.
 
 # Teilstep 2.7.9 — Timeout-Unterschiede dokumentiert analysieren, noch nicht vereinheitlichen
 
-Status: planned
+Status: completed
+
+Analyse-Ergebnis: Die inventarisierten Timeout-Werte haben unterschiedliche fachliche Bedeutungen. `60_000`, `30_000`, `20_000` und `120_000` dürfen nicht pauschal zusammengeführt werden. Weitere Zentralisierungen bleiben auf die separaten Teilsteps 2.7.10 und 2.7.11 beschränkt; Worker-/Cache-Timeouts bleiben in 2.7.12 separat.
 
 ## Zweck
 
