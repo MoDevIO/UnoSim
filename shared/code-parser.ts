@@ -1,5 +1,5 @@
 import type { ParserMessage } from "./schema";
-import { removeComments } from "@shared/parser-patterns";
+import { stripComments } from "@shared/parser-patterns";
 import { SerialConfigurationParser } from "./parsers/serial-configuration-parser";
 import { StructureParser } from "./parsers/structure-parser";
 import { PerformanceParser } from "./parsers/performance-parser";
@@ -43,7 +43,7 @@ export class CodeParser {
    * Parse performance issues
    */
   parsePerformance(code: string): ParserMessage[] {
-    const uncommentedCode = removeComments(code);
+    const uncommentedCode = stripComments(code);
     const parser = new PerformanceParser(uncommentedCode, code);
 
     return [

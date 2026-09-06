@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import {
   PIN_PATTERNS,
   parsePinNumber,
-  removeComments,
+  stripComments,
   findLineNumber,
   FOR_LOOP_TYPED,
   FOR_LOOP_BARE,
@@ -48,7 +48,7 @@ export class HardwareCompatibilityParser {
 
   constructor(private readonly code: string) {
     this.code = code;
-    const uncommentedCode = removeComments(code);
+    const uncommentedCode = stripComments(code);
     const pinChecker = new PinCompatibilityChecker(uncommentedCode);
     this.pinModeCalls = pinChecker.getPinModeInfo((c) => this.getLoopPinModeCalls(c));
   }
@@ -67,7 +67,7 @@ export class HardwareCompatibilityParser {
       pinModeSet.add(match[1]);
     }
 
-    const pinChecker = new PinCompatibilityChecker(removeComments(this.code));
+    const pinChecker = new PinCompatibilityChecker(stripComments(this.code));
     messages.push(...pinChecker.checkPinModeConflicts(this.pinModeCalls));
 
     const loopConfiguredPins = this.getLoopConfiguredPins();
@@ -82,10 +82,10 @@ export class HardwareCompatibilityParser {
       const pinNum = parsePinNumber(pin);
       if (pinNum !== undefined && entry.modes.includes("OUTPUT")) outputPins.add(pinNum);
     }
-    for (const { pin, mode } of this.getLoopPinModeCalls(removeComments(this.code))) {
+    for (const { pin, mode } of this.getLoopPinModeCalls(stripComments(this.code))) {
       if (mode === "OUTPUT") outputPins.add(pin);
     }
-    messages.push(...pinChecker.checkOutputPinsReadAsInput(removeComments(this.code), outputPins, parsePinNumber));
+    messages.push(...pinChecker.checkOutputPinsReadAsInput(stripComments(this.code), outputPins, parsePinNumber));
 
     return messages;
   }
@@ -143,7 +143,7 @@ export class HardwareCompatibilityParser {
 
   private checkVariablePinUsage(): ParserMessage[] {
     const messages: ParserMessage[] = [];
-    const uncommentedCode = removeComments(this.code);
+    const uncommentedCode = stripComments(this.code);
 
     // Identify pins configured via variable names
     const pinModeVarRegex = PIN_PATTERNS.MODE_VAR;
@@ -196,7 +196,7 @@ export class HardwareCompatibilityParser {
 
   private getLoopConfiguredPins(): Set<number> {
     const configuredPins = new Set<number>();
-    for (const { pin } of this.getLoopPinModeCalls(removeComments(this.code))) {
+    for (const { pin } of this.getLoopPinModeCalls(stripComments(this.code))) {
       configuredPins.add(pin);
     }
     return configuredPins;

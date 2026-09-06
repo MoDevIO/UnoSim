@@ -84,13 +84,6 @@ export function stripComments(code: string): string {
 }
 
 /**
- * Remove comments (alias for stripComments for backward compatibility).
- */
-export function removeComments(code: string): string {
-  return stripComments(code);
-}
-
-/**
  * Find line number for a pattern in code.
  * @param code - Full source code
  * @param pattern - Regex pattern to find

@@ -13,7 +13,7 @@ import type { ParserMessage } from "../schema";
 import { randomUUID } from "node:crypto";
 import {
   SERIAL_PATTERNS,
-  removeComments,
+  stripComments,
   findLineNumber,
 } from "../parser-patterns";
 
@@ -25,7 +25,7 @@ export class SerialConfigurationParser {
 
   parse(): ParserMessage[] {
     const messages: ParserMessage[] = [];
-    const uncommentedCode = removeComments(this.code);
+    const uncommentedCode = stripComments(this.code);
 
     // Check if Serial is used
     if (!SERIAL_PATTERNS.USAGE.test(uncommentedCode)) return messages;
