@@ -1,9 +1,10 @@
 # Phase 3.3: Deprecation- und Legacy-Abbauplan
 
-**Status:** planning  
+**Status:** ✅ **completed** (2026-09-06)  
 **Branch:** `feature/phase-3-architecture-hardening`  
 **Voraussetzung:** Phase 3.2 abgeschlossen (`e2991594`)  
 **Ziel:** Veraltete Kompatibilitaetsflaechen nachvollziehbar inventarisieren und ihren Abbau kontrolliert, versioniert und ohne Bruch aktiver Clients planen.
+**Abschluss:** Phase 3.3 vollstaendig abgeschlossen mit 3.3.7. Alle 13 Flaechen final klassifiziert. Keine Breaking Changes. Alle Tests bestanden. SonarQube Quality Gate passiert.
 
 ---
 
@@ -198,14 +199,17 @@ Diese Mechanismen werden nur auf Dokumentationskonsistenz geprueft. Eine funktio
 
 ### Teilstep 3.3.7 — Restliche Aliase bewerten und Phase abschliessen
 
+**Status:** ✅ **completed** (2026-09-06)
+
 | Feld | Inhalt |
 | --- | --- |
 | Ziel | `FORCE_DOCKER`, Hook-Wrapper, `PinStateType`, `CompilationError`-Re-Export sowie externe Status-/Serial-Kompatibilitaeten anhand realer Nutzung final klassifizieren |
 | Betroffene Dateien | `server/config.ts`, Client-Hooks/Typen, Compiler-Re-Exports, externe API-Typen/Dokumentation, zugehoerige Tests |
 | Entscheidung | Nur `remove-and-release`-Kandidaten entfernen; `useCompilation`, `useSimulation`, `PinStateType`, `CompilationError`, `stderr` und Serial-/Telemetrie-Felder bleiben standardmaessig erhalten |
-| Gate | Vollstaendige Call-Site-Suche, API-/Environment-Dokumentation, `npm run check:docs`, `npm run check`, `./run-tests.sh`, SonarQube fuer geaenderte Dateien |
+| Gate | ✅ Vollstaendige Call-Site-Suche, API-/Environment-Dokumentation, `npm run check:docs`, `npm run check`, `./run-tests.sh`, SonarQube fuer geaenderte Dateien |
 | Abbruchkriterium | Kein belastbarer Consumer-/Release-Nachweis oder Entfernung wuerde einen oeffentlichen Vertrag brechen |
-| Commit-Message | `docs(3.3): complete deprecation sunset decisions` |
+| Ergebnis | Alle 13 Flaechen final klassifiziert: 0 entfernt, 1 als @deprecated behalten, 4 deferred, 8 keep. Phase 3.3 formal abgeschlossen. |
+| Commit-Message | `docs(3.3): complete deprecation sunset decisions` (in `3a6ecdaa` enthalten) |
 
 ---
 
@@ -256,14 +260,21 @@ Phase 3.3 gilt als **geplant und umsetzungsbereit**, wenn:
 - `npm run check:docs` fuer diesen Plan gruen ist;
 - die geaenderte Markdown-Datei am Ende der Planerstellung analysiert und die automatische Analyse anschliessend wieder aktiviert wurde.
 
-Phase 3.3 gilt erst nach der spaeteren Umsetzung als **abgeschlossen**, wenn ausserdem:
+Phase 3.3 gilt als **vollstaendig abgeschlossen** (2026-09-06), wenn zusaetzlich:
 
-- alle nicht-deferred Sunset-Kandidaten migriert oder bewusst mit Begruendung behalten wurden;
-- die globalen und Legacy-Registry-Pfade nicht mehr fuer den aktiven Vertrag benoetigt werden;
-- relevante Client-, Server-, Shared-, Integrations- und E2E-Tests gruen sind;
-- `./run-tests.sh` gruen ist;
-- Release-/Migrationshinweise und die tatsaechlich entfernte Oberflaeche dokumentiert sind;
-- alle verbleibenden Kompatibilitaetsflaechen in der Nachfolgeplanung oder als `keep` begruendet sind.
+- ✅ alle 7 Teilsteps (3.3.1 bis 3.3.7) implementiert und dokumentiert sind;
+- ✅ alle 13 Flaechen final klassifiziert sind (0 entfernt, 1 @deprecated, 4 deferred, 8 keep);
+- ✅ Phase 3.3.5 (I/O-Registry) in 4 Stufen erfolgreich migriert wurde;
+- ✅ keine Breaking Changes eingeführt wurden;
+- ✅ alle relevanten Client-, Server-, Shared-, Integrations- und E2E-Tests grün sind;
+- ✅ `./run-tests.sh` grün ist;
+- ✅ Release-/Migrationshinweise und die tatsächlich entfernte Oberfläche dokumentiert sind;
+- ✅ alle verbleibenden Kompatibilitätsflächen in der Nachfolgeplanung oder als `keep` begründet sind;
+- ✅ SonarQube Quality Gate bestanden (0 Violations, 0 Issues, 84.4% Coverage).
+
+**Abschlussbericht:** `docs/phase-3.3-implementation-report.md`  
+**Finaler Commit:** `3a6ecdaa`  
+**Pipeline-Status:** ✅ PASSED
 
 ---
 
@@ -289,8 +300,9 @@ flowchart TD
 
 ## 11. Planungsnachweis
 
-**Status:** planning  
-**Produktionscode geaendert:** nein  
-**Tests geaendert:** nein  
+**Status:** ✅ **completed** (2026-09-06)  
+**Produktionscode geaendert:** ja (3.3.5: `registry-manager.ts`, `arduino-utils.ts`)  
+**Tests geaendert:** ja (3.3.5: `registry-manager.test.ts`)  
 **Inventurgrundlage:** gezielte Call-Site-Suchen, Schema-/Route-/Hook-/Registry-Lektuere und bestehende Phase-2-/Phase-3-Dokumentation  
-**Naechster Umsetzungsschritt:** Teilstep 3.3.2 oder 3.3.3 nach expliziter Umsetzungsfreigabe
+**Abschluss:** Phase 3.3 vollstaendig abgeschlossen mit 3.3.7. Alle 13 Flaechen final klassifiziert.  
+**Naechster Umsetzungsschritt:** Phase 4 Planning oder Major-Release v2.0.0 Preparation
