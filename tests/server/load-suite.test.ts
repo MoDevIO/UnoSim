@@ -393,6 +393,22 @@ function createLoadTestSuite(
 
         testResults.push(stats);
 
+        // Metriken speichern wenn OUTPUT_DIR gesetzt
+        const outputDir = process.env.LOAD_TEST_OUTPUT_DIR;
+        if (outputDir && USE_REAL_SERVER === false) {
+          // Stub mode - speichere Metriken direkt
+          const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+          const { join } = await import('node:path');
+          
+          if (!existsSync(outputDir)) {
+            mkdirSync(outputDir, { recursive: true });
+          }
+          
+          const outputPath = join(outputDir, `metrics-${numClients}.json`);
+          writeFileSync(outputPath, JSON.stringify(stats, null, 2));
+          console.log(`[LoadTest] Metrics saved to ${outputPath}`);
+        }
+
         // don't assert on real performance when using stub
         expect(stats.successful).toBeGreaterThanOrEqual(0);
         expect(stats.avgTime).toBeGreaterThanOrEqual(0);
@@ -425,8 +441,20 @@ function createLoadTestSuite(
       expect(true).toBe(true);
     });
 
-    afterAll(() => {
+    afterAll(async () => {
       if (testResults.length === 0) return;
+
+      // Metriken speichern wenn OUTPUT_DIR gesetzt
+      const outputDir = process.env.LOAD_TEST_OUTPUT_DIR;
+      if (outputDir) {
+        try {
+          const { saveTestMetrics } = await import('./load-suite.test');
+          // saveTestMetrics(testResults, outputDir, numClients);
+          console.log(`[LoadTest] Would save metrics to ${outputDir} (disabled to avoid circular dependency)`);
+        } catch (err) {
+          console.error('[LoadTest] Failed to save metrics:', err);
+        }
+      }
 
       const mainTest = testResults[0];
       let output = "";
