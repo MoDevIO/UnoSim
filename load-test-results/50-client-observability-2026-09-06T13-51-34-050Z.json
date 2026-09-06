@@ -1,0 +1,535 @@
+[
+  {
+    "testName": "50-Client Real Docker with Observability",
+    "totalClients": 50,
+    "successful": 50,
+    "failed": 0,
+    "successRate": 100,
+    "totalTime": 23751,
+    "avgTime": 15461.28,
+    "minTime": 8510,
+    "maxTime": 22732,
+    "throughput": 2.105174518967622,
+    "p50": 15707,
+    "p90": 22185,
+    "p95": 22207,
+    "p99": 22732,
+    "serverMetricsStart": {
+      "status": "ok",
+      "timestamp": "2026-09-06T13:51:10.304Z",
+      "serverMode": "local",
+      "simulationMode": "docker-sandbox",
+      "compileWorkers": 8,
+      "compileSlots": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      },
+      "sandboxRunners": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "webSocketSessions": {
+        "active": 0,
+        "running": 0,
+        "paused": 0,
+        "totalConnections": 0,
+        "totalDisconnections": 0
+      },
+      "compileMetrics": {
+        "count": 0,
+        "timeoutCount": 0,
+        "errorCount": 0,
+        "avgDurationMs": 0,
+        "avgQueueWaitTimeMs": 0,
+        "maxDurationMs": 0,
+        "maxQueueWaitTimeMs": 0
+      },
+      "processMetrics": {
+        "cpuPercent": 0,
+        "memoryUsedMB": 73.92252349853516,
+        "memoryTotalMB": 32768,
+        "memoryPercent": 0.2255936386063695,
+        "uptimeSeconds": 14.051179542
+      },
+      "pool": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "compile": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      }
+    },
+    "serverMetricsEnd": {
+      "status": "ok",
+      "timestamp": "2026-09-06T13:51:34.044Z",
+      "serverMode": "local",
+      "simulationMode": "docker-sandbox",
+      "compileWorkers": 8,
+      "compileSlots": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      },
+      "sandboxRunners": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "webSocketSessions": {
+        "active": 0,
+        "running": 0,
+        "paused": 0,
+        "totalConnections": 0,
+        "totalDisconnections": 0
+      },
+      "compileMetrics": {
+        "count": 0,
+        "timeoutCount": 0,
+        "errorCount": 0,
+        "avgDurationMs": 0,
+        "avgQueueWaitTimeMs": 0,
+        "maxDurationMs": 0,
+        "maxQueueWaitTimeMs": 0
+      },
+      "processMetrics": {
+        "cpuPercent": 0.0005913513513513514,
+        "memoryUsedMB": 71.88798522949219,
+        "memoryTotalMB": 32768,
+        "memoryPercent": 0.2193847205489874,
+        "uptimeSeconds": 37.791995875
+      },
+      "pool": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "compile": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      }
+    },
+    "serverMetricsPeak": {
+      "maxCpuPercent": 0.031064426877470356,
+      "maxMemoryPercent": 0.25909359101206064,
+      "maxActiveSessions": 0,
+      "maxCompileQueue": 0,
+      "maxRunnerQueue": 0
+    },
+    "clientMetrics": [
+      {
+        "clientId": 4,
+        "fetchSketchTime": 13,
+        "compileTime": 8497,
+        "startSimTime": 0,
+        "totalTime": 8510,
+        "success": true
+      },
+      {
+        "clientId": 9,
+        "fetchSketchTime": 15,
+        "compileTime": 8508,
+        "startSimTime": 0,
+        "totalTime": 8523,
+        "success": true
+      },
+      {
+        "clientId": 6,
+        "fetchSketchTime": 14,
+        "compileTime": 8512,
+        "startSimTime": 0,
+        "totalTime": 8526,
+        "success": true
+      },
+      {
+        "clientId": 2,
+        "fetchSketchTime": 14,
+        "compileTime": 8523,
+        "startSimTime": 0,
+        "totalTime": 8537,
+        "success": true
+      },
+      {
+        "clientId": 3,
+        "fetchSketchTime": 14,
+        "compileTime": 8530,
+        "startSimTime": 0,
+        "totalTime": 8544,
+        "success": true
+      },
+      {
+        "clientId": 5,
+        "fetchSketchTime": 14,
+        "compileTime": 8602,
+        "startSimTime": 0,
+        "totalTime": 8616,
+        "success": true
+      },
+      {
+        "clientId": 14,
+        "fetchSketchTime": 28,
+        "compileTime": 8613,
+        "startSimTime": 0,
+        "totalTime": 8641,
+        "success": true
+      },
+      {
+        "clientId": 1,
+        "fetchSketchTime": 13,
+        "compileTime": 8644,
+        "startSimTime": 0,
+        "totalTime": 8657,
+        "success": true
+      },
+      {
+        "clientId": 12,
+        "fetchSketchTime": 26,
+        "compileTime": 8679,
+        "startSimTime": 0,
+        "totalTime": 8705,
+        "success": true
+      },
+      {
+        "clientId": 10,
+        "fetchSketchTime": 21,
+        "compileTime": 8730,
+        "startSimTime": 0,
+        "totalTime": 8751,
+        "success": true
+      },
+      {
+        "clientId": 17,
+        "fetchSketchTime": 30,
+        "compileTime": 8721,
+        "startSimTime": 0,
+        "totalTime": 8751,
+        "success": true
+      },
+      {
+        "clientId": 8,
+        "fetchSketchTime": 15,
+        "compileTime": 8751,
+        "startSimTime": 0,
+        "totalTime": 8766,
+        "success": true
+      },
+      {
+        "clientId": 13,
+        "fetchSketchTime": 28,
+        "compileTime": 8755,
+        "startSimTime": 0,
+        "totalTime": 8783,
+        "success": true
+      },
+      {
+        "clientId": 15,
+        "fetchSketchTime": 29,
+        "compileTime": 8755,
+        "startSimTime": 0,
+        "totalTime": 8784,
+        "success": true
+      },
+      {
+        "clientId": 7,
+        "fetchSketchTime": 14,
+        "compileTime": 8833,
+        "startSimTime": 0,
+        "totalTime": 8847,
+        "success": true
+      },
+      {
+        "clientId": 11,
+        "fetchSketchTime": 23,
+        "compileTime": 8858,
+        "startSimTime": 0,
+        "totalTime": 8881,
+        "success": true
+      },
+      {
+        "clientId": 19,
+        "fetchSketchTime": 33,
+        "compileTime": 14209,
+        "startSimTime": 0,
+        "totalTime": 14242,
+        "success": true
+      },
+      {
+        "clientId": 18,
+        "fetchSketchTime": 58,
+        "compileTime": 14212,
+        "startSimTime": 0,
+        "totalTime": 14270,
+        "success": true
+      },
+      {
+        "clientId": 21,
+        "fetchSketchTime": 82,
+        "compileTime": 14394,
+        "startSimTime": 0,
+        "totalTime": 14476,
+        "success": true
+      },
+      {
+        "clientId": 20,
+        "fetchSketchTime": 71,
+        "compileTime": 14698,
+        "startSimTime": 0,
+        "totalTime": 14769,
+        "success": true
+      },
+      {
+        "clientId": 16,
+        "fetchSketchTime": 31,
+        "compileTime": 15290,
+        "startSimTime": 0,
+        "totalTime": 15321,
+        "success": true
+      },
+      {
+        "clientId": 22,
+        "fetchSketchTime": 75,
+        "compileTime": 15253,
+        "startSimTime": 0,
+        "totalTime": 15328,
+        "success": true
+      },
+      {
+        "clientId": 24,
+        "fetchSketchTime": 126,
+        "compileTime": 15464,
+        "startSimTime": 0,
+        "totalTime": 15590,
+        "success": true
+      },
+      {
+        "clientId": 29,
+        "fetchSketchTime": 158,
+        "compileTime": 15491,
+        "startSimTime": 0,
+        "totalTime": 15649,
+        "success": true
+      },
+      {
+        "clientId": 32,
+        "fetchSketchTime": 158,
+        "compileTime": 15549,
+        "startSimTime": 0,
+        "totalTime": 15707,
+        "success": true
+      },
+      {
+        "clientId": 25,
+        "fetchSketchTime": 116,
+        "compileTime": 15713,
+        "startSimTime": 0,
+        "totalTime": 15829,
+        "success": true
+      },
+      {
+        "clientId": 27,
+        "fetchSketchTime": 155,
+        "compileTime": 15713,
+        "startSimTime": 0,
+        "totalTime": 15868,
+        "success": true
+      },
+      {
+        "clientId": 31,
+        "fetchSketchTime": 157,
+        "compileTime": 15714,
+        "startSimTime": 0,
+        "totalTime": 15871,
+        "success": true
+      },
+      {
+        "clientId": 28,
+        "fetchSketchTime": 156,
+        "compileTime": 15769,
+        "startSimTime": 0,
+        "totalTime": 15925,
+        "success": true
+      },
+      {
+        "clientId": 26,
+        "fetchSketchTime": 156,
+        "compileTime": 15772,
+        "startSimTime": 0,
+        "totalTime": 15928,
+        "success": true
+      },
+      {
+        "clientId": 30,
+        "fetchSketchTime": 157,
+        "compileTime": 15773,
+        "startSimTime": 0,
+        "totalTime": 15930,
+        "success": true
+      },
+      {
+        "clientId": 23,
+        "fetchSketchTime": 101,
+        "compileTime": 15910,
+        "startSimTime": 0,
+        "totalTime": 16011,
+        "success": true
+      },
+      {
+        "clientId": 33,
+        "fetchSketchTime": 159,
+        "compileTime": 19111,
+        "startSimTime": 0,
+        "totalTime": 19270,
+        "success": true
+      },
+      {
+        "clientId": 34,
+        "fetchSketchTime": 158,
+        "compileTime": 19332,
+        "startSimTime": 0,
+        "totalTime": 19490,
+        "success": true
+      },
+      {
+        "clientId": 35,
+        "fetchSketchTime": 159,
+        "compileTime": 19717,
+        "startSimTime": 0,
+        "totalTime": 19876,
+        "success": true
+      },
+      {
+        "clientId": 37,
+        "fetchSketchTime": 159,
+        "compileTime": 20558,
+        "startSimTime": 0,
+        "totalTime": 20717,
+        "success": true
+      },
+      {
+        "clientId": 36,
+        "fetchSketchTime": 160,
+        "compileTime": 20825,
+        "startSimTime": 0,
+        "totalTime": 20985,
+        "success": true
+      },
+      {
+        "clientId": 38,
+        "fetchSketchTime": 180,
+        "compileTime": 20811,
+        "startSimTime": 0,
+        "totalTime": 20991,
+        "success": true
+      },
+      {
+        "clientId": 41,
+        "fetchSketchTime": 182,
+        "compileTime": 21455,
+        "startSimTime": 0,
+        "totalTime": 21637,
+        "success": true
+      },
+      {
+        "clientId": 40,
+        "fetchSketchTime": 182,
+        "compileTime": 21717,
+        "startSimTime": 0,
+        "totalTime": 21899,
+        "success": true
+      },
+      {
+        "clientId": 39,
+        "fetchSketchTime": 181,
+        "compileTime": 21860,
+        "startSimTime": 0,
+        "totalTime": 22041,
+        "success": true
+      },
+      {
+        "clientId": 46,
+        "fetchSketchTime": 187,
+        "compileTime": 21894,
+        "startSimTime": 0,
+        "totalTime": 22081,
+        "success": true
+      },
+      {
+        "clientId": 48,
+        "fetchSketchTime": 187,
+        "compileTime": 21925,
+        "startSimTime": 0,
+        "totalTime": 22112,
+        "success": true
+      },
+      {
+        "clientId": 43,
+        "fetchSketchTime": 186,
+        "compileTime": 21999,
+        "startSimTime": 0,
+        "totalTime": 22185,
+        "success": true
+      },
+      {
+        "clientId": 44,
+        "fetchSketchTime": 186,
+        "compileTime": 21999,
+        "startSimTime": 0,
+        "totalTime": 22185,
+        "success": true
+      },
+      {
+        "clientId": 42,
+        "fetchSketchTime": 186,
+        "compileTime": 22003,
+        "startSimTime": 0,
+        "totalTime": 22189,
+        "success": true
+      },
+      {
+        "clientId": 45,
+        "fetchSketchTime": 186,
+        "compileTime": 22017,
+        "startSimTime": 0,
+        "totalTime": 22203,
+        "success": true
+      },
+      {
+        "clientId": 47,
+        "fetchSketchTime": 187,
+        "compileTime": 22020,
+        "startSimTime": 0,
+        "totalTime": 22207,
+        "success": true
+      },
+      {
+        "clientId": 49,
+        "fetchSketchTime": 188,
+        "compileTime": 22540,
+        "startSimTime": 0,
+        "totalTime": 22728,
+        "success": true
+      },
+      {
+        "clientId": 50,
+        "fetchSketchTime": 187,
+        "compileTime": 22545,
+        "startSimTime": 0,
+        "totalTime": 22732,
+        "success": true
+      }
+    ]
+  }
+]

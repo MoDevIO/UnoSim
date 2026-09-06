@@ -1,0 +1,535 @@
+[
+  {
+    "testName": "50-Client Real Docker with Observability",
+    "totalClients": 50,
+    "successful": 50,
+    "failed": 0,
+    "successRate": 100,
+    "totalTime": 1047,
+    "avgTime": 22.44,
+    "minTime": 6,
+    "maxTime": 31,
+    "throughput": 47.755491881566385,
+    "p50": 22,
+    "p90": 28,
+    "p95": 30,
+    "p99": 31,
+    "serverMetricsStart": {
+      "status": "ok",
+      "timestamp": "2026-09-06T13:46:37.243Z",
+      "serverMode": "local",
+      "simulationMode": "local",
+      "compileWorkers": 8,
+      "compileSlots": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      },
+      "sandboxRunners": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "webSocketSessions": {
+        "active": 0,
+        "running": 0,
+        "paused": 0,
+        "totalConnections": 0,
+        "totalDisconnections": 0
+      },
+      "compileMetrics": {
+        "count": 0,
+        "timeoutCount": 0,
+        "errorCount": 0,
+        "avgDurationMs": 0,
+        "avgQueueWaitTimeMs": 0,
+        "maxDurationMs": 0,
+        "maxQueueWaitTimeMs": 0
+      },
+      "processMetrics": {
+        "cpuPercent": 0.00005120489009051369,
+        "memoryUsedMB": 64.38768005371094,
+        "memoryTotalMB": 32768,
+        "memoryPercent": 0.19649560563266277,
+        "uptimeSeconds": 187.372957333
+      },
+      "pool": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "compile": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      }
+    },
+    "serverMetricsEnd": {
+      "status": "ok",
+      "timestamp": "2026-09-06T13:46:38.281Z",
+      "serverMode": "local",
+      "simulationMode": "local",
+      "compileWorkers": 8,
+      "compileSlots": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      },
+      "sandboxRunners": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "webSocketSessions": {
+        "active": 0,
+        "running": 0,
+        "paused": 0,
+        "totalConnections": 0,
+        "totalDisconnections": 0
+      },
+      "compileMetrics": {
+        "count": 0,
+        "timeoutCount": 0,
+        "errorCount": 0,
+        "avgDurationMs": 0,
+        "avgQueueWaitTimeMs": 0,
+        "maxDurationMs": 0,
+        "maxQueueWaitTimeMs": 0
+      },
+      "processMetrics": {
+        "cpuPercent": 0.0017186046511627907,
+        "memoryUsedMB": 64.64070892333984,
+        "memoryTotalMB": 32768,
+        "memoryPercent": 0.19726778846234083,
+        "uptimeSeconds": 188.4111545
+      },
+      "pool": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "compile": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      }
+    },
+    "serverMetricsPeak": {
+      "maxCpuPercent": 0.005674898785425101,
+      "maxMemoryPercent": 0.19709086045622826,
+      "maxActiveSessions": 0,
+      "maxCompileQueue": 0,
+      "maxRunnerQueue": 0
+    },
+    "clientMetrics": [
+      {
+        "clientId": 1,
+        "fetchSketchTime": 3,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 6,
+        "success": true
+      },
+      {
+        "clientId": 3,
+        "fetchSketchTime": 14,
+        "compileTime": 5,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 2,
+        "fetchSketchTime": 15,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 4,
+        "fetchSketchTime": 15,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 5,
+        "fetchSketchTime": 15,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 6,
+        "fetchSketchTime": 15,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 7,
+        "fetchSketchTime": 16,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 8,
+        "fetchSketchTime": 16,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 9,
+        "fetchSketchTime": 15,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 18,
+        "success": true
+      },
+      {
+        "clientId": 11,
+        "fetchSketchTime": 15,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 10,
+        "fetchSketchTime": 15,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 12,
+        "fetchSketchTime": 16,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 13,
+        "fetchSketchTime": 16,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 14,
+        "fetchSketchTime": 16,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 15,
+        "fetchSketchTime": 16,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 16,
+        "fetchSketchTime": 16,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 19,
+        "success": true
+      },
+      {
+        "clientId": 18,
+        "fetchSketchTime": 16,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 20,
+        "success": true
+      },
+      {
+        "clientId": 17,
+        "fetchSketchTime": 16,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 20,
+        "success": true
+      },
+      {
+        "clientId": 19,
+        "fetchSketchTime": 17,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 20,
+        "success": true
+      },
+      {
+        "clientId": 20,
+        "fetchSketchTime": 17,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 20,
+        "success": true
+      },
+      {
+        "clientId": 21,
+        "fetchSketchTime": 17,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 20,
+        "success": true
+      },
+      {
+        "clientId": 22,
+        "fetchSketchTime": 17,
+        "compileTime": 3,
+        "startSimTime": 0,
+        "totalTime": 20,
+        "success": true
+      },
+      {
+        "clientId": 23,
+        "fetchSketchTime": 17,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 21,
+        "success": true
+      },
+      {
+        "clientId": 24,
+        "fetchSketchTime": 17,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 21,
+        "success": true
+      },
+      {
+        "clientId": 25,
+        "fetchSketchTime": 17,
+        "compileTime": 5,
+        "startSimTime": 0,
+        "totalTime": 22,
+        "success": true
+      },
+      {
+        "clientId": 26,
+        "fetchSketchTime": 17,
+        "compileTime": 5,
+        "startSimTime": 0,
+        "totalTime": 22,
+        "success": true
+      },
+      {
+        "clientId": 28,
+        "fetchSketchTime": 18,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 22,
+        "success": true
+      },
+      {
+        "clientId": 27,
+        "fetchSketchTime": 18,
+        "compileTime": 5,
+        "startSimTime": 0,
+        "totalTime": 23,
+        "success": true
+      },
+      {
+        "clientId": 29,
+        "fetchSketchTime": 18,
+        "compileTime": 5,
+        "startSimTime": 0,
+        "totalTime": 23,
+        "success": true
+      },
+      {
+        "clientId": 31,
+        "fetchSketchTime": 18,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 22,
+        "success": true
+      },
+      {
+        "clientId": 30,
+        "fetchSketchTime": 18,
+        "compileTime": 4,
+        "startSimTime": 0,
+        "totalTime": 22,
+        "success": true
+      },
+      {
+        "clientId": 32,
+        "fetchSketchTime": 22,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 23,
+        "success": true
+      },
+      {
+        "clientId": 33,
+        "fetchSketchTime": 23,
+        "compileTime": 0,
+        "startSimTime": 0,
+        "totalTime": 23,
+        "success": true
+      },
+      {
+        "clientId": 35,
+        "fetchSketchTime": 23,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 24,
+        "success": true
+      },
+      {
+        "clientId": 34,
+        "fetchSketchTime": 24,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 25,
+        "success": true
+      },
+      {
+        "clientId": 36,
+        "fetchSketchTime": 24,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 25,
+        "success": true
+      },
+      {
+        "clientId": 37,
+        "fetchSketchTime": 25,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 26,
+        "success": true
+      },
+      {
+        "clientId": 39,
+        "fetchSketchTime": 25,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 26,
+        "success": true
+      },
+      {
+        "clientId": 38,
+        "fetchSketchTime": 26,
+        "compileTime": 0,
+        "startSimTime": 0,
+        "totalTime": 26,
+        "success": true
+      },
+      {
+        "clientId": 41,
+        "fetchSketchTime": 26,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 27,
+        "success": true
+      },
+      {
+        "clientId": 40,
+        "fetchSketchTime": 27,
+        "compileTime": 0,
+        "startSimTime": 0,
+        "totalTime": 27,
+        "success": true
+      },
+      {
+        "clientId": 42,
+        "fetchSketchTime": 27,
+        "compileTime": 0,
+        "startSimTime": 0,
+        "totalTime": 27,
+        "success": true
+      },
+      {
+        "clientId": 43,
+        "fetchSketchTime": 27,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 28,
+        "success": true
+      },
+      {
+        "clientId": 44,
+        "fetchSketchTime": 28,
+        "compileTime": 0,
+        "startSimTime": 0,
+        "totalTime": 28,
+        "success": true
+      },
+      {
+        "clientId": 46,
+        "fetchSketchTime": 28,
+        "compileTime": 0,
+        "startSimTime": 0,
+        "totalTime": 28,
+        "success": true
+      },
+      {
+        "clientId": 45,
+        "fetchSketchTime": 28,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 29,
+        "success": true
+      },
+      {
+        "clientId": 47,
+        "fetchSketchTime": 29,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 30,
+        "success": true
+      },
+      {
+        "clientId": 48,
+        "fetchSketchTime": 29,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 30,
+        "success": true
+      },
+      {
+        "clientId": 49,
+        "fetchSketchTime": 30,
+        "compileTime": 1,
+        "startSimTime": 0,
+        "totalTime": 31,
+        "success": true
+      },
+      {
+        "clientId": 50,
+        "fetchSketchTime": 31,
+        "compileTime": 0,
+        "startSimTime": 0,
+        "totalTime": 31,
+        "success": true
+      }
+    ]
+  }
+]

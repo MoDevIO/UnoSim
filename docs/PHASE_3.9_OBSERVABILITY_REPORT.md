@@ -1,8 +1,8 @@
 # Phase 3.9 Observability Implementation Report
 
 **Status:** ✅ COMPLETE  
-**Date:** 2026-01-XX  
-**Commit:** [pending final commit]
+**Date:** 2026-09-06  
+**Commit:** bb63ce1a4f468cbea07780eb136593570fe56173
 
 ---
 
@@ -102,6 +102,15 @@ Phase 3.9 Observability wurde erfolgreich implementiert. Der Server exponiert je
     "memoryPercent": 3.1,
     "uptimeSeconds": 3600
   },
+  "compileWorkerPool": {
+    "active": 8,
+    "queued": 42,
+    "totalTasks": 50,
+    "completedTasks": 0,
+    "failedTasks": 0,
+    "avgCompileTimeMs": 0,
+    "maxWorkers": 8
+  },
   "compileSlots": { /* existing */ },
   "sandboxRunners": { /* existing */ },
   "pool": { /* deprecated alias */ },
@@ -123,6 +132,20 @@ Phase 3.9 Observability wurde erfolgreich implementiert. Der Server exponiert je
 - `server/routes/status.routes.ts`
   - Exportiert `statusRouter` für Tests
   - Integriert neue Metriken in `/api/status`
+  - Ergänzt `compileWorkerPool` für `/api/compile`-Worker-Queue-Messung
+
+- `server/services/compilation-worker-pool.ts`
+  - Erfasst Queue-Wartezeit zwischen Enqueue und Worker-Dispatch
+  - Erfasst reine Worker-Compile-Dauer ab Dispatch
+  - Meldet Compile-Erfolg/Fehler/Timeout direkt an `compileMetricsTracker`
+
+- `server/services/compiler-with-fallback.ts`
+  - Markiert Compiler als native compile-metrics-aware
+  - Erfasst Metriken für direkten Fallback-Pfad ohne Doppelzählung
+
+- `server/routes/compiler.routes.ts`
+  - Unterstützt `DISABLE_COMPILE_CACHE=true` für cache-kontrollierte Lasttests
+  - Vermeidet doppelte Compile-Metriken, wenn der Compiler selbst Metriken erfasst
   
 - `server/routes/simulation/ws-session-manager.ts`
   - `register()`: `webSocketMetricsTracker.onConnection()`
@@ -181,6 +204,44 @@ npm run check
 # ✅ No errors
 ```
 
+### 50-Client Real-Docker Observability Test (cache-kontrolliert)
+
+**Lauf:** `load-test-results/50-client-observability-2026-09-06T15-35-41-346Z.json`  
+**Server:** Production Bundle (`node dist/index.js`)  
+**Modus:** `UNOSIM_SERVER_MODE=docker`, `UNOSIM_SIMULATION_MODE=docker-sandbox`  
+**Compile-Worker:** 8  
+**API-Compile-Cache:** deaktiviert via `DISABLE_COMPILE_CACHE=true`  
+**100-Client-Test:** nicht ausgeführt.
+
+| Metrik | Ergebnis |
+|--------|----------|
+| Clients | 50 |
+| Erfolgreich | 50/50 |
+| Fehlgeschlagen | 0 |
+| API-Cache-Hits | 0 (0.0%) |
+| API-Cache-Misses | 50 (100.0%) |
+| Gesamtzeit | 46,058ms |
+| Durchsatz | 1.09 Requests/s |
+| Ø Latenz | 26,129ms |
+| P50 Latenz | 28,539ms |
+| P90 Latenz | 42,296ms |
+| P95 Latenz | 42,435ms |
+| P99 Latenz | 45,041ms |
+| Compile Count | 50 |
+| Ø Worker-Compile-Dauer | 6,874ms |
+| Max Worker-Compile-Dauer | 8,229ms |
+| Ø Queue-Wartezeit | 19,219ms |
+| Max Queue-Wartezeit | 42,088ms |
+| Peak Compile-Queue | 42 |
+| Timeouts | 0 |
+| Compile Errors | 0 |
+| Peak Server CPU | 0.05% |
+| Peak Server Memory | 0.07% |
+
+**Bewertung:** Der cache-kontrollierte Compile-Lasttest ist funktional erfolgreich und validiert den Docker-Worker-Pfad mit 8 parallelen Compile-Workern. Die Queue-Messung ist nach Instrumentierung im `CompilationWorkerPool` belastbar: Bei 50 gleichzeitigen Compile-Anfragen wurden 8 Tasks aktiv verarbeitet und bis zu 42 Tasks warteten in der Worker-Queue.
+
+**Abgrenzung:** Dieser Lauf ist ein Compile-only-Test über `/api/compile`. Daher bleiben `webSocketSessions.active = 0` und `sandboxRunners.inUse = 0` erwartungsgemäß. WebSocket-Sessions und Runner-Auslastung müssen in einem separaten 50-Client-Simulationslauf validiert werden, bevor eine vollständige Kapazitätsfreigabe ausgesprochen wird.
+
 ---
 
 ## SonarQube Analyse
@@ -218,12 +279,12 @@ Alle Metriken sind in diesem Report dokumentiert. Für die Langzeitdokumentation
 
 ## Nächste Schritte
 
-### 1. 50-Client Real Docker Test mit Metriken
-**Empfehlung:** Vor 100-Client-Freigabe einen 50-Client-Test mit Metriken durchführen:
-- Baseline-Metriken bei 50 Clients erfassen
-- CPU/Memory-Engpässe identifizieren
-- Compile-Queue bei Concurrency 8 validieren
+### 1. 50-Client Simulation/WebSocket-Test mit Metriken
+**Empfehlung:** Vor 100-Client-Freigabe zusätzlich einen 50-Client-Simulationslauf durchführen:
 - WebSocket-Sessions im Peak messen
+- Runner-Pool-Auslastung und Runner-Queue validieren
+- Unerwartete Disconnects ausschließen
+- Compile-Only-Baseline mit Simulation-End-to-End-Baseline vergleichen
 
 ### 2. 100-Client Freigabe-Kriterien
 **Empfohlene Kriterien:**
@@ -246,7 +307,7 @@ Alle Metriken sind in diesem Report dokumentiert. Für die Langzeitdokumentation
 
 ✅ **Phase 3.9 ist abgeschlossen.** Alle geforderten Metriken sind implementiert, getestet und dokumentiert. Der Server ist jetzt observability-fähig für belastbare Kapazitätsanalysen.
 
-⚠️ **100-Client-Freigabe:** Wird empfohlen, nach einem 50-Client-Test mit Metriken zu erfolgen, um Engpässe zu identifizieren und Schwellwerte zu kalibrieren.
+⚠️ **100-Client-Freigabe:** Noch nicht freigegeben. Der cache-kontrollierte 50-Client-Compile-Test ist bestanden, aber die vollständige Freigabe benötigt noch einen 50-Client-Simulation/WebSocket-Lauf zur Validierung von Session- und Runner-Auslastung.
 
 ---
 
