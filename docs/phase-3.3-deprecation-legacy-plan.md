@@ -182,6 +182,7 @@ Diese Mechanismen werden nur auf Dokumentationskonsistenz geprueft. Eine funktio
 | Gate | ✅ Shared-Parser-, Registry-, Pin-Validator-, WebSocket- und UI-Tests; Snapshot-/Payload-Vergleich; `./run-tests.sh` |
 | Migrationserfordernis vor Entfernung | ✅ **ERLEDIGT:** 1. `updatePinMode()` setzt `pinModeLines`/`pinModeModes` (Stage 1). 2. `ensurePinModeOperation()` bleibt als Fallback für Legacy-Consumer. 3. `computeRegistryHash()` berücksichtigt moderne Felder. 4. Tests für Runtime-Pfad erweitert (Stage 2). 5. Legacy-Felder können zu Fallback degradiert werden. |
 | Entfernung | Producer (`populateLegacyFields`), Schemafelder und Consumer-Fallbacks in getrennten, jeweils gruendenbaren Commits entfernen |
+| Removal-Entscheidung (Stage 4) | ❌ **DEFERRED:** Legacy-Felder (`pinMode`, `definedAt`, `usedAt`) bleiben als Fallback für Backward Compatibility erhalten. Begründung: (1) Externe Consumer könnten noch `pinMode` lesen, (2) UI verwendet `pinMode` als Fallback wenn moderne Felder fehlen, (3) Logging in `registry-manager.ts` Zeile 621 verwendet `pinMode` für Debug-Output. Empfehlung: Legacy-Felder als "deprecated, fallback-only" markieren, nicht entfernen. |
 | Commit-Message | `refactor(3.3): migrate io registry to modern fields` (mehrere Commits erforderlich) |
 
 ### Teilstep 3.3.6 — `gccStatus`-Migration abschliessen
