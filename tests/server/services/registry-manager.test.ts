@@ -78,6 +78,29 @@ describe("RegistryManager", () => {
       });
     });
 
+    it("should set modern fields (pinModeLines, pinModeModes) on runtime update", () => {
+      manager.startCollection();
+      manager.finishCollection();
+
+      manager.updatePinMode(13, 1); // OUTPUT
+
+      const registry = manager.getRegistry();
+      expect(registry[0].pinModeLines).toContain("runtime");
+      expect(registry[0].pinModeModes).toContain("OUTPUT");
+    });
+
+    it("should accumulate multiple runtime pinMode updates in modern fields", () => {
+      manager.startCollection();
+      manager.finishCollection();
+
+      manager.updatePinMode(13, 0); // INPUT
+      manager.updatePinMode(13, 1); // OUTPUT
+
+      const registry = manager.getRegistry();
+      expect(registry[0].pinModeLines).toEqual(["runtime", "runtime"]);
+      expect(registry[0].pinModeModes).toEqual(["INPUT", "OUTPUT"]);
+    });
+
     it("should create new pin if not in registry", () => {
       manager.startCollection();
       manager.finishCollection();
