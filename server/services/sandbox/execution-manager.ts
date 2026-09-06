@@ -30,6 +30,7 @@ import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrF
 import { runLocalStart, runDockerStart, type LocalStartContext, type DockerStartContext, type DockerStartParams, type TransitionToFn } from "./execution-phases/start-phase";
 import { decideExecutionRoute } from "./execution-phases/router-phase";
 import { performCompilation, type PrepareContext } from "./execution-phases/prepare-phase";
+import { compileMetricsTracker } from "../server-metrics";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -393,10 +394,12 @@ export class ExecutionManager {
     // to prevent CPU starvation when many students start simulations at once.
     // The slot is released once [[RUNTIME_START]] is detected (compile done) or
     // on any error, so the semaphore only covers the compile phase.
+    const queueStartTime = Date.now();
     const releaseSemaphore = await getDockerCompileSemaphore().acquire(() => {
       opts.onCompileQueued?.();
     }, config.timeouts.compileGatekeeperAcquireMs);
-
+    const queueWaitTimeMs = Date.now() - queueStartTime;
+    
     // Guard: abort if the simulation was stopped while we were waiting
     if (state.processKilled || state.pendingCleanup || state.state === SimulationState.STOPPED) {
       releaseSemaphore();
@@ -412,13 +415,19 @@ export class ExecutionManager {
       }
     };
 
+    // Track compile metrics
+    const compileStartTime = Date.now();
+    let compileTimedOut = false;
+    
     // Wrap compile callbacks so the semaphore is released as soon as the
     // compile phase ends (success or error), freeing the slot for the next waiter.
     const wrappedOnCompileSuccess = () => {
+      compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, true, compileTimedOut);
       releaseOnce();
       onCompileSuccess?.();
     };
     const wrappedOnCompileError = (err: string) => {
+      compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, false, compileTimedOut);
       releaseOnce();
       onCompileError?.(err);
     };
@@ -493,6 +502,8 @@ export class ExecutionManager {
         },
       );
     } catch (err) {
+      const isTimeout = err instanceof Error && err.message.includes("timeout");
+      compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, false, isTimeout);
       releaseOnce();
       this.logger.error(`Docker process spawn failed: ${err instanceof Error ? err.message : String(err)}`);
       this.transitionTo(state, SimulationState.STOPPED);
@@ -513,11 +524,19 @@ export class ExecutionManager {
   ): Promise<void> {
     const executionTimeout = normalizeSimulationTimeout(opts.timeoutSec);
     const { onCompileError, onExit } = opts;
+    
+    // Track compile metrics for local execution (no queue wait)
+    const queueWaitTimeMs = 0;
+    const compileStartTime = Date.now();
+    let compileTimedOut = false;
 
     try {
       state.isCompiling = true;
       await this.performCompilation(files.sketchFile, files.exeFile, opts, state);
       state.isCompiling = false;
+      
+      // Compile success
+      compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, true, compileTimedOut);
 
       if (state.pendingCleanup || state.processKilled || state.state === SimulationState.STOPPED) {
         this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
@@ -535,6 +554,8 @@ export class ExecutionManager {
       this.setupLocalHandlers(callbacks, onExit, executionTimeout, state);
     } catch (err) {
       state.isCompiling = false;
+      const isTimeout = err instanceof Error && err.message.includes("timeout");
+      compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, false, isTimeout);
       if (onCompileError) onCompileError(err instanceof Error ? err.message : String(err));
       if (onExit) onExit(-1);
       this.transitionTo(state, SimulationState.STOPPED);

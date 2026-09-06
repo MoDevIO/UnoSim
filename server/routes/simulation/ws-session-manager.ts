@@ -5,6 +5,7 @@ import type { SandboxRunner } from "../../services/sandbox-runner";
 import type { SandboxRunnerPool } from "../../services/sandbox-runner-pool";
 import { WsSessionLifecycle } from "../../services/ws-session-lifecycle";
 import { sendMessageToClient } from "./ws-output-buffer";
+import { webSocketMetricsTracker } from "../../services/server-metrics";
 
 export type ClientState = {
   subject: string;
@@ -26,6 +27,7 @@ export class WsSessionManager {
   constructor(private readonly params: WsSessionManagerParams) {}
 
   register(ws: WebSocket, state: ClientState): void {
+    webSocketMetricsTracker.onConnection();
     this.clientRunners.register(ws, state);
   }
 
@@ -34,7 +36,11 @@ export class WsSessionManager {
   }
 
   remove(ws: WebSocket): ClientState | undefined {
-    return this.clientRunners.remove(ws);
+    const state = this.clientRunners.remove(ws);
+    if (state) {
+      webSocketMetricsTracker.onDisconnection();
+    }
+    return state;
   }
 
   entries(): IterableIterator<[WebSocket, ClientState]> {
@@ -77,6 +83,7 @@ export class WsSessionManager {
     state.isPaused = false;
 
     if (wasRunning) {
+      webSocketMetricsTracker.onSessionStop();
       this.broadcastWorkerTotal();
     }
 
