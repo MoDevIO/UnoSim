@@ -36,7 +36,7 @@ function formatTimestamp(isoString) {
 function getStatusIcon(testResult) {
   const successRate = testResult.successRate || 0;
   const timeoutCount = testResult.timeoutCount || 0;
-  const cleanupSuccess = testResult.cleanupSuccess;
+  const cleanupSuccess = testResult.cleanupSuccess !== false; // Default to true if undefined
   
   if (successRate >= 98 && timeoutCount === 0 && cleanupSuccess) {
     return '✅ Bestanden';
