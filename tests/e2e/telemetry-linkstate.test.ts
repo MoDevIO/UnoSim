@@ -54,7 +54,7 @@ void loop() {
     });
 
     // Wait for compilation to complete — real avr-gcc compilation can take 5–15s
-    await waitForMessage('compilation_status', (msg: any) => msg.gccStatus === 'success', 30000);
+    await waitForMessage('compilation_status', (msg: any) => msg.arduinoCliStatus === 'success', 30000);
 
     // Collect telemetry messages for 3 seconds
     const telemetryMessages: any[] = [];

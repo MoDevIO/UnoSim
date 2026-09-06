@@ -12,8 +12,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "../../../../server/services/sandbox/execution-phases/cleanup-phase";
 import type { ExecutionState } from "../../../../server/services/sandbox/execution-manager";
-import type { PinStateBatcher } from "../../../../server/services/sandbox/pin-state-batcher";
-import type { SerialOutputBatcher } from "../../../../server/services/sandbox/serial-output-batcher";
+import type { PinStateBatcher } from "../../pin-state-batcher";
+import type { SerialOutputBatcher } from "../../serial-output-batcher";
 
 // Mocks für Dependencies
 const createMockLogger = () => ({

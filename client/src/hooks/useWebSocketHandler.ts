@@ -249,20 +249,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     if (message.message) {
       setCliOutput(message.message);
     }
-    // Propagate Docker compile phase to external API (parent frame/test dashboard)
-    // and to the button state via setDockerGccPhase for granular UI feedback.
-    if (message.gccStatus === "queued") {
-      params.setDockerGccPhase?.("queued");
-      emitSimulationStateEvent("QUEUED_FOR_COMPILING");
-    } else if (message.gccStatus === "compiling") {
-      params.setDockerGccPhase?.("active");
-      emitSimulationStateEvent("COMPILING");
-    } else if (message.gccStatus === "success") {
-      params.setDockerGccPhase?.("idle");
-      // Compile phase ended — transition badge back to RUNNING so dashboards
-      // that were showing QUEUED_FOR_COMPILING or COMPILING reflect the true state.
-      emitSimulationStateEvent("RUNNING");
-    }
+    // gccStatus removed - Docker compile phase tracking migrated to canonical status fields
   };
 
   /** Handle compilation_error messages. */

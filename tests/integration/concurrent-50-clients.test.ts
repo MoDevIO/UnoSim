@@ -315,7 +315,7 @@ async function createWsClient(
       try {
         const msg = parseWebSocketMessage(raw);
 
-        if (msg.type === "compilation_status" && msg.gccStatus === "success") {
+        if (msg.type === "compilation_status" && msg.arduinoCliStatus === "success") {
           result.receivedCompilationStatus = true;
         }
 

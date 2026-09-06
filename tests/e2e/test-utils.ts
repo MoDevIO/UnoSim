@@ -55,10 +55,10 @@ export async function setupTestEnvironment(): Promise<TestEnvironment> {
             // not needed for E2E assertions
           },
           onCompileSuccess: () => {
-            messageQueue.push({ type: 'compilation_status', gccStatus: 'success' });
+            messageQueue.push({ type: 'compilation_status', arduinoCliStatus: 'success' });
           },
           onCompileError: (error) => {
-            messageQueue.push({ type: 'compilation_status', gccStatus: 'error', error });
+            messageQueue.push({ type: 'compilation_status', arduinoCliStatus: 'error', error });
           },
           onTelemetry: (metrics) => {
             messageQueue.push({ type: 'sim_telemetry', metrics });

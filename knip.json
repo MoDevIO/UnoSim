@@ -2,6 +2,7 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "ignoreBinaries": ["sonar-scanner"],
   "ignoreExportsUsedInFile": true,
+  "ignore": ["tests/**/cleanup-phase.test.ts"],
   "entry": [
     "client/src/types/external-api.ts",
     "shared/worker-protocol.ts",

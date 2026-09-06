@@ -163,17 +163,9 @@ export function registerSimulationWebSocket(
    * Extracted to reduce cognitive complexity of message handler.
    */
   function buildRunSketchCallbacks(ws: WebSocket, clientState: ClientState) {
-    let gccSuccessSent = false;
     let compileFailed = false;
 
     const onOutput = (line: string, isComplete?: boolean) => {
-      if (!gccSuccessSent) {
-        gccSuccessSent = true;
-        sendMessageToClient(ws, {
-          type: WSMessageType.COMPILATION_STATUS,
-          gccStatus: "success",
-        });
-      }
       outputBuffer.sendSerialOutputBatched(ws, line, isComplete);
     };
 
@@ -186,7 +178,7 @@ export function registerSimulationWebSocket(
       });
     };
 
-    const onExit = (exitCode: number | null) => {
+    const onExit = (_exitCode: number | null) => {
       // Capture client state immediately — the session entry
       // may be deleted by the ws "close" handler before the setTimeout fires.
       const capturedCs = sessionManager.get(ws);
@@ -199,14 +191,6 @@ export function registerSimulationWebSocket(
           }
 
           if (!shouldSendSimulationEndMessage(compileFailed)) return;
-
-          if (exitCode === 0 && !gccSuccessSent) {
-            gccSuccessSent = true;
-            sendMessageToClient(ws, {
-              type: WSMessageType.COMPILATION_STATUS,
-              gccStatus: "success",
-            });
-          }
 
           sendMessageToClient(ws, {
             type: WSMessageType.SERIAL_OUTPUT,
@@ -235,7 +219,7 @@ export function registerSimulationWebSocket(
       });
       sendMessageToClient(ws, {
         type: WSMessageType.COMPILATION_STATUS,
-        gccStatus: "error",
+        arduinoCliStatus: "error",
       });
       sendMessageToClient(ws, {
         type: WSMessageType.SIMULATION_STATUS,
@@ -253,20 +237,15 @@ export function registerSimulationWebSocket(
     };
 
     const onCompileSuccess = () => {
-      if (!gccSuccessSent) {
-        gccSuccessSent = true;
-        sendMessageToClient(ws, {
-          type: WSMessageType.COMPILATION_STATUS,
-          gccStatus: "success",
-        });
-      }
+      sendMessageToClient(ws, {
+        type: WSMessageType.COMPILATION_STATUS,
+        arduinoCliStatus: "success",
+      });
     };
 
     const onCompileQueued = () => {
-      sendMessageToClient(ws, {
-        type: WSMessageType.COMPILATION_STATUS,
-        gccStatus: "queued",
-      });
+      // gccStatus:queued removed in Phase 3.3.6 - queue state no longer emitted via WS
+      // arduinoCliStatus does not have a "queued" state
     };
 
     const onPinState = (pin: number, type: PinStateChange, value: number) => {
@@ -536,7 +515,7 @@ export function registerSimulationWebSocket(
     });
     sendMessageToClient(ws, {
       type: WSMessageType.COMPILATION_STATUS,
-      gccStatus: "compiling",
+      arduinoCliStatus: "compiling",
       workerIndex: acquiredWorkerIndex,
       workerTotal: sessionManager.countRunningClients(),
     });

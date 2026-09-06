@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { performCompilation, type PrepareContext } from "../../../../../server/services/sandbox/execution-phases/prepare-phase";
 import type { ExecutionState } from "../../../../../server/services/sandbox/execution-manager";
-import type { RunSketchOptions } from "../../../../../server/services/sandbox/run-sketch-types";
-import type { LocalCompiler } from "../../../../../server/services/sandbox/local-compiler";
+import type { RunSketchOptions } from "../../../../../server/services/run-sketch-types";
+import type { LocalCompiler } from "../../../../../server/services/local-compiler";
 import { Logger } from "@shared/logger";
 import { SimulationState } from "../../../../../server/services/sandbox/execution-manager";
 import * as gatekeeperModule from "../../../../../server/services/unified-gatekeeper";

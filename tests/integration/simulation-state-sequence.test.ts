@@ -9,11 +9,12 @@
  *   idle
  *   → [simulation_status: queued]        ← only when pool is saturated
  *   → simulation_status: running
- *   → compilation_status gccStatus: compiling
- *   → [compilation_status gccStatus: queued]   ← only when compile slot is unavailable
- *   → compilation_status gccStatus: success
+ *   → compilation_status arduinoCliStatus: compiling
+ *   → compilation_status arduinoCliStatus: success
  *   → (serial output)
  *   → simulation_status: stopped
+ *
+ * Note: gccStatus was removed in Phase 3.3.6. Queue state is no longer emitted via WS.
  *
  * If the user pauses:
  *   → simulation_status: paused
@@ -56,7 +57,7 @@ const mockBehavior: MockBehavior = {
 interface WorkerMessage {
   type: string;
   status?: string;
-  gccStatus?: string;
+  arduinoCliStatus?: string;
   data?: string;
 }
 
@@ -294,7 +295,7 @@ vi.mock("@shared/logger", () => ({
 interface WsMessage {
   type: string;
   status?: string;
-  gccStatus?: string;
+  arduinoCliStatus?: string;
   data?: string;
   timestamp: number;
 }
@@ -358,7 +359,7 @@ async function runClient(
         result.wsMessages.push({
           type: msg.type,
           status: msg.status,
-          gccStatus: msg.gccStatus,
+          arduinoCliStatus: msg.arduinoCliStatus,
           data: msg.data,
           timestamp: Date.now(),
         });
@@ -399,11 +400,11 @@ function simStatuses(result: ClientResult): string[] {
     .map((m) => m.status ?? "");
 }
 
-/** Extracts gccStatus values in the order they were received. */
-function gccStatuses(result: ClientResult): string[] {
+/** Extracts arduinoCliStatus values in the order they were received. */
+function cliStatuses(result: ClientResult): string[] {
   return result.wsMessages
-    .filter((m) => m.type === "compilation_status" && m.gccStatus !== undefined)
-    .map((m) => m.gccStatus ?? "");
+    .filter((m) => m.type === "compilation_status" && m.arduinoCliStatus !== undefined)
+    .map((m) => m.arduinoCliStatus ?? "");
 }
 
 // ── Shared sketch ────────────────────────────────────────────────────────────
@@ -477,7 +478,7 @@ describe("Simulation state sequence", () => {
     expect(result.receivedStopped).toBe(true);
 
     const simSeq = simStatuses(result);
-    const gccSeq = gccStatuses(result);
+    const cliSeq = cliStatuses(result);
 
     // Server sends "running" immediately after acquiring runner (no queue)
     expect(simSeq).not.toContain("queued");
@@ -487,10 +488,10 @@ describe("Simulation state sequence", () => {
       simSeq.lastIndexOf("stopped"),
     );
 
-    // Compile phase: compiling → success
-    expect(gccSeq).toContain("compiling");
-    expect(gccSeq).toContain("success");
-    expect(gccSeq.indexOf("compiling")).toBeLessThan(gccSeq.indexOf("success"));
+    // Compilation status: compiling → success (no queued since Phase 3.3.6)
+    expect(cliSeq).toContain("compiling");
+    expect(cliSeq).toContain("success");
+    expect(cliSeq.indexOf("compiling")).toBeLessThan(cliSeq.indexOf("success"));
   }, 15_000);
 
   it("rejects a malformed client message before it can start a simulation", async () => {
@@ -618,7 +619,7 @@ describe("Simulation state sequence", () => {
           (r) =>
             `#${r.index}: timedOut=${r.timedOut}, ` +
             `statuses=[${simStatuses(r).join(",")}], ` +
-            `gcc=[${gccStatuses(r).join(",")}], ` +
+            `cli=[${cliStatuses(r).join(",")}], ` +
             `errors=[${r.errors.join(";")}]`,
         )
         .join("\n  ");
@@ -631,28 +632,10 @@ describe("Simulation state sequence", () => {
     expect(errored).toHaveLength(0);
   }, 20_000);
 
-  // ─── 4: Compile-queue state — gccStatus:queued emitted ────────────────────
+  // ─── 4: Compile-queue state — REMOVED in Phase 3.3.6 ──────────────────────
   //
-  // When the compile semaphore / gatekeeper has no free slots, the client
-  // must receive gccStatus:"queued" (→ QUEUED_FOR_COMPILING in the external API).
-
-  it("compile-queue state — gccStatus:queued emitted when compile slot is unavailable", async () => {
-    mockBehavior.callCompileQueued = true; // MockRunner calls onCompileQueued
-
-    const result = await runClient(port, 0, BLINK_SKETCH);
-
-    expect(result.receivedStopped).toBe(true);
-    expect(result.timedOut).toBe(false);
-
-    const gcc = gccStatuses(result);
-    expect(gcc).toContain("queued");
-
-    // After queued, must still complete: compiling (the initial one) and success
-    expect(gcc).toContain("compiling");
-    expect(gcc).toContain("success");
-    // queued must precede success
-    expect(gcc.indexOf("queued")).toBeLessThan(gcc.indexOf("success"));
-  }, 15_000);
+  // gccStatus:queued was removed. Queue state is no longer emitted via WS.
+  // This test has been removed as part of the gccStatus deprecation.
 
   // ─── 5: Pause / resume state sequence ─────────────────────────────────────
 
@@ -701,7 +684,7 @@ describe("Simulation state sequence", () => {
         result.wsMessages.push({
           type: msg.type,
           status: msg.status,
-          gccStatus: msg.gccStatus,
+          arduinoCliStatus: msg.arduinoCliStatus,
           data: msg.data,
           timestamp: Date.now(),
         });
@@ -710,7 +693,7 @@ describe("Simulation state sequence", () => {
         if (
           !pauseSent &&
           msg.type === "compilation_status" &&
-          msg.gccStatus === "success"
+          msg.arduinoCliStatus === "success"
         ) {
           pauseSent = true;
           setTimeout(() => {
@@ -817,7 +800,7 @@ describe("Simulation state sequence", () => {
         result.wsMessages.push({
           type: msg.type,
           status: msg.status,
-          gccStatus: msg.gccStatus,
+          arduinoCliStatus: msg.arduinoCliStatus,
           data: msg.data,
           timestamp: Date.now(),
         });
@@ -830,7 +813,7 @@ describe("Simulation state sequence", () => {
         if (
           !stopSent &&
           msg.type === "compilation_status" &&
-          msg.gccStatus === "success"
+          msg.arduinoCliStatus === "success"
         ) {
           stopSent = true;
           setTimeout(
@@ -901,9 +884,9 @@ describe("Simulation state sequence", () => {
 
     // Every client must have received a valid compile sequence
     for (const r of results) {
-      const gcc = gccStatuses(r);
-      expect(gcc).toContain("compiling");
-      expect(gcc).toContain("success");
+      const cli = cliStatuses(r);
+      expect(cli).toContain("compiling");
+      expect(cli).toContain("success");
     }
   }, 40_000);
 });
@@ -950,10 +933,9 @@ describe("External API state consistency (unit)", () => {
     "sim:running": "RUNNING",
     "sim:paused": "PAUSED",
     "sim:stopped": "IDLE",
-    // compilation_status gccStatus messages
-    "gcc:queued": "QUEUED_FOR_COMPILING",
-    "gcc:compiling": "COMPILING",
-    "gcc:success": "RUNNING", // re-emits RUNNING after compile phase ends
+    // compilation_status arduinoCliStatus messages
+    "cli:compiling": "COMPILING",
+    // Note: gccStatus removed in Phase 3.3.6 - QUEUED_FOR_COMPILING no longer emitted
   };
 
   it("QUEUED_FOR_SIMULATION: simulation_status=queued → API returns QUEUED_FOR_SIMULATION", () => {
@@ -1013,18 +995,10 @@ describe("External API state consistency (unit)", () => {
     );
   });
 
-  it("gcc:compiling event maps to same state as deriveApiState(idle, compiling)", () => {
-    expect(wsEventToApiState["gcc:compiling"]).toBe(
+  it("cli:compiling → API returns COMPILING", () => {
+    expect(wsEventToApiState["cli:compiling"]).toBe("COMPILING");
+    expect(wsEventToApiState["cli:compiling"]).toBe(
       deriveApiState("idle", "compiling"),
-    );
-  });
-
-  it("gcc:success re-emits RUNNING — consistent with running state after compile phase", () => {
-    // After gccStatus:success the simulation is executing its loop()
-    // → RUNNING is the correct external API state
-    expect(wsEventToApiState["gcc:success"]).toBe("RUNNING");
-    expect(wsEventToApiState["gcc:success"]).toBe(
-      deriveApiState("running", "success"),
     );
   });
 
