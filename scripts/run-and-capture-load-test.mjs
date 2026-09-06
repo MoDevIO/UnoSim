@@ -15,6 +15,18 @@
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { startVitest } from 'vitest/node';
+import { execFileSync } from 'node:child_process';
+
+const TRUSTED_DOCKER_BINARIES = Object.freeze([
+  '/usr/local/bin/docker',
+  '/opt/homebrew/bin/docker',
+  '/Applications/Docker.app/Contents/Resources/bin/docker',
+  '/usr/bin/docker',
+]);
+
+function resolveTrustedDockerBinary() {
+  return TRUSTED_DOCKER_BINARIES.find((binaryPath) => existsSync(binaryPath));
+}
 
 async function runTest(clientCount, outputDir) {
   console.log(`[LoadTest] Running ${clientCount}-client load test...`);
@@ -82,11 +94,13 @@ if (!existsSync(outputPath)) {
 console.log(`[LoadTest] Metrics already saved to ${outputPath}`);
 
 // Cleanup-Report: Docker-Container prüfen
-import { execSync } from 'node:child_process';
 
 function countDockerContainers() {
+  const dockerBinary = resolveTrustedDockerBinary();
+  if (!dockerBinary) return 0;
+
   try {
-    const output = execSync('docker ps --format "{{.Names}}" 2>/dev/null', {
+    const output = execFileSync(dockerBinary, ['ps', '--format', '{{.Names}}'], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'ignore']
     });

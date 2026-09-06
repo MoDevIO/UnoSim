@@ -28,6 +28,7 @@ import {
   isCompileResponse,
 } from "@shared/worker-protocol";
 import { config } from "../config";
+import { compileMetricsTracker } from "./server-metrics";
 
 /**
  * Statistic tracking for monitoring pool health
@@ -50,6 +51,8 @@ interface CompilationTask {
 
 interface ActiveCompilation {
   item: CompilationTask;
+  compileStartTime: number;
+  queueWaitTimeMs: number;
   messageHandler: (msg: AnyWorkerMessage) => void;
 }
 
@@ -220,6 +223,8 @@ export class CompilationWorkerPool {
       this.availableWorkers.delete(workerId);
 
       const worker = this.workers[workerId];
+      const queueWaitTimeMs = Date.now() - startTime;
+      const compileStartTime = Date.now();
 
       // Set up one-time message handler for this specific task
       const messageHandler = (msg: AnyWorkerMessage) => {
@@ -228,6 +233,12 @@ export class CompilationWorkerPool {
 
           if (payload.error) {
             this.stats.failedTasks++;
+            compileMetricsTracker.recordCompileComplete(
+              compileStartTime,
+              queueWaitTimeMs,
+              false,
+              payload.error.message?.toLowerCase().includes("timeout") === true,
+            );
             const errorMsg = payload.error.message || "Unknown worker error";
             const error = new Error(errorMsg);
             if (payload.error.stack) {
@@ -235,7 +246,13 @@ export class CompilationWorkerPool {
             }
             reject(error);
           } else if (payload.result) {
-            const compileTimeMs = Date.now() - startTime;
+            const compileTimeMs = Date.now() - compileStartTime;
+            compileMetricsTracker.recordCompileComplete(
+              compileStartTime,
+              queueWaitTimeMs,
+              payload.result.success,
+              !payload.result.success && `${payload.result.stderr ?? ""} ${payload.result.errors.map((err) => err.message).join(" ")}`.toLowerCase().includes("timeout"),
+            );
             this.stats.completedTasks++;
             this.stats.compileTimes.push(compileTimeMs);
             this.logger.info(
@@ -245,6 +262,12 @@ export class CompilationWorkerPool {
           } else {
             // Malformed response
             this.stats.failedTasks++;
+            compileMetricsTracker.recordCompileComplete(
+              compileStartTime,
+              queueWaitTimeMs,
+              false,
+              false,
+            );
             reject(new Error("Worker returned malformed response"));
           }
 
@@ -260,6 +283,8 @@ export class CompilationWorkerPool {
 
       this.activeCompilations.set(workerId, {
         item: { task, resolve, reject, startTime },
+        compileStartTime,
+        queueWaitTimeMs,
         messageHandler,
       });
       worker.on("message", messageHandler);
@@ -279,6 +304,12 @@ export class CompilationWorkerPool {
       this.workers[workerId]?.off("message", active.messageHandler);
       this.activeCompilations.delete(workerId);
       this.stats.failedTasks++;
+      compileMetricsTracker.recordCompileComplete(
+        active.compileStartTime,
+        active.queueWaitTimeMs,
+        false,
+        error.message.toLowerCase().includes("timeout"),
+      );
       active.item.reject(error);
     }
 

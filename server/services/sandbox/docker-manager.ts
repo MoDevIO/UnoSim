@@ -43,6 +43,11 @@ interface DockerHandlerState {
 }
 
 type HandleParsedLineDelegate = (parsed: ParsedStderrOutput, callbacks: DockerManagerCallbacks) => void;
+type OutputBudgetState = Pick<DockerHandlerState, "totalOutputBytes">;
+type StdoutHandlerState = Pick<DockerHandlerState, "isCompilePhase" | "compileSuccessSent" | "totalOutputBytes"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
+type StderrHandlerState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "totalOutputBytes" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
+type DockerExitState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
+type DockerRuntimeState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "totalOutputBytes" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime" | "flushTimer">>;
 
 export class DockerManager {
   private readonly logger = new Logger("DockerManager");
@@ -58,8 +63,8 @@ export class DockerManager {
     private readonly handleParsedLine: HandleParsedLineDelegate,
   ) {}
 
-  private consumeOutputBudget(state: Partial<DockerHandlerState>, data: Buffer | string, callbacks: DockerManagerCallbacks): boolean {
-    const counter = state.totalOutputBytes!;
+  private consumeOutputBudget(state: OutputBudgetState, data: Buffer | string, callbacks: DockerManagerCallbacks): boolean {
+    const counter = state.totalOutputBytes;
     counter.value += Buffer.byteLength(data);
     if (counter.value <= this.SANDBOX_CONFIG.maxOutputBytes) return true;
     this.processController.kill("SIGKILL");
@@ -87,11 +92,11 @@ export class DockerManager {
    */
   setupStdoutHandler(
     callbacks: DockerManagerCallbacks,
-    state: Partial<DockerHandlerState>,
+    state: StdoutHandlerState,
     onCompileSuccess?: () => void,
   ): void {
-    const isCompilePhase = state.isCompilePhase!;
-    const compileSuccessSent = state.compileSuccessSent!;
+    const isCompilePhase = state.isCompilePhase;
+    const compileSuccessSent = state.compileSuccessSent;
 
     this.processController.onStdout((data) => {
       const str = data.toString();
@@ -125,10 +130,10 @@ export class DockerManager {
    */
   setupStderrHandlers(
     callbacks: DockerManagerCallbacks,
-    state: Partial<DockerHandlerState>,
+    state: StderrHandlerState,
   ): void {
-    const isCompilePhase = state.isCompilePhase!;
-    const compileErrorBuffer = state.compileErrorBuffer!;
+    const isCompilePhase = state.isCompilePhase;
+    const compileErrorBuffer = state.compileErrorBuffer;
     const useFallbackParser = !this.processController.supportsStderrLineStreaming();
 
     // Raw stderr stream for compile aggregation
@@ -167,13 +172,13 @@ export class DockerManager {
    
   handleDockerExit(
     callbacks: DockerManagerCallbacks,
-    state: Partial<DockerHandlerState>,
+    state: DockerExitState,
     code: number | null,
     config: DockerProcessConfig,
     handlers: DockerEventHandlers,
   ): void {
-    const isCompilePhase = state.isCompilePhase!;
-    const compileErrorBuffer = state.compileErrorBuffer!;
+    const isCompilePhase = state.isCompilePhase;
+    const compileErrorBuffer = state.compileErrorBuffer;
     const useFallbackParser = !this.processController.supportsStderrLineStreaming();
 
     // Flush any remaining data in stderr fallback buffer
@@ -211,7 +216,7 @@ export class DockerManager {
    
   setupDockerHandlers(
     callbacks: DockerManagerCallbacks,
-    state: Partial<DockerHandlerState>,
+    state: DockerRuntimeState,
     config: DockerProcessConfig,
     handlers: DockerEventHandlers,
   ): void {
@@ -252,7 +257,7 @@ export class DockerManager {
   async runInDockerWithHandlers(
     dockerArgs: string[],
     callbacks: DockerManagerCallbacks,
-    state: Partial<DockerHandlerState>,
+    state: DockerRuntimeState,
     config: DockerProcessConfig,
     handlers: DockerEventHandlers,
   ): Promise<void> {

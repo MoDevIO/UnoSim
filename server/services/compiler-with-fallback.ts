@@ -20,8 +20,10 @@ import { ArduinoCompiler } from "./arduino-compiler";
 import type { CompilationResult, CompileRequestOptions } from "./arduino-compiler";
 import type { CompileRequestPayload } from "@shared/worker-protocol";
 import { config } from "../config";
+import { compileMetricsTracker } from "./server-metrics";
 
 export class CompilerWithFallback {
+  readonly tracksCompileMetrics = true;
   private readonly pool: CompilationWorkerPool | null;
   private readonly directCompiler: ArduinoCompiler;
   private readonly usePool: boolean;
@@ -64,20 +66,45 @@ export class CompilerWithFallback {
       try {
         const task: CompileRequestPayload = { code, headers, tempRoot, ...options };
         return await this.pool.compile(task);
-      } catch {
+      } catch (error) {
         // Pool failed to compile (e.g., workers not operational) - fall back to direct compiler
         // This is an expected fallback path when workers are unavailable
         if (!this.directCompiler) {
           throw new Error("Neither pool nor direct compiler available");
         }
-        return await this.directCompiler.compile(code, headers, tempRoot, options);
+        return await this.compileDirectWithMetrics(code, headers, tempRoot, options, error);
       }
     } else {
       // Fall back to direct compiler (always available)
       if (!this.directCompiler) {
         throw new Error("Neither pool nor direct compiler available");
       }
-      return await this.directCompiler.compile(code, headers, tempRoot, options);
+      return await this.compileDirectWithMetrics(code, headers, tempRoot, options);
+    }
+  }
+
+  private async compileDirectWithMetrics(
+    code: string,
+    headers?: Array<{ name: string; content: string }>,
+    tempRoot?: string,
+    options?: CompileRequestOptions,
+    poolError?: unknown,
+  ): Promise<CompilationResult> {
+    const compileStartTime = Date.now();
+
+    try {
+      const result = await this.directCompiler.compile(code, headers, tempRoot, options);
+      compileMetricsTracker.recordCompileComplete(
+        compileStartTime,
+        0,
+        result.success,
+        !result.success && `${result.stderr ?? ""} ${result.errors.map((err) => err.message).join(" ")}`.toLowerCase().includes("timeout"),
+      );
+      return result;
+    } catch (error) {
+      const message = `${poolError instanceof Error ? poolError.message : ""} ${error instanceof Error ? error.message : String(error)}`;
+      compileMetricsTracker.recordCompileComplete(compileStartTime, 0, false, message.toLowerCase().includes("timeout"));
+      throw error;
     }
   }
 

@@ -4,12 +4,15 @@ import type { Logger } from "@shared/logger";
 import { compileRequestSchema } from "@shared/schema";
 import { TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import { resolvePathWithinRoot } from "../security/safe-paths";
+import { compileMetricsTracker } from "../services/server-metrics";
+import path from "node:path";
 
 type CompilerHeader = { name: string; content: string };
 
 type CompilerDeps = {
   compiler: {
     compile: (code: string, headers?: CompilerHeader[], tempRoot?: string, options?: CompileRequestOptions) => Promise<CompilationResult>;
+    tracksCompileMetrics?: boolean;
   };
   compilationCache: Map<string, { result: CompilationResult; timestamp: number }>;
   hashCode: (code: string, headers?: CompilerHeader[], options?: CompileRequestOptions) => string;
@@ -18,32 +21,80 @@ type CompilerDeps = {
   logger: Logger;
 };
 
-import path from "node:path";
+type CompileRequestData = {
+  code: string;
+  headers?: CompilerHeader[];
+  fqbn?: string;
+  libraries?: string[];
+};
+
+type ParsedCompileRequest =
+  | { success: true; data: CompileRequestData }
+  | { success: false; error: string };
+
+function parseCompileRequest(body: unknown): ParsedCompileRequest {
+  const parsedRequest = compileRequestSchema.safeParse(body);
+
+  if (!parsedRequest.success) {
+    const codeMissing = parsedRequest.error.issues.some(
+      (issue) => issue.path[0] === "code" && issue.code === "invalid_type",
+    );
+    return { success: false, error: codeMissing ? "Code is required" : "Invalid compile request" };
+  }
+
+  if (!parsedRequest.data.code) {
+    return { success: false, error: "Code is required" };
+  }
+
+  return { success: true, data: parsedRequest.data };
+}
+
+function isTimedOutCompileResult(result: CompilationResult): boolean {
+  return !result.success && `${result.stderr ?? ""} ${result.errors.map((err) => err.message).join(" ")}`.toLowerCase().includes("timeout");
+}
+
+function recordCompileMetricIfNeeded(
+  compiler: CompilerDeps["compiler"],
+  compileStartTime: number,
+  result: CompilationResult,
+): void {
+  if (compiler.tracksCompileMetrics === true) return;
+  compileMetricsTracker.recordCompileComplete(
+    compileStartTime,
+    0,
+    result.success,
+    isTimedOutCompileResult(result),
+  );
+}
+
+function recordCompileErrorIfNeeded(
+  compiler: CompilerDeps["compiler"],
+  compileStartTime: number | null,
+  error: unknown,
+): void {
+  if (compileStartTime === null || compiler.tracksCompileMetrics === true) return;
+  const message = error instanceof Error ? error.message : String(error);
+  compileMetricsTracker.recordCompileComplete(compileStartTime, 0, false, message.toLowerCase().includes("timeout"));
+}
 
 export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
   const { compiler, compilationCache, hashCode, CACHE_TTL, setLastCompiledCode, logger } = deps;
 
   app.post("/api/compile", async (req, res) => {
+    let compileStartTime: number | null = null;
     try {
-      const parsedRequest = compileRequestSchema.safeParse(req.body);
+      const parsedRequest = parseCompileRequest(req.body);
       if (!parsedRequest.success) {
-        const codeMissing = parsedRequest.error.issues.some(
-          (issue) => issue.path[0] === "code" && issue.code === "invalid_type",
-        );
-        if (codeMissing) {
-          return res.status(400).json({ error: "Code is required" });
-        }
-        return res.status(400).json({ error: "Invalid compile request" });
+        return res.status(400).json({ error: parsedRequest.error });
       }
       const { code, headers, fqbn, libraries } = parsedRequest.data;
-      if (!code) {
-        return res.status(400).json({ error: "Code is required" });
-      }
 
       const codeHash = hashCode(code, headers, { fqbn, libraries });
       const cachedEntry = compilationCache.get(codeHash);
 
-      if (cachedEntry) {
+      const cacheDisabled = process.env.DISABLE_COMPILE_CACHE === "true";
+
+      if (!cacheDisabled && cachedEntry) {
         const cacheAge = Date.now() - cachedEntry.timestamp;
         if (cacheAge < CACHE_TTL) {
           logger.info(`✅ Cache hit for code (age: ${cacheAge}ms)`);
@@ -63,6 +114,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         ? resolvePathWithinRoot(path.join(process.cwd(), "temp"), testRunIdHeader)
         : undefined;
 
+      compileStartTime = Date.now();
       const result: CompilationResult = await compiler.compile(
         code,
         headers,
@@ -73,14 +125,19 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         },
       );
 
+      recordCompileMetricIfNeeded(compiler, compileStartTime, result);
+
       if (result.success) {
-        compilationCache.set(codeHash, { result, timestamp: Date.now() });
-        logger.info(`✅ Cached compilation result for code`);
+        if (!cacheDisabled) {
+          compilationCache.set(codeHash, { result, timestamp: Date.now() });
+          logger.info(`✅ Cached compilation result for code`);
+        }
         setLastCompiledCode(code);
       }
 
       res.json(result);
     } catch (error) {
+      recordCompileErrorIfNeeded(compiler, compileStartTime, error);
       logger.error(`[Compiler Route] Error during /api/compile: ${error instanceof Error ? error.message : String(error)}`);
       res.status(500).json({ error: "Compilation failed" });
     }

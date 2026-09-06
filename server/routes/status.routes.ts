@@ -4,6 +4,7 @@ import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import { getDockerCompileSemaphore } from "../services/sandbox/docker-compile-semaphore";
 import { config } from "../config";
 import { getProcessMetrics, compileMetricsTracker, webSocketMetricsTracker } from "../services/server-metrics";
+import { getCompilerWithFallback } from "../services/compiler-with-fallback";
 
 // Create router for testing
 export const statusRouter = Router();
@@ -31,6 +32,7 @@ statusRouter.get("/api/status", (_req, res) => {
     const processMetrics = getProcessMetrics();
     const compileMetrics = compileMetricsTracker.getMetrics();
     const wsMetrics = webSocketMetricsTracker.getMetrics();
+    const compilerStats = getCompilerWithFallback().getStats();
 
     res.json({
       status: "ok",
@@ -42,6 +44,15 @@ statusRouter.get("/api/status", (_req, res) => {
         active: semaphore.activeCount,
         queued: semaphore.queueLength,
         maxConcurrent,
+      },
+      compileWorkerPool: {
+        active: compilerStats.activeWorkers,
+        queued: compilerStats.queuedTasks,
+        totalTasks: compilerStats.totalTasks,
+        completedTasks: compilerStats.completedTasks,
+        failedTasks: compilerStats.failedTasks,
+        avgCompileTimeMs: compilerStats.avgCompileTimeMs,
+        maxWorkers: config.compilation.workerCount,
       },
       sandboxRunners: {
         total: poolStats.totalRunners,
