@@ -176,12 +176,11 @@ Diese Mechanismen werden nur auf Dokumentationskonsistenz geprueft. Eine funktio
 | Feld | Inhalt |
 | --- | --- |
 | Ziel | `pinModeLines`, `pinModeModes`, Read-/Write-Linearrays und moderne Konfliktinformationen als alleinigen Vertrag etablieren |
-| Ist-Zustand | **SEMANTISCHE LÜCKE:** Static-Parser (`io-registry-parser.ts`) setzt moderne Felder, aber Runtime-Pfad (`registry-manager.ts:updatePinMode`) setzt nur Legacy-Felder (`pinMode`, `usedAt`). Client-UI (`parser-output.tsx`) verwendet moderne Felder优先 mit Legacy-Fallback. |
+| Ist-Zustand | ✅ **ABGESCHLOSSEN (Stufe 1 & 2):** Runtime-Pfad (`updatePinMode`) setzt moderne Felder (`pinModeLines`, `pinModeModes`) seit Stage 1. Tests validieren Runtime-Updates seit Stage 2. Consumer (UI) verwendet moderne Felder bereits als primäre Quelle mit Legacy-Fallback. |
 | Betroffene Dateien | `shared/schema.ts`, `shared/io-registry-parser.ts`, `server/services/registry-manager.ts`, `server/services/registry-logic.ts`, `server/services/utils/pin-validator.ts`, `client/src/components/features/parser-output.tsx`, `client/src/components/features/output-panel.tsx`, `client/src/hooks/useWebSocketHandler.ts` und Registry-/UI-Tests |
-| Voraussetzung | Statische Parserdaten, Runtime-Pin-Modi, Usage-Merge, Konfliktberechnung und UI-Fallbacks sind jeweils modern abgedeckt |
-| Gate | Shared-Parser-, Registry-, Pin-Validator-, WebSocket- und UI-Tests; Snapshot-/Payload-Vergleich; `./run-tests.sh` |
-| Abbruchkriterium | ✅ **EINGETRETEN:** Runtime-Pfad (`updatePinMode`) benoetigt `pinMode` und `usedAt`; moderne Felder (`pinModeLines`, `pinModeModes`) werden im Runtime-Pfad nicht gesetzt |
-| Migrationserfordernis vor Entfernung | 1. `updatePinMode()` muss `pinModeLines`/`pinModeModes` setzen. 2. `ensurePinModeOperation()` auf moderne Felder umstellen oder als Fallback behalten. 3. `computeRegistryHash()` auf moderne Felder umstellen. 4. Tests fuer Runtime-Pfad erweitern (validieren dass moderne Felder gesetzt werden). 5. Dann Legacy-Felder zu Fallback degradieren. |
+| Voraussetzung | ✅ Statische Parserdaten, Runtime-Pin-Modi, Usage-Merge, Konfliktberechnung und UI-Fallbacks sind jeweils modern abgedeckt |
+| Gate | ✅ Shared-Parser-, Registry-, Pin-Validator-, WebSocket- und UI-Tests; Snapshot-/Payload-Vergleich; `./run-tests.sh` |
+| Migrationserfordernis vor Entfernung | ✅ **ERLEDIGT:** 1. `updatePinMode()` setzt `pinModeLines`/`pinModeModes` (Stage 1). 2. `ensurePinModeOperation()` bleibt als Fallback für Legacy-Consumer. 3. `computeRegistryHash()` berücksichtigt moderne Felder. 4. Tests für Runtime-Pfad erweitert (Stage 2). 5. Legacy-Felder können zu Fallback degradiert werden. |
 | Entfernung | Producer (`populateLegacyFields`), Schemafelder und Consumer-Fallbacks in getrennten, jeweils gruendenbaren Commits entfernen |
 | Commit-Message | `refactor(3.3): migrate io registry to modern fields` (mehrere Commits erforderlich) |
 
