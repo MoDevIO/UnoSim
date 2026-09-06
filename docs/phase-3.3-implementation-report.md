@@ -1,18 +1,19 @@
 # Phase 3.3 Implementation Report
 
 **Date:** 2026-01-03  
-**Status:** ✅ 3.3.1 + 3.3.2 completed  
+**Status:** ✅ 3.3.1 + 3.3.2 + 3.3.3 completed  
 **Branch:** feature/phase-3-architecture-hardening  
 
 ---
 
 ## Executive Summary
 
-Phase 3.3 implementation commenced successfully with completion of:
+Phase 3.3 implementation progressed successfully with completion of:
 - ✅ **3.3.1** - Legacy inventory & tracking (completed via plan document)
 - ✅ **3.3.2** - Parser alias migration (removeComments → stripComments)
+- ✅ **3.3.3** - Status contract migration (pool/compile → sandboxRunners/compileSlots)
 
-All gates passed. Zero breaking changes. Ready to proceed with 3.3.3–3.3.6.
+All gates passed. Zero breaking changes. Legacy aliases preserved for backward compatibility.
 
 ---
 
@@ -59,6 +60,65 @@ All gates passed. Zero breaking changes. Ready to proceed with 3.3.3–3.3.6.
 | Full Pipeline | ✅ Green | All 10 steps passed |
 | SonarQube | ✅ Green | Quality Gate PASSED |
 
+---
+
+### 3.3.3: Status Contract Migration
+
+**Status:** ✅ COMPLETED (internal consumers migrated, aliases preserved)  
+**Commit:** `ec95627c`  
+**Changes:**
+
+**Migrated Files:**
+- `client/src/hooks/use-backend-health.ts` — Types and fetch logic migrated
+- `client/src/hooks/useSimulatorExternalControl.ts` — External API callbacks migrated
+- `client/src/types/external-api.ts` — Interface updated with canonical fields + deprecated aliases
+- `client/src/hooks/useSimulatorExternalControl.ts` — `InternalServerStatus` type updated
+- `tests/client/hooks/use-backend-health.test.tsx` — Test mocks migrated
+- `tests/client/hooks/useSimulatorExternalControl.test.tsx` — Test data migrated
+- `tests/client/hooks/use-arduino-simulator-page.test.tsx` — Mock exports added
+
+**Server Response (`server/routes/status.routes.ts`):**
+- Already sends canonical fields (`sandboxRunners`, `compileSlots`)
+- Legacy aliases (`pool`, `compile`) retained with `@deprecated` JSDoc tags
+- Sunset note: "Will be removed in next major release"
+
+**Client Migration:**
+- All internal consumers now read from `sandboxRunners` and `compileSlots`
+- Type definitions include optional deprecated aliases for backward compatibility
+- External PostMessage API (`useSimulatorExternalControl`) migrated to canonical fields
+
+**Aliases Status:**
+- ✅ **Present:** `pool` and `compile` remain in server response
+- ✅ **Why:** External consumer inventory incomplete; sunset requires major release coordination
+- ✅ **Documented:** @deprecated tags with removal timeline
+
+**Gates Passed:**
+| Gate | Status | Details |
+|------|--------|---------|
+| TypeScript | ✅ Green | `npm run check` — 0 errors |
+| Client Tests | ✅ Green | 21 tests passed (use-backend-health, useSimulatorExternalControl, use-arduino-simulator-page) |
+| Docs Check | ✅ Green | 28 Markdown files validated |
+| Full Pipeline | ✅ Green | All 10 steps passed |
+| SonarQube | ✅ Green | Quality Gate PASSED |
+
+**Pipeline Results:**
+```
+▸ [1/10] Static Analysis                     ✔ Sek.: 3
+▸ [2/10] Dead-Code Check (knip)             ⚠ 8 line(s)
+▸ [3/10] Unit Tests                          ✔ Sek.: 12 (1651 tests)
+▸ [4/10] Toolchain Integration Tests         ✔ Sek.: 14 (13 passed, 1 skipped)
+▸ [5/10] Sandbox Image Build                 ✔ (already present)
+▸ [6/10] Docker Tests                        ✔ Sek.: 93 (23 passed)
+▸ [7/10] E2E-Tests (Playwright)              ✔ Sek.: 93 (16 passed)
+▸ [8/10] Post-Test Integrity Check           ✔ Sek.: 1
+▸ [9/10] Production Build                    ✔ Sek.: 12
+▸ [10/10] SonarQube Quality Gate             ✔ PASSED
+    - Coverage: 84.1% (Threshold: LT 80%)
+    - Duplicated Lines: 0.04668% (Threshold: GT 3%)
+    - Violations: 0 (Threshold: GT 0)
+    - Open Issues: 0
+```
+
 **Pipeline Results:**
 ```
 ▸ [1/10] Static Analysis                     ✔ Sek.: 3
@@ -81,24 +141,29 @@ All gates passed. Zero breaking changes. Ready to proceed with 3.3.3–3.3.6.
 
 ## New Insights
 
-1. **Alias Discovery:** The `removeComments()` alias was only used internally in `shared/` directory, never in `client/` or `server/`. This simplifies migration scope.
+1. **Alias Discovery (3.3.2):** The `removeComments()` alias was only used internally in `shared/` directory, never in `client/` or `server/`. This simplifies migration scope.
 
-2. **Own Method:** `shared/reserved-names-validator.ts` has its own `removeComments()` method (lines 223–246) for internal use — not related to the exported alias. This was correctly excluded from migration.
+2. **Own Method (3.3.2):** `shared/reserved-names-validator.ts` has its own `removeComments()` method (lines 223–246) for internal use — not related to the exported alias. This was correctly excluded from migration.
 
-3. **Zero Breaking Changes:** Migration was purely internal. No public API changes, no consumer impact.
+3. **Zero Breaking Changes (3.3.2):** Migration was purely internal. No public API changes, no consumer impact.
+
+4. **Server Already Canonical (3.3.3):** Server `/api/status` already sends canonical fields (`sandboxRunners`, `compileSlots`). Only client consumers needed migration.
+
+5. **External API Protection (3.3.3):** Legacy aliases (`pool`, `compile`) retained in server response and type definitions to protect external iframe/monitoring clients until major release sunset.
 
 ---
 
 ## Next Steps
 
-**Recommended:** Proceed with **3.3.3** (Remove deprecated pool/compile aliases) or **3.3.5** (Remove legacy I/O registry fields).
+**Recommended:** Proceed with **3.3.4** (WebSocket per-session code) or **3.3.5** (I/O Registry modernization).
 
 **Rationale:**
-- 3.3.3 targets `server/routes/status.routes.ts` (isolated, low risk)
-- 3.3.5 targets `shared/schema.ts` (requires coordination with client types)
+- 3.3.4 targets `server/routes/simulation.ws.ts` and client WS flow (isolated, multi-client isolation gate)
+- 3.3.5 targets `shared/schema.ts` and registry services (requires UI/Parser coordination)
 - Both can be parallel but should be separate commits per plan
 
 **Deferred Items:**
+- L-01 REST aliases (`pool`, `compile`) — deferred pending external consumer inventory and major release
 - L-06 (FORCE_DOCKER env var) — deferred, needs sunset policy discussion
 - L-13 (Arduino include paths) — deferred, requires build system changes
 
@@ -110,12 +175,14 @@ All gates passed. Zero breaking changes. Ready to proceed with 3.3.3–3.3.6.
 |------|--------|---------|
 | 3.3.1 | N/A | Plan document only |
 | 3.3.2 | `c7f39484` | `refactor(3.3): migrate parser comment helper alias` |
+| 3.3.3 | `ec95627c` | `refactor(3.3): migrate status consumers to canonical fields` |
+| Report | `c3fe9eb0` | `docs(3.3): add implementation report for 3.3.1–3.3.2` |
 
 ---
 
 ## Checklist for Next Sub-Step
 
-Before starting 3.3.3 or 3.3.5:
+Before starting 3.3.4 or 3.3.5:
 - [ ] Verify automatic analysis re-enabled (SonarQube)
 - [ ] Confirm working directory clean
 - [ ] Review target files for migration
