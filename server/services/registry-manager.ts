@@ -6,6 +6,7 @@ import type { PinStateBatcher } from "./pin-state-batcher";
 import type { SerialOutputBatcher, SerialOutputTelemetry } from "./serial-output-batcher";
 import { Logger } from "@shared/logger";
 import { computePinConflict, ensurePinModeOperation } from "./utils/pin-validator";
+import { pinModeToString } from "@shared/utils/arduino-utils";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { join } from "node:path";
 import { config } from "../config";
@@ -567,6 +568,13 @@ export class RegistryManager {
     // Create or update registry record
     const record: IOPinRecord = existing ?? { pin: pinStr, defined: true, pinMode: mode, usedAt: [] };
 
+    // ── Modern fields: always update pinModeLines and pinModeModes ─────────
+    // For runtime updates, use "runtime" as line marker to distinguish from static parse
+    const modeName = pinModeToString(mode);
+    record.pinModeLines = [...(record.pinModeLines ?? []), "runtime"];
+    record.pinModeModes = [...(record.pinModeModes ?? []), modeName];
+
+    // ── Legacy fields: keep for backward compatibility ─────────────────────
     record.pinMode = mode;
     record.defined = true;
 
@@ -769,9 +777,14 @@ export class RegistryManager {
   }
 
   private computeRegistryHash(): string {
+    // Use modern fields as primary source, fall back to legacy for compat
     const normalized = this.registry.map((pin) => ({
       pin: pin.pin,
       defined: pin.defined,
+      // Prefer modern fields for hash computation
+      pinModeLines: pin.pinModeLines ? [...pin.pinModeLines] : [],
+      pinModeModes: pin.pinModeModes ? [...pin.pinModeModes] : [],
+      // Legacy fallback for backward compatibility
       pinMode: pin.pinMode,
       usedAt: pin.usedAt ? [...pin.usedAt] : [],
     }));

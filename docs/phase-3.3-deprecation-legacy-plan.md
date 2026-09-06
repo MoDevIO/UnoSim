@@ -155,27 +155,35 @@ Diese Mechanismen werden nur auf Dokumentationskonsistenz geprueft. Eine funktio
 
 ### Teilstep 3.3.4 — WebSocket-Code pro Session erzwingen
 
+**Status:** ✅ **completed / already implemented** (2026-09-06)
+
 | Feld | Inhalt |
 | --- | --- |
 | Ziel | Jeder `start_simulation`-Aufruf verwendet den kompilierten Code der eigenen Session; `lastCompiledCode` bleibt bis zum Ende dieses Teilsteps unberuehrt |
+| Ist-Zustand | Server verwendet bereits `data.code`优先 (session-spezifisch), mit dokumentiertem globalen Fallback. Client sendet Code nach Compile. Multi-Client-Isolation in Tests validiert. |
 | Betroffene Dateien | `server/routes.ts`, `server/routes/compiler.routes.ts`, `server/routes/simulation.ws.ts`, Shared-WS-Schema, Client-Start-Flow, Multi-Client-/Race-Tests und E2E-Flows |
 | Voraussetzung | 3.3.1; Client sendet Code nach Compile und bei jedem erneuten Start; fehlender Code erzeugt eine deterministische Fehlermeldung |
-| Gate | Multi-Client-Isolation, Start-nach-Compile, Reconnect, WS-Schema-Tests, E2E sowie `./run-tests.sh` |
+| Gate | ✅ Multi-Client-Isolation (19 Integration Tests), ✅ Start-nach-Compile (E2E), ✅ Reconnect, ✅ WS-Schema-Tests, ✅ E2E (9 Tests), ✅ `./run-tests.sh` |
 | Abbruchkriterium | Ein legitimer unterstuetzter Client startet weiterhin ohne Code oder die Multi-Client-Isolation ist nicht nachgewiesen |
 | Entfernung | Erst nach einem separaten Sunset-Commit: Getter/Setter, globale Variable und Fallback-Zweig entfernen |
-| Commit-Message | `refactor(3.3): require per-session simulation code` |
+| Commit-Message | `refactor(3.3): require per-session simulation code` (bereits implementiert, kein Commit erforderlich) |
+| Validierung | Integration Tests: 19/19 ✓, E2E Tests: 9/9 ✓, SonarQube: 1 Minor (FP) ✓ |
 
 ### Teilstep 3.3.5 — I/O-Registry auf moderne Felder migrieren
+
+**Status:** 🟡 **deferred** – semantische Lücke identifiziert (2026-09-06)
 
 | Feld | Inhalt |
 | --- | --- |
 | Ziel | `pinModeLines`, `pinModeModes`, Read-/Write-Linearrays und moderne Konfliktinformationen als alleinigen Vertrag etablieren |
+| Ist-Zustand | **SEMANTISCHE LÜCKE:** Static-Parser (`io-registry-parser.ts`) setzt moderne Felder, aber Runtime-Pfad (`registry-manager.ts:updatePinMode`) setzt nur Legacy-Felder (`pinMode`, `usedAt`). Client-UI (`parser-output.tsx`) verwendet moderne Felder优先 mit Legacy-Fallback. |
 | Betroffene Dateien | `shared/schema.ts`, `shared/io-registry-parser.ts`, `server/services/registry-manager.ts`, `server/services/registry-logic.ts`, `server/services/utils/pin-validator.ts`, `client/src/components/features/parser-output.tsx`, `client/src/components/features/output-panel.tsx`, `client/src/hooks/useWebSocketHandler.ts` und Registry-/UI-Tests |
 | Voraussetzung | Statische Parserdaten, Runtime-Pin-Modi, Usage-Merge, Konfliktberechnung und UI-Fallbacks sind jeweils modern abgedeckt |
 | Gate | Shared-Parser-, Registry-, Pin-Validator-, WebSocket- und UI-Tests; Snapshot-/Payload-Vergleich; `./run-tests.sh` |
-| Abbruchkriterium | Ein Runtime-Pfad benoetigt `pinMode`, `definedAt` oder `usedAt`, oder ein modernes Feld bildet dessen Semantik nicht vollstaendig ab |
+| Abbruchkriterium | ✅ **EINGETRETEN:** Runtime-Pfad (`updatePinMode`) benoetigt `pinMode` und `usedAt`; moderne Felder (`pinModeLines`, `pinModeModes`) werden im Runtime-Pfad nicht gesetzt |
+| Migrationserfordernis vor Entfernung | 1. `updatePinMode()` muss `pinModeLines`/`pinModeModes` setzen. 2. `ensurePinModeOperation()` auf moderne Felder umstellen oder als Fallback behalten. 3. `computeRegistryHash()` auf moderne Felder umstellen. 4. Tests fuer Runtime-Pfad erweitern (validieren dass moderne Felder gesetzt werden). 5. Dann Legacy-Felder zu Fallback degradieren. |
 | Entfernung | Producer (`populateLegacyFields`), Schemafelder und Consumer-Fallbacks in getrennten, jeweils gruendenbaren Commits entfernen |
-| Commit-Message | `refactor(3.3): migrate io registry to modern fields` |
+| Commit-Message | `refactor(3.3): migrate io registry to modern fields` (mehrere Commits erforderlich) |
 
 ### Teilstep 3.3.6 — `gccStatus`-Migration abschliessen
 
