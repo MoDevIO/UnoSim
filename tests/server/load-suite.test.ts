@@ -393,10 +393,9 @@ function createLoadTestSuite(
 
         testResults.push(stats);
 
-        // Metriken speichern wenn OUTPUT_DIR gesetzt
+        // Metriken speichern wenn OUTPUT_DIR gesetzt (Stub + Real Server)
         const outputDir = process.env.LOAD_TEST_OUTPUT_DIR;
-        if (outputDir && USE_REAL_SERVER === false) {
-          // Stub mode - speichere Metriken direkt
+        if (outputDir) {
           const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
           const { join } = await import('node:path');
           

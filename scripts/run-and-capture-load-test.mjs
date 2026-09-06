@@ -24,6 +24,10 @@ async function runTest(clientCount, outputDir) {
     process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'info';
     process.env.FORCE_COLOR = '0';
     process.env.LOAD_TEST_OUTPUT_DIR = outputDir;
+    process.env.LOAD_TEST_REAL_SERVER = 'true';
+    process.env.LOAD_TEST_SERVER_URL = process.env.LOAD_TEST_SERVER_URL || 'http://127.0.0.1:3000';
+
+    console.log(`[LoadTest] Using real server at ${process.env.LOAD_TEST_SERVER_URL}`);
 
     const vitest = await startVitest('test', [], {
       run: true,
@@ -77,21 +81,42 @@ if (!existsSync(outputPath)) {
 
 console.log(`[LoadTest] Metrics already saved to ${outputPath}`);
 
-// Cleanup-Report erstellen (simuliert für Stub-Tests)
+// Cleanup-Report: Docker-Container prüfen
+import { execSync } from 'node:child_process';
+
+function countDockerContainers() {
+  try {
+    const output = execSync('docker ps --format "{{.Names}}" 2>/dev/null', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore']
+    });
+    const containers = output.split('\n').filter(line => line.includes('unosim-sandbox-')).length;
+    return containers;
+  } catch {
+    return 0;
+  }
+}
+
+const containersBefore = countDockerContainers();
+// Kurze Wartezeit für Cleanup
+await new Promise(resolve => setTimeout(resolve, 2000));
+const containersAfter = countDockerContainers();
+
 const cleanupReport = {
   timestamp: new Date().toISOString(),
-  containersBefore: 0,
-  containersAfter: 0,
+  containersBefore,
+  containersAfter,
   processesBefore: 0,
   processesAfter: 0,
-  leakDetected: false,
-  details: 'Stub server mode - no Docker containers used'
+  leakDetected: containersAfter > containersBefore,
+  details: containersAfter > containersBefore 
+    ? `Leak detected: ${containersAfter - containersBefore} containers not cleaned up`
+    : 'All containers cleaned up successfully'
 };
 
 const cleanupPath = join(outputDir, 'cleanup-report.json');
-if (!existsSync(cleanupPath)) {
-  writeFileSync(cleanupPath, JSON.stringify(cleanupReport, null, 2));
-  console.log(`[LoadTest] Cleanup report saved to ${cleanupPath}`);
-}
+writeFileSync(cleanupPath, JSON.stringify(cleanupReport, null, 2));
+console.log(`[LoadTest] Cleanup report saved to ${cleanupPath}`);
+console.log(`[LoadTest] Container cleanup: ${containersBefore} → ${containersAfter}`);
 
 console.log('\n[LoadTest] Test completed successfully!');
