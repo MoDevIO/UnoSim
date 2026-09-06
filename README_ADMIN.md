@@ -4,6 +4,8 @@ This guide explains how to configure the UnoSim server instance and sandbox envi
 
 For the security controls and residual risks, see [`README_SECURITY.md`](README_SECURITY.md).
 
+For the release process and gates, see [`docs/RELEASE_RUNBOOK.md`](docs/RELEASE_RUNBOOK.md).
+
 ## 🎯 Target Audience
 This guide is intended for **system administrators** and **DevOps engineers** who deploy UnoSim in development, test, or production environments.
 
@@ -140,8 +142,9 @@ The following terms are used consistently across the UI debug header, API respon
     * `npm run test:integration` or `npm run test:docker` as applicable
     * `npm run build` (production build)
     * `npm run sonar` with a local SonarQube server; the Quality Gate must be green
-3. **Monitoring:** In `docker-sandbox` mode, monitor Docker host CPU load because starting many containers can create short spikes.
-4. **Security:** Use `SIMULATOR_ALLOWED_PARENT_ORIGINS` to allow iframe embedding only on trusted domains.
+3. **Release Process:** Follow the verbindliche Gates im [`Release-Runbook`](docs/RELEASE_RUNBOOK.md). Pflichtgates müssen vor jedem Release grün sein.
+4. **Monitoring:** In `docker-sandbox` mode, monitor Docker host CPU load because starting many containers can create short spikes.
+5. **Security:** Use `SIMULATOR_ALLOWED_PARENT_ORIGINS` to allow iframe embedding only on trusted domains.
 
 ### Authentication gateway
 
