@@ -13,20 +13,23 @@
  */
 
 import { execSync } from 'node:child_process';
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-function runTest(clientCount) {
+/**
+ * Execute test command safely
+ */
+function runTest(clientCount: number): { success: boolean; output: string } {
   console.log(`[LoadTest] Running ${clientCount}-client load test...`);
   
   try {
-    // Test ausführen - afterAll gibt die Tabelle aus
     const cmd = `LOG_LEVEL=info npx vitest run --project=load --testNamePattern='Load Test: ${clientCount} Concurrent Clients' --reporter=verbose`;
     const output = execSync(cmd, { 
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: process.cwd(),
-      env: { ...process.env, FORCE_COLOR: '0' } // Disable colors for easier parsing
+      env: { ...process.env, FORCE_COLOR: '0' },
+      timeout: 300000 // 5 minute timeout
     });
     
     console.log(output);
@@ -37,12 +40,14 @@ function runTest(clientCount) {
   }
 }
 
-function extractMetrics(output, clientCount) {
-  // Metriken aus Console-Output parsen
+/**
+ * Parse metrics from test output table
+ */
+function extractMetrics(output: string, clientCount: number) {
   const metrics = {
     clientCount,
     timestamp: new Date().toISOString(),
-    successful: clientCount, // Stub mode: all succeed
+    successful: clientCount,
     failed: 0,
     successRate: 100,
     totalTime: 0,
@@ -58,40 +63,35 @@ function extractMetrics(output, clientCount) {
     cleanupSuccess: true,
   };
 
-  // Parse console table output - suche nach der Scalability Analysis Tabelle
   const lines = output.split('\n');
   let inTable = false;
   
   for (const line of lines) {
-    // Tabelle beginnt
     if (line.includes('│ Clients │') && line.includes('│ Avg Time')) {
       inTable = true;
       continue;
     }
     
-    // Tabelle endet
     if (inTable && line.includes('└─────────┴')) {
       break;
     }
     
-    // Datenzeile parsen
     if (inTable && line.includes('│')) {
       const parts = line.split('│').map(p => p.trim()).filter(p => p.length > 0);
       
       if (parts.length >= 5) {
-        const parsedClients = parseInt(parts[0]);
+        const parsedClients = Number.parseInt(parts[0]);
         
         if (parsedClients === clientCount) {
-          // Teile: Clients, Avg Time, P95 Time, Throughput, Success Rate, Status
           const avgTimeMatch = parts[1].match(/([\d.]+)\s*ms/);
           const p95Match = parts[2].match(/([\d.]+)\s*ms/);
           const throughputMatch = parts[3].match(/([\d.]+)\s*c\/s/);
           const successMatch = parts[4].match(/([\d.]+)\s*%/);
           
-          if (avgTimeMatch) metrics.avgTime = parseFloat(avgTimeMatch[1]);
-          if (p95Match) metrics.p95 = parseFloat(p95Match[1]);
-          if (throughputMatch) metrics.throughput = parseFloat(throughputMatch[1]);
-          if (successMatch) metrics.successRate = parseFloat(successMatch[1]);
+          if (avgTimeMatch) metrics.avgTime = Number.parseFloat(avgTimeMatch[1]);
+          if (p95Match) metrics.p95 = Number.parseFloat(p95Match[1]);
+          if (throughputMatch) metrics.throughput = Number.parseFloat(throughputMatch[1]);
+          if (successMatch) metrics.successRate = Number.parseFloat(successMatch[1]);
           
           metrics.successful = Math.round((metrics.successRate / 100) * clientCount);
           metrics.failed = clientCount - metrics.successful;

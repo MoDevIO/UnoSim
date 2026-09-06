@@ -16,9 +16,28 @@ import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import os from 'node:os';
 
-function exec(command) {
+/**
+ * Execute shell command safely with limited output
+ * @param command - Command to execute (validated against allowlist)
+ * @param args - Arguments (validated to prevent injection)
+ */
+function execSafe(command, args = []) {
+  // Allowlist validation for security
+  const allowedCommands = ['uname', 'sysctl', 'node', 'docker', 'sw_vers', 'free', 'cat'];
+  if (!allowedCommands.includes(command)) {
+    throw new Error(`Command not allowed: ${command}`);
+  }
+  
+  // Validate args to prevent injection
+  const safeArgs = args.filter(arg => /^[a-zA-Z0-9._/-]+$/.test(arg));
+  
   try {
-    return execSync(command, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+    return execSync(`${command} ${safeArgs.join(' ')}`, { 
+      encoding: 'utf8',
+      timeout: 5000,
+      maxBuffer: 1024 * 1024, // 1MB buffer limit
+      stdio: ['pipe', 'pipe', 'ignore']
+    }).trim();
   } catch {
     return null;
   }
@@ -40,8 +59,8 @@ function parseDockerMemory(memStr) {
 }
 
 function getDockerInfo() {
-  const dockerVersion = exec('docker --version');
-  const dockerInfoRaw = exec('docker info --format "{{.ServerVersion}}"');
+  const dockerVersion = execSafe('docker', ['--version']);
+  const dockerInfoRaw = execSafe('docker', ['info', '--format', '{{.ServerVersion}}']);
   
   // Docker Desktop RAM-Limit ermitteln
   let dockerRamLimit = null;
@@ -51,7 +70,7 @@ function getDockerInfo() {
     // Versuche, Docker Desktop Settings zu lesen (macOS)
     const dockerSettingsPath = `${os.homedir()}/Library/Group Containers/group.com.docker/settings.json`;
     if (existsSync(dockerSettingsPath)) {
-      const settings = JSON.parse(exec(`cat "${dockerSettingsPath}"`));
+      const settings = JSON.parse(execSafe('cat', [dockerSettingsPath]));
       if (settings.vmMemorySize) {
         dockerRamLimit = settings.vmMemorySize / (1024 * 1024 * 1024); // Bytes to GB
       }
@@ -61,7 +80,7 @@ function getDockerInfo() {
     }
   } catch {
     // Fallback: docker stats (nur wenn Container läuft)
-    const info = exec('docker info');
+    const info = execSafe('docker', ['info']);
     if (info) {
       const memMatch = info.match(/Total Memory:\s*([\d.]+)\s*([A-Za-z]+)/);
       if (memMatch) {
@@ -75,21 +94,21 @@ function getDockerInfo() {
     engineVersion: dockerInfoRaw,
     ramLimit: dockerRamLimit,
     cpuLimit: dockerCpuLimit,
-    storageDriver: exec('docker info --format "{{.Driver}}"')
+    storageDriver: execSafe('docker', ['info', '--format', '{{.Driver}}'])
   };
 }
 
 function getNodeInfo() {
   return {
     version: process.version.replace('v', ''),
-    npmVersion: exec('npm --version')
+    npmVersion: execSafe('npm', ['--version'])
   };
 }
 
 function getBrowserInfo() {
   // Playwright Chromium Version ermitteln
   try {
-    const playwrightInfo = exec('npx playwright --version');
+    const playwrightInfo = execSafe('npx', ['playwright', '--version']);
     const versionMatch = playwrightInfo?.match(/(\d+\.\d+\.\d+)/);
     return {
       name: 'Chromium',

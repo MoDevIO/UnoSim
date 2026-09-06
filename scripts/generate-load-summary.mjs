@@ -1,17 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Load Test Summary Generator
+ * Load Test Summary Generator (Bereinigt)
  * 
  * Generiert eine standardisierte Zusammenfassung aus Lasttest-Metriken.
- * Liest alle metrics-*.json Dateien und erstellt summary.md.
- * 
- * Usage:
- *   node scripts/generate-load-summary.mjs test-results/load-YYYY-MM-DDTHH-MM-SSZ/
  */
 
-import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
+import os from 'node:os';
 
 function readJson(filePath) {
   try {
@@ -36,158 +33,55 @@ function formatTimestamp(isoString) {
 function getStatusIcon(testResult) {
   const successRate = testResult.successRate || 0;
   const timeoutCount = testResult.timeoutCount || 0;
-  const cleanupSuccess = testResult.cleanupSuccess !== false; // Default to true if undefined
+  const cleanupSuccess = testResult.cleanupSuccess !== false;
   
   if (successRate >= 98 && timeoutCount === 0 && cleanupSuccess) {
     return '✅ Bestanden';
   } else if (successRate >= 90 && cleanupSuccess) {
     return '⚠️ Mit Warnungen';
-  } else {
-    return '❌ Durchgefallen';
   }
+  return '❌ Durchgefallen';
 }
 
-function generateSummary(resultsDir) {
-  const dirContents = readdirSync(resultsDir);
+function generateHostProfileSection(hostProfile) {
+  let md = `### Hardware\n\n`;
+  md += `- **CPU:** ${hostProfile.cpu?.model || 'Unbekannt'} (${hostProfile.cpu?.cores || '?'} Kerne)\n`;
+  md += `- **RAM:** ${hostProfile.ram?.total || '?'} GB (Docker: ${hostProfile.ram?.dockerAvailable || '?'} GB)\n`;
+  md += `- **OS:** ${hostProfile.os?.platform || '?'} ${hostProfile.os?.version || ''}\n\n`;
   
-  // Host-Profil laden
-  const hostProfile = readJson(join(resultsDir, 'host-profile.json'));
+  md += `### Software\n\n`;
+  md += `- **Node.js:** v${hostProfile.node?.version || '?'}\n`;
+  md += `- **Docker:** ${hostProfile.docker?.desktopVersion || '?'} (Engine: ${hostProfile.docker?.engineVersion || '?'})\n`;
+  md += `- **Browser:** ${hostProfile.browser?.name || '?'} ${hostProfile.browser?.version || ''}\n\n`;
   
-  // Metriken laden
-  const metricsFiles = dirContents
-    .filter(f => f.startsWith('metrics-') && f.endsWith('.json'))
-    .sort();
+  md += `### UnoSim-Konfiguration\n\n`;
+  md += `- **Simulation Mode:** ${hostProfile.unosim?.simulationMode || '?'}\n`;
+  md += `- **Worker Count:** ${hostProfile.unosim?.workerCount || '?'}\n`;
+  md += `- **Compile Slots:** ${hostProfile.unosim?.compileMaxConcurrent || '?'}\n`;
+  md += `- **Sandbox Pool:** ${hostProfile.unosim?.sandboxPoolMinRunners || '?'}–${hostProfile.unosim?.sandboxPoolMaxRunners || '?'} Runners\n`;
+  md += `- **Sandbox Memory:** ${hostProfile.unosim?.sandboxMemoryMb || '?'} MB\n\n---\n\n`;
   
-  const metrics = metricsFiles.map(f => {
-    const clientCount = parseInt(f.match(/metrics-(\d+)\.json/)[1]);
-    return {
-      clientCount,
-      data: readJson(join(resultsDir, f))
-    };
-  }).filter(m => m.data !== null);
+  return md;
+}
+
+function generateTestResultsTable(metrics) {
+  let md = `| Test | Clients | Erfolgreich | Fehlgeschlagen | Erfolgsrate | p95 Gesamtzeit | Status |\n`;
+  md += `| --- | --- | --- | --- | --- | --- | --- |\n`;
   
-  // Cleanup-Report laden
-  const cleanupReport = readJson(join(resultsDir, 'cleanup-report.json'));
-  
-  // Summary generieren
-  const testId = basename(resultsDir);
-  const testDate = hostProfile?.timestamp ? formatTimestamp(hostProfile.timestamp) : 'Unbekannt';
-  
-  let markdown = `# Load Test Summary
-
-**Test ID:** \`${testId}\`  
-**Datum:** ${testDate}  
-**Hostprofil:** Siehe \`host-profile.json\`
-
-## Host-Profil
-
-`;
-
-  if (hostProfile) {
-    markdown += `### Hardware
-
-- **CPU:** ${hostProfile.cpu?.model || 'Unbekannt'} (${hostProfile.cpu?.cores || '?'} Kerne)
-- **RAM:** ${hostProfile.ram?.total || '?'} GB (Docker: ${hostProfile.ram?.dockerAvailable || '?'} GB)
-- **OS:** ${hostProfile.os?.platform || '?'} ${hostProfile.os?.version || ''}
-
-### Software
-
-- **Node.js:** v${hostProfile.node?.version || '?'}
-- **Docker:** ${hostProfile.docker?.desktopVersion || '?'} (Engine: ${hostProfile.docker?.engineVersion || '?'})
-- **Browser:** ${hostProfile.browser?.name || '?'} ${hostProfile.browser?.version || ''}
-
-### UnoSim-Konfiguration
-
-- **Simulation Mode:** ${hostProfile.unosim?.simulationMode || '?'}
-- **Worker Count:** ${hostProfile.unosim?.workerCount || '?'}
-- **Compile Slots:** ${hostProfile.unosim?.compileMaxConcurrent || '?'}
-- **Sandbox Pool:** ${hostProfile.unosim?.sandboxPoolMinRunners || '?'}–${hostProfile.unosim?.sandboxPoolMaxRunners || '?'} Runners
-- **Sandbox Memory:** ${hostProfile.unosim?.sandboxMemoryMb || '?'} MB
-
----
-
-`;
-  } else {
-    markdown += `⚠️ **Host-Profil nicht gefunden**
-
----
-
-`;
-  }
-
-  markdown += `## Test-Ergebnisse
-
-`;
-
-  if (metrics.length === 0) {
-    markdown += `⚠️ **Keine Metriken gefunden**
-
-`;
-  } else {
-    markdown += `| Test | Clients | Erfolgreich | Fehlgeschlagen | Erfolgsrate | p95 Gesamtzeit | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-`;
-
-    for (const m of metrics) {
-      const data = m.data;
-      const failed = data.failed || 0;
-      const successRate = data.successRate?.toFixed(1) || '0.0';
-      const p95 = data.p95?.toFixed(0) || '0';
-      const status = getStatusIcon(data);
-      
-      markdown += `| ${m.clientCount} Clients | ${m.clientCount} | ${data.successful || 0} | ${failed} | ${successRate}% | ${p95} ms | ${status} |
-`;
-    }
-
-    markdown += `
-`;
-  }
-
-  // Host-Metriken aus allen Tests aggregieren
-  const peakCpu = Math.max(...metrics.map(m => m.data?.peakCpuUsage || 0));
-  const peakMemory = Math.max(...metrics.map(m => m.data?.peakMemoryUsage || 0));
-  const peakRunners = Math.max(...metrics.map(m => m.data?.peakActiveRunners || 0));
-  const peakQueue = Math.max(...metrics.map(m => m.data?.peakQueueDepth || 0));
-
-  markdown += `## Host-Metriken
-
-- **CPU-Spitze:** ${peakCpu.toFixed(1)} %
-- **RAM-Spitze:** ${(peakMemory / 1024).toFixed(1)} GB (${((peakMemory / (osTotalMemory() || 1)) * 100).toFixed(0)} %)
-- **Aktive Runner (max):** ${peakRunners}
-- **Queue-Tiefe (max):** ${peakQueue}
-
----
-
-`;
-
-  // Cleanup
-  markdown += `## Cleanup
-
-`;
-  
-  if (cleanupReport) {
-    markdown += `- **Container vor/nach Test:** ${cleanupReport.containersBefore} / ${cleanupReport.containersAfter}
-- **Prozesse vor/nach Test:** ${cleanupReport.processesBefore} / ${cleanupReport.processesAfter}
-- **Leak erkannt:** ${cleanupReport.leakDetected ? '⚠️ Ja' : '✅ Nein'}
-
-`;
+  for (const m of metrics) {
+    const data = m.data;
+    const failed = data.failed || 0;
+    const successRate = data.successRate?.toFixed(1) || '0.0';
+    const p95 = data.p95?.toFixed(0) || '0';
+    const status = getStatusIcon(data);
     
-    if (cleanupReport.details) {
-      markdown += `**Details:** ${cleanupReport.details}
-
-`;
-    }
-  } else {
-    markdown += `⚠️ **Cleanup-Report nicht gefunden**
-
-`;
+    md += `| ${m.clientCount} Clients | ${m.clientCount} | ${data.successful || 0} | ${failed} | ${successRate}% | ${p95} ms | ${status} |\n`;
   }
-
-  // Fazit
-  markdown += `## Fazit
-
-`;
   
+  return md + '\n';
+}
+
+function generateConclusion(metrics) {
   const passed50 = metrics.find(m => m.clientCount === 50);
   const passed100 = metrics.find(m => m.clientCount === 100);
   const passed200 = metrics.find(m => m.clientCount === 200);
@@ -213,48 +107,106 @@ function generateSummary(resultsDir) {
   }
   
   if (conclusions.length > 0) {
-    markdown += conclusions.join('  \n') + '\n\n';
-  } else {
-    markdown += 'Keine aussagekräftigen Tests durchgeführt.\n\n';
+    return conclusions.join('  \n') + '\n\n';
   }
-  
-  // Empfehlung
-  let recommendation = 'Keine Empfehlung möglich (unzureichende Daten).';
+  return 'Keine aussagekräftigen Tests durchgeführt.\n\n';
+}
+
+function generateRecommendation(metrics) {
+  const passed50 = metrics.find(m => m.clientCount === 50);
+  const passed100 = metrics.find(m => m.clientCount === 100);
+  const passed200 = metrics.find(m => m.clientCount === 200);
   
   if (passed100?.data?.successRate >= 95 && (!passed200 || passed200.data.successRate < 90)) {
-    recommendation = `**Empfehlung:** ${passed100.clientCount} Clients als Produktionslimit bei diesem Host-Profil dokumentieren.`;
+    return `**Empfehlung:** ${passed100.clientCount} Clients als Produktionslimit bei diesem Host-Profil dokumentieren.\n\n---\n\n`;
   } else if (passed200?.data?.successRate >= 90) {
-    recommendation = `**Empfehlung:** ${passed200.clientCount} Clients werden unterstützt. Für höhere Lasten Host-RAM auf ≥ 48 GB erweitern.`;
+    return `**Empfehlung:** ${passed200.clientCount} Clients werden unterstützt. Für höhere Lasten Host-RAM auf ≥ 48 GB erweitern.\n\n---\n\n`;
   } else if (passed50?.data?.successRate >= 98) {
-    recommendation = `**Empfehlung:** Maximal ${passed50.clientCount} Clients bei diesem Host-Profil. Für höhere Lasten Docker-RAM und CPU erweitern.`;
+    return `**Empfehlung:** Maximal ${passed50.clientCount} Clients bei diesem Host-Profil. Für höhere Lasten Docker-RAM und CPU erweitern.\n\n---\n\n`;
   }
   
-  markdown += `${recommendation}
+  return 'Keine Empfehlung möglich (unzureichende Daten).\n\n---\n\n';
+}
 
----
-
-## Artefakte
-
-Folgende Artefakte wurden in diesem Verzeichnis generiert:
-
-`;
+function generateArtifactsList(testId, dirContents) {
+  let md = `## Artefakte\n\nFolgende Artefakte wurden in diesem Verzeichnis generiert:\n\n`;
   
-  for (const f of dirContents.sort()) {
-    markdown += `- \`${f}\`\n`;
+  const sortedContents = dirContents.toSorted((a, b) => a.localeCompare(b));
+  for (const f of sortedContents) {
+    md += `- \`${f}\`\n`;
   }
+  
+  return md;
+}
 
+function generateSummary(resultsDir) {
+  const dirContents = readdirSync(resultsDir);
+  const hostProfile = readJson(join(resultsDir, 'host-profile.json'));
+  
+  const metricsFiles = dirContents
+    .filter(f => f.startsWith('metrics-') && f.endsWith('.json'))
+    .toSorted((a, b) => a.localeCompare(b));
+  
+  const metrics = metricsFiles
+    .map(f => {
+      const match = f.match(/metrics-(\d+)\.json/);
+      const clientCount = match ? Number.parseInt(match[1]) : 0;
+      return { clientCount, data: readJson(join(resultsDir, f)) };
+    })
+    .filter(m => m.data !== null && m.clientCount > 0);
+  
+  const cleanupReport = readJson(join(resultsDir, 'cleanup-report.json'));
+  const testId = basename(resultsDir);
+  const testDate = hostProfile?.timestamp ? formatTimestamp(hostProfile.timestamp) : 'Unbekannt';
+  
+  let markdown = `# Load Test Summary\n\n**Test ID:** \`${testId}\`  \n**Datum:** ${testDate}  \n**Hostprofil:** Siehe \`host-profile.json\`\n\n## Host-Profil\n\n`;
+  
+  if (hostProfile) {
+    markdown += generateHostProfileSection(hostProfile);
+  } else {
+    markdown += `⚠️ **Host-Profil nicht gefunden**\n\n---\n\n`;
+  }
+  
+  markdown += `## Test-Ergebnisse\n\n`;
+  
+  if (metrics.length === 0) {
+    markdown += `⚠️ **Keine Metriken gefunden**\n\n`;
+  } else {
+    markdown += generateTestResultsTable(metrics);
+  }
+  
+  const peakCpu = Math.max(...metrics.map(m => m.data?.peakCpuUsage || 0));
+  const peakMemory = Math.max(...metrics.map(m => m.data?.peakMemoryUsage || 0));
+  const peakRunners = Math.max(...metrics.map(m => m.data?.peakActiveRunners || 0));
+  const peakQueue = Math.max(...metrics.map(m => m.data?.peakQueueDepth || 0));
+  const osTotal = os.totalmem();
+  
+  markdown += `## Host-Metriken\n\n`;
+  markdown += `- **CPU-Spitze:** ${peakCpu.toFixed(1)} %\n`;
+  markdown += `- **RAM-Spitze:** ${(peakMemory / 1024).toFixed(1)} GB (${((peakMemory / osTotal) * 100).toFixed(0)} %)\n`;
+  markdown += `- **Aktive Runner (max):** ${peakRunners}\n`;
+  markdown += `- **Queue-Tiefe (max):** ${peakQueue}\n\n---\n\n`;
+  
+  markdown += `## Cleanup\n\n`;
+  
+  if (cleanupReport) {
+    markdown += `- **Container vor/nach Test:** ${cleanupReport.containersBefore} / ${cleanupReport.containersAfter}\n`;
+    markdown += `- **Prozesse vor/nach Test:** ${cleanupReport.processesBefore} / ${cleanupReport.processesAfter}\n`;
+    markdown += `- **Leak erkannt:** ${cleanupReport.leakDetected ? '⚠️ Ja' : '✅ Nein'}\n\n`;
+    if (cleanupReport.details) {
+      markdown += `**Details:** ${cleanupReport.details}\n\n`;
+    }
+  } else {
+    markdown += `⚠️ **Cleanup-Report nicht gefunden**\n\n`;
+  }
+  
+  markdown += `## Fazit\n\n`;
+  markdown += generateConclusion(metrics);
+  markdown += generateRecommendation(metrics);
+  markdown += generateArtifactsList(testId, dirContents);
+  
   return markdown;
 }
-
-function osTotalMemory() {
-  try {
-    return os.totalmem();
-  } catch {
-    return null;
-  }
-}
-
-import os from 'node:os';
 
 // Main
 const args = process.argv.slice(2);
