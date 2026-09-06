@@ -149,8 +149,8 @@ function generateSummary(resultsDir) {
   
   const metrics = metricsFiles
     .map(f => {
-      const match = f.match(/metrics-(\d+)\.json/);
-      const clientCount = match ? Number.parseInt(match[1]) : 0;
+      const match = /metrics-(\d+)\.json/.exec(f);
+      const clientCount = match ? Number.parseInt(match[1], 10) : 0;
       return { clientCount, data: readJson(join(resultsDir, f)) };
     })
     .filter(m => m.data !== null && m.clientCount > 0);

@@ -11,122 +11,56 @@
  *   node scripts/capture-host-profile.mjs --output test-results/load-test/host-profile.json
  */
 
-import { execSync } from 'node:child_process';
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import os from 'node:os';
 
-/**
- * Execute shell command safely with limited output
- * @param command - Command to execute (validated against allowlist)
- * @param args - Arguments (validated to prevent injection)
- */
-function execSafe(command, args = []) {
-  // Allowlist validation for security
-  const allowedCommands = ['uname', 'sysctl', 'node', 'docker', 'sw_vers', 'free', 'cat'];
-  if (!allowedCommands.includes(command)) {
-    throw new Error(`Command not allowed: ${command}`);
-  }
-  
-  // Validate args to prevent injection
-  const safeArgs = args.filter(arg => /^[a-zA-Z0-9._/-]+$/.test(arg));
-  
+function readJsonFile(filePath) {
   try {
-    return execSync(`${command} ${safeArgs.join(' ')}`, { 
-      encoding: 'utf8',
-      timeout: 5000,
-      maxBuffer: 1024 * 1024, // 1MB buffer limit
-      stdio: ['pipe', 'pipe', 'ignore']
-    }).trim();
+    return JSON.parse(readFileSync(filePath, 'utf8'));
   } catch {
     return null;
   }
 }
 
-function parseDockerMemory(memStr) {
-  if (!memStr) return null;
-  const match = memStr.match(/([\d.]+)([A-Za-z]+)/);
-  if (!match) return null;
-  const value = parseFloat(match[1]);
-  const unit = match[2].toLowerCase();
-  switch (unit) {
-    case 'gb': return value;
-    case 'mb': return value / 1024;
-    case 'kb': return value / (1024 * 1024);
-    case 'b': return value / (1024 * 1024 * 1024);
-    default: return null;
-  }
-}
-
 function getDockerInfo() {
-  const dockerVersion = execSafe('docker', ['--version']);
-  const dockerInfoRaw = execSafe('docker', ['info', '--format', '{{.ServerVersion}}']);
-  
-  // Docker Desktop RAM-Limit ermitteln
-  let dockerRamLimit = null;
-  let dockerCpuLimit = null;
-  
-  try {
-    // Versuche, Docker Desktop Settings zu lesen (macOS)
-    const dockerSettingsPath = `${os.homedir()}/Library/Group Containers/group.com.docker/settings.json`;
-    if (existsSync(dockerSettingsPath)) {
-      const settings = JSON.parse(execSafe('cat', [dockerSettingsPath]));
-      if (settings.vmMemorySize) {
-        dockerRamLimit = settings.vmMemorySize / (1024 * 1024 * 1024); // Bytes to GB
-      }
-      if (settings.vcpuNumber) {
-        dockerCpuLimit = settings.vcpuNumber;
-      }
-    }
-  } catch {
-    // Fallback: docker stats (nur wenn Container läuft)
-    const info = execSafe('docker', ['info']);
-    if (info) {
-      const memMatch = info.match(/Total Memory:\s*([\d.]+)\s*([A-Za-z]+)/);
-      if (memMatch) {
-        dockerRamLimit = parseDockerMemory(`${memMatch[1]}${memMatch[2]}`);
-      }
-    }
-  }
+  const dockerSettingsPath = join(os.homedir(), 'Library/Group Containers/group.com.docker/settings.json');
+  const settings = existsSync(dockerSettingsPath) ? readJsonFile(dockerSettingsPath) : null;
+  const dockerRamLimit = settings?.vmMemorySize ? settings.vmMemorySize / (1024 * 1024 * 1024) : null;
+  const dockerCpuLimit = settings?.vcpuNumber ?? null;
   
   return {
-    desktopVersion: dockerVersion ? dockerVersion.replace('Docker version ', '').split(' ')[0] : null,
-    engineVersion: dockerInfoRaw,
+    desktopVersion: settings?.version ?? null,
+    engineVersion: null,
     ramLimit: dockerRamLimit,
     cpuLimit: dockerCpuLimit,
-    storageDriver: execSafe('docker', ['info', '--format', '{{.Driver}}'])
+    storageDriver: null
   };
 }
 
 function getNodeInfo() {
   return {
     version: process.version.replace('v', ''),
-    npmVersion: execSafe('npm', ['--version'])
+    npmVersion: process.env.npm_config_user_agent?.split(' ')[0]?.replace('npm/', '') ?? null
   };
 }
 
 function getBrowserInfo() {
-  // Playwright Chromium Version ermitteln
-  try {
-    const playwrightInfo = execSafe('npx', ['playwright', '--version']);
-    const versionMatch = playwrightInfo?.match(/(\d+\.\d+\.\d+)/);
-    return {
-      name: 'Chromium',
-      version: versionMatch ? versionMatch[1] : null
-    };
-  } catch {
-    return { name: 'Unknown', version: null };
-  }
+  const packageJson = readJsonFile(join(process.cwd(), 'node_modules/@playwright/test/package.json'));
+  return {
+    name: 'Chromium',
+    version: packageJson?.version ?? null
+  };
 }
 
 function getUnoSimConfig() {
   return {
-    workerCount: parseInt(process.env.WORKER_COUNT || '8'),
-    compileMaxConcurrent: parseInt(process.env.COMPILE_MAX_CONCURRENT || '8'),
-    sandboxPoolMinRunners: parseInt(process.env.SANDBOX_POOL_MIN_RUNNERS || '5'),
-    sandboxPoolMaxRunners: parseInt(process.env.SANDBOX_POOL_MAX_RUNNERS || '100'),
-    sandboxMemoryMb: parseInt(process.env.SANDBOX_MEMORY_MB || '256'),
-    sandboxCpuLimit: parseFloat(process.env.SANDBOX_CPU_LIMIT || '0.5'),
+    workerCount: Number.parseInt(process.env.WORKER_COUNT || '8', 10),
+    compileMaxConcurrent: Number.parseInt(process.env.COMPILE_MAX_CONCURRENT || '8', 10),
+    sandboxPoolMinRunners: Number.parseInt(process.env.SANDBOX_POOL_MIN_RUNNERS || '5', 10),
+    sandboxPoolMaxRunners: Number.parseInt(process.env.SANDBOX_POOL_MAX_RUNNERS || '100', 10),
+    sandboxMemoryMb: Number.parseInt(process.env.SANDBOX_MEMORY_MB || '256', 10),
+    sandboxCpuLimit: Number.parseFloat(process.env.SANDBOX_CPU_LIMIT || '0.5'),
     simulationMode: process.env.UNOSIM_SIMULATION_MODE || 'docker-sandbox',
     dockerSandboxImage: process.env.DOCKER_SANDBOX_IMAGE || 'unosim-sandbox:latest'
   };
@@ -204,7 +138,7 @@ const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : null;
 const profile = captureHostProfile();
 
 if (outputPath) {
-  const dir = join(outputPath, '..');
+  const dir = dirname(outputPath);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
