@@ -157,14 +157,16 @@ export interface SimulationStateEventData {
  * Reports server reachability, sandbox runner stats, and compile slot stats.
  *
  * Canonical terms (used across UI, API, banner, and docs):
- * - pool → "Sandbox Runners" (container pool for docker-sandbox mode)
- * - compile → "Compile Slots" (max concurrent compilation processes)
+ * - sandboxRunners → "Sandbox Runners" (container pool for docker-sandbox mode)
+ * - compileSlots → "Compile Slots" (max concurrent compilation processes)
+ * 
+ * Legacy aliases (pool, compile) are deprecated but still supported for backward compatibility.
  */
 export interface ServerStatusEventData {
   /** True when the server HTTP endpoint is reachable */
   serverReachable: boolean;
   /** Sandbox Runners — container pool stats (docker-sandbox mode) */
-  pool: {
+  sandboxRunners: {
     /** Total sandbox runner slots allocated */
     total: number;
     /** Sandbox runner slots currently idle */
@@ -173,9 +175,11 @@ export interface ServerStatusEventData {
     inUse: number;
     /** Requests waiting for a free sandbox runner */
     queued: number;
+    /** Maximum sandbox runner slots allowed */
+    max: number;
   };
   /** Compile Slots — concurrent compilation stats */
-  compile: {
+  compileSlots: {
     /** Compile jobs currently in progress */
     active: number;
     /** Compile jobs waiting for a free slot */
@@ -183,6 +187,10 @@ export interface ServerStatusEventData {
     /** Maximum concurrent compile slots allowed */
     maxConcurrent: number;
   };
+  /** @deprecated Use sandboxRunners instead. Will be removed in next major release. */
+  pool?: ServerStatusEventData["sandboxRunners"];
+  /** @deprecated Use compileSlots instead. Will be removed in next major release. */
+  compile?: ServerStatusEventData["compileSlots"];
 }
 
 

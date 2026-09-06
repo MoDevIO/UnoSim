@@ -36,8 +36,8 @@ const buildParams = (overrides = {}) => ({
   simulationStatus: "idle" as const,
   compilationStatus: "ready",
   serverStatus: {
-    pool: { total: 1, available: 1, inUse: 0, queued: 0 },
-    compile: { active: 0, queued: 0, maxConcurrent: 1 },
+    sandboxRunners: { total: 1, available: 1, inUse: 0, queued: 0, max: 1 },
+    compileSlots: { active: 0, queued: 0, maxConcurrent: 1 },
   },
   ...overrides,
 });
@@ -80,8 +80,8 @@ describe("useSimulatorExternalControl", () => {
     expect(params.handleStop).toHaveBeenCalledOnce();
     expect(emitServerStatusEvent).toHaveBeenCalledWith({
       serverReachable: true,
-      pool: params.serverStatus.pool,
-      compile: params.serverStatus.compile,
+      sandboxRunners: params.serverStatus.sandboxRunners,
+      compileSlots: params.serverStatus.compileSlots,
     });
   });
 });

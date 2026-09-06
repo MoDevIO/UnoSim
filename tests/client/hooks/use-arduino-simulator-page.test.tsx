@@ -293,6 +293,8 @@ vi.mock("@/hooks/useSimulatorUIState", () => ({
 
 vi.mock("@/hooks/use-external-api", () => ({
   useExternalApi: vi.fn(),
+  emitServerStatusEvent: vi.fn(),
+  emitSimulationStateEvent: vi.fn(),
 }));
 
 vi.mock("@shared/io-registry-parser", () => ({

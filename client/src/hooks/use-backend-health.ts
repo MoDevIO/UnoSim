@@ -4,12 +4,12 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import type { QueryClient } from "@tanstack/react-query";
 import type { ServerStatusEventData } from "@/types/external-api";
 
-type PoolStats = ServerStatusEventData["pool"];
-type CompileStats = ServerStatusEventData["compile"];
+type PoolStats = ServerStatusEventData["sandboxRunners"];
+type CompileStats = ServerStatusEventData["compileSlots"];
 
 type ServerStatus = {
-  pool: PoolStats;
-  compile: CompileStats;
+  sandboxRunners: PoolStats;
+  compileSlots: CompileStats;
 } | null;
 
 /** Polling intervals fetched from /api/config (fallbacks match server defaults) */
@@ -127,9 +127,9 @@ export function useBackendHealth(queryClient: QueryClient) {
       try {
         const res = await fetch("/api/status", { cache: "no-store", headers: { Connection: "close" }, signal: controller.signal });
         if (!res.ok) return;
-        const data = await res.json() as { pool: PoolStats; compile: CompileStats };
+        const data = await res.json() as { sandboxRunners: PoolStats; compileSlots: CompileStats };
         if (!cancelled) {
-          setServerStatus({ pool: data.pool, compile: data.compile });
+          setServerStatus({ sandboxRunners: data.sandboxRunners, compileSlots: data.compileSlots });
         }
       } catch {
         // status fetch failure is non-critical – silently ignore

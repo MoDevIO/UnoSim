@@ -132,7 +132,7 @@ describe("useBackendHealth", () => {
       if (shouldFail && typeof url === "string" && url.includes("/api/health")) {
         throw new Error("Down");
       }
-      return { ok: true, status: 200, json: async () => ({ pool: {}, compile: {} }) } as Response;
+      return { ok: true, status: 200, json: async () => ({ sandboxRunners: {}, compileSlots: {} }) } as Response;
     });
     
     const { result } = renderHook(() => useBackendHealth(mockQueryClient));

@@ -10,7 +10,7 @@ import {
 } from "./use-external-api";
 
 type StateSetter<T> = (value: T | ((previous: T) => T)) => void;
-type InternalServerStatus = Pick<ServerStatusEventData, "pool" | "compile">;
+type InternalServerStatus = Pick<ServerStatusEventData, "sandboxRunners" | "compileSlots">;
 
 interface UseSimulatorExternalControlParams {
   allowedOrigin: string;
@@ -93,8 +93,8 @@ export function useSimulatorExternalControl(
     getSimulationState: deriveClientState,
     getServerStatus: () => params.serverStatus && {
       serverReachable: params.backendReachable,
-      pool: params.serverStatus.pool,
-      compile: params.serverStatus.compile,
+      sandboxRunners: params.serverStatus.sandboxRunners,
+      compileSlots: params.serverStatus.compileSlots,
     },
   });
 
@@ -102,10 +102,10 @@ export function useSimulatorExternalControl(
     if (!params.serverStatus) return;
     emitServerStatusEvent({
       serverReachable: params.backendReachable,
-      pool: params.serverStatus.pool,
-      compile: params.serverStatus.compile,
+      sandboxRunners: params.serverStatus.sandboxRunners,
+      compileSlots: params.serverStatus.compileSlots,
     });
-  }, [params.serverStatus, params.backendReachable]);
+  }, [params.serverStatus, params.backendReachable, emitServerStatusEvent]);
 
   return { pendingExternalStart };
 }
