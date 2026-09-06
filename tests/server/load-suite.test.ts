@@ -103,6 +103,16 @@ interface TestResult {
   avgStartSimTime?: number;
   stdDev?: number;
   failedClients?: Array<{ id: number; error: string }>;
+  // Server-Metriken (nur bei Real-Server-Tests)
+  peakCpuUsage?: number;
+  peakMemoryUsage?: number;
+  peakActiveRunners?: number;
+  peakQueueDepth?: number;
+  avgConnectLatency?: number;
+  avgHealthLatency?: number;
+  avgStatusLatency?: number;
+  timeoutCount?: number;
+  cleanupSuccess?: boolean;
 }
 
 /** Creates a stub HTTP server that responds to /api/sketches and /api/compile. */
@@ -139,6 +149,46 @@ async function closeServer(server: http.Server): Promise<void> {
   });
 }
 
+/** Fetch server metrics from health/status endpoints */
+async function fetchServerMetrics(baseUrl: string): Promise<{
+  cpuUsage?: number;
+  memoryUsage?: number;
+  activeRunners?: number;
+  queueDepth?: number;
+  healthLatency?: number;
+  statusLatency?: number;
+}> {
+  const metrics: any = {};
+  
+  try {
+    // Health endpoint
+    const healthStart = Date.now();
+    const healthRes = await fetchHttp(`${baseUrl}/api/health`);
+    metrics.healthLatency = Date.now() - healthStart;
+    
+    if (healthRes.ok) {
+      const healthData = await healthRes.json();
+      metrics.cpuUsage = healthData.cpuUsage;
+      metrics.memoryUsage = healthData.memoryUsage;
+    }
+    
+    // Status endpoint
+    const statusStart = Date.now();
+    const statusRes = await fetchHttp(`${baseUrl}/api/status`);
+    metrics.statusLatency = Date.now() - statusStart;
+    
+    if (statusRes.ok) {
+      const statusData = await statusRes.json();
+      metrics.activeRunners = statusData.activeRunners;
+      metrics.queueDepth = statusData.queueDepth;
+    }
+  } catch {
+    // Server may not have these endpoints (stub mode)
+  }
+  
+  return metrics;
+}
+
 /**
  * Shared implementation for load tests
  */
@@ -148,17 +198,26 @@ function createLoadTestSuite(
 ) {
   describeFn(`Load Test: ${numClients} Concurrent Clients`, () => {
     let API_BASE: string;
-    let stubServer: http.Server;
+    let stubServer: http.Server | null = null;
     const testResults: TestResult[] = [];
+    const USE_REAL_SERVER = process.env.LOAD_TEST_REAL_SERVER === "true";
 
     beforeAll(async () => {
-      const result = await createStubServer();
-      stubServer = result.server;
-      API_BASE = result.baseUrl;
+      if (USE_REAL_SERVER) {
+        API_BASE = process.env.LOAD_TEST_SERVER_URL || "http://localhost:5173";
+        console.log(`[LoadTest] Using real server at ${API_BASE}`);
+      } else {
+        const result = await createStubServer();
+        stubServer = result.server;
+        API_BASE = result.baseUrl;
+        console.log(`[LoadTest] Using stub server at ${API_BASE}`);
+      }
     });
 
     afterAll(async () => {
-      await closeServer(stubServer);
+      if (stubServer) {
+        await closeServer(stubServer);
+      }
     });
 
     async function simulateClient(clientId: number): Promise<ClientMetrics> {
@@ -174,12 +233,13 @@ function createLoadTestSuite(
       const startTime = Date.now();
 
       try {
-        // Fetch sketches
-        const fetchStart = Date.now();
+        // Connect latency (first request)
+        const connectStart = Date.now();
         const sketchResponse = await fetchHttp(`${API_BASE}/api/sketches`);
+        metrics.fetchSketchTime = Date.now() - connectStart;
+        
         if (!sketchResponse.ok)
           throw new Error(`Fetch failed: ${sketchResponse.status}`);
-        metrics.fetchSketchTime = Date.now() - fetchStart;
 
         // Compile code
         const compileStart = Date.now();
@@ -210,9 +270,10 @@ function createLoadTestSuite(
       return metrics;
     }
 
-    function calculateStats(results: ClientMetrics[]): TestResult {
+    async function calculateStats(results: ClientMetrics[], serverMetrics?: any): Promise<TestResult> {
       const successful = results.filter((r) => r.success);
       const failed = results.filter((r) => !r.success);
+      const timeouts = failed.filter(r => r.error?.includes("timeout") || r.error?.includes("ETIMEDOUT"));
 
       const times = successful.map((r) => r.totalTime).sort((a, b) => a - b);
       const avgTime =
@@ -222,7 +283,7 @@ function createLoadTestSuite(
           times.length
         : 0;
 
-      return {
+      const stats: TestResult = {
         testName: `${results.length} Clients`,
         totalClients: results.length,
         successful: successful.length,
@@ -253,17 +314,82 @@ function createLoadTestSuite(
         failedClients: failed
           .slice(0, 5)
           .map((f) => ({ id: f.clientId, error: f.error || "Unknown" })),
+        timeoutCount: timeouts.length,
       };
+
+      // Server-Metriken hinzufügen (nur im Real-Server-Modus)
+      if (serverMetrics) {
+        stats.peakCpuUsage = serverMetrics.peakCpu;
+        stats.peakMemoryUsage = serverMetrics.peakMemory;
+        stats.peakActiveRunners = serverMetrics.peakRunners;
+        stats.peakQueueDepth = serverMetrics.peakQueue;
+        stats.avgConnectLatency = serverMetrics.avgConnect;
+        stats.avgHealthLatency = serverMetrics.avgHealth;
+        stats.avgStatusLatency = serverMetrics.avgStatus;
+      }
+
+      return stats;
     }
 
     it(
       `should handle ${numClients} concurrent clients`,
       async () => {
+        const serverMetrics: any = {
+          peakCpu: 0,
+          peakMemory: 0,
+          peakRunners: 0,
+          peakQueue: 0,
+          avgConnect: 0,
+          avgHealth: 0,
+          avgStatus: 0,
+        };
+
+        // Server-Metriken sammeln (nur im Real-Server-Modus)
+        let metricsInterval: NodeJS.Timeout | null = null;
+        const metricsSamples: any[] = [];
+
+        if (USE_REAL_SERVER) {
+          metricsInterval = setInterval(async () => {
+            try {
+              const metrics = await fetchServerMetrics(API_BASE);
+              metricsSamples.push(metrics);
+              
+              if (metrics.cpuUsage !== undefined) {
+                serverMetrics.peakCpu = Math.max(serverMetrics.peakCpu, metrics.cpuUsage);
+              }
+              if (metrics.memoryUsage !== undefined) {
+                serverMetrics.peakMemory = Math.max(serverMetrics.peakMemory, metrics.memoryUsage);
+              }
+              if (metrics.activeRunners !== undefined) {
+                serverMetrics.peakRunners = Math.max(serverMetrics.peakRunners, metrics.activeRunners);
+              }
+              if (metrics.queueDepth !== undefined) {
+                serverMetrics.peakQueue = Math.max(serverMetrics.peakQueue, metrics.queueDepth);
+              }
+            } catch {
+              // Ignore errors in stub mode
+            }
+          }, 1000);
+        }
+
         const clientPromises = Array.from({ length: numClients }, (_, idx) =>
           simulateClient(idx + 1),
         );
         const results = await Promise.all(clientPromises);
-        const stats = calculateStats(results);
+        
+        if (metricsInterval) {
+          clearInterval(metricsInterval);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Averages berechnen
+          if (metricsSamples.length > 0) {
+            serverMetrics.avgConnect = metricsSamples.reduce((sum, m) => sum + (m.healthLatency || 0), 0) / metricsSamples.length;
+            serverMetrics.avgHealth = metricsSamples.reduce((sum, m) => sum + (m.healthLatency || 0), 0) / metricsSamples.length;
+            serverMetrics.avgStatus = metricsSamples.reduce((sum, m) => sum + (m.statusLatency || 0), 0) / metricsSamples.length;
+          }
+        }
+
+        const stats = await calculateStats(results, USE_REAL_SERVER ? serverMetrics : undefined);
 
         testResults.push(stats);
 
@@ -284,7 +410,7 @@ function createLoadTestSuite(
             simulateClient(idx + 1),
           );
           const results = await Promise.all(clientPromises);
-          const stats = calculateStats(results);
+          const stats = await calculateStats(results, undefined);
           stats.testName = `${size} Clients (Scalability)`;
 
           testResults.push(stats);
@@ -510,3 +636,57 @@ createLoadTestSuite(50);
 createLoadTestSuite(100);
 createLoadTestSuite(200);
 createLoadTestSuite(500); // Previously skipped — re-enabled with stub server (no external deps)
+
+// Export helper for saving metrics (used by capture scripts)
+export function saveTestMetrics(
+  results: TestResult[],
+  outputDir: string,
+  clientCount: number,
+): void {
+  import("node:fs").then(({ writeFileSync, mkdirSync, existsSync }) => {
+    import("node:path").then(({ join }) => {
+      if (!existsSync(outputDir)) {
+        mkdirSync(outputDir, { recursive: true });
+      }
+
+      const mainResult = results.find(r => r.totalClients === clientCount);
+      if (!mainResult) return;
+
+      const metrics = {
+        clientCount,
+        timestamp: new Date().toISOString(),
+        successful: mainResult.successful,
+        failed: mainResult.failed,
+        successRate: mainResult.successRate,
+        totalTime: mainResult.totalTime,
+        avgTime: mainResult.avgTime,
+        minTime: mainResult.minTime,
+        maxTime: mainResult.maxTime,
+        throughput: mainResult.throughput,
+        p50: mainResult.p50,
+        p90: mainResult.p90,
+        p95: mainResult.p95,
+        p99: mainResult.p99,
+        avgFetchTime: mainResult.avgFetchTime,
+        avgCompileTime: mainResult.avgCompileTime,
+        avgStartSimTime: mainResult.avgStartSimTime,
+        stdDev: mainResult.stdDev,
+        // Server-Metriken
+        peakCpuUsage: mainResult.peakCpuUsage,
+        peakMemoryUsage: mainResult.peakMemoryUsage,
+        peakActiveRunners: mainResult.peakActiveRunners,
+        peakQueueDepth: mainResult.peakQueueDepth,
+        avgConnectLatency: mainResult.avgConnectLatency,
+        avgHealthLatency: mainResult.avgHealthLatency,
+        avgStatusLatency: mainResult.avgStatusLatency,
+        timeoutCount: mainResult.timeoutCount,
+        cleanupSuccess: mainResult.cleanupSuccess,
+        failedClients: mainResult.failedClients,
+      };
+
+      const outputPath = join(outputDir, `metrics-${clientCount}.json`);
+      writeFileSync(outputPath, JSON.stringify(metrics, null, 2));
+      console.log(`[LoadTest] Metrics saved to ${outputPath}`);
+    });
+  });
+}
