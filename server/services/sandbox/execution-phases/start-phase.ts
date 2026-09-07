@@ -1,4 +1,5 @@
 import type { IProcessController } from "../../process-controller";
+import { getgid, getuid } from "node:process";
 import type { ExecutionState } from "../execution-manager";
 import type { SimulationState } from "../../simulation-state-machine";
 import { DockerCommandBuilder } from "../../docker-command-builder";
@@ -86,10 +87,14 @@ export async function runDockerStart(
   context: DockerStartContext,
 ): Promise<string[]> {
   const { processController, transitionTo } = context;
+  const user = typeof getuid === "function" && typeof getgid === "function"
+    ? `${getuid()}:${getgid()}`
+    : undefined;
 
   // Docker-Command bauen
   const dockerArgs = DockerCommandBuilder.buildSecureRunCommand({
     sketchDir: params.sketchDir,
+    user,
     memoryMB: SANDBOX_CONFIG.maxMemoryMB,
     cpuLimit: SANDBOX_CONFIG.cpuLimit,
     pidsLimit: SANDBOX_CONFIG.pidsLimit,

@@ -10,6 +10,7 @@ import { realpathSync } from "node:fs";
 interface DockerRunOptions {
   sketchDir: string;
   memoryMB: number;
+  user?: string;
   cpuLimit: string;
   pidsLimit: number;
   imageName: string;
@@ -43,6 +44,7 @@ export class DockerCommandBuilder {
       options.cpuLimit, // CPU limit (e.g., "0.5" for 50%)
       "--pids-limit",
       String(options.pidsLimit), // Limit number of processes
+      ...(options.user ? ["--user", options.user] : []),
       "--security-opt",
       "no-new-privileges", // Prevent privilege escalation
       "--cap-drop",

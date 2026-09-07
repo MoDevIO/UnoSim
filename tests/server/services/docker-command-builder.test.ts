@@ -33,4 +33,17 @@ describe("DockerCommandBuilder", () => {
       "&& /sandbox/sketch",
     );
   });
+  it("passes the user ID and group ID into the Docker command", () => {
+    const command = DockerCommandBuilder.buildSecureRunCommand({
+      sketchDir: "/tmp/sketch",
+      memoryMB: 256,
+      cpuLimit: "0.25",
+      pidsLimit: 50,
+      imageName: "unosim-sandbox:latest",
+      command: ["sh", "-c", "true"],
+      user: "1001:1001",
+    });
+    expect(command).toContain("--user");
+    expect(command[command.indexOf("--user") + 1]).toBe("1001:1001");
+  });
 });

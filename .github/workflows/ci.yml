@@ -30,7 +30,7 @@ jobs:
     name: Lint & Unit Tests
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pages: write
     steps:
       - uses: actions/checkout@v4
