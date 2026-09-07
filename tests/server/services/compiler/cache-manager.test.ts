@@ -1,10 +1,11 @@
-import { mkdtemp, mkdir, readdir, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, rm, readFile, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   checkCacheHits,
   readOutputFromCache,
+  runHexCacheCleanup,
   writeBinaryToStorage,
   writeHexToCache,
   writeOutputToCache,
@@ -191,5 +192,95 @@ describe("cache-manager cache writes", () => {
     await expect(
       writeOutputToCache(join(root, "missing"), "sketch", "should fail"),
     ).rejects.toThrow();
+  });
+});
+
+describe("cache-manager cache cleanup", () => {
+  const temporaryDirectories: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(temporaryDirectories.map((directory) => rm(directory, { recursive: true, force: true })));
+    temporaryDirectories.length = 0;
+  });
+
+  async function createHexCacheDirectory(): Promise<string> {
+    const root = await mkdtemp(join(tmpdir(), "unosim-cache-manager-cleanup-"));
+    temporaryDirectories.push(root);
+    const hexCacheDir = join(root, "hex");
+    await mkdir(hexCacheDir);
+    return hexCacheDir;
+  }
+
+  it("evicts least-recently-used HEX entries until the byte limit is met", async () => {
+    const hexCacheDir = await createHexCacheDirectory();
+    const oldPath = join(hexCacheDir, "old.hex");
+    const recentPath = join(hexCacheDir, "recent.hex");
+    await writeFile(oldPath, Buffer.alloc(4, 1));
+    await writeFile(recentPath, Buffer.alloc(4, 2));
+    await utimes(oldPath, new Date("2020-01-01T00:00:00Z"), new Date("2020-01-01T00:00:00Z"));
+    await utimes(recentPath, new Date("2024-01-01T00:00:00Z"), new Date("2024-01-01T00:00:00Z"));
+
+    await runHexCacheCleanup(hexCacheDir, 4);
+
+    await expect(readdir(hexCacheDir)).resolves.toEqual(["recent.hex"]);
+    await expect(readFile(recentPath)).resolves.toEqual(Buffer.alloc(4, 2));
+  });
+
+  it("removes multiple oldest entries when required and keeps newer entries", async () => {
+    const hexCacheDir = await createHexCacheDirectory();
+    const paths = await Promise.all(["oldest", "middle", "newest"].map(async (name, index) => {
+      const path = join(hexCacheDir, `${name}.hex`);
+      await writeFile(path, Buffer.alloc(3, index + 1));
+      const date = new Date(`202${index}-01-01T00:00:00Z`);
+      await utimes(path, date, date);
+      return path;
+    }));
+
+    await runHexCacheCleanup(hexCacheDir, 3);
+
+    await expect(readdir(hexCacheDir)).resolves.toEqual(["newest.hex"]);
+    await expect(readFile(paths[2])).resolves.toEqual(Buffer.alloc(3, 3));
+  });
+
+  it("does not remove HEX entries or sidecars when the cache is within the limit", async () => {
+    const hexCacheDir = await createHexCacheDirectory();
+    await writeFile(join(hexCacheDir, "sketch.hex"), Buffer.alloc(4, 1));
+    await writeFile(join(hexCacheDir, "sketch.output.txt"), "compiler output", "utf8");
+    await writeFile(join(hexCacheDir, "sketch.hex.tmp-test"), "temporary", "utf8");
+
+    await runHexCacheCleanup(hexCacheDir, 4);
+
+    await expect(readdir(hexCacheDir)).resolves.toEqual([
+      "sketch.hex",
+      "sketch.hex.tmp-test",
+      "sketch.output.txt",
+    ]);
+  });
+
+  it("ignores non-HEX artifacts while evicting only the required HEX bytes", async () => {
+    const hexCacheDir = await createHexCacheDirectory();
+    await writeFile(join(hexCacheDir, "old.hex"), Buffer.alloc(4, 1));
+    await writeFile(join(hexCacheDir, "new.hex"), Buffer.alloc(4, 2));
+    await writeFile(join(hexCacheDir, "new.output.txt"), "metadata", "utf8");
+    await writeFile(join(hexCacheDir, "notes.txt"), "not a cache entry", "utf8");
+    const oldDate = new Date("2020-01-01T00:00:00Z");
+    const newDate = new Date("2024-01-01T00:00:00Z");
+    await utimes(join(hexCacheDir, "old.hex"), oldDate, oldDate);
+    await utimes(join(hexCacheDir, "new.hex"), newDate, newDate);
+
+    await runHexCacheCleanup(hexCacheDir, 4);
+
+    await expect(readdir(hexCacheDir)).resolves.toEqual([
+      "new.hex",
+      "new.output.txt",
+      "notes.txt",
+    ]);
+  });
+
+  it("treats an absent cache directory as an already-clean cache", async () => {
+    const root = await mkdtemp(join(tmpdir(), "unosim-cache-manager-cleanup-missing-"));
+    temporaryDirectories.push(root);
+
+    await expect(runHexCacheCleanup(join(root, "missing"), 0)).resolves.toBeUndefined();
   });
 });
