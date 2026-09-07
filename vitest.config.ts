@@ -78,6 +78,7 @@ export default defineConfig({
             "tests/integration/concurrent-50-clients.test.ts",
             "tests/server/services/scalability-stress.test.ts",
             "tests/server/load-suite.test.ts",
+            "tests/server/load-*-client*.test.ts",
             "tests/server/pause-resume-digitalread.test.ts",
             "tests/server/pause-resume-timing.test.ts",
             "tests/server/timing-delay.test.ts",
@@ -133,6 +134,7 @@ export default defineConfig({
           name: "load",
           include: [
             "tests/server/load-suite.test.ts",
+            "tests/server/load-*-client*.test.ts",
             "tests/server/services/scalability-stress.test.ts",
             "tests/integration/concurrent-50-clients.test.ts",
           ],

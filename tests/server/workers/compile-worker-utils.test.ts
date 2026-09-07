@@ -160,12 +160,14 @@ describe("acquireCoreCacheLock", () => {
     const lockPath = join(TEST_BASE, "released.lock");
     await writeFile(lockPath, "other-process");
 
-    // Release the lock shortly after the waiter starts.
+    // Release the lock shortly after the waiter starts. Keep the timeout
+    // generous enough for coverage/instrumented CI runs where timers can be
+    // delayed by parallel test load.
     setTimeout(async () => {
       await rm(lockPath, { force: true });
-    }, 2);
+    }, 25);
 
-    const result = await acquireCoreCacheLock(lockPath, 50, 1);
+    const result = await acquireCoreCacheLock(lockPath, 1000, 10);
     expect(result.acquired).toBe(true);
     expect(result.waitedMs).toBeGreaterThanOrEqual(1);
   });
