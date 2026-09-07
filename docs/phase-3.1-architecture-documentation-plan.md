@@ -5,6 +5,8 @@
 **Branch:** `feature/refactor/phase-2-execution-manager`  
 **Voraussetzung:** Phase 2.10 abgeschlossen, Quality Gate grün, Working Tree clean
 
+> **Abschluss-/Historienhinweis (2026-09-07):** Dieser Plan ist abgeschlossen. Die weiter unten enthaltenen Formulierungen wie „geplant“ oder „Ready for implementation“ sind historische Planungsstände und keine aktiven Maßnahmen. Der aktuelle Abschlussstatus des ursprünglichen Maßnahmenplans steht in `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md` und `docs/PROJECT_STATUS_FINAL_2026-09-07.md`.
+
 ---
 
 ## 1. Scope / Non-Scope

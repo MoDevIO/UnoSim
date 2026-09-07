@@ -1,6 +1,6 @@
 # Phase 3.4–3.10: Operational-Readiness-Plan
 
-Status: verified-done
+Status: completed-with-deferred
 Zielrolle: operational-readiness-plan  
 Datum: 2026-09-07
 Grundlage: `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`, Abschnitt 10, Maßnahmen 3.4 bis 3.10.
@@ -11,12 +11,12 @@ Grundlage: `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`, Abschnitt 10, Maßnahme
 
 | Kennzahl | Stand |
 | --- | ---: |
-| Gesamtfortschritt | ca. 97 % (gewichtete Schätzung; verbleibende Config-Ausnahmen bewusst deferred) |
+| Abschlussstatus | `completed-with-deferred` |
 | `verified-done` | 29 |
-| `partial` | 1 |
+| `deferred` | 1 (`2.7` — Konfigurationsausnahmen) |
 | `open` | 0 |
-| Aktive Maßnahme | Keine — Phase 3.4–3.10 fachlich abgeschlossen |
-| Verbleibende atomare Fachinkremente | Keine in Phase 3.4–3.10 |
+| Aktive Maßnahme | Keine |
+| Verbleibende atomare Fachinkremente | Keine; 2.7 ist bewusst deferred |
 | Letzte Verifikation | 2026-09-07 |
 
 **Verifikationsregel:** Statusangaben im aktiven Plan müssen anhand des aktuellen Repository-Zustands verifiziert werden. Historische Abschlussmeldungen bleiben erhalten, gelten aber nicht automatisch als heutiger Ist-Zustand.

@@ -1,9 +1,11 @@
 # UnoSim Projektanalyse
 
-Status: planning  
+Status: completed-with-deferred
 Zielrolle: planning-context
 
 > Dieses Dokument ist eine Planungs-, Risiko- und Maßnahmenquelle. Es beschreibt keine verbindliche Ist-Architektur und ersetzt weder `ARCHITECTURE.md`, ADRs noch thematische SSOT-Dateien.
+
+> **Formaler Abschluss (2026-09-07):** Der ursprüngliche Maßnahmenplan ist abgeschlossen. 29 Maßnahmen sind `verified-done`, keine Maßnahme ist offen. Die einzige verbleibende technische Restschuld ist Maßnahme 2.7 (bewusst deferred); sie ist nicht release-blockierend und wird nur bei einem eigenen Runtime-/Sunset-Vertrag erneut bewertet. Siehe [finalen Projektstatus](PROJECT_STATUS_FINAL_2026-09-07.md).
 
 **Datum:** 2026-09-04  
 **Repository:** `MoDevIO/UnoSim`  
