@@ -4,6 +4,9 @@ This guide explains how to configure the UnoSim server instance and sandbox envi
 
 For the security controls and residual risks, see [`README_SECURITY.md`](README_SECURITY.md).
 
+For the Docker sandbox contract matrix and Phase 3.5 validation gates, see
+[`docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md`](docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md).
+
 For the release process and gates, see [`docs/RELEASE_RUNBOOK.md`](docs/RELEASE_RUNBOOK.md).
 
 ## 🎯 Target Audience

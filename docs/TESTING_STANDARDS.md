@@ -68,6 +68,19 @@ this resource-intensive check and reports it as skipped. This keeps every local
 default run fast while still making the stronger isolation check reproducible on
 developer machines and in a dedicated CI job.
 
+### Sandbox contract gate
+
+The Phase 3.5 sandbox contract is mapped in
+[`docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md`](PHASE_3.5_SANDBOX_CONTRACT_REPORT.md).
+Changes to Docker sandbox flags, runner lifecycle, gateway assumptions or
+container resource limits must run the documented Phase-3.5 gates, including
+`npm run test:security:inputs`, `npm run test:docker`,
+`RUN_HEAVY_TESTS=1 ./run-tests.sh`, `./check-leaks.sh --cleanup`,
+`npm audit --omit=dev`, `npm run check`, and `npm run check:docs`.
+
+Sandbox contract tests must stay additive and must not use real secrets, weaken
+security defaults, or open public host bindings.
+
 - Do **not** use `npx playwright test --update-snapshots` or similarly destructive flags in CI; snapshot changes must be reviewed explicitly.
 - When modifying timing-sensitive tests, ensure they still pass on low-end CI hosts by running:
   1. `npm run check`

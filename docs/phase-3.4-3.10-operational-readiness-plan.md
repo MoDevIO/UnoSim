@@ -47,6 +47,7 @@ Dieser Plan bildet ausschließlich diese Maßnahmen aus `docs/PROJECT_ANALYSIS_R
 | `docs/EXTERNAL_API.md` | current | iframe-postMessage-API, Version `1.4.0`, Simulation-State-Kompatibilität. |
 | `README_SECURITY.md` | current | Sicherheitskontrollen, Restrisiken, Produktionsmindestanforderungen. |
 | `README_ADMIN.md` | current | Betriebsmodi, Docker-/Gateway-Konfiguration und Admin-Gates. |
+| `docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md` | implementation | Sandbox-Vertragsmatrix, Lückenprüfung und Phase-3.5-Gates. |
 | `docs/adr/0001-authentication-and-gateway-contract.md` | accepted | Verbindlicher Gateway-/Auth-Vertrag für öffentliche Deployments. |
 | `docs/phase-3.3-deprecation-legacy-plan.md` | completed | Abgeschlossene Deprecation-Klassifikation; nur als Input für 3.10/Sunset, nicht erneut zu planen. |
 | `docs/phase-3.3-implementation-report.md` | completed | Abschlussnachweis für 3.3 und Liste künftiger Sunset-Kandidaten. |
@@ -89,7 +90,7 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 | Maßnahme | Bereits teilweise erfüllt | Wirklich offen |
 | --- | --- | --- |
 | 3.4 | Load-Scripts, Vitest-Load-Projekt, Playwright-Scalability-Test, bekannte Engpassanalyse. Reale Docker-Messläufe und Artefakte für Compile 50/100/200 sowie Simulation 50/100/200 liegen vor. | Keine offene Phase-3.4-Arbeit; Folgearbeit nur, wenn höhere Simulationsparallelität als 100 Clients gefordert wird. |
-| 3.5 | Docker-Security-Contract-Test, Docker-Sandbox-Image, Heavy-Test-Mechanik, Security-/Admin-Doku. | Regelmäßiges Sandbox-Vertragsgate mit dokumentierter Testmatrix, Penetrationstest-/Container-Escape-Prüfung, Security-Audit-Schritten und Release-Evidenz. |
+| 3.5 | Docker-Security-Contract-Test, Docker-Sandbox-Image, Heavy-Test-Mechanik, Security-/Admin-Doku und `docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md` als Vertragsmatrix. | Additive Real-Docker-Prüfungen für Netzwerkverbot, read-only RootFS und Container-/Host-Escape-Versuche; danach Phase-3.5-Gates ausführen. |
 | 3.6 | Hotspots sind benannt; Coverage-Report und `npm run test:coverage` existieren. | Zielgerichtete Tests für aktuelle Hotspots, bis alle Hotspots >60 % und kritische Hotspots >80 % erreichen; jede Abweichung muss explizit begründet werden. |
 | 3.7 | Einzelgates und `./run-tests.sh` existieren; SonarQube-Projekt ist konfiguriert. | Release-Runbook mit Pflicht-/Opt-in-Gates, Security-Audit, Artefakten, Abbruchkriterien und Verantwortlichkeit. |
 | 3.8 | Single-Stateful-Node ist transparent dokumentiert; ADR 0003 akzeptiert dieses Modell für die gemessene Kapazitätsgrenze. | Keine HA-Implementierung in Phase 3.8; höhere Parallelität benötigt separate Architektur-/Kapazitätsphase. |

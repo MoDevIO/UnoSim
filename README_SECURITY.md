@@ -4,6 +4,10 @@ Dieses Dokument beschreibt die aktuell implementierten Schutzmaßnahmen und die
 verbleibenden Risiken. Es ergänzt [`README_ADMIN.md`](README_ADMIN.md) und ist
 für Betreiber von Entwicklungs- und Produktionsinstanzen bestimmt.
 
+Die operative Sandbox-Vertragsmatrix und die Phase-3.5-Gates sind in
+[`docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md`](docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md)
+dokumentiert.
+
 ## Vorhandene Maßnahmen
 
 ### Zugriff und Transport
