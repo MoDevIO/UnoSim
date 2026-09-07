@@ -1,0 +1,139 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ProcessExecutor } from "../../../server/services/process-executor";
+import { LocalCompiler } from "../../../server/services/local-compiler";
+
+describe("LocalCompiler public compile behavior", () => {
+  const temporaryDirectories: string[] = [];
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await Promise.all(temporaryDirectories.map((directory) => rm(directory, { recursive: true, force: true })));
+    temporaryDirectories.length = 0;
+  });
+
+  async function createSketchWorkspace(): Promise<{
+    root: string;
+    sketchFile: string;
+    executableFile: string;
+    coreArchive: string;
+  }> {
+    const root = await mkdtemp(join(tmpdir(), "unosim-local-compiler-"));
+    temporaryDirectories.push(root);
+    const sketchFile = join(root, "sketch.cpp");
+    const executableFile = join(root, "bin", "sketch");
+    const coreArchive = join(root, "core.a");
+    await writeFile(sketchFile, "int main() { return 0; }", "utf8");
+    await writeFile(coreArchive, "core archive", "utf8");
+    return { root, sketchFile, executableFile, coreArchive };
+  }
+
+  it("runs Arduino CLI and g++ with the expected arguments and returns an executable", async () => {
+    const workspace = await createSketchWorkspace();
+    const execute = vi.spyOn(ProcessExecutor.prototype, "execute").mockImplementation(
+      async (command, args) => {
+        if (command === "g++") {
+          await writeFile(args[args.indexOf("-o") + 1], "compiled executable", "utf8");
+        }
+        return { code: 0, stdout: "compile ok", stderr: "" };
+      },
+    );
+    const onProcess = vi.fn();
+
+    await new LocalCompiler().compile(
+      workspace.sketchFile,
+      workspace.executableFile,
+      workspace.coreArchive,
+      onProcess,
+    );
+
+    expect(execute).toHaveBeenCalledWith(
+      "arduino-cli",
+      expect.arrayContaining([
+        "compile",
+        "--fqbn",
+        "arduino:avr:uno",
+        "--build-path",
+      ]),
+      expect.objectContaining({ detached: true, stdio: "pipe" }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "g++",
+      [workspace.sketchFile, workspace.coreArchive, "-o", workspace.executableFile, "-pthread"],
+      expect.objectContaining({ detached: true, stdio: "pipe" }),
+    );
+    expect(onProcess).not.toHaveBeenCalled();
+    await expect(readFile(workspace.executableFile, "utf8")).resolves.toBe("compiled executable");
+  });
+
+  it("removes a stale executable before compiling again and preserves the new artifact", async () => {
+    const workspace = await createSketchWorkspace();
+    await mkdir(join(workspace.root, "bin"), { recursive: true });
+    await writeFile(workspace.executableFile, "stale executable", "utf8");
+    const execute = vi.spyOn(ProcessExecutor.prototype, "execute").mockImplementation(
+      async (command, args) => {
+        if (command === "g++") {
+          await writeFile(args[args.indexOf("-o") + 1], "fresh executable", "utf8");
+        }
+        return { code: 0, stdout: "", stderr: "" };
+      },
+    );
+
+    await new LocalCompiler().compile(workspace.sketchFile, workspace.executableFile);
+
+    expect(execute).toHaveBeenCalledTimes(2);
+    await expect(readFile(workspace.executableFile, "utf8")).resolves.toBe("fresh executable");
+  });
+
+  it("normalizes compiler stderr and rejects failed compilation", async () => {
+    const workspace = await createSketchWorkspace();
+    vi.spyOn(ProcessExecutor.prototype, "execute").mockResolvedValue({
+      code: 1,
+      stdout: "",
+      stderr: "/tmp/temp/abc123/sketch.cpp:4: error: invalid syntax",
+      error: new Error("g++ failed"),
+    });
+
+    await expect(
+      new LocalCompiler().compile(workspace.sketchFile, workspace.executableFile),
+    ).rejects.toThrow("sketch.ino:4: error: invalid syntax");
+  });
+
+  it("retries a transient compiler failure and succeeds on the second attempt", async () => {
+    const workspace = await createSketchWorkspace();
+    let compilationAttempts = 0;
+    const execute = vi.spyOn(ProcessExecutor.prototype, "execute").mockImplementation(
+      async (command, args) => {
+        if (command === "g++") {
+          compilationAttempts += 1;
+          if (compilationAttempts === 2) {
+            await writeFile(args[args.indexOf("-o") + 1], "retry executable", "utf8");
+            return { code: 0, stdout: "", stderr: "" };
+          }
+          throw new Error("temporary compiler failure");
+        }
+        return { code: 0, stdout: "", stderr: "" };
+      },
+    );
+
+    await new LocalCompiler().compile(workspace.sketchFile, workspace.executableFile);
+
+    expect(compilationAttempts).toBe(2);
+    expect(execute).toHaveBeenCalledTimes(3);
+    await expect(readFile(workspace.executableFile, "utf8")).resolves.toBe("retry executable");
+  });
+
+  it("reports a missing sketch before invoking the compiler process", async () => {
+    const workspace = await createSketchWorkspace();
+    await rm(workspace.sketchFile);
+    const execute = vi.spyOn(ProcessExecutor.prototype, "execute");
+
+    await expect(
+      new LocalCompiler().compile(workspace.sketchFile, workspace.executableFile),
+    ).rejects.toThrow("sketch file vanished before g++ spawn");
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute.mock.calls[0][0]).toBe("arduino-cli");
+  });
+});
