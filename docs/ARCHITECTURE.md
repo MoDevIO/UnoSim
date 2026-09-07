@@ -11,7 +11,7 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 - Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
-- Planungs- und Risikoquellen wie `PROJECT_ANALYSIS_REPORT_2026-09-04.md` sind nicht normativ für den Ist-Zustand.
+- Historische Planungs- und Risikoquellen liegen ausschließlich unter `archive/` und sind nicht normativ für den Ist-Zustand.
 
 ## 📊 Datenfluss-Diagramm
 
@@ -32,7 +32,7 @@ graph TD
 - **Technologie:** React 18, TypeScript, Vite, TailwindCSS
 - **Hauptkomponenten:**
   - `ArduinoSimulatorPage` – Haupt-Seite mit Simulator-UI (753 Zeilen, Composition Root)
-  - `useCompileAndRun` – Orchestrator für Compile→Start und State-Komposition (361 Zeilen, Phase 2.1 abgeschlossen)
+  - `useCompileAndRun` – Orchestrator für Compile→Start und State-Komposition
   - `useSimulatorExternalControl` – Externe Steuerung, Reconnect-Queue und Status-Events
   - `use-compile-controller.ts` – Compile-Mutation, Parser-/Registry-Updates und Compile-State (94% Coverage)
   - `use-simulation-controller.ts` – Simulation-Mutationen, WebSocket-Kommandos und Lifecycle (100% Coverage)
@@ -60,14 +60,14 @@ graph TD
   - `services/compiler-with-fallback.ts` – Fallback-Mechanismus für Compilation
   - Cache: In-Memory-Cache für schnelle Rekompilationen
 
-### 5. Execution Phases (Phase 2.6 decomposed)
+### 5. Execution pipeline
 - **Verantwortung:** Sandbox-Lifecycle, Compile-Gatekeeping, Stream-Verarbeitung
 - **Technologie:** TypeScript, Dependency-Injection via Context-Objekte
 - **Extrahierte Phasen:**
-  - `server/services/sandbox/execution-phases/prepare-phase.ts` – Compilation mit Gatekeeper (Phase 2.6, 95.7% Coverage)
-  - Weitere Phasen in Planung (Cleanup, Timeout, Stream, Start)
+  - `server/services/sandbox/execution-phases/prepare-phase.ts` – Compilation mit Gatekeeper
+  - Weitere Phasen kapseln Cleanup, Timeout, Stream und Start
 
-### 6. Parser-Module (Phase 2.10 extrahiert)
+### 6. Parser-Module
 - **Verantwortung:** Arduino C++ Code-Analyse, I/O-Registry, Hardware-Kompatibilität
 - **Technologie:** TypeScript, funktionale Parser-Kombinatoren
 - **Extrahierte Module:**
@@ -163,10 +163,10 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 - **Production Mode:** Server und Simulation in Containern (für Produktion)
 - **Gateway Mode:** Reverse-Proxy mit Authentication (für Produktion)
 
-### Config-Zentralisierung (Phase 2.7)
+### Zentrale Konfiguration
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth
 - **Environment-Variablen:** Validierte Parser mit Type-Safety
-- **Status:** Die produktive Konfiguration läuft über `server/config.ts`. Bewusst verbleibende Laufzeit-/Testausnahmen (z. B. Worker-Thread-Marker, Test-Flags und der dokumentierte `FORCE_DOCKER`-Kompatibilitätsalias) sind in `archive/plans/phase-2-deferred.md` und dem Phase-3.3-Sunset-Inventar dokumentiert.
+- **Status:** Die produktive Konfiguration läuft über `server/config.ts`; `FORCE_DOCKER` ist nur ein deprecated Kompatibilitätsalias. Aktuelle Betriebs- und Sicherheitsanforderungen stehen in `INSTALL_SERVER.md` und `README_SECURITY.md`.
 
 ## 📊 Metriken und Observability
 
@@ -190,5 +190,5 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar.
 
 **Siehe auch:**
 - `docs/adr/0001-authentication-and-gateway-contract.md` – Verbindlicher Gateway-/Auth-Vertrag
-- `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md` – Detaillierte Projektanalyse
+- `SCALABILITY.md` – gemessene Kapazitätsgrenzen
 - `docs/TESTING_STANDARDS.md` – Teststrategie und -konventionen

@@ -1,12 +1,13 @@
 # UnoSim Security
 
 Dieses Dokument beschreibt die aktuell implementierten Schutzmaßnahmen und die
-verbleibenden Risiken. Es ergänzt [`README_ADMIN.md`](README_ADMIN.md) und ist
+verbleibenden Risiken. Die Betriebsanleitung steht in
+[`docs/INSTALL_SERVER.md`](docs/INSTALL_SERVER.md) und ist
 für Betreiber von Entwicklungs- und Produktionsinstanzen bestimmt.
 
-Die operative Sandbox-Vertragsmatrix und die Phase-3.5-Gates sind in
-[`docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md`](docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md)
-dokumentiert.
+Der operative Sandbox-Vertrag ist in dieser Datei und in
+[`docs/INSTALL_SERVER.md`](docs/INSTALL_SERVER.md) dokumentiert; die historische
+Validierung liegt im Archiv.
 
 ## Vorhandene Maßnahmen
 

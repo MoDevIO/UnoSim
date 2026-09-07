@@ -3,7 +3,7 @@
 Status: current  
 Version: 1.0.0  
 Datum: 2026-09-06  
-Grundlage: `docs/phase-3.4-3.10-operational-readiness-plan.md`, Maßnahme 3.7
+Grundlage: aktuelle Repository-Gates, `TESTING_STANDARDS.md` und `INSTALL_SERVER.md`.
 
 ---
 
@@ -328,9 +328,8 @@ git push origin vX.Y.Z
 
 ## Referenzen
 
-- `docs/phase-3.4-3.10-operational-readiness-plan.md` – Maßnahme 3.7
 - `docs/TESTING_STANDARDS.md` – Teststandards
 - `README_SECURITY.md` – Sicherheitskontrollen
-- `README_ADMIN.md` – Administrationsanleitung
+- `INSTALL_SERVER.md` – Serverinstallation und Administration
 - `package.json` – Scripts und Gates
 - `run-tests.sh` – Vollständige Pipeline

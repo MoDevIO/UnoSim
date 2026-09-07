@@ -70,8 +70,9 @@ developer machines and in a dedicated CI job.
 
 ### Sandbox contract gate
 
-The Phase 3.5 sandbox contract is mapped in
-[`docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md`](PHASE_3.5_SANDBOX_CONTRACT_REPORT.md).
+The current sandbox contract is defined in
+[`README_SECURITY.md`](../README_SECURITY.md); historical validation is in the
+archive.
 Changes to Docker sandbox flags, runner lifecycle, gateway assumptions or
 container resource limits must run the documented Phase-3.5 gates, including
 `npm run test:security:inputs`, `npm run test:docker`,

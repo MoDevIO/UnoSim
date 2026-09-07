@@ -2,13 +2,13 @@
 
 Status: archived  
 Zielrolle: historical-capacity-context  
-Aktiver Ziel-SSOT: Die aktive Skalierungs- und Kapazitätsplanung liegt ausschließlich in `../docs/SCALABILITY_100_STUDENTS.md`.
+Aktiver Ziel-SSOT: Die aktive Skalierungs- und Kapazitätsplanung liegt ausschließlich in `../docs/SCALABILITY.md`.
 
 ## Archivhinweis
 
 Dieses Dokument ist kein aktiver SSOT mehr. Es bleibt im `ssot/`-Verzeichnis nur zur Nachvollziehbarkeit der früheren Skalierungsbeschreibung erhalten. Alle folgenden Inhalte sind historischer Kontext und dürfen nicht als aktueller Betriebs- oder Kapazitätsvertrag verwendet werden.
 
-Für aktuelle Aussagen zu Ist-Grenzen, Zielbildern, Messszenarien, Konfiguration und offenen Skalierungsrisiken gilt `../docs/SCALABILITY_100_STUDENTS.md`.
+Für aktuelle Aussagen zu Ist-Grenzen, Zielbildern, Messszenarien, Konfiguration und offenen Skalierungsrisiken gilt `../docs/SCALABILITY.md`.
 
 **Branch:** `feature/scalability-100-students`  
 **Stand:** Mai 2026

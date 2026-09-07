@@ -2,8 +2,8 @@
 
 This directory contains historical audits, reports and superseded design drafts.
 They are retained for traceability and are not normative. Current behavior is
-defined by the root README, `README_ADMIN.md`, the active documents under
-`docs/`, ADRs and the checked-in source/tests.
+defined by the root README, `README_SECURITY.md`, the active documents under
+`docs/`, ADRs, SSOT contracts and the checked-in source/tests.
 
 Archived legacy documents:
 
@@ -13,7 +13,7 @@ Archived legacy documents:
 - `reports/phase2-characterization-tests-summary-2026-09-04.md` — historical implementation summary for Phase 2.1 characterization tests
 - `reports/` — dated performance, optimization and implementation reports
 - `plans/` — superseded or historical planning documents
-- `../../ssot/ssot_function_description_scalability.md` — archived in-place scalability SSOT draft; current capacity planning lives in `../SCALABILITY_100_STUDENTS.md`
+- `reports/ssot-function-description-scalability.md` — archived scalability SSOT draft; current capacity planning lives in `../SCALABILITY.md`
 
 Archive governance:
 
