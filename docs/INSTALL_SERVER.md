@@ -1,10 +1,10 @@
 # Serverinstallation und Hochschulbetrieb
 
-Normative Anleitung für Hochschulserver, Lehrbetrieb, Mehrbenutzerbetrieb und produktionsnahe Installationen. UnoSim ist aktuell ein einzelner stateful Backend-Knoten; horizontale HA ist nicht implementiert. Sicherheitsdetails stehen in SECURITY.md, Releases in RELEASE_RUNBOOK.md.
+Normative Anleitung für Hochschulserver, Lehrbetrieb, Mehrbenutzerbetrieb und produktionsnahe Installationen. UnoSim ist aktuell ein einzelner stateful Backend-Knoten; horizontale HA ist nicht implementiert. Sicherheitsdetails stehen in [SECURITY.md](SECURITY.md), Releases in [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md).
 
 ## Plattform
 
-Empfohlen ist Debian oder Ubuntu LTS mit systemd, mindestens 8 CPU-Kernen und 16 GB RAM. Für die gemessene Lastreserve sind 16 Kerne und 32 GB RAM sinnvoll. Node.js 24.20.0 und npm 11 werden verwendet. Benötigt werden Docker Engine mit Compose v2, Git, curl, ca-certificates, g++, xz-utils und tar. Arduino CLI und der arduino:avr-Core werden durch das Produktions-Dockerfile installiert.
+Empfohlen ist Debian oder Ubuntu LTS mit systemd, mindestens 8 CPU-Kernen und 16 GB RAM. 16 Kerne und 32 GB RAM sind eine Referenzempfehlung für die gemessenen Lastprofile, keine Kapazitätsgarantie; die freigegebenen Grenzen stehen in [SCALABILITY.md](SCALABILITY.md). Node.js 24.20.0 und npm 11 werden verwendet. Benötigt werden Docker Engine mit Compose v2, Git, curl, ca-certificates, g++, xz-utils und tar. Arduino CLI und der arduino:avr-Core werden durch das Produktions-Dockerfile installiert.
 
 Der Gateway-Host muss TLS terminieren, HTTP und WebSocket-Upgrades weiterleiten und den Backend-Port aus dem öffentlichen Netz abschirmen. Backend-Port ist 3000, öffentlich ist typischerweise nur 443 am Gateway.
 
@@ -19,7 +19,7 @@ docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
 npm run build
 ~~~
 
-Für Compose:
+Für Compose müssen die drei im Compose-File verpflichtenden Werte UNOSIM_GATEWAY_SECRET, UNOSIM_TRUSTED_PROXY und UNOSIM_ALLOWED_WS_ORIGINS im Environment oder Secret-Store gesetzt sein. Danach:
 
 ~~~bash
 docker compose build
@@ -55,11 +55,11 @@ export UNOSIM_ALLOWED_WS_ORIGINS='https://classroom.example.edu'
 export DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
 ~~~
 
-Der Gateway muss Cookies/Tokens validieren, eingehende X-UnoSim-Header entfernen und Secret, Subject und Rolle auf HTTP und WebSocket setzen. Origin-Allowlist-Einträge sind exakte Werte. Trusted Proxy ist konkrete IP/CIDR, niemals ein pauschales Trust-Proxy-Flag. Keine Secrets in Repository, Browser, URL oder Logs. Siehe SECURITY.md und ADR 0001.
+Der Gateway muss Cookies/Tokens validieren, eingehende X-UnoSim-Header entfernen und X-UnoSim-Gateway-Secret, X-UnoSim-Subject sowie X-UnoSim-Roles auf HTTP und WebSocket setzen. Origin-Allowlist-Einträge sind exakte Werte. Trusted Proxy ist konkrete IP/CIDR, niemals ein pauschales Trust-Proxy-Flag. Keine Secrets in Repository, Browser, URL oder Logs. Siehe SECURITY.md und ADR 0001.
 
 ## Sandbox-Vertrag
 
-Das Sandbox-Image muss einen nicht-root Benutzer, read-only RootFS, blockierten Network-Egress und keine Host-Mounts außer dem vorgesehenen /sandbox-Arbeitsverzeichnis haben. Keine Docker-Socket-Weitergabe in die Sandbox. Der Backend-Container benötigt den Socket nur zum Starten der Sandboxen; dieser Socket ist hochprivilegiert und muss geschützt werden.
+Das Dockerfile.sandbox stellt den nicht-root Benutzer sandboxuser sowie /sandbox bereit. Die sicherheitskritischen Laufzeitoptionen werden vom Backend beim docker run gesetzt: --network none, --read-only, --security-opt no-new-privileges, --cap-drop ALL, --pids-limit 50, CPU-/RAM-/Swap-Limits und nur der schreibbare /sandbox-Mount. Keine Docker-Socket-Weitergabe in die Sandbox. Der Backend-Container benötigt den Socket nur zum Starten der Sandboxen; dieser Socket ist hochprivilegiert und kann bei einer Backend-Kompromittierung den Docker-Host gefährden.
 
 ## Compose und Referenzressourcen
 
@@ -76,14 +76,14 @@ docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backe
 | UNOSIM_TRUST_MODE | local | prod | gateway | Vertrauensgrenze. |
 | UNOSIM_GATEWAY_SECRET | keiner | Gateway | Secret-Store | Gateway-Secret. |
 | UNOSIM_TRUSTED_PROXY | keiner | Gateway | 10.0.0.10/32 | Proxy-Hop. |
-| UNOSIM_ALLOWED_WS_ORIGINS | localhost-Defaults | Gateway | https://classroom.example.edu | exakte WS-Allowlist. |
+| UNOSIM_ALLOWED_WS_ORIGINS | local: localhost-Defaults; gateway: leer | Gateway | https://classroom.example.edu | exakte WS-Allowlist; in Compose verpflichtend. |
 | UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL | false | nein | false | isolierter Entwicklungs-Override. |
 | SIMULATOR_ALLOWED_PARENT_ORIGINS | localhost-Defaults | nein | https://lms.example.edu | erlaubte iframe-Eltern. |
 | UNOSIM_SHARED_TEMP_DIR | keiner | Docker | /srv/unosim/temp | gemeinsamer Temp-Pfad. |
 | DOCKER_HOST | unix:///var/run/docker.sock | Docker | gleicher Wert | Docker-Daemon. |
 | DOCKER_SANDBOX_IMAGE | unosim-sandbox:latest | Docker | unosim-sandbox:release | Sandbox-Image. |
 | SANDBOX_POOL_MIN_RUNNERS | 5 | nein | 5 | Mindestzahl Runner. |
-| SANDBOX_POOL_MAX_RUNNERS | min | nein | 5 | Maximalzahl Runner. |
+| SANDBOX_POOL_MAX_RUNNERS | min (Compose: 200) | nein | 5 | Maximalzahl Runner; Compose setzt 200, die Messfreigabe basiert dennoch auf 5 Runnern. |
 | SANDBOX_POOL_IDLE_TIMEOUT_MS | 120000 | nein | 300000 | Idle-Aufräumzeit. |
 | SANDBOX_MEMORY_MB | 256 | nein | 256 | Sandbox-RAM. |
 | SANDBOX_CPU_LIMIT | 0.25 | nein | 0.25 | Sandbox-CPU. |
@@ -91,12 +91,14 @@ docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backe
 | DOCKER_COMPILE_CONCURRENT | 8 | nein | 8 | Docker-Compile-Konkurrenz. |
 | COMPILE_MAX_CONCURRENT | CPU-abhängig | nein | 8 | Compile-Slots. |
 | ARDUINO_FQBN | arduino:avr:uno | nein | arduino:avr:uno | Board. |
-| ARDUINO_CACHE_DIR | server/arduino-cache | nein | /srv/unosim/server/arduino-cache | Toolchain-Cache. |
+| ARDUINO_CACHE_DIR | server/arduino-cache (Container: /app/server/arduino-cache) | nein | /srv/unosim/server/arduino-cache | Toolchain-Cache. |
 | BUILD_CACHE_DIR | storage/cache | nein | /srv/unosim/storage/cache | Build-Cache. |
 | BUILD_CACHE_MAX_BYTES | 2 GiB | nein | 2147483648 | Cache-Limit. |
 | DISABLE_RATE_LIMIT | false | nein | false | nicht in Produktion deaktivieren. |
 | DISABLE_COMPILE_CACHE | false | nein | false | nur kontrollierte Messungen. |
+| DISABLE_COMPILE_GATEKEEPER | false | nein | false | nur kontrollierte Tests; in Produktion false. |
 | ENABLE_TEST_ENDPOINTS | false | nein | false | nur Tests; nie öffentlich. |
+| ALLOW_EMBED_ORIGINS | localhost-Defaults | nein | https://lms.example.edu | deprecated Alias; primär SIMULATOR_ALLOWED_PARENT_ORIGINS verwenden. |
 
 FORCE_DOCKER ist ein deprecated Alias für UNOSIM_SIMULATION_MODE=docker-sandbox. Historische Namen nicht primär verwenden.
 
@@ -111,7 +113,19 @@ curl -fsS http://127.0.0.1:3000/api/health
 
 Beim Boot müssen Image, Docker-Daemon, Mounts, Secrets und Origin-Allowlist verfügbar sein. Restart erfolgt mit docker compose restart unosim-backend. Einen systemd-Unit-Entwurf gibt es im Repository nicht.
 
-/api/status zeigt sandboxRunners, compileSlots, webSocketSessions, compileMetrics, compileWorkerPool und processMetrics. Diese Werte sind flüchtige Laufzeitwerte. Persistente Nutzdaten und aktive Sessions nicht löschen. Regenerierbar sind Build-/Arduino-Caches, temporäre Dateien und generierte Load-Test-JSONs. Die freigegebene Kapazität steht in SCALABILITY.md: Compile 50/100/200 validiert, Simulation 50/100 validiert, 200 Simulationen nicht freigegeben; 5 Runner sind der Engpass.
+/api/status zeigt sandboxRunners, compileSlots, webSocketSessions, compileMetrics, compileWorkerPool und processMetrics. Im Gateway-Mode muss der Aufruf über den authentifizierten Gateway mit den erforderlichen Identitäts-Headern erfolgen; der anonyme Health-Aufruf ist dafür nicht ausreichend. Diese Werte sind flüchtige Laufzeitwerte: Sessions, Queues und Runner-Leases gehen bei einem Neustart verloren. Persistente Nutzdaten sind von der Installation abhängig und dürfen nicht als Cache behandelt werden. Regenerierbar sind Build-/Arduino-Caches, temporäre Dateien und generierte Load-Test-JSONs; laufende Jobs vorher beenden. Die freigegebene Kapazität steht in [SCALABILITY.md](SCALABILITY.md): Compile 50/100/200 validiert, Simulation 50/100 validiert, 200 Simulationen nicht freigegeben; 5 Runner sind der Engpass.
+
+## Production Checklist
+
+- Gateway und Authentifizierung aktiv; Backend-Port nicht öffentlich erreichbar.
+- Trusted Proxy und Origin-Allowlist exakt gesetzt.
+- Gateway-Secret gesetzt und außerhalb des Repositories verwaltet.
+- Rate Limiting aktiv (`DISABLE_RATE_LIMIT=false`).
+- Test-Endpunkte deaktiviert (`ENABLE_TEST_ENDPOINTS=false`).
+- Sandbox-Image vorhanden und auf den geprüften Release-Stand festgelegt.
+- Docker-Sandbox verwendet die dokumentierten Laufzeitoptionen und keine Host-Mounts außer `/sandbox`.
+- `/api/health` erfolgreich; `/api/status` mit plausiblen Runner-, Queue- und Prozesswerten geprüft.
+- Release-Gate aus [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) erfolgreich abgeschlossen.
 
 ## Update und Rollback
 
@@ -126,4 +140,4 @@ docker compose up -d
 curl -fsS http://127.0.0.1:3000/api/health
 ~~~
 
-Vor dem Update Health, Status, Commit und Image dokumentieren. Bei Fehlern Logs und Status sichern, den vorherigen Release-Commit und die vorherigen Images bereitstellen und docker compose up -d ausführen. Eine Datenbankmigration ist im Repository nicht festgelegt. Für Release-Gates und Rollback gilt RELEASE_RUNBOOK.md.
+Vor dem Update Health, den über den Gateway authentifiziert abgefragten Status, den Git-Commit und die Image-IDs dokumentieren. Nach dem Update erneut Health und Status über den vorgesehenen Zugang prüfen. Ein Rollback ist nur reproduzierbar, wenn der vorherige Release-Commit und die dazugehörigen Images noch verfügbar oder aus einer vertrauenswürdigen Registry erneut beziehbar sind: dann diesen Commit auschecken, die passenden Images verwenden und docker compose up -d ausführen. Das Repository stellt keinen automatischen Rollback-Mechanismus bereit. Eine Datenbankmigration ist im Repository nicht festgelegt. Für Release-Gates und Rollback gilt [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md).
