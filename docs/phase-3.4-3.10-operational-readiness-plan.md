@@ -11,9 +11,9 @@ Grundlage: `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`, Abschnitt 10, Maßnahme
 
 | Kennzahl | Stand |
 | --- | ---: |
-| Gesamtfortschritt | ca. 75 % (gewichtete Schätzung) |
-| `verified-done` | 16 |
-| `partial` | 12 |
+| Gesamtfortschritt | ca. 78 % (gewichtete Schätzung) |
+| `verified-done` | 17 |
+| `partial` | 11 |
 | `open` | 2 |
 | Aktive Maßnahme | 3.7 Release-Gate |
 | Verbleibende atomare Fachinkremente | ca. 12–18 |
@@ -51,7 +51,7 @@ Die Einstufung basiert auf Git-Historie, aktuellem Code, Tests, Coverage-Artefak
 | 3.2 | SSOT-Bereinigung | `verified-done` | Normative, historische und Planungsquellen sind getrennt. | Driftkontrolle fortführen. |
 | 3.3 | Deprecation-/Legacy-Plan | `verified-done` | Plan und Implementierungsreport klassifizieren Legacy-Flächen. | Sunset-Entscheidungen verbleiben bei 3.10/Major-Release. |
 | 3.4 | Lasttest 50/100/200 | `verified-done` | Compile bis 200; Simulation bis 100; 200 mit 74 Runner-Timeouts; Grenze dokumentiert. | Keine Arbeit, solange keine höhere Simulationsfreigabe gefordert wird. |
-| 3.5 | Sandbox-Vertrag | `partial` | Vertragsmatrix, Docker-/Security-Tests und Escape-Prüfungen teilweise vorhanden. | Netzwerk-, RootFS- und wiederholbare Escape-Gates vervollständigen. |
+| 3.5 | Sandbox-Vertrag | `verified-done` | Vertragsmatrix und Real-Docker-Tests verifizieren Isolation, Mounts, Ressourcenlimits, Timeout, Cleanup, Netzwerkverbot, read-only RootFS und Escape-Primitives. | Keine unmittelbare Restarbeit; Vertrag bei sicherheitsrelevanten Änderungen erneut ausführen. |
 | 3.6 | Coverage-Hotspots | `verified-done` | WS 61,90 % Lines; Cache-Manager 100 % Lines; Local Compiler 84,45 % Lines; `server/routes.ts` 75,23 % Lines / 74,10 % Statements / 46,42 % Branches; `useSimulatorFileSystem.ts` 94,64 % Lines; `output-panel.tsx` 68,96 % Lines; `examples-menu.tsx` 69,23 % Lines; `useArduinoSimulatorPage.tsx` 68,18 % Lines; `execution-manager.ts` 74,58 % Lines. | Keine weitere Phase-3.6-Arbeit. Unter 80 % verbleiben überwiegend Orchestrierungs-, defensive und seltene Infrastruktur-Branches; keine künstliche Exhaustivabdeckung vorgesehen. |
 | 3.7 | Release-Gate | `verified-done` | `REQUIRE_RELEASE_GATE=1 ./run-tests.sh` erzwingt Typecheck, Unit/Coverage, Integration, Docker, E2E, Build, `npm audit --audit-level=high --omit=dev`, eine frische SonarQube-Analyse und einen erfolgreichen Quality-Gate-Status mit Fail-Fast-Exit-Codes. | Keine unmittelbare Restarbeit; CI kann denselben Befehl verwenden. |
 | 3.8 | Skalierbarkeit/HA | `verified-done` | ADR 0003 akzeptiert Single-Stateful-Node bis zur gemessenen Grenze. | Keine HA-Implementierung in dieser Roadmap. |
@@ -141,7 +141,7 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 | Maßnahme | Bereits teilweise erfüllt | Wirklich offen |
 | --- | --- | --- |
 | 3.4 | Load-Scripts, Vitest-Load-Projekt, Playwright-Scalability-Test, bekannte Engpassanalyse. Reale Docker-Messläufe und Artefakte für Compile 50/100/200 sowie Simulation 50/100/200 liegen vor. | Keine offene Phase-3.4-Arbeit; Folgearbeit nur, wenn höhere Simulationsparallelität als 100 Clients gefordert wird. |
-| 3.5 | Docker-Security-Contract-Test, Docker-Sandbox-Image, Heavy-Test-Mechanik, Security-/Admin-Doku und `docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md` als Vertragsmatrix. | Additive Real-Docker-Prüfungen für Netzwerkverbot, read-only RootFS und Container-/Host-Escape-Versuche; danach Phase-3.5-Gates ausführen. |
+| 3.5 | Docker-Security-Contract-Test, Docker-Sandbox-Image, Heavy-Test-Mechanik, Security-/Admin-Doku und `docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md` als abgeschlossene Vertragsmatrix; Real-Docker-Prüfungen für Netzwerkverbot, read-only RootFS und Container-/Host-Escape bestehen. | Keine unmittelbare Restarbeit; Wiederholung als Release-/Security-Gate bei Änderungen am Vertrag. |
 | 3.6 | Alle relevanten Client-/Sandbox-Hotspots liegen über 60 % Lines; zentrale Pfade sind behavior-orientiert getestet und Coverage-/Sonar-Gates sind grün. | Abgeschlossen. Restliche <80-%-Branches sind als nicht-kritische Orchestrierungs-/Defensivpfade begründet; neue Abdeckung nur bei fachlicher Änderung. |
 | 3.7 | Einzelgates und `./run-tests.sh` existieren; SonarQube-Projekt ist konfiguriert. | Release-Runbook mit Pflicht-/Opt-in-Gates, Security-Audit, Artefakten, Abbruchkriterien und Verantwortlichkeit. |
 | 3.8 | Single-Stateful-Node ist transparent dokumentiert; ADR 0003 akzeptiert dieses Modell für die gemessene Kapazitätsgrenze. | Keine HA-Implementierung in Phase 3.8; höhere Parallelität benötigt separate Architektur-/Kapazitätsphase. |
