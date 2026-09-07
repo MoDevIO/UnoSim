@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">66.66% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>4/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>4/5</span>
+                <span class='fraction'>0/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">66.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>4/6</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -167,7 +167,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -185,7 +185,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -206,17 +206,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -232,7 +230,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import * as React from "react";
@@ -257,7 +257,7 @@ const ScrollArea = React.forwardRef&lt;
   React.ElementRef&lt;typeof ScrollAreaPrimitive.Root&gt;,
   ScrollAreaProps
 &gt;(
-  (
+<span class="fstat-no" title="function not covered" >  (</span>
     {
       className,
       children,
@@ -271,7 +271,7 @@ const ScrollArea = React.forwardRef&lt;
     },
     ref,
   ) =&gt; (
-  &lt;ScrollAreaPrimitive.Root
+<span class="cstat-no" title="statement not covered" >  &lt;ScrollAreaPrimitive.Root</span>
     ref={ref}
     className={cn("relative overflow-hidden", className)}
     {...props}
@@ -299,16 +299,16 @@ const ScrollBar = React.forwardRef&lt;
   React.ComponentPropsWithoutRef&lt;
     typeof ScrollAreaPrimitive.ScrollAreaScrollbar
   &gt; &amp; { thumbClassName?: string }
-&gt;(({ className, orientation = "vertical", thumbClassName, ...props }, ref) =&gt; (
-  &lt;ScrollAreaPrimitive.ScrollAreaScrollbar
+&gt;(<span class="fstat-no" title="function not covered" >({</span> className, orientation = <span class="branch-0 cbranch-no" title="branch not covered" >"vertical", t</span>humbClassName, ...props }, ref) =&gt; (
+<span class="cstat-no" title="statement not covered" >  &lt;ScrollAreaPrimitive.ScrollAreaScrollbar</span>
     ref={ref}
     orientation={orientation}
     className={cn(
       "flex touch-none select-none transition-colors",
       orientation === "vertical" &amp;&amp;
-        "h-full w-2.5 border-l border-l-transparent p-[1px]",
+        "h-full w-[var(--ui-scrollbar-size)] border-l border-l-transparent p-[1px]",
       orientation === "horizontal" &amp;&amp;
-<span class="branch-1 cbranch-no" title="branch not covered" >        "h-2.5 flex-col border-t border-t-transparent p-[1px]",</span>
+        "h-[var(--ui-scrollbar-size)] flex-col border-t border-t-transparent p-[1px]",
       className,
     )}
     {...props}
@@ -328,7 +328,7 @@ export { ScrollArea /*, ScrollBar (internal) */ }; // ScrollBar is used only int
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-26T15:03:17.785Z
+                at 2026-09-07T12:35:30.159Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

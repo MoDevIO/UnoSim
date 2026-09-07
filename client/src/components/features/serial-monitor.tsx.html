@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.2% </span>
+                <span class="strong">67.72% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>148/217</span>
+                <span class='fraction'>149/220</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.44% </span>
+                <span class="strong">67.94% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>141/206</span>
+                <span class='fraction'>142/209</span>
             </div>
         
             
@@ -558,7 +558,12 @@
 <a name='L493'></a><a href='#L493'>493</a>
 <a name='L494'></a><a href='#L494'>494</a>
 <a name='L495'></a><a href='#L495'>495</a>
-<a name='L496'></a><a href='#L496'>496</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L496'></a><a href='#L496'>496</a>
+<a name='L497'></a><a href='#L497'>497</a>
+<a name='L498'></a><a href='#L498'>498</a>
+<a name='L499'></a><a href='#L499'>499</a>
+<a name='L500'></a><a href='#L500'>500</a>
+<a name='L501'></a><a href='#L501'>501</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -937,7 +942,9 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -959,6 +966,7 @@
 <span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1027,6 +1035,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1054,7 +1064,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useRef, useEffect, useState, useCallback, useMemo, ReactNode } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { Button } from "@/components/ui/button";
 import { Trash2, Monitor } from "lucide-react";
 import type { OutputLine } from "@shared/schema";
@@ -1432,13 +1442,15 @@ export function SerialMonitor({
         const content = <span class="cstat-no" title="statement not covered" >document.createElement("div");</span>
 <span class="cstat-no" title="statement not covered" >        content.style.transform = `translateY(${offsetY}px)`;</span>
 <span class="cstat-no" title="statement not covered" >        content.style.willChange = "transform";</span>
+<span class="cstat-no" title="statement not covered" >        content.style.width = "max-content";</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >        visibleLines.forEach(<span class="fstat-no" title="function not covered" >(l</span>n) =&gt; {</span>
           const div = <span class="cstat-no" title="statement not covered" >document.createElement("div");</span>
-<span class="cstat-no" title="statement not covered" >          div.className = "text-foreground whitespace-pre-wrap break-words";</span>
+<span class="cstat-no" title="statement not covered" >          div.className = "text-foreground whitespace-pre";</span>
 <span class="cstat-no" title="statement not covered" >          div.style.height = `${ROW_HEIGHT}px`;</span>
 <span class="cstat-no" title="statement not covered" >          div.style.lineHeight = `${ROW_HEIGHT}px`;</span>
 <span class="cstat-no" title="statement not covered" >          div.style.fontSize = "var(--fs-code-base)"; // Scales with global --ui-font-scale</span>
+<span class="cstat-no" title="statement not covered" >          div.style.width = "max-content";</span>
 <span class="cstat-no" title="statement not covered" >          div.textContent = ln.text;</span>
 <span class="cstat-no" title="statement not covered" >          content.appendChild(div);</span>
         });
@@ -1449,9 +1461,10 @@ export function SerialMonitor({
         // Standard rendering mode (for small outputs or when virtualization disabled)
         processedLines.forEach((ln) =&gt; {
           const div = document.createElement("div");
-          div.className = "text-foreground whitespace-pre-wrap break-words";
+          div.className = "text-foreground whitespace-pre";
           div.style.fontSize = "var(--fs-code-base)"; // Scales with global --ui-font-scale
           div.style.lineHeight = "var(--lh-code-base)"; // Scales with global --ui-font-scale
+          div.style.width = "max-content";
           div.textContent = ln.text;
           el.appendChild(div);
         });
@@ -1533,13 +1546,15 @@ export function SerialMonitor({
       {/* Content area - flex-1 for remaining space */}
       &lt;div className="flex-1 min-h-0"&gt;
         {showMonitor ? (
-          &lt;ScrollArea
+          &lt;UnifiedScrollArea
+            orientation="both"
             className="h-full"
             viewportRef={outputRef}
             viewportTestId="serial-output"
-            viewportProps={{ onScroll: handleScroll }}
-            viewportClassName="p-3 font-mono"
-            thumbClassName="bg-status-success"
+            viewportProps={{
+              onScroll: handleScroll,
+            }}
+            viewportClassName="p-3 font-mono whitespace-nowrap"
           /&gt;
         ) : (
           &lt;div className="h-full" /&gt;
@@ -1555,7 +1570,7 @@ export function SerialMonitor({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-26T15:03:17.785Z
+                at 2026-09-07T12:35:30.159Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

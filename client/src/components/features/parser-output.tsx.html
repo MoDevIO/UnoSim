@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.44% </span>
+                <span class="strong">94.4% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>119/126</span>
+                <span class='fraction'>118/125</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.82% </span>
+                <span class="strong">94.78% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>110/116</span>
+                <span class='fraction'>109/115</span>
             </div>
         
             
@@ -747,8 +747,9 @@
 <a name='L682'></a><a href='#L682'>682</a>
 <a name='L683'></a><a href='#L683'>683</a>
 <a name='L684'></a><a href='#L684'>684</a>
-<a name='L685'></a><a href='#L685'>685</a>
-<a name='L686'></a><a href='#L686'>686</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L685'></a><a href='#L685'>685</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -767,11 +768,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1094,6 +1090,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">26x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1206,7 +1205,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1449,14 +1447,11 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import * as React from "react";
 import type { SeverityLevel } from "@shared/reserved-names-validator";
+import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
+import { TabBar } from "@/components/ui/tab-bar";
 &nbsp;
 // Module-level constants (not re-created on every render)
 const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
-&nbsp;
-const HIDE_SCROLLBAR_STYLE = `
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  .no-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
-`;
 &nbsp;
 // Module-level pure helpers — fix S6481 (no re-creation on render)
 function getSeverityIcon(severity: SeverityLevel): JSX.Element {
@@ -1711,23 +1706,25 @@ export function ParserOutput({
               &lt;/span&gt;
             &lt;/div&gt;
             {/* Tabs integrated in header */}
-            &lt;TabsList className="bg-transparent h-auto ml-4 p-0 gap-1"&gt;
-              &lt;TabsTrigger
-                value="messages"
-                className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
-              &gt;
-                Messages {messages.length &gt; 0 &amp;&amp; `(${messages.length})`}
-              &lt;/TabsTrigger&gt;
-              &lt;TabsTrigger
-                value="registry"
-                className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background/80 data-[state=inactive]:text-muted-foreground rounded"
-              &gt;
-                I/O Registry{" "}
-                {(showAllPins ? ioRegistry.length : totalProgrammedPins) &gt;
-                  0 &amp;&amp;
-                  `(${showAllPins ? ioRegistry.length : totalProgrammedPins})`}
-              &lt;/TabsTrigger&gt;
-            &lt;/TabsList&gt;
+            &lt;TabBar asChild className="bg-transparent h-auto ml-4 p-0 gap-1"&gt;
+              &lt;TabsList&gt;
+                &lt;TabsTrigger
+                  value="messages"
+                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background data-[state=inactive]:text-muted-foreground rounded"
+                &gt;
+                  Messages {messages.length &gt; 0 &amp;&amp; `(${messages.length})`}
+                &lt;/TabsTrigger&gt;
+                &lt;TabsTrigger
+                  value="registry"
+                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background data-[state=inactive]:text-muted-foreground rounded"
+                &gt;
+                  I/O Registry{" "}
+                  {(showAllPins ? ioRegistry.length : totalProgrammedPins) &gt;
+                    0 &amp;&amp;
+                    `(${showAllPins ? ioRegistry.length : totalProgrammedPins})`}
+                &lt;/TabsTrigger&gt;
+              &lt;/TabsList&gt;
+            &lt;/TabBar&gt;
             &lt;div className="flex items-center gap-3 ml-4 text-ui-sm"&gt;
               {totalErrors &gt; 0 &amp;&amp; (
                 &lt;span className="flex items-center gap-1"&gt;
@@ -1766,16 +1763,17 @@ export function ParserOutput({
           value="messages"
           className="flex-1 flex flex-col overflow-hidden m-0 data-[state=inactive]:hidden"
         &gt;
-          &lt;style&gt;{HIDE_SCROLLBAR_STYLE}&lt;/style&gt;
           {messages.length === 0 ? (
             &lt;div className="text-muted-foreground p-4 text-center text-ui-xs"&gt;
               No parser messages
             &lt;/div&gt;
           ) : (
-            &lt;div
-              className="p-3 text-ui-xs space-y-2 overflow-auto no-scrollbar flex-1"
-              ref={messagesContainerRef}
-              data-testid="parser-messages-container"
+            &lt;UnifiedScrollArea
+              className="flex-1"
+              orientation="both"
+              viewportClassName="p-3 text-ui-xs space-y-2"
+              viewportRef={messagesContainerRef}
+              viewportTestId="parser-messages-container"
             &gt;
               {Object.entries(messagesByCategory).map(
                 ([category, categoryMessages]) =&gt; (
@@ -1859,14 +1857,14 @@ export function ParserOutput({
                   &lt;/div&gt;
                 ),
               )}
-            &lt;/div&gt;
+            &lt;/UnifiedScrollArea&gt;
           )}
         &lt;/TabsContent&gt;
 &nbsp;
         {/* I/O Registry Tab */}
         &lt;TabsContent
           value="registry"
-          className="flex-1 overflow-auto custom-scrollbar m-0 flex flex-col data-[state=inactive]:hidden"
+          className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
         &gt;
           {/* Toggle Button for Pin Visibility */}
           &lt;div className="sticky top-0 bg-muted/50 border-b border-muted-foreground/30 px-3 h-[var(--ui-button-height)] flex items-center justify-between z-10"&gt;
@@ -1904,8 +1902,7 @@ export function ParserOutput({
             &lt;/div&gt;
           &lt;/div&gt;
 &nbsp;
-          &lt;div className="flex-1 overflow-auto no-scrollbar"&gt;
-            &lt;style&gt;{HIDE_SCROLLBAR_STYLE}&lt;/style&gt;
+          &lt;UnifiedScrollArea className="flex-1" orientation="both"&gt;
             {filteredRegistry.length === 0 ? (
               &lt;div className="text-muted-foreground p-4 text-center text-ui-xs"&gt;
                 {showAllPins ? (
@@ -1925,7 +1922,7 @@ export function ParserOutput({
                 )}
               &lt;/div&gt;
             ) : (
-              &lt;div className="h-full overflow-auto"&gt;
+              &lt;div className="min-w-max"&gt;
                 &lt;table className="w-full text-ui-xs border-collapse"&gt;
                   &lt;thead&gt;
                     &lt;tr className="sticky top-0 z-40 border-b border-muted-foreground/30 bg-muted"&gt;
@@ -2112,7 +2109,7 @@ export function ParserOutput({
                 &lt;/table&gt;
               &lt;/div&gt;
             )}
-          &lt;/div&gt;
+          &lt;/UnifiedScrollArea&gt;
         &lt;/TabsContent&gt;
       &lt;/Tabs&gt;
     &lt;/div&gt;
@@ -2125,7 +2122,7 @@ export function ParserOutput({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-26T15:03:17.785Z
+                at 2026-09-07T12:35:30.159Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

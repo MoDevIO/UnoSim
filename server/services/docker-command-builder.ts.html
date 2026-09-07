@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>2/4</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>5/5</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
@@ -141,16 +141,7 @@
 <a name='L76'></a><a href='#L76'>76</a>
 <a name='L77'></a><a href='#L77'>77</a>
 <a name='L78'></a><a href='#L78'>78</a>
-<a name='L79'></a><a href='#L79'>79</a>
-<a name='L80'></a><a href='#L80'>80</a>
-<a name='L81'></a><a href='#L81'>81</a>
-<a name='L82'></a><a href='#L82'>82</a>
-<a name='L83'></a><a href='#L83'>83</a>
-<a name='L84'></a><a href='#L84'>84</a>
-<a name='L85'></a><a href='#L85'>85</a>
-<a name='L86'></a><a href='#L86'>86</a>
-<a name='L87'></a><a href='#L87'>87</a>
-<a name='L88'></a><a href='#L88'>88</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">18x</span>
+<a name='L79'></a><a href='#L79'>79</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -179,13 +170,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -215,16 +206,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -249,16 +231,12 @@
 interface DockerRunOptions {
   sketchDir: string;
   memoryMB: number;
+  user?: string;
   cpuLimit: string;
   pidsLimit: number;
   imageName: string;
   command: string[];
   containerName?: string;
-  /** Host path for the Arduino compiler cache. When set, the directory is
-   *  bind-mounted into the container at the same path and ARDUINO_CACHE_DIR
-   *  is forwarded as an environment variable so the compiler inside the
-   *  container writes artefacts to the persisted host location. */
-  arduinoCacheDir?: string;
 }
 &nbsp;
 export class DockerCommandBuilder {
@@ -275,7 +253,7 @@ export class DockerCommandBuilder {
     return [
       "run",
       "--rm", // Remove container after exit
-      ...(options.containerName ? ["--name", options.containerName] : <span class="branch-1 cbranch-no" title="branch not covered" >[]),</span>
+      ...(options.containerName ? ["--name", options.containerName] : []),
       "-i", // Interactive mode for stdin
       "--network",
       "none", // No network access
@@ -287,21 +265,16 @@ export class DockerCommandBuilder {
       options.cpuLimit, // CPU limit (e.g., "0.5" for 50%)
       "--pids-limit",
       String(options.pidsLimit), // Limit number of processes
+      ...(options.user ? ["--user", options.user] : []),
       "--security-opt",
       "no-new-privileges", // Prevent privilege escalation
       "--cap-drop",
       "ALL", // Drop all Linux capabilities
+      "--read-only", // Keep the container root filesystem immutable
+      "--tmpfs",
+      "/tmp:rw,nosuid,nodev,noexec,mode=1777,size=64m", // Only bounded transient runtime storage
       "-v",
       `${realSketchDir}:/sandbox:rw`, // Mount sketch directory (realpath resolves macOS /tmp symlink)
-      // Cache volume: only added when a host cache dir is configured
-      ...(options.arduinoCacheDir
-        ? [
-            "-v",
-            `${options.arduinoCacheDir}:${options.arduinoCacheDir}`,
-            "-e",
-            `ARDUINO_CACHE_DIR=${options.arduinoCacheDir}`,
-          ]
-        : <span class="branch-1 cbranch-no" title="branch not covered" >[]),</span>
       options.imageName,
       ...options.command, // Execution command
     ];
@@ -320,7 +293,7 @@ export class DockerCommandBuilder {
       // Without this, isCompilePhase would stay true and all runtime stderr
       // (SERIAL_EVENT, IO_REGISTRY, …) would accumulate in compileErrorBuffer,
       // causing a spurious 'compilation_error' message on process exit.
-      "g++ /sandbox/sketch.cpp -o /tmp/sketch -pthread 2&gt;&amp;1 &amp;&amp; echo '[[RUNTIME_START]]' &amp;&amp; /tmp/sketch",
+      "g++ /sandbox/sketch.cpp -o /sandbox/sketch -pthread 2&gt;&amp;1 &amp;&amp; echo '[[RUNTIME_START]]' &amp;&amp; /sandbox/sketch",
     ];
   }
 }
@@ -331,7 +304,7 @@ export class DockerCommandBuilder {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-26T15:03:17.785Z
+                at 2026-09-07T12:35:30.159Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
