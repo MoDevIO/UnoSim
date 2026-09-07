@@ -277,6 +277,18 @@ describe("cache-manager cache cleanup", () => {
     ]);
   });
 
+  it("keeps directory artifacts with a HEX suffix out of eviction accounting", async () => {
+    const hexCacheDir = await createHexCacheDirectory();
+    await writeFile(join(hexCacheDir, "old.hex"), Buffer.alloc(4, 1));
+    await mkdir(join(hexCacheDir, "directory.hex"));
+    const oldDate = new Date("2020-01-01T00:00:00Z");
+    await utimes(join(hexCacheDir, "old.hex"), oldDate, oldDate);
+
+    await runHexCacheCleanup(hexCacheDir, 0);
+
+    await expect(readdir(hexCacheDir)).resolves.toEqual(["directory.hex"]);
+  });
+
   it("treats an absent cache directory as an already-clean cache", async () => {
     const root = await mkdtemp(join(tmpdir(), "unosim-cache-manager-cleanup-missing-"));
     temporaryDirectories.push(root);
