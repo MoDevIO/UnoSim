@@ -1,11 +1,62 @@
 # Phase 3.4–3.10: Operational-Readiness-Plan
 
-Status: planning  
+Status: active
 Zielrolle: operational-readiness-plan  
-Datum: 2026-09-06  
+Datum: 2026-09-07
 Grundlage: `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`, Abschnitt 10, Maßnahmen 3.4 bis 3.10.
 
 > Verbindliche Korrektur: Es gibt laut Projektanalyse keine Phase 4. Die noch offenen betrieblichen Maßnahmen gehören zu Phase 3.4 bis 3.10. Dieser Plan ersetzt den irrtümlichen Phase-4-Plan als aktive Roadmap.
+
+## Aktueller Verifikationsstand
+
+| Kennzahl | Stand |
+| --- | ---: |
+| Gesamtfortschritt | ca. 72 % (gewichtete Schätzung) |
+| `verified-done` | 15 |
+| `partial` | 13 |
+| `open` | 2 |
+| Aktive Maßnahme | 3.6 Coverage-Hotspots |
+| Verbleibende atomare Fachinkremente | ca. 12–18 |
+| Letzte Verifikation | 2026-09-07 |
+
+**Verifikationsregel:** Statusangaben im aktiven Plan müssen anhand des aktuellen Repository-Zustands verifiziert werden. Historische Abschlussmeldungen bleiben erhalten, gelten aber nicht automatisch als heutiger Ist-Zustand.
+
+Die Einstufung basiert auf Git-Historie, aktuellem Code, Tests, Coverage-Artefakten und vorhandenen Dokumenten. Die bekannten untracked Load-/Cache-Artefakte wurden nicht verändert.
+
+## Verifizierte Statusmatrix 1.1–3.10
+
+| Nr. | Maßnahme | Status | Aktuelle Evidenz | Offene Restarbeit |
+|---|---|---|---|---|
+| 1.1 | Historische Analyse markieren | `verified-done` | Archivdatei ist als historisch/archived gekennzeichnet. | Keine. |
+| 1.2 | README-Begriffe aktualisieren | `partial` | README enthält weiterhin ältere Compiler-Begriffe. | Aktuelle Compiler-/Worker-Begriffe vollständig angleichen. |
+| 1.3 | Docker-Namen vereinheitlichen | `partial` | Dokumentation enthält weiterhin uneinheitliche historische Image-Namen. | Namen in README/Admin-Doku konsolidieren. |
+| 1.4 | „Warm containers“ präzisieren | `partial` | Admin-Doku beschreibt den Runner-Pool teilweise missverständlich. | Terminologie an tatsächliches Pool-Verhalten anpassen. |
+| 1.5 | Hook-Namenskonvention | `partial` | Gemischte camelCase-/kebab-case-Hooknamen bestehen fort. | Konvention dokumentieren und bei neuen Änderungen anwenden. |
+| 1.6 | Deprecated Status-Aliase | `verified-done` | `pool`/`compile` bleiben kompatibel und sind dokumentiert. | Sunset erst über 3.10/Major-Release. |
+| 1.7 | Legacy-`IOPinRecord`-Felder | `verified-done` | Deprecation-Plan und Zielmodell sind dokumentiert. | Migration/Sunset später entscheiden. |
+| 1.8 | WebSocket-Typen schärfen | `verified-done` | Richtungsbezogene Nachrichten-Schemas und Typen existieren. | Keine unmittelbare Restarbeit. |
+| 1.9 | Architektur-Datenfluss | `verified-done` | `docs/ARCHITECTURE.md` enthält Komponenten- und Datenflussbeschreibung. | Bei Architekturänderungen nachführen. |
+| 1.10 | Coverage-Ziele dokumentieren | `verified-done` | Hotspots und Zielwerte sind in Plan-/Testdokumenten festgehalten. | Bei neuen Reports aktualisieren. |
+| 2.1 | Compile-/Run-Hooks zerlegen | `verified-done` | Compile-, Simulation-, UI-Feedback- und Lifecycle-Hooks extrahiert. | Keine unmittelbare Restarbeit. |
+| 2.2 | Page auf Composition Root reduzieren | `open` | `useArduinoSimulatorPage.tsx` bleibt breit und enthält Fachlogik. | Nach Phase 3 erneut bewerten; kein aktiver Phase-3-Schritt. |
+| 2.3 | ViewModels gruppieren | `open` | Vollständige fachliche ViewModel-Gruppierung fehlt. | Nach Phase 3 strukturell neu bewerten. |
+| 2.4 | WebSocket modularisieren | `partial` | Router, Session-Manager und Output-Buffer existieren; Orchestrator bleibt groß. | Weitere Zerlegung nur nach ausreichender Characterization-Abdeckung. |
+| 2.5 | Compiler aufteilen | `partial` | Cache-/Worker-Module existieren; `arduino-compiler.ts` bündelt weiterhin Verantwortungen. | Compiler-/Filesystem-/CLI-Grenzen schrittweise trennen. |
+| 2.6 | ExecutionManager zerlegen | `partial` | Laufzeitphasenmodule existieren; zentraler Manager bleibt umfangreich. | Weitere Extraktionen nur bei konkretem Wartbarkeitsbedarf. |
+| 2.7 | Konfiguration zentralisieren | `partial` | `server/config.ts` vorhanden, direkte Env-/Hardcode-Reste dokumentiert. | Restliche Zugriffe inventarisieren und schrittweise bündeln. |
+| 2.8 | Wrapper-Hooks bereinigen | `verified-done` | Phase-2-Dokumentation und Git-Historie weisen Abschluss aus. | Keine aktive Restarbeit. |
+| 2.9 | Characterization Tests | `verified-done` | Compile-/Run- und Simulation-Lifecycle-Charakterisierungstests vorhanden. | Abdeckung bei weiteren Refactorings erweitern. |
+| 2.10 | Parser extrahieren | `verified-done` | Spezialisierte Parsermodule vorhanden; `code-parser.ts` stark reduziert. | Keine unmittelbare Restarbeit. |
+| 3.1 | Architektur-Dokumentation | `verified-done` | `docs/ARCHITECTURE.md` ist aktuelle Architekturquelle. | Bei Änderungen synchronisieren. |
+| 3.2 | SSOT-Bereinigung | `verified-done` | Normative, historische und Planungsquellen sind getrennt. | Driftkontrolle fortführen. |
+| 3.3 | Deprecation-/Legacy-Plan | `verified-done` | Plan und Implementierungsreport klassifizieren Legacy-Flächen. | Sunset-Entscheidungen verbleiben bei 3.10/Major-Release. |
+| 3.4 | Lasttest 50/100/200 | `verified-done` | Compile bis 200; Simulation bis 100; 200 mit 74 Runner-Timeouts; Grenze dokumentiert. | Keine Arbeit, solange keine höhere Simulationsfreigabe gefordert wird. |
+| 3.5 | Sandbox-Vertrag | `partial` | Vertragsmatrix, Docker-/Security-Tests und Escape-Prüfungen teilweise vorhanden. | Netzwerk-, RootFS- und wiederholbare Escape-Gates vervollständigen. |
+| 3.6 | Coverage-Hotspots | `partial` | WS 61,90 % Lines; Cache 52,30 %; Local Compiler 14,86 %; Routes 28,57 %. | Fachliche Pfade der verbleibenden Hotspots inkrementell testen. |
+| 3.7 | Release-Gate | `partial` | `run-tests.sh`, Einzelgates, Build und SonarQube vorhanden. | Pflicht-/Opt-in-Gates, Security-Audit, Artefakte und Abbruchregeln verbindlich machen. |
+| 3.8 | Skalierbarkeit/HA | `verified-done` | ADR 0003 akzeptiert Single-Stateful-Node bis zur gemessenen Grenze. | Keine HA-Implementierung in dieser Roadmap. |
+| 3.9 | Observability | `partial` | Status-/WS-/Compile-/Runner-Metriken implementiert und getestet. | Schwellenwerte, Operator-Runbooks und Alert-Tests ergänzen. |
+| 3.10 | API-/WebSocket-Versionierung | `partial` | iframe-API 1.4.0 und Versionierungsansätze vorhanden. | REST-/WS-Kompatibilitäts- und Migrationstests vervollständigen. |
 
 ---
 
@@ -63,7 +114,7 @@ Dieser Plan bildet ausschließlich diese Maßnahmen aus `docs/PROJECT_ANALYSIS_R
 | --- | --- | --- | --- |
 | 3.4 Lasttest 50/100/200 | Reale Docker-Messläufe liegen vor: Compile 50/100/200 PASS; Simulation/WebSocket/Runner 50/100 PASS; Simulation 200 FAIL wegen 5er-SandboxRunnerPool + 60-s-Acquire-Timeout. | Reproduzierbare Lasttests mit Hostmetriken, klarer Hardwarebasis, Pass/Fail-Kriterien und Messartefakten. | Abgeschlossen mit dokumentierter Kapazitätsgrenze. |
 | 3.5 Sandbox-Vertrag | Docker-/Integration-/Security-Tests und Heavy-Test-Mechanik existieren; Produktionsanforderungen sind dokumentiert. | Sandbox-Vertrag regelmäßig durch Docker-/Integration-/Security-Gates, Penetrationstests und Container-Escape-Versuche verifizieren. | Teilweise erfüllt, offen. |
-| 3.6 Coverage-Hotspots | Coverage-Hotspots sind in Projektanalyse und Testing-Standards benannt; Coverage-Gate existiert. | Coverage-Bericht: alle Hotspots >60 %, kritische Hotspots >80 %; Abweichungen nur mit dokumentierter Begründung. | Teilweise erfüllt, offen. |
+| 3.6 Coverage-Hotspots | Mehrere behavior-orientierte Inkremente decken reale WebSocket- und Cache-Pfade ab. Aktuell: `simulation.ws.ts` 61,90 % Lines, `cache-manager.ts` 52,30 %, `local-compiler.ts` 14,86 %, `routes.ts` 28,57 %. | Coverage-Bericht: alle Hotspots >60 %, kritische Hotspots >80 %; Abweichungen nur mit dokumentierter Begründung. | Teilweise erfüllt, **aktuell aktiv**. |
 | 3.7 Release-Gate | `./run-tests.sh`, Einzel-Scripts und SonarQube sind vorhanden. | Verbindliches Release-Gate mit Pflichtschritten, Security-Audit, Artefakten und Abbruchregeln. | Teilweise erfüllt, offen. |
 | 3.8 Skalierbarkeit / HA-Entscheidung | Phase-3.4-Messdaten bestätigen Compile bis 200 und Simulation bis 100; Simulation 200 ist unter aktuellem 5-Runner-Profil nicht stabil. | Single-Stateful-Node bewusst bestätigen oder HA-Zielarchitektur per Entscheidung/ADR abgrenzen. | Entschieden über ADR 0003. |
 | 3.9 Observability | `/api/status`, WS-Events und Serial-/Telemetry-Zähler existieren. | Strukturierte Metriken für Queues, Runner, Compile-Slots, WS-Sessions und Timeouts mit Schwellenwerten sowie Alert-Tests bei Grenzwertüberschreitungen. | Teilweise erfüllt, offen. |
@@ -116,13 +167,14 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 
 ## Empfohlene Reihenfolge
 
-1. **3.7 Release-Gate** zuerst verbindlich machen, weil alle weiteren Maßnahmen darüber freigegeben werden.
-2. **3.4 Lasttest 50/100/200** definieren, damit Skalierbarkeitsaussagen messbar werden.
+1. **3.6 Coverage-Hotspots** mit kleinen, behavior-orientierten Test-Inkrementen fortsetzen; aktuell ist der Cache-Manager-Schreibpfad der nächste konkrete Schritt.
+2. **3.7 Release-Gate** verbindlich machen, weil alle weiteren Maßnahmen darüber freigegeben werden.
 3. **3.5 Sandbox-Vertrag** als regelmäßiges Sicherheits-/Docker-Gate operationalisieren.
-4. **3.9 Observability** konkretisieren, damit Last- und Sandbox-Ergebnisse diagnostizierbar sind.
-5. **3.8 Skalierbarkeit / HA-Entscheidung** auf Basis von 3.4 und 3.9 treffen.
-6. **3.10 API-/WebSocket-Versionierung** festlegen, bevor Legacy-/Sunset-Arbeit später umgesetzt wird.
-7. **3.6 Coverage-Hotspots** laufend parallel, aber nur mit kleinen, grün haltbaren Test-Inkrementen verbessern.
+4. **3.9 Observability** mit Schwellenwerten, Runbooks und Alert-Tests vervollständigen.
+5. **3.10 API-/WebSocket-Versionierung** mit Kompatibilitäts- und Migrationstests festlegen.
+6. **3.4/3.8** nur bei neuem Kapazitätsziel erneut ausführen; die bestehende Single-Node-Grenze ist bereits entschieden.
+
+Die strukturellen Restabweichungen 2.2–2.7 bleiben dokumentiert, sind aber nach aktueller Priorisierung keine unmittelbaren Phase-3-Arbeitsschritte.
 
 ---
 
