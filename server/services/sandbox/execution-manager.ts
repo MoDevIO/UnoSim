@@ -254,7 +254,7 @@ export class ExecutionManager {
 
     try {
       // Prepare environment
-      const files = await this.prepareEnvironment(code, state);
+      const files = await this.prepareEnvironment(code, state, options.headers);
     state.processKilled = false;
 
       if (state.pendingCleanup || state.processKilled || state.state === SimulationState.STOPPED) {
@@ -328,9 +328,10 @@ export class ExecutionManager {
   private async prepareEnvironment(
     code: string,
     state: ExecutionState,
+    headers: Array<{ name: string; content: string }> = [],
   ): Promise<{ sketchDir: string; sketchFile: string; exeFile: string }> {
     const sketchId = randomUUID();
-    const files = await this.fileBuilder.build(code, sketchId);
+    const files = await this.fileBuilder.build(code, sketchId, headers);
     state.currentSketchDir = files.sketchDir;
     return files;
   }

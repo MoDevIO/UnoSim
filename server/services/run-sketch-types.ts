@@ -21,6 +21,7 @@ interface RunSketchCallbacks {
 
 export interface RunSketchOptions extends RunSketchCallbacks {
   code: string;
+  headers?: Array<{ name: string; content: string }>;
   timeoutSec?: number;
   tempDir?: string;
   /** Optional tracing context for traceability */

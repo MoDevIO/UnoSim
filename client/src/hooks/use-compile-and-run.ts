@@ -217,8 +217,9 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   // into the simulation controller before starting a simulation.
   useEffect(() => {
     if (import.meta.env.DEV) {
-      (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ = (code: string) => {
+      (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__ = (code: string, headers: Array<{ name: string; content: string }> = []) => {
         simulation.setCompiledCode(code);
+        simulation.setCompiledHeaders?.(headers);
       };
       return () => {
         delete (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__;
@@ -276,6 +277,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
         if (data.success) {
           simulation.setCompiledCode(mainSketchCode);
+          simulation.setCompiledHeaders?.(headers);
           simulation.startSimulation();
           simulation.setHasCompiledOnce(true);
           params.setIsModified(false);

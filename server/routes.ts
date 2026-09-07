@@ -3,7 +3,6 @@ import type { CompilationResult } from "./services/arduino-compiler";
 
 import { createServer, type Server } from "node:http";
 import { createHash } from "node:crypto";
-import { readdir, stat } from "node:fs/promises";
 import { storage } from "./storage";
 import { getCompilerWithFallback } from "./services/compiler-with-fallback";
 import { SandboxRunner } from "./services/sandbox-runner";
@@ -18,8 +17,6 @@ import {
   initializeSandboxRunnerPool,
 } from "./services/sandbox-runner-pool";
 import { insertSketchSchema } from "@shared/schema";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { Logger } from "@shared/logger"; // Pfad ggf. anpassen
 
@@ -29,11 +26,11 @@ import { registerSimulationWebSocket } from "./routes/simulation.ws";
 import { registerStatusRoutes } from "./routes/status.routes";
 import { registerConfigRoutes } from "./routes/config.routes";
 import { registerTestResetRoute } from "./routes/test-reset.routes";
+import { registerExamplesRoutes } from "./routes/examples.routes";
+import { ExamplesRepository } from "./services/examples/examples-repository";
 import { config } from "./config";
 import { createUserAuthorizationMiddleware } from "./security/access-control";
 import { apiVersionMiddleware } from "./services/protocol-version";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function hashCode(
   code: string,
@@ -129,65 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- Examples API endpoint ---
-
-  // --- Examples API endpoint ---
-  app.get("/api/examples", async (_req, res) => {
-    try {
-      const publicCandidates = [
-        path.resolve(__dirname, "..", "public"),
-        path.resolve(__dirname, "public"),
-      ];
-
-      // Find first existing public dir (async)
-      let publicDir = publicCandidates[0];
-      for (const candidate of publicCandidates) {
-        try {
-          await stat(candidate);
-          publicDir = candidate;
-          break;
-        } catch {
-          // Continue to next candidate
-        }
-      }
-
-      const examplesDir = path.resolve(publicDir, "examples");
-      const exampleFiles: string[] = [];
-
-      // Recursively read all .ino and .h files from examples and subdirectories (async)
-      async function readExamplesRecursive(
-        dir: string,
-        basePath: string = "",
-      ): Promise<void> {
-        try {
-          const files = await readdir(dir);
-
-          for (const file of files) {
-            const fullPath = path.join(dir, file);
-            const s = await stat(fullPath);
-            const relativePath = basePath ? `${basePath}/${file}` : file;
-
-            if (s.isDirectory()) {
-              // Recursively read subdirectories
-              await readExamplesRecursive(fullPath, relativePath);
-            } else if (file.endsWith(".ino") || file.endsWith(".h")) {
-              exampleFiles.push(relativePath);
-            }
-          }
-        } catch (err) {
-          // Silently ignore directory read errors
-          logger.debug(`Error reading examples dir ${dir}: ${err}`);
-        }
-      }
-
-      await readExamplesRecursive(examplesDir);
-      exampleFiles.sort((a, b) => a.localeCompare(b));
-
-      res.json(exampleFiles);
-    } catch (error) {
-      logger.error(`Failed to read examples directory: ${error}`);
-      res.status(500).json({ error: "Failed to fetch examples" });
-    }
-  });
+  registerExamplesRoutes(app, new ExamplesRepository());
   // --- Sketch CRUD routes (leicht gekürzt) ---
   app.get("/api/sketches", async (_req, res) => {
     try {

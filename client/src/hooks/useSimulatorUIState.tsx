@@ -24,7 +24,7 @@ interface UseSimulatorUIStateParams {
   handleTabClose: (tabId: string) => void;
   handleTabRename: (tabId: string, newName: string) => void;
   handleFilesLoaded: (files: Array<{ name: string; content: string }>, replaceAll: boolean) => void;
-  handleLoadExample: (filename: string, content: string) => void;
+  handleLoadExample: (files: Array<{ name: string; content: string }>, title: string) => void;
   formatCode: () => void;
   handleCompileAndStart: () => void;
   editorRef: React.RefObject<{

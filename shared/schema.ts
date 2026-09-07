@@ -22,23 +22,19 @@ export const insertSketchSchema = z.object({
   content: z.string(),
 });
 
+const compilerHeaderSchema = z
+  .object({
+    name: z.string().refine(isSafeHeaderName, "Header name must be a safe basename"),
+    content: z.string().max(INPUT_LIMITS.compile.maxHeaderContentChars),
+  })
+  .strict();
+
 /** Runtime contract for the public REST compiler endpoint. */
 export const compileRequestSchema = z
   .object({
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
     headers: z
-      .array(
-        z
-          .object({
-            name: z
-              .string()
-              .refine(isSafeHeaderName, "Header name must be a safe basename"),
-            content: z
-              .string()
-              .max(INPUT_LIMITS.compile.maxHeaderContentChars),
-          })
-          .strict(),
-      )
+      .array(compilerHeaderSchema)
       .max(INPUT_LIMITS.compile.maxHeaders)
       .refine(
         (headers) =>
@@ -104,6 +100,16 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       .max(INPUT_LIMITS.simulation.maxTimeoutSeconds)
       .optional(),
     code: z.string().max(INPUT_LIMITS.compile.maxCodeChars).optional(),
+    headers: z
+      .array(compilerHeaderSchema)
+      .max(INPUT_LIMITS.compile.maxHeaders)
+      .refine(
+        (headers) =>
+          new Set(headers.map((header) => header.name.toLowerCase())).size ===
+          headers.length,
+        "Header names must be unique",
+      )
+      .optional(),
   }).strict(),
   z.object({
     type: z.literal("pause_simulation"),

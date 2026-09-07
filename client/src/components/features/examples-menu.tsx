@@ -9,13 +9,18 @@ import { BookOpen, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Example {
-  name: string;
-  filename: string;
-  content: string;
+  id: string;
+  title: string;
+  category: string;
+  files: Array<{ name: string; path: string }>;
+}
+
+interface ExampleDetail {
+  files: Array<{ name: string; content: string }>;
 }
 
 interface ExamplesMenuProps {
-  readonly onLoadExample: (filename: string, content: string) => void;
+  readonly onLoadExample: (files: Array<{ name: string; content: string }>, title: string) => void;
   readonly backendReachable?: boolean;
 }
 
@@ -27,6 +32,7 @@ export function ExamplesMenu({
 }: ExamplesMenuProps) {
   const [examples, setExamples] = useState<Example[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [keyboardNavActive, setKeyboardNavActive] = useState(false);
   const focusedIndexRef = useRef<number>(-1);
@@ -43,32 +49,12 @@ export function ExamplesMenu({
           throw new Error("Failed to fetch examples list");
         }
 
-        const fileList: string[] = await response.json();
-        const loadedExamples: Example[] = [];
-
-        // Load each example file
-        for (const filename of fileList) {
-          try {
-            const fileResponse = await fetch(`/examples/${filename}`);
-            if (fileResponse.ok) {
-              const content = await fileResponse.text();
-              // Extract display name: remove leading numbers and hyphens
-              const displayName =
-                filename.split("/").pop()?.replace(/^\d+-/, "") || filename;
-
-              loadedExamples.push({
-                name: displayName,
-                filename: filename,
-                content: content,
-              });
-            }
-          } catch (error) {
-            console.error(`Failed to load example ${filename}:`, error);
-          }
-        }
-
-        // Sort examples by filename
-        loadedExamples.sort((a, b) => a.filename.localeCompare(b.filename));
+        const payload = (await response.json()) as {
+          examples?: Example[];
+        };
+        const loadedExamples = (payload.examples ?? []).toSorted((a, b) =>
+          `${a.category}/${a.title}`.localeCompare(`${b.category}/${b.title}`),
+        );
         setExamples(loadedExamples);
       } catch (error) {
         console.error("Failed to load examples:", error);
@@ -232,20 +218,39 @@ export function ExamplesMenu({
     };
   }, [open]);
 
-  const handleLoadExample = (example: Example) => {
-    onLoadExample(example.filename, example.content);
-    toast({
-      title: "Example Loaded",
-      description: `${example.filename} has been loaded into the editor`,
-    });
-
-    // Close menu after loading example unless "keep open" setting is enabled
+  const handleLoadExample = async (example: Example) => {
+    if (loadingExampleId) return;
+    setLoadingExampleId(example.id);
     try {
-      if (globalThis.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) !== "1") {
+      const response = await fetch(`/api/examples/${encodeURIComponent(example.id)}`);
+      if (!response.ok) throw new Error("Failed to fetch example");
+      const detail = (await response.json()) as ExampleDetail;
+      if (!Array.isArray(detail.files) || detail.files.length === 0) {
+        throw new Error("Example contains no files");
+      }
+      onLoadExample(detail.files, example.title);
+      toast({
+        title: "Example Loaded",
+        description: `${example.title} has been loaded into the editor`,
+      });
+
+      // Close menu after loading example unless "keep open" setting is enabled
+      try {
+        if (globalThis.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) !== "1") {
+          setOpen(false);
+        }
+      } catch {
         setOpen(false);
       }
-    } catch {
-      setOpen(false);
+    } catch (error) {
+      console.error(`Failed to load example ${example.id}:`, error);
+      toast({
+        title: "Failed to Load Example",
+        description: "Could not load the selected example",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingExampleId(null);
     }
   };
 
@@ -301,8 +306,7 @@ interface ExamplesTreeProps {
 function groupExamplesByFolder(items: Example[]): Record<string, Example[]> {
   const grouped: Record<string, Example[]> = {};
   items.forEach((item) => {
-    const parts = item.filename.split("/");
-    const folder = parts.length > 1 ? parts[0] : "Other";
+    const folder = item.category || "Other";
     if (!grouped[folder]) grouped[folder] = [];
     grouped[folder].push(item);
   });
@@ -353,10 +357,10 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
               {isExpanded && (
                 <div className="bg-muted/30">
                   {items
-                    .toSorted((a, b) => a.filename.localeCompare(b.filename))
+                    .toSorted((a, b) => a.title.localeCompare(b.title))
                     .map((example) => (
                       <Button
-                        key={example.filename}
+                        key={example.id}
                         variant="ghost"
                         size="sm"
                         onClick={() => onLoadExample(example)}
@@ -365,7 +369,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                         className="w-full px-4 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
                       >
                         <span className="text-muted-foreground">•</span>
-                        <span className="w-full">{example.name}</span>
+                        <span className="w-full">{example.title}</span>
                       </Button>
                     ))}
                 </div>

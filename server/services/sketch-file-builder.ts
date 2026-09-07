@@ -10,6 +10,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { ARDUINO_MOCK_CODE } from "./arduino-mock";
 import { Logger } from "@shared/logger";
 import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
+import { isSafeHeaderName } from "@shared/input-limits";
+import { resolvePathWithinRoot } from "../security/safe-paths";
 
 interface SketchBuildResult {
   sketchDir: string;
@@ -45,7 +47,7 @@ export class SketchFileBuilder {
    * @param sketchId - Unique identifier for this sketch
    * @returns Paths to sketch directory and files
    */
-  async build(code: string, sketchId: string): Promise<SketchBuildResult> {
+  async build(code: string, sketchId: string, headers: Array<{ name: string; content: string }> = []): Promise<SketchBuildResult> {
     const sketchDir = join(this.tempDir, sketchId);
     const sketchFile = join(sketchDir, "sketch.cpp");
     const exeFile = join(sketchDir, "sketch");
@@ -78,6 +80,11 @@ export class SketchFileBuilder {
     const combined = `${ARDUINO_MOCK_CODE}\n\n${forwardSection}// --- User code follows ---\n${cleanedCode}\n\n// --- Footer ---\n${footer}`;
 
     await writeFile(sketchFile, combined);
+
+    for (const header of headers) {
+      if (!isSafeHeaderName(header.name)) throw new Error(`Unsafe header name: ${header.name}`);
+      await writeFile(resolvePathWithinRoot(sketchDir, header.name), header.content);
+    }
 
     return { sketchDir, sketchFile, exeFile };
   }

@@ -114,7 +114,6 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req) =>
     isTestMode ||
-    req.originalUrl === "/api/examples" ||
     req.originalUrl === "/api/status" ||
     req.originalUrl === "/api/health" ||
     req.originalUrl === "/api/config", // Skip for lightweight/polling endpoints
@@ -134,10 +133,10 @@ const publicPathCandidates = [
 const publicPath =
   publicPathCandidates.find((candidate) => fs.existsSync(candidate)) ||
   publicPathCandidates[0];
-const examplesPath = path.resolve(publicPath, "examples");
-
-// Serve example files
-app.use("/examples", express.static(examplesPath));
+// Examples are served only through the validated /api/examples routes.
+app.use("/examples", (_req, res) => {
+  res.status(404).json({ error: "Direct example file access is disabled" });
+});
 
 // Serve public folder static files FIRST (before API routes)
 // public is copied to dist/public during build

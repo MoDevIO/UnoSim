@@ -92,7 +92,7 @@ describe("registerRoutes core HTTP behavior", () => {
     ({ baseUrl, server } = await listen(app));
   }
 
-  it("serves health and recursively discovers example files", async () => {
+  it("serves health and returns a validated example catalog", async () => {
     await startServer();
 
     await expect(request(baseUrl, "GET", "/api/health")).resolves.toEqual({
@@ -101,8 +101,15 @@ describe("registerRoutes core HTTP behavior", () => {
     });
     const examples = await request(baseUrl, "GET", "/api/examples");
     expect(examples.status).toBe(200);
-    expect(Array.isArray(examples.body)).toBe(true);
-    expect((examples.body as string[]).every((file) => file.endsWith(".ino") || file.endsWith(".h"))).toBe(true);
+    expect(examples.body).toMatchObject({ schemaVersion: 1, source: { status: "builtin" } });
+    expect(Array.isArray((examples.body as { examples: unknown[] }).examples)).toBe(true);
+    const first = (examples.body as { examples: Array<{ id: string; files: Array<{ name: string }> }> }).examples[0];
+    expect(first.id).toMatch(/^builtin-/);
+    expect(first.files.every((file) => file.name.endsWith(".ino") || file.name.endsWith(".h"))).toBe(true);
+
+    const detail = await request(baseUrl, "GET", `/api/examples/${encodeURIComponent(first.id)}`);
+    expect(detail.status).toBe(200);
+    expect((detail.body as { files: Array<{ content: string }> }).files.every((file) => typeof file.content === "string")).toBe(true);
   });
 
   it("creates, reads, updates, lists, and deletes sketches through the public API", async () => {

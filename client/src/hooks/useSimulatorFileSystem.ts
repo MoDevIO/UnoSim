@@ -148,21 +148,17 @@ export function useSimulatorFileSystem({
     });
 
   const handleLoadExample = useCallback(
-    (filename: string, content: string) => {
+    (
+      filesOrName: Array<{ name: string; content: string }> | string,
+      contentOrTitle: string,
+    ) => {
       onLoadExample?.();
-
-      const newTab = {
-        id: crypto.randomUUID().replaceAll("-", "").slice(0, 9),
-        name: filename,
-        content,
-      };
-
-      setTabs([newTab]);
-      setActiveTabId(newTab.id);
-      setCode(content);
-      setIsModified(false);
+      const files = typeof filesOrName === "string"
+        ? [{ name: filesOrName, content: contentOrTitle }]
+        : filesOrName;
+      handleFilesLoaded(files, true);
     },
-    [onLoadExample, setTabs, setActiveTabId, setCode, setIsModified],
+    [handleFilesLoaded, onLoadExample],
   );
 
   return {

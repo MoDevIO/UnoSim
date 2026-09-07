@@ -112,6 +112,19 @@ const localWebSocketOrigins = [
   "http://127.0.0.1:5173",
 ];
 
+const examplesSource = envStr("UNOSIM_EXAMPLES_SOURCE", "").trim();
+const examplesRef = envStr("UNOSIM_EXAMPLES_REF", "").trim();
+const examplesAllowedHosts = envList("UNOSIM_EXAMPLES_ALLOWED_HOSTS", []).map((host) => host.toLowerCase());
+if (examplesSource && !examplesRef) {
+  throw new Error("UNOSIM_EXAMPLES_REF is required when UNOSIM_EXAMPLES_SOURCE is configured");
+}
+if (examplesSource && process.env.NODE_ENV === "production" && examplesAllowedHosts.length === 0) {
+  throw new Error("UNOSIM_EXAMPLES_ALLOWED_HOSTS is required for external examples in production");
+}
+if (examplesSource && process.env.NODE_ENV === "production" && examplesRef === "main") {
+  throw new Error("UNOSIM_EXAMPLES_REF=main is not allowed for external examples in production");
+}
+
 // ── Config ──────────────────────────────────────────────────────────
 
 export const config = {
@@ -316,6 +329,27 @@ export const config = {
     gatekeeperMaxQueueSize: 500,
     /** Bypass gatekeeper in E2E tests */
     disableGatekeeper: envBool("DISABLE_COMPILE_GATEKEEPER", false),
+  },
+
+  // ── Examples ─────────────────────────────────────────────────────
+
+  examples: {
+    /** Server-side HTTPS base URL for a manifest/ref source. */
+    source: examplesSource,
+    /** Immutable tag or commit SHA; floating refs are development-only. */
+    ref: examplesRef,
+    /** Refresh interval for the in-memory external snapshot. */
+    refreshMs: envInt("UNOSIM_EXAMPLES_REFRESH_MS", 5 * 60 * 1000, { min: 1_000, max: 86_400_000 }),
+    /** Timeout applied to each external request. */
+    timeoutMs: envInt("UNOSIM_EXAMPLES_TIMEOUT_MS", 5_000, { min: 100, max: 120_000 }),
+    maxManifestBytes: envInt("UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES", 256 * 1024, { min: 1, max: 10 * 1024 * 1024 }),
+    maxFileBytes: envInt("UNOSIM_EXAMPLES_MAX_FILE_BYTES", 128 * 1024, { min: 1, max: 10 * 1024 * 1024 }),
+    maxTotalBytes: envInt("UNOSIM_EXAMPLES_MAX_TOTAL_BYTES", 1024 * 1024, { min: 1, max: 100 * 1024 * 1024 }),
+    maxFiles: envInt("UNOSIM_EXAMPLES_MAX_FILES", 100, { min: 1, max: 10_000 }),
+    /** Exact host allowlist; required for configured production sources. */
+    allowedHosts: examplesAllowedHosts,
+    /** Only intended for local fixture tests, never production. */
+    allowHttp: envBool("UNOSIM_EXAMPLES_ALLOW_HTTP", false),
   },
 
   // ── Scattered Timeouts (centralized) ────────────────────────────

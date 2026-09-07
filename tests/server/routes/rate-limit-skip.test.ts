@@ -54,7 +54,6 @@ describe("Rate limiter skip list", () => {
       standardHeaders: true,
       legacyHeaders: false,
       skip: (req) =>
-        req.originalUrl === "/api/examples" ||
         req.originalUrl === "/api/status" ||
         req.originalUrl === "/api/health",
     });
@@ -104,7 +103,6 @@ describe("Rate limiter skip list", () => {
       standardHeaders: true,
       legacyHeaders: false,
       skip: (req) =>
-        req.originalUrl === "/api/examples" ||
         req.originalUrl === "/api/status" ||
         req.originalUrl === "/api/health",
     });

@@ -59,6 +59,7 @@ export type SimulationControllerResult = {
   stopSimulationImmediately: () => void;
   startSimulation: () => void;
   setCompiledCode: (code: string) => void;
+  setCompiledHeaders?: (headers: Array<{ name: string; content: string }>) => void;
   startSimulationRef: React.MutableRefObject<(() => void) | null>;
   suppressAutoStopOnce: () => void;
 };
@@ -75,6 +76,7 @@ export function useSimulationController(
     setSimulationTimeout,
   } = useSimulationControllerState();
   const compiledCodeRef = useRef<string | null>(null);
+  const compiledHeadersRef = useRef<Array<{ name: string; content: string }>>([]);
   const internalStartRef = useRef<(() => void) | null>(null);
   const startSimulationRef = params.startSimulationRef ?? internalStartRef;
 
@@ -119,11 +121,12 @@ export function useSimulationController(
       const timeout = normalizeSimulationTimeout(simulationTimeout);
       logger.debug(`[CLIENT] startMutation invoked, simulationTimeout=${timeout}`);
       params.resetPinUI({ keepDetected: true });
-      const message: { type: "start_simulation"; timeout: number; code?: string } = {
+      const message: { type: "start_simulation"; timeout: number; code?: string; headers?: Array<{ name: string; content: string }> } = {
         type: "start_simulation",
         timeout,
       };
       if (compiledCodeRef.current) message.code = compiledCodeRef.current;
+      if (compiledHeadersRef.current.length > 0) message.headers = compiledHeadersRef.current;
 
       params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current);
       if (params.sendMessageImmediate) {
@@ -154,6 +157,9 @@ export function useSimulationController(
   const startSimulation = useCallback(() => startMutation.mutate(), [startMutation]);
   const setCompiledCode = useCallback((code: string) => {
     compiledCodeRef.current = code;
+  }, []);
+  const setCompiledHeaders = useCallback((headers: Array<{ name: string; content: string }>) => {
+    compiledHeadersRef.current = headers;
   }, []);
   const handleStart = useCallback(() => {
     if (!params.ensureBackendConnected("Simulation starten")) return;
@@ -204,6 +210,7 @@ export function useSimulationController(
     stopSimulationImmediately,
     startSimulation,
     setCompiledCode,
+    setCompiledHeaders,
     startSimulationRef,
     suppressAutoStopOnce: lifecycle.suppressAutoStopOnce,
   };

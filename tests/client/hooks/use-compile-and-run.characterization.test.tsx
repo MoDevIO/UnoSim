@@ -95,6 +95,7 @@ describe("useCompileAndRun characterization", () => {
         type: "start_simulation",
         timeout: 60,
         code: MAIN_SKETCH,
+        headers: [{ name: "header.h", content: "#define LED_PIN 13" }],
       });
     });
 
@@ -143,6 +144,7 @@ describe("useCompileAndRun characterization", () => {
         type: "start_simulation",
         timeout: 60,
         code: MAIN_SKETCH,
+        headers: [{ name: "header.h", content: "#define LED_PIN 13" }],
       });
     });
 

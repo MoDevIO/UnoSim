@@ -79,12 +79,6 @@ export default defineConfig({
         target: "ws://localhost:3000",
         ws: true,
       },
-      // Proxy für Examples-Dateien
-      "/examples": {
-        target: "http://localhost:3000",
-        changeOrigin: true,
-        rewrite: (path) => path,
-      },
     },
     fs: {
       strict: true,

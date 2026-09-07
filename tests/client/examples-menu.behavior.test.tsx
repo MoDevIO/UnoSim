@@ -32,19 +32,26 @@ describe("ExamplesMenu behavior", () => {
   it("loads, groups, expands, and selects examples", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => ["blink.ino", "io.h"] } as Response)
-      .mockResolvedValueOnce({ ok: true, text: async () => "blink code" } as Response)
-      .mockResolvedValueOnce({ ok: true, text: async () => "io header" } as Response);
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          examples: [
+            { id: "blink", title: "blink.ino", category: "Other", files: [{ name: "blink.ino", path: "blink.ino" }] },
+            { id: "io", title: "io.h", category: "Other", files: [{ name: "io.h", path: "io.h" }] },
+          ],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ files: [{ name: "blink.ino", content: "blink code" }] }) } as Response);
     const onLoadExample = vi.fn();
 
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
     await waitFor(() => expect(screen.getByText("Load Example")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Other" }));
     fireEvent.click(screen.getByRole("button", { name: /blink\.ino/i }));
 
-    expect(onLoadExample).toHaveBeenCalledWith("blink.ino", "blink code");
+    await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([{ name: "blink.ino", content: "blink code" }], "blink.ino"));
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Example Loaded" }));
   });
 
@@ -64,17 +71,17 @@ describe("ExamplesMenu behavior", () => {
   it("toggles with the platform shortcut and honors keep-open storage", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => ["blink.ino"] } as Response)
-      .mockResolvedValueOnce({ ok: true, text: async () => "blink" } as Response);
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ examples: [{ id: "blink", title: "blink.ino", category: "Other", files: [{ name: "blink.ino", path: "blink.ino" }] }] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ files: [{ name: "blink.ino", content: "blink" }] }) } as Response);
     localStorage.setItem("unoKeepExamplesMenuOpen", "1");
     const onLoadExample = vi.fn();
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     fireEvent.keyDown(document, { code: "KeyE", ctrlKey: true });
     expect(screen.getByText("Load Example")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Other" }));
     fireEvent.click(screen.getByRole("button", { name: /blink\.ino/i }));
-    expect(onLoadExample).toHaveBeenCalledWith("blink.ino", "blink");
+    await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([{ name: "blink.ino", content: "blink" }], "blink.ino"));
     localStorage.removeItem("unoKeepExamplesMenuOpen");
   });
 });
