@@ -23,11 +23,9 @@ export class HttpProvider {
       return { examples: this.cached.examples, status: "cache", stale: false };
     }
 
-    if (!this.loading) {
-      this.loading = this.loadRemote().finally(() => {
-        this.loading = null;
-      });
-    }
+    this.loading ??= this.loadRemote().finally(() => {
+      this.loading = null;
+    });
 
     try {
       const examples = await this.loading;

@@ -51,8 +51,8 @@ export class BuiltInProvider {
       const name = path.basename(relativePath);
       const category = relativePath.split(path.sep)[0] ?? "Built-in";
       return {
-        id: `builtin-${relativePath.replaceAll(path.sep, "-").replace(/[^A-Za-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "")}`,
-        title: name.replace(/\.(?:ino|h)$/i, "").replace(/[-_]+/g, " "),
+        id: `builtin-${relativePath.replaceAll(path.sep, "-").replaceAll(/[^A-Za-z0-9_-]/g, "-").replaceAll(/-+/g, "-").replaceAll(/(?:^-|-$)/g, "")}`,
+        title: name.replaceAll(/\.(?:ino|h)$/gi, "").replaceAll(/[-_]+/g, " "),
         category,
         files: loadedFiles,
         main: name,

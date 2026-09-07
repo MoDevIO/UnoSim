@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
-const SAFE_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.(?:ino|h)$/i;
+const SAFE_FILE_NAME = /^[A-Z0-9][A-Z0-9_.-]{0,127}\.(?:ino|h)$/i;
 
 export const manifestFileSchema = z.object({
   name: z.string().min(1).max(128).regex(SAFE_FILE_NAME),
@@ -53,31 +53,42 @@ export function validateManifestReferences(manifest: ExamplesManifest): void {
       throw new Error(`Duplicate example id: ${example.id}`);
     }
     ids.add(example.id);
+    validateExampleReferences(example);
+  }
+}
 
-    const names = new Set<string>();
-    const paths = new Set<string>();
-    let mainCount = 0;
+function validateExampleReferences(example: ManifestExample): void {
+  const names = new Set<string>();
+  const paths = new Set<string>();
+  let mainCount = 0;
 
-    for (const file of example.files) {
-      if (names.has(file.name)) throw new Error(`Duplicate file name: ${file.name}`);
-      if (paths.has(file.path)) throw new Error(`Duplicate file path: ${file.path}`);
-      names.add(file.name);
-      paths.add(file.path);
-
-      if (!isSafeRelativePath(file.path)) {
-        throw new Error(`Invalid example path: ${file.path}`);
-      }
-      if (file.path.toLowerCase().endsWith(".ino") !== file.name.toLowerCase().endsWith(".ino")) {
-        throw new Error(`File name/path extension mismatch: ${file.name}`);
-      }
-      if (file.path.toLowerCase().endsWith(".ino") && file.name === example.main) {
-        mainCount++;
-      }
+  for (const file of example.files) {
+    validateExampleFile(file, names, paths);
+    if (file.path.toLowerCase().endsWith(".ino") && file.name === example.main) {
+      mainCount++;
     }
+  }
 
-    if (mainCount !== 1 || !names.has(example.main)) {
-      throw new Error(`Invalid main file for example: ${example.id}`);
-    }
+  if (mainCount !== 1 || !names.has(example.main)) {
+    throw new Error(`Invalid main file for example: ${example.id}`);
+  }
+}
+
+function validateExampleFile(
+  file: ManifestFile,
+  names: Set<string>,
+  paths: Set<string>,
+): void {
+  if (names.has(file.name)) throw new Error(`Duplicate file name: ${file.name}`);
+  if (paths.has(file.path)) throw new Error(`Duplicate file path: ${file.path}`);
+  names.add(file.name);
+  paths.add(file.path);
+
+  if (!isSafeRelativePath(file.path)) {
+    throw new Error(`Invalid example path: ${file.path}`);
+  }
+  if (file.path.toLowerCase().endsWith(".ino") !== file.name.toLowerCase().endsWith(".ino")) {
+    throw new Error(`File name/path extension mismatch: ${file.name}`);
   }
 }
 
