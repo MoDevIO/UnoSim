@@ -60,11 +60,11 @@ Dieser Plan bildet ausschließlich diese Maßnahmen aus `docs/PROJECT_ANALYSIS_R
 
 | Maßnahme | Ist | Ziel | Status |
 | --- | --- | --- | --- |
-| 3.4 Lasttest 50/100/200 | Scripts `npm run test:load:50`, `npm run test:load:100`, `npm run test:load:200` existieren; Playwright-Scalability prüft viele iframes/WS-Verbindungen; echte Docker-Compile-/Run-Last ist nicht Standard. | Reproduzierbare Lasttests mit Hostmetriken, klarer Hardwarebasis, Pass/Fail-Kriterien und Messartefakten. | Teilweise erfüllt, offen. |
+| 3.4 Lasttest 50/100/200 | Reale Docker-Messläufe liegen vor: Compile 50/100/200 PASS; Simulation/WebSocket/Runner 50/100 PASS; Simulation 200 FAIL wegen 5er-SandboxRunnerPool + 60-s-Acquire-Timeout. | Reproduzierbare Lasttests mit Hostmetriken, klarer Hardwarebasis, Pass/Fail-Kriterien und Messartefakten. | Abgeschlossen mit dokumentierter Kapazitätsgrenze. |
 | 3.5 Sandbox-Vertrag | Docker-/Integration-/Security-Tests und Heavy-Test-Mechanik existieren; Produktionsanforderungen sind dokumentiert. | Sandbox-Vertrag regelmäßig durch Docker-/Integration-/Security-Gates, Penetrationstests und Container-Escape-Versuche verifizieren. | Teilweise erfüllt, offen. |
 | 3.6 Coverage-Hotspots | Coverage-Hotspots sind in Projektanalyse und Testing-Standards benannt; Coverage-Gate existiert. | Coverage-Bericht: alle Hotspots >60 %, kritische Hotspots >80 %; Abweichungen nur mit dokumentierter Begründung. | Teilweise erfüllt, offen. |
 | 3.7 Release-Gate | `./run-tests.sh`, Einzel-Scripts und SonarQube sind vorhanden. | Verbindliches Release-Gate mit Pflichtschritten, Security-Audit, Artefakten und Abbruchregeln. | Teilweise erfüllt, offen. |
-| 3.8 Skalierbarkeit / HA-Entscheidung | Aktueller Betrieb ist ein einzelner zustandsbehafteter Backend-Knoten; 100/200 Clients sind Planungs-/Messszenarien. | Single-Stateful-Node bewusst bestätigen oder HA-Zielarchitektur per Entscheidung/ADR abgrenzen. | Offen. |
+| 3.8 Skalierbarkeit / HA-Entscheidung | Phase-3.4-Messdaten bestätigen Compile bis 200 und Simulation bis 100; Simulation 200 ist unter aktuellem 5-Runner-Profil nicht stabil. | Single-Stateful-Node bewusst bestätigen oder HA-Zielarchitektur per Entscheidung/ADR abgrenzen. | Entschieden über ADR 0003. |
 | 3.9 Observability | `/api/status`, WS-Events und Serial-/Telemetry-Zähler existieren. | Strukturierte Metriken für Queues, Runner, Compile-Slots, WS-Sessions und Timeouts mit Schwellenwerten sowie Alert-Tests bei Grenzwertüberschreitungen. | Teilweise erfüllt, offen. |
 | 3.10 API-/WebSocket-Versionierung | iframe-API ist mit `1.4.0` versioniert; REST-/WS-Versionierung ist noch nicht vollständig verbindlich operationalisiert. | REST-, WebSocket- und externe API-Versionierung inklusive Kompatibilitäts- und Migrationstests definieren. | Teilweise erfüllt, offen. |
 
@@ -88,11 +88,11 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 
 | Maßnahme | Bereits teilweise erfüllt | Wirklich offen |
 | --- | --- | --- |
-| 3.4 | Load-Scripts, Vitest-Load-Projekt, Playwright-Scalability-Test, bekannte Engpassanalyse. | Reproduzierbare 50/100/200-Messläufe mit Hostmetriken, realer Docker-Last, Artefakten und dokumentierter Kapazitätsaussage. |
+| 3.4 | Load-Scripts, Vitest-Load-Projekt, Playwright-Scalability-Test, bekannte Engpassanalyse. Reale Docker-Messläufe und Artefakte für Compile 50/100/200 sowie Simulation 50/100/200 liegen vor. | Keine offene Phase-3.4-Arbeit; Folgearbeit nur, wenn höhere Simulationsparallelität als 100 Clients gefordert wird. |
 | 3.5 | Docker-Security-Contract-Test, Docker-Sandbox-Image, Heavy-Test-Mechanik, Security-/Admin-Doku. | Regelmäßiges Sandbox-Vertragsgate mit dokumentierter Testmatrix, Penetrationstest-/Container-Escape-Prüfung, Security-Audit-Schritten und Release-Evidenz. |
 | 3.6 | Hotspots sind benannt; Coverage-Report und `npm run test:coverage` existieren. | Zielgerichtete Tests für aktuelle Hotspots, bis alle Hotspots >60 % und kritische Hotspots >80 % erreichen; jede Abweichung muss explizit begründet werden. |
 | 3.7 | Einzelgates und `./run-tests.sh` existieren; SonarQube-Projekt ist konfiguriert. | Release-Runbook mit Pflicht-/Opt-in-Gates, Security-Audit, Artefakten, Abbruchkriterien und Verantwortlichkeit. |
-| 3.8 | Single-Stateful-Node ist transparent dokumentiert. | Formale Entscheidung: Single Node als akzeptiertes Betriebsmodell oder HA als Folgearchitektur. |
+| 3.8 | Single-Stateful-Node ist transparent dokumentiert; ADR 0003 akzeptiert dieses Modell für die gemessene Kapazitätsgrenze. | Keine HA-Implementierung in Phase 3.8; höhere Parallelität benötigt separate Architektur-/Kapazitätsphase. |
 | 3.9 | Status- und Telemetriequellen existieren. | Monitoring-Vertrag: Metrikliste, Schwellenwerte, Alert-/Runbook-Aktionen und Alert-Tests, die Grenzwertüberschreitungen melden. |
 | 3.10 | iframe-API-Version `1.4.0` existiert; Phase-3.3-Sunset-Inventar liegt vor. | REST-/WS-Versionierung, Compatibility-Policy und Migrationstests für alte/neue Protokollvarianten. |
 

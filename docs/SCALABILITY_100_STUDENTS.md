@@ -11,6 +11,40 @@ Ziel-SSOT: Dieses Dokument ist die einzige aktive Skalierungs- und Kapazitätsqu
 > bzw. 200 Clients sind Planungs- und Messszenarien, keine zugesicherte
 > Produktionskapazität.
 
+> **Update 6. September 2026:** Phase 3.4 ist formal als Messphase
+> abgeschlossen. Compile-Skalierung ist bis 200 Clients bestanden. Echte
+> Docker-Simulation/WebSocket/Runner ist bis 100 Clients bestanden; 200
+> Simulationen sind mit 126/200 erfolgreichen Sessions und 74
+> Runner-Acquire-Timeouts fehlgeschlagen. Phase 3.8 akzeptiert per
+> `docs/adr/0003-scalability-and-ha-model.md` den aktuellen
+> Single-Stateful-Node als Betriebsmodell innerhalb dieser gemessenen Grenze.
+> Höhere Simulationsparallelität ist separate Architektur-/Kapazitätsfolgearbeit.
+
+## 0. Aktuell gemessene Kapazitätsgrenze
+
+Die folgenden Werte sind die verbindliche Phase-3.4-Messbasis für das aktuelle
+Single-Stateful-Node-Modell. Es wurden keine Poolgrößen, Ressourcenlimits oder
+Timeouts verändert, um einen Lauf künstlich bestehen zu lassen.
+
+| Bereich | Ergebnis | Bewertung |
+|---|---:|---|
+| Compile 50/100/200 | 50/50, 100/100, 200/200 erfolgreich | ✅ PASS bis 200 |
+| Simulation/WebSocket/Runner 50 | 50/50 erfolgreich | ✅ PASS |
+| Simulation/WebSocket/Runner 100 | 100/100 erfolgreich | ✅ PASS |
+| Simulation/WebSocket/Runner 200 | 126/200 erfolgreich, 74 Timeouts/Fehler | ❌ FAIL |
+
+Gemessene Simulationsgrenze: **100 parallele echte Docker-Simulationsclients**
+unter aktuellem Profil mit 5 Sandbox-Runnern und 60-s-Acquire-Timeout. Bei 200
+Clients funktionieren zwar 200 WebSocket-Verbindungen und 200 First Outputs,
+aber 74 Sessions erreichen keinen Runner rechtzeitig. Cleanup blieb sauber:
+keine aktiven Sessions, leere Runner-Queue, 5/5 Runner frei und keine
+`unosim-sandbox-*`-Container-Leaks nach Nachprüfung.
+
+Die 200-Client-Simulation ist daher keine freigegebene Betriebskapazität. Eine
+Erhöhung der Simulationsparallelität über 100 Clients benötigt eine separate
+Architektur-/Kapazitätsphase und darf nicht durch bloßes Erhöhen des
+Acquire-Timeouts als bestanden gewertet werden.
+
 ## 1. Wie genau kommt es zur Beschränkung auf 29 Instanzen?
 Die Beschränkung ergibt sich aus einer Kette von drei Engpässen, wobei der erste der unmittelbar limitierende ist:
 

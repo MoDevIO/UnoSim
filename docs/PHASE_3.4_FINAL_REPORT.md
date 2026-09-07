@@ -1,5 +1,7 @@
 # 50-Client-Real-Docker-Test – Abschlussbericht
 
+> **Status-Update 2026-09-06:** Dieser frühe 50-Client-Abschlussbericht ist durch die späteren Phase-3.4-Messläufe mit Observability ersetzt. Der formale Phase-3.4-Abschluss steht in `docs/PHASE_3.9_OBSERVABILITY_REPORT.md` unter „Formaler Abschluss Phase 3.4 — Lasttest 50/100/200“. Aktueller Befund: Compile 50/100/200 PASS, Simulation/WebSocket/Runner 50/100 PASS, Simulation 200 FAIL wegen 5er-SandboxRunnerPool + 60-s-Acquire-Timeout. Phase 3.8 ist per `docs/adr/0003-scalability-and-ha-model.md` entschieden: Single-Stateful-Node ist bis zur gemessenen Grenze akzeptiert; höhere Simulationsparallelität ist separate Architektur-/Kapazitätsfolgearbeit.
+
 **Test-ID:** `load-2026-09-06T14-34-17Z`  
 **Datum:** 06.09.2026, 14:34 Uhr  
 **Getestet gemäß:** `docs/phase-3.4-3.10-operational-readiness-plan.md`  

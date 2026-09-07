@@ -1,28 +1,28 @@
-=== 100-Client Load Test (Cache-Controlled) ===
+=== 200-Client Load Test (Cache-Controlled) ===
 API_BASE: http://127.0.0.1:3000
-Total Time: 88297ms
-Successful: 100/100
+Total Time: 165417ms
+Successful: 200/200
 Failed: 0
 Cache Hits: 0 (0.0%)
-Cache Misses: 100 (100.0%)
+Cache Misses: 200 (100.0%)
 
 Latency:
-  Avg: 49536ms
-  P50: 49285ms
-  P90: 82901ms
-  P95: 83244ms
-  P99: 87258ms
+  Avg: 88917ms
+  P50: 92256ms
+  P90: 150321ms
+  P95: 157105ms
+  P99: 163562ms
 
 Server Metrics (Peak):
-  CPU: 0.04%
+  CPU: 0.05%
   Memory: 0.07%
   Active Sessions: 0
-  Compile Queue: 92
+  Compile Queue: 192
   Runner Queue: 0
 
 Compile Metrics (Absolute):
-  Compiles: 100
-  Avg Duration: 6827ms
-  Avg Queue Wait: 42595ms
+  Compiles: 200
+  Avg Duration: 6536ms
+  Avg Queue Wait: 82261ms
   Timeouts: 0
   Errors: 0

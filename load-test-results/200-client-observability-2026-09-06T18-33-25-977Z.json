@@ -1,0 +1,1955 @@
+[
+  {
+    "testName": "200-Client Real Docker with Observability (Cache-Controlled)",
+    "totalClients": 200,
+    "successful": 200,
+    "failed": 0,
+    "successRate": 100,
+    "cacheHits": 0,
+    "cacheMisses": 200,
+    "totalTime": 165417,
+    "avgTime": 88916.69,
+    "minTime": 9524,
+    "maxTime": 164400,
+    "throughput": 1.209065573671388,
+    "p50": 92256,
+    "p90": 150321,
+    "p95": 157105,
+    "p99": 163562,
+    "serverMetricsStart": {
+      "status": "ok",
+      "timestamp": "2026-09-06T18:30:40.562Z",
+      "serverMode": "docker",
+      "simulationMode": "docker-sandbox",
+      "compileWorkers": 8,
+      "compileSlots": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      },
+      "compileWorkerPool": {
+        "active": 0,
+        "queued": 0,
+        "totalTasks": 0,
+        "completedTasks": 0,
+        "failedTasks": 0,
+        "avgCompileTimeMs": 0,
+        "maxWorkers": 8
+      },
+      "sandboxRunners": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "webSocketSessions": {
+        "active": 0,
+        "running": 0,
+        "paused": 0,
+        "totalConnections": 0,
+        "totalDisconnections": 0
+      },
+      "compileMetrics": {
+        "count": 0,
+        "timeoutCount": 0,
+        "errorCount": 0,
+        "avgDurationMs": 0,
+        "avgQueueWaitTimeMs": 0,
+        "maxDurationMs": 0,
+        "maxQueueWaitTimeMs": 0
+      },
+      "processMetrics": {
+        "cpuPercent": 0,
+        "memoryUsedMB": 15.585395812988281,
+        "memoryTotalMB": 32768,
+        "memoryPercent": 0.047562853433191776,
+        "uptimeSeconds": 7.464755667
+      },
+      "pool": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "compile": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      }
+    },
+    "serverMetricsEnd": {
+      "status": "ok",
+      "timestamp": "2026-09-06T18:33:25.973Z",
+      "serverMode": "docker",
+      "simulationMode": "docker-sandbox",
+      "compileWorkers": 8,
+      "compileSlots": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      },
+      "compileWorkerPool": {
+        "active": 0,
+        "queued": 0,
+        "totalTasks": 200,
+        "completedTasks": 200,
+        "failedTasks": 0,
+        "avgCompileTimeMs": 6535.995,
+        "maxWorkers": 8
+      },
+      "sandboxRunners": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "webSocketSessions": {
+        "active": 0,
+        "running": 0,
+        "paused": 0,
+        "totalConnections": 0,
+        "totalDisconnections": 0
+      },
+      "compileMetrics": {
+        "count": 200,
+        "timeoutCount": 0,
+        "errorCount": 0,
+        "avgDurationMs": 6536.01,
+        "avgQueueWaitTimeMs": 82261.34,
+        "maxDurationMs": 9500,
+        "maxQueueWaitTimeMs": 160365
+      },
+      "processMetrics": {
+        "cpuPercent": 0.0003632411067193676,
+        "memoryUsedMB": 17.75096893310547,
+        "memoryTotalMB": 32768,
+        "memoryPercent": 0.054171658121049404,
+        "uptimeSeconds": 172.875820833
+      },
+      "pool": {
+        "total": 5,
+        "available": 5,
+        "inUse": 0,
+        "queued": 0,
+        "max": 5
+      },
+      "compile": {
+        "active": 0,
+        "queued": 0,
+        "maxConcurrent": 8
+      }
+    },
+    "serverMetricsPeak": {
+      "maxCpuPercent": 0.048593041749502984,
+      "maxMemoryPercent": 0.07252886425703764,
+      "maxActiveSessions": 0,
+      "maxCompileQueue": 192,
+      "maxRunnerQueue": 0
+    },
+    "clientMetrics": [
+      {
+        "clientId": 4,
+        "fetchSketchTime": 43,
+        "compileTime": 9480,
+        "startSimTime": 0,
+        "totalTime": 9524,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 8,
+        "fetchSketchTime": 43,
+        "compileTime": 9490,
+        "startSimTime": 0,
+        "totalTime": 9533,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 1,
+        "fetchSketchTime": 19,
+        "compileTime": 9515,
+        "startSimTime": 0,
+        "totalTime": 9535,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 7,
+        "fetchSketchTime": 44,
+        "compileTime": 9491,
+        "startSimTime": 0,
+        "totalTime": 9535,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 3,
+        "fetchSketchTime": 43,
+        "compileTime": 9493,
+        "startSimTime": 0,
+        "totalTime": 9536,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 2,
+        "fetchSketchTime": 42,
+        "compileTime": 9494,
+        "startSimTime": 0,
+        "totalTime": 9536,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 6,
+        "fetchSketchTime": 43,
+        "compileTime": 9494,
+        "startSimTime": 0,
+        "totalTime": 9537,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 5,
+        "fetchSketchTime": 43,
+        "compileTime": 9494,
+        "startSimTime": 0,
+        "totalTime": 9538,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 10,
+        "fetchSketchTime": 44,
+        "compileTime": 16650,
+        "startSimTime": 0,
+        "totalTime": 16694,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 11,
+        "fetchSketchTime": 44,
+        "compileTime": 16736,
+        "startSimTime": 0,
+        "totalTime": 16780,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 16,
+        "fetchSketchTime": 45,
+        "compileTime": 16736,
+        "startSimTime": 0,
+        "totalTime": 16781,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 13,
+        "fetchSketchTime": 45,
+        "compileTime": 16736,
+        "startSimTime": 0,
+        "totalTime": 16781,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 9,
+        "fetchSketchTime": 44,
+        "compileTime": 16780,
+        "startSimTime": 0,
+        "totalTime": 16824,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 12,
+        "fetchSketchTime": 44,
+        "compileTime": 16781,
+        "startSimTime": 0,
+        "totalTime": 16825,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 15,
+        "fetchSketchTime": 45,
+        "compileTime": 16805,
+        "startSimTime": 0,
+        "totalTime": 16850,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 14,
+        "fetchSketchTime": 45,
+        "compileTime": 16806,
+        "startSimTime": 0,
+        "totalTime": 16851,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 17,
+        "fetchSketchTime": 45,
+        "compileTime": 23593,
+        "startSimTime": 0,
+        "totalTime": 23638,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 18,
+        "fetchSketchTime": 45,
+        "compileTime": 23788,
+        "startSimTime": 0,
+        "totalTime": 23834,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 20,
+        "fetchSketchTime": 46,
+        "compileTime": 23790,
+        "startSimTime": 0,
+        "totalTime": 23836,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 19,
+        "fetchSketchTime": 46,
+        "compileTime": 23803,
+        "startSimTime": 0,
+        "totalTime": 23849,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 21,
+        "fetchSketchTime": 46,
+        "compileTime": 23908,
+        "startSimTime": 0,
+        "totalTime": 23954,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 23,
+        "fetchSketchTime": 46,
+        "compileTime": 23909,
+        "startSimTime": 0,
+        "totalTime": 23955,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 24,
+        "fetchSketchTime": 46,
+        "compileTime": 23913,
+        "startSimTime": 0,
+        "totalTime": 23959,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 22,
+        "fetchSketchTime": 46,
+        "compileTime": 23919,
+        "startSimTime": 0,
+        "totalTime": 23965,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 25,
+        "fetchSketchTime": 46,
+        "compileTime": 30661,
+        "startSimTime": 0,
+        "totalTime": 30707,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 26,
+        "fetchSketchTime": 46,
+        "compileTime": 30908,
+        "startSimTime": 0,
+        "totalTime": 30954,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 31,
+        "fetchSketchTime": 46,
+        "compileTime": 30917,
+        "startSimTime": 0,
+        "totalTime": 30963,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 28,
+        "fetchSketchTime": 47,
+        "compileTime": 30931,
+        "startSimTime": 0,
+        "totalTime": 30978,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 30,
+        "fetchSketchTime": 46,
+        "compileTime": 30991,
+        "startSimTime": 0,
+        "totalTime": 31037,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 29,
+        "fetchSketchTime": 47,
+        "compileTime": 31002,
+        "startSimTime": 0,
+        "totalTime": 31049,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 27,
+        "fetchSketchTime": 47,
+        "compileTime": 31005,
+        "startSimTime": 0,
+        "totalTime": 31052,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 32,
+        "fetchSketchTime": 46,
+        "compileTime": 31013,
+        "startSimTime": 0,
+        "totalTime": 31059,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 33,
+        "fetchSketchTime": 46,
+        "compileTime": 37013,
+        "startSimTime": 0,
+        "totalTime": 37059,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 35,
+        "fetchSketchTime": 46,
+        "compileTime": 37910,
+        "startSimTime": 0,
+        "totalTime": 37956,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 36,
+        "fetchSketchTime": 47,
+        "compileTime": 38118,
+        "startSimTime": 0,
+        "totalTime": 38165,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 40,
+        "fetchSketchTime": 47,
+        "compileTime": 38125,
+        "startSimTime": 0,
+        "totalTime": 38172,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 38,
+        "fetchSketchTime": 47,
+        "compileTime": 38135,
+        "startSimTime": 0,
+        "totalTime": 38182,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 39,
+        "fetchSketchTime": 47,
+        "compileTime": 38144,
+        "startSimTime": 0,
+        "totalTime": 38191,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 34,
+        "fetchSketchTime": 46,
+        "compileTime": 38194,
+        "startSimTime": 0,
+        "totalTime": 38240,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 37,
+        "fetchSketchTime": 47,
+        "compileTime": 38200,
+        "startSimTime": 0,
+        "totalTime": 38247,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 41,
+        "fetchSketchTime": 47,
+        "compileTime": 41025,
+        "startSimTime": 0,
+        "totalTime": 41072,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 42,
+        "fetchSketchTime": 47,
+        "compileTime": 45372,
+        "startSimTime": 0,
+        "totalTime": 45419,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 44,
+        "fetchSketchTime": 47,
+        "compileTime": 46376,
+        "startSimTime": 0,
+        "totalTime": 46423,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 43,
+        "fetchSketchTime": 47,
+        "compileTime": 46502,
+        "startSimTime": 0,
+        "totalTime": 46549,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 46,
+        "fetchSketchTime": 47,
+        "compileTime": 46516,
+        "startSimTime": 0,
+        "totalTime": 46563,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 48,
+        "fetchSketchTime": 47,
+        "compileTime": 46592,
+        "startSimTime": 0,
+        "totalTime": 46639,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 47,
+        "fetchSketchTime": 47,
+        "compileTime": 46593,
+        "startSimTime": 0,
+        "totalTime": 46640,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 45,
+        "fetchSketchTime": 47,
+        "compileTime": 46625,
+        "startSimTime": 0,
+        "totalTime": 46672,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 49,
+        "fetchSketchTime": 48,
+        "compileTime": 48088,
+        "startSimTime": 0,
+        "totalTime": 48137,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 50,
+        "fetchSketchTime": 48,
+        "compileTime": 51130,
+        "startSimTime": 0,
+        "totalTime": 51178,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 51,
+        "fetchSketchTime": 48,
+        "compileTime": 52567,
+        "startSimTime": 0,
+        "totalTime": 52615,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 53,
+        "fetchSketchTime": 48,
+        "compileTime": 52895,
+        "startSimTime": 0,
+        "totalTime": 52943,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 55,
+        "fetchSketchTime": 56,
+        "compileTime": 53064,
+        "startSimTime": 0,
+        "totalTime": 53120,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 56,
+        "fetchSketchTime": 57,
+        "compileTime": 53079,
+        "startSimTime": 0,
+        "totalTime": 53136,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 54,
+        "fetchSketchTime": 52,
+        "compileTime": 53102,
+        "startSimTime": 0,
+        "totalTime": 53155,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 52,
+        "fetchSketchTime": 48,
+        "compileTime": 53125,
+        "startSimTime": 0,
+        "totalTime": 53173,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 57,
+        "fetchSketchTime": 62,
+        "compileTime": 54059,
+        "startSimTime": 0,
+        "totalTime": 54121,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 58,
+        "fetchSketchTime": 62,
+        "compileTime": 55514,
+        "startSimTime": 0,
+        "totalTime": 55576,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 59,
+        "fetchSketchTime": 62,
+        "compileTime": 58629,
+        "startSimTime": 0,
+        "totalTime": 58691,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 60,
+        "fetchSketchTime": 62,
+        "compileTime": 59522,
+        "startSimTime": 0,
+        "totalTime": 59584,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 62,
+        "fetchSketchTime": 64,
+        "compileTime": 59595,
+        "startSimTime": 0,
+        "totalTime": 59659,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 61,
+        "fetchSketchTime": 62,
+        "compileTime": 59631,
+        "startSimTime": 0,
+        "totalTime": 59693,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 63,
+        "fetchSketchTime": 64,
+        "compileTime": 59672,
+        "startSimTime": 0,
+        "totalTime": 59736,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 64,
+        "fetchSketchTime": 64,
+        "compileTime": 59673,
+        "startSimTime": 0,
+        "totalTime": 59738,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 65,
+        "fetchSketchTime": 66,
+        "compileTime": 59918,
+        "startSimTime": 0,
+        "totalTime": 59984,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 66,
+        "fetchSketchTime": 65,
+        "compileTime": 61085,
+        "startSimTime": 0,
+        "totalTime": 61151,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 67,
+        "fetchSketchTime": 65,
+        "compileTime": 64923,
+        "startSimTime": 0,
+        "totalTime": 64988,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 68,
+        "fetchSketchTime": 66,
+        "compileTime": 65979,
+        "startSimTime": 0,
+        "totalTime": 66045,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 69,
+        "fetchSketchTime": 66,
+        "compileTime": 66031,
+        "startSimTime": 0,
+        "totalTime": 66097,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 70,
+        "fetchSketchTime": 79,
+        "compileTime": 66126,
+        "startSimTime": 0,
+        "totalTime": 66205,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 72,
+        "fetchSketchTime": 84,
+        "compileTime": 66125,
+        "startSimTime": 0,
+        "totalTime": 66209,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 71,
+        "fetchSketchTime": 83,
+        "compileTime": 66340,
+        "startSimTime": 0,
+        "totalTime": 66424,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 73,
+        "fetchSketchTime": 85,
+        "compileTime": 66367,
+        "startSimTime": 0,
+        "totalTime": 66452,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 74,
+        "fetchSketchTime": 86,
+        "compileTime": 67062,
+        "startSimTime": 0,
+        "totalTime": 67148,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 75,
+        "fetchSketchTime": 87,
+        "compileTime": 70850,
+        "startSimTime": 0,
+        "totalTime": 70937,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 76,
+        "fetchSketchTime": 91,
+        "compileTime": 72680,
+        "startSimTime": 0,
+        "totalTime": 72771,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 79,
+        "fetchSketchTime": 100,
+        "compileTime": 72682,
+        "startSimTime": 0,
+        "totalTime": 72782,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 78,
+        "fetchSketchTime": 99,
+        "compileTime": 72802,
+        "startSimTime": 0,
+        "totalTime": 72901,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 77,
+        "fetchSketchTime": 98,
+        "compileTime": 72810,
+        "startSimTime": 0,
+        "totalTime": 72908,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 81,
+        "fetchSketchTime": 103,
+        "compileTime": 72904,
+        "startSimTime": 0,
+        "totalTime": 73007,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 80,
+        "fetchSketchTime": 101,
+        "compileTime": 73252,
+        "startSimTime": 0,
+        "totalTime": 73353,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 82,
+        "fetchSketchTime": 104,
+        "compileTime": 73367,
+        "startSimTime": 0,
+        "totalTime": 73471,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 83,
+        "fetchSketchTime": 105,
+        "compileTime": 74779,
+        "startSimTime": 0,
+        "totalTime": 74885,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 85,
+        "fetchSketchTime": 107,
+        "compileTime": 79332,
+        "startSimTime": 0,
+        "totalTime": 79439,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 84,
+        "fetchSketchTime": 107,
+        "compileTime": 79367,
+        "startSimTime": 0,
+        "totalTime": 79474,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 88,
+        "fetchSketchTime": 111,
+        "compileTime": 79421,
+        "startSimTime": 0,
+        "totalTime": 79532,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 87,
+        "fetchSketchTime": 110,
+        "compileTime": 79439,
+        "startSimTime": 0,
+        "totalTime": 79549,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 86,
+        "fetchSketchTime": 110,
+        "compileTime": 79440,
+        "startSimTime": 0,
+        "totalTime": 79551,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 89,
+        "fetchSketchTime": 111,
+        "compileTime": 79682,
+        "startSimTime": 0,
+        "totalTime": 79793,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 90,
+        "fetchSketchTime": 112,
+        "compileTime": 79725,
+        "startSimTime": 0,
+        "totalTime": 79837,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 91,
+        "fetchSketchTime": 112,
+        "compileTime": 80632,
+        "startSimTime": 0,
+        "totalTime": 80744,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 92,
+        "fetchSketchTime": 112,
+        "compileTime": 85922,
+        "startSimTime": 0,
+        "totalTime": 86034,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 96,
+        "fetchSketchTime": 114,
+        "compileTime": 86037,
+        "startSimTime": 0,
+        "totalTime": 86151,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 94,
+        "fetchSketchTime": 113,
+        "compileTime": 86087,
+        "startSimTime": 0,
+        "totalTime": 86200,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 93,
+        "fetchSketchTime": 113,
+        "compileTime": 86107,
+        "startSimTime": 0,
+        "totalTime": 86221,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 95,
+        "fetchSketchTime": 113,
+        "compileTime": 86152,
+        "startSimTime": 0,
+        "totalTime": 86266,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 97,
+        "fetchSketchTime": 114,
+        "compileTime": 86284,
+        "startSimTime": 0,
+        "totalTime": 86398,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 98,
+        "fetchSketchTime": 114,
+        "compileTime": 86356,
+        "startSimTime": 0,
+        "totalTime": 86470,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 99,
+        "fetchSketchTime": 113,
+        "compileTime": 86868,
+        "startSimTime": 0,
+        "totalTime": 86981,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 100,
+        "fetchSketchTime": 114,
+        "compileTime": 92142,
+        "startSimTime": 0,
+        "totalTime": 92256,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 101,
+        "fetchSketchTime": 115,
+        "compileTime": 92360,
+        "startSimTime": 0,
+        "totalTime": 92475,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 104,
+        "fetchSketchTime": 121,
+        "compileTime": 92510,
+        "startSimTime": 0,
+        "totalTime": 92632,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 103,
+        "fetchSketchTime": 119,
+        "compileTime": 92719,
+        "startSimTime": 0,
+        "totalTime": 92838,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 105,
+        "fetchSketchTime": 121,
+        "compileTime": 92799,
+        "startSimTime": 0,
+        "totalTime": 92920,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 102,
+        "fetchSketchTime": 118,
+        "compileTime": 92930,
+        "startSimTime": 0,
+        "totalTime": 93049,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 106,
+        "fetchSketchTime": 122,
+        "compileTime": 93234,
+        "startSimTime": 0,
+        "totalTime": 93357,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 107,
+        "fetchSketchTime": 124,
+        "compileTime": 93270,
+        "startSimTime": 0,
+        "totalTime": 93394,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 108,
+        "fetchSketchTime": 125,
+        "compileTime": 98052,
+        "startSimTime": 0,
+        "totalTime": 98177,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 109,
+        "fetchSketchTime": 125,
+        "compileTime": 98172,
+        "startSimTime": 0,
+        "totalTime": 98297,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 110,
+        "fetchSketchTime": 126,
+        "compileTime": 98657,
+        "startSimTime": 0,
+        "totalTime": 98783,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 111,
+        "fetchSketchTime": 127,
+        "compileTime": 98970,
+        "startSimTime": 0,
+        "totalTime": 99098,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 112,
+        "fetchSketchTime": 129,
+        "compileTime": 98988,
+        "startSimTime": 0,
+        "totalTime": 99117,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 113,
+        "fetchSketchTime": 130,
+        "compileTime": 99396,
+        "startSimTime": 0,
+        "totalTime": 99526,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 114,
+        "fetchSketchTime": 130,
+        "compileTime": 99543,
+        "startSimTime": 0,
+        "totalTime": 99673,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 115,
+        "fetchSketchTime": 131,
+        "compileTime": 99592,
+        "startSimTime": 0,
+        "totalTime": 99724,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 116,
+        "fetchSketchTime": 131,
+        "compileTime": 102767,
+        "startSimTime": 0,
+        "totalTime": 102899,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 117,
+        "fetchSketchTime": 131,
+        "compileTime": 103225,
+        "startSimTime": 0,
+        "totalTime": 103356,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 118,
+        "fetchSketchTime": 132,
+        "compileTime": 104611,
+        "startSimTime": 0,
+        "totalTime": 104743,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 120,
+        "fetchSketchTime": 132,
+        "compileTime": 105058,
+        "startSimTime": 0,
+        "totalTime": 105190,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 119,
+        "fetchSketchTime": 132,
+        "compileTime": 105162,
+        "startSimTime": 0,
+        "totalTime": 105294,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 121,
+        "fetchSketchTime": 133,
+        "compileTime": 105804,
+        "startSimTime": 0,
+        "totalTime": 105937,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 123,
+        "fetchSketchTime": 133,
+        "compileTime": 106342,
+        "startSimTime": 0,
+        "totalTime": 106475,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 122,
+        "fetchSketchTime": 133,
+        "compileTime": 106525,
+        "startSimTime": 0,
+        "totalTime": 106658,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 124,
+        "fetchSketchTime": 133,
+        "compileTime": 108916,
+        "startSimTime": 0,
+        "totalTime": 109049,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 125,
+        "fetchSketchTime": 134,
+        "compileTime": 109452,
+        "startSimTime": 0,
+        "totalTime": 109587,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 126,
+        "fetchSketchTime": 134,
+        "compileTime": 110989,
+        "startSimTime": 0,
+        "totalTime": 111123,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 128,
+        "fetchSketchTime": 142,
+        "compileTime": 111239,
+        "startSimTime": 0,
+        "totalTime": 111381,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 127,
+        "fetchSketchTime": 135,
+        "compileTime": 111548,
+        "startSimTime": 0,
+        "totalTime": 111683,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 130,
+        "fetchSketchTime": 150,
+        "compileTime": 112390,
+        "startSimTime": 0,
+        "totalTime": 112540,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 129,
+        "fetchSketchTime": 149,
+        "compileTime": 112514,
+        "startSimTime": 0,
+        "totalTime": 112663,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 131,
+        "fetchSketchTime": 150,
+        "compileTime": 112542,
+        "startSimTime": 0,
+        "totalTime": 112692,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 132,
+        "fetchSketchTime": 152,
+        "compileTime": 114354,
+        "startSimTime": 0,
+        "totalTime": 114506,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 133,
+        "fetchSketchTime": 153,
+        "compileTime": 114620,
+        "startSimTime": 0,
+        "totalTime": 114773,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 134,
+        "fetchSketchTime": 153,
+        "compileTime": 116908,
+        "startSimTime": 0,
+        "totalTime": 117061,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 135,
+        "fetchSketchTime": 154,
+        "compileTime": 117104,
+        "startSimTime": 0,
+        "totalTime": 117258,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 136,
+        "fetchSketchTime": 157,
+        "compileTime": 118018,
+        "startSimTime": 0,
+        "totalTime": 118175,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 137,
+        "fetchSketchTime": 156,
+        "compileTime": 118461,
+        "startSimTime": 0,
+        "totalTime": 118617,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 138,
+        "fetchSketchTime": 157,
+        "compileTime": 118572,
+        "startSimTime": 0,
+        "totalTime": 118729,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 139,
+        "fetchSketchTime": 157,
+        "compileTime": 118598,
+        "startSimTime": 0,
+        "totalTime": 118755,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 140,
+        "fetchSketchTime": 157,
+        "compileTime": 120066,
+        "startSimTime": 0,
+        "totalTime": 120223,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 141,
+        "fetchSketchTime": 158,
+        "compileTime": 120134,
+        "startSimTime": 0,
+        "totalTime": 120292,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 142,
+        "fetchSketchTime": 158,
+        "compileTime": 122719,
+        "startSimTime": 0,
+        "totalTime": 122877,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 144,
+        "fetchSketchTime": 160,
+        "compileTime": 123869,
+        "startSimTime": 0,
+        "totalTime": 124029,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 143,
+        "fetchSketchTime": 159,
+        "compileTime": 123870,
+        "startSimTime": 0,
+        "totalTime": 124030,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 145,
+        "fetchSketchTime": 161,
+        "compileTime": 124459,
+        "startSimTime": 0,
+        "totalTime": 124620,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 147,
+        "fetchSketchTime": 163,
+        "compileTime": 124535,
+        "startSimTime": 0,
+        "totalTime": 124698,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 146,
+        "fetchSketchTime": 162,
+        "compileTime": 124543,
+        "startSimTime": 0,
+        "totalTime": 124705,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 148,
+        "fetchSketchTime": 164,
+        "compileTime": 125844,
+        "startSimTime": 0,
+        "totalTime": 126009,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 149,
+        "fetchSketchTime": 164,
+        "compileTime": 125853,
+        "startSimTime": 0,
+        "totalTime": 126017,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 150,
+        "fetchSketchTime": 164,
+        "compileTime": 128594,
+        "startSimTime": 0,
+        "totalTime": 128758,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 151,
+        "fetchSketchTime": 165,
+        "compileTime": 129773,
+        "startSimTime": 0,
+        "totalTime": 129938,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 152,
+        "fetchSketchTime": 165,
+        "compileTime": 129879,
+        "startSimTime": 0,
+        "totalTime": 130044,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 154,
+        "fetchSketchTime": 166,
+        "compileTime": 130484,
+        "startSimTime": 0,
+        "totalTime": 130650,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 153,
+        "fetchSketchTime": 165,
+        "compileTime": 130491,
+        "startSimTime": 0,
+        "totalTime": 130657,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 155,
+        "fetchSketchTime": 166,
+        "compileTime": 130506,
+        "startSimTime": 0,
+        "totalTime": 130672,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 157,
+        "fetchSketchTime": 167,
+        "compileTime": 131719,
+        "startSimTime": 0,
+        "totalTime": 131886,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 156,
+        "fetchSketchTime": 166,
+        "compileTime": 131786,
+        "startSimTime": 0,
+        "totalTime": 131952,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 158,
+        "fetchSketchTime": 167,
+        "compileTime": 133220,
+        "startSimTime": 0,
+        "totalTime": 133388,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 159,
+        "fetchSketchTime": 166,
+        "compileTime": 135605,
+        "startSimTime": 0,
+        "totalTime": 135771,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 160,
+        "fetchSketchTime": 167,
+        "compileTime": 135991,
+        "startSimTime": 0,
+        "totalTime": 136158,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 161,
+        "fetchSketchTime": 167,
+        "compileTime": 137032,
+        "startSimTime": 0,
+        "totalTime": 137199,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 163,
+        "fetchSketchTime": 167,
+        "compileTime": 137132,
+        "startSimTime": 0,
+        "totalTime": 137299,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 162,
+        "fetchSketchTime": 167,
+        "compileTime": 137139,
+        "startSimTime": 0,
+        "totalTime": 137306,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 164,
+        "fetchSketchTime": 167,
+        "compileTime": 137733,
+        "startSimTime": 0,
+        "totalTime": 137900,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 165,
+        "fetchSketchTime": 167,
+        "compileTime": 137747,
+        "startSimTime": 0,
+        "totalTime": 137914,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 166,
+        "fetchSketchTime": 167,
+        "compileTime": 138846,
+        "startSimTime": 0,
+        "totalTime": 139013,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 169,
+        "fetchSketchTime": 167,
+        "compileTime": 141219,
+        "startSimTime": 0,
+        "totalTime": 141386,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 171,
+        "fetchSketchTime": 170,
+        "compileTime": 142079,
+        "startSimTime": 0,
+        "totalTime": 142249,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 178,
+        "fetchSketchTime": 171,
+        "compileTime": 143662,
+        "startSimTime": 0,
+        "totalTime": 143834,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 186,
+        "fetchSketchTime": 171,
+        "compileTime": 143668,
+        "startSimTime": 0,
+        "totalTime": 143839,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 188,
+        "fetchSketchTime": 170,
+        "compileTime": 143684,
+        "startSimTime": 0,
+        "totalTime": 143854,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 181,
+        "fetchSketchTime": 172,
+        "compileTime": 143941,
+        "startSimTime": 0,
+        "totalTime": 144113,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 192,
+        "fetchSketchTime": 170,
+        "compileTime": 144013,
+        "startSimTime": 0,
+        "totalTime": 144183,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 198,
+        "fetchSketchTime": 171,
+        "compileTime": 144898,
+        "startSimTime": 0,
+        "totalTime": 145069,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 199,
+        "fetchSketchTime": 172,
+        "compileTime": 147681,
+        "startSimTime": 0,
+        "totalTime": 147853,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 197,
+        "fetchSketchTime": 175,
+        "compileTime": 147885,
+        "startSimTime": 0,
+        "totalTime": 148060,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 195,
+        "fetchSketchTime": 176,
+        "compileTime": 150128,
+        "startSimTime": 0,
+        "totalTime": 150304,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 193,
+        "fetchSketchTime": 176,
+        "compileTime": 150129,
+        "startSimTime": 0,
+        "totalTime": 150306,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 196,
+        "fetchSketchTime": 175,
+        "compileTime": 150139,
+        "startSimTime": 0,
+        "totalTime": 150314,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 194,
+        "fetchSketchTime": 176,
+        "compileTime": 150145,
+        "startSimTime": 0,
+        "totalTime": 150321,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 191,
+        "fetchSketchTime": 176,
+        "compileTime": 150148,
+        "startSimTime": 0,
+        "totalTime": 150324,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 190,
+        "fetchSketchTime": 177,
+        "compileTime": 151100,
+        "startSimTime": 0,
+        "totalTime": 151277,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 189,
+        "fetchSketchTime": 177,
+        "compileTime": 153981,
+        "startSimTime": 0,
+        "totalTime": 154158,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 187,
+        "fetchSketchTime": 179,
+        "compileTime": 153982,
+        "startSimTime": 0,
+        "totalTime": 154161,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 185,
+        "fetchSketchTime": 179,
+        "compileTime": 156318,
+        "startSimTime": 0,
+        "totalTime": 156497,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 182,
+        "fetchSketchTime": 185,
+        "compileTime": 156390,
+        "startSimTime": 0,
+        "totalTime": 156576,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 183,
+        "fetchSketchTime": 179,
+        "compileTime": 156548,
+        "startSimTime": 0,
+        "totalTime": 156727,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 184,
+        "fetchSketchTime": 179,
+        "compileTime": 156631,
+        "startSimTime": 0,
+        "totalTime": 156810,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 180,
+        "fetchSketchTime": 186,
+        "compileTime": 156722,
+        "startSimTime": 0,
+        "totalTime": 156908,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 179,
+        "fetchSketchTime": 186,
+        "compileTime": 156918,
+        "startSimTime": 0,
+        "totalTime": 157105,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 176,
+        "fetchSketchTime": 188,
+        "compileTime": 160096,
+        "startSimTime": 0,
+        "totalTime": 160284,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 177,
+        "fetchSketchTime": 186,
+        "compileTime": 160372,
+        "startSimTime": 0,
+        "totalTime": 160558,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 173,
+        "fetchSketchTime": 188,
+        "compileTime": 162610,
+        "startSimTime": 0,
+        "totalTime": 162798,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 170,
+        "fetchSketchTime": 188,
+        "compileTime": 162908,
+        "startSimTime": 0,
+        "totalTime": 163096,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 175,
+        "fetchSketchTime": 188,
+        "compileTime": 162910,
+        "startSimTime": 0,
+        "totalTime": 163098,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 172,
+        "fetchSketchTime": 188,
+        "compileTime": 162918,
+        "startSimTime": 0,
+        "totalTime": 163106,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 174,
+        "fetchSketchTime": 188,
+        "compileTime": 162918,
+        "startSimTime": 0,
+        "totalTime": 163107,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 168,
+        "fetchSketchTime": 188,
+        "compileTime": 163374,
+        "startSimTime": 0,
+        "totalTime": 163562,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 167,
+        "fetchSketchTime": 189,
+        "compileTime": 164196,
+        "startSimTime": 0,
+        "totalTime": 164385,
+        "success": true,
+        "cached": false
+      },
+      {
+        "clientId": 200,
+        "fetchSketchTime": 188,
+        "compileTime": 164212,
+        "startSimTime": 0,
+        "totalTime": 164400,
+        "success": true,
+        "cached": false
+      }
+    ]
+  }
+]
