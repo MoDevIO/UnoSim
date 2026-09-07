@@ -81,7 +81,7 @@ graph TD
 - **Verantwortung:** Verwaltung von Docker-Containern für Sketch-Ausführung
 - **Technologie:** Docker, Node.js Worker Threads
 - **Hauptmerkmale:**
-  - **Warm Containers:** Vorgehaltene Container für schnelle Startzeiten
+- **Runner-Pool:** Vorgehaltene Runner-Objekte für schnelle Vergabe; Docker-Sandbox-Container werden pro Ausführung gestartet und anschließend bereinigt.
   - **Isolation:** Jeder Sketch läuft in eigenem Container
   - **Ressourcenkontrolle:** CPU/Memory/PID-Limits pro Container
 
@@ -166,7 +166,7 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 ### Config-Zentralisierung (Phase 2.7)
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth
 - **Environment-Variablen:** Validierte Parser mit Type-Safety
-- **Status:** Teilweise umgesetzt; offene Phase-2.7-Reste sind in `archive/plans/phase-2-deferred.md` dokumentiert.
+- **Status:** Die produktive Konfiguration läuft über `server/config.ts`. Bewusst verbleibende Laufzeit-/Testausnahmen (z. B. Worker-Thread-Marker, Test-Flags und der dokumentierte `FORCE_DOCKER`-Kompatibilitätsalias) sind in `archive/plans/phase-2-deferred.md` und dem Phase-3.3-Sunset-Inventar dokumentiert.
 
 ## 📊 Metriken und Observability
 

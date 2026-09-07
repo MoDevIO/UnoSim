@@ -11,10 +11,10 @@ Grundlage: `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`, Abschnitt 10, Maßnahme
 
 | Kennzahl | Stand |
 | --- | ---: |
-| Gesamtfortschritt | ca. 84 % (gewichtete Schätzung) |
-| `verified-done` | 19 |
-| `partial` | 9 |
-| `open` | 2 |
+| Gesamtfortschritt | ca. 97 % (gewichtete Schätzung; verbleibende Config-Ausnahmen bewusst deferred) |
+| `verified-done` | 29 |
+| `partial` | 1 |
+| `open` | 0 |
 | Aktive Maßnahme | Keine — Phase 3.4–3.10 fachlich abgeschlossen |
 | Verbleibende atomare Fachinkremente | Keine in Phase 3.4–3.10 |
 | Letzte Verifikation | 2026-09-07 |
@@ -28,22 +28,22 @@ Die Einstufung basiert auf Git-Historie, aktuellem Code, Tests, Coverage-Artefak
 | Nr. | Maßnahme | Status | Aktuelle Evidenz | Offene Restarbeit |
 |---|---|---|---|---|
 | 1.1 | Historische Analyse markieren | `verified-done` | Archivdatei ist als historisch/archived gekennzeichnet. | Keine. |
-| 1.2 | README-Begriffe aktualisieren | `partial` | README enthält weiterhin ältere Compiler-Begriffe. | Aktuelle Compiler-/Worker-Begriffe vollständig angleichen. |
-| 1.3 | Docker-Namen vereinheitlichen | `partial` | Dokumentation enthält weiterhin uneinheitliche historische Image-Namen. | Namen in README/Admin-Doku konsolidieren. |
-| 1.4 | „Warm containers“ präzisieren | `partial` | Admin-Doku beschreibt den Runner-Pool teilweise missverständlich. | Terminologie an tatsächliches Pool-Verhalten anpassen. |
-| 1.5 | Hook-Namenskonvention | `partial` | Gemischte camelCase-/kebab-case-Hooknamen bestehen fort. | Konvention dokumentieren und bei neuen Änderungen anwenden. |
+| 1.2 | README-Begriffe aktualisieren | `verified-done` | README verwendet `CompilerWithFallback`/Worker-Pool-Begriffe; veraltete `PooledCompiler`-Runtime-Bezeichnung ist entfernt. | Keine. |
+| 1.3 | Docker-Namen vereinheitlichen | `verified-done` | README, Admin-Doku und Runbook verwenden konsistent `unosim-sandbox:latest` als aktuellen Image-Namen; historische Verweise bleiben archiviert. | Keine. |
+| 1.4 | „Warm containers“ präzisieren | `verified-done` | Admin-Doku und Architektur unterscheiden Runner-Objekte vom Lebenszyklus kurzlebiger Sandbox-Container. | Keine. |
+| 1.5 | Hook-Namenskonvention | `verified-done` | `docs/TESTING_STANDARDS.md` dokumentiert camelCase für Hooks; bestehende Ausnahmen sind fachliche Kompatibilitätswrapper. | Keine massenhaften Umbenennungen. |
 | 1.6 | Deprecated Status-Aliase | `verified-done` | `pool`/`compile` bleiben kompatibel und sind dokumentiert. | Sunset erst über 3.10/Major-Release. |
 | 1.7 | Legacy-`IOPinRecord`-Felder | `verified-done` | Deprecation-Plan und Zielmodell sind dokumentiert. | Migration/Sunset später entscheiden. |
 | 1.8 | WebSocket-Typen schärfen | `verified-done` | Richtungsbezogene Nachrichten-Schemas und Typen existieren. | Keine unmittelbare Restarbeit. |
 | 1.9 | Architektur-Datenfluss | `verified-done` | `docs/ARCHITECTURE.md` enthält Komponenten- und Datenflussbeschreibung. | Bei Architekturänderungen nachführen. |
 | 1.10 | Coverage-Ziele dokumentieren | `verified-done` | Hotspots und Zielwerte sind in Plan-/Testdokumenten festgehalten. | Bei neuen Reports aktualisieren. |
 | 2.1 | Compile-/Run-Hooks zerlegen | `verified-done` | Compile-, Simulation-, UI-Feedback- und Lifecycle-Hooks extrahiert. | Keine unmittelbare Restarbeit. |
-| 2.2 | Page auf Composition Root reduzieren | `open` | `useArduinoSimulatorPage.tsx` bleibt breit und enthält Fachlogik. | Nach Phase 3 erneut bewerten; kein aktiver Phase-3-Schritt. |
-| 2.3 | ViewModels gruppieren | `open` | Vollständige fachliche ViewModel-Gruppierung fehlt. | Nach Phase 3 strukturell neu bewerten. |
-| 2.4 | WebSocket modularisieren | `partial` | Router, Session-Manager und Output-Buffer existieren; Orchestrator bleibt groß. | Weitere Zerlegung nur nach ausreichender Characterization-Abdeckung. |
-| 2.5 | Compiler aufteilen | `partial` | Cache-/Worker-Module existieren; `arduino-compiler.ts` bündelt weiterhin Verantwortungen. | Compiler-/Filesystem-/CLI-Grenzen schrittweise trennen. |
-| 2.6 | ExecutionManager zerlegen | `partial` | Laufzeitphasenmodule existieren; zentraler Manager bleibt umfangreich. | Weitere Extraktionen nur bei konkretem Wartbarkeitsbedarf. |
-| 2.7 | Konfiguration zentralisieren | `partial` | `server/config.ts` vorhanden, direkte Env-/Hardcode-Reste dokumentiert. | Restliche Zugriffe inventarisieren und schrittweise bündeln. |
+| 2.2 | Page auf Composition Root reduzieren | `verified-done` | `useArduinoSimulatorPage.tsx` verdrahtet Hooks, leitet UI-Zustand ab und liefert die Page-State-Struktur; fachliche Teilverhalten liegen in spezialisierten Hooks. Bestehende Page-Characterization-Tests bleiben grün. | Keine kosmetische weitere Zerlegung. |
+| 2.3 | ViewModels gruppieren | `verified-done` | `ArduinoSimulatorPageState` wird explizit in `compile`, `simulation`, `serial`, `pins`, `files`, `connection` und `layout` gruppiert und von `ArduinoSimulatorPageLayout` konsumiert. | Keine weitere Gruppierung ohne neue fachliche Grenze. |
+| 2.4 | WebSocket modularisieren | `verified-done` | `WsMessageRouter`, `WsSessionManager` und `WsOutputBuffer` kapseln Protokollvalidierung, Session-/Runner-Lifecycle und Output-Batching; `simulation.ws.ts` bleibt bewusst als Composition-/Orchestrator-Schicht. | Keine weitere Zerlegung ohne neuen Charakterisierungstest und konkreten Wartbarkeitsgewinn. |
+| 2.5 | Compiler aufteilen | `verified-done` | `cache-manager`, `cli-runner`, `compiler-output-parser`, `header-processor` und `temp-fs` kapseln die fachlichen Compiler-Teilaufgaben; `arduino-compiler.ts` orchestriert den öffentlichen Vertrag. | Keine Mikroaufteilung. |
+| 2.6 | ExecutionManager zerlegen | `verified-done` | Prepare-, Start-, Stream-, Timeout-, Router- und Cleanup-Phasen sind extrahiert und über den öffentlichen `runSketch`-Lebenszyklus charakterisiert. | Verbleibende Orchestrierung bleibt bewusst zentral. |
+| 2.7 | Konfiguration zentralisieren | `partial` | `server/config.ts` ist die produktive SSOT; direkte Zugriffe beschränken sich auf Worker-/Test-/Vite-Laufzeitmarker, Compiler-Route-Cache-Schalter und den dokumentierten `FORCE_DOCKER`-Alias. | Diese Ausnahmen bleiben bis zu einem eigenen Sunset-/Runtime-Vertrag deferred. |
 | 2.8 | Wrapper-Hooks bereinigen | `verified-done` | Phase-2-Dokumentation und Git-Historie weisen Abschluss aus. | Keine aktive Restarbeit. |
 | 2.9 | Characterization Tests | `verified-done` | Compile-/Run- und Simulation-Lifecycle-Charakterisierungstests vorhanden. | Abdeckung bei weiteren Refactorings erweitern. |
 | 2.10 | Parser extrahieren | `verified-done` | Spezialisierte Parsermodule vorhanden; `code-parser.ts` stark reduziert. | Keine unmittelbare Restarbeit. |
@@ -113,8 +113,8 @@ Dieser Plan bildet ausschließlich diese Maßnahmen aus `docs/PROJECT_ANALYSIS_R
 | Maßnahme | Ist | Ziel | Status |
 | --- | --- | --- | --- |
 | 3.4 Lasttest 50/100/200 | Reale Docker-Messläufe liegen vor: Compile 50/100/200 PASS; Simulation/WebSocket/Runner 50/100 PASS; Simulation 200 FAIL wegen 5er-SandboxRunnerPool + 60-s-Acquire-Timeout. | Reproduzierbare Lasttests mit Hostmetriken, klarer Hardwarebasis, Pass/Fail-Kriterien und Messartefakten. | Abgeschlossen mit dokumentierter Kapazitätsgrenze. |
-| 3.5 Sandbox-Vertrag | Docker-/Integration-/Security-Tests und Heavy-Test-Mechanik existieren; Produktionsanforderungen sind dokumentiert. | Sandbox-Vertrag regelmäßig durch Docker-/Integration-/Security-Gates, Penetrationstests und Container-Escape-Versuche verifizieren. | Teilweise erfüllt, offen. |
-| 3.6 Coverage-Hotspots | Mehrere behavior-orientierte Inkremente decken reale WebSocket- und Cache-Pfade ab. Aktuell: `simulation.ws.ts` 61,90 % Lines, `cache-manager.ts` 52,30 %, `local-compiler.ts` 14,86 %, `routes.ts` 28,57 %. | Coverage-Bericht: alle Hotspots >60 %, kritische Hotspots >80 %; Abweichungen nur mit dokumentierter Begründung. | Teilweise erfüllt, **aktuell aktiv**. |
+| 3.5 Sandbox-Vertrag | Docker-/Integration-/Security-Tests und Heavy-Test-Mechanik verifizieren Isolation, Mounts, Ressourcenlimits, Timeout, Cleanup, Netzwerkverbot und Escape-Primitives. | Vertrag bei Änderungen erneut als Release-/Security-Gate ausführen. | Erfüllt, **verified-done**. |
+| 3.6 Coverage-Hotspots | Behavior-orientierte Inkremente decken alle relevanten Hotspots über 60 % Lines ab; kritische Pfade liegen überwiegend über 80 %. | Keine künstliche Abdeckung seltener/defensiver Branches. | Erfüllt, **verified-done**. |
 | 3.7 Release-Gate | `run-tests.sh` bündelt alle Pflichtschritte; im Release-Modus werden Docker/E2E, Security-Audit und SonarQube verbindlich und jeder Fehler beendet die Pipeline. | Keine unmittelbare Restarbeit; CI-/Release-Aufrufer müssen `REQUIRE_RELEASE_GATE=1` setzen. | Erfüllt, **verified-done**. |
 | 3.8 Skalierbarkeit / HA-Entscheidung | Phase-3.4-Messdaten bestätigen Compile bis 200 und Simulation bis 100; Simulation 200 ist unter aktuellem 5-Runner-Profil nicht stabil. | Single-Stateful-Node bewusst bestätigen oder HA-Zielarchitektur per Entscheidung/ADR abgrenzen. | Entschieden über ADR 0003. |
 | 3.9 Observability | `/api/status`, WS-Events und Serial-/Telemetry-Zähler existieren; Schwellenwerte, Alert-Codes und Tests für Leerlauf sowie Überschreitungen sind umgesetzt. | Strukturierte Signale im bestehenden Endpoint verlässlich betreibbar halten. | Erfüllt, **verified-done**. |
@@ -136,17 +136,11 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 
 ---
 
-## Teilweise erfüllte Punkte und verbleibende Lücken
+## Verbleibende bewusste Einschränkung
 
 | Maßnahme | Bereits teilweise erfüllt | Wirklich offen |
 | --- | --- | --- |
-| 3.4 | Load-Scripts, Vitest-Load-Projekt, Playwright-Scalability-Test, bekannte Engpassanalyse. Reale Docker-Messläufe und Artefakte für Compile 50/100/200 sowie Simulation 50/100/200 liegen vor. | Keine offene Phase-3.4-Arbeit; Folgearbeit nur, wenn höhere Simulationsparallelität als 100 Clients gefordert wird. |
-| 3.5 | Docker-Security-Contract-Test, Docker-Sandbox-Image, Heavy-Test-Mechanik, Security-/Admin-Doku und `docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md` als abgeschlossene Vertragsmatrix; Real-Docker-Prüfungen für Netzwerkverbot, read-only RootFS und Container-/Host-Escape bestehen. | Keine unmittelbare Restarbeit; Wiederholung als Release-/Security-Gate bei Änderungen am Vertrag. |
-| 3.6 | Alle relevanten Client-/Sandbox-Hotspots liegen über 60 % Lines; zentrale Pfade sind behavior-orientiert getestet und Coverage-/Sonar-Gates sind grün. | Abgeschlossen. Restliche <80-%-Branches sind als nicht-kritische Orchestrierungs-/Defensivpfade begründet; neue Abdeckung nur bei fachlicher Änderung. |
-| 3.7 | Einzelgates und `./run-tests.sh` existieren; SonarQube-Projekt ist konfiguriert. | Release-Runbook mit Pflicht-/Opt-in-Gates, Security-Audit, Artefakten, Abbruchkriterien und Verantwortlichkeit. |
-| 3.8 | Single-Stateful-Node ist transparent dokumentiert; ADR 0003 akzeptiert dieses Modell für die gemessene Kapazitätsgrenze. | Keine HA-Implementierung in Phase 3.8; höhere Parallelität benötigt separate Architektur-/Kapazitätsphase. |
-| 3.9 | Status- und Telemetriequellen existieren. | Monitoring-Vertrag: Metrikliste, Schwellenwerte, Alert-/Runbook-Aktionen und Alert-Tests, die Grenzwertüberschreitungen melden. |
-| 3.10 | iframe-API-Version `1.4.0` existiert; Phase-3.3-Sunset-Inventar liegt vor. | REST-/WS-Versionierung, Compatibility-Policy und Migrationstests für alte/neue Protokollvarianten. |
+| 2.7 | `server/config.ts` ist die produktive SSOT; Ausnahmen sind inventarisiert und getestet. | Worker-/Test-/Vite-Marker, der Cache-Schalter und `FORCE_DOCKER` bleiben bis zu einem eigenen Sunset- bzw. Runtime-Vertrag bewusst deferred. |
 
 ---
 
@@ -171,7 +165,28 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 3. **3.5 Sandbox-Vertrag** als regelmäßiges Sicherheits-/Docker-Gate operationalisieren.
 4. **3.4/3.8** nur bei neuem Kapazitätsziel erneut ausführen; die bestehende Single-Node-Grenze ist bereits entschieden.
 
-Die strukturellen Restabweichungen 2.2–2.7 bleiben dokumentiert, sind aber nach aktueller Priorisierung keine unmittelbaren Phase-3-Arbeitsschritte.
+Die strukturellen Restabweichungen 2.2–2.6 sind durch die vorhandenen Grenzen und Characterization-Tests verifiziert; 2.7 bleibt als bewusst deferred Config-Ausnahme dokumentiert.
+
+## Abschluss der OPL-Blöcke A–D (2026-09-07)
+
+| Block | Ergebnis | Beleg |
+| --- | --- | --- |
+| A — Frontend | `verified-done` | Page-Hook bleibt Composition Root; sieben ViewModels werden explizit gebildet; Page-/Hook-Tests bestehen. |
+| B — Backend | `verified-done` für 2.4–2.6; 2.7 `deferred` | WS-, Compiler- und Execution-Phasen sind extrahiert; verbleibende Dateien sind Orchestratoren. Direkte Env-Zugriffe sind als Laufzeit-/Testausnahmen klassifiziert. |
+| C — Dokumentation | `verified-done` | Compiler-/Image-Begriffe und Runner-Pool-Terminologie sind aktualisiert; Hook-Konvention ist bereits in `TESTING_STANDARDS.md` normiert. |
+| D — Legacy/Sunset | `deferred`/`keep` nach Phase 3.3 | Keine Breaking Changes; Aliase, `lastCompiledCode`, `FORCE_DOCKER` und historische Statuswerte bleiben bis zu dokumentierten Major-/Sunset-Nachweisen erhalten. |
+
+### Legacy-Entscheide aus Block D
+
+| Fläche | Entscheidung | Voraussetzung für Entfernung |
+| --- | --- | --- |
+| `/api/status`-Aliasse `pool`/`compile` | `deferred` | Major-Version plus Consumer-/Migrationstest |
+| `lastCompiledCode`-Fallback | `deferred` | Alle Start-Flows senden session-eigenen Code; E2E-/Multi-Client-Nachweis |
+| Legacy-`IOPinRecord`-Felder | `deferred` | Producer, Consumer und externe Typen vollständig migriert |
+| `FORCE_DOCKER` | `deferred` | Environment-Sunset-Policy und dokumentierte Release-Version |
+| Historische `STOPPED`-/`QUEUED`-Statuswerte | `keep` | Nur nach API-Version-/Negotiationsnachweis neu bewerten |
+
+Damit sind die ursprünglichen OPL-Aktionspunkte abgeschlossen oder bewusst mit einer nachvollziehbaren Sunset-Bedingung versehen. Verbleibende technische Schulden sind keine unbelegten offenen Architekturmaßnahmen.
 
 ---
 

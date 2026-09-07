@@ -39,7 +39,7 @@ Optimized for speed and minimal resource usage without requiring Docker.
 Suitable for performance testing or environments with limited resources where isolation is secondary.
 
 * **Behavior:** Simulations (sketches) are executed directly inside the backend container.
-* **Warm Containers:** Der Sandbox-Runner kann **vorgehaltene Container ("warm containers")** nutzen, um die Startzeit zu verkürzen. Diese Container werden vom SandboxRunnerPool vorgehalten und bei Bedarf reaktiviert, anstatt neue Container zu starten.
+* **Runner-Pool:** Der `SandboxRunnerPool` hält Runner-Objekte und ihre Verwaltungszustände vor, damit verfügbare Kapazität schnell vergeben werden kann. Das bedeutet nicht, dass bereits laufende Docker-Container dauerhaft aktiv bleiben; Sandbox-Container werden pro Ausführung gestartet und danach bereinigt.
 * **Configuration (`docker-compose.yml`):**
     ```yaml
     services:
@@ -91,7 +91,7 @@ build from a fresh checkout. Update the pinned Node version in `.nvmrc`,
 ### Sandbox Resources (only for `docker-sandbox`)
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `SANDBOX_POOL_MIN_RUNNERS` | `5` | **Sandbox Runners** — number of always-on ("warm") containers. |
+| `SANDBOX_POOL_MIN_RUNNERS` | `5` | **Sandbox Runners** — number of runner objects kept ready for allocation. |
 | `SANDBOX_POOL_MAX_RUNNERS` | `minRunners` | **Sandbox Runners** — upper limit for concurrent simulations. |
 | `SANDBOX_MEMORY_MB` | `256` | RAM limit per sandbox instance. |
 | `SANDBOX_CPU_LIMIT` | `0.25` | CPU share per instance (e.g. `0.5` for half a core). |
