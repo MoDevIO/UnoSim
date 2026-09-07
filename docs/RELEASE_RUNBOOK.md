@@ -329,7 +329,7 @@ git push origin vX.Y.Z
 ## Referenzen
 
 - `docs/TESTING_STANDARDS.md` – Teststandards
-- `README_SECURITY.md` – Sicherheitskontrollen
+- `SECURITY.md` – Sicherheitskontrollen
 - `INSTALL_SERVER.md` – Serverinstallation und Administration
 - `package.json` – Scripts und Gates
 - `run-tests.sh` – Vollständige Pipeline

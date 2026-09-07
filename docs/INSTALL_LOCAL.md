@@ -94,7 +94,7 @@ Der Override ist nur für eine isolierte lokale Maschine zulässig. Ein Mehrbenu
 | DISABLE_RATE_LIMIT | false | nein | nur isolierte Tests: true. |
 | LOAD_TEST_CLIENT_COUNT | 50 | Loadtest | Anzahl Harness-Clients. |
 
-FORCE_DOCKER ist ein deprecated Alias für UNOSIM_SIMULATION_MODE=docker-sandbox. Neue Konfigurationen verwenden den neuen Namen. Sicherheitsvariablen stehen in [README_SECURITY.md](../README_SECURITY.md).
+FORCE_DOCKER ist ein deprecated Alias für UNOSIM_SIMULATION_MODE=docker-sandbox. Neue Konfigurationen verwenden den neuen Namen. Sicherheitsvariablen stehen in [SECURITY.md](SECURITY.md).
 
 ## Tests und Fehlerbehebung
 

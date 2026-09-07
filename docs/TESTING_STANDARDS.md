@@ -71,7 +71,7 @@ developer machines and in a dedicated CI job.
 ### Sandbox contract gate
 
 The current sandbox contract is defined in
-[`README_SECURITY.md`](../README_SECURITY.md); historical validation is in the
+[`SECURITY.md`](SECURITY.md); historical validation is in the
 archive.
 Changes to Docker sandbox flags, runner lifecycle, gateway assumptions or
 container resource limits must run the documented Phase-3.5 gates, including

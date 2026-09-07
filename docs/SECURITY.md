@@ -2,11 +2,11 @@
 
 Dieses Dokument beschreibt die aktuell implementierten Schutzmaßnahmen und die
 verbleibenden Risiken. Die Betriebsanleitung steht in
-[`docs/INSTALL_SERVER.md`](docs/INSTALL_SERVER.md) und ist
+[`INSTALL_SERVER.md`](INSTALL_SERVER.md) und ist
 für Betreiber von Entwicklungs- und Produktionsinstanzen bestimmt.
 
 Der operative Sandbox-Vertrag ist in dieser Datei und in
-[`docs/INSTALL_SERVER.md`](docs/INSTALL_SERVER.md) dokumentiert; die historische
+[`INSTALL_SERVER.md`](INSTALL_SERVER.md) dokumentiert; die historische
 Validierung liegt im Archiv.
 
 ## Vorhandene Maßnahmen

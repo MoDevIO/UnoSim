@@ -1,6 +1,6 @@
 # Serverinstallation und Hochschulbetrieb
 
-Normative Anleitung für Hochschulserver, Lehrbetrieb, Mehrbenutzerbetrieb und produktionsnahe Installationen. UnoSim ist aktuell ein einzelner stateful Backend-Knoten; horizontale HA ist nicht implementiert. Sicherheitsdetails stehen in README_SECURITY.md, Releases in RELEASE_RUNBOOK.md.
+Normative Anleitung für Hochschulserver, Lehrbetrieb, Mehrbenutzerbetrieb und produktionsnahe Installationen. UnoSim ist aktuell ein einzelner stateful Backend-Knoten; horizontale HA ist nicht implementiert. Sicherheitsdetails stehen in SECURITY.md, Releases in RELEASE_RUNBOOK.md.
 
 ## Plattform
 
@@ -55,7 +55,7 @@ export UNOSIM_ALLOWED_WS_ORIGINS='https://classroom.example.edu'
 export DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
 ~~~
 
-Der Gateway muss Cookies/Tokens validieren, eingehende X-UnoSim-Header entfernen und Secret, Subject und Rolle auf HTTP und WebSocket setzen. Origin-Allowlist-Einträge sind exakte Werte. Trusted Proxy ist konkrete IP/CIDR, niemals ein pauschales Trust-Proxy-Flag. Keine Secrets in Repository, Browser, URL oder Logs. Siehe README_SECURITY.md und ADR 0001.
+Der Gateway muss Cookies/Tokens validieren, eingehende X-UnoSim-Header entfernen und Secret, Subject und Rolle auf HTTP und WebSocket setzen. Origin-Allowlist-Einträge sind exakte Werte. Trusted Proxy ist konkrete IP/CIDR, niemals ein pauschales Trust-Proxy-Flag. Keine Secrets in Repository, Browser, URL oder Logs. Siehe SECURITY.md und ADR 0001.
 
 ## Sandbox-Vertrag
 

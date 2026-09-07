@@ -166,7 +166,7 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 ### Zentrale Konfiguration
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth
 - **Environment-Variablen:** Validierte Parser mit Type-Safety
-- **Status:** Die produktive Konfiguration läuft über `server/config.ts`; `FORCE_DOCKER` ist nur ein deprecated Kompatibilitätsalias. Aktuelle Betriebs- und Sicherheitsanforderungen stehen in `INSTALL_SERVER.md` und `README_SECURITY.md`.
+- **Status:** Die produktive Konfiguration läuft über `server/config.ts`; `FORCE_DOCKER` ist nur ein deprecated Kompatibilitätsalias. Aktuelle Betriebs- und Sicherheitsanforderungen stehen in `INSTALL_SERVER.md` und `SECURITY.md`.
 
 ## 📊 Metriken und Observability
 
