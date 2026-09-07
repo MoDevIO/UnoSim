@@ -225,4 +225,34 @@ describe("WebSocket lifecycle through the production route", () => {
     expect(runner.stop).toHaveBeenCalledOnce();
     expect(pool.releaseRunner).toHaveBeenCalledOnce();
   });
+
+  it("stops and releases a running simulation when code changes", async () => {
+    const stoppedMessagesBeforeChange = messages.filter(
+      (message) => message.type === "simulation_status" && message.status === "stopped",
+    ).length;
+
+    client.send(JSON.stringify({ type: "code_changed" }));
+
+    await waitFor(() => runner.stop.mock.calls.length === 1, "runner stop on code change");
+    await waitFor(() => pool.releaseRunner.mock.calls.length === 1, "runner release on code change");
+    await waitFor(
+      () => messages.filter(
+        (message) => message.type === "simulation_status" && message.status === "stopped",
+      ).length > stoppedMessagesBeforeChange,
+      "the stopped state after code change",
+    );
+
+    expect(runner.stop).toHaveBeenCalledOnce();
+    expect(pool.releaseRunner).toHaveBeenCalledOnce();
+    expect(pool.releaseRunner).toHaveBeenCalledWith(runner);
+    expect(messages).toContainEqual({
+      type: "serial_output",
+      data: "--- Simulation stopped due to code change ---\n",
+    });
+
+    client.send(JSON.stringify({ type: "code_changed" }));
+    await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    expect(runner.stop).toHaveBeenCalledOnce();
+    expect(pool.releaseRunner).toHaveBeenCalledOnce();
+  });
 });
