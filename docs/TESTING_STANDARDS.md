@@ -13,6 +13,14 @@ Some tests run on shared CI runners where system load, CPU scheduling, and conta
 
 > ✅ If you adjust timing tests, keep the ±250ms window in mind and ensure CI builds remain stable.
 
+### Unit-suite wall-clock budget
+
+The unit budget is **45 seconds**. A clean local checkout measured 10.9 seconds
+for all 1,713 tests, while the same suite measured about 36.8 seconds on the
+GitHub-hosted runner. The 45-second ceiling preserves a meaningful regression
+guard with roughly 22% headroom for shared-runner variance; it is a wall-clock
+budget, not a per-test timeout.
+
 ---
 
 ## Coverage-Hotspots

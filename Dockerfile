@@ -7,6 +7,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json tsconfig.eslint.json vite.config.ts postcss.config.js tailwind.config.ts components.json ./
+COPY scripts/check-bundle-budget.mjs ./scripts/check-bundle-budget.mjs
 COPY public ./public
 COPY client ./client
 COPY server ./server

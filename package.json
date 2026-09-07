@@ -37,7 +37,7 @@
     "lint:colors": "npm run check:raw-hex",
     "test": "npm run test:unit",
     "test:fast": "npm run test:unit",
-    "test:unit": "TEST_BUDGET_SUITE=unit TEST_BUDGET_MS=30000 LOG_LEVEL=warn vitest run --project=unit-client --project=unit-node --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
+    "test:unit": "TEST_BUDGET_SUITE=unit TEST_BUDGET_MS=45000 LOG_LEVEL=warn vitest run --project=unit-client --project=unit-node --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:related": "TEST_BUDGET_SUITE=related TEST_BUDGET_MS=15000 LOG_LEVEL=warn vitest related --run --project=unit-client --project=unit-node --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:integration": "TEST_BUDGET_SUITE=integration-toolchain TEST_BUDGET_MS=120000 LOG_LEVEL=warn vitest run --project=integration-toolchain --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:docker": "TEST_BUDGET_SUITE=integration-docker TEST_BUDGET_MS=180000 FORCE_DOCKER=1 DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest SKIP_HEAVY_TESTS=false LOG_LEVEL=warn vitest run --project=integration-docker --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
