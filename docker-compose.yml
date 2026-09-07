@@ -8,6 +8,8 @@ services:
     image: unosim-server:latest
     container_name: unosim-server
     restart: unless-stopped
+    group_add:
+      - "${DOCKER_GID:?Set DOCKER_GID to the numeric GID of /var/run/docker.sock}"
     environment:
       - PORT=3000
       - UNOSIM_SERVER_MODE=docker

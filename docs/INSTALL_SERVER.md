@@ -28,6 +28,38 @@ docker compose up -d
 
 Eine .env.example-Datei ist nicht Bestandteil des Repositories. Variablen aus server/config.ts und docker-compose.yml im Secret-/Environment-Management setzen.
 
+### Zugriff auf den Docker-Socket
+
+Der Backend-Container läuft als nicht-root Benutzer und benötigt für das
+Starten der Sandboxen Zugriff auf den read-write gemounteten
+`/var/run/docker.sock`. `docker-compose.yml` übernimmt dafür die numerische
+Socket-GID aus `DOCKER_GID`; eine feste GID ist nicht portabel. Auf einem
+klassischen Linux-Docker-Host kann sie beispielsweise so ermittelt und für
+Compose gesetzt werden:
+
+~~~bash
+export DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
+~~~
+
+Alternativ kann die GID der `docker`-Gruppe mit `getent group docker` geprüft
+werden. Entscheidend ist die numerische GID des tatsächlich gemounteten
+Sockets, nicht ein angenommener Standardwert. Vor `docker compose up` muss
+`DOCKER_GID` gesetzt sein; Compose bricht andernfalls absichtlich mit einer
+klaren Fehlermeldung ab.
+
+Der Socket-Gruppenzugriff ist unabhängig von den Schreibrechten der
+eingebundenen Host-Verzeichnisse (`server/arduino-cache`, `temp`, `storage`).
+Diese Verzeichnisse müssen für den Containerprozess gezielt beschreibbar sein;
+pauschale rekursive `chown -R 1000:1000`-Änderungen sind weder erforderlich
+noch empfohlen. Verwende stattdessen die auf dem Host geltenden Eigentümer-,
+Gruppen- oder ACL-Regeln.
+
+Docker Desktop, Rootless Docker und Docker-Socket-Proxies können eine andere
+Socket-Darstellung oder Zugriffsmethode verwenden. In diesen Setups muss die
+im Container sichtbare Socket-GID bzw. der tatsächlich verwendete Proxy-Zugriff
+geprüft und `DOCKER_GID` entsprechend gesetzt oder die Compose-Übersteuerung
+des Setups verwendet werden.
+
 ## Komponenten
 
 - Gateway/Reverse Proxy: TLS, Authentifizierung, Header-Bereinigung, Origin- und Routing-Grenze.
