@@ -52,7 +52,7 @@ Die Einstufung basiert auf Git-Historie, aktuellem Code, Tests, Coverage-Artefak
 | 3.3 | Deprecation-/Legacy-Plan | `verified-done` | Plan und Implementierungsreport klassifizieren Legacy-Flächen. | Sunset-Entscheidungen verbleiben bei 3.10/Major-Release. |
 | 3.4 | Lasttest 50/100/200 | `verified-done` | Compile bis 200; Simulation bis 100; 200 mit 74 Runner-Timeouts; Grenze dokumentiert. | Keine Arbeit, solange keine höhere Simulationsfreigabe gefordert wird. |
 | 3.5 | Sandbox-Vertrag | `partial` | Vertragsmatrix, Docker-/Security-Tests und Escape-Prüfungen teilweise vorhanden. | Netzwerk-, RootFS- und wiederholbare Escape-Gates vervollständigen. |
-| 3.6 | Coverage-Hotspots | `partial` | WS 61,90 % Lines; Cache 52,30 %; Local Compiler 14,86 %; Routes 28,57 %. | Fachliche Pfade der verbleibenden Hotspots inkrementell testen. |
+| 3.6 | Coverage-Hotspots | `partial` | WS 61,90 % Lines; Cache-Manager nach Schreibpfad-Tests 70,76 % Lines / 63,88 % Statements; Local Compiler 14,86 %; Routes 28,57 %. | Cache-LRU/Cleanup sowie weitere Hotspots inkrementell testen. |
 | 3.7 | Release-Gate | `partial` | `run-tests.sh`, Einzelgates, Build und SonarQube vorhanden. | Pflicht-/Opt-in-Gates, Security-Audit, Artefakte und Abbruchregeln verbindlich machen. |
 | 3.8 | Skalierbarkeit/HA | `verified-done` | ADR 0003 akzeptiert Single-Stateful-Node bis zur gemessenen Grenze. | Keine HA-Implementierung in dieser Roadmap. |
 | 3.9 | Observability | `partial` | Status-/WS-/Compile-/Runner-Metriken implementiert und getestet. | Schwellenwerte, Operator-Runbooks und Alert-Tests ergänzen. |
@@ -142,7 +142,7 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 | --- | --- | --- |
 | 3.4 | Load-Scripts, Vitest-Load-Projekt, Playwright-Scalability-Test, bekannte Engpassanalyse. Reale Docker-Messläufe und Artefakte für Compile 50/100/200 sowie Simulation 50/100/200 liegen vor. | Keine offene Phase-3.4-Arbeit; Folgearbeit nur, wenn höhere Simulationsparallelität als 100 Clients gefordert wird. |
 | 3.5 | Docker-Security-Contract-Test, Docker-Sandbox-Image, Heavy-Test-Mechanik, Security-/Admin-Doku und `docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md` als Vertragsmatrix. | Additive Real-Docker-Prüfungen für Netzwerkverbot, read-only RootFS und Container-/Host-Escape-Versuche; danach Phase-3.5-Gates ausführen. |
-| 3.6 | Hotspots sind benannt; Coverage-Report und `npm run test:coverage` existieren. | Zielgerichtete Tests für aktuelle Hotspots, bis alle Hotspots >60 % und kritische Hotspots >80 % erreichen; jede Abweichung muss explizit begründet werden. |
+| 3.6 | Hotspots sind benannt; WebSocket- und Cache-Schreibpfade sind behavior-orientiert getestet; Coverage-Report und `npm run test:coverage` existieren. | Cache-LRU/Cleanup und weitere aktuelle Hotspots testen, bis alle Hotspots >60 % und kritische Hotspots >80 % erreichen; jede Abweichung muss explizit begründet werden. |
 | 3.7 | Einzelgates und `./run-tests.sh` existieren; SonarQube-Projekt ist konfiguriert. | Release-Runbook mit Pflicht-/Opt-in-Gates, Security-Audit, Artefakten, Abbruchkriterien und Verantwortlichkeit. |
 | 3.8 | Single-Stateful-Node ist transparent dokumentiert; ADR 0003 akzeptiert dieses Modell für die gemessene Kapazitätsgrenze. | Keine HA-Implementierung in Phase 3.8; höhere Parallelität benötigt separate Architektur-/Kapazitätsphase. |
 | 3.9 | Status- und Telemetriequellen existieren. | Monitoring-Vertrag: Metrikliste, Schwellenwerte, Alert-/Runbook-Aktionen und Alert-Tests, die Grenzwertüberschreitungen melden. |
@@ -167,7 +167,7 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 
 ## Empfohlene Reihenfolge
 
-1. **3.6 Coverage-Hotspots** mit kleinen, behavior-orientierten Test-Inkrementen fortsetzen; aktuell ist der Cache-Manager-Schreibpfad der nächste konkrete Schritt.
+1. **3.6 Coverage-Hotspots** mit kleinen, behavior-orientierten Test-Inkrementen fortsetzen; der Cache-Manager-Schreibpfad ist abgeschlossen, der LRU-/Cleanup-Pfad bleibt fachlich offen.
 2. **3.7 Release-Gate** verbindlich machen, weil alle weiteren Maßnahmen darüber freigegeben werden.
 3. **3.5 Sandbox-Vertrag** als regelmäßiges Sicherheits-/Docker-Gate operationalisieren.
 4. **3.9 Observability** mit Schwellenwerten, Runbooks und Alert-Tests vervollständigen.
