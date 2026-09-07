@@ -43,6 +43,15 @@ function envStr(key: string, fallback: string): string {
   return process.env[key] ?? fallback;
 }
 
+export function parseListenHost(
+  trustMode: "local" | "gateway",
+  configuredHost: string | undefined,
+): string {
+  const defaultHost = trustMode === "local" ? "127.0.0.1" : "0.0.0.0";
+  const host = configuredHost?.trim();
+  return host || defaultHost;
+}
+
 function envEnum<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
   const value = envStr(key, fallback);
   if (!allowed.includes(value as T)) {
@@ -141,6 +150,8 @@ export const config = {
   server: {
     /** HTTP and WebSocket listener port. */
     port: envInt("PORT", 3000, { min: 1, max: 65535 }),
+    /** Listener host; local mode defaults to loopback, gateway mode to all interfaces. */
+    listenHost: parseListenHost(trust.mode, process.env.UNOSIM_LISTEN_HOST),
     /**
      * Register destructive endpoints used for test isolation.
      * NODE_ENV=test is checked separately at the registration site so this

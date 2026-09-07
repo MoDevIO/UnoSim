@@ -42,7 +42,7 @@ npm run test:unit
 npm run dev:full
 ```
 
-npm run dev:full startet Backend und Vite-Frontend mit Hot Reload. Der projektdefinierte Dev-Befehl verwendet UNOSIM_SERVER_MODE=local, UNOSIM_SIMULATION_MODE=local und UNOSIM_TRUST_MODE=local. Local-Mode ist für eine vertrauenswürdige Einzelplatzmaschine gedacht, nicht für öffentliche oder gemeinsam genutzte Instanzen.
+npm run dev:full startet Backend und Vite-Frontend mit Hot Reload. Der projektdefinierte Dev-Befehl verwendet UNOSIM_SERVER_MODE=local, UNOSIM_SIMULATION_MODE=local und UNOSIM_TRUST_MODE=local. Local-Mode ist für eine vertrauenswürdige Einzelplatzmaschine gedacht, nicht für öffentliche oder gemeinsam genutzte Instanzen. Ohne weitere Konfiguration lauscht der Server im Local-Mode ausschließlich auf `127.0.0.1`.
 
 Nur Backend oder Frontend:
 
@@ -50,6 +50,18 @@ Nur Backend oder Frontend:
 npm run dev
 npm run dev:client
 ```
+
+Für einen bewusst aktivierten LAN-Test kann der Listener separat geöffnet werden. Der Trust-/Auth-Modus bleibt dabei `local`; die WebSocket-Origin muss weiterhin exakt angegeben werden:
+
+```bash
+UNOSIM_TRUST_MODE=local \
+UNOSIM_LISTEN_HOST=0.0.0.0 \
+UNOSIM_ALLOWED_WS_ORIGINS=http://192.168.1.50:3000 \
+PORT=3000 \
+npm run dev
+```
+
+`UNOSIM_LISTEN_HOST` überschreibt nur die Netzwerkadresse des Listeners. `UNOSIM_ALLOWED_WS_ORIGINS` verwendet eine exakte, komma-separierte Allowlist; es gibt keine automatische Wildcard. Im Gateway-Mode bleibt der bisherige Default `0.0.0.0` bestehen.
 
 ## Docker-Simulation
 
@@ -77,6 +89,7 @@ Der Override ist nur für eine isolierte lokale Maschine zulässig. Ein Mehrbenu
 | Name | Default | Pflicht | Bedeutung / Beispiel |
 |---|---|---:|---|
 | PORT | 3000 | nein | HTTP und WebSocket, z. B. PORT=3001. |
+| UNOSIM_LISTEN_HOST | `127.0.0.1` bei local, `0.0.0.0` bei gateway | nein | Explizite Listener-Adresse, z. B. `0.0.0.0` für einen bewusst aktivierten LAN-Test. |
 | UNOSIM_SERVER_MODE | local (Dev) | nein | local oder docker. |
 | UNOSIM_SIMULATION_MODE | local | nein | local oder docker-sandbox. |
 | UNOSIM_TRUST_MODE | local | nein | Einzelplatz local; Server siehe Installationsanleitung. |

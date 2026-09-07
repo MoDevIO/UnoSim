@@ -250,7 +250,7 @@ let cleanupTimer: NodeJS.Timeout | null = null;
 
   // Serve both the API and client on the validated configured port.
   const PORT = config.server.port;
-  const listenHost = config.trust.mode === "local" ? "127.0.0.1" : "0.0.0.0";
+  const listenHost = config.server.listenHost;
   const httpServer = server.listen(PORT, listenHost, async () => {
     console.log(`\n┌──────────────────────────────────────────────────┐`);
     console.log(`│  UnoSim – Active Configuration                   │`);
