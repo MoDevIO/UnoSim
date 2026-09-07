@@ -1,421 +1,184 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
-import { WSMessageType } from "@shared/schema";
-import type { ClientState } from "../../../server/routes/simulation/ws-session-manager";
+import type { Logger } from "@shared/logger";
+import type { ServerToClientWSMessage } from "@shared/schema";
+import { registerSimulationWebSocket } from "../../../server/routes/simulation.ws";
+import type { SandboxRunner } from "../../../server/services/sandbox-runner";
+import type { SandboxRunnerPool } from "../../../server/services/sandbox-runner-pool";
 
-// Import the handler functions directly from simulation.ws.ts
-// These are module-level functions, not exported, so we test them indirectly
-// by creating a minimal test harness that exercises the behavior
+type RunnerDouble = {
+  pause: ReturnType<typeof vi.fn>;
+  resume: ReturnType<typeof vi.fn>;
+  sendSerialInput: ReturnType<typeof vi.fn>;
+  setPinValue: ReturnType<typeof vi.fn>;
+  runSketch: ReturnType<typeof vi.fn>;
+  getSandboxStatus: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+};
 
-// Mock runner for testing
-function createMockRunner() {
+function createRunner(): RunnerDouble {
   return {
-    pause: vi.fn(),
-    resume: vi.fn(),
+    pause: vi.fn(() => true),
+    resume: vi.fn(() => true),
     sendSerialInput: vi.fn(),
     setPinValue: vi.fn(),
+    runSketch: vi.fn().mockResolvedValue(undefined),
+    getSandboxStatus: vi.fn(() => ({ mode: "local-limited" })),
     stop: vi.fn().mockResolvedValue(undefined),
   };
 }
 
-function createMockWebSocket() {
+function createLogger(): Logger {
   return {
-    readyState: WebSocket.OPEN,
-    send: vi.fn(),
-  } as unknown as WebSocket;
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } as unknown as Logger;
 }
 
-function createClientState(overrides: Partial<ClientState> = {}): ClientState {
-  return {
-    subject: "test-subject",
-    runner: null,
-    isRunning: false,
-    isPaused: false,
-    queueAbortController: null,
-    ...overrides,
-  } as ClientState;
+async function waitFor(predicate: () => boolean, description: string): Promise<void> {
+  const deadline = Date.now() + 2_000;
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error(`Timed out waiting for ${description}`);
+    await new Promise<void>((resolve) => setTimeout(resolve, 5));
+  }
 }
 
-// Test harness to access the internal handler functions
-// We simulate the message handling behavior by recreating the logic
-function handlePauseSimulation(ws: WebSocket, clientState: ClientState): void {
-  if (clientState?.runner && clientState.isRunning) {
-    const paused = clientState.runner.pause();
-    if (paused) {
-      clientState.isPaused = true;
-      ws.send(JSON.stringify({
-        type: WSMessageType.SIMULATION_STATUS,
-        status: "paused",
-      }));
-      ws.send(JSON.stringify({
-        type: WSMessageType.SERIAL_OUTPUT,
-        data: "--- Simulation paused ---\n",
-      }));
+describe("WebSocket lifecycle through the production route", () => {
+  let httpServer: Server;
+  let client: WebSocket;
+  let runner: RunnerDouble;
+  let messages: ServerToClientWSMessage[];
+
+  beforeEach(async () => {
+    runner = createRunner();
+    messages = [];
+
+    const pool = {
+      acquireRunner: vi.fn().mockResolvedValue(runner),
+      releaseRunner: vi.fn().mockResolvedValue(undefined),
+      getRunnerIndex: vi.fn(() => 0),
+      getStats: vi.fn(() => ({
+        availableRunners: 1,
+        totalRunners: 1,
+        maxRunners: 1,
+        queuedRequests: 0,
+      })),
+    } as unknown as SandboxRunnerPool;
+
+    httpServer = createServer();
+    registerSimulationWebSocket(httpServer, {
+      SandboxRunner: class {} as typeof SandboxRunner,
+      getSimulationRateLimiter: () => ({ checkLimit: () => ({ allowed: true }) }),
+      shouldSendSimulationEndMessage: () => true,
+      getLastCompiledCode: () => null,
+      logger: createLogger(),
+      runnerPool: pool,
+      trust: { mode: "local" },
+      allowedWebSocketOrigins: [],
+      disableRateLimit: true,
+    });
+
+    await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
+    const { port } = httpServer.address() as AddressInfo;
+    client = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    client.on("message", (raw) => {
+      messages.push(JSON.parse(raw.toString()) as ServerToClientWSMessage);
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      client.once("open", resolve);
+      client.once("error", reject);
+    });
+
+    client.send(JSON.stringify({
+      type: "start_simulation",
+      code: "void setup() {} void loop() {}",
+    }));
+    await waitFor(
+      () => messages.some(
+        (message) => message.type === "simulation_status" && message.status === "running",
+      ),
+      "the running state",
+    );
+  });
+
+  afterEach(async () => {
+    if (client.readyState === WebSocket.OPEN) {
+      await new Promise<void>((resolve) => {
+        client.once("close", () => resolve());
+        client.close();
+      });
     }
-  }
-}
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  });
 
-function handleResumeSimulation(ws: WebSocket, clientState: ClientState): void {
-  if (clientState?.runner && clientState.isPaused) {
-    const resumed = clientState.runner.resume();
-    if (resumed) {
-      clientState.isPaused = false;
-      clientState.isRunning = true;
-      ws.send(JSON.stringify({
-        type: WSMessageType.SIMULATION_STATUS,
-        status: "running",
-      }));
-      ws.send(JSON.stringify({
-        type: WSMessageType.SERIAL_OUTPUT,
-        data: "--- Simulation resumed ---\n",
-      }));
-    }
-  }
-}
+  it("pauses a running simulation and publishes the paused state", async () => {
+    client.send(JSON.stringify({ type: "pause_simulation" }));
 
-function handleSerialInput(
-  ws: WebSocket,
-  data: { type: "serial_input"; data: string },
-  clientState: ClientState,
-): void {
-  if (
-    clientState?.runner &&
-    clientState?.isRunning &&
-    !clientState.isPaused
-  ) {
-    clientState.runner.sendSerialInput(data.data);
-  }
-}
+    await waitFor(() => runner.pause.mock.calls.length === 1, "runner pause");
+    await waitFor(
+      () => messages.some(
+        (message) => message.type === "simulation_status" && message.status === "paused",
+      ),
+      "the paused state",
+    );
 
-function handleSetPinValue(
-  ws: WebSocket,
-  data: { type: "set_pin_value"; pin: number; value: number },
-  clientState: ClientState,
-): void {
-  if (
-    clientState?.runner &&
-    (clientState.isRunning || clientState.isPaused)
-  ) {
-    clientState.runner.setPinValue(data.pin, data.value);
-  }
-}
-
-describe("WebSocket Lifecycle Handlers", () => {
-  describe("handlePauseSimulation", () => {
-    it("should pause a running simulation and send status messages", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      runner.pause.mockReturnValue(true);
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: true,
-        isPaused: false,
-      });
-
-      handlePauseSimulation(ws, clientState);
-
-      expect(runner.pause).toHaveBeenCalledOnce();
-      expect(clientState.isPaused).toBe(true);
-      expect(clientState.isRunning).toBe(true);
-      expect(ws.send).toHaveBeenCalledTimes(2);
-      expect(ws.send).toHaveBeenCalledWith(
-        JSON.stringify({ type: WSMessageType.SIMULATION_STATUS, status: "paused" }),
-      );
-      expect(ws.send).toHaveBeenCalledWith(
-        JSON.stringify({ type: WSMessageType.SERIAL_OUTPUT, data: "--- Simulation paused ---\n" }),
-      );
-    });
-
-    it("should not pause if runner is not available", () => {
-      const ws = createMockWebSocket();
-      const clientState = createClientState({
-        runner: null,
-        isRunning: true,
-      });
-
-      handlePauseSimulation(ws, clientState);
-
-      expect(clientState.isPaused).toBe(false);
-      expect(ws.send).not.toHaveBeenCalled();
-    });
-
-    it("should not pause if simulation is not running", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: false,
-        isPaused: false,
-      });
-
-      handlePauseSimulation(ws, clientState);
-
-      expect(runner.pause).not.toHaveBeenCalled();
-      expect(clientState.isPaused).toBe(false);
-      expect(ws.send).not.toHaveBeenCalled();
-    });
-
-    it("should not update state if runner.pause() returns false", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      runner.pause.mockReturnValue(false);
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: true,
-        isPaused: false,
-      });
-
-      handlePauseSimulation(ws, clientState);
-
-      expect(runner.pause).toHaveBeenCalledOnce();
-      expect(clientState.isPaused).toBe(false);
-      expect(clientState.isRunning).toBe(true);
-      expect(ws.send).not.toHaveBeenCalled();
+    expect(runner.pause).toHaveBeenCalledOnce();
+    expect(messages).toContainEqual({
+      type: "serial_output",
+      data: "--- Simulation paused ---\n",
     });
   });
 
-  describe("handleResumeSimulation", () => {
-    it("should resume a paused simulation and send status messages", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      runner.resume.mockReturnValue(true);
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: false,
-        isPaused: true,
-      });
+  it("resumes a paused simulation and publishes the running state", async () => {
+    client.send(JSON.stringify({ type: "pause_simulation" }));
+    await waitFor(() => runner.pause.mock.calls.length === 1, "runner pause");
 
-      handleResumeSimulation(ws, clientState);
+    const runningMessagesBeforeResume = messages.filter(
+      (message) => message.type === "simulation_status" && message.status === "running",
+    ).length;
+    client.send(JSON.stringify({ type: "resume_simulation" }));
 
-      expect(runner.resume).toHaveBeenCalledOnce();
-      expect(clientState.isPaused).toBe(false);
-      expect(clientState.isRunning).toBe(true);
-      expect(ws.send).toHaveBeenCalledTimes(2);
-      expect(ws.send).toHaveBeenCalledWith(
-        JSON.stringify({ type: WSMessageType.SIMULATION_STATUS, status: "running" }),
-      );
-      expect(ws.send).toHaveBeenCalledWith(
-        JSON.stringify({ type: WSMessageType.SERIAL_OUTPUT, data: "--- Simulation resumed ---\n" }),
-      );
-    });
+    await waitFor(() => runner.resume.mock.calls.length === 1, "runner resume");
+    await waitFor(
+      () => messages.filter(
+        (message) => message.type === "simulation_status" && message.status === "running",
+      ).length > runningMessagesBeforeResume,
+      "the resumed running state",
+    );
 
-    it("should not resume if runner is not available", () => {
-      const ws = createMockWebSocket();
-      const clientState = createClientState({
-        runner: null,
-        isPaused: true,
-      });
-
-      handleResumeSimulation(ws, clientState);
-
-      expect(clientState.isPaused).toBe(true);
-      expect(ws.send).not.toHaveBeenCalled();
-    });
-
-    it("should not resume if simulation is not paused", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: true,
-        isPaused: false,
-      });
-
-      handleResumeSimulation(ws, clientState);
-
-      expect(runner.resume).not.toHaveBeenCalled();
-      expect(clientState.isPaused).toBe(false);
-      expect(ws.send).not.toHaveBeenCalled();
-    });
-
-    it("should not update state if runner.resume() returns false", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      runner.resume.mockReturnValue(false);
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: false,
-        isPaused: true,
-      });
-
-      handleResumeSimulation(ws, clientState);
-
-      expect(runner.resume).toHaveBeenCalledOnce();
-      expect(clientState.isPaused).toBe(true);
-      expect(clientState.isRunning).toBe(false);
-      expect(ws.send).not.toHaveBeenCalled();
+    expect(runner.resume).toHaveBeenCalledOnce();
+    expect(messages).toContainEqual({
+      type: "serial_output",
+      data: "--- Simulation resumed ---\n",
     });
   });
 
-  describe("handleSerialInput", () => {
-    it("should send serial input when simulation is running and not paused", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: true,
-        isPaused: false,
-      });
+  it("forwards serial input to the active runner", async () => {
+    client.send(JSON.stringify({ type: "serial_input", data: "hello Uno\n" }));
 
-      const inputData = "test input\n";
-      handleSerialInput(ws, { type: "serial_input", data: inputData }, clientState);
+    await waitFor(
+      () => runner.sendSerialInput.mock.calls.length === 1,
+      "serial input forwarding",
+    );
 
-      expect(runner.sendSerialInput).toHaveBeenCalledWith(inputData);
-    });
-
-    it("should not send serial input if simulation is paused", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: true,
-        isPaused: true,
-      });
-
-      handleSerialInput(ws, { type: "serial_input", data: "test" }, clientState);
-
-      expect(runner.sendSerialInput).not.toHaveBeenCalled();
-    });
-
-    it("should not send serial input if simulation is not running", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: false,
-        isPaused: false,
-      });
-
-      handleSerialInput(ws, { type: "serial_input", data: "test" }, clientState);
-
-      expect(runner.sendSerialInput).not.toHaveBeenCalled();
-    });
-
-    it("should not send serial input if runner is not available", () => {
-      const ws = createMockWebSocket();
-      const clientState = createClientState({
-        runner: null,
-        isRunning: true,
-      });
-
-      handleSerialInput(ws, { type: "serial_input", data: "test" }, clientState);
-
-      expect(clientState.runner).toBeNull();
-    });
+    expect(runner.sendSerialInput).toHaveBeenCalledOnce();
+    expect(runner.sendSerialInput).toHaveBeenCalledWith("hello Uno\n");
   });
 
-  describe("handleSetPinValue", () => {
-    it("should set pin value when simulation is running", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: true,
-        isPaused: false,
-      });
+  it("forwards a pin value to the active runner", async () => {
+    client.send(JSON.stringify({ type: "set_pin_value", pin: 13, value: 1 }));
 
-      handleSetPinValue(ws, { type: "set_pin_value", pin: 13, value: 1 }, clientState);
+    await waitFor(
+      () => runner.setPinValue.mock.calls.length === 1,
+      "pin value forwarding",
+    );
 
-      expect(runner.setPinValue).toHaveBeenCalledWith(13, 1);
-    });
-
-    it("should set pin value when simulation is paused", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: false,
-        isPaused: true,
-      });
-
-      handleSetPinValue(ws, { type: "set_pin_value", pin: 5, value: 0 }, clientState);
-
-      expect(runner.setPinValue).toHaveBeenCalledWith(5, 0);
-    });
-
-    it("should not set pin value if runner is not available", () => {
-      const ws = createMockWebSocket();
-      const clientState = createClientState({
-        runner: null,
-        isRunning: true,
-      });
-
-      handleSetPinValue(ws, { type: "set_pin_value", pin: 13, value: 1 }, clientState);
-
-      expect(clientState.runner).toBeNull();
-    });
-
-    it("should not set pin value if simulation is stopped", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: false,
-        isPaused: false,
-      });
-
-      handleSetPinValue(ws, { type: "set_pin_value", pin: 13, value: 1 }, clientState);
-
-      expect(runner.setPinValue).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("Pause/Resume Lifecycle", () => {
-    it("should support full pause/resume cycle", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      runner.pause.mockReturnValue(true);
-      runner.resume.mockReturnValue(true);
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: true,
-        isPaused: false,
-      });
-
-      // Pause
-      handlePauseSimulation(ws, clientState);
-      expect(clientState.isPaused).toBe(true);
-      expect(clientState.isRunning).toBe(true);
-      expect(runner.pause).toHaveBeenCalledOnce();
-
-      // Resume
-      handleResumeSimulation(ws, clientState);
-      expect(clientState.isPaused).toBe(false);
-      expect(clientState.isRunning).toBe(true);
-      expect(runner.resume).toHaveBeenCalledOnce();
-
-      // Verify message sequence
-      expect(ws.send).toHaveBeenCalledTimes(4);
-    });
-
-    it("should not allow resume without prior pause", () => {
-      const ws = createMockWebSocket();
-      const runner = createMockRunner();
-      runner.resume.mockReturnValue(false);
-      
-      const clientState = createClientState({
-        runner: runner as any,
-        isRunning: true,
-        isPaused: false,
-      });
-
-      handleResumeSimulation(ws, clientState);
-
-      expect(runner.resume).not.toHaveBeenCalled();
-      expect(clientState.isPaused).toBe(false);
-    });
+    expect(runner.setPinValue).toHaveBeenCalledOnce();
+    expect(runner.setPinValue).toHaveBeenCalledWith(13, 1);
   });
 });
