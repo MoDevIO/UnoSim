@@ -171,12 +171,45 @@ export const config = {
     apiRateLimitMax: 300,
     /** API route rate limit used when tests disable production throttling */
     apiRateLimitTestMax: 10_000,
+    /** Dedicated compile request rate-limit window */
+    compileRateLimitWindowMs: envInt("COMPILE_RATE_LIMIT_WINDOW_MS", 60_000, {
+      min: 1,
+      max: 86_400_000,
+    }),
+    /** Compile requests allowed per trusted identity and window */
+    compileRateLimitMaxRequests: envInt("COMPILE_RATE_LIMIT_MAX_REQUESTS", 10, {
+      min: 1,
+      max: 10_000,
+    }),
+    /** Block duration after a trusted identity exceeds the compile limit */
+    compileRateLimitBlockDurationMs: envInt(
+      "COMPILE_RATE_LIMIT_BLOCK_DURATION_MS",
+      10_000,
+      { min: 1, max: 86_400_000 },
+    ),
     /** Simulation start rate limit window */
-    simulationRateLimitWindowMs: 2 * 1000,
+    simulationRateLimitWindowMs: envInt(
+      "SIMULATION_START_RATE_LIMIT_WINDOW_MS",
+      2_000,
+      { min: 1, max: 86_400_000 },
+    ),
     /** Simulation starts allowed per window */
-    simulationRateLimitMaxRequests: 1,
+    simulationRateLimitMaxRequests: envInt(
+      "SIMULATION_START_RATE_LIMIT_MAX_REQUESTS",
+      1,
+      { min: 1, max: 10_000 },
+    ),
     /** Simulation start block duration after exceeding the limit */
-    simulationRateLimitBlockDurationMs: 5 * 1000,
+    simulationRateLimitBlockDurationMs: envInt(
+      "SIMULATION_START_RATE_LIMIT_BLOCK_DURATION_MS",
+      5_000,
+      { min: 1, max: 86_400_000 },
+    ),
+    /** Running plus queued simulation starts admitted by this process */
+    simulationAdmissionMax: envInt("SIMULATION_ADMISSION_MAX", 25, {
+      min: 1,
+      max: 500,
+    }),
     /** Cleanup interval for inactive simulation rate-limit entries */
     simulationRateLimitCleanupIntervalMs: 5 * 60 * 1000,
     /** Inactive simulation rate-limit entries are removed after this duration */

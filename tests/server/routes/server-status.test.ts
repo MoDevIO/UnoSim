@@ -122,6 +122,29 @@ describe("GET /api/status", () => {
     });
   });
 
+  it("exposes only aggregated admission and rate-limit metrics", async () => {
+    const { body } = await get(baseUrl, "/api/status");
+
+    expect(body.admissionControl).toMatchObject({
+      active: expect.any(Number),
+      max: 25,
+      capacityRejectedTotal: expect.any(Number),
+      identityRejectedTotal: expect.any(Number),
+    });
+    expect(body.rateLimits).toEqual({
+      compile: {
+        blockedIdentities: expect.any(Number),
+        rejectedTotal: expect.any(Number),
+      },
+      simulationStart: {
+        blockedIdentities: expect.any(Number),
+        rejectedTotal: expect.any(Number),
+      },
+    });
+    expect(body.admissionControl).not.toHaveProperty("subjects");
+    expect(body.rateLimits.compile).not.toHaveProperty("clients");
+  });
+
   it("includes DOCKER_COMPILE_CONCURRENT in compile.maxConcurrent (defaults to 8)", async () => {
     delete process.env.DOCKER_COMPILE_CONCURRENT;
     const { body } = await get(baseUrl, "/api/status");

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { SimulationRateLimiter } from "../../../server/services/rate-limiter";
+import {
+  CompileRateLimiter,
+  SimulationRateLimiter,
+} from "../../../server/services/rate-limiter";
 
 describe("SimulationRateLimiter", () => {
   let rateLimiter: SimulationRateLimiter;
@@ -204,5 +207,29 @@ describe("SimulationRateLimiter", () => {
 
     const stats = rateLimiter.getStats();
     expect(stats.blockedClients).toBe(0);
+  });
+});
+
+describe("CompileRateLimiter", () => {
+  it("uses an independent per-identity budget", () => {
+    vi.useFakeTimers();
+    const limiter = CompileRateLimiter.getInstance({
+      maxRequests: 1,
+      windowMs: 60_000,
+      blockDurationMs: 10_000,
+    });
+
+    expect(limiter.checkLimit("student-a")).toEqual({ allowed: true });
+    expect(limiter.checkLimit("student-b")).toEqual({ allowed: true });
+    expect(limiter.checkLimit("student-a")).toEqual({
+      allowed: false,
+      retryAfter: 10,
+    });
+    expect(limiter.getStats().rejectedTotal).toBe(1);
+
+    limiter.destroy();
+    // @ts-ignore - Reset singleton for test isolation
+    CompileRateLimiter.instance = null;
+    vi.useRealTimers();
   });
 });

@@ -6,6 +6,10 @@ import type { SandboxRunnerPool } from "../../services/sandbox-runner-pool";
 import { WsSessionLifecycle } from "../../services/ws-session-lifecycle";
 import { sendMessageToClient } from "./ws-output-buffer";
 import { webSocketMetricsTracker } from "../../services/server-metrics";
+import type {
+  SimulationAdmissionController,
+  SimulationReservation,
+} from "../../services/simulation-admission-controller";
 
 export type ClientState = {
   subject: string;
@@ -14,11 +18,13 @@ export type ClientState = {
   isPaused: boolean;
   testRunId?: string;
   queueAbortController: AbortController | null;
+  reservation: SimulationReservation | null;
 };
 
 interface WsSessionManagerParams {
   pool: SandboxRunnerPool;
   logger: Logger;
+  admissionController?: Pick<SimulationAdmissionController, "release">;
 }
 
 export class WsSessionManager {
@@ -71,8 +77,12 @@ export class WsSessionManager {
     }
   }
 
-  async safeReleaseRunner(state: ClientState, reason: string): Promise<void> {
-    if (!state.runner) {
+  async safeReleaseRunner(
+    state: ClientState,
+    reason: string,
+    expectedReservation: SimulationReservation | null = state.reservation,
+  ): Promise<void> {
+    if (expectedReservation && state.reservation !== expectedReservation) {
       return;
     }
 
@@ -87,20 +97,27 @@ export class WsSessionManager {
       this.broadcastWorkerTotal();
     }
 
-    try {
-      await runner.stop();
-    } catch (error) {
-      this.params.logger.debug(
-        `[SandboxRunnerPool] runner.stop() failed during ${reason}: ${error}`,
-      );
+    if (runner) {
+      try {
+        await runner.stop();
+      } catch (error) {
+        this.params.logger.debug(
+          `[SandboxRunnerPool] runner.stop() failed during ${reason}: ${error}`,
+        );
+      }
+
+      try {
+        await this.params.pool.releaseRunner(runner);
+      } catch (error) {
+        this.params.logger.warn(
+          `[SandboxRunnerPool] releaseRunner failed during ${reason}: ${error}`,
+        );
+      }
     }
 
-    try {
-      await this.params.pool.releaseRunner(runner);
-    } catch (error) {
-      this.params.logger.warn(
-        `[SandboxRunnerPool] releaseRunner failed during ${reason}: ${error}`,
-      );
+    if (expectedReservation && state.reservation === expectedReservation) {
+      this.params.admissionController?.release(expectedReservation);
+      state.reservation = null;
     }
   }
 
@@ -115,7 +132,7 @@ export class WsSessionManager {
     const clientState = this.get(ws);
     if (clientState) {
       this.abortQueuedAcquire(clientState);
-      if (clientState.runner) {
+      if (clientState.runner || clientState.reservation) {
         await this.safeReleaseRunner(clientState, reason);
       }
     }

@@ -1,5 +1,5 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-import type { IncomingHttpHeaders } from "node:http";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
 import { isIP } from "node:net";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { VerifyClientCallbackAsync } from "ws";
@@ -23,6 +23,74 @@ export type AuthorizationResult =
 
 const SUBJECT_PATTERN = /^[A-Za-z0-9._~-]{1,128}$/;
 const ALLOWED_ROLES = new Set(["user"]);
+const LOCAL_SESSION_COOKIE = "unosim_local_session";
+const LOCAL_SESSION_MAX_AGE_SECONDS = 24 * 60 * 60;
+const localSessionSigningKey = randomBytes(32);
+const requestIdentity = new WeakMap<IncomingMessage, RequestIdentity>();
+
+function parseCookies(header: string | undefined): Map<string, string> {
+  const cookies = new Map<string, string>();
+  for (const part of header?.split(";") ?? []) {
+    const separator = part.indexOf("=");
+    if (separator < 1) continue;
+    const name = part.slice(0, separator).trim();
+    const value = part.slice(separator + 1).trim();
+    cookies.set(name, value);
+  }
+  return cookies;
+}
+
+function signLocalSession(id: string): string {
+  return createHmac("sha256", localSessionSigningKey)
+    .update(id)
+    .digest("base64url");
+}
+
+function readLocalSession(headers: IncomingHttpHeaders): string | undefined {
+  const token = parseCookies(singleHeader(headers, "cookie")).get(
+    LOCAL_SESSION_COOKIE,
+  );
+  if (!token) return undefined;
+  const separator = token.indexOf(".");
+  if (separator < 1) return undefined;
+  const id = token.slice(0, separator);
+  const signature = token.slice(separator + 1);
+  if (!/^[A-Za-z0-9_-]{22}$/.test(id)) return undefined;
+  return secretsEqual(signature, signLocalSession(id)) ? id : undefined;
+}
+
+function createLocalIdentity(): {
+  identity: RequestIdentity;
+  cookie: string;
+} {
+  const id = randomBytes(16).toString("base64url");
+  const token = `${id}.${signLocalSession(id)}`;
+  return {
+    identity: { subject: `local.${id}`, roles: ["user"] },
+    cookie: `${LOCAL_SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${LOCAL_SESSION_MAX_AGE_SECONDS}`,
+  };
+}
+
+function resolveRequestAuthorization(
+  req: IncomingMessage,
+  trust: TrustConfig,
+): AuthorizationResult & { cookie?: string } {
+  const existing = requestIdentity.get(req);
+  if (existing) return { allowed: true, identity: existing };
+
+  if (trust.mode === "gateway") {
+    const authorization = authorizeHeaders(req.headers, trust);
+    if (authorization.allowed) requestIdentity.set(req, authorization.identity);
+    return authorization;
+  }
+
+  const sessionId = readLocalSession(req.headers);
+  const resolved: { identity: RequestIdentity; cookie?: string } = sessionId
+    ? { identity: { subject: `local.${sessionId}`, roles: ["user"] } }
+    : createLocalIdentity();
+  requestIdentity.set(req, resolved.identity);
+  return { allowed: true, identity: resolved.identity, cookie: resolved.cookie };
+}
 
 function isIpOrCidr(value: string): boolean {
   const [address, prefix, ...rest] = value.split("/");
@@ -153,7 +221,7 @@ export function createUserAuthorizationMiddleware(
   trust: TrustConfig,
 ): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const result = authorizeHeaders(req.headers, trust);
+    const result = resolveRequestAuthorization(req, trust);
     if (!result.allowed) {
       res
         .status(result.status)
@@ -162,8 +230,34 @@ export function createUserAuthorizationMiddleware(
     }
 
     res.locals.unosimIdentity = result.identity;
+    if (result.cookie) res.appendHeader("Set-Cookie", result.cookie);
     next();
   };
+}
+
+/**
+ * Issues a server-authenticated local session before static/API requests. This
+ * keeps browser clients independent without trusting a client-provided user ID.
+ * Gateway mode remains entirely governed by the gateway contract.
+ */
+export function createLocalSessionMiddleware(trust: TrustConfig): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (trust.mode === "local") {
+      const result = resolveRequestAuthorization(req, trust);
+      if (result.allowed) {
+        res.locals.unosimIdentity = result.identity;
+        if (result.cookie) res.appendHeader("Set-Cookie", result.cookie);
+      }
+    }
+    next();
+  };
+}
+
+export function getRequestAuthorization(
+  req: IncomingMessage,
+  trust: TrustConfig,
+): AuthorizationResult {
+  return resolveRequestAuthorization(req, trust);
 }
 
 export function createWebSocketAuthorizationVerifier(
@@ -171,7 +265,7 @@ export function createWebSocketAuthorizationVerifier(
   allowedOrigins: readonly string[],
 ): VerifyClientCallbackAsync {
   return ({ req }, done) => {
-    const result = authorizeHeaders(req.headers, trust);
+    const result = resolveRequestAuthorization(req, trust);
     if (!result.allowed) {
       done(
         false,
@@ -182,6 +276,10 @@ export function createWebSocketAuthorizationVerifier(
     }
     if (!isWebSocketOriginAllowed(req.headers, trust, allowedOrigins)) {
       done(false, 403, "Forbidden origin");
+      return;
+    }
+    if (result.cookie) {
+      done(true, undefined, undefined, { "Set-Cookie": result.cookie });
       return;
     }
     done(true);

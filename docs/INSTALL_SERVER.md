@@ -94,6 +94,13 @@ docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backe
 | ARDUINO_CACHE_DIR | server/arduino-cache (Container: /app/server/arduino-cache) | nein | /srv/unosim/server/arduino-cache | Toolchain-Cache. |
 | BUILD_CACHE_DIR | storage/cache | nein | /srv/unosim/storage/cache | Build-Cache. |
 | BUILD_CACHE_MAX_BYTES | 2 GiB | nein | 2147483648 | Cache-Limit. |
+| COMPILE_RATE_LIMIT_MAX_REQUESTS | 10 | nein | 10 | Compile-Anfragen je vertrauenswürdiger Identität und Zeitfenster. |
+| COMPILE_RATE_LIMIT_WINDOW_MS | 60000 | nein | 60000 | Zeitfenster des separaten Compile-Limits. |
+| COMPILE_RATE_LIMIT_BLOCK_DURATION_MS | 10000 | nein | 10000 | Sperrdauer nach Überschreiten des Compile-Limits. |
+| SIMULATION_START_RATE_LIMIT_MAX_REQUESTS | 1 | nein | 1 | Simulationsstarts je vertrauenswürdiger Identität und Zeitfenster. |
+| SIMULATION_START_RATE_LIMIT_WINDOW_MS | 2000 | nein | 2000 | Zeitfenster des separaten Start-Limits. |
+| SIMULATION_START_RATE_LIMIT_BLOCK_DURATION_MS | 5000 | nein | 5000 | Sperrdauer nach Überschreiten des Start-Limits. |
+| SIMULATION_ADMISSION_MAX | 25 | nein | 25 | Prozessweite Obergrenze für laufende plus auf einen Runner wartende Starts; weitere Starts werden sofort mit `SYSTEM_BUSY` abgewiesen. |
 | DISABLE_RATE_LIMIT | false | nein | false | nicht in Produktion deaktivieren. |
 | DISABLE_COMPILE_CACHE | false | nein | false | nur kontrollierte Messungen. |
 | DISABLE_COMPILE_GATEKEEPER | false | nein | false | nur kontrollierte Tests; in Produktion false. |
@@ -113,7 +120,11 @@ curl -fsS http://127.0.0.1:3000/api/health
 
 Beim Boot müssen Image, Docker-Daemon, Mounts, Secrets und Origin-Allowlist verfügbar sein. Restart erfolgt mit docker compose restart unosim-backend. Einen systemd-Unit-Entwurf gibt es im Repository nicht.
 
-/api/status zeigt sandboxRunners, compileSlots, webSocketSessions, compileMetrics, compileWorkerPool und processMetrics. Im Gateway-Mode muss der Aufruf über den authentifizierten Gateway mit den erforderlichen Identitäts-Headern erfolgen; der anonyme Health-Aufruf ist dafür nicht ausreichend. Diese Werte sind flüchtige Laufzeitwerte: Sessions, Queues und Runner-Leases gehen bei einem Neustart verloren. Persistente Nutzdaten sind von der Installation abhängig und dürfen nicht als Cache behandelt werden. Regenerierbar sind Build-/Arduino-Caches, temporäre Dateien und generierte Load-Test-JSONs; laufende Jobs vorher beenden. Die freigegebene Kapazität steht in [SCALABILITY.md](SCALABILITY.md): Compile 50/100/200 validiert, Simulation 50/100 validiert, 200 Simulationen nicht freigegeben; 5 Runner sind der Engpass.
+/api/status zeigt sandboxRunners, compileSlots, webSocketSessions, compileMetrics, compileWorkerPool, processMetrics sowie aggregierte Admission- und Rate-Limit-Zähler. Nutzeridentitäten werden dort nicht ausgegeben. Im Gateway-Mode muss der Aufruf über den authentifizierten Gateway mit den erforderlichen Identitäts-Headern erfolgen; der anonyme Health-Aufruf ist dafür nicht ausreichend. Diese Werte sind flüchtige Laufzeitwerte: Sessions, Limits, Queues und Runner-Leases gehen bei einem Neustart verloren. Persistente Nutzdaten sind von der Installation abhängig und dürfen nicht als Cache behandelt werden. Regenerierbar sind Build-/Arduino-Caches, temporäre Dateien und generierte Load-Test-JSONs; laufende Jobs vorher beenden. Die freigegebene Kapazität steht in [SCALABILITY.md](SCALABILITY.md): Compile 50/100/200 validiert, Simulation 50/100 validiert, 200 Simulationen nicht freigegeben; 5 Runner waren der Engpass der Referenzmessung.
+
+Die anwendungsseitigen Limits verwenden im Gateway-Modus ausschließlich den nach Gateway-Secret- und Rollenprüfung übernommenen `X-UnoSim-Subject`. Im Local-Modus wird stattdessen eine zufällige, serverseitig signierte HttpOnly-Cookie-Session verwendet; ungeprüfte Identity-Header oder Test-IDs sind keine Rate-Limit-Identität. Direkte Local/Test-WebSocket-Clients ohne vorherige HTTP-Session erhalten eine eigene, nur für ihre Verbindung erzeugte Identität.
+
+`SIMULATION_ADMISSION_MAX=25` ist bewusst nicht aus der Zahl 100 erfolgreich eingegangener Lasttest-Requests abgeleitet. Bei der Referenzmessung mit 5 Runnern begrenzt der Default den Zustand auf höchstens 5 laufende und 20 wartende Starts. Runner-Pool-Größe, validierte Request-Last und Admission-Cap sind unabhängige Größen. Änderungen dieser Werte benötigen eine neue Messung; ein höherer Wert ist keine Kapazitätsfreigabe.
 
 ## Production Checklist
 
@@ -121,6 +132,7 @@ Beim Boot müssen Image, Docker-Daemon, Mounts, Secrets und Origin-Allowlist ver
 - Trusted Proxy und Origin-Allowlist exakt gesetzt.
 - Gateway-Secret gesetzt und außerhalb des Repositories verwaltet.
 - Rate Limiting aktiv (`DISABLE_RATE_LIMIT=false`).
+- Admission Control aktiv und passend zum gemessenen Runner-Durchsatz gesetzt (Default 25).
 - Test-Endpunkte deaktiviert (`ENABLE_TEST_ENDPOINTS=false`).
 - Sandbox-Image vorhanden und auf den geprüften Release-Stand festgelegt.
 - Docker-Sandbox verwendet die dokumentierten Laufzeitoptionen und keine Host-Mounts außer `/sandbox`.

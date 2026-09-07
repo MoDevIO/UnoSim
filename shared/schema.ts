@@ -81,6 +81,7 @@ export const WSMessageType = {
   SET_PIN_VALUE: "set_pin_value",
   IO_REGISTRY: "io_registry",
   SIM_TELEMETRY: "sim_telemetry",
+  OPERATION_ERROR: "operation_error",
 } as const;
 
 // WebSocket message types
@@ -228,6 +229,18 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       serialDroppedBytesPerSecond: z.number(),
     }),
   }),
+  z.object({
+    type: z.literal("operation_error"),
+    operation: z.enum(["compile", "start_simulation"]),
+    code: z.enum([
+      "RATE_LIMITED",
+      "SYSTEM_BUSY",
+      "SIMULATION_ALREADY_ACTIVE",
+      "SIMULATION_START_FAILED",
+    ]),
+    message: z.string(),
+    retryAfter: z.number().int().positive().optional(),
+  }).strict(),
 ]);
 
 export type WSMessage = z.infer<typeof wsMessageSchema>;

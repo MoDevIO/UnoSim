@@ -10,6 +10,7 @@ export type PinStatePayload = Extract<WSMessage, { type: "pin_state" }>;
 export type PinStateBatchPayload = Extract<WSMessage, { type: "pin_state_batch" }>;
 export type IoRegistryPayload = Extract<WSMessage, { type: "io_registry" }>;
 export type SimTelemetryPayload = Extract<WSMessage, { type: "sim_telemetry" }>;
+export type OperationErrorPayload = Extract<WSMessage, { type: "operation_error" }>;
 
 /**
  * Type-guard for incoming socket messages.

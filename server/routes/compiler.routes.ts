@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Response } from "express";
 import type { CompilationResult, CompileRequestOptions } from "../services/arduino-compiler";
 import type { Logger } from "@shared/logger";
 import { compileRequestSchema } from "@shared/schema";
@@ -6,6 +6,9 @@ import { TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import { resolvePathWithinRoot } from "../security/safe-paths";
 import { compileMetricsTracker } from "../services/server-metrics";
 import path from "node:path";
+import type { RequestIdentity } from "../security/access-control";
+import type { RateLimitResult } from "../services/rate-limiter";
+import { operationError } from "@shared/operation-errors";
 
 type CompilerHeader = { name: string; content: string };
 
@@ -19,6 +22,8 @@ type CompilerDeps = {
   CACHE_TTL: number;
   setLastCompiledCode: (code: string | null) => void;
   logger: Logger;
+  compileRateLimiter?: { checkLimit: (identity: string) => RateLimitResult };
+  disableRateLimit?: boolean;
 };
 
 type CompileRequestData = {
@@ -77,12 +82,59 @@ function recordCompileErrorIfNeeded(
   compileMetricsTracker.recordCompileComplete(compileStartTime, 0, false, message.toLowerCase().includes("timeout"));
 }
 
+function enforceCompileRateLimit(
+  res: Response,
+  deps: CompilerDeps,
+): boolean {
+  if (!deps.compileRateLimiter || deps.disableRateLimit) return true;
+
+  const identity = res.locals.unosimIdentity as RequestIdentity | undefined;
+  if (!identity) {
+    deps.logger.error("[Compiler Route] Missing trusted request identity");
+    res.status(500).json({ error: "Compilation failed" });
+    return false;
+  }
+
+  const limit = deps.compileRateLimiter.checkLimit(identity.subject);
+  if (!limit.allowed) {
+    res.setHeader("Retry-After", String(limit.retryAfter));
+    res.status(429).json({
+      error: operationError(
+        "RATE_LIMITED",
+        "Compile rate limit exceeded. Please try again later.",
+        limit.retryAfter,
+      ),
+    });
+    return false;
+  }
+
+  return true;
+}
+
+function getCachedCompilation(
+  compilationCache: CompilerDeps["compilationCache"],
+  codeHash: string,
+  cacheTtl: number,
+  cacheDisabled: boolean,
+): { result: CompilationResult; ageMs: number } | null {
+  if (cacheDisabled) return null;
+  const cachedEntry = compilationCache.get(codeHash);
+  if (!cachedEntry) return null;
+
+  const ageMs = Date.now() - cachedEntry.timestamp;
+  if (ageMs < cacheTtl) return { result: cachedEntry.result, ageMs };
+  compilationCache.delete(codeHash);
+  return null;
+}
+
 export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
   const { compiler, compilationCache, hashCode, CACHE_TTL, setLastCompiledCode, logger } = deps;
 
   app.post("/api/compile", async (req, res) => {
     let compileStartTime: number | null = null;
     try {
+      if (!enforceCompileRateLimit(res, deps)) return;
+
       const parsedRequest = parseCompileRequest(req.body);
       if (!parsedRequest.success) {
         return res.status(400).json({ error: parsedRequest.error });
@@ -90,20 +142,17 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
       const { code, headers, fqbn, libraries } = parsedRequest.data;
 
       const codeHash = hashCode(code, headers, { fqbn, libraries });
-      const cachedEntry = compilationCache.get(codeHash);
-
       const cacheDisabled = process.env.DISABLE_COMPILE_CACHE === "true";
-
-      if (!cacheDisabled && cachedEntry) {
-        const cacheAge = Date.now() - cachedEntry.timestamp;
-        if (cacheAge < CACHE_TTL) {
-          logger.info(`✅ Cache hit for code (age: ${cacheAge}ms)`);
-          const result = cachedEntry.result;
-          setLastCompiledCode(code);
-          return res.json({ ...result, cached: true });
-        } else {
-          compilationCache.delete(codeHash);
-        }
+      const cachedResult = getCachedCompilation(
+        compilationCache,
+        codeHash,
+        CACHE_TTL,
+        cacheDisabled,
+      );
+      if (cachedResult) {
+        logger.info(`✅ Cache hit for code (age: ${cachedResult.ageMs}ms)`);
+        setLastCompiledCode(code);
+        return res.json({ ...cachedResult.result, cached: true });
       }
 
       const testRunIdHeader = req.header("x-test-run-id");

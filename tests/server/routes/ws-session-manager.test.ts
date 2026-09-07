@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import { WsSessionManager, type ClientState } from "../../../server/routes/simulation/ws-session-manager";
+import { SimulationAdmissionController } from "../../../server/services/simulation-admission-controller";
 
 const logger = {
   debug: vi.fn(),
@@ -28,6 +29,7 @@ function createState(overrides: Partial<ClientState> = {}): ClientState {
     isRunning: false,
     isPaused: false,
     queueAbortController: null,
+    reservation: null,
     ...overrides,
   } as ClientState;
 }
@@ -88,5 +90,77 @@ describe("WsSessionManager", () => {
     expect(otherSocket.send).toHaveBeenLastCalledWith(
       JSON.stringify({ type: "compilation_status", workerTotal: 1 }),
     );
+  });
+
+  it("releases a queued reservation on disconnect", async () => {
+    const pool = { releaseRunner: vi.fn() };
+    const admission = new SimulationAdmissionController(1);
+    const reserved = admission.reserve("student-a");
+    if (!reserved.admitted) throw new Error("reservation failed");
+    const manager = new WsSessionManager({
+      pool: pool as any,
+      logger,
+      admissionController: admission,
+    });
+    const socket = createSocket();
+    const abortController = new AbortController();
+    manager.register(socket, createState({
+      subject: "student-a",
+      reservation: reserved.reservation,
+      queueAbortController: abortController,
+    }));
+
+    await manager.cleanupClient(socket, "disconnect-while-queued");
+
+    expect(abortController.signal.aborted).toBe(true);
+    expect(admission.getStats().active).toBe(0);
+  });
+
+  it("releases the reservation even when runner cleanup fails", async () => {
+    const pool = { releaseRunner: vi.fn().mockRejectedValue(new Error("release failed")) };
+    const admission = new SimulationAdmissionController(1);
+    const reserved = admission.reserve("student-a");
+    if (!reserved.admitted) throw new Error("reservation failed");
+    const runner = { stop: vi.fn().mockRejectedValue(new Error("stop failed")) };
+    const manager = new WsSessionManager({
+      pool: pool as any,
+      logger,
+      admissionController: admission,
+    });
+    const state = createState({
+      subject: "student-a",
+      runner: runner as any,
+      isRunning: true,
+      reservation: reserved.reservation,
+    });
+
+    await manager.safeReleaseRunner(state, "runner-error");
+
+    expect(admission.getStats().active).toBe(0);
+    expect(state.reservation).toBeNull();
+  });
+
+  it("does not release a newer reservation from a stale callback", async () => {
+    const pool = { releaseRunner: vi.fn() };
+    const admission = new SimulationAdmissionController(1);
+    const first = admission.reserve("student-a");
+    if (!first.admitted) throw new Error("first reservation failed");
+    admission.release(first.reservation);
+    const second = admission.reserve("student-a");
+    if (!second.admitted) throw new Error("second reservation failed");
+    const manager = new WsSessionManager({
+      pool: pool as any,
+      logger,
+      admissionController: admission,
+    });
+    const state = createState({
+      subject: "student-a",
+      reservation: second.reservation,
+    });
+
+    await manager.safeReleaseRunner(state, "stale-exit", first.reservation);
+
+    expect(admission.getStats().active).toBe(1);
+    expect(state.reservation).toBe(second.reservation);
   });
 });

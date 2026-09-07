@@ -7,7 +7,11 @@ import { readdir, stat } from "node:fs/promises";
 import { storage } from "./storage";
 import { getCompilerWithFallback } from "./services/compiler-with-fallback";
 import { SandboxRunner } from "./services/sandbox-runner";
-import { getSimulationRateLimiter } from "./services/rate-limiter";
+import {
+  getCompileRateLimiter,
+  getSimulationRateLimiter,
+} from "./services/rate-limiter";
+import { getSimulationAdmissionController } from "./services/simulation-admission-controller";
 import { shouldSendSimulationEndMessage } from "./services/simulation-end";
 import {
   getSandboxRunnerPool,
@@ -251,6 +255,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       lastCompiledCode = code;
     },
     logger,
+    compileRateLimiter: getCompileRateLimiter(),
+    disableRateLimit: config.server.disableRateLimit,
   });
 
   // --- WebSocket handler (moved to modular WS file) ---
@@ -260,6 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   simulationApi = registerSimulationWebSocket(httpServer, {
     SandboxRunner,
     getSimulationRateLimiter,
+    getSimulationAdmissionController,
     shouldSendSimulationEndMessage,
     getLastCompiledCode: () => lastCompiledCode,
     logger,

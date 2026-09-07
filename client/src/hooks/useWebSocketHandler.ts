@@ -19,6 +19,7 @@ import type {
   CompilationStatusPayload,
   CompilationErrorPayload,
   SimTelemetryPayload,
+  OperationErrorPayload,
 } from "@/types/websocket";
 
 const logger = new Logger("useWebSocketHandler");
@@ -266,6 +267,15 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setSimulationStatus("idle");
   };
 
+  const handleOperationError = (message: OperationErrorPayload) => {
+    setCliOutput(message.message);
+    setShowCompilationOutput(true);
+    setActiveOutputTab("compiler");
+    if (message.operation === "start_simulation") {
+      setSimulationStatus("idle");
+    }
+  };
+
   /** Handle simulation_status messages. */
   const handleSimulationStatus = (message: SimulationStatusPayload) => {
     const { status } = message;
@@ -419,6 +429,9 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
         break;
       case "simulation_status":
         handleSimulationStatus(message);
+        break;
+      case "operation_error":
+        handleOperationError(message);
         break;
       case "pin_state":
         handlePinState(message);

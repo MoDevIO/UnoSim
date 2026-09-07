@@ -180,6 +180,35 @@ describe("HTTP authorization middleware", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ subject: "student-1" });
   });
+
+  it("uses server-signed local sessions and keeps clients independent", async () => {
+    const app = express();
+    app.get(
+      "/protected",
+      createUserAuthorizationMiddleware({ mode: "local" }),
+      (_req, res) => res.json({ subject: res.locals.unosimIdentity.subject }),
+    );
+    const server = await new Promise<http.Server>((resolve) => {
+      const listeningServer = app.listen(0, () => resolve(listeningServer));
+    });
+    servers.push(server);
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Missing port");
+    const url = `http://127.0.0.1:${address.port}/protected`;
+
+    const first = await fetch(url);
+    const firstBody = await first.json() as { subject: string };
+    const cookie = first.headers.get("set-cookie")?.split(";", 1)[0];
+    if (!cookie) throw new Error("Missing local session cookie");
+    const sameClient = await fetch(url, { headers: { Cookie: cookie } });
+    const secondClient = await fetch(url, {
+      headers: { "X-UnoSim-Subject": firstBody.subject },
+    });
+
+    expect((await sameClient.json()).subject).toBe(firstBody.subject);
+    expect((await secondClient.json()).subject).not.toBe(firstBody.subject);
+    expect(firstBody.subject).toMatch(/^local\.[A-Za-z0-9_-]{22}$/);
+  });
 });
 
 describe("WebSocket authorization verifier", () => {

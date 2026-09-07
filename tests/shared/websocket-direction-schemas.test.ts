@@ -41,6 +41,14 @@ describe("WebSocket direction schemas", () => {
     ).toBe(false);
     expect(
       clientToServerWSMessageSchema.safeParse({
+        type: "operation_error",
+        operation: "start_simulation",
+        code: "SYSTEM_BUSY",
+        message: "busy",
+      }).success,
+    ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
         type: "set_pin_value",
         pin: 14,
         value: 1023,
@@ -88,5 +96,14 @@ describe("WebSocket direction schemas", () => {
         type: "start_simulation",
       }).success,
     ).toBe(false);
+    expect(
+      serverToClientWSMessageSchema.safeParse({
+        type: "operation_error",
+        operation: "start_simulation",
+        code: "SYSTEM_BUSY",
+        message: "busy",
+        retryAfter: 5,
+      }).success,
+    ).toBe(true);
   });
 });

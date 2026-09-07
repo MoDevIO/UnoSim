@@ -13,8 +13,8 @@ import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import path from "node:path";
 import { writeFile, access } from "node:fs/promises";
 import {
-  authorizeHeaders,
   createWebSocketAuthorizationVerifier,
+  getRequestAuthorization,
   type TrustConfig,
 } from "../security/access-control";
 import { INPUT_LIMITS } from "@shared/input-limits";
@@ -22,6 +22,47 @@ import { WsMessageRouter } from "./simulation/ws-message-router";
 import { type ClientState, WsSessionManager } from "./simulation/ws-session-manager";
 import { sendMessageToClient, WsOutputBuffer } from "./simulation/ws-output-buffer";
 import { WEBSOCKET_PROTOCOL_VERSION } from "../services/protocol-version";
+import {
+  AdmissionResult,
+  SimulationAdmissionController,
+  SimulationReservation,
+} from "../services/simulation-admission-controller";
+import { operationError, SYSTEM_BUSY_MESSAGE } from "@shared/operation-errors";
+
+function sendStartError(
+  ws: WebSocket,
+  error: ReturnType<typeof operationError>,
+): void {
+  sendMessageToClient(ws, {
+    type: WSMessageType.OPERATION_ERROR,
+    operation: "start_simulation",
+    ...error,
+  });
+  sendMessageToClient(ws, {
+    type: WSMessageType.SIMULATION_STATUS,
+    status: "stopped",
+  });
+}
+
+function rejectAdmission(
+  ws: WebSocket,
+  admission: Extract<AdmissionResult, { admitted: false }>,
+): void {
+  if (admission.reason === "capacity") {
+    sendStartError(
+      ws,
+      operationError("SYSTEM_BUSY", SYSTEM_BUSY_MESSAGE, 5),
+    );
+  } else {
+    sendStartError(
+      ws,
+      operationError(
+        "SIMULATION_ALREADY_ACTIVE",
+        "Für diesen Nutzer läuft bereits eine Simulation oder wartet auf einen Runner.",
+      ),
+    );
+  }
+}
 
 /**
  * Handle "pause_simulation" WebSocket message
@@ -111,6 +152,7 @@ type SimulationDeps = {
       retryAfter?: number;
     };
   };
+  getSimulationAdmissionController?: () => SimulationAdmissionController;
   shouldSendSimulationEndMessage: (compileFailed: boolean) => boolean;
   getLastCompiledCode: () => string | null;
   logger: Logger;
@@ -133,6 +175,8 @@ export function registerSimulationWebSocket(
     runnerPool,
   } = deps;
   const pool = runnerPool ?? getSandboxRunnerPool();
+  const admissionController = deps.getSimulationAdmissionController?.() ??
+    new SimulationAdmissionController();
 
   const wss = new WebSocketServer({
     server: httpServer,
@@ -149,7 +193,11 @@ export function registerSimulationWebSocket(
     ),
   });
 
-  const sessionManager = new WsSessionManager({ pool, logger });
+  const sessionManager = new WsSessionManager({
+    pool,
+    logger,
+    admissionController,
+  });
   const outputBuffer = new WsOutputBuffer();
 
   function safeReleaseRunner(
@@ -163,7 +211,11 @@ export function registerSimulationWebSocket(
    * Build all callback functions for sketch execution (onOutput, onError, etc.)
    * Extracted to reduce cognitive complexity of message handler.
    */
-  function buildRunSketchCallbacks(ws: WebSocket, clientState: ClientState) {
+  function buildRunSketchCallbacks(
+    ws: WebSocket,
+    clientState: ClientState,
+    reservation: SimulationReservation,
+  ) {
     let compileFailed = false;
 
     const onOutput = (line: string, isComplete?: boolean) => {
@@ -188,7 +240,11 @@ export function registerSimulationWebSocket(
         try {
           outputBuffer.flushSerialOutputBuffer(ws);
           if (capturedCs) {
-            await safeReleaseRunner(capturedCs, "onExit");
+            await sessionManager.safeReleaseRunner(
+              capturedCs,
+              "onExit",
+              reservation,
+            );
           }
 
           if (!shouldSendSimulationEndMessage(compileFailed)) return;
@@ -228,7 +284,11 @@ export function registerSimulationWebSocket(
       });
       const cs = sessionManager.get(ws);
       if (cs) {
-        safeReleaseRunner(cs, "onCompileError").catch((error) => {
+        sessionManager.safeReleaseRunner(
+          cs,
+          "onCompileError",
+          reservation,
+        ).catch((error) => {
           logger.warn(
             `[SandboxRunnerPool] safeReleaseRunner failed in onCompileError: ${error}`,
           );
@@ -352,12 +412,18 @@ export function registerSimulationWebSocket(
   async function acquireRunnerForClient(
     ws: WebSocket,
     clientState: ClientState,
+    reservation: SimulationReservation,
   ): Promise<boolean> {
     const acquireAbort = new AbortController();
     clientState.queueAbortController = acquireAbort;
     try {
       clientState.runner = await pool.acquireRunner(acquireAbort.signal);
       clientState.queueAbortController = null;
+      if (clientState.reservation !== reservation) {
+        await pool.releaseRunner(clientState.runner);
+        clientState.runner = null;
+        return false;
+      }
       logger.debug(
         `[SandboxRunnerPool] Acquired runner for client. Pool stats: ${JSON.stringify(pool.getStats())}`,
       );
@@ -373,18 +439,19 @@ export function registerSimulationWebSocket(
         );
       } else {
         logger.error(`[SandboxRunnerPool] Failed to acquire runner: ${error}`);
-        sendMessageToClient(ws, {
-          type: WSMessageType.SERIAL_OUTPUT,
-          data: "[ERR] Server overloaded. All runners busy. Please try again.\n",
-        });
-        sendMessageToClient(ws, {
-          type: WSMessageType.SIMULATION_STATUS,
-          status: "stopped",
-        });
+        sendStartError(
+          ws,
+          operationError("SYSTEM_BUSY", SYSTEM_BUSY_MESSAGE, 5),
+        );
       }
       clientState.runner = null;
       clientState.isRunning = false;
       clientState.isPaused = false;
+      await sessionManager.safeReleaseRunner(
+        clientState,
+        "runner-acquire-failed",
+        reservation,
+      );
       return false;
     }
   }
@@ -434,18 +501,14 @@ export function registerSimulationWebSocket(
         `[RateLimit] Simulation start rejected. Retry after ${retryAfter}s`,
       );
 
-      if (clientState?.runner) {
-        await safeReleaseRunner(clientState, "rate-limit");
-      }
-
-      sendMessageToClient(ws, {
-        type: WSMessageType.SERIAL_OUTPUT,
-        data: `[ERR] Rate limit exceeded. Too many simulation starts. Please wait ${retryAfter} seconds before starting again.\n`,
-      });
-      sendMessageToClient(ws, {
-        type: WSMessageType.SIMULATION_STATUS,
-        status: "stopped",
-      });
+      sendStartError(
+        ws,
+        operationError(
+          "RATE_LIMITED",
+          `Simulation start rate limit exceeded. Please wait ${retryAfter} seconds before starting again.`,
+          retryAfter,
+        ),
+      );
       return;
     }
 
@@ -476,10 +539,13 @@ export function registerSimulationWebSocket(
       return;
     }
 
-    // Release any existing runner
-    if (clientState.runner) {
-      await safeReleaseRunner(clientState, "start-replace-existing");
+    const admission = admissionController.reserve(clientState.subject);
+    if (!admission.admitted) {
+      rejectAdmission(ws, admission);
+      return;
     }
+    const reservation = admission.reservation;
+    clientState.reservation = reservation;
 
     // If the pool is saturated, notify client it is queued and wait for a slot
     const statsBeforeAcquire = pool.getStats();
@@ -499,7 +565,7 @@ export function registerSimulationWebSocket(
     // Acquire new runner from pool (may block until a slot is released).
     // The AbortController is managed inside acquireRunnerForClient; it is set on
     // clientState so the WS-close handler can cancel the wait on disconnect.
-    if (!(await acquireRunnerForClient(ws, clientState))) return;
+    if (!(await acquireRunnerForClient(ws, clientState, reservation))) return;
     const acquiredRunner = clientState.runner!; // non-null: acquireRunnerForClient returned true
 
     // Slot assignment: tell client which runner slot they own immediately
@@ -526,7 +592,7 @@ export function registerSimulationWebSocket(
     sessionManager.broadcastWorkerTotal(ws);
 
     // Build callbacks
-    const callbacks = buildRunSketchCallbacks(ws, clientState);
+    const callbacks = buildRunSketchCallbacks(ws, clientState, reservation);
     const timeoutValue = "timeout" in data ? data.timeout : undefined;
     logger.info(`[Simulation] Starting with timeout: ${timeoutValue}s`);
 
@@ -556,6 +622,19 @@ export function registerSimulationWebSocket(
       });
     } catch (error) {
       logger.error(`[Simulation] runSketch failed: ${error}`);
+      await sessionManager.safeReleaseRunner(
+        clientState,
+        "runSketch-error",
+        reservation,
+      );
+      sendStartError(
+        ws,
+        operationError(
+          "SIMULATION_START_FAILED",
+          "Simulation could not be started.",
+        ),
+      );
+      return;
     }
 
     const sandboxStatus = runnerForStatus.getSandboxStatus();
@@ -572,10 +651,8 @@ export function registerSimulationWebSocket(
     _ws: WebSocket,
     clientState: ClientState,
   ): Promise<void> {
-    if (
-      clientState?.runner &&
-      (clientState?.isRunning || clientState?.isPaused)
-    ) {
+    if (clientState?.runner || clientState?.reservation) {
+      sessionManager.abortQueuedAcquire(clientState);
       await safeReleaseRunner(clientState, "code_changed");
       sendMessageToClient(_ws, {
         type: WSMessageType.SIMULATION_STATUS,
@@ -595,7 +672,8 @@ export function registerSimulationWebSocket(
     _ws: WebSocket,
     clientState: ClientState,
   ): Promise<void> {
-    if (clientState?.runner) {
+    sessionManager.abortQueuedAcquire(clientState);
+    if (clientState?.runner || clientState?.reservation) {
       await safeReleaseRunner(clientState, "stop_simulation");
     }
     sendMessageToClient(_ws, {
@@ -625,7 +703,7 @@ export function registerSimulationWebSocket(
   });
 
   wss.on("connection", (ws, req) => {
-    const authorization = authorizeHeaders(req.headers, deps.trust);
+    const authorization = getRequestAuthorization(req, deps.trust);
     if (!authorization.allowed) {
       ws.close(1008, "Unauthorized");
       return;
@@ -653,6 +731,7 @@ export function registerSimulationWebSocket(
       isPaused: false,
       testRunId,
       queueAbortController: null,
+      reservation: null,
     });
 
     const clientState = sessionManager.get(ws);
@@ -709,7 +788,8 @@ export function registerSimulationWebSocket(
     const cleanedTestRunIds: (string | undefined)[] = [];
 
     for (const [ws, clientState] of sessionManager.entries()) {
-      if (clientState.runner) {
+      sessionManager.abortQueuedAcquire(clientState);
+      if (clientState.runner || clientState.reservation) {
         await safeReleaseRunner(clientState, "test-reset");
       }
       clientState.isRunning = false;

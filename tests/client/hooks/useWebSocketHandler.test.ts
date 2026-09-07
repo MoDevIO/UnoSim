@@ -171,6 +171,24 @@ describe("useWebSocketHandler", () => {
     expect(params.resumeRendering).toHaveBeenCalled();
   });
 
+  it("shows the required SYSTEM_BUSY message", () => {
+    const message = "Der Simulator ist momentan ausgelastet. Bitte in wenigen Sekunden erneut versuchen.";
+    mockMessageQueue.push({
+      type: "operation_error",
+      operation: "start_simulation",
+      code: "SYSTEM_BUSY",
+      message,
+      retryAfter: 5,
+    });
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(params.setCliOutput).toHaveBeenCalledWith(message);
+    expect(params.setShowCompilationOutput).toHaveBeenCalledWith(true);
+    expect(params.setActiveOutputTab).toHaveBeenCalledWith("compiler");
+    expect(params.setSimulationStatus).toHaveBeenCalledWith("idle");
+  });
+
   it("processes pin_state message", () => {
     mockMessageQueue.push({ type: "pin_state", pin: 13, stateType: "digital", value: 1 });
 

@@ -24,8 +24,13 @@ Validierung liegt im Archiv.
 - Der lokale Vertrauensmodus bindet standardmäßig nur an `127.0.0.1` und ist
   für Produktion gesperrt, außer bei einem ausdrücklich gesetzten
   Entwicklungs-Override.
-- API-Rate-Limiting ist standardmäßig aktiv. `DISABLE_RATE_LIMIT` darf nur in
-  isolierten Tests verwendet werden.
+- Das allgemeine API-Limit sowie separate Compile- und Simulationsstart-Limits
+  sind standardmäßig aktiv. `DISABLE_RATE_LIMIT` darf nur in isolierten Tests
+  verwendet werden.
+- Gateway-Limits verwenden ausschließlich den nach Secret- und Rollenprüfung
+  akzeptierten Subject. Local/Test-Clients werden durch serverseitig signierte
+  Local-Session-Cookies getrennt; `X-UnoSim-Subject`, `X-Test-Run-ID` und
+  Query-Parameter sind dort keine vertrauenswürdige Nutzeridentität.
 
 ### Ausführung fremden Sketch-Codes
 
@@ -40,6 +45,11 @@ Validierung liegt im Archiv.
   Eingaben werden validiert.
 - Kompilierung und Laufzeit besitzen Zeit- und Ausgabelimits. Queue-, Worker-
   und Runner-Pools begrenzen die Parallelität.
+- Pro Subject darf höchstens ein Simulationsstart reserviert sein. Die
+  tokenisierte Reservation umfasst laufende und wartende Starts und wird bei
+  Stop, Disconnect, Start-/Compilefehler, Timeout und Cleanup freigegeben.
+  Eine globale, prozesslokale Admission-Grenze weist zusätzliche Starts sofort
+  mit `SYSTEM_BUSY` ab, bevor sie die Runner-Queue verlängern.
 - Prozessstarts verwenden Argumentlisten ohne Shell-Interpolation; erlaubte
   Programme und Argumente werden geprüft.
 
@@ -103,7 +113,9 @@ Direkte native Ausführung ohne Container-Isolation. Dies ist die unsicherste Be
    dem dafür vorgesehenen Backend zugänglich machen.
 4. Den Server nicht direkt ins Internet stellen; TLS, Authentifizierung und
    Request-Limits gehören an den Reverse Proxy.
-5. Vor jedem Release `./run-tests.sh` ausführen und ein grünes SonarQube-Gate
+5. Anwendungsseitige Rate Limits und Admission Control nicht deaktivieren;
+   Grenzänderungen nur anhand neuer Lastmessungen vornehmen.
+6. Vor jedem Release `./run-tests.sh` ausführen und ein grünes SonarQube-Gate
    sowie keine offenen sicherheitsrelevanten Issues bestätigen.
 
 Sicherheitslücken bitte nicht öffentlich in Issues melden, sondern zunächst an

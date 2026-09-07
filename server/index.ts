@@ -10,6 +10,7 @@ import type { Server } from "node:http";
 import { getCompilationPool } from "./services/compilation-worker-pool";
 import { config } from "./config";
 import { INPUT_LIMITS } from "@shared/input-limits";
+import { createLocalSessionMiddleware } from "./security/access-control";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -66,6 +67,8 @@ function startCleanupService(): NodeJS.Timeout {
 }
 
 const app = express();
+
+app.use(createLocalSessionMiddleware(config.trust));
 
 if (config.trust.mode === "gateway") {
   app.set("trust proxy", config.trust.trustedProxy);

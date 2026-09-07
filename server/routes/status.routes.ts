@@ -6,6 +6,11 @@ import { config } from "../config";
 import { getProcessMetrics, compileMetricsTracker, webSocketMetricsTracker, evaluateObservabilityAlerts } from "../services/server-metrics";
 import { getCompilerWithFallback } from "../services/compiler-with-fallback";
 import { REST_API_VERSION } from "../services/protocol-version";
+import {
+  getCompileRateLimiter,
+  getSimulationRateLimiter,
+} from "../services/rate-limiter";
+import { getSimulationAdmissionController } from "../services/simulation-admission-controller";
 
 // Create router for testing
 export const statusRouter = Router();
@@ -34,6 +39,9 @@ statusRouter.get("/api/status", (_req, res) => {
     const compileMetrics = compileMetricsTracker.getMetrics();
     const wsMetrics = webSocketMetricsTracker.getMetrics();
     const compilerStats = getCompilerWithFallback().getStats();
+    const compileRateStats = getCompileRateLimiter().getStats();
+    const simulationRateStats = getSimulationRateLimiter().getStats();
+    const admissionStats = getSimulationAdmissionController().getStats();
 
     res.json({
       status: "ok",
@@ -62,6 +70,17 @@ statusRouter.get("/api/status", (_req, res) => {
         inUse: poolStats.inUseRunners,
         queued: poolStats.queuedRequests,
         max: poolStats.maxRunners,
+      },
+      admissionControl: admissionStats,
+      rateLimits: {
+        compile: {
+          blockedIdentities: compileRateStats.blockedClients,
+          rejectedTotal: compileRateStats.rejectedTotal,
+        },
+        simulationStart: {
+          blockedIdentities: simulationRateStats.blockedClients,
+          rejectedTotal: simulationRateStats.rejectedTotal,
+        },
       },
       // Observability metrics (Phase 3.9)
       webSocketSessions: {

@@ -22,6 +22,13 @@ vi.mock("@shared/logger", () => ({
 function createApp() {
   const app = express();
   app.use(express.json());
+  app.use((req, res, next) => {
+    res.locals.unosimIdentity = {
+      subject: req.header("x-fixture-subject") ?? "student-a",
+      roles: ["user"],
+    };
+    next();
+  });
   return app;
 }
 
@@ -41,7 +48,7 @@ async function post(
   path: string,
   body: unknown,
   headers?: Record<string, string>,
-): Promise<{ status: number; body: any }> {
+): Promise<{ status: number; body: any; headers: http.IncomingHttpHeaders }> {
   return new Promise((resolve, reject) => {
     const url = new URL(path, baseUrl);
     const payload = JSON.stringify(body);
@@ -60,6 +67,7 @@ async function post(
           resolve({
             status: res.statusCode ?? 200,
             body: data ? JSON.parse(data) : undefined,
+            headers: res.headers,
           });
         });
       },
@@ -83,6 +91,7 @@ function createMockDeps(overrides: Partial<any> = {}): any {
     CACHE_TTL: 5 * 60 * 1000,
     setLastCompiledCode: vi.fn(),
     logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    compileRateLimiter: { checkLimit: vi.fn(() => ({ allowed: true })) },
     ...overrides,
   };
 }
@@ -193,6 +202,26 @@ describe("compiler.routes - /api/compile", () => {
       { fqbn: undefined, libraries: undefined },
     );
     expect(deps.setLastCompiledCode).toHaveBeenCalledWith("void setup(){}");
+  });
+
+  it("returns structured 429 and Retry-After for the compile limit", async () => {
+    deps.compileRateLimiter.checkLimit.mockReturnValue({
+      allowed: false,
+      retryAfter: 7,
+    });
+
+    const res = await post(baseUrl, "/api/compile", { code: "void setup(){}" });
+
+    expect(res.status).toBe(429);
+    expect(res.headers["retry-after"]).toBe("7");
+    expect(res.body).toEqual({
+      error: {
+        code: "RATE_LIMITED",
+        message: "Compile rate limit exceeded. Please try again later.",
+        retryAfter: 7,
+      },
+    });
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
   });
 
   it("returns cached result for same code", async () => {
