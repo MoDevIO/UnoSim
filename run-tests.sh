@@ -9,6 +9,7 @@ LOG_FILE="run-tests_output.log"
 TOTAL_STEPS=10
 STEP=0
 SERVER_PID=""
+REQUIRE_RELEASE_GATE="${REQUIRE_RELEASE_GATE:-0}"
 
 # Policy: Standard Log-Level für die Pipeline ist ERROR (1)
 export LOG_LEVEL=1 
@@ -244,8 +245,12 @@ if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
         echo "$stale_after" | xargs docker rm -f >/dev/null 2>&1
     fi
 else
-    [ "$DOCKER_LOST" -eq 0 ] && echo -e "  ${WARN} Docker not available – Docker tests skipped (Steps 5+6)"
-    STEP=$((STEP+2))
+  [ "$DOCKER_LOST" -eq 0 ] && echo -e "  ${WARN} Docker not available – Docker tests skipped (Steps 5+6)"
+  if [ "$REQUIRE_RELEASE_GATE" = "1" ]; then
+    echo -e "  ${FAIL} Release-Gate requires Docker for mandatory Docker/E2E tests"
+    exit 1
+  fi
+  STEP=$((STEP+2))
 fi
 
 # --- SERVER START (unnumbered) ---
@@ -268,7 +273,11 @@ if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
 fi
 
 if [ "$DOCKER_FOR_E2E" -eq 0 ]; then
-    echo -e "  ${WARN} Docker nicht verfügbar – E2E-Tests erfordern Docker-Sandbox"
+  echo -e "  ${WARN} Docker nicht verfügbar – E2E-Tests erfordern Docker-Sandbox"
+  if [ "$REQUIRE_RELEASE_GATE" = "1" ]; then
+    echo -e "  ${FAIL} Release-Gate requires Docker for mandatory E2E tests"
+    exit 1
+  fi
     STEP=$((STEP+1))
     echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] E2E-Tests (Playwright)${RS}"
     echo -e "  ${WARN} Übersprungen – Docker nicht verfügbar (Sandbox benötigt)"
@@ -310,10 +319,16 @@ fi
 # 9. Production build
 run_task "Production Build" "npm run build"
 
-# 10. SonarQube Quality Gate Check
+# 10. Security audit
+run_task "Security Audit" "npm audit --audit-level=high --omit=dev"
+
+# 11. SonarQube Quality Gate Check
 if [ -n "$SONAR_TOKEN" ] && curl -sf http://localhost:9000/api/system/status > /dev/null 2>&1; then
     STEP=$((STEP+1))
     echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] SonarQube Quality Gate${RS}"
+    if [ "$REQUIRE_RELEASE_GATE" = "1" ]; then
+        run_task "SonarQube Analysis" "npm run sonar"
+    fi
     if ! command -v python3 >/dev/null 2>&1; then
         echo -e "    ${WARN} python3 not found – Quality Gate details unavailable"
         echo -e "    ${D}(informational — does not block pipeline)${RS}"
@@ -353,15 +368,22 @@ for c in d['projectStatus']['conditions']:
                 echo -e "      Open Issues: ${ISSUE_COUNT:-?}"
             fi
 
-            # Quality gate status is informational, not blocking
-            echo -e "    ${D}(informational — does not block pipeline)${RS}"
+            if [ "$REQUIRE_RELEASE_GATE" = "1" ] && [ "$QG_STATUS" != "OK" ]; then
+                echo -e "    ${FAIL} Release-Gate blocked by SonarQube Quality Gate"
+                exit 1
+            fi
         else
             echo -e "    ${WARN} Could not fetch quality gate status"
+            [ "$REQUIRE_RELEASE_GATE" = "1" ] && exit 1
         fi
     fi
 else
-    STEP=$((STEP+1))
-    echo -e "\n  ${WARN} SonarQube not available – Quality Gate check skipped (Step $STEP)"
+  STEP=$((STEP+1))
+  echo -e "\n  ${WARN} SonarQube not available – Quality Gate check skipped (Step $STEP)"
+  if [ "$REQUIRE_RELEASE_GATE" = "1" ]; then
+    echo -e "  ${FAIL} Release-Gate requires reachable SonarQube and SONAR_TOKEN"
+    exit 1
+  fi
 fi
 
 echo
