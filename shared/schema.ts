@@ -137,6 +137,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("handshake"),
     testRunId: z.string(),
+    protocolVersion: z.string().optional(),
   }),
   z.object({
     type: z.literal("pin_state"),

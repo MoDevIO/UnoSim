@@ -5,6 +5,7 @@ import { getDockerCompileSemaphore } from "../services/sandbox/docker-compile-se
 import { config } from "../config";
 import { getProcessMetrics, compileMetricsTracker, webSocketMetricsTracker, evaluateObservabilityAlerts } from "../services/server-metrics";
 import { getCompilerWithFallback } from "../services/compiler-with-fallback";
+import { REST_API_VERSION } from "../services/protocol-version";
 
 // Create router for testing
 export const statusRouter = Router();
@@ -36,6 +37,7 @@ statusRouter.get("/api/status", (_req, res) => {
 
     res.json({
       status: "ok",
+      apiVersion: REST_API_VERSION,
       timestamp: new Date().toISOString(),
       serverMode: config.serverMode,
       simulationMode: config.simulationMode,

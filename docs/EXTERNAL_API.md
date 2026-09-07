@@ -6,6 +6,25 @@ The Arduino Simulator can be embedded in an `<iframe>` and controlled by its par
 
 **API Version: 1.4.0**
 
+## Versioning and compatibility
+
+The iframe `postMessage` contract is currently version `1.4.0`. Responses and
+events always include this version. Additive fields and message types are
+backward-compatible; removing or changing an existing field requires a new
+major API version and a documented migration period. Historical simulation
+states (`STOPPED` and `QUEUED`) remain accepted for older consumers but are no
+longer emitted by the current contract.
+
+The server REST contract is `1.0.0`, advertised through the `apiVersion` field
+and the `X-UnoSim-API-Version` response header. Clients may send
+`Accept-Version: 1`, `1.0`, or `1.0.0`; unsupported versions receive HTTP 406
+with `error: "unsupported_api_version"` and the supported version list.
+
+The WebSocket contract is `1.0.0`. The server's initial `handshake` message
+includes `protocolVersion`; clients that do not use this field remain
+compatible. A future incompatible WebSocket change requires a new protocol
+version and an explicit migration/parallel-operation period.
+
 ---
 
 ## Security

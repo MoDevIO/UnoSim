@@ -11,12 +11,12 @@ Grundlage: `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`, Abschnitt 10, Maßnahme
 
 | Kennzahl | Stand |
 | --- | ---: |
-| Gesamtfortschritt | ca. 81 % (gewichtete Schätzung) |
-| `verified-done` | 18 |
-| `partial` | 10 |
+| Gesamtfortschritt | ca. 84 % (gewichtete Schätzung) |
+| `verified-done` | 19 |
+| `partial` | 9 |
 | `open` | 2 |
-| Aktive Maßnahme | 3.10 API-/WebSocket-Versionierung |
-| Verbleibende atomare Fachinkremente | ca. 12–18 |
+| Aktive Maßnahme | Keine — Phase 3.4–3.10 fachlich abgeschlossen |
+| Verbleibende atomare Fachinkremente | Keine in Phase 3.4–3.10 |
 | Letzte Verifikation | 2026-09-07 |
 
 **Verifikationsregel:** Statusangaben im aktiven Plan müssen anhand des aktuellen Repository-Zustands verifiziert werden. Historische Abschlussmeldungen bleiben erhalten, gelten aber nicht automatisch als heutiger Ist-Zustand.
@@ -56,7 +56,7 @@ Die Einstufung basiert auf Git-Historie, aktuellem Code, Tests, Coverage-Artefak
 | 3.7 | Release-Gate | `verified-done` | `REQUIRE_RELEASE_GATE=1 ./run-tests.sh` erzwingt Typecheck, Unit/Coverage, Integration, Docker, E2E, Build, `npm audit --audit-level=high --omit=dev`, eine frische SonarQube-Analyse und einen erfolgreichen Quality-Gate-Status mit Fail-Fast-Exit-Codes. | Keine unmittelbare Restarbeit; CI kann denselben Befehl verwenden. |
 | 3.8 | Skalierbarkeit/HA | `verified-done` | ADR 0003 akzeptiert Single-Stateful-Node bis zur gemessenen Grenze. | Keine HA-Implementierung in dieser Roadmap. |
 | 3.9 | Observability | `verified-done` | `/api/status` exponiert Compile-, Queue-, Slot-, Runner-, WebSocket- und Prozessmetriken sowie deterministische `observabilityAlerts`; Schwellenwertüberschreitungen und gesunder Leerlauf sind behavior-orientiert getestet. | Keine unmittelbare Restarbeit; externe Monitoring-/Paging-Anbindung bleibt deployment-spezifisch. |
-| 3.10 | API-/WebSocket-Versionierung | `partial` | iframe-API 1.4.0 und Versionierungsansätze vorhanden. | REST-/WS-Kompatibilitäts- und Migrationstests vervollständigen. |
+| 3.10 | API-/WebSocket-Versionierung | `verified-done` | REST 1.0.0 mit zentraler `Accept-Version`-Verhandlung und 406-Fehlervertrag, WebSocket 1.0.0 im Handshake sowie iframe-API 1.4.0 sind dokumentiert und getestet; additive Alt-Client-Kompatibilität bleibt erhalten. | Keine unmittelbare Restarbeit; neue Breaking Changes benötigen neue Major-Version und Migration. |
 
 ---
 
@@ -118,7 +118,7 @@ Dieser Plan bildet ausschließlich diese Maßnahmen aus `docs/PROJECT_ANALYSIS_R
 | 3.7 Release-Gate | `run-tests.sh` bündelt alle Pflichtschritte; im Release-Modus werden Docker/E2E, Security-Audit und SonarQube verbindlich und jeder Fehler beendet die Pipeline. | Keine unmittelbare Restarbeit; CI-/Release-Aufrufer müssen `REQUIRE_RELEASE_GATE=1` setzen. | Erfüllt, **verified-done**. |
 | 3.8 Skalierbarkeit / HA-Entscheidung | Phase-3.4-Messdaten bestätigen Compile bis 200 und Simulation bis 100; Simulation 200 ist unter aktuellem 5-Runner-Profil nicht stabil. | Single-Stateful-Node bewusst bestätigen oder HA-Zielarchitektur per Entscheidung/ADR abgrenzen. | Entschieden über ADR 0003. |
 | 3.9 Observability | `/api/status`, WS-Events und Serial-/Telemetry-Zähler existieren; Schwellenwerte, Alert-Codes und Tests für Leerlauf sowie Überschreitungen sind umgesetzt. | Strukturierte Signale im bestehenden Endpoint verlässlich betreibbar halten. | Erfüllt, **verified-done**. |
-| 3.10 API-/WebSocket-Versionierung | iframe-API ist mit `1.4.0` versioniert; REST-/WS-Versionierung ist noch nicht vollständig verbindlich operationalisiert. | REST-, WebSocket- und externe API-Versionierung inklusive Kompatibilitäts- und Migrationstests definieren. | Teilweise erfüllt, offen. |
+| 3.10 API-/WebSocket-Versionierung | REST 1.0.0, WS 1.0.0 und iframe 1.4.0 sind zentral deklariert, kompatible Versionserkennung sowie Unsupported-Version-Fehler und Tests existieren. | Versionen bei künftigen Breaking Changes major-versioniert migrieren. | Erfüllt, **verified-done**. |
 
 ---
 
@@ -169,8 +169,7 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 
 1. **3.7 Release-Gate** verbindlich machen, weil alle weiteren Maßnahmen darüber freigegeben werden; Phase 3.6 ist fachlich abgeschlossen.
 3. **3.5 Sandbox-Vertrag** als regelmäßiges Sicherheits-/Docker-Gate operationalisieren.
-4. **3.10 API-/WebSocket-Versionierung** mit Kompatibilitäts- und Migrationstests festlegen.
-6. **3.4/3.8** nur bei neuem Kapazitätsziel erneut ausführen; die bestehende Single-Node-Grenze ist bereits entschieden.
+4. **3.4/3.8** nur bei neuem Kapazitätsziel erneut ausführen; die bestehende Single-Node-Grenze ist bereits entschieden.
 
 Die strukturellen Restabweichungen 2.2–2.7 bleiben dokumentiert, sind aber nach aktueller Priorisierung keine unmittelbaren Phase-3-Arbeitsschritte.
 
@@ -266,8 +265,8 @@ Die strukturellen Restabweichungen 2.2–2.7 bleiben dokumentiert, sind aber nac
 | Voraussetzungen | Phase 3.3 abgeschlossen; Consumer-/Compatibility-Inventar aus Phase 3.3 liegt vor; 3.7-Gate definiert. |
 | Relevante Tests/Gates | `npm run check`, `npm run test:unit`, relevante WS-/Schema-/External-API-Tests, `npm run test:e2e`, Doku-Check. |
 | Abbruchkriterien | Entfernt oder ändert öffentliche Felder ohne Versionierung; setzt Sunset-Fristen ohne Consumer-Evidenz; widerspricht API-Version `1.4.0`. |
-| Commit-Grenze | Policy zuerst; Schema-/Code-Ergänzungen separat; spätere Sunset-/Removal-Commits nur in Major-Release-Arbeit. |
-| Empfohlene Commit-Message | `docs(phase-3.10): define api websocket versioning` |
+| Commit-Grenze | Zentraler Versionsvertrag, additive Kompatibilitätsprüfung, Tests und Dokumentation als ein abgeschlossenes Inkrement; spätere Sunset-/Removal-Commits nur in Major-Release-Arbeit. |
+| Empfohlene Commit-Message | `feat(phase-3.10): finalize api protocol versioning` |
 
 ---
 

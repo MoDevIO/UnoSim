@@ -10,6 +10,7 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 - Dieses Dokument ist der aktuelle Architekturüberblick. Es beschreibt Komponenten, Datenflüsse, State Ownership und Betriebsmodell bewusst zusammenfassend.
 - Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
+- Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
 - Planungs- und Risikoquellen wie `PROJECT_ANALYSIS_REPORT_2026-09-04.md` sind nicht normativ für den Ist-Zustand.
 
 ## 📊 Datenfluss-Diagramm

@@ -47,6 +47,7 @@ describe("GET /api/status - Phase 3.9 Observability Metrics", () => {
     
     // Basic status fields
     expect(data.status).toBe("ok");
+    expect(data.apiVersion).toBe("1.0.0");
     expect(data).toHaveProperty("timestamp");
     
     // Phase 3.9: WebSocket Sessions metrics

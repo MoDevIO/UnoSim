@@ -21,6 +21,7 @@ import { INPUT_LIMITS } from "@shared/input-limits";
 import { WsMessageRouter } from "./simulation/ws-message-router";
 import { type ClientState, WsSessionManager } from "./simulation/ws-session-manager";
 import { sendMessageToClient, WsOutputBuffer } from "./simulation/ws-output-buffer";
+import { WEBSOCKET_PROTOCOL_VERSION } from "../services/protocol-version";
 
 /**
  * Handle "pause_simulation" WebSocket message
@@ -672,6 +673,7 @@ export function registerSimulationWebSocket(
       sendMessageToClient(ws, {
         type: WSMessageType.HANDSHAKE,
         testRunId,
+        protocolVersion: WEBSOCKET_PROTOCOL_VERSION,
       });
     }
 

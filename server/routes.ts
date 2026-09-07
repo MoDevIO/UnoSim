@@ -27,6 +27,7 @@ import { registerConfigRoutes } from "./routes/config.routes";
 import { registerTestResetRoute } from "./routes/test-reset.routes";
 import { config } from "./config";
 import { createUserAuthorizationMiddleware } from "./security/access-control";
+import { apiVersionMiddleware } from "./services/protocol-version";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -76,6 +77,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   await initializeSandboxRunnerPool();
+
+  // All REST endpoints advertise and negotiate the same additive API contract.
+  app.use("/api", apiVersionMiddleware);
 
   // Lightweight health endpoint for backend reachability checks
   app.get("/api/health", (_req, res) => {
