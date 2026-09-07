@@ -18,6 +18,13 @@ type RunnerDouble = {
   stop: ReturnType<typeof vi.fn>;
 };
 
+type PoolDouble = {
+  acquireRunner: ReturnType<typeof vi.fn>;
+  releaseRunner: ReturnType<typeof vi.fn>;
+  getRunnerIndex: ReturnType<typeof vi.fn>;
+  getStats: ReturnType<typeof vi.fn>;
+};
+
 function createRunner(): RunnerDouble {
   return {
     pause: vi.fn(() => true),
@@ -51,13 +58,14 @@ describe("WebSocket lifecycle through the production route", () => {
   let httpServer: Server;
   let client: WebSocket;
   let runner: RunnerDouble;
+  let pool: PoolDouble;
   let messages: ServerToClientWSMessage[];
 
   beforeEach(async () => {
     runner = createRunner();
     messages = [];
 
-    const pool = {
+    pool = {
       acquireRunner: vi.fn().mockResolvedValue(runner),
       releaseRunner: vi.fn().mockResolvedValue(undefined),
       getRunnerIndex: vi.fn(() => 0),
@@ -67,7 +75,7 @@ describe("WebSocket lifecycle through the production route", () => {
         maxRunners: 1,
         queuedRequests: 0,
       })),
-    } as unknown as SandboxRunnerPool;
+    };
 
     httpServer = createServer();
     registerSimulationWebSocket(httpServer, {
@@ -76,7 +84,7 @@ describe("WebSocket lifecycle through the production route", () => {
       shouldSendSimulationEndMessage: () => true,
       getLastCompiledCode: () => null,
       logger: createLogger(),
-      runnerPool: pool,
+      runnerPool: pool as unknown as SandboxRunnerPool,
       trust: { mode: "local" },
       allowedWebSocketOrigins: [],
       disableRateLimit: true,
@@ -180,5 +188,41 @@ describe("WebSocket lifecycle through the production route", () => {
 
     expect(runner.setPinValue).toHaveBeenCalledOnce();
     expect(runner.setPinValue).toHaveBeenCalledWith(13, 1);
+  });
+
+  it("stops a running simulation and releases its runner exactly once", async () => {
+    const stoppedMessagesBeforeStop = messages.filter(
+      (message) => message.type === "simulation_status" && message.status === "stopped",
+    ).length;
+
+    client.send(JSON.stringify({ type: "stop_simulation" }));
+
+    await waitFor(() => runner.stop.mock.calls.length === 1, "runner stop");
+    await waitFor(() => pool.releaseRunner.mock.calls.length === 1, "runner release");
+    await waitFor(
+      () => messages.filter(
+        (message) => message.type === "simulation_status" && message.status === "stopped",
+      ).length > stoppedMessagesBeforeStop,
+      "the stopped state",
+    );
+
+    expect(runner.stop).toHaveBeenCalledOnce();
+    expect(pool.releaseRunner).toHaveBeenCalledOnce();
+    expect(pool.releaseRunner).toHaveBeenCalledWith(runner);
+    expect(messages).toContainEqual({
+      type: "serial_output",
+      data: "--- Simulation stopped ---\n",
+    });
+
+    client.send(JSON.stringify({ type: "stop_simulation" }));
+    await waitFor(
+      () => messages.filter(
+        (message) => message.type === "simulation_status" && message.status === "stopped",
+      ).length > stoppedMessagesBeforeStop + 1,
+      "the repeated stopped state",
+    );
+
+    expect(runner.stop).toHaveBeenCalledOnce();
+    expect(pool.releaseRunner).toHaveBeenCalledOnce();
   });
 });
