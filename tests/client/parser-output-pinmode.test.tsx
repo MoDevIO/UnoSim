@@ -412,7 +412,7 @@ describe("ParserOutput Component", () => {
     await user.click(toggleButton);
 
     await waitFor(() => {
-      expect(screen.getByText("All pins (2)")).not.toBeNull();
+      expect(screen.getByText("All pins (20)")).not.toBeNull();
     });
   });
 
@@ -452,7 +452,28 @@ describe("ParserOutput Component", () => {
     await user.click(showAllLink);
 
     await waitFor(() => {
-      expect(screen.getByText("All pins (1)")).not.toBeNull();
+      expect(screen.getByText("All pins (20)")).not.toBeNull();
+    });
+  });
+
+  it("shows the complete unmarked pin list when all pins are selected", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ParserOutput
+        messages={[]}
+        ioRegistry={[]}
+        onClear={mockOnClear}
+        defaultTab="registry"
+      />,
+    );
+
+    await user.click(screen.getByTitle("Show all pins"));
+
+    await waitFor(() => {
+      expect(screen.getByText("All pins (20)")).not.toBeNull();
+      expect(screen.getByText("A5")).not.toBeNull();
+      expect(screen.queryByText("No pins available")).toBeNull();
     });
   });
 

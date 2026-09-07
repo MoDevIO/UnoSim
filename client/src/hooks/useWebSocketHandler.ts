@@ -237,6 +237,10 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   const handleCompilationStatus = (message: CompilationStatusPayload) => {
     if (message.arduinoCliStatus !== undefined) {
       setArduinoCliStatus(message.arduinoCliStatus);
+      if (message.arduinoCliStatus !== "idle") {
+        setCompilationStatus(message.arduinoCliStatus);
+      }
+      params.setDockerGccPhase?.(message.arduinoCliStatus === "compiling" ? "active" : "idle");
     }
     if (message.sandboxMode !== undefined) {
       setSandboxMode(message.sandboxMode);
@@ -250,7 +254,6 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     if (message.message) {
       setCliOutput(message.message);
     }
-    // gccStatus removed - Docker compile phase tracking migrated to canonical status fields
   };
 
   /** Handle compilation_error messages. */

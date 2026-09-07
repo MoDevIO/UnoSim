@@ -333,7 +333,7 @@ describe("useCompilation", () => {
       });
     });
 
-    expect(result.current.compilationStatus).toBe("success");
+    expect(result.current.compilationStatus).toBe("compiling");
     expect(params.setHasCompiledOnce).toHaveBeenCalledWith(true);
     expect(params.setIsModified).toHaveBeenCalledWith(false);
 

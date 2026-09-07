@@ -72,6 +72,7 @@ function createMockParams() {
     setParserPanelDismissed: vi.fn(),
     setActiveOutputTab: vi.fn(),
     setCompilationStatus: vi.fn(),
+    setDockerGccPhase: vi.fn(),
     setSimulationStatus: vi.fn(),
     stopRendering: vi.fn(),
     pauseRendering: vi.fn(),
@@ -245,7 +246,61 @@ describe("useWebSocketHandler", () => {
     renderHook(() => useWebSocketHandler(params));
 
     expect(params.setArduinoCliStatus).toHaveBeenCalledWith("compiling");
+    expect(params.setCompilationStatus).toHaveBeenCalledWith("compiling");
+    expect(params.setDockerGccPhase).toHaveBeenCalledWith("active");
     expect(params.setCliOutput).toHaveBeenCalledWith("Compiling sketch...");
+  });
+
+  it("ends visible compilation state on terminal WebSocket compile success", () => {
+    mockMessageQueue.push({
+      type: "compilation_status",
+      arduinoCliStatus: "success",
+    });
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(params.setArduinoCliStatus).toHaveBeenCalledWith("success");
+    expect(params.setCompilationStatus).toHaveBeenCalledWith("success");
+    expect(params.setDockerGccPhase).toHaveBeenCalledWith("idle");
+  });
+
+  it("ends visible compilation state on terminal WebSocket compile error", () => {
+    mockMessageQueue.push({
+      type: "compilation_status",
+      arduinoCliStatus: "error",
+    });
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(params.setArduinoCliStatus).toHaveBeenCalledWith("error");
+    expect(params.setCompilationStatus).toHaveBeenCalledWith("error");
+    expect(params.setDockerGccPhase).toHaveBeenCalledWith("idle");
+  });
+
+  it("does not let idle WebSocket compile status overwrite an active visible state", () => {
+    mockMessageQueue.push({
+      type: "compilation_status",
+      arduinoCliStatus: "idle",
+    });
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(params.setArduinoCliStatus).toHaveBeenCalledWith("idle");
+    expect(params.setCompilationStatus).not.toHaveBeenCalled();
+    expect(params.setDockerGccPhase).toHaveBeenCalledWith("idle");
+  });
+
+  it("keeps the visible spinner state active when simulation starts before sandbox compilation finishes", () => {
+    mockMessageQueue.push(
+      { type: "simulation_status", status: "running" },
+      { type: "compilation_status", arduinoCliStatus: "compiling" },
+    );
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(params.setSimulationStatus).toHaveBeenCalledWith("running");
+    expect(params.setCompilationStatus).toHaveBeenCalledWith("compiling");
+    expect(params.setDockerGccPhase).toHaveBeenCalledWith("active");
   });
 
   it("processes compilation_error message", () => {
@@ -318,6 +373,7 @@ describe("useWebSocketHandler", () => {
     renderHook(() => useWebSocketHandler(params));
 
     expect(params.setArduinoCliStatus).toHaveBeenCalledWith("compiling");
+    expect(params.setCompilationStatus).toHaveBeenCalledWith("compiling");
     expect(params.setSimulationStatus).toHaveBeenCalledWith("running");
     expect(params.appendSerialOutput).toHaveBeenCalled();
   });

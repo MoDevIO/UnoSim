@@ -136,7 +136,7 @@ describe("useUiFeedbackAdapter", () => {
 
       expect(mockAddDebugMessage).toHaveBeenCalledWith({
         source: "server",
-        type: "compilation_status",
+        type: "compile_response",
         data: JSON.stringify({ success: true }, null, 2),
         protocol: "http",
       });
@@ -158,7 +158,7 @@ describe("useUiFeedbackAdapter", () => {
       });
       expect(mockAddDebugMessage).toHaveBeenNthCalledWith(2, {
         source: "server",
-        type: "compilation_status",
+        type: "compile_response",
         data: JSON.stringify({ success: false }, null, 2),
         protocol: "http",
       });

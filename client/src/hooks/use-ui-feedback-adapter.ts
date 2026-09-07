@@ -188,12 +188,12 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
   };
 
   const logCompilationSuccess = () => {
-    logDebug("server", "compilation_status", JSON.stringify({ success: true }, null, 2));
+    logDebug("server", "compile_response", JSON.stringify({ success: true }, null, 2));
   };
 
   const logCompilationError = (errors: CompilerError[] | string | undefined) => {
     logDebug("server", "compilation_error", JSON.stringify({ type: "compilation_error", data: errors }, null, 2));
-    logDebug("server", "compilation_status", JSON.stringify({ success: false }, null, 2));
+    logDebug("server", "compile_response", JSON.stringify({ success: false }, null, 2));
   };
 
   const logStopSimulation = () => {

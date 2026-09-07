@@ -128,7 +128,8 @@ describe("useCompileAndRun orchestrator", () => {
 
     expect(simulation.setCompiledCode).toHaveBeenCalledWith("void setup() {}");
     expect(simulation.startSimulation).toHaveBeenCalled();
-    expect(compile.setCompilationStatus).toHaveBeenCalledWith("success");
+    expect(compile.setCompilationStatus).toHaveBeenCalledWith("compiling");
+    expect(compile.setCompilationStatus).not.toHaveBeenCalledWith("success");
     expect(simulation.setHasCompiledOnce).toHaveBeenCalledWith(true);
     expect(params.setIsModified).toHaveBeenCalledWith(false);
   });

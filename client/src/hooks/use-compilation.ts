@@ -51,7 +51,7 @@ export function useCompilation(params: UseCompilationParams) {
   // optional external simulation start *after* compilation status updates.
   const startCalled = useRef(false);
   useEffect(() => {
-    if (merged.compilationStatus === "success") {
+    if (merged.lastCompilationResult === "success") {
       // update external flags
       params.setHasCompiledOnce?.(true);
       params.setIsModified?.(false);
@@ -66,7 +66,7 @@ export function useCompilation(params: UseCompilationParams) {
     } else {
       startCalled.current = false;
     }
-  }, [merged.compilationStatus, params]);
+  }, [merged.lastCompilationResult, params]);
 
   // mirror the original Public API exactly
   // wrap handleCompileAndStart so that external callers (tests / legacy

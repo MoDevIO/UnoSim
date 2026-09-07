@@ -277,10 +277,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         if (data.success) {
           simulation.setCompiledCode(mainSketchCode);
           simulation.startSimulation();
-          setCompilationStatus("success");
           simulation.setHasCompiledOnce(true);
           params.setIsModified(false);
-          scheduleCliIdle(setArduinoCliStatus);
         } else {
           setCompilationStatus("error");
           simulation.setSimulationStatus("idle");

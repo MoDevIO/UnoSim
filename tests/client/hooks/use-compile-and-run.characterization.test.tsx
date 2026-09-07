@@ -113,11 +113,41 @@ describe("useCompileAndRun characterization", () => {
         { pin: "A5", defined: false, usedAt: [] },
       ]),
     );
-    expect(result.current.compilationStatus).toBe("success");
+    expect(result.current.compilationStatus).toBe("compiling");
     expect(result.current.simulationStatus).toBe("running");
     expect(result.current.hasCompiledOnce).toBe(true);
     expect(params.setIsModified).toHaveBeenCalledWith(false);
     expect(params.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not publish a premature success state before WebSocket sandbox compilation completes", async () => {
+    (apiRequest as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockJsonCompileResponse({
+        success: true,
+        output: "Compiled successfully",
+        parserMessages: [],
+      }),
+    );
+    const params = buildParams();
+
+    const { result } = renderHook(() => useCompileAndRun(params), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      result.current.handleCompileAndStart();
+    });
+
+    await waitFor(() => {
+      expect(params.sendMessageImmediate).toHaveBeenCalledWith({
+        type: "start_simulation",
+        timeout: 60,
+        code: MAIN_SKETCH,
+      });
+    });
+
+    expect(result.current.compilationStatus).toBe("compiling");
+    expect(result.current.lastCompilationResult).toBe("success");
   });
 
   it("start falls back to buffered WebSocket send when the immediate send reports failure", async () => {

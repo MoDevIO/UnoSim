@@ -19,6 +19,19 @@ import { TabBar } from "@/components/ui/tab-bar";
 
 // Module-level constants (not re-created on every render)
 const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
+const ALL_PIN_RECORDS: IOPinRecord[] = Array.from({ length: 20 }, (_, pinId) => ({
+  pin: pinId >= 14 ? `A${pinId - 14}` : String(pinId),
+  pinId,
+  defined: false,
+  usedAt: [],
+}));
+
+function getPinId(record: IOPinRecord): number | undefined {
+  if (record.pinId !== undefined) return record.pinId;
+  if (/^\d+$/.test(record.pin)) return Number.parseInt(record.pin, 10);
+  const analogMatch = /^A([0-5])$/.exec(record.pin);
+  return analogMatch ? 14 + Number.parseInt(analogMatch[1], 10) : undefined;
+}
 
 // Module-level pure helpers — fix S6481 (no re-creation on render)
 function getSeverityIcon(severity: SeverityLevel): JSX.Element {
@@ -238,7 +251,16 @@ export function ParserOutput({
 
   // Filter pins: show only programmed pins by default, all pins if showAllPins is true
   const filteredRegistry = React.useMemo(() => {
-    if (showAllPins) return ioRegistry;
+    if (showAllPins) {
+      const pinsById = new Map(
+        ALL_PIN_RECORDS.map((record) => [record.pinId, record]),
+      );
+      for (const record of ioRegistry) {
+        const pinId = getPinId(record);
+        if (pinId !== undefined) pinsById.set(pinId, record);
+      }
+      return [...pinsById.values()];
+    }
     return ioRegistry.filter(isPinProgrammed);
   }, [ioRegistry, showAllPins]);
 
@@ -437,7 +459,7 @@ export function ParserOutput({
           <div className="sticky top-0 bg-muted/50 border-b border-muted-foreground/30 px-3 h-[var(--ui-button-height)] flex items-center justify-between z-10">
             <span className="text-ui-xs text-muted-foreground">
               {showAllPins
-                ? `All pins (${ioRegistry.length})`
+                ? `All pins (${filteredRegistry.length})`
                 : `Programmed pins (${totalProgrammedPins})`}
             </span>
             <div className="flex items-center gap-1">
