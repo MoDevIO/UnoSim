@@ -6,7 +6,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { 
   getProcessMetrics, 
   compileMetricsTracker, 
-  webSocketMetricsTracker 
+  webSocketMetricsTracker,
+  evaluateObservabilityAlerts,
+  OBSERVABILITY_THRESHOLDS,
 } from "../../../server/services/server-metrics";
 
 describe("Server Metrics (Phase 3.9 Observability)", () => {
@@ -175,6 +177,62 @@ describe("Server Metrics (Phase 3.9 Observability)", () => {
       expect(metrics.runningSessions).toBe(0);
       expect(metrics.pausedSessions).toBe(0);
       expect(metrics.totalConnections).toBe(0);
+    });
+  });
+
+  describe("observability alerts", () => {
+    const processMetrics = {
+      cpuPercent: 0,
+      memoryUsedMB: 10,
+      memoryTotalMB: 100,
+      memoryPercent: 10,
+      uptimeSeconds: 1,
+    };
+
+    it("emits stable alerts when queue, timeout, and resource thresholds are exceeded", () => {
+      const alerts = evaluateObservabilityAlerts({
+        compileMetrics: {
+          compileCount: 1,
+          compileTimeoutCount: 1,
+          compileErrorCount: 1,
+          avgCompileDurationMs: OBSERVABILITY_THRESHOLDS.compileDurationMs,
+          avgQueueWaitTimeMs: OBSERVABILITY_THRESHOLDS.compileQueueWaitMs,
+          maxCompileDurationMs: OBSERVABILITY_THRESHOLDS.compileDurationMs,
+          maxQueueWaitTimeMs: OBSERVABILITY_THRESHOLDS.compileQueueWaitMs,
+        },
+        compileQueueDepth: 1,
+        runnerQueueDepth: 21,
+        runnerCapacity: 2,
+        processMetrics: { ...processMetrics, memoryPercent: 95, cpuPercent: 95 },
+      });
+
+      expect(alerts.map((alert) => alert.code)).toEqual(expect.arrayContaining([
+        "compile_timeout",
+        "compile_queue_wait_high",
+        "compile_duration_high",
+        "compile_queue_nonempty",
+        "runner_queue_high",
+        "process_memory_high",
+        "process_cpu_high",
+      ]));
+    });
+
+    it("returns no alerts for a healthy idle snapshot", () => {
+      expect(evaluateObservabilityAlerts({
+        compileMetrics: {
+          compileCount: 0,
+          compileTimeoutCount: 0,
+          compileErrorCount: 0,
+          avgCompileDurationMs: 0,
+          avgQueueWaitTimeMs: 0,
+          maxCompileDurationMs: 0,
+          maxQueueWaitTimeMs: 0,
+        },
+        compileQueueDepth: 0,
+        runnerQueueDepth: 0,
+        runnerCapacity: 2,
+        processMetrics,
+      })).toEqual([]);
     });
   });
 });

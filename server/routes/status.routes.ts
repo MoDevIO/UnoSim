@@ -3,7 +3,7 @@ import type { Express } from "express";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import { getDockerCompileSemaphore } from "../services/sandbox/docker-compile-semaphore";
 import { config } from "../config";
-import { getProcessMetrics, compileMetricsTracker, webSocketMetricsTracker } from "../services/server-metrics";
+import { getProcessMetrics, compileMetricsTracker, webSocketMetricsTracker, evaluateObservabilityAlerts } from "../services/server-metrics";
 import { getCompilerWithFallback } from "../services/compiler-with-fallback";
 
 // Create router for testing
@@ -85,6 +85,13 @@ statusRouter.get("/api/status", (_req, res) => {
         memoryPercent: processMetrics.memoryPercent,
         uptimeSeconds: processMetrics.uptimeSeconds,
       },
+      observabilityAlerts: evaluateObservabilityAlerts({
+        compileMetrics,
+        compileQueueDepth: semaphore.queueLength,
+        runnerQueueDepth: poolStats.queuedRequests,
+        runnerCapacity: poolStats.maxRunners,
+        processMetrics,
+      }),
       // Backward-compatible aliases (deprecated — prefer compileSlots/sandboxRunners)
       /**
        * @deprecated Use compileSlots instead. Will be removed in next major release.
@@ -106,4 +113,3 @@ statusRouter.get("/api/status", (_req, res) => {
       },
     });
 });
-

@@ -2,7 +2,7 @@
 
 **Status:** ✅ COMPLETE  
 **Date:** 2026-09-06  
-**Commit:** bb63ce1a4f468cbea07780eb136593570fe56173
+**Commit:** pending (`feat(phase-3.9): complete observability coverage`)
 
 ---
 
@@ -69,6 +69,22 @@ Phase 3.9 Observability wurde erfolgreich implementiert. Der Server exponiert je
 - CPU: Delta aus `process.cpuUsage()` mit Zeitstempel
 - Memory: `process.memoryUsage()` (heap + external)
 
+### 4. Deterministische Alert-Schwellenwerte
+
+Die bestehende Status-Schnittstelle liefert zusätzlich `observabilityAlerts`. Die Auswertung ist bewusst vendor-neutral und deterministisch; ein Alert wird nur bei einer tatsächlich überschrittenen Schwelle erzeugt.
+
+| Code | Severity | Bedingung |
+|---|---|---|
+| `compile_timeout` | critical | `timeoutCount > 0` |
+| `compile_queue_wait_high` | warning | `maxQueueWaitTimeMs ≥ 60.000` |
+| `compile_duration_high` | warning | `maxDurationMs ≥ 60.000` |
+| `compile_queue_nonempty` | warning | Compile-Queue ist aktuell nicht leer |
+| `runner_queue_high` | warning | Runner-Warteschlange ist mindestens zehnmal so groß wie die Kapazität |
+| `process_memory_high` | critical | Prozessspeicher liegt bei mindestens 90 % |
+| `process_cpu_high` | warning | Prozess-CPU liegt bei mindestens 90 % |
+
+Die Grenzfälle werden in `server-metrics.test.ts` sowohl für einen gesunden Leerlauf als auch für gleichzeitige Überschreitungen geprüft. Die Alert-Liste ist additiv und verändert bestehende Statusfelder nicht.
+
 ---
 
 ## API-Spezifikation
@@ -102,6 +118,7 @@ Phase 3.9 Observability wurde erfolgreich implementiert. Der Server exponiert je
     "memoryPercent": 3.1,
     "uptimeSeconds": 3600
   },
+  "observabilityAlerts": [],
   "compileWorkerPool": {
     "active": 8,
     "queued": 42,
@@ -127,6 +144,7 @@ Phase 3.9 Observability wurde erfolgreich implementiert. Der Server exponiert je
   - `getProcessMetrics()`: Singleton-Prozessmetriken
   - `compileMetricsTracker`: Compile-Metriken-Singleton
   - `webSocketMetricsTracker`: WebSocket-Metriken-Singleton
+  - `evaluateObservabilityAlerts()`: deterministische Schwellenwert-/Alert-Auswertung
 
 ### Geänderte Dateien
 - `server/routes/status.routes.ts`
@@ -157,10 +175,11 @@ Phase 3.9 Observability wurde erfolgreich implementiert. Der Server exponiert je
   - `runLocal()`: Compile-Metriken ohne Queue-Wait
 
 ### Test-Dateien
-- `tests/server/services/server-metrics.test.ts` (10 Tests ✅)
+- `tests/server/services/server-metrics.test.ts` (12 Tests ✅)
   - Process Metrics Validierung
   - Compile Metrics Tracker
   - WebSocket Metrics Tracker
+  - Alert-Schwellenwerte: healthy idle vs. simultaneous threshold violations
   
 - `tests/server/routes/server-status-observability.test.ts` (3 Tests ✅)
   - `/api/status` Response-Struktur

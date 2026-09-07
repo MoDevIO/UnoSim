@@ -222,3 +222,54 @@ class WebSocketMetricsTracker {
 }
 
 export const webSocketMetricsTracker = new WebSocketMetricsTracker();
+
+/** Operational thresholds used by the status endpoint and alerting adapters. */
+export const OBSERVABILITY_THRESHOLDS = {
+  compileQueueWaitMs: 60_000,
+  compileDurationMs: 60_000,
+  runnerQueueMultiplier: 10,
+  processMemoryPercent: 90,
+  processCpuPercent: 90,
+} as const;
+
+export interface ObservabilityAlert {
+  code: string;
+  severity: "warning" | "critical";
+  message: string;
+}
+
+export interface ObservabilitySnapshot {
+  compileMetrics: CompileMetrics;
+  compileQueueDepth: number;
+  runnerQueueDepth: number;
+  runnerCapacity: number;
+  processMetrics: ProcessMetrics;
+}
+
+/** Evaluate stable, operator-facing alerts without coupling to a monitoring vendor. */
+export function evaluateObservabilityAlerts(snapshot: ObservabilitySnapshot): ObservabilityAlert[] {
+  const alerts: ObservabilityAlert[] = [];
+  const { compileMetrics, processMetrics } = snapshot;
+  if (compileMetrics.compileTimeoutCount > 0) {
+    alerts.push({ code: "compile_timeout", severity: "critical", message: "At least one compile timed out" });
+  }
+  if (compileMetrics.maxQueueWaitTimeMs >= OBSERVABILITY_THRESHOLDS.compileQueueWaitMs) {
+    alerts.push({ code: "compile_queue_wait_high", severity: "warning", message: "Compile queue wait exceeded 60 seconds" });
+  }
+  if (compileMetrics.maxCompileDurationMs >= OBSERVABILITY_THRESHOLDS.compileDurationMs) {
+    alerts.push({ code: "compile_duration_high", severity: "warning", message: "Compile duration exceeded 60 seconds" });
+  }
+  if (snapshot.compileQueueDepth > 0) {
+    alerts.push({ code: "compile_queue_nonempty", severity: "warning", message: "Compile slots have queued work" });
+  }
+  if (snapshot.runnerCapacity > 0 && snapshot.runnerQueueDepth > snapshot.runnerCapacity * OBSERVABILITY_THRESHOLDS.runnerQueueMultiplier) {
+    alerts.push({ code: "runner_queue_high", severity: "warning", message: "Runner queue exceeds ten times runner capacity" });
+  }
+  if (processMetrics.memoryPercent >= OBSERVABILITY_THRESHOLDS.processMemoryPercent) {
+    alerts.push({ code: "process_memory_high", severity: "critical", message: "Process memory usage exceeded 90 percent" });
+  }
+  if (processMetrics.cpuPercent >= OBSERVABILITY_THRESHOLDS.processCpuPercent) {
+    alerts.push({ code: "process_cpu_high", severity: "warning", message: "Process CPU usage exceeded 90 percent" });
+  }
+  return alerts;
+}

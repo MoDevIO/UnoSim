@@ -11,11 +11,11 @@ Grundlage: `docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`, Abschnitt 10, Maßnahme
 
 | Kennzahl | Stand |
 | --- | ---: |
-| Gesamtfortschritt | ca. 78 % (gewichtete Schätzung) |
-| `verified-done` | 17 |
-| `partial` | 11 |
+| Gesamtfortschritt | ca. 81 % (gewichtete Schätzung) |
+| `verified-done` | 18 |
+| `partial` | 10 |
 | `open` | 2 |
-| Aktive Maßnahme | 3.7 Release-Gate |
+| Aktive Maßnahme | 3.10 API-/WebSocket-Versionierung |
 | Verbleibende atomare Fachinkremente | ca. 12–18 |
 | Letzte Verifikation | 2026-09-07 |
 
@@ -55,7 +55,7 @@ Die Einstufung basiert auf Git-Historie, aktuellem Code, Tests, Coverage-Artefak
 | 3.6 | Coverage-Hotspots | `verified-done` | WS 61,90 % Lines; Cache-Manager 100 % Lines; Local Compiler 84,45 % Lines; `server/routes.ts` 75,23 % Lines / 74,10 % Statements / 46,42 % Branches; `useSimulatorFileSystem.ts` 94,64 % Lines; `output-panel.tsx` 68,96 % Lines; `examples-menu.tsx` 69,23 % Lines; `useArduinoSimulatorPage.tsx` 68,18 % Lines; `execution-manager.ts` 74,58 % Lines. | Keine weitere Phase-3.6-Arbeit. Unter 80 % verbleiben überwiegend Orchestrierungs-, defensive und seltene Infrastruktur-Branches; keine künstliche Exhaustivabdeckung vorgesehen. |
 | 3.7 | Release-Gate | `verified-done` | `REQUIRE_RELEASE_GATE=1 ./run-tests.sh` erzwingt Typecheck, Unit/Coverage, Integration, Docker, E2E, Build, `npm audit --audit-level=high --omit=dev`, eine frische SonarQube-Analyse und einen erfolgreichen Quality-Gate-Status mit Fail-Fast-Exit-Codes. | Keine unmittelbare Restarbeit; CI kann denselben Befehl verwenden. |
 | 3.8 | Skalierbarkeit/HA | `verified-done` | ADR 0003 akzeptiert Single-Stateful-Node bis zur gemessenen Grenze. | Keine HA-Implementierung in dieser Roadmap. |
-| 3.9 | Observability | `partial` | Status-/WS-/Compile-/Runner-Metriken implementiert und getestet. | Schwellenwerte, Operator-Runbooks und Alert-Tests ergänzen. |
+| 3.9 | Observability | `verified-done` | `/api/status` exponiert Compile-, Queue-, Slot-, Runner-, WebSocket- und Prozessmetriken sowie deterministische `observabilityAlerts`; Schwellenwertüberschreitungen und gesunder Leerlauf sind behavior-orientiert getestet. | Keine unmittelbare Restarbeit; externe Monitoring-/Paging-Anbindung bleibt deployment-spezifisch. |
 | 3.10 | API-/WebSocket-Versionierung | `partial` | iframe-API 1.4.0 und Versionierungsansätze vorhanden. | REST-/WS-Kompatibilitäts- und Migrationstests vervollständigen. |
 
 ---
@@ -117,7 +117,7 @@ Dieser Plan bildet ausschließlich diese Maßnahmen aus `docs/PROJECT_ANALYSIS_R
 | 3.6 Coverage-Hotspots | Mehrere behavior-orientierte Inkremente decken reale WebSocket- und Cache-Pfade ab. Aktuell: `simulation.ws.ts` 61,90 % Lines, `cache-manager.ts` 52,30 %, `local-compiler.ts` 14,86 %, `routes.ts` 28,57 %. | Coverage-Bericht: alle Hotspots >60 %, kritische Hotspots >80 %; Abweichungen nur mit dokumentierter Begründung. | Teilweise erfüllt, **aktuell aktiv**. |
 | 3.7 Release-Gate | `run-tests.sh` bündelt alle Pflichtschritte; im Release-Modus werden Docker/E2E, Security-Audit und SonarQube verbindlich und jeder Fehler beendet die Pipeline. | Keine unmittelbare Restarbeit; CI-/Release-Aufrufer müssen `REQUIRE_RELEASE_GATE=1` setzen. | Erfüllt, **verified-done**. |
 | 3.8 Skalierbarkeit / HA-Entscheidung | Phase-3.4-Messdaten bestätigen Compile bis 200 und Simulation bis 100; Simulation 200 ist unter aktuellem 5-Runner-Profil nicht stabil. | Single-Stateful-Node bewusst bestätigen oder HA-Zielarchitektur per Entscheidung/ADR abgrenzen. | Entschieden über ADR 0003. |
-| 3.9 Observability | `/api/status`, WS-Events und Serial-/Telemetry-Zähler existieren. | Strukturierte Metriken für Queues, Runner, Compile-Slots, WS-Sessions und Timeouts mit Schwellenwerten sowie Alert-Tests bei Grenzwertüberschreitungen. | Teilweise erfüllt, offen. |
+| 3.9 Observability | `/api/status`, WS-Events und Serial-/Telemetry-Zähler existieren; Schwellenwerte, Alert-Codes und Tests für Leerlauf sowie Überschreitungen sind umgesetzt. | Strukturierte Signale im bestehenden Endpoint verlässlich betreibbar halten. | Erfüllt, **verified-done**. |
 | 3.10 API-/WebSocket-Versionierung | iframe-API ist mit `1.4.0` versioniert; REST-/WS-Versionierung ist noch nicht vollständig verbindlich operationalisiert. | REST-, WebSocket- und externe API-Versionierung inklusive Kompatibilitäts- und Migrationstests definieren. | Teilweise erfüllt, offen. |
 
 ---
@@ -169,8 +169,7 @@ Phase 3.4 bis 3.10 darf diese Ergebnisse nur referenzieren, nicht als offene Arb
 
 1. **3.7 Release-Gate** verbindlich machen, weil alle weiteren Maßnahmen darüber freigegeben werden; Phase 3.6 ist fachlich abgeschlossen.
 3. **3.5 Sandbox-Vertrag** als regelmäßiges Sicherheits-/Docker-Gate operationalisieren.
-4. **3.9 Observability** mit Schwellenwerten, Runbooks und Alert-Tests vervollständigen.
-5. **3.10 API-/WebSocket-Versionierung** mit Kompatibilitäts- und Migrationstests festlegen.
+4. **3.10 API-/WebSocket-Versionierung** mit Kompatibilitäts- und Migrationstests festlegen.
 6. **3.4/3.8** nur bei neuem Kapazitätsziel erneut ausführen; die bestehende Single-Node-Grenze ist bereits entschieden.
 
 Die strukturellen Restabweichungen 2.2–2.7 bleiben dokumentiert, sind aber nach aktueller Priorisierung keine unmittelbaren Phase-3-Arbeitsschritte.
@@ -248,14 +247,14 @@ Die strukturellen Restabweichungen 2.2–2.7 bleiben dokumentiert, sind aber nac
 
 | Feld | Inhalt |
 | --- | --- |
-| Ziel | Strukturierte Metriken für Queues, Runner, Compile-Slots, WebSocket-Sessions, Timeouts und Serial-/Telemetry-Drops definieren und betreibbar machen; Alert-Tests müssen Grenzwertüberschreitungen melden. |
+| Ziel | Strukturierte Metriken für Queues, Runner, Compile-Slots, WebSocket-Sessions, Timeouts und Serial-/Telemetry-Drops im bestehenden Status-/Telemetry-Vertrag betreibbar machen; Alert-Tests melden Grenzwertüberschreitungen. |
 | Betroffene Dateien/Dokumente | `docs/ARCHITECTURE.md`, `README_ADMIN.md`, `ssot/ssot_function_description_serial_output.md`, `server/routes/status.routes.ts`, `server/routes/simulation.ws.ts`, Status-/Telemetry-Tests. |
-| Notwendige Code-/Infra-/Teständerungen | Metrikinventar, Schwellenwerte und Betreiberreaktionen dokumentieren; Alert-Tests für Grenzwertüberschreitungen abbilden; fehlende Metrikexports oder Tests nur additiv ergänzen. |
+| Notwendige Code-/Infra-/Teständerungen | Metrikinventar, Schwellenwerte und Alert-Codes dokumentieren; Alert-Tests für gesunden Leerlauf und Grenzwertüberschreitungen abbilden; externe Paging-/Monitoring-Anbindung bleibt außerhalb dieses Inkrements. |
 | Voraussetzungen | Aktuelle `/api/status`- und WS-Telemetrie inventarisiert; keine API-Feldänderung ohne 3.10-Versionierung. |
 | Relevante Tests/Gates | Status-Route-Tests, Telemetry-Heartbeat-Integration, WebSocket-State-Tests, Alert-Tests für Grenzwertüberschreitungen, `npm run check`, `npm run test:unit`, ggf. `npm run test:integration`. |
 | Abbruchkriterien | Neue Metriken ändern bestehende öffentliche Felder inkompatibel; Schwellenwerte sind nicht messbar; Logs enthalten sensible Daten. |
-| Commit-Grenze | Observability-Konzept separat; jede Metrik/Test-Ergänzung einzeln. |
-| Empfohlene Commit-Message | `docs(phase-3.9): define observability contract` |
+| Commit-Grenze | Additive Alert-Auswertung, Tests und Dokumentation als ein fachlich geschlossenes Inkrement. |
+| Empfohlene Commit-Message | `feat(phase-3.9): complete observability coverage` |
 
 ### Teilstep 3.10 — API-/WebSocket-Versionierung
 
