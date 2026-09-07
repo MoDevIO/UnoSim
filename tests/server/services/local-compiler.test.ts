@@ -68,6 +68,37 @@ describe("LocalCompiler public compile behavior", () => {
     await expect(readFile(workspace.executableFile, "utf8")).resolves.toBe("compiled executable");
   });
 
+  it("exposes the compile lifecycle through isBusy while ProcessExecutor is active", async () => {
+    const workspace = await createSketchWorkspace();
+    const originalExecute = ProcessExecutor.prototype.execute;
+    const execute = vi.spyOn(ProcessExecutor.prototype, "execute").mockImplementation(
+      function (command, args, options) {
+        if (command === "g++") {
+          return originalExecute.call(this, command, args, options);
+        }
+        return Promise.resolve({ code: 0, stdout: "", stderr: "" });
+      },
+    );
+    const compiler = new LocalCompiler();
+    const observedBusyStates: boolean[] = [];
+
+    await compiler.compile(
+      workspace.sketchFile,
+      workspace.executableFile,
+      undefined,
+      () => observedBusyStates.push(compiler.isBusy),
+    );
+
+    expect(execute).toHaveBeenCalledWith(
+      "g++",
+      [workspace.sketchFile, "-o", workspace.executableFile, "-pthread"],
+      expect.objectContaining({ detached: true, stdio: "pipe" }),
+    );
+    expect(observedBusyStates).toEqual([true]);
+    expect(compiler.isBusy).toBe(false);
+    await expect(readFile(workspace.executableFile)).resolves.toBeTruthy();
+  });
+
   it("removes a stale executable before compiling again and preserves the new artifact", async () => {
     const workspace = await createSketchWorkspace();
     await mkdir(join(workspace.root, "bin"), { recursive: true });
