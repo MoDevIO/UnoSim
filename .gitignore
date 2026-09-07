@@ -51,6 +51,10 @@ storage/binaries/
 .scannerwork/*
 /scannerwork/
 
+# Generated load-test measurements
+/load-test-results/*-client-observability-*.json
+/load-test-results/*-client-simulation-observability-*.json
+
 # Old archive folder (legacy, use /docs/archive instead)
 /archive/
 
@@ -80,6 +84,7 @@ shared/**/*.js
 *.db
 /storage/*.json
 !/storage/.gitkeep
+/storage/core-cache/meta/*.ready
 
 ##################################
 # 7. DOCUMENTATION & REPORTS     #
