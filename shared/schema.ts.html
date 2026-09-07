@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">85.71% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>11/11</span>
+                <span class='fraction'>12/14</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">66.66% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>4/4</span>
+                <span class='fraction'>4/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">91.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>10/10</span>
+                <span class='fraction'>11/12</span>
             </div>
         
             
@@ -424,7 +424,13 @@
 <a name='L359'></a><a href='#L359'>359</a>
 <a name='L360'></a><a href='#L360'>360</a>
 <a name='L361'></a><a href='#L361'>361</a>
-<a name='L362'></a><a href='#L362'>362</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -448,7 +454,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -457,10 +462,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -526,6 +528,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -809,23 +821,19 @@ export const insertSketchSchema = z.object({
   content: z.string(),
 });
 &nbsp;
+const compilerHeaderSchema = z
+  .object({
+    name: z.string().refine(isSafeHeaderName, "Header name must be a safe basename"),
+    content: z.string().max(INPUT_LIMITS.compile.maxHeaderContentChars),
+  })
+  .strict();
+&nbsp;
 /** Runtime contract for the public REST compiler endpoint. */
 export const compileRequestSchema = z
   .object({
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
     headers: z
-      .array(
-        z
-          .object({
-            name: z
-              .string()
-              .refine(isSafeHeaderName, "Header name must be a safe basename"),
-            content: z
-              .string()
-              .max(INPUT_LIMITS.compile.maxHeaderContentChars),
-          })
-          .strict(),
-      )
+      .array(compilerHeaderSchema)
       .max(INPUT_LIMITS.compile.maxHeaders)
       .refine(
         (headers) =&gt;
@@ -891,6 +899,16 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       .max(INPUT_LIMITS.simulation.maxTimeoutSeconds)
       .optional(),
     code: z.string().max(INPUT_LIMITS.compile.maxCodeChars).optional(),
+    headers: z
+      .array(compilerHeaderSchema)
+      .max(INPUT_LIMITS.compile.maxHeaders)
+      .refine(
+<span class="fstat-no" title="function not covered" >        (h</span>eaders) =&gt;
+<span class="cstat-no" title="statement not covered" >          new Set(headers.map(<span class="fstat-no" title="function not covered" >(h</span>eader) =&gt; <span class="cstat-no" title="statement not covered" >header.name.toLowerCase())</span>).size ===</span>
+          headers.length,
+        "Header names must be unique",
+      )
+      .optional(),
   }).strict(),
   z.object({
     type: z.literal("pause_simulation"),
@@ -1153,7 +1171,7 @@ export interface OutputLine {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-07T18:19:30.525Z
+                at 2026-09-07T20:11:40.478Z
             </div>
         <script src="../prettify.js"></script>
         <script>
