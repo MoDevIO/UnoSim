@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">88.09% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>35/40</span>
+                <span class='fraction'>37/42</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.17% </span>
+                <span class="strong">91.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>31/34</span>
+                <span class='fraction'>33/36</span>
             </div>
         
             
@@ -167,7 +167,18 @@
 <a name='L102'></a><a href='#L102'>102</a>
 <a name='L103'></a><a href='#L103'>103</a>
 <a name='L104'></a><a href='#L104'>104</a>
-<a name='L105'></a><a href='#L105'>105</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
@@ -222,6 +233,10 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
@@ -229,16 +244,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -247,6 +252,23 @@
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -274,7 +296,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { z } from "zod";
 &nbsp;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
-const SAFE_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.(?:ino|h)$/i;
+const SAFE_FILE_NAME = /^[A-Z0-9][A-Z0-9_.-]{0,127}\.(?:ino|h)$/i;
 &nbsp;
 export const manifestFileSchema = z.object({
   name: z.string().min(1).max(128).regex(SAFE_FILE_NAME),
@@ -326,31 +348,42 @@ export function validateManifestReferences(manifest: ExamplesManifest): void {
 <span class="cstat-no" title="statement not covered" >      throw new Error(`Duplicate example id: ${example.id}`);</span>
     }
     ids.add(example.id);
+    validateExampleReferences(example);
+  }
+}
 &nbsp;
-    const names = new Set&lt;string&gt;();
-    const paths = new Set&lt;string&gt;();
-    let mainCount = 0;
+function validateExampleReferences(example: ManifestExample): void {
+  const names = new Set&lt;string&gt;();
+  const paths = new Set&lt;string&gt;();
+  let mainCount = 0;
 &nbsp;
-    for (const file of example.files) {
-      <span class="missing-if-branch" title="if path not taken" >I</span>if (names.has(file.name)) <span class="cstat-no" title="statement not covered" >throw new Error(`Duplicate file name: ${file.name}`);</span>
-      <span class="missing-if-branch" title="if path not taken" >I</span>if (paths.has(file.path)) <span class="cstat-no" title="statement not covered" >throw new Error(`Duplicate file path: ${file.path}`);</span>
-      names.add(file.name);
-      paths.add(file.path);
-&nbsp;
-      <span class="missing-if-branch" title="if path not taken" >I</span>if (!isSafeRelativePath(file.path)) {
-<span class="cstat-no" title="statement not covered" >        throw new Error(`Invalid example path: ${file.path}`);</span>
-      }
-      <span class="missing-if-branch" title="if path not taken" >I</span>if (file.path.toLowerCase().endsWith(".ino") !== file.name.toLowerCase().endsWith(".ino")) {
-<span class="cstat-no" title="statement not covered" >        throw new Error(`File name/path extension mismatch: ${file.name}`);</span>
-      }
-      if (file.path.toLowerCase().endsWith(".ino") &amp;&amp; file.name === example.main) {
-        mainCount++;
-      }
+  for (const file of example.files) {
+    validateExampleFile(file, names, paths);
+    if (file.path.toLowerCase().endsWith(".ino") &amp;&amp; file.name === example.main) {
+      mainCount++;
     }
+  }
 &nbsp;
-    if (mainCount !== 1 || !names.has(example.main)) {
-      throw new Error(`Invalid main file for example: ${example.id}`);
-    }
+  if (mainCount !== 1 || !names.has(example.main)) {
+    throw new Error(`Invalid main file for example: ${example.id}`);
+  }
+}
+&nbsp;
+function validateExampleFile(
+  file: ManifestFile,
+  names: Set&lt;string&gt;,
+  paths: Set&lt;string&gt;,
+): void {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (names.has(file.name)) <span class="cstat-no" title="statement not covered" >throw new Error(`Duplicate file name: ${file.name}`);</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (paths.has(file.path)) <span class="cstat-no" title="statement not covered" >throw new Error(`Duplicate file path: ${file.path}`);</span>
+  names.add(file.name);
+  paths.add(file.path);
+&nbsp;
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!isSafeRelativePath(file.path)) {
+<span class="cstat-no" title="statement not covered" >    throw new Error(`Invalid example path: ${file.path}`);</span>
+  }
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (file.path.toLowerCase().endsWith(".ino") !== file.name.toLowerCase().endsWith(".ino")) {
+<span class="cstat-no" title="statement not covered" >    throw new Error(`File name/path extension mismatch: ${file.name}`);</span>
   }
 }
 &nbsp;
@@ -382,7 +415,7 @@ export function manifestToCatalog(snapshot: ExamplesSnapshot) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-07T20:11:40.478Z
+                at 2026-09-07T20:50:43.307Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
