@@ -112,11 +112,15 @@ function _getDesktopSimulateButtonClass(
     "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
     "text-white font-medium transition-colors",
     {
-      "bg-orange-500 hover:bg-orange-600": (clientState === "RUNNING" || clientState === "RUNNING_STARTING") && !disabled,
+      "bg-orange-500 hover:bg-orange-600": clientState === "RUNNING" && !disabled,
       "bg-green-600 hover:bg-green-700":
         (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") && !disabled,
-      "bg-blue-600 hover:bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") && !disabled,
-      "bg-violet-600 hover:bg-violet-700": clientState === "QUEUED_FOR_SIMULATION" && !disabled,
+      "bg-gray-500 hover:bg-gray-500":
+        (clientState === "QUEUED_FOR_COMPILING" ||
+          clientState === "COMPILING" ||
+          clientState === "QUEUED_FOR_SIMULATION" ||
+          clientState === "RUNNING_STARTING") &&
+        !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:bg-gray-500": disabled,
     },
   );
@@ -136,11 +140,15 @@ function _getMobileSimulateButtonClass(
     "!h-[var(--ui-button-height)] !min-h-[var(--ui-button-height)] min-w-[11rem] px-5 pr-14 flex items-center justify-center gap-2 relative",
     "!text-white font-medium transition-colors whitespace-nowrap",
     {
-      "!bg-orange-600 hover:!bg-orange-700": (clientState === "RUNNING" || clientState === "RUNNING_STARTING") && !disabled,
+      "!bg-orange-600 hover:!bg-orange-700": clientState === "RUNNING" && !disabled,
       "!bg-green-600 hover:!bg-green-700":
         (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") && !disabled,
-      "!bg-blue-600 hover:!bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") && !disabled,
-      "!bg-violet-600 hover:!bg-violet-700": clientState === "QUEUED_FOR_SIMULATION" && !disabled,
+      "!bg-gray-500 hover:!bg-gray-500":
+        (clientState === "QUEUED_FOR_COMPILING" ||
+          clientState === "COMPILING" ||
+          clientState === "QUEUED_FOR_SIMULATION" ||
+          clientState === "RUNNING_STARTING") &&
+        !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
     },
   );
@@ -791,7 +799,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <span className="font-semibold leading-none">{simulateText}</span>
               </div>
             </Button>
-            {isRunning && <PauseButton {...pauseProps} />}
+            {clientState === "RUNNING" && <PauseButton {...pauseProps} />}
           </div>
         </div>
 
@@ -820,7 +828,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         >
           <MobileSimulateContent isLoading={isLoadingFull} isRunning={isRunning} text={simulateText} />
         </Button>
-        {isRunning && <PauseButton {...pauseProps} />}
+        {clientState === "RUNNING" && <PauseButton {...pauseProps} />}
       </div>
     </header>
   );
