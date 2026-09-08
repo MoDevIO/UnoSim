@@ -51,7 +51,17 @@ npm run dev
 npm run dev:client
 ```
 
-Für einen bewusst aktivierten LAN-Test kann der Listener separat geöffnet werden. Der Trust-/Auth-Modus bleibt dabei `local`; die WebSocket-Origin muss weiterhin exakt angegeben werden:
+`npm run dev` startet den Backend-Dev-Server ausschließlich auf `127.0.0.1`.
+`npm run dev:lan` verwendet dieselbe lokale Dev-Konfiguration einschließlich
+der External-Examples-Variablen, setzt aber zusätzlich
+`UNOSIM_LISTEN_HOST=0.0.0.0`. Dadurch kann ein Mobilgerät den Server über eine
+lokale Netzwerkadresse erreichen. LAN-Mode bleibt ein ausdrücklich aktivierter
+Local-/Dev-Modus und ist nicht für Produktion oder nicht vertrauenswürdige
+Netze vorgesehen.
+
+Für einen bewusst aktivierten LAN-Test kann der Listener separat geöffnet werden.
+Der Trust-/Auth-Modus bleibt dabei `local`; eine zusätzliche WebSocket-Allowlist
+kann mit exakten Origins angegeben werden:
 
 ```bash
 UNOSIM_TRUST_MODE=local \
@@ -61,7 +71,13 @@ PORT=3000 \
 npm run dev
 ```
 
-`UNOSIM_LISTEN_HOST` überschreibt nur die Netzwerkadresse des Listeners. `UNOSIM_ALLOWED_WS_ORIGINS` verwendet eine exakte, komma-separierte Allowlist; es gibt keine automatische Wildcard. Im Gateway-Mode bleibt der bisherige Default `0.0.0.0` bestehen.
+`UNOSIM_LISTEN_HOST` überschreibt nur die Netzwerkadresse des Listeners. Im
+Local-Mode wird eine Browser-WebSocket-Verbindung akzeptiert, wenn ihre Origin
+exakt zum HTTP-`Host` der Verbindung passt; deshalb funktioniert der
+gleich-originige Zugriff über die vom Startup-Dialog angezeigte LAN-URL ohne
+zusätzliche Origin-Wildcard. `UNOSIM_ALLOWED_WS_ORIGINS` ist eine exakte,
+komma-separierte Ergänzung für ausdrücklich erlaubte Origins. Im Gateway-Mode
+bleibt der Default `0.0.0.0` bestehen.
 
 ## Docker-Simulation
 
@@ -106,6 +122,9 @@ Der Override ist nur für eine isolierte lokale Maschine zulässig. Ein Mehrbenu
 | COMPILE_MAX_CONCURRENT | CPU-abhängig | nein | Compile-Slots. |
 | DISABLE_RATE_LIMIT | false | nein | nur isolierte Tests: true. |
 | LOAD_TEST_CLIENT_COUNT | 50 | Loadtest | Anzahl Harness-Clients. |
+| UNOSIM_EXAMPLES_SOURCE | leer | nein | Serverseitige HTTPS-Basis-URL für externe Beispiele; im Dev-Skript auf `https://raw.githubusercontent.com/ttbombadil/UnoSim-Examples` gesetzt. |
+| UNOSIM_EXAMPLES_REF | leer | nein | Fester Remote-Ref; im Dev-Skript `v1.0.0`. Erforderlich, wenn `UNOSIM_EXAMPLES_SOURCE` gesetzt ist. |
+| UNOSIM_EXAMPLES_ALLOWED_HOSTS | leer | Produktion bei externer Quelle | Exakte Host-Allowlist; im Dev-Skript `raw.githubusercontent.com`. |
 
 FORCE_DOCKER ist ein deprecated Alias für UNOSIM_SIMULATION_MODE=docker-sandbox. Neue Konfigurationen verwenden den neuen Namen. Sicherheitsvariablen stehen in [SECURITY.md](SECURITY.md).
 

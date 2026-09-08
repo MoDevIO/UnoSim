@@ -322,7 +322,7 @@ git push origin vX.Y.Z
 
 | Version | Datum | Änderungen |
 | --- | --- | --- |
-| 1.0.0 | 2026-09-06 | Initiale Version, Phase 3.7 implementiert |
+| 1.0.0 | 2026-09-06 | Initiale normative Runbook-Version; der aktuelle Implementierungsstand ist in den verlinkten Architektur-, Security- und Skalierungsdokumenten beschrieben. |
 
 ---
 

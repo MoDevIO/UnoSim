@@ -26,7 +26,11 @@ UnoSim supports exactly two trust modes.
 
 Local mode is for one trusted user on one machine.
 
-- The server listens on loopback only and is not reachable from another host.
+- The default listener is loopback-only and is not reachable from another host.
+  The development-only `npm run dev:lan` convenience command may explicitly set
+  `UNOSIM_LISTEN_HOST=0.0.0.0` for a trusted local network test. This exception
+  does not make Local mode suitable for production, public access, or shared
+  untrusted networks.
 - No application login is required.
 - Reverse-proxy identity headers are ignored.
 - Test endpoints remain independently protected by their test-only flags.

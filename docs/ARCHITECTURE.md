@@ -77,7 +77,7 @@ graph TD
   - `shared/parsers/performance-parser.ts` – Timing-kritische Muster, delay()-Erkennung
   - `shared/parsers/serial-configuration-parser.ts` – Baud-Rate, Serial-Konfiguration
 
-### 5. Sandbox Runner Pool
+### 4. Sandbox Runner Pool
 - **Verantwortung:** Verwaltung von Docker-Containern für Sketch-Ausführung
 - **Technologie:** Docker, Node.js Worker Threads
 - **Hauptmerkmale:**
@@ -182,7 +182,9 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar.
 
 ## 🔄 Versionierung und API-Kontrakte
 
-- **REST API:** Versionierung über URL-Pfad (`/api/v1/status`)
+- **REST API:** Versionierung über `apiVersion`, den Response-Header
+  `X-UnoSim-API-Version` und den optionalen Request-Header `Accept-Version`; die
+  aktuellen Routen bleiben beispielsweise `/api/status`.
 - **WebSocket:** Versionierung über Handshake-Nachrichten
 - **Deprecation:** Legacy-Felder und API-Endpunkte werden mit `@deprecated` markiert und nach 2 Major-Releases entfernt
 

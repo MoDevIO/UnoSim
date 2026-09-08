@@ -1,5 +1,13 @@
 # Externe UnoSim-Beispiele
 
+> **Status: nicht-normativer historischer Implementierungsplan.**
+> Die External-Examples-Funktion ist inzwischen implementiert. Der aktuelle
+> Laufzeitvertrag ergibt sich aus `server/config.ts`, den Examples-Services und
+> den Routen `/api/examples` sowie `/api/examples/:id`. Dieses Dokument bewahrt
+> die ursprünglichen Architekturentscheidungen und Abnahmekriterien; seine
+> offenen Entscheidungen und die Umsetzungsreihenfolge sind keine aktuelle
+> Roadmap.
+
 ## Ausgangslage und Ziel
 
 Die bestehende UI lädt den Katalog über `GET /api/examples`, lädt Inhalte aber anschließend direkt über `/examples/<filename>`. `server/routes.ts` durchsucht derzeit `public/examples`; `server/index.ts` liefert diesen Ordner statisch aus; `ExamplesMenu` und `useSimulatorFileSystem` kennen bereits `.ino`- und `.h`-Dateien.

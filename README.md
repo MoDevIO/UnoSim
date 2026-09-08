@@ -86,6 +86,13 @@ Starts the backend (Express + WebSocket) and the Vite dev server with hot-reload
 The backend runs via `tsx` (TypeScript execution) and the client is served by Vite on a separate port with HMR.
 Compilation uses `arduino-cli` directly on the host — Docker is **not** required.
 
+`npm run dev` starts only the backend on the local listener (`127.0.0.1`).
+`npm run dev:lan` starts the same development configuration but explicitly
+listens on `0.0.0.0`, so another device can reach the development server over
+the LAN. LAN mode is an explicit local-development convenience and is not a
+production deployment mode. Both commands use the configured external-example
+source, ref, and host allowlist from the development script.
+
 | Component | Details |
 |-----------|---------|
 | Backend | `tsx server/index.ts` on configured `PORT` (default 3000) |
@@ -107,25 +114,36 @@ The Vite-built client is served as static files from `dist/public/`.
 |-----------|---------|
 | Backend | `node dist/index.js` on configured `PORT` (default 3000) |
 | Client | Static files from `dist/public/` |
-| Compiler | Worker Pool with 4 parallel threads |
-| Docker | Optional — enables sandboxed compilation if Docker Desktop is running |
+| Compiler | Configured Worker Pool (Compose reference: 8 parallel workers) |
+| Docker | Required for the documented production `docker-sandbox` simulation mode |
 
-> **Note:** Docker warnings at startup (`Cannot connect to the Docker daemon`) are non-blocking.
-> The app falls back to direct `arduino-cli` compilation when Docker is unavailable.
+> **Note:** The development/local mode can compile directly with `arduino-cli`.
+> A production deployment using `UNOSIM_SIMULATION_MODE=docker-sandbox` requires
+> a working Docker daemon and the sandbox image; it does not silently downgrade
+> to host-native simulation.
 
 ### Docker Mode
 
 ```bash
 docker build -t unosim-sandbox:latest -f Dockerfile.sandbox .
-docker build -t unosim:latest .
-docker run --rm -p 3000:3000 -e NODE_ENV=production unosim:latest
+docker build -t unosim-server:latest .
 ```
 
-If you start the image manually and want full Docker sandbox mode instead of the local fallback, use the same mounts and environment variables as Compose:
+For a manual production container, use the same gateway, sandbox and mount
+requirements as Compose. At minimum, production requires Gateway mode,
+`UNOSIM_GATEWAY_SECRET` (at least 32 characters), `UNOSIM_TRUSTED_PROXY`, and
+`UNOSIM_ALLOWED_WS_ORIGINS`; the backend also needs the Docker socket and the
+`unosim-sandbox:latest` image available to the configured Docker daemon:
 
 ```bash
 docker run --rm -p 3000:3000 \
    -e NODE_ENV=production \
+   -e UNOSIM_SERVER_MODE=docker \
+   -e UNOSIM_SIMULATION_MODE=docker-sandbox \
+   -e UNOSIM_TRUST_MODE=gateway \
+   -e UNOSIM_GATEWAY_SECRET='<secret-from-secret-store>' \
+   -e UNOSIM_TRUSTED_PROXY='<gateway-ip-or-cidr>' \
+   -e UNOSIM_ALLOWED_WS_ORIGINS='https://classroom.example.edu' \
    -e DOCKER_HOST=unix:///var/run/docker.sock \
    -e DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest \
    -e ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache \
@@ -184,10 +202,10 @@ The repository contains a **robust, fast test pipeline**:
 1. **Unit tests** (Vitest + React Testing Library) cover business logic and UI
    components. `npm run test:unit` is the deterministic refactoring gate;
    toolchain, Docker, browser and load tests are separate gates.
-2. **Minimal E2E smoke flow** comprises three Playwright tests that verify a
-   compile‑and‑run cycle, serial output and basic dialogs. This file lives in
-   `e2e/smoke-and-flow.spec.ts` and the entire suite now takes ~16 seconds instead
-   of the previous 400+ second harness. Old specs have been archived/ignored.
+2. **E2E smoke flow** comprises three Playwright tests in
+   `e2e/smoke-and-flow.spec.ts` for startup, compile/run with serial output, and
+   dialogs. The repository also contains separate responsive, board, visual,
+   and scalability E2E suites; run `npm run test:e2e` for the configured suite.
 3. Heavier **integration/load tests** under `tests/server/` are marked skipped by
    default; set `SKIP_LOAD_TESTS=1` locally if you don’t have enough CPU or want a
    quick check.

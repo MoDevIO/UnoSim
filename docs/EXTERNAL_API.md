@@ -287,7 +287,7 @@ interface SimulatorResponse {
 { version: "1.4.0", type: "GET_PIN_STATE", success: true, data: 1 }
 
 // Response to GET_SIMULATION_STATE:
-{ version: "1.4.0", type: "GET_SIMULATION_STATE", success: true, data: "running" }
+{ version: "1.4.0", type: "GET_SIMULATION_STATE", success: true, data: "RUNNING" }
 ```
 
 #### Example: Error response (payload validation failed)

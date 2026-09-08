@@ -19,7 +19,12 @@ docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
 npm run build
 ~~~
 
-Für Compose müssen die drei im Compose-File verpflichtenden Werte UNOSIM_GATEWAY_SECRET, UNOSIM_TRUSTED_PROXY und UNOSIM_ALLOWED_WS_ORIGINS im Environment oder Secret-Store gesetzt sein. Danach:
+Für Compose müssen die vier im Compose-File verpflichtenden Werte
+`UNOSIM_GATEWAY_SECRET`, `UNOSIM_TRUSTED_PROXY`, `UNOSIM_ALLOWED_WS_ORIGINS` und
+`DOCKER_GID` im Environment oder Secret-Store bzw. als Host-Variable gesetzt
+sein. `DOCKER_GID` muss vor `docker compose build`/`up` der numerischen GID des
+tatsächlich gemounteten Docker-Sockets entsprechen; die Ermittlung steht im
+folgenden Abschnitt. Danach:
 
 ~~~bash
 docker compose build
