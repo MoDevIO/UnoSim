@@ -12,6 +12,7 @@ interface Example {
   id: string;
   title: string;
   category: string;
+  source: "builtin" | "external";
   files: Array<{ name: string; path: string }>;
 }
 
@@ -53,7 +54,9 @@ export function ExamplesMenu({
           examples?: Example[];
         };
         const loadedExamples = (payload.examples ?? []).toSorted((a, b) =>
-          `${a.category}/${a.title}`.localeCompare(`${b.category}/${b.title}`),
+          `${a.source}/${a.category}/${a.title}`.localeCompare(
+            `${b.source}/${b.category}/${b.title}`,
+          ),
         );
         setExamples(loadedExamples);
       } catch (error) {
@@ -110,7 +113,7 @@ export function ExamplesMenu({
     const getVisibleItems = () => {
       const all = Array.from<HTMLElement>(
         document.querySelectorAll<HTMLElement>(
-          '[data-role="example-folder"], [data-role="example-item"]',
+          '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"]',
         ),
       );
       return all.filter(
@@ -122,7 +125,7 @@ export function ExamplesMenu({
     const clearHighlight = () => {
       // Clear from all items including those not currently visible
       const allItems = document.querySelectorAll<HTMLElement>(
-        '[data-role="example-folder"], [data-role="example-item"]',
+        '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"]',
       );
       allItems.forEach((it) => {
         it.classList.remove(
@@ -151,7 +154,7 @@ export function ExamplesMenu({
     // Handle mouse movement - clear keyboard highlight and re-enable hover
     const onMouseMove = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest<HTMLElement>(
-        '[data-role="example-folder"], [data-role="example-item"]',
+        '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"]',
       );
       if (target?.dataset.keyboardFocused === "true") {
         clearHighlight();
@@ -303,75 +306,134 @@ interface ExamplesTreeProps {
   readonly onLoadExample: (example: Example) => void;
 }
 
-function groupExamplesByFolder(items: Example[]): Record<string, Example[]> {
+type ExampleSource = Example["source"];
+
+function groupExamplesBySource(items: Example[]): Record<ExampleSource, Example[]> {
+  const grouped: Record<ExampleSource, Example[]> = {
+    builtin: [],
+    external: [],
+  };
+  items.forEach((item) => {
+    grouped[item.source].push(item);
+  });
+  return grouped;
+}
+
+function groupExamplesByCategory(items: Example[]): Record<string, Example[]> {
   const grouped: Record<string, Example[]> = {};
   items.forEach((item) => {
-    const folder = item.category || "Other";
-    if (!grouped[folder]) grouped[folder] = [];
-    grouped[folder].push(item);
+    const category = item.category || "Other";
+    if (!grouped[category]) grouped[category] = [];
+    grouped[category].push(item);
   });
   return grouped;
 }
 
 function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
-  const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
+  const [expandedSource, setExpandedSource] = useState<ExampleSource | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
-  function toggleFolder(folder: string) {
-    // Close the folder if it's already open, otherwise open it and close others
-    if (expandedFolder === folder) {
-      setExpandedFolder(null);
+  function toggleSource(source: ExampleSource) {
+    if (expandedSource === source) {
+      setExpandedSource(null);
+      setExpandedCategory(null);
     } else {
-      setExpandedFolder(folder);
+      setExpandedSource(source);
+      setExpandedCategory(null);
     }
   }
 
-  const grouped = groupExamplesByFolder(examples);
+  function toggleCategory(source: ExampleSource, category: string) {
+    const categoryKey = `${source}:${category}`;
+    setExpandedCategory((current) =>
+      current === categoryKey ? null : categoryKey,
+    );
+  }
+
+  const sourceLabels: Record<ExampleSource, string> = {
+    builtin: "Built-in",
+    external: "External",
+  };
+  const groupedBySource = groupExamplesBySource(examples);
 
   return (
     <div className="py-1">
-      {Object.entries(grouped)
-        .toSorted(([a], [b]) => a.localeCompare(b))
-        .map(([folder, items]) => {
-          const isExpanded = expandedFolder === folder;
-          const cleanFolderName = folder.replace(/^\d+-/, "");
+      {(["builtin", "external"] as const)
+        .filter((source) => groupedBySource[source].length > 0)
+        .map((source) => {
+          const isSourceExpanded = expandedSource === source;
+          const groupedByCategory = groupExamplesByCategory(groupedBySource[source]);
 
           return (
-            <div key={folder}>
+            <div key={source}>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => toggleFolder(folder)}
-                data-role="example-folder"
-                data-folder={folder}
+                onClick={() => toggleSource(source)}
+                data-role="example-source"
+                data-source={source}
                 tabIndex={0}
                 className="w-full px-2 py-1.5 text-ui-sm text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
               >
                 <ChevronRight
-                  className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                  className={`h-4 w-4 transition-transform ${isSourceExpanded ? "rotate-90" : ""}`}
                 />
-                <span className="font-medium text-ui-xs w-full">
-                  {cleanFolderName}
+                <span className="font-semibold text-ui-xs w-full">
+                  {sourceLabels[source]}
                 </span>
               </Button>
 
-              {isExpanded && (
-                <div className="bg-muted/30">
-                  {items
-                    .toSorted((a, b) => a.title.localeCompare(b.title))
-                    .map((example) => (
-                      <Button
-                        key={example.id}
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onLoadExample(example)}
-                        data-role="example-item"
-                        tabIndex={0}
-                        className="w-full px-4 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
-                      >
-                        <span className="text-muted-foreground">•</span>
-                        <span className="w-full">{example.title}</span>
-                      </Button>
-                    ))}
+              {isSourceExpanded && (
+                <div className="bg-muted/10">
+                  {Object.entries(groupedByCategory)
+                    .toSorted(([a], [b]) => a.localeCompare(b))
+                    .map(([category, items]) => {
+                      const categoryKey = `${source}:${category}`;
+                      const isCategoryExpanded = expandedCategory === categoryKey;
+                      const cleanCategoryName = category.replace(/^\d+-/, "");
+
+                      return (
+                        <div key={categoryKey}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleCategory(source, category)}
+                            data-role="example-folder"
+                            data-folder={categoryKey}
+                            tabIndex={0}
+                            className="w-full px-4 py-1.5 text-ui-sm text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+                          >
+                            <ChevronRight
+                              className={`h-4 w-4 transition-transform ${isCategoryExpanded ? "rotate-90" : ""}`}
+                            />
+                            <span className="font-medium text-ui-xs w-full">
+                              {cleanCategoryName}
+                            </span>
+                          </Button>
+
+                          {isCategoryExpanded && (
+                            <div className="bg-muted/30">
+                              {items
+                                .toSorted((a, b) => a.title.localeCompare(b.title))
+                                .map((example) => (
+                                  <Button
+                                    key={example.id}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onLoadExample(example)}
+                                    data-role="example-item"
+                                    tabIndex={0}
+                                    className="w-full px-8 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+                                  >
+                                    <span className="text-muted-foreground">•</span>
+                                    <span className="w-full">{example.title}</span>
+                                  </Button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>
