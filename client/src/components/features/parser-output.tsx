@@ -498,7 +498,8 @@ export function ParserOutput({
                   "No pins available"
                 ) : (
                   <div className="space-y-2">
-                    <p>No pins used in current sketch</p>
+                    <p>No pins statically detected</p>
+                    <p>Dynamically configured pins will appear during simulation.</p>
                     <Button
                       variant="link"
                       size="sm"

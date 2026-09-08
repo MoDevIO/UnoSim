@@ -416,7 +416,7 @@ describe("ParserOutput Component", () => {
     });
   });
 
-  it("displays 'No pins used' message when no programmed pins", () => {
+  it("explains that an empty registry is only a static-analysis result", () => {
     const ioRegistry: IOPinRecord[] = [
       { pin: "13", defined: false, usedAt: [] },
     ];
@@ -430,7 +430,37 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    expect(screen.getByText("No pins used in current sketch")).not.toBeNull();
+    expect(screen.getByText("No pins statically detected")).not.toBeNull();
+    expect(
+      screen.getByText("Dynamically configured pins will appear during simulation."),
+    ).not.toBeNull();
+    expect(screen.queryByText("No pins used in current sketch")).toBeNull();
+  });
+
+  it("displays pins discovered at runtime", () => {
+    const ioRegistry: IOPinRecord[] = [
+      {
+        pin: "4",
+        defined: true,
+        pinModeLines: ["runtime"],
+        pinModeModes: ["OUTPUT"],
+        usedAt: [{ line: 0, operation: "pinMode:1" }],
+      },
+    ];
+
+    render(
+      <ParserOutput
+        messages={[]}
+        ioRegistry={ioRegistry}
+        onClear={mockOnClear}
+        defaultTab="registry"
+      />,
+    );
+
+    expect(screen.getByText("Programmed pins (1)")).not.toBeNull();
+    expect(screen.getByText("4")).not.toBeNull();
+    expect(screen.getByText("OUTPUT")).not.toBeNull();
+    expect(screen.queryByText("No pins statically detected")).toBeNull();
   });
 
   it("shows link to show all pins when no programmed pins", async () => {
