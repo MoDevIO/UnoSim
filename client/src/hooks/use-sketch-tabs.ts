@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { generateUuidV4 } from "@/lib/uuid";
 
 interface SketchTab {
   id: string;
@@ -15,7 +16,7 @@ export function useSketchTabs() {
   }, []);
 
   const createTab = useCallback((name: string, content: string = ""): string => {
-    const newTabId = `tab-${Date.now()}-${crypto.randomUUID().replaceAll("-", "").slice(0, 9)}`;
+    const newTabId = `tab-${Date.now()}-${generateUuidV4().replaceAll("-", "").slice(0, 9)}`;
     const newTab: SketchTab = {
       id: newTabId,
       name,

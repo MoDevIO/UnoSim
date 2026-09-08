@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 
 import { useFileManager } from "@/hooks/use-file-manager";
+import { generateUuidV4 } from "@/lib/uuid";
 import type { Sketch } from "@shared/schema";
 import type { ToastFn } from "@/hooks/use-toast";
 
@@ -46,7 +47,7 @@ export function useSimulatorFileSystem({
   );
 
   const handleTabAdd = useCallback(() => {
-    const newTabId = crypto.randomUUID().replaceAll("-", "").slice(0, 9);
+    const newTabId = generateUuidV4().replaceAll("-", "").slice(0, 9);
     const newTab = {
       id: newTabId,
       name: `header_${tabs.length}.h`,
@@ -105,7 +106,7 @@ export function useSimulatorFileSystem({
         const orderedFiles = [...inoFiles, ...hFiles];
 
         const newTabs = orderedFiles.map((file) => ({
-          id: crypto.randomUUID().replaceAll("-", "").slice(0, 9),
+          id: generateUuidV4().replaceAll("-", "").slice(0, 9),
           name: file.name,
           content: file.content,
         }));
@@ -120,7 +121,7 @@ export function useSimulatorFileSystem({
         }
       } else {
         const newHeaderFiles = files.map((file) => ({
-          id: crypto.randomUUID().replaceAll("-", "").slice(0, 9),
+          id: generateUuidV4().replaceAll("-", "").slice(0, 9),
           name: file.name,
           content: file.content,
         }));

@@ -15,6 +15,7 @@ import { useState, useCallback, useEffect, Dispatch, SetStateAction } from "reac
 import type { Sketch } from "@shared/schema";
 import { useSketchTabs } from "./use-sketch-tabs";
 import { useFileManager } from "./use-file-manager";
+import { generateUuidV4 } from "@/lib/uuid";
 
 /**
  * File system state and operations
@@ -98,7 +99,7 @@ export function useFileSystem(params: UseFileSystemParams): UseFileSystemResult 
         setTabs((prevTabs) => {
           if (prevTabs.length > 0) return prevTabs;
 
-          const tabId = `tab-${Date.now()}-${crypto.randomUUID().slice(0, 7)}`;
+          const tabId = `tab-${Date.now()}-${generateUuidV4().slice(0, 7)}`;
           setActiveTabId(tabId);
           return [
             {

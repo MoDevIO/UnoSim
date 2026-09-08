@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { generateUuidV4 } from "@/lib/uuid";
 
 export interface DebugMessage {
   id: string;
@@ -52,7 +53,7 @@ export function useDebugConsole(activeOutputTab: string) {
       if (!debugMode) return;
 
       const message: DebugMessage = {
-        id: `${Date.now()}-${crypto.randomUUID()}`,
+        id: `${Date.now()}-${generateUuidV4()}`,
         timestamp: new Date(),
         sender,
         type,
