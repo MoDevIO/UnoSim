@@ -200,7 +200,14 @@
 <a name='L135'></a><a href='#L135'>135</a>
 <a name='L136'></a><a href='#L136'>136</a>
 <a name='L137'></a><a href='#L137'>137</a>
-<a name='L138'></a><a href='#L138'>138</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -233,7 +240,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
@@ -243,7 +250,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -275,6 +285,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -289,19 +300,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -318,8 +316,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -393,7 +407,10 @@ export const MobileLayout = React.memo(function MobileLayout({
         }}
       &gt;
         &lt;div className="pointer-events-auto sticky mr-4 mb-4" style={{ alignSelf: "flex-end" }}&gt;
-          &lt;div className="bg-black/95 rounded-full shadow-lg p-1 flex flex-col items-center space-y-2"&gt;
+          &lt;div
+            className="bg-black/95 rounded-full shadow-lg p-2 flex flex-col items-center space-y-3"
+            data-mobile-fab-toolbar
+          &gt;
             &lt;Button
               variant="ghost"
               size="icon"
@@ -405,8 +422,9 @@ export const MobileLayout = React.memo(function MobileLayout({
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : <span class="branch-1 cbranch-no" title="branch not covered" >"bg-transparent text-muted-foreground",</span>
               )}
+              data-mobile-fab-button
             &gt;
-              &lt;Cpu className="w-5 h-5" /&gt;
+              &lt;Cpu className="!w-10 !h-10" /&gt;
             &lt;/Button&gt;
             &lt;Button
               variant="ghost"
@@ -419,8 +437,9 @@ export const MobileLayout = React.memo(function MobileLayout({
                   ? <span class="branch-0 cbranch-no" title="branch not covered" >"bg-green-600 text-white hover:bg-green-700"</span>
                   : "bg-transparent text-muted-foreground",
               )}
+              data-mobile-fab-button
             &gt;
-              &lt;Wrench className="w-5 h-5 opacity-80" /&gt;
+              &lt;Wrench className="!w-10 !h-10 opacity-80" /&gt;
             &lt;/Button&gt;
             &lt;Button
               variant="ghost"
@@ -433,8 +452,9 @@ export const MobileLayout = React.memo(function MobileLayout({
                   ? <span class="branch-0 cbranch-no" title="branch not covered" >"bg-amber-600 text-white hover:bg-amber-700"</span>
                   : "bg-transparent text-muted-foreground",
               )}
+              data-mobile-fab-button
             &gt;
-              &lt;Terminal className="w-5 h-5" /&gt;
+              &lt;Terminal className="!w-10 !h-10" /&gt;
             &lt;/Button&gt;
             &lt;Button
               variant="ghost"
@@ -447,8 +467,9 @@ export const MobileLayout = React.memo(function MobileLayout({
                   ? <span class="branch-0 cbranch-no" title="branch not covered" >"bg-sky-600 text-white hover:bg-sky-700"</span>
                   : "bg-transparent text-muted-foreground",
               )}
+              data-mobile-fab-button
             &gt;
-              &lt;Monitor className="w-5 h-5" /&gt;
+              &lt;Monitor className="!w-10 !h-10" /&gt;
             &lt;/Button&gt;
           &lt;/div&gt;
         &lt;/div&gt;
@@ -481,7 +502,7 @@ MobileLayout.displayName = "MobileLayout";
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-08T11:15:38.503Z
+                at 2026-09-08T12:23:01.102Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
