@@ -38,7 +38,7 @@ function simulateSerialOutput(
 describe("Control Characters Examples and Handling", () => {
   const examplesDir = path.join(
     __dirname,
-    "../../public/examples/04-control-characters",
+    "../../tests/fixtures/examples/04-control-characters",
   );
   const monitorPath = path.join(
     __dirname,

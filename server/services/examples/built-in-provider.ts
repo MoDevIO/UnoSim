@@ -49,7 +49,9 @@ export class BuiltInProvider {
         content: await readFile(resolvePathWithinRoot(examplesRoot, file), "utf8"),
       })));
       const name = path.basename(relativePath);
-      const category = relativePath.split(path.sep)[0] ?? "Built-in";
+      const category = relativeDirectory === "."
+        ? "Built-in"
+        : relativePath.split(path.sep)[0] ?? "Built-in";
       return {
         id: `builtin-${relativePath.replaceAll(path.sep, "-").replaceAll(/[^A-Za-z0-9_-]/g, "-").replaceAll(/-+/g, "-").replaceAll(/(?:^-|-$)/g, "")}`,
         title: name.replaceAll(/\.(?:ino|h)$/gi, "").replaceAll(/[-_]+/g, " "),
