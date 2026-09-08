@@ -140,7 +140,6 @@ export function ArduinoSimulatorPageLayout(
     <PinMonitorView
       pinMonitorVisible={pinMonitorVisible}
       pinStates={pinStates}
-      batchStats={batchStats}
       simulationStatus={simulationStatus}
       txActivity={txActivity}
       rxActivity={rxActivity}

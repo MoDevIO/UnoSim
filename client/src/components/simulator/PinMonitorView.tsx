@@ -1,12 +1,11 @@
 import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
-import type { BatchStats, PinState } from "@/hooks/use-simulation-store";
+import type { PinState } from "@/hooks/use-simulation-store";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 
 type PinMonitorViewProps = {
   readonly pinMonitorVisible: boolean;
   readonly pinStates: PinState[];
-  readonly batchStats: BatchStats;
   readonly simulationStatus: SimulationStatus;
   readonly txActivity: number;
   readonly rxActivity: number;
@@ -20,7 +19,6 @@ type PinMonitorViewProps = {
 export function PinMonitorView({
   pinMonitorVisible,
   pinStates,
-  batchStats,
   simulationStatus,
   txActivity,
   rxActivity,
@@ -36,7 +34,7 @@ export function PinMonitorView({
     <div className={isMobile ? "h-full w-full flex flex-col overflow-y-auto" : "h-full w-full flex flex-col gap-3 p-2 overflow-y-auto"}>
       {pinMonitorVisible && (
         <div>
-          <PinMonitor pinStates={pinStates} batchStats={batchStats} />
+          <PinMonitor pinStates={pinStates} />
         </div>
       )}
 

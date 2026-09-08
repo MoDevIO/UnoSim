@@ -1,12 +1,11 @@
 import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
-import type { PinState, BatchStats } from "@/hooks/use-simulation-store";
+import type { PinState } from "@/hooks/use-simulation-store";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 
 type SimulatorSidebarProps = {
   readonly pinMonitorVisible: boolean;
   readonly pinStates: PinState[];
-  readonly batchStats: BatchStats;
   readonly simulationStatus: SimulationStatus | undefined;
   readonly txActivity: number;
   readonly rxActivity: number;
@@ -20,7 +19,6 @@ type SimulatorSidebarProps = {
 export default function SimulatorSidebar({
   pinMonitorVisible,
   pinStates,
-  batchStats,
   simulationStatus,
   txActivity,
   rxActivity,
@@ -37,7 +35,7 @@ export default function SimulatorSidebar({
     <div className={isMobile ? "h-full w-full" : "h-full w-full flex flex-col gap-3 p-2 overflow-y-auto"}>
       {pinMonitorVisible && (
         <div>
-          <PinMonitor pinStates={pinStates} batchStats={batchStats} />
+          <PinMonitor pinStates={pinStates} />
       {/* telemetry display could be added here if desired */}
         </div>
       )}

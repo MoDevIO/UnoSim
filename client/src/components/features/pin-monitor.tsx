@@ -1,16 +1,14 @@
-import { useMemo, useRef, useState } from "react";
-import type { BatchStats, PinState } from "@/hooks/use-simulation-store";
+import { useMemo, useRef } from "react";
+import type { PinState } from "@/hooks/use-simulation-store";
 import { clsx } from "clsx";
 
 interface PinMonitorProps {
   readonly pinStates: PinState[];
-  readonly batchStats?: BatchStats;
 }
 
 const PWM_ALPHA = 0.2; // smoothing factor
 
-export function PinMonitor({ pinStates, batchStats }: PinMonitorProps) {
-  const [showPerf, setShowPerf] = useState(false);
+export function PinMonitor({ pinStates }: PinMonitorProps) {
   const pwmAveragesRef = useRef<Map<number, number>>(new Map());
 
   const displayStates = useMemo(() => {
@@ -35,23 +33,7 @@ export function PinMonitor({ pinStates, batchStats }: PinMonitorProps) {
       className="w-full rounded-lg border border-border bg-card p-3"
       data-testid="pin-monitor"
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-semibold text-foreground">Pin Monitor</div>
-        <button
-          type="button"
-          className="text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => setShowPerf((prev) => !prev)}
-        >
-          {showPerf ? "Hide FPS" : "Show FPS"}
-        </button>
-      </div>
-
-      {showPerf && batchStats && (
-        <div className="mb-2 text-xs text-muted-foreground">
-          <div>Batch ms: {batchStats.lastBatchMs.toFixed(2)}</div>
-          <div>Last batch size: {batchStats.lastBatchSize}</div>
-        </div>
-      )}
+      <div className="mb-2 text-sm font-semibold text-foreground">Pin Monitor</div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
         {displayStates.map((state) => {
