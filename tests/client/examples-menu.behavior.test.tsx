@@ -13,9 +13,9 @@ vi.mock("@/components/ui/dropdown-menu", async () => {
       const { open, setOpen } = React.useContext(Context);
       return React.cloneElement(children, { onClick: () => setOpen(!open) });
     },
-    DropdownMenuContent: ({ children }: any) => {
+    DropdownMenuContent: ({ children, ...props }: any) => {
       const { open } = React.useContext(Context);
-      return open ? <div>{children}</div> : null;
+      return open ? <div {...props}>{children}</div> : null;
     },
   };
 });
@@ -48,6 +48,10 @@ describe("ExamplesMenu behavior", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
     await waitFor(() => expect(screen.getByText("Load Example")).toBeInTheDocument());
+    const menuContent = screen.getByText("Load Example").parentElement?.parentElement;
+    expect(menuContent).toHaveClass("w-72", "max-w-[calc(100vw-1rem)]", "overflow-y-auto");
+    expect(menuContent).not.toHaveClass("max-h-96", "overflow-y-scroll");
+    expect(menuContent).toHaveStyle({ maxHeight: "calc(var(--radix-dropdown-menu-content-available-height) - 10px)" });
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
     expect(screen.queryByRole("button", { name: "Built-in", exact: true })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Other" })).not.toBeInTheDocument();

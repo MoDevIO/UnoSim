@@ -274,7 +274,8 @@ export function ExamplesMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-72 max-w-[calc(100vw-1rem)] max-h-96 overflow-y-scroll scrollbar-hide p-0"
+        className="w-72 max-w-[calc(100vw-1rem)] overflow-y-auto p-0"
+        style={{ maxHeight: "calc(var(--radix-dropdown-menu-content-available-height) - 10px)" }}
         data-keyboard-nav={keyboardNavActive}
       >
         <div className="px-2 py-1.5">
