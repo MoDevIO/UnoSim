@@ -35,7 +35,7 @@ const MenubarTrigger = React.forwardRef<
       "inline-flex cursor-default select-none items-center justify-center rounded-sm px-2 py-1",
       "text-ui-sm font-medium outline-none transition-colors",
       "hover:bg-accent hover:text-accent-foreground",
-      "focus:bg-accent focus:text-accent-foreground",
+      "focus-visible:ring-2 focus-visible:ring-ring",
       "data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
       className,
     )}

@@ -11,7 +11,6 @@ import {
   MenubarContent,
   MenubarItem,
   MenubarSeparator,
-  MenubarLabel,
   MenubarShortcut,
   MenubarSub,
   MenubarSubTrigger,
@@ -297,7 +296,7 @@ interface DesktopMenuBarProps {
   readonly onTimeoutChange: (timeout: number) => void;
 }
 
-function DesktopMenuBar({
+export function DesktopMenuBar({
   isMac,
   board,
   baudRate,
@@ -322,14 +321,81 @@ function DesktopMenuBar({
   onOutputPanelToggle,
   onTimeoutChange,
 }: DesktopMenuBarProps) {
+  const [openMenu, setOpenMenu] = React.useState("");
+  const openMenuRef = React.useRef("");
+  const menuSwitchPending = React.useRef(false);
+
+  const setCurrentOpenMenu = React.useCallback((menu: string) => {
+    openMenuRef.current = menu;
+    setOpenMenu(menu);
+  }, []);
+
+  const markMenuSwitchPending = React.useCallback((menu: string) => {
+    if (openMenuRef.current && openMenuRef.current !== menu) {
+      menuSwitchPending.current = true;
+      setCurrentOpenMenu(menu);
+    } else if (!openMenuRef.current) {
+      menuSwitchPending.current = false;
+    }
+  }, [setCurrentOpenMenu]);
+
+  const clearMenuSwitchPending = React.useCallback(() => {
+    menuSwitchPending.current = false;
+  }, []);
+
+  const markMenuPointerDown = React.useCallback(() => {
+    menuSwitchPending.current = true;
+  }, []);
+
+  React.useEffect(() => {
+    const clearPendingOnOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Element) ||
+        (!target.closest("[data-top-level-menu-trigger]") &&
+          !target.closest("[data-radix-menu-content]"))
+      ) {
+        clearMenuSwitchPending();
+        setCurrentOpenMenu("");
+      }
+    };
+
+    document.addEventListener("pointerdown", clearPendingOnOutsidePointerDown, true);
+    return () => document.removeEventListener("pointerdown", clearPendingOnOutsidePointerDown, true);
+  }, [clearMenuSwitchPending, setCurrentOpenMenu]);
+
+  const handleMenuValueChange = React.useCallback((value: string) => {
+    if (value === "") {
+      if (menuSwitchPending.current) {
+        return;
+      }
+      setCurrentOpenMenu("");
+      return;
+    }
+
+    setCurrentOpenMenu(value);
+  }, [setCurrentOpenMenu]);
+
   return (
-    <Menubar className="app-menu no-drag border-0 bg-transparent p-0 h-auto flex-shrink-0">
+    <Menubar
+      value={openMenu}
+      onValueChange={handleMenuValueChange}
+      className="app-menu no-drag border-0 bg-transparent p-0 h-auto flex-shrink-0"
+    >
       {/* File Menu */}
-      <MenubarMenu>
-        <MenubarTrigger>File</MenubarTrigger>
-        <MenubarContent>
-          <MenubarLabel>File</MenubarLabel>
-          <MenubarSeparator />
+      <MenubarMenu value="file">
+        <MenubarTrigger
+          data-top-level-menu-trigger
+          onPointerDown={markMenuPointerDown}
+          onPointerEnter={() => markMenuSwitchPending("file")}
+          onPointerLeave={clearMenuSwitchPending}
+          onPointerUp={clearMenuSwitchPending}
+        >
+          File
+        </MenubarTrigger>
+        <MenubarContent
+          onKeyDown={(event) => event.key === "Escape" && clearMenuSwitchPending()}
+        >
           <MenubarItem onSelect={() => onFileAdd()}>
             New File
             <MenubarShortcut>
@@ -362,11 +428,19 @@ function DesktopMenuBar({
       </MenubarMenu>
 
       {/* Edit Menu */}
-      <MenubarMenu>
-        <MenubarTrigger>Edit</MenubarTrigger>
-        <MenubarContent>
-          <MenubarLabel>Edit</MenubarLabel>
-          <MenubarSeparator />
+      <MenubarMenu value="edit">
+        <MenubarTrigger
+          data-top-level-menu-trigger
+          onPointerDown={markMenuPointerDown}
+          onPointerEnter={() => markMenuSwitchPending("edit")}
+          onPointerLeave={clearMenuSwitchPending}
+          onPointerUp={clearMenuSwitchPending}
+        >
+          Edit
+        </MenubarTrigger>
+        <MenubarContent
+          onKeyDown={(event) => event.key === "Escape" && clearMenuSwitchPending()}
+        >
           <MenubarItem onSelect={() => onUndo()}>
             Undo
             <MenubarShortcut>
@@ -421,9 +495,19 @@ function DesktopMenuBar({
       </MenubarMenu>
 
       {/* Sketch Menu */}
-      <MenubarMenu>
-        <MenubarTrigger>Sketch</MenubarTrigger>
-        <MenubarContent>
+      <MenubarMenu value="sketch">
+        <MenubarTrigger
+          data-top-level-menu-trigger
+          onPointerDown={markMenuPointerDown}
+          onPointerEnter={() => markMenuSwitchPending("sketch")}
+          onPointerLeave={clearMenuSwitchPending}
+          onPointerUp={clearMenuSwitchPending}
+        >
+          Sketch
+        </MenubarTrigger>
+        <MenubarContent
+          onKeyDown={(event) => event.key === "Escape" && clearMenuSwitchPending()}
+        >
           <MenubarItem onSelect={() => onCompile()}>
             Compile
             <MenubarShortcut>F5</MenubarShortcut>
@@ -448,11 +532,19 @@ function DesktopMenuBar({
       </MenubarMenu>
 
       {/* Tools Menu */}
-      <MenubarMenu>
-        <MenubarTrigger>Tools</MenubarTrigger>
-        <MenubarContent>
-          <MenubarLabel>Tools</MenubarLabel>
-          <MenubarSeparator />
+      <MenubarMenu value="tools">
+        <MenubarTrigger
+          data-top-level-menu-trigger
+          onPointerDown={markMenuPointerDown}
+          onPointerEnter={() => markMenuSwitchPending("tools")}
+          onPointerLeave={clearMenuSwitchPending}
+          onPointerUp={clearMenuSwitchPending}
+        >
+          Tools
+        </MenubarTrigger>
+        <MenubarContent
+          onKeyDown={(event) => event.key === "Escape" && clearMenuSwitchPending()}
+        >
           <MenubarItem
             className="cursor-default"
             onSelect={(e) => e.preventDefault()}
@@ -497,9 +589,19 @@ function DesktopMenuBar({
       </MenubarMenu>
 
       {/* Help Menu */}
-      <MenubarMenu>
-        <MenubarTrigger>Help</MenubarTrigger>
-        <MenubarContent>
+      <MenubarMenu value="help">
+        <MenubarTrigger
+          data-top-level-menu-trigger
+          onPointerDown={markMenuPointerDown}
+          onPointerEnter={() => markMenuSwitchPending("help")}
+          onPointerLeave={clearMenuSwitchPending}
+          onPointerUp={clearMenuSwitchPending}
+        >
+          Help
+        </MenubarTrigger>
+        <MenubarContent
+          onKeyDown={(event) => event.key === "Escape" && clearMenuSwitchPending()}
+        >
           <MenubarItem
             onSelect={() => {
               globalThis.open(
