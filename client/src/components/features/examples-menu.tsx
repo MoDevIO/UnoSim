@@ -373,12 +373,12 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                 data-role="example-source"
                 data-source={source}
                 tabIndex={0}
-                className="w-full px-2 py-1.5 text-ui-sm text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+                className="w-full px-2 py-1.5 text-ui-xs text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
               >
                 <ChevronRight
                   className={`h-4 w-4 transition-transform ${isSourceExpanded ? "rotate-90" : ""}`}
                 />
-                <span className="font-semibold text-ui-xs w-full">
+                <span className="font-medium text-ui-xs leading-tight w-full">
                   {sourceLabels[source]}
                 </span>
               </Button>
@@ -401,12 +401,12 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                             data-role="example-folder"
                             data-folder={categoryKey}
                             tabIndex={0}
-                            className="w-full px-4 py-1.5 text-ui-sm text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+                            className="w-full px-4 py-1.5 text-ui-xs text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
                           >
                             <ChevronRight
                               className={`h-4 w-4 transition-transform ${isCategoryExpanded ? "rotate-90" : ""}`}
                             />
-                            <span className="font-medium text-ui-xs w-full">
+                            <span className="font-normal text-ui-xs leading-tight w-full">
                               {cleanCategoryName}
                             </span>
                           </Button>
@@ -426,7 +426,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                                     className="w-full px-8 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
                                   >
                                     <span className="text-muted-foreground">•</span>
-                                    <span className="w-full">{example.title}</span>
+                                    <span className="text-ui-xs leading-tight w-full">{example.title}</span>
                                   </Button>
                                 ))}
                             </div>
