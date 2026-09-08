@@ -331,7 +331,6 @@ export function SketchTabs({
               height: "var(--ui-button-height)",
               display: "flex",
               alignItems: "center",
-              fontSize: "var(--ui-control-font-size)",
               maxWidth: "200px",
             }}
           >
@@ -356,11 +355,9 @@ export function SketchTabs({
                     }
                   }}
                   onBlur={handleRenameSave}
-                  className="w-24 px-2 py-1 text-ui-sm"
+                  className="ui-type-tab w-24 px-2 py-1"
                   style={{
                     height: "var(--ui-button-height)",
-                    fontSize: "var(--ui-control-font-size)",
-                    lineHeight: "var(--ui-button-height)",
                   }}
                 />
               </div>
@@ -369,17 +366,15 @@ export function SketchTabs({
                 <button
                   type="button"
                   className={clsx(
-                    "flex items-center gap-2 px-3 cursor-pointer transition-colors min-w-0",
+                    "ui-type-tab flex items-center gap-2 px-3 cursor-pointer transition-colors min-w-0",
                     activeTabId === tab.id
                       ? "text-[#f3f3f3]"
                       : "hover:bg-[#252526] text-[#9d9d9d]",
                   )}
                   style={{
                     height: "var(--ui-button-height)",
-                    lineHeight: "var(--ui-button-height)",
                     display: "flex",
                     alignItems: "center",
-                    fontSize: "var(--ui-control-font-size)",
                     background: "transparent",
                     border: "none",
                     flex: "1",
@@ -405,10 +400,8 @@ export function SketchTabs({
                     <FileCode2 className="h-3 w-3 flex-shrink-0 text-[#c586c0]" strokeWidth={2} />
                   )}
                   <span
-                    className="text-ui-sm whitespace-nowrap overflow-hidden text-ellipsis"
+                    className="whitespace-nowrap overflow-hidden text-ellipsis"
                     style={{
-                      fontSize: "var(--ui-control-font-size)",
-                      lineHeight: "var(--ui-button-height)",
                       height: "var(--ui-button-height)",
                       display: "flex",
                       alignItems: "center",

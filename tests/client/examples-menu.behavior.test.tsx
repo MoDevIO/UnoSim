@@ -52,9 +52,11 @@ describe("ExamplesMenu behavior", () => {
     expect(menuContent).toHaveClass("w-72", "max-w-[calc(100vw-1rem)]", "overflow-y-auto");
     expect(menuContent).not.toHaveClass("max-h-96", "overflow-y-scroll");
     expect(menuContent).toHaveStyle({ maxHeight: "calc(var(--radix-dropdown-menu-content-available-height) - 10px)" });
+    expect(screen.getByText("Load Example")).toHaveClass("ui-type-menu-title");
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
     expect(screen.queryByRole("button", { name: "Built-in", exact: true })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Other" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /01-blink\.ino/ })).toHaveClass("ui-type-menu-item");
     fireEvent.click(screen.getByRole("button", { name: /01-blink\.ino/ }));
 
     await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([{ name: "01-blink.ino", content: "blink code" }], "01-blink.ino"));

@@ -279,18 +279,18 @@ export function ExamplesMenu({
         data-keyboard-nav={keyboardNavActive}
       >
         <div className="px-2 py-1.5">
-          <div className="text-ui-xs font-semibold mb-1">Load Example</div>
+          <div className="ui-type-menu-title font-semibold mb-1">Load Example</div>
         </div>
         <div className="border-t" />
 
         {examples.length === 0 && !isLoading && (
-          <div className="px-2 py-1.5 text-ui-xs text-muted-foreground">
+          <div className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">
             No examples available
           </div>
         )}
 
         {isLoading && (
-          <div className="px-2 py-1.5 text-ui-xs text-muted-foreground">
+          <div className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">
             Loading examples...
           </div>
         )}
@@ -351,8 +351,8 @@ function ExampleItem({ example, onLoadExample, compact = false }: ExampleItemPro
       data-role="example-item"
       tabIndex={0}
       className={compact
-        ? "w-full h-7 min-h-7 px-4 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
-        : "w-full px-8 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"}
+        ? "ui-type-menu-item w-full h-7 min-h-7 px-4 py-1 text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+        : "ui-type-menu-item w-full px-8 py-1 text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"}
       title={getExampleDisplayName(example)}
     >
       <span className={compact
@@ -413,12 +413,12 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                 data-role="example-source"
                 data-source={source}
                 tabIndex={0}
-                className="w-full px-2 py-1.5 text-ui-xs text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+                className="w-full px-2 py-1.5 ui-type-section-header text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
               >
                 <ChevronRight
                   className={`h-4 w-4 transition-transform ${isSourceExpanded ? "rotate-90" : ""}`}
                 />
-                <span className="font-medium text-ui-xs leading-tight w-full">
+                <span className="font-medium w-full">
                   {sourceLabels[source]}
                 </span>
               </Button>
@@ -452,12 +452,12 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                                 data-role="example-folder"
                                 data-folder={categoryKey}
                                 tabIndex={0}
-                                className="w-full px-4 py-1.5 text-ui-xs text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+                                className="w-full px-4 py-1.5 ui-type-section-header text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
                               >
                                 <ChevronRight
                                   className={`h-4 w-4 transition-transform ${isCategoryExpanded ? "rotate-90" : ""}`}
                                 />
-                                <span className="font-normal text-ui-xs leading-tight w-full">
+                                <span className="font-normal w-full">
                                   {cleanCategoryName}
                                 </span>
                               </Button>

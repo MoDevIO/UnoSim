@@ -202,7 +202,7 @@ function PauseButton({ isPausing, simulateDisabled, isLoading, onPause, isMobile
     <button
       type="button"
       className={clsx(
-        "absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10 cursor-pointer",
+        "ui-type-toolbar absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10 cursor-pointer",
         isMobile && "w-[var(--ui-button-height)]",
       )}
       onClick={handleClick}
@@ -524,7 +524,7 @@ export function DesktopMenuBar({
             <div className="flex items-center justify-between w-full">
               <span>Output Panel</span>
               {showCompilationOutput && (
-                <span className="text-ui-xs">✓</span>
+                <span className="ui-type-menu-item">✓</span>
               )}
             </div>
           </MenubarItem>
@@ -551,7 +551,7 @@ export function DesktopMenuBar({
           >
             <div className="flex items-center justify-between w-full">
               <span>Board:</span>
-              <span className="text-ui-xs text-muted-foreground">
+              <span className="ui-type-menu-item text-muted-foreground">
                 {board}
               </span>
             </div>
@@ -562,7 +562,7 @@ export function DesktopMenuBar({
           >
             <div className="flex items-center justify-between w-full">
               <span>Baud Rate:</span>
-              <span className="text-ui-xs text-muted-foreground">
+              <span className="ui-type-menu-item text-muted-foreground">
                 {baudRate}
               </span>
             </div>
@@ -733,7 +733,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               className="text-white opacity-95 h-5 w-5 flex-shrink-0"
               strokeWidth={1.67}
             />
-            <h1 className="text-ui-sm font-semibold truncate select-none">
+            <h1 className="ui-type-toolbar font-semibold truncate select-none">
               Arduino UNO Simulator
             </h1>
           </div>

@@ -34,6 +34,22 @@
   --fs-body-base: var(--fs-code-base);     /* Aligns with editor base */
   --fs-body-sm: calc(13px * var(--ui-font-scale));
   --fs-body-xs: calc(12px * var(--ui-font-scale));
+  --lh-body-xs: calc(16px * var(--ui-font-scale));
+
+  /* Semantic UI typography roles. These reuse the scale above instead of
+     introducing component-specific font sizes. */
+  --ui-font-menu: var(--fs-body-base);
+  --ui-line-menu: var(--lh-md);
+  --ui-font-menu-title: var(--fs-body-base);
+  --ui-line-menu-title: var(--lh-md);
+  --ui-font-menu-item: var(--fs-body-xs);
+  --ui-line-menu-item: var(--lh-body-xs);
+  --ui-font-section-header: var(--fs-body-xs);
+  --ui-line-section-header: var(--lh-body-xs);
+  --ui-font-tab: var(--fs-body-xs);
+  --ui-line-tab: var(--lh-body-xs);
+  --ui-font-toolbar: var(--fs-body-base);
+  --ui-line-toolbar: var(--lh-md);
 
   /* Display/Headings (not yet used in app, but ready for future use) */
   --fs-display-3xl: calc(30px * var(--ui-font-scale));
