@@ -329,6 +329,27 @@ function groupExamplesByCategory(items: Example[]): Record<string, Example[]> {
   return grouped;
 }
 
+interface ExampleItemProps {
+  readonly example: Example;
+  readonly onLoadExample: (example: Example) => void;
+}
+
+function ExampleItem({ example, onLoadExample }: ExampleItemProps) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => onLoadExample(example)}
+      data-role="example-item"
+      tabIndex={0}
+      className="w-full px-8 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+    >
+      <span className="text-muted-foreground">•</span>
+      <span className="text-ui-xs leading-tight w-full">{example.title}</span>
+    </Button>
+  );
+}
+
 function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
   const [expandedSource, setExpandedSource] = useState<ExampleSource | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -416,18 +437,11 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                               {items
                                 .toSorted((a, b) => a.title.localeCompare(b.title))
                                 .map((example) => (
-                                  <Button
+                                  <ExampleItem
                                     key={example.id}
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => onLoadExample(example)}
-                                    data-role="example-item"
-                                    tabIndex={0}
-                                    className="w-full px-8 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
-                                  >
-                                    <span className="text-muted-foreground">•</span>
-                                    <span className="text-ui-xs leading-tight w-full">{example.title}</span>
-                                  </Button>
+                                    example={example}
+                                    onLoadExample={onLoadExample}
+                                  />
                                 ))}
                             </div>
                           )}
