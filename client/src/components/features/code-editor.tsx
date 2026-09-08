@@ -544,15 +544,11 @@ export function CodeEditor({
       // to work even when the editor is not focused
     });
 
-    // NEW: Custom paste handler to handle large pastes
+    // Observe native Monaco paste events for diagnostics only.
     const pasteDisposable = editor.onDidPaste(() => {
-      // This event fires after paste, we can use it to detect if paste was truncated
-      // But we need to handle it before Monaco processes it
       logger.debug("Paste event detected");
     });
 
-    // Better approach: Add a DOM paste listener directly
-    const domNode = editor.getDomNode();
     // Listen for UI font-scale changes and update Monaco options accordingly
     const onScale = () => {
       try {
@@ -574,55 +570,11 @@ export function CodeEditor({
     // Keep listening for scale changes (some emit on document, others on window)
     globalThis.addEventListener("uiFontScaleChange", onScale);
     document.addEventListener("uiFontScaleChange", onScale);
-    const handlePaste = (e: ClipboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const text = e.clipboardData?.getData("text/plain");
-      if (!text) return;
-
-      // Get current selection
-      const selection = editor.getSelection();
-      if (!selection) return;
-
-      // Execute edit operation with the full pasted text
-      const model = editor.getModel();
-      if (model) {
-        editor.executeEdits("paste", [
-          {
-            range: selection,
-            text: text,
-            forceMoveMarkers: true,
-          },
-        ]);
-
-        // Move cursor to end of pasted text
-        const lines = text.split("\n");
-        const endLineNumber = selection.startLineNumber + lines.length - 1;
-        const lastLineText = lines.at(-1) ?? "";
-        const endColumn =
-          lines.length === 1
-            ? selection.startColumn + text.length
-            : lastLineText.length + 1;
-
-        editor.setPosition({
-          lineNumber: endLineNumber,
-          column: endColumn,
-        });
-      }
-    };
-
-    if (domNode) {
-      domNode.addEventListener("paste", handlePaste);
-    }
 
     return () => {
       changeDisposable.dispose();
       pasteDisposable.dispose();
       keydownDisposable.dispose();
-      if (domNode) {
-        domNode.removeEventListener("paste", handlePaste);
-      }
       document.removeEventListener("uiFontScaleChange", onScale);
       globalThis.removeEventListener("uiFontScaleChange", onScale);
       editor.dispose();
