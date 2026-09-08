@@ -36,12 +36,12 @@ describe("ExamplesMenu behavior", () => {
         ok: true,
         json: async () => ({
           examples: [
-            { id: "blink", title: "blink.ino", category: "Other", source: "builtin", files: [{ name: "blink.ino", path: "blink.ino" }] },
+            { id: "blink", title: "Blink example", category: "Built-in", source: "builtin", files: [{ name: "01-blink.ino", path: "01-blink.ino" }] },
             { id: "io", title: "io.h", category: "Other", source: "builtin", files: [{ name: "io.h", path: "io.h" }] },
           ],
         }),
       } as Response)
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ files: [{ name: "blink.ino", content: "blink code" }] }) } as Response);
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ files: [{ name: "01-blink.ino", content: "blink code" }] }) } as Response);
     const onLoadExample = vi.fn();
 
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
@@ -49,10 +49,11 @@ describe("ExamplesMenu behavior", () => {
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
     await waitFor(() => expect(screen.getByText("Load Example")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
-    fireEvent.click(screen.getByRole("button", { name: "Other" }));
-    fireEvent.click(screen.getByRole("button", { name: /blink\.ino/i }));
+    expect(screen.queryByRole("button", { name: "Built-in", exact: true })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Other" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /01-blink\.ino/ }));
 
-    await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([{ name: "blink.ino", content: "blink code" }], "blink.ino"));
+    await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([{ name: "01-blink.ino", content: "blink code" }], "01-blink.ino"));
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Example Loaded" }));
   });
 
@@ -61,6 +62,48 @@ describe("ExamplesMenu behavior", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Examples" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
     await waitFor(() => expect(screen.getByText("No examples available")).toBeInTheDocument());
+  });
+
+  it("keeps built-in filenames aligned in compact non-wrapping rows", async () => {
+    const names = [
+      "01-blink.ino",
+      "02-digital-input.ino",
+      "03-digital-io.ino",
+      "04-analog-input.ino",
+      "05-pwm-output.ino",
+      "06-serial-monitor.ino",
+      "07-serial-plotter.ino",
+      "08-multiple-io.ino",
+      "09-nonblocking-timing.ino",
+      "10-unosim-showcase.ino",
+    ];
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        examples: names.map((name) => ({
+          id: name,
+          title: name.replace(".ino", ""),
+          category: "Built-in",
+          source: "builtin",
+          files: [{ name, path: name }],
+        })),
+      }),
+    } as Response);
+
+    render(<ExamplesMenu onLoadExample={vi.fn()} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Examples" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+    fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
+
+    const items = screen.getAllByRole("button", { name: /\.ino/ });
+    expect(items).toHaveLength(names.length);
+    expect(items.map((item) => item.className)).toEqual(Array(names.length).fill(items[0]?.className));
+    names.forEach((name) => {
+      expect(screen.getByText(name)).toBeInTheDocument();
+    });
+    items.forEach((item) => {
+      expect(item.querySelector("span:last-child")).toHaveClass("truncate", "whitespace-nowrap");
+    });
   });
 
   it("reports a failed examples request and ignores an individual failed file", async () => {
@@ -81,7 +124,6 @@ describe("ExamplesMenu behavior", () => {
     fireEvent.keyDown(document, { code: "KeyE", ctrlKey: true });
     expect(screen.getByText("Load Example")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
-    fireEvent.click(screen.getByRole("button", { name: "Other" }));
     fireEvent.click(screen.getByRole("button", { name: /blink\.ino/i }));
     await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([{ name: "blink.ino", content: "blink" }], "blink.ino"));
     localStorage.removeItem("unoKeepExamplesMenuOpen");
@@ -107,7 +149,8 @@ describe("ExamplesMenu behavior", () => {
     expect(screen.queryAllByRole("button", { name: "01-basic" })).toHaveLength(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
-    expect(screen.getByRole("button", { name: "basic" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /blink\.ino/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "basic" })).not.toBeInTheDocument();
     expect(screen.queryByText("External Blink")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));

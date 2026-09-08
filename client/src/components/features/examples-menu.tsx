@@ -231,10 +231,11 @@ export function ExamplesMenu({
       if (!Array.isArray(detail.files) || detail.files.length === 0) {
         throw new Error("Example contains no files");
       }
-      onLoadExample(detail.files, example.title);
+      const displayName = getExampleDisplayName(example);
+      onLoadExample(detail.files, displayName);
       toast({
         title: "Example Loaded",
-        description: `${example.title} has been loaded into the editor`,
+        description: `${displayName} has been loaded into the editor`,
       });
 
       // Close menu after loading example unless "keep open" setting is enabled
@@ -273,7 +274,7 @@ export function ExamplesMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-56 max-h-96 overflow-y-scroll scrollbar-hide p-0"
+        className="w-72 max-w-[calc(100vw-1rem)] max-h-96 overflow-y-scroll scrollbar-hide p-0"
         data-keyboard-nav={keyboardNavActive}
       >
         <div className="px-2 py-1.5">
@@ -329,12 +330,18 @@ function groupExamplesByCategory(items: Example[]): Record<string, Example[]> {
   return grouped;
 }
 
+function getExampleDisplayName(example: Example): string {
+  if (example.source !== "builtin") return example.title;
+  return example.files.find((file) => file.name.toLowerCase().endsWith(".ino"))?.name ?? example.title;
+}
+
 interface ExampleItemProps {
   readonly example: Example;
   readonly onLoadExample: (example: Example) => void;
+  readonly compact?: boolean;
 }
 
-function ExampleItem({ example, onLoadExample }: ExampleItemProps) {
+function ExampleItem({ example, onLoadExample, compact = false }: ExampleItemProps) {
   return (
     <Button
       variant="ghost"
@@ -342,10 +349,21 @@ function ExampleItem({ example, onLoadExample }: ExampleItemProps) {
       onClick={() => onLoadExample(example)}
       data-role="example-item"
       tabIndex={0}
-      className="w-full px-8 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+      className={compact
+        ? "w-full h-7 min-h-7 px-4 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+        : "w-full px-8 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"}
+      title={getExampleDisplayName(example)}
     >
-      <span className="text-muted-foreground">•</span>
-      <span className="text-ui-xs leading-tight w-full">{example.title}</span>
+      <span className={compact
+        ? "flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground"
+        : "text-muted-foreground"}
+      >•</span>
+      <span className={compact
+        ? "min-w-0 flex-1 truncate whitespace-nowrap"
+        : "w-full"}
+      >
+        {getExampleDisplayName(example)}
+      </span>
     </Button>
   );
 }
@@ -406,48 +424,59 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
 
               {isSourceExpanded && (
                 <div className="bg-muted/10">
-                  {Object.entries(groupedByCategory)
-                    .toSorted(([a], [b]) => a.localeCompare(b))
-                    .map(([category, items]) => {
-                      const categoryKey = `${source}:${category}`;
-                      const isCategoryExpanded = expandedCategory === categoryKey;
-                      const cleanCategoryName = category.replace(/^\d+-/, "");
+                  {source === "builtin"
+                    ? groupedBySource[source]
+                        .toSorted((a, b) => getExampleDisplayName(a).localeCompare(getExampleDisplayName(b)))
+                        .map((example) => (
+                          <ExampleItem
+                            key={example.id}
+                            example={example}
+                            onLoadExample={onLoadExample}
+                            compact
+                          />
+                        ))
+                    : Object.entries(groupedByCategory)
+                        .toSorted(([a], [b]) => a.localeCompare(b))
+                        .map(([category, items]) => {
+                          const categoryKey = `${source}:${category}`;
+                          const isCategoryExpanded = expandedCategory === categoryKey;
+                          const cleanCategoryName = category.replace(/^\d+-/, "");
 
-                      return (
-                        <div key={categoryKey}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleCategory(source, category)}
-                            data-role="example-folder"
-                            data-folder={categoryKey}
-                            tabIndex={0}
-                            className="w-full px-4 py-1.5 text-ui-xs text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
-                          >
-                            <ChevronRight
-                              className={`h-4 w-4 transition-transform ${isCategoryExpanded ? "rotate-90" : ""}`}
-                            />
-                            <span className="font-normal text-ui-xs leading-tight w-full">
-                              {cleanCategoryName}
-                            </span>
-                          </Button>
+                          return (
+                            <div key={categoryKey}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleCategory(source, category)}
+                                data-role="example-folder"
+                                data-folder={categoryKey}
+                                tabIndex={0}
+                                className="w-full px-4 py-1.5 text-ui-xs text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+                              >
+                                <ChevronRight
+                                  className={`h-4 w-4 transition-transform ${isCategoryExpanded ? "rotate-90" : ""}`}
+                                />
+                                <span className="font-normal text-ui-xs leading-tight w-full">
+                                  {cleanCategoryName}
+                                </span>
+                              </Button>
 
-                          {isCategoryExpanded && (
-                            <div className="bg-muted/30">
-                              {items
-                                .toSorted((a, b) => a.title.localeCompare(b.title))
-                                .map((example) => (
-                                  <ExampleItem
-                                    key={example.id}
-                                    example={example}
-                                    onLoadExample={onLoadExample}
-                                  />
-                                ))}
+                              {isCategoryExpanded && (
+                                <div className="bg-muted/30">
+                                  {items
+                                    .toSorted((a, b) => a.title.localeCompare(b.title))
+                                    .map((example) => (
+                                      <ExampleItem
+                                        key={example.id}
+                                        example={example}
+                                        onLoadExample={onLoadExample}
+                                      />
+                                    ))}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
                 </div>
               )}
             </div>
