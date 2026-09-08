@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">72.18% </span>
+                <span class="strong">72.35% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>122/169</span>
+                <span class='fraction'>123/170</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.17% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>34/39</span>
+                <span class='fraction'>35/40</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">73% </span>
+                <span class="strong">73.17% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>119/163</span>
+                <span class='fraction'>120/164</span>
             </div>
         
             
@@ -507,7 +507,21 @@
 <a name='L442'></a><a href='#L442'>442</a>
 <a name='L443'></a><a href='#L443'>443</a>
 <a name='L444'></a><a href='#L444'>444</a>
-<a name='L445'></a><a href='#L445'>445</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L445'></a><a href='#L445'>445</a>
+<a name='L446'></a><a href='#L446'>446</a>
+<a name='L447'></a><a href='#L447'>447</a>
+<a name='L448'></a><a href='#L448'>448</a>
+<a name='L449'></a><a href='#L449'>449</a>
+<a name='L450'></a><a href='#L450'>450</a>
+<a name='L451'></a><a href='#L451'>451</a>
+<a name='L452'></a><a href='#L452'>452</a>
+<a name='L453'></a><a href='#L453'>453</a>
+<a name='L454'></a><a href='#L454'>454</a>
+<a name='L455'></a><a href='#L455'>455</a>
+<a name='L456'></a><a href='#L456'>456</a>
+<a name='L457'></a><a href='#L457'>457</a>
+<a name='L458'></a><a href='#L458'>458</a>
+<a name='L459'></a><a href='#L459'>459</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -627,7 +641,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -836,6 +850,27 @@
 <span class="cline-any cline-yes">27x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -926,13 +961,6 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1282,6 +1310,27 @@ function groupExamplesByCategory(items: Example[]): Record&lt;string, Example[]&
   return grouped;
 }
 &nbsp;
+interface ExampleItemProps {
+  readonly example: Example;
+  readonly onLoadExample: (example: Example) =&gt; void;
+}
+&nbsp;
+function ExampleItem({ example, onLoadExample }: ExampleItemProps) {
+  return (
+    &lt;Button
+      variant="ghost"
+      size="sm"
+      onClick={() =&gt; onLoadExample(example)}
+      data-role="example-item"
+      tabIndex={0}
+      className="w-full px-8 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&amp;]:hover:bg-transparent [*[data-keyboard-nav='true']_&amp;]:hover:text-current"
+    &gt;
+      &lt;span className="text-muted-foreground"&gt;•&lt;/span&gt;
+      &lt;span className="text-ui-xs leading-tight w-full"&gt;{example.title}&lt;/span&gt;
+    &lt;/Button&gt;
+  );
+}
+&nbsp;
 function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
   const [expandedSource, setExpandedSource] = useState&lt;ExampleSource | null&gt;(null);
   const [expandedCategory, setExpandedCategory] = useState&lt;string | null&gt;(null);
@@ -1326,12 +1375,12 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                 data-role="example-source"
                 data-source={source}
                 tabIndex={0}
-                className="w-full px-2 py-1.5 text-ui-sm text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&amp;]:hover:bg-transparent [*[data-keyboard-nav='true']_&amp;]:hover:text-current"
+                className="w-full px-2 py-1.5 text-ui-xs text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&amp;]:hover:bg-transparent [*[data-keyboard-nav='true']_&amp;]:hover:text-current"
               &gt;
                 &lt;ChevronRight
                   className={`h-4 w-4 transition-transform ${isSourceExpanded ? "rotate-90" : ""}`}
                 /&gt;
-                &lt;span className="font-semibold text-ui-xs w-full"&gt;
+                &lt;span className="font-medium text-ui-xs leading-tight w-full"&gt;
                   {sourceLabels[source]}
                 &lt;/span&gt;
               &lt;/Button&gt;
@@ -1354,12 +1403,12 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                             data-role="example-folder"
                             data-folder={categoryKey}
                             tabIndex={0}
-                            className="w-full px-4 py-1.5 text-ui-sm text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&amp;]:hover:bg-transparent [*[data-keyboard-nav='true']_&amp;]:hover:text-current"
+                            className="w-full px-4 py-1.5 text-ui-xs text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&amp;]:hover:bg-transparent [*[data-keyboard-nav='true']_&amp;]:hover:text-current"
                           &gt;
                             &lt;ChevronRight
                               className={`h-4 w-4 transition-transform ${isCategoryExpanded ? "rotate-90" : ""}`}
                             /&gt;
-                            &lt;span className="font-medium text-ui-xs w-full"&gt;
+                            &lt;span className="font-normal text-ui-xs leading-tight w-full"&gt;
                               {cleanCategoryName}
                             &lt;/span&gt;
                           &lt;/Button&gt;
@@ -1369,18 +1418,11 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                               {items
                                 .toSorted((a, b) =&gt; a.title.localeCompare(b.title))
                                 .map((example) =&gt; (
-                                  &lt;Button
+                                  &lt;ExampleItem
                                     key={example.id}
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =&gt; onLoadExample(example)}
-                                    data-role="example-item"
-                                    tabIndex={0}
-                                    className="w-full px-8 py-1 text-ui-xs text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&amp;]:hover:bg-transparent [*[data-keyboard-nav='true']_&amp;]:hover:text-current"
-                                  &gt;
-                                    &lt;span className="text-muted-foreground"&gt;•&lt;/span&gt;
-                                    &lt;span className="w-full"&gt;{example.title}&lt;/span&gt;
-                                  &lt;/Button&gt;
+                                    example={example}
+                                    onLoadExample={onLoadExample}
+                                  /&gt;
                                 ))}
                             &lt;/div&gt;
                           )}
@@ -1402,7 +1444,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-08T07:36:20.937Z
+                at 2026-09-08T08:39:51.717Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
