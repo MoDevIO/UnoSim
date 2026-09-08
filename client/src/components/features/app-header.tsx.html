@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">15.9% </span>
+                <span class="strong">16.09% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>28/176</span>
+                <span class='fraction'>28/174</span>
             </div>
         
             
@@ -892,7 +892,15 @@
 <a name='L827'></a><a href='#L827'>827</a>
 <a name='L828'></a><a href='#L828'>828</a>
 <a name='L829'></a><a href='#L829'>829</a>
-<a name='L830'></a><a href='#L830'>830</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L830'></a><a href='#L830'>830</a>
+<a name='L831'></a><a href='#L831'>831</a>
+<a name='L832'></a><a href='#L832'>832</a>
+<a name='L833'></a><a href='#L833'>833</a>
+<a name='L834'></a><a href='#L834'>834</a>
+<a name='L835'></a><a href='#L835'>835</a>
+<a name='L836'></a><a href='#L836'>836</a>
+<a name='L837'></a><a href='#L837'>837</a>
+<a name='L838'></a><a href='#L838'>838</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1017,16 +1025,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1835,11 +1851,15 @@ function <span class="fstat-no" title="function not covered" >_getDesktopSimulat
     "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
     "text-white font-medium transition-colors",
     {
-      "bg-orange-500 hover:bg-orange-600": (clientState === "RUNNING" || clientState === "RUNNING_STARTING") &amp;&amp; !disabled,
+      "bg-orange-500 hover:bg-orange-600": clientState === "RUNNING" &amp;&amp; !disabled,
       "bg-green-600 hover:bg-green-700":
         (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") &amp;&amp; !disabled,
-      "bg-blue-600 hover:bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") &amp;&amp; !disabled,
-      "bg-violet-600 hover:bg-violet-700": clientState === "QUEUED_FOR_SIMULATION" &amp;&amp; !disabled,
+      "bg-gray-500 hover:bg-gray-500":
+        (clientState === "QUEUED_FOR_COMPILING" ||
+          clientState === "COMPILING" ||
+          clientState === "QUEUED_FOR_SIMULATION" ||
+          clientState === "RUNNING_STARTING") &amp;&amp;
+        !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:bg-gray-500": disabled,
     },
   );
@@ -1859,11 +1879,15 @@ function <span class="fstat-no" title="function not covered" >_getMobileSimulate
     "!h-[var(--ui-button-height)] !min-h-[var(--ui-button-height)] min-w-[11rem] px-5 pr-14 flex items-center justify-center gap-2 relative",
     "!text-white font-medium transition-colors whitespace-nowrap",
     {
-      "!bg-orange-600 hover:!bg-orange-700": (clientState === "RUNNING" || clientState === "RUNNING_STARTING") &amp;&amp; !disabled,
+      "!bg-orange-600 hover:!bg-orange-700": clientState === "RUNNING" &amp;&amp; !disabled,
       "!bg-green-600 hover:!bg-green-700":
         (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") &amp;&amp; !disabled,
-      "!bg-blue-600 hover:!bg-blue-700": (clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING") &amp;&amp; !disabled,
-      "!bg-violet-600 hover:!bg-violet-700": clientState === "QUEUED_FOR_SIMULATION" &amp;&amp; !disabled,
+      "!bg-gray-500 hover:!bg-gray-500":
+        (clientState === "QUEUED_FOR_COMPILING" ||
+          clientState === "COMPILING" ||
+          clientState === "QUEUED_FOR_SIMULATION" ||
+          clientState === "RUNNING_STARTING") &amp;&amp;
+        !disabled,
       "opacity-50 cursor-not-allowed bg-gray-500 hover:!bg-gray-500": disabled,
     },
   );
@@ -2514,7 +2538,7 @@ export const AppHeader: React.FC&lt;AppHeaderProps&gt; = <span class="fstat-no" 
                 &lt;span className="font-semibold leading-none"&gt;{simulateText}&lt;/span&gt;
               &lt;/div&gt;
             &lt;/Button&gt;
-            {isRunning &amp;&amp; &lt;PauseButton {...pauseProps} /&gt;}
+            {clientState === "RUNNING" &amp;&amp; &lt;PauseButton {...pauseProps} /&gt;}
           &lt;/div&gt;
         &lt;/div&gt;
 &nbsp;
@@ -2543,7 +2567,7 @@ export const AppHeader: React.FC&lt;AppHeaderProps&gt; = <span class="fstat-no" 
         &gt;
           &lt;MobileSimulateContent isLoading={isLoadingFull} isRunning={isRunning} text={simulateText} /&gt;
         &lt;/Button&gt;
-        {isRunning &amp;&amp; &lt;PauseButton {...pauseProps} /&gt;}
+        {clientState === "RUNNING" &amp;&amp; &lt;PauseButton {...pauseProps} /&gt;}
       &lt;/div&gt;
     &lt;/header&gt;
   );
@@ -2557,7 +2581,7 @@ export const AppHeader: React.FC&lt;AppHeaderProps&gt; = <span class="fstat-no" 
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-08T15:47:35.747Z
+                at 2026-09-08T16:15:12.955Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
