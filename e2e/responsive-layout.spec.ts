@@ -87,6 +87,42 @@ test.describe("responsive workspace", () => {
     await expect(page.getByTestId("code-editor")).toBeVisible();
   });
 
+  test("keeps mobile controls finger-sized without horizontal overflow", async ({ page }) => {
+    for (const width of [390, 430, 767]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto("/");
+      await waitForMonaco(page);
+
+      const simulate = page.getByTestId("button-simulate-toggle-mobile");
+      await expect(simulate).toBeVisible();
+      const simulateBox = await simulate.boundingBox();
+      expect(simulateBox?.height ?? 0).toBe(32);
+      expect(simulateBox?.width ?? 0).toBeGreaterThanOrEqual(176);
+
+      const fabButtons = page.locator("[data-mobile-fab-button]");
+      await expect(fabButtons).toHaveCount(4);
+      for (let index = 0; index < 4; index += 1) {
+        const box = await fabButtons.nth(index).boundingBox();
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(48);
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
+      }
+
+      const layout = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }));
+      expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
+
+      const toastPlacement = await page.locator("[data-toast-viewport]").evaluate((element) => {
+        const styles = getComputedStyle(element);
+        return { top: styles.top, bottom: styles.bottom, left: styles.left };
+      });
+      expect(toastPlacement.bottom).not.toBe("auto");
+      expect(toastPlacement.left).not.toBe("auto");
+      expect(Number.parseFloat(toastPlacement.top)).toBeGreaterThan(400);
+    }
+  });
+
   test("keeps the active output tab across mobile and desktop resize", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 800 });
     await page.goto("/");

@@ -39,4 +39,20 @@ describe("MobileLayout component", () => {
     expect(setMobile).toHaveBeenCalledWith("compile");
     expect(onOpen).toHaveBeenCalledWith("compile");
   });
+
+  it("exposes enlarged mobile toolbar targets", () => {
+    render(
+      <MobileLayout
+        isMobile={true}
+        mobilePanel="code"
+        setMobilePanel={vi.fn()}
+        overlayZ={50}
+      />,
+    );
+
+    expect(screen.getByTestId("mobile-fab-container")).toBeInTheDocument();
+    expect(screen.getByTestId("mobile-fab-container").querySelectorAll("[data-mobile-fab-button]")).toHaveLength(4);
+    expect(screen.getByTestId("mobile-fab-container").querySelector("[data-mobile-fab-toolbar]")).toHaveClass("p-2", "space-y-3");
+    expect(screen.getByLabelText("Code Editor").querySelector("svg")).toHaveClass("!w-10", "!h-10");
+  });
 });

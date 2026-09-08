@@ -124,9 +124,9 @@ function _getDesktopSimulateButtonClass(
 }
 
 function getMobileSimulateIcon(isLoading: boolean, isRunning: boolean): JSX.Element {
-  if (isLoading) return <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />;
-  if (isRunning) return <Square className="h-4 w-4 flex-shrink-0" />;
-  return <Play className="h-4 w-4 flex-shrink-0" />;
+  if (isLoading) return <Loader2 className="!h-7 !w-7 animate-spin flex-shrink-0" />;
+  if (isRunning) return <Square className="!h-7 !w-7 flex-shrink-0" />;
+  return <Play className="!h-7 !w-7 flex-shrink-0" />;
 }
 
 function _getMobileSimulateButtonClass(
@@ -134,7 +134,7 @@ function _getMobileSimulateButtonClass(
   disabled: boolean,
 ): string {
   return clsx(
-    "h-[var(--ui-button-height)] px-6 pr-12 flex items-center justify-center gap-2 relative",
+    "!h-[var(--ui-button-height)] !min-h-[var(--ui-button-height)] min-w-[11rem] px-5 pr-14 flex items-center justify-center gap-2 relative",
     "!text-white font-medium transition-colors whitespace-nowrap",
     {
       "!bg-orange-600 hover:!bg-orange-700": (clientState === "RUNNING" || clientState === "RUNNING_STARTING") && !disabled,
@@ -179,9 +179,10 @@ interface PauseButtonProps {
   readonly simulateDisabled: boolean;
   readonly isLoading: boolean;
   readonly onPause: () => void;
+  readonly isMobile?: boolean;
 }
 
-function PauseButton({ isPausing, simulateDisabled, isLoading, onPause }: PauseButtonProps) {
+function PauseButton({ isPausing, simulateDisabled, isLoading, onPause, isMobile = false }: PauseButtonProps) {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -201,7 +202,10 @@ function PauseButton({ isPausing, simulateDisabled, isLoading, onPause }: PauseB
   return (
     <button
       type="button"
-      className="absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10 cursor-pointer"
+      className={clsx(
+        "absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10 cursor-pointer",
+        isMobile && "w-[var(--ui-button-height)]",
+      )}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
@@ -209,9 +213,9 @@ function PauseButton({ isPausing, simulateDisabled, isLoading, onPause }: PauseB
       title="Pause"
     >
       {isPausing ? (
-        <Loader2 className="h-3 w-3 animate-spin text-orange-900" />
+        <Loader2 className={clsx("animate-spin text-orange-900", isMobile ? "!h-7 !w-7" : "h-3 w-3")} />
       ) : (
-        <Pause className="h-3 w-3 text-orange-900" />
+        <Pause className={clsx("text-orange-900", isMobile ? "!h-7 !w-7" : "h-3 w-3")} />
       )}
     </button>
   );
@@ -608,7 +612,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     isLoading ||
     clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING" ||
     clientState === "QUEUED_FOR_SIMULATION" || clientState === "RUNNING_STARTING";
-  const pauseProps = { isPausing, simulateDisabled, isLoading: isLoadingFull, onPause };
+  const pauseProps = { isPausing, simulateDisabled, isLoading: isLoadingFull, onPause, isMobile };
 
   // Desktop Header
   if (!isMobile) {

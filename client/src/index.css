@@ -194,6 +194,8 @@ html, body {
   --ui-font-base-size: 14px; /* base 14px = M (Normal) */
   --ui-line-base: 20px;
   --ui-button-base-height: 32px;
+  --ui-mobile-touch-target: 52px;
+  --ui-mobile-header-height: 60px;
   --ui-control-font-size: calc(var(--ui-font-size) * 1);
   --ui-font-size: calc(var(--ui-font-base-size) * var(--ui-font-scale));
   --ui-line-height: calc(var(--ui-line-base) * var(--ui-font-scale));
@@ -414,5 +416,39 @@ button:not(.arduino-overlay):not(.parser-message-btn) * {
   /* Legend wrapper — keep legend compact and muted */
   .recharts-legend-wrapper {
     @apply text-ui-xs text-muted-foreground;
+  }
+}
+
+/* Mobile interaction surfaces use the full touch target, while desktop keeps
+   the existing compact controls and toast placement. */
+@media (max-width: 767px) {
+  [data-mobile-header] {
+    min-height: var(--ui-header-height);
+  }
+
+  header[data-mobile-header] button[data-testid="button-simulate-toggle-mobile"] {
+    height: var(--ui-button-height) !important;
+    min-height: var(--ui-button-height) !important;
+  }
+
+  [data-mobile-fab-toolbar] {
+    gap: 0.75rem;
+  }
+
+  button[data-mobile-fab-button] {
+    height: var(--ui-mobile-touch-target) !important;
+    min-height: var(--ui-mobile-touch-target) !important;
+    width: var(--ui-mobile-touch-target) !important;
+  }
+
+  [data-toast-viewport] {
+    bottom: calc(env(safe-area-inset-bottom, var(--ui-safe-area-bottom)) + 4.5rem);
+    left: 50%;
+    max-width: 420px;
+    padding: 0.5rem;
+    right: auto;
+    top: auto;
+    transform: translateX(-50%);
+    width: calc(100% - 1rem);
   }
 }

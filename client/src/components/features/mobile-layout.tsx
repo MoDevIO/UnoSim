@@ -54,7 +54,10 @@ export const MobileLayout = React.memo(function MobileLayout({
         }}
       >
         <div className="pointer-events-auto sticky mr-4 mb-4" style={{ alignSelf: "flex-end" }}>
-          <div className="bg-black/95 rounded-full shadow-lg p-1 flex flex-col items-center space-y-2">
+          <div
+            className="bg-black/95 rounded-full shadow-lg p-2 flex flex-col items-center space-y-3"
+            data-mobile-fab-toolbar
+          >
             <Button
               variant="ghost"
               size="icon"
@@ -66,8 +69,9 @@ export const MobileLayout = React.memo(function MobileLayout({
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "bg-transparent text-muted-foreground",
               )}
+              data-mobile-fab-button
             >
-              <Cpu className="w-5 h-5" />
+              <Cpu className="!w-10 !h-10" />
             </Button>
             <Button
               variant="ghost"
@@ -80,8 +84,9 @@ export const MobileLayout = React.memo(function MobileLayout({
                   ? "bg-green-600 text-white hover:bg-green-700"
                   : "bg-transparent text-muted-foreground",
               )}
+              data-mobile-fab-button
             >
-              <Wrench className="w-5 h-5 opacity-80" />
+              <Wrench className="!w-10 !h-10 opacity-80" />
             </Button>
             <Button
               variant="ghost"
@@ -94,8 +99,9 @@ export const MobileLayout = React.memo(function MobileLayout({
                   ? "bg-amber-600 text-white hover:bg-amber-700"
                   : "bg-transparent text-muted-foreground",
               )}
+              data-mobile-fab-button
             >
-              <Terminal className="w-5 h-5" />
+              <Terminal className="!w-10 !h-10" />
             </Button>
             <Button
               variant="ghost"
@@ -108,8 +114,9 @@ export const MobileLayout = React.memo(function MobileLayout({
                   ? "bg-sky-600 text-white hover:bg-sky-700"
                   : "bg-transparent text-muted-foreground",
               )}
+              data-mobile-fab-button
             >
-              <Monitor className="w-5 h-5" />
+              <Monitor className="!w-10 !h-10" />
             </Button>
           </div>
         </div>
