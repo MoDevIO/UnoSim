@@ -312,7 +312,14 @@ describe("WebSocket authorization verifier", () => {
     ).toBe(true);
     expect(
       isWebSocketOriginAllowed(
-        { origin: "https://attacker.example" },
+        { origin: "http://192.168.1.20:3000", host: "192.168.1.20:3000" },
+        localTrust,
+        [],
+      ),
+    ).toBe(true);
+    expect(
+      isWebSocketOriginAllowed(
+        { origin: "https://attacker.example", host: "192.168.1.20:3000" },
         localTrust,
         ["http://localhost:5173"],
       ),

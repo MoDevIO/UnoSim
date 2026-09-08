@@ -157,8 +157,9 @@ export function isWebSocketOriginAllowed(
   const origin = singleHeader(headers, "origin");
   if (!origin) return trust.mode === "local";
 
+  let parsed: URL;
   try {
-    const parsed = new URL(origin);
+    parsed = new URL(origin);
     if (
       parsed.origin !== origin ||
       !["http:", "https:"].includes(parsed.protocol)
@@ -167,6 +168,10 @@ export function isWebSocketOriginAllowed(
     }
   } catch {
     return false;
+  }
+
+  if (trust.mode === "local" && singleHeader(headers, "host") === parsed.host) {
+    return true;
   }
 
   return allowedOrigins.includes(origin);
