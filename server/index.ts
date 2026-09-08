@@ -11,6 +11,7 @@ import { getCompilationPool } from "./services/compilation-worker-pool";
 import { config } from "./config";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { createLocalSessionMiddleware } from "./security/access-control";
+import { formatStartupLine, getStartupAccess } from "./startup-access";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -254,21 +255,28 @@ let cleanupTimer: NodeJS.Timeout | null = null;
     console.log(`\n┌──────────────────────────────────────────────────┐`);
     console.log(`│  UnoSim – Active Configuration                   │`);
     console.log(`├──────────────────────────────────────────────────┤`);
-    console.log(`│  Server Mode:         ${config.serverMode.padEnd(27)}│`);
-    console.log(`│  Simulation Mode:     ${config.simulationMode.padEnd(27)}│`);
-    console.log(`│  Trust Mode:          ${config.trust.mode.padEnd(27)}│`);
-    console.log(`│  NODE_ENV:            ${config.nodeEnv.padEnd(27)}│`);
-    console.log(`│  Compile Workers:     ${String(config.compilation.workerCount).padEnd(27)}│`);
-    console.log(`│  Compile Slots:       ${String(config.compilation.maxConcurrent).padEnd(27)}│`);
-    console.log(`│  Docker Compile Conc.:${String(config.compilation.dockerCompileConcurrent).padEnd(28)}│`);
-    console.log(`│  Rate Limit Disabled: ${String(config.server.disableRateLimit).padEnd(27)}│`);
+    console.log(formatStartupLine("Server Mode", config.serverMode));
+    console.log(formatStartupLine("Simulation Mode", config.simulationMode));
+    console.log(formatStartupLine("Trust Mode", config.trust.mode));
+    console.log(formatStartupLine("NODE_ENV", config.nodeEnv));
+    console.log(formatStartupLine("Compile Workers", String(config.compilation.workerCount)));
+    console.log(formatStartupLine("Compile Slots", String(config.compilation.maxConcurrent)));
+    console.log(formatStartupLine("Docker Compile Conc.", String(config.compilation.dockerCompileConcurrent)));
+    console.log(formatStartupLine("Rate Limit Disabled", String(config.server.disableRateLimit)));
+    const startupAccess = getStartupAccess(listenHost, PORT);
+    console.log(formatStartupLine("Listen Host", listenHost));
+    console.log(formatStartupLine("Port", String(PORT)));
+    console.log(formatStartupLine("Local URL", startupAccess.localUrl));
+    startupAccess.networkUrls.forEach((url, index) => {
+      console.log(formatStartupLine(index === 0 ? "Network URL" : "", url));
+    });
     if (config.simulationMode === "docker-sandbox") {
-      console.log(`│  Sandbox Runners Min: ${String(config.sandbox.pool.minRunners).padEnd(27)}│`);
-      console.log(`│  Sandbox Runners Max: ${String(config.sandbox.pool.maxRunners).padEnd(27)}│`);
-      console.log(`│  Sandbox Memory MB:   ${String(config.sandbox.resources.memoryMB).padEnd(27)}│`);
-      console.log(`│  Sandbox CPU Limit:   ${String(config.sandbox.resources.cpuLimit).padEnd(27)}│`);
+      console.log(formatStartupLine("Sandbox Runners Min", String(config.sandbox.pool.minRunners)));
+      console.log(formatStartupLine("Sandbox Runners Max", String(config.sandbox.pool.maxRunners)));
+      console.log(formatStartupLine("Sandbox Memory MB", String(config.sandbox.resources.memoryMB)));
+      console.log(formatStartupLine("Sandbox CPU Limit", String(config.sandbox.resources.cpuLimit)));
     }
-    console.log(`│  FQBN:               ${config.compilation.fqbn.padEnd(28)}│`);
+    console.log(formatStartupLine("FQBN", config.compilation.fqbn));
     console.log(`└──────────────────────────────────────────────────┘\n`);
     console.log(`[express] Server running at http://${listenHost}:${PORT}`);
     console.log(`[startup] Warming up Docker checks asynchronously...`);
