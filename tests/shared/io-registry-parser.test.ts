@@ -236,6 +236,46 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
     expect(registry.find((p) => p.pin === "7")).toBeUndefined();
   });
 
+  it("expands the 18-pin const array example in a simple index loop", () => {
+    const code = sketch([
+      "const int totalPins = 18;",
+      "const int pinArray[totalPins] = {",
+      "  2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,",
+      "  A0, A1, A2, A3, A4, A5",
+      "};",
+      "void setup() {",
+      "  for (int i = 0; i < totalPins; i++) {",
+      "    pinMode(pinArray[i], OUTPUT);",
+      "    digitalWrite(pinArray[i], LOW);",
+      "  }",
+      "}",
+    ]);
+    const registry = parseStaticIORegistry(code);
+
+    expect(registry).toHaveLength(18);
+    expect(registry.map((record) => record.pin)).toEqual([
+      "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+      "A0", "A1", "A2", "A3", "A4", "A5",
+    ]);
+    for (const record of registry) {
+      expect(record.pinModeModes).toContain("OUTPUT");
+      expect(record.digitalWriteLines).toHaveLength(1);
+    }
+  });
+
+  it("expands A0-A5 values in a const pin array", () => {
+    const code = sketch([
+      "const int pins[6] = {A0, A1, A2, A3, A4, A5};",
+      "void setup() {",
+      "  for (int i = 0; i < 6; i++) analogRead(pins[i]);",
+      "}",
+    ]);
+    const registry = parseStaticIORegistry(code);
+
+    expect(registry.map((record) => record.pin)).toEqual(["A0", "A1", "A2", "A3", "A4", "A5"]);
+    expect(registry.every((record) => (record.analogReadLines?.length ?? 0) === 1)).toBe(true);
+  });
+
   // ── TC 11 ─────────────────────────────────────────────────────────────────
   it("TC11: pinMode(13, OUTPUT) + pinMode(13, INPUT) → conflict, both lines recorded", () => {
     // Build code with the two pinMode calls far apart (lines ~5 and ~25)
@@ -432,6 +472,18 @@ describe("parseStaticIORegistry – edge cases", () => {
     // unknownVar cannot be resolved, so the array is skipped entirely
     // Thus, vals[0] cannot be resolved either, and no pin record is created
     expect(registry).toHaveLength(0);
+  });
+
+  it("does not invent pins for an array indexed by an unknown expression", () => {
+    const code = sketch([
+      "const int pins[2] = {2, 3};",
+      "void setup() {",
+      "  pinMode(pins[random(0, 2)], OUTPUT);",
+      "}",
+      "void loop() {}",
+    ]);
+
+    expect(parseStaticIORegistry(code)).toHaveLength(0);
   });
 
   // ── For-loop with unknown symbol limit (resolveToken returns undefined) ──

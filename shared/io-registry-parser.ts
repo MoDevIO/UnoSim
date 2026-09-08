@@ -49,10 +49,10 @@ const MODE_MAP: Record<string, PinMode> = {
 const DEFINE_PATTERN = /^#define\s+([A-Za-z_]\w*)\s+(\w+)/gm;
 const CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
 const VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/g;
-const ARRAY_PATTERN = /\b(?:int|byte|uint8_t) +([A-Za-z_]\w*) *\[ *\d* *\] *= *\{([^}]+)\}/g; // NOSONAR S5843
+const ARRAY_PATTERN = /\b(?:const\s+)?(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*(?:\d+|[A-Za-z_]\w*)?\s*\]\s*=\s*\{([^}]+)\}/g; // NOSONAR S5843
 const FOR_BRACE_TAIL_RE = /^ *(\{)?/;
-const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$/;
-const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*(\w+(?:\[\d+\])?)(?:\s*,\s*(\w+))?/g;
+const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+|[A-Za-z_]\w*)\s*\]$/;
+const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*(\w+(?:\[\w+\])?)(?:\s*,\s*(\w+))?/g;
 
 type OpName =
   | "pinMode"
@@ -378,6 +378,27 @@ function processLoopExpansion(
   }
 }
 
+/** Expand an array access whose index is the active loop variable. */
+function processArrayLoopExpansion(
+  loop: LoopRange,
+  arrayName: string,
+  op: OpName,
+  secondArg: string,
+  arrays: Map<string, number[]>,
+  entries: CallEntry[],
+): boolean {
+  const values = arrays.get(arrayName);
+  if (!values) return false;
+
+  for (const index of loop.values) {
+    const pinId = values[index];
+    if (pinId !== undefined) {
+      processStaticPin(pinId, op, secondArg, loop.startLine, entries);
+    }
+  }
+  return true;
+}
+
 /**
  * Process a statically-resolved pin and add entry to the list.
  */
@@ -419,10 +440,27 @@ function processCallExpression(
   const { loops, syms, arrays, entries } = ctx;
   // ── Check for-loop variable expansion (TC 3) ──────────────────────────
   const loop = loops.find(
-    (l) => l.startPos <= callPos && callPos <= l.endPos && l.variable === pinExpr,
+    (l) => {
+      if (l.startPos > callPos || callPos > l.endPos) return false;
+      if (l.variable === pinExpr) return true;
+      const arrayAccess = ARRAY_ACCESS_PATTERN.exec(pinExpr);
+      return arrayAccess?.[2] === l.variable;
+    },
   );
 
   if (loop) {
+    const arrayAccess = ARRAY_ACCESS_PATTERN.exec(pinExpr);
+    if (arrayAccess?.[2] === loop.variable) {
+      processArrayLoopExpansion(
+        loop,
+        arrayAccess[1],
+        op,
+        secondArg,
+        arrays,
+        entries,
+      );
+      return;
+    }
     processLoopExpansion(loop, op, secondArg, entries);
     return;
   }
