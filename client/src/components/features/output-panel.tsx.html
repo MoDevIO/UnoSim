@@ -709,7 +709,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
     &lt;Tabs value={activeOutputTab} onValueChange={<span class="fstat-no" title="function not covered" >(v</span>) =&gt; <span class="cstat-no" title="statement not covered" >onTabChange(v as OutputTab)} c</span>lassName="h-full flex flex-col"&gt;
       &lt;TabBar ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="unified-tab-bar--output justify-start px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b"&gt;
         &lt;TabsList className="h-full flex gap-0 bg-transparent items-center"&gt;
-          &lt;TabsTrigger value="compiler" onDoubleClick={() =&gt; openOutputPanel("compiler")} className={clsx("h-full px-2 text-[11px] uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 leading-none flex items-center", {
+          &lt;TabsTrigger value="compiler" onDoubleClick={() =&gt; openOutputPanel("compiler")} className={clsx("h-full px-2 uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 flex items-center", {
             "text-gray-400": lastCompilationResult === null,
             "text-green-400": isSuccessState &amp;&amp; lastCompilationResult !== null,
             "text-red-400": hasCompilationErrors,
@@ -723,7 +723,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             &lt;/span&gt;
           &lt;/TabsTrigger&gt;
 &nbsp;
-          &lt;TabsTrigger value="messages" onDoubleClick={() =&gt; openOutputPanel("messages")} className={clsx("h-full px-2 text-[11px] uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 leading-none flex items-center", {
+          &lt;TabsTrigger value="messages" onDoubleClick={() =&gt; openOutputPanel("messages")} className={clsx("h-full px-2 uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 flex items-center", {
             "text-orange-400": parserMessages.length &gt; 0,
             "text-gray-400": parserMessages.length === 0,
           })}&gt;
@@ -735,7 +735,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             &lt;/span&gt;
           &lt;/TabsTrigger&gt;
 &nbsp;
-          &lt;TabsTrigger value="registry" onDoubleClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>penOutputPanel("registry")} c</span>lassName={clsx("h-full px-2 text-[11px] uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 leading-none flex items-center", {
+          &lt;TabsTrigger value="registry" onDoubleClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>penOutputPanel("registry")} c</span>lassName={clsx("h-full px-2 uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 flex items-center", {
             "text-blue-400": registryHasConflict,
             "text-gray-400": !registryHasConflict,
           })}&gt;
@@ -748,7 +748,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
           &lt;/TabsTrigger&gt;
 &nbsp;
           {debugMode &amp;&amp; (
-            &lt;TabsTrigger value="debug" onDoubleClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>penOutputPanel("debug")} c</span>lassName="h-full px-2 text-[11px] uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 leading-none flex items-center text-cyan-400 gap-1.5"&gt;
+            &lt;TabsTrigger value="debug" onDoubleClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>penOutputPanel("debug")} c</span>lassName="h-full px-2 uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 flex items-center text-cyan-400 gap-1.5"&gt;
               Debug
               {debugMessages.length &gt; 0 &amp;&amp; (
                 &lt;span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyan-600/30 text-cyan-300 text-[9px] font-mono leading-none overflow-hidden"&gt;
@@ -880,7 +880,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-08T15:11:04.966Z
+                at 2026-09-08T15:47:35.747Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
