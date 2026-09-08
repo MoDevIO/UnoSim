@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for server/security/safe-paths.ts</title>
+    <title>Code coverage report for client/src/lib/uuid.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../prettify.css" />
-    <link rel="stylesheet" href="../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <link rel="stylesheet" href="../../../prettify.css" />
+    <link rel="stylesheet" href="../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../sort-arrow-sprite.png);
+            background-image: url(../../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">server/security</a> safe-paths.ts</h1>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">client/src/lib</a> uuid.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">90.9% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>10/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>3/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">90% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>9/10</span>
             </div>
         
             
@@ -88,43 +88,43 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">636x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">636x</span>
+<span class="cline-any cline-yes">634x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">174x</span>
-<span class="cline-any cline-yes">174x</span>
-<span class="cline-any cline-yes">174x</span>
-<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">171x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { relative, resolve } from "node:path";
-&nbsp;
-/**
- * Resolve a path below a known root and reject any target outside that root.
- * This is defense in depth for values that have already passed a filename
- * schema: validation can regress, but filesystem confinement must not.
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * Generates a UUID v4 in browsers that do not expose crypto.randomUUID().
  */
-export function resolvePathWithinRoot(root: string, ...segments: string[]): string {
-  const resolvedRoot = resolve(root);
-  const target = resolve(resolvedRoot, ...segments);
-  const pathFromRoot = relative(resolvedRoot, target);
-  if (
-    pathFromRoot === "" ||
-    pathFromRoot === ".." ||
-    pathFromRoot.startsWith(`..${String.fromCodePoint(47)}`) ||
-    pathFromRoot.startsWith(`..${String.fromCodePoint(92)}`)
-  ) {
-    throw new Error("Resolved path escapes its allowed root");
+export function generateUuidV4(): string {
+  const cryptoApi = globalThis.crypto;
+&nbsp;
+  if (typeof cryptoApi?.randomUUID === "function") {
+    return cryptoApi.randomUUID();
   }
-  return target;
+&nbsp;
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof cryptoApi?.getRandomValues !== "function") {
+<span class="cstat-no" title="statement not covered" >    throw new TypeError("Secure random number generation is unavailable");</span>
+  }
+&nbsp;
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] &amp; 0x0f) | 0x40;
+  bytes[8] = (bytes[8] &amp; 0x3f) | 0x80;
+&nbsp;
+  const hex = Array.from(bytes, (byte) =&gt; byte.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -135,14 +135,14 @@ export function resolvePathWithinRoot(root: string, ...segments: string[]): stri
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
                 at 2026-09-08T11:15:38.503Z
             </div>
-        <script src="../../prettify.js"></script>
+        <script src="../../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../sorter.js"></script>
-        <script src="../../block-navigation.js"></script>
+        <script src="../../../sorter.js"></script>
+        <script src="../../../block-navigation.js"></script>
     </body>
 </html>
     
