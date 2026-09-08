@@ -1,10 +1,31 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useMobileLayout } from "@/hooks/use-mobile-layout";
+import { RESPONSIVE_MEDIA_QUERIES } from "@/lib/responsive-layout";
 
 describe("useMobileLayout", () => {
   let matchMediaMock: any;
   let listeners: any[] = [];
+
+  const configureMediaQueries = (
+    mobileMatches: boolean,
+    tabletMatches: boolean,
+    handlers?: Map<string, (event: MediaQueryListEvent) => void>,
+  ) => {
+    matchMediaMock.mockImplementation((query: string) => ({
+      matches:
+        query === RESPONSIVE_MEDIA_QUERIES.mobile
+          ? mobileMatches
+          : tabletMatches,
+      media: query,
+      addEventListener: vi.fn((event: string, handler: (event: MediaQueryListEvent) => void) => {
+        if (event === "change") handlers?.set(query, handler);
+      }),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    }));
+  };
 
   beforeEach(() => {
     // Mock window.matchMedia
@@ -41,7 +62,7 @@ describe("useMobileLayout", () => {
   it("should initialize with desktop mode when viewport is wide", () => {
     matchMediaMock.mockReturnValue({
       matches: false,
-      media: "(max-width: 768px)",
+      media: "(max-width: 767px)",
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
       addListener: vi.fn(),
@@ -51,13 +72,14 @@ describe("useMobileLayout", () => {
     const { result } = renderHook(() => useMobileLayout());
 
     expect(result.current.isMobile).toBe(false);
-    expect(result.current.mobilePanel).toBeNull();
+    expect(result.current.mobilePanel).toBe("code");
+    expect(result.current.layoutMode).toBe("desktop");
   });
 
   it("should initialize with mobile mode when viewport is narrow", () => {
     matchMediaMock.mockReturnValue({
       matches: true,
-      media: "(max-width: 768px)",
+      media: "(max-width: 767px)",
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
       addListener: vi.fn(),
@@ -68,6 +90,25 @@ describe("useMobileLayout", () => {
 
     expect(result.current.isMobile).toBe(true);
     expect(result.current.mobilePanel).toBe("code");
+    expect(result.current.layoutMode).toBe("mobile");
+  });
+
+  it("should distinguish tablet from mobile and desktop boundaries", () => {
+    matchMediaMock.mockImplementation((query: string) => ({
+      matches: query === RESPONSIVE_MEDIA_QUERIES.tablet,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    }));
+
+    const { result } = renderHook(() => useMobileLayout());
+
+    expect(result.current.layoutMode).toBe("tablet");
+    expect(result.current.isMobile).toBe(false);
+    expect(result.current.isTablet).toBe(true);
+    expect(result.current.isDesktop).toBe(false);
   });
 
   it("should allow changing mobile panel", () => {
@@ -87,38 +128,43 @@ describe("useMobileLayout", () => {
   });
 
   it("should set body overflow to hidden when mobile panel is open", () => {
+    matchMediaMock.mockReturnValue({
+      matches: true,
+      media: "(max-width: 767px)",
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
     const { result } = renderHook(() => useMobileLayout());
 
-    expect(document.body.style.overflow).toBe("");
+    expect(document.body.style.overflow).toBe("hidden");
+
+    act(() => {
+      result.current.setMobilePanel("serial");
+    });
+
+    expect(document.body.style.overflow).toBe("hidden");
 
     act(() => {
       result.current.setMobilePanel("code");
     });
 
     expect(document.body.style.overflow).toBe("hidden");
-
-    act(() => {
-      result.current.setMobilePanel(null);
-    });
-
-    expect(document.body.style.overflow).toBe("");
   });
 
-  it("should restore previous body overflow when mobile panel closes", () => {
+  it("should restore previous body overflow when leaving mobile mode", () => {
     document.body.style.overflow = "auto";
+    const handlers = new Map<string, (event: MediaQueryListEvent) => void>();
+    configureMediaQueries(true, false, handlers);
 
     const { result } = renderHook(() => useMobileLayout());
-
-    act(() => {
-      result.current.setMobilePanel("compile");
-    });
 
     expect(document.body.style.overflow).toBe("hidden");
 
     act(() => {
-      result.current.setMobilePanel(null);
+      handlers.get(RESPONSIVE_MEDIA_QUERIES.mobile)?.({ matches: false } as MediaQueryListEvent);
     });
 
+    expect(result.current.isMobile).toBe(false);
     expect(document.body.style.overflow).toBe("auto");
   });
 
@@ -135,52 +181,26 @@ describe("useMobileLayout", () => {
   });
 
   it("should switch to mobile mode and open code panel when media query matches", () => {
-    let changeHandler: any;
-
-    matchMediaMock.mockReturnValue({
-      matches: false,
-      media: "(max-width: 768px)",
-      addEventListener: vi.fn((event: string, handler: any) => {
-        if (event === "change") {
-          changeHandler = handler;
-        }
-      }),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-    });
+    const handlers = new Map<string, (event: MediaQueryListEvent) => void>();
+    configureMediaQueries(false, false, handlers);
 
     const { result } = renderHook(() => useMobileLayout());
 
     expect(result.current.isMobile).toBe(false);
-    expect(result.current.mobilePanel).toBeNull();
+    expect(result.current.mobilePanel).toBe("code");
 
     // Simulate media query change to mobile
     act(() => {
-      if (changeHandler) {
-        changeHandler({ matches: true });
-      }
+      handlers.get(RESPONSIVE_MEDIA_QUERIES.mobile)?.({ matches: true } as MediaQueryListEvent);
     });
 
     expect(result.current.isMobile).toBe(true);
     expect(result.current.mobilePanel).toBe("code");
   });
 
-  it("should close mobile panel when switching to desktop mode", () => {
-    let changeHandler: any;
-
-    matchMediaMock.mockReturnValue({
-      matches: true,
-      media: "(max-width: 768px)",
-      addEventListener: vi.fn((event: string, handler: any) => {
-        if (event === "change") {
-          changeHandler = handler;
-        }
-      }),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-    });
+  it("should keep a safe panel value when switching to desktop mode", () => {
+    const handlers = new Map<string, (event: MediaQueryListEvent) => void>();
+    configureMediaQueries(true, false, handlers);
 
     const { result } = renderHook(() => useMobileLayout());
 
@@ -189,13 +209,11 @@ describe("useMobileLayout", () => {
 
     // Simulate media query change to desktop
     act(() => {
-      if (changeHandler) {
-        changeHandler({ matches: false });
-      }
+      handlers.get(RESPONSIVE_MEDIA_QUERIES.mobile)?.({ matches: false } as MediaQueryListEvent);
     });
 
     expect(result.current.isMobile).toBe(false);
-    expect(result.current.mobilePanel).toBeNull();
+    expect(result.current.mobilePanel).toBe("code");
   });
 
   it("should cleanup event listeners on unmount", () => {
@@ -204,7 +222,7 @@ describe("useMobileLayout", () => {
 
     matchMediaMock.mockReturnValue({
       matches: false,
-      media: "(max-width: 768px)",
+      media: "(max-width: 767px)",
       addEventListener: vi.fn(),
       removeEventListener,
       addListener: vi.fn(),
@@ -227,7 +245,6 @@ describe("useMobileLayout", () => {
       "compile",
       "serial",
       "board",
-      null,
     ];
 
     panels.forEach((panel) => {
@@ -241,12 +258,14 @@ describe("useMobileLayout", () => {
 
   it("should restore body overflow on unmount", () => {
     document.body.style.overflow = "scroll";
-
-    const { result, unmount } = renderHook(() => useMobileLayout());
-
-    act(() => {
-      result.current.setMobilePanel("serial");
+    matchMediaMock.mockReturnValue({
+      matches: true,
+      media: "(max-width: 767px)",
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
     });
+
+    const { unmount } = renderHook(() => useMobileLayout());
 
     expect(document.body.style.overflow).toBe("hidden");
 
@@ -261,7 +280,7 @@ describe("useMobileLayout", () => {
 
     matchMediaMock.mockReturnValue({
       matches: false,
-      media: "(max-width: 768px)",
+      media: "(max-width: 767px)",
       addEventListener,
       removeEventListener,
     });
@@ -275,21 +294,9 @@ describe("useMobileLayout", () => {
     expect(removeEventListener).toHaveBeenCalledWith("change", expect.any(Function));
   });
 
-  it("should not open code panel when switching to mobile if a panel is already open", () => {
-    let changeHandler: any;
-
-    matchMediaMock.mockReturnValue({
-      matches: false,
-      media: "(max-width: 768px)",
-      addEventListener: vi.fn((event: string, handler: any) => {
-        if (event === "change") {
-          changeHandler = handler;
-        }
-      }),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-    });
+  it("should reset to code when entering mobile mode", () => {
+    const handlers = new Map<string, (event: MediaQueryListEvent) => void>();
+    configureMediaQueries(false, false, handlers);
 
     const { result } = renderHook(() => useMobileLayout());
 
@@ -302,13 +309,10 @@ describe("useMobileLayout", () => {
 
     // Simulate media query change to mobile
     act(() => {
-      if (changeHandler) {
-        changeHandler({ matches: true });
-      }
+      handlers.get(RESPONSIVE_MEDIA_QUERIES.mobile)?.({ matches: true } as MediaQueryListEvent);
     });
 
-    // Should not change to "code" since "serial" was already set
-    expect(result.current.mobilePanel).toBe("serial");
+    expect(result.current.mobilePanel).toBe("code");
   });
 
   it("should detect header with data-mobile-header attribute", () => {

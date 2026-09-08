@@ -33,7 +33,7 @@ export function PinMonitorView({
   const isRunning = simulationStatus !== "idle";
 
   return (
-    <div className={isMobile ? "h-full w-full" : "h-full w-full flex flex-col gap-3 p-2 overflow-y-auto"}>
+    <div className={isMobile ? "h-full w-full flex flex-col overflow-y-auto" : "h-full w-full flex flex-col gap-3 p-2 overflow-y-auto"}>
       {pinMonitorVisible && (
         <div>
           <PinMonitor pinStates={pinStates} batchStats={batchStats} />

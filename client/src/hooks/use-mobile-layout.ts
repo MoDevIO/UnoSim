@@ -1,51 +1,77 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Logger } from "@shared/logger";
+import {
+  getResponsiveLayoutMode,
+  RESPONSIVE_MEDIA_QUERIES,
+  type ResponsiveLayoutMode,
+} from "@/lib/responsive-layout";
 
 const logger = new Logger("MobileLayout");
+export type MobilePanel = "code" | "compile" | "serial" | "board";
 
 export function useMobileLayout() {
   const isClient = globalThis.window !== undefined;
-  const mqQuery = "(max-width: 768px)";
-  const initialIsMobile = isClient ? globalThis.matchMedia(mqQuery).matches : false;
-  const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile);
-  const [mobilePanel, setMobilePanel] = useState<"code" | "compile" | "serial" | "board" | null>(
-    initialIsMobile ? "code" : null,
-  );
+  const getInitialMode = (): ResponsiveLayoutMode => {
+    if (!isClient) return "desktop";
+    return getResponsiveLayoutMode(
+      globalThis.matchMedia(RESPONSIVE_MEDIA_QUERIES.mobile).matches,
+      globalThis.matchMedia(RESPONSIVE_MEDIA_QUERIES.tablet).matches,
+    );
+  };
+  const [layoutMode, setLayoutMode] = useState<ResponsiveLayoutMode>(getInitialMode);
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("code");
+  const previousModeRef = useRef<ResponsiveLayoutMode>(layoutMode);
   const [headerHeight, setHeaderHeight] = useState<number>(40);
   const [overlayZ, setOverlayZ] = useState<number>(30);
 
-  // Media query listener for responsive layout
+  // Keep all layout boundaries in sync with the shared responsive contract.
   useEffect(() => {
     if (!isClient) return;
-    const mq = globalThis.matchMedia(mqQuery);
-    const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      const matches = "matches" in e ? e.matches : mq.matches;
-      setIsMobile(matches);
-      // If switching into mobile mode, open code panel immediately
-      if (matches && !mobilePanel) setMobilePanel("code");
-      // If switching out of mobile, close any mobile panel
-      if (!matches) setMobilePanel(null);
-    };
-    // Modern browsers: addEventListener
-    mq.addEventListener("change", onChange as any);
-    return () => {
-      mq.removeEventListener("change", onChange as any);
-    };
-  }, [isClient, mobilePanel]);
+    const mobileQuery = globalThis.matchMedia(RESPONSIVE_MEDIA_QUERIES.mobile);
+    const tabletQuery = globalThis.matchMedia(RESPONSIVE_MEDIA_QUERIES.tablet);
 
-  // Prevent body scroll when mobile panel is open
+    const applyLayoutMode = (mobileMatches: boolean, tabletMatches: boolean) => {
+      const nextMode = getResponsiveLayoutMode(
+        mobileMatches,
+        tabletMatches,
+      );
+      if (nextMode === "mobile" && previousModeRef.current !== "mobile") {
+        setMobilePanel("code");
+      }
+      previousModeRef.current = nextMode;
+      setLayoutMode(nextMode);
+    };
+
+    const onMobileChange = (event: MediaQueryListEvent) => {
+      applyLayoutMode(event.matches, tabletQuery.matches);
+    };
+    const onTabletChange = (event: MediaQueryListEvent) => {
+      applyLayoutMode(mobileQuery.matches, event.matches);
+    };
+
+    mobileQuery.addEventListener("change", onMobileChange);
+    tabletQuery.addEventListener("change", onTabletChange);
+    return () => {
+      mobileQuery.removeEventListener("change", onMobileChange);
+      tabletQuery.removeEventListener("change", onTabletChange);
+    };
+  }, [isClient]);
+
+  const isMobile = layoutMode === "mobile";
+  const isTablet = layoutMode === "tablet";
+  const isDesktop = layoutMode === "desktop";
+
+  // Prevent document scroll while the mobile workspace owns the viewport.
   useEffect(() => {
     if (!isClient) return;
     const prev = document.body.style.overflow;
-    if (mobilePanel) {
+    if (isMobile) {
       document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = prev || "";
     }
     return () => {
       document.body.style.overflow = prev || "";
     };
-  }, [mobilePanel, isClient]);
+  }, [isMobile, isClient]);
 
   // Compute header height and overlay z-index
   useEffect(() => {
@@ -122,10 +148,12 @@ export function useMobileLayout() {
 
   return {
     isMobile,
+    isTablet,
+    isDesktop,
+    layoutMode,
     mobilePanel,
     setMobilePanel,
     headerHeight,
     overlayZ,
   };
 }
-

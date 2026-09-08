@@ -4,55 +4,39 @@ import { Button } from "@/components/ui/button";
 import { Cpu, Wrench, Terminal, Monitor } from "lucide-react";
 import clsx from "clsx";
 
-export type MobilePanel = "code" | "compile" | "serial" | "board" | null;
+export type MobilePanel = "code" | "compile" | "serial" | "board";
 
 interface MobileLayoutProps {
   readonly isMobile: boolean;
   readonly mobilePanel: MobilePanel;
   readonly setMobilePanel: React.Dispatch<React.SetStateAction<MobilePanel>>;
-  readonly headerHeight: number;
   readonly overlayZ: number;
-
-  // slots
-  readonly codeSlot?: React.ReactNode;
-  readonly compileSlot?: React.ReactNode;
-  readonly serialSlot?: React.ReactNode;
-  readonly boardSlot?: React.ReactNode;
 
   readonly portalContainer?: HTMLElement | null;
   readonly className?: string;
   readonly testId?: string;
   readonly onOpenPanel?: (panel: MobilePanel) => void;
-  readonly onClosePanel?: () => void;
 }
 
 export const MobileLayout = React.memo(function MobileLayout({
   isMobile,
   mobilePanel,
   setMobilePanel,
-  headerHeight,
   overlayZ,
-  codeSlot,
-  compileSlot,
-  serialSlot,
-  boardSlot,
   portalContainer = typeof document === "undefined" ? null : document.body,
   className,
   testId = "mobile-layout",
   onOpenPanel,
-  onClosePanel,
 }: MobileLayoutProps) {
-  // helpers
+  // The panel surfaces themselves stay mounted in the responsive workspace.
+  // This component owns navigation only, so selecting a surface never moves
+  // or unmounts the Monaco editor.
   const handleToggle = React.useCallback(
     (panel: MobilePanel) => {
-      setMobilePanel((prev: MobilePanel) => (prev === panel ? null : panel));
-      if (panel === mobilePanel) {
-        onClosePanel?.();
-      } else {
-        onOpenPanel?.(panel);
-      }
+      setMobilePanel(panel);
+      if (panel !== mobilePanel) onOpenPanel?.(panel);
     },
-    [mobilePanel, setMobilePanel, onOpenPanel, onClosePanel],
+    [mobilePanel, setMobilePanel, onOpenPanel],
   );
 
   // render fab bar via portal
@@ -136,22 +120,14 @@ export const MobileLayout = React.memo(function MobileLayout({
   return (
     <>
       {isMobile && portalContainer && ReactDOM.createPortal(fabBar, portalContainer)}
-      {mobilePanel && (
+      {isMobile && (
         <div
-          className={clsx("fixed left-0 right-0 bottom-0 bg-card p-0 flex flex-col w-screen", className)}
-          style={{
-            top: `${headerHeight}px`,
-            height: `calc(100vh - ${headerHeight}px)`,
-            zIndex: overlayZ,
-          }}
+          className={clsx("sr-only", className)}
+          style={{ zIndex: overlayZ }}
           data-testid={testId}
+          aria-live="polite"
         >
-          <div className="flex-1 overflow-auto w-screen h-full">
-            {mobilePanel === "code" && codeSlot}
-            {mobilePanel === "compile" && compileSlot}
-            {mobilePanel === "serial" && serialSlot}
-            {mobilePanel === "board" && boardSlot}
-          </div>
+          Active mobile panel: {mobilePanel}
         </div>
       )}
     </>

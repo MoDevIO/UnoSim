@@ -174,7 +174,16 @@ export function useArduinoSimulatorPage() {
     Array<{ payload: IncomingArduinoMessage; receivedAt: number }>
   >([]);
   // Mobile layout (responsive design and panel management)
-  const { isMobile, mobilePanel, setMobilePanel, headerHeight, overlayZ } = useMobileLayout();
+  const {
+    isMobile,
+    isTablet,
+    isDesktop,
+    layoutMode,
+    mobilePanel,
+    setMobilePanel,
+    headerHeight,
+    overlayZ,
+  } = useMobileLayout();
 
 
 
@@ -517,6 +526,10 @@ export function useArduinoSimulatorPage() {
     handleSerialSend(serialInputValue);
   };
 
+  const closeMobilePanel = useCallback(() => {
+    if (isMobile) setMobilePanel("code");
+  }, [isMobile, setMobilePanel]);
+
   // Remaining handlers for OutputPanel integration
   const handleInsertSuggestion = useCallback((suggestion: string, line?: number) => {
     const insertSmartly = editorRef.current?.insertSuggestionSmartly;
@@ -571,13 +584,25 @@ export function useArduinoSimulatorPage() {
     lastCompilationResult,
     handleClearCompilationOutput,
     handleInsertSuggestion,
+    onPanelClose: closeMobilePanel,
     renderedSerialOutput,
+    serialOutput,
     isConnected,
     simulationStatus,
     handleSerialSend,
     handleClearSerialOutput,
     showSerialMonitor,
+    showSerialPlotter,
+    serialViewMode,
+    cycleSerialViewMode,
     autoScrollEnabled,
+    setAutoScrollEnabled,
+    serialInputValue,
+    setSerialInputValue,
+    handleSerialInputKeyDown,
+    handleSerialInputSend,
+    baudRate,
+    telemetryData,
     showCompilationOutput,
     parserPanelDismissed,
     setShowCompilationOutput,
@@ -728,6 +753,9 @@ export function useArduinoSimulatorPage() {
     layout: {
       showErrorGlitch,
       isMobile,
+      isTablet,
+      isDesktop,
+      layoutMode,
       board,
       isMac,
       toast,

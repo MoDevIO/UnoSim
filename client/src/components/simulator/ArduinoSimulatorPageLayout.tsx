@@ -1,8 +1,11 @@
+import clsx from "clsx";
+import { useEffect, useRef } from "react";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 import { SimulationControls } from "@/components/simulator/SimulationControls";
 import { PinMonitorView } from "@/components/simulator/PinMonitorView";
 import { SimCockpit } from "@/components/features/sim-cockpit";
 import SimulatorOutputContainer from "@/components/simulator/sub-components/SimulatorOutputContainer";
-import { MobileLayout } from "@/components/features/mobile-layout";
+import { MobileLayout, type MobilePanel } from "@/components/features/mobile-layout";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -14,10 +17,18 @@ import {
 } from "@/components/simulator/ArduinoSimulatorPage.styles";
 import type { ArduinoSimulatorPageState } from "@/hooks/useArduinoSimulatorPage";
 
+function getMobilePanelState(isMobile: boolean, mobilePanel: MobilePanel) {
+  return {
+    mobileCompileActive: isMobile && mobilePanel === "compile",
+    mobileSerialActive: isMobile && mobilePanel === "serial",
+    mobileBoardActive: isMobile && mobilePanel === "board",
+  };
+}
+
 export function ArduinoSimulatorPageLayout(
   props: Readonly<ArduinoSimulatorPageState>,
 ) {
-  const { compile, simulation, serial, pins, files, connection, layout } = props;
+  const { compile, simulation, pins, files, connection, layout } = props;
   const {
     compilationStatus,
     dockerGccPhase,
@@ -30,6 +41,7 @@ export function ArduinoSimulatorPageLayout(
     setParserPanelDismissed,
     hasFirstOutput,
   } = compile;
+  const { baudRate, txActivity, rxActivity } = props.serial;
   const {
     simulationStatus,
     startMutation,
@@ -45,25 +57,6 @@ export function ArduinoSimulatorPageLayout(
     setSimulationTimeout,
     pendingExternalStart,
   } = simulation;
-  const {
-    baudRate,
-    renderedSerialOutput,
-    serialOutput,
-    handleSerialSend,
-    handleClearSerialOutput,
-    showSerialMonitor,
-    showSerialPlotter,
-    serialViewMode,
-    cycleSerialViewMode,
-    autoScrollEnabled,
-    setAutoScrollEnabled,
-    serialInputValue,
-    setSerialInputValue,
-    handleSerialInputKeyDown,
-    handleSerialInputSend,
-    txActivity,
-    rxActivity,
-  } = serial;
   const {
     batchStats,
     handlePinToggle,
@@ -96,7 +89,6 @@ export function ArduinoSimulatorPageLayout(
     isConnected,
     wsConnectionState,
     wsHasEverConnected,
-    telemetryData,
     sandboxMode,
     workerIndex,
     workerTotal,
@@ -104,6 +96,7 @@ export function ArduinoSimulatorPageLayout(
   const {
     showErrorGlitch,
     isMobile,
+    layoutMode,
     board,
     isMac,
     toast,
@@ -121,6 +114,43 @@ export function ArduinoSimulatorPageLayout(
     outputPanelMinPercent,
     outputPanelManuallyResizedRef,
   } = layout;
+
+  const { mobileCompileActive, mobileSerialActive, mobileBoardActive } = getMobilePanelState(
+    isMobile,
+    mobilePanel,
+  );
+  const isTablet = layoutMode === "tablet";
+  const mainOutputPanelRef = useRef<ImperativePanelHandle | null>(null);
+  const previousLayoutModeRef = useRef(layoutMode);
+
+  useEffect(() => {
+    if (layoutMode === "tablet" && previousLayoutModeRef.current !== "tablet") {
+      mainOutputPanelRef.current?.resize?.(35);
+    }
+    previousLayoutModeRef.current = layoutMode;
+  }, [layoutMode]);
+  const mobileSecondaryStyle = isMobile
+    ? {
+        top: `${headerHeight}px`,
+        height: `calc(100vh - ${headerHeight}px)`,
+        zIndex: Math.max(overlayZ - 1, 1),
+      }
+    : undefined;
+  const boardSlot = (
+    <PinMonitorView
+      pinMonitorVisible={pinMonitorVisible}
+      pinStates={pinStates}
+      batchStats={batchStats}
+      simulationStatus={simulationStatus}
+      txActivity={txActivity}
+      rxActivity={rxActivity}
+      onReset={handleReset}
+      onPinToggle={handlePinToggle}
+      analogPins={analogPinsUsed}
+      onAnalogChange={handleAnalogChange}
+      isMobile={isMobile}
+    />
+  );
   return (
     <div
       className={`${CSS_CLASSES.MAIN_CONTAINER} ${showErrorGlitch ? "overflow-hidden" : ""}`}
@@ -242,47 +272,25 @@ export function ArduinoSimulatorPageLayout(
         className="hidden"
       />
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden relative z-0">
-        {isMobile ? (
-          <MobileLayout
-            isMobile={isMobile}
-            mobilePanel={mobilePanel}
-            setMobilePanel={setMobilePanel}
-            headerHeight={headerHeight}
-            overlayZ={overlayZ}
-            codeSlot={codeSlot}
-            compileSlot={compileSlot}
-            serialSlot={serialSlot}
-            boardSlot={
-              <PinMonitorView
-                pinMonitorVisible={pinMonitorVisible}
-                pinStates={pinStates}
-                batchStats={batchStats}
-                simulationStatus={simulationStatus}
-                txActivity={txActivity}
-                rxActivity={rxActivity}
-                onReset={handleReset}
-                onPinToggle={handlePinToggle}
-                analogPins={analogPinsUsed}
-                onAnalogChange={handleAnalogChange}
-                isMobile={isMobile}
-              />
-            }
-          />
-        ) : (
-          <ResizablePanelGroup
-            direction="horizontal"
-            className="h-full"
-            id="main-layout"
-          >
+      <div className="flex-1 overflow-hidden relative z-0 workspace-layout" data-layout-mode={layoutMode}>
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="h-full workspace-main-layout"
+          id="main-layout"
+        >
             {/* Code Editor Panel */}
-            <ResizablePanel defaultSize={50} minSize={20} id="code-panel">
+            <ResizablePanel
+              defaultSize={isTablet ? 65 : 50}
+              minSize={isTablet ? 40 : 20}
+              id="code-panel"
+              className="workspace-code-panel"
+            >
               <ResizablePanelGroup
                 direction="vertical"
-                className="h-full"
+                className="h-full workspace-code-layout"
                 id="code-layout"
               >
-                <ResizablePanel defaultSize={97} minSize={30} id="editor-panel">
+                <ResizablePanel defaultSize={97} minSize={30} id="editor-panel" className="workspace-editor-panel">
                   <div className="h-full flex flex-col">
                     {codeSlot}
                   </div>
@@ -291,6 +299,7 @@ export function ArduinoSimulatorPageLayout(
                 <ResizableHandle
                   withHandle
                   data-testid="vertical-resizer-output"
+                  className="workspace-editor-output-handle"
                   onDragging={(isDragging) => {
                     if (isDragging) {
                       outputPanelManuallyResizedRef.current = true;
@@ -303,48 +312,47 @@ export function ArduinoSimulatorPageLayout(
                   defaultSize={Math.max(compilationPanelSize, outputPanelMinPercent)}
                   minSize={outputPanelMinPercent}
                   id="output-under-editor"
-                  className={showCompilationOutput ? "" : "hidden"}
+                  className={clsx("workspace-compile-panel", {
+                    hidden: !showCompilationOutput && !isMobile,
+                    "workspace-mobile-overlay-panel": mobileCompileActive,
+                    "workspace-mobile-hidden-panel": isMobile && !mobileCompileActive,
+                  })}
+                  style={mobileCompileActive ? mobileSecondaryStyle : undefined}
                 >
                   {compileSlot}
                 </ResizablePanel>
               </ResizablePanelGroup>
             </ResizablePanel>
 
-            <ResizableHandle withHandle data-testid="horizontal-resizer" />
+            <ResizableHandle withHandle data-testid="horizontal-resizer" className="workspace-main-horizontal-handle" />
 
             <SimulatorOutputContainer
-              renderedSerialOutput={renderedSerialOutput}
-              serialOutput={serialOutput}
-              isConnected={isConnected}
-              simulationStatus={simulationStatus}
-              handleSerialSend={handleSerialSend}
-              handleClearSerialOutput={handleClearSerialOutput}
-              showSerialMonitor={showSerialMonitor}
-              showSerialPlotter={showSerialPlotter}
-              serialViewMode={serialViewMode}
-              cycleSerialViewMode={cycleSerialViewMode}
-              autoScrollEnabled={autoScrollEnabled}
-              setAutoScrollEnabled={setAutoScrollEnabled}
-              serialInputValue={serialInputValue}
-              setSerialInputValue={setSerialInputValue}
-              handleSerialInputKeyDown={handleSerialInputKeyDown}
-              handleSerialInputSend={handleSerialInputSend}
-              debugMode={debugMode}
-              telemetryData={telemetryData}
-              baudRate={baudRate}
-
-              pinMonitorVisible={pinMonitorVisible}
-              pinStates={pinStates}
-              batchStats={batchStats}
-              txActivity={txActivity}
-              rxActivity={rxActivity}
-              handleReset={handleReset}
-              handlePinToggle={handlePinToggle}
-              analogPinsUsed={analogPinsUsed}
-              handleAnalogChange={handleAnalogChange}
+              serialSlot={serialSlot}
+              boardSlot={boardSlot}
+              defaultSize={isTablet ? 35 : 50}
+              minSize={isTablet ? 32 : 20}
+              panelRef={mainOutputPanelRef}
+              className={clsx("workspace-output-panel", {
+                "workspace-mobile-overlay-panel": mobileSerialActive || mobileBoardActive,
+                "workspace-mobile-hidden-panel": isMobile && !mobileSerialActive && !mobileBoardActive,
+              })}
+              style={mobileSerialActive || mobileBoardActive ? mobileSecondaryStyle : undefined}
+              serialPanelClassName={clsx("workspace-serial-panel", {
+                "workspace-mobile-full-panel": mobileSerialActive,
+                "workspace-mobile-hidden-panel": isMobile && !mobileSerialActive,
+              })}
+              boardPanelClassName={clsx("workspace-board-panel", {
+                "workspace-mobile-full-panel": mobileBoardActive,
+                "workspace-mobile-hidden-panel": isMobile && !mobileBoardActive,
+              })}
             />
-          </ResizablePanelGroup>
-        )}
+        </ResizablePanelGroup>
+        <MobileLayout
+          isMobile={isMobile}
+          mobilePanel={mobilePanel}
+          setMobilePanel={setMobilePanel}
+          overlayZ={overlayZ}
+        />
       </div>
     </div>
   );

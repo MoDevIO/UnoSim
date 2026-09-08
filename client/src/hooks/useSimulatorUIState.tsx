@@ -1,10 +1,11 @@
 import React, { lazy, useMemo, Suspense, useCallback } from "react";
 
-import { SerialMonitor } from "@/components/features/serial-monitor";
 import { SketchTabs } from "@/components/features/sketch-tabs";
 import { ExamplesMenu } from "@/components/features/examples-menu";
 import { OutputPanel } from "@/components/features/output-panel";
 import { useSimulatorOutputPanel } from "@/hooks/useSimulatorOutputPanel";
+import { SerialMonitorView, type SerialViewMode } from "@/components/simulator/SerialMonitorView";
+import type { TelemetryMetrics } from "@/hooks/use-telemetry-store";
 import type { ToastFn } from "@/hooks/use-toast";
 import type { ParserMessage, IOPinRecord, OutputLine } from "@shared/schema";
 import type { OutputTab } from "@/types/compilation.types";
@@ -46,16 +47,28 @@ interface UseSimulatorUIStateParams {
   lastCompilationResult: string | null;
   handleClearCompilationOutput: () => void;
   handleInsertSuggestion: (suggestion: string, line?: number) => void;
+  onPanelClose?: () => void;
   isModified: boolean;
   toast: ToastFn;
 
   renderedSerialOutput: OutputLine[];
+  serialOutput: OutputLine[];
   isConnected: boolean;
   simulationStatus: "idle" | "running" | "compiling" | "queued" | "paused";
   handleSerialSend: (message: string) => void;
   handleClearSerialOutput: () => void;
   showSerialMonitor: boolean;
+  showSerialPlotter: boolean;
+  serialViewMode: SerialViewMode;
+  cycleSerialViewMode: () => void;
   autoScrollEnabled: boolean;
+  setAutoScrollEnabled: (enabled: boolean) => void;
+  serialInputValue: string;
+  setSerialInputValue: (value: string) => void;
+  handleSerialInputKeyDown: (event: React.KeyboardEvent) => void;
+  handleSerialInputSend: () => void;
+  baudRate: number;
+  telemetryData: { last: TelemetryMetrics | null } | null;
 
   // Debug Console state/controls
   debugMode: boolean;
@@ -123,7 +136,9 @@ export function useSimulatorUIState({
   lastCompilationResult,
   handleClearCompilationOutput,
   handleInsertSuggestion,
+  onPanelClose,
   renderedSerialOutput,
+  serialOutput,
   isModified,
   toast,
   isConnected,
@@ -131,7 +146,17 @@ export function useSimulatorUIState({
   handleSerialSend,
   handleClearSerialOutput,
   showSerialMonitor,
+  showSerialPlotter,
+  serialViewMode,
+  cycleSerialViewMode,
   autoScrollEnabled,
+  setAutoScrollEnabled,
+  serialInputValue,
+  setSerialInputValue,
+  handleSerialInputKeyDown,
+  handleSerialInputSend,
+  baudRate,
+  telemetryData,
   debugMode,
   setDebugMode,
   debugMessages,
@@ -264,7 +289,10 @@ export function useSimulatorUIState({
         debugMessagesContainerRef={debugMessagesContainerRef}
         onTabChange={handleOutputTabChange}
         openOutputPanel={openOutputPanel}
-        onClose={handleOutputCloseOrMinimize}
+        onClose={() => {
+          handleOutputCloseOrMinimize();
+          onPanelClose?.();
+        }}
         onClearCompilationOutput={handleClearCompilationOutput}
         onParserMessagesClear={handleParserMessagesClear}
         onParserGoToLine={handleParserGoToLine}
@@ -294,6 +322,7 @@ export function useSimulatorUIState({
       handleOutputTabChange,
       openOutputPanel,
       handleOutputCloseOrMinimize,
+      onPanelClose,
       handleClearCompilationOutput,
       handleParserMessagesClear,
       handleParserGoToLine,
@@ -308,26 +337,50 @@ export function useSimulatorUIState({
 
   const serialSlot = useMemo(
     () => (
-      <div className="flex-1 min-h-0">
-        <SerialMonitor
-          output={renderedSerialOutput}
+      <div className="h-full min-h-0">
+        <SerialMonitorView
+          renderedSerialOutput={renderedSerialOutput}
+          serialOutput={serialOutput}
           isConnected={isConnected}
-          isSimulationRunning={simulationStatus !== "idle"}
-          onSendMessage={handleSerialSend}
-          onClear={handleClearSerialOutput}
-          showMonitor={showSerialMonitor}
+          simulationStatus={simulationStatus === "running" || simulationStatus === "paused" ? simulationStatus : "idle"}
+          handleSerialSend={handleSerialSend}
+          handleClearSerialOutput={handleClearSerialOutput}
+          showSerialMonitor={showSerialMonitor}
+          showSerialPlotter={showSerialPlotter}
+          serialViewMode={serialViewMode}
+          cycleSerialViewMode={cycleSerialViewMode}
           autoScrollEnabled={autoScrollEnabled}
+          setAutoScrollEnabled={setAutoScrollEnabled}
+          serialInputValue={serialInputValue}
+          setSerialInputValue={setSerialInputValue}
+          handleSerialInputKeyDown={handleSerialInputKeyDown}
+          handleSerialInputSend={handleSerialInputSend}
+          debugMode={debugMode}
+          telemetryData={telemetryData}
+          baudRate={baudRate}
         />
       </div>
     ),
     [
       renderedSerialOutput,
+      serialOutput,
       isConnected,
       simulationStatus,
       handleSerialSend,
       handleClearSerialOutput,
       showSerialMonitor,
+      showSerialPlotter,
+      serialViewMode,
+      cycleSerialViewMode,
       autoScrollEnabled,
+      setAutoScrollEnabled,
+      serialInputValue,
+      setSerialInputValue,
+      handleSerialInputKeyDown,
+      handleSerialInputSend,
+      debugMode,
+      telemetryData,
+      baudRate,
     ],
   );
 
