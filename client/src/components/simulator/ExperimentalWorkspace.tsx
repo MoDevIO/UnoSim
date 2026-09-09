@@ -88,6 +88,28 @@ interface WorkspaceVisibilityControlsProps {
   readonly onRestoreDefault: () => void;
 }
 
+function getWorkspaceColumnLabel(column: WorkspaceColumn) {
+  switch (column) {
+    case "code":
+      return "Code";
+    case "simulation":
+      return "Simulation";
+    case "tutor":
+      return "Tutor";
+  }
+}
+
+function getWorkspaceEmptyStateLabel(column: WorkspaceColumn) {
+  switch (column) {
+    case "code":
+      return "Code anzeigen";
+    case "simulation":
+      return "Simulation anzeigen";
+    case "tutor":
+      return "Tutor anzeigen";
+  }
+}
+
 export function WorkspaceVisibilityControls({
   visibility,
   onColumnToggle,
@@ -102,7 +124,7 @@ export function WorkspaceVisibilityControls({
         Workspace
       </span>
       {(["code", "simulation", "tutor"] as WorkspaceColumn[]).map((column) => {
-        const label = column === "code" ? "Code" : column === "simulation" ? "Simulation" : "Tutor";
+        const label = getWorkspaceColumnLabel(column);
         return (
           <Button
             key={column}
@@ -201,7 +223,7 @@ export function ExperimentalWorkspace({
     if (visibleColumns.length === 0) return;
     const timer = globalThis.setTimeout(() => {
       const group = groupRef.current;
-      if (!group || group.getLayout().length !== visibleColumns.length) return;
+      if (group?.getLayout().length !== visibleColumns.length) return;
       group.setLayout(getWorkspaceDefaultSizes(visibleColumns, sizes));
     }, 0);
     return () => globalThis.clearTimeout(timer);
@@ -237,7 +259,7 @@ export function ExperimentalWorkspace({
                   onClick={() => setColumnVisible(column, true)}
                   data-testid={`workspace-empty-show-${column}`}
                 >
-                  {column === "code" ? "Code anzeigen" : column === "simulation" ? "Simulation anzeigen" : "Tutor anzeigen"}
+                  {getWorkspaceEmptyStateLabel(column)}
                 </Button>
               ))}
             </div>
