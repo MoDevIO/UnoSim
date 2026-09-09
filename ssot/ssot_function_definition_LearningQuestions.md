@@ -363,15 +363,128 @@ Eine ungültige Provider-Antwort darf einmal kontrolliert neu angefordert oder a
 
 ## 10. UI-Verhalten
 
-### 10.1 Panel
+### 10.1 Desktop-Workspace: drei fachliche Spalten
 
-UnoSim erhält ein sichtbares Lernfragen-Panel bzw. einen klar abgegrenzten Lernfragen-Bereich.
+Auf Desktop soll UnoSim den Workspace in bis zu drei **gleichrangige, unabhängig sichtbare Hauptspalten** gliedern:
 
-Der genaue Einbau in die bestehende responsive Layout-Struktur ist Implementierungsdetail. Das Feature MUSS jedoch auf Desktop, Tablet und Mobile nutzbar bleiben.
+```text
+┌──────────────────────┬──────────────────────┬──────────────────────┐
+│ Code / Compiler      │ Simulation / I/O     │ Tutor                │
+│                      │                      │                      │
+│ Monaco Editor        │ Serial Output        │ Lernfrage            │
+│                      │ Arduino Board        │ Mermaid              │
+│ Compiler / Messages  │ Pin Table            │                      │
+└──────────────────────┴──────────────────────┴──────────────────────┘
+          ↔                      ↔
+       Resizer                Resizer
+```
 
-### 10.2 Mindestfunktionen im MVP
+Die fachliche Rollenverteilung ist:
 
-Das Panel benötigt mindestens:
+- **Code / Compiler**: Quelltext und statische bzw. Compile-Rückmeldungen,
+- **Simulation / I/O**: beobachtbares Laufzeitverhalten mit Serial Output, Arduino-Board und Pin Table,
+- **Tutor**: didaktische Lernfrage und optionale Mermaid-Visualisierung.
+
+Damit können Code, Simulationsergebnisse und didaktische Reflexion gleichzeitig sichtbar sein.
+
+### 10.2 Unabhängige Sichtbarkeit der Hauptspalten
+
+Alle drei Hauptspalten MÜSSEN auf Desktop unabhängig ein- und ausblendbar sein:
+
+- `Code`,
+- `Simulation`,
+- `Tutor`.
+
+Das Ausblenden einer Spalte darf den fachlichen Zustand der anderen Bereiche nicht verändern.
+
+Insbesondere:
+
+- das Ausblenden des Tutors darf die aktuell erzeugte Lernfrage innerhalb der laufenden Frontend-Session nicht automatisch verwerfen,
+- das Ausblenden der Simulation darf die Simulation nicht automatisch stoppen,
+- das Ausblenden der Code-Spalte darf den Editorinhalt nicht verändern.
+
+Resizer werden nur zwischen aktuell sichtbaren benachbarten Spalten dargestellt.
+
+### 10.3 Spaltenbreiten und Resizing
+
+Sichtbare Desktop-Spalten werden durch horizontale Resizer getrennt und sind innerhalb sinnvoller Mindestbreiten frei skalierbar.
+
+Empfohlene Ausgangsverteilung:
+
+```text
+Tutor aus:
+Code 50 % | Simulation 50 %
+
+Tutor an:
+Code 42 % | Simulation 33 % | Tutor 25 %
+```
+
+Diese Werte sind Startwerte und keine festen Größen.
+
+Beim Einblenden einer zuvor ausgeblendeten Spalte soll eine nutzbare Standardbreite wiederhergestellt werden. Eine während der aktuellen Session zuletzt verwendete Breite DARF wiederverwendet werden.
+
+Der Nutzer soll eine Spalte über einen expliziten Sichtbarkeits-Toggle ein- oder ausblenden können, ohne sie durch kompliziertes Ziehen auf Breite `0` reduzieren zu müssen.
+
+### 10.4 Interne Struktur der Simulationsspalte
+
+Die mittlere Spalte soll mehrere Laufzeitinformationen **gleichzeitig** darstellen können. Serial Output, Arduino-Board und Pin Table dürfen daher nicht ausschließlich als gegenseitig ausschließende Tabs modelliert werden.
+
+Die Bereiche innerhalb der Simulationsspalte DÜRFEN vertikal resizable bzw. ein-/ausblendbar sein, damit abhängig von der Lernaufgabe unterschiedliche Schwerpunkte möglich sind.
+
+Beispiele:
+
+- viel Platz für Serial Output bei text-/messwertorientierten Aufgaben,
+- mehr Platz für Board und Pin Table bei I/O-Aufgaben,
+- gleichzeitige Darstellung aller drei Bereiche, wenn der verfügbare Platz dies zulässt.
+
+### 10.5 Empty State bei vollständig ausgeblendeten Spalten
+
+Es ist zulässig, dass der Nutzer alle drei Hauptspalten ausblendet.
+
+In diesem Zustand darf **keine leere oder scheinbar defekte Arbeitsfläche** angezeigt werden. Stattdessen erscheint ein expliziter Workspace-Empty-State, beispielsweise:
+
+```text
+Keine Ansicht geöffnet
+
+[ Code anzeigen ]  [ Simulation anzeigen ]  [ Tutor anzeigen ]
+
+[ Standardlayout wiederherstellen ]
+```
+
+Der Empty State MUSS mindestens ermöglichen:
+
+- jede Hauptspalte einzeln wieder einzublenden,
+- ein sinnvolles Standardlayout wiederherzustellen.
+
+Das Standardlayout ist für den Desktop mindestens `Code + Simulation`; der Tutor bleibt optional.
+
+### 10.6 Responsive Verhalten
+
+Die dreispaltige Darstellung ist ein Desktop-Konzept und darf auf kleineren Viewports nicht erzwungen werden.
+
+Richtlinie:
+
+```text
+Desktop >= 1024 px
+  1–3 sichtbare Hauptspalten
+  frei resizable
+  Tutor als optionale rechte Spalte
+
+Tablet 768–1023 px
+  bevorzugt 2 Hauptbereiche gleichzeitig
+  Tutor als temporärer bzw. umschaltbarer Bereich
+  keine erzwungene Dreispaltigkeit
+
+Mobile < 768 px
+  1 Hauptansicht
+  Compile / Serial / Board / Tutor als umschaltbare Overlays bzw. Vollansichten
+```
+
+Die vorhandene responsive UnoSim-Architektur soll weiterverwendet und nur um den Tutor-Zustand erweitert werden.
+
+### 10.7 Mindestfunktionen des Tutor-Panels im MVP
+
+Das Tutor-Panel benötigt mindestens:
 
 - Status des Tutor-Features,
 - bei `user-key`: flüchtige API-Key-Eingabe,
@@ -381,7 +494,7 @@ Das Panel benötigt mindestens:
 - Ladezustand,
 - verständliche Fehleranzeige.
 
-### 10.3 Key-Eingabe
+### 10.8 Key-Eingabe
 
 Das API-Key-Feld MUSS:
 
@@ -393,7 +506,9 @@ Das API-Key-Feld MUSS:
 
 Ein expliziter „Key vergessen“-/„Key löschen“-Vorgang soll den Wert sofort aus dem Frontend-State entfernen.
 
-### 10.4 Transparenz
+Die Key-Eingabe soll nicht dauerhaft den didaktischen Inhalt des Tutor-Panels dominieren. Nach erfolgreicher Eingabe reicht eine kompakte Statusdarstellung des aktiven Providers/Zugangs.
+
+### 10.9 Transparenz
 
 Vor der ersten LLM-Nutzung muss erkennbar sein:
 
@@ -536,7 +651,13 @@ Die Implementierung gilt erst als korrekt, wenn automatisierte Tests mindestens 
 - Ladezustand wird korrekt dargestellt,
 - Frage wird angezeigt,
 - Provider-/Quota-Fehler werden verständlich dargestellt,
-- keine automatische Anfrage allein durch Codeänderung.
+- keine automatische Anfrage allein durch Codeänderung,
+- Desktop-Hauptspalten `Code`, `Simulation` und `Tutor` sind unabhängig ein-/ausblendbar,
+- Resizer erscheinen nur zwischen sichtbaren benachbarten Spalten,
+- Serial Output, Board und Pin Table können auf Desktop gleichzeitig sichtbar bleiben,
+- bei drei ausgeblendeten Hauptspalten erscheint der definierte Empty State,
+- `Standardlayout wiederherstellen` stellt mindestens `Code + Simulation` wieder her,
+- Tablet/Mobile erzwingen keine Dreispaltigkeit und bieten weiterhin nutzbare Tutor-Zugänge.
 
 ### 16.2 Backend
 
@@ -603,7 +724,8 @@ Der erste produktnahe Pilot umfasst:
 8. serverseitigen Provider-Aufruf,
 9. serverseitigen Tutor-Prompt,
 10. Output-Validierung und Fehlerbehandlung,
-11. optionale grafische Anreicherung durch lokal gerendertes Mermaid.
+11. optionale grafische Anreicherung durch lokal gerendertes Mermaid,
+12. Desktop-Integration als optional einblendbare dritte Hauptspalte neben Code und Simulation mit unabhängiger Sichtbarkeit und Resizing.
 
 Nicht Teil des MVP:
 
@@ -641,6 +763,9 @@ Das Feature gilt im MVP als fachlich umgesetzt, wenn:
 - das System keine allgemeine Chat-Schnittstelle anbietet,
 - keine vollständige Lösung als reguläres Tutor-Ergebnis ausgegeben wird,
 - eine optionale Mermaid-Grafik ausschließlich belegbare Informationen visualisiert und bei Renderfehlern die Textfrage erhalten bleibt,
+- auf Desktop Code, Simulation und Tutor unabhängig sichtbar bzw. ausblendbar und über Resizer dimensionierbar sind,
+- Serial Output, Arduino-Board und Pin Table weiterhin gleichzeitig sichtbar sein können,
+- bei vollständig ausgeblendeten Hauptspalten ein bedienbarer Empty State statt einer leeren Arbeitsfläche erscheint,
 - ein persönlicher Key ausschließlich flüchtig und request-scoped verwendet wird,
 - der Browser keinen externen LLM-Provider direkt anspricht,
 - der Provider später ohne grundlegenden Umbau des Lernfragen-Panels austauschbar ist,
