@@ -114,7 +114,12 @@ export class DockerManager {
         const markerMatch = RUNTIME_START_LINE.exec(state.compileErrorBuffer.value);
         if (!markerMatch) return;
 
-        const markerPrefixLength = markerMatch[0].startsWith("\r\n") ? 2 : markerMatch[0].startsWith("\n") ? 1 : 0;
+        let markerPrefixLength = 0;
+        if (markerMatch[0].startsWith("\r\n")) {
+          markerPrefixLength = 2;
+        } else if (markerMatch[0].startsWith("\n")) {
+          markerPrefixLength = 1;
+        }
         const markerLineStart = markerMatch.index + markerPrefixLength;
         const markerEnd = markerMatch.index + markerMatch[0].length;
         const runtimeOutput = state.compileErrorBuffer.value.slice(markerEnd);

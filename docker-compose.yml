@@ -59,7 +59,7 @@ services:
       - ${PWD}/temp:${PWD}/temp
       - ./storage:/app/storage
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/readiness"]
       interval: 30s
       timeout: 10s
       retries: 3
