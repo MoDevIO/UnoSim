@@ -17,7 +17,7 @@
   },
   "scripts": {
     "sonar": "npm run test:coverage && sonar-scanner -Dsonar.projectKey=unosim -Dsonar.sources=client/src,server,shared -Dsonar.tests=tests -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONAR_TOKEN -Dsonar.scm.exclusions.disabled=true",
-    "dev": "NODE_ENV=development UNOSIM_TRUST_MODE=local UNOSIM_SERVER_MODE=local UNOSIM_SIMULATION_MODE=local UNOSIM_EXAMPLES_SOURCE=https://raw.githubusercontent.com/ttbombadil/UnoSim-Examples UNOSIM_EXAMPLES_REF=v1.0.0 UNOSIM_EXAMPLES_ALLOWED_HOSTS=raw.githubusercontent.com tsx server/index.ts --host",
+    "dev": "NODE_ENV=development UNOSIM_TRUST_MODE=local UNOSIM_TUTOR_MODE=user-key UNOSIM_SERVER_MODE=local UNOSIM_SIMULATION_MODE=local UNOSIM_EXAMPLES_SOURCE=https://raw.githubusercontent.com/ttbombadil/UnoSim-Examples UNOSIM_EXAMPLES_REF=v1.0.0 UNOSIM_EXAMPLES_ALLOWED_HOSTS=raw.githubusercontent.com tsx server/index.ts --host",
     "dev:lan": "UNOSIM_LISTEN_HOST=0.0.0.0 npm run dev",
     "dev:e2e": "NODE_ENV=test UNOSIM_SERVER_MODE=local UNOSIM_SIMULATION_MODE=local ENABLE_TEST_ENDPOINTS=true DISABLE_RATE_LIMIT=true tsx server/index.ts --host",
     "dev:full": "concurrently -n \"BACKEND,CLIENT\" -c \"bgBlue,bgMagenta\" \"npm run dev\" \"node scripts/wait-for-backend.mjs && npm run dev:client\"",

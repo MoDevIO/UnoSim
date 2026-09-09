@@ -1,11 +1,12 @@
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, beforeEach, vi } from "vitest";
 import {
   ExperimentalWorkspace,
   TutorWorkspacePlaceholder,
   WorkspaceVisibilityControls,
 } from "@/components/simulator/ExperimentalWorkspace";
 import type { TutorPanelState } from "@/hooks/use-tutor";
+import { useTutor } from "@/hooks/use-tutor";
 import { useExperimentalWorkspaceLayout } from "@/hooks/use-experimental-workspace-layout";
 import {
   DEFAULT_WORKSPACE_COLUMN_VISIBILITY,
@@ -18,6 +19,10 @@ import SimulatorOutputContainer from "@/components/simulator/sub-components/Simu
 describe("experimental workspace layout", () => {
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("starts disabled and keeps Code + Simulation as the default columns", () => {
@@ -222,5 +227,51 @@ describe("experimental workspace layout", () => {
     fireEvent.click(screen.getByTestId("tutor-new-question-action"));
     expect(resetDialog).toHaveBeenCalledOnce();
     expect(generateQuestion).toHaveBeenCalledWith("void setup(){}");
+  });
+
+  it("restores the KI:connect key flow with automatic model loading", async () => {
+    const modelsRequestBodies: unknown[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (String(input) === "/api/config") {
+        return new Response(JSON.stringify({
+          tutor: { mode: "user-key", provider: "kiconnect" },
+        }), { status: 200 });
+      }
+      if (String(input) === "/api/tutor/models") {
+        modelsRequestBodies.push(init?.body ? JSON.parse(String(init.body)) : null);
+        return new Response(JSON.stringify({ models: ["pilot-model"] }), { status: 200 });
+      }
+      throw new Error(`Unexpected request: ${String(input)}`);
+    });
+
+    function TutorHarness() {
+      const tutor = useTutor();
+      return <TutorWorkspacePlaceholder code="void setup(){}" tutor={tutor} />;
+    }
+
+    render(<TutorHarness />);
+    await waitFor(() => expect(screen.getByTestId("tutor-api-key-action")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tutor-api-key-action"));
+    const keyInput = screen.getByLabelText("API key", { selector: "input" });
+    expect(keyInput).toBeInTheDocument();
+    expect(screen.getByLabelText("Model")).toBeInTheDocument();
+
+    fireEvent.change(keyInput, { target: { value: "volatile-key" } });
+    await waitFor(() => expect(screen.getByRole("option", { name: "pilot-model" })).toBeInTheDocument());
+    expect(modelsRequestBodies).toEqual([{ credential: "volatile-key" }]);
+
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "pilot-model" } });
+    fireEvent.click(screen.getByTestId("tutor-apply-key"));
+    expect(screen.queryByTestId("tutor-api-key-view")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("tutor-api-key-action"));
+    expect(screen.getByLabelText("API key", { selector: "input" })).toHaveValue("volatile-key");
+    expect(screen.getByLabelText("Model")).toHaveValue("pilot-model");
+    expect(modelsRequestBodies).toEqual([
+      { credential: "volatile-key" },
+      { credential: "volatile-key" },
+    ]);
+    expect(localStorage.length).toBe(0);
   });
 });
