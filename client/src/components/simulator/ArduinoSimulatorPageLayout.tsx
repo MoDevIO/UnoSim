@@ -7,6 +7,12 @@ import { SimCockpit } from "@/components/features/sim-cockpit";
 import SimulatorOutputContainer from "@/components/simulator/sub-components/SimulatorOutputContainer";
 import { MobileLayout, type MobilePanel } from "@/components/features/mobile-layout";
 import {
+  ExperimentalWorkspace,
+  WorkspaceCodeColumn,
+  TutorWorkspacePlaceholder,
+} from "@/components/simulator/ExperimentalWorkspace";
+import { useExperimentalWorkspaceLayout } from "@/hooks/use-experimental-workspace-layout";
+import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
@@ -17,11 +23,17 @@ import {
 } from "@/components/simulator/ArduinoSimulatorPage.styles";
 import type { ArduinoSimulatorPageState } from "@/hooks/useArduinoSimulatorPage";
 
-function getMobilePanelState(isMobile: boolean, mobilePanel: MobilePanel) {
+function getMobilePanelState(
+  isMobile: boolean,
+  isTablet: boolean,
+  mobilePanel: MobilePanel,
+  showTutor: boolean,
+) {
   return {
     mobileCompileActive: isMobile && mobilePanel === "compile",
     mobileSerialActive: isMobile && mobilePanel === "serial",
     mobileBoardActive: isMobile && mobilePanel === "board",
+    mobileTutorActive: (isMobile || isTablet) && showTutor && mobilePanel === "tutor",
   };
 }
 
@@ -96,6 +108,8 @@ export function ArduinoSimulatorPageLayout(
   const {
     showErrorGlitch,
     isMobile,
+    isTablet,
+    isDesktop,
     layoutMode,
     board,
     isMac,
@@ -115,11 +129,14 @@ export function ArduinoSimulatorPageLayout(
     outputPanelManuallyResizedRef,
   } = layout;
 
-  const { mobileCompileActive, mobileSerialActive, mobileBoardActive } = getMobilePanelState(
+  const experimentalWorkspace = useExperimentalWorkspaceLayout();
+  const showExperimentalDesktopWorkspace = experimentalWorkspace.enabled && isDesktop;
+  const { mobileCompileActive, mobileSerialActive, mobileBoardActive, mobileTutorActive } = getMobilePanelState(
     isMobile,
+    isTablet,
     mobilePanel,
+    experimentalWorkspace.enabled && !isDesktop,
   );
-  const isTablet = layoutMode === "tablet";
   const mainOutputPanelRef = useRef<ImperativePanelHandle | null>(null);
   const previousLayoutModeRef = useRef(layoutMode);
 
@@ -130,6 +147,13 @@ export function ArduinoSimulatorPageLayout(
     previousLayoutModeRef.current = layoutMode;
   }, [layoutMode]);
   const mobileSecondaryStyle = isMobile
+    ? {
+        top: `${headerHeight}px`,
+        height: `calc(100vh - ${headerHeight}px)`,
+        zIndex: Math.max(overlayZ - 1, 1),
+      }
+    : undefined;
+  const compactSecondaryStyle = isMobile || isTablet
     ? {
         top: `${headerHeight}px`,
         height: `calc(100vh - ${headerHeight}px)`,
@@ -148,6 +172,33 @@ export function ArduinoSimulatorPageLayout(
       analogPins={analogPinsUsed}
       onAnalogChange={handleAnalogChange}
       isMobile={isMobile}
+    />
+  );
+  const experimentalCodeColumn = (
+    <WorkspaceCodeColumn
+      codeSlot={codeSlot}
+      compileSlot={compileSlot}
+      outputPanelRef={outputPanelRef}
+      compilationPanelSize={compilationPanelSize}
+      outputPanelMinPercent={outputPanelMinPercent}
+      outputPanelManuallyResizedRef={outputPanelManuallyResizedRef}
+      groupId="experimental-code-layout"
+      editorPanelId="experimental-editor-panel"
+      outputPanelId="experimental-output-under-editor"
+      outputResizerTestId="experimental-vertical-resizer-output"
+      compilePanelClassName={clsx("workspace-compile-panel", {
+        hidden: !showCompilationOutput,
+      })}
+    />
+  );
+  const experimentalSimulationColumn = (
+    <SimulatorOutputContainer
+      serialSlot={serialSlot}
+      boardSlot={boardSlot}
+      defaultSize={100}
+      minSize={20}
+      serialPanelClassName="workspace-serial-panel"
+      boardPanelClassName="workspace-board-panel"
     />
   );
   return (
@@ -272,82 +323,86 @@ export function ArduinoSimulatorPageLayout(
       />
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative z-0 workspace-layout" data-layout-mode={layoutMode}>
-        <ResizablePanelGroup
-          direction="horizontal"
-          className="h-full workspace-main-layout"
-          id="main-layout"
-        >
-            {/* Code Editor Panel */}
-            <ResizablePanel
-              defaultSize={isTablet ? 65 : 50}
-              minSize={isTablet ? 40 : 20}
-              id="code-panel"
-              className="workspace-code-panel"
-            >
-              <ResizablePanelGroup
-                direction="vertical"
-                className="h-full workspace-code-layout"
-                id="code-layout"
+        {showExperimentalDesktopWorkspace ? (
+          <ExperimentalWorkspace
+            visibility={experimentalWorkspace.visibility}
+            visibleColumns={experimentalWorkspace.visibleColumns}
+            sizes={experimentalWorkspace.sizes}
+            setColumnVisible={experimentalWorkspace.setColumnVisible}
+            restoreDefaultLayout={experimentalWorkspace.restoreDefaultLayout}
+            setSizes={experimentalWorkspace.setSizes}
+            codeColumn={experimentalCodeColumn}
+            simulationColumn={experimentalSimulationColumn}
+          />
+        ) : (
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="h-full workspace-main-layout"
+            id="main-layout"
+          >
+              {/* Code Editor Panel */}
+              <ResizablePanel
+                defaultSize={isTablet ? 65 : 50}
+                minSize={isTablet ? 40 : 20}
+                id="code-panel"
+                className={clsx("workspace-code-panel", {
+                  "workspace-mobile-hidden-panel": isMobile && mobileTutorActive,
+                })}
               >
-                <ResizablePanel defaultSize={97} minSize={30} id="editor-panel" className="workspace-editor-panel">
-                  <div className="h-full flex flex-col">
-                    {codeSlot}
-                  </div>
-                </ResizablePanel>
+              <WorkspaceCodeColumn
+                codeSlot={codeSlot}
+                compileSlot={compileSlot}
+                outputPanelRef={outputPanelRef}
+                compilationPanelSize={compilationPanelSize}
+                outputPanelMinPercent={outputPanelMinPercent}
+                outputPanelManuallyResizedRef={outputPanelManuallyResizedRef}
+                groupId="code-layout"
+                editorPanelId="editor-panel"
+                outputPanelId="output-under-editor"
+                outputResizerTestId="vertical-resizer-output"
+                compilePanelClassName={clsx("workspace-compile-panel", {
+                  hidden: !showCompilationOutput && !isMobile,
+                  "workspace-mobile-overlay-panel": mobileCompileActive,
+                  "workspace-mobile-hidden-panel": isMobile && !mobileCompileActive,
+                })}
+                compilePanelStyle={mobileCompileActive ? mobileSecondaryStyle : undefined}
+              />
+              </ResizablePanel>
 
-                <ResizableHandle
-                  withHandle
-                  data-testid="vertical-resizer-output"
-                  className="workspace-editor-output-handle"
-                  onDragging={(isDragging) => {
-                    if (isDragging) {
-                      outputPanelManuallyResizedRef.current = true;
-                    }
-                  }}
-                />
+              <ResizableHandle withHandle data-testid="horizontal-resizer" className="workspace-main-horizontal-handle" />
 
-                <ResizablePanel
-                  ref={outputPanelRef}
-                  defaultSize={Math.max(compilationPanelSize, outputPanelMinPercent)}
-                  minSize={outputPanelMinPercent}
-                  id="output-under-editor"
-                  className={clsx("workspace-compile-panel", {
-                    hidden: !showCompilationOutput && !isMobile,
-                    "workspace-mobile-overlay-panel": mobileCompileActive,
-                    "workspace-mobile-hidden-panel": isMobile && !mobileCompileActive,
-                  })}
-                  style={mobileCompileActive ? mobileSecondaryStyle : undefined}
-                >
-                  {compileSlot}
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            </ResizablePanel>
-
-            <ResizableHandle withHandle data-testid="horizontal-resizer" className="workspace-main-horizontal-handle" />
-
-            <SimulatorOutputContainer
-              serialSlot={serialSlot}
-              boardSlot={boardSlot}
-              defaultSize={isTablet ? 35 : 50}
-              minSize={isTablet ? 32 : 20}
-              panelRef={mainOutputPanelRef}
-              className={clsx("workspace-output-panel", {
-                "workspace-mobile-overlay-panel": mobileSerialActive || mobileBoardActive,
-                "workspace-mobile-hidden-panel": isMobile && !mobileSerialActive && !mobileBoardActive,
-              })}
-              style={mobileSerialActive || mobileBoardActive ? mobileSecondaryStyle : undefined}
-              serialPanelClassName={clsx("workspace-serial-panel", {
-                "workspace-mobile-full-panel": mobileSerialActive,
-                "workspace-mobile-hidden-panel": isMobile && !mobileSerialActive,
-              })}
-              boardPanelClassName={clsx("workspace-board-panel", {
-                "workspace-mobile-full-panel": mobileBoardActive,
-                "workspace-mobile-hidden-panel": isMobile && !mobileBoardActive,
-              })}
-            />
-        </ResizablePanelGroup>
+              <SimulatorOutputContainer
+                serialSlot={serialSlot}
+                boardSlot={boardSlot}
+                defaultSize={isTablet ? 35 : 50}
+                minSize={isTablet ? 32 : 20}
+                panelRef={mainOutputPanelRef}
+                className={clsx("workspace-output-panel", {
+                  "workspace-mobile-overlay-panel": mobileSerialActive || mobileBoardActive,
+                  "workspace-mobile-hidden-panel": isMobile && !mobileSerialActive && !mobileBoardActive,
+                })}
+                style={mobileSerialActive || mobileBoardActive ? mobileSecondaryStyle : undefined}
+                serialPanelClassName={clsx("workspace-serial-panel", {
+                  "workspace-mobile-full-panel": mobileSerialActive,
+                  "workspace-mobile-hidden-panel": isMobile && !mobileSerialActive,
+                })}
+                boardPanelClassName={clsx("workspace-board-panel", {
+                  "workspace-mobile-full-panel": mobileBoardActive,
+                  "workspace-mobile-hidden-panel": isMobile && !mobileBoardActive,
+                })}
+              />
+          </ResizablePanelGroup>
+        )}
+        {mobileTutorActive && (
+          <TutorWorkspacePlaceholder
+            className="workspace-mobile-overlay-panel"
+            style={compactSecondaryStyle}
+          />
+        )}
         <MobileLayout
           isMobile={isMobile}
+          isTablet={isTablet}
+          showTutor={experimentalWorkspace.enabled && !isDesktop}
           mobilePanel={mobilePanel}
           setMobilePanel={setMobilePanel}
           overlayZ={overlayZ}

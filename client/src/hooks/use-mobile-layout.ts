@@ -5,10 +5,9 @@ import {
   RESPONSIVE_MEDIA_QUERIES,
   type ResponsiveLayoutMode,
 } from "@/lib/responsive-layout";
+import type { MobilePanel } from "@/components/features/mobile-layout";
 
 const logger = new Logger("MobileLayout");
-export type MobilePanel = "code" | "compile" | "serial" | "board";
-
 export function useMobileLayout() {
   const isClient = globalThis.window !== undefined;
   const getInitialMode = (): ResponsiveLayoutMode => {

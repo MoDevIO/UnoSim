@@ -10,6 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DEFAULT_EXPERIMENTAL_WORKSPACE_LAYOUT,
+  EXPERIMENTAL_WORKSPACE_LAYOUT_CHANGE_EVENT,
+  EXPERIMENTAL_WORKSPACE_LAYOUT_KEY,
+} from "@/lib/experimental-workspace-layout";
 
 const STORAGE_KEY = "unoBoardColor";
 const DEFAULT_COLOR = "var(--color-brand-primary)";
@@ -124,6 +129,28 @@ export default function SettingsDialog({
         detail: { value: v },
       });
       document.dispatchEvent(ev);
+    } catch {}
+  };
+
+  // Experimental workspace layout (disabled by default)
+  const [experimentalWorkspaceLayout, setExperimentalWorkspaceLayout] =
+    React.useState<boolean>(() => {
+      try {
+        return globalThis.localStorage.getItem(EXPERIMENTAL_WORKSPACE_LAYOUT_KEY) === "1";
+      } catch {
+        return DEFAULT_EXPERIMENTAL_WORKSPACE_LAYOUT;
+      }
+    });
+
+  const setStoredExperimentalWorkspaceLayout = (value: boolean) => {
+    try {
+      globalThis.localStorage.setItem(EXPERIMENTAL_WORKSPACE_LAYOUT_KEY, value ? "1" : "0");
+    } catch {}
+    setExperimentalWorkspaceLayout(value);
+    try {
+      globalThis.dispatchEvent(
+        new CustomEvent(EXPERIMENTAL_WORKSPACE_LAYOUT_CHANGE_EVENT, { detail: { value } }),
+      );
     } catch {}
   };
 
@@ -346,6 +373,28 @@ export default function SettingsDialog({
                   checked={pinMonitorVisible}
                   onCheckedChange={(v) => setStoredPinMonitorVisible(Boolean(v))}
                   aria-label="show pin monitor"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Experimental multi-column workspace */}
+          <div className="rounded border p-3 bg-muted">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">Experimentelles Workspace-Layout</div>
+                <div className="text-ui-xs text-muted-foreground">
+                  Desktop-Code, Simulation und Tutor als unabhängig sichtbare Spalten.
+                  Standardmäßig deaktiviert.
+                </div>
+              </div>
+              <div className="flex items-center">
+                <Checkbox
+                  checked={experimentalWorkspaceLayout}
+                  onCheckedChange={(value) =>
+                    setStoredExperimentalWorkspaceLayout(Boolean(value))
+                  }
+                  aria-label="enable experimental workspace layout"
                 />
               </div>
             </div>

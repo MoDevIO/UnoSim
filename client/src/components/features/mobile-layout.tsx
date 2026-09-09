@@ -1,13 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Cpu, Wrench, Terminal, Monitor } from "lucide-react";
+import { Cpu, Wrench, Terminal, Monitor, Lightbulb } from "lucide-react";
 import clsx from "clsx";
 
-export type MobilePanel = "code" | "compile" | "serial" | "board";
+export type MobilePanel = "code" | "compile" | "serial" | "board" | "tutor";
 
 interface MobileLayoutProps {
   readonly isMobile: boolean;
+  readonly isTablet?: boolean;
+  readonly showTutor?: boolean;
   readonly mobilePanel: MobilePanel;
   readonly setMobilePanel: React.Dispatch<React.SetStateAction<MobilePanel>>;
   readonly overlayZ: number;
@@ -20,6 +22,8 @@ interface MobileLayoutProps {
 
 export const MobileLayout = React.memo(function MobileLayout({
   isMobile,
+  isTablet = false,
+  showTutor = false,
   mobilePanel,
   setMobilePanel,
   overlayZ,
@@ -28,6 +32,7 @@ export const MobileLayout = React.memo(function MobileLayout({
   testId = "mobile-layout",
   onOpenPanel,
 }: MobileLayoutProps) {
+  const showCompactNavigation = isMobile || (isTablet && showTutor);
   // The panel surfaces themselves stay mounted in the responsive workspace.
   // This component owns navigation only, so selecting a surface never moves
   // or unmounts the Monaco editor.
@@ -58,7 +63,7 @@ export const MobileLayout = React.memo(function MobileLayout({
             className="bg-black/95 rounded-full shadow-lg p-2 flex flex-col items-center space-y-3"
             data-mobile-fab-toolbar
           >
-            <Button
+            {isMobile && <Button
               variant="ghost"
               size="icon"
               aria-label="Code Editor"
@@ -72,8 +77,8 @@ export const MobileLayout = React.memo(function MobileLayout({
               data-mobile-fab-button
             >
               <Cpu className="!w-10 !h-10" />
-            </Button>
-            <Button
+            </Button>}
+            {isMobile && <Button
               variant="ghost"
               size="icon"
               aria-label="Compilation Output"
@@ -87,8 +92,8 @@ export const MobileLayout = React.memo(function MobileLayout({
               data-mobile-fab-button
             >
               <Wrench className="!w-10 !h-10 opacity-80" />
-            </Button>
-            <Button
+            </Button>}
+            {isMobile && <Button
               variant="ghost"
               size="icon"
               aria-label="Serial Output"
@@ -102,8 +107,8 @@ export const MobileLayout = React.memo(function MobileLayout({
               data-mobile-fab-button
             >
               <Terminal className="!w-10 !h-10" />
-            </Button>
-            <Button
+            </Button>}
+            {isMobile && <Button
               variant="ghost"
               size="icon"
               aria-label="Arduino Board"
@@ -117,7 +122,24 @@ export const MobileLayout = React.memo(function MobileLayout({
               data-mobile-fab-button
             >
               <Monitor className="!w-10 !h-10" />
-            </Button>
+            </Button>}
+            {showTutor && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Tutor"
+                onClick={() => handleToggle("tutor")}
+                className={clsx(
+                  "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
+                  mobilePanel === "tutor"
+                    ? "bg-violet-600 text-white hover:bg-violet-700"
+                    : "bg-transparent text-muted-foreground",
+                )}
+                data-mobile-fab-button
+              >
+                <Lightbulb className="!w-10 !h-10" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -126,8 +148,8 @@ export const MobileLayout = React.memo(function MobileLayout({
 
   return (
     <>
-      {isMobile && portalContainer && ReactDOM.createPortal(fabBar, portalContainer)}
-      {isMobile && (
+      {showCompactNavigation && portalContainer && ReactDOM.createPortal(fabBar, portalContainer)}
+      {showCompactNavigation && (
         <div
           className={clsx("sr-only", className)}
           style={{ zIndex: overlayZ }}

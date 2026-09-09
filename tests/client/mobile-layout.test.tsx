@@ -55,4 +55,21 @@ describe("MobileLayout component", () => {
     expect(screen.getByTestId("mobile-fab-container").querySelector("[data-mobile-fab-toolbar]")).toHaveClass("p-2", "space-y-3");
     expect(screen.getByLabelText("Code Editor").querySelector("svg")).toHaveClass("!w-10", "!h-10");
   });
+
+  it("offers the tutor as an additional compact view when enabled", () => {
+    const setMobile = vi.fn();
+    render(
+      <MobileLayout
+        isMobile={true}
+        showTutor={true}
+        mobilePanel="code"
+        setMobilePanel={setMobile}
+        overlayZ={50}
+      />,
+    );
+
+    expect(screen.getByLabelText("Tutor")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Tutor"));
+    expect(setMobile).toHaveBeenCalledWith("tutor");
+  });
 });
