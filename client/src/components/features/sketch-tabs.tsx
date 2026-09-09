@@ -337,7 +337,7 @@ export function SketchTabs({
             {activeTabId === tab.id && (
               <span
                 aria-hidden="true"
-                className="absolute top-0 left-0 right-0 h-0.5 bg-[#007acc] z-10 pointer-events-none"
+                className="absolute top-0 left-0 right-0 h-0.5 bg-primary z-10 pointer-events-none"
               />
             )}
             {renamingTabId === tab.id ? (
@@ -395,9 +395,9 @@ export function SketchTabs({
                   title={getDisplayFileName(tab.name)}
                 >
                   {getDisplayFileName(tab.name).toLowerCase().endsWith(".ino") ? (
-                    <Code2 className="h-3 w-3 flex-shrink-0 text-[#2aa198]" strokeWidth={2} />
+                    <Code2 className="h-3 w-3 flex-shrink-0 text-teal-600" strokeWidth={2} />
                   ) : (
-                    <FileCode2 className="h-3 w-3 flex-shrink-0 text-[#c586c0]" strokeWidth={2} />
+                    <FileCode2 className="h-3 w-3 flex-shrink-0 text-purple-400" strokeWidth={2} />
                   )}
                   <span
                     className="whitespace-nowrap overflow-hidden text-ellipsis"
