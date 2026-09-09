@@ -54,18 +54,46 @@ const FOR_BRACE_TAIL_RE = /^ *(\{)?/;
 const ARRAY_ACCESS_PATTERN = /^([A-Za-z_]\w*)\s*\[\s*(\d+|[A-Za-z_]\w*)\s*\]$/;
 const FUNCTION_CALL_PATTERN = /\b(pinMode|digitalRead|digitalWrite|analogRead|analogWrite)\s*\(\s*(\w+(?:\[\w+\])?)(?:\s*,\s*(\w+))?/g;
 
-type OpName =
+export type StaticIOOperation =
   | "pinMode"
   | "digitalRead"
   | "digitalWrite"
   | "analogRead"
   | "analogWrite";
 
-interface CallEntry {
-  op: OpName;
+export interface StaticIOCall {
+  op: StaticIOOperation;
   pinId: number;
   line: number;
+  sourceExpression: string;
   mode?: PinMode;
+  loopBody?: "braced" | "braceless";
+}
+
+/** An I/O call whose pin expression cannot be resolved without executing it. */
+export interface UnresolvedStaticIOCall {
+  op: StaticIOOperation;
+  line: number;
+  sourceExpression: string;
+  mode?: PinMode;
+}
+
+/** Canonical statically-resolved I/O facts for one Arduino pin. */
+export interface StaticIOPinAnalysis {
+  pinId: number;
+  calls: StaticIOCall[];
+}
+
+/**
+ * Canonical result of the best-effort static I/O analysis.
+ *
+ * Only unambiguously resolved pins are included. Dynamic or unsupported
+ * expressions remain the responsibility of the runtime registry.
+ */
+export interface StaticIOAnalysis {
+  pins: StaticIOPinAnalysis[];
+  unresolvedCalls: UnresolvedStaticIOCall[];
+  symbols: Record<string, number>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,30 +104,43 @@ interface CallEntry {
  * Build symbol table: name → pin ID (0-19).
  * Handles: built-in constants, #define, const int/byte, plain int/byte.
  */
-function buildSymbols(clean: string): Map<string, number> {
+function buildSymbols(clean: string): {
+  values: Map<string, number>;
+  userSymbols: Set<string>;
+} {
   const syms = new Map<string, number>(Object.entries(BUILTIN_CONSTANTS));
+  const userSymbols = new Set<string>();
 
   // #define NAME VALUE
   let m: RegExpExecArray | null;
   while ((m = DEFINE_PATTERN.exec(clean)) !== null) {
     const v = resolveToken(m[2], syms);
-    if (v !== undefined) syms.set(m[1], v);
+    if (v !== undefined) {
+      syms.set(m[1], v);
+      userSymbols.add(m[1]);
+    }
   }
 
   // const int/byte NAME = VALUE;
   while ((m = CONST_PATTERN.exec(clean)) !== null) {
     const v = resolveToken(m[2], syms);
-    if (v !== undefined) syms.set(m[1], v);
+    if (v !== undefined) {
+      syms.set(m[1], v);
+      userSymbols.add(m[1]);
+    }
   }
 
   // plain int/byte NAME = VALUE; (common in Arduino, e.g. int led = 12;)
   while ((m = VAR_PATTERN.exec(clean)) !== null) {
     if (syms.has(m[1])) continue; // already set by const variant
     const v = resolveToken(m[2], syms);
-    if (v !== undefined) syms.set(m[1], v);
+    if (v !== undefined) {
+      syms.set(m[1], v);
+      userSymbols.add(m[1]);
+    }
   }
 
-  return syms;
+  return { values: syms, userSymbols };
 }
 
 /** Resolve a single token (numeric literal, A0-A5, or symbol) to a pin ID. */
@@ -172,6 +213,7 @@ interface LoopRange {
   startLine: number;
   variable: string;
   values: number[];
+  hasBrace: boolean;
 }
 
 /**
@@ -228,7 +270,7 @@ function findMatchingBrace(str: string, openPos: number): number {
       if (depth === 0) return i;
     }
   }
-  return openPos;
+  return str.length;
 }
 
 /** Find the end position of a for-loop body (braced or braceless). */
@@ -281,6 +323,7 @@ function findLoopRanges(
         startLine: lineAt(clean, m.index),
         variable,
         values,
+        hasBrace,
       });
     }
   }
@@ -297,11 +340,11 @@ function findLoopRanges(
  * Returns { pinModeConflict, operationConflict, outputReadConflict, hasInputMode, hasOutputMode }
  */
 function detectPinConflicts(
-  pmCalls: CallEntry[],
-  drCalls: CallEntry[],
-  dwCalls: CallEntry[],
-  arCalls: CallEntry[],
-  awCalls: CallEntry[],
+  pmCalls: StaticIOCall[],
+  drCalls: StaticIOCall[],
+  dwCalls: StaticIOCall[],
+  arCalls: StaticIOCall[],
+  awCalls: StaticIOCall[],
 ): {
   pinModeConflict: boolean;
   operationConflict: boolean;
@@ -362,18 +405,32 @@ function generateConflictMessage(
  */
 function processLoopExpansion(
   loop: LoopRange,
-  op: OpName,
+  op: StaticIOOperation,
+  sourceExpression: string,
   secondArg: string,
-  entries: CallEntry[],
+  entries: StaticIOCall[],
 ): void {
   for (const pinId of loop.values) {
     if (pinId < 0 || pinId > 19) continue;
     if (op === "pinMode") {
       const mode = MODE_MAP[secondArg];
       if (!mode) continue;
-      entries.push({ op, pinId, line: loop.startLine, mode });
+      entries.push({
+        op,
+        pinId,
+        line: loop.startLine,
+        sourceExpression,
+        mode,
+        loopBody: loop.hasBrace ? "braced" : "braceless",
+      });
     } else {
-      entries.push({ op, pinId, line: loop.startLine });
+      entries.push({
+        op,
+        pinId,
+        line: loop.startLine,
+        sourceExpression,
+        loopBody: loop.hasBrace ? "braced" : "braceless",
+      });
     }
   }
 }
@@ -382,10 +439,11 @@ function processLoopExpansion(
 function processArrayLoopExpansion(
   loop: LoopRange,
   arrayName: string,
-  op: OpName,
+  op: StaticIOOperation,
+  sourceExpression: string,
   secondArg: string,
   arrays: Map<string, number[]>,
-  entries: CallEntry[],
+  entries: StaticIOCall[],
 ): boolean {
   const values = arrays.get(arrayName);
   if (!values) return false;
@@ -393,7 +451,15 @@ function processArrayLoopExpansion(
   for (const index of loop.values) {
     const pinId = values[index];
     if (pinId !== undefined) {
-      processStaticPin(pinId, op, secondArg, loop.startLine, entries);
+      processStaticPin(
+        pinId,
+        op,
+        sourceExpression,
+        secondArg,
+        loop.startLine,
+        entries,
+        loop.hasBrace ? "braced" : "braceless",
+      );
     }
   }
   return true;
@@ -404,17 +470,33 @@ function processArrayLoopExpansion(
  */
 function processStaticPin(
   pinId: number,
-  op: OpName,
+  op: StaticIOOperation,
+  sourceExpression: string,
   secondArg: string,
   callLine: number,
-  entries: CallEntry[],
+  entries: StaticIOCall[],
+  loopBody?: "braced" | "braceless",
 ): void {
+  const loopContext = loopBody === undefined ? {} : { loopBody };
   if (op === "pinMode") {
     const mode = MODE_MAP[secondArg];
     if (!mode) return;
-    entries.push({ op, pinId, line: callLine, mode });
+    entries.push({
+      op,
+      pinId,
+      line: callLine,
+      sourceExpression,
+      mode,
+      ...loopContext,
+    });
   } else {
-    entries.push({ op, pinId, line: callLine });
+    entries.push({
+      op,
+      pinId,
+      line: callLine,
+      sourceExpression,
+      ...loopContext,
+    });
   }
 }
 
@@ -422,7 +504,8 @@ interface CallContext {
   loops: LoopRange[];
   syms: Map<string, number>;
   arrays: Map<string, number[]>;
-  entries: CallEntry[];
+  entries: StaticIOCall[];
+  unresolvedCalls: UnresolvedStaticIOCall[];
 }
 
 /**
@@ -430,14 +513,23 @@ interface CallContext {
  * Handles for-loop expansion and static pin resolution.
  */
 function processCallExpression(
-  op: OpName,
+  op: StaticIOOperation,
   pinExpr: string,
   secondArg: string,
   callPos: number,
   callLine: number,
   ctx: CallContext,
 ): void {
-  const { loops, syms, arrays, entries } = ctx;
+  const { loops, syms, arrays, entries, unresolvedCalls } = ctx;
+  if (op === "pinMode" && !MODE_MAP[secondArg]) {
+    unresolvedCalls.push({
+      op,
+      line: callLine,
+      sourceExpression: pinExpr,
+    });
+    return;
+  }
+
   // ── Check for-loop variable expansion (TC 3) ──────────────────────────
   const loop = loops.find(
     (l) => {
@@ -451,25 +543,42 @@ function processCallExpression(
   if (loop) {
     const arrayAccess = ARRAY_ACCESS_PATTERN.exec(pinExpr);
     if (arrayAccess?.[2] === loop.variable) {
-      processArrayLoopExpansion(
+      const expanded = processArrayLoopExpansion(
         loop,
         arrayAccess[1],
         op,
+        pinExpr,
         secondArg,
         arrays,
         entries,
       );
+      if (!expanded) {
+        unresolvedCalls.push({
+          op,
+          line: callLine,
+          sourceExpression: pinExpr,
+          mode: MODE_MAP[secondArg],
+        });
+      }
       return;
     }
-    processLoopExpansion(loop, op, secondArg, entries);
+    processLoopExpansion(loop, op, pinExpr, secondArg, entries);
     return;
   }
 
   // ── Statically resolve pin expression ────────────────────────────────
   const pinId = resolvePin(pinExpr, syms, arrays);
-  if (pinId === undefined) return; // TC 8: dynamic → skip (runtime only)
+  if (pinId === undefined) {
+    unresolvedCalls.push({
+      op,
+      line: callLine,
+      sourceExpression: pinExpr,
+      mode: MODE_MAP[secondArg],
+    });
+    return;
+  }
 
-  processStaticPin(pinId, op, secondArg, callLine, entries);
+  processStaticPin(pinId, op, pinExpr, secondArg, callLine, entries);
 }
 
 /**
@@ -477,11 +586,11 @@ function processCallExpression(
  */
 function populateLineArrays(
   record: IOPinRecord,
-  pmCalls: CallEntry[],
-  drCalls: CallEntry[],
-  dwCalls: CallEntry[],
-  arCalls: CallEntry[],
-  awCalls: CallEntry[],
+  pmCalls: StaticIOCall[],
+  drCalls: StaticIOCall[],
+  dwCalls: StaticIOCall[],
+  arCalls: StaticIOCall[],
+  awCalls: StaticIOCall[],
 ): void {
   if (pmCalls.length > 0) {
     record.pinModeLines = pmCalls.map((c) => c.line);
@@ -508,11 +617,11 @@ function populateLineArrays(
  */
 function populateLegacyFields(
   record: IOPinRecord,
-  pmCalls: CallEntry[],
-  drCalls: CallEntry[],
-  dwCalls: CallEntry[],
-  arCalls: CallEntry[],
-  awCalls: CallEntry[],
+  pmCalls: StaticIOCall[],
+  drCalls: StaticIOCall[],
+  dwCalls: StaticIOCall[],
+  arCalls: StaticIOCall[],
+  awCalls: StaticIOCall[],
 ): void {
   if (pmCalls.length > 0) {
     const allModes = pmCalls
@@ -555,12 +664,12 @@ function convertModeToNumeric(mode: PinMode | undefined): number {
  */
 function buildPinRecord(
   pinId: number,
-  calls: CallEntry[],
-  pmCalls: CallEntry[],
-  drCalls: CallEntry[],
-  dwCalls: CallEntry[],
-  arCalls: CallEntry[],
-  awCalls: CallEntry[],
+  calls: StaticIOCall[],
+  pmCalls: StaticIOCall[],
+  drCalls: StaticIOCall[],
+  dwCalls: StaticIOCall[],
+  arCalls: StaticIOCall[],
+  awCalls: StaticIOCall[],
 ): IOPinRecord {
   const label = pinId >= 14 ? `A${pinId - 14}` : String(pinId);
 
@@ -599,26 +708,15 @@ function buildPinRecord(
   return record;
 }
 
-/**
- * Statically parse an Arduino sketch and return an IOPinRecord[] for every pin
- * usage found in the source code.
- *
- * – Populates `pinModeLines`, `digitalReadLines`, `digitalWriteLines`,
- *   `analogReadLines`, `analogWriteLines` for the extended (eye-on) view.
- * – Sets `conflict = true` for TC 9 (write on input-mode pin) and
- *   TC 11 (same pin configured with multiple different modes).
- * – Dynamically-resolved pins (TC 8) are silently skipped; they will be
- *   filled in by the runtime path.
- * – Populates legacy `pinMode`, `definedAt`, `usedAt` fields for backward
- *   compatibility with the existing UI and runtime registry manager.
- */
-export function parseStaticIORegistry(code: string): IOPinRecord[] {
+/** Analyze statically resolvable Arduino I/O usage without applying a UI projection. */
+export function analyzeStaticIO(code: string): StaticIOAnalysis {
   const clean = stripComments(code);
-  const syms = buildSymbols(clean);
+  const { values: syms, userSymbols } = buildSymbols(clean);
   const arrays = buildArrays(clean, syms);
   const loops = findLoopRanges(clean, syms);
 
-  const entries: CallEntry[] = [];
+  const entries: StaticIOCall[] = [];
+  const unresolvedCalls: UnresolvedStaticIOCall[] = [];
 
   /**
    * Regex captures:
@@ -629,7 +727,7 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
 
   let m: RegExpExecArray | null;
   while ((m = FUNCTION_CALL_PATTERN.exec(clean)) !== null) {
-    const op = m[1] as OpName;
+    const op = m[1] as StaticIOOperation;
     const pinExpr = m[2].trim();
     const secondArg = (m[3] ?? "").trim();
     const callPos = m.index;
@@ -641,12 +739,12 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
       secondArg,
       callPos,
       callLine,
-      { loops, syms, arrays, entries },
+      { loops, syms, arrays, entries, unresolvedCalls },
     );
   }
 
   // ── Aggregate entries by pinId ────────────────────────────────────────────
-  const pinMap = new Map<number, CallEntry[]>();
+  const pinMap = new Map<number, StaticIOCall[]>();
   for (const entry of entries) {
     const existing = pinMap.get(entry.pinId);
     if (existing) {
@@ -656,9 +754,19 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
     }
   }
 
+  const pins = [...pinMap].map(([pinId, calls]) => ({ pinId, calls }));
+  pins.sort((a, b) => a.pinId - b.pinId);
+  const symbols = Object.fromEntries(
+    [...userSymbols].map((name) => [name, syms.get(name) as number]),
+  );
+  return { pins, unresolvedCalls, symbols };
+}
+
+/** Project canonical static I/O facts to the existing registry contract. */
+function buildStaticIORegistry(analysis: StaticIOAnalysis): IOPinRecord[] {
   const records: IOPinRecord[] = [];
 
-  for (const [pinId, calls] of pinMap) {
+  for (const { pinId, calls } of analysis.pins) {
     const pmCalls = calls.filter((c) => c.op === "pinMode");
     const drCalls = calls.filter((c) => c.op === "digitalRead");
     const dwCalls = calls.filter((c) => c.op === "digitalWrite");
@@ -680,4 +788,21 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
 
   // Sort by pinId (0 → 19)
   return records.sort((a, b) => (a.pinId ?? 0) - (b.pinId ?? 0));
+}
+
+/**
+ * Statically parse an Arduino sketch and return an IOPinRecord[] for every pin
+ * usage found in the source code.
+ *
+ * – Populates `pinModeLines`, `digitalReadLines`, `digitalWriteLines`,
+ *   `analogReadLines`, `analogWriteLines` for the extended (eye-on) view.
+ * – Sets `conflict = true` for TC 9 (write on input-mode pin) and
+ *   TC 11 (same pin configured with multiple different modes).
+ * – Dynamically-resolved pins (TC 8) are silently skipped; they will be
+ *   filled in by the runtime path.
+ * – Populates legacy `pinMode`, `definedAt`, `usedAt` fields for backward
+ *   compatibility with the existing UI and runtime registry manager.
+ */
+export function parseStaticIORegistry(code: string): IOPinRecord[] {
+  return buildStaticIORegistry(analyzeStaticIO(code));
 }

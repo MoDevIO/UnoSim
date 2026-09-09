@@ -70,4 +70,46 @@ describe("useSketchAnalysis", () => {
 
     expect(result.current.analogPins).toEqual([14, 15]);
   });
+
+  it("derives board pins and pin modes from constant arrays in loops", () => {
+    const code = `
+      const int pins[] = {A0, A1, A2};
+      void setup() {
+        for (int i = 0; i < 3; i++) pinMode(pins[i], OUTPUT);
+      }
+      void loop() {
+        for (int i = 0; i < 3; i++) {
+          analogRead(pins[i]);
+        }
+      }
+    `;
+    const { result } = renderHook(() => useSketchAnalysis(code));
+
+    expect(result.current.analogPins).toEqual([14, 15, 16]);
+    expect(result.current.detectedPinModes).toEqual({
+      14: "OUTPUT",
+      15: "OUTPUT",
+      16: "OUTPUT",
+    });
+    expect(result.current.digitalPinsFromPinMode).toEqual([14, 15, 16]);
+    expect(result.current.pendingPinConflicts).toEqual([14, 15, 16]);
+  });
+
+  it("keeps unresolved dynamic arrays out of board and conflict state", () => {
+    const code = `
+      int pins[] = {getFirstPin(), getSecondPin()};
+      void setup() {
+        for (int i = 0; i < 2; i++) pinMode(pins[i], OUTPUT);
+      }
+      void loop() {
+        for (int i = 0; i < 2; i++) { analogRead(pins[i]); }
+      }
+    `;
+    const { result } = renderHook(() => useSketchAnalysis(code));
+
+    expect(result.current.analogPins).toEqual([]);
+    expect(result.current.detectedPinModes).toEqual({});
+    expect(result.current.pendingPinConflicts).toEqual([]);
+    expect(result.current.digitalPinsFromPinMode).toEqual([]);
+  });
 });

@@ -1,9 +1,28 @@
 import type { ParserMessage } from "../schema";
 import { randomUUID } from "node:crypto";
 import {
-  PIN_PATTERNS,
-  parsePinNumber,
-} from "@shared/parser-patterns";
+  type StaticIOAnalysis,
+  type StaticIOCall,
+} from "@shared/io-registry-parser";
+
+function compareDigitalCallOrder(
+  a: { digitalCalls: StaticIOCall[] },
+  b: { digitalCalls: StaticIOCall[] },
+): number {
+  const aPinModes = a.digitalCalls.filter(({ op }) => op === "pinMode");
+  const bPinModes = b.digitalCalls.filter(({ op }) => op === "pinMode");
+  if (aPinModes.length > 0 && bPinModes.length === 0) return -1;
+  if (aPinModes.length === 0 && bPinModes.length > 0) return 1;
+
+  const aCalls = aPinModes.length > 0 ? aPinModes : a.digitalCalls;
+  const bCalls = bPinModes.length > 0 ? bPinModes : b.digitalCalls;
+  return Math.min(...aCalls.map(({ line }) => line)) -
+    Math.min(...bCalls.map(({ line }) => line));
+}
+
+function pinLabel(pinId: number): string {
+  return pinId >= 14 ? `A${pinId - 14}` : String(pinId);
+}
 
 /**
  * Parser for pin conflicts (same pin used as digital and analog)
@@ -14,41 +33,30 @@ import {
  * 3. Numeric pin notation
  */
 export class PinConflictsParser {
-  constructor(private readonly code: string) {}
+  constructor(private readonly analysis: StaticIOAnalysis) {}
 
   parse(): ParserMessage[] {
-    const messages: ParserMessage[] = [];
-    const digitalPins = new Set<number>();
-    let match;
-
-    for (const re of [PIN_PATTERNS.WRITE_READ_PIN, PIN_PATTERNS.WRITE_READ_DIO]) {
-      re.lastIndex = 0;
-      while ((match = re.exec(this.code)) !== null) {
-        const pin = parsePinNumber(match[1]);
-        if (pin !== undefined) digitalPins.add(pin);
-      }
-    }
-
-    const analogPins = new Set<number>();
-    const analogRegex = PIN_PATTERNS.ANALOG_READ_WRITE;
-    while ((match = analogRegex.exec(this.code)) !== null) {
-      const pin = parsePinNumber(match[1]);
-      if (pin !== undefined) analogPins.add(pin);
-    }
-
-    for (const pin of digitalPins) {
-      if (analogPins.has(pin)) {
-        const pinStr = pin >= 14 ? `A${pin - 14}` : `${pin}`;
-        messages.push({
-          id: randomUUID(),
-          type: "warning",
-          category: "hardware",
-          severity: 2,
-          message: `Pin ${pinStr} used as both digital and analog. This may be unintended.`,
-          suggestion: `// Use separate pins for digital and analog`,
-        });
-      }
-    }
-    return messages;
+    return this.analysis.pins
+      .map(({ pinId, calls }) => ({
+        pinId,
+        digitalCalls: calls.filter(({ op }) =>
+          op === "pinMode" || op === "digitalRead" || op === "digitalWrite"
+        ),
+        analogCalls: calls.filter(({ op }) =>
+          op === "analogRead" || op === "analogWrite"
+        ),
+      }))
+      .filter(({ digitalCalls, analogCalls }) =>
+        digitalCalls.length > 0 && analogCalls.length > 0
+      )
+      .sort(compareDigitalCallOrder)
+      .map(({ pinId }) => ({
+        id: randomUUID(),
+        type: "warning" as const,
+        category: "hardware" as const,
+        severity: 2 as const,
+        message: `Pin ${pinLabel(pinId)} used as both digital and analog. This may be unintended.`,
+        suggestion: "// Use separate pins for digital and analog",
+      }));
   }
 }

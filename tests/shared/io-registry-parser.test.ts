@@ -18,7 +18,10 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { parseStaticIORegistry } from "../../shared/io-registry-parser";
+import {
+  analyzeStaticIO,
+  parseStaticIORegistry,
+} from "../../shared/io-registry-parser";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -518,5 +521,221 @@ describe("parseStaticIORegistry – edge cases", () => {
 
     // >= comparator: iterates from high to low, should find pins
     expect(registry.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("analyzeStaticIO – canonical analysis model", () => {
+  const representativeSketch = sketch([
+    "#define LED LED_BUILTIN",
+    "const int sensor = A0;",
+    "const int pinArray[] = {2, 3, A1};",
+    "void setup() {",
+    "  pinMode(LED, OUTPUT);",
+    "  pinMode(sensor, INPUT);",
+    "  for (int i = 0; i < 3; i++) {",
+    "    pinMode(pinArray[i], OUTPUT);",
+    "    digitalWrite(pinArray[i], LOW);",
+    "  }",
+    "}",
+    "void loop() {",
+    "  digitalRead(LED);",
+    "  analogRead(sensor);",
+    "  analogWrite(3, 128);",
+    "}",
+  ]);
+
+  it("characterizes literals, aliases, symbols, arrays, loops, and all I/O operations", () => {
+    const analysis = analyzeStaticIO(representativeSketch);
+
+    expect(analysis.pins).toEqual([
+      {
+        pinId: 2,
+        calls: [
+          {
+            op: "pinMode",
+            pinId: 2,
+            line: 7,
+            sourceExpression: "pinArray[i]",
+            mode: "OUTPUT",
+            loopBody: "braced",
+          },
+          {
+            op: "digitalWrite",
+            pinId: 2,
+            line: 7,
+            sourceExpression: "pinArray[i]",
+            loopBody: "braced",
+          },
+        ],
+      },
+      {
+        pinId: 3,
+        calls: [
+          {
+            op: "pinMode",
+            pinId: 3,
+            line: 7,
+            sourceExpression: "pinArray[i]",
+            mode: "OUTPUT",
+            loopBody: "braced",
+          },
+          {
+            op: "digitalWrite",
+            pinId: 3,
+            line: 7,
+            sourceExpression: "pinArray[i]",
+            loopBody: "braced",
+          },
+          { op: "analogWrite", pinId: 3, line: 15, sourceExpression: "3" },
+        ],
+      },
+      {
+        pinId: 13,
+        calls: [
+          { op: "pinMode", pinId: 13, line: 5, sourceExpression: "LED", mode: "OUTPUT" },
+          { op: "digitalRead", pinId: 13, line: 13, sourceExpression: "LED" },
+        ],
+      },
+      {
+        pinId: 14,
+        calls: [
+          { op: "pinMode", pinId: 14, line: 6, sourceExpression: "sensor", mode: "INPUT" },
+          { op: "analogRead", pinId: 14, line: 14, sourceExpression: "sensor" },
+        ],
+      },
+      {
+        pinId: 15,
+        calls: [
+          {
+            op: "pinMode",
+            pinId: 15,
+            line: 7,
+            sourceExpression: "pinArray[i]",
+            mode: "OUTPUT",
+            loopBody: "braced",
+          },
+          {
+            op: "digitalWrite",
+            pinId: 15,
+            line: 7,
+            sourceExpression: "pinArray[i]",
+            loopBody: "braced",
+          },
+        ],
+      },
+    ]);
+    expect(analysis.symbols).toEqual({ LED: 13, sensor: 14, i: 0 });
+  });
+
+  it("keeps the legacy registry wrapper output unchanged", () => {
+    expect(parseStaticIORegistry(representativeSketch)).toEqual([
+      {
+        pin: "2",
+        pinId: 2,
+        defined: true,
+        pinModeLines: [7],
+        pinModeModes: ["OUTPUT"],
+        digitalWriteLines: [7],
+        pinMode: 1,
+        definedAt: { line: 7 },
+        usedAt: [{ line: 7, operation: "digitalWrite" }],
+      },
+      {
+        pin: "3",
+        pinId: 3,
+        defined: true,
+        pinModeLines: [7],
+        pinModeModes: ["OUTPUT"],
+        digitalWriteLines: [7],
+        analogWriteLines: [15],
+        pinMode: 1,
+        definedAt: { line: 7 },
+        usedAt: [
+          { line: 7, operation: "digitalWrite" },
+          { line: 15, operation: "analogWrite" },
+        ],
+      },
+      {
+        pin: "13",
+        pinId: 13,
+        defined: true,
+        conflict: true,
+        conflictMessage: "Read on OUTPUT pin",
+        pinModeLines: [5],
+        pinModeModes: ["OUTPUT"],
+        digitalReadLines: [13],
+        pinMode: 1,
+        definedAt: { line: 5 },
+        usedAt: [{ line: 13, operation: "digitalRead" }],
+      },
+      {
+        pin: "A0",
+        pinId: 14,
+        defined: true,
+        pinModeLines: [6],
+        pinModeModes: ["INPUT"],
+        analogReadLines: [14],
+        pinMode: 0,
+        definedAt: { line: 6 },
+        usedAt: [{ line: 14, operation: "analogRead" }],
+      },
+      {
+        pin: "A1",
+        pinId: 15,
+        defined: true,
+        pinModeLines: [7],
+        pinModeModes: ["OUTPUT"],
+        digitalWriteLines: [7],
+        pinMode: 1,
+        definedAt: { line: 7 },
+        usedAt: [{ line: 7, operation: "digitalWrite" }],
+      },
+    ]);
+  });
+
+  it("resolves the pinArray[i] regression case before simulation", () => {
+    const code = sketch([
+      "const int pinArray[] = {2, 3, 4, 5};",
+      "for (int i = 0; i < 4; i++) {",
+      "  pinMode(pinArray[i], OUTPUT);",
+      "  digitalWrite(pinArray[i], LOW);",
+      "}",
+    ]);
+
+    const analysis = analyzeStaticIO(code);
+    expect(analysis.pins.map(({ pinId }) => pinId)).toEqual([2, 3, 4, 5]);
+    for (const pin of analysis.pins) {
+      expect(pin.calls.map(({ op }) => op)).toEqual([
+        "pinMode",
+        "digitalWrite",
+      ]);
+    }
+  });
+
+  it("keeps unresolved dynamic expressions out of the canonical result", () => {
+    const code = sketch([
+      "int pin = random(2, 8);",
+      "pinMode(pin, OUTPUT);",
+      "digitalWrite(pin, HIGH);",
+    ]);
+
+    expect(analyzeStaticIO(code)).toEqual({
+      pins: [],
+      unresolvedCalls: [
+        {
+          op: "pinMode",
+          line: 2,
+          sourceExpression: "pin",
+          mode: "OUTPUT",
+        },
+        {
+          op: "digitalWrite",
+          line: 3,
+          sourceExpression: "pin",
+        },
+      ],
+      symbols: {},
+    });
+    expect(parseStaticIORegistry(code)).toEqual([]);
   });
 });

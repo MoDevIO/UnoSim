@@ -5,8 +5,16 @@ import { StructureParser } from "./parsers/structure-parser";
 import { PerformanceParser } from "./parsers/performance-parser";
 import { HardwareCompatibilityParser } from "./parsers/hardware-compatibility-parser";
 import { PinConflictsParser } from "./parsers/pin-conflicts-parser";
+import {
+  analyzeStaticIO,
+  type StaticIOAnalysis,
+} from "./io-registry-parser";
+
+type StaticIOAnalyzer = (code: string) => StaticIOAnalysis;
 
 export class CodeParser {
+  constructor(private readonly analyzeIO: StaticIOAnalyzer = analyzeStaticIO) {}
+
   /**
    * Parse Serial configuration issues
    */
@@ -26,16 +34,22 @@ export class CodeParser {
   /**
    * Parse hardware compatibility issues
    */
-  parseHardwareCompatibility(code: string): ParserMessage[] {
-    const parser = new HardwareCompatibilityParser(code);
+  parseHardwareCompatibility(
+    code: string,
+    analysis: StaticIOAnalysis = this.analyzeIO(code),
+  ): ParserMessage[] {
+    const parser = new HardwareCompatibilityParser(analysis);
     return parser.parse();
   }
 
   /**
    * Parse pin conflicts (same pin used as digital and analog)
    */
-  parsePinConflicts(code: string): ParserMessage[] {
-    const parser = new PinConflictsParser(code);
+  parsePinConflicts(
+    code: string,
+    analysis: StaticIOAnalysis = this.analyzeIO(code),
+  ): ParserMessage[] {
+    const parser = new PinConflictsParser(analysis);
     return parser.parse();
   }
 
@@ -56,11 +70,12 @@ export class CodeParser {
    * Parse all categories and combine results
    */
   parseAll(code: string): ParserMessage[] {
+    const analysis = this.analyzeIO(code);
     return [
       ...this.parseSerialConfiguration(code),
       ...this.parseStructure(code),
-      ...this.parseHardwareCompatibility(code),
-      ...this.parsePinConflicts(code),
+      ...this.parseHardwareCompatibility(code, analysis),
+      ...this.parsePinConflicts(code, analysis),
       ...this.parsePerformance(code),
     ];
   }

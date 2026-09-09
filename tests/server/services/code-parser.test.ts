@@ -1,5 +1,6 @@
 import { CodeParser } from "../../../shared/code-parser";
 import { ParserMessage } from "../../../shared/schema";
+import { analyzeStaticIO } from "../../../shared/io-registry-parser";
 
 describe("CodeParser", () => {
   let parser: CodeParser;
@@ -361,6 +362,33 @@ void loop()
       expect(pinConfigWarnings).toHaveLength(0);
     });
 
+    it("should not report missing pinMode for a resolved pin array loop", () => {
+      const code = `
+const int pinArray[] = {2, 3, 4, 5};
+void setup() {
+  for (int i = 0; i < 4; i++) {
+    pinMode(pinArray[i], OUTPUT);
+    digitalWrite(pinArray[i], LOW);
+  }
+}
+void loop() {}
+`;
+
+      const messages = parser.parseHardwareCompatibility(code);
+      expect(messages).toEqual([]);
+    });
+
+    it("conservatively matches unresolved I/O expressions without inventing pins", () => {
+      const code = `
+int activePin = getActivePin();
+void setup() { pinMode(activePin, OUTPUT); }
+void loop() { digitalWrite(activePin, HIGH); }
+`;
+
+      const messages = parser.parseHardwareCompatibility(code);
+      expect(messages).toEqual([]);
+    });
+
     it("should warn when pinMode is called multiple times for the same pin", () => {
       const code = `
         void setup() {
@@ -539,6 +567,39 @@ void loop() {}
       const messages = parser.parsePinConflicts(code);
       expect(messages.length).toBeGreaterThan(0);
     });
+
+    it("should detect conflicts for resolved pin arrays in loops", () => {
+      const code = `
+        const int pins[] = {A0, A1};
+        void setup() {
+          for (int i = 0; i < 2; i++) {
+            pinMode(pins[i], OUTPUT);
+            analogRead(pins[i]);
+          }
+        }
+        void loop() {}
+      `;
+
+      const messages = parser.parsePinConflicts(code);
+      expect(messages.map(({ message }) => message)).toEqual([
+        "Pin A0 used as both digital and analog. This may be unintended.",
+        "Pin A1 used as both digital and analog. This may be unintended.",
+      ]);
+    });
+
+    it("does not infer conflicts for unresolved dynamic pin arrays", () => {
+      const code = `
+        int pins[] = {getDigitalPin(), getAnalogPin()};
+        void loop() {
+          for (int i = 0; i < 2; i++) {
+            digitalWrite(pins[i], HIGH);
+            analogRead(pins[i]);
+          }
+        }
+      `;
+
+      expect(parser.parsePinConflicts(code)).toEqual([]);
+    });
   });
 
   describe("parsePerformance", () => {
@@ -680,6 +741,20 @@ void loop() {}
   });
 
   describe("parseAll", () => {
+    it("runs the canonical static I/O analysis exactly once", () => {
+      const analyzeIO = vi.fn(analyzeStaticIO);
+      const parserWithAnalyzerSpy = new CodeParser(analyzeIO);
+      const code = `
+        void setup() { pinMode(A0, OUTPUT); }
+        void loop() { analogRead(A0); }
+      `;
+
+      parserWithAnalyzerSpy.parseAll(code);
+
+      expect(analyzeIO).toHaveBeenCalledOnce();
+      expect(analyzeIO).toHaveBeenCalledWith(code);
+    });
+
     it("should combine all parser results", () => {
       const code = `
         void setup() {
