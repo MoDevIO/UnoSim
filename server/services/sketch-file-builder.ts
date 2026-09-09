@@ -77,8 +77,9 @@ export class SketchFileBuilder {
       ? `// --- Forward declarations (auto-generated, mirrors Arduino IDE behaviour) ---\n${forwardDecls}\n\n`
       : "";
 
-    const combined = `${ARDUINO_MOCK_CODE}\n\n${forwardSection}// --- User code follows ---\n${cleanedCode}\n\n// --- Footer ---\n${footer}`;
+    const combined = `#include <Arduino.h>\n\n${forwardSection}// --- User code follows ---\n${cleanedCode}\n\n// --- Footer ---\n${footer}`;
 
+    await writeFile(join(sketchDir, "Arduino.h"), ARDUINO_MOCK_CODE);
     await writeFile(sketchFile, combined);
 
     for (const header of headers) {

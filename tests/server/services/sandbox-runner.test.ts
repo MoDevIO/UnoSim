@@ -804,7 +804,7 @@ describe("SandboxRunner", () => {
       testGlobals.clearDockerMockConfig();
     });
 
-    it("should remove Arduino.h include", async () => {
+    it("should provide the Arduino.h shim without rewriting user code", async () => {
       const runner = new SandboxRunner();
 
       runner.runSketch({
@@ -816,12 +816,14 @@ describe("SandboxRunner", () => {
 
       await wait();
 
-      // Check that writeFile was called with code without Arduino.h
-      const writeCall = writeFileMock.mock.calls[0];
-      const writtenCode = writeCall[1] as string;
+      const sketchCall = writeFileMock.mock.calls.find(([path]) => String(path).endsWith("/sketch.cpp"));
+      const arduinoHeaderCall = writeFileMock.mock.calls.find(([path]) => String(path).endsWith("/Arduino.h"));
+      const writtenCode = sketchCall?.[1] as string;
+      const arduinoHeader = arduinoHeaderCall?.[1] as string;
 
-      expect(writtenCode).not.toContain("#include <Arduino.h>");
-      expect(writtenCode).not.toContain('#include "Arduino.h"');
+      expect(writtenCode.match(/#include\s*[<"]Arduino\.h[>"]/g)).toHaveLength(1);
+      expect(arduinoHeader).toContain("#define HIGH");
+      expect(arduinoHeader).toContain("void pinMode(int pin, int mode)");
     });
 
     it("should add main() wrapper with setup and loop", async () => {
@@ -836,8 +838,8 @@ describe("SandboxRunner", () => {
 
       await wait();
 
-      const writeCall = writeFileMock.mock.calls[0];
-      const writtenCode = writeCall[1] as string;
+      const writeCall = writeFileMock.mock.calls.find(([path]) => String(path).endsWith("/sketch.cpp"));
+      const writtenCode = writeCall?.[1] as string;
 
       expect(writtenCode).toContain("int main()");
       expect(writtenCode).toContain("setup()");

@@ -69,7 +69,7 @@ export class DockerCommandBuilder {
       // The echo marker is the only signal that compilation succeeded. This
       // matters because g++ stderr is redirected to stdout above; compiler
       // diagnostics must not be mistaken for runtime output.
-      "g++ /sandbox/sketch.cpp -o /sandbox/sketch -pthread 2>&1 && echo '[[RUNTIME_START]]' && /sandbox/sketch",
+      "g++ -I/sandbox /sandbox/sketch.cpp -o /sandbox/sketch -pthread 2>&1 && echo '[[RUNTIME_START]]' && /sandbox/sketch",
     ];
   }
 }

@@ -182,7 +182,7 @@ export class LocalCompiler {
       throw raceErr;
     }
 
-    const args = [sketchFile];
+    const args = ["-I", dirname(sketchFile), sketchFile];
     if (coreArchive) {
       args.push(coreArchive);
     }
@@ -373,5 +373,4 @@ export class LocalCompiler {
     this.processExecutor.kill("SIGKILL");
   }
 }
-
 

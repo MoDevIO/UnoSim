@@ -36,6 +36,9 @@ import {
 export const ARDUINO_MOCK_CODE =
   // 1. C++ headers — only inlined section (no module dependency)
   `
+#ifndef UNOSIM_ARDUINO_H
+#define UNOSIM_ARDUINO_H
+
 // Simulated Arduino environment
 // PATCH: version bump comment
 // PATCH2: additional line to change hash
@@ -71,4 +74,8 @@ using namespace std;
   ARDUINO_REGISTRY_LOGIC +
   ARDUINO_TIMING_AND_RANDOM +
   ARDUINO_SERIAL_CLASS +
-  ARDUINO_STDIN_HANDLER;
+  ARDUINO_STDIN_HANDLER +
+  `
+
+#endif // UNOSIM_ARDUINO_H
+`;
