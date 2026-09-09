@@ -545,6 +545,7 @@ export function ExperimentalWorkspace({
             <React.Fragment key={column}>
               <ResizablePanel
                 id={`experimental-${column}-panel`}
+                order={index}
                 data-testid={`workspace-column-${column}`}
                 defaultSize={getWorkspaceDefaultSizes(visibleColumns, sizes)[index]}
                 minSize={20}
