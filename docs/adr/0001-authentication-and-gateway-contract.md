@@ -10,7 +10,8 @@
 UnoSim compiles and executes user-provided code. The compile API, sketch CRUD
 API, and WebSocket simulation channel are therefore privileged resources. The
 application currently has no login, session, tenant, or role implementation.
-The Docker Compose setup also publishes the backend port directly.
+The Docker Compose setup publishes a host port for the backend, defaulting to
+loopback; in production it must remain reachable only through the gateway.
 
 Authentication cannot be added only as an Express middleware after the routes:
 WebSocket upgrades must cross the same trust boundary. Browser WebSocket clients
@@ -93,7 +94,8 @@ the gateway identity contract.
 
 ## Configuration contract
 
-The implementation task AP-01.3 will introduce validated startup configuration:
+The current implementation enforces the following validated startup
+configuration:
 
 - `UNOSIM_TRUST_MODE=local|gateway`, with no implicit production default.
 - `UNOSIM_GATEWAY_SECRET`, required in gateway mode and rejected in local mode.
@@ -136,6 +138,4 @@ not start in local mode unless an explicit development override is present.
 
 UnoSim remains simple in trusted local development while public deployments gain
 one identity across HTTP and WebSocket. Gateway operators must provide identity,
-TLS, header sanitization, secret management, and network isolation. AP-01.3 must
-implement the contract before gateway mode is considered supported; until then,
-UnoSim remains approved only for loopback/local use.
+TLS, header sanitization, secret management, and network isolation.

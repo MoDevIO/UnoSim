@@ -16,7 +16,7 @@ Some tests run on shared CI runners where system load, CPU scheduling, and conta
 ### Unit-suite wall-clock budget
 
 The unit budget is **45 seconds**. A recent local checkout measured about 13
-seconds for all 1,760 tests; CI runtime depends on runner load and Docker/toolchain
+seconds for all 1,795 tests in the current main baseline; CI runtime depends on runner load and Docker/toolchain
 availability. The same suite previously measured about 36.8 seconds on the
 GitHub-hosted runner. The 45-second ceiling preserves a meaningful regression
 guard with roughly 22% headroom for shared-runner variance; it is a wall-clock
@@ -36,7 +36,7 @@ Folgende Dateien sind aktuell die größten Hotspots und sollten gezielt mit Tes
 | `server/services/execution-manager.ts` | ~45% | >70% | Sandbox-Ausführung |
 | `client/src/hooks/useArduinoSimulatorPage.tsx` | ~50% | >75% | ViewModel-Komposition |
 
-**Phase 2.1 abgeschlossen:** Die extrahierten Hooks liegen bei mindestens 94,0%
+**Aktueller Coverage-Hinweis:** Die extrahierten Hooks liegen bei mindestens 94,0%
 Statement-Coverage; der Orchestrator liegt bei 85,5%. Die Größenabweichungen
 des UI-Adapters und des Orchestrators sind im Phase-2.1-Plan dokumentiert.
 

@@ -8,13 +8,18 @@ Die Storyline ist so:
 
 Im ino-File werden Pins verwendet. Die Verwendung der Pins soll in einer Tabelle dargestellt werden. Es geht um die Verwendung der Pins 0-13 und 14-19 (alias A0-A5) mit:
 * pinMode (INPUT, OUTPUT, INPUT_PULLUP)
-* digitalRead
-* digitalWrite
+* digitalRead / digitalWrite
+* analogRead / analogWrite
 
 Die IO-Registry ist eine Tabelle aller verwendeter Pins. Als Spalten existieren dann die Funktionen (siehe Bild).
 
 # Aktualisierung der Tabelle:
-Die Verwendung der Pins wird durch ein Parsing während der Eingabe ermittelt und dargestellt. Es kann aber auch sein, dass die Verwendung erst im laufenden Programm deutlich wird. Es soll soweit es geht das statische Parsing eingesetzt werden. Das Run-Time-Parsing wird zur Ergänzung der TAbelle verwendet.
+Die Verwendung der Pins wird durch `analyzeStaticIO(code)` während der Eingabe
+ermittelt und dargestellt. Das kanonische Ergebnis enthält auflösbare Pins,
+aufgelöste Symbole und ungelöste I/O-Aufrufe. Eindeutige konstante Arrays und
+einfache Indexschleifen werden unterstützt. Komplexe oder dynamische Ausdrücke
+werden nicht erfunden aufgelöst. Die Runtime-Erkennung ergänzt diese Fälle und
+ist für tatsächlich ausgeführte Zugriffe maßgeblich.
 
 
 # Übermittlung via Telemetry-Messages.
@@ -54,7 +59,7 @@ Die Tabelle bildet die Interaktion zwischen Code und Hardware ab. Gemäß Screen
 
 Das System nutzt zwei Quellen, um die Tabelle zu befüllen:
 
-    Statisches Parsing (CodeParser): Scannt den Quellcode sofort bei Eingabe. Es erkennt explizite Aufrufe (z.B. pinMode(13, OUTPUT) oder digitalWrite(LED_BUILTIN, HIGH)) und löst Konstanten/Variablen auf.
+    Statisches Parsing (`analyzeStaticIO`): Scannt den Quellcode sofort bei Eingabe. Es erkennt explizite Aufrufe (z.B. pinMode(13, OUTPUT) oder digitalWrite(LED_BUILTIN, HIGH)) und löst eindeutig bestimmbare Konstanten, Aliase, Arrays und einfache Schleifen auf.
 
     Run-Time Ergänzung: Während der Simulation werden Aufrufe erfasst, die statisch nicht eindeutig waren (z.B. dynamische Pin-Zuweisungen in Schleifen oder über berechnete Variablen).
 
@@ -91,9 +96,9 @@ Ein Toggle-Button in der UI (oben rechts im Screenshot) steuert die Detailtiefe:
 Nr,Code-Szenario,3. Ergebnis: Kompakt-Modus (Auge aus),4. Ergebnis: Erweitert-Modus (Auge an)
 1,"pinMode(13, OUTPUT);","Pin 13, Spalte pinMode: Grüner Haken [✔]","Pin 13, Spalte pinMode: Zeigt L5"
 2,digitalRead(A0);,"Pin A0 (14), Spalte digitalRead: Grüner Haken [✔]","Pin A0, Spalte digitalRead: Zeigt L10"
-3,"for(int i=2; i<4; i++) {digitalWrite(i, HIGH); }","Pin 2 & 3, Spalte digitalWrite: Grüner Haken [✔]","Pin 2 & 3, Spalte digitalWrite: Zeigt L2"
+3,"const int pins[] = {2, 3}; for (int i=0; i<2; i++) { digitalWrite(pins[i], HIGH); }","Pin 2 & 3, Spalte digitalWrite: Grüner Haken [✔]","Pin 2 & 3, Spalte digitalWrite: Zeigt die Aufrufzeile"
 4,"const int led = 12;digitalWrite(led, HIGH);","Pin 12, Spalte digitalWrite: Grüner Haken [✔]","Pin 12, Spalte digitalWrite: Zeigt L12"
-5,"#define BTN A3pinMode(BTN, INPUT);","Pin A3 (17), Spalte pinMode: Grüner Haken [✔]","Pin A3, Spalte pinMode: Zeigt L2"
+5,"#define BTN A3; pinMode(BTN, INPUT);","Pin A3 (17), Spalte pinMode: Grüner Haken [✔]","Pin A3, Spalte pinMode: Zeigt die Aufrufzeile"
 6,"void loop() {digitalWrite(9, HIGH); }",Pin 9: Einmaliger Haken [✔] (Kein Telemetrie-Spam/Flackern),Pin 9: Zeigt dauerhaft L2
 7,"digitalRead(5); (L10)digitalWrite(5, LOW); (L20)",Pin 5: Haken [✔] in Spalte Read UND Write,Spalte Read: L10Spalte Write: L20
 8,"Runtime-Erkennung:int p = random(0,5);digitalRead(p);","Pin erscheint live mit Haken [✔], sobald die Zeile ausgeführt wird.",Zeigt den Text Runtime oder Live (da keine statische Zeile existiert).

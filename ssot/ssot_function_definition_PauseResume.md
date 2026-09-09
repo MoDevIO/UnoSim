@@ -13,8 +13,8 @@ Die **Pause/Resume-Funktionalität** ermöglicht es dem Benutzer, die laufende A
 
 ## 2. Geltungsbereich
 
-- **Backend-Komponenten**: `server/routes.ts`, `server/services/sandbox-runner.ts`
-- **Frontend-Komponente**: `client/src/pages/arduino-simulator.tsx`
+- **Backend-Komponenten**: `server/routes/simulation.ws.ts`, `server/services/sandbox-runner.ts`
+- **Frontend-Komponenten**: `client/src/components/features/app-header.tsx`, `client/src/components/simulator/SimulationControls.tsx` und `client/src/components/simulator/ArduinoSimulatorPageLayout.tsx`
 - **Shared-Schema**: `shared/schema.ts` (WebSocket-Messages)
 - **UI-Element**: Simulate-Toggle Button (wird zum Pause/Resume-Button)
 - **Trigger**: Benutzerklick auf Pause/Resume Button
@@ -218,7 +218,7 @@ isPausedState(): boolean {
 }
 ```
 
-### 8.2 routes.ts WebSocket-Handler
+### 8.2 `simulation.ws.ts` WebSocket-Handler
 
 **Neue Message-Types:**
 ```typescript
@@ -237,20 +237,16 @@ case "resume_simulation":
 
 ## 9. Frontend-Implementierung
 
-### 9.1 arduino-simulator.tsx State
+### 9.1 Frontend-Controller-State
 
-**Bestehender State:**
-```typescript
-const [simulationStatus, setSimulationStatus] = useState<
-  "running" | "stopped"
->("stopped");
-```
+Der aktuelle Status wird über die Simulation-Controller/Hooks an die UI
+weitergereicht. Die möglichen Werte sind `idle`, `compiling`, `queued`,
+`running` und `paused`; Compile-/Queue-Zustände sind dabei keine zusätzlichen
+Pause/Resume-Zustände.
 
-**Neuer State:**
+**Statusmodell (fachlich):**
 ```typescript
-const [simulationStatus, setSimulationStatus] = useState<
-  "running" | "stopped" | "paused"
->("stopped");
+type SimulationStatus = "idle" | "compiling" | "queued" | "running" | "paused";
 ```
 
 ### 9.2 Button-Logic

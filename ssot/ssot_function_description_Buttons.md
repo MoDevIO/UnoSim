@@ -30,7 +30,7 @@ Basiert auf `class-variance-authority` (CVA) für flexible Variant-Management.
 - **Framework**: React 18+ mit TypeScript
 - **Styling**: Tailwind CSS + class-variance-authority (CVA)
 - **CSS-Variablen**: `--ui-button-height` (2rem/32px), Theme-Farben
-- **Margin**: Konsistent `m-1` (0.25rem) auf allen Buttons
+- **Spacing**: Button definiert keine globale Margin; Abstände werden vom jeweiligen Layout-Kontext festgelegt.
 
 ---
 
@@ -64,10 +64,14 @@ Basiert auf `class-variance-authority` (CVA) für flexible Variant-Management.
 ## Größen (CVA-definiert)
 | Größe | Padding | Einsatz |
 |-------|---------|---------|
-| `default` | `h-10 px-4 py-2` | Standard Button |
-| `sm` | `h-9 px-3` | Kompakt |
-| `lg` | `h-11 px-8` | Prominent |
-| `icon` | `h-10 w-10` | Icon-only Buttons |
+| `default` | `var(--ui-button-height)` plus Standard-Padding | Standard Button |
+| `sm` | `var(--ui-button-height)` plus kompakteres Padding | Kompakt |
+| `lg` | `var(--ui-button-height)` plus größeres Padding | Prominent |
+| `icon` | quadratisch auf `var(--ui-button-height)` | Icon-only Buttons |
+
+Die Basisgröße beträgt aktuell 32px. Mobile Panel-/FAB-Steuerelemente können
+über den bestehenden mobilen Touch-Target-Token auf 52px gesetzt werden; die
+Desktop-Basis bleibt davon unverändert.
 
  ---
 

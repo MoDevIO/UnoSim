@@ -23,7 +23,8 @@ Validierung liegt im Archiv.
   unzulässige Origins werden abgewiesen.
 - Der lokale Vertrauensmodus bindet standardmäßig nur an `127.0.0.1` und ist
   für Produktion gesperrt, außer bei einem ausdrücklich gesetzten
-  Entwicklungs-Override.
+  Entwicklungs-Override. `npm run dev:lan` setzt diesen Override gezielt für
+  einen vertrauenswürdigen lokalen Netzwerktest; er ist kein Produktionsmodus.
 - Das allgemeine API-Limit sowie separate Compile- und Simulationsstart-Limits
   sind standardmäßig aktiv. `DISABLE_RATE_LIMIT` darf nur in isolierten Tests
   verwendet werden.

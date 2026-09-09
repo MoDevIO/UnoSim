@@ -20,7 +20,7 @@ Die **globale Schriftgröße** der Anwendung soll einheitlich über alle UI-Komp
 ## 2. Geltungsbereich
 
 - **Komponente**: Globale Anwendung
-- **UI-Elemente**: Alle Text-Komponenten (Editor, Panels, Menüs, Dialoge, etc.)
+- **UI-Elemente**: Text-Komponenten in Editor, Panels, Menüs und Dialogen; spezialisierte Editor-/SVG-/Telemetriegrößen können eigene technische Werte behalten.
 - **Steuerelemente**: Settings-Dialog, Tastenkürzel
 - **Bestehende Implementierung**: CSS-Variable `--ui-font-scale`, localStorage-basierte Persistierung
 - **Nicht-Ziel**: Änderungen an bestehender UI-Struktur oder Breaking Changes
@@ -63,7 +63,7 @@ Es MUSS eine Auswahlbox (Dropdown/Select) mit der Bezeichnung „UI Font Scale" 
 ### 4.2 Technische Umsetzung
 
 **localStorage**  
-Der gewählte Scale-Faktor MUSS im localStorage unter dem Key `uiFontScale` gespeichert werden.
+Der gewählte Scale-Faktor MUSS im localStorage unter dem Key `unoFontScale` gespeichert werden.
 
 **CSS-Variable**  
 Die CSS-Variable `--ui-font-scale` MUSS mit dem gewählten Scale-Faktor aktualisiert werden.
@@ -123,10 +123,13 @@ Die gewählte Schriftgröße MUSS auf alle Text-Elemente der Anwendung angewende
 - Alle sonstigen UI-Komponenten mit Text
 
 **CSS-Implementierung**  
-Alle font-size und line-height Werte in `index.css` MÜSSEN mit `calc(Basis-Wert * var(--ui-font-scale))` berechnet werden.
+Zentrale UI-Typografie verwendet `var(--ui-font-scale)` beziehungsweise die
+zugehörigen UI-Typografie-Rollen. Spezialisierte Werte, etwa für Monaco oder
+kompakte SVG-/Telemetriedaten, bleiben dort technisch begründet separat.
 
 **Ausnahmen**  
-Es DÜRFEN keine Ausnahmen existieren. Die Schriftgröße MUSS überall identisch skaliert sein.
+Technische Spezialdarstellungen sind keine globale UI-Typografie und müssen
+nicht dieselbe Basisschriftgröße verwenden.
 
 ---
 
@@ -142,7 +145,7 @@ Es DÜRFEN keine Ausnahmen existieren. Die Schriftgröße MUSS überall identisc
 ### 7.1 Speicherung
 
 **Anforderung**  
-Der gewählte Scale-Faktor MUSS über `localStorage` unter dem Key `uiFontScale` persistiert werden.
+Der gewählte Scale-Faktor MUSS über `localStorage` unter dem Key `unoFontScale` persistiert werden.
 
 **Format**  
 Der gespeicherte Wert MUSS ein numerischer Scale-Faktor sein (0.875, 1.0, 1.125, 1.25, 1.5).
@@ -166,7 +169,7 @@ Beim Start der Anwendung MUSS der gespeicherte Scale-Faktor aus `localStorage` g
 **Verfahren**  
 Die Schriftgröße wird aktuell NICHT über React Context oder Redux verwaltet, sondern ausschließlich über:
 
-- localStorage (`uiFontScale`)
+- localStorage (`unoFontScale`)
 - CSS-Variable (`--ui-font-scale`)
 - Custom Event (`uiFontScaleChange`)
 

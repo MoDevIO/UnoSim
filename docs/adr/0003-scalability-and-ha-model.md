@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-06
 - Owners: UnoSim maintainers and platform operators
-- Implements: Phase 3.8 — Skalierbarkeit / HA-Entscheidung
+- Records: accepted scalability / HA decision based on the Phase 3.4 measurements
 
 ## Context
 

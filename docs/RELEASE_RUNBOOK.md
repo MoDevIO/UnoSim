@@ -31,11 +31,12 @@ Dieses Runbook definiert das verbindliche Release-Gate für UnoSim. Es stellt si
 | `DOCKER_HOST` | Docker-Host (optional) | `unix:///Users/to/.docker/run/docker.sock` |
 | `DOCKER_SANDBOX_IMAGE` | Sandbox-Image | `unosim-sandbox:latest` |
 | `RUN_HEAVY_TESTS` | Heavy-Tests aktivieren | `1` oder `true` |
+| `REQUIRE_RELEASE_GATE` | Release-Gates einschließlich Docker/E2E/Sonar erzwingen | `1` |
 
 ### Systemvoraussetzungen
 
 - Node.js: `24.20.0` (oder gemäß `.nvmrc`)
-- Docker: verfügbar für Docker-/E2E-Gates
+- Docker: für einen vollständigen Release-Gate-Lauf erforderlich
 - SonarQube: lokal (`http://localhost:9000`) oder remote
 
 ---
@@ -75,14 +76,16 @@ npm run test:integration
 
 ---
 
-### 4. Docker-Tests (falls Docker verfügbar)
+### 4. Docker-Tests
 
 ```bash
 npm run test:docker
 ```
 
-**Erwartung:** Sandbox-Isolation, Cleanup, Security-Contract.  
-**Abbruch bei:** Docker-Test-Fehlern oder Cleanup-Problemen.
+**Erwartung:** Sandbox-Isolation, Cleanup, Security-Contract. Im normalen
+Entwicklerlauf kann dieser Gate bei fehlendem Docker übersprungen werden; im
+Release-Gate ist Docker zwingend.
+**Abbruch bei:** Fehlern oder Cleanup-Problemen im ausgeführten Gate.
 
 ---
 
@@ -114,8 +117,12 @@ npm run build
 npm run sonar
 ```
 
-**Erwartung:** Quality Gate für Projekt `unosim` ist grün.  
-**Abbruch bei:** Rotem Quality Gate oder nicht akzeptierten kritischen Issues.
+**Erwartung:** Quality Gate für Projekt `unosim` ist grün. Mit
+`REQUIRE_RELEASE_GATE=1` ist SonarQube einschließlich Quality-Gate-Abfrage
+verbindlich; ohne diese Variable ist der lokale Sonar-Schritt abhängig von der
+verfügbaren Sonar-Umgebung und nicht das vollständige Release-Gate.
+**Abbruch bei:** Rotem Quality Gate oder nicht akzeptierten kritischen Issues
+im Release-Gate.
 
 ---
 
@@ -189,7 +196,7 @@ CLIENT_COUNT=40 npx playwright test --config=playwright.scalability.config.ts
 ### Standard-Pipeline (Pflichtgates)
 
 ```bash
-./run-tests.sh
+REQUIRE_RELEASE_GATE=1 ./run-tests.sh
 ```
 
 **Enthält:**
@@ -203,7 +210,8 @@ CLIENT_COUNT=40 npx playwright test --config=playwright.scalability.config.ts
 7. E2E-Tests (`npm run test:e2e`)
 8. Build (`npm run build`)
 9. Bundle-Budget-Check
-10. Zusammenfassung
+10. Security-Audit und SonarQube-Quality-Gate
+11. Zusammenfassung
 
 ---
 

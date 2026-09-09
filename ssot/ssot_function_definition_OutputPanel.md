@@ -19,8 +19,8 @@ Das **Output Panel** reagiert automatisch auf Compiler-Ergebnisse und Parser-Mes
 
 ## 2. Geltungsbereich
 
-- **Komponente**: `arduino-simulator.tsx`
-- **UI-Element**: Output Panel (Tabs: _Compiler_ / _Messages_)
+- **Komponente**: `client/src/components/features/output-panel.tsx`, gesteuert durch `client/src/hooks/use-output-panel.ts` und `client/src/hooks/useSimulatorOutputPanel.ts`
+- **UI-Element**: Output Panel (Tabs: _Compiler_, _Messages_, _Registry_ und _Debug_)
 - **Trigger**: Änderungen an Compiler-Output, Parser-Messages und Compile-Status
 - **Nicht-Ziel**: Änderungen an bestehender UI-Struktur oder Breaking Changes
 
@@ -143,19 +143,24 @@ panelSizePercent =
 
 ### 6.1 useEffect-Abhängigkeiten (verbindlich)
 
-Der Auto-Behavior-Effect DARF ausschließlich von folgenden Werten abhängen:
+Der Auto-Behavior-Effect hängt aktuell von folgenden Werten ab; eine manuelle
+Resize-Markierung verhindert dabei automatische Größenänderungen:
 
 ```ts
-[cliOutput, hasCompilationErrors, lastCompilationResult, parserMessages.length];
+[cliOutput, hasCompilationErrors, lastCompilationResult, parserMessages.length,
+ outputPanelManuallyResized];
 ```
 
-`showCompilationOutput` DARF NICHT Teil der Abhängigkeitsliste sein, da dies zu Zirkularabhängigkeiten führen würde.
+`showCompilationOutput` ist nicht Teil dieser Abhängigkeitsliste.
 
 ---
 
 ## 7. Persistenz
 
-Die Sichtbarkeit des Output Panels MUSS über `localStorage` persistiert werden. Manuelle Benutzerpräferenzen (Öffnen/Schließen) MÜSSEN über Seiten-Reloads hinweg erhalten bleiben. Automatische Re-Opens bei neuen Fehlern oder Parser-Messages haben Vorrang vor gespeicherten Benutzerpräferenzen.
+Die Sichtbarkeit des Output Panels wird über `localStorage` unter
+`unoShowCompileOutput` persistiert. Manuelle Benutzerpräferenzen (Öffnen/
+Schließen) bleiben über Seiten-Reloads hinweg erhalten. Automatische Re-Opens
+bei neuen Fehlern oder Parser-Messages haben Vorrang.
 
 ---
 

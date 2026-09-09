@@ -60,6 +60,14 @@ graph TD
   - `services/compiler-with-fallback.ts` – Fallback-Mechanismus für Compilation
   - Cache: In-Memory-Cache für schnelle Rekompilationen
 
+### 4. Sandbox Runner Pool
+- **Verantwortung:** Verwaltung von Docker-Containern für Sketch-Ausführung
+- **Technologie:** Docker, Node.js Worker Threads
+- **Hauptmerkmale:**
+  - **Runner-Pool:** Vorgehaltene Runner-Objekte; Sandbox-Container werden pro Ausführung gestartet und anschließend bereinigt.
+  - **Isolation:** Jeder Sketch läuft in eigenem Container
+  - **Ressourcenkontrolle:** CPU/Memory/PID-Limits pro Container
+
 ### 5. Execution pipeline
 - **Verantwortung:** Sandbox-Lifecycle, Compile-Gatekeeping, Stream-Verarbeitung
 - **Technologie:** TypeScript, Dependency-Injection via Context-Objekte
@@ -77,13 +85,14 @@ graph TD
   - `shared/parsers/performance-parser.ts` – Timing-kritische Muster, delay()-Erkennung
   - `shared/parsers/serial-configuration-parser.ts` – Baud-Rate, Serial-Konfiguration
 
-### 4. Sandbox Runner Pool
-- **Verantwortung:** Verwaltung von Docker-Containern für Sketch-Ausführung
-- **Technologie:** Docker, Node.js Worker Threads
-- **Hauptmerkmale:**
-- **Runner-Pool:** Vorgehaltene Runner-Objekte für schnelle Vergabe; Docker-Sandbox-Container werden pro Ausführung gestartet und anschließend bereinigt.
-  - **Isolation:** Jeder Sketch läuft in eigenem Container
-  - **Ressourcenkontrolle:** CPU/Memory/PID-Limits pro Container
+### Statische I/O-Analyse
+
+Die statische Pin-/I/O-Analyse wird zentral durch `analyzeStaticIO(code)` in
+`shared/io-registry-parser.ts` erzeugt. `CodeParser.parseAll()` erzeugt dieses
+Ergebnis einmal und übergibt es an die Hardware- und Konfliktparser; die
+Registry-Funktion `parseStaticIORegistry()` bleibt ein kompatibler Wrapper.
+Nicht eindeutig statisch auflösbare Fälle bleiben konservativ ungelöst und
+können weiterhin nur durch die Runtime-Erkennung sichtbar werden.
 
 ## 🔄 Datenflüsse im Detail
 
