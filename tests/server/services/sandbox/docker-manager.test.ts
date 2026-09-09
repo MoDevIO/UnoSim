@@ -159,6 +159,7 @@ describe("DockerManager output budget", () => {
     });
     const state = {
       isCompilePhase: { value: false },
+      compileErrorBuffer: { value: "" },
       compileSuccessSent: { value: false },
       totalOutputBytes: { value: 100 * 1024 * 1024 - 2 },
       stderrFallbackBuffer: "",
@@ -171,5 +172,164 @@ describe("DockerManager output budget", () => {
 
     expect(processController.kill).toHaveBeenCalledWith("SIGKILL");
     expect(callbacks.onError).toHaveBeenCalledWith("Output size limit exceeded");
+  });
+
+  it("keeps gcc diagnostics out of serial output until the runtime sentinel", () => {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      makeTimeoutManager(),
+      (parsed, callbacks) => {
+        if (parsed.type === "text") callbacks.onError(parsed.line);
+      },
+    );
+    const onError = vi.fn();
+    const onCompileSuccess = vi.fn();
+    const state = {
+      isCompilePhase: { value: true },
+      compileErrorBuffer: { value: "" },
+      compileSuccessSent: { value: false },
+      totalOutputBytes: { value: 0 },
+      processStartTime: 1000,
+    };
+
+    manager.setupStdoutHandler({ ...mockCallbacks, onError }, state, onCompileSuccess);
+    stdoutHandlers[0]?.(Buffer.from("/sandbox/sketch.cpp:1:10: fatal error: header_1: No such file or directory\n"));
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(onCompileSuccess).not.toHaveBeenCalled();
+    expect(state.isCompilePhase.value).toBe(true);
+    expect(state.compileErrorBuffer.value).toContain("fatal error: header_1: No such file or directory");
+  });
+
+  it("emits a simulation build error and no success when Docker exits during compile", () => {
+    const manager = new DockerManager(
+      makeProcessController(),
+      makeStderrParser(),
+      makeTimeoutManager(),
+      noop as any,
+    );
+    const onCompileError = vi.fn();
+    const onCompileSuccess = vi.fn();
+    const state = {
+      isCompilePhase: { value: true },
+      compileErrorBuffer: { value: "/sandbox/sketch.cpp:1:10: fatal error: header_1: No such file or directory\n" },
+      compileSuccessSent: { value: false },
+      stderrFallbackBuffer: "",
+      processStartTime: 1000,
+    };
+
+    manager.handleDockerExit(
+      mockCallbacks,
+      state,
+      1,
+      { flushBatchers: vi.fn(), flushMessageQueue: vi.fn(), getProcessKilled: () => false },
+      { onCompileError, onCompileSuccess, onExit: vi.fn() },
+    );
+
+    expect(onCompileError).toHaveBeenCalledWith(expect.stringContaining("sketch.ino:1:10: fatal error: header_1"));
+    expect(onCompileSuccess).not.toHaveBeenCalled();
+  });
+
+  it("handles a sentinel split across stdout chunks and preserves immediate runtime output", () => {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const parsedLines: string[] = [];
+    const manager = new DockerManager(
+      processController,
+      { parseStderrLine: vi.fn((line: string) => ({ type: "text", line })) } as any,
+      makeTimeoutManager(),
+      (parsed) => {
+        if (parsed.type === "text") parsedLines.push(parsed.line);
+      },
+    );
+    const onCompileSuccess = vi.fn();
+    const state = {
+      isCompilePhase: { value: true },
+      compileErrorBuffer: { value: "" },
+      compileSuccessSent: { value: false },
+      totalOutputBytes: { value: 0 },
+      processStartTime: 1000,
+    };
+
+    manager.setupStdoutHandler({ ...mockCallbacks, onError: vi.fn() }, state, onCompileSuccess);
+    stdoutHandlers[0]?.(Buffer.from("gcc warning before sentinel\n[[RUNTIME_"));
+    expect(state.isCompilePhase.value).toBe(true);
+    expect(onCompileSuccess).not.toHaveBeenCalled();
+
+    stdoutHandlers[0]?.(Buffer.from("START]]\nruntime output\n"));
+
+    expect(state.isCompilePhase.value).toBe(false);
+    expect(onCompileSuccess).toHaveBeenCalledOnce();
+    expect(parsedLines).toEqual(["runtime output"]);
+
+    stdoutHandlers[0]?.(Buffer.from("[[RUNTIME_START]]\nsecond runtime output\n"));
+
+    expect(onCompileSuccess).toHaveBeenCalledOnce();
+    expect(parsedLines).toEqual(["runtime output", "second runtime output"]);
+  });
+
+  it("does not switch on an embedded or indented marker-like compiler line", () => {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const onCompileSuccess = vi.fn();
+    const state = {
+      isCompilePhase: { value: true },
+      compileErrorBuffer: { value: "" },
+      compileSuccessSent: { value: false },
+      totalOutputBytes: { value: 0 },
+      processStartTime: 1000,
+    };
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      makeTimeoutManager(),
+      noop as any,
+    );
+
+    manager.setupStdoutHandler({ ...mockCallbacks, onError: vi.fn() }, state, onCompileSuccess);
+    stdoutHandlers[0]?.(Buffer.from("note: [[RUNTIME_START]] is only text\n  [[RUNTIME_START]]\n"));
+
+    expect(state.isCompilePhase.value).toBe(true);
+    expect(onCompileSuccess).not.toHaveBeenCalled();
+  });
+
+  it("does not emit compile success when no sentinel arrives", () => {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const onCompileSuccess = vi.fn();
+    const state = {
+      isCompilePhase: { value: true },
+      compileErrorBuffer: { value: "" },
+      compileSuccessSent: { value: false },
+      totalOutputBytes: { value: 0 },
+      processStartTime: 1000,
+    };
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      makeTimeoutManager(),
+      noop as any,
+    );
+
+    manager.setupStdoutHandler({ ...mockCallbacks, onError: vi.fn() }, state, onCompileSuccess);
+    stdoutHandlers[0]?.(Buffer.from("fatal error: missing header\n"));
+
+    expect(state.isCompilePhase.value).toBe(true);
+    expect(onCompileSuccess).not.toHaveBeenCalled();
   });
 });

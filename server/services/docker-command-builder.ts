@@ -66,12 +66,9 @@ export class DockerCommandBuilder {
     return [
       "sh",
       "-c",
-      // The echo marker ensures that a successful silent compilation (no
-      // warnings, no output) still triggers an onStdout event so that
-      // isCompilePhase is reset before the sketch starts writing to stderr.
-      // Without this, isCompilePhase would stay true and all runtime stderr
-      // (SERIAL_EVENT, IO_REGISTRY, …) would accumulate in compileErrorBuffer,
-      // causing a spurious 'compilation_error' message on process exit.
+      // The echo marker is the only signal that compilation succeeded. This
+      // matters because g++ stderr is redirected to stdout above; compiler
+      // diagnostics must not be mistaken for runtime output.
       "g++ /sandbox/sketch.cpp -o /sandbox/sketch -pthread 2>&1 && echo '[[RUNTIME_START]]' && /sandbox/sketch",
     ];
   }

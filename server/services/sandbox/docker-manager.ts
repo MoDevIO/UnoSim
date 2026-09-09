@@ -11,6 +11,9 @@ import { normalizeSimulationTimeout } from "@shared/input-limits";
 import type { PinStateChange } from "@shared/types/arduino.types";
 import { config } from "../../config";
 
+const RUNTIME_START_MARKER = "[[RUNTIME_START]]";
+const RUNTIME_START_LINE = /(?:^|\r?\n)\[\[RUNTIME_START\]\]\r?\n/;
+
 interface DockerManagerCallbacks {
   onOutput: (line: string, isComplete?: boolean) => void;
   onPinState: (pin: number, type: PinStateChange, value: number) => void;
@@ -44,9 +47,9 @@ interface DockerHandlerState {
 
 type HandleParsedLineDelegate = (parsed: ParsedStderrOutput, callbacks: DockerManagerCallbacks) => void;
 type OutputBudgetState = Pick<DockerHandlerState, "totalOutputBytes">;
-type StdoutHandlerState = Pick<DockerHandlerState, "isCompilePhase" | "compileSuccessSent" | "totalOutputBytes"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
+type StdoutHandlerState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "totalOutputBytes"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
 type StderrHandlerState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "totalOutputBytes" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
-type DockerExitState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
+type DockerExitState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
 type DockerRuntimeState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "totalOutputBytes" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime" | "flushTimer">>;
 
 export class DockerManager {
@@ -103,25 +106,46 @@ export class DockerManager {
 
       if (!this.consumeOutputBudget(state, data, callbacks)) return;
 
-      // Detect end of compile phase
       if (isCompilePhase.value) {
+        // g++ stderr is redirected to stdout by the Docker command. Keep all
+        // compile output out of the runtime stream and wait for the explicit
+        // sentinel before declaring compilation successful.
+        state.compileErrorBuffer.value += str;
+        const markerMatch = RUNTIME_START_LINE.exec(state.compileErrorBuffer.value);
+        if (!markerMatch) return;
+
+        const markerPrefixLength = markerMatch[0].startsWith("\r\n") ? 2 : markerMatch[0].startsWith("\n") ? 1 : 0;
+        const markerLineStart = markerMatch.index + markerPrefixLength;
+        const markerEnd = markerMatch.index + markerMatch[0].length;
+        const runtimeOutput = state.compileErrorBuffer.value.slice(markerEnd);
+        state.compileErrorBuffer.value = state.compileErrorBuffer.value.slice(0, markerLineStart);
         isCompilePhase.value = false;
         if (!compileSuccessSent.value && onCompileSuccess) {
           compileSuccessSent.value = true;
           onCompileSuccess();
         }
+        this.forwardRuntimeStdout(runtimeOutput, state, callbacks);
+        return;
       }
 
-      // Parse stdout lines (safety net for direct binary output)
-      const lines = str.split(/\r?\n/);
-      lines.forEach((line) => {
-        // Filter the compile-phase sentinel added by buildCompileAndRunCommand.
-        // Its sole purpose is to trigger the isCompilePhase reset above and
-        // must not be forwarded to the protocol parser or the client.
-        if (!line || line.trim() === '[[RUNTIME_START]]') return;
-        const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime || 0);
-        this.handleParsedLine(parsed, callbacks);
-      });
+      this.forwardRuntimeStdout(str, state, callbacks);
+    });
+  }
+
+  private forwardRuntimeStdout(
+    output: string,
+    state: Pick<StdoutHandlerState, "processStartTime">,
+    callbacks: DockerManagerCallbacks,
+  ): void {
+    // Parse stdout lines (safety net for direct binary output)
+    const lines = output.split(/\r?\n/);
+    lines.forEach((line) => {
+      // Filter the compile-phase sentinel added by buildCompileAndRunCommand.
+      // Its sole purpose is to trigger the isCompilePhase reset above and
+      // must not be forwarded to the protocol parser or the client.
+      if (!line || line === RUNTIME_START_MARKER) return;
+      const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime || 0);
+      this.handleParsedLine(parsed, callbacks);
     });
   }
 
@@ -150,17 +174,19 @@ export class DockerManager {
         const lines = state.stderrFallbackBuffer.split(/\r?\n/);
         state.stderrFallbackBuffer = lines.pop() || "";
 
-        for (const line of lines) {
-          if (!line) continue;
-          const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime || 0);
-          this.handleParsedLine(parsed, callbacks);
+        if (!isCompilePhase.value) {
+          for (const line of lines) {
+            if (!line) continue;
+            const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime || 0);
+            this.handleParsedLine(parsed, callbacks);
+          }
         }
       }
     });
 
     // Readline-based stderr line stream (preferred when available)
     this.processController.onStderrLine((line) => {
-      if (line.length === 0) return;
+      if (line.length === 0 || isCompilePhase.value) return;
       const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime || 0);
       this.handleParsedLine(parsed, callbacks);
     });
@@ -182,7 +208,7 @@ export class DockerManager {
     const useFallbackParser = !this.processController.supportsStderrLineStreaming();
 
     // Flush any remaining data in stderr fallback buffer
-    if (state.stderrFallbackBuffer && useFallbackParser) {
+    if (state.stderrFallbackBuffer && useFallbackParser && !isCompilePhase.value) {
       const buffered = state.stderrFallbackBuffer;
       state.stderrFallbackBuffer = "";
       if (buffered.trim()) {
@@ -200,10 +226,12 @@ export class DockerManager {
     }
 
     // Report compile errors or success
-    if (code !== 0 && isCompilePhase.value && compileErrorBuffer.value && handlers.onCompileError) {
-      handlers.onCompileError(this.cleanCompilerErrors(compileErrorBuffer.value));
-    } else if (code === 0 && handlers.onCompileSuccess) {
-        handlers.onCompileSuccess();
+    if (code !== 0 && isCompilePhase.value && handlers.onCompileError) {
+      const compileError = compileErrorBuffer.value || `Simulation build failed (exit code ${code}).`;
+      handlers.onCompileError(this.cleanCompilerErrors(compileError));
+    } else if (code === 0 && handlers.onCompileSuccess && !state.compileSuccessSent.value) {
+      state.compileSuccessSent.value = true;
+      handlers.onCompileSuccess();
     }
 
     // Call exit callback (guard: only if process wasn't terminated by stop())

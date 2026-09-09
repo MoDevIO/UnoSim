@@ -11,7 +11,7 @@ describe("GCC compilation error UI state", () => {
     expect(state.showCompilationOutput).toBe(true);
     expect(state.parserPanelDismissed).toBe(false);
     expect(state.activeOutputTab).toBe("compiler");
-    expect(state.cliOutput).toContain("GCC Compilation Error");
+    expect(state.cliOutput).toContain("Simulation build error");
     expect(state.cliOutput).toContain(errorText);
   });
 });

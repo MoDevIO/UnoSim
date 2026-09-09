@@ -11,7 +11,7 @@ export const buildGccCompilationErrorState = (
   messageData: string | null | undefined,
 ): GccCompilationErrorState => {
   const details = typeof messageData === "string" ? messageData : "";
-  const prefix = "\u274C GCC Compilation Error:";
+  const prefix = "\u274C Simulation build error:";
   const cliOutput = details ? `${prefix}\n\n${details}` : prefix;
 
   return {
