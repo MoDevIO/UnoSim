@@ -31,46 +31,10 @@ export class CompilerOutputParser {
    * @returns Array of structured compilation errors/warnings
    */
   static parseErrors(stderr: string, lineOffset: number = 0): CompilationError[] {
-    // match patterns like 'file:line:column: error: message' or
-    // 'file:line: error: message' (column optional)
-    const regex = /^([^:\n]+):(\d+)(?::(\d+))?: +(warning|error): +([^\n]*)$/gm; // NOSONAR S5843
-    const results: CompilationError[] = [];
-    const seen = new Set<string>();
-
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(stderr))) {
-      let [_, file, lineStr, colStr, type, message] = match;
-      // shorten to basename so frontend sees just the filename
-      file = basename(file);
-      let lineNum = Number.parseInt(lineStr, 10);
-      if (lineOffset > 0) {
-        lineNum = Math.max(1, lineNum - lineOffset);
-      }
-      const colNum = colStr ? Number.parseInt(colStr, 10) : 0;
-      const item: CompilationError = {
-        file,
-        line: lineNum,
-        column: colNum,
-        type: type as 'error' | 'warning',
-        message,
-      };
-      const key = `${file}:${lineNum}:${colNum}:${type}:${message}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        results.push(item);
-      }
-    }
-
-    const memoryOverflow = parseMemoryOverflow(stderr);
-    if (memoryOverflow && !results.some((result) => result.message === memoryOverflow.message)) {
-      results.push(memoryOverflow);
-    }
-
+    const results = parseStructuredErrors(stderr, lineOffset);
+    appendUnique(results, parseMemoryOverflow(stderr));
     for (const line of stderr.split(/\r?\n/).filter((l) => l.trim())) {
-      const libraryWarning = parseLibraryScanWarning(line);
-      if (libraryWarning && !results.some((result) => result.message === libraryWarning.message)) {
-        results.push(libraryWarning);
-      }
+      appendUnique(results, parseLibraryScanWarning(line));
     }
 
     // if nothing parsed but stderr is present, create generic entries per line
@@ -96,6 +60,41 @@ export class CompilerOutputParser {
 
     return results;
   }
+}
+
+function parseStructuredErrors(stderr: string, lineOffset: number): CompilationError[] {
+  const regex = /^([^:\n]+):(\d+)(?::(\d+))?: +(warning|error): +([^\n]*)$/gm; // NOSONAR S5843
+  const results: CompilationError[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(stderr))) {
+    const [, rawFile, lineStr, colStr, type, message] = match;
+    const file = basename(rawFile);
+    const line = lineOffset > 0
+      ? Math.max(1, Number.parseInt(lineStr, 10) - lineOffset)
+      : Number.parseInt(lineStr, 10);
+    const column = colStr ? Number.parseInt(colStr, 10) : 0;
+    const item: CompilationError = {
+      file,
+      line,
+      column,
+      type: type as 'error' | 'warning',
+      message,
+    };
+    const duplicate = results.some((result) =>
+      result.file === item.file &&
+      result.line === item.line &&
+      result.column === item.column &&
+      result.type === item.type &&
+      result.message === item.message,
+    );
+    if (!duplicate) results.push(item);
+  }
+  return results;
+}
+
+function appendUnique(results: CompilationError[], item: CompilationError | undefined): void {
+  if (!item || results.some((result) => result.message === item.message)) return;
+  results.push(item);
 }
 
 function parseMemoryOverflow(output: string): CompilationError | undefined {

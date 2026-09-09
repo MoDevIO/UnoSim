@@ -1,7 +1,28 @@
 const IDENTIFIER = "[A-Za-z][A-Za-z0-9_-]*";
+const UNSAFE_MERMAID_PATTERNS = [
+  /https?:\/\//i,
+  /javascript:/i,
+  /\bclick\b/i,
+  /%%\{/i,
+  /classDef/i,
+  /linkStyle/i,
+];
+
+function containsMarkup(source: string): boolean {
+  let start = source.indexOf("<");
+  while (start >= 0) {
+    let cursor = start + 1;
+    while (/\s/.test(source[cursor] ?? "")) cursor += 1;
+    if (source[cursor] === "/") cursor += 1;
+    while (/\s/.test(source[cursor] ?? "")) cursor += 1;
+    if (/[A-Za-z]/.test(source[cursor] ?? "") && source.slice(cursor + 1).includes(">")) return true;
+    start = source.indexOf("<", start + 1);
+  }
+  return false;
+}
 
 function escapeSvg(value: string): string {
-  return value.replace(/[&<>\"]|'/g, (character) => ({
+  return value.replaceAll(/[&<>"']/g, (character) => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -11,7 +32,7 @@ function escapeSvg(value: string): string {
 }
 
 function displayLabel(value: string | undefined, fallback: string): string {
-  const label = (value ?? fallback).trim().replace(/\s+/g, " ");
+  const label = (value ?? fallback).trim().replaceAll(/\s+/g, " ");
   return label.length > 48 ? `${label.slice(0, 45)}…` : label;
 }
 
@@ -24,25 +45,7 @@ function estimateNodeWidth(label: string): number {
 }
 
 function renderFlowDiagram(lines: string[], markerId: string, direction: string): string | null {
-  const nodeLabels = new Map<string, string>();
-  const edges: Array<{ from: string; to: string; label?: string }> = [];
-  const nodePattern = new RegExp(String.raw`(${IDENTIFIER})\s*(?:\[([^\]]+)\]|\(([^)]+)\)|\{([^}]+)\})`, "g");
-  const edgePattern = new RegExp(String.raw`((?:${IDENTIFIER})|\[\*\])\s*(?:\[[^\]]+\]|\((?:[^)]+)\)|\{[^}]+\})?\s*(?:-+>|-+|==>)\s*(?:\|([^|]+)\|\s*)?((?:${IDENTIFIER})|\[\*\])\s*(?:\[[^\]]+\]|\((?:[^)]+)\)|\{[^}]+\})?`, "g");
-
-  for (const line of lines) {
-    for (const match of line.matchAll(nodePattern)) {
-      nodeLabels.set(match[1], displayLabel(match[2] ?? match[3] ?? match[4], match[1]));
-    }
-    for (const match of line.matchAll(edgePattern)) {
-      const from = match[1] === "[*]" ? "__start" : match[1];
-      const to = match[3] === "[*]" ? "__end" : match[3];
-      nodeLabels.set(from, nodeLabels.get(from) ?? from);
-      nodeLabels.set(to, nodeLabels.get(to) ?? to);
-      if (from === "__start") nodeLabels.set(from, "Start");
-      if (to === "__end") nodeLabels.set(to, "Ende");
-      edges.push({ from, to, label: match[2] ? displayLabel(match[2], "") : undefined });
-    }
-  }
+  const { nodeLabels, edges } = parseFlowLines(lines);
   if (nodeLabels.size < 2 || edges.length === 0) return null;
 
   const nodes = [...nodeLabels.entries()].map(([id, label]) => ({
@@ -76,10 +79,7 @@ function renderFlowDiagram(lines: string[], markerId: string, direction: string)
   const content = edges.map(({ from, to, label }) => {
     const start = positions.get(from)!;
     const end = positions.get(to)!;
-    const startX = vertical ? start.x : start.x + (end.x >= start.x ? start.width / 2 : -start.width / 2);
-    const endX = vertical ? end.x : end.x + (end.x >= start.x ? -end.width / 2 : end.width / 2);
-    const startY = vertical ? start.y + (end.y >= start.y ? start.height / 2 : -start.height / 2) : start.y;
-    const endY = vertical ? end.y + (end.y >= start.y ? -end.height / 2 : end.height / 2) : end.y;
+    const { startX, endX, startY, endY } = getFlowEdgeCoordinates(start, end, vertical);
     const midpointX = (startX + endX) / 2;
     const midpointY = (startY + endY) / 2;
     const text = label
@@ -94,14 +94,81 @@ function renderFlowDiagram(lines: string[], markerId: string, direction: string)
   return renderSvg(`${content}${boxes}`, width, height, markerId);
 }
 
+function parseFlowLines(lines: string[]): {
+  nodeLabels: Map<string, string>;
+  edges: Array<{ from: string; to: string; label?: string }>;
+} {
+  const nodeLabels = new Map<string, string>();
+  const edges: Array<{ from: string; to: string; label?: string }> = [];
+  const nodePattern = new RegExp(String.raw`(${IDENTIFIER})\s*(?:\[([^\]]+)\]|\(([^)]+)\)|\{([^}]+)\})`, "g");
+  const edgePattern = new RegExp(String.raw`((?:${IDENTIFIER})|\[\*\])\s*(?:\[[^\]]+\]|\((?:[^)]+)\)|\{[^}]+\})?\s*(?:-+>|-+|==>)\s*(?:\|([^|]+)\|\s*)?((?:${IDENTIFIER})|\[\*\])\s*(?:\[[^\]]+\]|\((?:[^)]+)\)|\{[^}]+\})?`, "g");
+
+  for (const line of lines) {
+    addFlowNodes(line, nodePattern, nodeLabels);
+    addFlowEdges(line, edgePattern, nodeLabels, edges);
+  }
+  return { nodeLabels, edges };
+}
+
+function addFlowNodes(line: string, pattern: RegExp, nodeLabels: Map<string, string>): void {
+  for (const match of line.matchAll(pattern)) {
+    nodeLabels.set(match[1], displayLabel(match[2] ?? match[3] ?? match[4], match[1]));
+  }
+}
+
+function addFlowEdges(
+  line: string,
+  pattern: RegExp,
+  nodeLabels: Map<string, string>,
+  edges: Array<{ from: string; to: string; label?: string }>,
+): void {
+  for (const match of line.matchAll(pattern)) {
+    const from = match[1] === "[*]" ? "__start" : match[1];
+    const to = match[3] === "[*]" ? "__end" : match[3];
+    nodeLabels.set(from, nodeLabels.get(from) ?? from);
+    nodeLabels.set(to, nodeLabels.get(to) ?? to);
+    if (from === "__start") nodeLabels.set(from, "Start");
+    if (to === "__end") nodeLabels.set(to, "Ende");
+    edges.push({ from, to, label: match[2] ? displayLabel(match[2], "") : undefined });
+  }
+}
+
+function getFlowEdgeCoordinates(
+  start: { x: number; y: number; width: number; height: number },
+  end: { x: number; y: number; width: number; height: number },
+  vertical: boolean,
+) {
+  const forwardX = end.x >= start.x;
+  const forwardY = end.y >= start.y;
+  return {
+    startX: getFlowEdgeCoordinate(start.x, start.width, !vertical, forwardX, true),
+    endX: getFlowEdgeCoordinate(end.x, end.width, !vertical, forwardX, false),
+    startY: getFlowEdgeCoordinate(start.y, start.height, vertical, forwardY, true),
+    endY: getFlowEdgeCoordinate(end.y, end.height, vertical, forwardY, false),
+  };
+}
+
+function getFlowEdgeCoordinate(
+  coordinate: number,
+  size: number,
+  isEdgeAxis: boolean,
+  forward: boolean,
+  fromStart: boolean,
+): number {
+  if (!isEdgeAxis) return coordinate;
+  const direction = forward === fromStart ? 1 : -1;
+  return coordinate + direction * size / 2;
+}
+
 function renderSequenceDiagram(lines: string[], markerId: string): string | null {
   const participants = new Set<string>();
   const messages: Array<{ from: string; to: string; text: string }> = [];
+  const participantPattern = new RegExp(String.raw`^\s*(?:participant|actor)\s+(${IDENTIFIER})`, "i");
   const messagePattern = new RegExp(String.raw`(${IDENTIFIER})\s*-+>+\s*(${IDENTIFIER})\s*:\s*(.+)$`);
   for (const line of lines) {
-    const participant = line.match(new RegExp(String.raw`^\s*(?:participant|actor)\s+(${IDENTIFIER})`, "i"))?.[1];
+    const participant = participantPattern.exec(line)?.[1];
     if (participant) participants.add(participant);
-    const message = line.match(messagePattern);
+    const message = messagePattern.exec(line);
     if (message) {
       participants.add(message[1]);
       participants.add(message[2]);
@@ -116,21 +183,25 @@ function renderSequenceDiagram(lines: string[], markerId: string): string | null
   const content: string[] = [];
   actors.forEach((actor) => {
     const x = positions.get(actor)!;
-    content.push(`<line x1="${x}" y1="36" x2="${x}" y2="${height - 18}" stroke-dasharray="4 4" opacity="0.55"/>`);
-    content.push(`<text x="${x}" y="20" text-anchor="middle" fill="currentColor" stroke="none" font-size="12">${escapeSvg(displayLabel(actor, actor))}</text>`);
+    content.push(
+      `<line x1="${x}" y1="36" x2="${x}" y2="${height - 18}" stroke-dasharray="4 4" opacity="0.55"/>`,
+      `<text x="${x}" y="20" text-anchor="middle" fill="currentColor" stroke="none" font-size="12">${escapeSvg(displayLabel(actor, actor))}</text>`,
+    );
   });
   messages.forEach(({ from, to, text }, index) => {
     const y = 62 + index * 46;
     const start = positions.get(from)!;
     const end = positions.get(to)!;
-    content.push(`<line x1="${start}" y1="${y}" x2="${end}" y2="${y}" marker-end="url(#${markerId})"/>`);
-    content.push(`<text x="${(start + end) / 2}" y="${y - 8}" text-anchor="middle" fill="currentColor" stroke="none" font-size="12">${escapeSvg(text)}</text>`);
+    content.push(
+      `<line x1="${start}" y1="${y}" x2="${end}" y2="${y}" marker-end="url(#${markerId})"/>`,
+      `<text x="${(start + end) / 2}" y="${y - 8}" text-anchor="middle" fill="currentColor" stroke="none" font-size="12">${escapeSvg(text)}</text>`,
+    );
   });
   return renderSvg(content.join(""), width, height, markerId);
 }
 
 export function renderMermaidSubset(source: string, markerId: string): string | null {
-  if (/https?:\/\/|javascript:|<\s*\/?\s*[a-z][^>]*>|\bclick\b|%%\{|classDef|linkStyle/i.test(source)) return null;
+  if (containsMarkup(source) || UNSAFE_MERMAID_PATTERNS.some((pattern) => pattern.test(source))) return null;
   const sourceLines = source.trim().split(/\r?\n/);
   const lines = sourceLines.slice(1).map((line) => line.trim()).filter(Boolean);
   const headerParts = sourceLines[0]?.trim().split(/\s+/) ?? [];

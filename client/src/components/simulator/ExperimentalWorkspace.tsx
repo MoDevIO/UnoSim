@@ -113,6 +113,28 @@ function getWorkspaceEmptyStateLabel(column: WorkspaceColumn) {
   }
 }
 
+function getWorkspaceColumnIcon(column: WorkspaceColumn) {
+  switch (column) {
+    case "code":
+      return Code2;
+    case "simulation":
+      return Monitor;
+    case "tutor":
+      return MessageCircleQuestion;
+  }
+}
+
+function getWorkspaceColumnClassName(column: WorkspaceColumn): string {
+  switch (column) {
+    case "code":
+      return "bg-background";
+    case "simulation":
+      return "border-l border-border/40 bg-muted/[0.035]";
+    case "tutor":
+      return "border-l border-border/40 bg-muted/[0.06]";
+  }
+}
+
 export function WorkspaceVisibilityControls({
   visibility,
   onColumnToggle,
@@ -125,7 +147,7 @@ export function WorkspaceVisibilityControls({
     >
       {(["code", "simulation", "tutor"] as WorkspaceColumn[]).map((column) => {
         const label = getWorkspaceColumnLabel(column);
-        const Icon = column === "code" ? Code2 : column === "simulation" ? Monitor : MessageCircleQuestion;
+        const Icon = getWorkspaceColumnIcon(column);
         const action = visibility[column] ? "ausblenden" : "einblenden";
         return (
           <Button
@@ -526,13 +548,7 @@ export function ExperimentalWorkspace({
                 data-testid={`workspace-column-${column}`}
                 defaultSize={getWorkspaceDefaultSizes(visibleColumns, sizes)[index]}
                 minSize={20}
-                className={`workspace-experimental-${column}-panel min-w-0 ${
-                  column === "code"
-                    ? "bg-background"
-                    : column === "simulation"
-                      ? "border-l border-border/40 bg-muted/[0.035]"
-                      : "border-l border-border/40 bg-muted/[0.06]"
-                }`}
+                className={`workspace-experimental-${column}-panel min-w-0 ${getWorkspaceColumnClassName(column)}`}
               >
                 {columns[column]}
               </ResizablePanel>

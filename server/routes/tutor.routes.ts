@@ -71,7 +71,8 @@ function enforceTutorRateLimit(res: Response, deps: TutorRouteDeps): boolean {
 
 function isLoopbackRequest(req: Request): boolean {
   const address = req.ip || req.socket.remoteAddress || "";
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+  const normalizedAddress = address.startsWith("::ffff:") ? address.slice("::ffff:".length) : address;
+  return normalizedAddress === "127.0.0.1" || normalizedAddress === "::1";
 }
 
 function hasSafeCredentialTransport(req: Request): boolean {

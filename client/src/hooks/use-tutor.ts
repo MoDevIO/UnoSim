@@ -66,6 +66,27 @@ function getErrorMessage(body: unknown): string {
   return "The Tutor request failed.";
 }
 
+function getSubmitAnswerValidationError({
+  mode,
+  question,
+  code,
+  answer,
+  credential,
+}: {
+  mode: TutorMode;
+  question: TutorResponse | null;
+  code: string;
+  answer: string;
+  credential: string;
+}): string | undefined {
+  if (mode === "disabled") return "The Tutor feature is disabled.";
+  if (!question) return "Generate a learning question first.";
+  if (!code.trim()) return "Open a sketch with source code first.";
+  if (!answer.trim()) return "Write an answer first.";
+  if (mode === "user-key" && !credential.trim()) return "Enter your personal Tutor API key first.";
+  return undefined;
+}
+
 export function useTutor(): TutorPanelState {
   const [config, setConfig] = useState<TutorConfig>(DEFAULT_CONFIG);
   const [credential, setCredential] = useState("");
@@ -186,26 +207,18 @@ export function useTutor(): TutorPanelState {
 
   const submitAnswer = useCallback(async (code: string) => {
     setError(null);
-    if (config.mode === "disabled") {
-      setError("The Tutor feature is disabled.");
+    const validationError = getSubmitAnswerValidationError({
+      mode: config.mode,
+      question,
+      code,
+      answer,
+      credential,
+    });
+    if (validationError) {
+      setError(validationError);
       return;
     }
-    if (!question) {
-      setError("Generate a learning question first.");
-      return;
-    }
-    if (!code.trim()) {
-      setError("Open a sketch with source code first.");
-      return;
-    }
-    if (!answer.trim()) {
-      setError("Write an answer first.");
-      return;
-    }
-    if (config.mode === "user-key" && !credential.trim()) {
-      setError("Enter your personal Tutor API key first.");
-      return;
-    }
+    if (!question) return;
     const requestedModel = selectedModel !== "auto" && availableModels.includes(selectedModel)
       ? selectedModel
       : undefined;

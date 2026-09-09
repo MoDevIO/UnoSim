@@ -48,7 +48,6 @@ export type TutorContentResult = z.infer<typeof tutorContentResultSchema>;
 
 /** Backwards-compatible name for the initial single-question endpoint. */
 export const learningQuestionResultSchema = tutorContentResultSchema;
-export type LearningQuestionResult = TutorContentResult;
 
 export const tutorDialogTurnSchema = z
   .object({
@@ -82,7 +81,6 @@ export const tutorResponseSchema = tutorContentResultSchema.extend({
 export type TutorResponse = z.infer<typeof tutorResponseSchema>;
 /** Backwards-compatible name for the initial single-question endpoint. */
 export const tutorQuestionResponseSchema = tutorResponseSchema;
-export type TutorQuestionResponse = TutorResponse;
 
 export const tutorErrorCodeSchema = z.enum([
   "TUTOR_DISABLED",

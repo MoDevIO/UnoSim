@@ -2,7 +2,6 @@ import { analyzeStaticIO } from "@shared/io-registry-parser";
 import {
   learningQuestionResultSchema,
   tutorDialogTurnSchema,
-  type LearningQuestionResult,
   type TutorDialogTurn,
   type TutorContentResult,
   type TutorMode,
@@ -13,6 +12,28 @@ import {
   type LLMProvider,
   type ProviderQuestionResult,
 } from "./llm-provider";
+
+const UNSAFE_MERMAID_PATTERNS = [
+  /https?:\/\//i,
+  /javascript:/i,
+  /\bclick\b/i,
+  /%%\{/i,
+  /classDef/i,
+  /linkStyle/i,
+];
+
+function containsMarkup(source: string): boolean {
+  let start = source.indexOf("<");
+  while (start >= 0) {
+    let cursor = start + 1;
+    while (/\s/.test(source[cursor] ?? "")) cursor += 1;
+    if (source[cursor] === "/") cursor += 1;
+    while (/\s/.test(source[cursor] ?? "")) cursor += 1;
+    if (/[A-Za-z]/.test(source[cursor] ?? "") && source.slice(cursor + 1).includes(">")) return true;
+    start = source.indexOf("<", start + 1);
+  }
+  return false;
+}
 
 export const TUTOR_SYSTEM_PROMPT = [
   "Du bist ein didaktischer Tutor für Arduino- und UnoSim-Lernende.",
@@ -97,7 +118,7 @@ function sanitizeMermaid(value: string | undefined): string | undefined {
   if (
     mermaid.length > 12_000 ||
     !/^(flowchart|graph|stateDiagram-v2|sequenceDiagram)\b/i.test(mermaid) ||
-    /https?:\/\/|javascript:|<\s*\/?\s*[a-z][^>]*>|\bclick\b|%%\{|classDef|linkStyle/i.test(mermaid)
+    containsMarkup(mermaid) || UNSAFE_MERMAID_PATTERNS.some((pattern) => pattern.test(mermaid))
   ) {
     return undefined;
   }
@@ -109,7 +130,7 @@ function containsCompleteSolution(text: string): boolean {
     (/\bvoid\s+setup\s*\(/i.test(text) && /\bvoid\s+loop\s*\(/i.test(text));
 }
 
-function validateLearningQuestion(result: TutorContentResult): LearningQuestionResult {
+function validateLearningQuestion(result: TutorContentResult): TutorContentResult {
   const parsed = learningQuestionResultSchema.safeParse({
     ...result,
     mermaid: sanitizeMermaid(result.mermaid),
@@ -130,7 +151,7 @@ export class TutorService {
     code: string,
     credential: string | undefined,
     requestedModel: string | undefined,
-  ): Promise<{ result: LearningQuestionResult; model: string }> {
+  ): Promise<{ result: TutorContentResult; model: string }> {
     if (this.mode === "disabled") throw new TutorProviderError("provider-unavailable");
 
     const requestCredential = this.resolveCredential(credential);

@@ -43,6 +43,12 @@ function envStr(key: string, fallback: string): string {
   return process.env[key] ?? fallback;
 }
 
+function stripTrailingSlashes(value: string): string {
+  let result = value;
+  while (result.endsWith("/")) result = result.slice(0, -1);
+  return result;
+}
+
 export function parseListenHost(
   trustMode: "local" | "gateway",
   configuredHost: string | undefined,
@@ -360,7 +366,7 @@ export const config = {
     /** Provider identifier exposed to the client for transparency. */
     provider: envEnum("UNOSIM_LLM_PROVIDER", "kiconnect", ["kiconnect"] as const),
     /** Server-controlled OpenAI-compatible provider base URL. */
-    baseUrl: envStr("UNOSIM_LLM_BASE_URL", "https://chat.kiconnect.nrw/api/v1").replace(/\/+$/, ""),
+    baseUrl: stripTrailingSlashes(envStr("UNOSIM_LLM_BASE_URL", "https://chat.kiconnect.nrw/api/v1")),
     /** Provider request timeout; no provider call may outlive this window. */
     timeoutMs: envInt("UNOSIM_LLM_TIMEOUT_MS", 30_000, { min: 1_000, max: 120_000 }),
     /** Dedicated request-scoped tutor rate limit. */

@@ -40,8 +40,19 @@ function providerErrorForStatus(status: number, retryAfter: number | undefined):
 
 function extractJsonContent(content: string): unknown {
   const trimmed = content.trim();
-  const fenced = trimmed.match(/```\s*json\s*\r?\n?([\s\S]*?)\s*```/i);
-  const withoutFence = (fenced?.[1] ?? trimmed).trim();
+  const openingFence = trimmed.indexOf("```");
+  const openingLineEnd = openingFence >= 0 ? trimmed.indexOf("\n", openingFence + 3) : -1;
+  let openingLanguage = "";
+  if (openingFence >= 0) {
+    const openingEnd = openingLineEnd >= 0 ? openingLineEnd : trimmed.length;
+    openingLanguage = trimmed.slice(openingFence + 3, openingEnd).trim();
+  }
+  let contentStart = openingFence + 3 + openingLanguage.length;
+  if (openingLineEnd >= 0) contentStart = openingLineEnd + 1;
+  const closingFence = openingFence >= 0 ? trimmed.indexOf("```", contentStart) : -1;
+  const withoutFence = openingLanguage.toLowerCase() === "json" && closingFence >= 0
+    ? trimmed.slice(contentStart, closingFence).trim()
+    : trimmed;
   try {
     return JSON.parse(withoutFence);
   } catch {
@@ -101,6 +112,21 @@ function parseTutorContent(content: string): TutorContentResult {
     ...(difficulty ? { difficulty } : {}),
     ...(mermaid ? { mermaid } : {}),
   };
+}
+
+function parseProviderQuestion(body: unknown, model: string, logger: Logger): ProviderQuestionResult {
+  const parsed = completionSchema.safeParse(body);
+  const content = parsed.success ? textContentFromMessage(parsed.data.choices[0].message.content) : undefined;
+  if (!content) throw new TutorProviderError("invalid-response");
+
+  try {
+    return { model, result: parseTutorContent(content) };
+  } catch (error) {
+    if (error instanceof TutorProviderError && error.kind === "invalid-response" && config.nodeEnv === "development") {
+      logger.debug(`KI:connect model content (diagnostic, no credentials): ${content.slice(0, 12_000)}`);
+    }
+    throw error;
+  }
 }
 
 export class KiconnectProvider implements LLMProvider {
@@ -168,18 +194,7 @@ export class KiconnectProvider implements LLMProvider {
       }
 
       const body = await response.json().catch(() => null);
-      const parsed = completionSchema.safeParse(body);
-      const content = parsed.success ? textContentFromMessage(parsed.data.choices[0].message.content) : undefined;
-      if (!content) throw new TutorProviderError("invalid-response");
-
-      try {
-        return { model, result: parseTutorContent(content) };
-      } catch (error) {
-        if (error instanceof TutorProviderError && error.kind === "invalid-response" && config.nodeEnv === "development") {
-          this.logger.debug(`KI:connect model content (diagnostic, no credentials): ${content.slice(0, 12_000)}`);
-        }
-        throw error;
-      }
+      return parseProviderQuestion(body, model, this.logger);
     } catch (error) {
       if (error instanceof TutorProviderError) throw error;
       if (error instanceof DOMException && error.name === "AbortError") {
