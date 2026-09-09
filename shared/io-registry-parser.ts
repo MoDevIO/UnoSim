@@ -412,26 +412,15 @@ function processLoopExpansion(
 ): void {
   for (const pinId of loop.values) {
     if (pinId < 0 || pinId > 19) continue;
-    if (op === "pinMode") {
-      const mode = MODE_MAP[secondArg];
-      if (!mode) continue;
-      entries.push({
-        op,
-        pinId,
-        line: loop.startLine,
-        sourceExpression,
-        mode,
-        loopBody: loop.hasBrace ? "braced" : "braceless",
-      });
-    } else {
-      entries.push({
-        op,
-        pinId,
-        line: loop.startLine,
-        sourceExpression,
-        loopBody: loop.hasBrace ? "braced" : "braceless",
-      });
-    }
+    processStaticPin(
+      pinId,
+      op,
+      sourceExpression,
+      secondArg,
+      loop.startLine,
+      entries,
+      loop.hasBrace ? "braced" : "braceless",
+    );
   }
 }
 
@@ -477,13 +466,15 @@ function processStaticPin(
   entries: StaticIOCall[],
   loopBody?: "braced" | "braceless",
 ): void {
+  const resolvedPinId =
+    op === "analogRead" && pinId >= 0 && pinId <= 5 ? pinId + 14 : pinId;
   const loopContext = loopBody === undefined ? {} : { loopBody };
   if (op === "pinMode") {
     const mode = MODE_MAP[secondArg];
     if (!mode) return;
     entries.push({
       op,
-      pinId,
+      pinId: resolvedPinId,
       line: callLine,
       sourceExpression,
       mode,
@@ -492,7 +483,7 @@ function processStaticPin(
   } else {
     entries.push({
       op,
-      pinId,
+      pinId: resolvedPinId,
       line: callLine,
       sourceExpression,
       ...loopContext,
