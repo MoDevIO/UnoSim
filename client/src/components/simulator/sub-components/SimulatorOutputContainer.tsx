@@ -16,6 +16,8 @@ interface SimulatorOutputContainerProps {
   readonly minSize?: number;
   readonly serialPanelClassName?: string;
   readonly boardPanelClassName?: string;
+  /** Render only the serial/board group when it is already inside a panel. */
+  readonly embedded?: boolean;
 }
 
 export default function SimulatorOutputContainer({
@@ -28,20 +30,27 @@ export default function SimulatorOutputContainer({
   minSize = 20,
   serialPanelClassName,
   boardPanelClassName,
+  embedded = false,
 }: SimulatorOutputContainerProps) {
+  const outputLayout = (
+    <ResizablePanelGroup direction="vertical" id="output-layout" className="workspace-output-layout">
+      <ResizablePanel defaultSize={50} minSize={20} id="serial-panel" className={serialPanelClassName}>
+        {serialSlot}
+      </ResizablePanel>
+
+      <ResizableHandle withHandle data-testid="vertical-resizer-board" className="workspace-serial-board-handle" />
+
+      <ResizablePanel defaultSize={50} minSize={20} id="board-panel" className={boardPanelClassName}>
+        {boardSlot}
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  );
+
+  if (embedded) return outputLayout;
+
   return (
     <ResizablePanel ref={panelRef} defaultSize={defaultSize} minSize={minSize} id="output-panel" className={className} style={style}>
-      <ResizablePanelGroup direction="vertical" id="output-layout" className="workspace-output-layout">
-        <ResizablePanel defaultSize={50} minSize={20} id="serial-panel" className={serialPanelClassName}>
-          {serialSlot}
-        </ResizablePanel>
-
-        <ResizableHandle withHandle data-testid="vertical-resizer-board" className="workspace-serial-board-handle" />
-
-        <ResizablePanel defaultSize={50} minSize={20} id="board-panel" className={boardPanelClassName}>
-          {boardSlot}
-        </ResizablePanel>
-      </ResizablePanelGroup>
+      {outputLayout}
     </ResizablePanel>
   );
 }

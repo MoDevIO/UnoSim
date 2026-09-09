@@ -15,6 +15,7 @@ interface CompilationOutputProps {
   readonly errors?: CompilationError[];
   readonly onClear: () => void;
   readonly isSuccess?: boolean;
+  readonly hasCompilationErrors?: boolean;
   readonly showSuccessMessage?: boolean;
   readonly hideHeader?: boolean;
 }
@@ -24,6 +25,7 @@ export function CompilationOutput({
   errors,
   onClear,
   isSuccess = false,
+  hasCompilationErrors = false,
   showSuccessMessage = true,
   hideHeader = false,
 }: CompilationOutputProps) {
@@ -71,6 +73,11 @@ export function CompilationOutput({
       )}
 
       <UnifiedScrollArea className="flex-1" orientation="both" viewportClassName="h-full">
+        {hasCompilationErrors && (
+          <div className="px-3 pt-3 text-red-400 text-ui-sm font-medium" data-testid="compilation-failed-title">
+            Compilation failed
+          </div>
+        )}
         {errors && errors.length > 0 ? (
           <div data-testid="compilation-errors" className="p-3 font-mono whitespace-pre-wrap">
             {errors.map((e) => (

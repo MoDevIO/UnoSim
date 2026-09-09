@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useMemo, ReactNode } from "react";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
+import { PanelHeader } from "@/components/ui/panel-header";
 import { Button } from "@/components/ui/button";
 import { Trash2, Monitor } from "lucide-react";
 import type { OutputLine } from "@shared/schema";
@@ -458,12 +459,11 @@ export function SerialMonitor({
     <div className="h-full flex flex-col" data-testid="serial-monitor" ref={containerRef}>
       {/* Header - Consistent with other panel headers */}
       {showHeader && (
-        <div className="flex items-center justify-between px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b border-border flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} />
-            <span className="font-semibold tracking-wide uppercase text-muted-foreground/80" style={{ fontSize: "var(--fs-body-xs)" }}>Serial Monitor</span>
-          </div>
-          <div className="flex items-center gap-1">
+        <PanelHeader
+          title="Serial Monitor"
+          icon={<Monitor className="!h-5 !w-5" aria-hidden="true" strokeWidth={1.5} />}
+          actions={
+            <>
             {headerActions}
             <Button
               variant="ghost"
@@ -474,8 +474,9 @@ export function SerialMonitor({
             >
               <Trash2 size={16} />
             </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
       )}
 
       {/* Content area - flex-1 for remaining space */}

@@ -153,3 +153,24 @@ export const getSimulationRateLimiter = (): SimulationRateLimiter =>
 
 export const getCompileRateLimiter = (): CompileRateLimiter =>
   CompileRateLimiter.getInstance();
+
+export class TutorRateLimiter extends IdentityRateLimiter {
+  private static instance: TutorRateLimiter | null = null;
+
+  private constructor(config: Partial<RateLimitConfig> = {}) {
+    super("Tutor", {
+      maxRequests: serverConfig.tutor.rateLimitMaxRequests,
+      windowMs: serverConfig.tutor.rateLimitWindowMs,
+      blockDurationMs: serverConfig.tutor.rateLimitBlockDurationMs,
+      ...config,
+    });
+  }
+
+  static getInstance(config?: Partial<RateLimitConfig>): TutorRateLimiter {
+    TutorRateLimiter.instance ??= new TutorRateLimiter(config);
+    return TutorRateLimiter.instance;
+  }
+}
+
+export const getTutorRateLimiter = (): TutorRateLimiter =>
+  TutorRateLimiter.getInstance();

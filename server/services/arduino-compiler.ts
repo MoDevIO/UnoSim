@@ -355,7 +355,7 @@ export class ArduinoCompiler {
       binary?: Buffer;
     },
   ): { cliOutput: string; cliErrors: string; parsedErrors: CompilationError[] } {
-    const cliOutput = "";
+    const cliOutput = cliResult.output || "";
     let cleanedErrors = cliErrors;
     const parsedErrors = cliResult.parsedErrors || [];
 

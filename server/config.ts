@@ -352,6 +352,25 @@ export const config = {
     allowHttp: envBool("UNOSIM_EXAMPLES_ALLOW_HTTP", false),
   },
 
+  // ── Tutor / LLM ────────────────────────────────────────────────
+
+  tutor: {
+    /** Optional learning-question feature mode. The pilot uses request-scoped user keys. */
+    mode: envEnum("UNOSIM_TUTOR_MODE", "disabled", ["disabled", "user-key", "managed"] as const),
+    /** Provider identifier exposed to the client for transparency. */
+    provider: envEnum("UNOSIM_LLM_PROVIDER", "kiconnect", ["kiconnect"] as const),
+    /** Server-controlled OpenAI-compatible provider base URL. */
+    baseUrl: envStr("UNOSIM_LLM_BASE_URL", "https://chat.kiconnect.nrw/api/v1").replace(/\/+$/, ""),
+    /** Provider request timeout; no provider call may outlive this window. */
+    timeoutMs: envInt("UNOSIM_LLM_TIMEOUT_MS", 30_000, { min: 1_000, max: 120_000 }),
+    /** Dedicated request-scoped tutor rate limit. */
+    rateLimitWindowMs: envInt("TUTOR_RATE_LIMIT_WINDOW_MS", 60_000, { min: 1_000, max: 86_400_000 }),
+    rateLimitMaxRequests: envInt("TUTOR_RATE_LIMIT_MAX_REQUESTS", 5, { min: 1, max: 100 }),
+    rateLimitBlockDurationMs: envInt("TUTOR_RATE_LIMIT_BLOCK_DURATION_MS", 30_000, { min: 1_000, max: 86_400_000 }),
+    /** Managed mode secret; never included in getClientConfig(). */
+    managedApiKey: process.env.UNOSIM_LLM_API_KEY,
+  },
+
   // ── Scattered Timeouts (centralized) ────────────────────────────
 
   timeouts: {
@@ -391,6 +410,10 @@ export function getClientConfig() {
     ...config.client,
     serverMode: config.serverMode,
     simulationMode: config.simulationMode,
+    tutor: {
+      mode: config.tutor.mode,
+      provider: config.tutor.provider,
+    },
   };
 }
 

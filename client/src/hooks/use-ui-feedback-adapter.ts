@@ -14,6 +14,31 @@ export type SetState<T> = (value: T | ((prev: T) => T)) => void;
  */
 export type CompilationErrors = CompilerError[] | string | undefined;
 
+function formatCompilerDiagnosticMessage(message: string): string {
+  const memoryLinePattern = /(?=data section exceeds available space|Sketch uses\b|Der Sketch verwendet\b|Global variables use\b|Globale Variablen verwenden\b)/gi;
+  const lines = message.split(memoryLinePattern).map((line) => line.trim()).filter(Boolean);
+  const flashLine = lines.find((line) => /^(?:Sketch uses|Der Sketch verwendet)\b/i.test(line));
+  const sramLine = lines.find((line) => /^(?:Global variables use|Globale Variablen verwenden)\b/i.test(line));
+  const memoryLines = lines.filter((line) =>
+    /^(?:Not enough memory|data section exceeds available space|Memory usage exceeds)/i.test(line),
+  );
+
+  if (!flashLine || !sramLine || memoryLines.length === 0) {
+    return message;
+  }
+
+  return [
+    "Memory error:",
+    memoryLines.join("\n"),
+    "",
+    "Flash usage:",
+    flashLine,
+    "",
+    "SRAM usage:",
+    sramLine,
+  ].join("\n");
+}
+
 export interface UseUiFeedbackAdapterParams {
   // Toast callback
   toast: (args: {
@@ -249,7 +274,7 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
           const lineStr = e.line ? `:${e.line}` : "";
           const columnStr = e.column ? `:${e.column}` : "";
           const location = `${e.file}${lineStr}${columnStr}`;
-          return `${location} ${e.type}: ${e.message}`;
+          return `${location} ${e.type}: ${formatCompilerDiagnosticMessage(e.message)}`;
         })
         .join("\n");
     } else if (typeof errors === "string") {

@@ -43,6 +43,7 @@ interface SimulationControlsProps {
   readonly onCompileAndStart: () => void;
   readonly onOutputPanelToggle: () => void;
   readonly showCompilationOutput: boolean;
+  readonly workspaceControls?: React.ReactNode;
   readonly rightSlot?: React.ReactNode;
 }
 

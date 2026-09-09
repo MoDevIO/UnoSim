@@ -27,6 +27,7 @@ import { registerStatusRoutes } from "./routes/status.routes";
 import { registerConfigRoutes } from "./routes/config.routes";
 import { registerTestResetRoute } from "./routes/test-reset.routes";
 import { registerExamplesRoutes } from "./routes/examples.routes";
+import { registerTutorRoutes } from "./routes/tutor.routes";
 import { ExamplesRepository } from "./services/examples/examples-repository";
 import { config } from "./config";
 import { createUserAuthorizationMiddleware } from "./security/access-control";
@@ -91,6 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/status", requireUser);
   app.use("/api/compile", requireUser);
   app.use("/api/sketches", requireUser);
+  app.use("/api/tutor", requireUser);
 
   // Detailed status endpoint: pool stats + compile semaphore stats
   registerStatusRoutes(app);
@@ -127,6 +129,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // --- Examples API endpoint ---
   registerExamplesRoutes(app, new ExamplesRepository());
+  registerTutorRoutes(app, {
+    logger,
+    disableRateLimit: config.server.disableRateLimit,
+  });
   // --- Sketch CRUD routes (leicht gekürzt) ---
   app.get("/api/sketches", async (_req, res) => {
     try {

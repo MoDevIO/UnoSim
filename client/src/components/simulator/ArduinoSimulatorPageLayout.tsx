@@ -9,9 +9,11 @@ import { MobileLayout, type MobilePanel } from "@/components/features/mobile-lay
 import {
   ExperimentalWorkspace,
   WorkspaceCodeColumn,
+  WorkspaceVisibilityControls,
   TutorWorkspacePlaceholder,
 } from "@/components/simulator/ExperimentalWorkspace";
 import { useExperimentalWorkspaceLayout } from "@/hooks/use-experimental-workspace-layout";
+import { useTutor } from "@/hooks/use-tutor";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -233,6 +235,7 @@ export function ArduinoSimulatorPageLayout(
   } = layout;
 
   const experimentalWorkspace = useExperimentalWorkspaceLayout();
+  const tutorPanel = useTutor();
   const showExperimentalDesktopWorkspace = experimentalWorkspace.enabled && isDesktop;
   const { mobileCompileActive, mobileSerialActive, mobileBoardActive, mobileTutorActive } = getMobilePanelState(
     isMobile,
@@ -302,6 +305,7 @@ export function ArduinoSimulatorPageLayout(
       minSize={20}
       serialPanelClassName="workspace-serial-panel"
       boardPanelClassName="workspace-board-panel"
+      embedded
     />
   );
   return (
@@ -397,6 +401,19 @@ export function ArduinoSimulatorPageLayout(
           outputPanelManuallyResizedRef.current = false;
         }}
         showCompilationOutput={showCompilationOutput}
+        workspaceControls={
+          showExperimentalDesktopWorkspace ? (
+            <WorkspaceVisibilityControls
+              visibility={experimentalWorkspace.visibility}
+              onColumnToggle={(column) =>
+                experimentalWorkspace.setColumnVisible(
+                  column,
+                  !experimentalWorkspace.visibility[column],
+                )
+              }
+            />
+          ) : undefined
+        }
         rightSlot={
           <SimCockpit
             sandboxMode={sandboxMode}
@@ -428,7 +445,6 @@ export function ArduinoSimulatorPageLayout(
       <div className="flex-1 overflow-hidden relative z-0 workspace-layout" data-layout-mode={layoutMode}>
         {showExperimentalDesktopWorkspace ? (
           <ExperimentalWorkspace
-            visibility={experimentalWorkspace.visibility}
             visibleColumns={experimentalWorkspace.visibleColumns}
             sizes={experimentalWorkspace.sizes}
             setColumnVisible={experimentalWorkspace.setColumnVisible}
@@ -436,6 +452,7 @@ export function ArduinoSimulatorPageLayout(
             setSizes={experimentalWorkspace.setSizes}
             codeColumn={experimentalCodeColumn}
             simulationColumn={experimentalSimulationColumn}
+            tutorColumn={<TutorWorkspacePlaceholder code={props.tutor.code} tutor={tutorPanel} />}
           />
         ) : (
           <LegacyWorkspaceLayout
@@ -462,6 +479,8 @@ export function ArduinoSimulatorPageLayout(
           <TutorWorkspacePlaceholder
             className="workspace-mobile-overlay-panel"
             style={compactSecondaryStyle}
+            code={props.tutor.code}
+            tutor={tutorPanel}
           />
         )}
         <MobileLayout

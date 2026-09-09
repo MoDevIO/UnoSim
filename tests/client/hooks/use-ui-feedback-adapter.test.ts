@@ -373,6 +373,25 @@ describe("useUiFeedbackAdapter", () => {
       );
     });
 
+    it("separates memory failure, flash usage, and SRAM usage", () => {
+      const { result } = renderAdapter();
+
+      result.current.setCompileErrorOutput([{
+        file: "",
+        line: 0,
+        column: 0,
+        type: "error",
+        message: "Not enough memory data section exceeds available space in board. Sketch uses 15202 bytes (47%) of program storage space. Maximum is 32256 bytes. Global variables use 3563 bytes (173%) of dynamic memory, leaving -1515 bytes for local variables. Maximum is 2048 bytes.",
+      }]);
+
+      const output = mockSetCliOutput.mock.calls[0][0] as string;
+      expect(output).toContain("Memory error:\nNot enough memory\ndata section exceeds available space in board.");
+      expect(output).toContain("Flash usage:\nSketch uses 15202 bytes (47%)");
+      expect(output).toContain("SRAM usage:\nGlobal variables use 3563 bytes (173%)");
+      expect(output).toContain("-1515 bytes");
+      expect(output).toContain("Maximum is 2048 bytes");
+    });
+
     it("sets compile error output with string error", () => {
       const { result } = renderAdapter();
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEnvInt, parseListenHost, validatePoolBounds } from "../../server/config";
+import { getClientConfig, parseEnvInt, parseListenHost, validatePoolBounds } from "../../server/config";
 
 describe("central configuration validation", () => {
   it("rejects malformed, fractional and out-of-range integers", () => {
@@ -28,5 +28,12 @@ describe("central configuration validation", () => {
 
   it("keeps gateway mode on all interfaces by default", () => {
     expect(parseListenHost("gateway", undefined)).toBe("0.0.0.0");
+  });
+
+  it("exposes only non-secret tutor configuration to the browser", () => {
+    const clientConfig = getClientConfig();
+    expect(clientConfig.tutor).toMatchObject({ mode: "disabled", provider: "kiconnect" });
+    expect(clientConfig.tutor).not.toHaveProperty("baseUrl");
+    expect(clientConfig.tutor).not.toHaveProperty("managedApiKey");
   });
 });

@@ -59,6 +59,7 @@ interface AppHeaderProps {
   readonly onCompileAndStart: () => void;
   readonly onOutputPanelToggle: () => void;
   readonly showCompilationOutput: boolean;
+  readonly workspaceControls?: React.ReactNode;
   readonly rightSlot?: React.ReactNode;
 }
 
@@ -679,6 +680,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onCompileAndStart,
   onOutputPanelToggle,
   showCompilationOutput,
+  workspaceControls,
   rightSlot,
 }) => {
   const isLoading =
@@ -800,6 +802,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </div>
             </Button>
             {clientState === "RUNNING" && <PauseButton {...pauseProps} />}
+            {workspaceControls && (
+              <div className="absolute left-[calc(100%+0.5rem)] top-1/2 -translate-y-1/2">
+                {workspaceControls}
+              </div>
+            )}
           </div>
         </div>
 

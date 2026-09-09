@@ -62,9 +62,10 @@ export async function compileWithArduinoCli(
       stdio: "pipe",
     });
 
-    // Check for spawn/execution errors
-    if (result.error) {
-      const errorMessage = `Failed to execute arduino-cli: ${result.error.message}. Make sure arduino-cli is installed and in PATH.`;
+    // ProcessExecutor also reports a non-zero exit code as `error`. Only code
+    // -1 means that arduino-cli itself could not be started (e.g. ENOENT).
+    if (result.error && (result.code === -1 || isCliSpawnError(result.error))) {
+      const errorMessage = withPathHint(`Failed to execute arduino-cli: ${result.error.message}.`);
       logger.error(errorMessage);
       return {
         success: false,
@@ -83,29 +84,33 @@ export async function compileWithArduinoCli(
     const output = result.stdout || "";
     const errors = result.stderr || "";
     const code = result.code;
+    const diagnosticOutput = selectDiagnosticOutput(output, errors);
 
     if (code === 0) {
       const parsedOutput = parseCompilerOutput(output);
+      const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0)
+        .filter((diagnostic) => diagnostic.type === "warning");
       const binary = await discoverBuildBinary(config.buildPath || sketchDir);
       return {
         success: true,
         output: parsedOutput,
         errors: "",
-        parsedErrors: [],
+        parsedErrors: parsedWarnings,
         binary,
       };
     } else {
-      const cleanedErrors = cleanErrorMessage(errors, sketchFile);
+      const cleanedErrors = cleanErrorMessage(diagnosticOutput, sketchFile);
       const parsedErrors = parseCompilerDiagnostics(cleanedErrors, 0);
       return {
         success: false,
-        output: "",
+        output: hasMemoryUsage(diagnosticOutput) ? parseCompilerOutput(diagnosticOutput) : "",
         errors: cleanedErrors,
         parsedErrors,
       };
     }
   } catch (error) {
-    const errorMessage = `Failed to execute arduino-cli: ${error instanceof Error ? error.message : String(error)}. Make sure arduino-cli is installed and in PATH.`;
+    const errorText = error instanceof Error ? error.message : String(error);
+    const errorMessage = withPathHint(`Failed to execute arduino-cli: ${errorText}.`, error);
     logger.error(errorMessage);
     return {
       success: false,
@@ -131,6 +136,44 @@ function cleanErrorMessage(errors: string, sketchDir: string): string {
     cleanedErrors = cleanedErrors.replaceAll(sketchDir, "sketch.ino");
   }
   return cleanedErrors;
+}
+
+function withPathHint(message: string, error?: unknown): string {
+  return `${message}${error === undefined || isCliSpawnError(error) ? " Make sure arduino-cli is installed and in PATH." : ""}`;
+}
+
+function isCliSpawnError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  return (
+    candidate.code === "ENOENT" ||
+    (typeof candidate.message === "string" && /\bspawn\b.*(?:ENOENT|not found|cannot find)/i.test(candidate.message))
+  );
+}
+
+function selectDiagnosticOutput(stdout: string, stderr: string): string {
+  const outputLines = stdout.split(/\r?\n/).filter((line) => {
+    const trimmed = line.trim();
+    return (
+      isMemoryLine(trimmed) ||
+      isLibraryScanLine(trimmed) ||
+      /^(?:[^:\n]+:\d+(?::\d+)?:\s*)?(?:warning|error):/i.test(trimmed)
+    );
+  });
+
+  return [...outputLines, stderr].filter(Boolean).join("\n");
+}
+
+function isMemoryLine(line: string): boolean {
+  return /^(?:sketch uses|global variables use|der sketch verwendet|globale variablen verwenden|not enough memory|data section exceeds available space|compilation error:\s*data section exceeds available space)/i.test(line);
+}
+
+function isLibraryScanLine(line: string): boolean {
+  return /(?:warning\s*:\s*library\b|multiple libraries were found|library .*\b(?:not found|incompatible|failed)\b)/i.test(line);
+}
+
+function hasMemoryUsage(output: string): boolean {
+  return /^(?:sketch uses|global variables use|der sketch verwendet|globale variablen verwenden)\b/im.test(output);
 }
 
 /**

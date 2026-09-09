@@ -2,8 +2,10 @@ import { act, fireEvent, render, renderHook, screen } from "@testing-library/rea
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
   ExperimentalWorkspace,
+  TutorWorkspacePlaceholder,
   WorkspaceVisibilityControls,
 } from "@/components/simulator/ExperimentalWorkspace";
+import type { TutorPanelState } from "@/hooks/use-tutor";
 import { useExperimentalWorkspaceLayout } from "@/hooks/use-experimental-workspace-layout";
 import {
   DEFAULT_WORKSPACE_COLUMN_VISIBILITY,
@@ -11,6 +13,7 @@ import {
   getWorkspaceDefaultSizes,
   getWorkspaceResizePairs,
 } from "@/lib/experimental-workspace-layout";
+import SimulatorOutputContainer from "@/components/simulator/sub-components/SimulatorOutputContainer";
 
 describe("experimental workspace layout", () => {
   beforeEach(() => {
@@ -77,24 +80,30 @@ describe("experimental workspace layout", () => {
       <WorkspaceVisibilityControls
         visibility={{ code: true, simulation: true, tutor: false }}
         onColumnToggle={onToggle}
-        onRestoreDefault={() => undefined}
       />,
     );
 
     expect(screen.getByTestId("workspace-toggle-code")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("workspace-toggle-tutor")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("workspace-toggle-code")).toHaveClass("ring-primary/60");
+    expect(screen.getByTestId("workspace-toggle-tutor")).toHaveClass("opacity-60");
+    expect(screen.getByTestId("workspace-toggle-code")).toHaveAttribute("title", "Code ausblenden");
+    expect(screen.getByTestId("workspace-toggle-simulation")).toHaveAttribute("title", "Simulation ausblenden");
+    expect(screen.getByTestId("workspace-toggle-tutor")).toHaveAttribute("title", "Tutor einblenden");
+    expect(screen.queryByText("Workspace")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("workspace-restore-default")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("workspace-toggle-tutor"));
     expect(onToggle).toHaveBeenCalledWith("tutor");
   });
 
   it("shows an explicit empty state when every column is hidden", () => {
+    const restoreDefaultLayout = vi.fn();
     render(
       <ExperimentalWorkspace
-        visibility={{ code: false, simulation: false, tutor: false }}
         visibleColumns={[]}
         sizes={{ code: 42, simulation: 33, tutor: 25 }}
         setColumnVisible={vi.fn()}
-        restoreDefaultLayout={vi.fn()}
+        restoreDefaultLayout={restoreDefaultLayout}
         setSizes={vi.fn()}
         codeColumn={<div>code</div>}
         simulationColumn={<div>simulation</div>}
@@ -104,12 +113,13 @@ describe("experimental workspace layout", () => {
     expect(screen.getByTestId("workspace-empty-state")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Code anzeigen" })).toBeInTheDocument();
     expect(screen.getByTestId("workspace-restore-default")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("workspace-restore-default"));
+    expect(restoreDefaultLayout).toHaveBeenCalledOnce();
   });
 
   it("renders only the two separators needed for three visible columns", () => {
     render(
       <ExperimentalWorkspace
-        visibility={{ code: true, simulation: true, tutor: true }}
         visibleColumns={["code", "simulation", "tutor"]}
         sizes={{ code: 42, simulation: 33, tutor: 25 }}
         setColumnVisible={vi.fn()}
@@ -123,5 +133,94 @@ describe("experimental workspace layout", () => {
     expect(screen.getByTestId("workspace-resizer-code-simulation")).toBeInTheDocument();
     expect(screen.getByTestId("workspace-resizer-simulation-tutor")).toBeInTheDocument();
     expect(screen.getAllByTestId(/workspace-resizer-/)).toHaveLength(2);
+    expect(screen.getByTestId("workspace-column-code")).toHaveClass("bg-background");
+    expect(screen.getByTestId("workspace-column-simulation")).toHaveClass("border-l", "border-border/40");
+    expect(screen.getByTestId("workspace-column-tutor")).toHaveClass("border-l", "border-border/40");
+    expect(screen.getByTestId("workspace-resizer-code-simulation")).toHaveClass(
+      "bg-border/45",
+      "hover:bg-primary/70",
+    );
+    expect(screen.getByTestId("tutor-panel")).toHaveTextContent("Learning questions panel");
+    expect(screen.getByTestId("tutor-panel").querySelector("svg")).toBeInTheDocument();
+  });
+
+  it("embeds the serial output and board panels in the simulation column", () => {
+    render(
+      <SimulatorOutputContainer
+        embedded
+        serialSlot={<div>serial output</div>}
+        boardSlot={<div>board</div>}
+      />,
+    );
+
+    expect(screen.getByText("serial output")).toBeInTheDocument();
+    expect(screen.getByText("board")).toBeInTheDocument();
+    expect(screen.getByTestId("vertical-resizer-board")).toBeInTheDocument();
+  });
+
+  it("renders the compact tutor header, key view, and dialog actions", () => {
+    const submitAnswer = vi.fn();
+    const resetDialog = vi.fn();
+    const generateQuestion = vi.fn();
+    const tutor: TutorPanelState = {
+      config: { mode: "user-key", provider: "kiconnect" },
+      credential: "volatile-key",
+      setCredential: vi.fn(),
+      clearCredential: vi.fn(),
+      selectedModel: "auto",
+      setSelectedModel: vi.fn(),
+      availableModels: [],
+      modelsLoading: false,
+      loadModels: vi.fn(),
+      question: {
+        question: "Was beobachtest du?",
+        provider: "kiconnect",
+        mode: "user-key",
+        model: "pilot-model",
+      },
+      history: [],
+      answer: "Meine Antwort",
+      setAnswer: vi.fn(),
+      submitAnswer,
+      resetDialog,
+      isLoading: false,
+      error: null,
+      generateQuestion,
+    };
+
+    const { rerender } = render(<TutorWorkspacePlaceholder code="void setup(){}" tutor={tutor} />);
+
+    expect(screen.getByLabelText("Your answer")).toBeInTheDocument();
+    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("aria-label", "API key");
+    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("title", "API key");
+    expect(screen.getByTestId("tutor-api-key-action").querySelector("svg")).toHaveClass("!h-5", "!w-5");
+    expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute("aria-label", "New learning question");
+    expect(screen.getByTestId("tutor-new-question-action")).toHaveClass("h-9", "w-9", "rounded-full");
+    expect(screen.getByTestId("tutor-new-question-action").querySelector("svg")).toHaveClass("!h-6", "!w-6");
+    fireEvent.click(screen.getByTestId("tutor-api-key-action"));
+    expect(screen.getByTestId("tutor-api-key-view")).toBeInTheDocument();
+    expect(screen.getByLabelText("API key", { selector: "input" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Model")).toBeInTheDocument();
+    expect(tutor.loadModels).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByTestId("tutor-apply-key"));
+    expect(screen.queryByTestId("tutor-api-key-view")).not.toBeInTheDocument();
+    const sendAnswerButton = screen.getByRole("button", { name: "Send answer" });
+    expect(sendAnswerButton).toHaveClass("h-9", "w-9");
+    expect(sendAnswerButton).not.toBeDisabled();
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, answer: "" }} />);
+    expect(screen.getByRole("button", { name: "Send answer" })).toBeDisabled();
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={tutor} />);
+    fireEvent.click(sendAnswerButton);
+    expect(submitAnswer).toHaveBeenCalledWith("void setup(){}");
+    submitAnswer.mockClear();
+    const answerField = screen.getByLabelText("Your answer");
+    fireEvent.keyDown(answerField, { key: "Enter", code: "Enter", shiftKey: false });
+    expect(submitAnswer).toHaveBeenCalledWith("void setup(){}");
+    submitAnswer.mockClear();
+    fireEvent.keyDown(answerField, { key: "Enter", code: "Enter", shiftKey: true });
+    expect(submitAnswer).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("tutor-new-question-action"));
+    expect(resetDialog).toHaveBeenCalledOnce();
+    expect(generateQuestion).toHaveBeenCalledWith("void setup(){}");
   });
 });

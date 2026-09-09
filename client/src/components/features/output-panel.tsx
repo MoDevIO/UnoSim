@@ -102,7 +102,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
 
   return (
     <Tabs value={activeOutputTab} onValueChange={(v) => onTabChange(v as OutputTab)} className="h-full flex flex-col">
-      <TabBar ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="unified-tab-bar--output justify-start px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b">
+      <TabBar ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="unified-tab-bar--panel justify-start px-[var(--header-padding-x)] h-[var(--ui-header-height)] border-b">
         <TabsList className="h-full flex gap-0 bg-transparent items-center">
           <TabsTrigger value="compiler" onDoubleClick={() => openOutputPanel("compiler")} className={clsx("h-full px-2 uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 flex items-center", {
             "text-gray-400": lastCompilationResult === null,
@@ -163,7 +163,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
       </TabBar>
 
       <TabsContent value="compiler" className="flex-1 overflow-hidden m-0">
-        <CompilationOutput output={cliOutput} onClear={onClearCompilationOutput} isSuccess={isSuccessState} showSuccessMessage={isSuccessState && !isModified} hideHeader={true} />
+        <CompilationOutput output={cliOutput} onClear={onClearCompilationOutput} isSuccess={isSuccessState} hasCompilationErrors={hasCompilationErrors} showSuccessMessage={isSuccessState && !isModified} hideHeader={true} />
       </TabsContent>
 
       <TabsContent value="messages" className="flex-1 overflow-hidden m-0">

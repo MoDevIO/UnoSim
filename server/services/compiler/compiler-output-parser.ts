@@ -61,9 +61,29 @@ export class CompilerOutputParser {
       }
     }
 
+    const memoryOverflow = parseMemoryOverflow(stderr);
+    if (memoryOverflow && !results.some((result) => result.message === memoryOverflow.message)) {
+      results.push(memoryOverflow);
+    }
+
+    for (const line of stderr.split(/\r?\n/).filter((l) => l.trim())) {
+      const libraryWarning = parseLibraryScanWarning(line);
+      if (libraryWarning && !results.some((result) => result.message === libraryWarning.message)) {
+        results.push(libraryWarning);
+      }
+    }
+
     // if nothing parsed but stderr is present, create generic entries per line
     if (results.length === 0 && stderr.trim()) {
       for (const line of stderr.split(/\r?\n/).filter((l) => l.trim())) {
+        if (isInformationalCompilerLine(line)) continue;
+
+        const libraryWarning = parseLibraryScanWarning(line);
+        if (libraryWarning) {
+          results.push(libraryWarning);
+          continue;
+        }
+
         results.push({
           file: "",
           line: 0,
@@ -76,4 +96,48 @@ export class CompilerOutputParser {
 
     return results;
   }
+}
+
+function parseMemoryOverflow(output: string): CompilationError | undefined {
+  const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const hasMemoryOverflow = lines.some((line) =>
+    /not enough memory|data section exceeds available space(?: in| on) board/i.test(line),
+  );
+
+  if (!hasMemoryOverflow) return undefined;
+
+  const flashUsage = lines.find((line) => /^sketch uses\b|^der sketch verwendet\b/i.test(line));
+  const sramUsage = lines.find((line) => /^global variables use\b|^globale variablen verwenden\b/i.test(line));
+  const details = [flashUsage, sramUsage].filter(Boolean).join(" ");
+  const reason = lines.find((line) => /data section exceeds available space/i.test(line));
+
+  return {
+    file: "",
+    line: 0,
+    column: 0,
+    type: "error",
+    message: [
+      "Not enough memory",
+      reason ? `${reason}.` : "Memory usage exceeds the board limit.",
+      details,
+    ].filter(Boolean).join(" "),
+  };
+}
+
+function parseLibraryScanWarning(line: string): CompilationError | undefined {
+  if (!/(?:warning\s*:\s*library\b|multiple libraries were found|library .*\b(?:not found|incompatible|failed)\b)/i.test(line)) {
+    return undefined;
+  }
+
+  return {
+    file: "",
+    line: 0,
+    column: 0,
+    type: "warning",
+    message: line.trim().replace(/^warning\s*:\s*/i, ""),
+  };
+}
+
+function isInformationalCompilerLine(line: string): boolean {
+  return /^(?:sketch uses|global variables use|der sketch verwendet|globale variablen verwenden)\b/i.test(line.trim());
 }

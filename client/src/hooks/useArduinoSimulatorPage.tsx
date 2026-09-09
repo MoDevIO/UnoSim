@@ -773,6 +773,9 @@ export function useArduinoSimulatorPage() {
       outputPanelMinPercent,
       outputPanelManuallyResizedRef,
     },
+    tutor: {
+      code,
+    },
   };
 
   return state;

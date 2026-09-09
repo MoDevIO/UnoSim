@@ -308,7 +308,7 @@ export function SketchTabs({
 
   return (
     <TabBar
-      className="relative flex items-center bg-[#181818] border-b border-[#2b2b2b] px-0"
+      className="relative flex items-center unified-tab-bar--panel border-b px-0"
       style={{ height: "var(--ui-header-height)" }}
     >
       {/* Tabs container with overflow */}
@@ -322,10 +322,10 @@ export function SketchTabs({
           <div
             key={tab.id}
             className={clsx(
-              "relative flex items-center flex-shrink-0 group mr-0 border-r border-[#2b2b2b]",
+              "relative flex items-center flex-shrink-0 group mr-0 border-r border-border",
               activeTabId === tab.id
-                ? "bg-[#121212] tabs-active"
-                : "bg-[#181818]",
+                ? "bg-background tabs-active"
+                : "bg-muted",
             )}
             style={{
               height: "var(--ui-button-height)",
@@ -368,8 +368,8 @@ export function SketchTabs({
                   className={clsx(
                     "ui-type-tab flex items-center gap-2 px-3 cursor-pointer transition-colors min-w-0",
                     activeTabId === tab.id
-                      ? "text-[#f3f3f3]"
-                      : "hover:bg-[#252526] text-[#9d9d9d]",
+                      ? "text-foreground"
+                      : "hover:bg-accent text-muted-foreground",
                   )}
                   style={{
                     height: "var(--ui-button-height)",
@@ -417,7 +417,7 @@ export function SketchTabs({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-100 transition-opacity text-[#cccccc] hover:bg-[#333333]"
+                    className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-100 transition-opacity text-muted-foreground hover:bg-accent"
                     data-active={activeTabId === tab.id}
                     onClick={(e) => {
                       e.stopPropagation();

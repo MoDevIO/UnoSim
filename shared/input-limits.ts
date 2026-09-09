@@ -18,6 +18,12 @@ export const INPUT_LIMITS = {
     maxLibraryNameChars: 128,
     maxFqbnChars: 128,
   },
+  tutor: {
+    maxCredentialChars: 512,
+    maxAnswerChars: 2_000,
+    maxFeedbackChars: 1_000,
+    maxHistoryEntries: 8,
+  },
   webSocket: {
     maxPayloadBytes: 256 * 1024,
     maxSerialInputChars: 4 * 1024,

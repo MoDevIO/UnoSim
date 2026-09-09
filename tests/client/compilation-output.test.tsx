@@ -49,4 +49,16 @@ Global variables use 9 bytes (0%) of dynamic memory.`;
     expect(screen.getByTestId("compilation-text").textContent).toMatch(/Sketch uses 736 bytes/i);
     expect(screen.getByTestId("compilation-text").textContent).toMatch(/Global variables use 9 bytes/i);
   });
+
+  it("should show the compilation failure title when the panel has errors", () => {
+    render(
+      <CompilationOutput
+        output="error: compilation failed"
+        hasCompilationErrors
+        onClear={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("compilation-failed-title")).toHaveTextContent("Compilation failed");
+  });
 });
