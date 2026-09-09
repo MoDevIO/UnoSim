@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">76.14% </span>
+                <span class="strong">74.31% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>166/218</span>
+                <span class='fraction'>162/218</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">57.75% </span>
+                <span class="strong">56.89% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>67/116</span>
+                <span class='fraction'>66/116</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.75% </span>
+                <span class="strong">65.62% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>22/32</span>
+                <span class='fraction'>21/32</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">81.62% </span>
+                <span class="strong">79.45% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>151/185</span>
+                <span class='fraction'>147/185</span>
             </div>
         
             
@@ -596,8 +596,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -605,8 +605,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -727,13 +727,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">58x</span>
+<span class="cline-any cline-yes">53x</span>
 <span class="cline-any cline-yes">32x</span>
 <span class="cline-any cline-yes">32x</span>
 <span class="cline-any cline-yes">32x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">21x</span>
 <span class="cline-any cline-yes">66x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -741,7 +741,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">21x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1046,10 +1046,10 @@ export class SandboxRunner {
       this.processController,
       stderrParser,
       this.timeoutManager,
-      (parsed, callbacks) =&gt; {
+<span class="fstat-no" title="function not covered" >      (p</span>arsed, callbacks) =&gt; {
         // Delegate parsed line to stream handler
-        <span class="missing-if-branch" title="else path not taken" >E</span>if (this.executionState) {
-          const streamState = {
+<span class="cstat-no" title="statement not covered" >        if (this.executionState) {</span>
+          const streamState = <span class="cstat-no" title="statement not covered" >{</span>
             pinStateBatcher: this.executionState.pinStateBatcher,
             serialOutputBatcher: this.executionState.serialOutputBatcher,
             backpressurePaused: this.executionState.backpressurePaused,
@@ -1057,8 +1057,8 @@ export class SandboxRunner {
             baudrate: this.executionState.baudrate,
             registryManager: this.registryManager,
           };
-          this.streamHandler.handleParsedLine(parsed, streamState, callbacks);
-          this.executionState.backpressurePaused = streamState.backpressurePaused;
+<span class="cstat-no" title="statement not covered" >          this.streamHandler.handleParsedLine(parsed, streamState, callbacks);</span>
+<span class="cstat-no" title="statement not covered" >          this.executionState.backpressurePaused = streamState.backpressurePaused;</span>
         }
       },
     );
@@ -1426,7 +1426,7 @@ export class SandboxRunner {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-09T09:14:30.796Z
+                at 2026-09-09T19:45:53.036Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

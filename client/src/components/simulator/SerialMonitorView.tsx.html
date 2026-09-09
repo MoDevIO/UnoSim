@@ -400,7 +400,9 @@
 <a name='L335'></a><a href='#L335'>335</a>
 <a name='L336'></a><a href='#L336'>336</a>
 <a name='L337'></a><a href='#L337'>337</a>
-<a name='L338'></a><a href='#L338'>338</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -681,8 +683,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -740,6 +742,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { lazy, useState, useEffect, useRef } from "react";
 import { Terminal, ChevronsDown, BarChart, Columns, Monitor, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PanelHeader } from "@/components/ui/panel-header";
 import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
 import { SerialMonitor } from "@/components/features/serial-monitor";
@@ -975,32 +978,31 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
       &lt;div className="flex-1 min-h-0"&gt;
         {/* Serial area: Unified container with a single static header */}
         &lt;div className="h-full flex flex-col"&gt;
-          &lt;div className="flex items-center justify-between px-[var(--header-padding-x)] h-[var(--ui-header-height)] bg-muted border-b border-border flex-shrink-0"&gt;
-            &lt;div className="flex items-center gap-2"&gt;
-              &lt;Monitor className="h-4 w-4 text-muted-foreground mr-1" strokeWidth={1.5} /&gt;
-              &lt;span className="font-semibold tracking-wide uppercase text-muted-foreground/80" style={{ fontSize: "var(--fs-body-xs)" }}&gt;Serial Output&lt;/span&gt;
-              {debugMode &amp;&amp; (<span class="branch-1 cbranch-no" title="branch not covered" >simulationStatus === "running" || <span class="branch-2 cbranch-no" title="branch not covered" >s</span>imulationStatus === "paused") ? (</span>
-<span class="branch-0 cbranch-no" title="branch not covered" >                &lt;div className="flex items-center gap-3 ml-2 border-l border-muted-foreground/20 pl-4"&gt;</span>
-                  &lt;div className="flex flex-col leading-tight"&gt;
-                    &lt;span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Baud&lt;/span&gt;
-                    &lt;span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;{baudRate}&lt;/span&gt;
-                  &lt;/div&gt;
-                  &lt;div className="flex flex-col leading-tight"&gt;
-                    &lt;span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Tel/s&lt;/span&gt;
-                    &lt;span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;
-                      {effectiveTelegramsPerSecond.toFixed(0)}/s
-                    &lt;/span&gt;
-                  &lt;/div&gt;
-                  &lt;div className="flex flex-col leading-tight"&gt;
-                    &lt;span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Bytes/Telegramm&lt;/span&gt;
-                    &lt;span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;
-                      {effectiveBytesPerTelegram.toFixed(0)} B
-                    &lt;/span&gt;
-                  &lt;/div&gt;
+          &lt;PanelHeader
+            title="Serial Output"
+            icon={&lt;Monitor className="!h-5 !w-5" aria-hidden="true" strokeWidth={1.5} /&gt;}
+            leadingContent={debugMode &amp;&amp; (<span class="branch-1 cbranch-no" title="branch not covered" >simulationStatus === "running" || <span class="branch-2 cbranch-no" title="branch not covered" >s</span>imulationStatus === "paused") ? (</span>
+<span class="branch-0 cbranch-no" title="branch not covered" >              &lt;div className="ml-2 flex items-center gap-3 border-l border-muted-foreground/20 pl-4"&gt;</span>
+                &lt;div className="flex flex-col leading-tight"&gt;
+                  &lt;span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Baud&lt;/span&gt;
+                  &lt;span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;{baudRate}&lt;/span&gt;
                 &lt;/div&gt;
-              ) : null}
-            &lt;/div&gt;
-            &lt;div className="flex items-center gap-1"&gt;
+                &lt;div className="flex flex-col leading-tight"&gt;
+                  &lt;span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Tel/s&lt;/span&gt;
+                  &lt;span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;
+                    {effectiveTelegramsPerSecond.toFixed(0)}/s
+                  &lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div className="flex flex-col leading-tight"&gt;
+                  &lt;span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Bytes/Telegramm&lt;/span&gt;
+                  &lt;span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;
+                    {effectiveBytesPerTelegram.toFixed(0)} B
+                  &lt;/span&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            ) : undefined}
+            actions={
+              &lt;&gt;
               &lt;Button
                 variant="ghost"
                 size="sm"
@@ -1039,8 +1041,9 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
               &gt;
                 &lt;Trash2 className="h-4 w-4" /&gt;
               &lt;/Button&gt;
-            &lt;/div&gt;
-          &lt;/div&gt;
+              &lt;/&gt;
+            }
+          /&gt;
 &nbsp;
           {/* Content Area */}
           &lt;div className="flex-1 min-h-0"&gt;
@@ -1081,7 +1084,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-09T09:14:30.796Z
+                at 2026-09-09T19:45:53.036Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

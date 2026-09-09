@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
@@ -110,7 +110,16 @@
 <a name='L45'></a><a href='#L45'>45</a>
 <a name='L46'></a><a href='#L46'>46</a>
 <a name='L47'></a><a href='#L47'>47</a>
-<a name='L48'></a><a href='#L48'>48</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -140,18 +149,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -175,6 +193,8 @@ interface SimulatorOutputContainerProps {
   readonly minSize?: number;
   readonly serialPanelClassName?: string;
   readonly boardPanelClassName?: string;
+  /** Render only the serial/board group when it is already inside a panel. */
+  readonly embedded?: boolean;
 }
 &nbsp;
 export default function SimulatorOutputContainer({
@@ -187,20 +207,27 @@ export default function SimulatorOutputContainer({
   minSize = 20,
   serialPanelClassName,
   boardPanelClassName,
+  embedded = false,
 }: SimulatorOutputContainerProps) {
+  const outputLayout = (
+    &lt;ResizablePanelGroup direction="vertical" id="output-layout" className="workspace-output-layout"&gt;
+      &lt;ResizablePanel defaultSize={50} minSize={20} id="serial-panel" className={serialPanelClassName}&gt;
+        {serialSlot}
+      &lt;/ResizablePanel&gt;
+&nbsp;
+      &lt;ResizableHandle withHandle data-testid="vertical-resizer-board" className="workspace-serial-board-handle" /&gt;
+&nbsp;
+      &lt;ResizablePanel defaultSize={50} minSize={20} id="board-panel" className={boardPanelClassName}&gt;
+        {boardSlot}
+      &lt;/ResizablePanel&gt;
+    &lt;/ResizablePanelGroup&gt;
+  );
+&nbsp;
+  if (embedded) return outputLayout;
+&nbsp;
   return (
     &lt;ResizablePanel ref={panelRef} defaultSize={defaultSize} minSize={minSize} id="output-panel" className={className} style={style}&gt;
-      &lt;ResizablePanelGroup direction="vertical" id="output-layout" className="workspace-output-layout"&gt;
-        &lt;ResizablePanel defaultSize={50} minSize={20} id="serial-panel" className={serialPanelClassName}&gt;
-          {serialSlot}
-        &lt;/ResizablePanel&gt;
-&nbsp;
-        &lt;ResizableHandle withHandle data-testid="vertical-resizer-board" className="workspace-serial-board-handle" /&gt;
-&nbsp;
-        &lt;ResizablePanel defaultSize={50} minSize={20} id="board-panel" className={boardPanelClassName}&gt;
-          {boardSlot}
-        &lt;/ResizablePanel&gt;
-      &lt;/ResizablePanelGroup&gt;
+      {outputLayout}
     &lt;/ResizablePanel&gt;
   );
 }
@@ -211,7 +238,7 @@ export default function SimulatorOutputContainer({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-09T09:14:30.796Z
+                at 2026-09-09T19:45:53.036Z
             </div>
         <script src="../../../../../prettify.js"></script>
         <script>
