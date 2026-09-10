@@ -61,7 +61,15 @@ async function validate() {
     return;
   }
 
-  if (!lcov.includes("end_of_record")) {
+  const records = lcov.split(/(?:^|\r?\n)end_of_record(?:\r?\n|$)/m);
+  const completeRecords = records.filter((record) => record.trim().length > 0);
+  const hasIncompleteRecord = completeRecords.some(
+    (record) =>
+      !/^SF:.+$/m.test(record) ||
+      !/^LF:\d+$/m.test(record) ||
+      !/^LH:\d+$/m.test(record),
+  );
+  if (completeRecords.length === 0 || hasIncompleteRecord || !/end_of_record(?:\r?\n|$)/.test(lcov)) {
     fail(`${path.relative(rootDir, lcovPath)} is incomplete`);
     return;
   }
