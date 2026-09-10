@@ -2,12 +2,12 @@
 
 This guide explains how to configure the UnoSim server instance and sandbox environments using environment variables.
 
-For the security controls and residual risks, see [`README_SECURITY.md`](README_SECURITY.md).
+For the current security controls and residual risks, see [`../../SECURITY.md`](../../SECURITY.md).
 
-For the Docker sandbox contract matrix and Phase 3.5 validation gates, see
-[`docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md`](docs/PHASE_3.5_SANDBOX_CONTRACT_REPORT.md).
+For the historical Docker sandbox contract matrix and Phase 3.5 validation gates, see
+[`phase-3.5-sandbox-contract-report.md`](phase-3.5-sandbox-contract-report.md).
 
-For the release process and gates, see [`docs/RELEASE_RUNBOOK.md`](docs/RELEASE_RUNBOOK.md).
+For the release process and gates, see [`../../RELEASE_RUNBOOK.md`](../../RELEASE_RUNBOOK.md).
 
 ## 🎯 Target Audience
 This guide is intended for **system administrators** and **DevOps engineers** who deploy UnoSim in development, test, or production environments.
@@ -145,7 +145,7 @@ The following terms are used consistently across the UI debug header, API respon
     * `npm run test:integration` or `npm run test:docker` as applicable
     * `npm run build` (production build)
     * `npm run sonar` with a local SonarQube server; the Quality Gate must be green
-3. **Release Process:** Follow the verbindliche Gates im [`Release-Runbook`](docs/RELEASE_RUNBOOK.md). Pflichtgates müssen vor jedem Release grün sein.
+3. **Release Process:** Follow the verbindliche Gates im [`Release-Runbook`](../../RELEASE_RUNBOOK.md). Pflichtgates müssen vor jedem Release grün sein.
 4. **Monitoring:** In `docker-sandbox` mode, monitor Docker host CPU load because starting many containers can create short spikes.
 5. **Security:** Use `SIMULATOR_ALLOWED_PARENT_ORIGINS` to allow iframe embedding only on trusted domains.
 
@@ -163,7 +163,7 @@ The proxy must remove incoming `X-UnoSim-*` headers and inject the authenticated
 subject and `user` role on both HTTP requests and WebSocket upgrades. The UnoSim
 backend port must not be reachable by end users without passing through that
 proxy. The complete contract and route matrix are defined in
-[`docs/adr/0001-authentication-and-gateway-contract.md`](docs/adr/0001-authentication-and-gateway-contract.md).
+[`../../adr/0001-authentication-and-gateway-contract.md`](../../adr/0001-authentication-and-gateway-contract.md).
 
 For a trusted single-user development process, `UNOSIM_TRUST_MODE=local` is the
 default and the server binds only to `127.0.0.1`. Production refuses local mode

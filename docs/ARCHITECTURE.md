@@ -8,7 +8,7 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 ## Governance-Grenzen
 
 - Dieses Dokument ist der aktuelle Architekturüberblick. Es beschreibt Komponenten, Datenflüsse, State Ownership und Betriebsmodell bewusst zusammenfassend.
-- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`.
+- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md`.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
 - Historische Planungs- und Risikoquellen liegen ausschließlich unter `archive/` und sind nicht normativ für den Ist-Zustand.
@@ -18,7 +18,7 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 ```mermaid
 graph TD
     A[Client/Browser] -->|WebSocket| B[UnoSim Server]
-    B -->|REST| C[Arduino Compiler]
+    B -->|REST / Prepare-Phase| C[Arduino Compiler]
     B -->|Docker API| D[Sandbox Runner Pool]
     C -->|Hex-Datei| D
     D -->|Serial Output| B
@@ -61,8 +61,8 @@ graph TD
   - Cache: In-Memory-Cache für schnelle Rekompilationen
 
 ### 4. Sandbox Runner Pool
-- **Verantwortung:** Verwaltung von Docker-Containern für Sketch-Ausführung
-- **Technologie:** Docker, Node.js Worker Threads
+- **Verantwortung:** Verwaltung von Runner-Leases und Docker-Containern für Sketch-Ausführung
+- **Technologie:** Docker-API und pro Ausführung kurzlebige Sandbox-Container. Node.js Worker Threads gehören zum Compiler Worker Pool, nicht zum Runner-Pool.
 - **Hauptmerkmale:**
   - **Runner-Pool:** Vorgehaltene Runner-Objekte; Sandbox-Container werden pro Ausführung gestartet und anschließend bereinigt.
   - **Isolation:** Jeder Sketch läuft in eigenem Container
@@ -99,10 +99,10 @@ können weiterhin nur durch die Runtime-Erkennung sichtbar werden.
 ### Compile-Flow
 1. Client sendet Code an Server via REST (`/api/compile`)
 2. Server leitet an Compiler weiter (mit Fallback-Mechanismus)
-3. Compiler kompiliert Code zu Hex-Datei (mit Cache)
-4. Hex-Datei wird an Sandbox Runner Pool übergeben
-5. Sandbox Runner führt Sketch aus (Docker oder lokal)
-6. Serial Output wird an Client gesendet (via WebSocket)
+3. Compiler kompiliert Code zu Artefakten/Diagnosen (mit Cache)
+4. REST-Compile liefert das Compile-Ergebnis an den Client zurück
+
+Die Simulation nutzt denselben Compilerpfad in der Prepare-Phase, startet den Runner aber über den WebSocket-Simulationsfluss.
 
 ### Simulation-Flow
 1. Client sendet `start_simulation` via WebSocket
@@ -113,7 +113,7 @@ können weiterhin nur durch die Runtime-Erkennung sichtbar werden.
 6. Bei `pause_simulation` oder `stop_simulation`: Runner wird gestoppt/returned
 
 ### Status-Flow
-1. Client fragt `/api/status` ab
+1. Client fragt `/api/status` ab; einfache Health-Probes nutzen `/api/health`, Compose-Readiness nutzt `/api/readiness`
 2. Server aggregiert Metriken von:
    - Sandbox Runner Pool (verfügbare/genutzte Runner)
    - Compile Semaphore (aktive/queued Compilations)
@@ -167,10 +167,11 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 - **Rate-Limiting:** Begrenzung der Nachrichtenfrequenz
 
 ### Deployment-Modi
-- **Local Mode:** Server und Simulation laufen lokal (für Entwicklung)
-- **Docker Mode:** Server in Container, Simulation lokal (für Performance-Tests)
-- **Production Mode:** Server und Simulation in Containern (für Produktion)
-- **Gateway Mode:** Reverse-Proxy mit Authentication (für Produktion)
+- **Local Server Mode (`UNOSIM_SERVER_MODE=local`):** Backend läuft auf der Entwicklungsmaschine.
+- **Docker Server Mode (`UNOSIM_SERVER_MODE=docker`):** Backend läuft im Container; dies sagt noch nichts über die Sketch-Ausführung aus.
+- **Local Simulation Mode (`UNOSIM_SIMULATION_MODE=local`):** Sketch-Ausführung als lokaler nativer Prozess; nur für isolierte Entwicklung.
+- **Docker-Sandbox Simulation Mode (`UNOSIM_SIMULATION_MODE=docker-sandbox`):** Sketch-Ausführung in kurzlebigen isolierten Docker-Containern; dokumentierter Produktionspfad.
+- **Gateway Mode (`UNOSIM_TRUST_MODE=gateway`):** Reverse-Proxy mit TLS, Authentifizierung und bereinigten `X-UnoSim-*`-Headern; Pflicht für erreichbare Mehrbenutzerinstanzen.
 
 ### Zentrale Konfiguration
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth
@@ -187,7 +188,7 @@ Der UnoSim Server sammelt folgende Metriken:
 - **Serial Output:** Bytes pro Sekunde, Drop-Rate
 - **Pin States:** Änderungen pro Sekunde, Batch-Größen
 
-Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar.
+Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/health` prüft nur die HTTP-Erreichbarkeit; `/api/readiness` meldet, ob der Sandbox-Pool initialisiert und bereit ist.
 
 ## 🔄 Versionierung und API-Kontrakte
 
@@ -200,6 +201,6 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar.
 ---
 
 **Siehe auch:**
-- `docs/adr/0001-authentication-and-gateway-contract.md` – Verbindlicher Gateway-/Auth-Vertrag
-- `SCALABILITY.md` – gemessene Kapazitätsgrenzen
-- `docs/TESTING_STANDARDS.md` – Teststrategie und -konventionen
+- [`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md) – Verbindlicher Gateway-/Auth-Vertrag
+- [`SCALABILITY.md`](SCALABILITY.md) – gemessene Kapazitätsgrenzen
+- [`TESTING_STANDARDS.md`](TESTING_STANDARDS.md) – Teststrategie und -konventionen

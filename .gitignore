@@ -34,6 +34,7 @@ yarn-error.log*
 .vite/
 .next/
 /coverage/
+.coverage-run-start.json
 *.tsbuildinfo
 
 # Arduino Compiler Cache (Binaries & Build-Artifacts)

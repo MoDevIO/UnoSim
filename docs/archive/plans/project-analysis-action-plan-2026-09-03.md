@@ -5,7 +5,7 @@ Status: archived
 ⚠️ **HISTORISCHES DOKUMENT**
 
 Dieses Dokument enthält historische Analysen und Empfehlungen aus früheren Untersuchungen (Stand: 2024).
-Die aktuellen Maßnahmen und Entscheidungen sind im Hauptbericht [`docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`](../../PROJECT_ANALYSIS_REPORT_2026-09-04.md) dokumentiert.
+Die aktuellen Maßnahmen und Entscheidungen sind im Hauptbericht [`docs/archive/analyses/project-analysis-report-2026-09-04.md`](../analyses/project-analysis-report-2026-09-04.md) dokumentiert.
 
 Für neue Entwicklungen und Refactorings bitte die aktuelle Dokumentation konsultieren.
 
@@ -553,7 +553,7 @@ werden die aktuelle SonarQube-Revision und der Quality-Gate-Status angegeben.
 **Umsetzungstasks:**
 
 - [x] AP-01.1: Destruktiven Test-Reset fail-closed hinter `NODE_ENV=test` und `ENABLE_TEST_ENDPOINTS=true` registrieren; 404-Negativtests ergänzen.
-- [x] AP-01.2: Authentifizierungs- beziehungsweise Gateway-Vertrag und Betriebsmodi als [ADR 0001](adr/0001-authentication-and-gateway-contract.md) festlegen.
+- [x] AP-01.2: Authentifizierungs- beziehungsweise Gateway-Vertrag und Betriebsmodi als [ADR 0001](../../adr/0001-authentication-and-gateway-contract.md) festlegen.
 - [x] AP-01.3: Gemeinsame Autorisierung für Compile, Sketch-CRUD und WebSocket-Upgrade implementieren.
 - [x] AP-01.4: WebSocket-Originprüfung anhand einer expliziten Allowlist implementieren und negativ testen.
 - [x] AP-01.5: Rate-Limit an eine reconnect-stabile Identität binden und Umgehungstest ergänzen.
@@ -1257,12 +1257,12 @@ E2E-Gates bleiben entsprechend ihrer Taxonomie verbindlich.
 
 ## 12. Quellen im Repository
 
-- [`server/index.ts`](../server/index.ts)
-- [`server/routes.ts`](../server/routes.ts)
-- [`server/routes/compiler.routes.ts`](../server/routes/compiler.routes.ts)
-- [`server/routes/simulation.ws.ts`](../server/routes/simulation.ws.ts)
-- [`server/config.ts`](../server/config.ts)
-- [`server/services/sandbox/execution-manager.ts`](../server/services/sandbox/execution-manager.ts)
+- [`server/index.ts`](../../../server/index.ts)
+- [`server/routes.ts`](../../../server/routes.ts)
+- [`server/routes/compiler.routes.ts`](../../../server/routes/compiler.routes.ts)
+- [`server/routes/simulation.ws.ts`](../../../server/routes/simulation.ws.ts)
+- [`server/config.ts`](../../../server/config.ts)
+- [`server/services/sandbox/execution-manager.ts`](../../../server/services/sandbox/execution-manager.ts)
 - [`server/services/docker-command-builder.ts`](../../../server/services/docker-command-builder.ts)
 - [`server/services/sandbox-runner-pool.ts`](../../../server/services/sandbox-runner-pool.ts)
 - [`client/src/hooks/use-compile-and-run.ts`](../../../client/src/hooks/use-compile-and-run.ts)
@@ -1270,7 +1270,7 @@ E2E-Gates bleiben entsprechend ihrer Taxonomie verbindlich.
 - [`client/src/hooks/use-external-api.ts`](../../../client/src/hooks/use-external-api.ts)
 - [`docker-compose.yml`](../../../docker-compose.yml)
 - [`README.md`](../../../README.md)
-- [`README_ADMIN.md`](../../../README_ADMIN.md)
-- [`docs/SCALABILITY_100_STUDENTS.md`](../../SCALABILITY_100_STUDENTS.md)
-- [`ssot/ssot_function_description_scalability.md`](../../../ssot/ssot_function_description_scalability.md)
+- `README_ADMIN.md` (historischer Dateiname; nicht mehr vorhanden)
+- [`docs/archive/reports/scalability-100-students.md`](../reports/scalability-100-students.md)
+- `ssot/ssot_function_description_scalability.md` (historischer Dateiname; nicht mehr vorhanden)
 - [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)

@@ -163,10 +163,10 @@ Test Files:  2 passed (2)
   - **Lines changed:** ~150 insertions, ~50 deletions
 
 ### Test Suites
-- **[tests/server/services/unified-gatekeeper.test.ts](unified-gatekeeper.test.ts)**
+- **[tests/server/services/unified-gatekeeper.test.ts](../../../tests/server/services/unified-gatekeeper.test.ts)**
   - 57 unit tests (unchanged, all passing)
   
-- **[tests/server/services/unified-gatekeeper-performance.test.ts](unified-gatekeeper-performance.test.ts)** *(NEW)*
+- **[tests/server/services/unified-gatekeeper-performance.test.ts](../../../tests/server/services/unified-gatekeeper-performance.test.ts)** *(NEW)*
   - 8 performance benchmark tests
   - Tests 200–500 concurrent waiters
   - Validates O(1) scalability

@@ -100,7 +100,7 @@ Das Dockerfile.sandbox stellt den nicht-root Benutzer sandboxuser sowie /sandbox
 
 ## Compose und Referenzressourcen
 
-docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backend-Port, Docker-Socket, Cache-/Temp-Mounts, Gateway-Trust, Origin-Allowlist und Worker-/Pool-Defaults. Der gemessene Referenzbetrieb nutzt 8 Worker, 8 Compile-Konkurrenz, 256 MB und 0,25 CPU pro Sandbox.
+docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backend-Port, Docker-Socket, Cache-/Temp-Mounts, Gateway-Trust, Origin-Allowlist und Worker-/Pool-Defaults. Der gemessene Referenzbetrieb nutzt 8 Worker, 8 Compile-Konkurrenz, 256 MB und 0,25 CPU pro Sandbox. Aktuelle Compose-Obergrenzen sind technische Limits und ersetzen keine Kapazitätsfreigabe aus [SCALABILITY.md](SCALABILITY.md).
 
 ## Umgebungsvariablen
 
@@ -120,7 +120,7 @@ docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backe
 | DOCKER_HOST | unix:///var/run/docker.sock | Docker | gleicher Wert | Docker-Daemon. |
 | DOCKER_SANDBOX_IMAGE | unosim-sandbox:latest | Docker | unosim-sandbox:release | Sandbox-Image. |
 | SANDBOX_POOL_MIN_RUNNERS | 5 | nein | 5 | Mindestzahl Runner. |
-| SANDBOX_POOL_MAX_RUNNERS | min (Compose: 200) | nein | 5 | Maximalzahl Runner; Compose setzt 200, die Messfreigabe basiert dennoch auf 5 Runnern. |
+| SANDBOX_POOL_MAX_RUNNERS | min (Compose: 200) | nein | 200 | Technische Obergrenze für Runner; keine Kapazitätsfreigabe. Die historische Messfreigabe basiert auf dem dokumentierten 5-Runner-Profil. |
 | SANDBOX_POOL_IDLE_TIMEOUT_MS | 120000 | nein | 300000 | Idle-Aufräumzeit. |
 | SANDBOX_MEMORY_MB | 256 | nein | 256 | Sandbox-RAM. |
 | SANDBOX_CPU_LIMIT | 0.25 | nein | 0.25 | Sandbox-CPU. |
@@ -143,8 +143,13 @@ docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backe
 | DISABLE_COMPILE_GATEKEEPER | false | nein | false | nur kontrollierte Tests; in Produktion false. |
 | ENABLE_TEST_ENDPOINTS | false | nein | false | nur Tests; nie öffentlich. |
 | ALLOW_EMBED_ORIGINS | localhost-Defaults | nein | https://lms.example.edu | deprecated Alias; primär SIMULATOR_ALLOWED_PARENT_ORIGINS verwenden. |
+| UNOSIM_TUTOR_MODE | disabled | nein | disabled | Tutor/LLM-Modus; Production-Default bleibt deaktiviert. |
+| UNOSIM_LLM_PROVIDER | kiconnect | nein | kiconnect | serverseitiger OpenAI-kompatibler Provider für den Tutor. |
+| UNOSIM_LLM_BASE_URL | https://chat.kiconnect.nrw/api/v1 | nein | Provider-URL | serverseitiger Provider-Endpunkt; nicht an Browser veröffentlichen. |
+| UNOSIM_LLM_API_KEY | keiner | managed | Secret-Store | nur für Managed-Tutor-Modus; persönliche User-Keys bleiben request-scoped und Browser-RAM-only. |
+| TUTOR_RATE_LIMIT_MAX_REQUESTS | 20 | nein | 20 | Tutor-Anfragen je vertrauenswürdiger Identität und Zeitfenster. |
 
-FORCE_DOCKER ist ein deprecated Alias für UNOSIM_SIMULATION_MODE=docker-sandbox. Historische Namen nicht primär verwenden.
+FORCE_DOCKER ist ein deprecated Alias für UNOSIM_SIMULATION_MODE=docker-sandbox. Historische Namen nicht primär verwenden. Der Tutor ist in Produktion ohne explizites `UNOSIM_TUTOR_MODE=user-key` oder `managed` deaktiviert; KI:connect-Zugangsdaten dürfen weder in Repository, `/api/config`, Logs noch persistentem Browser-Speicher landen.
 
 ## Start, Logs und Monitoring
 
@@ -153,6 +158,7 @@ docker compose up -d
 docker compose ps
 docker compose logs -f unosim-backend
 curl -fsS http://127.0.0.1:3000/api/health
+curl -fsS http://127.0.0.1:3000/api/readiness
 ~~~
 
 Beim Boot müssen Image, Docker-Daemon, Mounts, Secrets und Origin-Allowlist verfügbar sein. Restart erfolgt mit docker compose restart unosim-backend. Einen systemd-Unit-Entwurf gibt es im Repository nicht.
@@ -161,7 +167,7 @@ Beim Boot müssen Image, Docker-Daemon, Mounts, Secrets und Origin-Allowlist ver
 
 Die anwendungsseitigen Limits verwenden im Gateway-Modus ausschließlich den nach Gateway-Secret- und Rollenprüfung übernommenen `X-UnoSim-Subject`. Im Local-Modus wird stattdessen eine zufällige, serverseitig signierte HttpOnly-Cookie-Session verwendet; ungeprüfte Identity-Header oder Test-IDs sind keine Rate-Limit-Identität. Direkte Local/Test-WebSocket-Clients ohne vorherige HTTP-Session erhalten eine eigene, nur für ihre Verbindung erzeugte Identität.
 
-`SIMULATION_ADMISSION_MAX=25` ist bewusst nicht aus der Zahl 100 erfolgreich eingegangener Lasttest-Requests abgeleitet. Bei der Referenzmessung mit 5 Runnern begrenzt der Default den Zustand auf höchstens 5 laufende und 20 wartende Starts. Runner-Pool-Größe, validierte Request-Last und Admission-Cap sind unabhängige Größen. Änderungen dieser Werte benötigen eine neue Messung; ein höherer Wert ist keine Kapazitätsfreigabe.
+`SIMULATION_ADMISSION_MAX=25` ist bewusst nicht aus der Zahl 100 erfolgreich eingegangener Lasttest-Requests abgeleitet. Die Admission-Cap begrenzt pro Backend-Prozess die Summe aus laufenden und auf einen Runner wartenden Starts. Unter dem historischen 5-Runner-Referenzprofil entspricht der Default höchstens 5 laufenden und 20 wartenden Starts; bei anderen Runner-Obergrenzen bleibt die Cap dennoch 25. Runner-Pool-Größe, validierte Request-Last und Admission-Cap sind unabhängige Größen. Änderungen dieser Werte benötigen eine neue Messung; ein höherer Wert ist keine Kapazitätsfreigabe.
 
 ## Production Checklist
 
@@ -173,7 +179,7 @@ Die anwendungsseitigen Limits verwenden im Gateway-Modus ausschließlich den nac
 - Test-Endpunkte deaktiviert (`ENABLE_TEST_ENDPOINTS=false`).
 - Sandbox-Image vorhanden und auf den geprüften Release-Stand festgelegt.
 - Docker-Sandbox verwendet die dokumentierten Laufzeitoptionen und keine Host-Mounts außer `/sandbox`.
-- `/api/health` erfolgreich; `/api/status` mit plausiblen Runner-, Queue- und Prozesswerten geprüft.
+- `/api/health` erfolgreich; `/api/readiness` bereit; `/api/status` mit plausiblen Runner-, Queue- und Prozesswerten geprüft.
 - Release-Gate aus [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) erfolgreich abgeschlossen.
 
 ## Update und Rollback

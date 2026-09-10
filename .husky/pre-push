@@ -17,12 +17,12 @@ fi
 
 # 2. SonarQube Integration (optional - nur wenn Token gesetzt)
 if [ -n "$SONAR_TOKEN" ]; then
-  echo "📡 Starte SonarQube Scan..."
-  # Wrap in if-condition to prevent sh -e from exiting on scanner failure (non-blocking)
-  if sonar-scanner -Dsonar.token="$SONAR_TOKEN" -Dsonar.qualitygate.wait=false; then
+  echo "📡 Starte frischen SonarQube-Scan inklusive Coverage..."
+  if npm run sonar; then
     echo "✅ SonarQube Scan abgeschlossen"
   else
-    echo "⚠️  Warnung: SonarQube Scan fehlgeschlagen (nicht blockierend)"
+    echo "❌ SonarQube Scan oder Coverage-Validierung fehlgeschlagen!"
+    exit 1
   fi
 else
   echo "ℹ️  Kein SONAR_TOKEN gesetzt — SonarQube Scan übersprungen"

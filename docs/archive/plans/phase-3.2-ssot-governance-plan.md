@@ -35,18 +35,18 @@
 
 | Datei | Aktueller Zweck | Phase-3.2-Rolle |
 | --- | --- | --- |
-| [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) | Aktueller Architekturüberblick, Datenflüsse, State Ownership, Sicherheits-/Betriebsmodell | Architektur-Übersicht; darf auf Details verweisen, soll sie nicht vollständig duplizieren |
-| [`docs/EXTERNAL_API.md`](EXTERNAL_API.md) | Normatives `postMessage`-Protokoll für iframe-Integrationen | Ziel-SSOT für externe API-Verträge |
-| [`docs/TESTING_STANDARDS.md`](TESTING_STANDARDS.md) | Testkonventionen, Gates, Timing-Toleranzen, Coverage-Ziele | Ziel-SSOT für Test- und Validierungsregeln |
-| [`docs/adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md) | Akzeptierte Gateway-/Security-Entscheidung | Ziel-SSOT für Auth-/Gateway-Architekturentscheidung |
-| [`docs/adr/0002-unified-scroll-area.md`](adr/0002-unified-scroll-area.md) | Akzeptierte Scroll-Area-Entscheidung | Ziel-SSOT für Scrollbar-/ScrollArea-Architekturentscheidung |
+| [`docs/ARCHITECTURE.md`](../../ARCHITECTURE.md) | Aktueller Architekturüberblick, Datenflüsse, State Ownership, Sicherheits-/Betriebsmodell | Architektur-Übersicht; darf auf Details verweisen, soll sie nicht vollständig duplizieren |
+| [`docs/EXTERNAL_API.md`](../../EXTERNAL_API.md) | Normatives `postMessage`-Protokoll für iframe-Integrationen | Ziel-SSOT für externe API-Verträge |
+| [`docs/TESTING_STANDARDS.md`](../../TESTING_STANDARDS.md) | Testkonventionen, Gates, Timing-Toleranzen, Coverage-Ziele | Ziel-SSOT für Test- und Validierungsregeln |
+| [`docs/adr/0001-authentication-and-gateway-contract.md`](../../adr/0001-authentication-and-gateway-contract.md) | Akzeptierte Gateway-/Security-Entscheidung | Ziel-SSOT für Auth-/Gateway-Architekturentscheidung |
+| [`docs/adr/0002-unified-scroll-area.md`](../../adr/0002-unified-scroll-area.md) | Akzeptierte Scroll-Area-Entscheidung | Ziel-SSOT für Scrollbar-/ScrollArea-Architekturentscheidung |
 
 ### 2.2 Planende Dokumente
 
 | Datei | Aktueller Zweck | Phase-3.2-Rolle |
 | --- | --- | --- |
-| [`docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`](PROJECT_ANALYSIS_REPORT_2026-09-04.md) | Projektanalyse und priorisierte Maßnahmen | Nicht normativ; Quelle für Risiken und Maßnahmen |
-| [`docs/SCALABILITY_100_STUDENTS.md`](SCALABILITY_100_STUDENTS.md) | Skalierbarkeitsanalyse und Mess-/Zielszenarien | Ziel-SSOT für Skalierungsplanung und Kapazitätsannahmen |
+| [`docs/PROJECT_ANALYSIS_REPORT_2026-09-04.md`](../analyses/project-analysis-report-2026-09-04.md) | Projektanalyse und priorisierte Maßnahmen | Nicht normativ; Quelle für Risiken und Maßnahmen |
+| [`docs/SCALABILITY_100_STUDENTS.md`](../reports/scalability-100-students.md) | Skalierbarkeitsanalyse und Mess-/Zielszenarien | Ziel-SSOT für Skalierungsplanung und Kapazitätsannahmen |
 | [`docs/phase-3.1-architecture-documentation-plan.md`](phase-3.1-architecture-documentation-plan.md) | Abgeschlossener Phase-3.1-Plan | Historischer Plan; kein aktueller Architektur-SSOT |
 | `docs/phase-3.2-ssot-governance-plan.md` | Dieser Plan | Verbindlicher Umsetzungsplan für Phase 3.2 |
 
@@ -54,23 +54,23 @@
 
 | Datei | Aktueller Inhalt | Zielklassifikation |
 | --- | --- | --- |
-| [`../ssot/ssot_agent_policy.md`](../ssot/ssot_agent_policy.md) | Agenten-Workflow, Git-/Test-Governance, Runtime-Evidence-Regeln | Governance-Policy; normativ für Agentenarbeit, aber abzugrenzen von Repo-Dokumentation |
-| [`../ssot/ssot_io-registry.md`](../ssot/ssot_io-registry.md) | Hybrid-I/O-Registry, statisches/dynamisches Parsing, Telemetrie, UI-Ansicht | Feature-SSOT; soll auf Code-/Schema-Quellen und Archivberichte verweisen |
-| [`../ssot/ssot_function_definition_OutputPanel.md`](../ssot/ssot_function_definition_OutputPanel.md) | OutputPanel-Autoverhalten, Größenlogik, Persistenz, Tests | Feature-SSOT; ScrollArea-Aspekte müssen auf ADR 0002 verweisen |
-| [`../ssot/ssot_function_definition_PauseResume.md`](../ssot/ssot_function_definition_PauseResume.md) | Pause/Resume-Verhalten, Backend-/Frontend-Skizzen, Einschränkungen | Feature-SSOT; externe API-Verträge müssen auf `EXTERNAL_API.md` verweisen |
-| [`../ssot/ssot_function_definition_Typography.md`](../ssot/ssot_function_definition_Typography.md) | UI-Font-Scale, CSS-Variable, Tastenkürzel, Roadmap | UI-Design-SSOT; Roadmap/Historie trennen |
-| [`../ssot/ssot_function_description_Buttons.md`](../ssot/ssot_function_description_Buttons.md) | Button-Komponente, API, Varianten, Status, Testdetails | UI-Design-SSOT; erledigte Implementierungs-/Testhistorie auslagern |
-| [`../ssot/ssot_function_description_scalability.md`](../ssot/ssot_function_description_scalability.md) | Skalierungsbeschreibung, Modusachsen, Queueing, Laufzeit | Merge-/Archiv-Kandidat zugunsten `SCALABILITY_100_STUDENTS.md` |
-| [`../ssot/ssot_function_description_serial_output.md`](../ssot/ssot_function_description_serial_output.md) | Serial-Output-Protokoll, Batching, Baudrate, Cleanup-Liste | Feature-SSOT; WebSocket/API-Details und ScrollArea-Aspekte abgrenzen |
+| [`../ssot/ssot_agent_policy.md`](../../../ssot/ssot_agent_policy.md) | Agenten-Workflow, Git-/Test-Governance, Runtime-Evidence-Regeln | Governance-Policy; normativ für Agentenarbeit, aber abzugrenzen von Repo-Dokumentation |
+| [`../ssot/ssot_io-registry.md`](../../../ssot/ssot_io-registry.md) | Hybrid-I/O-Registry, statisches/dynamisches Parsing, Telemetrie, UI-Ansicht | Feature-SSOT; soll auf Code-/Schema-Quellen und Archivberichte verweisen |
+| [`../ssot/ssot_function_definition_OutputPanel.md`](../../../ssot/ssot_function_definition_OutputPanel.md) | OutputPanel-Autoverhalten, Größenlogik, Persistenz, Tests | Feature-SSOT; ScrollArea-Aspekte müssen auf ADR 0002 verweisen |
+| [`../ssot/ssot_function_definition_PauseResume.md`](../../../ssot/ssot_function_definition_PauseResume.md) | Pause/Resume-Verhalten, Backend-/Frontend-Skizzen, Einschränkungen | Feature-SSOT; externe API-Verträge müssen auf `EXTERNAL_API.md` verweisen |
+| [`../ssot/ssot_function_definition_Typography.md`](../../../ssot/ssot_function_definition_Typography.md) | UI-Font-Scale, CSS-Variable, Tastenkürzel, Roadmap | UI-Design-SSOT; Roadmap/Historie trennen |
+| [`../ssot/ssot_function_description_Buttons.md`](../../../ssot/ssot_function_description_Buttons.md) | Button-Komponente, API, Varianten, Status, Testdetails | UI-Design-SSOT; erledigte Implementierungs-/Testhistorie auslagern |
+| `../ssot/ssot_function_description_scalability.md` | Skalierungsbeschreibung, Modusachsen, Queueing, Laufzeit | Historischer Merge-/Archiv-Kandidat; Datei existiert nicht mehr, aktuelle Kapazität steht in `docs/SCALABILITY.md` |
+| [`../ssot/ssot_function_description_serial_output.md`](../../../ssot/ssot_function_description_serial_output.md) | Serial-Output-Protokoll, Batching, Baudrate, Cleanup-Liste | Feature-SSOT; WebSocket/API-Details und ScrollArea-Aspekte abgrenzen |
 
 ### 2.4 Archiv und historische Quellen
 
 | Datei/Ordner | Rolle |
 | --- | --- |
-| [`docs/archive/README.md`](archive/README.md) | Einstiegspunkt für historische Dokumente; nicht normativ |
-| [`docs/archive/plans/`](archive/plans/) | Historische oder supersedierte Pläne |
-| [`docs/archive/reports/`](archive/reports/) | Historische Umsetzungs-, Performance- und Analyseberichte |
-| [`docs/archive/legacy/`](archive/legacy/) | Alte Architektur- und Refactoring-Entwürfe |
+| [`docs/archive/README.md`](../README.md) | Einstiegspunkt für historische Dokumente; nicht normativ |
+| [`docs/archive/plans/`](../plans/) | Historische oder supersedierte Pläne |
+| [`docs/archive/reports/`](../reports/) | Historische Umsetzungs-, Performance- und Analyseberichte |
+| [`docs/archive/legacy/`](../legacy/) | Alte Architektur- und Refactoring-Entwürfe |
 
 ---
 

@@ -371,7 +371,7 @@ export const config = {
     timeoutMs: envInt("UNOSIM_LLM_TIMEOUT_MS", 30_000, { min: 1_000, max: 120_000 }),
     /** Dedicated request-scoped tutor rate limit. */
     rateLimitWindowMs: envInt("TUTOR_RATE_LIMIT_WINDOW_MS", 60_000, { min: 1_000, max: 86_400_000 }),
-    rateLimitMaxRequests: envInt("TUTOR_RATE_LIMIT_MAX_REQUESTS", 5, { min: 1, max: 100 }),
+    rateLimitMaxRequests: envInt("TUTOR_RATE_LIMIT_MAX_REQUESTS", 20, { min: 1, max: 100 }),
     rateLimitBlockDurationMs: envInt("TUTOR_RATE_LIMIT_BLOCK_DURATION_MS", 30_000, { min: 1_000, max: 86_400_000 }),
     /** Managed mode secret; never included in getClientConfig(). */
     managedApiKey: process.env.UNOSIM_LLM_API_KEY,

@@ -1,6 +1,6 @@
 # Externe UnoSim-Beispiele
 
-> **Status: nicht-normativer historischer Implementierungsplan.**
+> **Status: archivierter, nicht-normativer historischer Implementierungsplan.**
 > Die External-Examples-Funktion ist inzwischen implementiert. Der aktuelle
 > Laufzeitvertrag ergibt sich aus `server/config.ts`, den Examples-Services und
 > den Routen `/api/examples` sowie `/api/examples/:id`. Dieses Dokument bewahrt

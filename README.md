@@ -9,7 +9,8 @@
 [![Issues](https://img.shields.io/github/issues-raw/MoDevIO/UnoSim?color=orange)](https://github.com/MoDevIO/UnoSim/issues)
 [![Pull Requests](https://img.shields.io/github/issues-pr-raw/MoDevIO/UnoSim?color=cyan)](https://github.com/MoDevIO/UnoSim/pulls)
 
-A web-based Arduino simulator that provides an interactive code editor, compilation and Arduino Preview for Arduino sketches directly in the browser.
+A web-based Arduino simulator with a browser UI, server-side Arduino compilation
+and an interactive Arduino Preview for sketches.
 
 > **Administration:** For local and server installation, see [`docs/INSTALL_LOCAL.md`](docs/INSTALL_LOCAL.md) and [`docs/INSTALL_SERVER.md`](docs/INSTALL_SERVER.md). Security requirements are in [`docs/SECURITY.md`](docs/SECURITY.md).
 
@@ -26,11 +27,11 @@ A web-based Arduino simulator that provides an interactive code editor, compilat
 ## Features
 
 - **Code Editor**: Monaco editor integration for writing Arduino sketches with syntax highlighting
-- **Compilation**: Compile Arduino code directly in the browser
+- **Compilation**: Compile Arduino code through the UnoSim backend
 - **Serial Monitor**: Real-time output display from simulated Arduino execution
 - **Pause/Resume Simulation**: Pause running sketches to inspect state, change pin values, and resume execution
 - **Arduino Preview**: A preview of analog/digital inputs and outputs directly in the Arduino SVG
-- **Web-based**: No installation required, run entirely in the browser
+- **Web-based UI**: Use the simulator in a browser; local/server installation runs the backend
 - **Modern UI**: Built with React and TailwindCSS for a responsive, professional interface
 - **I/O Registry**: You can see what Pins are used in your Program!
 
@@ -190,10 +191,10 @@ On macOS, make sure your project directory is allowed under Docker Desktop file 
 
 ### Architecture Overview
 
-- **Sandbox Runner Pool** — Manages a pool of sandbox processes that execute compiled Arduino binaries. Each simulation runs in an isolated child process with stdout/stderr capture for serial output and pin state reporting.
-- **Compilation Worker Pool** — In production mode, 4 Node.js Worker Threads handle compilations in parallel via the `CompilerWithFallback`. Each worker runs `arduino-cli` and caches build artifacts (hex files, core objects) for faster recompilation.
+- **Sandbox Runner Pool** — Manages runner leases for sketch execution. In the documented production path, each simulation runs in a short-lived isolated Docker sandbox with stdout/stderr capture for serial output and pin state reporting.
+- **Compilation Worker Pool** — In production mode, the configured Node.js Worker Thread pool handles compilations in parallel via `CompilerWithFallback`. The Compose reference uses 8 workers; capacity limits are documented in [`docs/SCALABILITY.md`](docs/SCALABILITY.md).
 - **WebSocket Layer** — Real-time communication between client and server for serial output, pin state batches, and simulation control (start/stop/pause/resume).
-- **SonarQube Integration** — Quality gate checks are built into the pre-push hook and the test pipeline (`./run-tests.sh`). Coverage reports are generated automatically.
+- **SonarQube Integration** — Optional SonarQube scans are wired into the pre-push hook and `./run-tests.sh` when `SONAR_TOKEN` and a reachable SonarQube service are available. Release blocking is controlled by `REQUIRE_RELEASE_GATE=1`.
 
 ## Notes for running tests (optional)
 
@@ -206,9 +207,10 @@ The repository contains a **robust, fast test pipeline**:
    `e2e/smoke-and-flow.spec.ts` for startup, compile/run with serial output, and
    dialogs. The repository also contains separate responsive, board, visual,
    and scalability E2E suites; run `npm run test:e2e` for the configured suite.
-3. Heavier **integration/load tests** under `tests/server/` are marked skipped by
-   default; set `SKIP_LOAD_TESTS=1` locally if you don’t have enough CPU or want a
-   quick check.
+3. Heavy stress tests are opt-in. Use `RUN_HEAVY_TESTS=1 ./run-tests.sh` when
+   validating Docker sandbox isolation and cleanup. Load-test commands are
+   listed in [`docs/RELEASE_RUNBOOK.md`](docs/RELEASE_RUNBOOK.md) and capacity
+   conclusions belong in [`docs/SCALABILITY.md`](docs/SCALABILITY.md).
 
 Local quick‑check example:
 
@@ -216,11 +218,9 @@ Local quick‑check example:
 npm run test:unit
 ```
 
-In CI, use a sufficiently‑powered runner and leave `SKIP_LOAD_TESTS` unset so the
-performance tests run as intended.
-
-> 🧹 After our recent refactor the pipeline runs in under a minute and should be
-> very stable – feel free to run it before pushing changes.
+For release gates, follow [`docs/RELEASE_RUNBOOK.md`](docs/RELEASE_RUNBOOK.md).
+Testing conventions and timing budgets are maintained in
+[`docs/TESTING_STANDARDS.md`](docs/TESTING_STANDARDS.md).
 
 ## License
 
@@ -247,12 +247,3 @@ licenses.
 - [Arduino Official Documentation](https://www.arduino.cc/reference/)
 - [Monaco Editor Documentation](https://microsoft.github.io/monaco-editor/)
 - [React Documentation](https://react.dev/)
-### Architecture & Performance
-
-The backend utilizes an Adapter Pattern for compilation:
-
-- CompilerWithFallback: Automatically manages task distribution.
-
-- Worker Isolation: Each compilation task runs in a separate thread, reducing API latency by ~30% under concurrent load.
-
-- Graceful Shutdown: Intelligent SIGTERM handling ensures all worker threads and file handles are closed properly.
