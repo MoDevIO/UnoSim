@@ -140,13 +140,71 @@ API-Key, Providerstatus und aktuelle Modellwahl bleiben dabei erhalten.
 Ein fehlgeschlagener Dialog-Request darf die bestehende Historie nicht verändern.
 Ein neuer Historieneintrag gilt erst nach erfolgreicher und validierter Serverantwort als übernommen.
 
-### 3.6 Antwortumfang des LLM
+### 3.6 Verständnisbewertung von Antworten
+
+Jede bewusst gesendete Studierendenantwort erhält bei einer normalen inhaltlichen Tutorantwort eine ganzzahlige Verständnisbewertung `answerRating` von `1` bis `5`.
+Die Bewertung ist eine didaktische Rückmeldung zum Verständnis dieser konkreten Antwort und ausdrücklich **keine Prüfungsnote**, keine Leistungs- oder Modulnote und kein dauerhaftes Kompetenzprofil.
+
+Die Rubrik lautet:
+
+| Wert | Verständnisrubrik |
+|---:|---|
+| 1 | Kein erkennbarer Bezug zum Sketch oder die Antwort ist fachlich überwiegend unbrauchbar. |
+| 2 | Einzelne passende Beobachtung, aber zentrale Zusammenhänge fehlen oder sind überwiegend falsch. |
+| 3 | Grundidee bzw. ein relevanter Zusammenhang ist richtig, die Erklärung bleibt jedoch teilweise unvollständig oder ungenau. |
+| 4 | Weitgehend richtige und am Sketch belegte Erklärung; kleinere Lücken oder Ungenauigkeiten bleiben. |
+| 5 | Vollständige, schlüssige und am Sketch belegte Erklärung des gefragten Zusammenhangs. |
+
+Die Bewertung bezieht sich nur auf die aktuelle Antwort und darf nicht als Prüfungsniveau interpretiert werden.
+Die initiale Lernfrage erhält keine Bewertung.
+Bei einer ganz offensichtlichen Quatschantwort, absurden oder vollständig themenfremden Antwort darf der Tutor stattdessen einen begrenzten philosophischen Fallback verwenden. Dieser Ausnahmefall MUSS mit `responseStyle: "philosophical"` gekennzeichnet sein; `answerRating` MUSS fehlen und es wird keine Bewertung angezeigt.
+
+Die Bewertung wird zusammen mit dem zugehörigen Tutor-Feedback im flüchtigen Dialogeintrag gehalten und dort als 1–5 Sterne angezeigt.
+Die Sessionbewertung ist der transparente arithmetische Mittelwert aller bisher vorhandenen `answerRating`-Werte der aktuellen Session; unbewertete Antworten werden nicht eingerechnet.
+Der Header zeigt die Sessionbewertung kompakt an. Ein Tooltip nennt den numerischen Mittelwert und die Anzahl bewerteter Antworten.
+Bei null bewerteten Antworten wird keine Sessionbewertung angezeigt.
+
+### 3.7 Relative didaktische Schwierigkeit
+
+Der Tutor verwendet eine ganzzahlige relative didaktische Schwierigkeit im Bereich `1..100`.
+Das bestehende grobe Konzept `basic | intermediate | advanced` wird nicht parallel weitergeführt.
+
+- `1` bedeutet sehr leicht.
+- `100` bedeutet sehr schwer.
+- Der Default-Startwert ist `30`.
+
+Das Frontend unterscheidet zwei Werte:
+
+- `configuredDifficulty`: vom Nutzer eingestellter Startwert einer Tutor-Session.
+- `effectiveDifficulty`: in der laufenden Session verwendeter, adaptiv angepasster Wert.
+
+`configuredDifficulty` ist die persistente Browserpräferenz des Nutzers. Sie wird unter dem
+Schlüssel `unoTutorConfiguredDifficulty` im Browser gespeichert; dort wird ausschließlich dieser
+nicht-sensitive Startwert abgelegt, niemals API-Key oder Dialoghistorie. Beim Start des Tutors
+und beim Beginn einer neuen Lernsession wird zuerst der gespeicherte Wert gelesen. Ein gespeicherter
+ganzzahliger Wert im Bereich `1..100` wird als `configuredDifficulty` verwendet. Fehlt der Wert oder
+ist er ungültig bzw. außerhalb dieses Bereichs, wird der Default `30` verwendet. `effectiveDifficulty`
+startet jede neue Session mit diesem konfigurierten Wert.
+
+Nur eine explizite Nutzeränderung von `configuredDifficulty` darf den Browserwert aktualisieren.
+Adaptive Änderungen an `effectiveDifficulty` schreiben niemals zurück. Das Zurücksetzen einer
+Session setzt ausschließlich `effectiveDifficulty` wieder auf `configuredDifficulty`; die persistente
+Präferenz bleibt unverändert.
+
+Die Skala beschreibt ausschließlich die relative didaktische Schwierigkeit der nächsten Lernfrage bzw. Folgefrage im Verhältnis zum aktuellen Sketch und Lernstand. Sie ist kein Prüfungsniveau und keine Benotung.
+Der jeweils effektive Wert wird beim Erzeugen der nächsten Lernfrage und bei jeder Folgefrage an den Tutor-Service übergeben, serverseitig validiert und im serverseitigen Prompt berücksichtigt.
+Nach normalen, bewerteten Antworten darf das Frontend `effectiveDifficulty` deterministisch aus den letzten bis zu vier Bewertungen anpassen. Schwache Antworten senken die Schwierigkeit kontrolliert, sehr gute Antworten erhöhen sie kontrolliert. Pro Schritt ist die Änderung auf `-6..+4` begrenzt, bleibt innerhalb `1..100` und ist keine Bewertung der Person.
+Ein philosophischer Fallback verändert weder Sessionbewertung noch `effectiveDifficulty`.
+`Neuen Dialog starten` bzw. `New learning question` setzt Dialog, Sessionbewertung und `effectiveDifficulty` auf `configuredDifficulty` zurück, behält aber API-Key, Providerstatus, Modellwahl und den konfigurierten Startwert.
+Client und Server weisen Werte außerhalb `1..100` zurück bzw. begrenzen Eingaben auf diesen Bereich.
+
+### 3.8 Antwortumfang des LLM
 
 Die an das Frontend zurückgegebene fachliche Nutzlast soll kurz sein.
 
 Ziel ist eine einzelne verständliche Frage. Zusätzliche interne Metadaten wie Thema oder Schwierigkeitsgrad dürfen übertragen werden, werden aber nicht als ausführliche Modellantwort dargestellt.
 
-### 3.7 Grafische Anreicherung mit Mermaid
+### 3.9 Grafische Anreicherung mit Mermaid
 
 Das LLM DARF eine Lernfrage optional durch eine kleine grafische Darstellung in **Mermaid** ergänzen, wenn dies den fachlichen Zusammenhang verständlicher macht.
 
@@ -266,11 +324,12 @@ Der Nutzer gibt einen persönlichen API-Key flüchtig in UnoSim ein.
 Eigenschaften:
 
 - Key bleibt ausschließlich im Arbeitsspeicher des Browser-Tabs.
-- Kein `localStorage`.
-- Kein `sessionStorage`.
-- Keine IndexedDB.
-- Kein Cookie.
-- Keine Persistenz nach Reload oder Schließen des Tabs.
+- Der API-Key wird nicht in `localStorage`, `sessionStorage`, IndexedDB oder Cookies gespeichert.
+- Dialoghistorie, Antwortentwürfe, Feedbacks und `effectiveDifficulty` bleiben flüchtig im RAM.
+- `configuredDifficulty` ist die einzige Tutor-Persistenzausnahme: Diese nicht-sensitive
+  Browserpräferenz darf unter `unoTutorConfiguredDifficulty` in `localStorage` gespeichert werden.
+- Abgesehen von dieser Difficulty-Präferenz gibt es keine Persistenz sensibler oder flüchtiger
+  Tutor-Daten nach Reload oder Schließen des Tabs.
 - Der Key wird nur für die konkrete LLM-Anfrage an das UnoSim-Backend übertragen.
 - Das Backend verwendet ihn ausschließlich request-scoped zum Aufruf des konfigurierten Providers.
 - Der Key darf weder serverseitig gespeichert noch geloggt werden.
@@ -421,10 +480,12 @@ Die fachliche Tutor-Antwort hat folgenden Vertrag:
 
 ```ts
 interface TutorResponse {
+  responseStyle?: "normal" | "philosophical";
   feedback?: string;
   question: string;
   topic?: string;
-  difficulty?: "basic" | "intermediate" | "advanced";
+  difficulty?: number; // integer 1..100
+  answerRating?: 1 | 2 | 3 | 4 | 5;
   mermaid?: string;
   provider: string;
   mode: "user-key" | "managed";
@@ -435,6 +496,9 @@ interface TutorResponse {
 Der Server MUSS mindestens prüfen:
 
 - `question` vorhanden,
+- `responseStyle` fehlt oder ist `normal` bzw. `philosophical`; fehlend bedeutet `normal`,
+- bei `responseStyle: "normal"` im Dialog ist `answerRating` vorhanden,
+- bei `responseStyle: "philosophical"` fehlt `answerRating`,
 - maximale Länge eingehalten,
 - keine leere Antwort,
 - optionales `feedback` ist kurz und darf keine vollständige Lösung enthalten,
@@ -591,6 +655,10 @@ Das Tutor-Panel benötigt mindestens:
 - Aktion `Neuen Dialog starten`,
 - Aktion „Lernfrage erzeugen“,
 - optionale lokale Mermaid-Darstellung zur grafischen Anreicherung,
+- Verständnisbewertung jeder normalen Studierendenantwort als 1–5 Sterne direkt beim zugehörigen Tutor-Feedback,
+- kompakte Sessionbewertung als Mittelwert mit Tooltip für Mittelwert und Anzahl bewerteter Antworten,
+- kompakte Start-Difficulty-Einstellung `1..100`, Default `30`,
+- adaptive effektive Difficulty innerhalb einer laufenden Session; im Debug-Mode kompakt sichtbar,
 - Ladezustand,
 - verständliche Fehleranzeige.
 
@@ -623,6 +691,12 @@ Vor der ersten LLM-Nutzung muss erkennbar sein:
 - dass der aktuelle Sketch zur Fragengenerierung an diesen Provider übertragen wird,
 - ob ein persönlicher oder institutionell verwalteter Zugang verwendet wird.
 
+Im Debug-Mode zeigt der Tutor-Header rechts neben der `?`-Aktion den tatsächlich verwendeten Modellnamen der letzten erfolgreichen Anfrage. Bei `Automatisch` ist dies der vom Provider aufgelöste reale Modellname; außerhalb des Debug-Mode wird kein Modellname angezeigt.
+Die aktuelle `effectiveDifficulty` wird dauerhaft kompakt zwischen der `?`-Aktion und der
+Sessionbewertung angezeigt, z. B. als `D42`. Ein Tooltip erklärt, dass es sich um den aktuell
+adaptiven Schwierigkeitsgrad der Session handelt; die Anzeige wird nach jeder adaptiven Änderung
+aktualisiert. Der konfigurierte Startwert bleibt in den Tutor-Einstellungen sichtbar.
+
 ### 10.10 Dialogzustand und Zurücksetzen
 
 Die Dialoghistorie wird ausschließlich im RAM des Browser-Tabs gehalten.
@@ -635,6 +709,9 @@ Sie umfasst höchstens das definierte Sliding Window und enthält keine Credenti
 - den Provider-/Zugangsstatus beibehalten,
 - den API-Key beibehalten,
 - die aktuelle Modellwahl beibehalten.
+- den konfigurierten Difficulty-Startwert beibehalten,
+- die effektive Difficulty wieder auf den konfigurierten Startwert setzen,
+- die Sessionbewertung zurücksetzen.
 
 Das Zurücksetzen darf keine automatische neue LLM-Anfrage auslösen.
 
@@ -650,7 +727,7 @@ Das Zurücksetzen darf keine automatische neue LLM-Anfrage auslösen.
 3. Key liegt nur im RAM des Browser-Tabs.
 4. Nutzer kann die aktuelle Modellliste bewusst laden und `Automatisch` oder ein verfügbares Modell auswählen.
 5. Nutzer fordert eine Lernfrage an.
-6. Browser sendet Sketch + request-scoped Credential + optionale Modellwahl an UnoSim.
+6. Browser sendet Sketch + request-scoped Credential + optionale Modellwahl + effektive Difficulty `1..100` an UnoSim.
 7. UnoSim bildet den didaktischen Kontext.
 8. TutorService erzeugt den serverseitigen Prompt.
 9. LLMProvider ruft den konfigurierten Provider auf.
@@ -666,12 +743,12 @@ Der Ablauf ist identisch, nur wird kein persönliches Credential aus dem Browser
 
 1. Das Frontend hält Frage, Antwortentwurf und begrenzte Dialoghistorie ausschließlich im Browser-RAM.
 2. Der Nutzer gibt eine Antwort ein und löst `Antwort senden` bewusst aus.
-3. Das Frontend sendet aktuellen Sketch, begrenzte Dialoghistorie, aktuelle Nutzerantwort und die optionale Modellwahl an UnoSim.
+3. Das Frontend sendet aktuellen Sketch, begrenzte Dialoghistorie, aktuelle Nutzerantwort, die optionale Modellwahl und effektive Difficulty `1..100` an UnoSim.
 4. Das Credential wird separat request-scoped übertragen und ist kein Bestandteil der Historie oder des Dialoginhalts.
 5. Der Server validiert Requestgröße und Historienfenster, ergänzt deterministischen UnoSim-Kontext und erzeugt den serverseitigen Tutor-Prompt.
-6. Der Provider liefert optional kurzes Feedback und genau eine Folgefrage.
+6. Der Provider liefert optional kurzes Feedback, bei einer normalen Antwort `responseStyle: "normal"`, `answerRating` `1..5` und genau eine Folgefrage. Für offensichtlich unsinnige, absurde oder vollständig themenfremde Antworten darf der Server stattdessen begrenzt mit `responseStyle: "philosophical"` und ohne `answerRating` reagieren.
 7. Der Server validiert die Antwort, bevor sie an das Frontend zurückgegeben wird.
-8. Nur bei Erfolg übernimmt das Frontend den neuen Dialogschritt atomar in sein Sliding Window.
+8. Nur bei Erfolg übernimmt das Frontend den neuen Dialogschritt atomar in sein Sliding Window. Nur normale bewertete Antworten fließen in Sessionbewertung und adaptive Difficulty ein.
 
 Bei Fehlern bleiben bestehende Historie und Antwortentwurf unverändert.
 
@@ -908,7 +985,7 @@ Der erste produktnahe Pilot umfasst:
 
 Nicht Teil des MVP:
 
-- automatische Bewertung oder Benotung freier Studierendenantworten,
+- automatische Prüfungsbewertung oder Benotung freier Studierendenantworten,
 - unbegrenzter oder langfristig gespeicherter Chatverlauf,
 - automatische Kompetenzmodelle,
 - Notengebung,
@@ -922,7 +999,6 @@ Nicht Teil des MVP:
 
 Nicht normativ für den MVP:
 
-- Schwierigkeitsanpassung anhand vorheriger Antworten,
 - Challenge-Modus mit kleinen Programmieraufgaben,
 - gezielte Fragen zu beobachteter Runtime-Telemetrie,
 - Lehrenden-Vorgaben für Themen oder Lernziele,
@@ -950,6 +1026,12 @@ Das Feature gilt im MVP als fachlich umgesetzt, wenn:
 - ein persönlicher Key ausschließlich flüchtig und request-scoped verwendet wird,
 - verfügbare Modelle serverseitig über `GET /v1/models` ermittelt werden,
 - `Automatisch` nur aktuell verfügbare Modelle verwendet und veraltete manuelle Auswahl auf `Automatisch` zurückfällt,
+- normale Antworten eine Verständnisbewertung `1..5` erhalten, diese beim Feedback als Sterne erscheint und der Sessionmittelwert transparent mit Anzahl angezeigt wird,
+- offensichtlich unsinnige, absurde oder vollständig themenfremde Antworten einen begrenzten philosophischen Fallback ohne Sterne, ohne Sessionrating-Änderung und ohne Difficulty-Änderung erhalten können,
+- die initiale Frage unbewertet bleibt und `New learning question` Dialog sowie Sessionbewertung zurücksetzt, aber den konfigurierten Difficulty-Startwert, Key und Modellwahl erhält,
+- Difficulty `1..100` (Default-Startwert `30`) für initiale und Folgefragen serverseitig berücksichtigt und außerhalb der Range abgewiesen oder begrenzt wird,
+- die effektive Difficulty innerhalb einer Session aus normalen bewerteten Antworten adaptiv angepasst und bei neuem Dialog auf den konfigurierten Startwert zurückgesetzt wird,
+- der letzte tatsächlich verwendete Modellname nur im Debug-Mode neben `?` erscheint,
 - der Browser keinen externen LLM-Provider direkt anspricht,
 - der Provider später ohne grundlegenden Umbau des Lernfragen-Panels austauschbar ist,
 - alle definierten Sicherheits- und Testanforderungen erfüllt sind.

@@ -92,6 +92,7 @@ describe("Tutor HTTP route", () => {
       "void setup(){} void loop(){}",
       "request-only-secret",
       undefined,
+      30,
     );
   });
 
@@ -166,11 +167,12 @@ describe("Tutor HTTP route", () => {
     });
     expect(service.generateDialogResponse).toHaveBeenCalledWith(
       "void setup(){} void loop(){}",
-      [{ question: "Was siehst du?", answer: "Eine Ausgabe." }],
+      [{ question: "Was siehst du?", answer: "Eine Ausgabe.", responseStyle: "normal" }],
       "Was siehst du?",
       "Eine Ausgabe.",
       "request-only-secret",
       undefined,
+      30,
     );
   });
 

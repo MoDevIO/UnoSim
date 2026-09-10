@@ -179,13 +179,17 @@ function TutorPlaceholder({
   style,
   code = "",
   tutor,
+  debugMode = false,
 }: {
   readonly className?: string;
   readonly style?: React.CSSProperties;
   readonly code?: string;
   readonly tutor?: TutorPanelState;
+  readonly debugMode?: boolean;
 }) {
   const [showKeyView, setShowKeyView] = useState(false);
+  const sessionRating = tutor?.sessionRating ?? null;
+  const ratedAnswerCount = tutor?.ratedAnswerCount ?? 0;
 
   return (
     <section
@@ -199,37 +203,67 @@ function TutorPlaceholder({
           title="Tutor"
           icon={<MessageCircleQuestion className="h-3.5 w-3.5" aria-hidden="true" />}
           centerAction={tutor ? (
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="absolute left-1/2 h-9 w-9 -translate-x-1/2 rounded-full border border-border/70 bg-background/20"
-              aria-label="New learning question"
-              title="New learning question"
-              onClick={() => {
-                setShowKeyView(false);
-                tutor.resetDialog();
-                void tutor.generateQuestion(code);
-              }}
-              disabled={tutor.isLoading}
-              data-testid="tutor-new-question-action"
-            >
-              <CircleHelp className="!h-6 !w-6" aria-hidden="true" />
-            </Button>
+            <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9 rounded-full border border-border/70 bg-background/20"
+                aria-label="New learning question"
+                title="New learning question"
+                onClick={() => {
+                  setShowKeyView(false);
+                  tutor.resetDialog();
+                  void tutor.generateQuestion(code);
+                }}
+                disabled={tutor.isLoading}
+                data-testid="tutor-new-question-action"
+              >
+                <CircleHelp className="!h-6 !w-6" aria-hidden="true" />
+              </Button>
+              <span
+                className="text-ui-xs text-muted-foreground"
+                data-testid="tutor-effective-difficulty"
+                title={`Current adaptive difficulty for this session: ${tutor.effectiveDifficulty} / 100`}
+              >
+                D{tutor.effectiveDifficulty}
+              </span>
+              {sessionRating !== null && (
+                <span
+                  className="text-ui-xs text-amber-500"
+                  aria-label={`Session rating ${sessionRating.toFixed(2)} out of 5 from ${ratedAnswerCount} rated answers`}
+                  title={`Session rating: ${sessionRating.toFixed(2)} / 5 · ${ratedAnswerCount} rated answers`}
+                  data-testid="tutor-session-rating"
+                >
+                  ★ {sessionRating.toFixed(2)}
+                </span>
+              )}
+            </div>
           ) : undefined}
           actions={tutor ? (
-            <Button
-              type="button"
-              size="icon"
-              variant={showKeyView ? "secondary" : "ghost"}
-              className="h-8 w-8"
-              aria-label="API key"
-              title="API key"
-              onClick={() => setShowKeyView(true)}
-              data-testid="tutor-api-key-action"
-            >
-              <KeyRound className="!h-5 !w-5" aria-hidden="true" />
-            </Button>
+            <>
+              {debugMode && tutor.lastUsedModel && (
+                <span
+                  className="max-w-32 truncate text-ui-xs text-muted-foreground"
+                  data-testid="tutor-last-used-model"
+                  title={`Last used model: ${tutor.lastUsedModel}`}
+                >
+                  {tutor.lastUsedModel}
+                </span>
+              )}
+              <Button
+                type="button"
+                size="icon"
+                variant={showKeyView ? "secondary" : "ghost"}
+                className="h-8 w-8"
+                aria-label="API key"
+                title="API key"
+                onClick={() => setShowKeyView(true)}
+                data-testid="tutor-api-key-action"
+              >
+                <KeyRound className="!h-5 !w-5" aria-hidden="true" />
+              </Button>
+            </>
           ) : undefined}
         />
         {tutor ? (
@@ -337,6 +371,18 @@ function TutorPanelContent({
                 <option value="auto">Automatic</option>
                 {tutor.availableModels.map((model) => <option key={model} value={model}>{model}</option>)}
               </select>
+              <label htmlFor="tutor-difficulty" className="mt-4 block text-ui-xs font-medium text-foreground">Start difficulty (1–100)</label>
+              <input
+                id="tutor-difficulty"
+                type="number"
+                min={1}
+                max={100}
+                step={1}
+                value={tutor.configuredDifficulty ?? 30}
+                onChange={(event) => tutor.setConfiguredDifficulty(Number(event.target.value))}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground"
+                title="Session start difficulty: 1 very easy, 100 very hard"
+              />
             </div>
           )}
 
@@ -367,10 +413,21 @@ function TutorPanelContent({
                 <p className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">Du</p>
                 <p className="mt-1 whitespace-pre-wrap leading-relaxed text-foreground">{turn.answer}</p>
               </div>
-              {turn.feedback && (
+              {(turn.feedback || turn.answerRating !== undefined) && (
                 <div className="max-w-[88%] rounded-lg border border-border/60 px-4 py-3" data-testid="tutor-history-feedback">
-                  <p className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">Tutor feedback</p>
-                  <p className="mt-1 leading-relaxed text-muted-foreground">{turn.feedback}</p>
+                  <p className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {turn.responseStyle === "philosophical" ? "Tutor reflection" : "Tutor feedback"}
+                  </p>
+                  {turn.feedback && <p className="mt-1 leading-relaxed text-muted-foreground">{turn.feedback}</p>}
+                  {turn.answerRating !== undefined && (
+                    <span
+                      className="mt-2 inline-block text-amber-500"
+                      aria-label={`Understanding rating ${turn.answerRating} out of 5`}
+                      data-testid="tutor-answer-rating"
+                    >
+                      {"★".repeat(turn.answerRating)}{"☆".repeat(5 - turn.answerRating)}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -379,8 +436,8 @@ function TutorPanelContent({
           {tutor.question && (
             <div className="max-w-[88%] rounded-lg bg-muted/30 px-4 py-3" data-testid="tutor-question">
               <div className="flex items-center justify-between gap-2 text-ui-xs text-muted-foreground">
-                <span>{tutor.question.topic ?? "Learning question"}</span>
-                <span>{tutor.question.difficulty ?? ""}</span>
+                <span>{tutor.question.responseStyle === "philosophical" ? "Philosophical fallback" : tutor.question.topic ?? "Learning question"}</span>
+                <span>{tutor.question.difficulty === undefined ? "D—" : `D${tutor.question.difficulty}`}</span>
               </div>
               <p className="mt-2 font-medium leading-relaxed text-foreground">{tutor.question.question}</p>
               {tutor.question.mermaid && <MermaidPreview source={tutor.question.mermaid} />}
@@ -440,13 +497,15 @@ export function TutorWorkspacePlaceholder({
   style,
   code,
   tutor,
+  debugMode,
 }: {
   readonly className?: string;
   readonly style?: React.CSSProperties;
   readonly code?: string;
   readonly tutor?: TutorPanelState;
+  readonly debugMode?: boolean;
 }) {
-  return <TutorPlaceholder className={className} style={style} code={code} tutor={tutor} />;
+  return <TutorPlaceholder className={className} style={style} code={code} tutor={tutor} debugMode={debugMode} />;
 }
 
 interface ExperimentalWorkspaceProps {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { TutorContentResult } from "@shared/tutor";
+import { tutorDifficultySchema, tutorAnswerRatingSchema, tutorResponseStyleSchema, type TutorContentResult } from "@shared/tutor";
 import { config } from "../../config";
 import { Logger } from "@shared/logger";
 import {
@@ -86,32 +86,64 @@ function parseOptionalText(value: unknown, maxLength: number): string | undefine
   return text.length > 0 && text.length <= maxLength ? text : undefined;
 }
 
-function parseTutorContent(content: string): TutorContentResult {
-  const candidate = extractJsonContent(content);
-  if (typeof candidate === "string") {
-    const question = candidate.trim();
-    if (!question || question.length > 2_000) throw new TutorProviderError("invalid-response");
-    return { question };
-  }
-  if (typeof candidate !== "object" || candidate === null || !("question" in candidate)) {
+function candidateValue(candidate: Record<string, unknown>, key: string): unknown {
+  return candidate[key];
+}
+
+function parseOptionalDifficulty(value: unknown): TutorContentResult["difficulty"] {
+  const numericValue = typeof value === "string" ? Number(value.trim()) : value;
+  return tutorDifficultySchema.safeParse(numericValue).success ? numericValue as number : undefined;
+}
+
+function parseOptionalAnswerRating(value: unknown): TutorContentResult["answerRating"] {
+  const numericValue = typeof value === "string" ? Number(value.trim()) : value;
+  return tutorAnswerRatingSchema.safeParse(numericValue).success ? numericValue as number : undefined;
+}
+
+function parseOptionalResponseStyle(value: unknown): TutorContentResult["responseStyle"] | undefined {
+  return tutorResponseStyleSchema.safeParse(value).success ? value as TutorContentResult["responseStyle"] : undefined;
+}
+
+function parseTutorContentObject(candidate: Record<string, unknown>): TutorContentResult {
+  const question = parseOptionalText(candidateValue(candidate, "question"), 2_000);
+  if (!question) throw new TutorProviderError("invalid-response");
+  const feedback = parseOptionalText(candidateValue(candidate, "feedback"), 1_000);
+  const topic = parseOptionalText(candidateValue(candidate, "topic"), 120);
+  const mermaid = parseOptionalText(candidateValue(candidate, "mermaid"), 12_000);
+  const difficulty = parseOptionalDifficulty(candidateValue(candidate, "difficulty"));
+  const answerRating = parseOptionalAnswerRating(candidateValue(candidate, "answerRating"));
+  const responseStyle = parseOptionalResponseStyle(candidateValue(candidate, "responseStyle"));
+  if (responseStyle === "philosophical" && answerRating !== undefined) {
     throw new TutorProviderError("invalid-response");
   }
-  const question = parseOptionalText(candidate.question, 2_000);
-  if (!question) throw new TutorProviderError("invalid-response");
-  const feedback = parseOptionalText("feedback" in candidate ? candidate.feedback : undefined, 1_000);
-  const topic = parseOptionalText("topic" in candidate ? candidate.topic : undefined, 120);
-  const mermaid = parseOptionalText("mermaid" in candidate ? candidate.mermaid : undefined, 12_000);
-  const rawDifficulty = "difficulty" in candidate ? candidate.difficulty : undefined;
-  const difficulty = rawDifficulty === "basic" || rawDifficulty === "intermediate" || rawDifficulty === "advanced"
-    ? rawDifficulty
-    : undefined;
-  return {
+  const commonResult = {
     question,
     ...(feedback ? { feedback } : {}),
     ...(topic ? { topic } : {}),
     ...(difficulty ? { difficulty } : {}),
     ...(mermaid ? { mermaid } : {}),
   };
+  if (responseStyle === "philosophical") {
+    return { ...commonResult, responseStyle: "philosophical" };
+  }
+  return {
+    ...commonResult,
+    responseStyle: "normal",
+    ...(answerRating === undefined ? {} : { answerRating }),
+  };
+}
+
+function parseTutorContent(content: string): TutorContentResult {
+  const candidate = extractJsonContent(content);
+  if (typeof candidate === "string") {
+    const question = candidate.trim();
+    if (!question || question.length > 2_000) throw new TutorProviderError("invalid-response");
+    return { question, responseStyle: "normal" };
+  }
+  if (typeof candidate !== "object" || candidate === null || !("question" in candidate)) {
+    throw new TutorProviderError("invalid-response");
+  }
+  return parseTutorContentObject(candidate);
 }
 
 function parseProviderQuestion(body: unknown, model: string, logger: Logger): ProviderQuestionResult {

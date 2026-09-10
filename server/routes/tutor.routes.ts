@@ -115,6 +115,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.code,
         parsed.data.credential,
         parsed.data.model,
+        parsed.data.difficulty,
       );
       res.json({
         ...generated.result,
@@ -181,6 +182,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.answer,
         parsed.data.credential,
         parsed.data.model,
+        parsed.data.difficulty,
       );
       res.json({
         ...generated.result,

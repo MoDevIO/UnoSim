@@ -24,7 +24,7 @@ describe("KiconnectProvider", () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ id: "pilot-model" }] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        choices: [{ message: { content: "```json\n{\"feedback\":\"Deine Begründung geht in die richtige Richtung.\",\"question\":\"Was ändert sich, wenn der Pegel erneut gesetzt wird?\",\"topic\":null,\"difficulty\":null,\"mermaid\":null}\n```" } }],
+        choices: [{ message: { content: "```json\n{\"responseStyle\":\"normal\",\"feedback\":\"Deine Begründung geht in die richtige Richtung.\",\"answerRating\":\"4\",\"question\":\"Was ändert sich, wenn der Pegel erneut gesetzt wird?\",\"topic\":null,\"difficulty\":\"70\",\"mermaid\":null}\n```" } }],
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -38,7 +38,10 @@ describe("KiconnectProvider", () => {
       model: "pilot-model",
       result: {
         feedback: "Deine Begründung geht in die richtige Richtung.",
+        answerRating: 4,
+        responseStyle: "normal",
         question: "Was ändert sich, wenn der Pegel erneut gesetzt wird?",
+        difficulty: 70,
       },
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
