@@ -116,7 +116,7 @@ export function normalizeRepositoryInput(value: string): string | null {
     const segments = url.pathname.split("/").filter(Boolean);
     if (segments.length !== 2) return null;
     return canonicalRepository(
-      `${segments[0]}/${segments[1]!.replace(/\.git$/i, "")}`,
+      `${segments[0]}/${segments[1].replace(/\.git$/i, "")}`,
     );
   } catch {
     return null;
@@ -157,7 +157,7 @@ export async function validateExternalExamplesSelection(
   });
   if (!response.ok) throw await parseApiError(response);
   const payload = await parseJson(response);
-  if (!payload || payload.valid !== true || !isExternalSource(payload.source)) {
+  if (payload?.valid !== true || !isExternalSource(payload?.source)) {
     throw new ExternalExamplesError(
       "UNKNOWN",
       "The server returned an invalid validation response.",

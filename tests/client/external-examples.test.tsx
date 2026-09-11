@@ -131,7 +131,7 @@ describe("external examples client contract", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Validate" }));
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("ref is invalid"),
+      expect(screen.getByText("The ref is invalid.")).toBeInTheDocument(),
     );
     expect(
       JSON.parse(localStorage.getItem(EXTERNAL_EXAMPLES_STORAGE_KEY)!),

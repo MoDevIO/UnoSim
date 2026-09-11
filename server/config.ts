@@ -145,41 +145,26 @@ export interface ParsedExamplesConfig {
   snapshotCacheMaxBytes: number;
 }
 
+function resolveExamplesSourceConfig(env: NodeJS.ProcessEnv, nodeEnv: string): Pick<ParsedExamplesConfig, "mode" | "source" | "ref" | "repository" | "allowedHosts"> {
+  const sourceInput = (env.UNOSIM_EXAMPLES_SOURCE ?? "ttbombadil/unosim-examples").trim();
+  const configuredRef = (env.UNOSIM_EXAMPLES_REF ?? "").trim();
+  const defaultAllowedHosts = nodeEnv === "production" ? "" : "api.github.com,raw.githubusercontent.com";
+  const allowedHosts = (env.UNOSIM_EXAMPLES_ALLOWED_HOSTS ?? defaultAllowedHosts).split(",").map((host) => host.trim().toLowerCase()).filter(Boolean);
+  if (env.UNOSIM_EXAMPLES_CHANNEL !== undefined) throw new Error("UNOSIM_EXAMPLES_CHANNEL is no longer supported; configure UNOSIM_EXAMPLES_REF instead");
+  if (!sourceInput && configuredRef) throw new Error("UNOSIM_EXAMPLES_SOURCE is required when UNOSIM_EXAMPLES_REF is configured");
+  const repository = sourceInput ? normalizeRepositoryInput(sourceInput, { allowRawGithub: true }) : null;
+  if (sourceInput && !repository) throw new Error("UNOSIM_EXAMPLES_SOURCE must be a public GitHub repository slug or repository URL");
+  const ref = repository ? configuredRef || "main" : "";
+  if (ref && !examplesRefSchema.safeParse(ref).success) throw new Error("UNOSIM_EXAMPLES_REF has an invalid ref syntax");
+  if (repository && nodeEnv === "production" && allowedHosts.length === 0) throw new Error("UNOSIM_EXAMPLES_ALLOWED_HOSTS is required for external examples in production");
+  return { mode: repository ? "repository-ref" : "builtin", source: repository ?? "", ref, repository, allowedHosts };
+}
+
 export function parseExamplesConfig(
   env: NodeJS.ProcessEnv,
   nodeEnv = env.NODE_ENV ?? "development",
 ): ParsedExamplesConfig {
-  const sourceInput = (env.UNOSIM_EXAMPLES_SOURCE ?? "ttbombadil/unosim-examples").trim();
-  const configuredRef = (env.UNOSIM_EXAMPLES_REF ?? "").trim();
-  const removedChannelIsPresent = env.UNOSIM_EXAMPLES_CHANNEL !== undefined;
-  const defaultAllowedHosts = nodeEnv === "production"
-    ? ""
-    : "api.github.com,raw.githubusercontent.com";
-  const allowedHosts = (env.UNOSIM_EXAMPLES_ALLOWED_HOSTS ?? defaultAllowedHosts)
-    .split(",")
-    .map((host) => host.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (removedChannelIsPresent) {
-    throw new Error("UNOSIM_EXAMPLES_CHANNEL is no longer supported; configure UNOSIM_EXAMPLES_REF instead");
-  }
-  if (!sourceInput && configuredRef) {
-    throw new Error("UNOSIM_EXAMPLES_SOURCE is required when UNOSIM_EXAMPLES_REF is configured");
-  }
-  const repository = sourceInput
-    ? normalizeRepositoryInput(sourceInput, { allowRawGithub: true })
-    : null;
-  if (sourceInput && !repository) {
-    throw new Error("UNOSIM_EXAMPLES_SOURCE must be a public GitHub repository slug or repository URL");
-  }
-  const ref = repository ? configuredRef || "main" : "";
-  if (ref && !examplesRefSchema.safeParse(ref).success) {
-    throw new Error("UNOSIM_EXAMPLES_REF has an invalid ref syntax");
-  }
-  if (repository && nodeEnv === "production" && allowedHosts.length === 0) {
-    throw new Error("UNOSIM_EXAMPLES_ALLOWED_HOSTS is required for external examples in production");
-  }
-  const mode = repository ? "repository-ref" : "builtin";
+  const source = resolveExamplesSourceConfig(env, nodeEnv);
 
   const int = (key: string, fallback: number, min: number, max: number) =>
     parseEnvInt(key, env[key], fallback, { min, max });
@@ -200,10 +185,7 @@ export function parseExamplesConfig(
   }
 
   return {
-    mode,
-    source: repository ?? "",
-    ref,
-    repository,
+    ...source,
     refreshMs,
     refreshRetryMs: int("UNOSIM_EXAMPLES_REFRESH_RETRY_MS", 30_000, 1_000, refreshMs),
     timeoutMs: int("UNOSIM_EXAMPLES_TIMEOUT_MS", 5_000, 100, 120_000),
@@ -211,7 +193,7 @@ export function parseExamplesConfig(
     maxFileBytes: int("UNOSIM_EXAMPLES_MAX_FILE_BYTES", 128 * 1024, 1, 10 * 1_048_576),
     maxTotalBytes,
     maxFiles: int("UNOSIM_EXAMPLES_MAX_FILES", 100, 1, 10_000),
-    allowedHosts,
+    allowedHosts: source.allowedHosts,
     validateRateLimitMaxRequests: int("UNOSIM_EXAMPLES_VALIDATE_RATE_LIMIT_MAX_REQUESTS", 5, 1, 30),
     overrideRateLimitMaxRequests: int("UNOSIM_EXAMPLES_OVERRIDE_RATE_LIMIT_MAX_REQUESTS", 60, 10, 600),
     globalLoadStartsPerMinute: int("UNOSIM_EXAMPLES_GLOBAL_LOAD_STARTS_PER_MINUTE", 20, 1, 120),

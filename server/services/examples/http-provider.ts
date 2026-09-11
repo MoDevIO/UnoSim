@@ -72,7 +72,7 @@ export class RevisionProvider {
     const examples = manifest.examples.map((example, exampleIndex) => ({
       ...example,
       files: filesToLoad
-        .map((item, index) => ({ item, file: loaded[index]! }))
+        .map((item, index) => ({ item, file: loaded[index] }))
         .filter(({ item }) => item.exampleIndex === exampleIndex)
         .map(({ file }) => file),
       source: "external" as const,

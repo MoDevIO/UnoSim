@@ -203,12 +203,12 @@ export function ExternalExamplesSettings({
         )}
       </div>
       {message && (
-        <div
-          role="status"
+        <output
+          aria-live="polite"
           className={`mt-3 text-ui-sm ${message.kind === "error" ? "text-destructive" : "text-status-success"}`}
         >
           {message.text}
-        </div>
+        </output>
       )}
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <Button

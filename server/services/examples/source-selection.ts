@@ -38,7 +38,7 @@ export function normalizeRepositoryInput(
   if (host !== "github.com" && !(options.allowRawGithub && host === "raw.githubusercontent.com")) return null;
   const segments = url.pathname.split("/").filter(Boolean);
   if (segments.length !== 2) return null;
-  return parseCanonicalCandidate(`${segments[0]}/${segments[1]!.replace(/\.git$/i, "")}`);
+  return parseCanonicalCandidate(`${segments[0]}/${segments[1].replace(/\.git$/i, "")}`);
 }
 
 export function toGithubRawRepositoryBase(repository: RepositorySlug): URL {

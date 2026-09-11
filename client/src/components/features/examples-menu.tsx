@@ -251,14 +251,13 @@ export function ExamplesMenu({
     if (loadingExampleId) return;
     setLoadingExampleId(example.id);
     try {
-      const query =
-        example.source === "external"
-          ? example.repository && example.revision
-            ? `?repository=${encodeURIComponent(example.repository)}&revision=${encodeURIComponent(example.revision)}`
-            : null
-          : "";
-      if (query === null)
-        throw new Error("Example catalog has no revision context");
+      let query = "";
+      if (example.source === "external") {
+        if (!example.repository || !example.revision) {
+          throw new Error("Example catalog has no revision context");
+        }
+        query = `?repository=${encodeURIComponent(example.repository)}&revision=${encodeURIComponent(example.revision)}`;
+      }
       const response = await fetch(
         `/api/examples/${encodeURIComponent(example.id)}${query}`,
       );

@@ -18,7 +18,7 @@ export class GitHubRevisionResolver implements RevisionResolver {
   ): Promise<FullCommitSha> {
     const [owner, name] = repository.split("/");
     const url = new URL(
-      `/repos/${encodeURIComponent(owner!)}/${encodeURIComponent(name!)}/commits/${encodeURIComponent(ref)}`,
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/commits/${encodeURIComponent(ref)}`,
       "https://api.github.com",
     );
     let text: string;
