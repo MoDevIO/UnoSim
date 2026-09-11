@@ -114,6 +114,13 @@ function buildDialogTurn(
     question,
     answer,
     ...(response.feedback ? { feedback: response.feedback } : {}),
+    ...(response.topicId ? { topicId: response.topicId } : {}),
+    ...(response.conceptId ? { conceptId: response.conceptId } : {}),
+    ...(response.questionId ? { questionId: response.questionId } : {}),
+    ...(response.indicatorId ? { indicatorId: response.indicatorId } : {}),
+    ...(response.questionKind ? { questionKind: response.questionKind } : {}),
+    ...(response.strategyId ? { strategyId: response.strategyId } : {}),
+    ...(response.contentRevision ? { contentRevision: response.contentRevision } : {}),
   };
   if (response.responseStyle === "philosophical") {
     return { ...baseTurn, responseStyle: "philosophical" };

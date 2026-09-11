@@ -1,0 +1,193 @@
+schemaVersion: 1
+id: memory-and-data-types
+title: Speicher und Datentypen
+locale: de-DE
+
+activation:
+  any:
+    - fact: type-used
+      values: [char, byte, int, long, float]
+    - fact: array-declared
+    - fact: serial-call
+      values: [write]
+
+concepts:
+  - id: value-vs-storage
+    title: Wert und Speicherung unterscheiden
+    objective: >-
+      Der Lernende kann erklären, dass ein Datentyp sowohl die Interpretation
+      als auch den Speicherbedarf eines Werts bestimmt.
+    prerequisites: []
+    difficulty:
+      entry: [10, 30]
+      transfer: [31, 55]
+    misconceptions:
+      - id: values-have-no-type
+        description: Zahlenwerte werden als typunabhängig betrachtet.
+      - id: printed-form-equals-storage
+        description: Die sichtbare Ausgabe wird mit der internen Speicherung gleichgesetzt.
+    indicators:
+      - id: distinguishes-value-and-representation
+        description: Unterscheidet einen Wert von seiner binären Repräsentation.
+    mastery:
+      minimumSuccessfulProbes: 2
+      successRatingAtLeast: 4
+      requiredIndicators: [distinguishes-value-and-representation]
+      minimumDistinctQuestionKinds: 2
+      recentWeakAnswersAllowed: 0
+
+  - id: integer-width
+    title: Speicherbreite ganzzahliger Typen
+    objective: >-
+      Der Lernende kann den Speicherbedarf der im Sketch verwendeten
+      Ganzzahltypen für den Arduino Uno bestimmen.
+    prerequisites: [value-vs-storage]
+    difficulty:
+      entry: [15, 30]
+      transfer: [35, 60]
+    misconceptions:
+      - id: host-width-transfer
+        description: Die int-Breite eines Desktop-Computers wird auf den Uno übertragen.
+      - id: all-integers-same-size
+        description: Alle ganzzahligen Typen werden als gleich groß angenommen.
+    indicators:
+      - id: states-uno-int-width
+        description: Erkennt, dass int auf dem Zielsystem zwei Bytes belegt.
+      - id: calculates-array-storage
+        description: Berechnet den Speicherbedarf eines konkreten Arrays.
+    mastery:
+      minimumSuccessfulProbes: 2
+      successRatingAtLeast: 4
+      requiredIndicators: [states-uno-int-width, calculates-array-storage]
+      minimumDistinctQuestionKinds: 2
+      recentWeakAnswersAllowed: 0
+
+  - id: char-numeric-representation
+    title: Zeichen und Zahlenrepräsentation
+    objective: >-
+      Der Lernende kann erklären, weshalb char-Werte sowohl als Zahl
+      als auch als Zeichen interpretiert werden können.
+    prerequisites: [value-vs-storage]
+    difficulty:
+      entry: [20, 35]
+      transfer: [40, 65]
+    misconceptions:
+      - id: char-is-not-numeric
+        description: char wird als grundsätzlich nicht numerischer Typ verstanden.
+    indicators:
+      - id: connects-character-and-code
+        description: Verknüpft Zeichen mit ihrem numerischen Zeichencode.
+    mastery:
+      minimumSuccessfulProbes: 1
+      successRatingAtLeast: 5
+      requiredIndicators: [connects-character-and-code]
+      minimumDistinctQuestionKinds: 1
+      recentWeakAnswersAllowed: 0
+
+questions:
+  - id: value-storage-observation
+    concept: value-vs-storage
+    indicator: distinguishes-value-and-representation
+    kind: concept
+    difficulty: [10, 30]
+    requires:
+      - fact: type-used
+        values: [char, byte, int, long, float]
+    text: >-
+      Woran erkennst du im aktuellen Sketch den Unterschied zwischen einem
+      gespeicherten Wert und seiner Darstellung?
+
+  - id: value-storage-contrast
+    concept: value-vs-storage
+    indicator: distinguishes-value-and-representation
+    kind: application
+    difficulty: [20, 40]
+    requires:
+      - fact: type-used
+        values: [char, byte, int, long, float]
+    text: >-
+      Wie kann derselbe gespeicherte Zahlenwert je nach Datentyp
+      unterschiedlich interpretiert oder ausgegeben werden?
+
+  - id: value-storage-transfer
+    concept: value-vs-storage
+    indicator: distinguishes-value-and-representation
+    kind: transfer
+    difficulty: [35, 55]
+    requires:
+      - fact: type-used
+        values: [char, byte, int, long, float]
+    text: >-
+      Welche Folge hätte es für die Interpretation, wenn du im Sketch den
+      Datentyp einer Variable änderst, den Zahlenwert aber beibehältst?
+
+  - id: int-width-direct
+    concept: integer-width
+    indicator: states-uno-int-width
+    kind: recall
+    difficulty: [10, 25]
+    requires:
+      - fact: type-used
+        values: [int]
+    text: Wie viele Bytes belegt ein int auf dem Arduino Uno?
+
+  - id: array-memory-calculation
+    concept: integer-width
+    indicator: calculates-array-storage
+    kind: application
+    difficulty: [25, 45]
+    requires:
+      - fact: array-declared
+        elementTypes: [int]
+    text: >-
+      Wie viel Speicher benötigt das im Sketch sichtbare int-Array allein für
+      seine Elemente?
+
+  - id: serial-write-prediction
+    concept: char-numeric-representation
+    indicator: connects-character-and-code
+    kind: prediction
+    difficulty: [25, 45]
+    requires:
+      - fact: serial-call
+        values: [write]
+    text: Wie werden numerische char-Werte bei Serial.write interpretiert?
+
+scaffolds:
+  - id: value-as-representation
+    forConcept: value-vs-storage
+    strategy: concrete-model
+    level: 1
+    hint: Betrachte einen einzelnen Wert und frage zuerst, wie er dargestellt wird.
+    nextQuestion: value-storage-observation
+
+  - id: bytes-as-cells
+    forConcept: integer-width
+    strategy: concrete-model
+    level: 1
+    hint: Betrachte zuerst nur ein einziges Arrayelement als Folge von Bytes.
+    nextQuestion: int-width-direct
+
+  - id: compare-one-element
+    forConcept: integer-width
+    strategy: smaller-subproblem
+    level: 2
+    hint: Ermittle zunächst den Speicherbedarf eines einzelnen Elements.
+    nextQuestion: array-memory-calculation
+
+  - id: return-to-representation
+    forConcept: integer-width
+    strategy: prerequisite
+    level: 3
+    hint: Kläre zuerst den Unterschied zwischen Wert und Repräsentation.
+    nextQuestion: value-storage-observation
+    targetConcept: value-vs-storage
+
+progression:
+  entryConcepts: [value-vs-storage]
+  preferredOrder: [value-vs-storage, integer-width, char-numeric-representation]
+  onRating:
+    1-2: remediate
+    3: clarify-same-indicator
+    4: probe-missing-indicator
+    5: evaluate-mastery-and-advance

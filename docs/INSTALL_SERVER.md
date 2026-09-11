@@ -148,6 +148,10 @@ docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backe
 | UNOSIM_LLM_BASE_URL | https://chat.kiconnect.nrw/api/v1 | nein | Provider-URL | serverseitiger Provider-Endpunkt; nicht an Browser veröffentlichen. |
 | UNOSIM_LLM_API_KEY | keiner | managed | Secret-Store | nur für Managed-Tutor-Modus; persönliche User-Keys bleiben request-scoped und Browser-RAM-only. |
 | TUTOR_RATE_LIMIT_MAX_REQUESTS | 20 | nein | 20 | Tutor-Anfragen je vertrauenswürdiger Identität und Zeitfenster. |
+| UNOSIM_TUTOR_CURRICULUM_SOURCE | leer | nein | serverseitige Curriculum-Repository-URL | optionaler HTTPS-Basispfad; niemals vom Browser verwendet. |
+| UNOSIM_TUTOR_CURRICULUM_COMMIT | leer | wenn Source gesetzt | vollständiger 40-stelliger Commit-SHA | unveränderliche Curriculum-Version; Floating Tags sind nicht zulässig. |
+| UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS | leer | Produktion bei Source | `raw.githubusercontent.com` | exakte Host-Allowlist für den serverseitigen Curriculum-Fetch. |
+| UNOSIM_TUTOR_CURRICULUM_REFRESH_MS | 300000 | nein | 300000 | Cache-TTL für den validierten Snapshot desselben Commits. |
 
 FORCE_DOCKER ist ein deprecated Alias für UNOSIM_SIMULATION_MODE=docker-sandbox. Historische Namen nicht primär verwenden. Der Tutor ist in Produktion ohne explizites `UNOSIM_TUTOR_MODE=user-key` oder `managed` deaktiviert; KI:connect-Zugangsdaten dürfen weder in Repository, `/api/config`, Logs noch persistentem Browser-Speicher landen.
 

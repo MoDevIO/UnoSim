@@ -1,0 +1,8 @@
+schemaVersion: 1
+curriculumId: unosim-core-de
+release: "2026.1"
+locale: de-DE
+topics:
+  - id: memory-and-data-types
+    path: topics/memory-and-data-types.yaml
+    sha256: 4a804824a1bbc747361e46dd6f611fbd778945a5fabbc442bb7f4e5314ed3c33

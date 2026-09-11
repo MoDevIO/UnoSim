@@ -86,6 +86,7 @@
     "tailwind-merge": "^2.6.0",
     "wouter": "^3.3.5",
     "ws": "^8.21.3",
+    "yaml": "^2.9.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {

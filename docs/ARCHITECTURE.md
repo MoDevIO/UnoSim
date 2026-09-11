@@ -94,6 +94,37 @@ Registry-Funktion `parseStaticIORegistry()` bleibt ein kompatibler Wrapper.
 Nicht eindeutig statisch auflösbare Fälle bleiben konservativ ungelöst und
 können weiterhin nur durch die Runtime-Erkennung sichtbar werden.
 
+### Repo-basierte Tutorsteuerung (Pilot)
+
+Der Tutor kann optional einen validierten Snapshot aus einem separaten
+Curriculum-Repository verwenden. Der serverseitige Datenfluss lautet:
+
+```text
+DidacticContentRepository
+  -> SketchFactExtractor
+  -> TopicMatcher
+  -> LearningPlanner
+  -> TutorService
+  -> bestehender LLMProvider
+```
+
+Der Pilot unterstützt ausschließlich `memory-and-data-types`. Die Quelle wird
+über einen vollständigen Commit-SHA konfiguriert; geladen werden nur Manifest
+und manifestierte Topic-Dateien. YAML wird strikt validiert, referenziert keine
+ausführbaren Regeln und wird zu einem normalisierten `DidacticBrief`
+kompiliert. Dieser Brief gelangt ausschließlich in den User-Kontext des
+Provider-Requests, niemals in den serverseitigen Systemprompt.
+
+Der Planner wählt Fragen und Übergänge deterministisch. Das LLM bewertet die
+Antwort und liefert kurzes Feedback. Die Concept Map und die Frage-IDs werden
+aus dem begrenzten Dialogverlauf der laufenden Browser-Session rekonstruiert;
+es gibt im Pilot keine dauerhafte Lernhistorie und kein Analytics-System.
+Wenn Quelle, Snapshot oder Topic-Match fehlen, bleibt der freie bestehende
+Tutorpfad aktiv. Die versionierten Dateien unter `curriculum/` im UnoSim-
+Arbeitsbaum sind nur Pilot-Fixtures/Authoring-Beispiele und werden nicht
+automatisch produktiv geladen. Eine detaillierte Entscheidung steht in
+[`adr/0004-repository-based-tutor-curriculum.md`](adr/0004-repository-based-tutor-curriculum.md).
+
 ## 🔄 Datenflüsse im Detail
 
 ### Compile-Flow

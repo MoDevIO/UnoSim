@@ -12,6 +12,7 @@ import {
   TutorProviderError,
 } from "../services/tutor/llm-provider";
 import { TutorService } from "../services/tutor/tutor-service";
+import { createTutorService } from "../services/tutor/tutor-service-factory";
 import type { RequestIdentity } from "../security/access-control";
 
 type TutorRouteDeps = {
@@ -93,7 +94,7 @@ function requireRequestCredential(req: Request, res: Response, credential: strin
 
 export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): void {
   const logger = deps.logger ?? new Logger("TutorRoutes");
-  const service = deps.service ?? new TutorService(new KiconnectProvider());
+  const service = deps.service ?? createTutorService(new KiconnectProvider());
   const rateLimiter = deps.rateLimiter ?? (deps.disableRateLimit ? undefined : getTutorRateLimiter());
 
   app.post("/api/tutor/question", async (req, res) => {

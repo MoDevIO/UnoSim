@@ -131,6 +131,22 @@ if (examplesSource && process.env.NODE_ENV === "production" && examplesRef === "
   throw new Error("UNOSIM_EXAMPLES_REF=main is not allowed for external examples in production");
 }
 
+const curriculumSource = envStr("UNOSIM_TUTOR_CURRICULUM_SOURCE", "").trim();
+const curriculumCommit = envStr("UNOSIM_TUTOR_CURRICULUM_COMMIT", "").trim();
+const curriculumAllowedHosts = envList("UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS", []).map((host) => host.toLowerCase());
+if (curriculumSource && !curriculumCommit) {
+  throw new Error("UNOSIM_TUTOR_CURRICULUM_COMMIT is required when tutor curriculum is configured");
+}
+if (!curriculumSource && curriculumCommit) {
+  throw new Error("UNOSIM_TUTOR_CURRICULUM_SOURCE is required when tutor curriculum commit is configured");
+}
+if (curriculumSource && !/^[a-f0-9]{40}$/i.test(curriculumCommit)) {
+  throw new Error("UNOSIM_TUTOR_CURRICULUM_COMMIT must be a full 40-character commit SHA");
+}
+if (curriculumSource && process.env.NODE_ENV === "production" && curriculumAllowedHosts.length === 0) {
+  throw new Error("UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS is required for tutor curriculum in production");
+}
+
 // ── Config ──────────────────────────────────────────────────────────
 
 export const config = {
@@ -375,6 +391,18 @@ export const config = {
     rateLimitBlockDurationMs: envInt("TUTOR_RATE_LIMIT_BLOCK_DURATION_MS", 30_000, { min: 1_000, max: 86_400_000 }),
     /** Managed mode secret; never included in getClientConfig(). */
     managedApiKey: process.env.UNOSIM_LLM_API_KEY,
+    curriculum: {
+      /** Server-side HTTPS base URL for the pinned curriculum repository. */
+      source: curriculumSource,
+      /** Full immutable commit SHA; floating refs are not accepted. */
+      commit: curriculumCommit,
+      refreshMs: envInt("UNOSIM_TUTOR_CURRICULUM_REFRESH_MS", 5 * 60 * 1000, { min: 1_000, max: 86_400_000 }),
+      timeoutMs: envInt("UNOSIM_TUTOR_CURRICULUM_TIMEOUT_MS", 5_000, { min: 100, max: 120_000 }),
+      maxManifestBytes: envInt("UNOSIM_TUTOR_CURRICULUM_MAX_MANIFEST_BYTES", 64 * 1024, { min: 1, max: 1024 * 1024 }),
+      maxTopicBytes: envInt("UNOSIM_TUTOR_CURRICULUM_MAX_TOPIC_BYTES", 256 * 1024, { min: 1, max: 4 * 1024 * 1024 }),
+      maxTotalBytes: envInt("UNOSIM_TUTOR_CURRICULUM_MAX_TOTAL_BYTES", 512 * 1024, { min: 1, max: 8 * 1024 * 1024 }),
+      allowedHosts: curriculumAllowedHosts,
+    },
   },
 
   // ── Scattered Timeouts (centralized) ────────────────────────────

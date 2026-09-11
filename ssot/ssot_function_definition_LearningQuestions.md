@@ -53,6 +53,38 @@ Das Lernfragen-Panel ist ausdrücklich **nicht** vorgesehen für:
 
 Eine spätere Erweiterung um längere Dialogverläufe, Challenges oder adaptive Lernpfade ist möglich, aber nicht Bestandteil des initialen MVP-Vertrags.
 
+### Pilot: repo-basierte didaktische Steuerung
+
+Der Pilot darf genau ein serverseitig geladenes, versioniertes Curriculum-
+Topic (`memory-and-data-types`) verwenden. Das Curriculum liegt als YAML in
+einem separaten Repository. Der Server lädt ausschließlich ein Manifest und
+explizit referenzierte Topic-Dateien von einem festen Commit-SHA. Der Browser
+greift niemals direkt auf GitHub oder eine andere Curriculum-Quelle zu.
+
+Die Dateien unter `curriculum/` im UnoSim-Arbeitsbaum sind lediglich
+Pilot-Fixtures/Authoring-Beispiele und werden nicht automatisch als produktive
+Quelle geladen. Produktiv ist ausschließlich die serverseitig konfigurierte
+HTTPS-Quelle mit vollständigem Commit-SHA.
+
+Manifest und Topic-Dateien werden mit einem strikten Schema validiert. Freie
+Reguläre Ausdrücke, URLs, Promptrollen und ausführbare Regeln sind im
+Curriculum nicht erlaubt. Concept-Dependencies müssen gültige IDs referenzieren
+und azyklisch sein. Nicht validierbare oder nicht ladbare Inhalte werden als
+nicht vorhanden behandelt.
+
+Die serverseitige Pilotpipeline besteht aus `DidacticContentRepository`,
+`SketchFactExtractor`, `TopicMatcher` und `LearningPlanner` vor dem bestehenden
+`TutorService` und `LLMProvider`. Der Planner wählt Fragen und Übergänge
+deterministisch; das LLM bewertet Antworten und formuliert kurzes Feedback.
+Curriculum-Inhalte werden nie an den Systemprompt angehängt, sondern nur als
+validierter, normalisierter `DidacticBrief` im User-Kontext verwendet.
+
+Der Pilot speichert keine persönliche Lernhistorie dauerhaft, erzeugt keine
+Experience-/Analytics-Events und verwendet keinen signierten Lernzustand. Die
+Concept Map wird ausschließlich aus dem begrenzten Dialogverlauf der laufenden
+Browser-Session rekonstruiert. Ohne passenden Curriculum-Match bleibt der
+freie Tutor vollständig aktiv.
+
 ---
 
 ## 3. Didaktischer Kernvertrag
