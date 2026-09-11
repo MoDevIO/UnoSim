@@ -94,6 +94,14 @@ the LAN. LAN mode is an explicit local-development convenience and is not a
 production deployment mode. Both commands use the configured external-example
 source, ref, and host allowlist from the development script.
 
+The accepted target architecture keeps that server configuration as the
+default, while allowing each browser to select a validated public GitHub
+Examples repository and stable channel in Settings. The browser preference is
+request-scoped, never changes the server default, and never fetches GitHub
+directly. This dynamic selection is documented but not implemented yet; the
+current runtime remains pinned to the configured ref. See
+[`ssot_function_definition_ExternalExamples.md`](ssot/ssot_function_definition_ExternalExamples.md).
+
 | Component | Details |
 |-----------|---------|
 | Backend | `tsx server/index.ts` on configured `PORT` (default 3000) |

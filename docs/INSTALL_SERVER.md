@@ -102,6 +102,37 @@ Das Dockerfile.sandbox stellt den nicht-root Benutzer sandboxuser sowie /sandbox
 
 docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backend-Port, Docker-Socket, Cache-/Temp-Mounts, Gateway-Trust, Origin-Allowlist und Worker-/Pool-Defaults. Der gemessene Referenzbetrieb nutzt 8 Worker, 8 Compile-Konkurrenz, 256 MB und 0,25 CPU pro Sandbox. Aktuelle Compose-Obergrenzen sind technische Limits und ersetzen keine Kapazitätsfreigabe aus [SCALABILITY.md](SCALABILITY.md).
 
+## External Examples: aktueller Betrieb und Zielvertrag
+
+Aktuell bestimmen `UNOSIM_EXAMPLES_SOURCE` und `UNOSIM_EXAMPLES_REF` eine feste
+serverweite External-Examples-Version. Der Snapshot wird nicht dynamisch aus
+Browser-Settings gewählt. Änderungen am Ref benötigen im aktuellen Stand einen
+Backend-Neustart.
+
+Für die akzeptierte, noch nicht implementierte Zielarchitektur bleibt diese
+Serverkonfiguration die Default-Quelle. Zusätzlich wird ein logischer Default-
+Channel wie `stable` konfiguriert. Ein Browser ohne Override verwendet diesen
+Default. Ein gültiger Browser-Override aus `owner/repository` und Channel gilt
+nur request-scoped für diesen Browser; er verändert weder Environment noch
+Default anderer Nutzer. Betreiber konfigurieren weiterhin ausschließlich:
+
+- Default-Repository beziehungsweise dessen serverseitige Source-Abbildung;
+- Default-Channel oder während der Migration den festen Default-Ref;
+- Refresh-TTL, Upstream-Timeouts und Größenlimits;
+- erlaubte GitHub-/Raw-GitHub-Hosts und Abuse-Grenzen.
+
+Der Server lädt ein Channel-Dokument nach TTL erneut. Dieses verweist auf einen
+vollständigen Commit-SHA und einen Manifest-Hash. Erst ein vollständig geladener
+und validierter Snapshot wird atomar aktiv; bei Fehlern bleibt der Last-Known-
+Good-Snapshot (LKG) derselben Repository-/Channel-Auswahl verfügbar. Ein erfolgreicher Channel-Wechsel
+benötigt keinen Serverneustart. Die aktuelle feste-Ref-Konfiguration bleibt bis
+zur separaten Implementierung unverändert gültig.
+
+Browser-Overrides erlauben keine freien Raw-URLs, privaten Repositories oder
+Credentials. Der Browser ruft ausschließlich die UnoSim-API auf. Siehe
+[ADR 0005](adr/0005-browser-scoped-external-examples.md) und die
+[External-Examples-SSOT](../ssot/ssot_function_definition_ExternalExamples.md).
+
 ## Umgebungsvariablen
 
 | Name | Default | Pflicht | Beispiel | Bedeutung |
@@ -143,6 +174,15 @@ docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backe
 | DISABLE_COMPILE_GATEKEEPER | false | nein | false | nur kontrollierte Tests; in Produktion false. |
 | ENABLE_TEST_ENDPOINTS | false | nein | false | nur Tests; nie öffentlich. |
 | ALLOW_EMBED_ORIGINS | localhost-Defaults | nein | https://lms.example.edu | deprecated Alias; primär SIMULATOR_ALLOWED_PARENT_ORIGINS verwenden. |
+| UNOSIM_EXAMPLES_SOURCE | leer | nein | `https://raw.githubusercontent.com/owner/repository` | aktuelle serverseitige Default-Quelle; in der Zielarchitektur interne Abbildung des Default-Repositorys, niemals Browserinput. |
+| UNOSIM_EXAMPLES_REF | leer | wenn Source gesetzt | vollständiger Commit-SHA oder unveränderlicher Tag | aktueller fester Default-Ref; bleibt Migrationsfallback, bis der Default-Channel implementiert ist. |
+| UNOSIM_EXAMPLES_REFRESH_MS | 300000 | nein | 300000 | TTL für die geplante Channel-Prüfung und source-spezifische Cache-Aktualisierung. |
+| UNOSIM_EXAMPLES_TIMEOUT_MS | 5000 | nein | 5000 | Timeout je serverseitigem Upstream-Request. |
+| UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES | 262144 | nein | 262144 | maximales Manifest. |
+| UNOSIM_EXAMPLES_MAX_FILE_BYTES | 131072 | nein | 131072 | maximale einzelne Example-Datei. |
+| UNOSIM_EXAMPLES_MAX_TOTAL_BYTES | 1048576 | nein | 1048576 | maximale Gesamtgröße eines geladenen Snapshots. |
+| UNOSIM_EXAMPLES_MAX_FILES | 100 | nein | 100 | maximale Zahl manifestierter Dateien. |
+| UNOSIM_EXAMPLES_ALLOWED_HOSTS | leer | Produktion bei Source | `raw.githubusercontent.com` | exakte serverseitige Allowlist; Browser-Overrides können sie nicht erweitern. |
 | UNOSIM_TUTOR_MODE | disabled | nein | disabled | Tutor/LLM-Modus; Production-Default bleibt deaktiviert. |
 | UNOSIM_LLM_PROVIDER | kiconnect | nein | kiconnect | serverseitiger OpenAI-kompatibler Provider für den Tutor. |
 | UNOSIM_LLM_BASE_URL | https://chat.kiconnect.nrw/api/v1 | nein | Provider-URL | serverseitiger Provider-Endpunkt; nicht an Browser veröffentlichen. |
@@ -153,7 +193,15 @@ docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backe
 | UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS | leer | Produktion bei Source | `raw.githubusercontent.com` | exakte Host-Allowlist für den serverseitigen Curriculum-Fetch. |
 | UNOSIM_TUTOR_CURRICULUM_REFRESH_MS | 300000 | nein | 300000 | Cache-TTL für den validierten Snapshot desselben Commits. |
 
-FORCE_DOCKER ist ein deprecated Alias für UNOSIM_SIMULATION_MODE=docker-sandbox. Historische Namen nicht primär verwenden. Der Tutor ist in Produktion ohne explizites `UNOSIM_TUTOR_MODE=user-key` oder `managed` deaktiviert; KI:connect-Zugangsdaten dürfen weder in Repository, `/api/config`, Logs noch persistentem Browser-Speicher landen.
+Die Zielarchitektur ergänzt einen serverseitigen logischen Default-Channel;
+dessen konkreter Config-Name und die Migration von `UNOSIM_EXAMPLES_REF` sind
+noch offen. Bis zur Umsetzung bleibt `UNOSIM_EXAMPLES_REF` maßgeblich.
+FORCE_DOCKER ist ein deprecated Alias für
+UNOSIM_SIMULATION_MODE=docker-sandbox. Historische Namen nicht primär
+verwenden. Der Tutor ist in Produktion ohne explizites
+`UNOSIM_TUTOR_MODE=user-key` oder `managed` deaktiviert; KI:connect-
+Zugangsdaten dürfen weder in Repository, `/api/config`, Logs noch persistentem
+Browser-Speicher landen.
 
 ## Start, Logs und Monitoring
 

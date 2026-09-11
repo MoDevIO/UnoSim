@@ -23,6 +23,7 @@ Zentraler Einstieg in die aktuelle normative Dokumentation. Historische Pläne, 
 
 - [adr/](adr/) – akzeptierte Architekturentscheidungen.
 - [../ssot/](../ssot/) – fachliche Single Sources of Truth für UI und Verhalten.
+- [../ssot/ssot_function_definition_ExternalExamples.md](../ssot/ssot_function_definition_ExternalExamples.md) – geplanter Vertrag für browser-spezifische External-Examples-Auswahl und Stable Channels.
 
 ## Archiv
 

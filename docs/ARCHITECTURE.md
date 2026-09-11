@@ -8,7 +8,7 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 ## Governance-Grenzen
 
 - Dieses Dokument ist der aktuelle Architekturüberblick. Es beschreibt Komponenten, Datenflüsse, State Ownership und Betriebsmodell bewusst zusammenfassend.
-- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md`.
+- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md` und die geplante dynamische Examples-Auswahl in `adr/0005-browser-scoped-external-examples.md`.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
 - Historische Planungs- und Risikoquellen liegen ausschließlich unter `archive/` und sind nicht normativ für den Ist-Zustand.
@@ -125,6 +125,39 @@ Arbeitsbaum sind nur Pilot-Fixtures/Authoring-Beispiele und werden nicht
 automatisch produktiv geladen. Eine detaillierte Entscheidung steht in
 [`adr/0004-repository-based-tutor-curriculum.md`](adr/0004-repository-based-tutor-curriculum.md).
 
+### Dynamische External Examples (Zielarchitektur)
+
+Die Server-/Deployment-Konfiguration bleibt die Default-Quelle für External
+Examples. Zukünftig darf ein Browser in den Settings ein öffentliches GitHub-
+Repository und optional einen logischen Channel als nicht-sensitive Präferenz
+auswählen. Ohne Override gilt der Server-Default; Reset entfernt ausschließlich
+die lokale Auswahl. Der Browser verändert keinen globalen Serverzustand und
+kontaktiert GitHub niemals direkt.
+
+```text
+Browser Settings/localStorage
+  -> GET /api/examples mit typisierter request-scoped Auswahl
+  -> serverseitige Repository-/Channel- und SSRF-Validierung
+  -> source-keyed ExamplesRepository / HttpProvider
+  -> GitHub / raw.githubusercontent.com
+```
+
+Der Stable Channel enthält nur einen Zeiger auf einen vollständigen Commit-SHA
+und einen Manifest-Hash. Nach Ablauf des TTL lädt der Server eine neue Revision
+vollständig und aktiviert sie erst nach erfolgreicher Validierung atomar. Bei
+Fehlern bleibt ausschließlich der Last-Known-Good-Snapshot derselben
+Repository-/Channel-Auswahl verfügbar. Channelzustand wird nach
+`repository + channel`, unveränderlicher Inhalt nach `repository + revision`
+gecached. Dadurch können zwei Browser gleichzeitig unterschiedliche Quellen
+verwenden, während identische Quellen einen validierten Snapshot teilen.
+
+Die aktuelle Implementierung besitzt diese dynamische Auswahl und periodische
+Aktivierung noch nicht; bis zur Umsetzung gilt der feste serverseitige Ref.
+Verbindliche Zielentscheidungen stehen in
+[`adr/0005-browser-scoped-external-examples.md`](adr/0005-browser-scoped-external-examples.md),
+der vollständige Fachvertrag in
+[`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md).
+
 ## 🔄 Datenflüsse im Detail
 
 ### Compile-Flow
@@ -168,6 +201,9 @@ Die Simulation nutzt denselben Compilerpfad in der Prepare-Phase, startet den Ru
 | `ws-output-buffer.ts` | Serial-Output-Batching und sichere WebSocket-Ausgabe |
 | `sandbox-runner-pool.ts` | Runner-Lebenszyklus und Pool-Management |
 | `arduino-compiler.ts` | Compilation und Cache-Logik |
+| Browser Settings | optionale, nur lokal persistierte External-Examples-Auswahl |
+| Examples API | Ermittlung von Default oder request-scoped Browser-Override und Ausgabe nicht-sensitiver Source-Metadaten |
+| `ExamplesRepository` | source-keyed Channel-/Snapshot-Cache, Validierung und atomare LKG-Aktivierung |
 
 `ArduinoSimulatorPageState` wird für die Page-Übergabe in sieben fachliche
 ViewModels gegliedert:
@@ -207,6 +243,10 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 ### Zentrale Konfiguration
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth
 - **Environment-Variablen:** Validierte Parser mit Type-Safety
+- **External Examples (Zielarchitektur):** Config bleibt Source of Truth für
+  Default-Repository, Default-Channel und Refresh-TTL. Eine Browserpräferenz
+  ist nur ein request-scoped Override und keine zweite serverweite
+  Konfiguration.
 - **Status:** Die produktive Konfiguration läuft über `server/config.ts`; `FORCE_DOCKER` ist nur ein deprecated Kompatibilitätsalias. Aktuelle Betriebs- und Sicherheitsanforderungen stehen in `INSTALL_SERVER.md` und `SECURITY.md`.
 
 ## 📊 Metriken und Observability
@@ -233,5 +273,7 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/h
 
 **Siehe auch:**
 - [`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md) – Verbindlicher Gateway-/Auth-Vertrag
+- [`adr/0005-browser-scoped-external-examples.md`](adr/0005-browser-scoped-external-examples.md) – Zielarchitektur für dynamische External Examples
+- [`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md) – Fachlicher Examples-Vertrag
 - [`SCALABILITY.md`](SCALABILITY.md) – gemessene Kapazitätsgrenzen
 - [`TESTING_STANDARDS.md`](TESTING_STANDARDS.md) – Teststrategie und -konventionen
