@@ -51,4 +51,20 @@ describe("Tutor contracts", () => {
     expect(calculateNextTutorDifficulty(99, [5])).toBe(100);
     expect(calculateNextTutorDifficulty(2, [1])).toBe(1);
   });
+
+  it("lowers difficulty for a weak streak and raises it only in controlled steps for good answers", () => {
+    let weakDifficulty = 50;
+    weakDifficulty = calculateNextTutorDifficulty(weakDifficulty, [2]);
+    weakDifficulty = calculateNextTutorDifficulty(weakDifficulty, [2]);
+    weakDifficulty = calculateNextTutorDifficulty(weakDifficulty, [2]);
+    expect(weakDifficulty).toBeLessThan(50);
+
+    let goodDifficulty = 50;
+    for (let index = 0; index < 3; index += 1) {
+      const nextDifficulty = calculateNextTutorDifficulty(goodDifficulty, [5]);
+      expect(nextDifficulty - goodDifficulty).toBeLessThanOrEqual(4);
+      goodDifficulty = nextDifficulty;
+    }
+    expect(goodDifficulty).toBeGreaterThan(50);
+  });
 });
