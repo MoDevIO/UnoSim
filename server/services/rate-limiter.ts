@@ -20,7 +20,7 @@ export type RateLimitResult = { allowed: true } | {
   retryAfter: number;
 };
 
-class IdentityRateLimiter {
+export class IdentityRateLimiter {
   private readonly identityLimits = new Map<string, RateLimitEntry>();
   private readonly cleanupInterval: NodeJS.Timeout;
   private rejectedTotal = 0;

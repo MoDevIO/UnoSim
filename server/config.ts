@@ -12,6 +12,8 @@
 import os from "node:os";
 import path from "node:path";
 import { parseTrustConfig } from "./security/access-control";
+import { examplesRefSchema } from "@shared/examples";
+import { normalizeRepositoryInput } from "./services/examples/source-selection";
 
 // ── Mode Types ──────────────────────────────────────────────────────
 
@@ -118,18 +120,112 @@ const localWebSocketOrigins = [
   "http://127.0.0.1:5173",
 ];
 
-const examplesSource = envStr("UNOSIM_EXAMPLES_SOURCE", "").trim();
-const examplesRef = envStr("UNOSIM_EXAMPLES_REF", "").trim();
-const examplesAllowedHosts = envList("UNOSIM_EXAMPLES_ALLOWED_HOSTS", []).map((host) => host.toLowerCase());
-if (examplesSource && !examplesRef) {
-  throw new Error("UNOSIM_EXAMPLES_REF is required when UNOSIM_EXAMPLES_SOURCE is configured");
+export interface ParsedExamplesConfig {
+  mode: "builtin" | "repository-ref";
+  source: string;
+  ref: string;
+  repository: string | null;
+  refreshMs: number;
+  refreshRetryMs: number;
+  timeoutMs: number;
+  maxManifestBytes: number;
+  maxFileBytes: number;
+  maxTotalBytes: number;
+  maxFiles: number;
+  allowedHosts: string[];
+  validateRateLimitMaxRequests: number;
+  overrideRateLimitMaxRequests: number;
+  globalLoadStartsPerMinute: number;
+  maxConcurrentLoads: number;
+  maxLoadQueue: number;
+  maxFileFetchConcurrency: number;
+  maxOutboundFetches: number;
+  maxSources: number;
+  snapshotCacheMaxEntries: number;
+  snapshotCacheMaxBytes: number;
 }
-if (examplesSource && process.env.NODE_ENV === "production" && examplesAllowedHosts.length === 0) {
-  throw new Error("UNOSIM_EXAMPLES_ALLOWED_HOSTS is required for external examples in production");
+
+export function parseExamplesConfig(
+  env: NodeJS.ProcessEnv,
+  nodeEnv = env.NODE_ENV ?? "development",
+): ParsedExamplesConfig {
+  const sourceInput = (env.UNOSIM_EXAMPLES_SOURCE ?? "ttbombadil/unosim-examples").trim();
+  const configuredRef = (env.UNOSIM_EXAMPLES_REF ?? "").trim();
+  const removedChannelIsPresent = env.UNOSIM_EXAMPLES_CHANNEL !== undefined;
+  const defaultAllowedHosts = nodeEnv === "production"
+    ? ""
+    : "api.github.com,raw.githubusercontent.com";
+  const allowedHosts = (env.UNOSIM_EXAMPLES_ALLOWED_HOSTS ?? defaultAllowedHosts)
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (removedChannelIsPresent) {
+    throw new Error("UNOSIM_EXAMPLES_CHANNEL is no longer supported; configure UNOSIM_EXAMPLES_REF instead");
+  }
+  if (!sourceInput && configuredRef) {
+    throw new Error("UNOSIM_EXAMPLES_SOURCE is required when UNOSIM_EXAMPLES_REF is configured");
+  }
+  const repository = sourceInput
+    ? normalizeRepositoryInput(sourceInput, { allowRawGithub: true })
+    : null;
+  if (sourceInput && !repository) {
+    throw new Error("UNOSIM_EXAMPLES_SOURCE must be a public GitHub repository slug or repository URL");
+  }
+  const ref = repository ? configuredRef || "main" : "";
+  if (ref && !examplesRefSchema.safeParse(ref).success) {
+    throw new Error("UNOSIM_EXAMPLES_REF has an invalid ref syntax");
+  }
+  if (repository && nodeEnv === "production" && allowedHosts.length === 0) {
+    throw new Error("UNOSIM_EXAMPLES_ALLOWED_HOSTS is required for external examples in production");
+  }
+  const mode = repository ? "repository-ref" : "builtin";
+
+  const int = (key: string, fallback: number, min: number, max: number) =>
+    parseEnvInt(key, env[key], fallback, { min, max });
+  const refreshMs = int("UNOSIM_EXAMPLES_REFRESH_MS", 300_000, 1_000, 86_400_000);
+  const maxTotalBytes = int("UNOSIM_EXAMPLES_MAX_TOTAL_BYTES", 1_048_576, 1, 100 * 1_048_576);
+  const maxConcurrentLoads = int("UNOSIM_EXAMPLES_MAX_CONCURRENT_LOADS", 4, 1, 16);
+  const maxFileFetchConcurrency = int("UNOSIM_EXAMPLES_MAX_FILE_FETCH_CONCURRENCY", 8, 1, 16);
+  const maxOutboundFetches = int("UNOSIM_EXAMPLES_MAX_OUTBOUND_FETCHES", 16, 1, 64);
+  const snapshotCacheMaxBytes = int("UNOSIM_EXAMPLES_SNAPSHOT_CACHE_MAX_BYTES", 64 * 1_048_576, 1_048_576, 512 * 1_048_576);
+  if (maxConcurrentLoads > maxOutboundFetches) {
+    throw new Error("UNOSIM_EXAMPLES_MAX_CONCURRENT_LOADS must not exceed UNOSIM_EXAMPLES_MAX_OUTBOUND_FETCHES");
+  }
+  if (maxFileFetchConcurrency > maxOutboundFetches) {
+    throw new Error("UNOSIM_EXAMPLES_MAX_FILE_FETCH_CONCURRENCY must not exceed UNOSIM_EXAMPLES_MAX_OUTBOUND_FETCHES");
+  }
+  if (snapshotCacheMaxBytes < maxTotalBytes) {
+    throw new Error("UNOSIM_EXAMPLES_SNAPSHOT_CACHE_MAX_BYTES must cover UNOSIM_EXAMPLES_MAX_TOTAL_BYTES");
+  }
+
+  return {
+    mode,
+    source: repository ?? "",
+    ref,
+    repository,
+    refreshMs,
+    refreshRetryMs: int("UNOSIM_EXAMPLES_REFRESH_RETRY_MS", 30_000, 1_000, refreshMs),
+    timeoutMs: int("UNOSIM_EXAMPLES_TIMEOUT_MS", 5_000, 100, 120_000),
+    maxManifestBytes: int("UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES", 256 * 1024, 1, 10 * 1_048_576),
+    maxFileBytes: int("UNOSIM_EXAMPLES_MAX_FILE_BYTES", 128 * 1024, 1, 10 * 1_048_576),
+    maxTotalBytes,
+    maxFiles: int("UNOSIM_EXAMPLES_MAX_FILES", 100, 1, 10_000),
+    allowedHosts,
+    validateRateLimitMaxRequests: int("UNOSIM_EXAMPLES_VALIDATE_RATE_LIMIT_MAX_REQUESTS", 5, 1, 30),
+    overrideRateLimitMaxRequests: int("UNOSIM_EXAMPLES_OVERRIDE_RATE_LIMIT_MAX_REQUESTS", 60, 10, 600),
+    globalLoadStartsPerMinute: int("UNOSIM_EXAMPLES_GLOBAL_LOAD_STARTS_PER_MINUTE", 20, 1, 120),
+    maxConcurrentLoads,
+    maxLoadQueue: int("UNOSIM_EXAMPLES_MAX_LOAD_QUEUE", 32, 0, 128),
+    maxFileFetchConcurrency,
+    maxOutboundFetches,
+    maxSources: int("UNOSIM_EXAMPLES_MAX_SOURCES", 32, 1, 256),
+    snapshotCacheMaxEntries: int("UNOSIM_EXAMPLES_SNAPSHOT_CACHE_MAX_ENTRIES", 64, 1, 512),
+    snapshotCacheMaxBytes,
+  };
 }
-if (examplesSource && process.env.NODE_ENV === "production" && examplesRef === "main") {
-  throw new Error("UNOSIM_EXAMPLES_REF=main is not allowed for external examples in production");
-}
+
+const examplesConfig = parseExamplesConfig(process.env);
 
 const curriculumSource = envStr("UNOSIM_TUTOR_CURRICULUM_SOURCE", "").trim();
 const curriculumCommit = envStr("UNOSIM_TUTOR_CURRICULUM_COMMIT", "").trim();
@@ -356,22 +452,7 @@ export const config = {
   // ── Examples ─────────────────────────────────────────────────────
 
   examples: {
-    /** Server-side HTTPS base URL for a manifest/ref source. */
-    source: examplesSource,
-    /** Immutable tag or commit SHA; floating refs are development-only. */
-    ref: examplesRef,
-    /** Refresh interval for the in-memory external snapshot. */
-    refreshMs: envInt("UNOSIM_EXAMPLES_REFRESH_MS", 5 * 60 * 1000, { min: 1_000, max: 86_400_000 }),
-    /** Timeout applied to each external request. */
-    timeoutMs: envInt("UNOSIM_EXAMPLES_TIMEOUT_MS", 5_000, { min: 100, max: 120_000 }),
-    maxManifestBytes: envInt("UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES", 256 * 1024, { min: 1, max: 10 * 1024 * 1024 }),
-    maxFileBytes: envInt("UNOSIM_EXAMPLES_MAX_FILE_BYTES", 128 * 1024, { min: 1, max: 10 * 1024 * 1024 }),
-    maxTotalBytes: envInt("UNOSIM_EXAMPLES_MAX_TOTAL_BYTES", 1024 * 1024, { min: 1, max: 100 * 1024 * 1024 }),
-    maxFiles: envInt("UNOSIM_EXAMPLES_MAX_FILES", 100, { min: 1, max: 10_000 }),
-    /** Exact host allowlist; required for configured production sources. */
-    allowedHosts: examplesAllowedHosts,
-    /** Only intended for local fixture tests, never production. */
-    allowHttp: envBool("UNOSIM_EXAMPLES_ALLOW_HTTP", false),
+    ...examplesConfig,
   },
 
   // ── Tutor / LLM ────────────────────────────────────────────────

@@ -37,14 +37,6 @@ export type ExampleRecord = Omit<ManifestExample, "files"> & {
   source: "builtin" | "external";
 };
 
-export type ExamplesSourceStatus = "builtin" | "remote" | "cache";
-
-export type ExamplesSnapshot = {
-  status: ExamplesSourceStatus;
-  stale: boolean;
-  examples: ExampleRecord[];
-};
-
 export function validateManifestReferences(manifest: ExamplesManifest): void {
   const ids = new Set<string>();
 
@@ -98,18 +90,4 @@ export function isSafeRelativePath(value: string): boolean {
   const segments = value.split("/");
   if (segments.some((segment) => !segment || segment === "." || segment === "..")) return false;
   return /\.(?:ino|h)$/i.test(value);
-}
-
-export function manifestToCatalog(snapshot: ExamplesSnapshot) {
-  return {
-    schemaVersion: 1 as const,
-    source: {
-      status: snapshot.status,
-      stale: snapshot.stale,
-    },
-    examples: snapshot.examples.map(({ files, ...example }) => ({
-      ...example,
-      files: files.map(({ content: _content, ...file }) => file),
-    })),
-  };
 }
