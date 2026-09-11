@@ -96,10 +96,10 @@ source, ref, and host allowlist from the development script.
 
 The accepted target architecture keeps that server configuration as the
 default, while allowing each browser to select a validated public GitHub
-Examples repository and stable channel in Settings. The browser preference is
+Examples repository and ref in Settings. The browser preference is
 request-scoped, never changes the server default, and never fetches GitHub
-directly. This dynamic selection is documented but not implemented yet; the
-current runtime remains pinned to the configured ref. See
+directly. The default is `ttbombadil/unosim-examples` at `main`; the server
+resolves the ref to a full commit SHA before loading a complete snapshot. See
 [`ssot_function_definition_ExternalExamples.md`](ssot/ssot_function_definition_ExternalExamples.md).
 
 | Component | Details |

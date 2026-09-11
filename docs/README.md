@@ -12,7 +12,7 @@ Zentraler Einstieg in die aktuelle normative Dokumentation. Historische Pläne, 
 - [ARCHITECTURE.md](ARCHITECTURE.md) – Komponenten, Datenflüsse und Observability.
 - [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) – Gates, Update, Health und Rollback.
 - [SECURITY.md](SECURITY.md) – Sicherheitsmodell und Sandbox-Vertrag.
-- [EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md) – konkreter Umsetzungsplan für die geplante browser-spezifische Examples-Auswahl.
+- [EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md) – Implementierungs- und Betriebsvertrag für die browser-spezifische Examples-Auswahl.
 
 ## APIs, Tests und Kapazität
 
@@ -24,7 +24,7 @@ Zentraler Einstieg in die aktuelle normative Dokumentation. Historische Pläne, 
 
 - [adr/](adr/) – akzeptierte Architekturentscheidungen.
 - [../ssot/](../ssot/) – fachliche Single Sources of Truth für UI und Verhalten.
-- [../ssot/ssot_function_definition_ExternalExamples.md](../ssot/ssot_function_definition_ExternalExamples.md) – geplanter Vertrag für browser-spezifische External-Examples-Auswahl und Stable Channels.
+- [../ssot/ssot_function_definition_ExternalExamples.md](../ssot/ssot_function_definition_ExternalExamples.md) – normativer Vertrag für browser-spezifische External-Examples-Auswahl per Repository und Ref.
 
 ## Archiv
 

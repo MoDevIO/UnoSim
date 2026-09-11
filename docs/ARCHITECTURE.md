@@ -8,7 +8,7 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 ## Governance-Grenzen
 
 - Dieses Dokument ist der aktuelle Architekturüberblick. Es beschreibt Komponenten, Datenflüsse, State Ownership und Betriebsmodell bewusst zusammenfassend.
-- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md` und die geplante dynamische Examples-Auswahl in `adr/0005-browser-scoped-external-examples.md`.
+- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md` und die dynamische Examples-Auswahl in `adr/0005-browser-scoped-external-examples.md`.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
 - Historische Planungs- und Risikoquellen liegen ausschließlich unter `archive/` und sind nicht normativ für den Ist-Zustand.
@@ -125,10 +125,10 @@ Arbeitsbaum sind nur Pilot-Fixtures/Authoring-Beispiele und werden nicht
 automatisch produktiv geladen. Eine detaillierte Entscheidung steht in
 [`adr/0004-repository-based-tutor-curriculum.md`](adr/0004-repository-based-tutor-curriculum.md).
 
-### Dynamische External Examples (Zielarchitektur)
+### Dynamische External Examples
 
 Die Server-/Deployment-Konfiguration bleibt die Default-Quelle für External
-Examples. Zukünftig darf ein Browser in den Settings ein öffentliches GitHub-
+Examples. Ein Browser darf in den Settings ein öffentliches GitHub-
 Repository und einen Git-Ref als nicht-sensitive Präferenz
 auswählen. Ohne Override gilt der Server-Default; Reset entfernt ausschließlich
 die lokale Auswahl. Der Browser verändert keinen globalen Serverzustand und
@@ -154,7 +154,7 @@ unterschiedliche Quellen verwenden, während identische Quellen einen
 validierten Snapshot teilen. Das frühere Channel-/`stable.json`-Modell ist
 verworfen.
 
-Die dynamische Browserauswahl und Ref-Auflösung sind Zielarchitektur. Der
+Die dynamische Browserauswahl und Ref-Auflösung sind implementiert. Der
 initiale konfigurierte External-Examples-Default ist
 `ttbombadil/unosim-examples` mit Ref `main`.
 Verbindliche Zielentscheidungen stehen in

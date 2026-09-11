@@ -1,6 +1,6 @@
 # Funktionsdefinition: Dynamische External Examples
 
-Status: planned
+Status: implemented
 
 Zielrolle: feature-contract
 
@@ -34,6 +34,9 @@ Vertraulichkeit der Example-Inhalte.
 
 Das zuvor geplante Channel-Modell ist verworfen. Es gibt weder `channel` noch
 `channels/stable.json` oder einen gesonderten Publishing-Channel.
+`UNOSIM_EXAMPLES_CHANNEL` ist keine Runtime-Konfiguration; seine Verwendung
+bleibt als Startup-Tombstone ein harter Konfigurationsfehler, damit ein
+veralteter Channel-Betrieb nicht stillschweigend angenommen wird.
 
 ## 2. Verbindliche Auswahlhierarchie
 

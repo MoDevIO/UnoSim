@@ -173,7 +173,7 @@ Credentials. Der Browser ruft ausschließlich die UnoSim-API auf. Siehe
 | DISABLE_COMPILE_GATEKEEPER | false | nein | false | nur kontrollierte Tests; in Produktion false. |
 | ENABLE_TEST_ENDPOINTS | false | nein | false | nur Tests; nie öffentlich. |
 | ALLOW_EMBED_ORIGINS | localhost-Defaults | nein | https://lms.example.edu | deprecated Alias; primär SIMULATOR_ALLOWED_PARENT_ORIGINS verwenden. |
-| UNOSIM_EXAMPLES_SOURCE | `ttbombadil/unosim-examples` in der geplanten Deployment-Vorgabe | nein | `https://github.com/ttbombadil/UnoSim-Examples.git` | Default-Repository als Slug oder normale GitHub-URL; exakte bisherige Raw-GitHub-Basis nur als deprecated Config-Migrationsinput. Leer bedeutet Built-ins-only. |
+| UNOSIM_EXAMPLES_SOURCE | `ttbombadil/unosim-examples` | nein | `https://github.com/ttbombadil/UnoSim-Examples.git` | Default-Repository als Slug oder normale GitHub-URL; exakte bisherige Raw-GitHub-Basis nur als deprecated Config-Migrationsinput. Leer bedeutet Built-ins-only. |
 | UNOSIM_EXAMPLES_REF | `main` bei konfiguriertem Repository | nein | main | beweglicher oder unveränderlicher Ref; wird nach TTL auf einen vollständigen Commit-SHA aufgelöst. |
 | UNOSIM_EXAMPLES_REFRESH_MS | 300000 | nein | 300000 | TTL bis zur nächsten lazy Ref-Auflösung. |
 | UNOSIM_EXAMPLES_TIMEOUT_MS | 5000 | nein | 5000 | Timeout je serverseitigem Upstream-Request. |

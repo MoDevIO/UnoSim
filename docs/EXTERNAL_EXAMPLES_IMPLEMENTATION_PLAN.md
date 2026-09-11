@@ -1,6 +1,6 @@
 # Implementierungsplan: Browser-scoped External Examples mit Git-Ref-Auflösung
 
-Status: ready-for-server-rework
+Status: implemented
 
 Basis:
 
@@ -84,9 +84,9 @@ weiterverwendet:
 | `UNOSIM_EXAMPLES_REFRESH_MS` | TTL bis zur nächsten lazy Ref-Auflösung |
 | `UNOSIM_EXAMPLES_ALLOWED_HOSTS` | operatorseitige Allowlist für `api.github.com` und `raw.githubusercontent.com` |
 
-`UNOSIM_EXAMPLES_CHANNEL` entfällt vollständig. Ist die Variable gesetzt, muss
-der Start mit einem verständlichen Fehler abbrechen, damit eine nie
-veröffentlichte Channel-Konfiguration nicht still ignoriert wird.
+`UNOSIM_EXAMPLES_CHANNEL` ist keine Runtime-Konfiguration. Ist die Variable
+gesetzt, muss der Start mit einem verständlichen Fehler abbrechen, damit eine
+nie veröffentlichte Channel-Konfiguration nicht still ignoriert wird.
 
 Die Zielmatrix lautet:
 
@@ -432,8 +432,9 @@ Server/Shared:
 - `server/services/rate-limiter.ts`;
 - `package.json`, `docker-compose.yml`.
 
-Client folgt in einem getrennten Schritt: Selection-Store, API-Client,
-Settings und Examples-Menü werden auf Repository plus Ref umgestellt.
+Die Client-Umsetzung verwendet den Selection-Store, API-Client, Settings und
+Examples-Menü für Repository plus Ref; die folgenden Verträge gelten für den
+implementierten Server- und Clientstand.
 
 ## 13. Testplan
 
@@ -453,7 +454,9 @@ Neue beziehungsweise umzustellende Tests belegen:
 - Validate, Catalog und revisionsgebundenes Detail inklusive Auth und Rate;
 - vorhandene Manifestfelder werden akzeptiert, aber nicht zur Auflösung oder
   Gleichheitsprüfung verwendet;
-- keine Channel-Typen, -Keys, -Config oder -Routenparameter verbleiben.
+- keine operativen Channel-Typen, -Keys, -Config oder -Routenparameter
+  verbleiben; `UNOSIM_EXAMPLES_CHANNEL` bleibt ausschließlich als Startup-
+  Tombstone für eine verständliche Fehlermeldung erhalten.
 - kein GitHub-Token, Credential-Header, Private-Repository-Codepfad oder Secret-
   Feld wird eingeführt; Resolver und Loader funktionieren anonym.
 
@@ -469,4 +472,5 @@ Neue beziehungsweise umzustellende Tests belegen:
 7. Channel-Code und Channel-Tests vollständig entfernen.
 8. fokussierte Tests, `npm run check`, vollständige Unit-Suite,
    `npm run check:docs` und `git diff --check` ausführen.
-9. Erst in einem späteren Schritt Client-Settings und Menü integrieren.
+9. Client-Settings und Menü integrieren und gemeinsam mit dem Serververtrag
+   prüfen.

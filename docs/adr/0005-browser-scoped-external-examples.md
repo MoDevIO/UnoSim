@@ -1,6 +1,6 @@
 # ADR 0005: Browser-scoped External Examples mit aufgelösten Git-Refs
 
-- Status: Accepted (target architecture; implementation pending)
+- Status: Accepted (implemented)
 - Date: 2026-09-11
 - Owners: UnoSim maintainers and platform operators
 
