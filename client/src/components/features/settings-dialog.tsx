@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ExternalExamplesSettings } from "@/components/features/external-examples-settings";
 import {
   DEFAULT_EXPERIMENTAL_WORKSPACE_LAYOUT,
   EXPERIMENTAL_WORKSPACE_LAYOUT_CHANGE_EVENT,
@@ -189,6 +190,7 @@ export default function SettingsDialog({
           className="grid gap-4 overflow-y-auto"
           style={{ maxHeight: "calc(100vh - var(--dialog-offset-content))" }}
         >
+          <ExternalExamplesSettings open={open} />
           {/* UI Font scale control */}
           <div className="rounded border p-3 bg-muted">
             <div className="flex items-center justify-between">
