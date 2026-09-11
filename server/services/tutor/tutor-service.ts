@@ -387,11 +387,12 @@ function validateLearningQuestion(result: TutorContentResult, difficulty?: Tutor
 
 function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): TutorContentResult {
   const scaffoldFeedback = plan.scaffold ? `Hinweis: ${plan.scaffold.hint}` : undefined;
-  const feedback = scaffoldFeedback
-    ? result.feedback
+  let feedback = result.feedback;
+  if (scaffoldFeedback) {
+    feedback = result.feedback
       ? `${result.feedback} ${scaffoldFeedback}`.slice(0, INPUT_LIMITS.tutor.maxFeedbackChars)
-      : scaffoldFeedback
-    : result.feedback;
+      : scaffoldFeedback;
+  }
   return {
     ...result,
     responseStyle: "normal",

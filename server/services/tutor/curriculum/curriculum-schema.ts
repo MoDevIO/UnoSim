@@ -3,8 +3,16 @@ import { z } from "zod";
 const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
 const SAFE_SHA256 = /^[a-f0-9]{64}$/i;
 
+const hasControlCharacters = (value: string): boolean => {
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0;
+    if ((code <= 8) || code === 11 || code === 12 || (code >= 14 && code <= 31) || code === 127) return true;
+  }
+  return false;
+};
+
 const boundedText = (max: number) => z.string().trim().min(1).max(max)
-  .refine((value) => !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value), "Control characters are not allowed")
+  .refine((value) => !hasControlCharacters(value), "Control characters are not allowed")
   .refine((value) => !/https?:\/\//i.test(value), "URLs are not allowed in curriculum text");
 
 const idSchema = z.string().regex(SAFE_ID);
@@ -168,7 +176,19 @@ export function validateCurriculumTopic(topic: CurriculumTopic): CurriculumTopic
   const questions = new Map(topic.questions.map((question) => [question.id, question]));
   const conceptIndicators = new Map(topic.concepts.map((concept) => [concept.id, new Set(concept.indicators.map((indicator) => indicator.id))]));
 
-  for (const question of topic.questions) {
+  validateQuestions(topic.questions, concepts, conceptIndicators);
+  validateMastery(topic.concepts, conceptIndicators);
+  validateScaffolds(topic.scaffolds, concepts, new Set(questions.keys()));
+  validateProgression(topic.progression, concepts);
+  return topic;
+}
+
+function validateQuestions(
+  questions: readonly CurriculumQuestion[],
+  concepts: ReadonlyMap<string, CurriculumConcept>,
+  conceptIndicators: ReadonlyMap<string, ReadonlySet<string>>,
+): void {
+  for (const question of questions) {
     if (!concepts.has(question.concept)) throw new Error(`Question references unknown concept: ${question.id}`);
     if (!conceptIndicators.get(question.concept)?.has(question.indicator)) {
       throw new Error(`Question references unknown indicator: ${question.id}`);
@@ -180,7 +200,10 @@ export function validateCurriculumTopic(topic: CurriculumTopic): CurriculumTopic
     }
   }
 
-  for (const concept of topic.concepts) {
+}
+
+function validateMastery(concepts: readonly CurriculumConcept[], conceptIndicators: ReadonlyMap<string, ReadonlySet<string>>): void {
+  for (const concept of concepts) {
     for (const indicator of concept.mastery.requiredIndicators) {
       if (!conceptIndicators.get(concept.id)?.has(indicator)) {
         throw new Error(`Mastery references unknown indicator: ${concept.id}/${indicator}`);
@@ -188,8 +211,14 @@ export function validateCurriculumTopic(topic: CurriculumTopic): CurriculumTopic
     }
   }
 
-  const questionIds = new Set(questions.keys());
-  for (const scaffold of topic.scaffolds) {
+}
+
+function validateScaffolds(
+  scaffolds: readonly CurriculumScaffold[],
+  concepts: ReadonlyMap<string, CurriculumConcept>,
+  questionIds: ReadonlySet<string>,
+): void {
+  for (const scaffold of scaffolds) {
     if (!concepts.has(scaffold.forConcept)) throw new Error(`Scaffold references unknown concept: ${scaffold.id}`);
     if (!questionIds.has(scaffold.nextQuestion)) throw new Error(`Scaffold references unknown question: ${scaffold.id}`);
     if (scaffold.targetConcept !== undefined && !concepts.has(scaffold.targetConcept)) {
@@ -197,10 +226,15 @@ export function validateCurriculumTopic(topic: CurriculumTopic): CurriculumTopic
     }
   }
 
-  for (const conceptId of [...topic.progression.entryConcepts, ...topic.progression.preferredOrder]) {
+}
+
+function validateProgression(
+  progression: CurriculumTopic["progression"],
+  concepts: ReadonlyMap<string, CurriculumConcept>,
+): void {
+  for (const conceptId of [...progression.entryConcepts, ...progression.preferredOrder]) {
     if (!concepts.has(conceptId)) throw new Error(`Progression references unknown concept: ${conceptId}`);
   }
-  return topic;
 }
 
 export function validateCurriculumManifest(manifest: CurriculumManifest): CurriculumManifest {

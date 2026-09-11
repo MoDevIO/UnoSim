@@ -25,7 +25,8 @@ const TYPE_ALIASES: Readonly<Record<string, SketchType>> = {
 };
 
 const TYPE_PATTERN = /\b(?:(?:unsigned|signed)\s+)?(?:char|byte|uint8_t|int|long|float)\b/g;
-const ARRAY_PATTERN = /\b(?:(?:unsigned|signed)\s+)?(char|byte|uint8_t|int|long|float)\s+([A-Za-z_]\w*)\s*\[\s*([^\]]*)\s*\]\s*(?:=\s*\{([^}]*)\})?/g;
+const ARRAY_PATTERN = /\b(char|byte|uint8_t|int|long|float)\s+([A-Za-z_]\w*)\s*\[\s*([^\]]*)\s*\]/g;
+const INITIALIZER_PATTERN = /^\s*=\s*\{([^}]*)\}/;
 const SERIAL_PATTERN = /\bSerial\s*\.\s*(print|println|write)\s*\(/gi;
 
 function canonicalType(value: string): SketchType | undefined {
@@ -50,11 +51,15 @@ export class DefaultSketchFactExtractor implements SketchFactExtractor {
       const elementType = canonicalType(match[1] ?? "");
       const name = match[2];
       if (!elementType || !name) continue;
-      const initializer = match[4]?.trim();
+      const initializerMatch = INITIALIZER_PATTERN.exec(clean.slice((match.index ?? 0) + match[0].length));
+      const initializer = initializerMatch?.[1]?.trim();
       const declaredSize = Number.parseInt(match[3]?.trim() ?? "", 10);
-      const elementCount = initializer
-        ? initializer.split(",").map((item) => item.trim()).filter(Boolean).length
-        : Number.isSafeInteger(declaredSize) && declaredSize > 0 ? declaredSize : 0;
+      let elementCount = 0;
+      if (initializer) {
+        elementCount = initializer.split(",").map((item) => item.trim()).filter(Boolean).length;
+      } else if (Number.isSafeInteger(declaredSize) && declaredSize > 0) {
+        elementCount = declaredSize;
+      }
       arrays.push({ name, elementType, elementCount });
       types.push(elementType);
     }

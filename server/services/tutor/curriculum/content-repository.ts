@@ -130,8 +130,19 @@ function parseTopic(source: string): CurriculumTopic {
 function parseSafeYaml(source: string): unknown {
   // The pilot format is data-only: reject explicit YAML tags before parsing so
   // unresolved/custom tags cannot be silently coerced by the YAML library.
-  if (/(^|[\s,:\[\]{}])!(?:!|<|[A-Za-z])/i.test(source)) throw new Error("YAML tags are not allowed");
+  if (containsYamlTag(source)) throw new Error("YAML tags are not allowed");
   return parseYaml(source, { schema: "core", uniqueKeys: true });
+}
+
+function containsYamlTag(source: string): boolean {
+  for (let index = 0; index < source.length; index += 1) {
+    if (source[index] !== "!") continue;
+    const previous = source[index - 1];
+    if (previous !== undefined && !/\s|,|:|\{|\}|\[|\]/.test(previous)) continue;
+    const next = source[index + 1];
+    if (next === "!" || next === "<" || (next !== undefined && /[A-Za-z]/.test(next))) return true;
+  }
+  return false;
 }
 
 function validateSource(value: string, allowedHosts: readonly string[]): URL {

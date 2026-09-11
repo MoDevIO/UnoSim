@@ -94,7 +94,7 @@ export class DefaultLearningPlanner implements LearningPlanner {
     const concept = topic.concepts.find(({ id }) => id === current.question.concept);
     if (!concept) return null;
 
-    const next = selectAfterRating(topic, facts, concept, current.question, rating, allObservations, usedQuestionIds, difficulty);
+    const next = selectAfterRating({ topic, facts, concept, currentQuestion: current.question, rating, observations: allObservations, usedQuestionIds, difficulty });
     return next ? buildPlan(topic, revision, next.concept, next.question, next.scaffold) : null;
   }
 }
@@ -139,7 +139,12 @@ export function describeQuestion(
 
 function collectUsedQuestionIds(topic: CurriculumTopic, history: readonly TutorDialogTurn[]): Set<string> {
   const byText = new Map(topic.questions.flatMap((question) => question.text ? [[question.text, question.id] as const] : []));
-  return new Set(history.flatMap((turn) => turn.questionId ? [turn.questionId] : (byText.has(turn.question) ? [byText.get(turn.question)!] : [])));
+  const ids = history.flatMap((turn) => {
+    if (turn.questionId) return [turn.questionId];
+    const questionId = byText.get(turn.question);
+    return questionId ? [questionId] : [];
+  });
+  return new Set(ids);
 }
 
 function collectObservations(topic: CurriculumTopic, history: readonly TutorDialogTurn[]): Observation[] {
@@ -177,45 +182,63 @@ function selectNextConcept(
     .find((concept) => !mastery.get(concept.id) && concept.prerequisites.every((id) => mastery.get(id) === true) && conceptHasQuestions(topic, concept, facts, usedQuestionIds)) ?? null;
 }
 
-function selectAfterRating(
+type RatingSelectionContext = {
+  topic: CurriculumTopic;
+  facts: SketchFacts;
+  concept: CurriculumConcept;
+  currentQuestion: CurriculumQuestion;
+  rating: TutorAnswerRating;
+  observations: readonly Observation[];
+  usedQuestionIds: ReadonlySet<string>;
+  difficulty: TutorDifficulty;
+};
+
+function selectAfterRating(context: RatingSelectionContext): { concept: CurriculumConcept; question: CurriculumQuestion; scaffold?: CurriculumScaffold } | null {
+  if (context.rating <= 2) return selectRemediation(context);
+  if (context.rating === 3) return selectClarification(context);
+  return selectAdvance(context);
+}
+
+function selectRemediation(context: RatingSelectionContext): { concept: CurriculumConcept; question: CurriculumQuestion; scaffold?: CurriculumScaffold } | null {
+  const { topic, facts, concept, currentQuestion, observations, usedQuestionIds, difficulty } = context;
+  const scaffold = chooseScaffold(topic, concept.id, observations, usedQuestionIds);
+  const scaffoldQuestion = scaffold ? topic.questions.find((question) => question.id === scaffold.nextQuestion) : undefined;
+  if (scaffoldQuestion && questionApplies(scaffoldQuestion, facts) && !usedQuestionIds.has(scaffoldQuestion.id)) {
+    const target = topic.concepts.find(({ id }) => id === scaffoldQuestion.concept);
+    if (target) return { concept: target, question: scaffoldQuestion, scaffold };
+  }
+  return chooseQuestionInConcept(topic, facts, concept, currentQuestion, usedQuestionIds, difficulty);
+}
+
+function selectClarification(context: RatingSelectionContext): { concept: CurriculumConcept; question: CurriculumQuestion } | null {
+  const { topic, facts, concept, currentQuestion, usedQuestionIds, difficulty } = context;
+  const sameIndicator = topic.questions.find((question) => question.concept === concept.id && question.indicator === currentQuestion.indicator && questionApplies(question, facts) && !usedQuestionIds.has(question.id));
+  return sameIndicator ? { concept, question: sameIndicator } : chooseQuestionInConcept(topic, facts, concept, currentQuestion, usedQuestionIds, difficulty);
+}
+
+function selectAdvance(context: RatingSelectionContext): { concept: CurriculumConcept; question: CurriculumQuestion } | null {
+  const { topic, facts, concept, observations, usedQuestionIds, difficulty } = context;
+  const masteryProbe = selectMasteryProbe(topic, facts, concept, observations, usedQuestionIds);
+  if (masteryProbe) return masteryProbe;
+  const nextConcept = selectNextConcept(topic, facts, observations, usedQuestionIds);
+  if (!nextConcept) return null;
+  const question = selectQuestion(topic, nextConcept, facts, usedQuestionIds, difficulty);
+  return question ? { concept: nextConcept, question } : null;
+}
+
+function selectMasteryProbe(
   topic: CurriculumTopic,
   facts: SketchFacts,
   concept: CurriculumConcept,
-  currentQuestion: CurriculumQuestion,
-  rating: TutorAnswerRating,
   observations: readonly Observation[],
   usedQuestionIds: ReadonlySet<string>,
-  difficulty: TutorDifficulty,
-): { concept: CurriculumConcept; question: CurriculumQuestion; scaffold?: CurriculumScaffold } | null {
-  if (rating <= 2) {
-    const scaffold = chooseScaffold(topic, concept.id, observations, usedQuestionIds);
-    const scaffoldQuestion = scaffold ? topic.questions.find((question) => question.id === scaffold.nextQuestion) : undefined;
-    if (scaffoldQuestion && questionApplies(scaffoldQuestion, facts) && !usedQuestionIds.has(scaffoldQuestion.id)) {
-      const target = topic.concepts.find(({ id }) => id === scaffoldQuestion.concept);
-      if (target) return { concept: target, question: scaffoldQuestion, scaffold };
-    }
-    return chooseQuestionInConcept(topic, facts, concept, currentQuestion, usedQuestionIds, difficulty);
-  }
-
-  const sameIndicator = topic.questions.find((question) => question.concept === concept.id && question.indicator === currentQuestion.indicator && questionApplies(question, facts) && !usedQuestionIds.has(question.id));
-  if (rating === 3 && sameIndicator) return { concept, question: sameIndicator };
-
-  if (rating >= 4 && !isMastered(concept, observations)) {
-    const missing = concept.mastery.requiredIndicators.find((indicator) => !indicatorMastered(indicator, concept, observations));
-    const missingQuestion = topic.questions.find((question) => question.concept === concept.id && question.indicator === missing && questionApplies(question, facts) && !usedQuestionIds.has(question.id));
-    if (missingQuestion) return { concept, question: missingQuestion };
-    const consolidationQuestion = topic.questions.find((question) => question.concept === concept.id && questionApplies(question, facts) && !usedQuestionIds.has(question.id));
-    if (consolidationQuestion) return { concept, question: consolidationQuestion };
-  }
-
-  if (rating === 3) return chooseQuestionInConcept(topic, facts, concept, currentQuestion, usedQuestionIds, difficulty);
-  return selectNextConcept(topic, facts, observations, usedQuestionIds)
-    ? (() => {
-      const nextConcept = selectNextConcept(topic, facts, observations, usedQuestionIds)!;
-      const question = selectQuestion(topic, nextConcept, facts, usedQuestionIds, difficulty);
-      return question ? { concept: nextConcept, question } : null;
-    })()
-    : null;
+): { concept: CurriculumConcept; question: CurriculumQuestion } | null {
+  if (isMastered(concept, observations)) return null;
+  const missing = concept.mastery.requiredIndicators.find((indicator) => !indicatorMastered(indicator, concept, observations));
+  const missingQuestion = topic.questions.find((question) => question.concept === concept.id && question.indicator === missing && questionApplies(question, facts) && !usedQuestionIds.has(question.id));
+  if (missingQuestion) return { concept, question: missingQuestion };
+  const consolidationQuestion = topic.questions.find((question) => question.concept === concept.id && questionApplies(question, facts) && !usedQuestionIds.has(question.id));
+  return consolidationQuestion ? { concept, question: consolidationQuestion } : null;
 }
 
 function chooseQuestionInConcept(
