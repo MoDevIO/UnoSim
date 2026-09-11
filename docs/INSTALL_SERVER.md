@@ -176,6 +176,7 @@ Credentials. Der Browser ruft ausschließlich die UnoSim-API auf. Siehe
 | ALLOW_EMBED_ORIGINS | localhost-Defaults | nein | https://lms.example.edu | deprecated Alias; primär SIMULATOR_ALLOWED_PARENT_ORIGINS verwenden. |
 | UNOSIM_EXAMPLES_SOURCE | leer | nein | `https://raw.githubusercontent.com/owner/repository` | aktuelle serverseitige Default-Quelle; in der Zielarchitektur interne Abbildung des Default-Repositorys, niemals Browserinput. |
 | UNOSIM_EXAMPLES_REF | leer | wenn Source gesetzt | vollständiger Commit-SHA oder unveränderlicher Tag | aktueller fester Default-Ref; bleibt Migrationsfallback, bis der Default-Channel implementiert ist. |
+| UNOSIM_EXAMPLES_CHANNEL | nicht implementiert | künftig bei Channel-Modus | stable | im Implementierungsplan festgelegter logischer Default-Channel; kein frei wählbarer Inhalts-Branch. |
 | UNOSIM_EXAMPLES_REFRESH_MS | 300000 | nein | 300000 | TTL für die geplante Channel-Prüfung und source-spezifische Cache-Aktualisierung. |
 | UNOSIM_EXAMPLES_TIMEOUT_MS | 5000 | nein | 5000 | Timeout je serverseitigem Upstream-Request. |
 | UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES | 262144 | nein | 262144 | maximales Manifest. |
@@ -193,9 +194,11 @@ Credentials. Der Browser ruft ausschließlich die UnoSim-API auf. Siehe
 | UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS | leer | Produktion bei Source | `raw.githubusercontent.com` | exakte Host-Allowlist für den serverseitigen Curriculum-Fetch. |
 | UNOSIM_TUTOR_CURRICULUM_REFRESH_MS | 300000 | nein | 300000 | Cache-TTL für den validierten Snapshot desselben Commits. |
 
-Die Zielarchitektur ergänzt einen serverseitigen logischen Default-Channel;
-dessen konkreter Config-Name und die Migration von `UNOSIM_EXAMPLES_REF` sind
-noch offen. Bis zur Umsetzung bleibt `UNOSIM_EXAMPLES_REF` maßgeblich.
+Die Zielarchitektur ergänzt `UNOSIM_EXAMPLES_CHANNEL` als serverseitigen
+logischen Default-Channel. Die verbindliche, noch nicht implementierte
+Migrationsmatrix mit `UNOSIM_EXAMPLES_REF` steht im
+[Implementierungsplan](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md). Bis zur
+Umsetzung bleibt `UNOSIM_EXAMPLES_REF` maßgeblich.
 FORCE_DOCKER ist ein deprecated Alias für
 UNOSIM_SIMULATION_MODE=docker-sandbox. Historische Namen nicht primär
 verwenden. Der Tutor ist in Produktion ohne explizites

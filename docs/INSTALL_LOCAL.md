@@ -124,6 +124,7 @@ Der Override ist nur für eine isolierte lokale Maschine zulässig. Ein Mehrbenu
 | LOAD_TEST_CLIENT_COUNT | 50 | Loadtest | Anzahl Harness-Clients. |
 | UNOSIM_EXAMPLES_SOURCE | leer | nein | Serverseitige HTTPS-Basis-URL und Default-Quelle für externe Beispiele; im Dev-Skript auf `https://raw.githubusercontent.com/ttbombadil/UnoSim-Examples` gesetzt. Browser-Overrides dürfen diesen Raw-Wert nicht setzen. |
 | UNOSIM_EXAMPLES_REF | leer | nein | Aktueller fester Default-Ref; im Dev-Skript `v1.0.0`. Erforderlich, wenn `UNOSIM_EXAMPLES_SOURCE` gesetzt ist. |
+| UNOSIM_EXAMPLES_CHANNEL | nicht implementiert | künftig bei Channel-Modus | Im Implementierungsplan festgelegter logischer Default-Channel `stable`; bis zur Implementierung gilt `UNOSIM_EXAMPLES_REF`. |
 | UNOSIM_EXAMPLES_REFRESH_MS | 300000 | nein | Aktuelles Provider-TTL; in der Zielarchitektur Intervall für erneute source-spezifische Channel-Prüfung. |
 | UNOSIM_EXAMPLES_TIMEOUT_MS | 5000 | nein | Timeout je serverseitigem Upstream-Request. |
 | UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES | 262144 | nein | maximales Manifest. |
@@ -134,9 +135,11 @@ Der Override ist nur für eine isolierte lokale Maschine zulässig. Ein Mehrbenu
 
 ### Geplante browser-spezifische Examples-Auswahl
 
-Die Zielarchitektur ergänzt einen serverseitigen logischen Default-Channel wie
-`stable`. Sein konkreter Config-Name und die Migration vom aktuellen festen
-`UNOSIM_EXAMPLES_REF` sind noch offen.
+Die Zielarchitektur ergänzt `UNOSIM_EXAMPLES_CHANNEL=stable` als serverseitigen
+logischen Default-Channel. Die Migration vom aktuellen festen
+`UNOSIM_EXAMPLES_REF` ist im
+[Implementierungsplan](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md) konkretisiert,
+aber noch nicht implementiert.
 
 Die Settings sollen künftig normale GitHub-Repository-Angaben wie
 `owner/repository` oder `https://github.com/owner/repository` akzeptieren und

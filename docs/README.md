@@ -12,6 +12,7 @@ Zentraler Einstieg in die aktuelle normative Dokumentation. Historische Pläne, 
 - [ARCHITECTURE.md](ARCHITECTURE.md) – Komponenten, Datenflüsse und Observability.
 - [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) – Gates, Update, Health und Rollback.
 - [SECURITY.md](SECURITY.md) – Sicherheitsmodell und Sandbox-Vertrag.
+- [EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md) – konkreter Umsetzungsplan für die geplante browser-spezifische Examples-Auswahl.
 
 ## APIs, Tests und Kapazität
 

@@ -108,10 +108,12 @@ enthalten.
 - **LKG eines anderen Repositorys als Fallback:** abgelehnt, weil die Antwort
   nicht mehr der angefragten Source entspräche.
 
-## Open implementation decisions
+## Follow-up boundaries
 
-Vor Implementierungsbeginn werden der konkrete geschützte Channel-
-Publikationspfad, numerische Abuse-/Cache-Grenzen, Config-Migrationsnamen und
-eine mögliche neustartfeste LKG-Ablage festgelegt. Diese Details dürfen die
-hier entschiedene Hierarchie, Request-Isolation, Commit-Bindung oder
-Sicherheitsgrenze nicht verändern.
+Syntax, API, In-Memory-Limits, Cache-Keys, Concurrency und Config-Migration sind
+im
+[`External-Examples-Implementierungsplan`](../EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md)
+konkretisiert. Getrennte Folgethemen bleiben der geschützte Channel-
+Publikationspfad einschließlich Repository-Workflow und eine mögliche
+neustartfeste LKG-Ablage. Diese Themen dürfen die hier entschiedene Hierarchie,
+Request-Isolation, Commit-Bindung oder Sicherheitsgrenze nicht verändern.

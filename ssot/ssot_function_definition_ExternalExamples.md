@@ -169,6 +169,9 @@ Eine erfolgreiche Katalogantwort MUSS mindestens folgende Metadaten enthalten:
 `selection` ist `default` oder `browser-override`. `status` bleibt kompatibel
 zu `remote`, `cache` und `builtin`. Bei reinem Built-in-Betrieb sind
 `repository`, `channel` und `revision` null; `selection` bleibt `default`.
+Während der im Implementierungsplan festgelegten Kompatibilitätsphase darf
+zusätzlich ausschließlich ein serverseitiger `legacy-ref`-Default eine
+`revision=null` liefern. Browser-Overrides dürfen diese Ausnahme nie verwenden.
 `stale=true` bedeutet, dass die Channel-Aktualisierung fehlgeschlagen ist und
 der letzte gültige Snapshot derselben Repository-/Channel-Auswahl ausgeliefert
 wird. Antworten dürfen keine Raw-Source-URL, Serverpfade, Allowlists,
@@ -266,18 +269,21 @@ neuer Cache-Keys geschützt werden.
 - Persistenter Browser-Speicher enthält nur Repository, Channel und
   Schemaversion, niemals Credentials oder Tutor-Daten.
 
-## 10. Abgrenzung und offene Detailentscheidungen
+## 10. Abgrenzung und Implementierungsentscheidungen
 
-Nicht Bestandteil dieses Dokumentationsschritts sind TypeScript-/React-Code,
-API-Implementierung, Settings-UI und Config-Migration.
+Nicht Bestandteil dieser Dokumentationsphase sind TypeScript-/React-Code,
+API-Implementierung, Settings-UI und die technische Umsetzung der
+Config-Migration.
 
-Vor der Implementierung sind noch festzulegen:
+Syntax, Maximalgrößen, Config-Migration, API-Requests, Cache-Keys,
+Multi-Browser-Concurrency und numerische In-Memory-Limits sind im aktiven
+[`External-Examples-Implementierungsplan`](../docs/EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md)
+verbindlich konkretisiert. Der Plan ändert die hier festgelegte Hierarchie und
+Sicherheitsgrenze nicht.
+
+Als getrennte Folgethemen bleiben offen:
 
 - der konkrete, bewusst bewegliche GitHub-Publikationspfad ausschließlich für
-  `channels/*.json` (zum Beispiel ein geschützter `unosim-channels`-Ref);
-- exakte Syntax- und Längenlimits für Owner, Repository und Channel;
-- Rate-Limit-, Parallelitäts-, LRU- und maximale Source-Cardinality-Werte;
+  `channels/*.json` einschließlich Authoring-, Review- und Release-Workflow;
 - ob ein neustartfester, integrity-geschützter LKG-Cache betrieblich benötigt
-  wird;
-- Migration und Benennung eines neuen Default-Channel-Configwerts neben dem
-  bisherigen festen `UNOSIM_EXAMPLES_REF`.
+  wird.

@@ -91,9 +91,10 @@ Sicherheitsgrenze konfigurieren oder lockern.
   Browser persistent sein. Diese Ausnahme gilt nicht für Credentials,
   Tutor-API-Keys, Dialoghistorien oder andere sensible Daten.
 
-Die dynamische Auswahl ist noch nicht implementiert. Fachvertrag und offene
-numerische Grenzwerte stehen in
-[`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md).
+Die dynamische Auswahl ist noch nicht implementiert. Der Fachvertrag steht in
+[`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md),
+die verbindlichen In-Memory-, Rate- und Concurrency-Limits im
+[`EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md`](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md).
 
 ## Potenzielle und verbleibende Risiken
 
