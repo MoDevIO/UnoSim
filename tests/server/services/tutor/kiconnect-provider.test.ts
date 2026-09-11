@@ -58,6 +58,32 @@ describe("KiconnectProvider", () => {
     expect(JSON.parse(String(init.body))).not.toHaveProperty("response_format");
   });
 
+  it("prefers an available Qwen family for Automatic selection without requiring a fixed deployment ID", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [
+          { id: "mistralai-mistral-small-2503" },
+          { id: "qwen3-32b-instruct" },
+          { id: "llama-3.3-70b-instruct" },
+        ],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: "Welche Wirkung hat digitalWrite(13, HIGH)?" } }],
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await new KiconnectProvider().generateLearningQuestion({
+      model: "auto",
+      systemPrompt: "system",
+      userPrompt: "user",
+    }, "request-key");
+
+    expect(result.model).toBe("qwen3-32b-instruct");
+    expect(JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body))).toMatchObject({
+      model: "qwen3-32b-instruct",
+    });
+  });
+
   it("accepts normal text and text-part content when structured output is unavailable", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({

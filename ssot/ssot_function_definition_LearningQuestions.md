@@ -464,6 +464,13 @@ Die Modellwahl MUSS folgende Regeln einhalten:
 
 - Der Standardwert ist `Automatisch`.
 - `Automatisch` verwendet ausschließlich Modelle, die in der aktuellen Provider-Antwort enthalten sind.
+- `Automatisch` wird serverseitig anhand einer kontrollierten, familienbasierten Präferenzliste
+  aufgelöst. Geeignete verfügbare Qwen-Modelle werden bevorzugt; danach folgen andere als
+  geeignet definierte Instruction-/Reasoning-Familien. Die Präferenz bewertet keine fest
+  codierte Deployment-ID und darf nur IDs aus der aktuellen Provider-Antwort auswählen.
+- Gibt es keinen passenden Qwen-Kandidaten, fällt `Automatisch` deterministisch auf die nächste
+  geeignete verfügbare Modellfamilie zurück; bei gleicher Präferenz bleibt die Provider-Reihenfolge
+  erhalten.
 - Eine manuelle Auswahl darf ausschließlich aus der zuletzt erfolgreich geladenen aktuellen Modellliste angeboten werden.
 - Eine nicht mehr verfügbare oder anderweitig ungültige manuelle Auswahl fällt vor der Anfrage auf `Automatisch` zurück.
 - Der Server MUSS eine manuelle Auswahl zusätzlich gegen eine frische Provider-Modellliste prüfen; die Client-Auswahl allein ist keine Autorisierung.

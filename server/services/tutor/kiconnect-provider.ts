@@ -8,6 +8,7 @@ import {
   type LLMProviderRequest,
   type ProviderQuestionResult,
 } from "./llm-provider";
+import { rankTutorModels } from "./model-preference";
 
 const completionSchema = z.object({
   choices: z.array(z.object({
@@ -243,8 +244,7 @@ export class KiconnectProvider implements LLMProvider {
 
   private async resolveModel(model: string, credential: string): Promise<string> {
     if (model !== "auto") return model;
-    const models = await this.listModels(credential);
-    const modelId = models[0];
+    const modelId = rankTutorModels(await this.listModels(credential))[0];
     if (!modelId) throw new TutorProviderError("model-unavailable");
     return modelId;
   }
