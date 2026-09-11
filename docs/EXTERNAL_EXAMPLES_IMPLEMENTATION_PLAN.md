@@ -1,161 +1,126 @@
-# Implementierungsplan: Browser-scoped External Examples
+# Implementierungsplan: Browser-scoped External Examples mit Git-Ref-Auflösung
 
-Status: ready-for-implementation
+Status: ready-for-server-rework
 
 Basis:
 
 - [`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md)
 - [`adr/0005-browser-scoped-external-examples.md`](adr/0005-browser-scoped-external-examples.md)
 
-Dieser Plan konkretisiert ausschließlich die für die Implementierung noch
-blockierenden Eingabe-, Config-, API-, Cache-, Concurrency- und Testdetails. Er
-ändert keine Sicherheitsgrenze und enthält noch keine Codeänderung.
+Dieser Plan ersetzt den nie veröffentlichten Channel-Entwurf vollständig.
+`channel`, `channels/stable.json`, `ChannelDocumentLocator` und ein separater
+Publishing-Channel sind weder Zielvertrag noch Kompatibilitätsanforderung.
 
-## 1. Geltungsbereich und Nicht-Ziele
+## 1. Ziel und Nicht-Ziele
 
 Im Scope liegen:
 
-- Browser-Override für öffentlich erreichbare GitHub-Repositories;
-- Default-/Legacy-Config-Migration;
-- typisierte Validate-, Catalog- und Detail-Requests;
-- pro Source getrennte, prozesslokale Channel- und Revision-Caches;
-- Limits, Singleflight, Concurrency und LRU;
-- Settings- und Examples-Menu-Integration;
-- automatisierte Vertrags-, Security-, Cache-, Route- und UI-Tests.
+- Default- und Browserauswahl aus öffentlichem GitHub-Repository plus Ref;
+- serverseitige Auflösung jedes fälligen Refs auf einen vollständigen SHA;
+- immutable, vollständig validierte Snapshots aus dieser Revision;
+- request-scoped API, Browser-Persistenz, LKG, LRU und Concurrency-Limits;
+- Migration der vorhandenen Source-/Ref-Konfiguration;
+- Entfernen der uncommittierten Channel-spezifischen Servergrundlage.
 
-Explizite Folgethemen und nicht Bestandteil dieser Umsetzung sind:
+Nicht im Scope liegen private Repositories, Vertraulichkeit, GitHub-
+Authentifizierung, Credentials, Tokens, Deploy Keys, GitHub Apps,
+Browser-Secrets und ein persistenter oder prozessübergreifender LKG. Ein eigener
+Channel-Publikationsworkflow ist nicht mehr vorgesehen.
 
-- Authoring, Review, CI und Publikationsworkflow im Examples-Repository;
-- Auswahl und Betrieb des beweglichen Publikationspfads für
-  `channels/*.json`;
-- persistenter oder prozessübergreifender Last-Known-Good-Cache.
+Das Sicherheitsziel lautet Integrität und kontrollierte Veröffentlichung
+öffentlich lesbarer Inhalte. Credential- oder Private-Repository-Fallbacks
+werden weder implementiert noch vorbereitet.
 
-Der Server erhält für den Channel-Zugriff eine injizierbare
-`ChannelDocumentLocator`-Grenze. Deren produktiver Publikationspfad wird im
-separaten Publikationsworkflow festgelegt; Tests verwenden ausschließlich
-kontrollierte Fixture-Locators.
-
-## 2. Verbindliche Eingabesyntax und Maximalgrößen
-
-Query-Werte werden durch den HTTP-Parser genau einmal percent-dekodiert; JSON-
-Bodywerte werden nicht percent-dekodiert. API-Schemas akzeptieren nur bereits
-kanonische ASCII-Werte. Die Settings-UI und der serverseitige Config-Resolver
-normalisieren ihre jeweiligen Eingabeformen vor der API- beziehungsweise
-Cache-Key-Bildung. Whitespace, Steuerzeichen, Unicode, Backslash, zusätzliche
-Slashes, Query, Fragment und Credentials sind ungültig.
+## 2. Eingaben und Normalisierung
 
 ### 2.1 Repository
 
-Der API-Vertrag akzeptiert ausschließlich den kanonischen Slug
-`owner/repository`. Nur die Settings-Eingabe darf zusätzlich eine normale URL
-`https://github.com/owner/repository` akzeptieren und vor dem Request in den
-Slug umwandeln.
+Settings und Config akzeptieren:
 
-| Teil | Verbindlicher Vertrag |
+- `owner/repository`;
+- `https://github.com/owner/repository`;
+- dieselbe URL mit optionalem `.git` und optionalem abschließenden Slash.
+
+Nur zur Migration bestehender Serverkonfiguration darf
+`UNOSIM_EXAMPLES_SOURCE` außerdem die exakte bisherige Form
+`https://raw.githubusercontent.com/owner/repository` akzeptieren. Diese Form ist
+deprecated und bleibt als Browserinput verboten. Beliebige HTTPS-Quellen sind
+im neuen Modell nicht zulässig, weil Ref-Auflösung und Commit-Bindung einen
+öffentlichen GitHub-Repository-Slug voraussetzen.
+
+Alle Formen werden vor Request- und Key-Bildung auf einen kleingeschriebenen
+Slug normalisiert. Der API-Vertrag akzeptiert ausschließlich die kanonische
+Form. Repository-Grenzen bleiben:
+
+- Owner 1–39 Zeichen, `[a-z0-9-]`, alphanumerische Ränder, kein `--`;
+- Name 1–100 Zeichen, `[a-z0-9._-]`, alphanumerische Ränder, weder `.` noch
+  `..`;
+- Slug maximal 140 Zeichen einschließlich genau eines `/`.
+
+Initialer ausgelieferter Default: `ttbombadil/unosim-examples`. In
+menschenlesbarer Config darf dafür auch
+`https://github.com/ttbombadil/UnoSim-Examples.git` stehen.
+
+### 2.2 Ref und Revision
+
+`ref` ist case-sensitive, 1–128 Zeichen lang und folgt
+`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`. `main` ist ausdrücklich gültig. Die
+begrenzte Grammatik vermeidet Ref-/Pfad-Mehrdeutigkeit; Branches mit Slash sind
+in Version 1 nicht Teil des Vertrags.
+
+`revision` ist ausschließlich ein kleingeschriebener vollständiger Commit-SHA
+mit `^[0-9a-f]{40}$`. Der Browser konfiguriert keine Revision; er übernimmt sie
+aus dem Katalog für den Detailrequest.
+
+## 3. Config-Semantik und Migration
+
+Die vorhandenen Variablen werden ohne zusätzliche Repository-Variable
+weiterverwendet:
+
+| Variable | neue Bedeutung |
 |---|---|
-| Owner | 1 bis 39 Zeichen; Zeichenmuster `^[a-z0-9-]+$`; erstes und letztes Zeichen alphanumerisch; kein `--` |
-| Repository | 1 bis 100 Zeichen; Zeichenmuster `^[a-z0-9._-]+$`; erstes und letztes Zeichen alphanumerisch |
-| Gesamter Slug | höchstens 140 Zeichen einschließlich genau eines `/` |
-| Zusätzliche Ausschlüsse | Repository `.` und `..`; leere Segmente; `.git` wird nur bei einer Settings-URL entfernt und ist im API-Slug ungültig |
+| `UNOSIM_EXAMPLES_SOURCE` | Default-Repository-Eingabe; Slug oder normale GitHub-URL, vorübergehend auch exakte Raw-GitHub-Repository-Basis |
+| `UNOSIM_EXAMPLES_REF` | beweglicher oder unveränderlicher Default-Ref; initial `main` |
+| `UNOSIM_EXAMPLES_REFRESH_MS` | TTL bis zur nächsten lazy Ref-Auflösung |
+| `UNOSIM_EXAMPLES_ALLOWED_HOSTS` | operatorseitige Allowlist für `api.github.com` und `raw.githubusercontent.com` |
 
-Die UI darf Groß-/Kleinschreibung und bei einer URL genau einen abschließenden
-Slash entgegennehmen, speichert und sendet aber die kleingeschriebene
-kanonische Form. Das API-Schema weist nicht-kanonische Slugs ab. Der
-serverseitige Config-Resolver normalisiert bestehende GitHub-Source-Werte nach
-denselben Regeln, damit unterschiedliche Schreibweisen keinen Cache
-vervielfachen.
+`UNOSIM_EXAMPLES_CHANNEL` entfällt vollständig. Ist die Variable gesetzt, muss
+der Start mit einem verständlichen Fehler abbrechen, damit eine nie
+veröffentlichte Channel-Konfiguration nicht still ignoriert wird.
 
-### 2.2 Channel
+Die Zielmatrix lautet:
 
-- Länge: 1 bis 32 Zeichen.
-- Zeichenmuster: `^[a-z0-9._-]+$`; erstes und letztes Zeichen müssen
-  alphanumerisch sein.
-- `.` und `..` sind ausgeschlossen.
-- Der Wert wird kleingeschrieben.
-- `/`, `\\`, `%`, `:`, `@`, Whitespace und Unicode sind ausgeschlossen.
-- UI-Default und neuer Server-Default sind `stable`.
+| Source | Ref | Ergebnis |
+|---|---|---|
+| leer | leer | nur Built-ins |
+| leer | gesetzt | Startup-Fehler |
+| gesetzt | leer | Repository-/Ref-Modus mit `main` |
+| gesetzt | gesetzt | Repository-/Ref-Modus mit validiertem Ref |
 
-Der Channel ist ein logischer Name und niemals ein vom Browser frei gelieferter
-Git-Branch oder Pfad.
+Die ausgelieferten Entwicklungs- und Deployment-Vorgaben setzen zunächst
+`ttbombadil/unosim-examples` und `main`. Ein ausdrücklich leerer Source-Wert
+bleibt der Opt-out für Built-ins-only. Der bisherige Produktionsfehler für
+`UNOSIM_EXAMPLES_REF=main` wird entfernt; die Sicherheit entsteht durch
+Auflösung und anschließenden SHA-gebundenen Contentzugriff.
 
-### 2.3 Revision und Manifest-Hash
+Bestehende Werte wie
+`https://raw.githubusercontent.com/ttbombadil/UnoSim-Examples` plus `v1.0.0`
+werden kanonisch normalisiert und ohne Neustart-basierte Fixed-Ref-Sonderklasse
+in dasselbe Repository-/Ref-Modell überführt. Es gibt keinen getrennten
+`legacy-ref`-Responsemodus mehr.
 
-- `revision` ist ausschließlich ein vollständiger kleingeschriebener Git-
-  Commit-SHA mit exakt 40 Hexadezimalzeichen:
-  `^[0-9a-f]{40}$`.
-- `manifestSha256` besitzt exakt 64 kleingeschriebene Hexadezimalzeichen:
-  `^[0-9a-f]{64}$`.
-- Die Revision ist kein Settings-Wert. Sie kommt aus dem validierten Channel-
-  Dokument beziehungsweise aus der Katalogantwort und bindet den Detailabruf.
-
-`UNOSIM_EXAMPLES_REF` behält während der Migration seine bisherige Ref-Syntax
-`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`. Diese Legacy-Syntax darf nicht für
-Browser-Overrides oder Channel-Revisionsparameter wiederverwendet werden.
-
-## 3. Config-Migration und Kompatibilität
-
-### 3.1 Zielwerte
-
-Neu eingeführt wird `UNOSIM_EXAMPLES_CHANNEL`. Der Default ist `stable`, wenn
-eine GitHub-kompatible `UNOSIM_EXAMPLES_SOURCE` gesetzt und
-`UNOSIM_EXAMPLES_REF` leer ist. `UNOSIM_EXAMPLES_REFRESH_MS` bleibt das
-Channel-Prüfintervall mit dem bestehenden Default von 300000 ms.
-
-Die Startup-Matrix ist verbindlich:
-
-| Source | Ref | Channel | Ergebnis |
-|---|---|---|---|
-| leer | leer | leer | nur Built-ins |
-| leer | gesetzt | beliebig | Startup-Fehler |
-| leer | leer | gesetzt | Startup-Fehler |
-| gesetzt | gesetzt | leer | kompatibler Legacy-Fixed-Ref-Modus |
-| gesetzt | leer | leer | Channel-Modus mit `stable` |
-| gesetzt | leer | gesetzt | Channel-Modus mit validiertem Channel |
-| gesetzt | gesetzt | gesetzt | Startup-Fehler; keine implizite Präzedenz |
-
-Channel-Modus erfordert, dass `UNOSIM_EXAMPLES_SOURCE` eindeutig auf ein
-unterstütztes öffentliches GitHub-Repository normalisiert werden kann. Andere
-bisher erlaubte HTTPS-Quellen bleiben nur im Legacy-Fixed-Ref-Modus kompatibel.
-
-### 3.2 Legacy-Verhalten
-
-- `UNOSIM_EXAMPLES_REF` wird in dieser Umsetzung nicht entfernt und nicht
-  automatisch als Channel interpretiert.
-- Bestehende gültige Tags und Ref-Namen bleiben im Default-Legacy-Modus mit dem
-  bisherigen Ladeverhalten funktionsfähig.
-- `main` bleibt in Produktion verboten.
-- Legacy-Modus pollt keinen Channel und verspricht keinen revisionsgebundenen
-  Detailabruf. Er ist eine ausdrücklich befristete Kompatibilitätsschicht.
-- Die neue UI akzeptiert einen Legacy-Default, zeigt ihn als `Default (fixed
-  ref)` und verwendet für dessen Detailabrufe den bisherigen Pfad ohne
-  `revision`.
-- Browser-Overrides verwenden auch dann ausschließlich das neue Channel-Modell,
-  wenn der Server-Default noch im Legacy-Modus läuft.
-- Eine spätere Entfernung von `UNOSIM_EXAMPLES_REF` benötigt eine eigene
-  Deprecation-/Release-Entscheidung und ist nicht Teil dieser Implementierung.
-
-Die additive Response-Metadaten-Union enthält dafür vorübergehend den Modus
-`legacy-ref`; nur in diesem Modus darf `revision` neben `builtin` null sein. Das
-ist eine Migrationsausnahme, keine Erweiterung der erlaubten Channel-Revision.
-
-### 3.3 Entwicklungs- und Deployment-Defaults
-
-- `package.json`: Der Dev-Start wird nach Verfügbarkeit des Channel-Locators von
-  `UNOSIM_EXAMPLES_REF=v1.0.0` auf `UNOSIM_EXAMPLES_CHANNEL=stable` umgestellt.
-- `docker-compose.yml`: `UNOSIM_EXAMPLES_CHANNEL` und die neuen Limits werden
-  als optionale Environment-Werte durchgereicht.
-- Bestehende Deployments mit `UNOSIM_EXAMPLES_REF` starten unverändert im
-  Legacy-Modus. Betreiber müssen nicht gleichzeitig migrieren.
+Im initialen Default-Repository ist `main` der veröffentlichte Stand. Das
+Examples-Repository schützt diesen Stand durch Branch Protection, Reviewregeln
+und CI-Prüfungen. Der konkrete Workflow liegt im Examples-Repository; UnoSim
+benötigt dafür keine Schreibrechte und keine Credentials.
 
 ## 4. Typen und Interfaces
 
-### 4.1 Shared API-Typen
-
-Neue Datei `shared/examples.ts`:
+Die Shared-Typen werden auf folgende Kerntypen reduziert:
 
 ```ts
 type RepositorySlug = string;
-type ExamplesChannel = string;
+type ExamplesRef = string;
 type FullCommitSha = string;
 
 type ExamplesRequestSelection =
@@ -163,7 +128,7 @@ type ExamplesRequestSelection =
   | {
       kind: "browser-override";
       repository: RepositorySlug;
-      channel: ExamplesChannel;
+      ref: ExamplesRef;
     };
 
 type ExamplesSourceMetadata =
@@ -171,124 +136,56 @@ type ExamplesSourceMetadata =
       selection: "default";
       mode: "builtin";
       repository: null;
-      channel: null;
+      ref: null;
       revision: null;
       status: "builtin";
       stale: false;
     }
   | {
       selection: "default" | "browser-override";
-      mode: "channel";
+      mode: "repository-ref";
       repository: RepositorySlug;
-      channel: ExamplesChannel;
+      ref: ExamplesRef;
       revision: FullCommitSha;
       status: "remote" | "cache";
       stale: boolean;
-    }
-  | {
-      selection: "default";
-      mode: "legacy-ref";
-      repository: RepositorySlug | null;
-      channel: null;
-      revision: null;
-      status: "remote" | "cache" | "builtin";
-      stale: boolean;
     };
-
-interface ValidateExamplesRequest {
-  schemaVersion: 1;
-  selection: {
-    repository: RepositorySlug;
-    channel: ExamplesChannel;
-  };
-}
-
-interface ValidateExamplesResponse {
-  schemaVersion: 1;
-  valid: true;
-  source: Extract<ExamplesSourceMetadata, { mode: "channel" }>;
-}
-
-interface ExamplesCatalogResponse {
-  schemaVersion: 1;
-  source: ExamplesSourceMetadata;
-  examples: ExampleCatalogItem[];
-}
-
-interface ExampleDetailResponse {
-  schemaVersion: 1;
-  id: string;
-  title: string;
-  category: string;
-  description?: string;
-  main: string;
-  source: "builtin" | "external";
-  revision: FullCommitSha | null;
-  files: ExampleFile[];
-}
 ```
 
-Die konkreten Zod-Schemas und TypeScript-Typen kommen aus derselben Definition,
-damit Route und Client keine parallelen Handtypen pflegen. `shared/input-limits.ts`
-erhält die genannten Zeichenlimits; `server/services/examples/examples-schema.ts`
-behält Manifest-/Dateischemas und ergänzt Channel-Dokument und API-Parsing.
-
-### 4.2 Server-Interfaces
+Der Server erhält keine Channel-Grenze mehr. Stattdessen:
 
 ```ts
-interface ResolvedExamplesSelection {
-  selection: "default" | "browser-override";
-  mode: "builtin" | "legacy-ref" | "channel";
-  repository: RepositorySlug | null;
-  channel: ExamplesChannel | null;
-  legacySource?: URL;
-  legacyRef?: string;
+interface GitHubRevisionResolver {
+  resolve(
+    repository: RepositorySlug,
+    ref: ExamplesRef,
+    context: RequestContext,
+  ): Promise<FullCommitSha>;
 }
 
-interface ChannelDocument {
-  schemaVersion: 1;
-  revision: FullCommitSha;
-  manifestSha256: string;
-}
-
-interface ChannelDocumentLocator {
-  locate(repository: RepositorySlug, channel: ExamplesChannel): URL;
-}
-
-interface ExamplesRepository {
-  validate(selection: BrowserOverrideSelection, context: RequestContext): Promise<ExamplesSourceMetadata>;
-  getCatalog(selection: ExamplesRequestSelection, context: RequestContext): Promise<ExamplesCatalogResponse>;
-  getExample(selection: ExamplesRequestSelection, revision: FullCommitSha | undefined, id: string, context: RequestContext): Promise<ExampleDetailResponse | null>;
+interface RevisionSnapshotLoader {
+  load(
+    repository: RepositorySlug,
+    revision: FullCommitSha,
+    context: RequestContext,
+  ): Promise<ValidatedRevisionSnapshot>;
 }
 ```
 
-`RequestContext` enthält nur die bereits vertrauenswürdig ermittelte Identität,
-Request-ID und Abort-Signal, keine gespeicherte Browserauswahl.
+Der produktive Resolver ruft ausschließlich den serverkonstruierten Endpunkt
+`https://api.github.com/repos/<owner>/<repository>/commits/<ref>` auf. Er
+akzeptiert nur eine strikt validierte Response mit vollständigem SHA. Der
+Snapshot-Loader verwendet ausschließlich Raw-GitHub-URLs mit diesem SHA.
+Beide Zugriffe sind anonyme, credential-freie HTTPS-Lesezugriffe auf öffentliche
+Repositories. Es gibt keine Token-Injection oder Auth-Header-Konfiguration.
 
-### 4.3 Client-Interfaces
+## 5. API-Verträge
 
-Neue Module:
+Unbekannte, doppelte und partielle Felder werden abgelehnt. Query-Werte werden
+durch den HTTP-Parser genau einmal dekodiert. Override-Antworten erhalten
+`Cache-Control: private, no-store`.
 
-- `client/src/lib/external-examples-selection.ts`: Storage-Schema,
-  GitHub-URL-Normalisierung, `useSyncExternalStore`-kompatibler Store, Apply und
-  Reset;
-- `client/src/lib/examples-api.ts`: alleinige Konstruktion der typisierten
-  Validate-, Catalog- und Detail-Requests;
-- optional `client/src/hooks/use-external-examples.ts`: verbindet Auswahl,
-  Katalogstatus und Reload für Settings und Examples Menu.
-
-Der Store persistiert ausschließlich `{schemaVersion, repository, channel}`.
-Kataloge, Revisionen, Fehler und Example-Dateien bleiben im RAM.
-
-## 5. Request-/Response-Verträge
-
-Alle Requests verwenden den bestehenden REST-Major-Vertrag und werden additiv
-eingeführt. Unbekannte Body- oder Query-Felder, doppelte Query-Werte und
-partielle Override-Auswahlen werden abgelehnt. Override-Antworten erhalten
-`Cache-Control: private, no-store`; der kontrollierte Cache liegt im Backend,
-nicht in Browser- oder Proxy-Caches.
-
-### 5.1 Validate und Apply
+### 5.1 Validate
 
 ```http
 POST /api/examples/validate
@@ -297,13 +194,13 @@ Content-Type: application/json
 {
   "schemaVersion": 1,
   "selection": {
-    "repository": "owner/repository",
-    "channel": "stable"
+    "repository": "ttbombadil/unosim-examples",
+    "ref": "main"
   }
 }
 ```
 
-Erfolg `200`:
+Erfolg:
 
 ```json
 {
@@ -311,9 +208,9 @@ Erfolg `200`:
   "valid": true,
   "source": {
     "selection": "browser-override",
-    "mode": "channel",
-    "repository": "owner/repository",
-    "channel": "stable",
+    "mode": "repository-ref",
+    "repository": "ttbombadil/unosim-examples",
+    "ref": "main",
     "revision": "0123456789abcdef0123456789abcdef01234567",
     "status": "remote",
     "stale": false
@@ -321,375 +218,255 @@ Erfolg `200`:
 }
 ```
 
-Validate lädt und validiert den vollständigen Kandidaten-Snapshot und wärmt
-denselben source-keyed Cache, verändert aber keinen Server- oder Browserzustand.
-Ein noch nicht abgelaufener, erfolgreich geprüfter Cacheeintrag darf dafür
-verwendet werden. Nach TTL-Ablauf muss Validate den Channel frisch erfolgreich
-prüfen; ein stale LKG führt bei Apply zu einem Fehler und darf den neuen
-Browser-Override nicht aktivieren. Es gibt keinen serverseitigen
-`/apply`-Endpunkt.
-
-Die UI-Aktion Apply ist exakt diese Transaktion:
-
-1. Draft lokal normalisieren.
-2. `POST /api/examples/validate` senden.
-3. Nur nach `200` die vom Server kanonisch zurückgegebenen Werte unter
-   `unoExternalExamplesSelection` speichern.
-4. Den Selection-Store benachrichtigen und den Catalog-Request auslösen.
-5. Bei jedem Fehler Storage, bisherigen Katalog und Editor unverändert lassen.
-
-Reset löscht den Storage-Key, aktualisiert den Selection-Store und ruft danach
-`GET /api/examples` ohne Override-Parameter auf. Es gibt keinen Reset-Request an
-den Server.
+Validate löst einen fälligen Ref frisch auf und validiert den vollständigen
+Snapshot. Ein frischer erfolgreicher Cache darf verwendet werden. Nach TTL ist
+ein stale LKG kein Validate-Erfolg. Es gibt keinen serverseitigen Apply-
+Endpunkt.
 
 ### 5.2 Catalog
 
-Default:
-
 ```http
 GET /api/examples
+GET /api/examples?repository=ttbombadil%2Funosim-examples&ref=main
 ```
 
-Browser-Override:
+Die Antwort enthält `schemaVersion`, `source` und `examples`. `source` enthält
+bei externen Examples immer Auswahlart, `mode=repository-ref`, Repository, Ref,
+vollständige Revision, `status` und `stale`. Built-ins verwenden null für
+Repository, Ref und Revision.
 
-```http
-GET /api/examples?repository=owner%2Frepository&channel=stable
-```
-
-Erfolg `200` folgt `ExamplesCatalogResponse`. Bei Channel-Modus enthält
-`source.revision` immer den vollständigen Commit-SHA. Der Catalog darf Built-ins
-und External Examples wie bisher gemeinsam enthalten; `source` beschreibt die
-effektive externe Auswahl des Requests.
-
-Beim Öffnen des Menüs wird der Katalog erneut angefragt. Zusätzlich löst eine
-Apply-/Reset-Änderung sofort einen neuen Request aus. Ein periodischer Browser-
-Poll ist nicht erforderlich; der Server revalidiert den Channel bei der ersten
-Katalog- oder Validate-Anfrage nach Ablauf des TTL.
-
-### 5.3 Example-Detail
-
-Built-in oder Legacy-Default:
+### 5.3 Detail
 
 ```http
 GET /api/examples/:id
+GET /api/examples/:id?repository=ttbombadil%2Funosim-examples&revision=<full-commit-sha>
 ```
 
-Channel-Default:
+Built-ins benötigen keine Query. Externe Details müssen Repository und Revision
+gemeinsam übertragen. Der Server lädt exakt diesen Snapshot und löst dabei
+keinen Ref erneut auf. Ist die Revision nicht mehr im Cache, darf sie über den
+vollständigen SHA erneut geladen und validiert werden. Ein aktuellerer Ref-
+Stand oder ein anderer LKG ist kein Ersatz.
 
-```http
-GET /api/examples/:id?revision=<full-commit-sha>
-```
+Der kompatible Detailwert `source: "builtin" | "external"` bleibt bestehen;
+`schemaVersion` und `revision` werden additiv geliefert.
 
-Browser-Override:
+### 5.4 Fehler
 
-```http
-GET /api/examples/:id?repository=owner%2Frepository&channel=stable&revision=<full-commit-sha>
-```
+Stabile Codes:
 
-Der Client verwendet Auswahl und Revision des aktuell sichtbaren Katalogs. Der
-Server liefert nur exakt diesen Revision-Snapshot; er darf beim Detailabruf
-nicht still auf die inzwischen neuere Channel-Revision wechseln. Ist der
-Snapshot nicht mehr im Cache, darf er über denselben vollständigen SHA erneut
-geladen und validiert werden. Ein anderes LKG ist kein Ersatz.
+- `INVALID_SELECTION` und `INVALID_REF`: 400;
+- `INVALID_REVISION`: 400;
+- `INVALID_SNAPSHOT`: 422;
+- `SOURCE_UNAVAILABLE`: 503;
+- `EXAMPLE_NOT_FOUND`: 404;
+- `RATE_LIMITED`: 429;
+- `LOAD_CAPACITY_EXCEEDED`: 503.
 
-Der bestehende Detailwert `source: "builtin" | "external"` bleibt aus
-Kompatibilitätsgründen unverändert. Additiv kommen `schemaVersion` und
-`revision` hinzu; die umfangreichen Auswahlmetadaten bleiben im Katalog und
-kollidieren dadurch nicht mit dem bestehenden `source`-Feld des Examples.
+Antworten enthalten keine Upstream-URLs, DNS-Adressen, Allowlists, Cache-Keys
+oder Stacktraces.
 
-### 5.4 Fehlervertrag
+## 6. Manifestvertrag
+
+Das vorhandene Manifest-Schema bleibt strukturell kompatibel:
 
 ```ts
-interface ExamplesErrorResponse {
+interface ExamplesManifestV1 {
   schemaVersion: 1;
-  error: {
-    code:
-      | "INVALID_SELECTION"
-      | "INVALID_REVISION"
-      | "INVALID_CHANNEL"
-      | "INVALID_SNAPSHOT"
-      | "SOURCE_UNAVAILABLE"
-      | "EXAMPLE_NOT_FOUND"
-      | "RATE_LIMITED"
-      | "LOAD_CAPACITY_EXCEEDED";
-    message: string;
-    retryAfterSeconds?: number;
-  };
+  repository?: string;
+  ref?: string;
+  examples: ManifestExample[];
 }
 ```
 
-| HTTP | Verwendung |
-|---:|---|
-| 400 | ungültige, partielle, doppelte oder unbekannte Auswahlparameter |
-| 401/403 | Override in Gateway-Mode ohne akzeptierten `user` |
-| 404 | Example-ID fehlt im exakt angefragten Snapshot |
-| 422 | Channel-Dokument, Hash, Manifest oder Snapshot fachlich ungültig |
-| 429 | per-Identity oder globales Load-Start-Rate-Limit erreicht |
-| 503 | Upstream ohne passendes LKG oder Load-Queue ausgeschöpft |
+`repository` und `ref` sind optionale informative Legacy-Metadaten. Weder
+Resolver noch Snapshot-Loader dürfen daraus Source, Ref oder Revision ableiten.
+Historisch abweichende Werte, insbesondere aktuell
+`repository: "MoDevIO/UnoSim-Examples"`, blockieren den über eine validierte
+Repository-/Ref-Auswahl und Commit-SHA geladenen Snapshot nicht.
 
-Upstream-URLs, DNS-Antworten, Stacktraces, Allowlists und interne Cache-Keys
-erscheinen nicht in der Response.
+Neue Manifeste sollen `repository: "ttbombadil/unosim-examples"` verwenden und
+können `ref` entfernen. Diese Inhaltsbereinigung ist keine Voraussetzung für
+die Serverarchitektur und keine Schema-Breaking-Change. Das bestehende `ref`-
+Feld darf nicht mit dem aufgelösten Commit-SHA verglichen werden; ein Ref wie
+`main` oder ein historischer Tag ist keine Revisionsautorität.
 
-## 6. Cache-Key- und Datenmodell
+## 7. Cache- und Refresh-Modell
 
-Vor der Key-Bildung sind Repository und Channel bereits kanonisch. Da ihre
-Grammatiken keinen Doppelpunkt erlauben, sind folgende versionierte Encoder
-eindeutig:
+Nach Kanonisierung gelten ausschließlich diese Keys:
 
 ```ts
-type ChannelCacheKey = `examples:channel:v1:${RepositorySlug}:${ExamplesChannel}`;
-type RevisionCacheKey = `examples:revision:v1:${RepositorySlug}:${FullCommitSha}`;
+type SourceCacheKey =
+  `examples:source:v1:${RepositorySlug}:${ExamplesRef}`;
+type RevisionCacheKey =
+  `examples:revision:v1:${RepositorySlug}:${FullCommitSha}`;
 ```
 
-Hilfsfunktionen `toChannelCacheKey()` und `toRevisionCacheKey()` sind die
-einzigen Stellen, die Strings erzeugen. Services reichen ansonsten strukturierte
-Auswahltypen weiter.
+Repository und Ref erlauben keinen Doppelpunkt, daher ist die Kodierung
+eindeutig. `toSourceCacheKey()` und `toRevisionCacheKey()` sind die einzigen
+String-Erzeuger.
 
-### 6.1 Channel-Cache
+Der Source-Eintrag enthält Repository, Ref, aktive Revision, `checkedAt`,
+`expiresAt`, `stale`, `nextRetryAt` und `lastAccessedAt`. Er ist zugleich die
+prozesslokale LKG-Zuordnung. Ein fehlgeschlagener Refresh verändert die aktive
+Revision nicht und setzt den nächsten Retry auf
+`now + min(UNOSIM_EXAMPLES_REFRESH_RETRY_MS, refreshMs)`.
 
-Key: `repository + channel`.
+Revisionseinträge enthalten den vollständig validierten Snapshot,
+Content-Bytegröße und LRU-Zeit. Sie besitzen kein TTL und werden durch Entry-
+und Byte-Limits begrenzt. Aktive Source-Revisionen sind gepinnt. Bei Druck
+werden zuerst ungepinnte Revisionen und danach die ältesten nicht laufenden
+Source-Einträge entfernt. In-flight Einträge werden nie evicted.
 
-Eintrag:
+Refresh-Ablauf:
 
-```ts
-interface ChannelCacheEntry {
-  repository: RepositorySlug;
-  channel: ExamplesChannel;
-  activeRevision: FullCommitSha;
-  manifestSha256: string;
-  checkedAt: number;
-  expiresAt: number;
-  stale: boolean;
-  nextRetryAt: number;
-  lastAccessedAt: number;
-}
-```
+1. frischen Source-Eintrag direkt verwenden;
+2. nach TTL Ref über `GitHubRevisionResolver` auflösen;
+3. gleicher SHA: `checkedAt` und `expiresAt` erneuern;
+4. neuer SHA: Revision-Singleflight verwenden oder vollständigen Snapshot laden;
+5. erst danach Source-Eintrag atomar auf die neue Revision umschalten;
+6. Fehler: ausschließlich Source-eigenen LKG stale liefern; Validate schlägt
+   fehl.
 
-Dieser Eintrag ist zugleich die prozesslokale LKG-Zuordnung. Ein fehlgeschlagener
-Refresh verändert `activeRevision` und `manifestSha256` nicht, setzt aber
-`stale=true` und `nextRetryAt` auf
-`now + min(UNOSIM_EXAMPLES_REFRESH_RETRY_MS, refreshMs)`. Catalog-Requests vor
-diesem Zeitpunkt liefern das LKG ohne erneuten Upstream-Versuch. Validate darf
-stale LKG nicht als erfolgreichen Apply-Kandidaten verwenden.
+## 8. Concurrency und Limits
 
-### 6.2 Revision-Cache
+Das bisher geplante bounded Modell bleibt sinnvoll und wird umbenannt, nicht
+neu dimensioniert:
 
-Key: `repository + revision`. Der Eintrag enthält den vollständig validierten
-Snapshot und seine gemessene Content-Bytegröße. Revision-Snapshots sind
-unveränderlich und besitzen kein Zeit-TTL; sie werden nur durch LRU-/Byte-Limits
-verdrängt.
+| Variable | Default | Bereich |
+|---|---:|---:|
+| `UNOSIM_EXAMPLES_VALIDATE_RATE_LIMIT_MAX_REQUESTS` | 5 je 60 s/Identität | 1–30 |
+| `UNOSIM_EXAMPLES_OVERRIDE_RATE_LIMIT_MAX_REQUESTS` | 60 je 60 s/Identität | 10–600 |
+| `UNOSIM_EXAMPLES_GLOBAL_LOAD_STARTS_PER_MINUTE` | 20 | 1–120 |
+| `UNOSIM_EXAMPLES_MAX_CONCURRENT_LOADS` | 4 | 1–16 |
+| `UNOSIM_EXAMPLES_MAX_LOAD_QUEUE` | 32 | 0–128 |
+| `UNOSIM_EXAMPLES_MAX_FILE_FETCH_CONCURRENCY` | 8 je Snapshot | 1–16 |
+| `UNOSIM_EXAMPLES_MAX_OUTBOUND_FETCHES` | 16 pro Prozess | 1–64 |
+| `UNOSIM_EXAMPLES_MAX_SOURCES` | 32 Repository-/Ref-Keys | 1–256 |
+| `UNOSIM_EXAMPLES_SNAPSHOT_CACHE_MAX_ENTRIES` | 64 | 1–512 |
+| `UNOSIM_EXAMPLES_SNAPSHOT_CACHE_MAX_BYTES` | 67108864 | 1048576–536870912 |
+| `UNOSIM_EXAMPLES_REFRESH_RETRY_MS` | 30000 | 1000–`refreshMs` |
 
-Ein Snapshot, auf den ein vorhandener Channel-LKG-Eintrag zeigt, ist gepinnt.
-Beim Erreichen der Grenzen werden zuerst ungepinnte Revisionen entfernt. Reicht
-das nicht, wird der älteste nicht laufende Channel-Eintrag entfernt; danach kann
-dessen Revision ebenfalls verdrängt werden. In-flight Einträge werden niemals
-evicted.
+Gleiche Source-Keys teilen Ref-Singleflight; gleiche Revision-Keys teilen
+Snapshot-Singleflight. Verschiedene Browserauswahlen bleiben getrennt. Der
+globale Load umfasst Ref-Auflösung und gegebenenfalls Snapshot-Aufbau. Direkte
+Revision-Reloads verwenden dieselbe Semaphore. Alle GitHub-API-, Manifest- und
+Datei-Fetches teilen die globale Outbound-Grenze.
 
-Beim 33. unterschiedlichen Channel-Key wird der am längsten nicht verwendete,
-nicht laufende Channel-Key verdrängt. Sind alle vorhandenen Keys in-flight,
-wird die neue Source mit `503 LOAD_CAPACITY_EXCEEDED` abgewiesen. Eine Eviction
-ändert keine Browserpräferenz; ein späterer Request muss die Source erneut
-auflösen.
+Die bestehenden Manifest-, Datei-, Gesamtgrößen- und Timeoutlimits bleiben
+unverändert. Startup validiert weiterhin die Abhängigkeiten zwischen Load-,
+Outbound-, Datei- und Byte-Limits.
 
-### 6.3 Legacy-Cache
+## 9. Sicherheitsmodell
 
-Der bestehende Default-Fixed-Ref-Cache bleibt getrennt. Sein interner Key ist
-`examples:legacy:v1:<sha256(source)>:<ref>`. Er wird nie als Channel-LKG oder
-Fallback für einen Browser-Override verwendet.
+- Browserinput erzeugt nur validierte Repository- und Ref-Bezeichner.
+- GitHub-API- und Raw-URLs werden ausschließlich serverseitig konstruiert.
+- `api.github.com` und `raw.githubusercontent.com` müssen operatorseitig
+  erlaubt sein; Browser können diese Liste nicht erweitern.
+- HTTPS, DNS-/SSRF-Prüfung, IP-Literal-Verbot, Redirect-Verbot, sichere Pfade,
+  Timeouts, Decode- und Größenlimits gelten für jeden Fetch.
+- GitHub-Resolver-Antworten werden größenbegrenzt und strikt auf einen
+  vollständigen SHA validiert.
+- Manifest und Dateien werden nie über den beweglichen Ref geladen.
+- Gateway-Overrides und Validate benötigen einen akzeptierten `user`; Default-
+  Reads bleiben wie bisher zugänglich.
+- Diese UnoSim-Nutzerauthentifizierung schützt die Erzeugung externer Arbeit;
+  sie ist keine GitHub-Authentifizierung. Upstream-Requests enthalten keine
+  GitHub-Credentials oder Browser-Secrets.
 
-## 7. Concurrency- und Multi-Browser-Modell
+## 10. Veröffentlichungs- und Integritätsgrenze
 
-- Jeder Request trägt seine effektive Auswahl; `ExamplesRepository` besitzt
-  keinen globalen `currentSource`- oder `currentSnapshot`-Zeiger.
-- Zwei unterschiedliche Overrides erzeugen unterschiedliche Channel-Keys und
-  dürfen parallel geladen werden, begrenzt durch die globale Load-Semaphore.
-- Gleiche Channel-Keys teilen Channel-Singleflight. Gleiche Revision-Keys teilen
-  Snapshot-Singleflight, auch wenn sie aus unterschiedlichen Channels stammen.
-- Default und Browser-Override dürfen denselben Cacheeintrag teilen, wenn die
-  kanonische Source identisch ist. Nur das Response-Feld `selection` bleibt
-  request-spezifisch.
-- Fehler, Stale-Status oder LKG von Source A verändern Source B nicht.
-- Eine Apply-Aktion verändert nur localStorage und Store des auslösenden
-  Browserprofils. Der Server speichert keine Zuordnung Subject -> Source.
-- Wechselt ein Browser während eines laufenden Loads die Auswahl, wird der alte
-  Request per AbortSignal abgebrochen oder seine Antwort anhand einer lokalen
-  Request-Generation verworfen. Er darf den neueren Katalog nicht überschreiben.
-- Bereits in den Editor geladene Dateien bleiben außerhalb des Katalogzustands
-  und werden nie automatisch ersetzt.
+`main` ist beim initialen Default-Repository der veröffentlichte Stand. Zwei
+Schichten wirken zusammen:
 
-## 8. Konkrete Default-Limits
+1. Das Examples-Repository verhindert unbeabsichtigte Änderungen an `main`
+   durch Branch Protection, Reviews und CI-Validierung von Manifest und Dateien.
+2. UnoSim löst `main` lazy auf einen Commit-SHA auf, lädt ausschließlich diesen
+   Commit, validiert den vollständigen Snapshot, aktiviert ihn atomar und hält
+   bei Fehlern den Source-eigenen LKG aktiv.
 
-Die bestehenden Manifest-, Datei-, Gesamtgrößen- und Timeout-Limits bleiben
-unverändert. Neue Limits sind startup-validierte Configwerte mit den folgenden
-Defaults:
+UnoSim bewertet nicht die Vertraulichkeit der Inhalte und verwaltet keine
+Zugriffsrechte im Examples-Repository. Öffentliche GitHub-Rate-Limits oder
+temporäre Ausfälle führen zu Retry/LKG, nicht zu einem Credential-Mechanismus.
 
-| Limit / Config-Name | Default | erlaubter Bereich | Begründung |
-|---|---:|---:|---|
-| `UNOSIM_EXAMPLES_VALIDATE_RATE_LIMIT_MAX_REQUESTS` | 5 je 60 s und Identität | 1–30 | Apply ist eine seltene manuelle Aktion; fünf Versuche erlauben Korrekturen, verhindern aber Source-Scanning. |
-| `UNOSIM_EXAMPLES_OVERRIDE_RATE_LIMIT_MAX_REQUESTS` | 60 je 60 s und Identität | 10–600 | Reicht für Menü-Refresh und viele Detailabrufe, bleibt deutlich unter unbeschränktem Polling. |
-| `UNOSIM_EXAMPLES_GLOBAL_LOAD_STARTS_PER_MINUTE` | 20 | 1–120 | Begrenzt Cache-Churn über viele Identitäten; Singleflight-Follower zählen nicht erneut. |
-| `UNOSIM_EXAMPLES_MAX_CONCURRENT_LOADS` | 4 | 1–16 | Begrenzt CPU, DNS und Upstream-Arbeit, lässt aber mehrere Lehrenden-Sources parallel laden. |
-| `UNOSIM_EXAMPLES_MAX_LOAD_QUEUE` | 32 | 0–128 | Kurze Bursts warten begrenzt; darüber folgt `503 LOAD_CAPACITY_EXCEEDED`. |
-| `UNOSIM_EXAMPLES_MAX_FILE_FETCH_CONCURRENCY` | 8 je Snapshot | 1–16 | Verhindert `Promise.all` über bis zu 100 Dateien, ohne kleine Repositories unnötig zu serialisieren. |
-| `UNOSIM_EXAMPLES_MAX_OUTBOUND_FETCHES` | 16 pro Prozess | 1–64 | Harte Obergrenze über Channel-, Manifest- und Datei-Fetches aller Loads. |
-| `UNOSIM_EXAMPLES_MAX_SOURCES` | 32 Channel-Keys | 1–256 | Mehr als ausreichend für parallele Kurse eines Single-Node-Deployments; begrenzt Source-Cardinality. |
-| `UNOSIM_EXAMPLES_SNAPSHOT_CACHE_MAX_ENTRIES` | 64 Revisionen | 1–512 | Erlaubt aktive plus vorherige Revisionen der 32 Channel-Keys. |
-| `UNOSIM_EXAMPLES_SNAPSHOT_CACHE_MAX_BYTES` | 67108864 (64 MiB Contentbytes) | 1048576–536870912 | Bei bestehendem 1-MiB-Snapshotlimit ist der Worst Case explizit begrenzt; LRU greift zusätzlich nach Entries. |
-| `UNOSIM_EXAMPLES_REFRESH_RETRY_MS` | 30000 | 1000–`refreshMs` | Verhindert einen Upstream-Retry pro Catalog-Request, ohne einen fünfminütigen Ausfall zu erzwingen. |
+## 11. Wiederverwendung und Entfernung der uncommittierten Grundlage
 
-Für beide per-Identity-Limits gilt ein Fenster von 60000 ms. Validate blockiert
-bei Überschreitung 60000 ms, normale Override-Reads 30000 ms. Der vorhandene
-allgemeine API-Limiter bleibt zusätzlich aktiv. Default-/Built-in-Cache-Hits
-erzeugen keine neuen Source-Keys und benötigen kein Override-Limit.
+Weiterverwendbar beziehungsweise abstrahierbar:
 
-Ein Load ist die Auflösung eines fälligen Channel-Keys einschließlich des
-gegebenenfalls anschließenden Snapshot-Aufbaus. Ein direkter Reload einer
-bekannten vollständigen Revision für einen Detailabruf nutzt dieselbe globale
-Semaphore. Queue-Wartezeit zählt gegen den Request-Lifecycle; bei Client-Abbruch
-wird der Queueplatz freigegeben.
+- Shared Repository-/Revision-Validierung und Repository-Normalisierung;
+- request-scoped Selection- und Response-Grundstruktur;
+- `RevisionProvider` für SHA-gebundenen Manifest-/Datei-Load;
+- sichere HTTP-/DNS-/Redirect-/Size-/Timeout-Grenze;
+- globale Load-/Queue-/Outbound-Controller und Datei-Concurrency;
+- Revision-LRU, Bytebudget, Pinning und Revision-Singleflight;
+- per-Identity Rate-Limiter, Fehlerabbildung und `no-store`;
+- atomare Aktivierung, Failure-Retry und prozesslokale LKG-Mechanik.
 
-Startup validiert zusätzlich:
+Zu entfernen oder umzubauen:
 
-- `MAX_CONCURRENT_LOADS <= MAX_OUTBOUND_FETCHES`;
-- `MAX_FILE_FETCH_CONCURRENCY <= MAX_OUTBOUND_FETCHES`;
-- `SNAPSHOT_CACHE_MAX_BYTES >= UNOSIM_EXAMPLES_MAX_TOTAL_BYTES`.
+- `ExamplesChannel`, Channel-Schemas und Channel-Responsefelder;
+- `UNOSIM_EXAMPLES_CHANNEL` einschließlich Startup-Matrix und Compose-Wert;
+- `ChannelDocument`, `manifestSha256` als Channel-Vertrag und
+  `ChannelDocumentLocator`;
+- `channel-provider.ts`; Ersatz durch Ref-Resolver/Source-Provider;
+- Channel-Key und Channel-Cache; Ersatz durch Source-Key und Source-Cache;
+- `legacy-ref`-Modus und separater Legacy-Key; vorhandene Source-/Ref-Werte
+  laufen durch dasselbe neue Modell;
+- sämtliche Channel-Fixtures und Channel-spezifischen Tests.
 
-## 9. Betroffene Dateien
+## 12. Betroffene Dateien
 
-### Shared und Server
+Server/Shared:
 
-| Datei | Änderung |
-|---|---|
-| `shared/examples.ts` | neue kanonische API-Typen, Fehlercodes, Auswahl- und Source-Union |
-| `shared/input-limits.ts` | Repository-, Channel-, Revision- und Hash-Limits |
-| `server/config.ts` | Channel-Migration sowie startup-validierte Rate-, Concurrency- und LRU-Limits |
-| `server/services/examples/examples-schema.ts` | Zod-Schemas für Auswahl, Channel-Dokument und Responses; Manifestvertrag bleibt erhalten |
-| `server/services/examples/source-selection.ts` | neu: GitHub-URL-/Slug-Normalisierung und Default-/Override-Auflösung |
-| `server/services/examples/channel-provider.ts` | neu: Locator-Grenze, TTL-Prüfung, Hash-/Revision-Bindung |
-| `server/services/examples/examples-cache.ts` | neu: Channel-/Revision-LRU, Bytebudget, Pinning und Singleflight |
-| `server/services/examples/examples-load-controller.ts` | neu: globale Semaphore, Queue und Outbound-Fetch-Grenzen |
-| `server/services/examples/http-provider.ts` | Refactor in bounded Fetch einer konkreten Channel-/Revision-Source; bestehende SSRF-Regeln bleiben maßgeblich |
-| `server/services/examples/examples-repository.ts` | request-scoped Auswahl statt eines globalen Snapshots; Validate/Catalog/Detail |
-| `server/routes/examples.routes.ts` | Query-/Body-Parsing, bedingte Auth, Rate-Limits und Fehlerabbildung |
-| `server/routes.ts` | Examples-Abhängigkeiten und vorhandene Authorization-Identität injizieren |
-| `server/services/rate-limiter.ts` | dedizierte Validate-/Override-Limiter oder wiederverwendbare exportierte Limiter-Basis |
-| `package.json` | Dev-Default nach verfügbarer Channel-Infrastruktur auf `stable` umstellen |
-| `docker-compose.yml` | Channel- und neue Limitwerte optional durchreichen |
+- `shared/examples.ts`, `shared/input-limits.ts`;
+- `server/config.ts`;
+- `server/services/examples/source-selection.ts`;
+- neu `server/services/examples/github-revision-resolver.ts`;
+- neu oder umbenannt `server/services/examples/source-provider.ts`;
+- `server/services/examples/examples-cache.ts`;
+- `server/services/examples/examples-load-controller.ts`;
+- `server/services/examples/http-provider.ts`;
+- `server/services/examples/examples-repository.ts`;
+- `server/services/examples/examples-schema.ts`;
+- `server/routes/examples.routes.ts`, `server/routes.ts`;
+- `server/services/rate-limiter.ts`;
+- `package.json`, `docker-compose.yml`.
 
-`server/routes/config.routes.ts` bleibt unverändert: Raw-Source, Allowlist und
-interne Limits werden nicht über `/api/config` veröffentlicht. Der sichtbare
-Defaultzustand kommt aus `GET /api/examples`.
+Client folgt in einem getrennten Schritt: Selection-Store, API-Client,
+Settings und Examples-Menü werden auf Repository plus Ref umgestellt.
 
-### Client
+## 13. Testplan
 
-| Datei | Änderung |
-|---|---|
-| `client/src/lib/external-examples-selection.ts` | neuer kanonischer Browser-Store und localStorage-Vertrag |
-| `client/src/lib/examples-api.ts` | neuer typisierter Request-Builder und Response-Parser |
-| `client/src/hooks/use-external-examples.ts` | Auswahl, Validate, Apply/Reset, Generation/Abort und Katalogstatus |
-| `client/src/components/features/settings-dialog.tsx` | Repository, Channel, Default/Override-Zustand, Apply, Reset und verständliche Fehler |
-| `client/src/components/features/examples-menu.tsx` | source-aware Catalog-/Detailrequests, Reload beim Öffnen und bei Auswahländerung |
+Neue beziehungsweise umzustellende Tests belegen:
 
-### Dokumentation nach Implementierung
+- Slug-, GitHub-URL-, optionales `.git`- und Ref-Schema;
+- Config-Matrix, Default `ttbombadil/unosim-examples`/`main`, Raw-Config-
+  Migration und Fehler bei `UNOSIM_EXAMPLES_CHANNEL`;
+- Ref-Auflösung zu exakt 40 kleingeschriebenen Hexzeichen;
+- Content-URLs enthalten ausschließlich die Revision, niemals den Ref;
+- identische Repository-/Ref-Auswahlen teilen Cache und Singleflight;
+- unterschiedliche Refs oder Repositories beeinflussen sich nicht;
+- gleicher SHA nach TTL lädt keinen Snapshot neu;
+- neuer SHA wird erst nach vollständiger Validierung aktiviert;
+- fehlerhafter neuer SHA behält nur den Source-eigenen LKG;
+- LRU, Byte-, Source-, Queue-, Load-, File- und Outbound-Limits;
+- Validate, Catalog und revisionsgebundenes Detail inklusive Auth und Rate;
+- vorhandene Manifestfelder werden akzeptiert, aber nicht zur Auflösung oder
+  Gleichheitsprüfung verwendet;
+- keine Channel-Typen, -Keys, -Config oder -Routenparameter verbleiben.
+- kein GitHub-Token, Credential-Header, Private-Repository-Codepfad oder Secret-
+  Feld wird eingeführt; Resolver und Loader funktionieren anonym.
 
-- `ssot/ssot_function_definition_ExternalExamples.md`: Status von `planned` auf
-  `current`, Legacy-Ausnahme und implementierte Limits abgleichen;
-- `docs/ARCHITECTURE.md`, `docs/INSTALL_LOCAL.md`, `docs/INSTALL_SERVER.md` und
-  `docs/SECURITY.md`: Ziel-/Ist-Markierungen auf den belegten Stand setzen;
-- `README.md`: festen Ref als Legacy-Pfad und Settings als aktuellen Pfad
-  dokumentieren;
-- dieser Plan wird nach Abschluss mit Ergebnis/Evidence nach `docs/archive/`
-  verschoben.
+## 14. Implementierungsreihenfolge
 
-## 10. Testplan
-
-Bestehende Tests bleiben als Characterization unverändert. Neue Verträge werden
-vorzugsweise in neuen Dateien ergänzt; Änderungen bestehender Tests benötigen
-gemäß Agent-Policy eine gesonderte explizite Genehmigung.
-
-### 10.1 Neue Unit- und Vertragstests
-
-| Neue Testdatei | Nachweis |
-|---|---|
-| `tests/shared/examples-contract.test.ts` | exakte Min-/Max-Grenzen, Groß-/Kleinschreibung, URL-Normalisierung, verbotene Zeichen, partielle/doppelte Felder, 40-/64-Hex-Verträge |
-| `tests/server/examples/examples-config.test.ts` | vollständige Startup-Matrix für Source/Ref/Channel und alle Limitbereiche |
-| `tests/server/examples/source-selection.test.ts` | Default, Override, Legacy, kanonische Source und keine Raw-URL aus Browserinput |
-| `tests/server/examples/channel-provider.test.ts` | Channel-TTL, SHA/Manifest-Hash, kompletter Snapshot vor Aktivierung, stale/LKG nur derselben Source |
-| `tests/server/examples/examples-cache.test.ts` | exakte Keys, Case-Kanonisierung, LRU, Bytebudget, Pinning, Eviction und keine Cross-Source-Fallbacks |
-| `tests/server/examples/examples-load-controller.test.ts` | vier parallele Loads, Queue 32, Abort-Freigabe, Outbound-Limit und Singleflight |
-| `tests/server/examples/examples-repository.test.ts` | Default/Override-Isolation, gleiche Source geteilt, verschiedene Sources unabhängig, revisionsgebundene Details |
-| `tests/server/routes/examples.routes.test.ts` | Validate/Catalog/Detail, Authmatrix, Fehlercodes, Rate Limits und no-store Header |
-| `tests/client/external-examples-selection.test.ts` | localStorage-Schema, Apply erst nach Validate, Reset, ungültiger Storage, Browser-Events |
-| `tests/client/settings-dialog.external-examples.test.tsx` | Eingaben, Zustandslabel, Apply/Reset, verständliche Fehler, kein Persistieren bei Fehler |
-| `tests/client/examples-menu.external-source.test.tsx` | Query-Konstruktion, Revision im Detail, Reload, Race/Abort und kein automatischer Editorersatz |
-
-### 10.2 Security-Regressionen
-
-- HTTP/Raw-URL, alternative Hosts, IP-Literale, Userinfo, Query und Fragment
-  werden vor Upstream-I/O abgelehnt.
-- DNS auf private/reservierte Adressen, Redirects und Originwechsel bleiben
-  blockiert.
-- Channel-/Manifest-/Dateipfade können das Repository-Root nicht verlassen.
-- Größen-, Datei-, Gesamt-, Timeout- und Decode-Limits gelten pro Source und
-  auch bei parallelen Loads.
-- Anonymer Gateway-Default bleibt erlaubt; anonymer Gateway-Override und
-  Validate werden vor Cache-/Upstream-Arbeit abgelehnt.
-- Fehlerresponses enthalten keine URL, Allowlist, DNS-Adresse, Stacktrace oder
-  Credential.
-
-### 10.3 Multi-Browser- und Concurrency-Szenarien
-
-1. Browser A nutzt Default, Browser B Repository X, Browser C Repository Y;
-   alle erhalten ihre eigene `selection` und Revision.
-2. A und B wählen kanonisch dieselbe Source; genau ein Channel-/Snapshot-Load
-   läuft, Antworten behalten dennoch ihre request-spezifische Auswahlart.
-3. X wird stale; Y bleibt fresh und unverändert.
-4. Channel X schaltet während eines Detailabrufs um; der Detailrequest liefert
-   weiterhin die im Katalog genannte alte Revision.
-5. Ein langsamer alter UI-Request beendet sich nach Apply; Generation/Abort
-   verhindert, dass er den neuen Katalog überschreibt.
-6. Bei vier aktiven und 32 wartenden Loads überschreitet Load 37 die Queue,
-   erhält den dokumentierten Fehler und
-   verändert keinen LKG-Eintrag.
-
-### 10.4 Verifikationsläufe
-
-Nach den jeweiligen Teilsteps mindestens:
-
-```bash
-npm run check
-npm run test:related -- <betroffene Dateien>
-npm run test:unit
-npm run check:docs
-git diff --check
-```
-
-Vor Push bleibt gemäß Repository-Governance die vollständige lokale Pipeline
-einschließlich Integration und E2E erforderlich. Hooks werden nicht umgangen.
-
-## 11. Implementierungsreihenfolge
-
-1. **Shared Vertrag und Grenzen:** `shared/examples.ts`, Input-Limits und reine
-   Schema-/Normalisierungstests. Noch kein I/O.
-2. **Config-Migration:** Startup-Matrix, `UNOSIM_EXAMPLES_CHANNEL` und neue
-   Limits; Legacy-Ref unverändert ausführbar halten.
-3. **Source-Auflösung:** Default-/Override-Union und injizierbarer
-   `ChannelDocumentLocator`; Security-Validatoren wiederverwenden.
-4. **Load-Control und Caches:** Semaphore, Queue, Outbound-Limit, versionierte
-   Keys, Singleflight, Channel-LKG und Revision-LRU isoliert implementieren.
-5. **Provider/Repository:** Channel prüfen, konkrete Revision vollständig laden,
-   Manifest-Hash prüfen und atomar aktivieren; Legacy-Adapter beibehalten.
-6. **Routes:** Validate, additive Catalog-/Detailparameter, bedingte Auth,
-   Rate-Limits und stabiler Fehlervertrag.
-7. **Client-Grundlage:** Storage-/Selection-Store und zentralen API-Client
-   implementieren; keine Komponente baut URLs selbst.
-8. **Settings:** Draft, Validate, transaktionales Apply, Reset und Statusanzeige.
-9. **Examples Menu:** Auswahlbezogene Kataloge, Revision-Bindung, Reload beim
-   Öffnen und Race-Schutz; Editorinhalt entkoppelt lassen.
-10. **Systemtests und Doku-Abgleich:** Multi-Browser-/Failure-Szenarien,
-    vollständige Testpipeline und Ziel-/Ist-Markierungen aktualisieren.
-
-Jeder Teilstep muss mit grünem `npm run check` und seinen neuen fokussierten
-Tests enden. Produktiver Channel-Betrieb wird erst freigegeben, wenn das separat
-behandelte Publikations-/Locator-Thema entschieden ist; persistenter LKG bleibt
-optional und blockiert diese prozesslokale Implementierung nicht.
+1. Shared-Vertrag von Channel auf Ref umstellen.
+2. Config-Matrix vereinfachen und `main` erlauben.
+3. GitHub-Ref-Resolver hinter kontrollierter I/O-Grenze implementieren.
+4. Channel-Cache/Provider in Source-Cache/Provider umbauen.
+5. Revision-Loader, Limits und Security-Prüfungen wiederverwenden.
+6. Repository und Routes auf Repository/Ref beziehungsweise
+   Repository/Revision umstellen.
+7. Channel-Code und Channel-Tests vollständig entfernen.
+8. fokussierte Tests, `npm run check`, vollständige Unit-Suite,
+   `npm run check:docs` und `git diff --check` ausführen.
+9. Erst in einem späteren Schritt Client-Settings und Menü integrieren.

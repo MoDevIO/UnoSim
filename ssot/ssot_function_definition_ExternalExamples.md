@@ -12,152 +12,155 @@ Examples. Die Architekturentscheidung liegt in
 
 UnoSim SOLL Examples aus einem öffentlichen GitHub-Repository laden können,
 ohne dass jede Inhaltsänderung ein UnoSim-Deployment oder einen Serverneustart
-erfordert. Die Server-/Deployment-Konfiguration stellt den Default bereit. Ein
-Nutzer DARF diesen Default in den UnoSim-Settings ausschließlich für den
-eigenen Browser überschreiben.
+erfordert. Server-/Deployment-Konfiguration liefern Default-Repository und
+Default-Ref. Ein Nutzer DARF diese Auswahl ausschließlich für den eigenen
+Browser überschreiben.
 
-Dieses Dokument definiert den Zielvertrag. Die dynamische Auswahl, der
-Stable-Channel und die Settings-Oberfläche sind noch nicht implementiert. Bis
-zur Implementierung bleibt der in der Serverkonfiguration festgelegte Ref der
-wirksame Ist-Vertrag.
+Der initial ausgelieferte External-Examples-Default ist:
 
-## 2. Verbindliche Konfigurationshierarchie
+- Repository: `ttbombadil/unosim-examples`;
+- Ref: `main`.
+
+Ein Ref darf beweglich sein. Vor jedem Snapshot-Load MUSS der Server ihn auf
+einen vollständigen 40-stelligen Commit-SHA auflösen. Manifest und Dateien
+werden danach ausschließlich aus diesem unveränderlichen Commit geladen.
+
+External-Examples-Repositories sind in dieser ersten Ausbaustufe öffentlich
+und SOLLEN öffentlich betrieben werden. Vertraulichkeit und Zugriff auf private
+GitHub-Repositories sind nicht Bestandteil des Features. UnoSim benötigt und
+speichert dafür keine GitHub-Credentials, Tokens oder Browser-Secrets. Das
+Sicherheitsziel ist Integrität und kontrollierte Veröffentlichung, nicht
+Vertraulichkeit der Example-Inhalte.
+
+Das zuvor geplante Channel-Modell ist verworfen. Es gibt weder `channel` noch
+`channels/stable.json` oder einen gesonderten Publishing-Channel.
+
+## 2. Verbindliche Auswahlhierarchie
 
 Die effektive Auswahl MUSS in dieser Reihenfolge bestimmt werden:
 
 1. Die validierte Server-/Deployment-Konfiguration liefert Default-Repository
-   und Default-Channel beziehungsweise während der Migration einen festen
-   Default-Ref.
-2. Fehlt im Browser ein gültiger Override, MUSS der Server-Default verwendet
-   werden.
-3. Enthält der Browser einen gültigen und erfolgreich angewendeten Override,
-   MUSS dieser für Examples-Anfragen dieses Browsers Vorrang haben.
-4. `Reset to default` MUSS den Browser-Override entfernen und unmittelbar den
-   aktuellen Server-Default verwenden.
+   und Default-Ref.
+2. Fehlt im Browser ein gültiger Override, gilt dieser Server-Default.
+3. Ein gültiger, erfolgreich validierter Browser-Override aus Repository und
+   Ref hat ausschließlich für Requests dieses Browsers Vorrang.
+4. `Reset to default` entfernt den Browser-Override und verwendet unmittelbar
+   wieder den Server-Default.
 
-Der Browser-Override DARF weder Serverkonfiguration noch Prozess-Environment,
-Default-Snapshot oder Auswahl anderer Browser verändern. Ein Browser-Override
-ist kein administrativer Schreibvorgang. Zwei Browser MÜSSEN gleichzeitig
-unterschiedliche Repositories oder Channels verwenden können.
+Der Browser-Override DARF weder Environment noch Default-Snapshot oder Auswahl
+anderer Browser verändern. Der Server speichert keine Zuordnung von Nutzern zu
+Repositories oder Refs.
 
 Es gibt keine doppelte Source of Truth:
 
-- Config ist die Source of Truth für den Default.
-- Browser-Speicher enthält ausschließlich eine optionale Nutzerauswahl.
-- Ein Channel-Dokument bestimmt die aktuell veröffentlichte, unveränderliche
-  Revision einer effektiven Repository-/Channel-Auswahl.
+- Config bestimmt den Default;
+- Browser-Speicher enthält ausschließlich eine optionale Präferenz;
+- die serverseitig aufgelöste Commit-Revision bestimmt den unveränderlichen
+  Snapshot einer konkreten Repository-/Ref-Auswahl.
 
-## 3. Settings-Vertrag
+## 3. Eingabe- und Settings-Vertrag
 
-Die Settings MÜSSEN einen Bereich `External Examples` mit mindestens folgenden
-Elementen anbieten:
+Repository-Eingaben in Settings und Config DÜRFEN folgende Formen besitzen:
 
-- Eingabe `Repository`;
-- optional Eingabe oder Auswahl `Channel`, Default `stable`;
-- sichtbarer Zustand `Default` oder `Browser override`;
-- Aktion `Apply`;
-- Aktion `Reset to default`.
+- kanonischer Slug `owner/repository`;
+- `https://github.com/owner/repository`;
+- dieselbe GitHub-URL mit optionalem `.git` und einem optionalen abschließenden
+  Slash.
 
-Die Repository-Eingabe SOLL `owner/repository` sowie normale HTTPS-GitHub-URLs
-der Form `https://github.com/owner/repository` akzeptieren. Die UI MUSS die
-Eingabe vor dem Speichern auf den kanonischen Wert `owner/repository`
-normalisieren. Raw-Content-URLs, Git-Refs, Commit-SHAs, Credentials, Query-
-Parameter, Fragmente und beliebige Hosts sind kein primäres UI-Modell und
-MÜSSEN als Browser-Override abgelehnt werden.
+Sie MÜSSEN vor Request- und Cache-Key-Bildung auf den kleingeschriebenen Slug
+`owner/repository` normalisiert werden. Die API akzeptiert ausschließlich
+diesen kanonischen Slug. Raw-Content-URLs, beliebige Hosts, Credentials, Query,
+Fragment und zusätzliche Pfadsegmente sind als Browserinput unzulässig.
 
-`Apply` ist transaktional:
+Für Repository-Slugs gilt:
 
-1. Der Browser sendet den Kandidaten als typisierte Repository-/Channel-Auswahl
-   an die UnoSim-API.
-2. Der Server validiert Auswahl, Channel-Dokument, Manifest und alle Dateien.
-3. Erst nach einer vollständig erfolgreichen Antwort speichert und aktiviert
-   der Browser den Override.
-4. Bei syntaktischen, fachlichen oder temporären Fehlern bleibt die zuvor
-   funktionierende Browser-Auswahl unverändert. Die UI MUSS den Fehler
-   verständlich und ohne interne Serverdetails anzeigen.
+- Owner: 1 bis 39 Zeichen, `^[a-z0-9-]+$`, erstes und letztes Zeichen
+  alphanumerisch, kein `--`;
+- Repository: 1 bis 100 Zeichen, `^[a-z0-9._-]+$`, erstes und letztes Zeichen
+  alphanumerisch, weder `.` noch `..`;
+- Gesamtwert: maximal 140 Zeichen einschließlich genau eines `/`.
 
-`Reset to default` entfernt den persistenten Override. Bereits im Editor
-geöffnete Dateien werden weder durch Apply, Reset noch durch einen späteren
-Channel-Refresh automatisch ersetzt. Die neue Auswahl wirkt nur auf danach
-geöffnete Kataloge und bewusst geladene Examples.
+Der Ref ist case-sensitive, 1 bis 128 Zeichen lang und folgt
+`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`. Dadurch sind einfache Branches, Tags und
+vollständige SHAs erlaubt; Slashes, Backslash, `%`, `:`, `@`, Whitespace,
+Unicode, Query und Fragment sind ausgeschlossen. Insbesondere ist `main`
+ausdrücklich zulässig. Der Ref ist kein Pfad und keine Raw-URL.
+
+Die Settings MÜSSEN Repository, Ref, den Zustand `Default` oder
+`Browser override` sowie `Apply` und `Reset to default` anbieten. Apply bleibt
+transaktional: Erst nach erfolgreicher serverseitiger Validate-Antwort wird die
+Auswahl gespeichert und aktiviert. Fehler verändern weder bisherige Auswahl
+noch Editorinhalt.
+
+Die Repository-/Ref-Auswahl ist vollständig öffentlich. Die Settings bieten
+keine Credential-, Token-, Login- oder Private-Repository-Funktion.
 
 ## 4. Browser-Persistenz und Datenschutz
 
-Die normalisierte Repository-/Channel-Auswahl ist eine unkritische
-Nutzerpräferenz. Sie DARF in `localStorage` unter dem Schlüssel
-`unoExternalExamplesSelection` gespeichert werden, zum Beispiel:
+Die nicht-sensitive Auswahl DARF unter `unoExternalExamplesSelection` in
+`localStorage` gespeichert werden:
+
+```json
+{
+  "repository": "ttbombadil/unosim-examples",
+  "ref": "main",
+  "schemaVersion": 1
+}
+```
+
+Fehlende, unbekannt versionierte oder ungültige Daten werden ignoriert. Reset
+löscht den Schlüssel. Kataloge, Revisionen, Fehler und Dateien werden nicht
+persistiert. Credentials, Tutor-Daten und andere sensible Daten sind von dieser
+Erlaubnis ausdrücklich ausgeschlossen.
+
+## 5. Request-scoped API-Vertrag
+
+Der Browser kontaktiert ausschließlich UnoSim:
+
+```http
+POST /api/examples/validate
+GET /api/examples
+GET /api/examples?repository=owner%2Frepository&ref=main
+GET /api/examples/:id?repository=owner%2Frepository&revision=<full-commit-sha>
+```
+
+- Fehlende Auswahlparameter beim Katalog bedeuten Server-Default.
+- Ein Override MUSS `repository` und `ref` gemeinsam übertragen.
+- Partielle, doppelte und unbekannte Parameter werden abgelehnt.
+- Ein externes Detail MUSS an Repository und die vom Katalog gelieferte
+  vollständige Revision gebunden sein. Built-ins benötigen diese Parameter
+  nicht.
+- Diese Requests verändern keinen serverseitigen Nutzerzustand.
+- Der anonyme Gateway-Default bleibt erlaubt. Overrides und Validate benötigen
+  einen akzeptierten `user`; Local Mode verwendet die signierte lokale Session.
+- Override-Antworten erhalten `Cache-Control: private, no-store`.
+
+Validate verwendet folgenden Vertrag:
 
 ```json
 {
   "schemaVersion": 1,
-  "repository": "owner/repository",
-  "channel": "stable"
+  "selection": {
+    "repository": "ttbombadil/unosim-examples",
+    "ref": "main"
+  }
 }
 ```
 
-Fehlende, unbekannt versionierte oder ungültige Daten MÜSSEN ignoriert werden;
-dann gilt der Server-Default. `Reset to default` MUSS den Schlüssel löschen und
-darf keinen Defaultwert als vermeintlichen Override speichern.
+Validate löst den Ref auf, lädt und validiert den vollständigen Snapshot und
+wärmt denselben source-keyed Cache. Es speichert keine Auswahl. Ein frischer
+Cache darf verwendet werden; nach TTL muss die Ref-Auflösung erfolgreich sein.
+Ein stale LKG ist kein erfolgreicher Apply-Kandidat.
 
-Die Persistenz ist an UnoSims Browser-Origin und das verwendete Browserprofil
-gebunden, nicht an ein serverseitiges Nutzerkonto. Andere Browser oder
-Browserprofile und parallele Requests anderer Nutzer werden nicht beeinflusst.
-Personen, die bewusst dasselbe Browserprofil verwenden, teilen dessen
-nicht-sensitive lokale Präferenz.
-
-Diese Persistenzerlaubnis gilt ausschließlich für die nicht-sensitive
-Repository-/Channel-Präferenz. Sie gilt ausdrücklich nicht für:
-
-- Credentials, Tokens oder sonstige Autorisierungsdaten;
-- persönliche Tutor-API-Keys;
-- Tutor-Dialoghistorien, Antworten oder Feedbacks;
-- sonstige sensible oder personenbezogene Inhalte.
-
-Die strengeren Speicherregeln der Tutor-SSOT bleiben unverändert. Ein
-Repository-Override darf niemals Zugangsdaten enthalten oder den Zugriff auf
-private GitHub-Repositories voraussetzen.
-
-## 5. Request-scoped API-Vertrag
-
-Der Browser ruft ausschließlich UnoSim auf. Er DARF GitHub,
-`raw.githubusercontent.com` oder eine andere Content-Quelle nicht direkt
-kontaktieren.
-
-Für die Zielimplementierung werden die bestehenden Routen request-scoped
-erweitert:
-
-```http
-GET /api/examples
-GET /api/examples?repository=owner%2Frepository&channel=stable
-GET /api/examples/:id?revision=<full-commit-sha>
-GET /api/examples/:id?repository=owner%2Frepository&channel=stable&revision=<full-commit-sha>
-```
-
-- Fehlen `repository` und `channel`, verwendet der Request den Server-Default.
-- Ein Override MUSS `repository` und `channel` als gemeinsam validierte,
-  typisierte Felder übertragen; partielle oder unbekannte Parameter werden
-  abgelehnt.
-- Die Parameter sind Bezeichner, keine frei zusammengesetzten Source-URLs.
-- Ein Detail-Request für ein externes Example MUSS die vom Katalog gelieferte
-  `revision` mitsenden; dies gilt auch für die Default-Auswahl. So bleibt das
-  geladene Example an genau den Katalog-Snapshot gebunden, auch wenn der Channel
-  inzwischen weitergeschaltet wurde. Für ein Built-in ist keine externe
-  Revision erforderlich.
-- Die API speichert durch diese Requests keine nutzerspezifische Auswahl.
-- Der Default-Katalog behält seinen bestehenden Zugriffsvertrag. In Gateway-
-  Mode darf ein Override nur für einen akzeptierten `user` aufgelöst werden;
-  anonyme Requests dürfen keine neuen externen Source-Keys erzeugen. Local mode
-  bindet die Auflösung an seine serverseitig signierte lokale Session.
-
-Eine erfolgreiche Katalogantwort MUSS mindestens folgende Metadaten enthalten:
+Eine Katalogantwort enthält mindestens:
 
 ```json
 {
   "schemaVersion": 1,
   "source": {
     "selection": "default",
-    "repository": "owner/repository",
-    "channel": "stable",
+    "repository": "ttbombadil/unosim-examples",
+    "ref": "main",
     "revision": "0123456789abcdef0123456789abcdef01234567",
     "status": "remote",
     "stale": false
@@ -166,124 +169,104 @@ Eine erfolgreiche Katalogantwort MUSS mindestens folgende Metadaten enthalten:
 }
 ```
 
-`selection` ist `default` oder `browser-override`. `status` bleibt kompatibel
-zu `remote`, `cache` und `builtin`. Bei reinem Built-in-Betrieb sind
-`repository`, `channel` und `revision` null; `selection` bleibt `default`.
-Während der im Implementierungsplan festgelegten Kompatibilitätsphase darf
-zusätzlich ausschließlich ein serverseitiger `legacy-ref`-Default eine
-`revision=null` liefern. Browser-Overrides dürfen diese Ausnahme nie verwenden.
-`stale=true` bedeutet, dass die Channel-Aktualisierung fehlgeschlagen ist und
-der letzte gültige Snapshot derselben Repository-/Channel-Auswahl ausgeliefert
-wird. Antworten dürfen keine Raw-Source-URL, Serverpfade, Allowlists,
-Credentials oder detaillierten Upstream-Fehler offenlegen.
+`selection` ist `default` oder `browser-override`. Bei reinem Built-in-Betrieb
+sind Repository, Ref und Revision null, der Status ist `builtin`. `stale=true`
+bedeutet, dass ausschließlich der LKG derselben Repository-/Ref-Auswahl
+geliefert wird.
 
-Ungültige Override-Felder führen zu `400`, ein fachlich ungültiger Channel oder
-Snapshot zu `422` und eine vorübergehend nicht auflösbare Auswahl ohne
-Last-Known-Good zu `503`. Die Antwort enthält einen stabilen, nicht-sensitiven
-Fehlercode für die UI. Wenn für dieselbe Auswahl ein Last-Known-Good vorhanden
-ist, darf stattdessen `200` mit `status=cache` und `stale=true` erfolgen.
+## 6. Ref-Auflösung und atomare Aktivierung
 
-## 6. Stable-Channel-Vertrag
+Für öffentliche GitHub-Repositories löst der Server den validierten Ref über
+den serverkontrollierten GitHub-Endpunkt
+`GET https://api.github.com/repos/<owner>/<repository>/commits/<ref>` auf. Die
+Antwort MUSS einen vollständigen kleingeschriebenen SHA gemäß
+`^[0-9a-f]{40}$` liefern. Browserinput bestimmt weder Host noch URL-Struktur.
 
-Ein Repository enthält logisch `channels/<channel>.json`. Für `stable` gilt
-beispielsweise:
+Danach gelten ausschließlich folgende Content-Ziele:
 
-```json
-{
-  "schemaVersion": 1,
-  "revision": "0123456789abcdef0123456789abcdef01234567",
-  "manifestSha256": "<sha256>"
-}
+```text
+https://raw.githubusercontent.com/<owner>/<repository>/<revision>/manifest.json
+https://raw.githubusercontent.com/<owner>/<repository>/<revision>/<file-path>
 ```
 
-- `revision` MUSS ein vollständiger 40-stelliger Commit-SHA sein.
-- `manifestSha256` MUSS ein SHA-256-Wert mit 64 Hexadezimalzeichen sein und den
-  Manifestinhalt dieser Revision binden.
-- Der logische Channelname ist kein frei wählbarer Git-Branch. Insbesondere
-  darf Produktionsinhalt nicht aus `main` geladen werden.
-- Nur das kleine Channel-Dokument DARF über einen bewusst dafür vorgesehenen,
-  beweglichen Publikationspfad aufgelöst werden. Manifest und Example-Dateien
-  MÜSSEN ausschließlich aus der vollständigen Commit-Revision geladen werden.
-- Der Server prüft den Channel nach dem konfigurierten Refresh-TTL erneut.
-- Eine neue Revision wird vollständig geladen, gehasht und validiert. Erst
-  danach wird der aktive Snapshot atomar umgeschaltet.
-- Ein Fehler oder Teil-Download darf den aktiven Snapshot nicht verändern.
-- Ein Serverneustart ist für eine erfolgreiche Channel-Aktualisierung nicht
-  erforderlich.
+Nach Ablauf des Refresh-TTL wird der Ref beim nächsten Zugriff erneut
+aufgelöst:
 
-## 7. Cache-, Last-Known-Good- und Multi-User-Semantik
+- unveränderter SHA: vorhandenen Snapshot weiterverwenden und TTL erneuern;
+- neuer SHA: Manifest und alle Dateien vollständig laden und validieren;
+- erst nach vollständigem Erfolg den Source-Eintrag atomar umschalten;
+- bei Fehler ausschließlich den LKG derselben Repository-/Ref-Auswahl stale
+  weiterverwenden;
+- kein LKG: kontrollierter Fehler, kein fremder Fallback.
 
-Der Cache DARF keinen einzigen globalen Source-Snapshot voraussetzen. Er MUSS
-mindestens folgende Identitäten unterscheiden:
+Ein Serverneustart ist für eine erfolgreiche Aktualisierung nicht erforderlich.
 
-- Channelzustand und Last-Known-Good: `repository + channel`;
-- unveränderlicher Inhaltssnapshot: `repository + revision`.
+Beim initialen Default-Repository ist `main` der veröffentlichte Stand.
+Unbeabsichtigte Veröffentlichungen werden im Examples-Repository durch einen
+geschützten `main` und verpflichtende CI-Prüfungen verhindert. Diese
+Repository-Governance ersetzt keine UnoSim-Laufzeitprüfung: UnoSim löst `main`
+weiterhin zuerst auf einen Commit-SHA auf, validiert den vollständigen Snapshot,
+aktiviert ihn erst danach atomar und behält bei Fehlern den LKG.
 
-Last-Known-Good gilt ausschließlich für dieselbe Repository-/Channel-Auswahl.
-Ein Snapshot eines anderen Repositorys oder Channels darf niemals als Fallback
-ausgeliefert werden. Beim Apply eines neuen Repositorys behält der Browser bis
-zur erfolgreichen Kandidatenvalidierung seine bisherige Auswahl; ein
-fehlgeschlagener Kandidat wird nicht zu deren serverseitigem LKG.
+## 7. Manifestvertrag
 
-Mehrere Nutzer mit derselben effektiven Auswahl DÜRFEN denselben validierten,
-unveränderlichen Cacheeintrag teilen. Unterschiedliche Auswahlen MÜSSEN
-getrennte Cache-Keys besitzen. Caches müssen größenbegrenzt sein und dürfen
-nicht als persistente Nutzerdaten oder serverseitige Präferenzablage verwendet
-werden. Für die erste Implementierung ist LKG pro Backend-Prozess ausreichend;
-ein prozessübergreifender oder neustartfester Cache ist eine gesonderte
-Betriebsentscheidung.
+Die effektive Source und Revision stammen ausschließlich aus der validierten
+Request-/Config-Auswahl und der serverseitigen Ref-Auflösung. Das Manifest darf
+diese Autorität nicht überschreiben.
 
-## 8. Sicherheitsgrenze
+Die vorhandenen optionalen Manifestfelder `repository` und `ref` bleiben in
+Schema-Version 1 aus Kompatibilitätsgründen zulässig. Sie gelten ausschließlich
+als informative Legacy-Metadaten:
 
-Browser-Eingaben sind untrusted input. Ein Override DARF keine serverseitige
-Schutzgrenze verändern. Der Server MUSS weiterhin erzwingen:
+- sie werden weder zur URL-Bildung noch zur Ref-/Revisionsauswahl verwendet;
+- sie müssen nicht vorhanden sein;
+- ein fehlender oder historisch abweichender Wert macht einen ansonsten
+  gültigen, über den aufgelösten Commit geladenen Snapshot nicht ungültig;
+- neue Manifeste SOLLEN `repository` kanonisch angeben und DÜRFEN `ref`
+  weglassen.
 
-- ausschließlich HTTPS für Upstream-Zugriffe;
-- eine operatorseitige Allowlist für GitHub und Raw-GitHub;
-- keine IP-Literale und keine privaten oder reservierten Zieladressen;
+Damit bleibt das vorhandene Manifest-Schema kompatibel. Es wird kein neues
+Pflichtfeld und keine unnötige Breaking-Change eingeführt.
+
+## 8. Cache- und Multi-Browser-Semantik
+
+Der Cache unterscheidet genau:
+
+- Source-Zustand und LKG: `repository + ref`;
+- unveränderlicher Snapshot: `repository + revision`.
+
+Mehrere Requests derselben kanonischen Source teilen Cache und Singleflight.
+Unterschiedliche Repository-/Ref-Auswahlen besitzen getrennte Keys und Fehler-
+zustände. Default und Override dürfen denselben Cacheeintrag teilen, behalten
+aber ihr request-spezifisches `selection`-Feld. Caches sind größenbegrenzte,
+prozesslokale Betriebsdaten und keine Nutzerpräferenzablage.
+
+## 9. Sicherheitsgrenze
+
+Der Server MUSS weiterhin erzwingen:
+
+- ausschließlich HTTPS;
+- operatorseitig erlaubte Hosts, mindestens getrennt für `api.github.com` und
+  `raw.githubusercontent.com`;
+- keine IP-Literale oder privaten/reservierten Ziele;
 - DNS-/SSRF-Prüfung bei jedem Upstream-Zugriff;
 - keine Redirects;
-- kanonische Repository-/Channel-Namen und sichere Pfadnormalisierung;
-- Timeouts, Größen-, Datei-, Parallelitäts- und Cache-Grenzen;
-- strikte Channel-, Manifest- und Dateischemata;
+- kanonische Repository-/Ref-Werte und sichere Dateipfade;
+- Timeouts, Größen-, Datei-, Parallelitäts-, Rate- und Cache-Grenzen;
+- strikte GitHub-Response-, Manifest- und Dateischemata;
 - vollständige Snapshot-Validierung vor Aktivierung.
 
-Der Browser kann weder Hosts noch Raw-Basis-URLs, Allowlists, Timeouts oder
-Limits konfigurieren. Private Repositories und browser- oder serverseitig
-hinterlegte GitHub-Credentials sind nicht Bestandteil dieses Vertrags.
-Override-Auflösung MUSS angemessen rate-limited und gegen unbegrenztes Erzeugen
-neuer Cache-Keys geschützt werden.
+Browser können Hosts, Raw-Basis-URLs, Allowlists, Timeouts oder Limits nicht
+konfigurieren. Alle Upstream-Zugriffe sind credential-freie Lesezugriffe auf
+öffentliche GitHub-Repositories. Private Repositories, GitHub-Authentifizierung,
+Tokens, Deploy Keys, GitHub Apps und Browser-Secrets sind ausdrücklich nicht
+Bestandteil dieses Vertrags.
 
-## 9. Akzeptanzanforderungen für die spätere Implementierung
+## 10. Abgrenzung
 
-- Ohne Browserwert wird der Server-Default geladen.
-- Ein gültiger Apply speichert die kanonische Auswahl und lädt deren Katalog.
-- Ein ungültiger Apply lässt Auswahl und Editorinhalt unverändert.
-- Reset löscht den Browserwert und verwendet sofort den Server-Default.
-- Zwei Browser können parallel unterschiedliche Repositories verwenden.
-- Identische Auswahlen teilen Cacheeinträge; verschiedene Auswahlen nicht.
-- Ein Channel-Wechsel aktiviert nur einen vollständig validierten Commit.
-- Upstream-Ausfall liefert ausschließlich LKG derselben Auswahl als stale.
-- Keine automatische Aktualisierung überschreibt ein geöffnetes Example.
-- Der Browser führt keinen direkten Request an GitHub oder Raw-GitHub aus.
-- Persistenter Browser-Speicher enthält nur Repository, Channel und
-  Schemaversion, niemals Credentials oder Tutor-Daten.
-
-## 10. Abgrenzung und Implementierungsentscheidungen
-
-Nicht Bestandteil dieser Dokumentationsphase sind TypeScript-/React-Code,
-API-Implementierung, Settings-UI und die technische Umsetzung der
-Config-Migration.
-
-Syntax, Maximalgrößen, Config-Migration, API-Requests, Cache-Keys,
-Multi-Browser-Concurrency und numerische In-Memory-Limits sind im aktiven
-[`External-Examples-Implementierungsplan`](../docs/EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md)
-verbindlich konkretisiert. Der Plan ändert die hier festgelegte Hierarchie und
-Sicherheitsgrenze nicht.
-
-Als getrennte Folgethemen bleiben offen:
-
-- der konkrete, bewusst bewegliche GitHub-Publikationspfad ausschließlich für
-  `channels/*.json` einschließlich Authoring-, Review- und Release-Workflow;
-- ob ein neustartfester, integrity-geschützter LKG-Cache betrieblich benötigt
-  wird.
+Ein persistenter oder prozessübergreifender LKG-Cache bleibt ein getrenntes
+Folgethema. Ein gesonderter Channel-Publishing-Workflow ist nicht mehr nötig;
+Repository-Maintainer veröffentlichen durch Aktualisierung des konfigurierten
+Refs, initial `main`. Branch Protection, Reviewregeln und CI im Examples-
+Repository bilden die Veröffentlichungsgrenze; UnoSim bleibt für immutable
+Auflösung, vollständige Validierung, atomare Aktivierung und LKG zuständig.

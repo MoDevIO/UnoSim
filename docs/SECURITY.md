@@ -67,31 +67,34 @@ Validierung liegt im Archiv.
 
 ### External-Examples-Quellen
 
-Die aktuelle Implementierung lädt External Examples ausschließlich über die
-serverseitig konfigurierte HTTPS-Quelle und einen festen Ref. Die akzeptierte
-Zielarchitektur aus ADR 0005 ergänzt einen browser-spezifischen Repository-/
-Channel-Override. Dieser Override ist untrusted input und darf keine
-Sicherheitsgrenze konfigurieren oder lockern.
+Die vereinfachte Zielarchitektur aus ADR 0005 verwendet ein serverseitiges
+Default-Repository mit Default-Ref und ergänzt einen browser-spezifischen
+Repository-/Ref-Override. Der Ref darf beweglich sein, wird vor Contentzugriff
+aber serverseitig auf einen vollständigen Commit-SHA aufgelöst. Der Override
+ist untrusted input und darf keine Sicherheitsgrenze konfigurieren oder lockern.
 
-- Der Browser überträgt nur einen normalisierten GitHub-Slug und einen logischen
-  Channel an UnoSim; er ruft GitHub oder Raw-GitHub niemals direkt auf.
+- Der Browser überträgt nur einen normalisierten GitHub-Slug und einen
+  begrenzt validierten Ref an UnoSim; er ruft GitHub niemals direkt auf.
 - Raw-URLs, Hosts, Allowlists, Credentials, Timeouts und Größenlimits bleiben
   ausschließlich serverseitig kontrolliert.
-- Der Server erzwingt HTTPS, exakte erlaubte GitHub-/Raw-GitHub-Hosts, das
+- Der Server konstruiert Ref-Resolver- und Content-URLs selbst und erzwingt
+  HTTPS, exakte erlaubte GitHub-API-/Raw-GitHub-Hosts, das
   Verbot von IP-Literalen, DNS-/Private-Address-Prüfung, Redirect-Verbot,
   Pfadnormalisierung, Timeouts, Größenlimits und strikte Schemaprüfung.
-- Produktionsinhalt wird nur aus einem vollständigen Commit-SHA geladen. Ein
-  Channel-Wechsel wird erst nach vollständiger Prüfung atomar aktiviert; bei
-  Fehlern ist nur LKG derselben Repository-/Channel-Auswahl zulässig.
+- `api.github.com` darf ausschließlich den Ref auf einen strikt validierten
+  vollständigen SHA auflösen. Manifest und Dateien werden ausschließlich über
+  diesen SHA von `raw.githubusercontent.com` geladen. Ein neuer Ref-Stand wird
+  erst nach vollständiger Prüfung atomar aktiviert; bei Fehlern ist nur LKG
+  derselben Repository-/Ref-Auswahl zulässig.
 - Override-Auflösung wird authentifiziert beziehungsweise an die lokale
   signierte Session gebunden, rate-limited und gegen unbegrenzte Source- und
   Cache-Cardinality begrenzt. Anonyme Gateway-Requests dürfen nur den Default
   verwenden.
-- Repository und Channel sind nicht-sensitive Nutzerpräferenzen und dürfen im
+- Repository und Ref sind nicht-sensitive Nutzerpräferenzen und dürfen im
   Browser persistent sein. Diese Ausnahme gilt nicht für Credentials,
   Tutor-API-Keys, Dialoghistorien oder andere sensible Daten.
 
-Die dynamische Auswahl ist noch nicht implementiert. Der Fachvertrag steht in
+Das frühere Channel-/`stable.json`-Modell ist verworfen. Der Fachvertrag steht in
 [`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md),
 die verbindlichen In-Memory-, Rate- und Concurrency-Limits im
 [`EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md`](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md).

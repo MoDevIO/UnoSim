@@ -1,4 +1,4 @@
-# ADR 0005: Browser-scoped External Examples mit Stable Channel
+# ADR 0005: Browser-scoped External Examples mit aufgelösten Git-Refs
 
 - Status: Accepted (target architecture; implementation pending)
 - Date: 2026-09-11
@@ -6,114 +6,127 @@
 
 ## Context
 
-External Examples werden bisher ausschließlich durch serverseitige Source- und
-Ref-Werte ausgewählt und beim ersten Katalogzugriff in einen prozessweiten
-Snapshot geladen. Jede neue Example-Version benötigt deshalb eine Änderung der
-Deployment-Konfiguration beziehungsweise einen Neustart. Lehrende sollen
-Example-Inhalte über ein GitHub-Repository pflegen und eine Repository-Auswahl
-in ihren eigenen UnoSim-Settings verwenden können, ohne globale Einstellungen
-anderer Nutzer zu verändern.
+External Examples werden bisher durch serverseitige Source- und Ref-Werte
+ausgewählt und in einen prozessweiten Snapshot geladen. Der geplante zusätzliche
+Stable-Channel über `channels/stable.json` hätte eine zweite bewegliche
+Indirektion, einen gesonderten Publikationspfad und zusätzliche Manifest-Hash-
+Verwaltung eingeführt.
 
-Eine frei eingegebene Raw-URL oder ein direkter Browserzugriff auf GitHub würde
-die bestehende SSRF-, Validierungs- und Netzwerkgrenze umgehen. Ein einzelner
-globaler Source-Snapshot ist zugleich unvereinbar mit parallelen Browsern, die
-unterschiedliche Repositories gewählt haben.
+Lehrende benötigen stattdessen ein einfaches Modell: Ein öffentlicher Git-Ref
+wie `main` darf neue Inhalte veröffentlichen, ohne dass UnoSim neu deployed oder
+gestartet wird. Gleichzeitig dürfen Manifest und Dateien während eines Requests
+nicht aus unterschiedlichen Ständen stammen. Browser sollen Repository und Ref
+lokal überschreiben können, ohne andere Nutzer oder den Server-Default zu
+verändern.
 
 ## Decision
 
-Die Server-/Deployment-Konfiguration bleibt Default-Quelle. Der Browser darf
-eine nicht-sensitive, normalisierte Auswahl aus GitHub-Repository-Slug und
-optionalem logischen Channel in `localStorage` speichern. Diese Auswahl wird
-request-scoped als typisierte API-Parameter an UnoSim übertragen. Sie verändert
-weder Environment noch serverweiten Default und wird serverseitig nicht als
-Nutzerprofil gespeichert.
+Das Channel-Modell wird vollständig verworfen. Es gibt keinen logischen
+Channel, kein `channels/stable.json` und keinen separaten Publishing-Ref.
 
-Der Browser spricht ausschließlich mit UnoSim. Der Server bildet den Slug auf
-operatorseitig erlaubte GitHub-/Raw-GitHub-Ziele ab und erzwingt alle bestehenden
-SSRF-, Host-, Pfad-, Redirect-, Timeout-, Größen- und Schemaregeln. Der Browser
-kann keine Raw-Basis-URL und keine Lockerung dieser Regeln liefern.
+Server-/Deployment-Konfiguration liefern Default-Repository und Default-Ref.
+Der initiale External-Examples-Default lautet `ttbombadil/unosim-examples` plus
+`main`. Der Browser darf dieselben zwei nicht-sensitiven Werte lokal speichern
+und request-scoped übertragen. Config und Settings akzeptieren einen Slug oder
+eine normale GitHub-Repository-URL mit optionalem `.git`; intern und in der API
+gilt ausschließlich der kanonische kleingeschriebene Slug.
 
-Ein logischer Channel wie `stable` verweist über ein kleines, strikt
-validiertes Channel-Dokument auf einen vollständigen Commit-SHA und den
-SHA-256-Hash seines Manifests. Nur das Channel-Dokument darf über einen bewusst
-beweglichen Publikationspfad bezogen werden. Manifest und Dateien werden nie
-aus `main` oder einem anderen frei beweglichen Inhalts-Ref geladen, sondern nur
-aus dem vollständigen Commit-SHA. Eine Revision wird erst nach vollständigem
-Download und erfolgreicher Validierung atomar aktiviert. Bei Fehler bleibt der
-Last-Known-Good-Snapshot derselben Repository-/Channel-Auswahl aktiv.
+External-Examples-Repositories sind zunächst öffentlich. Das Feature löst keine
+Vertraulichkeits- oder Private-Repository-Anforderung und besitzt deshalb
+keinen GitHub-Login, keine Credential-/Tokenverwaltung, keine Deploy Keys und
+keine Browser-Secrets. Sein Sicherheitsziel ist Integrität und kontrollierte
+Veröffentlichung öffentlich lesbarer Inhalte.
 
-Die Caches werden nach effektiver Source identifiziert:
+Ein Ref darf beweglich sein. Nach Ablauf des TTL löst UnoSim ihn serverseitig
+über die kontrollierte GitHub-API auf einen vollständigen 40-stelligen
+Commit-SHA auf. Manifest und Example-Dateien werden anschließend ausschließlich
+über `raw.githubusercontent.com` aus diesem Commit geladen. Erst ein vollständig
+geladener und validierter Snapshot wird atomar für die Repository-/Ref-Auswahl
+aktiviert.
 
-- Channelstatus/LKG: `repository + channel`;
+Die Caches werden nach effektiver Source getrennt:
+
+- Source-Zustand und LKG: `repository + ref`;
 - validierter unveränderlicher Snapshot: `repository + revision`.
 
-Damit dürfen mehrere Browser denselben unveränderlichen Snapshot teilen, ohne
-dass ihre Auswahl global geteilt wird. Ein Snapshot einer anderen Source darf
-nie als Fallback dienen. Caches sind begrenzte, regenerierbare Betriebsdaten,
-keine Speicherung von Nutzereinstellungen.
+Ein unveränderter SHA verlängert nur die Source-Prüfung und verwendet denselben
+Snapshot. Ein neuer SHA wird vollständig validiert. Bei Fehler bleibt nur der
+LKG derselben Repository-/Ref-Auswahl aktiv. Andere Sources sind niemals
+Fallback. Identische Default- und Override-Auswahlen dürfen Cache und
+Singleflight teilen; das Antwortfeld `selection` bleibt request-spezifisch.
 
-Der Katalog liefert Auswahlart (`default` oder `browser-override`), kanonisches
-Repository, Channel, aktive Revision, `status` und `stale`. Detailabrufe werden
-mit der Katalogrevision gebunden. Die vollständige fachliche UI-, API-,
-Persistenz- und Fehlerspezifikation steht in
-[`../../ssot/ssot_function_definition_ExternalExamples.md`](../../ssot/ssot_function_definition_ExternalExamples.md).
+Der Katalog liefert Auswahlart, Repository, Ref, vollständige Revision, Status
+und Stale-Zustand. Detailabrufe werden mit Repository und Katalogrevision an
+genau diesen Snapshot gebunden und wechseln nicht still auf den inzwischen
+neueren Ref-Stand.
+
+Die optionalen Manifestfelder `repository` und `ref` bleiben kompatible
+Legacy-Metadaten. Sie bestimmen weder Source noch Revision und werden nicht zur
+URL-Bildung verwendet. Neue Manifeste sollen den kanonischen Repository-Slug
+angeben und dürfen `ref` weglassen; bestehende Manifeste bleiben strukturell
+gültig.
+
+Für das Default-Repository ist `main` der veröffentlichte Stand. Schutz vor
+unbeabsichtigten Änderungen liegt organisatorisch und technisch im Examples-
+Repository: `main` wird geschützt und Änderungen durch Review- und CI-Prüfungen
+freigegeben. UnoSim ergänzt diese Veröffentlichungsgrenze, indem es den Ref
+zuerst auf einen Commit-SHA auflöst, den vollständigen Snapshot validiert, erst
+danach atomar aktiviert und bei Fehlern den LKG beibehält.
 
 ## Authorization and abuse boundary
 
-Der bestehende Default-Katalog darf seinen bisherigen Zugriffsvertrag behalten.
-Das erstmalige Auflösen eines Browser-Overrides erzeugt jedoch kontrollierbare
-externe Arbeit und neue Cache-Keys. In Gateway-Mode wird ein Override deshalb
-nur für einen durch ADR 0001 akzeptierten `user` ausgewertet; anonyme Requests
-dürfen nur den Default verwenden. Local mode verwendet seine serverseitig
-signierte lokale Sessionidentität. Override-Auflösung erhält eigene Rate-,
-Parallelitäts- und Source-Cardinality-Grenzen.
+Der Browser spricht ausschließlich mit UnoSim und kann keine Raw-URL, Hosts,
+Allowlists oder Netzwerkgrenzen festlegen. UnoSim konstruiert GitHub-API- und
+Raw-GitHub-Ziele serverseitig und behält HTTPS-, Allowlist-, DNS-/SSRF-,
+Redirect-, Timeout-, Pfad-, Größen- und Schemaprüfungen bei.
 
-Für Requests mit Override-Auswahl ersetzt diese Entscheidung die allgemeine
-anonyme Freigabe von `GET /api/examples` aus der Ressourcenmatrix von ADR 0001;
-für Requests ohne Override bleibt jene Freigabe unverändert. Gateway-Secret und
-Rollenmodell ändern sich nicht. Repository und Channel sind nicht sensitiv und
-dürfen in Requests und Antworten erscheinen, dürfen aber keine Credentials
-enthalten.
+Der Default-Katalog behält seinen bisherigen anonymen Gateway-Vertrag. Validate
+und Browser-Overrides benötigen in Gateway Mode einen akzeptierten `user`; Local
+Mode verwendet die signierte lokale Session. Dedizierte Rate-, Concurrency-,
+Queue-, Source-Cardinality- und Cache-Limits schützen die externe Arbeit.
+
+GitHub-Zugriffe sind ausschließlich credential-freie Lesezugriffe auf
+öffentliche Repositories. Rate-Limit- oder Verfügbarkeitsfehler der öffentlichen
+GitHub-Endpunkte werden über Retry und source-spezifischen LKG behandelt, nicht
+durch Einführung eines geheimen Tokens.
 
 ## Consequences
 
-- Nach einmaliger Betreiberkonfiguration können berechtigte Repository-
-  Maintainer neue Example-Releases ohne UnoSim-Deployment veröffentlichen.
-- Apply ist transaktional: Der Browser persistiert erst nach erfolgreicher
-  Kandidatenvalidierung. Reset löscht nur die lokale Präferenz.
-- Channel-Refresh benötigt keinen Serverneustart und ersetzt niemals bereits im
-  Editor geöffnete Dateien.
-- Cache- und Rate-Limit-Implementierung wird komplexer, weil Source-Cardinality
-  statt eines einzigen globalen Snapshots berücksichtigt werden muss.
-- Ein Serverneustart darf den initial nur prozesslokalen LKG-Cache verlieren;
-  neustartfeste LKG-Persistenz ist nicht Teil dieser Entscheidung.
-- Die aktuelle Implementierung erfüllt diese Zielarchitektur noch nicht. Ihre
-  Einführung benötigt API-, Config-, Service-, UI- und Teständerungen in einem
-  gesonderten Umsetzungsschritt.
+- Maintainer veröffentlichen neue Inhalte durch Fortschreiben des ausgewählten
+  Refs, initial `main`; ein zusätzlicher Channel-Workflow entfällt.
+- Geschützter `main`, Reviews und CI im Examples-Repository kontrollieren die
+  Veröffentlichung; UnoSim muss keine GitHub-Secrets verwalten.
+- Jeder tatsächlich geladene Snapshot bleibt über den aufgelösten Commit-SHA
+  reproduzierbar und intern immutable.
+- Ref-Auflösung benötigt zusätzlich kontrollierten Zugriff auf
+  `api.github.com`; Contentzugriff bleibt auf `raw.githubusercontent.com`.
+- Apply bleibt transaktional und Reset löscht nur die Browserpräferenz.
+- Ein Serverneustart darf den prozesslokalen LKG verlieren; persistente
+  LKG-Ablage bleibt außerhalb dieser Entscheidung.
 
 ## Rejected alternatives
 
-- **Browser lädt GitHub direkt:** abgelehnt, weil es die serverseitige
-  Validierungs- und Netzwerkgrenze umgeht und zusätzliche Browser-CSP/CORS-
-  Abhängigkeiten schafft.
-- **Frei editierbare Raw-Content-URL:** abgelehnt, weil URL- und Hostkontrolle
-  unnötig auf untrusted Browserinput verlagert würden.
-- **Serverweite Änderung durch Settings:** abgelehnt, weil eine Nutzerpräferenz
-  nicht den Zustand anderer Browser verändern darf.
-- **Produktionsinhalt direkt aus `main`:** abgelehnt, weil Katalog und Dateien
-  während eines Updates inkonsistent werden können und kein reproduzierbarer
-  Snapshot entsteht.
-- **Ein globaler Examples-Snapshot:** abgelehnt, weil parallele, unterschiedliche
-  Browser-Auswahlen damit nicht korrekt isoliert werden können.
-- **LKG eines anderen Repositorys als Fallback:** abgelehnt, weil die Antwort
-  nicht mehr der angefragten Source entspräche.
+- **`channels/stable.json`:** verworfen, weil eine zweite bewegliche Indirektion
+  und ein eigener Publikationsworkflow für das Ziel unnötig sind.
+- **Content über den unaufgelösten Ref `main`:** abgelehnt, weil Manifest und
+  Dateien während einer Aktualisierung aus unterschiedlichen Commits stammen
+  könnten. `main` als veröffentlichter Ref bleibt ausdrücklich akzeptiert.
+- **Private Repositories mit GitHub-Credentials:** nicht Teil des Features, weil
+  das Ziel öffentlich lesbare Examples mit Integritäts- statt
+  Vertraulichkeitsschutz ist.
+- **Browser lädt GitHub direkt:** abgelehnt, weil dies die serverseitige
+  Validierungs- und Netzwerkgrenze umgeht.
+- **Frei editierbare Raw-URL:** abgelehnt, weil Host- und Pfadkontrolle auf
+  untrusted Browserinput verlagert würden.
+- **Serverweite Änderung durch Settings:** abgelehnt, weil eine lokale
+  Präferenz andere Browser nicht beeinflussen darf.
+- **Ein globaler Snapshot oder fremder LKG:** abgelehnt, weil parallele Sources
+  dadurch nicht isoliert wären.
 
 ## Follow-up boundaries
 
-Syntax, API, In-Memory-Limits, Cache-Keys, Concurrency und Config-Migration sind
+Syntax, Config-Migration, API, In-Memory-Limits, Cache-Keys und Concurrency sind
 im
 [`External-Examples-Implementierungsplan`](../EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md)
-konkretisiert. Getrennte Folgethemen bleiben der geschützte Channel-
-Publikationspfad einschließlich Repository-Workflow und eine mögliche
-neustartfeste LKG-Ablage. Diese Themen dürfen die hier entschiedene Hierarchie,
-Request-Isolation, Commit-Bindung oder Sicherheitsgrenze nicht verändern.
+konkretisiert. Getrennt offen bleibt nur eine mögliche neustartfeste LKG-
+Ablage; sie darf Request-Isolation und Commit-Bindung nicht verändern.

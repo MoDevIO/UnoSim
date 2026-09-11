@@ -129,7 +129,7 @@ automatisch produktiv geladen. Eine detaillierte Entscheidung steht in
 
 Die Server-/Deployment-Konfiguration bleibt die Default-Quelle für External
 Examples. Zukünftig darf ein Browser in den Settings ein öffentliches GitHub-
-Repository und optional einen logischen Channel als nicht-sensitive Präferenz
+Repository und einen Git-Ref als nicht-sensitive Präferenz
 auswählen. Ohne Override gilt der Server-Default; Reset entfernt ausschließlich
 die lokale Auswahl. Der Browser verändert keinen globalen Serverzustand und
 kontaktiert GitHub niemals direkt.
@@ -137,22 +137,26 @@ kontaktiert GitHub niemals direkt.
 ```text
 Browser Settings/localStorage
   -> GET /api/examples mit typisierter request-scoped Auswahl
-  -> serverseitige Repository-/Channel- und SSRF-Validierung
+  -> serverseitige Repository-/Ref- und SSRF-Validierung
+  -> GitHub-Ref-Auflösung auf vollständigen Commit-SHA
   -> source-keyed ExamplesRepository / HttpProvider
   -> GitHub / raw.githubusercontent.com
 ```
 
-Der Stable Channel enthält nur einen Zeiger auf einen vollständigen Commit-SHA
-und einen Manifest-Hash. Nach Ablauf des TTL lädt der Server eine neue Revision
-vollständig und aktiviert sie erst nach erfolgreicher Validierung atomar. Bei
-Fehlern bleibt ausschließlich der Last-Known-Good-Snapshot derselben
-Repository-/Channel-Auswahl verfügbar. Channelzustand wird nach
-`repository + channel`, unveränderlicher Inhalt nach `repository + revision`
-gecached. Dadurch können zwei Browser gleichzeitig unterschiedliche Quellen
-verwenden, während identische Quellen einen validierten Snapshot teilen.
+Nach Ablauf des TTL löst der Server den beweglichen Ref lazy auf einen
+vollständigen Commit-SHA auf. Manifest und Dateien werden ausschließlich aus
+diesem Commit geladen; eine neue Revision wird erst nach vollständiger
+Validierung atomar aktiviert. Bei Fehlern bleibt ausschließlich der Last-Known-
+Good-Snapshot derselben Repository-/Ref-Auswahl verfügbar. Source-Zustand wird
+nach `repository + ref`, unveränderlicher Inhalt nach
+`repository + revision` gecached. Dadurch können zwei Browser gleichzeitig
+unterschiedliche Quellen verwenden, während identische Quellen einen
+validierten Snapshot teilen. Das frühere Channel-/`stable.json`-Modell ist
+verworfen.
 
-Die aktuelle Implementierung besitzt diese dynamische Auswahl und periodische
-Aktivierung noch nicht; bis zur Umsetzung gilt der feste serverseitige Ref.
+Die dynamische Browserauswahl und Ref-Auflösung sind Zielarchitektur. Der
+initiale konfigurierte External-Examples-Default ist
+`ttbombadil/unosim-examples` mit Ref `main`.
 Verbindliche Zielentscheidungen stehen in
 [`adr/0005-browser-scoped-external-examples.md`](adr/0005-browser-scoped-external-examples.md),
 der vollständige Fachvertrag in
@@ -203,7 +207,7 @@ Die Simulation nutzt denselben Compilerpfad in der Prepare-Phase, startet den Ru
 | `arduino-compiler.ts` | Compilation und Cache-Logik |
 | Browser Settings | optionale, nur lokal persistierte External-Examples-Auswahl |
 | Examples API | Ermittlung von Default oder request-scoped Browser-Override und Ausgabe nicht-sensitiver Source-Metadaten |
-| `ExamplesRepository` | source-keyed Channel-/Snapshot-Cache, Validierung und atomare LKG-Aktivierung |
+| `ExamplesRepository` | Repository-/Ref-Source-Cache, immutable Revision-Snapshots, Validierung und atomare LKG-Aktivierung |
 
 `ArduinoSimulatorPageState` wird für die Page-Übergabe in sieben fachliche
 ViewModels gegliedert:
@@ -244,7 +248,7 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth
 - **Environment-Variablen:** Validierte Parser mit Type-Safety
 - **External Examples (Zielarchitektur):** Config bleibt Source of Truth für
-  Default-Repository, Default-Channel und Refresh-TTL. Eine Browserpräferenz
+  Default-Repository, Default-Ref und Refresh-TTL. Eine Browserpräferenz
   ist nur ein request-scoped Override und keine zweite serverweite
   Konfiguration.
 - **Status:** Die produktive Konfiguration läuft über `server/config.ts`; `FORCE_DOCKER` ist nur ein deprecated Kompatibilitätsalias. Aktuelle Betriebs- und Sicherheitsanforderungen stehen in `INSTALL_SERVER.md` und `SECURITY.md`.
