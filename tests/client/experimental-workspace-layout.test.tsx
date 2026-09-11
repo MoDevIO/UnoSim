@@ -185,6 +185,7 @@ describe("experimental workspace layout", () => {
       loadModels: vi.fn(),
       question: {
         question: "Was beobachtest du?",
+        difficulty: 34,
         provider: "kiconnect",
         mode: "user-key",
         model: "pilot-model",
@@ -202,6 +203,7 @@ describe("experimental workspace layout", () => {
     const { rerender } = render(<TutorWorkspacePlaceholder code="void setup(){}" tutor={tutor} />);
 
     expect(screen.getByLabelText("Your answer")).toBeInTheDocument();
+    expect(screen.getByLabelText("Your answer")).toHaveFocus();
     expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("aria-label", "API key");
     expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("title", "API key");
     expect(screen.getByTestId("tutor-api-key-action").querySelector("svg")).toHaveClass("!h-5", "!w-5");
@@ -209,6 +211,7 @@ describe("experimental workspace layout", () => {
     expect(screen.getByTestId("tutor-new-question-action")).toHaveClass("h-9", "w-9", "rounded-full");
     expect(screen.getByTestId("tutor-new-question-action").querySelector("svg")).toHaveClass("!h-6", "!w-6");
     expect(screen.getByTestId("tutor-effective-difficulty")).toHaveTextContent("D42");
+    expect(screen.getByTestId("tutor-question")).not.toHaveTextContent("D34");
     expect(screen.getByTestId("tutor-effective-difficulty")).toHaveAttribute(
       "title",
       "Current adaptive difficulty for this session: 42 / 100",
@@ -222,6 +225,8 @@ describe("experimental workspace layout", () => {
     const sessionRating = screen.getByTestId("tutor-session-rating");
     expect(newQuestionAction.compareDocumentPosition(effectiveDifficulty) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(effectiveDifficulty.compareDocumentPosition(sessionRating) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, question: { ...tutor.question!, question: "Eine neue Frage?" }, sessionRating: 3.67, ratedAnswerCount: 2 }} debugMode />);
+    expect(screen.getByLabelText("Your answer")).toHaveFocus();
     fireEvent.click(screen.getByTestId("tutor-api-key-action"));
     expect(screen.getByTestId("tutor-api-key-view")).toBeInTheDocument();
     expect(screen.getByLabelText("API key", { selector: "input" })).toBeInTheDocument();
@@ -259,6 +264,9 @@ describe("experimental workspace layout", () => {
       }}
     />);
     expect(screen.getByTestId("tutor-answer-rating")).toHaveTextContent("★★★★☆");
+    const feedbackLabel = screen.getByText("Tutor feedback");
+    const feedbackRating = screen.getByTestId("tutor-answer-rating");
+    expect(feedbackLabel.compareDocumentPosition(feedbackRating) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("tutor-session-rating")).toHaveAttribute("title", expect.stringContaining("1 rated answers"));
   });
 

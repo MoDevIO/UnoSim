@@ -250,6 +250,52 @@ describe("useTutor", () => {
     expect(result.current.lastUsedModel).toBe("pilot-model");
   });
 
+  it("lowers effective difficulty for consecutive weak answers without changing the configured start value", async () => {
+    const dialogDifficulties: number[] = [];
+    let questionNumber = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/config") return new Response(JSON.stringify({ tutor: { mode: "user-key", provider: "kiconnect" } }), { status: 200 });
+      if (url === "/api/tutor/question") {
+        return new Response(JSON.stringify({
+          question: "Was passiert im Sketch?",
+          provider: "kiconnect",
+          mode: "user-key",
+          model: "pilot-model",
+        }), { status: 200 });
+      }
+      if (url === "/api/tutor/dialog") {
+        const request = JSON.parse(String(init?.body)) as { difficulty: number };
+        dialogDifficulties.push(request.difficulty);
+        questionNumber += 1;
+        return new Response(JSON.stringify({
+          feedback: "Wir gehen einen kleineren Schritt.",
+          answerRating: 2,
+          question: `Kleiner Schritt ${questionNumber}?`,
+          provider: "kiconnect",
+          mode: "user-key",
+          model: "pilot-model",
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ models: ["pilot-model"] }), { status: 200 });
+    });
+    const { result } = renderHook(() => useTutor());
+
+    await waitFor(() => expect(result.current.config.mode).toBe("user-key"));
+    act(() => result.current.setCredential("volatile-key"));
+    act(() => result.current.setConfiguredDifficulty(50));
+    await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
+    act(() => result.current.setAnswer("Keine Ahnung"));
+    await act(async () => result.current.submitAnswer("void setup(){} void loop(){}"));
+    act(() => result.current.setAnswer("Immer noch unklar"));
+    await act(async () => result.current.submitAnswer("void setup(){} void loop(){}"));
+
+    expect(dialogDifficulties).toEqual([50, 47]);
+    expect(result.current.effectiveDifficulty).toBe(44);
+    expect(result.current.configuredDifficulty).toBe(50);
+    expect(localStorage.getItem(TUTOR_CONFIGURED_DIFFICULTY_STORAGE_KEY)).toBe("50");
+  });
+
   it("keeps answer and history unchanged when a dialog request fails", async () => {
     let dialogRequests = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {

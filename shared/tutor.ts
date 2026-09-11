@@ -33,6 +33,17 @@ export const TUTOR_RATING_DIFFICULTY_DELTAS: Record<TutorAnswerRating, number> =
 export const tutorResponseStyleSchema = z.enum(["normal", "philosophical"]);
 export type TutorResponseStyle = z.infer<typeof tutorResponseStyleSchema>;
 
+const tutorQuestionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
+const tutorLearningMetadataFields = {
+  topicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
+  conceptId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
+  questionId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
+  indicatorId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
+  questionKind: tutorQuestionKindSchema.optional(),
+  strategyId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
+  contentRevision: z.string().regex(/^[a-f0-9]{40}$/i).optional(),
+};
+
 function withDefaultResponseStyle(value: unknown): unknown {
   if (typeof value !== "object" || value === null || "responseStyle" in value) return value;
   return { ...value, responseStyle: "normal" };
@@ -44,6 +55,7 @@ const tutorContentFields = {
   topic: z.string().trim().min(1).max(120).optional(),
   difficulty: tutorDifficultySchema.optional(),
   mermaid: z.string().trim().min(1).max(12_000).optional(),
+  ...tutorLearningMetadataFields,
 };
 
 const tutorNormalContentResultSchema = z.object({
@@ -119,6 +131,7 @@ const tutorDialogFields = {
   question: z.string().trim().min(1).max(2_000),
   answer: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxAnswerChars),
   feedback: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxFeedbackChars).optional(),
+  ...tutorLearningMetadataFields,
 };
 
 const tutorNormalDialogTurnSchema = z.object({

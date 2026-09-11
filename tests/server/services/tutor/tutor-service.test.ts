@@ -4,6 +4,7 @@ import {
   buildDialogPrompt,
   buildUserPrompt,
   isClearlyNonLearningAnswer,
+  isSemanticallyRepeatedQuestion,
   sanitizeMermaid,
   validateLearningQuestion,
   TUTOR_SYSTEM_PROMPT,
@@ -45,6 +46,8 @@ describe("TutorService", () => {
     expect(prompt).toContain(sketch);
     expect(prompt).toContain("Deterministischer UnoSim-Kontext:");
     expect(TUTOR_SYSTEM_PROMPT).toContain("genau eine kurze Lern");
+    expect(buildUserPrompt(sketch, context, 2)).toContain("1–10 = elementare Wiedererkennung");
+    expect(buildUserPrompt(sketch, context, 80)).toContain("71–90 = anspruchsvolle Herleitung");
   });
 
   it("accepts one question and drops unsafe Mermaid instead of the text answer", () => {
@@ -181,6 +184,136 @@ describe("TutorService", () => {
       expect.objectContaining({ userPrompt: expect.stringContaining("80/100") }),
       "volatile-key",
     );
+  });
+
+  it("accepts a fully correct short answer as a five-star understanding rating", async () => {
+    const provider: LLMProvider = {
+      listModels: vi.fn().mockResolvedValue(["pilot-model"]),
+      generateLearningQuestion: vi.fn().mockResolvedValue({
+        model: "pilot-model",
+        result: {
+          feedback: "Genau.",
+          answerRating: 5,
+          question: "Welche Variable wird im Sketch anschließend verwendet?",
+        },
+      }),
+    };
+
+    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+      "void setup(){} void loop(){}",
+      [],
+      "Wie viele Bytes hat ein int auf dem Arduino Uno?",
+      "2",
+      "volatile-key",
+      undefined,
+      20,
+    );
+
+    expect(result.result.answerRating).toBe(5);
+  });
+
+  it("requests a strategy change after repeated weak answers", async () => {
+    const prompts: string[] = [];
+    const provider: LLMProvider = {
+      listModels: vi.fn().mockResolvedValue(["pilot-model"]),
+      async generateLearningQuestion(request) {
+        prompts.push(request.userPrompt);
+        return {
+          model: "pilot-model",
+          result: {
+            feedback: "Wir zerlegen das in einen kleineren Schritt.",
+            answerRating: 2,
+            question: "Welche Wirkung hat der HIGH-Pegel an Pin 13?",
+          },
+        };
+      },
+    };
+    const history = [
+      {
+        question: "Welche Wirkung hat der HIGH-Pegel an Pin 13?",
+        answer: "Ich weiß es nicht.",
+        responseStyle: "normal" as const,
+        answerRating: 2 as const,
+      },
+      {
+        question: "Welche Codezeile setzt den Ausgang an Pin 13?",
+        answer: "Keine Ahnung.",
+        responseStyle: "normal" as const,
+        answerRating: 2 as const,
+      },
+    ];
+
+    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+      sketch,
+      history,
+      "Welche Wirkung hat der HIGH-Pegel an Pin 13?",
+      "Das ist ein analoger Messwert.",
+      "volatile-key",
+      undefined,
+      30,
+    );
+
+    expect(prompts[0]).toContain("Zwei schwache Antworten");
+    expect(prompts[0]).toContain("nicht wiederholen");
+    expect(result.result.answerRating).toBe(2);
+    expect(result.result.question).not.toBe("Welche Wirkung hat der HIGH-Pegel an Pin 13?");
+  });
+
+  it("replaces a repeated ASCII question with a smaller conceptual step", async () => {
+    const serialSketch = `uint8_t values[] = {65, 66, 67};
+void setup() { Serial.write(values, 3); }
+void loop() {}`;
+    const provider: LLMProvider = {
+      listModels: vi.fn().mockResolvedValue(["pilot-model"]),
+      generateLearningQuestion: vi.fn().mockResolvedValue({
+        model: "pilot-model",
+        result: {
+          feedback: "Schauen wir auf einen einzelnen Wert.",
+          answerRating: 2,
+          question: "Welche Zeichen ergeben die Werte 65, 66 und 67 im Serial-Output?",
+        },
+      }),
+    };
+
+    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+      serialSketch,
+      [],
+      "Welche Zeichen ergeben die Werte 65, 66 und 67 im Serial-Output?",
+      "Das sind Zahlen.",
+      "volatile-key",
+      undefined,
+      30,
+    );
+
+    expect(result.result.question).toBe("Welche Zeichen ordnet die ASCII-Tabelle den Werten 65, 66 und 67 im aktuellen Sketch zu?");
+    expect(isSemanticallyRepeatedQuestion(result.result.question, ["Welche Zeichen ergeben die Werte 65, 66 und 67 im Serial-Output?"])).toBe(false);
+  });
+
+  it("moves to the next concept after a fully understood short-answer concept", async () => {
+    const provider: LLMProvider = {
+      listModels: vi.fn().mockResolvedValue(["pilot-model"]),
+      generateLearningQuestion: vi.fn().mockResolvedValue({
+        model: "pilot-model",
+        result: {
+          feedback: "Ja, das Teilkonzept ist vollständig verstanden.",
+          answerRating: 5,
+          question: "Welche Wirkung hat der HIGH-Pegel an Pin 13 im Ablauf des Sketches?",
+        },
+      }),
+    };
+
+    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+      sketch,
+      [],
+      "Welche Wirkung hat HIGH an Pin 13?",
+      "Der Ausgang ist aktiv.",
+      "volatile-key",
+      undefined,
+      30,
+    );
+
+    expect(result.result.answerRating).toBe(5);
+    expect(result.result.question).toBe("Wie hängen die Pin-Konfiguration und die spätere Ansteuerung im Ablauf des Sketches zusammen?");
   });
 
   it("keeps normal false answers in normal tutor mode with a rating", async () => {

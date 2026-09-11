@@ -337,6 +337,11 @@ function TutorPanelContent({
     textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
   }, [tutor.answer]);
 
+  useEffect(() => {
+    if (showKeyView || tutor.isLoading || !tutor.question) return;
+    composerRef.current?.focus();
+  }, [showKeyView, tutor.isLoading, tutor.question?.question]);
+
   if (showKeyView) {
     return (
       <div className="flex flex-1 min-h-0 flex-col overflow-auto p-4 text-left" data-testid="tutor-api-key-view">
@@ -415,19 +420,19 @@ function TutorPanelContent({
               </div>
               {(turn.feedback || turn.answerRating !== undefined) && (
                 <div className="max-w-[88%] rounded-lg border border-border/60 px-4 py-3" data-testid="tutor-history-feedback">
-                  <p className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <div className="flex items-center gap-2 text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {turn.responseStyle === "philosophical" ? "Tutor reflection" : "Tutor feedback"}
-                  </p>
+                    {turn.answerRating !== undefined && (
+                      <span
+                        className="text-amber-500 normal-case"
+                        aria-label={`Understanding rating ${turn.answerRating} out of 5`}
+                        data-testid="tutor-answer-rating"
+                      >
+                        {"★".repeat(turn.answerRating)}{"☆".repeat(5 - turn.answerRating)}
+                      </span>
+                    )}
+                  </div>
                   {turn.feedback && <p className="mt-1 leading-relaxed text-muted-foreground">{turn.feedback}</p>}
-                  {turn.answerRating !== undefined && (
-                    <span
-                      className="mt-2 inline-block text-amber-500"
-                      aria-label={`Understanding rating ${turn.answerRating} out of 5`}
-                      data-testid="tutor-answer-rating"
-                    >
-                      {"★".repeat(turn.answerRating)}{"☆".repeat(5 - turn.answerRating)}
-                    </span>
-                  )}
                 </div>
               )}
             </div>
@@ -437,7 +442,6 @@ function TutorPanelContent({
             <div className="max-w-[88%] rounded-lg bg-muted/30 px-4 py-3" data-testid="tutor-question">
               <div className="flex items-center justify-between gap-2 text-ui-xs text-muted-foreground">
                 <span>{tutor.question.responseStyle === "philosophical" ? "Philosophical fallback" : tutor.question.topic ?? "Learning question"}</span>
-                <span>{tutor.question.difficulty === undefined ? "D—" : `D${tutor.question.difficulty}`}</span>
               </div>
               <p className="mt-2 font-medium leading-relaxed text-foreground">{tutor.question.question}</p>
               {tutor.question.mermaid && <MermaidPreview source={tutor.question.mermaid} />}
