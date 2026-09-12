@@ -135,6 +135,11 @@ function getWorkspaceColumnClassName(column: WorkspaceColumn): string {
   }
 }
 
+function canTutorRequest(tutor: TutorPanelState): boolean {
+  const credentialConfigured = tutor.config.mode === "managed" || tutor.credential.length > 0;
+  return tutor.config.mode !== "disabled" && (tutor.config.mode === "managed" || credentialConfigured);
+}
+
 export function WorkspaceVisibilityControls({
   visibility,
   onColumnToggle,
@@ -188,8 +193,10 @@ function TutorPlaceholder({
   readonly debugMode?: boolean;
 }) {
   const [showKeyView, setShowKeyView] = useState(false);
-  const sessionRating = tutor?.sessionRating ?? null;
-  const ratedAnswerCount = tutor?.ratedAnswerCount ?? 0;
+  const tutorReady = tutor ? canTutorRequest(tutor) : false;
+  const tutorActionLabel = tutorReady
+    ? "Tutor ready - generate a new question"
+    : "Tutor not ready - configure the Tutor first";
 
   return (
     <section
@@ -208,9 +215,11 @@ function TutorPlaceholder({
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-9 w-9 rounded-full border border-border/70 bg-background/20"
-                aria-label="New learning question"
-                title="New learning question"
+                className={tutorReady
+                  ? "h-9 w-9 rounded-full border border-primary bg-primary text-primary-foreground ring-2 ring-primary/30 shadow-sm hover:bg-primary/90"
+                  : "h-9 w-9 rounded-full border border-border/70 bg-background/20 text-muted-foreground hover:bg-muted/50 hover:text-foreground"}
+                aria-label={tutorActionLabel}
+                title={tutorActionLabel}
                 onClick={() => {
                   setShowKeyView(false);
                   tutor.resetDialog();
@@ -226,18 +235,8 @@ function TutorPlaceholder({
                 data-testid="tutor-effective-difficulty"
                 title={`Current adaptive difficulty for this session: ${tutor.effectiveDifficulty} / 100`}
               >
-                D{tutor.effectiveDifficulty}
+                D{String(tutor.effectiveDifficulty).padStart(2, "0")}
               </span>
-              {sessionRating !== null && (
-                <span
-                  className="text-ui-xs text-amber-500"
-                  aria-label={`Session rating ${sessionRating.toFixed(2)} out of 5 from ${ratedAnswerCount} rated answers`}
-                  title={`Session rating: ${sessionRating.toFixed(2)} / 5 · ${ratedAnswerCount} rated answers`}
-                  data-testid="tutor-session-rating"
-                >
-                  ★ {sessionRating.toFixed(2)}
-                </span>
-              )}
             </div>
           ) : undefined}
           actions={tutor ? (
@@ -306,7 +305,7 @@ function TutorPanelContent({
 }) {
   const { config } = tutor;
   const credentialConfigured = config.mode === "managed" || tutor.credential.length > 0;
-  const canRequest = config.mode !== "disabled" && (config.mode === "managed" || credentialConfigured);
+  const canRequest = canTutorRequest(tutor);
   const dialogScrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const autoLoadedForRef = useRef<string | null>(null);
