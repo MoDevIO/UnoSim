@@ -88,7 +88,7 @@ describe("useFileManager", () => {
     });
 
     expect(onFilesLoaded).toHaveBeenCalledWith(
-      [{ name: "sketch.ino", content: fileContent }],
+      [{ name: "sketch.ino", path: "sketch.ino", content: fileContent }],
       false,
     );
   });

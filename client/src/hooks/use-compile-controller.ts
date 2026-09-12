@@ -11,6 +11,7 @@ import type {
 } from "@/types/websocket";
 import { buildCompileCommand } from "./compile-command-builder";
 import { isCompileResult } from "@/types/websocket";
+import type { SourceProject } from "@shared/source-project";
 
 const logger = new Logger("use-compile-controller");
 
@@ -62,9 +63,10 @@ export interface UseCompileControllerParams {
 
   // Editor
   editorRef: React.RefObject<{ getValue: () => string } | null>;
-  tabs: Array<{ id: string; name: string; content: string }>;
+  tabs: Array<{ id: string; name: string; path?: string; content: string }>;
   activeTabId: string | null;
   code: string;
+  sourceProject?: SourceProject | null;
 
   // Simulation coordination
   clearSerialOutput: () => void;
@@ -200,10 +202,17 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     initializeEmptyRegistry();
 
     let mainSketchCode: string;
-    if (params.activeTabId === params.tabs[0]?.id && params.editorRef.current) {
+    let headers: Array<{ name: string; content: string }>;
+    if (params.sourceProject !== undefined) {
+      ({ code: mainSketchCode, headers } = params.sourceProject
+        ? buildCompileCommand(params.sourceProject)
+        : { code: "", headers: [] });
+    } else if (params.activeTabId === params.tabs[0]?.id && params.editorRef.current) {
       mainSketchCode = params.editorRef.current.getValue();
+      ({ headers } = buildCompileCommand(mainSketchCode, params.tabs));
     } else {
       mainSketchCode = params.tabs[0]?.content || params.code;
+      ({ headers } = buildCompileCommand(mainSketchCode, params.tabs));
     }
 
     if (!mainSketchCode || mainSketchCode.trim().length === 0) {
@@ -211,7 +220,6 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
       return;
     }
 
-    const { headers } = buildCompileCommand(mainSketchCode, params.tabs);
     logger.info(`[CLIENT] Compiling with ${headers.length} headers`);
     compileMutation.mutate({ code: mainSketchCode, headers });
   }, [
@@ -222,6 +230,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     params.editorRef,
     params.resetPinUI,
     params.tabs,
+    params.sourceProject,
     initializeEmptyRegistry,
     params.uiFeedback,
   ]);

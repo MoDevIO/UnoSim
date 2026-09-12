@@ -62,6 +62,11 @@ export function useArduinoSimulatorPage() {
     initializeDefaultSketch,
   } = useFileSystem({ sketches: undefined });
 
+  const sourceProject = useMemo(
+    () => buildSourceProject(tabs, activeTabId, code),
+    [tabs, activeTabId, code],
+  );
+
   // CHANGED: Store OutputLine objects instead of plain strings
   const {
     serialOutput,
@@ -261,6 +266,7 @@ export function useArduinoSimulatorPage() {
     tabs,
     activeTabId,
     code,
+    sourceProject,
     setSerialOutput,
     clearSerialOutput,
     setParserMessages,
@@ -480,10 +486,6 @@ export function useArduinoSimulatorPage() {
 
   // Parse the current code to detect which analog pins are used by name or channel
   // (extracted to `useSketchAnalysis` for testability and reuse)
-  const sourceProject = useMemo(
-    () => buildSourceProject(tabs, activeTabId, code),
-    [tabs, activeTabId, code],
-  );
   const {
     analogPins: _analogPins,
     varMap: _varMap,

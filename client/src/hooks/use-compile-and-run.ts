@@ -11,6 +11,7 @@ import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
 import { useCompileController } from "./use-compile-controller";
 import { useSimulationController } from "./use-simulation-controller";
 import { buildCompileCommand } from "./compile-command-builder";
+import type { SourceProject } from "@shared/source-project";
 
 const logger = new Logger("useCompileAndRun");
 
@@ -49,9 +50,10 @@ export type DebugMessageParams = {
 // parameters for compile portion (same as old UseCompilationParams)
 export type CompileAndRunParams = {
   editorRef: RefObject<{ getValue: () => string } | null>;
-  tabs: Array<{ id: string; name: string; content: string }>;
+  tabs: Array<{ id: string; name: string; path?: string; content: string }>;
   activeTabId: string | null;
   code: string;
+  sourceProject?: SourceProject | null;
   setSerialOutput: SetState<OutputLine[]>;
   clearSerialOutput: () => void;
   setParserMessages: SetState<ParserMessage[]>;
@@ -192,6 +194,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     tabs: params.tabs,
     activeTabId: params.activeTabId,
     code: params.code,
+    sourceProject: params.sourceProject,
 
     // Simulation coordination
     clearSerialOutput: params.clearSerialOutput,
@@ -236,14 +239,21 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
     // Extract code
     let mainSketchCode: string;
-    if (params.activeTabId === params.tabs[0]?.id && params.editorRef.current) {
+    let headers: Array<{ name: string; content: string }>;
+    if (params.sourceProject !== undefined) {
+      ({ code: mainSketchCode, headers } = params.sourceProject
+        ? buildCompileCommand(params.sourceProject)
+        : { code: "", headers: [] });
+    } else if (params.activeTabId === params.tabs[0]?.id && params.editorRef.current) {
       try {
         mainSketchCode = params.editorRef.current.getValue();
       } catch {
         mainSketchCode = params.tabs[0]?.content || params.code;
       }
+      ({ headers } = buildCompileCommand(mainSketchCode, params.tabs));
     } else {
       mainSketchCode = params.tabs[0]?.content || params.code;
+      ({ headers } = buildCompileCommand(mainSketchCode, params.tabs));
     }
 
     if (!mainSketchCode || mainSketchCode.trim().length === 0) {
@@ -252,7 +262,6 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     }
 
     // Build payload
-    const { headers } = buildCompileCommand(mainSketchCode, params.tabs);
     logger.info(`[CLIENT] Compile & Start with ${headers.length} headers`);
     logger.info(`[CLIENT] Code length: ${mainSketchCode.length} bytes`);
 
