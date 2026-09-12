@@ -147,15 +147,15 @@ export function ExternalExamplesSettings({
 
   return (
     <section
-      className="rounded border p-3 bg-muted"
+      className="rounded-lg border border-border/70 bg-muted/20 p-4 shadow-sm"
       aria-label="External Examples settings"
     >
-      <div className="font-medium">External Examples</div>
-      <div className="text-ui-xs text-muted-foreground mb-3">
+      <div className="text-ui-sm font-semibold text-foreground">External Examples</div>
+      <div className="mt-1 text-ui-xs leading-relaxed text-muted-foreground mb-4">
         Select a public GitHub repository and ref for this browser only. No
         credentials are needed.
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:gap-x-4 sm:gap-y-2">
         <label className="text-ui-sm" htmlFor="external-examples-repository">
           Repository
         </label>
@@ -183,7 +183,7 @@ export function ExternalExamplesSettings({
           disabled={busy !== null}
         />
       </div>
-      <div className="mt-3 text-ui-xs text-muted-foreground space-y-1">
+      <div className="mt-4 space-y-1 text-ui-xs text-muted-foreground">
         <div>
           Using:{" "}
           <span className="font-medium text-foreground">{selectionStatus}</span>
@@ -205,12 +205,12 @@ export function ExternalExamplesSettings({
       {message && (
         <output
           aria-live="polite"
-          className={`mt-3 text-ui-sm ${message.kind === "error" ? "text-destructive" : "text-status-success"}`}
+          className={`mt-4 text-ui-sm ${message.kind === "error" ? "text-destructive" : "text-status-success"}`}
         >
           {message.text}
         </output>
       )}
-      <div className="mt-3 flex flex-wrap justify-end gap-2">
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
         <Button
           type="button"
           variant="outline"
