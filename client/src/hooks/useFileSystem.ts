@@ -105,6 +105,7 @@ export function useFileSystem(params: UseFileSystemParams): UseFileSystemResult 
             {
               id: tabId,
               name: defaultSketch.name,
+              path: defaultSketch.name,
               content: defaultSketch.content,
             },
           ];

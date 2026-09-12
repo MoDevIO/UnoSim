@@ -18,14 +18,14 @@ const CodeEditor = lazy(() =>
 interface UseSimulatorUIStateParams {
   code: string;
   setCode: (code: string) => void;
-  tabs: Array<{ id: string; name: string; content: string }>;
+  tabs: Array<{ id: string; name: string; path?: string; content: string }>;
   activeTabId: string | null;
   handleTabClick: (tabId: string) => void;
   handleTabAdd: () => void;
   handleTabClose: (tabId: string) => void;
   handleTabRename: (tabId: string, newName: string) => void;
-  handleFilesLoaded: (files: Array<{ name: string; content: string }>, replaceAll: boolean) => void;
-  handleLoadExample: (files: Array<{ name: string; content: string }>, title: string) => void;
+  handleFilesLoaded: (files: Array<{ name: string; path?: string; content: string }>, replaceAll: boolean) => void;
+  handleLoadExample: (files: Array<{ name: string; path?: string; content: string }>, title: string) => void;
   formatCode: () => void;
   handleCompileAndStart: () => void;
   editorRef: React.RefObject<{

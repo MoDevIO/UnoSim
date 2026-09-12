@@ -45,6 +45,7 @@ import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 interface Tab {
   id: string;
   name: string;
+  path?: string;
   content: string;
 }
 
@@ -57,7 +58,7 @@ interface SketchTabsProps {
   readonly onTabRename: (tabId: string, newName: string) => void;
   readonly onTabAdd: () => void;
   readonly onFilesLoaded?: (
-    files: Array<{ name: string; content: string }>,
+    files: Array<{ name: string; path?: string; content: string }>,
     replaceAll: boolean,
   ) => void;
   readonly onFormatCode?: () => void;
@@ -167,7 +168,7 @@ export function SketchTabs({
     if (!files || files.length === 0) return;
 
     try {
-      const loadedFiles: Array<{ name: string; content: string }> = [];
+      const loadedFiles: Array<{ name: string; path?: string; content: string }> = [];
       let inoCount = 0;
 
       // Read all files
@@ -193,6 +194,7 @@ export function SketchTabs({
 
         loadedFiles.push({
           name: file.name,
+          path: file.webkitRelativePath || file.name,
           content: content,
         });
       }

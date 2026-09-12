@@ -5,13 +5,16 @@ import { generateUuidV4 } from "@/lib/uuid";
 import type { Sketch } from "@shared/schema";
 import type { ToastFn } from "@/hooks/use-toast";
 
+type SourceFileInput = { name: string; path?: string; content: string };
+type SourceTab = { id: string; name: string; path?: string; content: string };
+
 interface UseSimulatorFileSystemParams {
   code: string;
   setCode: (value: string) => void;
   isModified: boolean;
   setIsModified: (value: boolean) => void;
-  tabs: Array<{ id: string; name: string; content: string }>;
-  setTabs: (tabs: Array<{ id: string; name: string; content: string }>) => void;
+  tabs: SourceTab[];
+  setTabs: (tabs: SourceTab[]) => void;
   activeTabId: string | null;
   setActiveTabId: (id: string | null) => void;
   initializeDefaultSketch: (sketches: Sketch[] | undefined) => void;
@@ -51,6 +54,7 @@ export function useSimulatorFileSystem({
     const newTab = {
       id: newTabId,
       name: `header_${tabs.length}.h`,
+      path: `header_${tabs.length}.h`,
       content: "",
     };
     setTabs([...tabs, newTab]);
@@ -97,17 +101,18 @@ export function useSimulatorFileSystem({
   );
 
   const handleFilesLoaded = useCallback(
-    (files: Array<{ name: string; content: string }>, replaceAll: boolean) => {
+    (files: SourceFileInput[], replaceAll: boolean) => {
       if (replaceAll) {
         onReplaceAllFiles?.();
 
         const inoFiles = files.filter((f) => f.name.endsWith(".ino"));
-        const hFiles = files.filter((f) => f.name.endsWith(".h"));
-        const orderedFiles = [...inoFiles, ...hFiles];
+        const otherFiles = files.filter((f) => !f.name.endsWith(".ino"));
+        const orderedFiles = [...inoFiles, ...otherFiles];
 
         const newTabs = orderedFiles.map((file) => ({
           id: generateUuidV4().replaceAll("-", "").slice(0, 9),
           name: file.name,
+          path: file.path ?? file.name,
           content: file.content,
         }));
 
@@ -123,6 +128,7 @@ export function useSimulatorFileSystem({
         const newHeaderFiles = files.map((file) => ({
           id: generateUuidV4().replaceAll("-", "").slice(0, 9),
           name: file.name,
+          path: file.path ?? file.name,
           content: file.content,
         }));
         setTabs([...tabs, ...newHeaderFiles]);
@@ -150,7 +156,7 @@ export function useSimulatorFileSystem({
 
   const handleLoadExample = useCallback(
     (
-      filesOrName: Array<{ name: string; content: string }> | string,
+      filesOrName: SourceFileInput[] | string,
       contentOrTitle: string,
     ) => {
       onLoadExample?.();

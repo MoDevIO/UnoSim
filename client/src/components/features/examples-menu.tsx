@@ -24,12 +24,12 @@ interface Example {
 }
 
 interface ExampleDetail {
-  files: Array<{ name: string; content: string }>;
+  files: Array<{ name: string; path?: string; content: string }>;
 }
 
 interface ExamplesMenuProps {
   readonly onLoadExample: (
-    files: Array<{ name: string; content: string }>,
+    files: Array<{ name: string; path?: string; content: string }>,
     title: string,
   ) => void;
   readonly backendReachable?: boolean;

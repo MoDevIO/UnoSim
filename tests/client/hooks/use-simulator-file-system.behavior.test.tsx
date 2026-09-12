@@ -66,14 +66,14 @@ describe("useSimulatorFileSystem behavior", () => {
   it("loads files in replace and append modes with ino files first", () => {
     const { state, result } = setup();
     const files = [
-      { name: "z.h", content: "z" },
-      { name: "main.ino", content: "ino" },
+      { name: "z.h", path: "drivers/z.h", content: "z" },
+      { name: "main.ino", path: "main.ino", content: "ino" },
     ];
     act(() => result.current.handleFilesLoaded(files, true));
     expect(state.onReplaceAllFiles).toHaveBeenCalled();
     expect(state.setTabs).toHaveBeenCalledWith([
       expect.objectContaining({ name: "main.ino", content: "ino" }),
-      expect.objectContaining({ name: "z.h", content: "z" }),
+      expect.objectContaining({ name: "z.h", path: "drivers/z.h", content: "z" }),
     ]);
     act(() => result.current.handleFilesLoaded([{ name: "extra.h", content: "extra" }], false));
     expect(state.setTabs).toHaveBeenLastCalledWith([...state.tabs, expect.objectContaining({ name: "extra.h" })]);

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useSketchAnalysis } from "../../../client/src/hooks/use-sketch-analysis";
+import { buildSourceProject } from "../../../client/src/lib/source-project";
 
 describe("useSketchAnalysis", () => {
   it("detects A0 and numeric 0 as pin 14", () => {
@@ -111,5 +112,17 @@ describe("useSketchAnalysis", () => {
     expect(result.current.detectedPinModes).toEqual({});
     expect(result.current.pendingPinConflicts).toEqual([]);
     expect(result.current.digitalPinsFromPinMode).toEqual([]);
+  });
+
+  it("analyzes the complete source project independent of the active tab", () => {
+    const sourceProject = buildSourceProject([
+      { id: "main", name: "main.ino", content: '#include "io.h"' },
+      { id: "header", name: "io.h", content: "pinMode(4, OUTPUT);" },
+    ], "header", "pinMode(4, OUTPUT);\ndigitalWrite(4, HIGH);");
+
+    const { result } = renderHook(() => useSketchAnalysis(sourceProject));
+
+    expect(result.current.detectedPinModes).toEqual({ 4: "OUTPUT" });
+    expect(result.current.digitalPinsFromPinMode).toEqual([4]);
   });
 });

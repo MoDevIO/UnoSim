@@ -1,6 +1,6 @@
 // arduino-simulator.tsx
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -26,7 +26,8 @@ import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
 import { useSimulatorExternalControl } from "@/hooks/useSimulatorExternalControl";
-import { parseStaticIORegistry } from "@shared/io-registry-parser";
+import { parseStaticIORegistryProject } from "@shared/io-registry-parser";
+import { buildSourceProject } from "@/lib/source-project";
 
 import type {
   Sketch,
@@ -479,13 +480,16 @@ export function useArduinoSimulatorPage() {
 
   // Parse the current code to detect which analog pins are used by name or channel
   // (extracted to `useSketchAnalysis` for testability and reuse)
-  const _sketchCode = code || (tabs.length > 0 ? tabs[0].content || "" : "");
+  const sourceProject = useMemo(
+    () => buildSourceProject(tabs, activeTabId, code),
+    [tabs, activeTabId, code],
+  );
   const {
     analogPins: _analogPins,
     varMap: _varMap,
     detectedPinModes: _detectedPinModes,
     pendingPinConflicts: _pendingPinConflicts,
-  } = useSketchAnalysis(_sketchCode);
+  } = useSketchAnalysis(sourceProject);
 
   // Mirror results into local state (previously done inside the big useEffect)
   useEffect(() => {
@@ -504,10 +508,12 @@ export function useArduinoSimulatorPage() {
   // Populate I/O registry from static code analysis whenever code changes or compilation completes
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIoRegistry(parseStaticIORegistry(code));
+      setIoRegistry(
+        sourceProject ? parseStaticIORegistryProject(sourceProject) : [],
+      );
     }, 300);
     return () => clearTimeout(timer);
-  }, [code, compilationStatus, setIoRegistry]);
+  }, [sourceProject, compilationStatus, setIoRegistry]);
 
   const { handleSerialSend, handleSerialInputKeyDown, handleClearSerialOutput } =
     useSimulatorSerialPanel({
