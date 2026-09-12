@@ -94,6 +94,14 @@ the LAN. LAN mode is an explicit local-development convenience and is not a
 production deployment mode. Both commands use the configured external-example
 source, ref, and host allowlist from the development script.
 
+The accepted target architecture keeps that server configuration as the
+default, while allowing each browser to select a validated public GitHub
+Examples repository and ref in Settings. The browser preference is
+request-scoped, never changes the server default, and never fetches GitHub
+directly. The default is `ttbombadil/unosim-examples` at `main`; the server
+resolves the ref to a full commit SHA before loading a complete snapshot. See
+[`ssot_function_definition_ExternalExamples.md`](ssot/ssot_function_definition_ExternalExamples.md).
+
 | Component | Details |
 |-----------|---------|
 | Backend | `tsx server/index.ts` on configured `PORT` (default 3000) |

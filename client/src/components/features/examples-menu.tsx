@@ -7,6 +7,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { BookOpen, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  ExternalExamplesError,
+  refreshExternalExamplesCatalog,
+  useExternalExamples,
+} from "@/lib/external-examples";
 
 interface Example {
   id: string;
@@ -14,6 +19,8 @@ interface Example {
   category: string;
   source: "builtin" | "external";
   files: Array<{ name: string; path: string }>;
+  repository?: string;
+  revision?: string;
 }
 
 interface ExampleDetail {
@@ -21,7 +28,10 @@ interface ExampleDetail {
 }
 
 interface ExamplesMenuProps {
-  readonly onLoadExample: (files: Array<{ name: string; content: string }>, title: string) => void;
+  readonly onLoadExample: (
+    files: Array<{ name: string; content: string }>,
+    title: string,
+  ) => void;
   readonly backendReachable?: boolean;
 }
 
@@ -32,46 +42,59 @@ export function ExamplesMenu({
   backendReachable = true,
 }: ExamplesMenuProps) {
   const [examples, setExamples] = useState<Example[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [keyboardNavActive, setKeyboardNavActive] = useState(false);
   const focusedIndexRef = useRef<number>(-1);
   const { toast } = useToast();
+  const { override } = useExternalExamples();
+  const loadGeneration = useRef(0);
 
   useEffect(() => {
+    if (!open) return;
+    const generation = ++loadGeneration.current;
+    let cancelled = false;
     const loadExamples = async () => {
       try {
         setIsLoading(true);
-
-        // Fetch the list of examples from the server
-        const response = await fetch("/api/examples");
-        if (!response.ok) {
-          throw new Error("Failed to fetch examples list");
-        }
-
-        const payload = (await response.json()) as {
-          examples?: Example[];
-        };
-        const loadedExamples = (payload.examples ?? []).toSorted((a, b) =>
-          `${a.source}/${a.category}/${a.title}`.localeCompare(
-            `${b.source}/${b.category}/${b.title}`,
-          ),
-        );
+        const payload = await refreshExternalExamplesCatalog();
+        if (cancelled || generation !== loadGeneration.current) return;
+        const loadedExamples = payload.examples
+          .map((example) => ({
+            ...example,
+            ...(example.source === "external" &&
+            payload.source.mode === "repository-ref"
+              ? {
+                  repository: payload.source.repository!,
+                  revision: payload.source.revision!,
+                }
+              : {}),
+          }))
+          .toSorted((a, b) =>
+            `${a.source}/${a.category}/${a.title}`.localeCompare(
+              `${b.source}/${b.category}/${b.title}`,
+            ),
+          );
         setExamples(loadedExamples);
       } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         console.error("Failed to load examples:", error);
         toast({
           title: "Failed to Load Examples",
-          description: "Could not load example files",
+          description:
+            error instanceof ExternalExamplesError
+              ? error.message
+              : "Could not load example files",
           variant: "destructive",
         });
       } finally {
-        setIsLoading(false);
+        if (!cancelled && generation === loadGeneration.current)
+          setIsLoading(false);
       }
     };
 
-    // Only load if backend is reachable
     if (backendReachable) {
       loadExamples();
     } else {
@@ -79,7 +102,10 @@ export function ExamplesMenu({
       setExamples([]);
       setIsLoading(false);
     }
-  }, [backendReachable, toast]);
+    return () => {
+      cancelled = true;
+    };
+  }, [backendReachable, open, override, toast]);
 
   // Global shortcut Meta+E to toggle examples menu
   useEffect(() => {
@@ -225,7 +251,16 @@ export function ExamplesMenu({
     if (loadingExampleId) return;
     setLoadingExampleId(example.id);
     try {
-      const response = await fetch(`/api/examples/${encodeURIComponent(example.id)}`);
+      let query = "";
+      if (example.source === "external") {
+        if (!example.repository || !example.revision) {
+          throw new Error("Example catalog has no revision context");
+        }
+        query = `?repository=${encodeURIComponent(example.repository)}&revision=${encodeURIComponent(example.revision)}`;
+      }
+      const response = await fetch(
+        `/api/examples/${encodeURIComponent(example.id)}${query}`,
+      );
       if (!response.ok) throw new Error("Failed to fetch example");
       const detail = (await response.json()) as ExampleDetail;
       if (!Array.isArray(detail.files) || detail.files.length === 0) {
@@ -240,7 +275,9 @@ export function ExamplesMenu({
 
       // Close menu after loading example unless "keep open" setting is enabled
       try {
-        if (globalThis.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) !== "1") {
+        if (
+          globalThis.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) !== "1"
+        ) {
           setOpen(false);
         }
       } catch {
@@ -265,7 +302,6 @@ export function ExamplesMenu({
           variant="outline"
           size="sm"
           className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
-          disabled={isLoading}
           aria-label="Examples"
           title="Examples (Cmd/Ctrl+E)"
         >
@@ -275,11 +311,16 @@ export function ExamplesMenu({
       <DropdownMenuContent
         align="end"
         className="w-72 max-w-[calc(100vw-1rem)] overflow-y-auto p-0"
-        style={{ maxHeight: "calc(var(--radix-dropdown-menu-content-available-height) - 10px)" }}
+        style={{
+          maxHeight:
+            "calc(var(--radix-dropdown-menu-content-available-height) - 10px)",
+        }}
         data-keyboard-nav={keyboardNavActive}
       >
         <div className="px-2 py-1.5">
-          <div className="ui-type-menu-title font-semibold mb-1">Load Example</div>
+          <div className="ui-type-menu-title font-semibold mb-1">
+            Load Example
+          </div>
         </div>
         <div className="border-t" />
 
@@ -310,7 +351,9 @@ interface ExamplesTreeProps {
 
 type ExampleSource = Example["source"];
 
-function groupExamplesBySource(items: Example[]): Record<ExampleSource, Example[]> {
+function groupExamplesBySource(
+  items: Example[],
+): Record<ExampleSource, Example[]> {
   const grouped: Record<ExampleSource, Example[]> = {
     builtin: [],
     external: [],
@@ -333,7 +376,10 @@ function groupExamplesByCategory(items: Example[]): Record<string, Example[]> {
 
 function getExampleDisplayName(example: Example): string {
   if (example.source !== "builtin") return example.title;
-  return example.files.find((file) => file.name.toLowerCase().endsWith(".ino"))?.name ?? example.title;
+  return (
+    example.files.find((file) => file.name.toLowerCase().endsWith(".ino"))
+      ?.name ?? example.title
+  );
 }
 
 interface ExampleItemProps {
@@ -342,7 +388,11 @@ interface ExampleItemProps {
   readonly compact?: boolean;
 }
 
-function ExampleItem({ example, onLoadExample, compact = false }: ExampleItemProps) {
+function ExampleItem({
+  example,
+  onLoadExample,
+  compact = false,
+}: ExampleItemProps) {
   return (
     <Button
       variant="ghost"
@@ -350,18 +400,26 @@ function ExampleItem({ example, onLoadExample, compact = false }: ExampleItemPro
       onClick={() => onLoadExample(example)}
       data-role="example-item"
       tabIndex={0}
-      className={compact
-        ? "ui-type-menu-item w-full h-7 min-h-7 px-4 py-1 text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
-        : "ui-type-menu-item w-full px-8 py-1 text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"}
+      className={
+        compact
+          ? "ui-type-menu-item w-full h-7 min-h-7 px-4 py-1 text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+          : "ui-type-menu-item w-full px-8 py-1 text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+      }
       title={getExampleDisplayName(example)}
     >
-      <span className={compact
-        ? "flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground"
-        : "text-muted-foreground"}
-      >•</span>
-      <span className={compact
-        ? "min-w-0 flex-1 truncate whitespace-nowrap"
-        : "w-full"}
+      <span
+        className={
+          compact
+            ? "flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground"
+            : "text-muted-foreground"
+        }
+      >
+        •
+      </span>
+      <span
+        className={
+          compact ? "min-w-0 flex-1 truncate whitespace-nowrap" : "w-full"
+        }
       >
         {getExampleDisplayName(example)}
       </span>
@@ -370,7 +428,9 @@ function ExampleItem({ example, onLoadExample, compact = false }: ExampleItemPro
 }
 
 function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
-  const [expandedSource, setExpandedSource] = useState<ExampleSource | null>(null);
+  const [expandedSource, setExpandedSource] = useState<ExampleSource | null>(
+    null,
+  );
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   function toggleSource(source: ExampleSource) {
@@ -402,7 +462,9 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
         .filter((source) => groupedBySource[source].length > 0)
         .map((source) => {
           const isSourceExpanded = expandedSource === source;
-          const groupedByCategory = groupExamplesByCategory(groupedBySource[source]);
+          const groupedByCategory = groupExamplesByCategory(
+            groupedBySource[source],
+          );
 
           return (
             <div key={source}>
@@ -427,7 +489,11 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                 <div className="bg-muted/10">
                   {source === "builtin"
                     ? groupedBySource[source]
-                        .toSorted((a, b) => getExampleDisplayName(a).localeCompare(getExampleDisplayName(b)))
+                        .toSorted((a, b) =>
+                          getExampleDisplayName(a).localeCompare(
+                            getExampleDisplayName(b),
+                          ),
+                        )
                         .map((example) => (
                           <ExampleItem
                             key={example.id}
@@ -440,8 +506,12 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                         .toSorted(([a], [b]) => a.localeCompare(b))
                         .map(([category, items]) => {
                           const categoryKey = `${source}:${category}`;
-                          const isCategoryExpanded = expandedCategory === categoryKey;
-                          const cleanCategoryName = category.replace(/^\d+-/, "");
+                          const isCategoryExpanded =
+                            expandedCategory === categoryKey;
+                          const cleanCategoryName = category.replace(
+                            /^\d+-/,
+                            "",
+                          );
 
                           return (
                             <div key={categoryKey}>
@@ -465,7 +535,9 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                               {isCategoryExpanded && (
                                 <div className="bg-muted/30">
                                   {items
-                                    .toSorted((a, b) => a.title.localeCompare(b.title))
+                                    .toSorted((a, b) =>
+                                      a.title.localeCompare(b.title),
+                                    )
                                     .map((example) => (
                                       <ExampleItem
                                         key={example.id}

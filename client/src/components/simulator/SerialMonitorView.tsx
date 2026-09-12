@@ -264,8 +264,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
               <>
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+                size="icon"
                 onClick={cycleSerialViewMode}
                 data-testid="button-serial-view-toggle"
                 aria-label={SERIAL_VIEW_LABELS[serialViewMode]}
@@ -275,9 +274,8 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
               </Button>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 className={clsx(
-                  "h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center",
                   autoScrollEnabled ? "text-cyan-400" : "text-muted-foreground",
                 )}
                 onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
@@ -291,8 +289,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
               </Button>
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+                size="icon"
                 onClick={handleClearSerialOutput}
                 aria-label="Clear serial output"
                 title="Clear serial output"

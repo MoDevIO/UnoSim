@@ -24,7 +24,7 @@ export function PanelHeader({
   return (
     <div
       className={cn(
-        "relative flex h-[var(--ui-header-height)] shrink-0 items-center gap-3 border-b border-border bg-muted px-3",
+        "relative flex h-[var(--ui-header-height)] shrink-0 items-center gap-2 border-b border-border bg-muted px-[var(--header-padding-x)]",
         className,
       )}
       data-testid={testId}
@@ -42,7 +42,7 @@ export function PanelHeader({
         {leadingContent}
       </div>
       {centerAction}
-      {actions && <div className="ml-auto flex items-center gap-1">{actions}</div>}
+      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
     </div>
   );
 }

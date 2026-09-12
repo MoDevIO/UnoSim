@@ -24,6 +24,13 @@ export const INPUT_LIMITS = {
     maxFeedbackChars: 1_000,
     maxHistoryEntries: 8,
   },
+  examples: {
+    maxRepositoryOwnerChars: 39,
+    maxRepositoryNameChars: 100,
+    maxRepositorySlugChars: 140,
+    maxRefChars: 128,
+    fullCommitShaChars: 40,
+  },
   webSocket: {
     maxPayloadBytes: 256 * 1024,
     maxSerialInputChars: 4 * 1024,

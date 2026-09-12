@@ -128,7 +128,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- Examples API endpoint ---
-  registerExamplesRoutes(app, new ExamplesRepository());
+  registerExamplesRoutes(app, new ExamplesRepository(), {
+    trust: config.trust,
+    disableRateLimit: config.server.disableRateLimit,
+  });
   registerTutorRoutes(app, {
     logger,
     disableRateLimit: config.server.disableRateLimit,

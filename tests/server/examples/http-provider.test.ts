@@ -1,75 +1,55 @@
+import dns from "node:dns/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const fetchMock = vi.fn();
-
-vi.mock("../../../server/config", () => ({
-  config: {
-    nodeEnv: "test",
-    examples: {
-      source: "https://examples.test/unosim",
-      ref: "2026-SS",
-      refreshMs: 60_000,
-      timeoutMs: 1_000,
-      maxManifestBytes: 64 * 1024,
-      maxFileBytes: 64 * 1024,
-      maxTotalBytes: 128 * 1024,
-      maxFiles: 10,
-      allowedHosts: ["examples.test"],
-      allowHttp: false,
-    },
-  },
-}));
+import { SecureExamplesFetcher, validateSourceUrl } from "../../../server/services/examples/http-provider";
 
 vi.mock("node:dns/promises", () => ({
-  default: { lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) },
+  default: { lookup: vi.fn().mockResolvedValue([{ address: "140.82.121.3" }]) },
 }));
 
-describe("HttpProvider", () => {
+describe("secure external examples fetcher", () => {
   beforeEach(() => {
-    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(dns.lookup).mockResolvedValue([{ address: "140.82.121.3", family: 4 }] as never);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
-    fetchMock.mockReset();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("allows only HTTPS allowlisted hosts without credentials", () => {
+    expect(validateSourceUrl("https://api.github.com/repos/owner/repo/commits/main").hostname).toBe("api.github.com");
+    expect(() => validateSourceUrl("http://api.github.com/repos/owner/repo")).toThrow(/HTTPS/);
+    expect(() => validateSourceUrl("https://user:secret@api.github.com/repos/owner/repo")).toThrow(/Invalid/);
+    expect(() => validateSourceUrl("https://example.test/owner/repo")).toThrow(/allowlisted/);
+    expect(() => validateSourceUrl("https://127.0.0.1/owner/repo")).toThrow(/IP literal/);
+  });
+
+  it("rejects redirects and private DNS targets", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 302 }));
     vi.stubGlobal("fetch", fetchMock);
+    const fetcher = new SecureExamplesFetcher();
+    await expect(fetcher.fetchText(new URL("https://api.github.com/test"), 100)).rejects.toThrow(/Redirects/);
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(URL), expect.not.objectContaining({ headers: expect.anything() }));
+    vi.mocked(dns.lookup).mockResolvedValue([{ address: "127.0.0.1", family: 4 }] as never);
+    await expect(fetcher.fetchText(new URL("https://api.github.com/test"), 100)).rejects.toThrow(/private or reserved/);
   });
 
-  it("loads and caches a validated multi-file example", async () => {
-    fetchMock
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        schemaVersion: 1,
-        examples: [{
-          id: "motor-control",
-          title: "Motor Control",
-          category: "Motors",
-          files: [
-            { name: "motor-control.ino", path: "motors/motor-control/motor-control.ino" },
-            { name: "motor.h", path: "motors/motor-control/motor.h" },
-          ],
-          main: "motor-control.ino",
-        }],
-      }), { status: 200, headers: { "content-type": "application/json" } }))
-      .mockResolvedValueOnce(new Response("void setup(){}", { status: 200 }))
-      .mockResolvedValueOnce(new Response("#pragma once", { status: 200 }));
-
-    const { HttpProvider } = await import("../../../server/services/examples/http-provider");
-    const provider = new HttpProvider();
-    const first = await provider.getExamples();
-    const second = await provider.getExamples();
-
-    expect(first?.examples[0].files).toHaveLength(2);
-    expect(first?.examples[0].files[1].content).toBe("#pragma once");
-    expect(second?.status).toBe("cache");
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+  it("enforces declared and streamed response size limits", async () => {
+    const fetcher = new SecureExamplesFetcher();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("small", { headers: { "content-length": "101" } })));
+    await expect(fetcher.fetchText(new URL("https://api.github.com/test"), 100)).rejects.toThrow(/size limit/);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("x".repeat(101))));
+    await expect(fetcher.fetchText(new URL("https://api.github.com/test"), 100)).rejects.toThrow(/size limit/);
   });
 
-  it("rejects redirects and leaves no remote snapshot", async () => {
-    fetchMock.mockResolvedValueOnce(new Response("", { status: 302, headers: { location: "https://attacker.test/manifest.json" } }));
-
-    const { HttpProvider } = await import("../../../server/services/examples/http-provider");
-    const provider = new HttpProvider();
-
-    await expect(provider.getExamples()).resolves.toBeNull();
+  it("aborts an outbound request at the configured timeout", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn((_url: URL, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+    })));
+    const pending = new SecureExamplesFetcher().fetchText(new URL("https://api.github.com/test"), 100);
+    const rejection = expect(pending).rejects.toThrow(/Aborted/);
+    await vi.advanceTimersByTimeAsync(5_001);
+    await rejection;
   });
 });

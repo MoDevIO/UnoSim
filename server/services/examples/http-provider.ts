@@ -1,109 +1,121 @@
 import dns from "node:dns/promises";
 import { isIP } from "node:net";
+import type { FullCommitSha, RepositorySlug } from "@shared/examples";
 import { config } from "../../config";
+import { ExamplesError } from "./examples-error";
+import { ExamplesLoadController, mapWithConcurrency } from "./examples-load-controller";
 import {
   examplesManifestSchema,
   type ExampleRecord,
   validateManifestReferences,
 } from "./examples-schema";
+import { toGithubRawRepositoryBase } from "./source-selection";
 
-type CachedRemoteSnapshot = {
-  expiresAt: number;
+export interface LoadedRevisionSnapshot {
   examples: ExampleRecord[];
-};
+  contentBytes: number;
+}
 
-export class HttpProvider {
-  private cached: CachedRemoteSnapshot | null = null;
-  private loading: Promise<ExampleRecord[]> | null = null;
+export interface TextFetcher {
+  fetchText(url: URL, maxBytes: number, signal?: AbortSignal): Promise<string>;
+}
 
-  async getExamples(): Promise<{ examples: ExampleRecord[]; status: "remote" | "cache"; stale: boolean } | null> {
-    if (!config.examples.source || !config.examples.ref) return null;
+export class SecureExamplesFetcher implements TextFetcher {
+  constructor(private readonly controller?: ExamplesLoadController) {}
 
-    if (this.cached && this.cached.expiresAt > Date.now()) {
-      return { examples: this.cached.examples, status: "cache", stale: false };
-    }
-
-    this.loading ??= this.loadRemote().finally(() => {
-      this.loading = null;
-    });
-
-    try {
-      const examples = await this.loading;
-      this.cached = { examples, expiresAt: Date.now() + config.examples.refreshMs };
-      return { examples, status: "remote", stale: false };
-    } catch {
-      if (this.cached) {
-        this.cached.expiresAt = Date.now() + config.examples.refreshMs;
-        return { examples: this.cached.examples, status: "cache", stale: true };
-      }
-      return null;
-    }
-  }
-
-  private async loadRemote(): Promise<ExampleRecord[]> {
-    const source = validateSourceUrl(config.examples.source);
-    const ref = validateRef(config.examples.ref);
-    const base = new URL(`${encodeURIComponent(ref)}/`, source);
-    const manifestUrl = new URL("manifest.json", base);
-    const manifestText = await fetchText(manifestUrl, config.examples.maxManifestBytes);
-    const parsed = examplesManifestSchema.safeParse(JSON.parse(manifestText) as unknown);
-    if (!parsed.success) throw new Error("Invalid external examples manifest");
-    const manifest = parsed.data;
-    validateManifestReferences(manifest);
-    if (manifest.ref && manifest.ref !== ref) throw new Error("External manifest ref does not match configured ref");
-    const fileCount = manifest.examples.reduce((total, example) => total + example.files.length, 0);
-    if (fileCount > config.examples.maxFiles) throw new Error("External examples exceed file count limit");
-
-    const examples = await Promise.all(manifest.examples.map(async (example) => {
-      const files = await Promise.all(example.files.map(async (file) => {
-        const fileUrl = new URL(file.path.split("/").map(encodeURIComponent).join("/"), base);
-        if (fileUrl.origin !== base.origin) throw new Error("Example path changed origin");
-        const content = await fetchText(fileUrl, config.examples.maxFileBytes);
-        return { ...file, content };
-      }));
-      return { ...example, files, source: "external" as const };
-    }));
-
-    const totalBytes = examples.reduce(
-      (total, example) => total + example.files.reduce((sum, file) => sum + Buffer.byteLength(file.content, "utf8"), 0),
-      0,
-    );
-    if (totalBytes > config.examples.maxTotalBytes) throw new Error("External examples exceed total size limit");
-    return examples;
+  fetchText(url: URL, maxBytes: number, signal?: AbortSignal): Promise<string> {
+    const operation = () => fetchText(url, maxBytes, signal);
+    return this.controller ? this.controller.runOutbound(operation, signal) : operation();
   }
 }
 
-function validateSourceUrl(value: string): URL {
-  const url = new URL(value.endsWith("/") ? value : `${value}/`);
-  if (url.username || url.password || url.search || url.hash) throw new Error("Invalid examples source URL");
-  if (url.protocol !== "https:" && !(config.examples.allowHttp && config.nodeEnv !== "production")) {
-    throw new Error("External examples source must use HTTPS");
+export class RevisionProvider {
+  constructor(
+    private readonly fetcher: TextFetcher,
+    private readonly maxFileFetchConcurrency = config.examples.maxFileFetchConcurrency,
+  ) {}
+
+  async load(
+    repository: RepositorySlug,
+    revision: FullCommitSha,
+    signal?: AbortSignal,
+  ): Promise<LoadedRevisionSnapshot> {
+    const base = new URL(`${revision}/`, toGithubRawRepositoryBase(repository));
+    const manifestText = await this.fetcher.fetchText(
+      new URL("manifest.json", base),
+      config.examples.maxManifestBytes,
+      signal,
+    );
+    let decoded: unknown;
+    try { decoded = JSON.parse(manifestText) as unknown; }
+    catch { throw new ExamplesError("INVALID_SNAPSHOT", "External examples manifest is invalid"); }
+    const parsed = examplesManifestSchema.safeParse(decoded);
+    if (!parsed.success) throw new ExamplesError("INVALID_SNAPSHOT", "External examples manifest is invalid");
+    const manifest = parsed.data;
+    try { validateManifestReferences(manifest); }
+    catch { throw new ExamplesError("INVALID_SNAPSHOT", "External examples snapshot is invalid"); }
+
+    const filesToLoad = manifest.examples.flatMap((example, exampleIndex) =>
+      example.files.map((file) => ({ exampleIndex, file })),
+    );
+    if (filesToLoad.length > config.examples.maxFiles) {
+      throw new ExamplesError("INVALID_SNAPSHOT", "External examples exceed the file count limit");
+    }
+    const loaded = await mapWithConcurrency(filesToLoad, this.maxFileFetchConcurrency, async ({ file }) => ({
+      ...file,
+      content: await this.fetcher.fetchText(
+        new URL(file.path.split("/").map(encodeURIComponent).join("/"), base),
+        config.examples.maxFileBytes,
+        signal,
+      ),
+    }));
+    const examples = manifest.examples.map((example, exampleIndex) => ({
+      ...example,
+      files: filesToLoad
+        .map((item, index) => ({ item, file: loaded[index] }))
+        .filter(({ item }) => item.exampleIndex === exampleIndex)
+        .map(({ file }) => file),
+      source: "external" as const,
+    }));
+    const contentBytes = examples.reduce(
+      (total, example) => total + example.files.reduce(
+        (sum, file) => sum + Buffer.byteLength(file.content, "utf8"),
+        0,
+      ),
+      0,
+    );
+    if (contentBytes > config.examples.maxTotalBytes) {
+      throw new ExamplesError("INVALID_SNAPSHOT", "External examples exceed the total size limit");
+    }
+    return { examples, contentBytes };
   }
+}
+
+export function validateSourceUrl(value: string): URL {
+  const url = new URL(value);
+  if (url.username || url.password || url.search || url.hash) throw new Error("Invalid examples source URL");
+  if (url.protocol !== "https:") throw new Error("External examples source must use HTTPS");
+  if (isIP(url.hostname) !== 0) throw new Error("IP literal examples sources are not allowed");
   if (!config.examples.allowedHosts.includes(url.hostname.toLowerCase())) {
     throw new Error("External examples source host is not allowlisted");
   }
-  if (isIP(url.hostname) !== 0) throw new Error("IP literal examples sources are not allowed");
   return url;
 }
 
-function validateRef(value: string): string {
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value)) throw new Error("Invalid external examples ref");
-  if (config.nodeEnv === "production" && value === "main") throw new Error("Floating refs are not allowed in production");
-  return value;
-}
-
-async function fetchText(url: URL, maxBytes: number): Promise<string> {
-  await assertPublicHost(url.hostname);
+async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal): Promise<string> {
+  const validated = validateSourceUrl(url.toString());
+  await assertPublicHost(validated.hostname);
   const controller = new AbortController();
+  const abort = () => controller.abort(requestSignal?.reason);
+  requestSignal?.addEventListener("abort", abort, { once: true });
   const timeout = setTimeout(() => controller.abort(), config.examples.timeoutMs);
   try {
-    const response = await fetch(url, { signal: controller.signal, redirect: "manual" });
+    const response = await fetch(validated, { signal: controller.signal, redirect: "manual" });
     if (response.status >= 300 && response.status < 400) throw new Error("Redirects are not allowed for examples");
     if (!response.ok) throw new Error(`Examples source returned ${response.status}`);
     const contentLength = response.headers.get("content-length");
     if (contentLength && Number(contentLength) > maxBytes) throw new Error("Examples response exceeds size limit");
     if (!response.body) throw new Error("Examples response has no body");
-
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let total = 0;
@@ -117,7 +129,6 @@ async function fetchText(url: URL, maxBytes: number): Promise<string> {
       }
       chunks.push(next.value);
     }
-
     const bytes = new Uint8Array(total);
     let offset = 0;
     for (const chunk of chunks) {
@@ -127,6 +138,7 @@ async function fetchText(url: URL, maxBytes: number): Promise<string> {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } finally {
     clearTimeout(timeout);
+    requestSignal?.removeEventListener("abort", abort);
   }
 }
 

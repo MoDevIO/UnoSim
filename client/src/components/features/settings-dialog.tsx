@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ExternalExamplesSettings } from "@/components/features/external-examples-settings";
 import {
   DEFAULT_EXPERIMENTAL_WORKSPACE_LAYOUT,
   EXPERIMENTAL_WORKSPACE_LAYOUT_CHANGE_EVENT,
@@ -36,6 +37,46 @@ const FONT_SCALE_OPTIONS = [
   { value: "1.25", label: "XL (18px)", px: 18 },
   { value: "1.5", label: "XXL (20px)", px: 20 },
 ] as const;
+
+function SettingsSection({
+  title,
+  description,
+  children,
+}: {
+  readonly title: string;
+  readonly description?: string;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-border/70 bg-muted/20 p-4 shadow-sm">
+      <div className="mb-4">
+        <h3 className="text-ui-sm font-semibold text-foreground">{title}</h3>
+        {description && <p className="mt-1 text-ui-xs text-muted-foreground">{description}</p>}
+      </div>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function SettingsRow({
+  label,
+  description,
+  children,
+}: {
+  readonly label: string;
+  readonly description: React.ReactNode;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+      <div className="min-w-0 flex-1">
+        <div className="text-ui-sm font-medium text-foreground">{label}</div>
+        <div className="mt-1 text-ui-xs leading-relaxed text-muted-foreground">{description}</div>
+      </div>
+      <div className="flex w-full min-w-0 shrink-0 items-center sm:w-auto sm:max-w-[60%] sm:pt-0.5">{children}</div>
+    </div>
+  );
+}
 
 export default function SettingsDialog({
   open,
@@ -171,6 +212,7 @@ export default function SettingsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        className="max-w-2xl"
         style={{
           maxHeight: "calc(100vh - var(--dialog-offset-top))",
           display: "flex",
@@ -186,19 +228,18 @@ export default function SettingsDialog({
         </DialogHeader>
 
         <div
-          className="grid gap-4 overflow-y-auto"
+          className="min-h-0 space-y-5 overflow-y-auto px-1"
           style={{ maxHeight: "calc(100vh - var(--dialog-offset-content))" }}
         >
-          {/* UI Font scale control */}
-          <div className="rounded border p-3 bg-muted">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Schriftgröße (UI)</div>
-                <div className="text-ui-xs text-muted-foreground">
-                  Skaliert alle UI-Schriftgrößen und Editor (S/M/L/XL/XXL).
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
+          <ExternalExamplesSettings open={open} />
+          <SettingsSection
+            title="Appearance"
+            description="Personalize the visual scale and Arduino board colors."
+          >
+            <SettingsRow
+              label="Schriftgröße (UI)"
+              description="Skaliert alle UI-Schriftgrößen und den Editor (S/M/L/XL/XXL)."
+            >
                 <select
                   aria-label="ui font scale"
                   defaultValue={(() => {
@@ -229,7 +270,7 @@ export default function SettingsDialog({
                       document.dispatchEvent(ev);
                     } catch {}
                   }}
-                  className="bg-background text-foreground border px-2 py-1 rounded"
+                  className="h-[var(--ui-button-height)] rounded-md border border-input bg-background px-3 text-ui-sm text-foreground"
                 >
                   {FONT_SCALE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -237,28 +278,18 @@ export default function SettingsDialog({
                     </option>
                   ))}
                 </select>
-              </div>
-            </div>
-          </div>
-          {/* Feature: Arduino color picker (affects main ArduinoUno.svg) */}
-          <div className="rounded border p-3 bg-muted">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Arduino Color</div>
-                <div className="text-ui-xs text-muted-foreground">
-                  Change the main board color (applies to the primary SVG).
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
+            </SettingsRow>
+            <SettingsRow
+              label="Arduino Color"
+              description="Change the main board color (applies to the primary SVG)."
+            >
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:min-w-[18rem]">
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-8 rounded border"
-                    style={{ background: color }}
-                  />
-                  <div className="flex flex-col">
-                    <div className="text-ui-xs">Hex</div>
+                  <div className="h-8 w-12 shrink-0 rounded border border-border" style={{ background: color }} />
+                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-ui-xs text-muted-foreground">
+                    <span>Hex</span>
                     <input
-                      className="w-28 bg-transparent border rounded px-1 text-ui-sm"
+                      className="h-[var(--ui-button-height)] w-full rounded-md border border-input bg-transparent px-2 text-ui-sm text-foreground"
                       value={color}
                       onChange={(e) => {
                         const v = e.target.value;
@@ -266,161 +297,121 @@ export default function SettingsDialog({
                         if (/^[0-9a-fA-F]{6}$/.test(raw)) {
                           setColor(`#${raw}`);
                         } else {
-                          // allow typing partial hex values without clobbering
                           setColor(v.startsWith("#") ? v : `#${v}`);
                         }
                       }}
                       aria-label="hex color"
                     />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setColor(DEFAULT_COLOR);
-                    }}
-                  >
+                  </label>
+                  <Button size="sm" variant="outline" onClick={() => setColor(DEFAULT_COLOR)}>
                     Reset
                   </Button>
                 </div>
-              </div>
-            </div>
-
-            {/* Preset palette inside the same box */}
-            <div className="mt-3 flex gap-2 flex-wrap">
-              {[
-                "var(--color-brand-primary)",
-                "var(--color-brand-variant-1)",
-                "var(--color-brand-variant-2)",
-                "var(--color-brand-blue)",
-                "var(--color-brand-teal)",
-                "var(--color-green-dark)",
-                "var(--color-success-variant)",
-                "var(--color-status-success-dark)",
-                "var(--color-status-success)",
-                "var(--color-danger-soft)",
-                "var(--color-accent-orange-soft)",
-                "var(--color-accent-yellow-soft)",
-                "var(--color-status-warning)",
-                "var(--color-accent-amber)",
-                "var(--color-purple-1)",
-                "var(--color-purple-2)",
-                "var(--color-surface-dark)",
-                "var(--color-surface-muted)",
-              ].map((s) => (
-                <Button
-                  key={s}
-                  onClick={() => setColor(s)}
-                  aria-label={`preset ${s}`}
-                  title={s}
-                  variant="outline"
-                  size="icon"
-                  style={{ background: s }}
-                  className={`w-6 h-6 rounded ${color.toLowerCase() === s.toLowerCase() ? "ring-2 ring-offset-1 ring-white" : "border"}`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Placeholder for future settings */}
-          <div className="rounded border p-3 bg-muted">
-            <div className="font-medium">Toast Duration</div>
-            <div className="text-ui-xs text-muted-foreground mb-2">
-              Change global toast expiry (0.5s steps). Choose "Infinite" to
-              disable auto-hide.
-            </div>
-            <ToastDurationControl />
-          </div>
-
-          {/* Debug mode (hidden by default) */}
-          <div className="rounded border p-3 bg-muted">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Debug Mode</div>
-                <div className="text-ui-xs text-muted-foreground">
-                  Enable debug UI elements (telemetry displays, status light, CLI/GCC labels).
-                </div>
-                <div className="text-ui-xs text-muted-foreground mt-1">
-                  <kbd className="px-1.5 py-0.5 bg-background rounded border text-[10px]">
-                    {navigator.userAgent.toLowerCase().includes('mac') ? '⌘' : 'Strg'}+D
-                  </kbd>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    "var(--color-brand-primary)",
+                    "var(--color-brand-variant-1)",
+                    "var(--color-brand-variant-2)",
+                    "var(--color-brand-blue)",
+                    "var(--color-brand-teal)",
+                    "var(--color-green-dark)",
+                    "var(--color-success-variant)",
+                    "var(--color-status-success-dark)",
+                    "var(--color-status-success)",
+                    "var(--color-danger-soft)",
+                    "var(--color-accent-orange-soft)",
+                    "var(--color-accent-yellow-soft)",
+                    "var(--color-status-warning)",
+                    "var(--color-accent-amber)",
+                    "var(--color-purple-1)",
+                    "var(--color-purple-2)",
+                    "var(--color-surface-dark)",
+                    "var(--color-surface-muted)",
+                  ].map((s) => (
+                    <Button
+                      key={s}
+                      onClick={() => setColor(s)}
+                      aria-label={`preset ${s}`}
+                      title={s}
+                      variant="outline"
+                      size="icon"
+                      style={{ background: s }}
+                      className={`!h-6 !w-6 rounded ${color.toLowerCase() === s.toLowerCase() ? "ring-2 ring-offset-1 ring-white" : "border"}`}
+                    />
+                  ))}
                 </div>
               </div>
-              <div className="flex items-center">
-                <Checkbox
-                  checked={debugMode}
-                  onCheckedChange={(v) => setStoredDebug(Boolean(v))}
-                  aria-label="enable debug mode"
-                />
-              </div>
-            </div>
-          </div>
+            </SettingsRow>
+          </SettingsSection>
 
-          {/* Pin Monitor visibility toggle */}
-          <div className="rounded border p-3 bg-muted">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Pin Monitor anzeigen</div>
-                <div className="text-ui-xs text-muted-foreground">
-                  Zeigt den Pin-Status-Monitor oberhalb des Arduino-Boards.
-                </div>
-              </div>
-              <div className="flex items-center">
-                <Checkbox
-                  checked={pinMonitorVisible}
-                  onCheckedChange={(v) => setStoredPinMonitorVisible(Boolean(v))}
-                  aria-label="show pin monitor"
-                />
-              </div>
-            </div>
-          </div>
+          <SettingsSection
+            title="Workspace & Interaction"
+            description="Choose which workspace helpers are visible and how the Examples menu behaves."
+          >
+            <SettingsRow
+              label="Pin Monitor anzeigen"
+              description="Zeigt den Pin-Status-Monitor oberhalb des Arduino-Boards."
+            >
+              <Checkbox
+                checked={pinMonitorVisible}
+                onCheckedChange={(v) => setStoredPinMonitorVisible(Boolean(v))}
+                aria-label="show pin monitor"
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Experimentelles Workspace-Layout"
+              description="Desktop-Code, Simulation und Tutor als unabhängig sichtbare Spalten. Standardmäßig deaktiviert."
+            >
+              <Checkbox
+                checked={experimentalWorkspaceLayout}
+                onCheckedChange={(value) => setStoredExperimentalWorkspaceLayout(Boolean(value))}
+                aria-label="enable experimental workspace layout"
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Keep Examples Menu Open"
+              description="When disabled (default), the examples menu closes after selecting an example. Enable to keep it open."
+            >
+              <Checkbox
+                checked={keepExamplesMenuOpen}
+                onCheckedChange={(v) => setStoredKeepExamplesMenuOpen(Boolean(v))}
+                aria-label="keep examples menu open"
+              />
+            </SettingsRow>
+          </SettingsSection>
 
-          {/* Experimental multi-column workspace */}
-          <div className="rounded border p-3 bg-muted">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Experimentelles Workspace-Layout</div>
-                <div className="text-ui-xs text-muted-foreground">
-                  Desktop-Code, Simulation und Tutor als unabhängig sichtbare Spalten.
-                  Standardmäßig deaktiviert.
-                </div>
+          <SettingsSection
+            title="Feedback & Diagnostics"
+            description="Control notification timing and optional diagnostic information."
+          >
+            <SettingsRow
+              label="Toast Duration"
+              description={'Change global toast expiry (0.5s steps). Choose "Infinite" to disable auto-hide.'}
+            >
+              <div className="w-full sm:min-w-[18rem]">
+                <ToastDurationControl />
               </div>
-              <div className="flex items-center">
-                <Checkbox
-                  checked={experimentalWorkspaceLayout}
-                  onCheckedChange={(value) =>
-                    setStoredExperimentalWorkspaceLayout(Boolean(value))
-                  }
-                  aria-label="enable experimental workspace layout"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Keep examples menu open option */}
-          <div className="rounded border p-3 bg-muted">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Keep Examples Menu Open</div>
-                <div className="text-ui-xs text-muted-foreground">
-                  When disabled (default), the examples menu closes after
-                  selecting an example. Enable to keep it open.
-                </div>
-              </div>
-              <div className="flex items-center">
-                <Checkbox
-                  checked={keepExamplesMenuOpen}
-                  onCheckedChange={(v) =>
-                    setStoredKeepExamplesMenuOpen(Boolean(v))
-                  }
-                  aria-label="keep examples menu open"
-                />
-              </div>
-            </div>
-          </div>
+            </SettingsRow>
+            <SettingsRow
+              label="Debug Mode"
+              description={(
+                <>
+                  <span>Enable debug UI elements (telemetry displays, status light, CLI/GCC labels).</span>
+                  <span className="mt-1 block">
+                    <kbd className="rounded border bg-background px-1.5 py-0.5 text-[10px]">
+                      {navigator.userAgent.toLowerCase().includes("mac") ? "⌘" : "Strg"}+D
+                    </kbd>
+                  </span>
+                </>
+              )}
+            >
+              <Checkbox
+                checked={debugMode}
+                onCheckedChange={(v) => setStoredDebug(Boolean(v))}
+                aria-label="enable debug mode"
+              />
+            </SettingsRow>
+          </SettingsSection>
         </div>
 
         <DialogFooter

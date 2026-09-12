@@ -41,6 +41,27 @@ vi.mock("../../../server/routes/simulation.ws", () => ({
     stopAllRunnersAndNotify: vi.fn().mockResolvedValue({ cleanedUpCount: 0, cleanedTestRunIds: [] }),
   }),
 }));
+vi.mock("../../../server/services/examples/examples-repository", () => ({
+  ExamplesRepository: class {
+    async validate() { throw new Error("not used"); }
+    async getCatalog() {
+      return {
+        schemaVersion: 1,
+        source: { selection: "default", mode: "builtin", repository: null, ref: null, revision: null, status: "builtin", stale: false },
+        examples: [{
+          id: "builtin-core", title: "Core", category: "Test", main: "main.ino", source: "builtin",
+          files: [{ name: "main.ino", path: "main.ino" }],
+        }],
+      };
+    }
+    async getExample(_repository: undefined, _revision: undefined, id: string) {
+      return id === "builtin-core" ? {
+        schemaVersion: 1, id, title: "Core", category: "Test", main: "main.ino", source: "builtin", revision: null,
+        files: [{ name: "main.ino", path: "main.ino", content: "void setup() {}" }],
+      } : null;
+    }
+  },
+}));
 
 function listen(app: express.Express): Promise<{ baseUrl: string; server: http.Server }> {
   return new Promise((resolve) => {

@@ -4,10 +4,15 @@ import { ExamplesMenu } from "../../client/src/components/features/examples-menu
 
 vi.mock("@/components/ui/dropdown-menu", async () => {
   const React = await import("react");
-  const Context = React.createContext<{ open: boolean; setOpen: (value: boolean) => void }>({ open: false, setOpen: () => undefined });
+  const Context = React.createContext<{
+    open: boolean;
+    setOpen: (value: boolean) => void;
+  }>({ open: false, setOpen: () => undefined });
   return {
     DropdownMenu: ({ open, onOpenChange, children }: any) => (
-      <Context.Provider value={{ open, setOpen: onOpenChange }}>{children}</Context.Provider>
+      <Context.Provider value={{ open, setOpen: onOpenChange }}>
+        {children}
+      </Context.Provider>
     ),
     DropdownMenuTrigger: ({ children }: any) => {
       const { open, setOpen } = React.useContext(Context);
@@ -35,39 +40,95 @@ describe("ExamplesMenu behavior", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
+          schemaVersion: 1,
+          source: {
+            selection: "default",
+            mode: "builtin",
+            repository: null,
+            ref: null,
+            revision: null,
+            status: "builtin",
+            stale: false,
+          },
           examples: [
-            { id: "blink", title: "Blink example", category: "Built-in", source: "builtin", files: [{ name: "01-blink.ino", path: "01-blink.ino" }] },
-            { id: "io", title: "io.h", category: "Other", source: "builtin", files: [{ name: "io.h", path: "io.h" }] },
+            {
+              id: "blink",
+              title: "Blink example",
+              category: "Built-in",
+              source: "builtin",
+              files: [{ name: "01-blink.ino", path: "01-blink.ino" }],
+            },
+            {
+              id: "io",
+              title: "io.h",
+              category: "Other",
+              source: "builtin",
+              files: [{ name: "io.h", path: "io.h" }],
+            },
           ],
         }),
       } as Response)
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ files: [{ name: "01-blink.ino", content: "blink code" }] }) } as Response);
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          files: [{ name: "01-blink.ino", content: "blink code" }],
+        }),
+      } as Response);
     const onLoadExample = vi.fn();
 
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
-    await waitFor(() => expect(screen.getByText("Load Example")).toBeInTheDocument());
-    const menuContent = screen.getByText("Load Example").parentElement?.parentElement;
-    expect(menuContent).toHaveClass("w-72", "max-w-[calc(100vw-1rem)]", "overflow-y-auto");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByText("Load Example")).toBeInTheDocument(),
+    );
+    const menuContent =
+      screen.getByText("Load Example").parentElement?.parentElement;
+    expect(menuContent).toHaveClass(
+      "w-72",
+      "max-w-[calc(100vw-1rem)]",
+      "overflow-y-auto",
+    );
     expect(menuContent).not.toHaveClass("max-h-96", "overflow-y-scroll");
-    expect(menuContent).toHaveStyle({ maxHeight: "calc(var(--radix-dropdown-menu-content-available-height) - 10px)" });
+    expect(menuContent).toHaveStyle({
+      maxHeight:
+        "calc(var(--radix-dropdown-menu-content-available-height) - 10px)",
+    });
     expect(screen.getByText("Load Example")).toHaveClass("ui-type-menu-title");
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
-    expect(screen.queryByRole("button", { name: "Built-in", exact: true })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Other" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /01-blink\.ino/ })).toHaveClass("ui-type-menu-item");
+    expect(
+      screen.queryByRole("button", { name: "Built-in", exact: true }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Other" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /01-blink\.ino/ })).toHaveClass(
+      "ui-type-menu-item",
+    );
     fireEvent.click(screen.getByRole("button", { name: /01-blink\.ino/ }));
 
-    await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([{ name: "01-blink.ino", content: "blink code" }], "01-blink.ino"));
-    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Example Loaded" }));
+    await waitFor(() =>
+      expect(onLoadExample).toHaveBeenCalledWith(
+        [{ name: "01-blink.ino", content: "blink code" }],
+        "01-blink.ino",
+      ),
+    );
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Example Loaded" }),
+    );
   });
 
   it("shows an empty state when the backend is unreachable", async () => {
     render(<ExamplesMenu onLoadExample={vi.fn()} backendReachable={false} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Examples" })).not.toBeDisabled());
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Examples" }),
+      ).not.toBeDisabled(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
-    await waitFor(() => expect(screen.getByText("No examples available")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("No examples available")).toBeInTheDocument(),
+    );
   });
 
   it("keeps built-in filenames aligned in compact non-wrapping rows", async () => {
@@ -86,6 +147,16 @@ describe("ExamplesMenu behavior", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
       json: async () => ({
+        schemaVersion: 1,
+        source: {
+          selection: "default",
+          mode: "builtin",
+          repository: null,
+          ref: null,
+          revision: null,
+          status: "builtin",
+          stale: false,
+        },
         examples: names.map((name) => ({
           id: name,
           title: name.replace(".ino", ""),
@@ -97,41 +168,90 @@ describe("ExamplesMenu behavior", () => {
     } as Response);
 
     render(<ExamplesMenu onLoadExample={vi.fn()} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Examples" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Built-in" }),
+      ).toBeInTheDocument(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
 
     const items = screen.getAllByRole("button", { name: /\.ino/ });
     expect(items).toHaveLength(names.length);
-    expect(items.map((item) => item.className)).toEqual(Array(names.length).fill(items[0]?.className));
+    expect(items.map((item) => item.className)).toEqual(
+      Array(names.length).fill(items[0]?.className),
+    );
     names.forEach((name) => {
       expect(screen.getByText(name)).toBeInTheDocument();
     });
     items.forEach((item) => {
-      expect(item.querySelector("span:last-child")).toHaveClass("truncate", "whitespace-nowrap");
+      expect(item.querySelector("span:last-child")).toHaveClass(
+        "truncate",
+        "whitespace-nowrap",
+      );
     });
   });
 
   it("reports a failed examples request and ignores an individual failed file", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("", { status: 500 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("", { status: 500 }),
+    );
     render(<ExamplesMenu onLoadExample={vi.fn()} />);
-    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Failed to Load Examples" })));
+    fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Failed to Load Examples" }),
+      ),
+    );
   });
 
   it("toggles with the platform shortcut and honors keep-open storage", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ examples: [{ id: "blink", title: "blink.ino", category: "Other", source: "builtin", files: [{ name: "blink.ino", path: "blink.ino" }] }] }) } as Response)
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ files: [{ name: "blink.ino", content: "blink" }] }) } as Response);
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          schemaVersion: 1,
+          source: {
+            selection: "default",
+            mode: "builtin",
+            repository: null,
+            ref: null,
+            revision: null,
+            status: "builtin",
+            stale: false,
+          },
+          examples: [
+            {
+              id: "blink",
+              title: "blink.ino",
+              category: "Other",
+              source: "builtin",
+              files: [{ name: "blink.ino", path: "blink.ino" }],
+            },
+          ],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          files: [{ name: "blink.ino", content: "blink" }],
+        }),
+      } as Response);
     localStorage.setItem("unoKeepExamplesMenuOpen", "1");
     const onLoadExample = vi.fn();
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     fireEvent.keyDown(document, { code: "KeyE", ctrlKey: true });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(screen.getByText("Load Example")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
     fireEvent.click(screen.getByRole("button", { name: /blink\.ino/i }));
-    await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([{ name: "blink.ino", content: "blink" }], "blink.ino"));
+    await waitFor(() =>
+      expect(onLoadExample).toHaveBeenCalledWith(
+        [{ name: "blink.ino", content: "blink" }],
+        "blink.ino",
+      ),
+    );
     localStorage.removeItem("unoKeepExamplesMenuOpen");
   });
 
@@ -139,24 +259,60 @@ describe("ExamplesMenu behavior", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
       json: async () => ({
+        schemaVersion: 1,
+        source: {
+          selection: "default",
+          mode: "builtin",
+          repository: null,
+          ref: null,
+          revision: null,
+          status: "builtin",
+          stale: false,
+        },
         examples: [
-          { id: "builtin-blink", title: "Built-in Blink", category: "01-basic", source: "builtin", files: [{ name: "blink.ino", path: "blink.ino" }] },
-          { id: "external-blink", title: "External Blink", category: "01-basic", source: "external", files: [{ name: "blink.ino", path: "blink.ino" }] },
+          {
+            id: "builtin-blink",
+            title: "Built-in Blink",
+            category: "01-basic",
+            source: "builtin",
+            files: [{ name: "blink.ino", path: "blink.ino" }],
+          },
+          {
+            id: "external-blink",
+            title: "External Blink",
+            category: "01-basic",
+            source: "external",
+            files: [{ name: "blink.ino", path: "blink.ino" }],
+          },
         ],
       }),
     } as Response);
 
     render(<ExamplesMenu onLoadExample={vi.fn()} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Examples" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Built-in" }),
+      ).toBeInTheDocument(),
+    );
 
-    expect(screen.getByRole("button", { name: "Built-in" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "External" })).toBeInTheDocument();
-    expect(screen.queryAllByRole("button", { name: "01-basic" })).toHaveLength(0);
+    expect(
+      screen.getByRole("button", { name: "Built-in" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "External" }),
+    ).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: "01-basic" })).toHaveLength(
+      0,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
-    expect(screen.getByRole("button", { name: /blink\.ino/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "basic" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /blink\.ino/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "basic" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("External Blink")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
@@ -172,16 +328,31 @@ describe("ExamplesMenu behavior", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          examples: [{
-            id: "motor-control",
-            title: "Motor Control",
-            category: "Motors",
-            source: "external",
-            files: [
-              { name: "motor-control.ino", path: "motors/motor-control/motor-control.ino" },
-              { name: "motor.h", path: "motors/motor-control/motor.h" },
-            ],
-          }],
+          schemaVersion: 1,
+          source: {
+            selection: "default",
+            mode: "repository-ref",
+            repository: "owner/repo",
+            ref: "main",
+            revision: "a".repeat(40),
+            status: "remote",
+            stale: false,
+          },
+          examples: [
+            {
+              id: "motor-control",
+              title: "Motor Control",
+              category: "Motors",
+              source: "external",
+              files: [
+                {
+                  name: "motor-control.ino",
+                  path: "motors/motor-control/motor-control.ino",
+                },
+                { name: "motor.h", path: "motors/motor-control/motor.h" },
+              ],
+            },
+          ],
         }),
       } as Response)
       .mockResolvedValueOnce({
@@ -196,16 +367,23 @@ describe("ExamplesMenu behavior", () => {
     const onLoadExample = vi.fn();
 
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "External" }));
     fireEvent.click(screen.getByRole("button", { name: "Motors" }));
     fireEvent.click(screen.getByRole("button", { name: /Motor Control/ }));
 
-    await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([
-      { name: "motor-control.ino", content: "setup();" },
-      { name: "motor.h", content: "void setup();" },
-    ], "Motor Control"));
-    expect(fetchMock).toHaveBeenLastCalledWith("/api/examples/motor-control");
+    await waitFor(() =>
+      expect(onLoadExample).toHaveBeenCalledWith(
+        [
+          { name: "motor-control.ino", content: "setup();" },
+          { name: "motor.h", content: "void setup();" },
+        ],
+        "Motor Control",
+      ),
+    );
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/examples/motor-control?repository=owner%2Frepo&revision=${"a".repeat(40)}`,
+    );
   });
 });

@@ -122,9 +122,39 @@ Der Override ist nur für eine isolierte lokale Maschine zulässig. Ein Mehrbenu
 | COMPILE_MAX_CONCURRENT | CPU-abhängig | nein | Compile-Slots. |
 | DISABLE_RATE_LIMIT | false | nein | nur isolierte Tests: true. |
 | LOAD_TEST_CLIENT_COUNT | 50 | Loadtest | Anzahl Harness-Clients. |
-| UNOSIM_EXAMPLES_SOURCE | leer | nein | Serverseitige HTTPS-Basis-URL für externe Beispiele; im Dev-Skript auf `https://raw.githubusercontent.com/ttbombadil/UnoSim-Examples` gesetzt. |
-| UNOSIM_EXAMPLES_REF | leer | nein | Fester Remote-Ref; im Dev-Skript `v1.0.0`. Erforderlich, wenn `UNOSIM_EXAMPLES_SOURCE` gesetzt ist. |
-| UNOSIM_EXAMPLES_ALLOWED_HOSTS | leer | Produktion bei externer Quelle | Exakte Host-Allowlist; im Dev-Skript `raw.githubusercontent.com`. |
+| UNOSIM_EXAMPLES_SOURCE | `ttbombadil/unosim-examples` | nein | Default-Repository als `owner/repository` oder normale GitHub-URL mit optionalem `.git`; die bisherige exakte Raw-GitHub-Repository-Basis bleibt nur als Config-Migrationsinput zulässig. Ein ausdrücklich leerer Wert aktiviert Built-ins-only. |
+| UNOSIM_EXAMPLES_REF | `main` bei konfiguriertem Repository | nein | Beweglicher oder unveränderlicher Default-Ref. Der Server löst ihn nach TTL auf einen vollständigen Commit-SHA auf. |
+| UNOSIM_EXAMPLES_REFRESH_MS | 300000 | nein | TTL bis zur nächsten lazy Ref-Auflösung. |
+| UNOSIM_EXAMPLES_TIMEOUT_MS | 5000 | nein | Timeout je serverseitigem Upstream-Request. |
+| UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES | 262144 | nein | maximales Manifest. |
+| UNOSIM_EXAMPLES_MAX_FILE_BYTES | 131072 | nein | maximale einzelne Example-Datei. |
+| UNOSIM_EXAMPLES_MAX_TOTAL_BYTES | 1048576 | nein | maximale Gesamtgröße eines geladenen Snapshots. |
+| UNOSIM_EXAMPLES_MAX_FILES | 100 | nein | maximale Zahl manifestierter Dateien. |
+| UNOSIM_EXAMPLES_ALLOWED_HOSTS | leer | Produktion bei externer Quelle | Exakte serverseitige Host-Allowlist für `api.github.com` und `raw.githubusercontent.com`; durch Browser-Overrides nicht erweiterbar. |
+
+### Browser-spezifische Examples-Auswahl
+
+Die Zielarchitektur verwendet ausschließlich `UNOSIM_EXAMPLES_SOURCE` und
+`UNOSIM_EXAMPLES_REF`. `UNOSIM_EXAMPLES_CHANNEL` und `channels/stable.json`
+sind verworfen; eine gesetzte Channel-Variable löst beim Start absichtlich
+einen Konfigurationsfehler aus. Der initiale Dev-Default ist
+`ttbombadil/unosim-examples` mit Ref `main`; ein leerer Source-Wert bleibt der
+Built-ins-only-Opt-out. Die Migration ist im
+[Implementierungsplan](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md) konkretisiert.
+
+Die Settings akzeptieren normale GitHub-Repository-Angaben wie
+`owner/repository` oder `https://github.com/owner/repository.git` und
+kanonisch als `owner/repository` speichern. Diese nicht-sensitive Präferenz
+darf in `localStorage` liegen. Ohne gespeicherten Override wird der
+Server-Default verwendet; `Reset to default` löscht den Browserwert. Der
+Override ist weder eine Änderung an `.env` noch ein globaler Serverzustand.
+
+Der Browser ruft ausschließlich die UnoSim-API auf. UnoSim validiert Repository
+und Ref, löst den Ref nach TTL serverseitig auf und lädt Manifest und Dateien
+nur aus der vollständigen Commit-Revision. Validate, Apply und Reset sind in
+der Settings-UI verfügbar.
+Zielvertrag:
+[External-Examples-SSOT](../ssot/ssot_function_definition_ExternalExamples.md).
 
 FORCE_DOCKER ist ein deprecated Alias für UNOSIM_SIMULATION_MODE=docker-sandbox. Neue Konfigurationen verwenden den neuen Namen. Sicherheitsvariablen stehen in [SECURITY.md](SECURITY.md).
 
