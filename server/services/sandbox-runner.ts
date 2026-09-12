@@ -443,10 +443,11 @@ export class SandboxRunner {
 
   getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean; mode: "docker-sandbox" | "local-limited" } {
     // Docker check is started in constructor, so just return cached values
+    const dockerModeActive = config.simulationMode === "docker-sandbox";
     return {
       dockerAvailable: this.dockerAvailable,
       dockerImageBuilt: this.dockerImageBuilt,
-      mode: this.dockerAvailable && this.dockerImageBuilt ? "docker-sandbox" : "local-limited",
+      mode: dockerModeActive && this.dockerAvailable && this.dockerImageBuilt ? "docker-sandbox" : "local-limited",
     };
   }
 }

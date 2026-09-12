@@ -17,7 +17,9 @@ interface RouterDecision {
  * @returns RouterDecision with routing information
  */
 export function decideExecutionRoute(state: ExecutionState): RouterDecision {
-  const useDocker = !!(state.dockerAvailable && state.dockerImageBuilt);
+  const useDocker =
+    config.simulationMode === "docker-sandbox" &&
+    !!(state.dockerAvailable && state.dockerImageBuilt);
   const shouldThrowOnNoDocker = config.serverMode === "docker" && config.simulationMode === "docker-sandbox";
 
   return {
@@ -25,5 +27,4 @@ export function decideExecutionRoute(state: ExecutionState): RouterDecision {
     shouldThrowOnNoDocker,
   };
 }
-
 
