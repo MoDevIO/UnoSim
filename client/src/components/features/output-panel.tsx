@@ -156,7 +156,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
 
         <div className="flex-1" />
         <div className="flex items-center px-2">
-          <Button variant="outline" size="sm" onClick={onClose} className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center" title="Close">
+          <Button variant="outline" size="icon" onClick={onClose} title="Close">
             <X className="h-4 w-4" />
           </Button>
         </div>

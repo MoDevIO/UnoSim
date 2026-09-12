@@ -88,10 +88,12 @@ describe("experimental workspace layout", () => {
       />,
     );
 
+    expect(screen.getByTestId("experimental-workspace-controls")).toHaveClass("gap-2", "p-0.5");
     expect(screen.getByTestId("workspace-toggle-code")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("workspace-toggle-tutor")).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByTestId("workspace-toggle-code")).toHaveClass("ring-primary/60");
     expect(screen.getByTestId("workspace-toggle-tutor")).toHaveClass("opacity-60");
+    expect(screen.getByTestId("workspace-toggle-code")).toHaveClass("h-[var(--ui-button-height)]", "w-[var(--ui-button-height)]");
     expect(screen.getByTestId("workspace-toggle-code")).toHaveAttribute("title", "Code ausblenden");
     expect(screen.getByTestId("workspace-toggle-simulation")).toHaveAttribute("title", "Simulation ausblenden");
     expect(screen.getByTestId("workspace-toggle-tutor")).toHaveAttribute("title", "Tutor einblenden");

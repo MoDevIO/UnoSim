@@ -146,7 +146,7 @@ export function WorkspaceVisibilityControls({
 }: WorkspaceVisibilityControlsProps) {
   return (
     <div
-      className="flex items-center gap-1 rounded-md border border-border/70 bg-background/80 p-0.5 shadow-sm"
+      className="flex items-center gap-2 rounded-md border border-border/70 bg-background/80 p-0.5 shadow-sm"
       data-testid="experimental-workspace-controls"
       aria-label="Workspace-Ansichten"
     >
@@ -167,11 +167,11 @@ export function WorkspaceVisibilityControls({
             data-testid={`workspace-toggle-${column}`}
             className={
               visibility[column]
-                ? "h-7 w-7 bg-primary/20 text-primary ring-1 ring-primary/60 shadow-inner hover:bg-primary/25"
-                : "h-7 w-7 bg-muted/30 text-muted-foreground opacity-60 hover:bg-muted hover:text-foreground hover:opacity-100"
+                ? "bg-primary/20 text-primary ring-1 ring-primary/60 shadow-inner hover:bg-primary/25"
+                : "bg-muted/30 text-muted-foreground opacity-60 hover:bg-muted hover:text-foreground hover:opacity-100"
             }
           >
-            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            <Icon className="h-4 w-4" aria-hidden="true" />
           </Button>
         );
       })}

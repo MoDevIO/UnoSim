@@ -110,7 +110,7 @@ function _getDesktopSimulateButtonClass(
   disabled: boolean,
 ): string {
   return clsx(
-    "h-[var(--ui-button-height)] px-4 pr-12 min-w-[10rem] flex items-center justify-center gap-2 relative",
+    "h-[var(--ui-button-height)] min-w-[10rem] px-4 pr-12 flex items-center justify-center gap-2 relative rounded-md border border-border/70 shadow-sm",
     "text-white font-medium transition-colors",
     {
       "bg-orange-500 hover:bg-orange-600": clientState === "RUNNING" && !disabled,
@@ -211,7 +211,7 @@ function PauseButton({ isPausing, simulateDisabled, isLoading, onPause, isMobile
     <button
       type="button"
       className={clsx(
-        "ui-type-toolbar absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r z-10 cursor-pointer",
+        "ui-type-toolbar absolute right-0 top-0 bottom-0 pl-2 border-l border-orange-500/50 flex items-center bg-yellow-400/90 hover:bg-yellow-400 pr-2 rounded-r-md z-10 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
         isMobile && "w-[var(--ui-button-height)]",
       )}
       onClick={handleClick}
@@ -803,7 +803,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </Button>
             {clientState === "RUNNING" && <PauseButton {...pauseProps} />}
             {workspaceControls && (
-              <div className="absolute left-[calc(100%+0.5rem)] top-1/2 -translate-y-1/2">
+              <div className="absolute left-[calc(100%+var(--space-sm))] top-1/2 -translate-y-1/2">
                 {workspaceControls}
               </div>
             )}

@@ -72,8 +72,7 @@ const VisibilityToggle = memo(function VisibilityToggle({
     <div className="flex items-center ml-3">
       <Button
         variant="outline"
-        size="sm"
-        className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+        size="icon"
         onClick={onToggle}
         title={showPWMValues ? "Hide I/O values" : "Show I/O values"}
         aria-label={showPWMValues ? "Hide I/O values" : "Show I/O values"}
