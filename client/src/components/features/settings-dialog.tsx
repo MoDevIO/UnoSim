@@ -287,7 +287,7 @@ export default function SettingsDialog({
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-12 shrink-0 rounded border border-border" style={{ background: color }} />
                   <label className="flex min-w-0 flex-1 flex-col gap-1 text-ui-xs text-muted-foreground">
-                    Hex
+                    <span>Hex</span>
                     <input
                       className="h-[var(--ui-button-height)] w-full rounded-md border border-input bg-transparent px-2 text-ui-sm text-foreground"
                       value={color}
