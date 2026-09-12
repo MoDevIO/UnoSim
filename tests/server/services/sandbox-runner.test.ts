@@ -370,6 +370,7 @@ describe("SandboxRunner", () => {
 
     it("should detect when Docker is available and image exists", async () => {
       // ProcessExecutor mock handles docker commands by default (all success)
+      (config as any).simulationMode = "docker-sandbox";
       const runner = new SandboxRunner();
       
       // Explicitly wait for docker checks to complete
@@ -380,6 +381,18 @@ describe("SandboxRunner", () => {
       expect(status.dockerAvailable).toBe(true);
       expect(status.dockerImageBuilt).toBe(true);
       expect(status.mode).toBe("docker-sandbox");
+    });
+
+    it("should report local mode when Docker is available but local simulation is configured", async () => {
+      const runner = new SandboxRunner();
+
+      await getEnsureDockerChecked(runner)();
+
+      const status = runner.getSandboxStatus();
+
+      expect(status.dockerAvailable).toBe(true);
+      expect(status.dockerImageBuilt).toBe(true);
+      expect(status.mode).toBe("local-limited");
     });
 
     it("should fallback when Docker daemon is not running", async () => {
@@ -502,6 +515,10 @@ describe("SandboxRunner", () => {
   });
 
   describe("Docker Sandbox Execution", () => {
+    beforeEach(() => {
+      (config as any).simulationMode = "docker-sandbox";
+    });
+
     beforeEach(() => {
       // Simulate Docker available with image (default mock config)
       // The ProcessExecutor mock will return success for all docker commands
@@ -760,6 +777,7 @@ describe("SandboxRunner", () => {
   describe("Resource Limits", () => {
     beforeEach(() => {
       // Simulate Docker available with image (default mock config)
+      (config as any).simulationMode = "docker-sandbox";
     });
 
     afterEach(() => {
