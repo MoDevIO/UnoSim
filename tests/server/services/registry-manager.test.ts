@@ -334,6 +334,119 @@ describe("RegistryManager", () => {
       expect(updateCallback.mock.calls[0][2]).toBe("collection-complete");
       expect(updateCallback.mock.calls[0][0]).toHaveLength(3);
     });
+
+    it("should preserve pin modes received before the first registry collection", () => {
+      manager.reset();
+      manager.enableWaitMode(1000);
+
+      manager.updatePinMode(4, 1); // OUTPUT before IO_REGISTRY_START
+      manager.updatePinMode(5, 1);
+
+      manager.startCollection();
+      manager.addPin({
+        pin: "4",
+        defined: false,
+        pinMode: 0,
+        usedAt: [{ line: 0, operation: "digitalWrite" }],
+      });
+      manager.addPin({
+        pin: "5",
+        defined: false,
+        pinMode: 0,
+        usedAt: [{ line: 0, operation: "digitalWrite" }],
+      });
+      manager.finishCollection();
+
+      const registry = manager.getRegistry();
+      for (const pin of ["4", "5"]) {
+        const record = registry.find((entry) => entry.pin === pin);
+        expect(record).toBeDefined();
+        expect(record!.defined).toBe(true);
+        expect(record!.pinMode).toBe(1);
+        expect(record!.usedAt).toEqual(
+          expect.arrayContaining([
+            { line: 0, operation: "pinMode:1" },
+            { line: 0, operation: "digitalWrite" },
+          ]),
+        );
+      }
+
+      const sentRegistry = updateCallback.mock.calls.at(-1)?.[0];
+      expect(sentRegistry).toEqual(expect.arrayContaining(registry));
+    });
+
+    it("should not carry early pin modes across reset", () => {
+      manager.enableWaitMode(1000);
+      manager.updatePinMode(4, 1);
+
+      manager.reset();
+
+      manager.startCollection();
+      manager.addPin({
+        pin: "4",
+        defined: false,
+        pinMode: 0,
+        usedAt: [{ line: 0, operation: "digitalWrite" }],
+      });
+      manager.finishCollection();
+
+      const record = manager.getRegistry().find((entry) => entry.pin === "4");
+      expect(record).toBeDefined();
+      expect(record!.defined).toBe(false);
+      expect(record!.pinMode).toBe(0);
+      expect(record!.usedAt).toEqual([
+        { line: 0, operation: "digitalWrite" },
+      ]);
+    });
+
+    it("should not carry early pin modes into a later collection cycle", () => {
+      manager.enableWaitMode(1000);
+      manager.updatePinMode(4, 1);
+
+      manager.startCollection();
+      manager.addPin({ pin: "4", defined: false, pinMode: 0, usedAt: [] });
+      manager.finishCollection();
+
+      manager.startCollection();
+      manager.addPin({
+        pin: "5",
+        defined: false,
+        pinMode: 0,
+        usedAt: [{ line: 0, operation: "digitalWrite" }],
+      });
+      manager.finishCollection();
+
+      const registry = manager.getRegistry();
+      expect(registry.find((entry) => entry.pin === "4")).toBeUndefined();
+      const pin5 = registry.find((entry) => entry.pin === "5");
+      expect(pin5).toBeDefined();
+      expect(pin5!.pinMode).toBe(0);
+      expect(pin5!.usedAt).toEqual([
+        { line: 0, operation: "digitalWrite" },
+      ]);
+    });
+
+    it("should keep normal collections unchanged when no early events exist", () => {
+      manager.enableWaitMode(1000);
+
+      manager.startCollection();
+      manager.addPin({
+        pin: "6",
+        defined: true,
+        pinMode: 1,
+        usedAt: [{ line: 0, operation: "digitalWrite" }],
+      });
+      manager.finishCollection();
+
+      expect(manager.getRegistry()).toEqual([
+        expect.objectContaining({
+          pin: "6",
+          defined: true,
+          pinMode: 1,
+          usedAt: [{ line: 0, operation: "digitalWrite" }],
+        }),
+      ]);
+    });
   });
 
   describe("reset", () => {

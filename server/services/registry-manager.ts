@@ -50,6 +50,9 @@ interface RegistryManagerConfig {
  */
 export class RegistryManager {
   private registry: IOPinRecord[] = [];
+  /** Runtime pin modes observed before the first IO_REGISTRY_START marker. */
+  private preCollectionRegistry: IOPinRecord[] = [];
+  private hasStartedCollection = false;
   private isCollecting = false;
   private registryHash = "";
   private debounceTimer: NodeJS.Timeout | null = null;
@@ -402,6 +405,20 @@ export class RegistryManager {
       }
     }
     
+    // PIN_MODE events from global constructors can arrive before the generated
+    // main() emits IO_REGISTRY_START. Preserve them for this first collection
+    // only; later collection cycles must start from a fresh snapshot.
+    if (this.hasStartedCollection) {
+      this.preCollectionRegistry = [];
+    } else {
+      this.preCollectionRegistry = this.registry.map((pin) => ({
+        ...pin,
+        usedAt: pin.usedAt ? [...pin.usedAt] : pin.usedAt,
+        pinModeLines: pin.pinModeLines ? [...pin.pinModeLines] : pin.pinModeLines,
+        pinModeModes: pin.pinModeModes ? [...pin.pinModeModes] : pin.pinModeModes,
+      }));
+    }
+    this.hasStartedCollection = true;
     this.isCollecting = true;
     this.registry = [];
     
@@ -488,6 +505,33 @@ export class RegistryManager {
       `Registry collection complete: ${this.registry.length} pins`,
     );
     this.isCollecting = false;
+
+    if (this.preCollectionRegistry.length > 0) {
+      for (const earlyPin of this.preCollectionRegistry) {
+        const existingIndex = this.registry.findIndex((pin) => pin.pin === earlyPin.pin);
+        if (existingIndex < 0) {
+          this.registry.push(earlyPin);
+          continue;
+        }
+
+        const currentPin = this.registry[existingIndex];
+        this.registry[existingIndex] = {
+          ...currentPin,
+          ...earlyPin,
+          defined: currentPin.defined || earlyPin.defined,
+          usedAt: mergeRegistryUsage(currentPin.usedAt, earlyPin.usedAt),
+          pinModeLines: [
+            ...(currentPin.pinModeLines ?? []),
+            ...(earlyPin.pinModeLines ?? []),
+          ],
+          pinModeModes: [
+            ...(currentPin.pinModeModes ?? []),
+            ...(earlyPin.pinModeModes ?? []),
+          ],
+        };
+      }
+      this.preCollectionRegistry = [];
+    }
 
     // Annotate conflicts now that all pins from the IO_REGISTRY burst are known
     for (const pin of this.registry) {
@@ -677,6 +721,8 @@ export class RegistryManager {
    */
   reset(): void {
     this.registry = [];
+    this.preCollectionRegistry = [];
+    this.hasStartedCollection = false;
     this.isCollecting = false;
     this.registryHash = "";
     this.waitingForRegistry = false;
@@ -731,6 +777,8 @@ export class RegistryManager {
 
     // Reset state without logging
     this.registry = [];
+    this.preCollectionRegistry = [];
+    this.hasStartedCollection = false;
     this.isCollecting = false;
     this.registryHash = "";
     this.waitingForRegistry = false;
