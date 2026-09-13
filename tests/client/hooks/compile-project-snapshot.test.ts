@@ -12,6 +12,7 @@ describe("compile command from the client SourceProject", () => {
     expect(buildCompileCommand(project!)).toEqual({
       code: '#include "led.h"',
       headers: [{ name: "led.h", content: "pinMode(4, OUTPUT);\ndigitalWrite(4, HIGH);" }],
+      entryFile: "main.ino",
     });
   });
 
@@ -24,6 +25,7 @@ describe("compile command from the client SourceProject", () => {
     expect(buildCompileCommand(project!)).toEqual({
       code: "new main",
       headers: [{ name: "led.h", content: "header" }],
+      entryFile: "main.ino",
     });
   });
 
@@ -37,6 +39,7 @@ describe("compile command from the client SourceProject", () => {
     })).toEqual({
       code: '#include "drivers/led.h"',
       headers: [{ name: "drivers/led.h", content: "digitalWrite(4, HIGH);" }],
+      entryFile: "main.ino",
     });
   });
 
@@ -64,6 +67,7 @@ describe("compile command from the client SourceProject", () => {
     expect(buildCompileCommand(project!)).toEqual({
       code: "void setup() {}",
       headers: [],
+      entryFile: "sketch.ino",
     });
   });
 });

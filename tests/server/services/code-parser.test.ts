@@ -1,6 +1,8 @@
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { CodeParser } from "../../../shared/code-parser";
 import { ParserMessage } from "../../../shared/schema";
-import { analyzeStaticIO } from "../../../shared/io-registry-parser";
+import { analyzeStaticIO, analyzeStaticIOProject } from "../../../shared/io-registry-parser";
+import type { SourceProject } from "../../../shared/source-project";
 
 describe("CodeParser", () => {
   let parser: CodeParser;
@@ -839,6 +841,97 @@ void loop() {}
             m.severity === 1 || m.severity === 2 || m.severity === 3,
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("parseAllProject", () => {
+    it("runs one shared project analysis for all project-aware checks", () => {
+      const analyzeProject = vi.fn(analyzeStaticIOProject);
+      const project: SourceProject = {
+        entryFile: "main.ino",
+        files: { "main.ino": "void setup() {}\nvoid loop() {}" },
+      };
+
+      new CodeParser(undefined, analyzeProject).parseAllProject(project);
+
+      expect(analyzeProject).toHaveBeenCalledOnce();
+      expect(analyzeProject).toHaveBeenCalledWith(project);
+    });
+
+    it("analyzes reachable headers once and preserves file provenance", () => {
+      const project: SourceProject = {
+        entryFile: "main.ino",
+        files: {
+          "main.ino": '#include "pins.h"\nvoid setup() {}\nvoid loop() {}',
+          "pins.h": "digitalWrite(7, HIGH);",
+          "unused.h": "digitalWrite(8, HIGH);",
+        },
+      };
+
+      const messages = parser.parseAllProject(project);
+      expect(messages).toContainEqual(expect.objectContaining({
+        category: "hardware",
+        message: expect.stringContaining("Pin 7 used"),
+        file: "pins.h",
+        line: 1,
+      }));
+      expect(messages.some((message) => message.message.includes("Pin 8"))).toBe(false);
+      expect(messages.some((message) => message.category === "structure")).toBe(false);
+    });
+
+    it("resolves nested header symbols in include order", () => {
+      const project: SourceProject = {
+        entryFile: "main.ino",
+        files: {
+          "main.ino": '#include "a.h"\nvoid setup() {}\nvoid loop() {}',
+          "a.h": '#define LED_PIN 4\n#include "sub/b.h"',
+          "sub/b.h": "pinMode(LED_PIN, OUTPUT);\ndigitalWrite(LED_PIN, HIGH);",
+        },
+      };
+
+      expect(parser.parseAllProject(project).filter(({ category }) => category === "hardware")).toEqual([]);
+    });
+
+    it("keeps usage before a later header definition unresolved", () => {
+      const project: SourceProject = {
+        entryFile: "main.ino",
+        files: {
+          "main.ino": '#include "pins.h"\nvoid setup() {}\nvoid loop() {}',
+          "pins.h": "digitalWrite(LED_PIN, HIGH);\n#define LED_PIN 4",
+        },
+      };
+
+      expect(parser.parseAllProject(project)).toContainEqual(expect.objectContaining({
+        category: "hardware",
+        message: expect.stringContaining("Variable 'LED_PIN'"),
+        file: "pins.h",
+        line: 1,
+      }));
+    });
+
+    it("reports pin conflicts originating in an included header", () => {
+      const project: SourceProject = {
+        entryFile: "main.ino",
+        files: {
+          "main.ino": '#include "pins.h"\nvoid setup() {}\nvoid loop() {}',
+          "pins.h": "pinMode(14, OUTPUT);\nanalogRead(A0);",
+        },
+      };
+
+      expect(parser.parseAllProject(project)).toContainEqual(expect.objectContaining({
+        category: "hardware",
+        message: expect.stringContaining("Pin A0 used as both digital and analog"),
+        file: "pins.h",
+        line: 1,
+      }));
+    });
+
+    it("keeps single-file parseAll behavior available through an equivalent project", () => {
+      const code = "void setup() { pinMode(5, OUTPUT); }\nvoid loop() { digitalWrite(5, HIGH); }";
+      const withoutIds = (messages: ParserMessage[]) =>
+        messages.map(({ id: _id, ...message }) => message);
+      expect(withoutIds(parser.parseAllProject({ entryFile: "sketch.ino", files: { "sketch.ino": code } })))
+        .toEqual(withoutIds(parser.parseAll(code)));
     });
   });
 

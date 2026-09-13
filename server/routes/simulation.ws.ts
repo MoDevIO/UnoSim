@@ -608,6 +608,7 @@ export function registerSimulationWebSocket(
       await acquiredRunner.runSketch({
         code,
         headers: data.headers,
+        entryFile: data.entryFile,
         onOutput: callbacks.onOutput,
         onError: callbacks.onError,
         onExit: callbacks.onExit,

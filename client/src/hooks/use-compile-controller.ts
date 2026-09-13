@@ -203,10 +203,11 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
 
     let mainSketchCode: string;
     let headers: Array<{ name: string; content: string }>;
+    let entryFile: string | undefined;
     if (params.sourceProject !== undefined) {
-      ({ code: mainSketchCode, headers } = params.sourceProject
+      ({ code: mainSketchCode, headers, entryFile } = params.sourceProject
         ? buildCompileCommand(params.sourceProject)
-        : { code: "", headers: [] });
+        : { code: "", headers: [], entryFile: undefined });
     } else if (params.activeTabId === params.tabs[0]?.id && params.editorRef.current) {
       mainSketchCode = params.editorRef.current.getValue();
       ({ headers } = buildCompileCommand(mainSketchCode, params.tabs));
@@ -221,7 +222,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     }
 
     logger.info(`[CLIENT] Compiling with ${headers.length} headers`);
-    compileMutation.mutate({ code: mainSketchCode, headers });
+    compileMutation.mutate({ code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}) });
   }, [
     params.activeTabId,
     clearOutputs,

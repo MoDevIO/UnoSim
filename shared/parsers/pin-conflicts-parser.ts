@@ -50,13 +50,21 @@ export class PinConflictsParser {
         digitalCalls.length > 0 && analogCalls.length > 0
       )
       .sort(compareDigitalCallOrder)
-      .map(({ pinId }) => ({
-        id: randomUUID(),
-        type: "warning" as const,
-        category: "hardware" as const,
-        severity: 2 as const,
-        message: `Pin ${pinLabel(pinId)} used as both digital and analog. This may be unintended.`,
-        suggestion: "// Use separate pins for digital and analog",
-      }));
+      .map(({ pinId, digitalCalls, analogCalls }) => {
+        // Project-aware calls carry their original file and line. Legacy
+        // string analysis omits these additive fields for compatibility.
+        const location = digitalCalls[0] ?? analogCalls[0];
+        return {
+          ...(location
+            ? { line: location.line, ...(location.file ? { file: location.file } : {}) }
+            : {}),
+          id: randomUUID(),
+          type: "warning" as const,
+          category: "hardware" as const,
+          severity: 2 as const,
+          message: `Pin ${pinLabel(pinId)} used as both digital and analog. This may be unintended.`,
+          suggestion: "// Use separate pins for digital and analog",
+        };
+      });
   }
 }

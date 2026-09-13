@@ -36,7 +36,7 @@ import { apiVersionMiddleware } from "./services/protocol-version";
 function hashCode(
   code: string,
   headers?: Array<{ name: string; content: string }>,
-  options?: { fqbn?: string; libraries?: string[] },
+  options?: { fqbn?: string; libraries?: string[]; entryFile?: string },
 ): string {
   const combinedInput = JSON.stringify({
     cacheVersion: 1,
@@ -44,6 +44,7 @@ function hashCode(
     headers: headers || [],
     fqbn: options?.fqbn || "",
     libraries: [...(options?.libraries || [])].sort((a, b) => a.localeCompare(b)),
+    entryFile: options?.entryFile || "sketch.ino",
   });
   return createHash("sha256").update(combinedInput).digest("hex");
 }

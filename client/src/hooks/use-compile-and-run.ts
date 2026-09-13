@@ -240,10 +240,11 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     // Extract code
     let mainSketchCode: string;
     let headers: Array<{ name: string; content: string }>;
+    let entryFile: string | undefined;
     if (params.sourceProject !== undefined) {
-      ({ code: mainSketchCode, headers } = params.sourceProject
+      ({ code: mainSketchCode, headers, entryFile } = params.sourceProject
         ? buildCompileCommand(params.sourceProject)
-        : { code: "", headers: [] });
+        : { code: "", headers: [], entryFile: undefined });
     } else if (params.activeTabId === params.tabs[0]?.id && params.editorRef.current) {
       try {
         mainSketchCode = params.editorRef.current.getValue();
@@ -280,13 +281,15 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setCompilationStatus("compiling");
 
     // Compile with custom handlers for compile + start flow
-    compileMutation.mutate({ code: mainSketchCode, headers }, {
+    const compilePayload = { code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}) };
+    compileMutation.mutate(compilePayload, {
       onSuccess: (data) => {
         logger.info(`[CLIENT] Compile response: ${JSON.stringify(data, null, 2)}`);
 
         if (data.success) {
           simulation.setCompiledCode(mainSketchCode);
           simulation.setCompiledHeaders?.(headers);
+          simulation.setCompiledEntryFile?.(entryFile);
           simulation.startSimulation();
           simulation.setHasCompiledOnce(true);
           params.setIsModified(false);

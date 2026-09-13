@@ -124,10 +124,11 @@ async function createHarness(options: {
   return { admission, api, callbacks, connect, pool, runners };
 }
 
-function start(client: { socket: WebSocket }): void {
+function start(client: { socket: WebSocket }, payload: Record<string, unknown> = {}): void {
   client.socket.send(JSON.stringify({
     type: "start_simulation",
     code: "void setup() {} void loop() {}",
+    ...payload,
   }));
 }
 
@@ -194,6 +195,24 @@ describe("simulation admission through /ws", () => {
     await waitFor(() => harness.admission.getStats().active === 2, "two admissions");
 
     expect(harness.pool.acquireRunner).toHaveBeenCalledTimes(2);
+  });
+
+  it("forwards the logical entryFile to the simulation runner", async () => {
+    const harness = await createHarness();
+    const client = await harness.connect();
+
+    start(client, {
+      entryFile: "src/main.ino",
+      headers: [{ name: "shared/pins.h", content: "pinMode(5, OUTPUT);" }],
+    });
+    await waitFor(() => harness.pool.acquireRunner.mock.results.length === 1, "runner acquisition");
+    await waitFor(() => harness.runners?.length === 1, "runner setup");
+
+    const runner = harness.runners[0];
+    expect(runner.runSketch).toHaveBeenCalledWith(expect.objectContaining({
+      entryFile: "src/main.ino",
+      headers: [{ name: "shared/pins.h", content: "pinMode(5, OUTPUT);" }],
+    }));
   });
 
   it("does not collapse direct local/test WebSocket clients into one identity", async () => {

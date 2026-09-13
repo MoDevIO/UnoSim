@@ -156,6 +156,42 @@ describe("useCompileAndRun characterization", () => {
         name: "drivers/header.h",
         content: "pinMode(4, OUTPUT);\ndigitalWrite(4, HIGH);",
       }],
+      entryFile: "sketch.ino",
+    };
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", expectedPayload);
+      expect(params.sendMessageImmediate).toHaveBeenCalledWith({
+        type: "start_simulation",
+        timeout: 60,
+        ...expectedPayload,
+      });
+    });
+  });
+
+  it("transports the logical entry path for nested projects to HTTP and WebSocket", async () => {
+    (apiRequest as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockJsonCompileResponse({ success: true, output: "Compiled successfully", parserMessages: [] }),
+    );
+    const params = buildParams();
+    params.sourceProject = {
+      entryFile: "src/main.ino",
+      files: {
+        "src/main.ino": '#include "../shared/pins.h"\n#include "../drivers/led.h"\nvoid setup() {}\nvoid loop() {}',
+        "shared/pins.h": "pinMode(5, OUTPUT);",
+        "drivers/led.h": "digitalWrite(5, HIGH);",
+      },
+    };
+
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper: createWrapper() });
+    await act(async () => { result.current.handleCompileAndStart(); });
+
+    const expectedPayload = {
+      code: '#include "../shared/pins.h"\n#include "../drivers/led.h"\nvoid setup() {}\nvoid loop() {}',
+      headers: [
+        { name: "shared/pins.h", content: "pinMode(5, OUTPUT);" },
+        { name: "drivers/led.h", content: "digitalWrite(5, HIGH);" },
+      ],
+      entryFile: "src/main.ino",
     };
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", expectedPayload);
@@ -197,6 +233,7 @@ describe("useCompileAndRun characterization", () => {
       expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", {
         code: MAIN_SKETCH,
         headers: [{ name: "drivers/header.h", content: "pinMode(4, OUTPUT);" }],
+        entryFile: "sketch.ino",
       });
     });
   });

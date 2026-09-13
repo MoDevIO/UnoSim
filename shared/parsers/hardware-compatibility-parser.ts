@@ -14,6 +14,13 @@ const DIGITAL_OPERATIONS = new Set<StaticIOOperation>([
 ]);
 const LITERAL_PIN_EXPRESSION = /^(?:\d+|A\d+)$/;
 
+function sourceLocation(call: StaticIOCall | UnresolvedStaticIOCall): Pick<ParserMessage, "file" | "line"> {
+  return {
+    line: call.line,
+    ...(call.file ? { file: call.file } : {}),
+  };
+}
+
 function pinLabel(pinId: number): string {
   return pinId >= 14 ? `A${pinId - 14}` : String(pinId);
 }
@@ -52,7 +59,7 @@ function createLiteralMissingPinModeMessage(call: StaticIOCall): ParserMessage {
     severity: 2,
     message: `Pin ${pin} used with digitalRead/digitalWrite but pinMode() was not called for this pin.`,
     suggestion: `pinMode(${pin}, INPUT);`,
-    line: call.line,
+    ...sourceLocation(call),
   };
 }
 
@@ -67,7 +74,7 @@ function createVariableMissingPinModeMessage(
     severity: 2,
     message: `Variable '${variable}' used in digitalRead/digitalWrite but no pinMode() call found for this variable.`,
     suggestion: `pinMode(${variable}, INPUT);`,
-    line: call.line,
+    ...sourceLocation(call),
   };
 }
 
@@ -94,7 +101,7 @@ export class HardwareCompatibilityParser {
         severity: 2 as const,
         message: `analogWrite(${call.sourceExpression}, ...) used on pin ${call.pinId}, which doesn't support PWM on Arduino UNO. PWM pins: 3, 5, 6, 9, 10, 11.`,
         suggestion: "// Use PWM pin instead: analogWrite(3, value);",
-        line: call.line,
+        ...sourceLocation(call),
       }));
   }
 
@@ -111,7 +118,7 @@ export class HardwareCompatibilityParser {
         firstExpression && LITERAL_PIN_EXPRESSION.test(firstExpression)
           ? firstExpression
           : pinLabel(pinId);
-      const line = pinModeCalls[1]?.line;
+      const conflictCall = pinModeCalls[1];
 
       if (uniqueModes.length > 1) {
         messages.push({
@@ -121,7 +128,7 @@ export class HardwareCompatibilityParser {
           severity: 2,
           message: `Pin ${pin} has multiple pinMode() calls with different modes: ${uniqueModes.join(", ")}.`,
           suggestion: `Use a single pinMode(${pin}, <MODE>) call in setup().`,
-          line,
+          ...(conflictCall ? sourceLocation(conflictCall) : {}),
         });
       } else {
         messages.push({
@@ -131,7 +138,7 @@ export class HardwareCompatibilityParser {
           severity: 2,
           message: `Pin ${pin} has pinMode() called multiple times (${pinModeCalls.length}x).`,
           suggestion: `Remove duplicate pinMode(${pin}, ${uniqueModes[0]}) calls.`,
-          line,
+          ...(conflictCall ? sourceLocation(conflictCall) : {}),
         });
       }
     }
@@ -193,7 +200,7 @@ export class HardwareCompatibilityParser {
         severity: 2,
         message: `Pin ${pin} is configured as OUTPUT but read with digitalRead(). Reading an OUTPUT pin may return unexpected values.`,
         suggestion: `If you need to read the pin, use pinMode(${pin}, INPUT) or INPUT_PULLUP instead.`,
-        line: readCall.line,
+        ...sourceLocation(readCall),
       });
     }
     return messages;

@@ -14,7 +14,40 @@ async function buildSketch(code: string): Promise<string> {
   return readFile(sketchFile, "utf8");
 }
 
+async function buildProjectSketch(
+  code: string,
+  entryFile: string,
+  headers: Array<{ name: string; content: string }>,
+): Promise<string> {
+  const tmpDir = await mkdtemp(join(tmpdir(), "sfb-project-test-"));
+  const builder = new SketchFileBuilder(tmpDir);
+  const { sketchFile } = await builder.build(code, "test-project", headers, entryFile);
+  return readFile(sketchFile, "utf8");
+}
+
 describe("SketchFileBuilder", () => {
+
+  it("resolves nested logical entry includes before writing the physical sketch", async () => {
+    const content = await buildProjectSketch(
+      '#include "../shared/pins.h"\nvoid setup() {}\nvoid loop() {}',
+      "src/main.ino",
+      [{ name: "shared/pins.h", content: "pinMode(5, OUTPUT);" }],
+    );
+
+    expect(content).toContain("pinMode(5, OUTPUT);");
+    expect(content).not.toContain('#include "../shared/pins.h"');
+  });
+
+  it("resolves parent-relative includes from deeper entry paths", async () => {
+    const content = await buildProjectSketch(
+      '#include "../../shared/pins.h"\nvoid setup() {}\nvoid loop() {}',
+      "src/app/main.ino",
+      [{ name: "shared/pins.h", content: "digitalWrite(5, HIGH);" }],
+    );
+
+    expect(content).toContain("digitalWrite(5, HIGH);");
+    expect(content).not.toContain('#include "../../shared/pins.h"');
+  });
 
   it("exposes pure prototype extraction for simple declarations", () => {
     expect(extractForwardDeclarations("// int fake() {}\nint real() { return 1; }")).toBe(

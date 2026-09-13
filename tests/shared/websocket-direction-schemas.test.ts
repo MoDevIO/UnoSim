@@ -36,6 +36,25 @@ describe("WebSocket direction schemas", () => {
     expect(
       clientToServerWSMessageSchema.safeParse({
         type: "start_simulation",
+        entryFile: "src/main.ino",
+      }).success,
+    ).toBe(true);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "start_simulation",
+        entryFile: "../main.ino",
+      }).success,
+    ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "start_simulation",
+        entryFile: "src/main.ino",
+        headers: [{ name: "./src/main.ino", content: "" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      clientToServerWSMessageSchema.safeParse({
+        type: "start_simulation",
         timeout: 0,
       }).success,
     ).toBe(false);

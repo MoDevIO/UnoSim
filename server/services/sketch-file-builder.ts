@@ -5,13 +5,14 @@
  * with the Arduino mock implementation and generating appropriate main() wrappers.
  */
 
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { ARDUINO_MOCK_CODE } from "./arduino-mock";
 import { Logger } from "@shared/logger";
 import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 import { isSafeHeaderName } from "@shared/input-limits";
 import { resolvePathWithinRoot } from "../security/safe-paths";
+import { normalizeSourcePath, resolveSourceProject } from "@shared/source-project";
 
 interface SketchBuildResult {
   sketchDir: string;
@@ -47,7 +48,12 @@ export class SketchFileBuilder {
    * @param sketchId - Unique identifier for this sketch
    * @returns Paths to sketch directory and files
    */
-  async build(code: string, sketchId: string, headers: Array<{ name: string; content: string }> = []): Promise<SketchBuildResult> {
+  async build(
+    code: string,
+    sketchId: string,
+    headers: Array<{ name: string; content: string }> = [],
+    entryFile?: string,
+  ): Promise<SketchBuildResult> {
     const sketchDir = join(this.tempDir, sketchId);
     const sketchFile = join(sketchDir, "sketch.cpp");
     const exeFile = join(sketchDir, "sketch");
@@ -70,7 +76,19 @@ export class SketchFileBuilder {
     }
 
     const footer = this.buildFooter(hasSetup, hasLoop);
-    const cleanedCode = code.replaceAll(/#include\s*[<"]Arduino\.h[>"]/g, "");
+    const projectSource = entryFile
+      ? resolveSourceProject({
+        entryFile,
+        files: {
+          [entryFile]: code,
+          ...headers.reduce<Record<string, string>>((files, header) => {
+            files[header.name] = header.content;
+            return files;
+          }, {}),
+        },
+      }).source
+      : code;
+    const cleanedCode = projectSource.replaceAll(/#include\s*[<"]Arduino\.h[>"]/g, "");
 
     const forwardDecls = this.extractForwardDeclarations(cleanedCode);
     const forwardSection = forwardDecls
@@ -83,8 +101,13 @@ export class SketchFileBuilder {
     await writeFile(sketchFile, combined);
 
     for (const header of headers) {
-      if (!isSafeHeaderName(header.name)) throw new Error(`Unsafe header name: ${header.name}`);
-      await writeFile(resolvePathWithinRoot(sketchDir, header.name), header.content);
+      const normalizedPath = normalizeSourcePath(header.name);
+      if (!normalizedPath || !normalizedPath.split("/").every(isSafeHeaderName)) {
+        throw new Error(`Unsafe header name: ${header.name}`);
+      }
+      const headerPath = resolvePathWithinRoot(sketchDir, normalizedPath);
+      await mkdir(dirname(headerPath), { recursive: true });
+      await writeFile(headerPath, header.content);
     }
 
     return { sketchDir, sketchFile, exeFile };

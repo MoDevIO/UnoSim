@@ -22,10 +22,15 @@ export function normalizeLibraries(libraries?: string[]): string[] {
 /**
  * Compute a SHA-256 hash of code + FQBN for sketch identity.
  */
-export function buildSketchHash(task: { code: string }, fqbn: string): string {
+export function buildSketchHash(
+  task: { code: string; headers?: Array<{ name: string; content: string }>; entryFile?: string },
+  fqbn: string,
+): string {
   const payload = JSON.stringify({
     code: task.code,
     fqbn,
+    entryFile: task.entryFile || "sketch.ino",
+    headers: task.headers || [],
   });
   return createHash("sha256").update(payload).digest("hex");
 }

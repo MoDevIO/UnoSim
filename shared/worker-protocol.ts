@@ -30,6 +30,7 @@ export type WorkerCommand = (typeof WorkerCommand)[keyof typeof WorkerCommand];
 export interface CompileRequestPayload {
   code: string;
   headers?: Array<{ name: string; content: string }>;
+  entryFile?: string;
   tempRoot?: string;
   fqbn?: string;
   libraries?: string[];
@@ -181,5 +182,4 @@ export function createWorkerError(err: unknown): WorkerError {
   // err is a primitive (string, number, boolean, null, undefined) — String() is safe
   return { message: String(err as string | number | boolean | null | undefined) };
 }
-
 

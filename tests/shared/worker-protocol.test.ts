@@ -71,12 +71,17 @@ describe("worker-protocol", () => {
   describe("factory functions", () => {
     it("createCompileRequest builds correct message", () => {
       const msg = createCompileRequest(
-        { code: "void setup(){}", headers: [{ name: "test.h", content: "#define X" }] },
+        {
+          code: "void setup(){}",
+          headers: [{ name: "test.h", content: "#define X" }],
+          entryFile: "src/main.ino",
+        },
         "task-123",
       );
       expect(msg.type).toBe(WorkerCommand.COMPILE);
       expect(msg.payload.code).toBe("void setup(){}");
       expect(msg.payload.headers).toHaveLength(1);
+      expect(msg.payload.entryFile).toBe("src/main.ino");
       expect(msg.taskId).toBe("task-123");
     });
 

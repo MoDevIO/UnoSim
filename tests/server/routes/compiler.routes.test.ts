@@ -173,6 +173,18 @@ describe("compiler.routes - /api/compile", () => {
     expect(deps.compiler.compile).not.toHaveBeenCalled();
   });
 
+  it("rejects a nested header path exceeding the header-name limit", async () => {
+    const oversizedPath = `${"a/".repeat(64)}header.h`;
+    const res = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      headers: [{ name: oversizedPath, content: "" }],
+    });
+
+    expect(oversizedPath.length).toBeGreaterThan(128);
+    expect(res.status).toBe(400);
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
+  });
+
   it("rejects unsafe and duplicate header names before compilation", async () => {
     const traversal = await post(baseUrl, "/api/compile", {
       code: "void setup(){}",
@@ -202,6 +214,45 @@ describe("compiler.routes - /api/compile", () => {
       { fqbn: undefined, libraries: undefined },
     );
     expect(deps.setLastCompiledCode).toHaveBeenCalledWith("void setup(){}");
+  });
+
+  it("forwards an explicit logical entryFile and nested header paths", async () => {
+    const headers = [{ name: "shared/pins.h", content: "pinMode(5, OUTPUT);" }];
+    const res = await post(baseUrl, "/api/compile", {
+      code: '#include "../shared/pins.h"\nvoid setup(){}',
+      headers,
+      entryFile: "src/main.ino",
+    });
+
+    expect(res.status).toBe(200);
+    expect(deps.compiler.compile).toHaveBeenCalledWith(
+      '#include "../shared/pins.h"\nvoid setup(){}',
+      headers,
+      undefined,
+      { fqbn: undefined, libraries: undefined, entryFile: "src/main.ino" },
+    );
+  });
+
+  it("rejects an unsafe explicit entryFile without invoking the compiler", async () => {
+    for (const entryFile of ["/absolute/main.ino", "../main.ino", "src/../../main.ino", String.raw`src\main.ino`, "main\0.ino", ""]) {
+      const res = await post(baseUrl, "/api/compile", {
+        code: "void setup(){}",
+        entryFile,
+      });
+      expect(res.status).toBe(400);
+    }
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
+  });
+
+  it("rejects a header path that collides with the explicit entryFile", async () => {
+    const res = await post(baseUrl, "/api/compile", {
+      code: "void setup(){}",
+      entryFile: "src/main.ino",
+      headers: [{ name: "./src/main.ino", content: "void loop(){}" }],
+    });
+
+    expect(res.status).toBe(400);
+    expect(deps.compiler.compile).not.toHaveBeenCalled();
   });
 
   it("returns structured 429 and Retry-After for the compile limit", async () => {

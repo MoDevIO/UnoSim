@@ -1,6 +1,8 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { Logger } from "@shared/logger";
 import { resolvePathWithinRoot } from "../../security/safe-paths";
+import { resolveSourceProject } from "@shared/source-project";
 
 const logger = new Logger("HeaderProcessor");
 
@@ -27,7 +29,34 @@ export async function processHeaderIncludes(
   code: string,
   headers?: HeaderInclude[],
   sketchDir?: string,
+  entryFile?: string,
 ): Promise<HeaderProcessingResult> {
+  if (entryFile) {
+    const resolved = resolveSourceProject({
+      entryFile,
+      files: {
+        [entryFile]: code,
+        ...(headers ?? []).reduce<Record<string, string>>((files, header) => {
+          files[header.name] = header.content;
+          return files;
+        }, {}),
+      },
+    });
+    if (sketchDir && headers) {
+      for (const header of headers) {
+        const headerPath = resolvePathWithinRoot(sketchDir, header.name);
+        await mkdir(dirname(headerPath), { recursive: true });
+        await writeFile(headerPath, header.content);
+      }
+    }
+    const sourceLines = resolved.source.split("\n").length;
+    const codeLines = code.split("\n").length;
+    return {
+      processedCode: resolved.source,
+      lineOffset: Math.max(0, sourceLines - codeLines),
+    };
+  }
+
   let processedCode = code;
   let lineOffset = 0;
 
@@ -81,6 +110,7 @@ export async function processHeaderIncludes(
     for (const header of headers) {
       const headerPath = resolvePathWithinRoot(sketchDir, header.name);
       logger.debug(`Writing header: ${headerPath}`);
+      await mkdir(dirname(headerPath), { recursive: true });
       await writeFile(headerPath, header.content);
     }
   }
