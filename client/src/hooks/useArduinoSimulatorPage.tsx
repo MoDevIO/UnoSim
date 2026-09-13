@@ -28,6 +28,7 @@ import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
 import { useSimulatorExternalControl } from "@/hooks/useSimulatorExternalControl";
 import { parseStaticIORegistryProject } from "@shared/io-registry-parser";
 import { buildSourceProject } from "@/lib/source-project";
+import { findTabForSourceLocation } from "@/lib/source-navigation";
 
 import type {
   Sketch,
@@ -37,6 +38,9 @@ import type {
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import type { OutputTab } from "@/types/compilation.types";
+import type { SourceNavigationTarget } from "@/types/source-navigation";
+import { isSourceLocation } from "@/types/source-navigation";
+import type { SourceLocation } from "@shared/source-project";
 import { isMac } from "@/lib/platform";
 import {
   DIGITAL_PIN_COUNT,
@@ -46,6 +50,7 @@ import {
 export function useArduinoSimulatorPage() {
   const editorRef = useRef<{
     getValue: () => string;
+    goToLine?: (line: number) => void;
     insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
   } | null>(null);
 
@@ -400,6 +405,44 @@ export function useArduinoSimulatorPage() {
     onLoadExample,
   });
 
+  const pendingSourceNavigation = useRef<{
+    tabId: string;
+    location: SourceLocation;
+  } | null>(null);
+
+  const navigateToSourceLocation = useCallback(
+    (target: SourceNavigationTarget) => {
+      const line = isSourceLocation(target) ? target.line : target;
+      if (line <= 0) return;
+      if (!isSourceLocation(target)) {
+        editorRef.current?.goToLine?.(line);
+        return;
+      }
+
+      const targetTab = findTabForSourceLocation(tabs, target);
+      if (!targetTab) return;
+      if (targetTab.id === activeTabId) {
+        editorRef.current?.goToLine?.(line);
+        return;
+      }
+
+      pendingSourceNavigation.current = { tabId: targetTab.id, location: target };
+      handleTabClick(targetTab.id);
+    },
+    [activeTabId, handleTabClick, tabs],
+  );
+
+  // Tab activation updates the editor value in the child editor effect. Once
+  // the selected tab's content is visible, apply the pending source location.
+  useEffect(() => {
+    const pending = pendingSourceNavigation.current;
+    if (!pending || pending.tabId !== activeTabId) return;
+    const editor = editorRef.current;
+    if (!editor || editor.getValue() !== code) return;
+    editor.goToLine?.(pending.location.line);
+    pendingSourceNavigation.current = null;
+  }, [activeTabId, code]);
+
   // Fetch default sketch (must come before effects which use it)
   const { data: sketches } = useQuery<Sketch[]>({
     queryKey: ["/api/sketches"],
@@ -593,6 +636,7 @@ export function useArduinoSimulatorPage() {
     handleClearCompilationOutput,
     handleInsertSuggestion,
     onPanelClose: closeMobilePanel,
+    onNavigateToSource: navigateToSourceLocation,
     renderedSerialOutput,
     serialOutput,
     isConnected,

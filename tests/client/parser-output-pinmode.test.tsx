@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { ParserOutput } from "@/components/features/parser-output";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
+import type { SourceLocation } from "@shared/source-project";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 
@@ -298,6 +299,146 @@ describe("ParserOutput Component", () => {
     await user.click(messageElement);
 
     expect(mockOnGoToLine).toHaveBeenCalledWith(10);
+  });
+
+  it("displays and navigates file-aware parser locations", async () => {
+    const user = userEvent.setup();
+    const location: SourceLocation = { file: "drivers/led.h", line: 7 };
+    const entryLocation: SourceLocation = { file: "main.ino", line: 12 };
+    const messages: ParserMessage[] = [
+      {
+        id: "entry-location",
+        type: "info",
+        severity: 1,
+        message: "Entry info",
+        category: "pins",
+        file: entryLocation.file,
+        line: entryLocation.line,
+      },
+      {
+        id: "file-location",
+        type: "warning",
+        severity: 2,
+        message: "Header warning",
+        category: "pins",
+        file: location.file,
+        line: location.line,
+      },
+    ];
+
+    render(
+      <ParserOutput
+        messages={messages}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+      />,
+    );
+
+    expect(screen.getByText("main.ino:12")).not.toBeNull();
+    expect(screen.getByText("drivers/led.h:7")).not.toBeNull();
+    await user.click(screen.getByText("drivers/led.h:7"));
+    expect(mockOnGoToLine).toHaveBeenCalledWith(location);
+  });
+
+  it("keeps runtime line zero visible without navigating", async () => {
+    const user = userEvent.setup();
+    const messages: ParserMessage[] = [
+      { id: "runtime", type: "info", severity: 1, message: "Runtime event", category: "pins", line: 0 },
+    ];
+    render(
+      <ParserOutput
+        messages={messages}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+      />,
+    );
+    expect(screen.getByText("Line 0")).not.toBeNull();
+    const button = screen.getByText("Runtime event").closest("button");
+    if (!button) throw new Error("button not found");
+    expect(button.tabIndex).toBe(-1);
+    await user.click(button);
+    expect(mockOnGoToLine).not.toHaveBeenCalled();
+  });
+
+  it("keeps runtime registry entries non-navigable", async () => {
+    const user = userEvent.setup();
+    render(
+      <ParserOutput
+        messages={[]}
+        ioRegistry={[{
+          pin: "4",
+          defined: false,
+          digitalWriteLines: ["runtime"],
+          usedAt: [{ line: 0, operation: "digitalWrite" }],
+        }]}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+        defaultTab="registry"
+      />,
+    );
+    await user.click(screen.getByTestId("io-registry-detail-toggle"));
+    expect(screen.getByText("runtime")).not.toBeNull();
+    expect(mockOnGoToLine).not.toHaveBeenCalled();
+  });
+
+  it("renders project-aware registry operation locations and navigates them", async () => {
+    const user = userEvent.setup();
+    const location: SourceLocation = { file: "drivers/led.h", line: 7 };
+    const registry: IOPinRecord[] = [
+      {
+        pin: "5",
+        defined: true,
+        pinMode: 1,
+        pinModeModes: ["OUTPUT"],
+        pinModeLines: [7],
+        pinModeLocations: [location],
+        usedAt: [],
+      },
+    ];
+
+    render(
+      <ParserOutput
+        messages={[]}
+        ioRegistry={registry}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+        defaultTab="registry"
+      />,
+    );
+
+    await user.click(screen.getByTestId("io-registry-detail-toggle"));
+    const locationButton = screen.getByText("drivers/led.h:7");
+    expect(locationButton).not.toBeNull();
+    await user.click(locationButton);
+    expect(mockOnGoToLine).toHaveBeenCalledWith(location);
+  });
+
+  it("keeps multiple operation locations in supplied order", async () => {
+    const user = userEvent.setup();
+    const locations: SourceLocation[] = [
+      { file: "main.ino", line: 12 },
+      { file: "drivers/led.h", line: 7 },
+    ];
+    render(
+      <ParserOutput
+        messages={[]}
+        ioRegistry={[{
+          pin: "5",
+          defined: false,
+          digitalWriteLines: [12, 7],
+          digitalWriteLocations: locations,
+          usedAt: [],
+        }]}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+        defaultTab="registry"
+      />,
+    );
+    await user.click(screen.getByTestId("io-registry-detail-toggle"));
+    expect(screen.getByText("main.ino:12")).not.toBeNull();
+    expect(screen.getByText("drivers/led.h:7")).not.toBeNull();
+    await user.click(screen.getByText("drivers/led.h:7"));
+    expect(mockOnGoToLine).toHaveBeenCalledWith(locations[1]);
   });
 
   it("displays suggestion with insert button", async () => {

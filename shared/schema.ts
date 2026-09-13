@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { PinMode } from "./types/arduino.types";
 import { INPUT_LIMITS, isSafeHeaderName } from "./input-limits";
 import { normalizeSourcePath } from "./source-project";
+import type { SourceLocation } from "./source-project";
 
 // Sketch types (non-DB, for MemStorage)
 export interface Sketch {
@@ -364,6 +365,12 @@ export interface IOPinRecord {
   digitalWriteLines?: Array<number | "runtime">;
   analogReadLines?: Array<number | "runtime">;
   analogWriteLines?: Array<number | "runtime">;
+  /** Project-aware static locations, retained alongside legacy line arrays. */
+  pinModeLocations?: SourceLocation[];
+  digitalReadLocations?: SourceLocation[];
+  digitalWriteLocations?: SourceLocation[];
+  analogReadLocations?: SourceLocation[];
+  analogWriteLocations?: SourceLocation[];
   // ── Conflict / warning flags (TC 9: write-on-input, TC 11: multi-mode) ───
   conflict?: boolean;
   conflictMessage?: string;

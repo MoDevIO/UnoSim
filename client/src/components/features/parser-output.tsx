@@ -14,6 +14,12 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import * as React from "react";
 import type { SeverityLevel } from "@shared/reserved-names-validator";
+import type { SourceLocation } from "@shared/source-project";
+import {
+  formatSourceNavigationTarget,
+  isNavigableSourceTarget,
+  type SourceNavigationTarget,
+} from "@/types/source-navigation";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { TabBar } from "@/components/ui/tab-bar";
 
@@ -84,15 +90,23 @@ function getPwmTilde(pin: string): JSX.Element | null {
 
 // Module-level pure pin-operation helpers (fix S6481 — no useCallback needed)
 function hasPinModeInfo(record: IOPinRecord): boolean {
-  return record.defined || (record.pinModeLines?.length ?? 0) > 0;
+  return record.defined ||
+    (record.pinModeLines?.length ?? 0) > 0 ||
+    (record.pinModeLocations?.length ?? 0) > 0;
 }
 
 function hasReadOperations(record: IOPinRecord): boolean {
-  return (record.digitalReadLines?.length ?? 0) > 0 || (record.analogReadLines?.length ?? 0) > 0;
+  return (record.digitalReadLines?.length ?? 0) > 0 ||
+    (record.digitalReadLocations?.length ?? 0) > 0 ||
+    (record.analogReadLines?.length ?? 0) > 0 ||
+    (record.analogReadLocations?.length ?? 0) > 0;
 }
 
 function hasWriteOperations(record: IOPinRecord): boolean {
-  return (record.digitalWriteLines?.length ?? 0) > 0 || (record.analogWriteLines?.length ?? 0) > 0;
+  return (record.digitalWriteLines?.length ?? 0) > 0 ||
+    (record.digitalWriteLocations?.length ?? 0) > 0 ||
+    (record.analogWriteLines?.length ?? 0) > 0 ||
+    (record.analogWriteLocations?.length ?? 0) > 0;
 }
 
 function isPinProgrammed(record: IOPinRecord): boolean {
@@ -102,6 +116,39 @@ function isPinProgrammed(record: IOPinRecord): boolean {
     hasWriteOperations(record) ||
     (record.usedAt?.length ?? 0) > 0
   );
+}
+
+function getLocationButton(
+  target: SourceNavigationTarget,
+  onGoToLine?: (target: SourceNavigationTarget) => void,
+): JSX.Element {
+  const label = formatSourceNavigationTarget(target);
+  const navigable = isNavigableSourceTarget(target);
+  if (!navigable || !onGoToLine) {
+    return (
+      <span className={target === 0 ? "text-yellow-400 italic" : "text-blue-400"}>
+        {target === 0 ? "runtime" : label}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="text-blue-400 underline decoration-dotted underline-offset-2 hover:text-foreground"
+      aria-label={`Go to ${label}`}
+      onClick={() => onGoToLine(target)}
+    >
+      {label}
+    </button>
+  );
+}
+
+function getMessageNavigationTarget(
+  message: ParserMessage,
+): SourceNavigationTarget | undefined {
+  if (message.line === undefined) return undefined;
+  if (!message.file) return message.line;
+  return { file: message.file, line: message.line, column: message.column };
 }
 
 // Helper to convert pin mode number to label
@@ -140,6 +187,7 @@ function renderPinModeCell(
   hasConflict: boolean,
   showDetail: boolean,
   ops: Array<{ operation: string }>,
+  onGoToLine?: (target: SourceNavigationTarget) => void,
 ): JSX.Element {
   if (pmModes.length > 0) {
     return (
@@ -151,6 +199,11 @@ function renderPinModeCell(
                 (_, li) => record.pinModeModes?.[li] === mode,
               )
             : undefined;
+          const modeLocations = showDetail
+            ? (record.pinModeLocations ?? []).filter((_, index) =>
+                record.pinModeModes ? record.pinModeModes[index] === mode : true,
+              )
+            : [];
           return (
             <div key={`mode-${mode}-${record.pin}`} className="flex flex-col items-center">
               <div className="flex items-center justify-center gap-1">
@@ -159,11 +212,19 @@ function renderPinModeCell(
                   <span className="text-red-400 font-bold" title={record.conflictMessage}>!</span>
                 )}
               </div>
-              {modeLines && modeLines.length > 0 && (
+              {modeLocations.length > 0 ? (
+                <div className="text-ui-xs space-x-1">
+                  {modeLocations.map((location, locationIndex) => (
+                    <span key={`${location.file}:${location.line}:${locationIndex}`}>
+                      {getLocationButton(location, onGoToLine)}
+                    </span>
+                  ))}
+                </div>
+              ) : modeLines && modeLines.length > 0 ? (
                 <div className="text-ui-xs text-blue-400">
                   {modeLines.map((l) => (l === "runtime" ? "runtime" : `L${l}`)).join(", ")}
                 </div>
-              )}
+              ) : null}
             </div>
           );
         })}
@@ -199,7 +260,7 @@ interface ParserOutputProps {
   readonly messages: ParserMessage[];
   readonly ioRegistry?: IOPinRecord[];
   readonly onClear: () => void;
-  readonly onGoToLine?: (line: number) => void;
+  readonly onGoToLine?: (target: SourceNavigationTarget) => void;
   readonly onInsertSuggestion?: (suggestion: string, line?: number) => void;
   readonly hideHeader?: boolean;
   readonly defaultTab?: "messages" | "registry";
@@ -373,7 +434,9 @@ export function ParserOutput({
                     </div>
 
                     {/* Category Messages */}
-                    {categoryMessages.map((message) => (
+                    {categoryMessages.map((message) => {
+                      const target = getMessageNavigationTarget(message);
+                      return (
                       <div
                         key={message.id}
                         className="bg-muted/50 rounded border-l-2 transition-colors"
@@ -384,15 +447,14 @@ export function ParserOutput({
                         <button
                           type="button"
                           className="parser-message-btn w-full text-left p-2 cursor-pointer hover:bg-muted/70 block"
-                          tabIndex={message.line === undefined ? -1 : 0}
-                          onClick={() =>
-                            message.line !== undefined &&
-                            onGoToLine?.(message.line)
-                          }
+                          tabIndex={isNavigableSourceTarget(target) ? 0 : -1}
+                          onClick={() => {
+                            if (isNavigableSourceTarget(target)) onGoToLine?.(target);
+                          }}
                           onKeyDown={(e) => {
-                            if ((e.key === "Enter" || e.key === " ") && message.line !== undefined) {
+                            if ((e.key === "Enter" || e.key === " ") && isNavigableSourceTarget(target)) {
                               e.preventDefault();
-                              onGoToLine?.(message.line);
+                              onGoToLine?.(target);
                             }
                           }}
                         >
@@ -404,7 +466,7 @@ export function ParserOutput({
                               </div>
                               <div className="text-muted-foreground text-ui-xs space-x-2">
                                 {message.line !== undefined && (
-                                  <span>Line {message.line}</span>
+                                  <span>{message.file ? `${message.file}:${message.line}` : `Line ${message.line}`}</span>
                                 )}
                                 {message.column !== undefined &&
                                   message.column > 0 && (
@@ -442,7 +504,8 @@ export function ParserOutput({
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ),
               )}
@@ -581,9 +644,10 @@ export function ParserOutput({
                       // legacyOps = from runtime usedAt (line may be 0)
                       const renderOpCell = (
                         newLines: Array<number | "runtime"> | undefined,
+                        newLocations: SourceLocation[] | undefined,
                         legacyOps: typeof ops,
                       ) => {
-                        const hasNew = (newLines?.length ?? 0) > 0;
+                        const hasNew = (newLines?.length ?? 0) > 0 || (newLocations?.length ?? 0) > 0;
                         const hasLegacy = legacyOps.length > 0;
                         const isUsed = hasNew || hasLegacy;
 
@@ -601,6 +665,9 @@ export function ParserOutput({
                           );
 
                         // Extended mode: line numbers
+                        const locations = newLocations && newLocations.length > 0
+                          ? newLocations
+                          : undefined;
                         const lines: Array<number | "runtime"> = hasNew
                           ? newLines!
                           : legacyOps.map((u) =>
@@ -610,39 +677,45 @@ export function ParserOutput({
                             );
                         return (
                           <div className="space-y-0.5 text-center">
-                            {lines.map((line) => (
-                              <div key={`line-${line}`} className="text-ui-xs">
-                                {line === "runtime" ? (
-                                  <span className="text-yellow-400 italic">
-                                    runtime
-                                  </span>
-                                ) : (
-                                  <span className="text-blue-400">
-                                    L{line}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
+                            {locations
+                              ? locations.map((location, locationIndex) => (
+                                  <div key={`${location.file}:${location.line}:${locationIndex}`} className="text-ui-xs">
+                                    {getLocationButton(location, onGoToLine)}
+                                  </div>
+                                ))
+                              : lines.map((line) => (
+                                  <div key={`line-${line}`} className="text-ui-xs">
+                                    {line === "runtime" ? (
+                                      <span className="text-yellow-400 italic">runtime</span>
+                                    ) : (
+                                      <span className="text-blue-400">L{line}</span>
+                                    )}
+                                  </div>
+                                ))}
                           </div>
                         );
                       };
 
                       const drCell = renderOpCell(
                         record.digitalReadLines,
+                        record.digitalReadLocations,
                         ops.filter((u) => u.operation.includes("digitalRead")),
                       );
                       const dwCell = renderOpCell(
                         record.digitalWriteLines,
+                        record.digitalWriteLocations,
                         ops.filter((u) =>
                           u.operation.includes("digitalWrite"),
                         ),
                       );
                       const arCell = renderOpCell(
                         record.analogReadLines,
+                        record.analogReadLocations,
                         ops.filter((u) => u.operation.includes("analogRead")),
                       );
                       const awCell = renderOpCell(
                         record.analogWriteLines,
+                        record.analogWriteLocations,
                         ops.filter((u) =>
                           u.operation.includes("analogWrite"),
                         ),
@@ -678,6 +751,7 @@ export function ParserOutput({
                               hasConflict,
                               detailView,
                               ops,
+                              onGoToLine,
                             )}
                           </td>
 

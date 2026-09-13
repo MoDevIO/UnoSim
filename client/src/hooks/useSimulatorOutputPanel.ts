@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useOutputPanel } from "@/hooks/use-output-panel";
 import type { ParserMessage } from "@shared/schema";
+import type { SourceNavigationTarget } from "@/types/source-navigation";
 
 interface UseSimulatorOutputPanelProps {
   hasCompilationErrors: boolean;
@@ -13,6 +14,7 @@ interface UseSimulatorOutputPanelProps {
   setParserPanelDismissed: (dismissed: boolean) => void;
   setActiveOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") => void;
   code: string;
+  onNavigateToSource?: (target: SourceNavigationTarget) => void;
 }
 
 export function useSimulatorOutputPanel({
@@ -26,6 +28,7 @@ export function useSimulatorOutputPanel({
   setParserPanelDismissed,
   setActiveOutputTab,
   code,
+  onNavigateToSource,
 }: UseSimulatorOutputPanelProps) {
   const compilationState: "success" | "error" | null =
     lastCompilationResult === "success" || lastCompilationResult === "error"
@@ -83,10 +86,14 @@ export function useSimulatorOutputPanel({
     [setParserPanelDismissed],
   );
 
-  const handleParserGoToLine = useCallback((line: number) => {
-    // Handled by editor ref logic in parent
-    console.debug(`Go to line: ${line}`);
-  }, []);
+  const handleParserGoToLine = useCallback((target: SourceNavigationTarget) => {
+    if (onNavigateToSource) {
+      onNavigateToSource(target);
+      return;
+    }
+    // Preserve the legacy no-op behavior for callers that do not provide a navigator.
+    console.debug(`Go to line: ${typeof target === "number" ? target : `${target.file}:${target.line}`}`);
+  }, [onNavigateToSource]);
 
   const handleRegistryClear = useCallback(() => {
     // No-op for now
