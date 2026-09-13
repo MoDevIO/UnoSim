@@ -92,7 +92,8 @@ export function useSimulatorOutputPanel({
       return;
     }
     // Preserve the legacy no-op behavior for callers that do not provide a navigator.
-    console.debug(`Go to line: ${typeof target === "number" ? target : `${target.file}:${target.line}`}`);
+    const sourceLabel = typeof target === "number" ? String(target) : `${target.file}:${target.line}`;
+    console.debug(`Go to line: ${sourceLabel}`);
   }, [onNavigateToSource]);
 
   const handleRegistryClear = useCallback(() => {

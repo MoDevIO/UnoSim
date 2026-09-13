@@ -34,16 +34,18 @@ function isVisibleAnalogRead(call: StaticIOCall): boolean {
   return call.op === "analogRead" && call.loopBody !== "braceless";
 }
 
+function analyzeSource(source: string | SourceProject | null | undefined) {
+  if (typeof source === "string") return analyzeStaticIO(source);
+  if (source) return analyzeStaticIOProject(source);
+  return { pins: [], unresolvedCalls: [], symbols: {} };
+}
+
 // Hook: pure projection of the canonical static I/O analysis for board state.
 export function useSketchAnalysis(
   source: string | SourceProject | null | undefined,
 ): SketchAnalysisResult {
   return useMemo(() => {
-    const analysis = typeof source === "string"
-      ? analyzeStaticIO(source || "")
-      : source
-        ? analyzeStaticIOProject(source)
-        : { pins: [], unresolvedCalls: [], symbols: {} };
+    const analysis = analyzeSource(source);
     const analogPins = new Set<number>();
     const pinModePins = new Set<number>();
     const detectedPinModes: Record<number, PinMode> = {};

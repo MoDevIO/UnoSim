@@ -30,7 +30,7 @@ const compilerHeaderSchema = z
       (name) => {
         if (name.length > INPUT_LIMITS.compile.maxHeaderNameChars) return false;
         const normalized = normalizeSourcePath(name);
-        return normalized !== undefined && normalized.split("/").every(isSafeHeaderName);
+        return normalized?.split("/").every(isSafeHeaderName) === true;
       },
       "Header name must be a safe relative POSIX path",
     ),

@@ -254,6 +254,25 @@ describe("source project validation and include resolution", () => {
     expect(result.reachableFiles).toEqual(["main.ino", "guarded.h", "nested.h"]);
   });
 
+  it("does not accept trailing tokens on an include-guard endif", () => {
+    const result = resolveSourceProject(project({
+      "main.ino": '#include "guarded.h"',
+      "guarded.h": [
+        "#ifndef GUARDED_H",
+        "#define GUARDED_H",
+        '#include "nested.h"',
+        "#endif GUARDED_H",
+      ].join("\n"),
+      "nested.h": "digitalWrite(4, HIGH);",
+    }));
+
+    expect(result.complete).toBe(false);
+    expect(result.reachableFiles).toEqual(["main.ino", "guarded.h"]);
+    expect(result.diagnostics.map(({ code }) => code)).toContain(
+      "UNSUPPORTED_CONDITIONAL_INCLUDE",
+    );
+  });
+
   it("does not mistake a similar conditional for an include guard", () => {
     const result = resolveSourceProject(project({
       "main.ino": '#include "conditional.h"',

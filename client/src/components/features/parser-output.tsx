@@ -202,6 +202,24 @@ function renderPinModeCell(
           const modeLocations = (record.pinModeLocations ?? []).filter((_, index) =>
             record.pinModeModes ? record.pinModeModes[index] === mode : true,
           );
+          let sourceDetails: JSX.Element | null = null;
+          if (modeLocations.length > 0) {
+            sourceDetails = (
+              <div className="text-ui-xs space-x-1">
+                {modeLocations.map((location, locationIndex) => (
+                  <span key={`${location.file}:${location.line}:${locationIndex}`}>
+                    {getLocationButton(location, onGoToLine)}
+                  </span>
+                ))}
+              </div>
+            );
+          } else if (modeLines && modeLines.length > 0) {
+            sourceDetails = (
+              <div className="text-ui-xs text-blue-400">
+                {modeLines.map((l) => (l === "runtime" ? "runtime" : `L${l}`)).join(", ")}
+              </div>
+            );
+          }
           return (
             <div key={`mode-${mode}-${record.pin}`} className="flex flex-col items-center">
               <div className="flex items-center justify-center gap-1">
@@ -210,19 +228,7 @@ function renderPinModeCell(
                   <span className="text-red-400 font-bold" title={record.conflictMessage}>!</span>
                 )}
               </div>
-              {modeLocations.length > 0 ? (
-                <div className="text-ui-xs space-x-1">
-                  {modeLocations.map((location, locationIndex) => (
-                    <span key={`${location.file}:${location.line}:${locationIndex}`}>
-                      {getLocationButton(location, onGoToLine)}
-                    </span>
-                  ))}
-                </div>
-              ) : modeLines && modeLines.length > 0 ? (
-                <div className="text-ui-xs text-blue-400">
-                  {modeLines.map((l) => (l === "runtime" ? "runtime" : `L${l}`)).join(", ")}
-                </div>
-              ) : null}
+              {sourceDetails}
             </div>
           );
         })}

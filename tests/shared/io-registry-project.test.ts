@@ -98,6 +98,48 @@ describe("project-wide static I/O analysis", () => {
     ]);
   });
 
+  it("resolves static arrays in reachable headers with source provenance", () => {
+    const analysis = analyzeStaticIOProject({
+      entryFile: "main.ino",
+      files: {
+        "main.ino": '#include "pins.h"\ndigitalWrite(PINS[1], HIGH);',
+        "pins.h": [
+          "#define PIN_COUNT 2",
+          "const int LED_A = 4;",
+          "const int PINS[PIN_COUNT] = {LED_A, 5};",
+          "pinMode(PINS[0], OUTPUT);",
+        ].join("\n"),
+      },
+    });
+
+    expect(analysis.pins.find(({ pinId }) => pinId === 4)?.calls).toEqual([
+      expect.objectContaining({ op: "pinMode", file: "pins.h", line: 4 }),
+    ]);
+    expect(analysis.pins.find(({ pinId }) => pinId === 5)?.calls).toEqual([
+      expect.objectContaining({ op: "digitalWrite", file: "main.ino", line: 2 }),
+    ]);
+  });
+
+  it("does not resolve an array use before its declaration", () => {
+    const analysis = analyzeStaticIOProject({
+      entryFile: "main.ino",
+      files: {
+        "main.ino": [
+          "digitalWrite(PINS[0], HIGH);",
+          "const int PINS[] = {4};",
+          "digitalWrite(PINS[0], LOW);",
+        ].join("\n"),
+      },
+    });
+
+    expect(analysis.unresolvedCalls).toEqual([
+      expect.objectContaining({ sourceExpression: "PINS[0]", line: 1 }),
+    ]);
+    expect(analysis.pins.find(({ pinId }) => pinId === 4)?.calls).toEqual([
+      expect.objectContaining({ op: "digitalWrite", line: 3 }),
+    ]);
+  });
+
   it("does not resolve a use before a later definition", () => {
     const analysis = analyzeStaticIOProject({
       entryFile: "main.ino",

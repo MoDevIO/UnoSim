@@ -6,15 +6,13 @@
  * project-aware static analyzers.
  */
 
-export type SourcePath = string;
-
 export interface SourceProject {
-  entryFile: SourcePath;
-  files: Readonly<Record<SourcePath, string>>;
+  entryFile: string;
+  files: Readonly<Record<string, string>>;
 }
 
 export interface SourceLocation {
-  file: SourcePath;
+  file: string;
   line: number;
   column?: number;
 }
@@ -30,7 +28,7 @@ export type SourceProjectDiagnosticCode =
 export interface SourceProjectDiagnostic {
   code: SourceProjectDiagnosticCode;
   message: string;
-  file?: SourcePath;
+  file?: string;
   line?: number;
   include?: string;
 }
@@ -42,25 +40,23 @@ export interface SourceProjectValidationResult {
 }
 
 export interface ResolvedSourceProject {
-  entryFile: SourcePath;
+  entryFile: string;
   /** Include-ordered source text. */
   source: string;
   /** One origin for every generated source line. */
   lineOrigins: readonly SourceLocation[];
   /** Entry first, followed by files in DFS expansion order. */
-  reachableFiles: readonly SourcePath[];
+  reachableFiles: readonly string[];
   diagnostics: readonly SourceProjectDiagnostic[];
   complete: boolean;
 }
 
 const INCLUDE_PATTERN = /^\s*#\s*include\s*"([^"\r\n]+)"/;
-const SYSTEM_INCLUDE_PATTERN = /^\s*#\s*include\s*<[^>\r\n]+>/;
 const CONDITIONAL_PATTERN = /^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b/;
 const CONDITIONAL_START_PATTERN = /^\s*#\s*(if|ifdef|ifndef)\b/;
 const CONDITIONAL_END_PATTERN = /^\s*#\s*endif\b/;
 const GUARD_IFNDEF_PATTERN = /^\s*#\s*ifndef\s+([A-Za-z_]\w*)\s*$/;
 const GUARD_DEFINE_PATTERN = /^\s*#\s*define\s+([A-Za-z_]\w*)\s*$/;
-const GUARD_END_PATTERN = /^\s*#\s*endif(?:\s*\/\/.*)?\s*$/;
 
 function diagnostic(
   code: SourceProjectDiagnosticCode,
@@ -77,7 +73,7 @@ function diagnostic(
 }
 
 /** Normalize a relative POSIX path, returning undefined for unsafe paths. */
-export function normalizeSourcePath(value: string): SourcePath | undefined {
+export function normalizeSourcePath(value: string): string | undefined {
   if (!value || value.includes("\\") || value.includes("\0")) return undefined;
   if (value.startsWith("/") || value.startsWith("//")) return undefined;
 
@@ -96,69 +92,104 @@ export function normalizeSourcePath(value: string): SourcePath | undefined {
   return normalized.length > 0 ? normalized.join("/") : undefined;
 }
 
-function pathDirectory(path: SourcePath): string {
+function pathDirectory(path: string): string {
   const separator = path.lastIndexOf("/");
   return separator < 0 ? "" : path.slice(0, separator);
 }
 
-function resolveIncludePath(fromFile: SourcePath, include: string): SourcePath | undefined {
+function resolveIncludePath(fromFile: string, include: string): string | undefined {
   if (!include || include.includes("\\") || include.includes("\0")) return undefined;
   const base = pathDirectory(fromFile);
   return normalizeSourcePath(base ? `${base}/${include}` : include);
 }
 
-function maskCommentsPreservingLines(source: string): string {
-  let result = "";
-  let inBlockComment = false;
-  let inString: '"' | "'" | null = null;
-  let escaped = false;
+function hasOwnProperty(object: object, property: PropertyKey): boolean {
+  return Object.getOwnPropertyDescriptor(object, property) !== undefined;
+}
 
-  for (let index = 0; index < source.length; index++) {
+interface StringMaskState {
+  quote: '"' | "'" | null;
+  escaped: boolean;
+}
+
+function maskBlockCommentCharacter(
+  source: string,
+  index: number,
+): { text: string; consumed: number; closed: boolean } {
+  if (source[index] === "*" && source[index + 1] === "/") {
+    return { text: "  ", consumed: 2, closed: true };
+  }
+  return {
+    text: source[index] === "\n" ? "\n" : " ",
+    consumed: 1,
+    closed: false,
+  };
+}
+
+function maskLineComment(source: string, start: number): { text: string; nextIndex: number } {
+  let nextIndex = start;
+  let text = "";
+  while (nextIndex < source.length && source[nextIndex] !== "\n") {
+    text += " ";
+    nextIndex++;
+  }
+  return { text, nextIndex };
+}
+
+function advanceStringMask(state: StringMaskState, current: string): StringMaskState {
+  if (state.escaped) return { quote: state.quote, escaped: false };
+  if (current === "\\") return { quote: state.quote, escaped: true };
+  if (current === state.quote) return { quote: null, escaped: false };
+  return state;
+}
+
+function maskCommentsPreservingLines(source: string): string {
+  const result: string[] = [];
+  let inBlockComment = false;
+  let stringState: StringMaskState = { quote: null, escaped: false };
+  let index = 0;
+
+  while (index < source.length) {
     const current = source[index];
     const next = source[index + 1];
 
     if (inBlockComment) {
-      if (current === "*" && next === "/") {
-        result += "  ";
-        index++;
-        inBlockComment = false;
-      } else {
-        result += current === "\n" ? "\n" : " ";
-      }
+      const masked = maskBlockCommentCharacter(source, index);
+      result.push(masked.text);
+      index += masked.consumed;
+      inBlockComment = !masked.closed;
       continue;
     }
 
-    if (inString) {
-      result += current;
-      if (escaped) {
-        escaped = false;
-      } else if (current === "\\") {
-        escaped = true;
-      } else if (current === inString) {
-        inString = null;
-      }
-      continue;
-    }
-
-    if ((current === '"' || current === "'") && !inString) {
-      inString = current;
-      result += current;
-    } else if (current === "/" && next === "*") {
-      result += "  ";
+    if (stringState.quote) {
+      result.push(current);
+      stringState = advanceStringMask(stringState, current);
       index++;
+      continue;
+    }
+
+    if (current === '"' || current === "'") {
+      stringState = { quote: current, escaped: false };
+      result.push(current);
+      index++;
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      result.push("  ");
+      index += 2;
       inBlockComment = true;
-    } else if (current === "/" && next === "/") {
-      result += "  ";
-      index++;
-      while (index + 1 < source.length && source[index + 1] !== "\n") {
-        index++;
-        result += " ";
-      }
-    } else {
-      result += current;
+      continue;
     }
+    if (current === "/" && next === "/") {
+      const masked = maskLineComment(source, index);
+      result.push(masked.text);
+      index = masked.nextIndex;
+      continue;
+    }
+    result.push(current);
+    index++;
   }
-  return result;
+  return result.join("");
 }
 
 interface IncludeGuard {
@@ -166,6 +197,20 @@ interface IncludeGuard {
   defineLine: number;
   endifLine: number;
   macro: string;
+}
+
+function isWhitespace(character: string | undefined): boolean {
+  return character === " " || character === "\t" || character === "\r" || character === "\n";
+}
+
+function isCanonicalGuardEnd(line: string): boolean {
+  const directive = line.trim().slice(1).trimStart();
+  if (!line.trim().startsWith("#") || !directive.startsWith("endif")) return false;
+
+  const suffix = directive.slice("endif".length);
+  if (suffix.length === 0) return true;
+  if (!isWhitespace(suffix[0])) return false;
+  return suffix.trimStart().startsWith("//");
 }
 
 function detectIncludeGuard(maskedLines: string[]): IncludeGuard | undefined {
@@ -179,14 +224,15 @@ function detectIncludeGuard(maskedLines: string[]): IncludeGuard | undefined {
 
   const ifndef = GUARD_IFNDEF_PATTERN.exec(first.line);
   const define = GUARD_DEFINE_PATTERN.exec(second.line);
-  if (!ifndef || !define || ifndef[1] !== define[1]) return undefined;
-  if (!GUARD_END_PATTERN.test(last.line)) return undefined;
+  const macro = ifndef?.[1];
+  if (!macro || macro !== define?.[1]) return undefined;
+  if (!isCanonicalGuardEnd(last.line)) return undefined;
 
   return {
     ifndefLine: first.index,
     defineLine: second.index,
     endifLine: last.index,
-    macro: ifndef[1],
+    macro,
   };
 }
 
@@ -210,13 +256,7 @@ export function validateSourceProject(input: SourceProject): SourceProjectValida
   const normalizedFiles: Record<string, string> = Object.create(null) as Record<string, string>;
   const caseFolded = new Map<string, string>();
 
-  if (
-    !input ||
-    typeof input !== "object" ||
-    !input.files ||
-    typeof input.files !== "object" ||
-    Array.isArray(input.files)
-  ) {
+  if (!isSourceFileRecord(input?.files)) {
     return {
       valid: false,
       errors: [diagnostic("INVALID_PATH", "Source project files must be a record")],
@@ -224,35 +264,7 @@ export function validateSourceProject(input: SourceProject): SourceProjectValida
   }
 
   for (const [rawPath, content] of Object.entries(input.files)) {
-    const path = normalizeSourcePath(rawPath);
-    if (!path) {
-      errors.push(diagnostic("INVALID_PATH", `Invalid source path: ${rawPath}`, { file: rawPath, line: 1 }));
-      continue;
-    }
-    if (typeof content !== "string") {
-      errors.push(diagnostic("INVALID_PATH", `Source content must be a string: ${rawPath}`, { file: rawPath, line: 1 }));
-      continue;
-    }
-
-    const existing = normalizedFiles[path];
-    if (existing !== undefined) {
-      errors.push(diagnostic("DUPLICATE_PATH", `Duplicate normalized source path: ${path}`, { file: path, line: 1 }));
-      continue;
-    }
-
-    const folded = path.toLocaleLowerCase("en-US");
-    const foldedExisting = caseFolded.get(folded);
-    if (foldedExisting && foldedExisting !== path) {
-      errors.push(diagnostic(
-        "DUPLICATE_PATH",
-        `Case-folded source paths collide: ${foldedExisting} and ${path}`,
-        { file: path, line: 1 },
-      ));
-      continue;
-    }
-
-    caseFolded.set(folded, path);
-    normalizedFiles[path] = content;
+    addValidatedSourceFile(rawPath, content, normalizedFiles, caseFolded, errors);
   }
 
   const entryFile = typeof input.entryFile === "string"
@@ -260,7 +272,7 @@ export function validateSourceProject(input: SourceProject): SourceProjectValida
     : undefined;
   if (!entryFile) {
     errors.push(diagnostic("INVALID_PATH", `Invalid entry file: ${String(input.entryFile)}`));
-  } else if (!Object.prototype.hasOwnProperty.call(normalizedFiles, entryFile)) {
+  } else if (!hasOwnProperty(normalizedFiles, entryFile)) {
     errors.push(diagnostic("MISSING_ENTRY", `Entry file is not present in project: ${entryFile}`, { file: entryFile, line: 1 }));
   }
 
@@ -270,6 +282,280 @@ export function validateSourceProject(input: SourceProject): SourceProjectValida
     valid: true,
     project: { entryFile, files: normalizedFiles },
     errors: [],
+  };
+}
+
+function isSourceFileRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function addValidatedSourceFile(
+  rawPath: string,
+  content: unknown,
+  normalizedFiles: Record<string, string>,
+  caseFolded: Map<string, string>,
+  errors: SourceProjectDiagnostic[],
+): void {
+  const path = normalizeSourcePath(rawPath);
+  if (!path) {
+    errors.push(diagnostic("INVALID_PATH", `Invalid source path: ${rawPath}`, { file: rawPath, line: 1 }));
+    return;
+  }
+  if (typeof content !== "string") {
+    errors.push(diagnostic("INVALID_PATH", `Source content must be a string: ${rawPath}`, { file: rawPath, line: 1 }));
+    return;
+  }
+  if (hasOwnProperty(normalizedFiles, path)) {
+    errors.push(diagnostic("DUPLICATE_PATH", `Duplicate normalized source path: ${path}`, { file: path, line: 1 }));
+    return;
+  }
+
+  const folded = path.toLocaleLowerCase("en-US");
+  const foldedExisting = caseFolded.get(folded);
+  if (foldedExisting && foldedExisting !== path) {
+    errors.push(diagnostic(
+      "DUPLICATE_PATH",
+      `Case-folded source paths collide: ${foldedExisting} and ${path}`,
+      { file: path, line: 1 },
+    ));
+    return;
+  }
+
+  caseFolded.set(folded, path);
+  normalizedFiles[path] = content;
+}
+
+interface SourceResolverContext {
+  project: SourceProject;
+  outputLines: string[];
+  lineOrigins: SourceLocation[];
+  reachableFiles: string[];
+  diagnostics: SourceProjectDiagnostic[];
+  expanded: Set<string>;
+  stack: string[];
+  guardMacros: Set<string>;
+  guardByFile: Map<string, IncludeGuard>;
+}
+
+function addResolvedLine(
+  context: SourceResolverContext,
+  text: string,
+  location: SourceLocation,
+): void {
+  context.outputLines.push(text);
+  context.lineOrigins.push(location);
+}
+
+function reportIncludeProblem(
+  context: SourceResolverContext,
+  code: "MISSING_LOCAL_INCLUDE" | "INCLUDE_CYCLE" | "UNSUPPORTED_CONDITIONAL_INCLUDE",
+  message: string,
+  location?: SourceLocation,
+  include?: string,
+  sourceLine?: string,
+): void {
+  context.diagnostics.push(diagnostic(code, message, location, include));
+  if (location && sourceLine !== undefined) addResolvedLine(context, sourceLine, location);
+}
+
+function processConditionalDirective(
+  context: SourceResolverContext,
+  maskedLine: string,
+  rawLine: string,
+  location: SourceLocation,
+  lineIndex: number,
+  guard: IncludeGuard | undefined,
+  conditionalDepth: number,
+): number | undefined {
+  const isGuardLine = guard !== undefined && (
+    lineIndex === guard.ifndefLine ||
+    lineIndex === guard.defineLine ||
+    lineIndex === guard.endifLine
+  );
+  if (isGuardLine || !CONDITIONAL_PATTERN.test(maskedLine)) return undefined;
+
+  const startsConditional = CONDITIONAL_START_PATTERN.test(maskedLine);
+  if (startsConditional && conditionalDepth === 0) {
+    context.diagnostics.push(diagnostic(
+      "UNSUPPORTED_CONDITIONAL_INCLUDE",
+      "Conditional preprocessing is not evaluated by the source resolver",
+      location,
+    ));
+  }
+
+  let nextDepth = conditionalDepth;
+  if (CONDITIONAL_END_PATTERN.test(maskedLine)) {
+    nextDepth = Math.max(0, conditionalDepth - 1);
+  } else if (startsConditional) {
+    nextDepth++;
+  }
+  addResolvedLine(context, rawLine, location);
+  return nextDepth;
+}
+
+function isUnguardedCycle(context: SourceResolverContext, target: string): boolean {
+  if (!context.stack.includes(target)) return false;
+  const targetGuard = context.guardByFile.get(target);
+  return !targetGuard || !context.guardMacros.has(targetGuard.macro);
+}
+
+function resolveLocalInclude(
+  context: SourceResolverContext,
+  fromFile: string,
+  include: string,
+  location: SourceLocation,
+  sourceLine: string,
+  conditionalDepth: number,
+): void {
+  if (conditionalDepth > 0) {
+    reportIncludeProblem(
+      context,
+      "UNSUPPORTED_CONDITIONAL_INCLUDE",
+      `Conditional local include was not resolved: ${include}`,
+      location,
+      include,
+      sourceLine,
+    );
+    return;
+  }
+
+  const target = resolveIncludePath(fromFile, include);
+  if (!target) {
+    reportIncludeProblem(
+      context,
+      "MISSING_LOCAL_INCLUDE",
+      `Invalid local include path: ${include}`,
+      location,
+      include,
+      sourceLine,
+    );
+    return;
+  }
+  if (!hasOwnProperty(context.project.files, target)) {
+    reportIncludeProblem(
+      context,
+      "MISSING_LOCAL_INCLUDE",
+      `Local include was not found: ${target}`,
+      location,
+      include,
+      sourceLine,
+    );
+    return;
+  }
+  if (isUnguardedCycle(context, target)) {
+    reportIncludeProblem(
+      context,
+      "INCLUDE_CYCLE",
+      `Include cycle detected while resolving ${target}`,
+      location,
+      include,
+      sourceLine,
+    );
+    return;
+  }
+  expandSourceFile(context, target, location, include);
+}
+
+function processSourceLine(
+  context: SourceResolverContext,
+  file: string,
+  rawLine: string,
+  maskedLine: string,
+  lineIndex: number,
+  guard: IncludeGuard | undefined,
+  conditionalDepth: number,
+): number {
+  const location: SourceLocation = { file, line: lineIndex + 1 };
+  const nextDepth = processConditionalDirective(
+    context,
+    maskedLine,
+    rawLine,
+    location,
+    lineIndex,
+    guard,
+    conditionalDepth,
+  );
+  if (nextDepth !== undefined) return nextDepth;
+
+  const include = INCLUDE_PATTERN.exec(maskedLine)?.[1];
+  if (include) {
+    resolveLocalInclude(context, file, include, location, rawLine, conditionalDepth);
+  } else {
+    addResolvedLine(context, rawLine, location);
+  }
+  return conditionalDepth;
+}
+
+function expandSourceFile(
+  context: SourceResolverContext,
+  file: string,
+  includeLocation?: SourceLocation,
+  includeText?: string,
+): void {
+  const guard = context.guardByFile.get(file);
+  if (guard && context.guardMacros.has(guard.macro)) return;
+  if (context.stack.includes(file)) {
+    reportIncludeProblem(
+      context,
+      "INCLUDE_CYCLE",
+      `Include cycle detected while resolving ${file}`,
+      includeLocation,
+      includeText,
+    );
+    return;
+  }
+  if (context.expanded.has(file)) return;
+
+  const content = context.project.files[file];
+  if (content === undefined) {
+    reportIncludeProblem(
+      context,
+      "MISSING_LOCAL_INCLUDE",
+      `Local include was not found: ${file}`,
+      includeLocation,
+      includeText,
+    );
+    return;
+  }
+
+  context.expanded.add(file);
+  context.reachableFiles.push(file);
+  context.stack.push(file);
+  if (guard) context.guardMacros.add(guard.macro);
+
+  const rawLines = content.split("\n");
+  const maskedLines = maskCommentsPreservingLines(content).split("\n");
+  let conditionalDepth = 0;
+  for (let index = 0; index < rawLines.length; index++) {
+    conditionalDepth = processSourceLine(
+      context,
+      file,
+      rawLines[index] ?? "",
+      maskedLines[index] ?? "",
+      index,
+      guard,
+      conditionalDepth,
+    );
+  }
+  context.stack.pop();
+}
+
+function createResolverContext(project: SourceProject): SourceResolverContext {
+  const guardByFile = new Map<string, IncludeGuard>();
+  for (const [file, content] of Object.entries(project.files)) {
+    const guard = detectIncludeGuard(maskCommentsPreservingLines(content).split("\n"));
+    if (guard) guardByFile.set(file, guard);
+  }
+  return {
+    project,
+    outputLines: [],
+    lineOrigins: [],
+    reachableFiles: [],
+    diagnostics: [],
+    expanded: new Set<string>(),
+    stack: [],
+    guardMacros: new Set<string>(),
+    guardByFile,
   };
 }
 
@@ -284,158 +570,19 @@ export function resolveSourceProject(input: SourceProject): ResolvedSourceProjec
   }
 
   const project = validation.project;
-  const outputLines: string[] = [];
-  const lineOrigins: SourceLocation[] = [];
-  const reachableFiles: string[] = [];
-  const diagnostics: SourceProjectDiagnostic[] = [];
-  const expanded = new Set<string>();
-  const stack: string[] = [];
-  const guardMacros = new Set<string>();
-  const guardByFile = new Map<string, IncludeGuard>();
-  for (const [file, content] of Object.entries(project.files)) {
-    const guard = detectIncludeGuard(maskCommentsPreservingLines(content).split("\n"));
-    if (guard) guardByFile.set(file, guard);
-  }
-
-  const addLine = (text: string, file: string, line: number) => {
-    outputLines.push(text);
-    lineOrigins.push({ file, line });
-  };
-
-  const expand = (file: string, includeLocation?: SourceLocation, includeText?: string): void => {
-    const guard = guardByFile.get(file);
-    if (guard && guardMacros.has(guard.macro)) return;
-    if (stack.includes(file)) {
-      diagnostics.push(diagnostic(
-        "INCLUDE_CYCLE",
-        `Include cycle detected while resolving ${file}`,
-        includeLocation,
-        includeText,
-      ));
-      return;
-    }
-    if (expanded.has(file)) return;
-
-    const content = project.files[file];
-    if (content === undefined) {
-      diagnostics.push(diagnostic(
-        "MISSING_LOCAL_INCLUDE",
-        `Local include was not found: ${file}`,
-        includeLocation,
-        includeText,
-      ));
-      return;
-    }
-
-    expanded.add(file);
-    reachableFiles.push(file);
-    stack.push(file);
-
-    const rawLines = content.split("\n");
-    const maskedLines = maskCommentsPreservingLines(content).split("\n");
-    if (guard) guardMacros.add(guard.macro);
-    let conditionalDepth = 0;
-
-    for (let index = 0; index < rawLines.length; index++) {
-      const rawLine = rawLines[index] ?? "";
-      const maskedLine = maskedLines[index] ?? "";
-      const location: SourceLocation = { file, line: index + 1 };
-
-      const isGuardLine = guard && (
-        index === guard.ifndefLine ||
-        index === guard.defineLine ||
-        index === guard.endifLine
-      );
-      const conditional = CONDITIONAL_PATTERN.test(maskedLine);
-      if (conditional && !isGuardLine) {
-        const end = CONDITIONAL_END_PATTERN.test(maskedLine);
-        const start = CONDITIONAL_START_PATTERN.test(maskedLine);
-        if (start && conditionalDepth === 0) {
-          diagnostics.push(diagnostic(
-            "UNSUPPORTED_CONDITIONAL_INCLUDE",
-            "Conditional preprocessing is not evaluated by the source resolver",
-            location,
-          ));
-        }
-        if (end) conditionalDepth = Math.max(0, conditionalDepth - 1);
-        else if (start) conditionalDepth++;
-        addLine(rawLine, file, index + 1);
-        continue;
-      }
-
-      const include = INCLUDE_PATTERN.exec(maskedLine)?.[1];
-      if (include) {
-        if (conditionalDepth > 0) {
-          diagnostics.push(diagnostic(
-            "UNSUPPORTED_CONDITIONAL_INCLUDE",
-            `Conditional local include was not resolved: ${include}`,
-            location,
-            include,
-          ));
-          addLine(rawLine, file, index + 1);
-          continue;
-        }
-
-        const target = resolveIncludePath(file, include);
-        if (!target) {
-          diagnostics.push(diagnostic(
-            "MISSING_LOCAL_INCLUDE",
-            `Invalid local include path: ${include}`,
-            location,
-            include,
-          ));
-          addLine(rawLine, file, index + 1);
-          continue;
-        }
-        if (!Object.prototype.hasOwnProperty.call(project.files, target)) {
-          diagnostics.push(diagnostic(
-            "MISSING_LOCAL_INCLUDE",
-            `Local include was not found: ${target}`,
-            location,
-            include,
-          ));
-          addLine(rawLine, file, index + 1);
-          continue;
-        }
-        const targetGuard = guardByFile.get(target);
-        if (stack.includes(target) && !(targetGuard && guardMacros.has(targetGuard.macro))) {
-          diagnostics.push(diagnostic(
-            "INCLUDE_CYCLE",
-            `Include cycle detected while resolving ${target}`,
-            location,
-            include,
-          ));
-          addLine(rawLine, file, index + 1);
-          continue;
-        }
-        expand(target, location, include);
-        continue;
-      }
-
-      // System includes remain in the parser view but never add project files.
-      if (SYSTEM_INCLUDE_PATTERN.test(maskedLine)) {
-        addLine(rawLine, file, index + 1);
-        continue;
-      }
-
-      addLine(rawLine, file, index + 1);
-    }
-
-    stack.pop();
-  };
-
-  expand(project.entryFile);
-  const incomplete = diagnostics.some(({ code }) =>
+  const context = createResolverContext(project);
+  expandSourceFile(context, project.entryFile);
+  const incomplete = context.diagnostics.some(({ code }) =>
     code === "MISSING_LOCAL_INCLUDE" ||
     code === "INCLUDE_CYCLE" ||
     code === "UNSUPPORTED_CONDITIONAL_INCLUDE",
   );
   return {
     entryFile: project.entryFile,
-    source: outputLines.join("\n"),
-    lineOrigins,
-    reachableFiles,
-    diagnostics,
+    source: context.outputLines.join("\n"),
+    lineOrigins: context.lineOrigins,
+    reachableFiles: context.reachableFiles,
+    diagnostics: context.diagnostics,
     complete: !incomplete,
   };
 }

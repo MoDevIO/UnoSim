@@ -828,7 +828,123 @@ export function parseStaticIORegistry(code: string): IOPinRecord[] {
 const PROJECT_DEFINE_PATTERN = /^\s*#define\s+([A-Za-z_]\w*)\s+(\w+)/;
 const PROJECT_CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/;
 const PROJECT_VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/;
-const PROJECT_ARRAY_PATTERN = /\b(?:const\s+)?(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*\[\s*(?:\d+|[A-Za-z_]\w*)?\s*\]\s*=\s*\{([^}]+)\}/;
+const PROJECT_ARRAY_TYPES = new Set(["int", "byte", "uint8_t"]);
+
+interface SourceToken {
+  value: string;
+  start: number;
+  end: number;
+}
+
+interface ProjectArrayDeclaration {
+  name: string;
+  values: string;
+  index: number;
+  end: number;
+}
+
+function isIdentifierStart(character: string | undefined): boolean {
+  if (!character) return false;
+  const code = character.codePointAt(0) ?? 0;
+  return character === "_" || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isIdentifierPart(character: string | undefined): boolean {
+  if (isIdentifierStart(character)) return true;
+  const code = character?.codePointAt(0) ?? 0;
+  return code >= 48 && code <= 57;
+}
+
+function skipSourceWhitespace(source: string, start: number): number {
+  let index = start;
+  while (index < source.length && /\s/.test(source[index])) index++;
+  return index;
+}
+
+function readIdentifier(source: string, start: number): SourceToken | undefined {
+  if (!isIdentifierStart(source[start])) return undefined;
+  let end = start + 1;
+  while (end < source.length && isIdentifierPart(source[end])) end++;
+  return { value: source.slice(start, end), start, end };
+}
+
+function findNextIdentifier(source: string, start: number): SourceToken | undefined {
+  let index = start;
+  while (index < source.length && !isIdentifierStart(source[index])) index++;
+  return readIdentifier(source, index);
+}
+
+function isValidArraySize(value: string): boolean {
+  if (value.length === 0) return true;
+  if (readIdentifier(value, 0)?.end === value.length) return true;
+  return [...value].every((character) => character >= "0" && character <= "9");
+}
+
+function readArrayDeclarationHead(
+  source: string,
+  start: number,
+): { name: string; index: number; nextIndex: number } | undefined {
+  const first = readIdentifier(source, start);
+  if (!first) return undefined;
+
+  let type = first;
+  if (first.value === "const") {
+    const typeStart = skipSourceWhitespace(source, first.end);
+    if (typeStart === first.end) return undefined;
+    const constType = readIdentifier(source, typeStart);
+    if (!constType) return undefined;
+    type = constType;
+  }
+  if (!PROJECT_ARRAY_TYPES.has(type.value)) return undefined;
+
+  const nameStart = skipSourceWhitespace(source, type.end);
+  if (nameStart === type.end) return undefined;
+  const name = readIdentifier(source, nameStart);
+  if (!name) return undefined;
+  return { name: name.value, index: first.start, nextIndex: name.end };
+}
+
+function readProjectArrayDeclaration(
+  source: string,
+  start: number,
+): ProjectArrayDeclaration | undefined {
+  const head = readArrayDeclarationHead(source, start);
+  if (!head) return undefined;
+
+  let cursor = skipSourceWhitespace(source, head.nextIndex);
+  if (source[cursor] !== "[") return undefined;
+  const closeBracket = source.indexOf("]", cursor + 1);
+  if (closeBracket < 0) return undefined;
+  const size = source.slice(cursor + 1, closeBracket).trim();
+  if (!isValidArraySize(size)) return undefined;
+
+  cursor = skipSourceWhitespace(source, closeBracket + 1);
+  if (source[cursor] !== "=") return undefined;
+  cursor = skipSourceWhitespace(source, cursor + 1);
+  if (source[cursor] !== "{") return undefined;
+  const closeBrace = source.indexOf("}", cursor + 1);
+  if (closeBrace <= cursor + 1) return undefined;
+
+  return {
+    name: head.name,
+    values: source.slice(cursor + 1, closeBrace),
+    index: head.index,
+    end: closeBrace + 1,
+  };
+}
+
+function findProjectArrayDeclarations(source: string): ProjectArrayDeclaration[] {
+  const declarations: ProjectArrayDeclaration[] = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const token = findNextIdentifier(source, cursor);
+    if (!token) break;
+    const declaration = readProjectArrayDeclaration(source, token.start);
+    if (declaration) declarations.push(declaration);
+    cursor = declaration?.end ?? token.end;
+  }
+  return declarations;
+}
 
 function registerProjectSymbols(
   line: string,
@@ -851,15 +967,13 @@ function registerProjectSymbols(
     }
   }
 
-  const arrayPattern = new RegExp(PROJECT_ARRAY_PATTERN.source, "g");
-  let arrayMatch: RegExpExecArray | null;
-  while ((arrayMatch = arrayPattern.exec(line)) !== null) {
-    if (arrayMatch.index > throughIndex) break;
-    const values = arrayMatch[2]
+  for (const declaration of findProjectArrayDeclarations(line)) {
+    if (declaration.index > throughIndex) break;
+    const values = declaration.values
       .split(",")
       .map((value) => resolveToken(value.trim(), syms));
     if (values.every((value): value is number => value !== undefined)) {
-      arrays.set(arrayMatch[1], values);
+      arrays.set(declaration.name, values);
     }
   }
 }

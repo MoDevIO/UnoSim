@@ -436,9 +436,9 @@ export function useArduinoSimulatorPage() {
   // the selected tab's content is visible, apply the pending source location.
   useEffect(() => {
     const pending = pendingSourceNavigation.current;
-    if (!pending || pending.tabId !== activeTabId) return;
+    if (pending?.tabId !== activeTabId) return;
     const editor = editorRef.current;
-    if (!editor || editor.getValue() !== code) return;
+    if (editor?.getValue() !== code) return;
     editor.goToLine?.(pending.location.line);
     pendingSourceNavigation.current = null;
   }, [activeTabId, code]);

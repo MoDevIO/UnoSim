@@ -102,7 +102,7 @@ export class SketchFileBuilder {
 
     for (const header of headers) {
       const normalizedPath = normalizeSourcePath(header.name);
-      if (!normalizedPath || !normalizedPath.split("/").every(isSafeHeaderName)) {
+      if (!normalizedPath?.split("/").every(isSafeHeaderName)) {
         throw new Error(`Unsafe header name: ${header.name}`);
       }
       const headerPath = resolvePathWithinRoot(sketchDir, normalizedPath);
