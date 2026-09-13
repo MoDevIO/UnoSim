@@ -199,11 +199,9 @@ function renderPinModeCell(
                 (_, li) => record.pinModeModes?.[li] === mode,
               )
             : undefined;
-          const modeLocations = showDetail
-            ? (record.pinModeLocations ?? []).filter((_, index) =>
-                record.pinModeModes ? record.pinModeModes[index] === mode : true,
-              )
-            : [];
+          const modeLocations = (record.pinModeLocations ?? []).filter((_, index) =>
+            record.pinModeModes ? record.pinModeModes[index] === mode : true,
+          );
           return (
             <div key={`mode-${mode}-${record.pin}`} className="flex flex-col items-center">
               <div className="flex items-center justify-center gap-1">
@@ -656,13 +654,25 @@ export function ParserOutput({
                             <span className="text-gray-400">—</span>
                           );
 
-                        // Compact mode: just a checkmark
-                        if (!detailView)
-                          return (
-                            <span className="text-green-500 font-bold">
-                              ✓
-                            </span>
-                          );
+                        // Compact mode keeps the checkmark and exposes static source
+                        // provenance when it is available.
+                        if (!detailView) {
+                          if (newLocations && newLocations.length > 0) {
+                            return (
+                              <div className="space-y-0.5 text-center">
+                                <span className="text-green-500 font-bold">✓</span>
+                                <div className="text-ui-xs space-y-0.5">
+                                  {newLocations.map((location, locationIndex) => (
+                                    <div key={`${location.file}:${location.line}:${locationIndex}`}>
+                                      {getLocationButton(location, onGoToLine)}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return <span className="text-green-500 font-bold">✓</span>;
+                        }
 
                         // Extended mode: line numbers
                         const locations = newLocations && newLocations.length > 0

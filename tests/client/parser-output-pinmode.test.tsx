@@ -413,6 +413,58 @@ describe("ParserOutput Component", () => {
     expect(mockOnGoToLine).toHaveBeenCalledWith(location);
   });
 
+  it("shows project locations in compact registry cells and navigates them", async () => {
+    const user = userEvent.setup();
+    const pinModeLocation: SourceLocation = { file: "led_controller.h", line: 8 };
+    const digitalWriteLocation: SourceLocation = { file: "led_controller.h", line: 13 };
+    const registry: IOPinRecord[] = [
+      {
+        pin: "4",
+        defined: true,
+        pinModeModes: ["OUTPUT"],
+        pinModeLocations: [pinModeLocation],
+        digitalWriteLocations: [digitalWriteLocation],
+        usedAt: [],
+      },
+    ];
+
+    render(
+      <ParserOutput
+        messages={[]}
+        ioRegistry={registry}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+        defaultTab="registry"
+      />,
+    );
+
+    expect(screen.getByText("led_controller.h:8")).not.toBeNull();
+    expect(screen.getByText("led_controller.h:13")).not.toBeNull();
+    await user.click(screen.getByText("led_controller.h:13"));
+    expect(mockOnGoToLine).toHaveBeenCalledWith(digitalWriteLocation);
+  });
+
+  it("renders locations for every read/write operation column", () => {
+    const locations = {
+      digitalReadLocations: [{ file: "inputs.h", line: 4 }],
+      analogReadLocations: [{ file: "inputs.h", line: 5 }],
+      analogWriteLocations: [{ file: "outputs.h", line: 9 }],
+    } satisfies Pick<IOPinRecord, "digitalReadLocations" | "analogReadLocations" | "analogWriteLocations">;
+
+    render(
+      <ParserOutput
+        messages={[]}
+        ioRegistry={[{ pin: "6", defined: false, usedAt: [], ...locations }]}
+        onClear={mockOnClear}
+        defaultTab="registry"
+      />,
+    );
+
+    expect(screen.getByText("inputs.h:4")).not.toBeNull();
+    expect(screen.getByText("inputs.h:5")).not.toBeNull();
+    expect(screen.getByText("outputs.h:9")).not.toBeNull();
+  });
+
   it("keeps multiple operation locations in supplied order", async () => {
     const user = userEvent.setup();
     const locations: SourceLocation[] = [
