@@ -109,7 +109,15 @@ export function useSimulatorFileSystem({
   const handleTabRename = useCallback(
     (tabId: string, newName: string) => {
       setTabs(
-        tabs.map((tab) => (tab.id === tabId ? { ...tab, name: newName } : tab)),
+        tabs.map((tab) => {
+          if (tab.id !== tabId) return tab;
+          const followsDisplayName = tab.path === tab.name;
+          return {
+            ...tab,
+            name: newName,
+            ...(followsDisplayName ? { path: newName } : {}),
+          };
+        }),
       );
     },
     [tabs, setTabs],

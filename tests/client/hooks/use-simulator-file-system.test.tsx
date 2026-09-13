@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
 import { buildSourceProject } from "@/lib/source-project";
 import { buildCompileCommand } from "@/hooks/compile-command-builder";
+import { resolveSourceProject } from "@shared/source-project";
 
 type TestTab = {
   id: string;
@@ -34,6 +35,51 @@ function useTestFileSystem(initialTabs: TestTab[], initialActiveTabId: string, i
 }
 
 describe("useSimulatorFileSystem tab content persistence", () => {
+  it("keeps a renamed local header addressable in project and compile snapshots", () => {
+    const { result } = renderHook(() =>
+      useTestFileSystem(
+        [
+          {
+            id: "ino",
+            name: "sketch.ino",
+            path: "sketch.ino",
+            content: '#include "led_controller.h"',
+          },
+          {
+            id: "header",
+            name: "header_1.h",
+            path: "header_1.h",
+            content: "pinMode(4, OUTPUT);",
+          },
+        ],
+        "ino",
+        '#include "led_controller.h"',
+      ),
+    );
+
+    act(() => result.current.handleTabRename("header", "led_controller.h"));
+
+    const project = buildSourceProject(
+      result.current.tabs,
+      result.current.activeTabId,
+      result.current.code,
+    );
+    expect(project?.files).toEqual({
+      "sketch.ino": '#include "led_controller.h"',
+      "led_controller.h": "pinMode(4, OUTPUT);",
+    });
+    expect(resolveSourceProject(project!).reachableFiles).toEqual([
+      "sketch.ino",
+      "led_controller.h",
+    ]);
+    expect(resolveSourceProject(project!).complete).toBe(true);
+    expect(buildCompileCommand(project!)).toEqual({
+      code: '#include "led_controller.h"',
+      headers: [{ name: "led_controller.h", content: "pinMode(4, OUTPUT);" }],
+      entryFile: "sketch.ino",
+    });
+  });
+
   it("keeps edits when switching from an ino tab to a header and back", () => {
     const { result } = renderHook(() =>
       useTestFileSystem(

@@ -12,7 +12,12 @@ vi.mock("@/hooks/use-file-manager", () => ({
   }),
 }));
 
-const tab = (id: string, name: string, content: string) => ({ id, name, content });
+const tab = (id: string, name: string, content: string, path?: string) => ({
+  id,
+  name,
+  content,
+  ...(path ? { path } : {}),
+});
 
 function setup(overrides: Partial<Parameters<typeof useSimulatorFileSystem>[0]> = {}) {
   const state = {
@@ -50,6 +55,46 @@ describe("useSimulatorFileSystem behavior", () => {
     expect(state.setTabs).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: "header", name: "renamed.h" })]));
     act(() => result.current.handleTabClose("header"));
     expect(state.setTabs).toHaveBeenCalledWith([tab("main", "sketch.ino", "main")]);
+  });
+
+  it("renames the logical path for a locally created tab", () => {
+    const { state, result } = setup({
+      tabs: [
+        tab("main", "sketch.ino", "main", "sketch.ino"),
+        tab("header", "header_1.h", "header", "header_1.h"),
+      ],
+    });
+
+    act(() => result.current.handleTabRename("header", "led_controller.h"));
+
+    expect(state.setTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "main", name: "sketch.ino", path: "sketch.ino" }),
+      expect.objectContaining({
+        id: "header",
+        name: "led_controller.h",
+        path: "led_controller.h",
+      }),
+    ]);
+  });
+
+  it("keeps an external nested path when only its display name is renamed", () => {
+    const { state, result } = setup({
+      tabs: [
+        tab("main", "sketch.ino", "main", "sketch.ino"),
+        tab("header", "pins.h", "header", "shared/pins.h"),
+      ],
+    });
+
+    act(() => result.current.handleTabRename("header", "io_pins.h"));
+
+    expect(state.setTabs).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "main", name: "sketch.ino", path: "sketch.ino" }),
+      expect.objectContaining({
+        id: "header",
+        name: "io_pins.h",
+        path: "shared/pins.h",
+      }),
+    ]);
   });
 
   it("protects the main sketch and clears the active tab when the last tab closes", () => {
