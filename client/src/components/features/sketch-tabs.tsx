@@ -63,6 +63,7 @@ interface SketchTabsProps {
   ) => void;
   readonly onFormatCode?: () => void;
   readonly examplesMenu?: React.ReactNode;
+  readonly loadFilesTriggerRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 function getDisplayFileName(path: string): string {
@@ -80,6 +81,7 @@ export function SketchTabs({
   onFilesLoaded,
   onFormatCode,
   examplesMenu,
+  loadFilesTriggerRef,
 }: SketchTabsProps) {
   const { toast } = useToast();
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
@@ -95,6 +97,14 @@ export function SketchTabs({
   }> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!loadFilesTriggerRef) return;
+    loadFilesTriggerRef.current = () => fileInputRef.current?.click();
+    return () => {
+      loadFilesTriggerRef.current = null;
+    };
+  }, [loadFilesTriggerRef]);
 
   useEffect(() => {
     // Focus and select text in input when renaming starts

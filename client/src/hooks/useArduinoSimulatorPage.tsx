@@ -204,6 +204,10 @@ export function useArduinoSimulatorPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { setDebugMode } = useDebugMode();
+  const loadFilesTriggerRef = useRef<(() => void) | null>(null);
+  const openLoadFiles = useCallback(() => {
+    loadFilesTriggerRef.current?.();
+  }, []);
   
   
   const {
@@ -402,10 +406,7 @@ export function useArduinoSimulatorPage() {
   ]);
 
   const {
-    fileInputRef,
-    onLoadFiles,
     downloadAllFiles,
-    handleHiddenFileInput,
     handleTabClick,
     handleTabAdd,
     handleTabClose,
@@ -654,6 +655,7 @@ export function useArduinoSimulatorPage() {
     handleTabAdd,
     handleTabClose,
     handleTabRename,
+    loadFilesTriggerRef,
     handleFilesLoaded,
     handleLoadExample,
     formatCode,
@@ -811,7 +813,7 @@ export function useArduinoSimulatorPage() {
       tabs,
       handleTabRename,
       formatCode,
-      onLoadFiles,
+      onLoadFiles: openLoadFiles,
       downloadAllFiles,
       undo,
       redo,
@@ -821,8 +823,6 @@ export function useArduinoSimulatorPage() {
       selectAll,
       goToLine,
       find,
-      fileInputRef,
-      handleHiddenFileInput,
     },
     connection: {
       backendReachable,

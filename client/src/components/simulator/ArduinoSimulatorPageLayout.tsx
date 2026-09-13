@@ -198,8 +198,6 @@ export function ArduinoSimulatorPageLayout(
     selectAll,
     goToLine,
     find,
-    fileInputRef,
-    handleHiddenFileInput,
   } = files;
   const {
     backendReachable,
@@ -431,15 +429,6 @@ export function ArduinoSimulatorPageLayout(
             pendingExternalStart={pendingExternalStart}
           />
         }
-      />
-      {/* Hidden file input used by File → Load Files */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".ino,.h"
-        multiple
-        onChange={handleHiddenFileInput}
-        className="hidden"
       />
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative z-0 workspace-layout" data-layout-mode={layoutMode}>

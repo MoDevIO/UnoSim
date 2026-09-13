@@ -25,6 +25,7 @@ interface UseSimulatorUIStateParams {
   handleTabAdd: () => void;
   handleTabClose: (tabId: string) => void;
   handleTabRename: (tabId: string, newName: string) => void;
+  loadFilesTriggerRef: React.MutableRefObject<(() => void) | null>;
   handleFilesLoaded: (files: Array<{ name: string; path?: string; content: string }>, replaceAll: boolean) => void;
   handleLoadExample: (files: Array<{ name: string; path?: string; content: string }>, title: string) => void;
   formatCode: () => void;
@@ -119,6 +120,7 @@ export function useSimulatorUIState({
   handleTabAdd,
   handleTabClose,
   handleTabRename,
+  loadFilesTriggerRef,
   handleFilesLoaded,
   handleLoadExample,
   formatCode,
@@ -212,6 +214,7 @@ export function useSimulatorUIState({
           onTabAdd={handleTabAdd}
           onFilesLoaded={handleFilesLoaded}
           onFormatCode={formatCode}
+          loadFilesTriggerRef={loadFilesTriggerRef}
           examplesMenu={
             <ExamplesMenu
               onLoadExample={handleLoadExample}
