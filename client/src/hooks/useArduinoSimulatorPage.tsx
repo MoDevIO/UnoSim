@@ -208,6 +208,11 @@ export function useArduinoSimulatorPage() {
   const openLoadFiles = useCallback(() => {
     loadFilesTriggerRef.current?.();
   }, []);
+  const renameTriggerRef = useRef<(() => void) | null>(null);
+  const openRenameFile = useCallback(() => {
+    const trigger = renameTriggerRef.current;
+    if (trigger) globalThis.queueMicrotask(trigger);
+  }, []);
   
   
   const {
@@ -656,10 +661,11 @@ export function useArduinoSimulatorPage() {
     handleTabClose,
     handleTabRename,
     loadFilesTriggerRef,
+    renameTriggerRef,
     handleFilesLoaded,
     handleLoadExample,
+    downloadAllFiles,
     formatCode,
-    handleCompileAndStart,
     editorRef,
     backendReachable,
     activeOutputTab,
@@ -812,6 +818,7 @@ export function useArduinoSimulatorPage() {
       activeTabId,
       tabs,
       handleTabRename,
+      onRenameFile: openRenameFile,
       formatCode,
       onLoadFiles: openLoadFiles,
       downloadAllFiles,

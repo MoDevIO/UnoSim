@@ -184,9 +184,7 @@ export function ArduinoSimulatorPageLayout(
   } = pins;
   const {
     handleTabAdd,
-    activeTabId,
-    tabs,
-    handleTabRename,
+    onRenameFile,
     formatCode,
     onLoadFiles,
     downloadAllFiles,
@@ -216,7 +214,6 @@ export function ArduinoSimulatorPageLayout(
     layoutMode,
     board,
     isMac,
-    toast,
     openSettings,
     debugMode,
     mobilePanel,
@@ -360,23 +357,7 @@ export function ArduinoSimulatorPageLayout(
         onTimeoutChange={setSimulationTimeout}
         isMac={isMac}
         onFileAdd={handleTabAdd}
-        onFileRename={() => {
-          if (!activeTabId) {
-            toast({
-              title: "No file selected",
-              description: "Open a file/tab first to rename.",
-            });
-            return;
-          }
-          const current = tabs.find((t) => t.id === activeTabId);
-          const newName = globalThis.prompt(
-            "Rename file",
-            current?.name || "untitled.ino",
-          );
-          if (newName?.trim()) {
-            handleTabRename(activeTabId, newName.trim());
-          }
-        }}
+        onFileRename={onRenameFile}
         onFormatCode={formatCode}
         onLoadFiles={onLoadFiles}
         onDownloadAllFiles={downloadAllFiles}

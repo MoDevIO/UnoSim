@@ -23,6 +23,7 @@ function Router() {
 
 function App() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const openSettings = React.useCallback(() => setSettingsOpen(true), []);
   const disableToasts =
     import.meta.env.VITE_DISABLE_TOASTS === "true" ||
     (typeof globalThis !== "undefined" &&
@@ -35,12 +36,12 @@ function App() {
       if (isSettings) {
         e.preventDefault();
         e.stopPropagation();
-        setSettingsOpen((s) => !s);
+        openSettings();
       }
     };
 
     // Also listen to a custom event so other parts of the app can request opening settings
-    const onOpenSettings = () => setSettingsOpen(true);
+    const onOpenSettings = () => openSettings();
 
     document.addEventListener("keydown", onKey, { capture: true });
     globalThis.addEventListener("open-settings", onOpenSettings as EventListener);
@@ -51,7 +52,7 @@ function App() {
         onOpenSettings as EventListener,
       );
     };
-  }, []);
+  }, [openSettings]);
 
   return (
     <ErrorBoundary>

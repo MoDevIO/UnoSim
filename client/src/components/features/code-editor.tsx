@@ -218,8 +218,6 @@ interface CodeEditorAPI {
 interface CodeEditorProps {
   readonly value: string;
   readonly onChange: (value: string) => void;
-  readonly onCompileAndRun?: () => void;
-  readonly onFormat?: () => void;
   readonly readOnly?: boolean;
   readonly editorRef?: React.MutableRefObject<CodeEditorAPI | null>;
 }
@@ -227,18 +225,13 @@ interface CodeEditorProps {
 export function CodeEditor({
   value,
   onChange,
-  onCompileAndRun,
-  onFormat,
   readOnly = false,
   editorRef: externalEditorRef,
 }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const ignoreChangesRef = useRef(false);
-  // Store callback refs to avoid closure issues with keyboard shortcuts
   const onChangeRef = useRef(onChange);
-  const onCompileAndRunRef = useRef(onCompileAndRun);
-  const onFormatRef = useRef(onFormat);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -511,39 +504,6 @@ export function CodeEditor({
       }
     });
 
-    // NEW: Add keyboard shortcut for formatting (Ctrl+Shift+F / Cmd+Shift+F)
-    // Use onKeyDown instead of addCommand to avoid accidental deletion
-    const keydownDisposable = editor.onKeyDown((e) => {
-      // Check if Ctrl/Cmd + Shift + F (Format)
-      const isMac = navigator.userAgent.includes("Mac");
-      const isFormatKey =
-        (isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.code === "KeyF";
-
-      if (isFormatKey) {
-        e.preventDefault();
-
-        // Format code directly in the editor with proper undo support
-        const currentCode = editor.getValue();
-        const formatted = formatCode(currentCode);
-
-        if (formatted !== currentCode) {
-          // Use executeEdits to maintain undo history
-          const model = editor.getModel();
-          if (model) {
-            editor.executeEdits("format", [
-              {
-                range: model.getFullModelRange(),
-                text: formatted,
-              },
-            ]);
-          }
-        }
-      }
-
-      // Note: Cmd+U (Compile&Run) is handled by a global document listener
-      // to work even when the editor is not focused
-    });
-
     // Observe native Monaco paste events for diagnostics only.
     const pasteDisposable = editor.onDidPaste(() => {
       logger.debug("Paste event detected");
@@ -574,7 +534,6 @@ export function CodeEditor({
     return () => {
       changeDisposable.dispose();
       pasteDisposable.dispose();
-      keydownDisposable.dispose();
       document.removeEventListener("uiFontScaleChange", onScale);
       globalThis.removeEventListener("uiFontScaleChange", onScale);
       editor.dispose();
@@ -589,46 +548,10 @@ export function CodeEditor({
     }
   }, [value]);
 
-  // Update callback refs whenever they change
+  // Update callback ref whenever it changes
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
-
-  useEffect(() => {
-    onCompileAndRunRef.current = onCompileAndRun;
-  }, [onCompileAndRun]);
-
-  useEffect(() => {
-    onFormatRef.current = onFormat;
-  }, [onFormat]);
-
-  // Global keyboard shortcut for Cmd+U (Compile & Run) - works even when editor is not focused
-  useEffect(() => {
-    const isMac = navigator.userAgent.includes("Mac");
-
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const isCompileKey = (isMac ? e.metaKey : e.ctrlKey) && e.code === "KeyU";
-
-      if (isCompileKey) {
-        e.preventDefault(); // Prevent browser default (View Source in Firefox)
-        e.stopPropagation();
-        if (onCompileAndRunRef.current) {
-          onCompileAndRunRef.current();
-        }
-      }
-    };
-
-    // Add listener with capture phase to intercept before browser handles it
-    document.addEventListener("keydown", handleGlobalKeyDown, {
-      capture: true,
-    });
-
-    return () => {
-      document.removeEventListener("keydown", handleGlobalKeyDown, {
-        capture: true,
-      });
-    };
-  }, []);
 
   return (
     <div

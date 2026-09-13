@@ -66,7 +66,7 @@ describe("useSimulatorKeyboardShortcuts", () => {
     const options = createDefaultOptions();
     renderHook(() => useSimulatorKeyboardShortcuts(options));
     fireKeyDown({ key: "u", ctrlKey: true });
-    expect(options.handleCompileAndStart).toHaveBeenCalled();
+    expect(options.handleCompileAndStart).toHaveBeenCalledTimes(1);
   });
 
   it("Ctrl+U does not trigger when compilePending", () => {
@@ -76,11 +76,25 @@ describe("useSimulatorKeyboardShortcuts", () => {
     expect(options.handleCompileAndStart).not.toHaveBeenCalled();
   });
 
+  it("Ctrl+U does not trigger when startPending", () => {
+    const options = createDefaultOptions({ startPending: true });
+    renderHook(() => useSimulatorKeyboardShortcuts(options));
+    fireKeyDown({ key: "u", ctrlKey: true });
+    expect(options.handleCompileAndStart).not.toHaveBeenCalled();
+  });
+
+  it("Cmd+U triggers the same compile-and-start dispatcher on macOS", () => {
+    const options = createDefaultOptions({ isMac: true });
+    renderHook(() => useSimulatorKeyboardShortcuts(options));
+    fireKeyDown({ key: "u", metaKey: true });
+    expect(options.handleCompileAndStart).toHaveBeenCalledTimes(1);
+  });
+
   it("Ctrl+Shift+F triggers handleFormatCode", () => {
     const options = createDefaultOptions();
     renderHook(() => useSimulatorKeyboardShortcuts(options));
     fireKeyDown({ key: "f", ctrlKey: true, shiftKey: true });
-    expect(options.handleFormatCode).toHaveBeenCalled();
+    expect(options.handleFormatCode).toHaveBeenCalledTimes(1);
   });
 
   it("Ctrl+Alt+Shift+N triggers handleNewFile", () => {
