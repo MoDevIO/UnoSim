@@ -12,6 +12,7 @@ import { config } from "./config";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { createLocalSessionMiddleware } from "./security/access-control";
 import { formatStartupLine, getStartupAccess } from "./startup-access";
+import { shouldSkipApiRateLimit } from "./rate-limit-policy";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -113,11 +114,7 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) =>
-    isTestMode ||
-    req.originalUrl === "/api/status" ||
-    req.originalUrl === "/api/health" ||
-    req.originalUrl === "/api/config", // Skip for lightweight/polling endpoints
+  skip: (req) => shouldSkipApiRateLimit(req.originalUrl, isTestMode),
 });
 
 // Apply rate limiting to API routes
