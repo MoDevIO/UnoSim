@@ -289,8 +289,7 @@ export function ExamplesMenu({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          size="sm"
-          className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+          size="icon"
           aria-label="Examples"
           title="Examples (Cmd/Ctrl+E)"
         >

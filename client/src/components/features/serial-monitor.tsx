@@ -466,9 +466,8 @@ export function SerialMonitor({
             <>
             {headerActions}
             <Button
-              variant="ghost"
-              size="sm"
-              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+              variant="destructiveOutline"
+              size="icon"
               onClick={() => _onClear()}
               title="Clear serial output"
             >

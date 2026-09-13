@@ -58,7 +58,7 @@ export function CompilationOutput({
             )}
             <div className="flex-1 min-w-0" />
             <Button
-              variant="outline"
+              variant="destructiveOutline"
               size="icon"
               className="ml-2"
               onClick={onClear}

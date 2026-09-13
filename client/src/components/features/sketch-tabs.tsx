@@ -413,8 +413,8 @@ export function SketchTabs({
                 {tabs[0]?.id !== tab.id && (
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-100 transition-opacity text-muted-foreground hover:bg-accent"
+                    size="icon"
+                    className="opacity-0 group-hover:opacity-100 data-[active=true]:opacity-100 transition-opacity"
                     data-active={activeTabId === tab.id}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -436,8 +436,7 @@ export function SketchTabs({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                size="sm"
-                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0"
+                size="icon"
                 title="Options"
               >
                 <MoreVertical className="h-4 w-4" />

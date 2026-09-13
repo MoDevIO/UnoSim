@@ -208,7 +208,11 @@ describe("experimental workspace layout", () => {
     expect(screen.getByLabelText("Your answer")).toHaveFocus();
     expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("aria-label", "API key");
     expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("title", "API key");
-    expect(screen.getByTestId("tutor-api-key-action").querySelector("svg")).toHaveClass("!h-5", "!w-5");
+    expect(screen.getByTestId("tutor-api-key-action")).toHaveClass(
+      "h-[var(--ui-button-height)]",
+      "w-[var(--ui-button-height)]",
+      "[&_svg]:size-4",
+    );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
       "aria-label",
       "Tutor ready - generate a new question",
@@ -218,13 +222,17 @@ describe("experimental workspace layout", () => {
       "Tutor ready - generate a new question",
     );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
-      "border-primary",
+      "border-primary/70",
       "bg-primary",
       "text-primary-foreground",
       "ring-2",
     );
-    expect(screen.getByTestId("tutor-new-question-action")).toHaveClass("h-9", "w-9", "rounded-full");
-    expect(screen.getByTestId("tutor-new-question-action").querySelector("svg")).toHaveClass("!h-6", "!w-6");
+    expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
+      "h-[var(--ui-button-height)]",
+      "w-[var(--ui-button-height)]",
+      "rounded-md",
+      "[&_svg]:size-4",
+    );
     expect(screen.getByTestId("tutor-effective-difficulty")).toHaveTextContent("D42");
     expect(screen.queryByTestId("tutor-session-rating")).not.toBeInTheDocument();
     expect(screen.getByTestId("tutor-question")).not.toHaveTextContent("D34");
@@ -261,7 +269,7 @@ describe("experimental workspace layout", () => {
     );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
       "border-border/70",
-      "bg-background/20",
+      "bg-background/70",
       "text-muted-foreground",
     );
     expect(screen.getByTestId("tutor-new-question-action")).not.toHaveClass("bg-primary");
@@ -277,7 +285,10 @@ describe("experimental workspace layout", () => {
     fireEvent.click(screen.getByTestId("tutor-apply-key"));
     expect(screen.queryByTestId("tutor-api-key-view")).not.toBeInTheDocument();
     const sendAnswerButton = screen.getByRole("button", { name: "Send answer" });
-    expect(sendAnswerButton).toHaveClass("h-9", "w-9");
+    expect(sendAnswerButton).toHaveClass(
+      "h-[var(--ui-button-height)]",
+      "w-[var(--ui-button-height)]",
+    );
     expect(sendAnswerButton).not.toBeDisabled();
     rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, answer: "" }} />);
     expect(screen.getByRole("button", { name: "Send answer" })).toBeDisabled();

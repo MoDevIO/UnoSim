@@ -204,7 +204,6 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                   variant="outline"
                   size="icon"
                   onClick={() => setDebugViewMode(debugViewMode === "table" ? "tiles" : "table")}
-                  className="border-cyan-600/40 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 hover:text-cyan-300"
                   title={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
                   aria-label={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
                 >
@@ -215,14 +214,13 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                   variant="outline"
                   size="sm"
                   onClick={onCopyDebugMessages}
-                  className="border-cyan-600/40 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 hover:text-cyan-300"
                   aria-label="Copy debug messages"
                 >
                   Copy
                 </Button>
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="destructiveOutline"
                   size="sm"
                   onClick={onClearDebugMessages}
                   aria-label="Clear debug messages"

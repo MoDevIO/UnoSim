@@ -209,7 +209,6 @@ export function ExternalExamplesSettings({
           type="button"
           variant="outline"
           size="sm"
-          className="h-9 [--ui-button-height:2.25rem]"
           onClick={() => void validateDraft()}
           disabled={busy !== null}
         >
@@ -218,7 +217,6 @@ export function ExternalExamplesSettings({
         <Button
           type="button"
           size="sm"
-          className="h-9 [--ui-button-height:2.25rem]"
           onClick={() => void apply()}
           disabled={busy !== null || !repository || !ref}
         >
@@ -228,7 +226,6 @@ export function ExternalExamplesSettings({
           type="button"
           variant="outline"
           size="sm"
-          className="h-9 [--ui-button-height:2.25rem]"
           onClick={() => void reset()}
           disabled={busy !== null || !override}
         >

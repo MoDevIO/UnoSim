@@ -255,7 +255,7 @@ export default function SettingsDialog({
               <div className="flex w-full items-start justify-between gap-3 sm:w-auto sm:min-w-[18rem]">
                 <div className="flex shrink-0 flex-col items-center gap-1">
                   <div className="h-7 w-10 rounded border border-border" style={{ background: color }} aria-label="current Arduino color" role="img" />
-                  <Button className="h-9" size="sm" variant="outline" onClick={() => setColor(DEFAULT_COLOR)}>
+                  <Button size="sm" variant="outline" onClick={() => setColor(DEFAULT_COLOR)}>
                     Reset
                   </Button>
                 </div>

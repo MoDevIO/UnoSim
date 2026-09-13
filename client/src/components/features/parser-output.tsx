@@ -402,9 +402,9 @@ export function ParserOutput({
             <div className="flex-1 min-w-0" />
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={onClear}
-              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-2 border-2 border-red-500"
+              className="ml-2"
               title="Close"
             >
               <X className="h-4 w-4" />
@@ -493,14 +493,14 @@ export function ParserOutput({
                             </div>
                             <Button
                               variant="outline"
-                              size="sm"
+                              size="icon"
                               onClick={() => {
                                 onInsertSuggestion?.(
                                   message.suggestion ?? "",
                                   message.line,
                                 );
                               }}
-                              className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center ml-3"
+                              className="ml-3"
                               title="Insert suggestion"
                             >
                               <Plus className="h-3.5 w-3.5" />
@@ -532,10 +532,10 @@ export function ParserOutput({
             <div className="flex items-center gap-1">
               {/* Show-all toggle (text button) */}
               <Button
-                variant="ghost"
+                variant={showAllPins ? "secondary" : "outline"}
                 size="sm"
                 onClick={() => setShowAllPins(!showAllPins)}
-                className="h-[var(--ui-button-height)] px-1.5 text-ui-xs text-muted-foreground hover:text-foreground"
+                className="px-2 text-ui-xs"
                 title={showAllPins ? "Hide empty pins" : "Show all pins"}
               >
                 {showAllPins ? "Used" : "All"}
@@ -543,9 +543,8 @@ export function ParserOutput({
               {/* Eye button: compact (✓/—) vs extended (line numbers) – SSOT eye-mode */}
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
                 onClick={() => setDetailView(!detailView)}
-                className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
                 title={detailView ? "Compact view (✓ / —)" : "Extended view (line numbers)"}
                 data-testid="io-registry-detail-toggle"
               >
