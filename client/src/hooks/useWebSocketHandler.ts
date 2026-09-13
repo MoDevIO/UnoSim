@@ -90,7 +90,8 @@ export type UseWebSocketHandlerParams = {
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
   enqueuePinEvent: (pin: number, stateType: PinStateType, value: number) => void;
 
-  setIoRegistry: React.Dispatch<React.SetStateAction<IOPinRecord[]>>;
+  /** Stores the runtime snapshot; null marks a run without a snapshot yet. */
+  setIoRegistry: React.Dispatch<React.SetStateAction<IOPinRecord[] | null>>;
   setBaudRate: React.Dispatch<React.SetStateAction<number>>;
   setSerialBaudrate: (baud: number) => void;
   pinToNumber: (pin: string) => number | null;
@@ -295,6 +296,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       }
       setPinStates([]);
       setAnalogPinsUsed([]);
+      setIoRegistry(null);
       resetPinUI({ keepDetected: true });
       setCompilationStatus("ready");
       emitSimulationStateEvent("IDLE");

@@ -29,6 +29,7 @@ import { useSimulatorExternalControl } from "@/hooks/useSimulatorExternalControl
 import { parseStaticIORegistryProject } from "@shared/io-registry-parser";
 import { buildSourceProject } from "@/lib/source-project";
 import { findTabForSourceLocation } from "@/lib/source-navigation";
+import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
 
 import type {
   Sketch,
@@ -95,8 +96,9 @@ export function useArduinoSimulatorPage() {
     appendRenderedText,
   } = useSerialIO();
   const [parserMessages, setParserMessages] = useState<ParserMessage[]>([]);
-  // Initialize I/O Registry with all 20 Arduino pins (will be populated at runtime)
-  const [ioRegistry, setIoRegistry] = useState<IOPinRecord[]>(() => {
+  // Static analysis and runtime snapshots have separate lifecycles. The
+  // effective registry is selected below once the simulation status is known.
+  const [staticIoRegistry, setStaticIoRegistry] = useState<IOPinRecord[]>(() => {
     const pins: IOPinRecord[] = [];
     // Digital pins 0-13
     for (let i = 0; i < DIGITAL_PIN_COUNT; i++) {
@@ -108,6 +110,7 @@ export function useArduinoSimulatorPage() {
     }
     return pins;
   });
+  const [runtimeIoRegistry, setRuntimeIoRegistry] = useState<IOPinRecord[] | null>(null);
 
   const [activeOutputTab, setActiveOutputTab] = useState<OutputTab>("compiler");
   const [showCompilationOutput, setShowCompilationOutput] = useState<boolean>(
@@ -277,7 +280,7 @@ export function useArduinoSimulatorPage() {
     setParserMessages,
     setParserPanelDismissed,
     resetPinUI,
-    setIoRegistry,
+    setIoRegistry: setRuntimeIoRegistry,
     setIsModified,
     setDebugMessages,
     addDebugMessage: (params: DebugMessageParams) =>
@@ -303,6 +306,21 @@ export function useArduinoSimulatorPage() {
 
   // Centralize simulator actions (start, stop, pause, resume, reset, compile & start)
   // This extracts control logic into a reusable hook for better testability and modularity
+  const handleStartAndClearRuntime = useCallback(() => {
+    setRuntimeIoRegistry(null);
+    controllerHandleStart();
+  }, [controllerHandleStart, setRuntimeIoRegistry]);
+
+  const handleStopAndClearRuntime = useCallback(() => {
+    setRuntimeIoRegistry(null);
+    controllerHandleStop();
+  }, [controllerHandleStop, setRuntimeIoRegistry]);
+
+  const handleResetAndClearRuntime = useCallback(() => {
+    setRuntimeIoRegistry(null);
+    controllerHandleReset();
+  }, [controllerHandleReset, setRuntimeIoRegistry]);
+
   const {
     handleStop,
     handlePause,
@@ -310,11 +328,11 @@ export function useArduinoSimulatorPage() {
     handleReset,
     handleCompileAndStart: actionsCompileAndStart,
   } = useSimulatorActions({
-    onStart: controllerHandleStart,
-    onStop: controllerHandleStop,
+    onStart: handleStartAndClearRuntime,
+    onStop: handleStopAndClearRuntime,
     onPause: controllerHandlePause,
     onResume: controllerHandleResume,
-    onReset: controllerHandleReset,
+    onReset: handleResetAndClearRuntime,
     onCompileAndStart: handleCompileAndStart,
   });
 
@@ -332,6 +350,7 @@ export function useArduinoSimulatorPage() {
 
     clearOutputs();
     resetPinUI();
+    setRuntimeIoRegistry(null);
     setCompilationStatus("ready");
     setArduinoCliStatus("idle");
     setLastCompilationResult(null);
@@ -347,6 +366,7 @@ export function useArduinoSimulatorPage() {
     setLastCompilationResult,
     setSimulationStatus,
     setHasCompiledOnce,
+    setRuntimeIoRegistry,
   ]);
 
   const onLoadExample = useCallback(() => {
@@ -355,12 +375,13 @@ export function useArduinoSimulatorPage() {
     }
 
     clearOutputs();
-    setIoRegistry(() => {
+    setStaticIoRegistry(() => {
       const pins: IOPinRecord[] = [];
       for (let i = 0; i <= 13; i++) pins.push({ pin: String(i), defined: false, usedAt: [] });
       for (let i = 0; i <= 5; i++) pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
       return pins;
     });
+    setRuntimeIoRegistry(null);
     setCompilationStatus("ready");
     setArduinoCliStatus("idle");
     setLastCompilationResult(null);
@@ -371,7 +392,8 @@ export function useArduinoSimulatorPage() {
     sendMessage,
     clearOutputs,
     resetPinUI,
-    setIoRegistry,
+    setStaticIoRegistry,
+    setRuntimeIoRegistry,
     setCompilationStatus,
     setArduinoCliStatus,
     setLastCompilationResult,
@@ -519,7 +541,7 @@ export function useArduinoSimulatorPage() {
     setAnalogPinsUsed,
     resetPinUI,
     enqueuePinEvent,
-    setIoRegistry,
+    setIoRegistry: setRuntimeIoRegistry,
     setBaudRate,
     setSerialBaudrate,
     pinToNumber,
@@ -553,12 +575,23 @@ export function useArduinoSimulatorPage() {
   // Populate I/O registry from static code analysis whenever code changes or compilation completes
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIoRegistry(
+      setStaticIoRegistry(
         sourceProject ? parseStaticIORegistryProject(sourceProject) : [],
       );
     }, 300);
     return () => clearTimeout(timer);
-  }, [sourceProject, compilationStatus, setIoRegistry]);
+  }, [sourceProject, compilationStatus, setStaticIoRegistry]);
+
+  // A stopped/reset run must not leak its last runtime snapshot into the next
+  // idle view. The static registry becomes authoritative again immediately.
+  useEffect(() => {
+    if (simulationStatus === "idle") setRuntimeIoRegistry(null);
+  }, [simulationStatus]);
+
+  const effectiveIoRegistry = useMemo(
+    () => getEffectiveIoRegistry(staticIoRegistry, runtimeIoRegistry, simulationStatus),
+    [staticIoRegistry, runtimeIoRegistry, simulationStatus],
+  );
 
   const { handleSerialSend, handleSerialInputKeyDown, handleClearSerialOutput } =
     useSimulatorSerialPanel({
@@ -629,7 +662,7 @@ export function useArduinoSimulatorPage() {
     backendReachable,
     activeOutputTab,
     parserMessages,
-    ioRegistry,
+    ioRegistry: effectiveIoRegistry,
     cliOutput,
     hasCompilationErrors,
     lastCompilationResult,

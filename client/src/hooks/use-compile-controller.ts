@@ -53,7 +53,8 @@ export interface UseCompileControllerParams {
   // Callbacks
   setParserMessages: SetState<ParserMessage[]>;
   setParserPanelDismissed: SetState<boolean>;
-  setIoRegistry: SetState<IOPinRecord[]>;
+  /** Clears the runtime snapshot when a new compilation/run begins. */
+  setIoRegistry: SetState<IOPinRecord[] | null>;
   setIsModified: SetState<boolean>;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
 
@@ -141,15 +142,8 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     },
   });
 
-  const initializeEmptyRegistry = useCallback(() => {
-    const pins: IOPinRecord[] = [];
-    for (let i = 0; i <= 13; i++) {
-      pins.push({ pin: String(i), defined: false, usedAt: [] });
-    }
-    for (let i = 0; i <= 5; i++) {
-      pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
-    }
-    params.setIoRegistry(pins);
+  const clearRuntimeRegistry = useCallback(() => {
+    params.setIoRegistry(null);
   }, [params]);
 
   const handleCompileSuccess = useCallback(
@@ -165,9 +159,9 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
         params.setParserPanelDismissed(false);
       }
       params.uiFeedback.showCompileSuccessToast();
-      initializeEmptyRegistry();
+      clearRuntimeRegistry();
     },
-    [params, initializeEmptyRegistry],
+    [params, clearRuntimeRegistry],
   );
 
   const handleCompileError = useCallback(
@@ -199,7 +193,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
   const handleCompile = useCallback(() => {
     clearOutputs();
     params.resetPinUI();
-    initializeEmptyRegistry();
+    clearRuntimeRegistry();
 
     let mainSketchCode: string;
     let headers: Array<{ name: string; content: string }>;
@@ -232,7 +226,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     params.resetPinUI,
     params.tabs,
     params.sourceProject,
-    initializeEmptyRegistry,
+    clearRuntimeRegistry,
     params.uiFeedback,
   ]);
 
