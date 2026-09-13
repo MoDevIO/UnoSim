@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">58.53% </span>
+                <span class="strong">57.8% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>96/164</span>
+                <span class='fraction'>100/173</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">45.45% </span>
+                <span class="strong">43.47% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>20/44</span>
+                <span class='fraction'>20/46</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">46.42% </span>
+                <span class="strong">41.93% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>13/28</span>
+                <span class='fraction'>13/31</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">60.66% </span>
+                <span class="strong">60.12% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>91/150</span>
+                <span class='fraction'>95/158</span>
             </div>
         
             
@@ -932,7 +932,16 @@
 <a name='L867'></a><a href='#L867'>867</a>
 <a name='L868'></a><a href='#L868'>868</a>
 <a name='L869'></a><a href='#L869'>869</a>
-<a name='L870'></a><a href='#L870'>870</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L870'></a><a href='#L870'>870</a>
+<a name='L871'></a><a href='#L871'>871</a>
+<a name='L872'></a><a href='#L872'>872</a>
+<a name='L873'></a><a href='#L873'>873</a>
+<a name='L874'></a><a href='#L874'>874</a>
+<a name='L875'></a><a href='#L875'>875</a>
+<a name='L876'></a><a href='#L876'>876</a>
+<a name='L877'></a><a href='#L877'>877</a>
+<a name='L878'></a><a href='#L878'>878</a>
+<a name='L879'></a><a href='#L879'>879</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1138,6 +1147,15 @@
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1321,9 +1339,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1593,6 +1608,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1685,7 +1704,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2007,6 +2025,15 @@ export function useArduinoSimulatorPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { setDebugMode } = useDebugMode();
+  const loadFilesTriggerRef = useRef&lt;(() =&gt; void) | null&gt;(null);
+  const openLoadFiles = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    loadFilesTriggerRef.current?.();</span>
+  }, []);
+  const renameTriggerRef = useRef&lt;(() =&gt; void) | null&gt;(null);
+  const openRenameFile = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+    const trigger = <span class="cstat-no" title="statement not covered" >renameTriggerRef.current;</span>
+<span class="cstat-no" title="statement not covered" >    if (trigger) <span class="cstat-no" title="statement not covered" >globalThis.queueMicrotask(trigger);</span></span>
+  }, []);
   
   
   const {
@@ -2205,10 +2232,7 @@ export function useArduinoSimulatorPage() {
   ]);
 &nbsp;
   const {
-    fileInputRef,
-    onLoadFiles,
     downloadAllFiles,
-    handleHiddenFileInput,
     handleTabClick,
     handleTabAdd,
     handleTabClose,
@@ -2457,10 +2481,14 @@ export function useArduinoSimulatorPage() {
     handleTabAdd,
     handleTabClose,
     handleTabRename,
+    loadFilesTriggerRef,
+    renameTriggerRef,
     handleFilesLoaded,
     handleLoadExample,
+    downloadAllFiles: <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      void downloadAllFiles();</span>
+    },
     formatCode,
-    handleCompileAndStart,
     editorRef,
     backendReachable,
     activeOutputTab,
@@ -2613,8 +2641,9 @@ export function useArduinoSimulatorPage() {
       activeTabId,
       tabs,
       handleTabRename,
+      onRenameFile: openRenameFile,
       formatCode,
-      onLoadFiles,
+      onLoadFiles: openLoadFiles,
       downloadAllFiles,
       undo,
       redo,
@@ -2624,8 +2653,6 @@ export function useArduinoSimulatorPage() {
       selectAll,
       goToLine,
       find,
-      fileInputRef,
-      handleHiddenFileInput,
     },
     connection: {
       backendReachable,
@@ -2677,7 +2704,7 @@ export type ArduinoSimulatorPageState = ReturnType&lt;typeof useArduinoSimulator
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-13T18:29:08.923Z
+                at 2026-09-13T20:25:09.591Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

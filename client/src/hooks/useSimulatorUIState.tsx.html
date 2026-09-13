@@ -488,7 +488,10 @@
 <a name='L423'></a><a href='#L423'>423</a>
 <a name='L424'></a><a href='#L424'>424</a>
 <a name='L425'></a><a href='#L425'>425</a>
-<a name='L426'></a><a href='#L426'>426</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L426'></a><a href='#L426'>426</a>
+<a name='L427'></a><a href='#L427'>427</a>
+<a name='L428'></a><a href='#L428'>428</a>
+<a name='L429'></a><a href='#L429'>429</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -502,6 +505,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -675,24 +680,25 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -940,10 +946,12 @@ interface UseSimulatorUIStateParams {
   handleTabAdd: () =&gt; void;
   handleTabClose: (tabId: string) =&gt; void;
   handleTabRename: (tabId: string, newName: string) =&gt; void;
+  loadFilesTriggerRef: React.MutableRefObject&lt;(() =&gt; void) | null&gt;;
+  renameTriggerRef: React.MutableRefObject&lt;(() =&gt; void) | null&gt;;
   handleFilesLoaded: (files: Array&lt;{ name: string; path?: string; content: string }&gt;, replaceAll: boolean) =&gt; void;
   handleLoadExample: (files: Array&lt;{ name: string; path?: string; content: string }&gt;, title: string) =&gt; void;
+  downloadAllFiles: () =&gt; void;
   formatCode: () =&gt; void;
-  handleCompileAndStart: () =&gt; void;
   editorRef: React.RefObject&lt;{
     getValue: () =&gt; string;
     insertSuggestionSmartly?: (suggestion: string, line?: number) =&gt; void;
@@ -1034,10 +1042,12 @@ export function useSimulatorUIState({
   handleTabAdd,
   handleTabClose,
   handleTabRename,
+  loadFilesTriggerRef,
+  renameTriggerRef,
   handleFilesLoaded,
   handleLoadExample,
+  downloadAllFiles,
   formatCode,
-  handleCompileAndStart,
   editorRef,
   backendReachable,
   activeOutputTab,
@@ -1127,6 +1137,9 @@ export function useSimulatorUIState({
           onTabAdd={handleTabAdd}
           onFilesLoaded={handleFilesLoaded}
           onFormatCode={formatCode}
+          onDownloadAllFiles={downloadAllFiles}
+          loadFilesTriggerRef={loadFilesTriggerRef}
+          renameTriggerRef={renameTriggerRef}
           examplesMenu={
             &lt;ExamplesMenu
               onLoadExample={handleLoadExample}
@@ -1136,13 +1149,7 @@ export function useSimulatorUIState({
         /&gt;
         &lt;div className="flex-1 min-h-0 w-full"&gt;
           &lt;Suspense fallback={&lt;LoadingPlaceholder /&gt;}&gt;
-            &lt;CodeEditor
-              value={code}
-              onChange={setCode}
-              onCompileAndRun={handleCompileAndStart}
-              onFormat={formatCode}
-              editorRef={editorRef}
-            /&gt;
+            &lt;CodeEditor value={code} onChange={setCode} editorRef={editorRef} /&gt;
           &lt;/Suspense&gt;
         &lt;/div&gt;
       &lt;/&gt;
@@ -1160,8 +1167,10 @@ export function useSimulatorUIState({
       backendReachable,
       code,
       setCode,
-      handleCompileAndStart,
       editorRef,
+      downloadAllFiles,
+      loadFilesTriggerRef,
+      renameTriggerRef,
     ],
   );
 &nbsp;
@@ -1345,7 +1354,7 @@ export function useSimulatorUIState({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-13T18:29:08.923Z
+                at 2026-09-13T20:25:09.591Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
