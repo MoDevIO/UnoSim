@@ -25,10 +25,12 @@ interface UseSimulatorUIStateParams {
   handleTabAdd: () => void;
   handleTabClose: (tabId: string) => void;
   handleTabRename: (tabId: string, newName: string) => void;
+  loadFilesTriggerRef: React.MutableRefObject<(() => void) | null>;
+  renameTriggerRef: React.MutableRefObject<(() => void) | null>;
   handleFilesLoaded: (files: Array<{ name: string; path?: string; content: string }>, replaceAll: boolean) => void;
   handleLoadExample: (files: Array<{ name: string; path?: string; content: string }>, title: string) => void;
+  downloadAllFiles: () => void;
   formatCode: () => void;
-  handleCompileAndStart: () => void;
   editorRef: React.RefObject<{
     getValue: () => string;
     insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
@@ -119,10 +121,12 @@ export function useSimulatorUIState({
   handleTabAdd,
   handleTabClose,
   handleTabRename,
+  loadFilesTriggerRef,
+  renameTriggerRef,
   handleFilesLoaded,
   handleLoadExample,
+  downloadAllFiles,
   formatCode,
-  handleCompileAndStart,
   editorRef,
   backendReachable,
   activeOutputTab,
@@ -212,6 +216,9 @@ export function useSimulatorUIState({
           onTabAdd={handleTabAdd}
           onFilesLoaded={handleFilesLoaded}
           onFormatCode={formatCode}
+          onDownloadAllFiles={downloadAllFiles}
+          loadFilesTriggerRef={loadFilesTriggerRef}
+          renameTriggerRef={renameTriggerRef}
           examplesMenu={
             <ExamplesMenu
               onLoadExample={handleLoadExample}
@@ -221,13 +228,7 @@ export function useSimulatorUIState({
         />
         <div className="flex-1 min-h-0 w-full">
           <Suspense fallback={<LoadingPlaceholder />}>
-            <CodeEditor
-              value={code}
-              onChange={setCode}
-              onCompileAndRun={handleCompileAndStart}
-              onFormat={formatCode}
-              editorRef={editorRef}
-            />
+            <CodeEditor value={code} onChange={setCode} editorRef={editorRef} />
           </Suspense>
         </div>
       </>
@@ -245,8 +246,10 @@ export function useSimulatorUIState({
       backendReachable,
       code,
       setCode,
-      handleCompileAndStart,
       editorRef,
+      downloadAllFiles,
+      loadFilesTriggerRef,
+      renameTriggerRef,
     ],
   );
 

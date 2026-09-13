@@ -184,9 +184,7 @@ export function ArduinoSimulatorPageLayout(
   } = pins;
   const {
     handleTabAdd,
-    activeTabId,
-    tabs,
-    handleTabRename,
+    onRenameFile,
     formatCode,
     onLoadFiles,
     downloadAllFiles,
@@ -198,8 +196,6 @@ export function ArduinoSimulatorPageLayout(
     selectAll,
     goToLine,
     find,
-    fileInputRef,
-    handleHiddenFileInput,
   } = files;
   const {
     backendReachable,
@@ -218,7 +214,6 @@ export function ArduinoSimulatorPageLayout(
     layoutMode,
     board,
     isMac,
-    toast,
     openSettings,
     debugMode,
     mobilePanel,
@@ -362,23 +357,7 @@ export function ArduinoSimulatorPageLayout(
         onTimeoutChange={setSimulationTimeout}
         isMac={isMac}
         onFileAdd={handleTabAdd}
-        onFileRename={() => {
-          if (!activeTabId) {
-            toast({
-              title: "No file selected",
-              description: "Open a file/tab first to rename.",
-            });
-            return;
-          }
-          const current = tabs.find((t) => t.id === activeTabId);
-          const newName = globalThis.prompt(
-            "Rename file",
-            current?.name || "untitled.ino",
-          );
-          if (newName?.trim()) {
-            handleTabRename(activeTabId, newName.trim());
-          }
-        }}
+        onFileRename={onRenameFile}
         onFormatCode={formatCode}
         onLoadFiles={onLoadFiles}
         onDownloadAllFiles={downloadAllFiles}
@@ -431,15 +410,6 @@ export function ArduinoSimulatorPageLayout(
             pendingExternalStart={pendingExternalStart}
           />
         }
-      />
-      {/* Hidden file input used by File → Load Files */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".ino,.h"
-        multiple
-        onChange={handleHiddenFileInput}
-        className="hidden"
       />
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative z-0 workspace-layout" data-layout-mode={layoutMode}>

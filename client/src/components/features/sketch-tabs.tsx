@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   X,
   MoreVertical,
@@ -62,7 +62,10 @@ interface SketchTabsProps {
     replaceAll: boolean,
   ) => void;
   readonly onFormatCode?: () => void;
+  readonly onDownloadAllFiles?: () => void;
   readonly examplesMenu?: React.ReactNode;
+  readonly loadFilesTriggerRef?: React.MutableRefObject<(() => void) | null>;
+  readonly renameTriggerRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 function getDisplayFileName(path: string): string {
@@ -79,7 +82,10 @@ export function SketchTabs({
   onTabAdd,
   onFilesLoaded,
   onFormatCode,
+  onDownloadAllFiles,
   examplesMenu,
+  loadFilesTriggerRef,
+  renameTriggerRef,
 }: SketchTabsProps) {
   const { toast } = useToast();
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
@@ -114,16 +120,42 @@ export function SketchTabs({
     setNewName(nameWithoutExtension);
   };
 
-  const handleRenameStartDialog = (tabId: string, currentName: string) => {
-    setRenamingTabId(tabId);
-    // Remove file extension for display
-    const nameWithoutExtension = currentName.slice(
-      0,
-      Math.max(0, currentName.lastIndexOf(".")),
-    );
-    setNewName(nameWithoutExtension);
-    setIsRenameDialogOpen(true);
-  };
+  const handleRenameStartDialog = useCallback(
+    (tabId: string, currentName: string) => {
+      setRenamingTabId(tabId);
+      // Remove file extension for display
+      const nameWithoutExtension = currentName.slice(
+        0,
+        Math.max(0, currentName.lastIndexOf(".")),
+      );
+      setNewName(nameWithoutExtension);
+      setIsRenameDialogOpen(true);
+    },
+    [],
+  );
+
+  const openRenameDialog = useCallback(() => {
+    if (!activeTabId) {
+      toast({
+        title: "No file selected",
+        description: "Open a file/tab first to rename.",
+      });
+      return;
+    }
+    const activeTab = tabs.find((tab) => tab.id === activeTabId);
+    if (activeTab) handleRenameStartDialog(activeTabId, activeTab.name);
+  }, [activeTabId, handleRenameStartDialog, tabs, toast]);
+
+  useEffect(() => {
+    if (loadFilesTriggerRef) {
+      loadFilesTriggerRef.current = () => fileInputRef.current?.click();
+    }
+    if (renameTriggerRef) renameTriggerRef.current = openRenameDialog;
+    return () => {
+      if (loadFilesTriggerRef) loadFilesTriggerRef.current = null;
+      if (renameTriggerRef) renameTriggerRef.current = null;
+    };
+  }, [loadFilesTriggerRef, openRenameDialog, renameTriggerRef]);
 
   const handleRenameSave = () => {
     if (newName.trim() && renamingTabId) {
@@ -269,43 +301,6 @@ export function SketchTabs({
     }
     setIsReplaceConfirmOpen(false);
     setPendingFilesToLoad(null);
-  };
-
-  const downloadAllTabs = async () => {
-    try {
-      // Download each file individually
-      tabs.forEach((tab, index) => {
-        setTimeout(() => {
-          const element = document.createElement("a");
-          element.setAttribute(
-            "href",
-            "data:text/plain;charset=utf-8," + encodeURIComponent(tab.content),
-          );
-          element.setAttribute("download", tab.name);
-          element.style.display = "none";
-          document.body.appendChild(element);
-          element.click();
-          element.remove();
-        }, index * 200); // Stagger downloads to avoid browser throttling
-      });
-
-      // Show success toast after all downloads are initiated
-      setTimeout(
-        () => {
-          toast({
-            title: "Download started",
-            description: `${tabs.length} file(s) downloading`,
-          });
-        },
-        tabs.length * 200 + 100,
-      );
-    } catch (error) {
-      toast({
-        title: "Download failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
-    }
   };
 
   return (
@@ -462,9 +457,10 @@ export function SketchTabs({
               {activeTabId && (
                 <DropdownMenuItem
                   onClick={() => {
-                    const activeTab = tabs.find((t) => t.id === activeTabId);
-                    if (activeTab) {
-                      handleRenameStartDialog(activeTabId, activeTab.name);
+                    if (renameTriggerRef?.current) {
+                      renameTriggerRef.current();
+                    } else {
+                      openRenameDialog();
                     }
                   }}
                 >
@@ -486,7 +482,7 @@ export function SketchTabs({
                 <Upload className="h-4 w-4 mr-2" />
                 Load Files
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={downloadAllTabs}>
+              <DropdownMenuItem onClick={onDownloadAllFiles}>
                 <Download className="h-4 w-4 mr-2" />
                 Save All Files
               </DropdownMenuItem>

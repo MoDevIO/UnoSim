@@ -1,6 +1,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { DesktopMenuBar } from "../../client/src/components/features/app-header";
+import { AppHeader, DesktopMenuBar } from "../../client/src/components/features/app-header";
+
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    observe() {}
+    disconnect() {}
+  },
+);
 
 const topLevelMenus = ["File", "Edit", "Sketch", "Tools", "Help"] as const;
 
@@ -34,7 +42,7 @@ async function expectOnlyMenuOpen(name: string) {
   });
 }
 
-function renderMenuBar() {
+function renderMenuBar(overrides: Record<string, unknown> = {}) {
   return render(
     <DesktopMenuBar
       isMac={false}
@@ -60,6 +68,7 @@ function renderMenuBar() {
       onCompileAndStart={vi.fn()}
       onOutputPanelToggle={vi.fn()}
       onTimeoutChange={vi.fn()}
+      {...overrides}
     />,
   );
 }
@@ -154,5 +163,67 @@ describe("Desktop top-level menus", () => {
     }
 
     expect(screen.getByRole("menuitem", { name: /New File/ })).toBeInTheDocument();
+  });
+
+  it("dispatches compile/start and format menu actions to their supplied handlers once", async () => {
+    const onCompileAndStart = vi.fn();
+    const onFormatCode = vi.fn();
+    renderMenuBar({ onCompileAndStart, onFormatCode });
+
+    await openMenu("Sketch");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Compile\/Upload/ }));
+    expect(onCompileAndStart).toHaveBeenCalledTimes(1);
+
+    await openMenu("File");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Format Code/ }));
+    expect(onFormatCode).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the same compile-and-start callback for the prominent simulate button", () => {
+    const onSimulate = vi.fn();
+    render(
+      <AppHeader
+        simulationStatus="idle"
+        compilationStatus="ready"
+        dockerGccPhase="idle"
+        hasFirstOutput={false}
+        simulateDisabled={false}
+        isCompiling={false}
+        isStarting={false}
+        isStopping={false}
+        isPausing={false}
+        isResuming={false}
+        onSimulate={onSimulate}
+        onStop={vi.fn()}
+        onPause={vi.fn()}
+        onResume={vi.fn()}
+        board="Arduino Uno"
+        baudRate={9600}
+        simulationTimeout={30}
+        onTimeoutChange={vi.fn()}
+        isMac={false}
+        onFileAdd={vi.fn()}
+        onFileRename={vi.fn()}
+        onFormatCode={vi.fn()}
+        onLoadFiles={vi.fn()}
+        onDownloadAllFiles={vi.fn()}
+        onSettings={vi.fn()}
+        onUndo={vi.fn()}
+        onRedo={vi.fn()}
+        onCut={vi.fn()}
+        onCopy={vi.fn()}
+        onPaste={vi.fn()}
+        onSelectAll={vi.fn()}
+        onGoToLine={vi.fn()}
+        onFind={vi.fn()}
+        onCompile={vi.fn()}
+        onCompileAndStart={onSimulate}
+        onOutputPanelToggle={vi.fn()}
+        showCompilationOutput={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("button-simulate-toggle"));
+    expect(onSimulate).toHaveBeenCalledTimes(1);
   });
 });

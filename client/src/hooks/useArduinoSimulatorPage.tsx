@@ -204,6 +204,15 @@ export function useArduinoSimulatorPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { setDebugMode } = useDebugMode();
+  const loadFilesTriggerRef = useRef<(() => void) | null>(null);
+  const openLoadFiles = useCallback(() => {
+    loadFilesTriggerRef.current?.();
+  }, []);
+  const renameTriggerRef = useRef<(() => void) | null>(null);
+  const openRenameFile = useCallback(() => {
+    const trigger = renameTriggerRef.current;
+    if (trigger) globalThis.queueMicrotask(trigger);
+  }, []);
   
   
   const {
@@ -402,10 +411,7 @@ export function useArduinoSimulatorPage() {
   ]);
 
   const {
-    fileInputRef,
-    onLoadFiles,
     downloadAllFiles,
-    handleHiddenFileInput,
     handleTabClick,
     handleTabAdd,
     handleTabClose,
@@ -654,10 +660,14 @@ export function useArduinoSimulatorPage() {
     handleTabAdd,
     handleTabClose,
     handleTabRename,
+    loadFilesTriggerRef,
+    renameTriggerRef,
     handleFilesLoaded,
     handleLoadExample,
+    downloadAllFiles: () => {
+      void downloadAllFiles();
+    },
     formatCode,
-    handleCompileAndStart,
     editorRef,
     backendReachable,
     activeOutputTab,
@@ -810,8 +820,9 @@ export function useArduinoSimulatorPage() {
       activeTabId,
       tabs,
       handleTabRename,
+      onRenameFile: openRenameFile,
       formatCode,
-      onLoadFiles,
+      onLoadFiles: openLoadFiles,
       downloadAllFiles,
       undo,
       redo,
@@ -821,8 +832,6 @@ export function useArduinoSimulatorPage() {
       selectAll,
       goToLine,
       find,
-      fileInputRef,
-      handleHiddenFileInput,
     },
     connection: {
       backendReachable,
