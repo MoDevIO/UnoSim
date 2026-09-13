@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.25% </span>
+                <span class="strong">93.75% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>82/87</span>
+                <span class='fraction'>75/80</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.11% </span>
+                <span class="strong">93.75% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>80/85</span>
+                <span class='fraction'>75/80</span>
             </div>
         
             
@@ -320,13 +320,7 @@
 <a name='L255'></a><a href='#L255'>255</a>
 <a name='L256'></a><a href='#L256'>256</a>
 <a name='L257'></a><a href='#L257'>257</a>
-<a name='L258'></a><a href='#L258'>258</a>
-<a name='L259'></a><a href='#L259'>259</a>
-<a name='L260'></a><a href='#L260'>260</a>
-<a name='L261'></a><a href='#L261'>261</a>
-<a name='L262'></a><a href='#L262'>262</a>
-<a name='L263'></a><a href='#L263'>263</a>
-<a name='L264'></a><a href='#L264'>264</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L258'></a><a href='#L258'>258</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -342,6 +336,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -470,13 +465,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">119x</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">476x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">204x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">34x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -644,7 +632,8 @@ export interface UseCompileControllerParams {
   // Callbacks
   setParserMessages: SetState&lt;ParserMessage[]&gt;;
   setParserPanelDismissed: SetState&lt;boolean&gt;;
-  setIoRegistry: SetState&lt;IOPinRecord[]&gt;;
+  /** Clears the runtime snapshot when a new compilation/run begins. */
+  setIoRegistry: SetState&lt;IOPinRecord[] | null&gt;;
   setIsModified: SetState&lt;boolean&gt;;
   resetPinUI: (opts?: { keepDetected?: boolean }) =&gt; void;
 &nbsp;
@@ -732,15 +721,8 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     },
   });
 &nbsp;
-  const initializeEmptyRegistry = useCallback(() =&gt; {
-    const pins: IOPinRecord[] = [];
-    for (let i = 0; i &lt;= 13; i++) {
-      pins.push({ pin: String(i), defined: false, usedAt: [] });
-    }
-    for (let i = 0; i &lt;= 5; i++) {
-      pins.push({ pin: `A${i}`, defined: false, usedAt: [] });
-    }
-    params.setIoRegistry(pins);
+  const clearRuntimeRegistry = useCallback(() =&gt; {
+    params.setIoRegistry(null);
   }, [params]);
 &nbsp;
   const handleCompileSuccess = useCallback(
@@ -756,9 +738,9 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
 <span class="cstat-no" title="statement not covered" >        params.setParserPanelDismissed(false);</span>
       }
       params.uiFeedback.showCompileSuccessToast();
-      initializeEmptyRegistry();
+      clearRuntimeRegistry();
     },
-    [params, initializeEmptyRegistry],
+    [params, clearRuntimeRegistry],
   );
 &nbsp;
   const handleCompileError = useCallback(
@@ -790,7 +772,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
   const handleCompile = useCallback(() =&gt; {
     clearOutputs();
     params.resetPinUI();
-    initializeEmptyRegistry();
+    clearRuntimeRegistry();
 &nbsp;
     let mainSketchCode: string;
     let headers: Array&lt;{ name: string; content: string }&gt;;
@@ -823,7 +805,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     params.resetPinUI,
     params.tabs,
     params.sourceProject,
-    initializeEmptyRegistry,
+    clearRuntimeRegistry,
     params.uiFeedback,
   ]);
 &nbsp;
@@ -859,7 +841,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-13T15:30:49.610Z
+                at 2026-09-13T17:57:07.935Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
