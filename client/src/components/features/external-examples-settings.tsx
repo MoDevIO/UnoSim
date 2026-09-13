@@ -50,8 +50,6 @@ export function ExternalExamplesSettings({
   React.useEffect(() => () => controller.current?.abort(), []);
 
   const source = catalog?.source;
-  const selectionStatus = override ? "Browser override" : "Default";
-
   const validateDraft = async (): Promise<ReturnType<
     typeof normalizeSelection
   > | null> => {
@@ -147,11 +145,11 @@ export function ExternalExamplesSettings({
 
   return (
     <section
-      className="rounded-lg border border-border/70 bg-muted/20 p-4 shadow-sm"
+      className="rounded-md border border-border/70 bg-muted/20 p-3"
       aria-label="External Examples settings"
     >
       <div className="text-ui-sm font-semibold text-foreground">External Examples</div>
-      <div className="mt-1 text-ui-xs leading-relaxed text-muted-foreground mb-4">
+      <div className="mt-0.5 mb-3 text-ui-xs leading-snug text-muted-foreground">
         Select a public GitHub repository and ref for this browser only. No
         credentials are needed.
       </div>
@@ -183,11 +181,7 @@ export function ExternalExamplesSettings({
           disabled={busy !== null}
         />
       </div>
-      <div className="mt-4 space-y-1 text-ui-xs text-muted-foreground">
-        <div>
-          Using:{" "}
-          <span className="font-medium text-foreground">{selectionStatus}</span>
-        </div>
+      <div className="mt-3 space-y-1 text-ui-xs text-muted-foreground">
         {(source?.revision ?? validatedRevision) && (
           <div>
             Active revision:{" "}
@@ -205,16 +199,17 @@ export function ExternalExamplesSettings({
       {message && (
         <output
           aria-live="polite"
-          className={`mt-4 text-ui-sm ${message.kind === "error" ? "text-destructive" : "text-status-success"}`}
+          className={`mt-3 text-ui-sm ${message.kind === "error" ? "text-destructive" : "text-status-success"}`}
         >
           {message.text}
         </output>
       )}
-      <div className="mt-4 flex flex-wrap justify-end gap-2">
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
         <Button
           type="button"
           variant="outline"
           size="sm"
+          className="h-9 [--ui-button-height:2.25rem]"
           onClick={() => void validateDraft()}
           disabled={busy !== null}
         >
@@ -223,6 +218,7 @@ export function ExternalExamplesSettings({
         <Button
           type="button"
           size="sm"
+          className="h-9 [--ui-button-height:2.25rem]"
           onClick={() => void apply()}
           disabled={busy !== null || !repository || !ref}
         >
@@ -232,6 +228,7 @@ export function ExternalExamplesSettings({
           type="button"
           variant="outline"
           size="sm"
+          className="h-9 [--ui-button-height:2.25rem]"
           onClick={() => void reset()}
           disabled={busy !== null || !override}
         >
