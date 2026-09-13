@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCompileAndRun } from "../../../client/src/hooks/use-compile-and-run";
 import { apiRequest } from "../../../client/src/lib/queryClient";
 import type { IncomingArduinoMessage } from "../../../client/src/types/websocket";
+import { buildSourceProject } from "../../../client/src/lib/source-project";
 
 vi.mock("@/lib/queryClient", () => ({
   apiRequest: vi.fn(),
@@ -43,6 +44,7 @@ const buildParams = () => ({
   ],
   activeTabId: "sketch",
   code: "state fallback code",
+  sourceProject: undefined,
   setSerialOutput: vi.fn(),
   clearSerialOutput: vi.fn(),
   setParserMessages: vi.fn(),
@@ -119,6 +121,121 @@ describe("useCompileAndRun characterization", () => {
     expect(result.current.hasCompiledOnce).toBe(true);
     expect(params.setIsModified).toHaveBeenCalledWith(false);
     expect(params.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("uses the canonical project snapshot for HTTP compile and WebSocket start", async () => {
+    (apiRequest as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockJsonCompileResponse({
+        success: true,
+        output: "Compiled successfully",
+        parserMessages: [],
+      }),
+    );
+    const params = buildParams();
+    params.activeTabId = "header";
+    params.sourceProject = buildSourceProject(
+      [
+        { id: "sketch", name: "sketch.ino", content: MAIN_SKETCH },
+        { id: "header", name: "drivers/header.h", content: "old header" },
+      ],
+      "header",
+      "pinMode(4, OUTPUT);\ndigitalWrite(4, HIGH);",
+    );
+
+    const { result } = renderHook(() => useCompileAndRun(params), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      result.current.handleCompileAndStart();
+    });
+
+    const expectedPayload = {
+      code: MAIN_SKETCH,
+      headers: [{
+        name: "drivers/header.h",
+        content: "pinMode(4, OUTPUT);\ndigitalWrite(4, HIGH);",
+      }],
+      entryFile: "sketch.ino",
+    };
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", expectedPayload);
+      expect(params.sendMessageImmediate).toHaveBeenCalledWith({
+        type: "start_simulation",
+        timeout: 60,
+        ...expectedPayload,
+      });
+    });
+  });
+
+  it("transports the logical entry path for nested projects to HTTP and WebSocket", async () => {
+    (apiRequest as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockJsonCompileResponse({ success: true, output: "Compiled successfully", parserMessages: [] }),
+    );
+    const params = buildParams();
+    params.sourceProject = {
+      entryFile: "src/main.ino",
+      files: {
+        "src/main.ino": '#include "../shared/pins.h"\n#include "../drivers/led.h"\nvoid setup() {}\nvoid loop() {}',
+        "shared/pins.h": "pinMode(5, OUTPUT);",
+        "drivers/led.h": "digitalWrite(5, HIGH);",
+      },
+    };
+
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper: createWrapper() });
+    await act(async () => { result.current.handleCompileAndStart(); });
+
+    const expectedPayload = {
+      code: '#include "../shared/pins.h"\n#include "../drivers/led.h"\nvoid setup() {}\nvoid loop() {}',
+      headers: [
+        { name: "shared/pins.h", content: "pinMode(5, OUTPUT);" },
+        { name: "drivers/led.h", content: "digitalWrite(5, HIGH);" },
+      ],
+      entryFile: "src/main.ino",
+    };
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", expectedPayload);
+      expect(params.sendMessageImmediate).toHaveBeenCalledWith({
+        type: "start_simulation",
+        timeout: 60,
+        ...expectedPayload,
+      });
+    });
+  });
+
+  it("uses the canonical project snapshot for the standalone HTTP compile action", async () => {
+    (apiRequest as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockJsonCompileResponse({
+        success: true,
+        output: "Compiled successfully",
+        parserMessages: [],
+      }),
+    );
+    const params = buildParams();
+    params.activeTabId = "header";
+    params.sourceProject = {
+      entryFile: "sketch.ino",
+      files: {
+        "sketch.ino": MAIN_SKETCH,
+        "drivers/header.h": "pinMode(4, OUTPUT);",
+      },
+    };
+
+    const { result } = renderHook(() => useCompileAndRun(params), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      result.current.handleCompile();
+    });
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", {
+        code: MAIN_SKETCH,
+        headers: [{ name: "drivers/header.h", content: "pinMode(4, OUTPUT);" }],
+        entryFile: "sketch.ino",
+      });
+    });
   });
 
   it("does not publish a premature success state before WebSocket sandbox compilation completes", async () => {

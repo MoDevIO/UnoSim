@@ -89,6 +89,27 @@ describe("buildSketchHash", () => {
     const b = buildSketchHash({ code: "test" }, "arduino:avr:mega");
     expect(a).not.toBe(b);
   });
+
+  it("returns different hashes when the logical entry path changes", () => {
+    const common = {
+      code: '#include "../shared/pins.h"',
+      headers: [{ name: "shared/pins.h", content: "pinMode(5, OUTPUT);" }],
+    };
+    const a = buildSketchHash({ ...common, entryFile: "src/main.ino" }, "arduino:avr:uno");
+    const b = buildSketchHash({ ...common, entryFile: "examples/main.ino" }, "arduino:avr:uno");
+    expect(a).not.toBe(b);
+  });
+
+  it("is deterministic for an identical project snapshot", () => {
+    const task = {
+      code: "void setup(){}",
+      entryFile: "src/main.ino",
+      headers: [{ name: "shared/pins.h", content: "#define PIN 5" }],
+    };
+    expect(buildSketchHash(task, "arduino:avr:uno")).toBe(
+      buildSketchHash(task, "arduino:avr:uno"),
+    );
+  });
 });
 
 describe("checkFileExists", () => {

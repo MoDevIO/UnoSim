@@ -9,6 +9,7 @@ import type { TelemetryMetrics } from "@/hooks/use-telemetry-store";
 import type { ToastFn } from "@/hooks/use-toast";
 import type { ParserMessage, IOPinRecord, OutputLine } from "@shared/schema";
 import type { OutputTab } from "@/types/compilation.types";
+import type { SourceNavigationTarget } from "@/types/source-navigation";
 const CodeEditor = lazy(() =>
   import("@/components/features/code-editor").then((m) => ({
     default: m.CodeEditor,
@@ -18,14 +19,14 @@ const CodeEditor = lazy(() =>
 interface UseSimulatorUIStateParams {
   code: string;
   setCode: (code: string) => void;
-  tabs: Array<{ id: string; name: string; content: string }>;
+  tabs: Array<{ id: string; name: string; path?: string; content: string }>;
   activeTabId: string | null;
   handleTabClick: (tabId: string) => void;
   handleTabAdd: () => void;
   handleTabClose: (tabId: string) => void;
   handleTabRename: (tabId: string, newName: string) => void;
-  handleFilesLoaded: (files: Array<{ name: string; content: string }>, replaceAll: boolean) => void;
-  handleLoadExample: (files: Array<{ name: string; content: string }>, title: string) => void;
+  handleFilesLoaded: (files: Array<{ name: string; path?: string; content: string }>, replaceAll: boolean) => void;
+  handleLoadExample: (files: Array<{ name: string; path?: string; content: string }>, title: string) => void;
   formatCode: () => void;
   handleCompileAndStart: () => void;
   editorRef: React.RefObject<{
@@ -50,6 +51,7 @@ interface UseSimulatorUIStateParams {
   onPanelClose?: () => void;
   isModified: boolean;
   toast: ToastFn;
+  onNavigateToSource?: (target: SourceNavigationTarget) => void;
 
   renderedSerialOutput: OutputLine[];
   serialOutput: OutputLine[];
@@ -167,6 +169,7 @@ export function useSimulatorUIState({
   setDebugViewMode,
   debugMessagesContainerRef,
   addDebugMessage,
+  onNavigateToSource,
 }: UseSimulatorUIStateParams) {
 
   const {
@@ -193,6 +196,7 @@ export function useSimulatorUIState({
     setParserPanelDismissed,
     setActiveOutputTab,
     code,
+    onNavigateToSource,
   });
 
   const codeSlot = useMemo(
@@ -326,6 +330,7 @@ export function useSimulatorUIState({
       handleClearCompilationOutput,
       handleParserMessagesClear,
       handleParserGoToLine,
+      onNavigateToSource,
       handleInsertSuggestion,
       handleRegistryClear,
       setDebugMessageFilter,

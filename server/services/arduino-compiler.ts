@@ -6,6 +6,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { Logger } from "@shared/logger";
 import { ParserMessage, IOPinRecord } from "@shared/schema";
 import { CodeParser } from "@shared/code-parser";
+import type { SourceProject } from "@shared/source-project";
 import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
 import { reservedNamesValidator } from "@shared/reserved-names-validator";
@@ -31,6 +32,16 @@ import { compileWithArduinoCli, type CLICompileConfig } from "./compiler/cli-run
 // Re-export for backwards compatibility
 export type { CompilationError } from "./compiler/compiler-output-parser";
 
+function buildCompileSourceProject(
+  code: string,
+  headers: Array<{ name: string; content: string }> = [],
+  entryFile = "sketch.ino",
+): SourceProject {
+  const files: Record<string, string> = { [entryFile]: code };
+  for (const header of headers) files[header.name] = header.content;
+  return { entryFile, files };
+}
+
 export interface CompilationResult {
   success: boolean;
   output: string;
@@ -46,6 +57,7 @@ export interface CompilationResult {
 }
 
 export interface CompileRequestOptions {
+  entryFile?: string;
   fqbn?: string;
   libraries?: string[];
   sketchHash?: string;
@@ -89,6 +101,7 @@ export class ArduinoCompiler {
     const payload = JSON.stringify({
       code,
       fqbn: options?.fqbn || this.defaultFqbn,
+      entryFile: options?.entryFile || "sketch.ino",
     });
     return createHash("sha256").update(payload).digest("hex");
   }
@@ -175,7 +188,8 @@ export class ArduinoCompiler {
 
     // Pre-compilation validation and parsing
     const parser = new CodeParser();
-    const parserMessages = parser.parseAll(code);
+    const sourceProject = buildCompileSourceProject(code, headers, options?.entryFile);
+    const parserMessages = parser.parseAllProject(sourceProject);
     const reservedNameMessages = reservedNamesValidator.validateReservedNames(code);
     const allParserMessages = [...parserMessages, ...reservedNameMessages];
     const ioRegistry: IOPinRecord[] = [];
@@ -234,6 +248,7 @@ export class ArduinoCompiler {
         code,
         headers,
         sketchDir,
+        options?.entryFile,
       );
       await writeFile(sketchFile, processedCode);
 

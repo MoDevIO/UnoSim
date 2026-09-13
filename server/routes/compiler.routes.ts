@@ -29,6 +29,7 @@ type CompilerDeps = {
 type CompileRequestData = {
   code: string;
   headers?: CompilerHeader[];
+  entryFile?: string;
   fqbn?: string;
   libraries?: string[];
 };
@@ -139,9 +140,14 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
       if (!parsedRequest.success) {
         return res.status(400).json({ error: parsedRequest.error });
       }
-      const { code, headers, fqbn, libraries } = parsedRequest.data;
+      const { code, headers, entryFile, fqbn, libraries } = parsedRequest.data;
 
-      const codeHash = hashCode(code, headers, { fqbn, libraries });
+      const compileOptions = {
+        fqbn,
+        libraries,
+        ...(entryFile ? { entryFile } : {}),
+      };
+      const codeHash = hashCode(code, headers, compileOptions);
       const cacheDisabled = process.env.DISABLE_COMPILE_CACHE === "true";
       const cachedResult = getCachedCompilation(
         compilationCache,
@@ -168,10 +174,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         code,
         headers,
         compileTempRoot,
-        {
-          fqbn,
-          libraries,
-        },
+        compileOptions,
       );
 
       recordCompileMetricIfNeeded(compiler, compileStartTime, result);

@@ -7,13 +7,20 @@ import { HardwareCompatibilityParser } from "./parsers/hardware-compatibility-pa
 import { PinConflictsParser } from "./parsers/pin-conflicts-parser";
 import {
   analyzeStaticIO,
+  analyzeStaticIOProject,
   type StaticIOAnalysis,
+  type StaticIOProjectAnalysis,
 } from "./io-registry-parser";
+import type { SourceProject } from "./source-project";
 
 type StaticIOAnalyzer = (code: string) => StaticIOAnalysis;
+type StaticIOProjectAnalyzer = (project: SourceProject) => StaticIOProjectAnalysis;
 
 export class CodeParser {
-  constructor(private readonly analyzeIO: StaticIOAnalyzer = analyzeStaticIO) {}
+  constructor(
+    private readonly analyzeIO: StaticIOAnalyzer = analyzeStaticIO,
+    private readonly analyzeIOProject: StaticIOProjectAnalyzer = analyzeStaticIOProject,
+  ) {}
 
   /**
    * Parse Serial configuration issues
@@ -77,6 +84,22 @@ export class CodeParser {
       ...this.parseHardwareCompatibility(code, analysis),
       ...this.parsePinConflicts(code, analysis),
       ...this.parsePerformance(code),
+    ];
+  }
+
+  /**
+   * Parse a project using one include-resolved static I/O analysis. Structure,
+   * serial, and performance checks intentionally remain entry-file scoped.
+   */
+  parseAllProject(project: SourceProject): ParserMessage[] {
+    const entryCode = project.files[project.entryFile] ?? "";
+    const analysis = this.analyzeIOProject(project);
+    return [
+      ...this.parseSerialConfiguration(entryCode),
+      ...this.parseStructure(entryCode),
+      ...this.parseHardwareCompatibility(entryCode, analysis),
+      ...this.parsePinConflicts(entryCode, analysis),
+      ...this.parsePerformance(entryCode),
     ];
   }
 

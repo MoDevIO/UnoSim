@@ -553,6 +553,86 @@ describe("ArduinoCompiler - Full Coverage", () => {
       expect(result.success).toBe(true);
     });
 
+    it("includes reachable header I/O diagnostics in compilation results", async () => {
+      const code = '#include "pins.h"\nvoid setup() {}\nvoid loop() {}';
+      const headers = [{ name: "pins.h", content: "digitalWrite(7, HIGH);" }];
+
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: (event: string, cb: Function) => {
+          if (event === "close") cb(0);
+        },
+      }));
+
+      const result = await compiler.compile(code, headers);
+
+      expect(result.success).toBe(true);
+      expect(result.parserMessages).toContainEqual(expect.objectContaining({
+        category: "hardware",
+        message: expect.stringContaining("Pin 7 used"),
+        file: "pins.h",
+        line: 1,
+      }));
+    });
+
+    it("resolves nested entry includes against logical header paths", async () => {
+      const code = '#include "../shared/pins.h"\nvoid setup() {}\nvoid loop() {}';
+      const headers = [{ name: "shared/pins.h", content: "digitalWrite(5, HIGH);" }];
+
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: (event: string, cb: Function) => { if (event === "close") cb(0); },
+      }));
+
+      const result = await compiler.compile(code, headers, undefined, { entryFile: "src/main.ino" });
+
+      expect(result.success).toBe(true);
+      expect(result.parserMessages).toContainEqual(expect.objectContaining({
+        category: "hardware",
+        file: "shared/pins.h",
+        line: 1,
+      }));
+    });
+
+    it("compiles a sketch with nested controller and pins headers", async () => {
+      const code = `#include "controller.h"
+void setup() { setupController(); }
+void loop() { runController(); }`;
+      const headers = [
+        {
+          name: "controller.h",
+          content: `#include "pins.h"
+void setupController() {
+  pinMode(STATUS_LED, OUTPUT);
+  pinMode(AUX_LED, OUTPUT);
+}
+void runController() {
+  digitalWrite(STATUS_LED, HIGH);
+  digitalWrite(AUX_LED, LOW);
+}`,
+        },
+        {
+          name: "pins.h",
+          content: "const int STATUS_LED = 6;\nconst int AUX_LED = 7;",
+        },
+      ];
+
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: (event: string, cb: Function) => { if (event === "close") cb(0); },
+      }));
+
+      const result = await compiler.compile(code, headers, undefined, { entryFile: "nested.ino" });
+
+      expect(result.success).toBe(true);
+      expect(result.parserMessages).not.toContainEqual(expect.objectContaining({
+        message: expect.stringContaining("MISSING_LOCAL_INCLUDE"),
+      }));
+    });
+
     it("should handle multiple header files", async () => {
       const code = `
         #include "header1.h"

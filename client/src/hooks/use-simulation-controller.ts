@@ -60,6 +60,7 @@ export type SimulationControllerResult = {
   startSimulation: () => void;
   setCompiledCode: (code: string) => void;
   setCompiledHeaders?: (headers: Array<{ name: string; content: string }>) => void;
+  setCompiledEntryFile?: (entryFile: string | undefined) => void;
   startSimulationRef: React.MutableRefObject<(() => void) | null>;
   suppressAutoStopOnce: () => void;
 };
@@ -77,6 +78,7 @@ export function useSimulationController(
   } = useSimulationControllerState();
   const compiledCodeRef = useRef<string | null>(null);
   const compiledHeadersRef = useRef<Array<{ name: string; content: string }>>([]);
+  const compiledEntryFileRef = useRef<string | undefined>(undefined);
   const internalStartRef = useRef<(() => void) | null>(null);
   const startSimulationRef = params.startSimulationRef ?? internalStartRef;
 
@@ -121,12 +123,13 @@ export function useSimulationController(
       const timeout = normalizeSimulationTimeout(simulationTimeout);
       logger.debug(`[CLIENT] startMutation invoked, simulationTimeout=${timeout}`);
       params.resetPinUI({ keepDetected: true });
-      const message: { type: "start_simulation"; timeout: number; code?: string; headers?: Array<{ name: string; content: string }> } = {
+      const message: { type: "start_simulation"; timeout: number; code?: string; headers?: Array<{ name: string; content: string }>; entryFile?: string } = {
         type: "start_simulation",
         timeout,
       };
       if (compiledCodeRef.current) message.code = compiledCodeRef.current;
       if (compiledHeadersRef.current.length > 0) message.headers = compiledHeadersRef.current;
+      if (compiledEntryFileRef.current) message.entryFile = compiledEntryFileRef.current;
 
       params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current);
       if (params.sendMessageImmediate) {
@@ -160,6 +163,9 @@ export function useSimulationController(
   }, []);
   const setCompiledHeaders = useCallback((headers: Array<{ name: string; content: string }>) => {
     compiledHeadersRef.current = headers;
+  }, []);
+  const setCompiledEntryFile = useCallback((entryFile: string | undefined) => {
+    compiledEntryFileRef.current = entryFile;
   }, []);
   const handleStart = useCallback(() => {
     if (!params.ensureBackendConnected("Simulation starten")) return;
@@ -211,6 +217,7 @@ export function useSimulationController(
     startSimulation,
     setCompiledCode,
     setCompiledHeaders,
+    setCompiledEntryFile,
     startSimulationRef,
     suppressAutoStopOnce: lifecycle.suppressAutoStopOnce,
   };

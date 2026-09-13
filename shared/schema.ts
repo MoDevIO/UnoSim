@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { PinMode } from "./types/arduino.types";
 import { INPUT_LIMITS, isSafeHeaderName } from "./input-limits";
+import { normalizeSourcePath } from "./source-project";
+import type { SourceLocation } from "./source-project";
 
 // Sketch types (non-DB, for MemStorage)
 export interface Sketch {
@@ -24,15 +26,44 @@ export const insertSketchSchema = z.object({
 
 const compilerHeaderSchema = z
   .object({
-    name: z.string().refine(isSafeHeaderName, "Header name must be a safe basename"),
+    name: z.string().refine(
+      (name) => {
+        if (name.length > INPUT_LIMITS.compile.maxHeaderNameChars) return false;
+        const normalized = normalizeSourcePath(name);
+        return normalized?.split("/").every(isSafeHeaderName) === true;
+      },
+      "Header name must be a safe relative POSIX path",
+    ),
     content: z.string().max(INPUT_LIMITS.compile.maxHeaderContentChars),
   })
   .strict();
+
+function rejectEntryHeaderCollision(
+  data: { entryFile?: string; headers?: Array<{ name: string }> },
+  ctx: z.RefinementCtx,
+): void {
+  const entryPath = normalizeSourcePath(data.entryFile ?? "sketch.ino");
+  if (!entryPath || !data.headers) return;
+
+  data.headers.forEach((header, index) => {
+    if (normalizeSourcePath(header.name) === entryPath) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["headers", index, "name"],
+        message: "Header path must not collide with the entry file",
+      });
+    }
+  });
+}
 
 /** Runtime contract for the public REST compiler endpoint. */
 export const compileRequestSchema = z
   .object({
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
+    entryFile: z.string().refine(
+      (entryFile) => normalizeSourcePath(entryFile) !== undefined,
+      "Entry file must be a safe relative POSIX path",
+    ).optional(),
     headers: z
       .array(compilerHeaderSchema)
       .max(INPUT_LIMITS.compile.maxHeaders)
@@ -49,7 +80,8 @@ export const compileRequestSchema = z
       .max(INPUT_LIMITS.compile.maxLibraries)
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(rejectEntryHeaderCollision);
 
 /**
  * Canonical WebSocket message type identifiers.
@@ -100,6 +132,10 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       .max(INPUT_LIMITS.simulation.maxTimeoutSeconds)
       .optional(),
     code: z.string().max(INPUT_LIMITS.compile.maxCodeChars).optional(),
+    entryFile: z.string().refine(
+      (entryFile) => normalizeSourcePath(entryFile) !== undefined,
+      "Entry file must be a safe relative POSIX path",
+    ).optional(),
     headers: z
       .array(compilerHeaderSchema)
       .max(INPUT_LIMITS.compile.maxHeaders)
@@ -247,7 +283,11 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     message: z.string(),
     retryAfter: z.number().int().positive().optional(),
   }).strict(),
-]);
+]).superRefine((data, ctx) => {
+  if (data.type === "start_simulation") {
+    rejectEntryHeaderCollision(data, ctx);
+  }
+});
 
 export type WSMessage = z.infer<typeof wsMessageSchema>;
 
@@ -304,6 +344,8 @@ export type ParserMessage = {
     | "pins"
     | "reserved-name";
   severity: 1 | 2 | 3;
+  /** Source file for project-aware parser diagnostics. */
+  file?: string;
   line?: number;
   column?: number;
   message: string;
@@ -323,6 +365,12 @@ export interface IOPinRecord {
   digitalWriteLines?: Array<number | "runtime">;
   analogReadLines?: Array<number | "runtime">;
   analogWriteLines?: Array<number | "runtime">;
+  /** Project-aware static locations, retained alongside legacy line arrays. */
+  pinModeLocations?: SourceLocation[];
+  digitalReadLocations?: SourceLocation[];
+  digitalWriteLocations?: SourceLocation[];
+  analogReadLocations?: SourceLocation[];
+  analogWriteLocations?: SourceLocation[];
   // ── Conflict / warning flags (TC 9: write-on-input, TC 11: multi-mode) ───
   conflict?: boolean;
   conflictMessage?: string;

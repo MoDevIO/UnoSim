@@ -10,6 +10,7 @@ import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import { pinModeToString } from "@shared/utils/arduino-utils";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import type { OutputTab } from "@/types/compilation.types";
+import type { SourceNavigationTarget } from "@/types/source-navigation";
 import { TabBar } from "@/components/ui/tab-bar";
 
 function hasRegistryConflict(record: IOPinRecord): boolean {
@@ -58,7 +59,7 @@ interface OutputPanelProps {
 
   readonly onClearCompilationOutput: () => void;
   readonly onParserMessagesClear: () => void;
-  readonly onParserGoToLine: (line: number) => void;
+  readonly onParserGoToLine: (target: SourceNavigationTarget) => void;
   readonly onInsertSuggestion: (suggestion: string, line?: number) => void;
   readonly onRegistryClear?: () => void;
 

@@ -22,6 +22,13 @@
 import type { IOPinRecord } from "./schema";
 import type { PinMode } from "@shared/types/arduino.types";
 import {
+  resolveSourceProject,
+  type ResolvedSourceProject,
+  type SourceLocation,
+  type SourceProject,
+  type SourceProjectDiagnostic,
+} from "@shared/source-project";
+import {
   FOR_LOOP_TYPED,
   FOR_LOOP_BARE,
   stripComments,
@@ -65,6 +72,10 @@ export interface StaticIOCall {
   op: StaticIOOperation;
   pinId: number;
   line: number;
+  /** Present for project analysis; omitted by the legacy string API. */
+  file?: string;
+  /** Stable order in the expanded source, used instead of comparing file lines. */
+  sourceOrder?: number;
   sourceExpression: string;
   mode?: PinMode;
   loopBody?: "braced" | "braceless";
@@ -74,6 +85,8 @@ export interface StaticIOCall {
 export interface UnresolvedStaticIOCall {
   op: StaticIOOperation;
   line: number;
+  file?: string;
+  sourceOrder?: number;
   sourceExpression: string;
   mode?: PinMode;
 }
@@ -94,6 +107,20 @@ export interface StaticIOAnalysis {
   pins: StaticIOPinAnalysis[];
   unresolvedCalls: UnresolvedStaticIOCall[];
   symbols: Record<string, number>;
+}
+
+export interface StaticIOProjectAnalysis extends StaticIOAnalysis {
+  diagnostics: readonly SourceProjectDiagnostic[];
+  complete: boolean;
+  resolved: ResolvedSourceProject;
+}
+
+export interface StaticIOProjectPinRecord extends IOPinRecord {
+  pinModeLocations?: SourceLocation[];
+  digitalReadLocations?: SourceLocation[];
+  digitalWriteLocations?: SourceLocation[];
+  analogReadLocations?: SourceLocation[];
+  analogWriteLocations?: SourceLocation[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -796,4 +823,291 @@ function buildStaticIORegistry(analysis: StaticIOAnalysis): IOPinRecord[] {
  */
 export function parseStaticIORegistry(code: string): IOPinRecord[] {
   return buildStaticIORegistry(analyzeStaticIO(code));
+}
+
+const PROJECT_DEFINE_PATTERN = /^\s*#define\s+([A-Za-z_]\w*)\s+(\w+)/;
+const PROJECT_CONST_PATTERN = /\bconst\s+(?:int|byte|uint8_t|uint16_t|short|long)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/;
+const PROJECT_VAR_PATTERN = /\b(?:int|byte|uint8_t)\s+([A-Za-z_]\w*)\s*=\s*(\w+)\s*;/;
+const PROJECT_ARRAY_TYPES = new Set(["int", "byte", "uint8_t"]);
+
+interface SourceToken {
+  value: string;
+  start: number;
+  end: number;
+}
+
+interface ProjectArrayDeclaration {
+  name: string;
+  values: string;
+  index: number;
+  end: number;
+}
+
+function isIdentifierStart(character: string | undefined): boolean {
+  if (!character) return false;
+  const code = character.codePointAt(0) ?? 0;
+  return character === "_" || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isIdentifierPart(character: string | undefined): boolean {
+  if (isIdentifierStart(character)) return true;
+  const code = character?.codePointAt(0) ?? 0;
+  return code >= 48 && code <= 57;
+}
+
+function skipSourceWhitespace(source: string, start: number): number {
+  let index = start;
+  while (index < source.length && /\s/.test(source[index])) index++;
+  return index;
+}
+
+function readIdentifier(source: string, start: number): SourceToken | undefined {
+  if (!isIdentifierStart(source[start])) return undefined;
+  let end = start + 1;
+  while (end < source.length && isIdentifierPart(source[end])) end++;
+  return { value: source.slice(start, end), start, end };
+}
+
+function findNextIdentifier(source: string, start: number): SourceToken | undefined {
+  let index = start;
+  while (index < source.length && !isIdentifierStart(source[index])) index++;
+  return readIdentifier(source, index);
+}
+
+function isValidArraySize(value: string): boolean {
+  if (value.length === 0) return true;
+  if (readIdentifier(value, 0)?.end === value.length) return true;
+  return [...value].every((character) => character >= "0" && character <= "9");
+}
+
+function readArrayDeclarationHead(
+  source: string,
+  start: number,
+): { name: string; index: number; nextIndex: number } | undefined {
+  const first = readIdentifier(source, start);
+  if (!first) return undefined;
+
+  let type = first;
+  if (first.value === "const") {
+    const typeStart = skipSourceWhitespace(source, first.end);
+    if (typeStart === first.end) return undefined;
+    const constType = readIdentifier(source, typeStart);
+    if (!constType) return undefined;
+    type = constType;
+  }
+  if (!PROJECT_ARRAY_TYPES.has(type.value)) return undefined;
+
+  const nameStart = skipSourceWhitespace(source, type.end);
+  if (nameStart === type.end) return undefined;
+  const name = readIdentifier(source, nameStart);
+  if (!name) return undefined;
+  return { name: name.value, index: first.start, nextIndex: name.end };
+}
+
+function readProjectArrayDeclaration(
+  source: string,
+  start: number,
+): ProjectArrayDeclaration | undefined {
+  const head = readArrayDeclarationHead(source, start);
+  if (!head) return undefined;
+
+  let cursor = skipSourceWhitespace(source, head.nextIndex);
+  if (source[cursor] !== "[") return undefined;
+  const closeBracket = source.indexOf("]", cursor + 1);
+  if (closeBracket < 0) return undefined;
+  const size = source.slice(cursor + 1, closeBracket).trim();
+  if (!isValidArraySize(size)) return undefined;
+
+  cursor = skipSourceWhitespace(source, closeBracket + 1);
+  if (source[cursor] !== "=") return undefined;
+  cursor = skipSourceWhitespace(source, cursor + 1);
+  if (source[cursor] !== "{") return undefined;
+  const closeBrace = source.indexOf("}", cursor + 1);
+  if (closeBrace <= cursor + 1) return undefined;
+
+  return {
+    name: head.name,
+    values: source.slice(cursor + 1, closeBrace),
+    index: head.index,
+    end: closeBrace + 1,
+  };
+}
+
+function findProjectArrayDeclarations(source: string): ProjectArrayDeclaration[] {
+  const declarations: ProjectArrayDeclaration[] = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const token = findNextIdentifier(source, cursor);
+    if (!token) break;
+    const declaration = readProjectArrayDeclaration(source, token.start);
+    if (declaration) declarations.push(declaration);
+    cursor = declaration?.end ?? token.end;
+  }
+  return declarations;
+}
+
+function registerProjectSymbols(
+  line: string,
+  syms: Map<string, number>,
+  userSymbols: Set<string>,
+  arrays: Map<string, number[]>,
+  throughIndex = line.length,
+): void {
+  const definitions = [PROJECT_DEFINE_PATTERN, PROJECT_CONST_PATTERN, PROJECT_VAR_PATTERN];
+  for (const definition of definitions) {
+    const pattern = new RegExp(definition.source, "g");
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(line)) !== null) {
+      if (match.index > throughIndex) break;
+      const value = resolveToken(match[2], syms);
+      if (value !== undefined) {
+        syms.set(match[1], value);
+        userSymbols.add(match[1]);
+      }
+    }
+  }
+
+  for (const declaration of findProjectArrayDeclarations(line)) {
+    if (declaration.index > throughIndex) break;
+    const values = declaration.values
+      .split(",")
+      .map((value) => resolveToken(value.trim(), syms));
+    if (values.every((value): value is number => value !== undefined)) {
+      arrays.set(declaration.name, values);
+    }
+  }
+}
+
+function annotateProjectEntries(
+  entries: StaticIOCall[],
+  unresolvedCalls: UnresolvedStaticIOCall[],
+  entryCount: number,
+  unresolvedCount: number,
+  location: SourceLocation,
+  sourceOrder: number,
+): void {
+  for (let index = entryCount; index < entries.length; index++) {
+    entries[index].file = location.file;
+    entries[index].line = location.line;
+    entries[index].sourceOrder = sourceOrder;
+  }
+  for (let index = unresolvedCount; index < unresolvedCalls.length; index++) {
+    unresolvedCalls[index].file = location.file;
+    unresolvedCalls[index].line = location.line;
+    unresolvedCalls[index].sourceOrder = sourceOrder;
+  }
+}
+
+function analyzeResolvedStaticIOProject(
+  resolved: ResolvedSourceProject,
+): StaticIOProjectAnalysis {
+  const cleanLines = stripComments(resolved.source).split("\n");
+  const syms = new Map<string, number>(Object.entries(BUILTIN_CONSTANTS));
+  const userSymbols = new Set<string>();
+  const arrays = new Map<string, number[]>();
+  const entries: StaticIOCall[] = [];
+  const unresolvedCalls: UnresolvedStaticIOCall[] = [];
+  let offset = 0;
+
+  for (let lineIndex = 0; lineIndex < cleanLines.length; lineIndex++) {
+    const cleanLine = cleanLines[lineIndex] ?? "";
+    const location = resolved.lineOrigins[lineIndex] ?? {
+      file: resolved.entryFile,
+      line: lineIndex + 1,
+    };
+
+    FUNCTION_CALL_PATTERN.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = FUNCTION_CALL_PATTERN.exec(cleanLine)) !== null) {
+      const entryCount = entries.length;
+      const unresolvedCount = unresolvedCalls.length;
+      const op = match[1] as StaticIOOperation;
+      const pinExpr = match[2].trim();
+      const secondArg = (match[3] ?? "").trim();
+      const callPos = offset + match.index;
+      // Register only definitions that occur before this call. This preserves
+      // source order even when a declaration and a use share one line.
+      registerProjectSymbols(cleanLine, syms, userSymbols, arrays, match.index);
+      const loops = findLoopRanges(resolved.source, syms);
+
+      processCallExpression(
+        op,
+        pinExpr,
+        secondArg,
+        callPos,
+        lineIndex + 1,
+        { loops, syms, arrays, entries, unresolvedCalls },
+      );
+      annotateProjectEntries(
+        entries,
+        unresolvedCalls,
+        entryCount,
+        unresolvedCount,
+        location,
+        lineIndex,
+      );
+    }
+    registerProjectSymbols(cleanLine, syms, userSymbols, arrays);
+    offset += cleanLine.length + 1;
+  }
+
+  const pinMap = new Map<number, StaticIOCall[]>();
+  for (const entry of entries) {
+    const existing = pinMap.get(entry.pinId);
+    if (existing) existing.push(entry);
+    else pinMap.set(entry.pinId, [entry]);
+  }
+  const pins = [...pinMap]
+    .map(([pinId, calls]) => ({ pinId, calls }))
+    .sort((a, b) => a.pinId - b.pinId);
+  const symbols = Object.fromEntries(
+    [...userSymbols].map((name) => [name, syms.get(name) as number]),
+  );
+  return {
+    pins,
+    unresolvedCalls,
+    symbols,
+    diagnostics: resolved.diagnostics,
+    complete: resolved.complete,
+    resolved,
+  };
+}
+
+/** Analyze only the entry-reachable local source files in include order. */
+export function analyzeStaticIOProject(
+  project: SourceProject,
+): StaticIOProjectAnalysis {
+  return analyzeResolvedStaticIOProject(resolveSourceProject(project));
+}
+
+function locationsFor(
+  calls: StaticIOCall[],
+  operation: StaticIOOperation,
+): SourceLocation[] {
+  return calls
+    .filter((call) => call.op === operation && call.file !== undefined)
+    .sort((a, b) => (a.sourceOrder ?? 0) - (b.sourceOrder ?? 0))
+    .map((call) => ({ file: call.file as string, line: call.line }));
+}
+
+/** Project-aware registry projection with additive file/line locations. */
+export function parseStaticIORegistryProject(
+  project: SourceProject,
+): StaticIOProjectPinRecord[] {
+  const analysis = analyzeStaticIOProject(project);
+  const records = buildStaticIORegistry(analysis) as StaticIOProjectPinRecord[];
+  for (const record of records) {
+    const calls = analysis.pins.find(({ pinId }) => pinId === record.pinId)?.calls ?? [];
+    const pinModeLocations = locationsFor(calls, "pinMode");
+    const digitalReadLocations = locationsFor(calls, "digitalRead");
+    const digitalWriteLocations = locationsFor(calls, "digitalWrite");
+    const analogReadLocations = locationsFor(calls, "analogRead");
+    const analogWriteLocations = locationsFor(calls, "analogWrite");
+    if (pinModeLocations.length > 0) record.pinModeLocations = pinModeLocations;
+    if (digitalReadLocations.length > 0) record.digitalReadLocations = digitalReadLocations;
+    if (digitalWriteLocations.length > 0) record.digitalWriteLocations = digitalWriteLocations;
+    if (analogReadLocations.length > 0) record.analogReadLocations = analogReadLocations;
+    if (analogWriteLocations.length > 0) record.analogWriteLocations = analogWriteLocations;
+  }
+  return records;
 }

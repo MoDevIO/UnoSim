@@ -1,6 +1,6 @@
 // arduino-simulator.tsx
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -26,7 +26,9 @@ import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
 import { useSimulatorExternalControl } from "@/hooks/useSimulatorExternalControl";
-import { parseStaticIORegistry } from "@shared/io-registry-parser";
+import { parseStaticIORegistryProject } from "@shared/io-registry-parser";
+import { buildSourceProject } from "@/lib/source-project";
+import { findTabForSourceLocation } from "@/lib/source-navigation";
 
 import type {
   Sketch,
@@ -36,6 +38,9 @@ import type {
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
 import type { OutputTab } from "@/types/compilation.types";
+import type { SourceNavigationTarget } from "@/types/source-navigation";
+import { isSourceLocation } from "@/types/source-navigation";
+import type { SourceLocation } from "@shared/source-project";
 import { isMac } from "@/lib/platform";
 import {
   DIGITAL_PIN_COUNT,
@@ -45,6 +50,7 @@ import {
 export function useArduinoSimulatorPage() {
   const editorRef = useRef<{
     getValue: () => string;
+    goToLine?: (line: number) => void;
     insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
   } | null>(null);
 
@@ -60,6 +66,11 @@ export function useArduinoSimulatorPage() {
     setActiveTabId,
     initializeDefaultSketch,
   } = useFileSystem({ sketches: undefined });
+
+  const sourceProject = useMemo(
+    () => buildSourceProject(tabs, activeTabId, code),
+    [tabs, activeTabId, code],
+  );
 
   // CHANGED: Store OutputLine objects instead of plain strings
   const {
@@ -260,6 +271,7 @@ export function useArduinoSimulatorPage() {
     tabs,
     activeTabId,
     code,
+    sourceProject,
     setSerialOutput,
     clearSerialOutput,
     setParserMessages,
@@ -393,6 +405,44 @@ export function useArduinoSimulatorPage() {
     onLoadExample,
   });
 
+  const pendingSourceNavigation = useRef<{
+    tabId: string;
+    location: SourceLocation;
+  } | null>(null);
+
+  const navigateToSourceLocation = useCallback(
+    (target: SourceNavigationTarget) => {
+      const line = isSourceLocation(target) ? target.line : target;
+      if (line <= 0) return;
+      if (!isSourceLocation(target)) {
+        editorRef.current?.goToLine?.(line);
+        return;
+      }
+
+      const targetTab = findTabForSourceLocation(tabs, target);
+      if (!targetTab) return;
+      if (targetTab.id === activeTabId) {
+        editorRef.current?.goToLine?.(line);
+        return;
+      }
+
+      pendingSourceNavigation.current = { tabId: targetTab.id, location: target };
+      handleTabClick(targetTab.id);
+    },
+    [activeTabId, handleTabClick, tabs],
+  );
+
+  // Tab activation updates the editor value in the child editor effect. Once
+  // the selected tab's content is visible, apply the pending source location.
+  useEffect(() => {
+    const pending = pendingSourceNavigation.current;
+    if (pending?.tabId !== activeTabId) return;
+    const editor = editorRef.current;
+    if (editor?.getValue() !== code) return;
+    editor.goToLine?.(pending.location.line);
+    pendingSourceNavigation.current = null;
+  }, [activeTabId, code]);
+
   // Fetch default sketch (must come before effects which use it)
   const { data: sketches } = useQuery<Sketch[]>({
     queryKey: ["/api/sketches"],
@@ -479,13 +529,12 @@ export function useArduinoSimulatorPage() {
 
   // Parse the current code to detect which analog pins are used by name or channel
   // (extracted to `useSketchAnalysis` for testability and reuse)
-  const _sketchCode = code || (tabs.length > 0 ? tabs[0].content || "" : "");
   const {
     analogPins: _analogPins,
     varMap: _varMap,
     detectedPinModes: _detectedPinModes,
     pendingPinConflicts: _pendingPinConflicts,
-  } = useSketchAnalysis(_sketchCode);
+  } = useSketchAnalysis(sourceProject);
 
   // Mirror results into local state (previously done inside the big useEffect)
   useEffect(() => {
@@ -504,10 +553,12 @@ export function useArduinoSimulatorPage() {
   // Populate I/O registry from static code analysis whenever code changes or compilation completes
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIoRegistry(parseStaticIORegistry(code));
+      setIoRegistry(
+        sourceProject ? parseStaticIORegistryProject(sourceProject) : [],
+      );
     }, 300);
     return () => clearTimeout(timer);
-  }, [code, compilationStatus, setIoRegistry]);
+  }, [sourceProject, compilationStatus, setIoRegistry]);
 
   const { handleSerialSend, handleSerialInputKeyDown, handleClearSerialOutput } =
     useSimulatorSerialPanel({
@@ -585,6 +636,7 @@ export function useArduinoSimulatorPage() {
     handleClearCompilationOutput,
     handleInsertSuggestion,
     onPanelClose: closeMobilePanel,
+    onNavigateToSource: navigateToSourceLocation,
     renderedSerialOutput,
     serialOutput,
     isConnected,

@@ -5,13 +5,16 @@ import { generateUuidV4 } from "@/lib/uuid";
 import type { Sketch } from "@shared/schema";
 import type { ToastFn } from "@/hooks/use-toast";
 
+type SourceFileInput = { name: string; path?: string; content: string };
+type SourceTab = { id: string; name: string; path?: string; content: string };
+
 interface UseSimulatorFileSystemParams {
   code: string;
   setCode: (value: string) => void;
   isModified: boolean;
   setIsModified: (value: boolean) => void;
-  tabs: Array<{ id: string; name: string; content: string }>;
-  setTabs: (tabs: Array<{ id: string; name: string; content: string }>) => void;
+  tabs: SourceTab[];
+  setTabs: (tabs: SourceTab[]) => void;
   activeTabId: string | null;
   setActiveTabId: (id: string | null) => void;
   initializeDefaultSketch: (sketches: Sketch[] | undefined) => void;
@@ -34,16 +37,31 @@ export function useSimulatorFileSystem({
   onReplaceAllFiles,
   onLoadExample,
 }: UseSimulatorFileSystemParams) {
+  const syncActiveTabContent = useCallback(
+    (currentTabs: SourceTab[]) => {
+      if (!activeTabId) return currentTabs;
+      let changed = false;
+      const nextTabs = currentTabs.map((tab) => {
+        if (tab.id !== activeTabId || tab.content === code) return tab;
+        changed = true;
+        return { ...tab, content: code };
+      });
+      return changed ? nextTabs : currentTabs;
+    },
+    [activeTabId, code],
+  );
+
   const handleTabClick = useCallback(
     (tabId: string) => {
       const tab = tabs.find((t) => t.id === tabId);
       if (tab) {
+        setTabs(syncActiveTabContent(tabs));
         setActiveTabId(tabId);
-        setCode(tab.content);
+        setCode(tabId === activeTabId ? code : tab.content);
         setIsModified(false);
       }
     },
-    [tabs, setActiveTabId, setCode, setIsModified],
+    [activeTabId, code, setActiveTabId, setCode, setIsModified, setTabs, syncActiveTabContent, tabs],
   );
 
   const handleTabAdd = useCallback(() => {
@@ -51,13 +69,14 @@ export function useSimulatorFileSystem({
     const newTab = {
       id: newTabId,
       name: `header_${tabs.length}.h`,
+      path: `header_${tabs.length}.h`,
       content: "",
     };
-    setTabs([...tabs, newTab]);
+    setTabs([...syncActiveTabContent(tabs), newTab]);
     setActiveTabId(newTabId);
     setCode("");
     setIsModified(false);
-  }, [tabs, setTabs, setActiveTabId, setCode, setIsModified]);
+  }, [setTabs, setActiveTabId, setCode, setIsModified, syncActiveTabContent, tabs]);
 
   const handleTabClose = useCallback(
     (tabId: string) => {
@@ -71,7 +90,7 @@ export function useSimulatorFileSystem({
       }
 
       const newTabs = tabs.filter((t) => t.id !== tabId);
-      setTabs(newTabs);
+      setTabs(syncActiveTabContent(tabs).filter((t) => t.id !== tabId));
 
       if (activeTabId === tabId) {
         const newActiveTab = newTabs.at(-1);
@@ -84,30 +103,39 @@ export function useSimulatorFileSystem({
         }
       }
     },
-    [activeTabId, tabs, setActiveTabId, setCode, setTabs, toast],
+    [activeTabId, setActiveTabId, setCode, setTabs, syncActiveTabContent, tabs, toast],
   );
 
   const handleTabRename = useCallback(
     (tabId: string, newName: string) => {
       setTabs(
-        tabs.map((tab) => (tab.id === tabId ? { ...tab, name: newName } : tab)),
+        tabs.map((tab) => {
+          if (tab.id !== tabId) return tab;
+          const followsDisplayName = tab.path === tab.name;
+          return {
+            ...tab,
+            name: newName,
+            ...(followsDisplayName ? { path: newName } : {}),
+          };
+        }),
       );
     },
     [tabs, setTabs],
   );
 
   const handleFilesLoaded = useCallback(
-    (files: Array<{ name: string; content: string }>, replaceAll: boolean) => {
+    (files: SourceFileInput[], replaceAll: boolean) => {
       if (replaceAll) {
         onReplaceAllFiles?.();
 
         const inoFiles = files.filter((f) => f.name.endsWith(".ino"));
-        const hFiles = files.filter((f) => f.name.endsWith(".h"));
-        const orderedFiles = [...inoFiles, ...hFiles];
+        const otherFiles = files.filter((f) => !f.name.endsWith(".ino"));
+        const orderedFiles = [...inoFiles, ...otherFiles];
 
         const newTabs = orderedFiles.map((file) => ({
           id: generateUuidV4().replaceAll("-", "").slice(0, 9),
           name: file.name,
+          path: file.path ?? file.name,
           content: file.content,
         }));
 
@@ -123,12 +151,13 @@ export function useSimulatorFileSystem({
         const newHeaderFiles = files.map((file) => ({
           id: generateUuidV4().replaceAll("-", "").slice(0, 9),
           name: file.name,
+          path: file.path ?? file.name,
           content: file.content,
         }));
-        setTabs([...tabs, ...newHeaderFiles]);
+        setTabs([...syncActiveTabContent(tabs), ...newHeaderFiles]);
       }
     },
-    [onReplaceAllFiles, tabs, setTabs, setActiveTabId, setCode, setIsModified],
+    [onReplaceAllFiles, setTabs, setActiveTabId, setCode, setIsModified, syncActiveTabContent, tabs],
   );
 
   const toastAdapter = useMemo(
@@ -150,7 +179,7 @@ export function useSimulatorFileSystem({
 
   const handleLoadExample = useCallback(
     (
-      filesOrName: Array<{ name: string; content: string }> | string,
+      filesOrName: SourceFileInput[] | string,
       contentOrTitle: string,
     ) => {
       onLoadExample?.();

@@ -4,6 +4,7 @@ import { generateUuidV4 } from "@/lib/uuid";
 interface SketchTab {
   id: string;
   name: string;
+  path?: string;
   content: string;
 }
 
@@ -20,6 +21,7 @@ export function useSketchTabs() {
     const newTab: SketchTab = {
       id: newTabId,
       name,
+      path: name,
       content,
     };
     setTabs((prevTabs) => [...prevTabs, newTab]);

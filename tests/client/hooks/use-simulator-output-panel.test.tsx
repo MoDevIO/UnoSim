@@ -103,6 +103,22 @@ describe("useSimulatorOutputPanel", () => {
     consoleSpy.mockRestore();
   });
 
+  it("forwards file-aware parser locations to the editor navigator", () => {
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useSimulatorOutputPanel({
+        ...defaultProps,
+        onNavigateToSource: navigate,
+      }),
+    );
+
+    act(() => {
+      result.current.handleParserGoToLine({ file: "drivers/led.h", line: 7 });
+    });
+
+    expect(navigate).toHaveBeenCalledWith({ file: "drivers/led.h", line: 7 });
+  });
+
   it("handleRegistryClear is a no-op function", () => {
     const { result } = renderHook(() => useSimulatorOutputPanel(defaultProps));
 

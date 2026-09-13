@@ -28,6 +28,7 @@ export interface CompilerError {
 export interface CompileConfig {
   code: string;
   headers?: Array<{ name: string; content: string }>;
+  entryFile?: string;
   fqbn?: string;
   libraries?: string[];
 }

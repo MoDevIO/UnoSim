@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import {
   analyzeStaticIO,
+  analyzeStaticIOProject,
   type StaticIOCall,
 } from "@shared/io-registry-parser";
 import type { PinMode } from "@shared/types/arduino.types";
+import type { SourceProject } from "@shared/source-project";
 
 interface SketchAnalysisResult {
   analogPins: number[]; // concrete Arduino pin numbers (A0 -> 14)
@@ -32,10 +34,18 @@ function isVisibleAnalogRead(call: StaticIOCall): boolean {
   return call.op === "analogRead" && call.loopBody !== "braceless";
 }
 
+function analyzeSource(source: string | SourceProject | null | undefined) {
+  if (typeof source === "string") return analyzeStaticIO(source);
+  if (source) return analyzeStaticIOProject(source);
+  return { pins: [], unresolvedCalls: [], symbols: {} };
+}
+
 // Hook: pure projection of the canonical static I/O analysis for board state.
-export function useSketchAnalysis(code: string): SketchAnalysisResult {
+export function useSketchAnalysis(
+  source: string | SourceProject | null | undefined,
+): SketchAnalysisResult {
   return useMemo(() => {
-    const analysis = analyzeStaticIO(code || "");
+    const analysis = analyzeSource(source);
     const analogPins = new Set<number>();
     const pinModePins = new Set<number>();
     const detectedPinModes: Record<number, PinMode> = {};
@@ -65,5 +75,5 @@ export function useSketchAnalysis(code: string): SketchAnalysisResult {
       ),
       digitalPinsFromPinMode: sortedPinModePins,
     };
-  }, [code]);
+  }, [source]);
 }

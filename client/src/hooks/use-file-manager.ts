@@ -1,9 +1,9 @@
 import { useRef, useCallback, useState } from "react";
 
-type FileEntry = { name: string; content: string };
+type FileEntry = { name: string; path?: string; content: string };
 
 interface UseFileManagerOptions {
-  tabs?: Array<{ name: string; content: string }>;
+  tabs?: Array<{ name: string; path?: string; content: string }>;
   onFilesLoaded?: (files: FileEntry[], replaceAll: boolean) => void;
   toast?: (params: { title: string; description?: string; variant?: string }) => void;
 }
@@ -16,7 +16,7 @@ export function useFileManager({ tabs = [], onFilesLoaded, toast }: UseFileManag
     fileInputRef.current?.click();
   }, []);
 
-  const downloadAllFiles = useCallback(async (providedTabs?: Array<{ name: string; content: string }>) => {
+  const downloadAllFiles = useCallback(async (providedTabs?: Array<{ name: string; path?: string; content: string }>) => {
     const which = providedTabs ?? tabs ?? [];
     if (!which || which.length === 0) {
       try {
@@ -52,7 +52,7 @@ export function useFileManager({ tabs = [], onFilesLoaded, toast }: UseFileManag
       if (!f.name.endsWith(".ino") && !f.name.endsWith(".h")) continue;
       try {
         const txt = await f.text();
-        files.push({ name: f.name, content: txt });
+        files.push({ name: f.name, path: f.name, content: txt });
       } catch {}
     }
     if (files.length > 0) {
