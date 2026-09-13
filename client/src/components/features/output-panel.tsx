@@ -198,12 +198,37 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => setDebugViewMode(debugViewMode === "table" ? "tiles" : "table")} className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors" title={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDebugViewMode(debugViewMode === "table" ? "tiles" : "table")}
+                  className="border-cyan-600/40 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 hover:text-cyan-300"
+                  title={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
+                  aria-label={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
+                >
                   {debugViewMode === "table" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Table className="h-3.5 w-3.5" />}
-                </button>
-                <button onClick={onCopyDebugMessages} className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors">Copy</button>
-                <button onClick={onClearDebugMessages} className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-red-600/20 text-red-400 border border-red-600/40 rounded hover:bg-red-600/30 transition-colors">Clear</button>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onCopyDebugMessages}
+                  className="border-cyan-600/40 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 hover:text-cyan-300"
+                  aria-label="Copy debug messages"
+                >
+                  Copy
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={onClearDebugMessages}
+                  aria-label="Clear debug messages"
+                >
+                  Clear
+                </Button>
               </div>
             </div>
 
