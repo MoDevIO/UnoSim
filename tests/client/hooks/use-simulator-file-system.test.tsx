@@ -80,6 +80,47 @@ describe("useSimulatorFileSystem tab content persistence", () => {
     });
   });
 
+  it("keeps nested headers addressable after creating and renaming both tabs", () => {
+    const sketch = `#include "controller.h"\n\nvoid setup() {\n  setupController();\n}\n\nvoid loop() {\n  runController();\n}`;
+    const controller = `#include "pins.h"\n\nvoid setupController() {\n  pinMode(STATUS_LED, OUTPUT);\n  pinMode(AUX_LED, OUTPUT);\n}\n\nvoid runController() {\n  digitalWrite(STATUS_LED, HIGH);\n  digitalWrite(AUX_LED, LOW);\n}`;
+    const pins = "const int STATUS_LED = 6;\nconst int AUX_LED = 7;";
+    const { result } = renderHook(() =>
+      useTestFileSystem(
+        [{ id: "ino", name: "nested.ino", path: "nested.ino", content: sketch }],
+        "ino",
+        sketch,
+      ),
+    );
+
+    act(() => result.current.handleTabAdd());
+    act(() => result.current.setCode(controller));
+    const controllerId = result.current.activeTabId!;
+    act(() => result.current.handleTabRename(controllerId, "controller.h"));
+
+    act(() => result.current.handleTabAdd());
+    act(() => result.current.setCode(pins));
+    const pinsId = result.current.activeTabId!;
+    act(() => result.current.handleTabRename(pinsId, "pins.h"));
+    act(() => result.current.handleTabClick("ino"));
+
+    const project = buildSourceProject(result.current.tabs, result.current.activeTabId, result.current.code);
+    expect(project).toEqual({
+      entryFile: "nested.ino",
+      files: {
+        "nested.ino": sketch,
+        "controller.h": controller,
+        "pins.h": pins,
+      },
+    });
+    const resolved = resolveSourceProject(project!);
+    expect(resolved.reachableFiles).toEqual(["nested.ino", "controller.h", "pins.h"]);
+    expect(resolved.complete).toBe(true);
+    expect(buildCompileCommand(project!).headers.map(({ name }) => name)).toEqual([
+      "controller.h",
+      "pins.h",
+    ]);
+  });
+
   it("keeps edits when switching from an ino tab to a header and back", () => {
     const { result } = renderHook(() =>
       useTestFileSystem(

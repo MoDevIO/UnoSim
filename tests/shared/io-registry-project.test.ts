@@ -5,8 +5,34 @@ import {
   parseStaticIORegistry,
   parseStaticIORegistryProject,
 } from "../../shared/io-registry-parser";
+import { resolveSourceProject } from "../../shared/source-project";
 
 describe("project-wide static I/O analysis", () => {
+  it("resolves a nested controller and pins header chain", () => {
+    const project = {
+      entryFile: "nested.ino",
+      files: {
+        "nested.ino": '#include "controller.h"\nvoid setup() { setupController(); }\nvoid loop() { runController(); }',
+        "controller.h": '#include "pins.h"\nvoid setupController() { pinMode(STATUS_LED, OUTPUT); pinMode(AUX_LED, OUTPUT); }\nvoid runController() { digitalWrite(STATUS_LED, HIGH); digitalWrite(AUX_LED, LOW); }',
+        "pins.h": "const int STATUS_LED = 6;\nconst int AUX_LED = 7;",
+      },
+    };
+
+    const resolved = resolveSourceProject(project);
+    expect(resolved.reachableFiles).toEqual(["nested.ino", "controller.h", "pins.h"]);
+    expect(resolved.complete).toBe(true);
+    expect(resolved.diagnostics).toEqual([]);
+
+    const analysis = analyzeStaticIOProject(project);
+    expect(analysis.pins.map(({ pinId }) => pinId)).toEqual([6, 7]);
+    expect(analysis.pins.flatMap(({ calls }) => calls)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ op: "pinMode", pinId: 6, file: "controller.h" }),
+      expect.objectContaining({ op: "pinMode", pinId: 7, file: "controller.h" }),
+      expect.objectContaining({ op: "digitalWrite", pinId: 6, file: "controller.h" }),
+      expect.objectContaining({ op: "digitalWrite", pinId: 7, file: "controller.h" }),
+    ]));
+  });
+
   it("keeps file and line provenance for resolved calls", () => {
     const analysis = analyzeStaticIOProject({
       entryFile: "main.ino",

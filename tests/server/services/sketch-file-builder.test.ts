@@ -49,6 +49,26 @@ describe("SketchFileBuilder", () => {
     expect(content).not.toContain('#include "../../shared/pins.h"');
   });
 
+  it("expands controller and pins headers in include order", async () => {
+    const content = await buildProjectSketch(
+      '#include "controller.h"\nvoid setup() { setupController(); }\nvoid loop() { runController(); }',
+      "nested.ino",
+      [
+        {
+          name: "controller.h",
+          content: '#include "pins.h"\nvoid setupController() { pinMode(STATUS_LED, OUTPUT); }\nvoid runController() { digitalWrite(STATUS_LED, HIGH); }',
+        },
+        { name: "pins.h", content: "const int STATUS_LED = 6;" },
+      ],
+    );
+
+    expect(content).toContain("const int STATUS_LED = 6;");
+    expect(content).toContain("void setupController()");
+    expect(content).toContain("void runController()");
+    expect(content).not.toContain('#include "controller.h"');
+    expect(content).not.toContain('#include "pins.h"');
+  });
+
   it("exposes pure prototype extraction for simple declarations", () => {
     expect(extractForwardDeclarations("// int fake() {}\nint real() { return 1; }")).toBe(
       "int real();",

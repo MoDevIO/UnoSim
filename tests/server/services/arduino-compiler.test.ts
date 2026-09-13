@@ -596,6 +596,43 @@ describe("ArduinoCompiler - Full Coverage", () => {
       }));
     });
 
+    it("compiles a sketch with nested controller and pins headers", async () => {
+      const code = `#include "controller.h"
+void setup() { setupController(); }
+void loop() { runController(); }`;
+      const headers = [
+        {
+          name: "controller.h",
+          content: `#include "pins.h"
+void setupController() {
+  pinMode(STATUS_LED, OUTPUT);
+  pinMode(AUX_LED, OUTPUT);
+}
+void runController() {
+  digitalWrite(STATUS_LED, HIGH);
+  digitalWrite(AUX_LED, LOW);
+}`,
+        },
+        {
+          name: "pins.h",
+          content: "const int STATUS_LED = 6;\nconst int AUX_LED = 7;",
+        },
+      ];
+
+      (spawn as jest.Mock).mockImplementationOnce(() => ({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: (event: string, cb: Function) => { if (event === "close") cb(0); },
+      }));
+
+      const result = await compiler.compile(code, headers, undefined, { entryFile: "nested.ino" });
+
+      expect(result.success).toBe(true);
+      expect(result.parserMessages).not.toContainEqual(expect.objectContaining({
+        message: expect.stringContaining("MISSING_LOCAL_INCLUDE"),
+      }));
+    });
+
     it("should handle multiple header files", async () => {
       const code = `
         #include "header1.h"
