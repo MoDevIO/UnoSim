@@ -37,16 +37,31 @@ export function useSimulatorFileSystem({
   onReplaceAllFiles,
   onLoadExample,
 }: UseSimulatorFileSystemParams) {
+  const syncActiveTabContent = useCallback(
+    (currentTabs: SourceTab[]) => {
+      if (!activeTabId) return currentTabs;
+      let changed = false;
+      const nextTabs = currentTabs.map((tab) => {
+        if (tab.id !== activeTabId || tab.content === code) return tab;
+        changed = true;
+        return { ...tab, content: code };
+      });
+      return changed ? nextTabs : currentTabs;
+    },
+    [activeTabId, code],
+  );
+
   const handleTabClick = useCallback(
     (tabId: string) => {
       const tab = tabs.find((t) => t.id === tabId);
       if (tab) {
+        setTabs(syncActiveTabContent(tabs));
         setActiveTabId(tabId);
-        setCode(tab.content);
+        setCode(tabId === activeTabId ? code : tab.content);
         setIsModified(false);
       }
     },
-    [tabs, setActiveTabId, setCode, setIsModified],
+    [activeTabId, code, setActiveTabId, setCode, setIsModified, setTabs, syncActiveTabContent, tabs],
   );
 
   const handleTabAdd = useCallback(() => {
@@ -57,11 +72,11 @@ export function useSimulatorFileSystem({
       path: `header_${tabs.length}.h`,
       content: "",
     };
-    setTabs([...tabs, newTab]);
+    setTabs([...syncActiveTabContent(tabs), newTab]);
     setActiveTabId(newTabId);
     setCode("");
     setIsModified(false);
-  }, [tabs, setTabs, setActiveTabId, setCode, setIsModified]);
+  }, [setTabs, setActiveTabId, setCode, setIsModified, syncActiveTabContent, tabs]);
 
   const handleTabClose = useCallback(
     (tabId: string) => {
@@ -75,7 +90,7 @@ export function useSimulatorFileSystem({
       }
 
       const newTabs = tabs.filter((t) => t.id !== tabId);
-      setTabs(newTabs);
+      setTabs(syncActiveTabContent(tabs).filter((t) => t.id !== tabId));
 
       if (activeTabId === tabId) {
         const newActiveTab = newTabs.at(-1);
@@ -88,7 +103,7 @@ export function useSimulatorFileSystem({
         }
       }
     },
-    [activeTabId, tabs, setActiveTabId, setCode, setTabs, toast],
+    [activeTabId, setActiveTabId, setCode, setTabs, syncActiveTabContent, tabs, toast],
   );
 
   const handleTabRename = useCallback(
@@ -131,10 +146,10 @@ export function useSimulatorFileSystem({
           path: file.path ?? file.name,
           content: file.content,
         }));
-        setTabs([...tabs, ...newHeaderFiles]);
+        setTabs([...syncActiveTabContent(tabs), ...newHeaderFiles]);
       }
     },
-    [onReplaceAllFiles, tabs, setTabs, setActiveTabId, setCode, setIsModified],
+    [onReplaceAllFiles, setTabs, setActiveTabId, setCode, setIsModified, syncActiveTabContent, tabs],
   );
 
   const toastAdapter = useMemo(
