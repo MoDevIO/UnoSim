@@ -134,7 +134,7 @@ describe("useCompilation", () => {
     expect(result.current.cliOutput).toBe("OK");
     expect(result.current.hasCompilationErrors).toBe(false);
     expect(params.setSerialOutput).toHaveBeenCalledWith([]);
-    expect(params.setIoRegistry).toHaveBeenCalled();
+    expect(params.setIoRegistry).toHaveBeenCalledWith(null);
 
     // Flush pending effects
     await act(async () => {});

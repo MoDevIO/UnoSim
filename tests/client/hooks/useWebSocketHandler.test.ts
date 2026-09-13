@@ -151,6 +151,7 @@ describe("useWebSocketHandler", () => {
     expect(params.setSimulationStatus).toHaveBeenCalledWith("idle");
     expect(params.stopRendering).toHaveBeenCalled();
     expect(params.setPinStates).toHaveBeenCalledWith([]);
+    expect(params.setIoRegistry).toHaveBeenCalledWith(null);
     expect(params.setCompilationStatus).toHaveBeenCalledWith("ready");
   });
 

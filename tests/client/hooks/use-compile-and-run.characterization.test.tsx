@@ -109,13 +109,7 @@ describe("useCompileAndRun characterization", () => {
     expect(params.setSerialOutput).toHaveBeenCalledWith([]);
     expect(params.clearSerialOutput).toHaveBeenCalledOnce();
     expect(params.setParserMessages).toHaveBeenCalledWith([]);
-    expect(params.setIoRegistry).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        { pin: "0", defined: false, usedAt: [] },
-        { pin: "13", defined: false, usedAt: [] },
-        { pin: "A5", defined: false, usedAt: [] },
-      ]),
-    );
+    expect(params.setIoRegistry).toHaveBeenCalledWith(null);
     expect(result.current.compilationStatus).toBe("compiling");
     expect(result.current.simulationStatus).toBe("running");
     expect(result.current.hasCompiledOnce).toBe(true);

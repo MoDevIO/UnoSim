@@ -59,7 +59,8 @@ export type CompileAndRunParams = {
   setParserMessages: SetState<ParserMessage[]>;
   setParserPanelDismissed: SetState<boolean>;
   resetPinUI: (opts?: { keepDetected?: boolean }) => void;
-  setIoRegistry: SetState<IOPinRecord[]>;
+  /** Runtime snapshot setter; null means no snapshot for the current run yet. */
+  setIoRegistry: SetState<IOPinRecord[] | null>;
   setIsModified: SetState<boolean>;
   setDebugMessages: SetState<DebugMessage[]>;
   addDebugMessage: (params: DebugMessageParams) => void;
