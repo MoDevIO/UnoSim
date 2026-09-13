@@ -664,7 +664,9 @@ export function useArduinoSimulatorPage() {
     renameTriggerRef,
     handleFilesLoaded,
     handleLoadExample,
-    downloadAllFiles,
+    downloadAllFiles: () => {
+      void downloadAllFiles();
+    },
     formatCode,
     editorRef,
     backendReachable,
