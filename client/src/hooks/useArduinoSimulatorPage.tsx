@@ -59,6 +59,7 @@ export function useArduinoSimulatorPage() {
   const {
     code,
     setCode,
+    codeRef,
     isModified,
     setIsModified,
     tabs,
@@ -283,6 +284,7 @@ export function useArduinoSimulatorPage() {
     tabs,
     activeTabId,
     code,
+    codeRef,
     sourceProject,
     setSerialOutput,
     clearSerialOutput,

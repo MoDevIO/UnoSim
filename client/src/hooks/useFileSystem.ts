@@ -11,7 +11,7 @@
  * - Integration with sketch tabs and file manager
  */
 
-import { useState, useCallback, useEffect, Dispatch, SetStateAction } from "react";
+import { useState, useCallback, useEffect, useRef, Dispatch, SetStateAction } from "react";
 import type { Sketch } from "@shared/schema";
 import { useSketchTabs } from "./use-sketch-tabs";
 import { useFileManager } from "./use-file-manager";
@@ -37,6 +37,8 @@ interface FileSystemOperations {
   setCurrentSketch: Dispatch<SetStateAction<Sketch | null>>;
   /** Update the code content */
   setCode: Dispatch<SetStateAction<string>>;
+  /** Synchronously tracks the latest code during batched React updates. */
+  codeRef: React.MutableRefObject<string>;
   /** Mark code as modified or saved */
   setIsModified: Dispatch<SetStateAction<boolean>>;
   /** Initialize default sketch when available */
@@ -77,6 +79,19 @@ interface UseFileSystemParams {
 export function useFileSystem(params: UseFileSystemParams): UseFileSystemResult {
   const [currentSketch, setCurrentSketch] = useState<Sketch | null>(null);
   const [code, setCode] = useState("");
+  const codeRef = useRef("");
+  const setCodeWithRef = useCallback<Dispatch<SetStateAction<string>>>((nextCode) => {
+    if (typeof nextCode === "function") {
+      setCode((previousCode) => {
+        const nextValue = nextCode(previousCode);
+        codeRef.current = nextValue;
+        return nextValue;
+      });
+      return;
+    }
+    codeRef.current = nextCode;
+    setCode(nextCode);
+  }, [setCode]);
   const [isModified, setIsModified] = useState(false);
 
   // Get sketch tabs management
@@ -111,12 +126,12 @@ export function useFileSystem(params: UseFileSystemParams): UseFileSystemResult 
           ];
         });
 
-        if (!code && defaultSketch.content) {
-          setCode(defaultSketch.content);
+        if (!codeRef.current && defaultSketch.content) {
+          setCodeWithRef(defaultSketch.content);
         }
       }
     },
-    [currentSketch, code, setActiveTabId, setTabs, setCode],
+    [currentSketch, setActiveTabId, setTabs, setCodeWithRef],
   );
 
   // Initialize on sketch load
@@ -131,7 +146,8 @@ export function useFileSystem(params: UseFileSystemParams): UseFileSystemResult 
     isModified,
     // Operations
     setCurrentSketch,
-    setCode,
+    setCode: setCodeWithRef,
+    codeRef,
     setIsModified,
     initializeDefaultSketch,
     // Sketch tabs integration
