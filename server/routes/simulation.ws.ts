@@ -571,15 +571,12 @@ export function registerSimulationWebSocket(
     // Slot assignment: tell client which runner slot they own immediately
     const acquiredWorkerIndex = pool.getRunnerIndex(acquiredRunner);
 
-    // Update client state and notify running.
+    // Reserve the client state before starting so admission/cleanup semantics
+    // remain unchanged while the external running event waits for readiness.
     // isRunning is set BEFORE countRunningClients() so the new client is
     // included in the total it (and others) receive.
     clientState.isRunning = true;
     clientState.isPaused = false;
-    sendMessageToClient(ws, {
-      type: WSMessageType.SIMULATION_STATUS,
-      status: "running",
-    });
     sendMessageToClient(ws, {
       type: WSMessageType.COMPILATION_STATUS,
       arduinoCliStatus: "compiling",
@@ -593,6 +590,15 @@ export function registerSimulationWebSocket(
 
     // Build callbacks
     const callbacks = buildRunSketchCallbacks(ws, clientState, reservation);
+    let runnerReady = false;
+    let pendingCompileSuccesses = 0;
+    const onCompileSuccess = () => {
+      if (runnerReady) {
+        callbacks.onCompileSuccess();
+      } else {
+        pendingCompileSuccesses += 1;
+      }
+    };
     const timeoutValue = "timeout" in data ? data.timeout : undefined;
     logger.info(`[Simulation] Starting with timeout: ${timeoutValue}s`);
 
@@ -605,7 +611,7 @@ export function registerSimulationWebSocket(
 
     // Start sketch execution and publish sandbox mode once the runner has resolved
     try {
-      await acquiredRunner.runSketch({
+      const processReady = await acquiredRunner.runSketch({
         code,
         headers: data.headers,
         entryFile: data.entryFile,
@@ -613,7 +619,7 @@ export function registerSimulationWebSocket(
         onError: callbacks.onError,
         onExit: callbacks.onExit,
         onCompileError: callbacks.onCompileError,
-        onCompileSuccess: callbacks.onCompileSuccess,
+        onCompileSuccess,
         onCompileQueued: callbacks.onCompileQueued,
         onPinState: callbacks.onPinState,
         timeoutSec: timeoutValue,
@@ -622,6 +628,7 @@ export function registerSimulationWebSocket(
         onPinStateBatch: callbacks.onPinStateBatch,
         context: { sessionId: clientState.testRunId, label: "default-ws" },
       });
+      if (!processReady) return;
     } catch (error) {
       logger.error(`[Simulation] runSketch failed: ${error}`);
       await sessionManager.safeReleaseRunner(
@@ -639,6 +646,15 @@ export function registerSimulationWebSocket(
       return;
     }
 
+    sendMessageToClient(ws, {
+      type: WSMessageType.SIMULATION_STATUS,
+      status: "running",
+    });
+    runnerReady = true;
+    while (pendingCompileSuccesses > 0) {
+      callbacks.onCompileSuccess();
+      pendingCompileSuccesses -= 1;
+    }
     const sandboxStatus = runnerForStatus.getSandboxStatus();
     sendMessageToClient(ws, {
       type: WSMessageType.COMPILATION_STATUS,

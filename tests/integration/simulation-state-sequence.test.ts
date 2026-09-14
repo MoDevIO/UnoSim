@@ -152,7 +152,7 @@ class MockSandboxRunner {
   flushMessageQueue = vi.fn();
   _sketchDir: string | null = null;
 
-  async runSketch(options: Record<string, unknown>): Promise<void> {
+  async runSketch(options: Record<string, unknown>): Promise<boolean> {
     this.isRunning = true;
     this._state = "running";
 
@@ -167,10 +167,10 @@ class MockSandboxRunner {
       | ((code: number | null) => void)
       | undefined;
 
-    await new Promise<void>((resolve) => {
+    return new Promise<boolean>((resolve) => {
       setTimeout(async () => {
         if (this._state !== "running") {
-          resolve();
+          resolve(false);
           return;
         }
 
@@ -183,17 +183,19 @@ class MockSandboxRunner {
         onCompileSuccess?.();
         onOutput?.("LED ON", true);
         onOutput?.("LED OFF", true);
+        // A real runner resolves once its process is available, not when the
+        // simulation eventually exits. Keep the process alive independently so
+        // the route can publish its externally visible running state first.
+        resolve(true);
 
         // Wait runDurationMs before exit so tests can observe the running state
         setTimeout(() => {
           if (this._state === "stopped") {
-            resolve();
             return;
           }
           this.isRunning = false;
           this._state = "stopped";
           onExit?.(0);
-          resolve();
         }, mockBehavior.runDurationMs);
       }, 1);
     });

@@ -169,14 +169,14 @@ export class ExecutionManager {
   /**
    * Main execution entry point: orchestrates prepare → start → stream → timeout → cleanup
    */
-  async runSketch(options: RunSketchOptions, state: ExecutionState): Promise<void> {
+  async runSketch(options: RunSketchOptions, state: ExecutionState): Promise<boolean> {
     const { code, onOutput, onError, onExit, onCompileError, onPinState, timeoutSec, onIORegistry, onTelemetry, onPinStateBatch } = options;
 
     // Transition to STARTING state
     const canStart = this.transitionTo(state, SimulationState.STARTING);
     if (!canStart) {
       this.logger.warn(`runSketch ignored - invalid state: ${state.state}`);
-      return;
+      return false;
     }
 
     // Clear pending cleanup for a fresh run
@@ -259,7 +259,7 @@ export class ExecutionManager {
 
       if (state.pendingCleanup || state.processKilled || state.state === SimulationState.STOPPED) {
         this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
-        return;
+        return false;
       }
 
       // Create wrapped callbacks
@@ -270,6 +270,11 @@ export class ExecutionManager {
 
       // Setup and run simulation
       await this.setupSimulationProcess(files, wrapped, options, state);
+      return (
+        state.processController.hasProcess() &&
+        (state.state === SimulationState.RUNNING || state.state === SimulationState.PAUSED) &&
+        !state.processKilled
+      );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       this.logger.error(`Kompilierfehler oder Timeout: ${errorMessage}`);
@@ -281,6 +286,7 @@ export class ExecutionManager {
       }
       state.processController.destroySockets();
       this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
+      return false;
     }
   }
 
