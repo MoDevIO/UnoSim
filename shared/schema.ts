@@ -274,12 +274,9 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("operation_error"),
     operation: z.enum(["compile", "start_simulation"]),
-    code: z.enum([
-      "RATE_LIMITED",
-      "SYSTEM_BUSY",
-      "SIMULATION_ALREADY_ACTIVE",
-      "SIMULATION_START_FAILED",
-    ]),
+    // Keep operation-error codes open so newer server versions can be
+    // forwarded by clients without requiring a schema release first.
+    code: z.string().min(1),
     message: z.string(),
     retryAfter: z.number().int().positive().optional(),
   }).strict(),

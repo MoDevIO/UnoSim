@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useExternalApi, sendMessageToParent, sendEventToParent, emitPinStateChange, emitSimulationStateEvent } from "../../../client/src/hooks/use-external-api";
+import { useExternalApi, sendMessageToParent, sendEventToParent, emitPinStateChange, emitSimulationStateEvent, emitOperationErrorEvent } from "../../../client/src/hooks/use-external-api";
 import { SimulatorActionType, SimulatorEventType, API_VERSION } from "../../../client/src/types/external-api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -672,5 +672,57 @@ describe("emitSimulationStateEvent", () => {
     });
 
     expect(() => emitSimulationStateEvent("IDLE")).not.toThrow();
+  });
+});
+
+// ─── emitOperationErrorEvent ────────────────────────────────────────────────
+
+describe("emitOperationErrorEvent", () => {
+  afterEach(vi.restoreAllMocks);
+
+  it.each([
+    ["RATE_LIMITED", "Too many requests", 9],
+    ["SIMULATION_ALREADY_ACTIVE", "Already running", undefined],
+    ["SYSTEM_BUSY", "Busy", 5],
+    ["FUTURE_OPERATION_ERROR", "Future failure", undefined],
+  ] as const)("posts %s with structured data", (code, message, retryAfter) => {
+    const spy = vi.spyOn(window.parent, "postMessage");
+    renderHook(() => useExternalApi(buildParams()));
+
+    emitOperationErrorEvent({
+      operation: "start_simulation",
+      code,
+      message,
+      ...(retryAfter === undefined ? {} : { retryAfter }),
+    });
+
+    expect(spy).toHaveBeenCalledOnce();
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: API_VERSION,
+        type: SimulatorEventType.OPERATION_ERROR_EVENT,
+        success: false,
+        data: {
+          operation: "start_simulation",
+          code,
+          message,
+          ...(retryAfter === undefined ? {} : { retryAfter }),
+        },
+      }),
+      ALLOWED_ORIGIN,
+    );
+  });
+
+  it("does not throw when the parent rejects the event", () => {
+    renderHook(() => useExternalApi(buildParams()));
+    vi.spyOn(window.parent, "postMessage").mockImplementation(() => {
+      throw new Error("cross-origin blocked");
+    });
+
+    expect(() => emitOperationErrorEvent({
+      operation: "compile",
+      code: "RATE_LIMITED",
+      message: "Too many requests",
+    })).not.toThrow();
   });
 });

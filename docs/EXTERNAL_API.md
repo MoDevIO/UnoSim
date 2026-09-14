@@ -308,7 +308,7 @@ Event messages are sent **without request** to inform the parent of state change
 interface SimulatorEventMessage {
   version: string;    // API version (e.g. "1.4.0")
   type: string;       // Event type
-  success: true;      // Events always report success:true
+  success: boolean;   // true for state/data events, false for operation errors
   data?: unknown;     // Event-specific payload
 }
 ```
@@ -355,6 +355,28 @@ Fired when the simulation changes state.
 `data.state`: `"IDLE"` | `"QUEUED_FOR_COMPILING"` | `"COMPILING"` | `"QUEUED_FOR_SIMULATION"` | `"RUNNING"` | `"PAUSED"` | `"ERROR"`
 
 > **Migration note (v1.4.0):** The `"STOPPED"` and `"QUEUED"` values are replaced by `"IDLE"` and `"QUEUED_FOR_COMPILING"` respectively. `"COMPILING"` and `"QUEUED_FOR_SIMULATION"` have been added. `"QUEUED_FOR_RUNNING"` has been removed.
+
+#### `OPERATION_ERROR_EVENT`
+
+Fired when the server rejects or fails an operation after the corresponding
+WebSocket request has been accepted. The server-provided error data is passed
+through unchanged, including `retryAfter` when present. Error codes are open
+for forward-compatible additions; current codes include `RATE_LIMITED`,
+`SIMULATION_ALREADY_ACTIVE`, and `SYSTEM_BUSY`.
+
+```js
+{
+  type: "OPERATION_ERROR_EVENT",
+  version: "1.4.0",
+  success: false,
+  data: {
+    operation: "start_simulation",
+    code: "RATE_LIMITED",
+    message: "Too many requests",
+    retryAfter: 5
+  }
+}
+```
 
 ---
 

@@ -56,6 +56,12 @@ vi.mock("@/hooks/use-telemetry-store", () => ({
   telemetryStore: { pushTelemetry: vi.fn() },
 }));
 
+vi.mock("@/hooks/use-external-api", () => ({
+  emitPinStateChange: vi.fn(),
+  emitSimulationStateEvent: vi.fn(),
+  emitOperationErrorEvent: vi.fn(),
+}));
+
 function createMockParams() {
   return {
     simulationStatus: "running" as const,
@@ -94,6 +100,7 @@ function createMockParams() {
 }
 
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
+import { emitOperationErrorEvent } from "@/hooks/use-external-api";
 
 describe("useWebSocketHandler", () => {
   let params: ReturnType<typeof createMockParams>;
@@ -189,6 +196,52 @@ describe("useWebSocketHandler", () => {
     expect(params.setShowCompilationOutput).toHaveBeenCalledWith(true);
     expect(params.setActiveOutputTab).toHaveBeenCalledWith("compiler");
     expect(params.setSimulationStatus).toHaveBeenCalledWith("idle");
+    expect(emitOperationErrorEvent).toHaveBeenCalledOnce();
+    expect(emitOperationErrorEvent).toHaveBeenCalledWith({
+      operation: "start_simulation",
+      code: "SYSTEM_BUSY",
+      message,
+      retryAfter: 5,
+    });
+  });
+
+  it.each([
+    ["RATE_LIMITED", "Too many requests", 9],
+    ["SIMULATION_ALREADY_ACTIVE", "Already running", undefined],
+    ["SYSTEM_BUSY", "Busy", 5],
+    ["FUTURE_OPERATION_ERROR", "Future failure", undefined],
+  ] as const)("forwards %s operation errors once", (code, message, retryAfter) => {
+    mockMessageQueue.push({
+      type: "operation_error",
+      operation: "start_simulation",
+      code,
+      message,
+      ...(retryAfter === undefined ? {} : { retryAfter }),
+    });
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(emitOperationErrorEvent).toHaveBeenCalledOnce();
+    expect(emitOperationErrorEvent).toHaveBeenCalledWith({
+      operation: "start_simulation",
+      code,
+      message,
+      ...(retryAfter === undefined ? {} : { retryAfter }),
+    });
+  });
+
+  it("does not emit a duplicate event when the hook rerenders", () => {
+    mockMessageQueue.push({
+      type: "operation_error",
+      operation: "start_simulation",
+      code: "SYSTEM_BUSY",
+      message: "Busy",
+    });
+
+    const { rerender } = renderHook(() => useWebSocketHandler(params));
+    rerender();
+
+    expect(emitOperationErrorEvent).toHaveBeenCalledOnce();
   });
 
   it("processes pin_state message", () => {
