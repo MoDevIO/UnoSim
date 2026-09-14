@@ -214,10 +214,10 @@ function TutorPlaceholder({
               <Button
                 type="button"
                 size="icon"
-                variant="ghost"
+                variant={tutorReady ? "default" : "outline"}
                 className={tutorReady
-                  ? "h-9 w-9 rounded-full border border-primary bg-primary text-primary-foreground ring-2 ring-primary/30 shadow-sm hover:bg-primary/90"
-                  : "h-9 w-9 rounded-full border border-border/70 bg-background/20 text-muted-foreground hover:bg-muted/50 hover:text-foreground"}
+                  ? "ring-2 ring-primary/30"
+                  : "text-muted-foreground"}
                 aria-label={tutorActionLabel}
                 title={tutorActionLabel}
                 onClick={() => {
@@ -228,7 +228,7 @@ function TutorPlaceholder({
                 disabled={tutor.isLoading}
                 data-testid="tutor-new-question-action"
               >
-                <CircleHelp className="!h-6 !w-6" aria-hidden="true" />
+                <CircleHelp aria-hidden="true" />
               </Button>
               <span
                 className="text-ui-xs text-muted-foreground"
@@ -253,14 +253,13 @@ function TutorPlaceholder({
               <Button
                 type="button"
                 size="icon"
-                variant={showKeyView ? "secondary" : "ghost"}
-                className="h-8 w-8"
+                variant={showKeyView ? "secondary" : "outline"}
                 aria-label="API key"
                 title="API key"
                 onClick={() => setShowKeyView(true)}
                 data-testid="tutor-api-key-action"
               >
-                <KeyRound className="!h-5 !w-5" aria-hidden="true" />
+                <KeyRound aria-hidden="true" />
               </Button>
             </>
           ) : undefined}
@@ -482,7 +481,7 @@ function TutorPanelContent({
               variant="default"
               aria-label="Send answer"
               title="Send answer"
-              className="absolute bottom-1.5 right-1.5 h-9 w-9"
+              className="absolute bottom-1 right-1"
               onClick={() => void tutor.submitAnswer(code)}
               disabled={tutor.isLoading || !tutor.answer.trim() || !canRequest || !tutor.question}
             >

@@ -19,9 +19,12 @@ describe("SettingsDialog layout", () => {
     expect(screen.getByLabelText("ui font scale")).toBeInTheDocument();
     expect(screen.getByLabelText("show pin monitor")).toBeInTheDocument();
     expect(screen.getByLabelText("enable experimental workspace layout")).toBeInTheDocument();
-    expect(screen.getByLabelText("keep examples menu open")).toBeInTheDocument();
+    expect(screen.queryByLabelText("keep examples menu open")).not.toBeInTheDocument();
     expect(screen.getByLabelText("enable debug mode")).toBeInTheDocument();
     expect(screen.getByLabelText("toast duration")).toBeInTheDocument();
+    expect(screen.getByText("UI Font Size")).toBeInTheDocument();
+    expect(screen.queryByLabelText("hex color")).not.toBeInTheDocument();
+    expect(document.querySelector('[data-scrollbar-visibility="always"]')).toBeInTheDocument();
   });
 
   it("keeps existing setting persistence interactions intact", () => {

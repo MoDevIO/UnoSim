@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExternalExamplesSettings } from "@/components/features/external-examples-settings";
+import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import {
   DEFAULT_EXPERIMENTAL_WORKSPACE_LAYOUT,
   EXPERIMENTAL_WORKSPACE_LAYOUT_CHANGE_EVENT,
@@ -22,8 +23,6 @@ const DEFAULT_COLOR = "var(--color-brand-primary)";
 const TOAST_DURATION_KEY = "unoToastDuration";
 const DEFAULT_TOAST_SECONDS = 1;
 const DEBUG_MODE_KEY = "unoDebugMode";
-const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
-const DEFAULT_KEEP_EXAMPLES_MENU_OPEN = false;
 const PIN_MONITOR_VISIBLE_KEY = "unoPinMonitorVisible";
 const DEFAULT_PIN_MONITOR_VISIBLE = false;
 const FONT_SCALE_KEY = "unoFontScale";
@@ -48,12 +47,12 @@ function SettingsSection({
   readonly children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border/70 bg-muted/20 p-4 shadow-sm">
-      <div className="mb-4">
+    <section className="rounded-md border border-border/70 bg-muted/20 p-3">
+      <div className="mb-3">
         <h3 className="text-ui-sm font-semibold text-foreground">{title}</h3>
-        {description && <p className="mt-1 text-ui-xs text-muted-foreground">{description}</p>}
+        {description && <p className="mt-0.5 text-ui-xs text-muted-foreground">{description}</p>}
       </div>
-      <div className="space-y-4">{children}</div>
+      <div className="space-y-3">{children}</div>
     </section>
   );
 }
@@ -68,12 +67,12 @@ function SettingsRow({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
       <div className="min-w-0 flex-1">
         <div className="text-ui-sm font-medium text-foreground">{label}</div>
-        <div className="mt-1 text-ui-xs leading-relaxed text-muted-foreground">{description}</div>
+        <div className="mt-0.5 text-ui-xs leading-snug text-muted-foreground">{description}</div>
       </div>
-      <div className="flex w-full min-w-0 shrink-0 items-center sm:w-auto sm:max-w-[60%] sm:pt-0.5">{children}</div>
+      <div className="flex w-full min-w-0 shrink-0 items-center justify-end sm:w-auto sm:max-w-[55%]">{children}</div>
     </div>
   );
 }
@@ -118,32 +117,6 @@ export default function SettingsDialog({
     setDebugMode(v);
     try {
       const ev = new CustomEvent("debugModeChange", { detail: { value: v } });
-      document.dispatchEvent(ev);
-    } catch {}
-  };
-
-  // Keep examples menu open toggle
-  const [keepExamplesMenuOpen, setKeepExamplesMenuOpen] =
-    React.useState<boolean>(() => {
-      try {
-        const stored = globalThis.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY);
-        return stored === null
-          ? DEFAULT_KEEP_EXAMPLES_MENU_OPEN
-          : stored === "1";
-      } catch {
-        return DEFAULT_KEEP_EXAMPLES_MENU_OPEN;
-      }
-    });
-
-  const setStoredKeepExamplesMenuOpen = (v: boolean) => {
-    try {
-      globalThis.localStorage.setItem(KEEP_EXAMPLES_MENU_OPEN_KEY, v ? "1" : "0");
-    } catch {}
-    setKeepExamplesMenuOpen(v);
-    try {
-      const ev = new CustomEvent("keepExamplesMenuOpenChange", {
-        detail: { value: v },
-      });
       document.dispatchEvent(ev);
     } catch {}
   };
@@ -195,41 +168,37 @@ export default function SettingsDialog({
     } catch {}
   };
 
-  // Prevent the hex input from automatically receiving focus when the dialog opens
-  React.useEffect(() => {
-    if (!open) return;
-    const t = globalThis.setTimeout(() => {
-      try {
-        const el = document.querySelector<HTMLElement>(
-          'input[aria-label="hex color"]',
-        );
-        el?.blur();
-      } catch {}
-    }, 0);
-    return () => globalThis.clearTimeout(t);
-  }, [open]);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-2xl"
+        className="max-w-2xl gap-3"
         style={{
           maxHeight: "calc(100vh - var(--dialog-offset-top))",
+          minHeight: 0,
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
         }}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
             Application settings and experimental tweaks for the simulator.
           </DialogDescription>
         </DialogHeader>
 
-        <div
-          className="min-h-0 space-y-5 overflow-y-auto px-1"
-          style={{ maxHeight: "calc(100vh - var(--dialog-offset-content))" }}
+        <UnifiedScrollArea
+          orientation="vertical"
+          scrollbarVisibility="always"
+          className="min-h-0 flex flex-1 flex-col px-1"
+          viewportClassName="space-y-3 pb-1"
+          viewportProps={{
+            style: { minHeight: 0, height: "auto", flex: "1 1 auto" },
+          }}
+          style={{
+            minHeight: 0,
+            maxHeight: "calc(100vh - var(--dialog-offset-content))",
+          }}
         >
           <ExternalExamplesSettings open={open} />
           <SettingsSection
@@ -237,77 +206,60 @@ export default function SettingsDialog({
             description="Personalize the visual scale and Arduino board colors."
           >
             <SettingsRow
-              label="Schriftgröße (UI)"
-              description="Skaliert alle UI-Schriftgrößen und den Editor (S/M/L/XL/XXL)."
+              label="UI Font Size"
+              description="Scale the interface and editor text (S/M/L/XL/XXL)."
             >
-                <select
-                  aria-label="ui font scale"
-                  defaultValue={(() => {
-                    try {
-                      return (
-                        globalThis.localStorage.getItem(FONT_SCALE_KEY) ||
-                        DEFAULT_FONT_SCALE
-                      );
-                    } catch {
-                      return DEFAULT_FONT_SCALE;
-                    }
-                  })()}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    try {
-                      globalThis.localStorage.setItem(FONT_SCALE_KEY, v);
-                    } catch {}
-                    try {
-                      document.documentElement.style.setProperty(
-                        "--ui-font-scale",
-                        v,
-                      );
-                    } catch {}
-                    try {
-                      const ev = new CustomEvent("uiFontScaleChange", {
-                        detail: { value: Number.parseFloat(v) },
-                      });
-                      document.dispatchEvent(ev);
-                    } catch {}
-                  }}
-                  className="h-[var(--ui-button-height)] rounded-md border border-input bg-background px-3 text-ui-sm text-foreground"
-                >
-                  {FONT_SCALE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+              <select
+                aria-label="ui font scale"
+                defaultValue={(() => {
+                  try {
+                    return (
+                      globalThis.localStorage.getItem(FONT_SCALE_KEY) ||
+                      DEFAULT_FONT_SCALE
+                    );
+                  } catch {
+                    return DEFAULT_FONT_SCALE;
+                  }
+                })()}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  try {
+                    globalThis.localStorage.setItem(FONT_SCALE_KEY, v);
+                  } catch {}
+                  try {
+                    document.documentElement.style.setProperty(
+                      "--ui-font-scale",
+                      v,
+                    );
+                  } catch {}
+                  try {
+                    const ev = new CustomEvent("uiFontScaleChange", {
+                      detail: { value: Number.parseFloat(v) },
+                    });
+                    document.dispatchEvent(ev);
+                  } catch {}
+                }}
+                className="h-[var(--ui-button-height)] rounded-md border border-input bg-background px-3 text-ui-sm text-foreground"
+              >
+                {FONT_SCALE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </SettingsRow>
             <SettingsRow
               label="Arduino Color"
               description="Change the main board color (applies to the primary SVG)."
             >
-              <div className="flex w-full flex-col gap-3 sm:w-auto sm:min-w-[18rem]">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-12 shrink-0 rounded border border-border" style={{ background: color }} />
-                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-ui-xs text-muted-foreground">
-                    <span>Hex</span>
-                    <input
-                      className="h-[var(--ui-button-height)] w-full rounded-md border border-input bg-transparent px-2 text-ui-sm text-foreground"
-                      value={color}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        const raw = v.startsWith("#") ? v.slice(1) : v;
-                        if (/^[0-9a-fA-F]{6}$/.test(raw)) {
-                          setColor(`#${raw}`);
-                        } else {
-                          setColor(v.startsWith("#") ? v : `#${v}`);
-                        }
-                      }}
-                      aria-label="hex color"
-                    />
-                  </label>
+              <div className="flex w-full items-start justify-between gap-3 sm:w-auto sm:min-w-[18rem]">
+                <div className="flex shrink-0 flex-col items-center gap-1">
+                  <div className="h-7 w-10 rounded border border-border" style={{ background: color }} aria-hidden="true" />
                   <Button size="sm" variant="outline" onClick={() => setColor(DEFAULT_COLOR)}>
                     Reset
                   </Button>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-9 justify-items-end gap-1.5">
                   {[
                     "var(--color-brand-primary)",
                     "var(--color-brand-variant-1)",
@@ -328,16 +280,16 @@ export default function SettingsDialog({
                     "var(--color-surface-dark)",
                     "var(--color-surface-muted)",
                   ].map((s) => (
-                    <Button
-                      key={s}
-                      onClick={() => setColor(s)}
-                      aria-label={`preset ${s}`}
-                      title={s}
-                      variant="outline"
-                      size="icon"
-                      style={{ background: s }}
-                      className={`!h-6 !w-6 rounded ${color.toLowerCase() === s.toLowerCase() ? "ring-2 ring-offset-1 ring-white" : "border"}`}
-                    />
+                      <Button
+                        key={s}
+                        onClick={() => setColor(s)}
+                        aria-label={`preset ${s}`}
+                        title={s}
+                        variant="outline"
+                        size="icon"
+                        style={{ background: s }}
+                        className={`!h-6 !w-6 rounded-sm ${color.toLowerCase() === s.toLowerCase() ? "ring-2 ring-offset-1 ring-ring" : "border"}`}
+                      />
                   ))}
                 </div>
               </div>
@@ -346,36 +298,28 @@ export default function SettingsDialog({
 
           <SettingsSection
             title="Workspace & Interaction"
-            description="Choose which workspace helpers are visible and how the Examples menu behaves."
+            description="Choose which workspace helpers are visible."
           >
             <SettingsRow
-              label="Pin Monitor anzeigen"
-              description="Zeigt den Pin-Status-Monitor oberhalb des Arduino-Boards."
+              label="Pin Monitor"
+              description="Show the pin status monitor above the Arduino board."
             >
               <Checkbox
                 checked={pinMonitorVisible}
                 onCheckedChange={(v) => setStoredPinMonitorVisible(Boolean(v))}
                 aria-label="show pin monitor"
+                className="!h-[18px] !w-[18px] aspect-square shrink-0"
               />
             </SettingsRow>
             <SettingsRow
-              label="Experimentelles Workspace-Layout"
-              description="Desktop-Code, Simulation und Tutor als unabhängig sichtbare Spalten. Standardmäßig deaktiviert."
+              label="Experimental Workspace Layout"
+              description="Show code, simulation, and tutor as independently visible columns. Disabled by default."
             >
               <Checkbox
                 checked={experimentalWorkspaceLayout}
                 onCheckedChange={(value) => setStoredExperimentalWorkspaceLayout(Boolean(value))}
                 aria-label="enable experimental workspace layout"
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Keep Examples Menu Open"
-              description="When disabled (default), the examples menu closes after selecting an example. Enable to keep it open."
-            >
-              <Checkbox
-                checked={keepExamplesMenuOpen}
-                onCheckedChange={(v) => setStoredKeepExamplesMenuOpen(Boolean(v))}
-                aria-label="keep examples menu open"
+                className="!h-[18px] !w-[18px] aspect-square shrink-0"
               />
             </SettingsRow>
           </SettingsSection>
@@ -409,13 +353,14 @@ export default function SettingsDialog({
                 checked={debugMode}
                 onCheckedChange={(v) => setStoredDebug(Boolean(v))}
                 aria-label="enable debug mode"
+                className="!h-[18px] !w-[18px] aspect-square shrink-0"
               />
             </SettingsRow>
           </SettingsSection>
-        </div>
+        </UnifiedScrollArea>
 
         <DialogFooter
-          className="mt-4"
+          className="mt-3 shrink-0"
           style={{
             position: "sticky",
             bottom: 0,

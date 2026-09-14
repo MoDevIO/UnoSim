@@ -263,7 +263,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             actions={
               <>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
                 onClick={cycleSerialViewMode}
                 data-testid="button-serial-view-toggle"
@@ -273,7 +273,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
                 {getSerialViewIcon(serialViewMode)}
               </Button>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
                 className={clsx(
                   autoScrollEnabled ? "text-cyan-400" : "text-muted-foreground",
@@ -288,7 +288,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
                 <ChevronsDown className="h-4 w-4" />
               </Button>
               <Button
-                variant="ghost"
+                variant="destructiveOutline"
                 size="icon"
                 onClick={handleClearSerialOutput}
                 aria-label="Clear serial output"

@@ -205,7 +205,7 @@ describe("ExamplesMenu behavior", () => {
     );
   });
 
-  it("toggles with the platform shortcut and honors keep-open storage", async () => {
+  it("toggles with the platform shortcut and closes after loading an example", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     fetchMock
       .mockResolvedValueOnce({
@@ -238,7 +238,6 @@ describe("ExamplesMenu behavior", () => {
           files: [{ name: "blink.ino", content: "blink" }],
         }),
       } as Response);
-    localStorage.setItem("unoKeepExamplesMenuOpen", "1");
     const onLoadExample = vi.fn();
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
     fireEvent.keyDown(document, { code: "KeyE", ctrlKey: true });
@@ -252,7 +251,9 @@ describe("ExamplesMenu behavior", () => {
         "blink.ino",
       ),
     );
-    localStorage.removeItem("unoKeepExamplesMenuOpen");
+    await waitFor(() =>
+      expect(screen.queryByText("Load Example")).not.toBeInTheDocument(),
+    );
   });
 
   it("separates built-in and external examples even when categories have the same name", async () => {

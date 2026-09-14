@@ -35,8 +35,6 @@ interface ExamplesMenuProps {
   readonly backendReachable?: boolean;
 }
 
-const KEEP_EXAMPLES_MENU_OPEN_KEY = "unoKeepExamplesMenuOpen";
-
 export function ExamplesMenu({
   onLoadExample,
   backendReachable = true,
@@ -273,16 +271,7 @@ export function ExamplesMenu({
         description: `${displayName} has been loaded into the editor`,
       });
 
-      // Close menu after loading example unless "keep open" setting is enabled
-      try {
-        if (
-          globalThis.localStorage.getItem(KEEP_EXAMPLES_MENU_OPEN_KEY) !== "1"
-        ) {
-          setOpen(false);
-        }
-      } catch {
-        setOpen(false);
-      }
+      setOpen(false);
     } catch (error) {
       console.error(`Failed to load example ${example.id}:`, error);
       toast({
@@ -300,8 +289,7 @@ export function ExamplesMenu({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          size="sm"
-          className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center"
+          size="icon"
           aria-label="Examples"
           title="Examples (Cmd/Ctrl+E)"
         >

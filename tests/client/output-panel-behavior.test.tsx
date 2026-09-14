@@ -73,8 +73,8 @@ describe("OutputPanel behavior", () => {
 
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "state" } });
     fireEvent.click(screen.getByTitle("Switch to tiles view"));
-    fireEvent.click(screen.getByText("Copy"));
-    fireEvent.click(screen.getByText("Clear"));
+    fireEvent.click(screen.getByRole("button", { name: "Copy debug messages" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear debug messages" }));
 
     expect(props.setDebugMessageFilter).toHaveBeenCalledWith("state");
     expect(props.setDebugViewMode).toHaveBeenCalledWith("tiles");
