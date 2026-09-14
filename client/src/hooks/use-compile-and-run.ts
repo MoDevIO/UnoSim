@@ -10,7 +10,7 @@ import type { IncomingArduinoMessage, CompileConfig, CompileResult, CompilerErro
 import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
 import { useCompileController } from "./use-compile-controller";
 import { useSimulationController } from "./use-simulation-controller";
-import { buildCompileCommand } from "./compile-command-builder";
+import { buildCompileCommand, type CompileCommand } from "./compile-command-builder";
 import type { SourceProject } from "@shared/source-project";
 
 const logger = new Logger("useCompileAndRun");
@@ -53,6 +53,8 @@ export type CompileAndRunParams = {
   tabs: Array<{ id: string; name: string; path?: string; content: string }>;
   activeTabId: string | null;
   code: string;
+  /** Synchronously tracks the latest editor value during batched updates. */
+  codeRef?: { current: string };
   sourceProject?: SourceProject | null;
   setSerialOutput: SetState<OutputLine[]>;
   clearSerialOutput: () => void;
@@ -84,6 +86,46 @@ export type CompileAndRunParams = {
   handleCompileAndStart?: () => void; // used by reset
   startSimulationRef?: MutableRefObject<(() => void) | null>;
 };
+
+type CompileSourceParams = Pick<
+  CompileAndRunParams,
+  "sourceProject" | "tabs" | "activeTabId" | "editorRef" | "code" | "codeRef"
+>;
+
+function resolveCompileCommand(params: CompileSourceParams): CompileCommand {
+  if (params.sourceProject) return buildCompileCommand(params.sourceProject);
+
+  if (params.sourceProject === null) {
+    if (params.tabs.length === 0) {
+      return buildCompileCommand({
+        entryFile: "sketch.ino",
+        files: {
+          "sketch.ino": params.codeRef ? params.codeRef.current : params.code,
+        },
+      });
+    }
+    return { code: "", headers: [], entryFile: undefined };
+  }
+
+  if (params.activeTabId === params.tabs[0]?.id && params.editorRef.current) {
+    let mainSketchCode: string;
+    try {
+      mainSketchCode = params.editorRef.current.getValue();
+    } catch {
+      mainSketchCode = params.tabs[0]?.content || params.code;
+    }
+    return {
+      code: mainSketchCode,
+      headers: buildCompileCommand(mainSketchCode, params.tabs).headers,
+    };
+  }
+
+  const mainSketchCode = params.tabs[0]?.content || params.code;
+  return {
+    code: mainSketchCode,
+    headers: buildCompileCommand(mainSketchCode, params.tabs).headers,
+  };
+}
 
 interface UseCompileAndRunResult {
   /* compilation state & helpers */
@@ -238,25 +280,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     }
     params.setDebugMessages([]);
 
-    // Extract code
-    let mainSketchCode: string;
-    let headers: Array<{ name: string; content: string }>;
-    let entryFile: string | undefined;
-    if (params.sourceProject !== undefined) {
-      ({ code: mainSketchCode, headers, entryFile } = params.sourceProject
-        ? buildCompileCommand(params.sourceProject)
-        : { code: "", headers: [], entryFile: undefined });
-    } else if (params.activeTabId === params.tabs[0]?.id && params.editorRef.current) {
-      try {
-        mainSketchCode = params.editorRef.current.getValue();
-      } catch {
-        mainSketchCode = params.tabs[0]?.content || params.code;
-      }
-      ({ headers } = buildCompileCommand(mainSketchCode, params.tabs));
-    } else {
-      mainSketchCode = params.tabs[0]?.content || params.code;
-      ({ headers } = buildCompileCommand(mainSketchCode, params.tabs));
-    }
+    const { code: mainSketchCode, headers, entryFile } = resolveCompileCommand(params);
 
     if (!mainSketchCode || mainSketchCode.trim().length === 0) {
       uiFeedback.showNoCodeToast();

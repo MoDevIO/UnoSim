@@ -169,12 +169,12 @@ export class SandboxRunner {
 
 
 
-  async runSketch(options: RunSketchOptions): Promise<void> {
+  async runSketch(options: RunSketchOptions): Promise<boolean> {
     await this.ensureDockerChecked();
     await this.ensureTempDir();
     this.executionState.dockerAvailable = this.dockerAvailable;
     this.executionState.dockerImageBuilt = this.dockerImageBuilt;
-    await this.executionManager.runSketch(options, this.executionState);
+    return this.executionManager.runSketch(options, this.executionState);
   }
 
   private async ensureDockerChecked(): Promise<void> {

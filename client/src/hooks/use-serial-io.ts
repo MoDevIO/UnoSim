@@ -38,7 +38,9 @@ export function useSerialIO() {
       // Clean up debounce timer on unmount
       if (emitDebounceRef.current !== null) {
         clearTimeout(emitDebounceRef.current);
+        emitDebounceRef.current = null;
       }
+      pendingOutputRef.current = "";
     };
   }, []);
 
@@ -84,19 +86,18 @@ export function useSerialIO() {
       rendererRef.current?.enqueue(text);
     }
     
-    // Emit serial output event to parent frame for dashboard monitoring (debounced to 100ms)
+    // Emit serial output event to parent frame for dashboard monitoring.
+    // Start one bounded flush window per batch: subsequent chunks are added to
+    // the same buffer without postponing the already scheduled flush. This
+    // preserves ordering while preventing continuous output from starving the
+    // external API under browsers that throttle timers in iframes.
     pendingOutputRef.current += text;
-    
-    if (emitDebounceRef.current !== null) {
-      clearTimeout(emitDebounceRef.current);
-    }
-    
-    emitDebounceRef.current = setTimeout(() => {
-      if (pendingOutputRef.current) {
-        emitSerialOutput(pendingOutputRef.current);
-        pendingOutputRef.current = "";
-      }
+
+    emitDebounceRef.current ??= setTimeout(() => {
       emitDebounceRef.current = null;
+      const output = pendingOutputRef.current;
+      pendingOutputRef.current = "";
+      if (output) emitSerialOutput(output);
     }, 100);
   }, []);
 
@@ -165,4 +166,3 @@ export function useSerialIO() {
     appendRenderedText,
   };
 }
-

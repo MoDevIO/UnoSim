@@ -45,6 +45,7 @@ const buildParams = () => ({
   activeTabId: "sketch",
   code: "state fallback code",
   sourceProject: undefined,
+  codeRef: { current: "state fallback code" },
   setSerialOutput: vi.fn(),
   clearSerialOutput: vi.fn(),
   setParserMessages: vi.fn(),
@@ -160,6 +161,63 @@ describe("useCompileAndRun characterization", () => {
         ...expectedPayload,
       });
     });
+  });
+
+  it("compiles externally loaded code while tabs and the project snapshot are still uninitialized", async () => {
+    (apiRequest as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockJsonCompileResponse({
+        success: true,
+        output: "Compiled successfully",
+        parserMessages: [],
+      }),
+    );
+    const params = buildParams();
+    params.tabs = [];
+    params.activeTabId = null;
+    params.code = "";
+    params.sourceProject = null;
+    params.codeRef.current = MAIN_SKETCH;
+
+    const { result } = renderHook(() => useCompileAndRun(params), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      result.current.handleCompileAndStart();
+    });
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", {
+        code: MAIN_SKETCH,
+        headers: [],
+        entryFile: "sketch.ino",
+      });
+      expect(params.sendMessageImmediate).toHaveBeenCalledWith({
+        type: "start_simulation",
+        timeout: 60,
+        code: MAIN_SKETCH,
+        entryFile: "sketch.ino",
+      });
+    });
+  });
+
+  it("does not compile an empty legacy fallback when no code has been loaded", () => {
+    const params = buildParams();
+    params.tabs = [];
+    params.activeTabId = null;
+    params.code = "";
+    params.sourceProject = null;
+    params.codeRef.current = "";
+
+    const { result } = renderHook(() => useCompileAndRun(params), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleCompileAndStart();
+    });
+
+    expect(apiRequest).not.toHaveBeenCalled();
   });
 
   it("transports the logical entry path for nested projects to HTTP and WebSocket", async () => {

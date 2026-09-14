@@ -477,6 +477,21 @@ describe("SandboxRunner", () => {
     });  });
 
   describe("Local Fallback Execution", () => {
+    it("resolves readiness only after the local process is attached", async () => {
+      testGlobals.setDockerMockConfig({ versionFail: true });
+
+      const runner = new SandboxRunner();
+      const ready = await runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
+
+      expect(ready).toBe(true);
+      expect(getProcessController(runner).hasProcess()).toBe(true);
+    });
+
     it("should handle compile errors", async () => {
       // Simulate no Docker available
       testGlobals.setDockerMockConfig({ versionFail: true });

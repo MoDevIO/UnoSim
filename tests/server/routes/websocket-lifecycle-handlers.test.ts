@@ -31,7 +31,7 @@ function createRunner(): RunnerDouble {
     resume: vi.fn(() => true),
     sendSerialInput: vi.fn(),
     setPinValue: vi.fn(),
-    runSketch: vi.fn().mockResolvedValue(undefined),
+    runSketch: vi.fn().mockResolvedValue(true),
     getSandboxStatus: vi.fn(() => ({ mode: "local-limited" })),
     stop: vi.fn().mockResolvedValue(undefined),
   };

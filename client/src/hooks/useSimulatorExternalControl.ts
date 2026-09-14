@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { OutputTab } from "@/types/compilation.types";
 import type { ServerStatusEventData } from "@/types/external-api";
 import type { IncomingArduinoMessage } from "@/types/websocket";
@@ -32,18 +32,36 @@ interface UseSimulatorExternalControlParams {
   serverStatus: InternalServerStatus | null;
 }
 
+/** Atomically claims a queued external start once its prerequisites are ready. */
+export function claimPendingExternalStart(
+  pendingRef: { current: boolean },
+  prerequisitesReady: boolean,
+): boolean {
+  if (!prerequisitesReady || !pendingRef.current) return false;
+  pendingRef.current = false;
+  return true;
+}
+
 export function useSimulatorExternalControl(
   params: UseSimulatorExternalControlParams,
 ): { pendingExternalStart: boolean } {
+  // React state drives the externally visible status, while the ref is the
+  // synchronous one-shot claim used to prevent duplicate compiles when this
+  // effect is re-run during rapid readiness/status updates.
+  const pendingExternalStartRef = useRef(false);
   const [pendingExternalStart, setPendingExternalStart] = useState(false);
 
   useEffect(() => {
-    if (pendingExternalStart && params.isConnected && params.backendReachable) {
+    if (
+      claimPendingExternalStart(
+        pendingExternalStartRef,
+        params.isConnected && params.backendReachable,
+      )
+    ) {
       setPendingExternalStart(false);
       params.compileAndStartAction();
     }
   }, [
-    pendingExternalStart,
     params.isConnected,
     params.backendReachable,
     params.compileAndStartAction,
@@ -53,6 +71,7 @@ export function useSimulatorExternalControl(
     if (params.isConnected && params.backendReachable) {
       params.compileAndStartAction();
     } else {
+      pendingExternalStartRef.current = true;
       setPendingExternalStart(true);
       params.setSimulationStatus("queued");
       emitSimulationStateEvent("QUEUED_FOR_COMPILING");
@@ -60,6 +79,7 @@ export function useSimulatorExternalControl(
   }, [params]);
 
   const handleExternalStopSimulation = useCallback(() => {
+    pendingExternalStartRef.current = false;
     setPendingExternalStart(false);
     params.handleStop();
   }, [params]);
