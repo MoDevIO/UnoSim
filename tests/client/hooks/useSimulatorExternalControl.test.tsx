@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useSimulatorExternalControl } from "../../../client/src/hooks/useSimulatorExternalControl";
+import {
+  claimPendingExternalStart,
+  useSimulatorExternalControl,
+} from "../../../client/src/hooks/useSimulatorExternalControl";
 
 const {
   useExternalApi,
@@ -47,6 +50,16 @@ describe("useSimulatorExternalControl", () => {
     vi.clearAllMocks();
   });
 
+  it("claims a pending start synchronously and only once", () => {
+    const pendingRef = { current: true };
+
+    expect(claimPendingExternalStart(pendingRef, false)).toBe(false);
+    expect(pendingRef.current).toBe(true);
+    expect(claimPendingExternalStart(pendingRef, true)).toBe(true);
+    expect(pendingRef.current).toBe(false);
+    expect(claimPendingExternalStart(pendingRef, true)).toBe(false);
+  });
+
   it("queues an external start until the backend and WebSocket are ready", () => {
     const params = buildParams({ backendReachable: false, isConnected: false });
     const { result, rerender } = renderHook((props) => useSimulatorExternalControl(props), {
@@ -63,6 +76,106 @@ describe("useSimulatorExternalControl", () => {
 
     expect(result.current.pendingExternalStart).toBe(false);
     expect(params.compileAndStartAction).toHaveBeenCalledOnce();
+  });
+
+  it("claims a queued start once even when readiness and callback identities churn", () => {
+    const initialParams = buildParams({ backendReachable: false, isConnected: false });
+    const firstAction = vi.fn();
+    const secondAction = vi.fn();
+    const laterActions = Array.from({ length: 4 }, () => vi.fn());
+
+    const { result, rerender } = renderHook(
+      ({ action, ready, revision }: { action: () => void; ready: boolean; revision: number }) =>
+        useSimulatorExternalControl({
+          ...initialParams,
+          compileAndStartAction: action,
+          backendReachable: ready,
+          isConnected: ready,
+          serverStatus: {
+            ...initialParams.serverStatus,
+            compileSlots: {
+              ...initialParams.serverStatus.compileSlots,
+              queued: revision,
+            },
+          },
+        }),
+      {
+        initialProps: { action: firstAction, ready: false, revision: 0 },
+      },
+    );
+
+    act(() => useExternalApi.mock.calls[0][0].onStartSimulation());
+    expect(result.current.pendingExternalStart).toBe(true);
+
+    rerender({ action: secondAction, ready: true, revision: 1 });
+    expect(result.current.pendingExternalStart).toBe(false);
+    expect(secondAction).toHaveBeenCalledOnce();
+
+    laterActions.forEach((action, index) => {
+      rerender({ action, ready: true, revision: index + 2 });
+    });
+
+    expect(secondAction).toHaveBeenCalledOnce();
+    for (const action of laterActions) {
+      expect(action).not.toHaveBeenCalled();
+    }
+  });
+
+  it("allows a new external start after the previous pending start was claimed", () => {
+    const params = buildParams({ backendReachable: false, isConnected: false });
+    const firstAction = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ action, ready }: { action: () => void; ready: boolean }) =>
+        useSimulatorExternalControl({
+          ...params,
+          compileAndStartAction: action,
+          backendReachable: ready,
+          isConnected: ready,
+        }),
+      { initialProps: { action: firstAction, ready: false } },
+    );
+
+    act(() => useExternalApi.mock.calls[0][0].onStartSimulation());
+    rerender({ action: firstAction, ready: true });
+    expect(result.current.pendingExternalStart).toBe(false);
+    expect(firstAction).toHaveBeenCalledOnce();
+
+    const latestCallbacks = useExternalApi.mock.calls.at(-1)[0];
+    act(() => latestCallbacks.onStartSimulation());
+    expect(firstAction).toHaveBeenCalledTimes(2);
+  });
+
+  it("starts directly exactly once when prerequisites are already ready", () => {
+    const params = buildParams();
+    renderHook(() => useSimulatorExternalControl(params));
+
+    act(() => useExternalApi.mock.calls[0][0].onStartSimulation());
+
+    expect(params.compileAndStartAction).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a pending start while either readiness prerequisite is missing", () => {
+    const params = buildParams({ backendReachable: false, isConnected: false });
+    const action = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ connected, reachable }: { connected: boolean; reachable: boolean }) =>
+        useSimulatorExternalControl({
+          ...params,
+          compileAndStartAction: action,
+          isConnected: connected,
+          backendReachable: reachable,
+        }),
+      { initialProps: { connected: false, reachable: false } },
+    );
+
+    act(() => useExternalApi.mock.calls[0][0].onStartSimulation());
+    rerender({ connected: true, reachable: false });
+    expect(result.current.pendingExternalStart).toBe(true);
+    expect(action).not.toHaveBeenCalled();
+
+    rerender({ connected: true, reachable: true });
+    expect(result.current.pendingExternalStart).toBe(false);
+    expect(action).toHaveBeenCalledOnce();
   });
 
   it("exposes current simulation state and routes external pin and stop actions", () => {
