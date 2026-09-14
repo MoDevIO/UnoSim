@@ -124,5 +124,13 @@ describe("WebSocket direction schemas", () => {
         retryAfter: 5,
       }).success,
     ).toBe(true);
+    expect(
+      serverToClientWSMessageSchema.safeParse({
+        type: "operation_error",
+        operation: "start_simulation",
+        code: "FUTURE_OPERATION_ERROR",
+        message: "future failure",
+      }).success,
+    ).toBe(true);
   });
 });

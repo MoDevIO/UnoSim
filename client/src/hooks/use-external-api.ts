@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { SimulatorActionType, API_VERSION, SimulatorEventType } from "@/types/external-api";
-import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage, SimulationStateEventData, ServerStatusEventData } from "@/types/external-api";
+import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage, SimulationStateEventData, ServerStatusEventData, OperationErrorEventData } from "@/types/external-api";
 
 interface UseExternalApiParams {
   /** Restrict inbound messages to this origin. Use "*" to allow all origins. */
@@ -330,6 +330,25 @@ export function emitServerStatusEvent(data: ServerStatusEventData): void {
       version: API_VERSION,
       type: SimulatorEventType.SERVER_STATUS_EVENT,
       success: true,
+      data,
+    };
+    sendEventToParent(event, getAllowedOrigin());
+  } catch {
+    // Silently ignore — postMessage errors are expected when not embedded
+  }
+}
+
+/**
+ * Sends a server-side operation error to the parent frame.
+ * The payload is forwarded unchanged so external clients can distinguish
+ * admission, rate-limit, and future operation errors without client policy.
+ */
+export function emitOperationErrorEvent(data: OperationErrorEventData): void {
+  try {
+    const event: SimulatorEventMessage<typeof SimulatorEventType.OPERATION_ERROR_EVENT> = {
+      version: API_VERSION,
+      type: SimulatorEventType.OPERATION_ERROR_EVENT,
+      success: false,
       data,
     };
     sendEventToParent(event, getAllowedOrigin());

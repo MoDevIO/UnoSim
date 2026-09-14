@@ -53,6 +53,8 @@ export enum SimulatorEventType {
   SERIAL_OUTPUT_EVENT = "SERIAL_OUTPUT_EVENT",
   /** The server/pool status has changed (runner pool, compile queue, reachability) */
   SERVER_STATUS_EVENT = "SERVER_STATUS_EVENT",
+  /** A server-side operation was rejected or failed. */
+  OPERATION_ERROR_EVENT = "OPERATION_ERROR_EVENT",
 }
 
 /**
@@ -193,6 +195,15 @@ export interface ServerStatusEventData {
   compile?: ServerStatusEventData["compileSlots"];
 }
 
+/** Data for an asynchronous server operation error event. */
+export interface OperationErrorEventData {
+  operation: "compile" | "start_simulation";
+  /** Server-provided error code; kept open for forward-compatible additions. */
+  code: string;
+  message: string;
+  retryAfter?: number;
+}
+
 
 /**
  * Inbound message from an external website.
@@ -230,7 +241,7 @@ export interface SimulatorResponse {
 export type SimulatorEventMessage<T extends SimulatorEventType = SimulatorEventType> = {
   version: string;
   type: T;
-  success: true; // Events always report success
+  success: T extends SimulatorEventType.OPERATION_ERROR_EVENT ? false : true;
   data: T extends SimulatorEventType.PIN_STATE_CHANGE_EVENT
     ? PinStateChangeEventData
     : T extends SimulatorEventType.SIMULATION_STATE_EVENT
@@ -239,5 +250,7 @@ export type SimulatorEventMessage<T extends SimulatorEventType = SimulatorEventT
         ? string
         : T extends SimulatorEventType.SERVER_STATUS_EVENT
           ? ServerStatusEventData
-          : never;
-}
+          : T extends SimulatorEventType.OPERATION_ERROR_EVENT
+            ? OperationErrorEventData
+            : never;
+};

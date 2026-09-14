@@ -7,7 +7,7 @@ import type { ParserMessage, IOPinRecord, OutputLine, WSMessage } from "@shared/
 import type { SimulationStatus } from "@shared/types/arduino.types";
 import { telemetryStore } from "@/hooks/use-telemetry-store";
 import type { PinState, PinStateType } from "@/hooks/use-simulation-store";
-import { emitPinStateChange, emitSimulationStateEvent } from "@/hooks/use-external-api";
+import { emitPinStateChange, emitSimulationStateEvent, emitOperationErrorEvent } from "@/hooks/use-external-api";
 import type { DockerGccPhase } from "@/hooks/use-compile-and-run";
 import type {
   IncomingArduinoMessage,
@@ -275,6 +275,12 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setCliOutput(message.message);
     setShowCompilationOutput(true);
     setActiveOutputTab("compiler");
+    emitOperationErrorEvent({
+      operation: message.operation,
+      code: message.code,
+      message: message.message,
+      ...(message.retryAfter === undefined ? {} : { retryAfter: message.retryAfter }),
+    });
     if (message.operation === "start_simulation") {
       setSimulationStatus("idle");
     }
