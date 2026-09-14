@@ -81,14 +81,28 @@ bleibt der Default `0.0.0.0` bestehen.
 
 ## Docker-Simulation
 
+Für einen lokalen Einzelplatztest ohne vorgeschaltetes Auth-Gateway läuft der
+UnoSim-Server als Prozess auf dem Host, während die Sketches in Docker-Sandboxen
+ausgeführt werden:
+
 ```bash
 docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
 NODE_ENV=development UNOSIM_SERVER_MODE=docker \
 UNOSIM_SIMULATION_MODE=docker-sandbox UNOSIM_TRUST_MODE=local \
+UNOSIM_LISTEN_HOST=127.0.0.1 \
 DISABLE_RATE_LIMIT=true ./node_modules/.bin/tsx server/index.ts --host
 ```
 
-Docker-Simulation benötigt Zugriff auf den Docker-Daemon. Das Sandbox-Image startet pro Ausführung einen isolierten Container; DOCKER_HOST hat den Default unix:///var/run/docker.sock. Für den vollständigen Containerpfad ist docker-compose.yml maßgeblich.
+Docker-Simulation benötigt Zugriff auf den Docker-Daemon. Das Sandbox-Image
+startet pro Ausführung einen isolierten Container; `DOCKER_HOST` hat den
+Default `unix:///var/run/docker.sock`.
+
+Für den vollständigen Server-in-Docker-Betrieb ist `docker-compose.yml`
+maßgeblich. Compose verwendet aus Sicherheitsgründen `UNOSIM_TRUST_MODE=gateway`
+und benötigt daher `DOCKER_GID`, `UNOSIM_GATEWAY_SECRET`,
+`UNOSIM_TRUSTED_PROXY` und `UNOSIM_ALLOWED_WS_ORIGINS` als gesetzte
+Environment-/Secret-Variablen. Ohne Auth-Gateway ist dieser Compose-Modus nicht
+für direkte Browserzugriffe geeignet; verwende dann den lokalen Start oben.
 
 ## Production Build lokal
 
