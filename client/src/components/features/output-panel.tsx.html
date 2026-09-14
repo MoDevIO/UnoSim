@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">52.54% </span>
+                <span class="strong">52.45% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>31/59</span>
+                <span class='fraction'>32/61</span>
             </div>
         
             
@@ -334,7 +334,30 @@
 <a name='L269'></a><a href='#L269'>269</a>
 <a name='L270'></a><a href='#L270'>270</a>
 <a name='L271'></a><a href='#L271'>271</a>
-<a name='L272'></a><a href='#L272'>272</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -535,7 +558,30 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -805,12 +851,35 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                   ))}
                 &lt;/select&gt;
               &lt;/div&gt;
-              &lt;div className="flex items-center gap-1 flex-shrink-0"&gt;
-                &lt;button onClick={() =&gt; setDebugViewMode(debugViewMode === "table" ? "tiles" : <span class="branch-1 cbranch-no" title="branch not covered" >"table")</span>} className="h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors" title={debugViewMode === "table" ? "Switch to tiles view" : <span class="branch-1 cbranch-no" title="branch not covered" >"Switch to table view"}&gt;</span>
+              &lt;div className="flex items-center gap-2 flex-shrink-0"&gt;
+                &lt;Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() =&gt; setDebugViewMode(debugViewMode === "table" ? "tiles" : <span class="branch-1 cbranch-no" title="branch not covered" >"table")</span>}
+                  title={debugViewMode === "table" ? "Switch to tiles view" : <span class="branch-1 cbranch-no" title="branch not covered" >"Switch to table view"}</span>
+                  aria-label={debugViewMode === "table" ? "Switch to tiles view" : <span class="branch-1 cbranch-no" title="branch not covered" >"Switch to table view"}</span>
+                &gt;
                   {debugViewMode === "table" ? &lt;LayoutGrid className="h-3.5 w-3.5" /&gt; : <span class="branch-1 cbranch-no" title="branch not covered" >&lt;Table className="h-3.5 w-3.5" /&gt;}</span>
-                &lt;/button&gt;
-                &lt;button onClick={onCopyDebugMessages} className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/40 rounded hover:bg-cyan-600/30 transition-colors"&gt;Copy&lt;/button&gt;
-                &lt;button onClick={onClearDebugMessages} className="h-[var(--ui-button-height)] px-2 text-ui-xs bg-red-600/20 text-red-400 border border-red-600/40 rounded hover:bg-red-600/30 transition-colors"&gt;Clear&lt;/button&gt;
+                &lt;/Button&gt;
+                &lt;Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onCopyDebugMessages}
+                  aria-label="Copy debug messages"
+                &gt;
+                  Copy
+                &lt;/Button&gt;
+                &lt;Button
+                  type="button"
+                  variant="destructiveOutline"
+                  size="sm"
+                  onClick={onClearDebugMessages}
+                  aria-label="Clear debug messages"
+                &gt;
+                  Clear
+                &lt;/Button&gt;
               &lt;/div&gt;
             &lt;/div&gt;
 &nbsp;
@@ -883,7 +952,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-13T20:25:09.591Z
+                at 2026-09-14T06:47:46.002Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
