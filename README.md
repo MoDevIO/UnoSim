@@ -167,9 +167,19 @@ docker run --rm -p 3000:3000 \
 Or with Docker Compose (backend only):
 
 ```bash
+export DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
+export UNOSIM_GATEWAY_SECRET="<at-least-32-random-characters>"
+export UNOSIM_TRUSTED_PROXY="<gateway-ip-or-cidr>"
+export UNOSIM_ALLOWED_WS_ORIGINS="https://classroom.example.edu"
 docker compose up --build
 ```
-This will start the UnoSim backend only. Sandbox execution remains dynamic and uses the Docker socket at runtime.
+Compose starts the UnoSim backend only. It intentionally runs in Gateway mode;
+the four variables above are mandatory and must be supplied by the deployment's
+secret/environment management. A reverse proxy/auth gateway must forward the
+authenticated HTTP and WebSocket requests. For a local browser without such a
+gateway, use the local-trust Docker-simulation command in
+[`docs/INSTALL_LOCAL.md`](docs/INSTALL_LOCAL.md) instead.
+Sandbox execution remains dynamic and uses the Docker socket at runtime.
 
 If you need SonarQube, run it separately in its own stack or service; the UnoSim compose file does not include SonarQube or MCP.
 
