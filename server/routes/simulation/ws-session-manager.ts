@@ -41,18 +41,24 @@ export class WsSessionManager {
 
   markSessionRunning(state: ClientState): void {
     if (state.metricsState === "running") return;
+    state.isRunning = true;
+    state.isPaused = false;
     webSocketMetricsTracker.onSessionStart();
     state.metricsState = "running";
   }
 
   markSessionPaused(state: ClientState): void {
     if (state.metricsState !== "running") return;
+    state.isRunning = true;
+    state.isPaused = true;
     webSocketMetricsTracker.onSessionPause();
     state.metricsState = "paused";
   }
 
   markSessionStopped(state: ClientState): void {
     if (state.metricsState === null || state.metricsState === undefined) return;
+    state.isRunning = false;
+    state.isPaused = false;
     webSocketMetricsTracker.onSessionStop(state.metricsState);
     state.metricsState = null;
   }

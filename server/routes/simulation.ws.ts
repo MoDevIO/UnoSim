@@ -575,17 +575,13 @@ export function registerSimulationWebSocket(
     // Slot assignment: tell client which runner slot they own immediately
     const acquiredWorkerIndex = pool.getRunnerIndex(acquiredRunner);
 
-    // Reserve the client state before starting so admission/cleanup semantics
-    // remain unchanged while the external running event waits for readiness.
-    // isRunning is set BEFORE countRunningClients() so the new client is
-    // included in the total it (and others) receive.
-    clientState.isRunning = true;
-    clientState.isPaused = false;
+    // Keep the client in STARTING until runSketch confirms process readiness.
+    // The lifecycle manager performs the actual running transition atomically.
     sendMessageToClient(ws, {
       type: WSMessageType.COMPILATION_STATUS,
       arduinoCliStatus: "compiling",
       workerIndex: acquiredWorkerIndex,
-      workerTotal: sessionManager.countRunningClients(),
+      workerTotal: sessionManager.countRunningClients() + 1,
     });
 
     // Broadcast updated count to all OTHER running clients (ws excluded because
