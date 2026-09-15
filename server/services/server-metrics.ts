@@ -198,8 +198,12 @@ class WebSocketMetricsTracker {
     this.pausedSessions++;
   }
   
-  onSessionStop(): void {
-    this.runningSessions = Math.max(0, this.runningSessions - 1);
+  onSessionStop(state: "running" | "paused" = "running"): void {
+    if (state === "paused") {
+      this.pausedSessions = Math.max(0, this.pausedSessions - 1);
+    } else {
+      this.runningSessions = Math.max(0, this.runningSessions - 1);
+    }
   }
   
   getMetrics(): WebSocketMetrics {
