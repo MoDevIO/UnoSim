@@ -84,8 +84,64 @@ docker run -d \
 
 Der Dienst ist anschließend unter <http://localhost:3000> erreichbar. Der
 Port ist absichtlich nur an `127.0.0.1` gebunden. Für einen ausdrücklich
-gewünschten LAN-Test muss das Port-Mapping bewusst angepasst und eine exakte
-`UNOSIM_ALLOWED_WS_ORIGINS`-Liste gesetzt werden.
+gewünschten LAN-Test siehe den folgenden Abschnitt.
+
+### Zugriff aus demselben Netzwerk (ohne Gateway)
+
+Dieser Abschnitt ist nur für ein vertrauenswürdiges privates Netzwerk gedacht.
+Ermittle zuerst die IPv4-Adresse des Ubuntu-Rechners:
+
+```bash
+ip -4 addr show scope global
+```
+
+Nimm die Adresse des privaten Interfaces, zum Beispiel `192.168.1.50`. Der
+Container muss für LAN-Zugriff mit einer öffentlichen Host-Bindung und der
+exakten Browser-Origin neu erstellt werden:
+
+```bash
+docker rm -f unosim-local
+docker run -d \
+  --name unosim-local \
+  --restart unless-stopped \
+  --group-add "$(stat -c '%g' /var/run/docker.sock)" \
+  -p 0.0.0.0:3000:3000 \
+  -e NODE_ENV=development \
+  -e PORT=3000 \
+  -e UNOSIM_SERVER_MODE=docker \
+  -e UNOSIM_SIMULATION_MODE=docker-sandbox \
+  -e UNOSIM_TRUST_MODE=local \
+  -e UNOSIM_LISTEN_HOST=0.0.0.0 \
+  -e UNOSIM_ALLOWED_WS_ORIGINS=http://192.168.1.50:3000 \
+  -e DOCKER_HOST=unix:///var/run/docker.sock \
+  -e DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest \
+  -e ARDUINO_CACHE_DIR=/srv/unosim/server/arduino-cache \
+  -e UNOSIM_SHARED_TEMP_DIR=/srv/unosim/temp \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$PWD/server/arduino-cache:/srv/unosim/server/arduino-cache" \
+  -v "$PWD/temp:/srv/unosim/temp" \
+  -v "$PWD/storage:/app/storage" \
+  unosim-server:latest
+```
+
+Ersetze `192.168.1.50` sowohl in `UNOSIM_ALLOWED_WS_ORIGINS` als auch in der
+Browser-URL durch die tatsächliche Adresse:
+
+```text
+http://192.168.1.50:3000
+```
+
+Falls `ufw` aktiv ist, sollte Port 3000 auf das private Netz begrenzt werden,
+beispielsweise:
+
+```bash
+sudo ufw allow from 192.168.1.0/24 to any port 3000 proto tcp
+```
+
+Keine öffentliche Firewall-Regel und keine Weiterleitung aus dem Internet
+einrichten. Bei einem anderen Subnetz muss die Regel entsprechend angepasst
+werden. Der Gateway-freie LAN-Modus verwendet weiterhin Local-Trust und bietet
+keine Authentifizierung.
 
 ## 6. Bereitschaft und Logs prüfen
 
