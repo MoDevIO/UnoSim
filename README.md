@@ -14,6 +14,9 @@ and an interactive Arduino Preview for sketches.
 
 > **Administration:** For local and server installation, see [`docs/INSTALL_LOCAL.md`](docs/INSTALL_LOCAL.md) and [`docs/INSTALL_SERVER.md`](docs/INSTALL_SERVER.md). Security requirements are in [`docs/SECURITY.md`](docs/SECURITY.md).
 
+For a complete Docker installation on a private Ubuntu workstation without an
+authentication gateway, follow [`docs/INSTALL_DOCKER_LOCAL.md`](docs/INSTALL_DOCKER_LOCAL.md).
+
 ## Preview
 
 <p align="center">

@@ -81,6 +81,12 @@ bleibt der Default `0.0.0.0` bestehen.
 
 ## Docker-Simulation
 
+Wenn auch das Backend in Docker laufen soll, ohne vorgeschaltetes Gateway,
+verwende die vollständige Schritt-für-Schritt-Anleitung
+[`INSTALL_DOCKER_LOCAL.md`](INSTALL_DOCKER_LOCAL.md). Der folgende Abschnitt
+beschreibt weiterhin den einfacheren Entwicklungsfall mit Backend auf dem Host
+und nur Docker-Sandboxen.
+
 Für einen lokalen Einzelplatztest ohne vorgeschaltetes Auth-Gateway läuft der
 UnoSim-Server als Prozess auf dem Host, während die Sketches in Docker-Sandboxen
 ausgeführt werden:

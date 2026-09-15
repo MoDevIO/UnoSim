@@ -5,6 +5,7 @@ Zentraler Einstieg in die aktuelle normative Dokumentation. Historische Pläne, 
 ## Installation
 
 - [INSTALL_LOCAL.md](INSTALL_LOCAL.md) – lokale Entwicklung und Einzelplatzbetrieb.
+- [INSTALL_DOCKER_LOCAL.md](INSTALL_DOCKER_LOCAL.md) – vollständiger Dockerbetrieb ohne Gateway für einen isolierten Einzelplatz.
 - [INSTALL_SERVER.md](INSTALL_SERVER.md) – Hochschulserver, Lehrbetrieb und Mehrbenutzerbetrieb.
 
 ## Betrieb und Architektur
