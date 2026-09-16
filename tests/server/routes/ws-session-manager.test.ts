@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import { WsSessionManager, type ClientState } from "../../../server/routes/simulation/ws-session-manager";
 import { SimulationAdmissionController } from "../../../server/services/simulation-admission-controller";
+import { webSocketMetricsTracker } from "../../../server/services/server-metrics";
 
 const logger = {
   debug: vi.fn(),
@@ -35,6 +36,49 @@ function createState(overrides: Partial<ClientState> = {}): ClientState {
 }
 
 describe("WsSessionManager", () => {
+  beforeEach(() => webSocketMetricsTracker.reset());
+
+  it("tracks running and paused transitions exactly once", () => {
+    const manager = new WsSessionManager({ pool: {} as any, logger });
+    const state = createState();
+
+    manager.markSessionRunning(state);
+    manager.markSessionRunning(state);
+    expect(webSocketMetricsTracker.getMetrics().runningSessions).toBe(1);
+
+    manager.markSessionPaused(state);
+    manager.markSessionPaused(state);
+    expect(webSocketMetricsTracker.getMetrics()).toMatchObject({
+      runningSessions: 0,
+      pausedSessions: 1,
+    });
+
+    manager.markSessionRunning(state);
+    manager.markSessionStopped(state);
+    manager.markSessionStopped(state);
+    expect(webSocketMetricsTracker.getMetrics()).toMatchObject({
+      runningSessions: 0,
+      pausedSessions: 0,
+    });
+  });
+
+  it("clears paused metrics when releasing a paused runner", async () => {
+    const pool = { releaseRunner: vi.fn().mockResolvedValue(undefined) };
+    const manager = new WsSessionManager({ pool: pool as any, logger });
+    const socket = createSocket();
+    const runner = createRunner();
+    const state = createState({ runner: runner as any, isRunning: true });
+    manager.register(socket, state);
+    manager.markSessionRunning(state);
+    manager.markSessionPaused(state);
+    await manager.safeReleaseRunner(state, "paused-stop");
+
+    expect(webSocketMetricsTracker.getMetrics()).toMatchObject({
+      runningSessions: 0,
+      pausedSessions: 0,
+    });
+  });
+
   it("releases a running client runner and broadcasts updated totals", async () => {
     const pool = { releaseRunner: vi.fn().mockResolvedValue(undefined) };
     const manager = new WsSessionManager({ pool: pool as any, logger });

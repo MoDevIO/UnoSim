@@ -7,6 +7,7 @@ import type { ServerToClientWSMessage } from "@shared/schema";
 import { registerSimulationWebSocket } from "../../../server/routes/simulation.ws";
 import type { SandboxRunner } from "../../../server/services/sandbox-runner";
 import type { SandboxRunnerPool } from "../../../server/services/sandbox-runner-pool";
+import { webSocketMetricsTracker } from "../../../server/services/server-metrics";
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -41,6 +42,8 @@ async function waitFor(predicate: () => boolean, label: string): Promise<void> {
 describe("simulation startup readiness", () => {
   let server: Server | undefined;
   let client: WebSocket | undefined;
+
+  beforeEach(() => webSocketMetricsTracker.reset());
 
   afterEach(async () => {
     if (client && client.readyState !== WebSocket.CLOSED) {
@@ -121,6 +124,8 @@ describe("simulation startup readiness", () => {
       "the ready running state",
     );
 
+    expect(webSocketMetricsTracker.getMetrics().runningSessions).toBe(1);
+
     client.send(JSON.stringify({ type: "serial_input", data: "immediate input" }));
     await waitFor(() => runner.sendSerialInput.mock.calls.length === 1, "serial input forwarding");
     expect(runner.sendSerialInput).toHaveBeenCalledWith("immediate input");
@@ -186,5 +191,37 @@ describe("simulation startup readiness", () => {
       type: "simulation_status",
       status: "running",
     });
+    expect(webSocketMetricsTracker.getMetrics().runningSessions).toBe(0);
+  });
+
+  it("does not count a session when runSketch rejects", async () => {
+    const messages: ServerToClientWSMessage[] = [];
+    const runner = {
+      pause: vi.fn(() => true), resume: vi.fn(() => true), sendSerialInput: vi.fn(),
+      setPinValue: vi.fn(), runSketch: vi.fn().mockRejectedValue(new Error("start failed")),
+      getSandboxStatus: vi.fn(() => ({ mode: "local-limited" })),
+      stop: vi.fn().mockResolvedValue(undefined),
+    };
+    const pool = {
+      acquireRunner: vi.fn().mockResolvedValue(runner), releaseRunner: vi.fn().mockResolvedValue(undefined),
+      getRunnerIndex: vi.fn(() => 0), getStats: vi.fn(() => ({ availableRunners: 1, totalRunners: 1, maxRunners: 1, queuedRequests: 0 })),
+    };
+    server = createServer();
+    registerSimulationWebSocket(server, {
+      SandboxRunner: class {} as typeof SandboxRunner,
+      getSimulationRateLimiter: () => ({ checkLimit: () => ({ allowed: true }) }),
+      shouldSendSimulationEndMessage: () => true, getLastCompiledCode: () => null, logger: logger(),
+      runnerPool: pool as unknown as SandboxRunnerPool, trust: { mode: "local" },
+      allowedWebSocketOrigins: [], disableRateLimit: true,
+    });
+    await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    client = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    client.on("message", (raw) => messages.push(JSON.parse(raw.toString()) as ServerToClientWSMessage));
+    await new Promise<void>((resolve, reject) => { client!.once("open", resolve); client!.once("error", reject); });
+    client.send(JSON.stringify({ type: "start_simulation", code: "void setup() {} void loop() {}" }));
+    await waitFor(() => runner.runSketch.mock.calls.length === 1, "runSketch invocation");
+    await waitFor(() => messages.some((message) => message.type === "simulation_status" && message.status === "stopped"), "stopped state");
+    expect(webSocketMetricsTracker.getMetrics().runningSessions).toBe(0);
   });
 });

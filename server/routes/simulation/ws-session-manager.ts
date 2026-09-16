@@ -19,6 +19,7 @@ export type ClientState = {
   testRunId?: string;
   queueAbortController: AbortController | null;
   reservation: SimulationReservation | null;
+  metricsState?: "running" | "paused" | null;
 };
 
 interface WsSessionManagerParams {
@@ -33,8 +34,33 @@ export class WsSessionManager {
   constructor(private readonly params: WsSessionManagerParams) {}
 
   register(ws: WebSocket, state: ClientState): void {
+    state.metricsState ??= null;
     webSocketMetricsTracker.onConnection();
     this.clientRunners.register(ws, state);
+  }
+
+  markSessionRunning(state: ClientState): void {
+    if (state.metricsState === "running") return;
+    state.isRunning = true;
+    state.isPaused = false;
+    webSocketMetricsTracker.onSessionStart();
+    state.metricsState = "running";
+  }
+
+  markSessionPaused(state: ClientState): void {
+    if (state.metricsState !== "running") return;
+    state.isRunning = true;
+    state.isPaused = true;
+    webSocketMetricsTracker.onSessionPause();
+    state.metricsState = "paused";
+  }
+
+  markSessionStopped(state: ClientState): void {
+    if (state.metricsState === null || state.metricsState === undefined) return;
+    state.isRunning = false;
+    state.isPaused = false;
+    webSocketMetricsTracker.onSessionStop(state.metricsState);
+    state.metricsState = null;
   }
 
   get(ws: WebSocket): ClientState | undefined {
@@ -92,7 +118,11 @@ export class WsSessionManager {
     state.isRunning = false;
     state.isPaused = false;
 
-    if (wasRunning) {
+    if (state.metricsState !== null && state.metricsState !== undefined) {
+      this.markSessionStopped(state);
+      this.broadcastWorkerTotal();
+    } else if (wasRunning) {
+      // Compatibility for callers that construct legacy ClientState objects.
       webSocketMetricsTracker.onSessionStop();
       this.broadcastWorkerTotal();
     }

@@ -371,6 +371,25 @@ describe("UnifiedGatekeeper", () => {
       gk.stopLockMonitoring();
     });
 
+    it("keeps a granted queued slot valid after its original acquire deadline", async () => {
+      const gk = new UnifiedGatekeeper(1);
+      const releaseA = await gk.acquireCompileSlot(TaskPriority.NORMAL, 500, "holder");
+      const queued = gk.acquireCompileSlot(TaskPriority.NORMAL, 40, "queued");
+
+      releaseA();
+      const releaseB = await queued;
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      releaseB();
+
+      expect(gk.getStats()).toMatchObject({
+        activeCompiles: 0,
+        queuedCompiles: 0,
+        availableSlots: 1,
+        maxConcurrentCompiles: 1,
+      });
+      gk.stopLockMonitoring();
+    });
+
     it("should timeout when queue is full and no slots available", async () => {
       const gk = new UnifiedGatekeeper(1);
 

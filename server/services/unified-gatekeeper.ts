@@ -171,16 +171,6 @@ export class UnifiedGatekeeper extends EventEmitter {
         resolve(this.createReleaseFunction(ownerId, "compile"));
       };
 
-      // Set immediate timeout for this acquire attempt (not just queue timeout)
-      timeoutHandle = setTimeout(() => {
-        const idx = this.compileQueue.findIndex(t => t.ownerId === ownerId);
-        if (idx >= 0) {
-          this.compileQueue.splice(idx, 1);
-        }
-        this.activeSlots.delete(ownerId);
-        reject(new Error(`Compile slot acquire timeout after ${timeoutMs}ms for ${owner}`));
-      }, timeoutMs);
-
       if (this.availableSlots > 0) {
         // Fast path: slot available
         grant();
@@ -230,7 +220,7 @@ export class UnifiedGatekeeper extends EventEmitter {
         );
 
         // Timeout handling
-        const timeoutHandle = setTimeout(() => {
+        timeoutHandle = setTimeout(() => {
           const idx = this.compileQueue.indexOf(queuedTask);
           if (idx >= 0) {
             this.compileQueue.splice(idx, 1);
@@ -241,7 +231,7 @@ export class UnifiedGatekeeper extends EventEmitter {
         // Wrap resolver to clear timeout on success
         const originalResolver = queuedTask.resolver;
         queuedTask.resolver = (release) => {
-          clearTimeout(timeoutHandle);
+          if (timeoutHandle) clearTimeout(timeoutHandle);
           originalResolver(release);
         };
       }

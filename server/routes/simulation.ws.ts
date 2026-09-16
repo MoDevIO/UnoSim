@@ -70,11 +70,13 @@ function rejectAdmission(
 function handlePauseSimulation(
   _ws: WebSocket,
   clientState: ClientState,
+  sessionManager: WsSessionManager,
 ): void {
   if (clientState?.runner && clientState.isRunning) {
     const paused = clientState.runner.pause();
     if (paused) {
       clientState.isPaused = true;
+      sessionManager.markSessionPaused(clientState);
       sendMessageToClient(_ws, {
         type: WSMessageType.SIMULATION_STATUS,
         status: "paused",
@@ -93,12 +95,14 @@ function handlePauseSimulation(
 function handleResumeSimulation(
   _ws: WebSocket,
   clientState: ClientState,
+  sessionManager: WsSessionManager,
 ): void {
   if (clientState?.runner && clientState.isPaused) {
     const resumed = clientState.runner.resume();
     if (resumed) {
       clientState.isPaused = false;
       clientState.isRunning = true;
+      sessionManager.markSessionRunning(clientState);
       sendMessageToClient(_ws, {
         type: WSMessageType.SIMULATION_STATUS,
         status: "running",
@@ -571,17 +575,13 @@ export function registerSimulationWebSocket(
     // Slot assignment: tell client which runner slot they own immediately
     const acquiredWorkerIndex = pool.getRunnerIndex(acquiredRunner);
 
-    // Reserve the client state before starting so admission/cleanup semantics
-    // remain unchanged while the external running event waits for readiness.
-    // isRunning is set BEFORE countRunningClients() so the new client is
-    // included in the total it (and others) receive.
-    clientState.isRunning = true;
-    clientState.isPaused = false;
+    // Keep the client in STARTING until runSketch confirms process readiness.
+    // The lifecycle manager performs the actual running transition atomically.
     sendMessageToClient(ws, {
       type: WSMessageType.COMPILATION_STATUS,
       arduinoCliStatus: "compiling",
       workerIndex: acquiredWorkerIndex,
-      workerTotal: sessionManager.countRunningClients(),
+      workerTotal: sessionManager.countRunningClients() + 1,
     });
 
     // Broadcast updated count to all OTHER running clients (ws excluded because
@@ -646,6 +646,7 @@ export function registerSimulationWebSocket(
       return;
     }
 
+    sessionManager.markSessionRunning(clientState);
     sendMessageToClient(ws, {
       type: WSMessageType.SIMULATION_STATUS,
       status: "running",
@@ -713,8 +714,8 @@ export function registerSimulationWebSocket(
       startSimulation: handleStartSimulation,
       codeChanged: (ws, _data, clientState) => handleCodeChanged(ws, clientState),
       stopSimulation: (ws, _data, clientState) => handleStopSimulation(ws, clientState),
-      pauseSimulation: (ws, _data, clientState) => handlePauseSimulation(ws, clientState),
-      resumeSimulation: (ws, _data, clientState) => handleResumeSimulation(ws, clientState),
+      pauseSimulation: (ws, _data, clientState) => handlePauseSimulation(ws, clientState, sessionManager),
+      resumeSimulation: (ws, _data, clientState) => handleResumeSimulation(ws, clientState, sessionManager),
       serialInput: handleSerialInput,
       setPinValue: handleSetPinValue,
     },
@@ -750,6 +751,7 @@ export function registerSimulationWebSocket(
       testRunId,
       queueAbortController: null,
       reservation: null,
+      metricsState: null,
     });
 
     const clientState = sessionManager.get(ws);

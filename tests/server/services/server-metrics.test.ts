@@ -166,6 +166,18 @@ describe("Server Metrics (Phase 3.9 Observability)", () => {
       expect(metrics.runningSessions).toBe(0);
     });
 
+    it("clears paused sessions when a paused run stops", () => {
+      webSocketMetricsTracker.onConnection();
+      webSocketMetricsTracker.onSessionStart();
+      webSocketMetricsTracker.onSessionPause();
+      webSocketMetricsTracker.onSessionStop("paused");
+
+      expect(webSocketMetricsTracker.getMetrics()).toMatchObject({
+        runningSessions: 0,
+        pausedSessions: 0,
+      });
+    });
+
     it("should reset metrics", () => {
       webSocketMetricsTracker.onConnection();
       webSocketMetricsTracker.onSessionStart();
