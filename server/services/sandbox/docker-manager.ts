@@ -32,6 +32,7 @@ interface DockerProcessConfig {
 interface DockerEventHandlers {
   onCompileError?: (error: string) => void;
   onCompileSuccess?: () => void;
+  onRuntimeStart?: () => void;
   onExit?: (code: number | null) => void;
 }
 
@@ -97,6 +98,7 @@ export class DockerManager {
     callbacks: DockerManagerCallbacks,
     state: StdoutHandlerState,
     onCompileSuccess?: () => void,
+    onRuntimeStart?: () => void,
   ): void {
     const isCompilePhase = state.isCompilePhase;
     const compileSuccessSent = state.compileSuccessSent;
@@ -125,6 +127,7 @@ export class DockerManager {
         const runtimeOutput = state.compileErrorBuffer.value.slice(markerEnd);
         state.compileErrorBuffer.value = state.compileErrorBuffer.value.slice(0, markerLineStart);
         isCompilePhase.value = false;
+        onRuntimeStart?.();
         if (!compileSuccessSent.value && onCompileSuccess) {
           compileSuccessSent.value = true;
           onCompileSuccess();
@@ -261,7 +264,7 @@ export class DockerManager {
       callbacks.onError(`Docker process failed: ${err.message}`);
     });
 
-    this.setupStdoutHandler(callbacks, state, handlers.onCompileSuccess);
+    this.setupStdoutHandler(callbacks, state, handlers.onCompileSuccess, handlers.onRuntimeStart);
     this.setupStderrHandlers(callbacks, state);
 
     this.processController.onClose((code) => {

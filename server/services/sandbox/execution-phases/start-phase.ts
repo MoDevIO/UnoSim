@@ -74,7 +74,9 @@ export async function runLocalStart(
  * - Docker-Command-Build
  * - Docker-Spawn
  * - processStartTime setzen
- * - State-Transition zu RUNNING
+ *
+ * Der Docker-Prozess kompiliert zunächst noch. Die RUNNING-Transition erfolgt
+ * erst beim [[RUNTIME_START]]-Marker in DockerManager.
  * 
  * NICHT enthalten:
  * - Semaphore-Acquire (Gatekeeper-Phase)
@@ -86,7 +88,7 @@ export async function runDockerStart(
   state: ExecutionState,
   context: DockerStartContext,
 ): Promise<string[]> {
-  const { processController, transitionTo } = context;
+  const { processController } = context;
   const user = typeof getuid === "function" && typeof getgid === "function"
     ? `${getuid()}:${getgid()}`
     : undefined;
@@ -110,8 +112,5 @@ export async function runDockerStart(
   // Startzeit setzen
   state.processStartTime = Date.now();
   
-  // State-Transition zu RUNNING
-  transitionTo(state, "running");
-
   return dockerArgs;
 }
