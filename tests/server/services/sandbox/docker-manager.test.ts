@@ -252,6 +252,7 @@ describe("DockerManager output budget", () => {
       },
     );
     const onCompileSuccess = vi.fn();
+    const onRuntimeStart = vi.fn();
     const state = {
       isCompilePhase: { value: true },
       compileErrorBuffer: { value: "" },
@@ -260,15 +261,17 @@ describe("DockerManager output budget", () => {
       processStartTime: 1000,
     };
 
-    manager.setupStdoutHandler({ ...mockCallbacks, onError: vi.fn() }, state, onCompileSuccess);
+    manager.setupStdoutHandler({ ...mockCallbacks, onError: vi.fn() }, state, onCompileSuccess, onRuntimeStart);
     stdoutHandlers[0]?.(Buffer.from("gcc warning before sentinel\n[[RUNTIME_"));
     expect(state.isCompilePhase.value).toBe(true);
     expect(onCompileSuccess).not.toHaveBeenCalled();
+    expect(onRuntimeStart).not.toHaveBeenCalled();
 
     stdoutHandlers[0]?.(Buffer.from("START]]\nruntime output\n"));
 
     expect(state.isCompilePhase.value).toBe(false);
     expect(onCompileSuccess).toHaveBeenCalledOnce();
+    expect(onRuntimeStart).toHaveBeenCalledOnce();
     expect(parsedLines).toEqual(["runtime output"]);
 
     stdoutHandlers[0]?.(Buffer.from("[[RUNTIME_START]]\nsecond runtime output\n"));
@@ -331,5 +334,33 @@ describe("DockerManager output budget", () => {
 
     expect(state.isCompilePhase.value).toBe(true);
     expect(onCompileSuccess).not.toHaveBeenCalled();
+  });
+
+  it("does not emit a runtime-start signal when Docker exits without the sentinel", () => {
+    const manager = new DockerManager(
+      makeProcessController(),
+      makeStderrParser(),
+      makeTimeoutManager(),
+      noop as any,
+    );
+    const onCompileSuccess = vi.fn();
+    const onRuntimeStart = vi.fn();
+    const state = {
+      isCompilePhase: { value: true },
+      compileErrorBuffer: { value: "compiler output" },
+      compileSuccessSent: { value: false },
+      stderrFallbackBuffer: "",
+    };
+
+    manager.handleDockerExit(
+      mockCallbacks,
+      state,
+      0,
+      { flushBatchers: vi.fn(), flushMessageQueue: vi.fn(), getProcessKilled: () => false },
+      { onCompileSuccess, onRuntimeStart, onExit: vi.fn() },
+    );
+
+    expect(onCompileSuccess).toHaveBeenCalledOnce();
+    expect(onRuntimeStart).not.toHaveBeenCalled();
   });
 });

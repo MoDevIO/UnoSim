@@ -317,7 +317,6 @@ export class ExecutionManager {
     state.totalPausedTime = 0;
     this.registryManager.reset();
     this.registryManager.setBaudrate(state.baudrate);
-    this.registryManager.enableWaitMode(config.timeouts.registryWaitModeAfterStartMs);
     state.messageQueue = [];
     state.outputBuffer = "";
     state.outputBufferIndex = 0;
@@ -440,8 +439,22 @@ export class ExecutionManager {
       onCompileError?.(err);
     };
 
+    let runtimeStarted = false;
+    let resolveRuntimeStart: (started: boolean) => void = () => {};
+    const runtimeStartPromise = new Promise<boolean>((resolve) => {
+      resolveRuntimeStart = resolve;
+    });
+    const onRuntimeStart = () => {
+      if (runtimeStarted || state.processKilled || state.pendingCleanup || state.state === SimulationState.STOPPED) return;
+      runtimeStarted = true;
+      this.registryManager.enableWaitMode(config.timeouts.registryWaitModeAfterStartMs);
+      this.transitionTo(state, SimulationState.RUNNING);
+      resolveRuntimeStart(true);
+    };
+
     try {
-      // Start-Phase extrahiert: Docker-Command + Spawn + processStartTime + RUNNING-Transition
+      // Start-Phase extrahiert: Docker-Command + Spawn + processStartTime.
+      // RUNNING folgt erst beim [[RUNTIME_START]]-Marker.
       const dockerStartContext: DockerStartContext = {
         processController: state.processController,
         transitionTo: this.transitionTo.bind(this) as TransitionToFn,
@@ -481,6 +494,7 @@ export class ExecutionManager {
       // releaseOnce() here is a safety net for edge cases where the container
       // dies before emitting any compile output.
       state.processController.onClose((_code) => {
+        if (!runtimeStarted) resolveRuntimeStart(false);
         releaseOnce();
         this.transitionTo(state, SimulationState.STOPPED);
         if (state.flushTimer) {
@@ -506,9 +520,11 @@ export class ExecutionManager {
         {
           onCompileError: wrappedOnCompileError,
           onCompileSuccess: wrappedOnCompileSuccess,
+          onRuntimeStart,
           onExit,
         },
       );
+      await runtimeStartPromise;
     } catch (err) {
       const isTimeout = err instanceof Error && err.message.includes("timeout");
       compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, false, isTimeout);
@@ -557,6 +573,9 @@ export class ExecutionManager {
         transitionTo: this.transitionTo.bind(this) as TransitionToFn,
       };
       await runLocalStart(files.exeFile, state, startContext);
+
+      // Compile time must not consume the initial registry wait budget.
+      this.registryManager.enableWaitMode(config.timeouts.registryWaitModeAfterStartMs);
       
       // Stream-Phase: Event-Handler registrieren
       this.setupLocalHandlers(callbacks, onExit, executionTimeout, state);
