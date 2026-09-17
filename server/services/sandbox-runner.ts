@@ -418,6 +418,9 @@ export class SandboxRunner {
       pendingCleanup: s.pendingCleanup, cleanupRetries: new Map<string, number>(),
       currentRegistryFile: s.currentRegistryFile,
     };
+    const deferredCompileDir = this.filesystemHelper.isCompilationInProgress(fsState)
+      ? fsState.currentSketchDir
+      : null;
     this.filesystemHelper.markRegistryForCleanup(fsState);
     this.filesystemHelper.markTempDirForCleanup(fsState);
     s.currentSketchDir = fsState.currentSketchDir;
@@ -425,6 +428,7 @@ export class SandboxRunner {
     s.pendingCleanup = fsState.pendingCleanup;
 
     for (const dir of this.fileBuilder.getCreatedSketchDirs()) {
+      if (dir === deferredCompileDir) continue;
       if (!existsSync(dir)) { this.fileBuilder.clearCreatedSketchDir(dir); continue; }
       if (this.filesystemHelper.attemptCleanupDir(dir)) {
         this.fileBuilder.clearCreatedSketchDir(dir);

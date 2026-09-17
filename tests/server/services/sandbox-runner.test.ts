@@ -743,6 +743,88 @@ describe("SandboxRunner", () => {
       expect(renameSync).not.toThrow();
     });
 
+    it("defers cleanup of an active compile directory until compilation settles", async () => {
+      const runner = _createRunner();
+      const localCompiler = (runner as any).localCompiler as LocalCompiler;
+      const fileBuilder = (runner as any).fileBuilder;
+      const filesystemHelper = (runner as any).filesystemHelper;
+
+      let signalCompileStarted!: () => void;
+      const compileStarted = new Promise<void>((resolve) => {
+        signalCompileStarted = resolve;
+      });
+      let settleCompile!: () => void;
+      const compileGate = new Promise<void>((resolve) => {
+        settleCompile = resolve;
+      });
+
+      vi.spyOn(localCompiler, "compile").mockImplementation(async () => {
+        signalCompileStarted();
+        await compileGate;
+      });
+
+      const attemptCleanupDir = vi.spyOn(filesystemHelper, "attemptCleanupDir");
+      const runPromise = runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+      });
+
+      try {
+        await compileStarted;
+        const activeDir = runner.getSketchDir();
+        expect(activeDir).toBeTruthy();
+        expect((runner as any).executionState.isCompiling).toBe(true);
+
+        const stale = await fileBuilder.build("void setup(){} void loop(){}", "stale-sketch");
+        const staleDir = stale.sketchDir;
+
+        await runner.stop();
+
+        expect((runner as any).executionState.pendingCleanup).toBe(true);
+        expect(attemptCleanupDir).not.toHaveBeenCalledWith(activeDir);
+        expect(fileBuilder.getCreatedSketchDirs()).toContain(activeDir);
+        expect(attemptCleanupDir).toHaveBeenCalledWith(staleDir);
+        expect(fileBuilder.getCreatedSketchDirs()).not.toContain(staleDir);
+
+        settleCompile();
+        await expect(runPromise).resolves.toBe(false);
+
+        expect(attemptCleanupDir.mock.calls.filter(([dir]) => dir === activeDir)).toHaveLength(1);
+        expect(vi.mocked(renameSync).mock.calls.filter(([dir]) => dir === activeDir)).toHaveLength(1);
+        expect(fileBuilder.getCreatedSketchDirs()).not.toContain(activeDir);
+      } finally {
+        settleCompile();
+        await runPromise;
+      }
+    });
+
+    it("cleans current and stale tracked directories when no compile is active", async () => {
+      const runner = _createRunner();
+      const fileBuilder = (runner as any).fileBuilder;
+      const filesystemHelper = (runner as any).filesystemHelper;
+      const current = await fileBuilder.build("void setup(){} void loop(){}", "current-sketch");
+      const stale = await fileBuilder.build("void setup(){} void loop(){}", "stale-sketch");
+      const currentDir = current.sketchDir;
+      const staleDir = stale.sketchDir;
+
+      const state = (runner as any).executionState;
+      state.currentSketchDir = currentDir;
+      state.isCompiling = false;
+      runner["state"] = "running";
+
+      const attemptCleanupDir = vi.spyOn(filesystemHelper, "attemptCleanupDir");
+
+      await runner.stop();
+
+      expect(state.isCompiling).toBe(false);
+      expect((runner as any).localCompiler.isBusy).toBe(false);
+      expect(attemptCleanupDir).toHaveBeenCalledWith(currentDir);
+      expect(attemptCleanupDir).toHaveBeenCalledWith(staleDir);
+      expect(fileBuilder.getCreatedSketchDirs()).toEqual([]);
+    });
+
     it("should handle serial input", async () => {
       const runner = new SandboxRunner();
 
