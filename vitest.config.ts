@@ -11,6 +11,27 @@ process.env.NODE_ENV = "test";
 
 const __dirname = path.resolve();
 
+// These tests open real local HTTP listeners; parallel file execution has
+// caused sporadic ECONNRESET and 30-second HTTP timeouts despite stable
+// isolated runs, so keep only this group serial.
+const serializedHttpUnitTests = [
+  "tests/server/cache-optimization.test.ts",
+  "tests/server/cli-label-isolation.test.ts",
+  "tests/server/routes/compiler.routes.test.ts",
+  "tests/server/routes/examples.routes.test.ts",
+  "tests/server/routes/routes-core.test.ts",
+  "tests/server/routes/server-status-observability.test.ts",
+  "tests/server/routes/server-status.test.ts",
+  "tests/server/routes/simulation-admission.test.ts",
+  "tests/server/routes/simulation-start-readiness.test.ts",
+  "tests/server/routes/test-reset.routes.test.ts",
+  "tests/server/routes/tutor.routes.test.ts",
+  "tests/server/routes/websocket-lifecycle-handlers.test.ts",
+  "tests/server/security/access-control.test.ts",
+  "tests/server/services/protocol-version.test.ts",
+  "tests/integration/simulation-state-sequence.test.ts",
+] as const;
+
 export default defineConfig({
   plugins: [tsconfigPaths()],
   resolve: {
@@ -87,9 +108,21 @@ export default defineConfig({
             "tests/integration/docker-security-contract.test.ts",
             "tests/server/telemetry-heartbeat-integration.test.ts",
             "tests/core/sandbox-stress.test.ts",
+            ...serializedHttpUnitTests,
           ],
           environment: "node",
           setupFiles: ["./tests/setup.node.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "unit-node-http",
+          include: [...serializedHttpUnitTests],
+          environment: "node",
+          setupFiles: ["./tests/setup.node.ts"],
+          fileParallelism: false,
+          maxWorkers: 1,
         },
       },
       {
