@@ -15,12 +15,10 @@ Some tests run on shared CI runners where system load, CPU scheduling, and conta
 
 ### Unit-suite wall-clock budget
 
-The unit budget is **45 seconds**. A recent local checkout measured about 13
-seconds for all 1,795 tests in the current main baseline; CI runtime depends on runner load and Docker/toolchain
-availability. The same suite previously measured about 36.8 seconds on the
-GitHub-hosted runner. The 45-second ceiling preserves a meaningful regression
-guard with roughly 22% headroom for shared-runner variance; it is a wall-clock
-budget, not a per-test timeout.
+The unit budget is **55 seconds**. The current baseline contains 2,115 tests;
+CI runtime depends on shared-runner load. Local HTTP listener tests run in the
+serial `unit-node-http` project while the remaining Node tests stay
+file-parallel. The budget is a wall-clock guard, not a per-test timeout.
 
 ---
 
@@ -79,9 +77,7 @@ developer machines and in a dedicated CI job.
 
 ### Sandbox contract gate
 
-The current sandbox contract is defined in
-[`SECURITY.md`](SECURITY.md); historical validation is in the
-archive.
+The current sandbox contract is defined in [`SECURITY.md`](SECURITY.md).
 Changes to Docker sandbox flags, runner lifecycle, gateway assumptions or
 container resource limits must run the documented Phase-3.5 gates, including
 `npm run test:security:inputs`, `npm run test:docker`,

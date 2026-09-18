@@ -1,251 +1,119 @@
-# Serverinstallation und Hochschulbetrieb
+# Docker-Installation und Betrieb
 
-Normative Anleitung für Hochschulserver, Lehrbetrieb, Mehrbenutzerbetrieb und produktionsnahe Installationen. UnoSim ist aktuell ein einzelner stateful Backend-Knoten; horizontale HA ist nicht implementiert. Sicherheitsdetails stehen in [SECURITY.md](SECURITY.md), Releases in [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md).
+Docker ist das einzige unterstützte Deployment-Profil. Der UnoSim-Server läuft
+in einem Container und jede Simulation in einer kurzlebigen Docker-Sandbox.
+Der Backend-Port ist ausschließlich über ein authentifizierendes Gateway
+erreichbar. Es gibt keinen unterstützten produktiven Betrieb ohne Gateway und
+keinen host-nativen Simulations-Fallback.
 
-## Plattform
+## Voraussetzungen
 
-Empfohlen ist Debian oder Ubuntu LTS mit systemd, mindestens 8 CPU-Kernen und 16 GB RAM. 16 Kerne und 32 GB RAM sind eine Referenzempfehlung für die gemessenen Lastprofile, keine Kapazitätsgarantie; die freigegebenen Grenzen stehen in [SCALABILITY.md](SCALABILITY.md). Node.js 24.20.0 und npm 11 werden verwendet. Benötigt werden Docker Engine mit Compose v2, Git, curl, ca-certificates, g++, xz-utils und tar. Arduino CLI und der arduino:avr-Core werden durch das Produktions-Dockerfile installiert.
+- Linux-Docker-Host oder Docker Desktop
+- Docker Engine mit Compose Plugin
+- Reverse Proxy oder Identity-Aware Gateway mit TLS und Authentifizierung
+- Sandbox- und Server-Image aus demselben geprüften Source-Stand
 
-Der Gateway-Host muss TLS terminieren, HTTP und WebSocket-Upgrades weiterleiten und den Backend-Port aus dem öffentlichen Netz abschirmen. Backend-Port ist 3000, öffentlich ist typischerweise nur 443 am Gateway.
+## Images und Compose
 
-## Repository, Release und Images
-
-~~~bash
-sudo install -d -o unosim -g unosim /srv/unosim
-sudo -u unosim git clone https://github.com/MoDevIO/UnoSim.git /srv/unosim
-cd /srv/unosim
-npm ci
+```bash
 docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
-npm run build
-~~~
+docker build -t unosim-server:latest .
 
-Für Compose müssen die vier im Compose-File verpflichtenden Werte
-`UNOSIM_GATEWAY_SECRET`, `UNOSIM_TRUSTED_PROXY`, `UNOSIM_ALLOWED_WS_ORIGINS` und
-`DOCKER_GID` im Environment oder Secret-Store bzw. als Host-Variable gesetzt
-sein. `DOCKER_GID` muss vor `docker compose build`/`up` der numerischen GID des
-tatsächlich gemounteten Docker-Sockets entsprechen; die Ermittlung steht im
-folgenden Abschnitt. Danach:
-
-~~~bash
-docker compose build
-docker compose up -d
-~~~
-
-Eine .env.example-Datei ist nicht Bestandteil des Repositories. Variablen aus server/config.ts und docker-compose.yml im Secret-/Environment-Management setzen.
-
-### Zugriff auf den Docker-Socket
-
-Der Backend-Container läuft als nicht-root Benutzer und benötigt für das
-Starten der Sandboxen Zugriff auf den read-write gemounteten
-`/var/run/docker.sock`. `docker-compose.yml` übernimmt dafür die numerische
-Socket-GID aus `DOCKER_GID`; eine feste GID ist nicht portabel. Auf einem
-klassischen Linux-Docker-Host kann sie beispielsweise so ermittelt und für
-Compose gesetzt werden:
-
-~~~bash
 export DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
-~~~
+export UNOSIM_GATEWAY_SECRET="<mindestens-32-zufaellige-Zeichen>"
+export UNOSIM_TRUSTED_PROXY="<gateway-ip-oder-cidr>"
+export UNOSIM_ALLOWED_WS_ORIGINS="https://classroom.example.edu"
 
-Alternativ kann die GID der `docker`-Gruppe mit `getent group docker` geprüft
-werden. Entscheidend ist die numerische GID des tatsächlich gemounteten
-Sockets, nicht ein angenommener Standardwert. Vor `docker compose up` muss
-`DOCKER_GID` gesetzt sein; Compose bricht andernfalls absichtlich mit einer
-klaren Fehlermeldung ab.
+docker compose up --build
+```
 
-Der Socket-Gruppenzugriff ist unabhängig von den Schreibrechten der
-eingebundenen Host-Verzeichnisse (`server/arduino-cache`, `temp`, `storage`).
-Diese Verzeichnisse müssen für den Containerprozess gezielt beschreibbar sein;
-pauschale rekursive `chown -R 1000:1000`-Änderungen sind weder erforderlich
-noch empfohlen. Verwende stattdessen die auf dem Host geltenden Eigentümer-,
-Gruppen- oder ACL-Regeln.
+`docker-compose.yml` setzt `NODE_ENV=production` und
+`UNOSIM_SERVER_MODE=docker`. Das Profil leitet Gateway-Authentifizierung und
+Docker-Simulation automatisch ab. Der Server prüft Docker-Daemon, Sandbox-Image
+und Runner-Pool vor der Readiness-Freigabe.
 
-Docker Desktop, Rootless Docker und Docker-Socket-Proxies können eine andere
-Socket-Darstellung oder Zugriffsmethode verwenden. In diesen Setups muss die
-im Container sichtbare Socket-GID bzw. der tatsächlich verwendete Proxy-Zugriff
-geprüft und `DOCKER_GID` entsprechend gesetzt oder die Compose-Übersteuerung
-des Setups verwendet werden.
+## Gateway-Vertrag
 
-## Komponenten
+Das Gateway muss:
 
-- Gateway/Reverse Proxy: TLS, Authentifizierung, Header-Bereinigung, Origin- und Routing-Grenze.
-- UnoSim Backend: Express/HTTP und WebSocket /ws, API, Session-Zustand und Status.
-- Frontend: Vite-Build wird als statische Ausgabe vom Backend ausgeliefert.
-- Compiler Worker Pool: Node-Worker für parallele Arduino-Kompilierung.
-- Compile Slots: begrenzen gleichzeitig laufende Compilerprozesse.
-- Docker Sandbox: kurzlebiger isolierter Container pro Simulation.
-- SandboxRunnerPool: Runner-Leases, Queue und Cleanup.
+1. TLS terminieren und Benutzer authentifizieren,
+2. eingehende `X-UnoSim-*`-Header entfernen,
+3. `X-UnoSim-Gateway-Secret`, `X-UnoSim-Subject` und `X-UnoSim-Roles` für HTTP
+   und WebSocket setzen,
+4. den Backend-Port gegen direkten Benutzerzugriff abschirmen,
+5. HTTP- und WebSocket-Traffic mit derselben Identität weiterleiten.
 
-WebSocket-Sessions, Runner-Leases und Queue-Zustand liegen im Backend-Prozess. Keine mehreren Backend-Instanzen betreiben, solange Session-Affinität und Replikation nicht ausdrücklich entworfen und getestet wurden.
+Der vollständige Vertrag steht in
+[`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md).
 
-## Gateway und Security
+## Docker-Sandbox-Vertrag
 
-Gateway-Mode ist für jeden erreichbaren Mehrbenutzerdienst Pflicht:
+- Ein kurzlebiger Container pro aktiver Simulation.
+- Read-only Root-Filesystem, Capability-Drop, `no-new-privileges`, PID-, CPU-
+  und Memory-Limits.
+- Kein host-nativer Fallback bei Docker- oder Imagefehlern.
+- Der Docker-Socket ist nur für den UnoSim-Server verfügbar.
+- Temporäre Build-Pfade werden unter `UNOSIM_SHARED_TEMP_DIR` am identischen
+  Host- und Containerpfad gemountet.
 
-~~~bash
-export NODE_ENV=production
-export UNOSIM_SERVER_MODE=docker
-export UNOSIM_SIMULATION_MODE=docker-sandbox
-export UNOSIM_TRUST_MODE=gateway
-export UNOSIM_GATEWAY_SECRET='<mindestens 32 zufällige Zeichen>'
-export UNOSIM_TRUSTED_PROXY='10.0.0.10/32'
-export UNOSIM_ALLOWED_WS_ORIGINS='https://classroom.example.edu'
-export DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
-~~~
+Auf macOS muss der Projektpfad in Docker Desktop für File Sharing freigegeben
+sein.
 
-Der Gateway muss Cookies/Tokens validieren, eingehende X-UnoSim-Header entfernen und X-UnoSim-Gateway-Secret, X-UnoSim-Subject sowie X-UnoSim-Roles auf HTTP und WebSocket setzen. Origin-Allowlist-Einträge sind exakte Werte. Trusted Proxy ist konkrete IP/CIDR, niemals ein pauschales Trust-Proxy-Flag. Keine Secrets in Repository, Browser, URL oder Logs. Siehe SECURITY.md und ADR 0001.
+## Relevante Runtime-Variablen
 
-## Sandbox-Vertrag
+| Variable | Erforderlich | Zweck |
+|---|---:|---|
+| `NODE_ENV=production` | ja | aktiviert das Produktionsprofil |
+| `UNOSIM_SERVER_MODE=docker` | ja | wählt die vollständige Docker-Topologie |
+| `UNOSIM_GATEWAY_SECRET` | ja | gemeinsames Gateway-Secret, mindestens 32 Zeichen |
+| `UNOSIM_TRUSTED_PROXY` | ja | exakte Gateway-IP oder CIDR |
+| `UNOSIM_ALLOWED_WS_ORIGINS` | ja | exakte Browser-Origin-Allowlist |
+| `DOCKER_HOST` | meist | Docker-Daemon-Endpunkt |
+| `DOCKER_SANDBOX_IMAGE` | nein | Sandbox-Image, Default `unosim-sandbox:latest` |
+| `UNOSIM_SHARED_TEMP_DIR` | ja bei Containerbetrieb | identischer gemeinsamer Temp-Pfad |
+| `SANDBOX_POOL_MIN_RUNNERS` | nein | vorgehaltene Runner |
+| `SANDBOX_POOL_MAX_RUNNERS` | nein | Runner-Obergrenze |
+| `SANDBOX_MEMORY_MB` | nein | Memory-Limit pro Sandbox |
+| `SANDBOX_CPU_LIMIT` | nein | CPU-Limit pro Sandbox |
+| `WORKER_COUNT` | nein | Compile-Worker |
+| `COMPILE_MAX_CONCURRENT` | nein | globale Compile-Konkurrenz |
+| `DOCKER_COMPILE_CONCURRENT` | nein | Docker-Compile-Konkurrenz |
 
-Das Dockerfile.sandbox stellt den nicht-root Benutzer sandboxuser sowie /sandbox bereit. Die sicherheitskritischen Laufzeitoptionen werden vom Backend beim docker run gesetzt: --network none, --read-only, --security-opt no-new-privileges, --cap-drop ALL, --pids-limit 50, CPU-/RAM-/Swap-Limits und nur der schreibbare /sandbox-Mount. Keine Docker-Socket-Weitergabe in die Sandbox. Der Backend-Container benötigt den Socket nur zum Starten der Sandboxen; dieser Socket ist hochprivilegiert und kann bei einer Backend-Kompromittierung den Docker-Host gefährden.
+Frühere Topologie- und Kompatibilitätsschalter werden beim Start abgelehnt:
+`UNOSIM_SIMULATION_MODE`, `UNOSIM_TRUST_MODE`, `FORCE_DOCKER` und
+`UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL`.
 
-## Compose und Referenzressourcen
+## Testprofil ohne Gateway
 
-docker-compose.yml ist der bestehende Deployment-Mechanismus. Es definiert Backend-Port, Docker-Socket, Cache-/Temp-Mounts, Gateway-Trust, Origin-Allowlist und Worker-/Pool-Defaults. Der gemessene Referenzbetrieb nutzt 8 Worker, 8 Compile-Konkurrenz, 256 MB und 0,25 CPU pro Sandbox. Aktuelle Compose-Obergrenzen sind technische Limits und ersetzen keine Kapazitätsfreigabe aus [SCALABILITY.md](SCALABILITY.md).
+Für automatisierte Docker-Integrationstests darf ausschließlich diese
+Kombination verwendet werden:
 
-## External Examples: aktueller Betrieb und Zielvertrag
+```bash
+NODE_ENV=test \
+UNOSIM_SERVER_MODE=docker \
+UNOSIM_DOCKER_TEST_BYPASS_GATEWAY=1 \
+npm run test:docker
+```
 
-`UNOSIM_EXAMPLES_SOURCE` und `UNOSIM_EXAMPLES_REF` bleiben im vereinfachten
-Zielmodell die serverseitige Default-Auswahl. Source wird als öffentliches
-GitHub-Repository normalisiert; der Ref darf beweglich sein. Der initiale
-ausgelieferte Default ist `ttbombadil/unosim-examples` mit `main`. Ein
-ausdrücklich leerer Source-Wert bleibt der Built-ins-only-Opt-out.
+Der Bypass ist außerhalb von `NODE_ENV=test` und außerhalb des Docker-Profils
+ungültig. Er ändert nur die Authentifizierung; Simulationen bleiben echte
+Docker-Sandboxen. Er ist kein Deploymentmodus.
 
-Ein Browser ohne Override verwendet diesen Default. Ein gültiger
-Browser-Override aus `owner/repository` und Ref gilt nur request-scoped für
-diesen Browser; er verändert weder Environment noch Default anderer Nutzer.
-Betreiber konfigurieren ausschließlich:
+## Health, Readiness und Status
 
-- Default-Repository beziehungsweise dessen serverseitige Source-Abbildung;
-- Default-Ref;
-- Refresh-TTL, Upstream-Timeouts und Größenlimits;
-- erlaubte GitHub-API-/Raw-GitHub-Hosts und Abuse-Grenzen.
+- `/api/health`: HTTP-Prozess erreichbar
+- `/api/readiness`: Docker-Runner-Pool initialisiert und bereit
+- `/api/status`: Runner, Compile-Slots, Worker, WebSockets, Admission und
+  Prozessmetriken; im Docker-Profil nur authentifiziert
 
-Nach TTL löst der Server den Ref lazy über die kontrollierte GitHub-API auf
-einen vollständigen Commit-SHA auf. Manifest und Dateien werden ausschließlich
-aus diesem Commit geladen. Erst ein vollständig validierter Snapshot wird
-atomar aktiv; bei Fehlern bleibt nur der LKG derselben Repository-/Ref-Auswahl
-verfügbar. Ein erfolgreicher Ref-Wechsel benötigt keinen Serverneustart. Das
-früher geplante Channel-/`stable.json`-Modell ist verworfen.
-
-Browser-Overrides erlauben keine freien Raw-URLs, privaten Repositories oder
-Credentials. Der Browser ruft ausschließlich die UnoSim-API auf. Siehe
-[ADR 0005](adr/0005-browser-scoped-external-examples.md) und die
-[External-Examples-SSOT](../ssot/ssot_function_definition_ExternalExamples.md).
-
-## Umgebungsvariablen
-
-| Name | Default | Pflicht | Beispiel | Bedeutung |
-|---|---|---:|---|---|
-| NODE_ENV | development | prod | production | Laufzeitprofil. |
-| PORT | 3000 | nein | 3000 | HTTP/WebSocket-Port. |
-| UNOSIM_SERVER_MODE | local (Dev), docker (Prod) | prod | docker | Backend-Ausführung. |
-| UNOSIM_SIMULATION_MODE | local | prod | docker-sandbox | Sketch-Ausführung. |
-| UNOSIM_TRUST_MODE | local | prod | gateway | Vertrauensgrenze. |
-| UNOSIM_GATEWAY_SECRET | keiner | Gateway | Secret-Store | Gateway-Secret. |
-| UNOSIM_TRUSTED_PROXY | keiner | Gateway | 10.0.0.10/32 | Proxy-Hop. |
-| UNOSIM_ALLOWED_WS_ORIGINS | local: localhost-Defaults; gateway: leer | Gateway | https://classroom.example.edu | exakte WS-Allowlist; in Compose verpflichtend. |
-| UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL | false | nein | false | isolierter Entwicklungs-Override. |
-| SIMULATOR_ALLOWED_PARENT_ORIGINS | localhost-Defaults | nein | https://lms.example.edu | erlaubte iframe-Eltern. |
-| UNOSIM_SHARED_TEMP_DIR | keiner | Docker | /srv/unosim/temp | gemeinsamer Temp-Pfad. |
-| DOCKER_HOST | unix:///var/run/docker.sock | Docker | gleicher Wert | Docker-Daemon. |
-| DOCKER_SANDBOX_IMAGE | unosim-sandbox:latest | Docker | unosim-sandbox:release | Sandbox-Image. |
-| SANDBOX_POOL_MIN_RUNNERS | 5 | nein | 5 | Mindestzahl Runner. |
-| SANDBOX_POOL_MAX_RUNNERS | min (Compose: 200) | nein | 200 | Technische Obergrenze für Runner; keine Kapazitätsfreigabe. Die historische Messfreigabe basiert auf dem dokumentierten 5-Runner-Profil. |
-| SANDBOX_POOL_IDLE_TIMEOUT_MS | 120000 | nein | 300000 | Idle-Aufräumzeit. |
-| SANDBOX_MEMORY_MB | 256 | nein | 256 | Sandbox-RAM. |
-| SANDBOX_CPU_LIMIT | 0.25 | nein | 0.25 | Sandbox-CPU. |
-| WORKER_COUNT | CPU-abhängig | nein | 8 | Compiler-Worker. |
-| DOCKER_COMPILE_CONCURRENT | 8 | nein | 8 | Docker-Compile-Konkurrenz. |
-| COMPILE_MAX_CONCURRENT | CPU-abhängig | nein | 8 | Compile-Slots. |
-| ARDUINO_FQBN | arduino:avr:uno | nein | arduino:avr:uno | Board. |
-| ARDUINO_CACHE_DIR | server/arduino-cache (Container: /app/server/arduino-cache) | nein | /srv/unosim/server/arduino-cache | Toolchain-Cache. |
-| BUILD_CACHE_DIR | storage/cache | nein | /srv/unosim/storage/cache | Build-Cache. |
-| BUILD_CACHE_MAX_BYTES | 2 GiB | nein | 2147483648 | Cache-Limit. |
-| COMPILE_RATE_LIMIT_MAX_REQUESTS | 10 | nein | 10 | Compile-Anfragen je vertrauenswürdiger Identität und Zeitfenster. |
-| COMPILE_RATE_LIMIT_WINDOW_MS | 60000 | nein | 60000 | Zeitfenster des separaten Compile-Limits. |
-| COMPILE_RATE_LIMIT_BLOCK_DURATION_MS | 10000 | nein | 10000 | Sperrdauer nach Überschreiten des Compile-Limits. |
-| SIMULATION_START_RATE_LIMIT_MAX_REQUESTS | 1 | nein | 1 | Simulationsstarts je vertrauenswürdiger Identität und Zeitfenster. |
-| SIMULATION_START_RATE_LIMIT_WINDOW_MS | 2000 | nein | 2000 | Zeitfenster des separaten Start-Limits. |
-| SIMULATION_START_RATE_LIMIT_BLOCK_DURATION_MS | 5000 | nein | 5000 | Sperrdauer nach Überschreiten des Start-Limits. |
-| SIMULATION_ADMISSION_MAX | 25 | nein | 25 | Prozessweite Obergrenze für laufende plus auf einen Runner wartende Starts; weitere Starts werden sofort mit `SYSTEM_BUSY` abgewiesen. |
-| DISABLE_RATE_LIMIT | false | nein | false | nicht in Produktion deaktivieren. |
-| DISABLE_COMPILE_CACHE | false | nein | false | nur kontrollierte Messungen. |
-| DISABLE_COMPILE_GATEKEEPER | false | nein | false | nur kontrollierte Tests; in Produktion false. |
-| ENABLE_TEST_ENDPOINTS | false | nein | false | nur Tests; nie öffentlich. |
-| ALLOW_EMBED_ORIGINS | localhost-Defaults | nein | https://lms.example.edu | deprecated Alias; primär SIMULATOR_ALLOWED_PARENT_ORIGINS verwenden. |
-| UNOSIM_EXAMPLES_SOURCE | `ttbombadil/unosim-examples` | nein | `https://github.com/ttbombadil/UnoSim-Examples.git` | Default-Repository als Slug oder normale GitHub-URL; exakte bisherige Raw-GitHub-Basis nur als deprecated Config-Migrationsinput. Leer bedeutet Built-ins-only. |
-| UNOSIM_EXAMPLES_REF | `main` bei konfiguriertem Repository | nein | main | beweglicher oder unveränderlicher Ref; wird nach TTL auf einen vollständigen Commit-SHA aufgelöst. |
-| UNOSIM_EXAMPLES_REFRESH_MS | 300000 | nein | 300000 | TTL bis zur nächsten lazy Ref-Auflösung. |
-| UNOSIM_EXAMPLES_TIMEOUT_MS | 5000 | nein | 5000 | Timeout je serverseitigem Upstream-Request. |
-| UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES | 262144 | nein | 262144 | maximales Manifest. |
-| UNOSIM_EXAMPLES_MAX_FILE_BYTES | 131072 | nein | 131072 | maximale einzelne Example-Datei. |
-| UNOSIM_EXAMPLES_MAX_TOTAL_BYTES | 1048576 | nein | 1048576 | maximale Gesamtgröße eines geladenen Snapshots. |
-| UNOSIM_EXAMPLES_MAX_FILES | 100 | nein | 100 | maximale Zahl manifestierter Dateien. |
-| UNOSIM_EXAMPLES_ALLOWED_HOSTS | leer | Produktion bei Source | `api.github.com,raw.githubusercontent.com` | exakte serverseitige Allowlist für Ref-Auflösung und Content; Browser-Overrides können sie nicht erweitern. |
-| UNOSIM_TUTOR_MODE | disabled | nein | disabled | Tutor/LLM-Modus; Production-Default bleibt deaktiviert. |
-| UNOSIM_LLM_PROVIDER | kiconnect | nein | kiconnect | serverseitiger OpenAI-kompatibler Provider für den Tutor. |
-| UNOSIM_LLM_BASE_URL | https://chat.kiconnect.nrw/api/v1 | nein | Provider-URL | serverseitiger Provider-Endpunkt; nicht an Browser veröffentlichen. |
-| UNOSIM_LLM_API_KEY | keiner | managed | Secret-Store | nur für Managed-Tutor-Modus; persönliche User-Keys bleiben request-scoped und Browser-RAM-only. |
-| TUTOR_RATE_LIMIT_MAX_REQUESTS | 20 | nein | 20 | Tutor-Anfragen je vertrauenswürdiger Identität und Zeitfenster. |
-| UNOSIM_TUTOR_CURRICULUM_SOURCE | leer | nein | serverseitige Curriculum-Repository-URL | optionaler HTTPS-Basispfad; niemals vom Browser verwendet. |
-| UNOSIM_TUTOR_CURRICULUM_COMMIT | leer | wenn Source gesetzt | vollständiger 40-stelliger Commit-SHA | unveränderliche Curriculum-Version; Floating Tags sind nicht zulässig. |
-| UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS | leer | Produktion bei Source | `raw.githubusercontent.com` | exakte Host-Allowlist für den serverseitigen Curriculum-Fetch. |
-| UNOSIM_TUTOR_CURRICULUM_REFRESH_MS | 300000 | nein | 300000 | Cache-TTL für den validierten Snapshot desselben Commits. |
-
-Die Zielarchitektur verwendet weiterhin `UNOSIM_EXAMPLES_SOURCE` und
-`UNOSIM_EXAMPLES_REF`, interpretiert sie aber als Repository plus serverseitig
-aufzulösenden Ref. `UNOSIM_EXAMPLES_CHANNEL` ist ungültig und muss beim Start
-abgewiesen werden. Die Migrationsdetails stehen im
-[Implementierungsplan](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md).
-FORCE_DOCKER ist ein deprecated Alias für
-UNOSIM_SIMULATION_MODE=docker-sandbox. Historische Namen nicht primär
-verwenden. Der Tutor ist in Produktion ohne explizites
-`UNOSIM_TUTOR_MODE=user-key` oder `managed` deaktiviert; KI:connect-
-Zugangsdaten dürfen weder in Repository, `/api/config`, Logs noch persistentem
-Browser-Speicher landen.
-
-## Start, Logs und Monitoring
-
-~~~bash
-docker compose up -d
-docker compose ps
-docker compose logs -f unosim-backend
-curl -fsS http://127.0.0.1:3000/api/health
-curl -fsS http://127.0.0.1:3000/api/readiness
-~~~
-
-Beim Boot müssen Image, Docker-Daemon, Mounts, Secrets und Origin-Allowlist verfügbar sein. Restart erfolgt mit docker compose restart unosim-backend. Einen systemd-Unit-Entwurf gibt es im Repository nicht.
-
-/api/status zeigt sandboxRunners, compileSlots, webSocketSessions, compileMetrics, compileWorkerPool, processMetrics sowie aggregierte Admission- und Rate-Limit-Zähler. Nutzeridentitäten werden dort nicht ausgegeben. Im Gateway-Mode muss der Aufruf über den authentifizierten Gateway mit den erforderlichen Identitäts-Headern erfolgen; der anonyme Health-Aufruf ist dafür nicht ausreichend. Diese Werte sind flüchtige Laufzeitwerte: Sessions, Limits, Queues und Runner-Leases gehen bei einem Neustart verloren. Persistente Nutzdaten sind von der Installation abhängig und dürfen nicht als Cache behandelt werden. Regenerierbar sind Build-/Arduino-Caches, temporäre Dateien und generierte Load-Test-JSONs; laufende Jobs vorher beenden. Die freigegebene Kapazität steht in [SCALABILITY.md](SCALABILITY.md): Compile 50/100/200 validiert, Simulation 50/100 validiert, 200 Simulationen nicht freigegeben; 5 Runner waren der Engpass der Referenzmessung.
-
-Die anwendungsseitigen Limits verwenden im Gateway-Modus ausschließlich den nach Gateway-Secret- und Rollenprüfung übernommenen `X-UnoSim-Subject`. Im Local-Modus wird stattdessen eine zufällige, serverseitig signierte HttpOnly-Cookie-Session verwendet; ungeprüfte Identity-Header oder Test-IDs sind keine Rate-Limit-Identität. Direkte Local/Test-WebSocket-Clients ohne vorherige HTTP-Session erhalten eine eigene, nur für ihre Verbindung erzeugte Identität.
-
-`SIMULATION_ADMISSION_MAX=25` ist bewusst nicht aus der Zahl 100 erfolgreich eingegangener Lasttest-Requests abgeleitet. Die Admission-Cap begrenzt pro Backend-Prozess die Summe aus laufenden und auf einen Runner wartenden Starts. Unter dem historischen 5-Runner-Referenzprofil entspricht der Default höchstens 5 laufenden und 20 wartenden Starts; bei anderen Runner-Obergrenzen bleibt die Cap dennoch 25. Runner-Pool-Größe, validierte Request-Last und Admission-Cap sind unabhängige Größen. Änderungen dieser Werte benötigen eine neue Messung; ein höherer Wert ist keine Kapazitätsfreigabe.
-
-## Production Checklist
-
-- Gateway und Authentifizierung aktiv; Backend-Port nicht öffentlich erreichbar.
-- Trusted Proxy und Origin-Allowlist exakt gesetzt.
-- Gateway-Secret gesetzt und außerhalb des Repositories verwaltet.
-- Rate Limiting aktiv (`DISABLE_RATE_LIMIT=false`).
-- Admission Control aktiv und passend zum gemessenen Runner-Durchsatz gesetzt (Default 25).
-- Test-Endpunkte deaktiviert (`ENABLE_TEST_ENDPOINTS=false`).
-- Sandbox-Image vorhanden und auf den geprüften Release-Stand festgelegt.
-- Docker-Sandbox verwendet die dokumentierten Laufzeitoptionen und keine Host-Mounts außer `/sandbox`.
-- `/api/health` erfolgreich; `/api/readiness` bereit; `/api/status` mit plausiblen Runner-, Queue- und Prozesswerten geprüft.
-- Release-Gate aus [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) erfolgreich abgeschlossen.
+Eine Instanz darf erst nach erfolgreicher Readiness Traffic erhalten.
 
 ## Update und Rollback
 
-~~~bash
-git fetch origin
-git pull --ff-only
-npm ci
-docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
-npm run build
-docker compose build
-docker compose up -d
-curl -fsS http://127.0.0.1:3000/api/health
-~~~
+1. Images aus dem vorgesehenen Commit bauen und taggen.
+2. `npm run test:docker` und die Release-Gates ausführen.
+3. Neue Instanz starten und Health/Readiness prüfen.
+4. Gateway-Traffic umschalten.
+5. Bei Fehlern auf das vorherige unveränderte Image-Tag zurückrollen.
 
-Vor dem Update Health, den über den Gateway authentifiziert abgefragten Status, den Git-Commit und die Image-IDs dokumentieren. Nach dem Update erneut Health und Status über den vorgesehenen Zugang prüfen. Ein Rollback ist nur reproduzierbar, wenn der vorherige Release-Commit und die dazugehörigen Images noch verfügbar oder aus einer vertrauenswürdigen Registry erneut beziehbar sind: dann diesen Commit auschecken, die passenden Images verwenden und docker compose up -d ausführen. Das Repository stellt keinen automatischen Rollback-Mechanismus bereit. Eine Datenbankmigration ist im Repository nicht festgelegt. Für Release-Gates und Rollback gilt [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md).
+Die vollständigen Gates stehen in [`RELEASE_RUNBOOK.md`](RELEASE_RUNBOOK.md).

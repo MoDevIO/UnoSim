@@ -125,8 +125,7 @@ durch Einführung eines geheimen Tokens.
 
 ## Follow-up boundaries
 
-Syntax, Config-Migration, API, In-Memory-Limits, Cache-Keys und Concurrency sind
-im
-[`External-Examples-Implementierungsplan`](../EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md)
-konkretisiert. Getrennt offen bleibt nur eine mögliche neustartfeste LKG-
-Ablage; sie darf Request-Isolation und Commit-Bindung nicht verändern.
+Syntax, API, In-Memory-Limits, Cache-Keys und Concurrency sind im normativen
+[`External-Examples-Vertrag`](../../ssot/ssot_function_definition_ExternalExamples.md)
+konkretisiert. Getrennt offen bleibt nur eine mögliche neustartfeste LKG-Ablage;
+sie darf Request-Isolation und Commit-Bindung nicht verändern.

@@ -1,6 +1,7 @@
 # Skalierbarkeit und gemessene Kapazität
 
-Normative Kapazitätsaussage für die aktuelle Architektur. Historische Evidenz liegt unter [archive/](archive/).
+Normative Kapazitätsaussage für die aktuelle Docker-Architektur. Die
+zugrunde liegende Historie bleibt über Git nachvollziehbar.
 
 ## Gemessene Grenzen
 
@@ -56,6 +57,9 @@ Die Freigabe gilt für einen einzelnen stateful Backend-Knoten. WebSocket-Sessio
 
 ## Lasttests
 
-Der reproduzierbare Real-Docker-Harness ist tests/server/load-50-client-simulation-observability.test.ts und über LOAD_TEST_CLIENT_COUNT parametrisiert. JSON-Ergebnisse unter load-test-results/ sind generiert und nicht versioniert.
+Der reproduzierbare Real-Docker-Harness ist
+`tests/server/load-50-client-simulation-observability.test.ts` und über
+`LOAD_TEST_CLIENT_COUNT` parametrisiert. Messergebnisse sind generierte
+Testartefakte und gehören nicht in den Repository-Tree.
 
 Vor einer Kapazitätsänderung müssen Ressourcenprofil, Queue-/Timeout-Verhalten, Cleanup, WebSocket-Stabilität und Statusmetriken erneut gemessen werden. Eine Timeout-Erhöhung allein ist kein Kapazitätsnachweis.

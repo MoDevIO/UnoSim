@@ -1,22 +1,21 @@
 # UnoSim-Dokumentation
 
-Zentraler Einstieg in die aktuelle normative Dokumentation. Historische Pläne, Reports und Analysen liegen ausschließlich unter [archive/](archive/).
+Diese Dokumente beschreiben ausschließlich die unterstützte aktuelle
+Architektur.
 
-## Installation
+## Installation und Betrieb
 
-- [INSTALL_LOCAL.md](INSTALL_LOCAL.md) – lokale Entwicklung und Einzelplatzbetrieb.
-- [INSTALL_DOCKER_LOCAL.md](INSTALL_DOCKER_LOCAL.md) – vollständiger Dockerbetrieb ohne Gateway für einen isolierten Einzelplatz.
-- [INSTALL_SERVER.md](INSTALL_SERVER.md) – Hochschulserver, Lehrbetrieb und Mehrbenutzerbetrieb.
+- [INSTALL_LOCAL.md](INSTALL_LOCAL.md) – lokale Entwicklung mit lokaler
+  Kompilierung und Simulation.
+- [INSTALL_SERVER.md](INSTALL_SERVER.md) – Docker-Deployment mit Gateway und
+  Docker-Sandboxen.
+- [SECURITY.md](SECURITY.md) – Sicherheits- und Isolationsvertrag.
+- [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) – Release-Gates und Betriebskontrollen.
 
-## Betrieb und Architektur
+## Architektur, APIs und Tests
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) – Komponenten, Datenflüsse und Observability.
-- [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) – Gates, Update, Health und Rollback.
-- [SECURITY.md](SECURITY.md) – Sicherheitsmodell und Sandbox-Vertrag.
-- [EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md) – Implementierungs- und Betriebsvertrag für die browser-spezifische Examples-Auswahl.
-
-## APIs, Tests und Kapazität
-
+- [ARCHITECTURE.md](ARCHITECTURE.md) – Komponenten, Datenflüsse und die beiden
+  Runtime-Profile.
 - [EXTERNAL_API.md](EXTERNAL_API.md) – versionierter iframe-/postMessage-Vertrag.
 - [TESTING_STANDARDS.md](TESTING_STANDARDS.md) – Testklassen und Qualitätsgates.
 - [SCALABILITY.md](SCALABILITY.md) – gemessene Kapazitätsgrenzen.
@@ -25,10 +24,5 @@ Zentraler Einstieg in die aktuelle normative Dokumentation. Historische Pläne, 
 
 - [adr/](adr/) – akzeptierte Architekturentscheidungen.
 - [../ssot/](../ssot/) – fachliche Single Sources of Truth für UI und Verhalten.
-- [../ssot/ssot_function_definition_ExternalExamples.md](../ssot/ssot_function_definition_ExternalExamples.md) – normativer Vertrag für browser-spezifische External-Examples-Auswahl per Repository und Ref.
 
-## Archiv
-
-[archive/](archive/) enthält abgeschlossene Phasen, historische Analysen, Reports und supersedierte Pläne. Diese Dateien sind nicht normativ.
-
-Bei Änderungen zuerst die zuständige normative Quelle aktualisieren. Historische Evidenz wird archiviert, nicht überschrieben.
+Bei Änderungen zuerst die zuständige normative Quelle aktualisieren.
