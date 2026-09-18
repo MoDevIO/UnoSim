@@ -23,6 +23,63 @@ export type ServerMode = "local" | "docker";
 /** Where Arduino sketch simulations are executed */
 export type SimulationMode = "local" | "docker-sandbox";
 
+export interface RuntimeProfile {
+  nodeEnv: string;
+  serverMode: ServerMode;
+  dockerTestBypassGateway: boolean;
+}
+
+export function parseRuntimeProfile(env: NodeJS.ProcessEnv): RuntimeProfile {
+  for (const key of [
+    "UNOSIM_SIMULATION_MODE",
+    "UNOSIM_TRUST_MODE",
+    "FORCE_DOCKER",
+    "UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL",
+  ] as const) {
+    if (env[key] !== undefined) {
+      throw new Error(`${key} is no longer supported`);
+    }
+  }
+
+  const nodeEnv = env.NODE_ENV ?? "development";
+  if (!(["development", "production", "test"] as const).includes(nodeEnv as "development" | "production" | "test")) {
+    throw new Error(
+      `Invalid NODE_ENV: expected development, production, or test, received "${nodeEnv}"`,
+    );
+  }
+  const fallbackMode: ServerMode = nodeEnv === "production" ? "docker" : "local";
+  const rawMode = env.UNOSIM_SERVER_MODE ?? fallbackMode;
+  if (rawMode !== "local" && rawMode !== "docker") {
+    throw new Error(
+      `Invalid UNOSIM_SERVER_MODE: expected one of local, docker, received "${rawMode}"`,
+    );
+  }
+  if (nodeEnv === "production" && rawMode !== "docker") {
+    throw new Error("NODE_ENV=production requires UNOSIM_SERVER_MODE=docker");
+  }
+  if (nodeEnv === "development" && rawMode !== "local") {
+    throw new Error("NODE_ENV=development requires UNOSIM_SERVER_MODE=local");
+  }
+
+  const rawBypass = env.UNOSIM_DOCKER_TEST_BYPASS_GATEWAY;
+  if (rawBypass !== undefined && rawBypass !== "1") {
+    throw new Error("UNOSIM_DOCKER_TEST_BYPASS_GATEWAY must be 1 when enabled");
+  }
+  const dockerTestBypassGateway = rawBypass === "1";
+  if (dockerTestBypassGateway && nodeEnv !== "test") {
+    throw new Error("UNOSIM_DOCKER_TEST_BYPASS_GATEWAY is allowed only with NODE_ENV=test");
+  }
+  if (dockerTestBypassGateway && rawMode !== "docker") {
+    throw new Error("UNOSIM_DOCKER_TEST_BYPASS_GATEWAY is allowed only in docker mode");
+  }
+
+  return {
+    nodeEnv,
+    serverMode: rawMode,
+    dockerTestBypassGateway,
+  };
+}
+
 // ── Env-var helpers ─────────────────────────────────────────────────
 
 export function parseEnvInt(key: string, value: string | undefined, fallback: number, options: { min?: number; max?: number } = {}): number {
@@ -112,7 +169,8 @@ const cwd = process.cwd();
 const cpuCount = os.cpus().length;
 const defaultWorkers = Math.min(8, Math.max(2, Math.floor(cpuCount * 0.5)));
 const defaultCompileMaxConcurrent = Math.max(1, cpuCount - 1);
-const trust = parseTrustConfig(process.env);
+const runtimeProfile = parseRuntimeProfile(process.env);
+const trust = parseTrustConfig(process.env, runtimeProfile);
 const localWebSocketOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
@@ -229,16 +287,15 @@ if (curriculumSource && process.env.NODE_ENV === "production" && curriculumAllow
 
 export const config = {
   /** Runtime environment name, captured once at startup. */
-  nodeEnv: process.env.NODE_ENV ?? "development",
+  nodeEnv: runtimeProfile.nodeEnv,
   /**
    * Server mode: "local" (dev) or "docker" (docker-compose).
    * Set via UNOSIM_SERVER_MODE env var; falls back to NODE_ENV detection.
    */
-  serverMode: envEnum(
-    "UNOSIM_SERVER_MODE",
-    process.env.NODE_ENV === "production" ? "docker" : "local",
-    ["local", "docker"] as const,
-  ),
+  serverMode: runtimeProfile.serverMode,
+
+  /** Test-only gateway bypass for Docker integration tests. */
+  dockerTestBypassGateway: runtimeProfile.dockerTestBypassGateway,
 
   /**
    * Simulation execution mode.

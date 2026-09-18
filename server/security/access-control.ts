@@ -105,22 +105,12 @@ function isIpOrCidr(value: string): boolean {
 
 export function parseTrustConfig(
   env: NodeJS.ProcessEnv,
-  nodeEnv = env.NODE_ENV,
+  profile: {
+    serverMode: "local" | "docker";
+    dockerTestBypassGateway: boolean;
+  },
 ): TrustConfig {
-  const rawMode = env.UNOSIM_TRUST_MODE ?? "local";
-  if (rawMode !== "local" && rawMode !== "gateway") {
-    throw new Error("UNOSIM_TRUST_MODE must be either 'local' or 'gateway'");
-  }
-
-  if (rawMode === "local") {
-    if (
-      nodeEnv === "production" &&
-      env.UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL !== "true"
-    ) {
-      throw new Error(
-        "Production requires UNOSIM_TRUST_MODE=gateway; set UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL=true only for an isolated development deployment",
-      );
-    }
+  if (profile.serverMode === "local" || profile.dockerTestBypassGateway) {
     return { mode: "local" };
   }
 
@@ -138,7 +128,7 @@ export function parseTrustConfig(
     );
   }
 
-  return { mode: rawMode, gatewaySecret, trustedProxy };
+  return { mode: "gateway", gatewaySecret, trustedProxy };
 }
 
 function singleHeader(
