@@ -127,16 +127,6 @@ function buildPlan(
   };
 }
 
-export function describeQuestion(
-  topic: CurriculumTopic,
-  revision: string,
-  questionText: string,
-): LearningPlan | null {
-  const question = topic.questions.find((candidate) => candidate.text === questionText);
-  const concept = question ? topic.concepts.find((candidate) => candidate.id === question.concept) : undefined;
-  return question && concept ? buildPlan(topic, revision, concept, question) : null;
-}
-
 function collectUsedQuestionIds(topic: CurriculumTopic, history: readonly TutorDialogTurn[]): Set<string> {
   const byText = new Map(topic.questions.flatMap((question) => question.text ? [[question.text, question.id] as const] : []));
   const ids = history.flatMap((turn) => {

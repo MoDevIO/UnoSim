@@ -1,6 +1,6 @@
 import { analyzeStaticIO } from "@shared/io-registry-parser";
 import {
-  learningQuestionResultSchema,
+  tutorContentResultSchema,
   tutorDialogTurnSchema,
   type TutorDialogTurn,
   type TutorContentResult,
@@ -372,7 +372,7 @@ function buildPhilosophicalFallback(
 function validateLearningQuestion(result: TutorContentResult, difficulty?: TutorDifficulty): TutorContentResult {
   const { mermaid: rawMermaid, ...resultWithoutMermaid } = result;
   const sanitizedMermaid = sanitizeMermaid(rawMermaid);
-  const parsed = learningQuestionResultSchema.safeParse({
+  const parsed = tutorContentResultSchema.safeParse({
     ...resultWithoutMermaid,
     ...(sanitizedMermaid ? { mermaid: sanitizedMermaid } : {}),
   });

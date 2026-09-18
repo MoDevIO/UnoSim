@@ -35,23 +35,6 @@ export const STRUCTURE_PATTERNS = {
   LOOP_ANY: /void\s+loop\s*\([^)]*\)/,
 } as const;
 
-/** Pin-related patterns. */
-export const PIN_PATTERNS = {
-  MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,/g,
-  MODE_WITH_MODE: /pinMode\s*\(\s*(\d+|A\d+)\s*,\s*(INPUT_PULLUP|INPUT|OUTPUT)\s*\)/g,
-  MODE_VAR: /pinMode\s*\(\s*([a-zA-Z_]\w*)\s*,/g,
-  ANALOG_WRITE: /analogWrite\s*\(\s*(\d+|A\d+)\s*,/g,
-  DIGITAL_READ_WRITE: /digital(?:Read|Write)\s*\(\s*(\d+|A\d+|[a-zA-Z_]\w*)/g,
-  DIGITAL_READ_LITERAL: /\bdigitalRead\s*\(\s*(\d+|A\d+)\s*\)/g,
-  WRITE_READ_PIN: /pinMode\s*\(\s*(\d+|A\d+)/gi,
-  WRITE_READ_DIO: /digital(?:Write|Read)\s*\(\s*(\d+|A\d+)/gi,
-  ANALOG_READ_WRITE: /analog(?:Read|Write)\s*\(\s*(\d+|A\d+)/gi,
-  MODE_ANY: /pinMode *\( *[^,)\n]+,/, // NOSONAR S5843
-  DYNAMIC_PIN_READ: /digitalRead\s*\(\s*[^0-9A\s][^,)]*/,
-  DYNAMIC_PIN_WRITE: /digitalWrite\s*\(\s*[^0-9A\s][^,)]*/,
-  ANALOG_PIN_FORMAT: /^A\d+$/,
-} as const;
-
 /** Performance patterns. */
 export const PERFORMANCE_PATTERNS = {
   WHILE_TRUE: /while\s*\(\s*true\s*\)/,
@@ -101,17 +84,4 @@ export function findLineNumber(code: string, pattern: RegExp): number | undefine
  */
 export function lineAt(code: string, pos: number): number {
   return code.slice(0, pos).split("\n").length;
-}
-
-/**
- * Parse pin number from string (handles literals and A0-A5).
- */
-export function parsePinNumber(pinStr: string): number | undefined {
-  if (/^\d+$/.test(pinStr)) {
-    return Number.parseInt(pinStr, 10);
-  }
-  if (/^A\d+$/.test(pinStr)) {
-    return 14 + Number.parseInt(pinStr.slice(1), 10);
-  }
-  return undefined;
 }
