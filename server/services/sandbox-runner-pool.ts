@@ -115,6 +115,8 @@ export class SandboxRunnerPool {
       this.logger.debug(`[SandboxRunnerPool] Created warm runner [${i}]`);
     }
 
+    await Promise.all(this.runners.map(({ runner }) => runner.initialize()));
+
     this.initialized = true;
     this.logger.info(
       `[SandboxRunnerPool] Pool ready with ${this.minRunners} warm runners (max: ${this.maxRunners})`,

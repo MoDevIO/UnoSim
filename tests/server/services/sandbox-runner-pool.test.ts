@@ -6,10 +6,15 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+const { runnerInitializeMock } = vi.hoisted(() => ({
+  runnerInitializeMock: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock SandboxRunner
 vi.mock("../../../server/services/sandbox-runner", () => {
   class MockSandboxRunner {
     isRunning = false;
+    initialize = runnerInitializeMock;
     stop = vi.fn().mockResolvedValue(undefined);
     // The real SandboxRunner uses a getter/setter that delegates to executionState.state
     _state = "stopped";
@@ -125,6 +130,7 @@ let SandboxRunnerPool: new (options?: {
 }) => any;
 
 beforeEach(async () => {
+  runnerInitializeMock.mockClear();
   vi.resetModules();
   const mod = await import("../../../server/services/sandbox-runner-pool");
   getSandboxRunnerPool = mod.getSandboxRunnerPool;
@@ -157,6 +163,14 @@ describe("SandboxRunnerPool", () => {
     expect(stats.availableRunners).toBe(5);
     expect(stats.inUseRunners).toBe(0);
     expect(stats.initialized).toBe(true);
+  });
+
+  it("initializes every runner before marking the pool ready", async () => {
+    const pool = getSandboxRunnerPool();
+
+    await pool.initialize();
+
+    expect(runnerInitializeMock).toHaveBeenCalledTimes(5);
   });
 
   it("initialize is idempotent", async () => {

@@ -1,4 +1,4 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
@@ -189,29 +189,11 @@ process.on("uncaughtException", (error) => {
   }
 });
 
-let isServerReady = false; // Flag to indicate server initialization complete
-
 // Ensure temp/ directory exists before any services try to write into it
 fs.mkdirSync(path.join(process.cwd(), "temp"), { recursive: true });
 
 const server = await registerRoutes(app);
 let cleanupTimer: NodeJS.Timeout | null = null;
-
-  // Middleware to prevent requests during initialization
-  // Returns 503 (Service Unavailable) until Docker checks complete
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    // Always allow health and browser static requests
-    if (req.path === "/api/health" || req.path === "/" || req.path.startsWith("/assets/") || req.path.endsWith(".js") || req.path.endsWith(".css") || req.path.endsWith(".wasm")) {
-      return next();
-    }
-
-    // If not ready yet, return 503 Service Unavailable for other endpoints
-    if (!isServerReady) {
-      return res.status(503).json({ error: "Service Unavailable", message: "Server is initializing Docker checks..." });
-    }
-
-    next();
-  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -253,7 +235,6 @@ let cleanupTimer: NodeJS.Timeout | null = null;
     console.log(`│  UnoSim – Active Configuration                   │`);
     console.log(`├──────────────────────────────────────────────────┤`);
     console.log(formatStartupLine("Server Mode", config.serverMode));
-    console.log(formatStartupLine("Simulation Mode", config.simulationMode));
     console.log(formatStartupLine("Trust Mode", config.trust.mode));
     console.log(formatStartupLine("NODE_ENV", config.nodeEnv));
     console.log(formatStartupLine("Compile Workers", String(config.compilation.workerCount)));
@@ -267,7 +248,7 @@ let cleanupTimer: NodeJS.Timeout | null = null;
     startupAccess.networkUrls.forEach((url, index) => {
       console.log(formatStartupLine(index === 0 ? "Network URL" : "", url));
     });
-    if (config.simulationMode === "docker-sandbox") {
+    if (config.serverMode === "docker") {
       console.log(formatStartupLine("Sandbox Runners Min", String(config.sandbox.pool.minRunners)));
       console.log(formatStartupLine("Sandbox Runners Max", String(config.sandbox.pool.maxRunners)));
       console.log(formatStartupLine("Sandbox Memory MB", String(config.sandbox.resources.memoryMB)));
@@ -276,46 +257,10 @@ let cleanupTimer: NodeJS.Timeout | null = null;
     console.log(formatStartupLine("FQBN", config.compilation.fqbn));
     console.log(`└──────────────────────────────────────────────────┘\n`);
     console.log(`[express] Server running at http://${listenHost}:${PORT}`);
-    console.log(`[startup] Warming up Docker checks asynchronously...`);
+    console.log(`[startup] Runtime checks complete`);
 
     // Start cleanup service for old temp files
     cleanupTimer = startCleanupService();
-
-    // Warm up Docker checks asynchronously without blocking requests
-    // This runs in the background and doesn't prevent incoming requests
-    try {
-      // Get any runner and warm it up (triggers lazy ensureDockerChecked)
-      const { getSandboxRunnerPool } = await import("./services/sandbox-runner-pool");
-      const pool = getSandboxRunnerPool();
-      
-      // Start warmup in background - don't await to avoid blocking
-      (async () => {
-        try {
-          const runner = await pool.acquireRunner();
-          // Just acquiring the runner will trigger ensureDockerChecked() if needed
-          pool.releaseRunner(runner);
-          isServerReady = true;
-          console.log(`[startup] Docker checks warm-up complete, server ready for production requests`);
-        } catch (err) {
-          console.warn(`[startup] Docker warmup failed (non-blocking):`, err);
-          // Still mark as ready even if warmup fails - requests will handle errors
-          isServerReady = true;
-        }
-      })();
-
-      // Also set isServerReady after a small delay as fallback (in case warmup is very fast)
-      // This is a safety net for non-Docker environments
-      setTimeout(() => {
-        if (!isServerReady) {
-          isServerReady = true;
-          console.log(`[startup] Timeout-based ready flag set (Docker checks may still be pending)`);
-        }
-      }, 2000); // 2 second timeout for warmup
-    } catch (err) {
-      console.error(`[startup] Failed to start Docker warmup:`, err);
-      // Still mark as ready to not break the server
-      isServerReady = true;
-    }
   });
 
   // Keep-alive tuning: set these AFTER listen() to ensure the values take effect.

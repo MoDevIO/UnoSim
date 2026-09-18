@@ -5,9 +5,9 @@
  * Values are read from environment variables with sensible defaults.
  * Import this module instead of reading process.env directly.
  *
- * Two axes control the runtime topology:
- *   • Server Mode:     "local" (dev machine) | "docker" (docker-compose)
- *   • Simulation Mode: "local" (native g++ child process) | "docker-sandbox" (isolated container)
+ * One profile controls the complete runtime topology:
+ *   • "local":  server and simulations run on the development host
+ *   • "docker": server runs in Docker and simulations use Docker sandboxes
  */
 import os from "node:os";
 import path from "node:path";
@@ -19,9 +19,6 @@ import { normalizeRepositoryInput } from "./services/examples/source-selection";
 
 /** Where the UnoSim server itself runs */
 export type ServerMode = "local" | "docker";
-
-/** Where Arduino sketch simulations are executed */
-export type SimulationMode = "local" | "docker-sandbox";
 
 export interface RuntimeProfile {
   nodeEnv: string;
@@ -297,18 +294,6 @@ export const config = {
   /** Test-only gateway bypass for Docker integration tests. */
   dockerTestBypassGateway: runtimeProfile.dockerTestBypassGateway,
 
-  /**
-   * Simulation execution mode.
-   * "docker-sandbox" uses isolated Docker containers per sketch.
-   * "local" compiles and runs sketches as native child processes.
-   * Set via UNOSIM_SIMULATION_MODE or legacy FORCE_DOCKER env var.
-   */
-  simulationMode: envEnum(
-    "UNOSIM_SIMULATION_MODE",
-    envBool("FORCE_DOCKER", false) ? "docker-sandbox" : "local",
-    ["local", "docker-sandbox"] as const,
-  ),
-
   /** True when running under a test framework */
   isTest: process.env.NODE_ENV === "test",
 
@@ -563,7 +548,7 @@ export function getClientConfig() {
   return {
     ...config.client,
     serverMode: config.serverMode,
-    simulationMode: config.simulationMode,
+    simulationMode: config.serverMode === "docker" ? "docker-sandbox" : "local",
     tutor: {
       mode: config.tutor.mode,
       provider: config.tutor.provider,
