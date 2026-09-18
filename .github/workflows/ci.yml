@@ -223,6 +223,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile.sandbox
           load: true
           tags: unosim-sandbox:latest
           cache-from: type=gha
