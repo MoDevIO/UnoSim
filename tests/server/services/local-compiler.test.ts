@@ -1,17 +1,24 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProcessExecutor } from "../../../server/services/process-executor";
 import { LocalCompiler } from "../../../server/services/local-compiler";
 import { SketchFileBuilder } from "../../../server/services/sketch-file-builder";
 import { spawn } from "node:child_process";
+import { Logger } from "../../../shared/logger";
+
+interface LocalCompilerCacheInternals {
+  updateCliCache(buildDir: string): Promise<void>;
+}
 
 describe("LocalCompiler public compile behavior", () => {
   const temporaryDirectories: string[] = [];
+  const originalCliCachePath = Reflect.get(LocalCompiler, "CLI_CACHE_PATH");
 
   afterEach(async () => {
     vi.restoreAllMocks();
+    Reflect.set(LocalCompiler, "CLI_CACHE_PATH", originalCliCachePath);
     await Promise.all(temporaryDirectories.map((directory) => rm(directory, { recursive: true, force: true })));
     temporaryDirectories.length = 0;
   });
@@ -212,5 +219,42 @@ describe("LocalCompiler public compile behavior", () => {
     ).rejects.toThrow("sketch file vanished before g++ spawn");
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute.mock.calls[0][0]).toBe("arduino-cli");
+  });
+
+  it("initializes the CLI cache when its parent directory does not yet exist", async () => {
+    const root = await mkdtemp(join(tmpdir(), "unosim-cli-cache-"));
+    temporaryDirectories.push(root);
+    const buildDir = join(root, "build");
+    const sourceArchive = join(buildDir, "core", "core.a");
+    const cachePath = join(root, "cache", "cores", "uno-cli-feedback.a");
+    await mkdir(dirname(sourceArchive), { recursive: true });
+    await writeFile(sourceArchive, "core archive", "utf8");
+    Reflect.set(LocalCompiler, "CLI_CACHE_PATH", cachePath);
+    const warn = vi.spyOn(Logger.prototype, "warn");
+
+    await (new LocalCompiler() as unknown as LocalCompilerCacheInternals).updateCliCache(buildDir);
+
+    expect((await stat(dirname(cachePath))).isDirectory()).toBe(true);
+    const cacheContents = await readFile(cachePath);
+    expect(cacheContents.byteLength).toBeGreaterThan(0);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("cleans the exact temporary cache file when the final rename fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "unosim-cli-cache-cleanup-"));
+    temporaryDirectories.push(root);
+    const buildDir = join(root, "build");
+    const sourceArchive = join(buildDir, "core", "core.a");
+    const cachePath = join(root, "cache", "uno-cli-feedback.a");
+    await mkdir(dirname(sourceArchive), { recursive: true });
+    await writeFile(sourceArchive, "core archive", "utf8");
+    await mkdir(cachePath, { recursive: true });
+    await utimes(cachePath, new Date(0), new Date(0));
+    Reflect.set(LocalCompiler, "CLI_CACHE_PATH", cachePath);
+
+    await (new LocalCompiler() as unknown as LocalCompilerCacheInternals).updateCliCache(buildDir);
+
+    const cacheEntries = await readdir(dirname(cachePath));
+    expect(cacheEntries.filter((entry) => entry.endsWith(".tmp"))).toEqual([]);
   });
 });

@@ -338,6 +338,7 @@ export class LocalCompiler {
         const { randomUUID: _cacheUUID } = await import("node:crypto");
         const tmpCachePath = cachePath + "." + _cacheUUID() + ".tmp";
         try {
+          await mkdir(dirname(cachePath), { recursive: true });
           const fs = await import("node:fs");
           await fs.promises.copyFile(suspect, tmpCachePath);
           await fs.promises.rename(tmpCachePath, cachePath);
@@ -345,7 +346,6 @@ export class LocalCompiler {
           const sizeKB = (newCacheStat.size / 1024).toFixed(1);
           this.logger.info(`[LocalCompiler] CLI cache saved (${sizeKB} KB)`);
         } catch (error_) {
-          const tmpCachePath = cachePath + "." + _cacheUUID() + ".tmp";
           try { await rm(tmpCachePath, { force: true }); } catch {}
           this.logger.warn(`[LocalCompiler] CLI cache write failed: ${
             error_ instanceof Error ? error_.message : error_}`);
