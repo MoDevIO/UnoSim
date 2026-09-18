@@ -94,6 +94,8 @@ describe("GET /api/status", () => {
     const { status, body } = await get(baseUrl, "/api/status");
     expect(status).toBe(200);
     expect(body.status).toBe("ok");
+    expect(body.serverMode).toBe("local");
+    expect(body).not.toHaveProperty("simulationMode");
   });
 
   it("includes a timestamp in ISO 8601 format", async () => {

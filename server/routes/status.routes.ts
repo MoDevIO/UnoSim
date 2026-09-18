@@ -48,7 +48,6 @@ statusRouter.get("/api/status", (_req, res) => {
       apiVersion: REST_API_VERSION,
       timestamp: new Date().toISOString(),
       serverMode: config.serverMode,
-      simulationMode: config.serverMode === "docker" ? "docker-sandbox" : "local",
       compileWorkers: config.compilation.workerCount,
       compileSlots: {
         active: semaphore.activeCount,

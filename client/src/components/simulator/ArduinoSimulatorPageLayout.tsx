@@ -202,7 +202,6 @@ export function ArduinoSimulatorPageLayout(
     isConnected,
     wsConnectionState,
     wsHasEverConnected,
-    sandboxMode,
     workerIndex,
     workerTotal,
   } = connection;
@@ -395,7 +394,6 @@ export function ArduinoSimulatorPageLayout(
         }
         rightSlot={
           <SimCockpit
-            sandboxMode={sandboxMode}
             workerIndex={workerIndex}
             workerTotal={workerTotal}
             batchStats={batchStats}

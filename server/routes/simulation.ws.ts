@@ -605,11 +605,7 @@ export function registerSimulationWebSocket(
     // Log consolidated payload for audit
     logRunPayloadAudit(code, timeoutValue, clientState.testRunId);
 
-    // Capture runner reference before await – ws-close may set clientState.runner=null
-    // concurrently while runSketch is awaited, causing a null-dereference on getSandboxStatus.
-    const runnerForStatus = acquiredRunner;
-
-    // Start sketch execution and publish sandbox mode once the runner has resolved
+    // Start sketch execution once the runner has resolved.
     try {
       const processReady = await acquiredRunner.runSketch({
         code,
@@ -656,11 +652,6 @@ export function registerSimulationWebSocket(
       callbacks.onCompileSuccess();
       pendingCompileSuccesses -= 1;
     }
-    const sandboxStatus = runnerForStatus.getSandboxStatus();
-    sendMessageToClient(ws, {
-      type: WSMessageType.COMPILATION_STATUS,
-      sandboxMode: sandboxStatus.mode,
-    });
   }
 
   /**

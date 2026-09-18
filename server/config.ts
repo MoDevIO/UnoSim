@@ -548,7 +548,6 @@ export function getClientConfig() {
   return {
     ...config.client,
     serverMode: config.serverMode,
-    simulationMode: config.serverMode === "docker" ? "docker-sandbox" : "local",
     tutor: {
       mode: config.tutor.mode,
       provider: config.tutor.provider,

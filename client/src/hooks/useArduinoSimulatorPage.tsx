@@ -162,7 +162,6 @@ export function useArduinoSimulatorPage() {
   // Selected board and baud rate (moved to Tools menu)
   const [board] = useState<string>("Arduino UNO");
   const [baudRate, setBaudRate] = useState<number>(115200);
-  const [sandboxMode, setSandboxMode] = useState<string>("unknown");
   const [workerIndex, setWorkerIndex] = useState<number | undefined>(undefined);
   const [workerTotal, setWorkerTotal] = useState<number | undefined>(undefined);
 
@@ -537,7 +536,6 @@ export function useArduinoSimulatorPage() {
     setActiveOutputTab,
     setCompilationStatus,
     setSimulationStatus,
-    setSandboxMode,
     setWorkerIndex,
     setWorkerTotal,
     setDockerGccPhase,
@@ -841,7 +839,6 @@ export function useArduinoSimulatorPage() {
       wsConnectionState,
       wsHasEverConnected,
       telemetryData,
-      sandboxMode,
       workerIndex,
       workerTotal,
       serverStatus,

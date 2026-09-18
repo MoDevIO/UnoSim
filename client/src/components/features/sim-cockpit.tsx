@@ -67,18 +67,6 @@ function isWsError(wsState: ConnectionState, hasEverConnected: boolean): boolean
   return hasEverConnected;
 }
 
-function simulationModeLabel(sandboxMode: string): string {
-  if (sandboxMode === "docker-sandbox") return "DOCKER";
-  if (sandboxMode === "local-limited") return "LOCAL";
-  return "—";
-}
-
-function simulationModeColorClass(sandboxMode: string): string {
-  if (sandboxMode === "docker-sandbox") return "text-cyan-300";
-  if (sandboxMode === "local-limited") return "text-amber-300";
-  return "text-white/40";
-}
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 interface StatCellProps {
@@ -117,7 +105,6 @@ interface SimCockpitProps {
   batchStats?: unknown;
   simulationStatus?: SimulationStatus;
   compilationStatus?: CompilationStatus;
-  sandboxMode?: string;
   workerIndex?: number;
   workerTotal?: number;
   backendReachable?: boolean;
@@ -139,7 +126,6 @@ interface SimCockpitProps {
 export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
   simulationStatus = "idle",
   compilationStatus = "ready",
-  sandboxMode = "unknown",
   backendReachable = true,
   wsConnectionState = "disconnected",
   wsHasEverConnected = false,
@@ -260,10 +246,6 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
               {!wsError && simSlotVal && (
                 <>
                   <span className="text-white/30">|</span>
-                  <span className={clsx("font-bold font-mono whitespace-nowrap", simulationModeColorClass(sandboxMode))}>
-                    {simulationModeLabel(sandboxMode)}
-                  </span>
-                  <span className="text-white/30">|</span>
                   <span className="text-cyan-300 font-bold font-mono whitespace-nowrap">{simSlotVal}</span>
                 </>
               )}
@@ -294,4 +276,3 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
 });
 
 SimCockpit.displayName = "SimCockpit";
-

@@ -168,39 +168,20 @@ describe("SimCockpit — debug mode — SLOT", () => {
   });
 });
 
-describe("SimCockpit — debug mode — MODE", () => {
-  it("shows DOCKER for docker-sandbox mode while simulation is running", () => {
-    const { getByText } = render(
-      <SimCockpit sandboxMode="docker-sandbox" simulationStatus="running" workerIndex={0} workerTotal={5} debugMode={true} />,
-    );
-    expect(getByText("DOCKER")).toBeInTheDocument();
-  });
-
-  it("hides DOCKER when simulation is idle (not active)", () => {
-    const { queryByText } = render(<SimCockpit sandboxMode="docker-sandbox" debugMode={true} />);
-    expect(queryByText("DOCKER")).not.toBeInTheDocument();
-  });
-
-  it("shows LOCAL for local-limited mode while simulation is running", () => {
-    const { getByText } = render(
-      <SimCockpit sandboxMode="local-limited" simulationStatus="running" workerIndex={0} workerTotal={5} debugMode={true} />,
-    );
-    expect(getByText("LOCAL")).toBeInTheDocument();
-  });
-
-  it("hides MODE and runner on WS error (previously connected, now disconnected)", () => {
-    const { queryByText } = render(
+describe("SimCockpit — debug mode — simulation slot", () => {
+  it("shows the runner slot without a redundant execution-mode label", () => {
+    const { getByText, queryByText } = render(
       <SimCockpit
-        sandboxMode="docker-sandbox"
         simulationStatus="running"
         workerIndex={0}
         workerTotal={5}
         debugMode={true}
-        wsHasEverConnected={true}
-        wsConnectionState="disconnected"
       />,
     );
+    expect(getByText("#1/5")).toBeInTheDocument();
+    expect(queryByText("—")).not.toBeInTheDocument();
     expect(queryByText("DOCKER")).not.toBeInTheDocument();
+    expect(queryByText("LOCAL")).not.toBeInTheDocument();
   });
 });
 

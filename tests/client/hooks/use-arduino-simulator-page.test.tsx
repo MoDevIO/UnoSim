@@ -312,10 +312,10 @@ describe("useArduinoSimulatorPage", () => {
     vi.useRealTimers();
   });
 
-  it("exposes default sandbox mode and worker state and registers external API callbacks", () => {
+  it("exposes worker state and registers external API callbacks", () => {
     const { result } = renderHook(() => useArduinoSimulatorPage());
 
-    expect(result.current.connection.sandboxMode).toBe("unknown");
+    expect(result.current.connection).not.toHaveProperty("sandboxMode");
     expect(result.current.connection.workerIndex).toBeUndefined();
     expect(result.current.connection.workerTotal).toBeUndefined();
 

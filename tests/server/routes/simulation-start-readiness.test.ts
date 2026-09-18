@@ -66,7 +66,6 @@ describe("simulation startup readiness", () => {
       sendSerialInput: vi.fn(),
       setPinValue: vi.fn(),
       runSketch: vi.fn(() => runSketchReady.promise),
-      getSandboxStatus: vi.fn(() => ({ mode: "local-limited" })),
       stop: vi.fn().mockResolvedValue(undefined),
     };
     const pool = {
@@ -140,7 +139,6 @@ describe("simulation startup readiness", () => {
       sendSerialInput: vi.fn(),
       setPinValue: vi.fn(),
       runSketch: vi.fn(() => runSketchReady.promise),
-      getSandboxStatus: vi.fn(() => ({ mode: "local-limited" })),
       stop: vi.fn().mockResolvedValue(undefined),
     };
     const pool = {
@@ -199,7 +197,6 @@ describe("simulation startup readiness", () => {
     const runner = {
       pause: vi.fn(() => true), resume: vi.fn(() => true), sendSerialInput: vi.fn(),
       setPinValue: vi.fn(), runSketch: vi.fn().mockRejectedValue(new Error("start failed")),
-      getSandboxStatus: vi.fn(() => ({ mode: "local-limited" })),
       stop: vi.fn().mockResolvedValue(undefined),
     };
     const pool = {

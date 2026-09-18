@@ -14,7 +14,6 @@ type RunnerDouble = {
   sendSerialInput: ReturnType<typeof vi.fn>;
   setPinValue: ReturnType<typeof vi.fn>;
   runSketch: ReturnType<typeof vi.fn>;
-  getSandboxStatus: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
 };
 
@@ -32,7 +31,6 @@ function createRunner(): RunnerDouble {
     sendSerialInput: vi.fn(),
     setPinValue: vi.fn(),
     runSketch: vi.fn().mockResolvedValue(true),
-    getSandboxStatus: vi.fn(() => ({ mode: "local-limited" })),
     stop: vi.fn().mockResolvedValue(undefined),
   };
 }

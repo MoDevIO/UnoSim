@@ -383,7 +383,6 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(true);
       expect(status.dockerImageBuilt).toBe(true);
-      expect(status.mode).toBe("docker-sandbox");
     });
 
     it("does not probe Docker in the local profile", async () => {
@@ -395,7 +394,6 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(false);
       expect(status.dockerImageBuilt).toBe(false);
-      expect(status.mode).toBe("local-limited");
     });
 
     it("reports Docker unavailable when the daemon is not running", async () => {
@@ -412,7 +410,6 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(false);
       expect(status.dockerImageBuilt).toBe(false);
-      expect(status.mode).toBe("local-limited");
     });
 
     it("refuses local execution when Docker is unavailable in the Docker profile", async () => {
@@ -449,7 +446,6 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(false);
       expect(status.dockerImageBuilt).toBe(false);
-      expect(status.mode).toBe("local-limited");
       expect(spawnInstances).toHaveLength(0);
     });
 
@@ -465,7 +461,6 @@ describe("SandboxRunner", () => {
       const status = runner.getSandboxStatus();
 
       expect(status.dockerAvailable).toBe(false);
-      expect(status.mode).toBe("local-limited");
     });
 
     it("should detect when Docker image is not built", async () => {
@@ -481,7 +476,6 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(true);
       expect(status.dockerImageBuilt).toBe(false);
-      expect(status.mode).toBe("local-limited");
     });
 
     it("should cache docker availability and return immediately in test env", async () => {

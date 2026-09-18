@@ -448,13 +448,10 @@ export class SandboxRunner {
     await this.cleanupDockerContainer(containerName);
   }
 
-  getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean; mode: "docker-sandbox" | "local-limited" } {
-    // Docker check is started in constructor, so just return cached values
-    const dockerModeActive = config.serverMode === "docker";
+  getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean } {
     return {
       dockerAvailable: this.dockerAvailable,
       dockerImageBuilt: this.dockerImageBuilt,
-      mode: dockerModeActive && this.dockerAvailable && this.dockerImageBuilt ? "docker-sandbox" : "local-limited",
     };
   }
 }

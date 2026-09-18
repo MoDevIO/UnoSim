@@ -168,7 +168,6 @@ class MockSandboxRunner {
     return {
       dockerAvailable: false,
       dockerImageBuilt: false,
-      mode: "local-limited" as const,
     };
   }
   getSketchDir() {
