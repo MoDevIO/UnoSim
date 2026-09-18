@@ -151,22 +151,29 @@ function envList(key: string, fallback: string[]): string[] {
 
 // ── Derived pool values ─────────────────────────────────────────────
 
+const runtimeProfile = parseRuntimeProfile(process.env);
 const poolMinRunners = envInt("SANDBOX_POOL_MIN_RUNNERS", 5, { min: 0, max: 1000 });
 // In dev (no docker-compose) maxRunners defaults to minRunners for safety.
 // Production sets SANDBOX_POOL_MAX_RUNNERS=100 via docker-compose.yml.
 const poolMaxRunners = envInt("SANDBOX_POOL_MAX_RUNNERS", poolMinRunners, { min: 0, max: 1000 });
-export function validatePoolBounds(minRunners: number, maxRunners: number): void {
+export function validatePoolBounds(
+  minRunners: number,
+  maxRunners: number,
+  serverMode: ServerMode,
+): void {
   if (minRunners > maxRunners) {
     throw new Error(`Invalid sandbox pool configuration: SANDBOX_POOL_MIN_RUNNERS (${minRunners}) must not exceed SANDBOX_POOL_MAX_RUNNERS (${maxRunners})`);
   }
+  if (serverMode === "docker" && minRunners < 1) {
+    throw new Error("Docker mode requires SANDBOX_POOL_MIN_RUNNERS to be at least 1");
+  }
 }
-validatePoolBounds(poolMinRunners, poolMaxRunners);
+validatePoolBounds(poolMinRunners, poolMaxRunners, runtimeProfile.serverMode);
 
 const cwd = process.cwd();
 const cpuCount = os.cpus().length;
 const defaultWorkers = Math.min(8, Math.max(2, Math.floor(cpuCount * 0.5)));
 const defaultCompileMaxConcurrent = Math.max(1, cpuCount - 1);
-const runtimeProfile = parseRuntimeProfile(process.env);
 const trust = parseTrustConfig(process.env, runtimeProfile);
 const localWebSocketOrigins = [
   "http://localhost:3000",

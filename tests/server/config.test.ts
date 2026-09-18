@@ -63,8 +63,13 @@ describe("central configuration validation", () => {
   });
 
   it("rejects an inverted sandbox pool range", () => {
-    expect(() => validatePoolBounds(5, 2)).toThrow(/must not exceed/);
-    expect(() => validatePoolBounds(2, 5)).not.toThrow();
+    expect(() => validatePoolBounds(5, 2, "local")).toThrow(/must not exceed/);
+    expect(() => validatePoolBounds(2, 5, "local")).not.toThrow();
+  });
+
+  it("requires at least one warm runner for Docker readiness", () => {
+    expect(() => validatePoolBounds(0, 1, "docker")).toThrow(/at least 1/i);
+    expect(() => validatePoolBounds(0, 1, "local")).not.toThrow();
   });
 
   it("keeps local mode on loopback by default", () => {

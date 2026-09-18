@@ -71,7 +71,7 @@ sein.
 | `DOCKER_HOST` | meist | Docker-Daemon-Endpunkt |
 | `DOCKER_SANDBOX_IMAGE` | nein | Sandbox-Image, Default `unosim-sandbox:latest` |
 | `UNOSIM_SHARED_TEMP_DIR` | ja bei Containerbetrieb | identischer gemeinsamer Temp-Pfad |
-| `SANDBOX_POOL_MIN_RUNNERS` | nein | vorgehaltene Runner |
+| `SANDBOX_POOL_MIN_RUNNERS` | nein | vorgehaltene Runner; im Docker-Profil mindestens `1` |
 | `SANDBOX_POOL_MAX_RUNNERS` | nein | Runner-Obergrenze |
 | `SANDBOX_MEMORY_MB` | nein | Memory-Limit pro Sandbox |
 | `SANDBOX_CPU_LIMIT` | nein | CPU-Limit pro Sandbox |
