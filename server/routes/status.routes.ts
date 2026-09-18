@@ -19,7 +19,7 @@ export function registerStatusRoutes(app: Express): void {
   // Mount router
   app.use("/", statusRouter);
   
-  // Also add legacy direct routes for backward compatibility
+  // Readiness is a first-class endpoint used by Docker health checks.
   app.get("/api/readiness", (_req, res) => {
     const stats = getSandboxRunnerPool().getStats();
     const ready = stats.initialized && stats.sandboxReady;

@@ -247,74 +247,18 @@ if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
 else
   [ "$DOCKER_LOST" -eq 0 ] && echo -e "  ${WARN} Docker not available – Docker tests skipped (Steps 5+6)"
   if [ "$REQUIRE_RELEASE_GATE" = "1" ]; then
-    echo -e "  ${FAIL} Release-Gate requires Docker for mandatory Docker/E2E tests"
+    echo -e "  ${FAIL} Release-Gate requires Docker for mandatory Docker tests"
     exit 1
   fi
   STEP=$((STEP+2))
 fi
 
-# --- SERVER START (unnumbered) ---
-echo -e "\n${B}▸ [Pre-E2E] Server startup${RS}"
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+# 7. Local-development E2E path. Playwright starts and stops npm run dev:e2e.
+run_task "E2E-Tests (Playwright)" "npm run test:e2e -- --timeout 60000"
+parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
 
-# Docker-Gesundheitsprüfung: Docker Desktop auf macOS braucht nach Heavy-Load
-# manchmal einige Sekunden bis der Daemon wieder stabil antwortet.
-DOCKER_FOR_E2E=0
-if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
-    for _i in {1..10}; do
-        if docker info > /dev/null 2>&1; then
-            DOCKER_FOR_E2E=1
-            [ "$_i" -gt 1 ] && echo -e "  ${OK} Docker recovered after $((_i * 3))s"
-            break
-        fi
-        [ "$_i" -eq 1 ] && echo -e "  ${RUN} Docker not responding – waiting for recovery (max. 30s)..."
-        sleep 3
-    done
-fi
-
-if [ "$DOCKER_FOR_E2E" -eq 0 ]; then
-  echo -e "  ${WARN} Docker nicht verfügbar – E2E-Tests erfordern Docker-Sandbox"
-  if [ "$REQUIRE_RELEASE_GATE" = "1" ]; then
-    echo -e "  ${FAIL} Release-Gate requires Docker for mandatory E2E tests"
-    exit 1
-  fi
-    STEP=$((STEP+1))
-    echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] E2E-Tests (Playwright)${RS}"
-    echo -e "  ${WARN} Übersprungen – Docker nicht verfügbar (Sandbox benötigt)"
-    STEP=$((STEP+1))
-    echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] Post-Test Integrity Check${RS}"
-    echo -e "  ${WARN} Übersprungen – kein E2E-Lauf"
-else
-    export PORT=3000
-    echo -e "  ${OK} Docker available – E2E with sandbox support"
-    export FORCE_DOCKER=1
-    DOCKER_SANDBOX_IMAGE=$DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR=$UNOSIM_SHARED_TEMP_DIR \
-    DISABLE_COMPILE_GATEKEEPER=true DISABLE_RATE_LIMIT=true \
-    VITE_DISABLE_HMR=true VITE_DISABLE_TOASTS=true \
-    SANDBOX_POOL_MIN_RUNNERS=5 SANDBOX_POOL_MAX_RUNNERS=5 \
-    NODE_ENV=development npm run dev >> "$LOG_FILE" 2>&1 &
-    SERVER_PID=$!
-
-    for i in {1..15}; do
-        if curl -s http://localhost:3000 > /dev/null; then
-            echo -e "    ${G}${OK} Server ready (PID $SERVER_PID)${RS}"
-            break
-        fi
-        [ $i -eq 15 ] && echo -e "    ${R}${FAIL} Server startup timeout!${RS}" && exit 1
-        sleep 1
-    done
-
-    # 7. E2E-Tests (Playwright)
-    run_task "E2E-Tests (Playwright)" "npm run test:e2e -- --timeout 60000"
-    parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
-
-    # 8. Post-test integrity check (leak detection after all tests)
-    run_task "Post-Test Integrity Check" "./check-leaks.sh --cleanup"
-
-    # Stop server before build
-    cleanup
-    SERVER_PID=""
-fi
+# 8. Post-test integrity check (leak detection after all tests)
+run_task "Post-Test Integrity Check" "./check-leaks.sh --cleanup"
 
 # 9. Production build
 run_task "Production Build" "npm run build"

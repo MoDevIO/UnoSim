@@ -159,7 +159,7 @@ export interface SimulationStateEventData {
  * Reports server reachability, sandbox runner stats, and compile slot stats.
  *
  * Canonical terms (used across UI, API, banner, and docs):
- * - sandboxRunners → "Sandbox Runners" (container pool for docker-sandbox mode)
+ * - sandboxRunners → "Sandbox Runners" (container pool for Docker mode)
  * - compileSlots → "Compile Slots" (max concurrent compilation processes)
  * 
  * Legacy aliases (pool, compile) are deprecated but still supported for backward compatibility.
@@ -167,7 +167,7 @@ export interface SimulationStateEventData {
 export interface ServerStatusEventData {
   /** True when the server HTTP endpoint is reachable */
   serverReachable: boolean;
-  /** Sandbox Runners — container pool stats (docker-sandbox mode) */
+  /** Sandbox Runners — container pool stats (Docker mode) */
   sandboxRunners: {
     /** Total sandbox runner slots allocated */
     total: number;
