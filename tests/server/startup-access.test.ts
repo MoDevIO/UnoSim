@@ -1,19 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { formatStartupLine, getLocalIpv4Addresses, getStartupAccess } from "../../server/startup-access";
+import {
+  formatStartupLine,
+  getLocalIpv4Addresses,
+  getStartupAccess,
+  getStartupConfigurationEntries,
+} from "../../server/startup-access";
+
+const startupConfiguration = {
+  serverMode: "local" as const,
+  trustMode: "local",
+  nodeEnv: "development",
+  compileWorkers: 5,
+  compileSlots: 9,
+  dockerCompileConcurrent: 8,
+  rateLimitDisabled: false,
+  listenHost: "127.0.0.1",
+  port: 3000,
+  sandboxRunnersMin: 5,
+  sandboxRunnersMax: 100,
+  sandboxMemoryMB: 256,
+  sandboxCpuLimit: "1",
+  fqbn: "arduino:avr:uno",
+};
 
 describe("startup access diagnostics", () => {
-  it("shows only the local URL for localhost-only listeners", () => {
+  it("shows only the backend URL for localhost-only listeners", () => {
     expect(getStartupAccess("127.0.0.1", 3000)).toEqual({
-      localUrl: "http://127.0.0.1:3000",
+      backendUrl: "http://127.0.0.1:3000",
       networkUrls: [],
     });
   });
 
-  it("shows the local URL and LAN URLs for wildcard listeners", () => {
+  it("shows the backend URL and LAN URLs for wildcard listeners", () => {
     expect(getStartupAccess("0.0.0.0", 3000, {
       en0: [{ address: "192.168.1.20", family: "IPv4", internal: false }],
     })).toEqual({
-      localUrl: "http://127.0.0.1:3000",
+      backendUrl: "http://127.0.0.1:3000",
       networkUrls: ["http://192.168.1.20:3000"],
     });
   });
@@ -49,5 +71,39 @@ describe("startup access diagnostics", () => {
     expect(networkLine).toContain("Network URL:");
     expect(networkLine.indexOf("http://")).toBe(continuationLine.indexOf("http://"));
     expect(dockerLine.indexOf("4")).toBe(networkLine.indexOf("http://") + 0);
+  });
+
+  it("labels the development listener as the backend and omits Docker details", () => {
+    const entries = getStartupConfigurationEntries(startupConfiguration);
+    const labels = entries.map(({ label }) => label);
+
+    expect(entries).toContainEqual({
+      label: "Backend URL",
+      value: "http://127.0.0.1:3000",
+    });
+    expect(labels).not.toContain("Local URL");
+    expect(labels).not.toContain("Docker Compile Conc.");
+    expect(labels).not.toContain("Sandbox Runners Min");
+    expect(labels).not.toContain("Sandbox Runners Max");
+    expect(labels).not.toContain("Sandbox Memory MB");
+    expect(labels).not.toContain("Sandbox CPU Limit");
+  });
+
+  it("includes compile and sandbox details in Docker mode", () => {
+    const entries = getStartupConfigurationEntries({
+      ...startupConfiguration,
+      serverMode: "docker",
+      trustMode: "gateway",
+      nodeEnv: "production",
+      listenHost: "0.0.0.0",
+    });
+
+    expect(entries).toEqual(expect.arrayContaining([
+      { label: "Docker Compile Conc.", value: "8" },
+      { label: "Sandbox Runners Min", value: "5" },
+      { label: "Sandbox Runners Max", value: "100" },
+      { label: "Sandbox Memory MB", value: "256" },
+      { label: "Sandbox CPU Limit", value: "1" },
+    ]));
   });
 });

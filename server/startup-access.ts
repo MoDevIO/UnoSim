@@ -7,8 +7,31 @@ interface NetworkAddress {
 }
 
 export interface StartupAccess {
-  localUrl: string;
+  backendUrl: string;
   networkUrls: string[];
+}
+
+interface StartupConfiguration {
+  serverMode: "local" | "docker";
+  trustMode: string;
+  nodeEnv: string;
+  compileWorkers: number;
+  compileSlots: number;
+  dockerCompileConcurrent: number;
+  rateLimitDisabled: boolean;
+  listenHost: string;
+  port: number;
+  sandboxRunnersMin: number;
+  sandboxRunnersMax: number;
+  sandboxMemoryMB: number;
+  sandboxCpuLimit: string;
+  fqbn: string;
+  interfaces?: NodeJS.Dict<NetworkAddress[]>;
+}
+
+export interface StartupConfigurationEntry {
+  label: string;
+  value: string;
 }
 
 const STARTUP_LABEL_WIDTH = 22;
@@ -54,10 +77,57 @@ export function getStartupAccess(
   port: number,
   interfaces?: NodeJS.Dict<NetworkAddress[]>,
 ): StartupAccess {
-  const localUrl = `http://127.0.0.1:${port}`;
+  const backendUrl = `http://127.0.0.1:${port}`;
   const networkUrls = listenHost === "0.0.0.0"
     ? getLocalIpv4Addresses(interfaces).map((address) => `http://${address}:${port}`)
     : [];
 
-  return { localUrl, networkUrls };
+  return { backendUrl, networkUrls };
+}
+
+export function getStartupConfigurationEntries(
+  startup: StartupConfiguration,
+): StartupConfigurationEntry[] {
+  const access = getStartupAccess(
+    startup.listenHost,
+    startup.port,
+    startup.interfaces,
+  );
+  const entries: StartupConfigurationEntry[] = [
+    { label: "Server Mode", value: startup.serverMode },
+    { label: "Trust Mode", value: startup.trustMode },
+    { label: "NODE_ENV", value: startup.nodeEnv },
+    { label: "Compile Workers", value: String(startup.compileWorkers) },
+    { label: "Compile Slots", value: String(startup.compileSlots) },
+  ];
+
+  if (startup.serverMode === "docker") {
+    entries.push({
+      label: "Docker Compile Conc.",
+      value: String(startup.dockerCompileConcurrent),
+    });
+  }
+
+  entries.push(
+    { label: "Rate Limit Disabled", value: String(startup.rateLimitDisabled) },
+    { label: "Listen Host", value: startup.listenHost },
+    { label: "Port", value: String(startup.port) },
+    { label: "Backend URL", value: access.backendUrl },
+    ...access.networkUrls.map((url, index) => ({
+      label: index === 0 ? "Network URL" : "",
+      value: url,
+    })),
+  );
+
+  if (startup.serverMode === "docker") {
+    entries.push(
+      { label: "Sandbox Runners Min", value: String(startup.sandboxRunnersMin) },
+      { label: "Sandbox Runners Max", value: String(startup.sandboxRunnersMax) },
+      { label: "Sandbox Memory MB", value: String(startup.sandboxMemoryMB) },
+      { label: "Sandbox CPU Limit", value: String(startup.sandboxCpuLimit) },
+    );
+  }
+
+  entries.push({ label: "FQBN", value: startup.fqbn });
+  return entries;
 }

@@ -2,7 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { serveStatic, log } from "./vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
@@ -11,7 +11,10 @@ import { getCompilationPool } from "./services/compilation-worker-pool";
 import { config } from "./config";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { createLocalSessionMiddleware } from "./security/access-control";
-import { formatStartupLine, getStartupAccess } from "./startup-access";
+import {
+  formatStartupLine,
+  getStartupConfigurationEntries,
+} from "./startup-access";
 import { shouldSkipApiRateLimit } from "./rate-limit-policy";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -216,45 +219,37 @@ let cleanupTimer: NodeJS.Timeout | null = null;
     res.status(status).json({ message });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  // In production, use serveStatic to serve the pre-built client
-  // In development, use Vite middleware for HMR
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
+  // Development uses the standalone Vite server started by dev:full.
+  // Docker and test runs serve the pre-built client on the API server.
+  if (app.get("env") !== "development") {
     serveStatic(app);
   }
 
-  // Serve both the API and client on the validated configured port.
+  // Start the API and application WebSocket listener on the configured backend port.
   const PORT = config.server.port;
   const listenHost = config.server.listenHost;
   const httpServer = server.listen(PORT, listenHost, () => {
     console.log(`\n┌──────────────────────────────────────────────────┐`);
     console.log(`│  UnoSim – Active Configuration                   │`);
     console.log(`├──────────────────────────────────────────────────┤`);
-    console.log(formatStartupLine("Server Mode", config.serverMode));
-    console.log(formatStartupLine("Trust Mode", config.trust.mode));
-    console.log(formatStartupLine("NODE_ENV", config.nodeEnv));
-    console.log(formatStartupLine("Compile Workers", String(config.compilation.workerCount)));
-    console.log(formatStartupLine("Compile Slots", String(config.compilation.maxConcurrent)));
-    console.log(formatStartupLine("Docker Compile Conc.", String(config.compilation.dockerCompileConcurrent)));
-    console.log(formatStartupLine("Rate Limit Disabled", String(config.server.disableRateLimit)));
-    const startupAccess = getStartupAccess(listenHost, PORT);
-    console.log(formatStartupLine("Listen Host", listenHost));
-    console.log(formatStartupLine("Port", String(PORT)));
-    console.log(formatStartupLine("Local URL", startupAccess.localUrl));
-    startupAccess.networkUrls.forEach((url, index) => {
-      console.log(formatStartupLine(index === 0 ? "Network URL" : "", url));
+    getStartupConfigurationEntries({
+      serverMode: config.serverMode,
+      trustMode: config.trust.mode,
+      nodeEnv: config.nodeEnv,
+      compileWorkers: config.compilation.workerCount,
+      compileSlots: config.compilation.maxConcurrent,
+      dockerCompileConcurrent: config.compilation.dockerCompileConcurrent,
+      rateLimitDisabled: config.server.disableRateLimit,
+      listenHost,
+      port: PORT,
+      sandboxRunnersMin: config.sandbox.pool.minRunners,
+      sandboxRunnersMax: config.sandbox.pool.maxRunners,
+      sandboxMemoryMB: config.sandbox.resources.memoryMB,
+      sandboxCpuLimit: config.sandbox.resources.cpuLimit,
+      fqbn: config.compilation.fqbn,
+    }).forEach(({ label, value }) => {
+      console.log(formatStartupLine(label, value));
     });
-    if (config.serverMode === "docker") {
-      console.log(formatStartupLine("Sandbox Runners Min", String(config.sandbox.pool.minRunners)));
-      console.log(formatStartupLine("Sandbox Runners Max", String(config.sandbox.pool.maxRunners)));
-      console.log(formatStartupLine("Sandbox Memory MB", String(config.sandbox.resources.memoryMB)));
-      console.log(formatStartupLine("Sandbox CPU Limit", String(config.sandbox.resources.cpuLimit)));
-    }
-    console.log(formatStartupLine("FQBN", config.compilation.fqbn));
     console.log(`└──────────────────────────────────────────────────┘\n`);
     console.log(`[express] Server running at http://${listenHost}:${PORT}`);
     console.log(`[startup] Runtime checks complete`);
