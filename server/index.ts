@@ -268,7 +268,10 @@ let cleanupTimer: NodeJS.Timeout | null = null;
   httpServer.headersTimeout = 70_000;
 
   // Graceful shutdown handler for worker pool and server
+  let shuttingDown = false;
   async function gracefulShutdown(signal: string) {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log(`[Shutdown] Received ${signal}, starting graceful shutdown...`);
 
     const shutdownTimeout = setTimeout(() => {

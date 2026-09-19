@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import type { CompilationResult } from "./services/arduino-compiler";
+import { WebSocket } from "ws";
+import type { WebSocketServer } from "ws";
 
 import { createServer, type Server } from "node:http";
 import { createHash } from "node:crypto";
@@ -32,6 +34,38 @@ import { ExamplesRepository } from "./services/examples/examples-repository";
 import { config } from "./config";
 import { createUserAuthorizationMiddleware } from "./security/access-control";
 import { apiVersionMiddleware } from "./services/protocol-version";
+
+const WEBSOCKET_CLOSE_GRACE_MS = 250;
+
+async function closeWebSocketClients(wss: WebSocketServer): Promise<void> {
+  const clients = [...wss.clients].filter((client) => client.readyState !== WebSocket.CLOSED);
+  if (clients.length === 0) return;
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(forceCloseTimer);
+      resolve();
+    };
+    const checkClosed = () => {
+      if (clients.every((client) => client.readyState === WebSocket.CLOSED)) finish();
+    };
+    const forceCloseTimer = setTimeout(() => {
+      for (const client of clients) {
+        if (client.readyState !== WebSocket.CLOSED) client.terminate();
+      }
+      finish();
+    }, WEBSOCKET_CLOSE_GRACE_MS);
+
+    for (const client of clients) {
+      client.once("close", checkClosed);
+      client.close(1001, "Server shutdown");
+    }
+    checkClosed();
+  });
+}
 
 function hashCode(
   code: string,
@@ -114,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Placeholder for simulation websocket API (populated when WS module is registered)
   let simulationApi: {
-    wss: { close: (callback?: () => void) => void };
+    wss: WebSocketServer;
     stopAllRunnersAndNotify: () => Promise<{
       cleanedUpCount: number;
       cleanedTestRunIds: string[];
@@ -227,10 +261,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   (httpServer as Server & { shutdownServices?: () => Promise<void> }).shutdownServices = async () => {
     await simulationApi?.stopAllRunnersAndNotify();
-    await new Promise<void>((resolve) => {
-      if (!simulationApi) return resolve();
-      simulationApi.wss.close(() => resolve());
-    });
+    if (simulationApi) {
+      const closePromise = new Promise<void>((resolve) => {
+        simulationApi!.wss.close(() => resolve());
+      });
+      await closeWebSocketClients(simulationApi.wss);
+      await closePromise;
+    }
     await runnerPool.shutdown();
   };
 
