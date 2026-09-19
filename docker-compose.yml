@@ -54,10 +54,10 @@ services:
       # └─────────────────────────────────────────────────────────────────────────┘
       - SANDBOX_MEMORY_MB=256
       - SANDBOX_CPU_LIMIT=0.25
-      # Compilation worker threads (per-worker temp dir eliminates arduino-cli races)
-      - WORKER_COUNT=8
-      # Max simultaneous Docker containers in compile phase (prevents CPU starvation)
-      - DOCKER_COMPILE_CONCURRENT=8
+      # Compile capacity: workers, global compile limit, Docker-sandbox limit.
+      - WORKER_COUNT=${WORKER_COUNT:-8}
+      - COMPILE_MAX_CONCURRENT=${COMPILE_MAX_CONCURRENT:-8}
+      - DOCKER_COMPILE_CONCURRENT=${DOCKER_COMPILE_CONCURRENT:-8}
     ports:
       # Secure default: a host-local gateway can reach UnoSim, LAN clients cannot
       # bypass it. Override only with a private gateway-facing bind address.

@@ -61,23 +61,36 @@ sein.
 
 ## Relevante Runtime-Variablen
 
-| Variable | Erforderlich | Zweck |
-|---|---:|---|
-| `NODE_ENV=production` | ja | aktiviert das Produktionsprofil |
-| `UNOSIM_SERVER_MODE=docker` | ja | wählt die vollständige Docker-Topologie |
-| `UNOSIM_GATEWAY_SECRET` | ja | gemeinsames Gateway-Secret, mindestens 32 Zeichen |
-| `UNOSIM_TRUSTED_PROXY` | ja | exakte Gateway-IP oder CIDR |
-| `UNOSIM_ALLOWED_WS_ORIGINS` | ja | exakte Browser-Origin-Allowlist |
-| `DOCKER_HOST` | meist | Docker-Daemon-Endpunkt |
-| `DOCKER_SANDBOX_IMAGE` | nein | Sandbox-Image, Default `unosim-sandbox:latest` |
-| `UNOSIM_SHARED_TEMP_DIR` | ja bei Containerbetrieb | identischer gemeinsamer Temp-Pfad |
-| `SANDBOX_POOL_MIN_RUNNERS` | nein | vorgehaltene Runner; im Docker-Profil mindestens `1` |
-| `SANDBOX_POOL_MAX_RUNNERS` | nein | Runner-Obergrenze |
-| `SANDBOX_MEMORY_MB` | nein | Memory-Limit pro Sandbox |
-| `SANDBOX_CPU_LIMIT` | nein | CPU-Limit pro Sandbox |
-| `WORKER_COUNT` | nein | Compile-Worker |
-| `COMPILE_MAX_CONCURRENT` | nein | globale Compile-Konkurrenz |
-| `DOCKER_COMPILE_CONCURRENT` | nein | Docker-Compile-Konkurrenz |
+### Pflichtwerte
+
+Diese Werte hängen von der Installation und dem vorgeschalteten Gateway ab:
+
+| Variable | Zweck |
+|---|---|
+| `DOCKER_GID` | numerische Gruppe des Docker-Sockets |
+| `UNOSIM_GATEWAY_SECRET` | gemeinsames Gateway-Secret, mindestens 32 Zeichen |
+| `UNOSIM_TRUSTED_PROXY` | exakte Gateway-IP oder CIDR |
+| `UNOSIM_ALLOWED_WS_ORIGINS` | exakte Browser-Origin-Allowlist |
+
+`docker-compose.yml` setzt `NODE_ENV=production`,
+`UNOSIM_SERVER_MODE=docker`, `DOCKER_HOST`, das Sandbox-Image und den
+gemeinsamen Temp-Pfad bereits passend für den Docker-Betrieb.
+
+### Optionale Kapazitätswerte
+
+Die Compose-Datei enthält sinnvolle Standardwerte. Eine normale Installation
+muss diese Werte nicht ändern. Für größere Installationen können sie über
+`.env` angepasst werden.
+
+| Variable | Zweck |
+|---|---|
+| `WORKER_COUNT` | Anzahl paralleler Compile-Worker |
+| `COMPILE_MAX_CONCURRENT` | globale Obergrenze gleichzeitig laufender Compile-Vorgänge |
+| `DOCKER_COMPILE_CONCURRENT` | Obergrenze paralleler Compile-Vorgänge in Docker-Sandboxen |
+| `SANDBOX_POOL_MIN_RUNNERS` | vorgehaltene Runner; im Docker-Profil mindestens `1` |
+| `SANDBOX_POOL_MAX_RUNNERS` | Runner-Obergrenze |
+| `SANDBOX_MEMORY_MB` | Memory-Limit pro Sandbox |
+| `SANDBOX_CPU_LIMIT` | CPU-Limit pro Sandbox |
 
 Frühere Topologie- und Kompatibilitätsschalter werden beim Start abgelehnt:
 `UNOSIM_SIMULATION_MODE`, `UNOSIM_TRUST_MODE`, `FORCE_DOCKER` und
