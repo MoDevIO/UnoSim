@@ -262,10 +262,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   (httpServer as Server & { shutdownServices?: () => Promise<void> }).shutdownServices = async () => {
     await simulationApi?.stopAllRunnersAndNotify();
     if (simulationApi) {
+      const { wss } = simulationApi;
       const closePromise = new Promise<void>((resolve) => {
-        simulationApi!.wss.close(() => resolve());
+        wss.close(() => resolve());
       });
-      await closeWebSocketClients(simulationApi.wss);
+      await closeWebSocketClients(wss);
       await closePromise;
     }
     await runnerPool.shutdown();
