@@ -14,6 +14,11 @@ REQUIRE_RELEASE_GATE="${REQUIRE_RELEASE_GATE:-0}"
 # Policy: Standard Log-Level für die Pipeline ist ERROR (1)
 export LOG_LEVEL=1 
 export NODE_ENV=test
+# Keep the test pipeline on the supported local profile and prevent removed
+# shell-level mode selectors from leaking into Vitest or later pipeline steps.
+unset UNOSIM_SIMULATION_MODE UNOSIM_TRUST_MODE FORCE_DOCKER \
+    UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL UNOSIM_DOCKER_TEST_BYPASS_GATEWAY
+export UNOSIM_SERVER_MODE=local
 
 # Docker-Konfiguration (überschreibbar per Umgebungsvariable)
 # unix:// + absolute path = 3 slashes total; $HOME already starts with /
@@ -261,7 +266,7 @@ parse_test_results "([0-9]+ passed|[0-9]+ failed|[0-9]+ skipped)"
 run_task "Post-Test Integrity Check" "./check-leaks.sh --cleanup"
 
 # 9. Production build
-run_task "Production Build" "npm run build"
+run_task "Production Build" "NODE_ENV=production npm run build"
 
 # 10. Security audit
 run_task "Security Audit" "npm audit --audit-level=high --omit=dev"
