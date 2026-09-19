@@ -26,24 +26,32 @@ export interface RuntimeProfile {
   dockerTestBypassGateway: boolean;
 }
 
-export function parseRuntimeProfile(env: NodeJS.ProcessEnv): RuntimeProfile {
-  for (const key of [
-    "UNOSIM_SIMULATION_MODE",
-    "UNOSIM_TRUST_MODE",
-    "FORCE_DOCKER",
-    "UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL",
-  ] as const) {
+const removedRuntimeVariables = [
+  "UNOSIM_SIMULATION_MODE",
+  "UNOSIM_TRUST_MODE",
+  "FORCE_DOCKER",
+  "UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL",
+] as const;
+
+function rejectRemovedRuntimeVariables(env: NodeJS.ProcessEnv): void {
+  for (const key of removedRuntimeVariables) {
     if (env[key] !== undefined) {
       throw new Error(`${key} is no longer supported`);
     }
   }
+}
 
+function parseNodeEnvironment(env: NodeJS.ProcessEnv): string {
   const nodeEnv = env.NODE_ENV ?? "development";
   if (!(["development", "production", "test"] as const).includes(nodeEnv as "development" | "production" | "test")) {
     throw new Error(
       `Invalid NODE_ENV: expected development, production, or test, received "${nodeEnv}"`,
     );
   }
+  return nodeEnv;
+}
+
+function parseServerMode(env: NodeJS.ProcessEnv, nodeEnv: string): ServerMode {
   const fallbackMode: ServerMode = nodeEnv === "production" ? "docker" : "local";
   const rawMode = env.UNOSIM_SERVER_MODE ?? fallbackMode;
   if (rawMode !== "local" && rawMode !== "docker") {
@@ -57,7 +65,14 @@ export function parseRuntimeProfile(env: NodeJS.ProcessEnv): RuntimeProfile {
   if (nodeEnv === "development" && rawMode !== "local") {
     throw new Error("NODE_ENV=development requires UNOSIM_SERVER_MODE=local");
   }
+  return rawMode;
+}
 
+function parseDockerTestBypass(
+  env: NodeJS.ProcessEnv,
+  nodeEnv: string,
+  serverMode: ServerMode,
+): boolean {
   const rawBypass = env.UNOSIM_DOCKER_TEST_BYPASS_GATEWAY;
   if (rawBypass !== undefined && rawBypass !== "1") {
     throw new Error("UNOSIM_DOCKER_TEST_BYPASS_GATEWAY must be 1 when enabled");
@@ -66,14 +81,20 @@ export function parseRuntimeProfile(env: NodeJS.ProcessEnv): RuntimeProfile {
   if (dockerTestBypassGateway && nodeEnv !== "test") {
     throw new Error("UNOSIM_DOCKER_TEST_BYPASS_GATEWAY is allowed only with NODE_ENV=test");
   }
-  if (dockerTestBypassGateway && rawMode !== "docker") {
+  if (dockerTestBypassGateway && serverMode !== "docker") {
     throw new Error("UNOSIM_DOCKER_TEST_BYPASS_GATEWAY is allowed only in docker mode");
   }
+  return dockerTestBypassGateway;
+}
 
+export function parseRuntimeProfile(env: NodeJS.ProcessEnv): RuntimeProfile {
+  rejectRemovedRuntimeVariables(env);
+  const nodeEnv = parseNodeEnvironment(env);
+  const serverMode = parseServerMode(env, nodeEnv);
   return {
     nodeEnv,
-    serverMode: rawMode,
-    dockerTestBypassGateway,
+    serverMode,
+    dockerTestBypassGateway: parseDockerTestBypass(env, nodeEnv, serverMode),
   };
 }
 
