@@ -31,7 +31,6 @@ export const TUTOR_RATING_DIFFICULTY_DELTAS: Record<TutorAnswerRating, number> =
 };
 
 export const tutorResponseStyleSchema = z.enum(["normal", "philosophical"]);
-export type TutorResponseStyle = z.infer<typeof tutorResponseStyleSchema>;
 
 const tutorQuestionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
 const tutorLearningMetadataFields = {
@@ -102,15 +101,11 @@ export const tutorQuestionRequestSchema = z
   })
   .strict();
 
-export type TutorQuestionRequest = z.infer<typeof tutorQuestionRequestSchema>;
-
 export const tutorModelsRequestSchema = z
   .object({
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
   })
   .strict();
-
-export type TutorModelsRequest = z.infer<typeof tutorModelsRequestSchema>;
 
 export const tutorModelsResponseSchema = z
   .object({
@@ -118,14 +113,9 @@ export const tutorModelsResponseSchema = z
   })
   .strict();
 
-export type TutorModelsResponse = z.infer<typeof tutorModelsResponseSchema>;
-
 export const tutorContentResultSchema = z.preprocess(withDefaultResponseStyle, tutorContentResultUnionSchema);
 
 export type TutorContentResult = z.infer<typeof tutorContentResultSchema>;
-
-/** Backwards-compatible name for the initial single-question endpoint. */
-export const learningQuestionResultSchema = tutorContentResultSchema;
 
 const tutorDialogFields = {
   question: z.string().trim().min(1).max(2_000),
@@ -165,8 +155,6 @@ export const tutorDialogRequestSchema = z
   })
   .strict();
 
-export type TutorDialogRequest = z.infer<typeof tutorDialogRequestSchema>;
-
 const tutorResponseFields = {
   provider: z.string().min(1).max(64),
   mode: z.enum(["user-key", "managed"]),
@@ -193,27 +181,3 @@ export const tutorResponseSchema = z.preprocess(
 );
 
 export type TutorResponse = z.infer<typeof tutorResponseSchema>;
-/** Backwards-compatible name for the initial single-question endpoint. */
-export const tutorQuestionResponseSchema = tutorResponseSchema;
-
-export const tutorErrorCodeSchema = z.enum([
-  "TUTOR_DISABLED",
-  "CREDENTIAL_REQUIRED",
-  "CREDENTIAL_INVALID",
-  "PROVIDER_UNAVAILABLE",
-  "PROVIDER_TIMEOUT",
-  "RATE_LIMITED",
-  "MODEL_UNAVAILABLE",
-  "INVALID_PROVIDER_RESPONSE",
-  "INVALID_REQUEST",
-]);
-
-export type TutorErrorCode = z.infer<typeof tutorErrorCodeSchema>;
-
-export interface TutorErrorResponse {
-  error: {
-    code: TutorErrorCode;
-    message: string;
-    retryAfter?: number;
-  };
-}

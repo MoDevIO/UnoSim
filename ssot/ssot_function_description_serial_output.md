@@ -417,7 +417,6 @@ Neue E2E-Tests:
 | # | Aufgabe | Dateien |
 | :--- | :--- | :--- |
 | 7.1 | Dieses SSOT-Dokument als authoritative Quelle finalisieren | `ssot/ssot_function_description_serial_output.md` |
-| 7.2 | Alte SERIAL_OUTPUT_FIX.md Referenzen prüfen | `archive/SERIAL_OUTPUT_FIX.md` — kein Action nötig |
 | 7.3 | `ssot_serial_parser_architecture.md` aktualisieren (falls vorhanden) | `ssot/ssot_serial_parser_architecture.md` |
 
 ## 13. Risiken & Offene Fragen

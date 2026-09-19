@@ -97,7 +97,6 @@ export type UseWebSocketHandlerParams = {
   pinToNumber: (pin: string) => number | null;
 
   setParserMessages: React.Dispatch<React.SetStateAction<ParserMessage[]>>;
-  setSandboxMode: React.Dispatch<React.SetStateAction<string>>;
   setWorkerIndex: React.Dispatch<React.SetStateAction<number | undefined>>;
   setWorkerTotal: React.Dispatch<React.SetStateAction<number | undefined>>;
   /** Tracks the Docker/sandbox GCC compile phase for granular UI feedback. Optional to avoid breaking tests. */
@@ -123,7 +122,6 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setActiveOutputTab,
     setCompilationStatus,
     setSimulationStatus,
-    setSandboxMode,
     setWorkerIndex,
     setWorkerTotal,
     stopRendering,
@@ -242,9 +240,6 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
         setCompilationStatus(message.arduinoCliStatus);
       }
       params.setDockerGccPhase?.(message.arduinoCliStatus === "compiling" ? "active" : "idle");
-    }
-    if (message.sandboxMode !== undefined) {
-      setSandboxMode(message.sandboxMode);
     }
     if (message.workerIndex !== undefined) {
       setWorkerIndex(message.workerIndex);

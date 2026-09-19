@@ -6,7 +6,9 @@ import {
   runSketchWithOutput,
 } from "../utils/serial-test-helper";
 
-const enabled = process.env.FORCE_DOCKER === "1" || process.env.UNOSIM_SIMULATION_MODE === "docker-sandbox";
+const enabled = process.env.NODE_ENV === "test" &&
+  process.env.UNOSIM_SERVER_MODE === "docker" &&
+  process.env.UNOSIM_DOCKER_TEST_BYPASS_GATEWAY === "1";
 const maybeDescribe = enabled ? describe : describe.skip;
 
 async function waitForContainerName(runner: SandboxRunner): Promise<string> {

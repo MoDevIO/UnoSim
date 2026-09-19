@@ -7,7 +7,7 @@ import {
   TUTOR_DEFAULT_DIFFICULTY,
   tutorDifficultySchema,
   tutorModelsResponseSchema,
-  tutorQuestionResponseSchema,
+  tutorResponseSchema,
   type TutorAnswerRating,
   type TutorDifficulty,
   type TutorMode,
@@ -264,7 +264,7 @@ export function useTutor(): TutorPanelState {
       });
       const body: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(getErrorMessage(body));
-      const parsed = tutorQuestionResponseSchema.safeParse(body);
+      const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
       setQuestion(parsed.data);
       setLastUsedModel(parsed.data.model);
@@ -331,7 +331,7 @@ export function useTutor(): TutorPanelState {
       });
       const body: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(getErrorMessage(body));
-      const parsed = tutorQuestionResponseSchema.safeParse(body);
+      const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
       const nextHistory = [
         ...currentHistory,

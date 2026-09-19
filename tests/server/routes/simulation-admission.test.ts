@@ -68,7 +68,6 @@ async function createHarness(options: {
           callbacks.push(runCallbacks);
           await options.runSketch?.(runCallbacks);
         }),
-        getSandboxStatus: vi.fn(() => ({ mode: "local-limited" })),
         stop: vi.fn().mockResolvedValue(undefined),
       };
       runners.push(runner);

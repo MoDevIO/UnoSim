@@ -28,7 +28,6 @@ import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "./exec
 import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
 import { runLocalStart, runDockerStart, type LocalStartContext, type DockerStartContext, type DockerStartParams, type TransitionToFn } from "./execution-phases/start-phase";
-import { decideExecutionRoute } from "./execution-phases/router-phase";
 import { performCompilation, type PrepareContext } from "./execution-phases/prepare-phase";
 import { compileMetricsTracker } from "../server-metrics";
 
@@ -42,7 +41,7 @@ export enum SimulationState {
 
 export const SANDBOX_CONFIG = {
   dockerImage: config.sandbox.dockerImage,
-  useDocker: config.simulationMode === "docker-sandbox",
+  useDocker: config.serverMode === "docker",
   maxMemoryMB: config.sandbox.resources.memoryMB,
   cpuLimit: config.sandbox.resources.cpuLimit,
   maxCpuPercent: Math.round(Number.parseFloat(config.sandbox.resources.cpuLimit) * 100),
@@ -369,16 +368,16 @@ export class ExecutionManager {
     opts: RunSketchOptions,
     state: ExecutionState,
   ): Promise<void> {
-    // Router-Phase: Decide between Docker and Local execution
-    const route = decideExecutionRoute(state);
-
-    if (route.useDocker) {
-      await this.runDocker(files, callbacks, opts, state);
-    } else if (route.shouldThrowOnNoDocker) {
-      throw new Error("Docker sandbox is unavailable; refusing local fallback in production mode");
-    } else {
+    if (config.serverMode === "local") {
       await this.runLocal(files, callbacks, opts, state);
+      return;
     }
+
+    if (!state.dockerAvailable || !state.dockerImageBuilt) {
+      throw new Error("Docker sandbox is unavailable");
+    }
+
+    await this.runDocker(files, callbacks, opts, state);
   }
 
   /**

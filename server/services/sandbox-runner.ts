@@ -137,16 +137,6 @@ export class SandboxRunner {
       processController: this.processController,
     };
 
-    // Start docker check eagerly so getSandboxStatus() has cached results (S7059: moved to private method)
-    this._scheduleEagerDockerCheck();
-  }
-
-  /** Schedule docker availability check immediately after construction. (S7059: move async-op out of constructor) */
-  private _scheduleEagerDockerCheck(): void {
-    this.ensureDockerChecked().catch(() => {
-      // Docker check failed, but we already have defaults set
-      // (dockerAvailable=false, dockerImageBuilt=false)
-    });
   }
 
   get isRunning(): boolean {
@@ -165,6 +155,16 @@ export class SandboxRunner {
     return this.state;
   }
 
+  async initialize(): Promise<void> {
+    await this.ensureDockerChecked();
+    if (
+      config.serverMode === "docker" &&
+      (!this.dockerAvailable || !this.dockerImageBuilt)
+    ) {
+      throw new Error("Docker sandbox is unavailable");
+    }
+  }
+
   private get pauseStartTime(): number | null { return this.executionState.pauseStartTime; }
 
 
@@ -179,8 +179,11 @@ export class SandboxRunner {
 
   private async ensureDockerChecked(): Promise<void> {
     if (this.dockerChecked) return;
-    if (config.simulationMode === "docker-sandbox" && config.serverMode !== "docker") {
-      this.dockerAvailable = true; this.dockerImageBuilt = true; this.dockerChecked = true; return;
+    if (config.serverMode === "local") {
+      this.dockerAvailable = false;
+      this.dockerImageBuilt = false;
+      this.dockerChecked = true;
+      return;
     }
     
     // Always use async path; ProcessExecutor handles test mocking internally
@@ -268,7 +271,7 @@ export class SandboxRunner {
 
     SandboxRunner.missingDockerSocketLogEmitted = true;
     this.logger.info(
-      `Docker socket not available at ${socketPath}; sandbox mode disabled, using local-limited execution`,
+      `Docker socket not available at ${socketPath}`,
     );
   }
 
@@ -445,13 +448,10 @@ export class SandboxRunner {
     await this.cleanupDockerContainer(containerName);
   }
 
-  getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean; mode: "docker-sandbox" | "local-limited" } {
-    // Docker check is started in constructor, so just return cached values
-    const dockerModeActive = config.simulationMode === "docker-sandbox";
+  getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean } {
     return {
       dockerAvailable: this.dockerAvailable,
       dockerImageBuilt: this.dockerImageBuilt,
-      mode: dockerModeActive && this.dockerAvailable && this.dockerImageBuilt ? "docker-sandbox" : "local-limited",
     };
   }
 }

@@ -33,37 +33,54 @@ afterEach(async () => {
 });
 
 describe("parseTrustConfig", () => {
-  it("uses local mode outside production", () => {
-    expect(parseTrustConfig({ NODE_ENV: "development" })).toEqual({
+  it("derives gateway authentication from the Docker runtime profile", () => {
+    expect(
+      parseTrustConfig(
+        {
+          NODE_ENV: "production",
+          UNOSIM_GATEWAY_SECRET: SECRET,
+          UNOSIM_TRUSTED_PROXY: "10.10.0.0/24",
+        },
+        { serverMode: "docker", dockerTestBypassGateway: false },
+      ),
+    ).toEqual({
+      mode: "gateway",
+      gatewaySecret: SECRET,
+      trustedProxy: "10.10.0.0/24",
+    });
+  });
+
+  it("uses local authentication for the local runtime profile", () => {
+    expect(parseTrustConfig(
+      { NODE_ENV: "development" },
+      { serverMode: "local", dockerTestBypassGateway: false },
+    )).toEqual({
       mode: "local",
     });
   });
 
-  it("fails closed for production without an explicit gateway", () => {
-    expect(() => parseTrustConfig({ NODE_ENV: "production" })).toThrow(
-      /Production requires UNOSIM_TRUST_MODE=gateway/,
-    );
+  it("uses local authentication only for the explicit Docker test bypass", () => {
+    expect(parseTrustConfig(
+      { NODE_ENV: "test" },
+      { serverMode: "docker", dockerTestBypassGateway: true },
+    )).toEqual({ mode: "local" });
   });
 
-  it("rejects incomplete and invalid gateway configuration", () => {
-    expect(() => parseTrustConfig({ UNOSIM_TRUST_MODE: "public" })).toThrow(
-      /must be either/,
-    );
-    expect(() => parseTrustConfig({ UNOSIM_TRUST_MODE: "gateway" })).toThrow(
+  it("rejects incomplete and invalid Docker gateway configuration", () => {
+    const dockerProfile = { serverMode: "docker", dockerTestBypassGateway: false } as const;
+    expect(() => parseTrustConfig({}, dockerProfile)).toThrow(
       /at least 32/,
     );
     expect(() =>
       parseTrustConfig({
-        UNOSIM_TRUST_MODE: "gateway",
         UNOSIM_GATEWAY_SECRET: SECRET,
-      }),
+      }, dockerProfile),
     ).toThrow(/UNOSIM_TRUSTED_PROXY/);
     expect(() =>
       parseTrustConfig({
-        UNOSIM_TRUST_MODE: "gateway",
         UNOSIM_GATEWAY_SECRET: SECRET,
         UNOSIM_TRUSTED_PROXY: "true",
-      }),
+      }, dockerProfile),
     ).toThrow(/explicit IP address or CIDR/);
   });
 
@@ -71,10 +88,9 @@ describe("parseTrustConfig", () => {
     expect(
       parseTrustConfig({
         NODE_ENV: "production",
-        UNOSIM_TRUST_MODE: "gateway",
         UNOSIM_GATEWAY_SECRET: SECRET,
         UNOSIM_TRUSTED_PROXY: "10.10.0.0/24",
-      }),
+      }, { serverMode: "docker", dockerTestBypassGateway: false }),
     ).toEqual({
       mode: "gateway",
       gatewaySecret: SECRET,

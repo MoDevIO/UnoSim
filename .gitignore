@@ -53,10 +53,9 @@ storage/binaries/
 /scannerwork/
 
 # Generated load-test measurements
-/load-test-results/*-client-observability-*.json
-/load-test-results/*-client-simulation-observability-*.json
+/load-test-results/
 
-# Old archive folder (legacy, use /docs/archive instead)
+# Historical material lives in Git history, not the working tree.
 /archive/
 
 ##################################

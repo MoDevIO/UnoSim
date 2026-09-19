@@ -282,21 +282,17 @@ describe("SandboxRunner", () => {
   }
 
   let activeRunners: SandboxRunner[] = [];
-  let savedForceDocker: string | undefined;
   let savedDockerHost: string | undefined;
   let savedConfigDockerHost: string;
-  let savedConfigSimulationMode: string;
+  let savedConfigServerMode: string;
 
   beforeEach(() => {
-    // Isolate Docker-mock tests from real FORCE_DOCKER env var
-    savedForceDocker = process.env.FORCE_DOCKER;
     savedDockerHost = process.env.DOCKER_HOST;
     savedConfigDockerHost = config.sandbox.dockerHost;
-    savedConfigSimulationMode = config.simulationMode;
-    delete process.env.FORCE_DOCKER;
+    savedConfigServerMode = config.serverMode;
     delete process.env.DOCKER_HOST;
     config.sandbox.dockerHost = "unix:///var/run/docker.sock";
-    (config as any).simulationMode = "local";
+    (config as { serverMode: "local" | "docker" }).serverMode = "local";
 
     activeRunners = [];
     spawnInstances.length = 0;
@@ -339,20 +335,13 @@ describe("SandboxRunner", () => {
     vi.useRealTimers();
     vi.clearAllMocks();
 
-    // Restore FORCE_DOCKER env var
-    if (savedForceDocker === undefined) {
-      delete process.env.FORCE_DOCKER;
-    } else {
-      process.env.FORCE_DOCKER = savedForceDocker;
-    }
-
     if (savedDockerHost === undefined) {
       delete process.env.DOCKER_HOST;
     } else {
       process.env.DOCKER_HOST = savedDockerHost;
     }
     config.sandbox.dockerHost = savedConfigDockerHost;
-    (config as any).simulationMode = savedConfigSimulationMode;
+    (config as { serverMode: "local" | "docker" }).serverMode = savedConfigServerMode as "local" | "docker";
   });
 
   // Helper to track runners for cleanup
@@ -368,9 +357,23 @@ describe("SandboxRunner", () => {
       testGlobals.clearDockerMockConfig();
     });
 
+    it("exposes explicit runtime initialization for pool readiness", () => {
+      const runner = new SandboxRunner();
+
+      expect(runner).toHaveProperty("initialize");
+    });
+
+    it("fails Docker initialization when the daemon is unavailable", async () => {
+      testGlobals.setDockerMockConfig({ infoFail: true });
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
+      const runner = new SandboxRunner();
+
+      await expect(runner.initialize()).rejects.toThrow("Docker sandbox is unavailable");
+    });
+
     it("should detect when Docker is available and image exists", async () => {
       // ProcessExecutor mock handles docker commands by default (all success)
-      (config as any).simulationMode = "docker-sandbox";
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
       const runner = new SandboxRunner();
       
       // Explicitly wait for docker checks to complete
@@ -380,24 +383,23 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(true);
       expect(status.dockerImageBuilt).toBe(true);
-      expect(status.mode).toBe("docker-sandbox");
     });
 
-    it("should report local mode when Docker is available but local simulation is configured", async () => {
+    it("does not probe Docker in the local profile", async () => {
       const runner = new SandboxRunner();
 
       await getEnsureDockerChecked(runner)();
 
       const status = runner.getSandboxStatus();
 
-      expect(status.dockerAvailable).toBe(true);
-      expect(status.dockerImageBuilt).toBe(true);
-      expect(status.mode).toBe("local-limited");
+      expect(status.dockerAvailable).toBe(false);
+      expect(status.dockerImageBuilt).toBe(false);
     });
 
-    it("should fallback when Docker daemon is not running", async () => {
+    it("reports Docker unavailable when the daemon is not running", async () => {
       // Configure mock to fail on docker info
       testGlobals.setDockerMockConfig({ infoFail: true });
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
 
       const runner = new SandboxRunner();
       
@@ -408,10 +410,30 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(false);
       expect(status.dockerImageBuilt).toBe(false);
-      expect(status.mode).toBe("local-limited");
     });
 
-    it("should fallback without spawning docker when unix socket is missing", async () => {
+    it("refuses local execution when Docker is unavailable in the Docker profile", async () => {
+      testGlobals.setDockerMockConfig({ infoFail: true });
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
+      const localCompile = vi.spyOn(LocalCompiler.prototype, "compile");
+      const onCompileError = vi.fn();
+      const runner = new SandboxRunner();
+
+      const ready = await runner.runSketch({
+        code: "void setup(){} void loop(){}",
+        onOutput: vi.fn(),
+        onError: vi.fn(),
+        onExit: vi.fn(),
+        onCompileError,
+      });
+
+      expect(ready).toBe(false);
+      expect(onCompileError).toHaveBeenCalledWith("Docker sandbox is unavailable");
+      expect(localCompile).not.toHaveBeenCalled();
+    });
+
+    it("reports Docker unavailable without spawning docker when its unix socket is missing", async () => {
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
       config.sandbox.dockerHost = "unix:///definitely-missing/unosim-docker.sock";
       vi.mocked(existsSync).mockImplementation((path) => path !== "/definitely-missing/unosim-docker.sock");
 
@@ -424,13 +446,13 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(false);
       expect(status.dockerImageBuilt).toBe(false);
-      expect(status.mode).toBe("local-limited");
       expect(spawnInstances).toHaveLength(0);
     });
 
-    it("should fallback when Docker is not installed", async () => {
+    it("reports Docker unavailable when Docker is not installed", async () => {
       // Configure mock to fail on docker version
       testGlobals.setDockerMockConfig({ versionFail: true });
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
 
       const runner = new SandboxRunner();
       
@@ -439,12 +461,12 @@ describe("SandboxRunner", () => {
       const status = runner.getSandboxStatus();
 
       expect(status.dockerAvailable).toBe(false);
-      expect(status.mode).toBe("local-limited");
     });
 
     it("should detect when Docker image is not built", async () => {
       // Configure mock to fail on docker image inspect
       testGlobals.setDockerMockConfig({ inspectFail: true });
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
 
       const runner = new SandboxRunner();
       
@@ -454,12 +476,12 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(true);
       expect(status.dockerImageBuilt).toBe(false);
-      expect(status.mode).toBe("local-limited");
     });
 
     it("should cache docker availability and return immediately in test env", async () => {
       // ensure NODE_ENV test behaviour
       process.env.NODE_ENV = 'test';
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
       const runner = new SandboxRunner();
       
       // Explicitly wait for initial docker checks
@@ -531,7 +553,7 @@ describe("SandboxRunner", () => {
 
   describe("Docker Sandbox Execution", () => {
     beforeEach(() => {
-      (config as any).simulationMode = "docker-sandbox";
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
     });
 
     beforeEach(() => {
@@ -874,7 +896,7 @@ describe("SandboxRunner", () => {
   describe("Resource Limits", () => {
     beforeEach(() => {
       // Simulate Docker available with image (default mock config)
-      (config as any).simulationMode = "docker-sandbox";
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
     });
 
     afterEach(() => {

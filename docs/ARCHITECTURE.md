@@ -11,7 +11,8 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 - Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md` und die dynamische Examples-Auswahl in `adr/0005-browser-scoped-external-examples.md`.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
-- Historische Planungs- und Risikoquellen liegen ausschließlich unter `archive/` und sind nicht normativ für den Ist-Zustand.
+- Git enthält die Historie früherer Planungs- und Risikoquellen; der aktuelle
+  Tree enthält nur normative Dokumentation.
 
 ## 📊 Datenfluss-Diagramm
 
@@ -237,12 +238,18 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 - **Origin-Check:** Nur erlaubte Origins können Nachrichten senden/empfangen
 - **Rate-Limiting:** Begrenzung der Nachrichtenfrequenz
 
-### Deployment-Modi
-- **Local Server Mode (`UNOSIM_SERVER_MODE=local`):** Backend läuft auf der Entwicklungsmaschine.
-- **Docker Server Mode (`UNOSIM_SERVER_MODE=docker`):** Backend läuft im Container; dies sagt noch nichts über die Sketch-Ausführung aus.
-- **Local Simulation Mode (`UNOSIM_SIMULATION_MODE=local`):** Sketch-Ausführung als lokaler nativer Prozess; nur für isolierte Entwicklung.
-- **Docker-Sandbox Simulation Mode (`UNOSIM_SIMULATION_MODE=docker-sandbox`):** Sketch-Ausführung in kurzlebigen isolierten Docker-Containern; dokumentierter Produktionspfad.
-- **Gateway Mode (`UNOSIM_TRUST_MODE=gateway`):** Reverse-Proxy mit TLS, Authentifizierung und bereinigten `X-UnoSim-*`-Headern; Pflicht für erreichbare Mehrbenutzerinstanzen.
+### Runtime-Profile
+
+- **Lokale Entwicklung (`UNOSIM_SERVER_MODE=local`):** Backend, Kompilierung
+  und Sketch-Ausführung laufen auf der Entwicklungsmaschine. Eine lokale
+  Session identifiziert den einzelnen vertrauenswürdigen Entwickler. Docker
+  wird nicht verwendet.
+- **Docker (`UNOSIM_SERVER_MODE=docker`):** Backend läuft im Container und jede
+  Simulation in einer kurzlebigen Docker-Sandbox. Ein authentifizierendes
+  Gateway ist verpflichtend; Dockerfehler führen nicht zu lokaler Ausführung.
+- **Docker-Testprofil:** Nur `NODE_ENV=test` darf mit
+  `UNOSIM_DOCKER_TEST_BYPASS_GATEWAY=1` die externe Gateway-Authentifizierung
+  ersetzen. Sandbox-Ausführung und Docker-Readiness bleiben aktiv.
 
 ### Zentrale Konfiguration
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth
@@ -251,7 +258,10 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
   Default-Repository, Default-Ref und Refresh-TTL. Eine Browserpräferenz
   ist nur ein request-scoped Override und keine zweite serverweite
   Konfiguration.
-- **Status:** Die produktive Konfiguration läuft über `server/config.ts`; `FORCE_DOCKER` ist nur ein deprecated Kompatibilitätsalias. Aktuelle Betriebs- und Sicherheitsanforderungen stehen in `INSTALL_SERVER.md` und `SECURITY.md`.
+- **Status:** `server/config.ts` leitet Ausführung und Authentifizierung aus dem
+  Runtime-Profil ab. Frühere unabhängige Mode- und Compatibility-Schalter
+  werden abgelehnt. Aktuelle Anforderungen stehen in `INSTALL_SERVER.md` und
+  `SECURITY.md`.
 
 ## 📊 Metriken und Observability
 

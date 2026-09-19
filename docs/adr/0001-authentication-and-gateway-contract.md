@@ -1,141 +1,107 @@
-# ADR 0001: Authentication and gateway contract
+# ADR 0001: Runtime profiles and gateway contract
 
 - Status: Accepted
-- Date: 2026-09-02
+- Date: 2026-09-18
 - Owners: UnoSim maintainers and platform operators
-- Implements: AP-01.2, AP-01.3, AP-01.4
 
 ## Context
 
-UnoSim compiles and executes user-provided code. The compile API, sketch CRUD
-API, and WebSocket simulation channel are therefore privileged resources. The
-application currently has no login, session, tenant, or role implementation.
-The Docker Compose setup publishes a host port for the backend, defaulting to
-loopback; in production it must remain reachable only through the gateway.
-
-Authentication cannot be added only as an Express middleware after the routes:
-WebSocket upgrades must cross the same trust boundary. Browser WebSocket clients
-also cannot attach arbitrary authentication headers. A public deployment needs
-one consistent identity for HTTP requests, WebSocket upgrades, rate limits, and
-audit logs.
+UnoSim compiles and executes user-provided code. Earlier configuration allowed
+server location, simulation location and trust mode to be combined
+independently. Those combinations created unsupported security and lifecycle
+paths. Browser WebSocket clients also cannot attach arbitrary authentication
+headers, so public HTTP and WebSocket traffic need one gateway identity.
 
 ## Decision
 
-UnoSim supports exactly two trust modes.
+UnoSim supports exactly two runtime profiles selected by
+`UNOSIM_SERVER_MODE`.
 
-### Local mode
+### Local development
 
-Local mode is for one trusted user on one machine.
+`NODE_ENV=development` requires `UNOSIM_SERVER_MODE=local`.
 
-- The default listener is loopback-only and is not reachable from another host.
-  The development-only `npm run dev:lan` convenience command may explicitly set
-  `UNOSIM_LISTEN_HOST=0.0.0.0` for a trusted local network test. This exception
-  does not make Local mode suitable for production, public access, or shared
-  untrusted networks.
-- No application login is required.
-- Reverse-proxy identity headers are ignored.
-- Test endpoints remain independently protected by their test-only flags.
-- Local mode is not an approved public or shared deployment mode.
+- The server listens on loopback by default.
+- A signed local session identifies the single developer.
+- Compilation and simulation execute locally.
+- Docker is not probed or used as a fallback.
+- The profile is not a supported shared or public deployment.
 
-### Gateway mode
+### Docker deployment
 
-Gateway mode is mandatory whenever the service is reachable by untrusted or
-multiple users.
+`NODE_ENV=production` requires `UNOSIM_SERVER_MODE=docker`.
 
-- A trusted reverse proxy or identity-aware gateway terminates TLS and
-  authenticates the browser using its own secure session cookie.
-- The backend is reachable only from that gateway on a private network. Its port
-  must not be published directly to users.
-- The gateway removes all incoming `X-UnoSim-*` headers before adding trusted
-  values.
-- The gateway attaches the following headers to both normal HTTP requests and
-  WebSocket upgrade requests:
+- The server runs in Docker.
+- Every simulation uses an isolated Docker sandbox.
+- Startup/readiness requires the Docker daemon, sandbox image and initialized
+  runner pool.
+- A trusted gateway is mandatory; there is no production bypass or native
+  simulation fallback.
 
-  | Header | Required | Contract |
-  |---|---:|---|
-  | `X-UnoSim-Gateway-Secret` | yes | Shared high-entropy secret, compared by UnoSim without timing leaks |
-  | `X-UnoSim-Subject` | yes | Stable opaque user/session identifier; 1–128 URL-safe characters |
-  | `X-UnoSim-Roles` | yes | Comma-separated allowlist; initially only `user` is accepted |
-  | `X-Request-ID` | recommended | Gateway-generated correlation ID; never used as identity |
+The gateway terminates TLS, authenticates the user, removes inbound
+`X-UnoSim-*` headers and adds:
 
-- The shared secret is supplied to UnoSim through a secret store, never through
-  a browser, URL, repository file, or client-visible `/api/config` response.
-- Cookies and bearer tokens are validated by the gateway. UnoSim does not parse
-  them in this architecture.
-- `trust proxy` is enabled only for the exact private proxy hop or subnet. It is
-  never enabled as an unrestricted boolean in gateway mode.
+| Header | Required | Contract |
+|---|---:|---|
+| `X-UnoSim-Gateway-Secret` | yes | high-entropy shared secret |
+| `X-UnoSim-Subject` | yes | stable opaque identifier, 1–128 URL-safe characters |
+| `X-UnoSim-Roles` | yes | comma-separated allowlist; `user` is accepted |
+| `X-Request-ID` | recommended | correlation only, never identity |
 
-The initial authorization matrix is:
+The backend is reachable only from `UNOSIM_TRUSTED_PROXY`. Browser origins are
+checked against `UNOSIM_ALLOWED_WS_ORIGINS`. Cookies and bearer tokens are
+validated by the gateway; UnoSim does not parse them.
 
-| Resource | Anonymous | `user` |
-|---|---:|---:|
-| `GET /api/health` | allow | allow |
-| `GET /api/config` | allow | allow |
-| `GET /api/examples` and `/examples/*` | allow | allow |
-| `GET /api/status` | deny | allow |
-| `POST /api/compile` | deny | allow |
-| `/api/sketches` CRUD | deny | allow |
-| WebSocket `/ws` upgrade | deny | allow |
-| `POST /api/test-reset` | deny | deny |
+### Docker integration tests
 
-The WebSocket connection stores the validated subject when it is upgraded.
-Later messages cannot change that identity. Rate limits and queue ownership use
-the subject rather than the socket object or a client-supplied run ID, so a
-reconnect does not reset limits.
-
-An HTTP authentication failure returns `401` without revealing whether a
-subject exists. An authenticated request without the required role returns
-`403`. A rejected WebSocket upgrade returns an HTTP `401` or `403` before the
-protocol switches; it is not accepted and closed afterward.
-
-Origin validation is an additional browser boundary and is not authentication.
-It will be implemented separately in AP-01.4. Non-browser clients still require
-the gateway identity contract.
+`NODE_ENV=test`, `UNOSIM_SERVER_MODE=docker` and
+`UNOSIM_DOCKER_TEST_BYPASS_GATEWAY=1` permit automated Docker tests without an
+external gateway. The bypass changes authentication only. Docker simulation,
+startup verification and sandbox isolation remain active. No other environment
+accepts the flag.
 
 ## Configuration contract
 
-The current implementation enforces the following validated startup
-configuration:
+The following former independent selectors are rejected when present:
 
-- `UNOSIM_TRUST_MODE=local|gateway`, with no implicit production default.
-- `UNOSIM_GATEWAY_SECRET`, required in gateway mode and rejected in local mode.
-- `UNOSIM_TRUSTED_PROXY`, required in gateway mode and limited to an explicit IP
-  address or CIDR.
-- `UNOSIM_ALLOWED_WS_ORIGINS`, required by the deployment and interpreted as a
-  comma-separated exact allowlist. Gateway WebSocket upgrades without an
-  allowed browser `Origin` are rejected.
+- `UNOSIM_SIMULATION_MODE`
+- `UNOSIM_TRUST_MODE`
+- `FORCE_DOCKER`
+- `UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL`
 
-Startup fails when gateway mode is incomplete. A production/Docker process must
-not start in local mode unless an explicit development override is present.
+Startup also rejects production/local, development/docker, unknown modes and an
+incomplete gateway configuration.
 
-## Operational requirements
+## Authorization matrix
 
-- Gateway mode requires TLS at the public edge.
-- Network policy or container networking must prevent bypassing the gateway.
-- Logs may contain the opaque subject and request ID, but never cookies, bearer
-  tokens, the gateway secret, sketch source, or raw identity-provider claims.
-- Secret rotation must allow a short two-secret overlap without restarting all
-  active WebSocket sessions. Existing sessions keep their established identity
-  until disconnect.
-- Health probes use `/api/health`; they do not receive privileged identity
-  headers.
+| Resource | Anonymous | authenticated `user` |
+|---|---:|---:|
+| `GET /api/health` | allow | allow |
+| `GET /api/config` | allow | allow |
+| public examples endpoints | allow | allow |
+| `GET /api/status` | deny in Docker | allow |
+| compile and sketch mutation | deny in Docker | allow |
+| WebSocket `/ws` | deny in Docker | allow |
+| test reset | deny outside enabled test environment | deny outside enabled test environment |
 
-## Rejected alternatives
-
-- Trusting `X-UnoSim-Subject` without an authenticated private hop permits header
-  spoofing and is rejected.
-- Passing a bearer token in the WebSocket query string risks leakage through
-  logs and browser history and is rejected.
-- Implementing a separate UnoSim password database duplicates identity, session,
-  password-reset, and MFA responsibilities and is outside the product scope.
-- Relying only on `Origin` does not authenticate non-browser clients and is
-  rejected.
-- IP-only rate limiting groups classrooms behind NAT and does not survive proxy
-  ambiguity; IP may be an additional abuse signal but is not the primary
-  identity.
+The WebSocket stores the validated subject at upgrade. Later messages cannot
+replace it. Rate limits and queue ownership use that identity.
 
 ## Consequences
 
-UnoSim remains simple in trusted local development while public deployments gain
-one identity across HTTP and WebSocket. Gateway operators must provide identity,
-TLS, header sanitization, secret management, and network isolation.
+Topology, execution and trust can no longer drift apart. Local development
+remains simple, while Docker deployments have one mandatory isolation and
+identity boundary. Operators must provide the gateway, TLS, secret management,
+network isolation and Docker capacity.
+
+## Rejected alternatives
+
+- Independent server/simulation/trust switches recreate unsupported mixed
+  modes.
+- A Docker deployment without a gateway exposes privileged compile and
+  simulation APIs.
+- Falling back to native execution after Docker failure silently removes the
+  production isolation boundary.
+- Passing bearer tokens in WebSocket query strings leaks credentials through
+  logs and browser history.
+- Origin checks alone do not authenticate non-browser clients.

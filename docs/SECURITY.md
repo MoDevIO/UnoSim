@@ -1,158 +1,88 @@
 # UnoSim Security
 
-Dieses Dokument beschreibt die aktuell implementierten Schutzmaßnahmen und die
-verbleibenden Risiken. Die Betriebsanleitung steht in
-[`INSTALL_SERVER.md`](INSTALL_SERVER.md) und ist
-für Betreiber von Entwicklungs- und Produktionsinstanzen bestimmt.
+UnoSim compiles and executes untrusted sketch code. The supported topology
+keeps the development trust boundary small and requires isolation plus an
+authentication gateway for every deployment.
 
-Der operative Sandbox-Vertrag ist in dieser Datei und in
-[`INSTALL_SERVER.md`](INSTALL_SERVER.md) dokumentiert; die historische
-Validierung liegt im Archiv.
+## Supported profiles
 
-## Vorhandene Maßnahmen
+### Local development
 
-### Zugriff und Transport
+- `NODE_ENV=development`, `UNOSIM_SERVER_MODE=local`
+- loopback listener by default
+- local signed session cookie; no external identity provider
+- compilation and simulation run as local processes
+- intended for one trusted developer on one machine
 
-- Im Produktionsbetrieb ist `UNOSIM_TRUST_MODE=gateway` vorgeschrieben. Ein
-  authentifizierender Reverse Proxy muss den Benutzer, die Rolle und den
-  vertrauenswürdigen Proxy liefern.
-- `UNOSIM_GATEWAY_SECRET` wird mit mindestens 32 Zeichen verlangt und sicher
-  geprüft; Proxy- und Origin-Header werden validiert.
-- WebSocket-Verbindungen werden in Gateway-Mode auf eine explizite Liste
-  erlaubter Origins (`UNOSIM_ALLOWED_WS_ORIGINS`) beschränkt. Fehlende oder
-  unzulässige Origins werden abgewiesen.
-- Der lokale Vertrauensmodus bindet standardmäßig nur an `127.0.0.1` und ist
-  für Produktion gesperrt, außer bei einem ausdrücklich gesetzten
-  Entwicklungs-Override. `npm run dev:lan` setzt diesen Override gezielt für
-  einen vertrauenswürdigen lokalen Netzwerktest; er ist kein Produktionsmodus.
-- Das allgemeine API-Limit sowie separate Compile- und Simulationsstart-Limits
-  sind standardmäßig aktiv. `DISABLE_RATE_LIMIT` darf nur in isolierten Tests
-  verwendet werden.
-- Gateway-Limits verwenden ausschließlich den nach Secret- und Rollenprüfung
-  akzeptierten Subject. Local/Test-Clients werden durch serverseitig signierte
-  Local-Session-Cookies getrennt; `X-UnoSim-Subject`, `X-Test-Run-ID` und
-  Query-Parameter sind dort keine vertrauenswürdige Nutzeridentität.
+Local development is not approved for shared, LAN or public access.
 
-### Ausführung fremden Sketch-Codes
+### Docker deployment
 
-- Der empfohlene Produktionsmodus startet jeden Sketch in einem kurzlebigen
-  Docker-Sandbox-Container.
-- Die Sandbox verwendet kein Netzwerk, ein schreibgeschütztes Root-Dateisystem,
-  `no-new-privileges`, keine Linux-Capabilities, begrenzte PIDs sowie CPU-,
-  Speicher- und Swap-Limits.
-- Schreibzugriff ist auf das jeweilige `/sandbox`-Arbeitsverzeichnis und ein
-  begrenztes temporäres Dateisystem beschränkt.
-- Sketch-Pfade werden auf das erlaubte Root-Verzeichnis begrenzt; Dateinamen und
-  Eingaben werden validiert.
-- Kompilierung und Laufzeit besitzen Zeit- und Ausgabelimits. Queue-, Worker-
-  und Runner-Pools begrenzen die Parallelität.
-- Pro Subject darf höchstens ein Simulationsstart reserviert sein. Die
-  tokenisierte Reservation umfasst laufende und wartende Starts und wird bei
-  Stop, Disconnect, Start-/Compilefehler, Timeout und Cleanup freigegeben.
-  Eine globale, prozesslokale Admission-Grenze weist zusätzliche Starts sofort
-  mit `SYSTEM_BUSY` ab, bevor sie die Runner-Queue verlängern.
-- Prozessstarts verwenden Argumentlisten ohne Shell-Interpolation; erlaubte
-  Programme und Argumente werden geprüft.
+- `NODE_ENV=production`, `UNOSIM_SERVER_MODE=docker`
+- server runs in Docker
+- every simulation runs in a separate Docker sandbox
+- gateway authentication is mandatory
+- Docker availability and the sandbox image are startup/readiness requirements
+- there is no local execution fallback
 
-### Qualität und Betrieb
+## Gateway boundary
 
-- Sicherheitsrelevante Eingaben, Docker-Verträge, Lifecycle, Pause/Resume und
-  Ressourcenlimits werden durch Unit-, Integrations- und Docker-Tests geprüft.
-- `./run-tests.sh` führt statische Checks, Tests, Build und SonarQube aus. Das
-  Quality Gate muss grün sein und darf keine offenen Issues ausweisen.
-- Logs redigieren bekannte Geheimnisfelder wie Token, Secret und Passwort.
-- Compose veröffentlicht den Server standardmäßig nur auf Loopback; ein
-  öffentliches Deployment muss hinter dem vorgesehenen Gateway betrieben
-  werden.
+The public gateway terminates TLS, authenticates the browser, strips inbound
+`X-UnoSim-*` headers and supplies trusted `X-UnoSim-Gateway-Secret`,
+`X-UnoSim-Subject` and `X-UnoSim-Roles` headers to both HTTP and WebSocket
+requests. The backend is reachable only from the configured proxy IP or CIDR.
 
-### External-Examples-Quellen
+`UNOSIM_GATEWAY_SECRET` must contain at least 32 characters.
+`UNOSIM_TRUSTED_PROXY` must be an explicit IP or CIDR.
+`UNOSIM_ALLOWED_WS_ORIGINS` is an exact origin allowlist. Origin validation is
+an additional browser boundary and does not replace authentication.
 
-Die vereinfachte Zielarchitektur aus ADR 0005 verwendet ein serverseitiges
-Default-Repository mit Default-Ref und ergänzt einen browser-spezifischen
-Repository-/Ref-Override. Der Ref darf beweglich sein, wird vor Contentzugriff
-aber serverseitig auf einen vollständigen Commit-SHA aufgelöst. Der Override
-ist untrusted input und darf keine Sicherheitsgrenze konfigurieren oder lockern.
+The complete contract is recorded in
+[`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md).
 
-- Der Browser überträgt nur einen normalisierten GitHub-Slug und einen
-  begrenzt validierten Ref an UnoSim; er ruft GitHub niemals direkt auf.
-- Raw-URLs, Hosts, Allowlists, Credentials, Timeouts und Größenlimits bleiben
-  ausschließlich serverseitig kontrolliert.
-- Der Server konstruiert Ref-Resolver- und Content-URLs selbst und erzwingt
-  HTTPS, exakte erlaubte GitHub-API-/Raw-GitHub-Hosts, das
-  Verbot von IP-Literalen, DNS-/Private-Address-Prüfung, Redirect-Verbot,
-  Pfadnormalisierung, Timeouts, Größenlimits und strikte Schemaprüfung.
-- `api.github.com` darf ausschließlich den Ref auf einen strikt validierten
-  vollständigen SHA auflösen. Manifest und Dateien werden ausschließlich über
-  diesen SHA von `raw.githubusercontent.com` geladen. Ein neuer Ref-Stand wird
-  erst nach vollständiger Prüfung atomar aktiviert; bei Fehlern ist nur LKG
-  derselben Repository-/Ref-Auswahl zulässig.
-- Override-Auflösung wird authentifiziert beziehungsweise an die lokale
-  signierte Session gebunden, rate-limited und gegen unbegrenzte Source- und
-  Cache-Cardinality begrenzt. Anonyme Gateway-Requests dürfen nur den Default
-  verwenden.
-- Repository und Ref sind nicht-sensitive Nutzerpräferenzen und dürfen im
-  Browser persistent sein. Diese Ausnahme gilt nicht für Credentials,
-  Tutor-API-Keys, Dialoghistorien oder andere sensible Daten.
+## Sandbox boundary
 
-Das frühere Channel-/`stable.json`-Modell ist verworfen. Der Fachvertrag steht in
-[`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md),
-die verbindlichen In-Memory-, Rate- und Concurrency-Limits im
-[`EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md`](EXTERNAL_EXAMPLES_IMPLEMENTATION_PLAN.md).
+Docker simulations use a dedicated non-root container with:
 
-## Potenzielle und verbleibende Risiken
+- network disabled,
+- read-only root filesystem,
+- dropped Linux capabilities,
+- `no-new-privileges`,
+- PID, CPU and memory limits,
+- a narrow sketch directory mount,
+- bounded execution and output.
 
-### Docker-Betrieb (alle Docker-Varianten)
+The Docker socket is a privileged host capability. Only the UnoSim backend may
+access it. Operators must restrict host access, pin reviewed images and keep
+the daemon patched.
 
-Diese Risiken gelten für alle Docker-basierten Betriebsarten (mit oder ohne Sandbox).
+## Test-only gateway bypass
 
-| Risiko | Auswirkung | Schweregrad |
-| --- | --- | --- |
-| Backend-Kompromittierung über Docker-Socket | Wenn das Backend selbst angegriffen wird, kann über den Docker-Socket der Host gefährdet werden | Mittel–Hoch |
-| Mutable Image-/Toolchain-Tags | Ein späteres Update kann Verhalten oder Schwachstellen einführen | Mittel |
+`UNOSIM_DOCKER_TEST_BYPASS_GATEWAY=1` is accepted only with `NODE_ENV=test` and
+`UNOSIM_SERVER_MODE=docker`. It substitutes a local test session for gateway
+identity while retaining real Docker sandbox execution. Production and
+development startup reject the flag.
 
-### Sandbox-isolierte Container-Umgebung
+## Input and network controls
 
-Docker-basierte Ausführung mit Prozess-Isolation (docker-sandbox mode, empfohlen für Produktion). Dies ist die sicherste Betriebsart mit der höchsten Isolation.
+- HTTP and WebSocket payloads are schema-validated and size-limited.
+- Rate limits and simulation admission use the established request identity.
+- External examples are fetched only from configured allowed hosts, validated
+  as a complete snapshot and bound to a resolved commit.
+- Tutor provider credentials stay server-side or request-scoped in browser
+  memory according to the configured tutor mode.
+- Secrets, sketch source, cookies and raw identity-provider claims must not be
+  logged.
 
-| Risiko | Auswirkung | Schweregrad |
-| --- | --- | --- |
-| Compiler-/Parser-Schwachstellen | Fehler in Toolchain oder Parser können zu DoS oder Absturz führen (isoliert in Sandbox) | Gering–Mittel |
+## Production checklist
 
-### Containerisierte Ausführung ohne Prozess-Isolation
+1. Use only the Docker profile and reviewed immutable images.
+2. Keep the backend inaccessible except through the trusted gateway.
+3. Configure TLS, gateway secret, trusted proxy and exact WebSocket origins.
+4. Verify `/api/health` and `/api/readiness` before routing traffic.
+5. Keep Docker sandbox resource limits, rate limits and admission enabled.
+6. Run `npm run test:security:inputs`, `npm run test:docker`, the unit suite,
+   E2E suite, build and security audit before release.
 
-Docker-basierte Ausführung ohne zusätzliche Prozess-Isolation (vereinfachte Container-Variante). Bietet Container-Isolation vom Host, aber keine Prozess-Isolation zwischen Sketch-Ausführungen.
-
-| Risiko | Auswirkung | Schweregrad |
-| --- | --- | --- |
-| Schreibbarer Sketch-Mount | Der ausgeführte Sketch kann andere Container-Prozesse oder Dateien beeinflussen | Hoch |
-| Compiler-/Parser-Schwachstellen | Fehler in Toolchain oder Parser können andere Container-Prozesse beeinträchtigen | Mittel |
-| Ressourcen- oder Verbindungs-DoS | Viele WebSockets, große Eingaben oder Warteschlangen können CPU/RAM binden | Mittel |
-
-### Host-native Ausführung
-
-Direkte native Ausführung ohne Container-Isolation. Dies ist die unsicherste Betriebsart; nur für isolierte Entwicklungsumgebungen empfohlen.
-
-| Risiko | Auswirkung | Schweregrad |
-| --- | --- | --- |
-| Lokaler Modus ohne Authentifizierung | Jeder erreichbare Client kann Simulationen und Steuerkanäle verwenden | Kritisch |
-| Schreibbarer Sketch-Mount | Der ausgeführte Sketch kann Host-Dateien direkt beschädigen oder verändern | Kritisch |
-| Compiler-/Parser-Schwachstellen | Fehler in Toolchain oder Parser können den Host direkt kompromittieren | Hoch |
-| Ressourcen- oder Verbindungs-DoS | Viele WebSockets, große Eingaben oder Warteschlangen können den Host lahmlegen | Hoch |
-
-## Mindestanforderungen für Produktion
-
-1. `NODE_ENV=production`, `UNOSIM_TRUST_MODE=gateway` und ein zufälliges
-   `UNOSIM_GATEWAY_SECRET` (mindestens 32 Zeichen) setzen.
-2. `UNOSIM_TRUSTED_PROXY` und `UNOSIM_ALLOWED_WS_ORIGINS` exakt konfigurieren.
-3. `UNOSIM_SIMULATION_MODE=docker-sandbox` verwenden und den Docker-Socket nur
-   dem dafür vorgesehenen Backend zugänglich machen.
-4. Den Server nicht direkt ins Internet stellen; TLS, Authentifizierung und
-   Request-Limits gehören an den Reverse Proxy.
-5. Anwendungsseitige Rate Limits und Admission Control nicht deaktivieren;
-   Grenzänderungen nur anhand neuer Lastmessungen vornehmen.
-6. Vor jedem Release `./run-tests.sh` ausführen und ein grünes SonarQube-Gate
-   sowie keine offenen sicherheitsrelevanten Issues bestätigen.
-
-Sicherheitslücken bitte nicht öffentlich in Issues melden, sondern zunächst an
-die für die Instanz verantwortlichen Administratoren. Bei Änderungen an den
-Schutzmaßnahmen sind Tests und diese Übersicht gemeinsam zu aktualisieren.
+Report security vulnerabilities privately to the instance operators before
+public disclosure.

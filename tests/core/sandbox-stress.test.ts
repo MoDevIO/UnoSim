@@ -70,14 +70,8 @@ describe("SandboxRunner Stress Tests - Phase 5", () => {
   let tempDir: string;
   let activeRunners: SandboxRunner[] = [];
   let dockerAvailable = false;
-  let savedForceDocker: string | undefined;
 
   beforeAll(async () => {
-    // Unset FORCE_DOCKER so docker availability reflects real state without env override.
-    // Stress tests use fake timers which are incompatible with FORCE_DOCKER=1 + real Docker.
-    savedForceDocker = process.env.FORCE_DOCKER;
-    delete process.env.FORCE_DOCKER;
-
     tempDir = join(process.cwd(), "temp");
     if (!existsSync(tempDir)) {
       await mkdir(tempDir, { recursive: true });
@@ -93,15 +87,6 @@ describe("SandboxRunner Stress Tests - Phase 5", () => {
     } else {
       console.log("⚠️ Docker not available - Tests will use local g++ compilation");
       console.log("   Note: Local mode has different behavior and timing characteristics");
-    }
-  });
-
-  afterAll(() => {
-    // Restore FORCE_DOCKER env var
-    if (savedForceDocker === undefined) {
-      delete process.env.FORCE_DOCKER;
-    } else {
-      process.env.FORCE_DOCKER = savedForceDocker;
     }
   });
 

@@ -12,10 +12,7 @@
 A web-based Arduino simulator with a browser UI, server-side Arduino compilation
 and an interactive Arduino Preview for sketches.
 
-> **Administration:** For local and server installation, see [`docs/INSTALL_LOCAL.md`](docs/INSTALL_LOCAL.md) and [`docs/INSTALL_SERVER.md`](docs/INSTALL_SERVER.md). Security requirements are in [`docs/SECURITY.md`](docs/SECURITY.md).
-
-For a complete Docker installation on a private Ubuntu workstation without an
-authentication gateway, follow [`docs/INSTALL_DOCKER_LOCAL.md`](docs/INSTALL_DOCKER_LOCAL.md).
+> **Administration:** For local development and Docker installation, see [`docs/INSTALL_LOCAL.md`](docs/INSTALL_LOCAL.md) and [`docs/INSTALL_SERVER.md`](docs/INSTALL_SERVER.md). Security requirements are in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Preview
 
@@ -78,7 +75,7 @@ This will start both the backend server and the frontend development server.
 
 ## Usage
 
-UnoSim can be run in several modes depending on your use case.
+UnoSim supports two runtime profiles: local development and Docker deployment.
 
 ### Development Mode
 
@@ -90,12 +87,10 @@ Starts the backend (Express + WebSocket) and the Vite dev server with hot-reload
 The backend runs via `tsx` (TypeScript execution) and the client is served by Vite on a separate port with HMR.
 Compilation uses `arduino-cli` directly on the host — Docker is **not** required.
 
-`npm run dev` starts only the backend on the local listener (`127.0.0.1`).
-`npm run dev:lan` starts the same development configuration but explicitly
-listens on `0.0.0.0`, so another device can reach the development server over
-the LAN. LAN mode is an explicit local-development convenience and is not a
-production deployment mode. Both commands use the configured external-example
-source, ref, and host allowlist from the development script.
+`npm run dev` starts only the backend on the local listener (`127.0.0.1`). The
+development profile is single-user and is not a deployment mode. Both commands
+use the configured external-example source, ref, and host allowlist from the
+development script.
 
 The accepted target architecture keeps that server configuration as the
 default, while allowing each browser to select a validated public GitHub
@@ -112,29 +107,28 @@ resolves the ref to a full commit SHA before loading a complete snapshot. See
 | Compiler | Direct `arduino-cli` calls on host |
 | Worker Pool | Disabled (`CompilerWithFallback.usePool = false` outside production) |
 
-### Production Mode
+### Docker Mode
 
 ```bash
 npm run build
 npm run start
 ```
 
-Builds the full stack (client + server + worker) into `dist/` and runs the production server.
-The Vite-built client is served as static files from `dist/public/`.
+Builds the full stack (client + server + worker) into `dist/`. The supported
+production profile runs this server in Docker and executes every simulation in
+a Docker sandbox. The Vite-built client is served as static files from
+`dist/public/`.
 
 | Component | Details |
 |-----------|---------|
 | Backend | `node dist/index.js` on configured `PORT` (default 3000) |
 | Client | Static files from `dist/public/` |
 | Compiler | Configured Worker Pool (Compose reference: 8 parallel workers) |
-| Docker | Required for the documented production `docker-sandbox` simulation mode |
+| Docker | Required for the server container and all simulation sandboxes |
 
-> **Note:** The development/local mode can compile directly with `arduino-cli`.
-> A production deployment using `UNOSIM_SIMULATION_MODE=docker-sandbox` requires
-> a working Docker daemon and the sandbox image; it does not silently downgrade
-> to host-native simulation.
-
-### Docker Mode
+> **Note:** Local development compiles and executes directly on the host. The
+> Docker profile requires a working Docker daemon and sandbox image and never
+> falls back to host-native simulation.
 
 ```bash
 docker build -t unosim-sandbox:latest -f Dockerfile.sandbox .
@@ -151,8 +145,6 @@ requirements as Compose. At minimum, production requires Gateway mode,
 docker run --rm -p 3000:3000 \
    -e NODE_ENV=production \
    -e UNOSIM_SERVER_MODE=docker \
-   -e UNOSIM_SIMULATION_MODE=docker-sandbox \
-   -e UNOSIM_TRUST_MODE=gateway \
    -e UNOSIM_GATEWAY_SECRET='<secret-from-secret-store>' \
    -e UNOSIM_TRUSTED_PROXY='<gateway-ip-or-cidr>' \
    -e UNOSIM_ALLOWED_WS_ORIGINS='https://classroom.example.edu' \
@@ -176,12 +168,10 @@ export UNOSIM_TRUSTED_PROXY="<gateway-ip-or-cidr>"
 export UNOSIM_ALLOWED_WS_ORIGINS="https://classroom.example.edu"
 docker compose up --build
 ```
-Compose starts the UnoSim backend only. It intentionally runs in Gateway mode;
-the four variables above are mandatory and must be supplied by the deployment's
-secret/environment management. A reverse proxy/auth gateway must forward the
-authenticated HTTP and WebSocket requests. For a local browser without such a
-gateway, use the local-trust Docker-simulation command in
-[`docs/INSTALL_LOCAL.md`](docs/INSTALL_LOCAL.md) instead.
+Compose starts the UnoSim backend only. Docker mode always requires an
+authentication gateway; the four variables above are mandatory and must be
+supplied by the deployment's secret/environment management. A reverse
+proxy/auth gateway must forward authenticated HTTP and WebSocket requests.
 Sandbox execution remains dynamic and uses the Docker socket at runtime.
 
 If you need SonarQube, run it separately in its own stack or service; the UnoSim compose file does not include SonarQube or MCP.

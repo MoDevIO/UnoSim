@@ -152,6 +152,10 @@ class MockSandboxRunner {
   flushMessageQueue = vi.fn();
   _sketchDir: string | null = null;
 
+  async initialize(): Promise<void> {
+    // Local-profile test double has no external runtime to initialize.
+  }
+
   async runSketch(options: Record<string, unknown>): Promise<boolean> {
     this.isRunning = true;
     this._state = "running";
@@ -225,7 +229,6 @@ class MockSandboxRunner {
     return {
       dockerAvailable: false,
       dockerImageBuilt: false,
-      mode: "local-limited" as const,
     };
   }
   getSketchDir() {

@@ -5,9 +5,9 @@
  * Values are read from environment variables with sensible defaults.
  * Import this module instead of reading process.env directly.
  *
- * Two axes control the runtime topology:
- *   • Server Mode:     "local" (dev machine) | "docker" (docker-compose)
- *   • Simulation Mode: "local" (native g++ child process) | "docker-sandbox" (isolated container)
+ * One profile controls the complete runtime topology:
+ *   • "local":  server and simulations run on the development host
+ *   • "docker": server runs in Docker and simulations use Docker sandboxes
  */
 import os from "node:os";
 import path from "node:path";
@@ -20,8 +20,83 @@ import { normalizeRepositoryInput } from "./services/examples/source-selection";
 /** Where the UnoSim server itself runs */
 export type ServerMode = "local" | "docker";
 
-/** Where Arduino sketch simulations are executed */
-export type SimulationMode = "local" | "docker-sandbox";
+export interface RuntimeProfile {
+  nodeEnv: string;
+  serverMode: ServerMode;
+  dockerTestBypassGateway: boolean;
+}
+
+const removedRuntimeVariables = [
+  "UNOSIM_SIMULATION_MODE",
+  "UNOSIM_TRUST_MODE",
+  "FORCE_DOCKER",
+  "UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL",
+] as const;
+
+function rejectRemovedRuntimeVariables(env: NodeJS.ProcessEnv): void {
+  for (const key of removedRuntimeVariables) {
+    if (env[key] !== undefined) {
+      throw new Error(`${key} is no longer supported`);
+    }
+  }
+}
+
+function parseNodeEnvironment(env: NodeJS.ProcessEnv): string {
+  const nodeEnv = env.NODE_ENV ?? "development";
+  if (!(["development", "production", "test"] as const).includes(nodeEnv as "development" | "production" | "test")) {
+    throw new Error(
+      `Invalid NODE_ENV: expected development, production, or test, received "${nodeEnv}"`,
+    );
+  }
+  return nodeEnv;
+}
+
+function parseServerMode(env: NodeJS.ProcessEnv, nodeEnv: string): ServerMode {
+  const fallbackMode: ServerMode = nodeEnv === "production" ? "docker" : "local";
+  const rawMode = env.UNOSIM_SERVER_MODE ?? fallbackMode;
+  if (rawMode !== "local" && rawMode !== "docker") {
+    throw new Error(
+      `Invalid UNOSIM_SERVER_MODE: expected one of local, docker, received "${rawMode}"`,
+    );
+  }
+  if (nodeEnv === "production" && rawMode !== "docker") {
+    throw new Error("NODE_ENV=production requires UNOSIM_SERVER_MODE=docker");
+  }
+  if (nodeEnv === "development" && rawMode !== "local") {
+    throw new Error("NODE_ENV=development requires UNOSIM_SERVER_MODE=local");
+  }
+  return rawMode;
+}
+
+function parseDockerTestBypass(
+  env: NodeJS.ProcessEnv,
+  nodeEnv: string,
+  serverMode: ServerMode,
+): boolean {
+  const rawBypass = env.UNOSIM_DOCKER_TEST_BYPASS_GATEWAY;
+  if (rawBypass !== undefined && rawBypass !== "1") {
+    throw new Error("UNOSIM_DOCKER_TEST_BYPASS_GATEWAY must be 1 when enabled");
+  }
+  const dockerTestBypassGateway = rawBypass === "1";
+  if (dockerTestBypassGateway && nodeEnv !== "test") {
+    throw new Error("UNOSIM_DOCKER_TEST_BYPASS_GATEWAY is allowed only with NODE_ENV=test");
+  }
+  if (dockerTestBypassGateway && serverMode !== "docker") {
+    throw new Error("UNOSIM_DOCKER_TEST_BYPASS_GATEWAY is allowed only in docker mode");
+  }
+  return dockerTestBypassGateway;
+}
+
+export function parseRuntimeProfile(env: NodeJS.ProcessEnv): RuntimeProfile {
+  rejectRemovedRuntimeVariables(env);
+  const nodeEnv = parseNodeEnvironment(env);
+  const serverMode = parseServerMode(env, nodeEnv);
+  return {
+    nodeEnv,
+    serverMode,
+    dockerTestBypassGateway: parseDockerTestBypass(env, nodeEnv, serverMode),
+  };
+}
 
 // ── Env-var helpers ─────────────────────────────────────────────────
 
@@ -97,22 +172,30 @@ function envList(key: string, fallback: string[]): string[] {
 
 // ── Derived pool values ─────────────────────────────────────────────
 
+const runtimeProfile = parseRuntimeProfile(process.env);
 const poolMinRunners = envInt("SANDBOX_POOL_MIN_RUNNERS", 5, { min: 0, max: 1000 });
 // In dev (no docker-compose) maxRunners defaults to minRunners for safety.
 // Production sets SANDBOX_POOL_MAX_RUNNERS=100 via docker-compose.yml.
 const poolMaxRunners = envInt("SANDBOX_POOL_MAX_RUNNERS", poolMinRunners, { min: 0, max: 1000 });
-export function validatePoolBounds(minRunners: number, maxRunners: number): void {
+export function validatePoolBounds(
+  minRunners: number,
+  maxRunners: number,
+  serverMode: ServerMode,
+): void {
   if (minRunners > maxRunners) {
     throw new Error(`Invalid sandbox pool configuration: SANDBOX_POOL_MIN_RUNNERS (${minRunners}) must not exceed SANDBOX_POOL_MAX_RUNNERS (${maxRunners})`);
   }
+  if (serverMode === "docker" && minRunners < 1) {
+    throw new Error("Docker mode requires SANDBOX_POOL_MIN_RUNNERS to be at least 1");
+  }
 }
-validatePoolBounds(poolMinRunners, poolMaxRunners);
+validatePoolBounds(poolMinRunners, poolMaxRunners, runtimeProfile.serverMode);
 
 const cwd = process.cwd();
 const cpuCount = os.cpus().length;
 const defaultWorkers = Math.min(8, Math.max(2, Math.floor(cpuCount * 0.5)));
 const defaultCompileMaxConcurrent = Math.max(1, cpuCount - 1);
-const trust = parseTrustConfig(process.env);
+const trust = parseTrustConfig(process.env, runtimeProfile);
 const localWebSocketOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
@@ -229,28 +312,15 @@ if (curriculumSource && process.env.NODE_ENV === "production" && curriculumAllow
 
 export const config = {
   /** Runtime environment name, captured once at startup. */
-  nodeEnv: process.env.NODE_ENV ?? "development",
+  nodeEnv: runtimeProfile.nodeEnv,
   /**
    * Server mode: "local" (dev) or "docker" (docker-compose).
    * Set via UNOSIM_SERVER_MODE env var; falls back to NODE_ENV detection.
    */
-  serverMode: envEnum(
-    "UNOSIM_SERVER_MODE",
-    process.env.NODE_ENV === "production" ? "docker" : "local",
-    ["local", "docker"] as const,
-  ),
+  serverMode: runtimeProfile.serverMode,
 
-  /**
-   * Simulation execution mode.
-   * "docker-sandbox" uses isolated Docker containers per sketch.
-   * "local" compiles and runs sketches as native child processes.
-   * Set via UNOSIM_SIMULATION_MODE or legacy FORCE_DOCKER env var.
-   */
-  simulationMode: envEnum(
-    "UNOSIM_SIMULATION_MODE",
-    envBool("FORCE_DOCKER", false) ? "docker-sandbox" : "local",
-    ["local", "docker-sandbox"] as const,
-  ),
+  /** Test-only gateway bypass for Docker integration tests. */
+  dockerTestBypassGateway: runtimeProfile.dockerTestBypassGateway,
 
   /** True when running under a test framework */
   isTest: process.env.NODE_ENV === "test",
@@ -506,7 +576,6 @@ export function getClientConfig() {
   return {
     ...config.client,
     serverMode: config.serverMode,
-    simulationMode: config.simulationMode,
     tutor: {
       mode: config.tutor.mode,
       provider: config.tutor.provider,

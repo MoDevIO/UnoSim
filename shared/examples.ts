@@ -47,8 +47,6 @@ export const validateExamplesRequestSchema = z.object({
 }).strict();
 
 export type BrowserOverrideSelection = z.infer<typeof browserOverrideSelectionSchema>;
-export type ValidateExamplesRequest = z.infer<typeof validateExamplesRequestSchema>;
-
 export type ExamplesRequestSelection =
   | { kind: "default" }
   | ({ kind: "browser-override" } & BrowserOverrideSelection);
@@ -107,12 +105,6 @@ export interface ExampleDetailResponse {
   files: ExampleFile[];
 }
 
-export interface ValidateExamplesResponse {
-  schemaVersion: 1;
-  valid: true;
-  source: Extract<ExamplesSourceMetadata, { mode: "repository-ref" }>;
-}
-
 export type ExamplesErrorCode =
   | "INVALID_SELECTION"
   | "INVALID_REF"
@@ -122,12 +114,3 @@ export type ExamplesErrorCode =
   | "EXAMPLE_NOT_FOUND"
   | "RATE_LIMITED"
   | "LOAD_CAPACITY_EXCEEDED";
-
-export interface ExamplesErrorResponse {
-  schemaVersion: 1;
-  error: {
-    code: ExamplesErrorCode;
-    message: string;
-    retryAfterSeconds?: number;
-  };
-}
