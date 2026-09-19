@@ -89,11 +89,9 @@ shared/**/*.js
 ##################################
 # 7. DOCUMENTATION & REPORTS     #
 ##################################
-# Temporary one-off reports are archived in /docs/archive/
 # Binary reports and benchmarks should not be committed
 *.csv
 font_size_report_*.md
 benchmark-*.json
-# but keep /docs/archive tracked since it contains organized archives
 
 server/arduino-cache/

@@ -6,7 +6,7 @@
 
 # Konfiguration
 LOG_FILE="run-tests_output.log"
-TOTAL_STEPS=10
+TOTAL_STEPS=11
 STEP=0
 SERVER_PID=""
 REQUIRE_RELEASE_GATE="${REQUIRE_RELEASE_GATE:-0}"

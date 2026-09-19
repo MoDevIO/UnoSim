@@ -97,12 +97,16 @@ async function request(baseUrl: string, method: string, route: string, body?: un
 }
 
 describe("registerRoutes core HTTP behavior", () => {
-  let server: http.Server;
+  let server: http.Server | undefined;
   let baseUrl: string;
 
   afterEach(async () => {
     vi.restoreAllMocks();
-    await new Promise<void>((resolve) => server?.close(() => resolve()));
+    const activeServer = server;
+    server = undefined;
+    if (activeServer) {
+      await new Promise<void>((resolve) => activeServer.close(() => resolve()));
+    }
   });
 
   async function startServer() {
