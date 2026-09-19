@@ -5,6 +5,13 @@
 
 echo "🔍 Starte Qualitäts-Checks vor dem Push..."
 
+# Keep unit and Sonar checks on the supported local test profile, independent
+# of runtime selectors inherited from the caller's shell.
+export NODE_ENV=test
+unset UNOSIM_SIMULATION_MODE UNOSIM_TRUST_MODE FORCE_DOCKER \
+  UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL UNOSIM_DOCKER_TEST_BYPASS_GATEWAY
+export UNOSIM_SERVER_MODE=local
+
 # 1. Schnelle Tests ausführen (Quality Gate – blockierend)
 echo "⏳ Starte npm run test:unit..."
 if npm run test:unit; then
