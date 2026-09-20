@@ -1,6 +1,7 @@
 import express from "express";
 import http from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { config } from "../../../server/config";
 import { registerTutorRoutes } from "../../../server/routes/tutor.routes";
 import { TutorProviderError } from "../../../server/services/tutor/llm-provider";
 
@@ -163,6 +164,24 @@ describe("Tutor HTTP route", () => {
 
     expect(response).toEqual({ status: 200, body: { models: ["pilot-model"] } });
     expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret");
+  });
+
+  it("accepts a personal credential over HTTP in the Docker test gateway bypass profile", async () => {
+    const service = { getAvailableModels: vi.fn().mockResolvedValue(["pilot-model"]) };
+    const originalBypass = config.dockerTestBypassGateway;
+    config.dockerTestBypassGateway = true;
+    try {
+      const listening = await start(service, true);
+      server = listening.server;
+      const response = await post(listening.url, "/api/tutor/models", { credential: "request-only-secret" }, {
+        "x-forwarded-for": "203.0.113.10",
+      });
+
+      expect(response).toEqual({ status: 200, body: { models: ["pilot-model"] } });
+      expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret");
+    } finally {
+      config.dockerTestBypassGateway = originalBypass;
+    }
   });
 
   it("accepts a dialog answer and returns feedback plus exactly one follow-up question", async () => {

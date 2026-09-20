@@ -109,8 +109,9 @@ npm run test:docker
 ```
 
 Der Bypass ist außerhalb von `NODE_ENV=test` und außerhalb des Docker-Profils
-ungültig. Er ändert nur die Authentifizierung; Simulationen bleiben echte
-Docker-Sandboxen. Er ist kein Deploymentmodus.
+ungültig. Er ersetzt im isolierten Testprofil die Gateway-Identität und erlaubt
+dort den persönlichen Tutor-Key auch über die interne HTTP-Verbindung; die
+Simulationen bleiben echte Docker-Sandboxen. Er ist kein Deploymentmodus.
 
 ## Health, Readiness und Status
 

@@ -77,7 +77,7 @@ function isLoopbackRequest(req: Request): boolean {
 }
 
 function hasSafeCredentialTransport(req: Request): boolean {
-  return req.secure || isLoopbackRequest(req);
+  return req.secure || isLoopbackRequest(req) || config.dockerTestBypassGateway;
 }
 
 function requireRequestCredential(req: Request, res: Response, credential: string | undefined): boolean {
