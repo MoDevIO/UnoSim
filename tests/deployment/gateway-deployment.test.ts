@@ -305,7 +305,18 @@ async function main(): Promise<void> {
     const initialStatus = parseJson(statusResponse.body);
     assert.equal(initialStatus.serverMode, "docker");
     assert.equal(initialStatus.sandboxRunners.max, 1);
+    const configResponse = await httpRequest(port, "/api/config");
+    assert.equal(configResponse.statusCode, 200, "authenticated config request through gateway must succeed");
+    assert.deepEqual(parseJson(configResponse.body).tutor, { provider: "kiconnect" });
+    const missingTutorCredential = await httpRequest(port, "/api/tutor/models", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    assert.equal(missingTutorCredential.statusCode, 400);
+    assert.equal(parseJson(missingTutorCredential.body).error.code, "CREDENTIAL_REQUIRED");
     await compose(projectName, env, ["exec", "-T", "unosim-backend", "node", "-e", "process.exit(process.env.UNOSIM_DOCKER_TEST_BYPASS_GATEWAY === undefined ? 0 : 1)"], 20_000);
+    await compose(projectName, env, ["exec", "-T", "unosim-backend", "node", "-e", "process.exit(process.env.UNOSIM_TUTOR_MODE === undefined && process.env.UNOSIM_LLM_API_KEY === undefined ? 0 : 1)"], 20_000);
 
     const spoofedResponse = await httpRequest(port, "/api/status", {
       headers: {

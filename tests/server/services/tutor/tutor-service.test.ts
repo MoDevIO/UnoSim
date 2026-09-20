@@ -22,15 +22,15 @@ void loop() {
 `;
 
 describe("TutorService", () => {
-  it("does not call a provider in managed mode without an explicit server key", async () => {
+  it("requires a personal credential before calling the provider", async () => {
     const provider: LLMProvider = {
       listModels: vi.fn(),
       generateLearningQuestion: vi.fn(),
     };
-    const service = new TutorService(provider, "managed");
+    const service = new TutorService(provider);
 
     await expect(service.generateQuestion(sketch, undefined, undefined)).rejects.toMatchObject({
-      kind: "provider-unavailable",
+      kind: "credential-invalid",
     });
     expect(provider.listModels).not.toHaveBeenCalled();
     expect(provider.generateLearningQuestion).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("TutorService", () => {
         };
       },
     };
-    const service = new TutorService(provider, "user-key");
+    const service = new TutorService(provider);
 
     const result = await service.generateQuestion(sketch, "volatile-key", undefined);
 
@@ -111,7 +111,7 @@ describe("TutorService", () => {
       },
     };
 
-    await new TutorService(provider, "user-key").generateQuestion(sketch, "volatile-key", "old-model");
+    await new TutorService(provider).generateQuestion(sketch, "volatile-key", "old-model");
 
     expect(requests).toEqual(["auto"]);
   });
@@ -139,7 +139,7 @@ describe("TutorService", () => {
       answer: "Der Pin wird HIGH gesetzt.",
     }] as const;
 
-    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+    const result = await new TutorService(provider).generateDialogResponse(
       sketch,
       history,
       "Was passiert an Pin 13?",
@@ -169,7 +169,7 @@ describe("TutorService", () => {
       }),
     };
 
-    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+    const result = await new TutorService(provider).generateDialogResponse(
       sketch,
       [],
       "Was passiert an Pin 13?",
@@ -199,7 +199,7 @@ describe("TutorService", () => {
       }),
     };
 
-    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+    const result = await new TutorService(provider).generateDialogResponse(
       "void setup(){} void loop(){}",
       [],
       "Wie viele Bytes hat ein int auf dem Arduino Uno?",
@@ -243,7 +243,7 @@ describe("TutorService", () => {
       },
     ];
 
-    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+    const result = await new TutorService(provider).generateDialogResponse(
       sketch,
       history,
       "Welche Wirkung hat der HIGH-Pegel an Pin 13?",
@@ -275,7 +275,7 @@ void loop() {}`;
       }),
     };
 
-    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+    const result = await new TutorService(provider).generateDialogResponse(
       serialSketch,
       [],
       "Welche Zeichen ergeben die Werte 65, 66 und 67 im Serial-Output?",
@@ -302,7 +302,7 @@ void loop() {}`;
       }),
     };
 
-    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+    const result = await new TutorService(provider).generateDialogResponse(
       sketch,
       [],
       "Welche Wirkung hat HIGH an Pin 13?",
@@ -330,7 +330,7 @@ void loop() {}`;
       }),
     };
 
-    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+    const result = await new TutorService(provider).generateDialogResponse(
       sketch,
       [],
       "Was passiert an Pin 13?",
@@ -351,7 +351,7 @@ void loop() {}`;
     };
 
     expect(isClearlyNonLearningAnswer("Pizza mit Einhorn")).toBe(true);
-    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+    const result = await new TutorService(provider).generateDialogResponse(
       sketch,
       [],
       "Was passiert an Pin 13?",
@@ -369,7 +369,7 @@ void loop() {}`;
 
   it("asks more directly after repeated nonsense", async () => {
     const provider: LLMProvider = { listModels: vi.fn(), generateLearningQuestion: vi.fn() };
-    const result = await new TutorService(provider, "user-key").generateDialogResponse(
+    const result = await new TutorService(provider).generateDialogResponse(
       sketch,
       [{
         question: "Was passiert?",

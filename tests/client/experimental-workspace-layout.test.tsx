@@ -170,7 +170,7 @@ describe("experimental workspace layout", () => {
     const resetDialog = vi.fn();
     const generateQuestion = vi.fn();
     const tutor: TutorPanelState = {
-      config: { mode: "user-key", provider: "kiconnect" },
+      config: { provider: "kiconnect" },
       credential: "volatile-key",
       setCredential: vi.fn(),
       clearCredential: vi.fn(),
@@ -189,7 +189,6 @@ describe("experimental workspace layout", () => {
         question: "Was beobachtest du?",
         difficulty: 34,
         provider: "kiconnect",
-        mode: "user-key",
         model: "pilot-model",
       },
       history: [],
@@ -327,7 +326,7 @@ describe("experimental workspace layout", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       if (String(input) === "/api/config") {
         return new Response(JSON.stringify({
-          tutor: { mode: "user-key", provider: "kiconnect" },
+          tutor: { provider: "kiconnect" },
         }), { status: 200 });
       }
       if (String(input) === "/api/tutor/models") {

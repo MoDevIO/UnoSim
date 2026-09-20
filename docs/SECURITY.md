@@ -69,8 +69,9 @@ development startup reject the flag.
 - Rate limits and simulation admission use the established request identity.
 - External examples are fetched only from configured allowed hosts, validated
   as a complete snapshot and bound to a resolved commit.
-- Tutor provider credentials stay server-side or request-scoped in browser
-  memory according to the configured tutor mode.
+- Tutor credentials are request-scoped personal KI:connect keys held only in
+  browser memory; local loopback HTTP is allowed and deployed traffic must use
+  HTTPS through the gateway.
 - Secrets, sketch source, cookies and raw identity-provider claims must not be
   logged.
 

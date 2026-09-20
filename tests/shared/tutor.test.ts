@@ -5,6 +5,7 @@ import {
   tutorContentResultSchema,
   tutorDialogRequestSchema,
   tutorQuestionRequestSchema,
+  tutorResponseSchema,
 } from "../../shared/tutor";
 
 describe("Tutor contracts", () => {
@@ -41,6 +42,19 @@ describe("Tutor contracts", () => {
       question: "Worauf möchtest du zurückkommen?",
       answerRating: 1,
     })).toThrow();
+  });
+
+  it("accepts tutor responses with the fixed provider contract", () => {
+    expect(tutorResponseSchema.parse({
+      question: "Welche Ausgabe erwartest du?",
+      provider: "kiconnect",
+      model: "pilot-model",
+    })).toMatchObject({
+      question: "Welche Ausgabe erwartest du?",
+      provider: "kiconnect",
+      model: "pilot-model",
+      responseStyle: "normal",
+    });
   });
 
   it("adapts effective difficulty deterministically with damping and boundaries", () => {

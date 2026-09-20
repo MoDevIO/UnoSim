@@ -4,5 +4,5 @@ import type { LLMProvider } from "./llm-provider";
 
 /** Composition root: concrete optional planning extensions stay outside TutorService. */
 export function createTutorService(provider: LLMProvider): TutorService {
-  return new TutorService(provider, undefined, new CurriculumTutorAdapter());
+  return new TutorService(provider, new CurriculumTutorAdapter());
 }

@@ -27,7 +27,7 @@ const provider = {
 
 describe("TutorPlanningExtension port", () => {
   it("lets TutorService operate without an extension", async () => {
-    const service = new TutorService(provider, "user-key");
+    const service = new TutorService(provider);
     const result = await service.generateQuestion("void setup(){} void loop(){}", "key", undefined, 30);
     expect(result.result.question).toBe("Providerfrage");
   });
@@ -37,7 +37,7 @@ describe("TutorPlanningExtension port", () => {
       planInitial: vi.fn().mockResolvedValue(plan),
       planFollowup: vi.fn().mockResolvedValue(null),
     };
-    const service = new TutorService(provider, "user-key", extension);
+    const service = new TutorService(provider, extension);
     const initial = await service.generateQuestion("void setup(){} void loop(){}", "key", undefined, 30);
     expect(initial.result.questionId).toBe("question-one");
     const followup = await service.generateDialogResponse("void setup(){} void loop(){}", [], plan.question, "Antwort", "key", undefined, 30);

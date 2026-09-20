@@ -136,8 +136,7 @@ function getWorkspaceColumnClassName(column: WorkspaceColumn): string {
 }
 
 function canTutorRequest(tutor: TutorPanelState): boolean {
-  const credentialConfigured = tutor.config.mode === "managed" || tutor.credential.length > 0;
-  return tutor.config.mode !== "disabled" && (tutor.config.mode === "managed" || credentialConfigured);
+  return tutor.credential.trim().length > 0;
 }
 
 export function WorkspaceVisibilityControls({
@@ -302,13 +301,12 @@ function TutorPanelContent({
   readonly showKeyView: boolean;
   readonly setShowKeyView: (value: boolean) => void;
 }) {
-  const { config } = tutor;
-  const credentialConfigured = config.mode === "managed" || tutor.credential.length > 0;
+  const credentialConfigured = tutor.credential.trim().length > 0;
   const canRequest = canTutorRequest(tutor);
   const dialogScrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const autoLoadedForRef = useRef<string | null>(null);
-  const modelLoadKey = config.mode === "user-key" ? tutor.credential : config.mode;
+  const modelLoadKey = tutor.credential;
 
   useEffect(() => {
     if (!showKeyView) {
@@ -344,25 +342,22 @@ function TutorPanelContent({
     return (
       <div className="flex flex-1 min-h-0 flex-col overflow-auto p-4 text-left" data-testid="tutor-api-key-view">
         <div className="mx-auto w-full max-w-xl rounded-md border border-border/70 bg-muted/20 p-4">
-          {config.mode === "user-key" && (
-            <div>
-              <label htmlFor="tutor-api-key" className="text-ui-xs font-medium text-foreground">API key</label>
-              <div className="mt-1 flex gap-2">
-                <input
-                  id="tutor-api-key"
-                  type="password"
-                  value={tutor.credential}
-                  onChange={(event) => tutor.setCredential(event.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
+          <div>
+            <label htmlFor="tutor-api-key" className="text-ui-xs font-medium text-foreground">API key</label>
+            <div className="mt-1 flex gap-2">
+              <input
+                id="tutor-api-key"
+                type="password"
+                value={tutor.credential}
+                onChange={(event) => tutor.setCredential(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
             </div>
-          )}
+          </div>
 
-          {config.mode !== "disabled" && (
-            <div className={config.mode === "user-key" ? "mt-4" : undefined}>
+          <div className="mt-4">
               <label htmlFor="tutor-model" className="text-ui-xs font-medium text-foreground">Model</label>
               <select
                 id="tutor-model"
@@ -386,8 +381,7 @@ function TutorPanelContent({
                 className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground"
                 title="Session start difficulty: 1 very easy, 100 very hard"
               />
-            </div>
-          )}
+          </div>
 
           <Button
             type="button"

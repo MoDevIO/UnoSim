@@ -135,14 +135,6 @@ export function parseListenHost(
   return host || defaultHost;
 }
 
-function envEnum<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
-  const value = envStr(key, fallback);
-  if (!allowed.includes(value as T)) {
-    throw new Error(`Invalid ${key}: expected one of ${allowed.join(", ")}, received "${value}"`);
-  }
-  return value as T;
-}
-
 function envBool(key: string, fallback: boolean): boolean {
   const v = process.env[key];
   if (v === undefined) return fallback;
@@ -510,10 +502,8 @@ export const config = {
   // ── Tutor / LLM ────────────────────────────────────────────────
 
   tutor: {
-    /** Optional learning-question feature mode. The pilot uses request-scoped user keys. */
-    mode: envEnum("UNOSIM_TUTOR_MODE", "disabled", ["disabled", "user-key", "managed"] as const),
-    /** Provider identifier exposed to the client for transparency. */
-    provider: envEnum("UNOSIM_LLM_PROVIDER", "kiconnect", ["kiconnect"] as const),
+    /** The Tutor always uses the user's personal KI:connect credential. */
+    provider: "kiconnect" as const,
     /** Server-controlled OpenAI-compatible provider base URL. */
     baseUrl: stripTrailingSlashes(envStr("UNOSIM_LLM_BASE_URL", "https://chat.kiconnect.nrw/api/v1")),
     /** Provider request timeout; no provider call may outlive this window. */
@@ -522,8 +512,6 @@ export const config = {
     rateLimitWindowMs: envInt("TUTOR_RATE_LIMIT_WINDOW_MS", 60_000, { min: 1_000, max: 86_400_000 }),
     rateLimitMaxRequests: envInt("TUTOR_RATE_LIMIT_MAX_REQUESTS", 20, { min: 1, max: 100 }),
     rateLimitBlockDurationMs: envInt("TUTOR_RATE_LIMIT_BLOCK_DURATION_MS", 30_000, { min: 1_000, max: 86_400_000 }),
-    /** Managed mode secret; never included in getClientConfig(). */
-    managedApiKey: process.env.UNOSIM_LLM_API_KEY,
     curriculum: {
       /** Server-side HTTPS base URL for the pinned curriculum repository. */
       source: curriculumSource,
@@ -577,7 +565,6 @@ export function getClientConfig() {
     ...config.client,
     serverMode: config.serverMode,
     tutor: {
-      mode: config.tutor.mode,
       provider: config.tutor.provider,
     },
   };

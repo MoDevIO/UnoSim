@@ -36,28 +36,12 @@ describe("useTutor", () => {
     expect(result.current.effectiveDifficulty).toBe(TUTOR_DEFAULT_DIFFICULTY);
   });
 
-  it("does not call Tutor endpoints while the server keeps the feature disabled", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      tutor: { mode: "disabled", provider: "kiconnect" },
-    }), { status: 200 }));
-    const { result } = renderHook(() => useTutor());
-
-    await waitFor(() => expect(result.current.config.mode).toBe("disabled"));
-    await act(async () => {
-      await result.current.loadModels();
-      await result.current.generateQuestion("void setup(){} void loop(){}");
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(result.current.error).toContain("disabled");
-  });
-
   it("keeps the personal key in memory and sends it only with the tutor request", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
       if (url === "/api/config") {
         return new Response(JSON.stringify({
-          tutor: { mode: "user-key", provider: "kiconnect" },
+          tutor: { provider: "kiconnect" },
         }), { status: 200 });
       }
       if (url === "/api/tutor/models") {
@@ -66,13 +50,12 @@ describe("useTutor", () => {
       return new Response(JSON.stringify({
         question: "Welche Ausgabe erwartest du?",
         provider: "kiconnect",
-        mode: "user-key",
         model: "pilot-model",
       }), { status: 200 });
     });
     const { result } = renderHook(() => useTutor());
 
-    await waitFor(() => expect(result.current.config.mode).toBe("user-key"));
+    await waitFor(() => expect(result.current.config.provider).toBe("kiconnect"));
     act(() => result.current.setCredential("volatile-key"));
     await act(async () => {
       await result.current.loadModels();
@@ -92,11 +75,11 @@ describe("useTutor", () => {
 
   it("does not call the backend without a personal key", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      tutor: { mode: "user-key", provider: "kiconnect" },
+      tutor: { provider: "kiconnect" },
     }), { status: 200 }));
     const { result } = renderHook(() => useTutor());
 
-    await waitFor(() => expect(result.current.config.mode).toBe("user-key"));
+    await waitFor(() => expect(result.current.config.provider).toBe("kiconnect"));
     await act(async () => {
       await result.current.generateQuestion("void setup(){} void loop(){}");
     });
@@ -107,7 +90,7 @@ describe("useTutor", () => {
 
   it("clamps configured client difficulty changes to 1..100", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      tutor: { mode: "disabled", provider: "kiconnect" },
+      tutor: { provider: "kiconnect" },
     }), { status: 200 }));
     const { result } = renderHook(() => useTutor());
 
@@ -126,7 +109,7 @@ describe("useTutor", () => {
       const url = String(input);
       if (url === "/api/config") {
         return new Response(JSON.stringify({
-          tutor: { mode: "user-key", provider: "kiconnect" },
+          tutor: { provider: "kiconnect" },
         }), { status: 200 });
       }
       if (url === "/api/tutor/models") {
@@ -136,7 +119,6 @@ describe("useTutor", () => {
         return new Response(JSON.stringify({
           question: "Was beobachtest du an Pin 13?",
           provider: "kiconnect",
-          mode: "user-key",
           model: "pilot-model",
         }), { status: 200 });
       }
@@ -145,13 +127,12 @@ describe("useTutor", () => {
         answerRating: 4,
         question: "Woran würdest du das als Nächstes prüfen?",
         provider: "kiconnect",
-        mode: "user-key",
         model: "pilot-model",
       }), { status: 200 });
     });
     const { result } = renderHook(() => useTutor());
 
-    await waitFor(() => expect(result.current.config.mode).toBe("user-key"));
+    await waitFor(() => expect(result.current.config.provider).toBe("kiconnect"));
     act(() => result.current.setCredential("volatile-key"));
     act(() => result.current.setConfiguredDifficulty(70));
     await act(async () => {
@@ -205,7 +186,6 @@ describe("useTutor", () => {
         responseStyle: "normal",
         question: "Nächste normale Frage?",
         provider: "kiconnect",
-        mode: "user-key",
         model: "pilot-model",
       },
       {
@@ -213,18 +193,16 @@ describe("useTutor", () => {
         responseStyle: "philosophical",
         question: "Zurück zum Sketch?",
         provider: "kiconnect",
-        mode: "user-key",
         model: "fallback",
       },
     ];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
-      if (url === "/api/config") return new Response(JSON.stringify({ tutor: { mode: "user-key", provider: "kiconnect" } }), { status: 200 });
+      if (url === "/api/config") return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }), { status: 200 });
       if (url === "/api/tutor/question") {
         return new Response(JSON.stringify({
           question: "Was passiert an Pin 13?",
           provider: "kiconnect",
-          mode: "user-key",
           model: "pilot-model",
         }), { status: 200 });
       }
@@ -232,7 +210,7 @@ describe("useTutor", () => {
     });
     const { result } = renderHook(() => useTutor());
 
-    await waitFor(() => expect(result.current.config.mode).toBe("user-key"));
+    await waitFor(() => expect(result.current.config.provider).toBe("kiconnect"));
     act(() => result.current.setCredential("volatile-key"));
     act(() => result.current.setConfiguredDifficulty(50));
     await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
@@ -255,12 +233,11 @@ describe("useTutor", () => {
     let questionNumber = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
-      if (url === "/api/config") return new Response(JSON.stringify({ tutor: { mode: "user-key", provider: "kiconnect" } }), { status: 200 });
+      if (url === "/api/config") return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }), { status: 200 });
       if (url === "/api/tutor/question") {
         return new Response(JSON.stringify({
           question: "Was passiert im Sketch?",
           provider: "kiconnect",
-          mode: "user-key",
           model: "pilot-model",
         }), { status: 200 });
       }
@@ -273,7 +250,6 @@ describe("useTutor", () => {
           answerRating: 2,
           question: `Kleiner Schritt ${questionNumber}?`,
           provider: "kiconnect",
-          mode: "user-key",
           model: "pilot-model",
         }), { status: 200 });
       }
@@ -281,7 +257,7 @@ describe("useTutor", () => {
     });
     const { result } = renderHook(() => useTutor());
 
-    await waitFor(() => expect(result.current.config.mode).toBe("user-key"));
+    await waitFor(() => expect(result.current.config.provider).toBe("kiconnect"));
     act(() => result.current.setCredential("volatile-key"));
     act(() => result.current.setConfiguredDifficulty(50));
     await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
@@ -301,13 +277,12 @@ describe("useTutor", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
       if (url === "/api/config") {
-        return new Response(JSON.stringify({ tutor: { mode: "user-key", provider: "kiconnect" } }), { status: 200 });
+        return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }), { status: 200 });
       }
       if (url === "/api/tutor/question") {
         return new Response(JSON.stringify({
           question: "Was passiert?",
           provider: "kiconnect",
-          mode: "user-key",
           model: "pilot-model",
         }), { status: 200 });
       }
@@ -318,7 +293,6 @@ describe("useTutor", () => {
             feedback: "Erster Schritt.",
             question: "Und jetzt?",
             provider: "kiconnect",
-            mode: "user-key",
             model: "pilot-model",
           }), { status: 200 });
         }
@@ -328,7 +302,7 @@ describe("useTutor", () => {
     });
     const { result } = renderHook(() => useTutor());
 
-    await waitFor(() => expect(result.current.config.mode).toBe("user-key"));
+    await waitFor(() => expect(result.current.config.provider).toBe("kiconnect"));
     act(() => result.current.setCredential("volatile-key"));
     await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
     act(() => result.current.setAnswer("Erste Überlegung"));

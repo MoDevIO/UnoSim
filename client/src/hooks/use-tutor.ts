@@ -10,13 +10,11 @@ import {
   tutorResponseSchema,
   type TutorAnswerRating,
   type TutorDifficulty,
-  type TutorMode,
   type TutorResponse,
 } from "@shared/tutor";
 import { INPUT_LIMITS } from "@shared/input-limits";
 
 interface TutorConfig {
-  readonly mode: TutorMode;
   readonly provider: string;
 }
 
@@ -48,13 +46,11 @@ export interface TutorPanelState {
 }
 
 const DEFAULT_CONFIG: TutorConfig = {
-  mode: "disabled",
   provider: "kiconnect",
 };
 
 function getErrorMessage(body: unknown): string {
   const errorMessages: Record<string, string> = {
-    TUTOR_DISABLED: "The Tutor feature is disabled.",
     CREDENTIAL_REQUIRED: "Enter your personal Tutor API key first.",
     CREDENTIAL_INVALID: "The Tutor access was rejected.",
     PROVIDER_UNAVAILABLE: "The Tutor service is currently unavailable.",
@@ -80,23 +76,20 @@ function getErrorMessage(body: unknown): string {
 }
 
 function getSubmitAnswerValidationError({
-  mode,
   question,
   code,
   answer,
   credential,
 }: {
-  mode: TutorMode;
   question: TutorResponse | null;
   code: string;
   answer: string;
   credential: string;
 }): string | undefined {
-  if (mode === "disabled") return "The Tutor feature is disabled.";
   if (!question) return "Generate a learning question first.";
   if (!code.trim()) return "Open a sketch with source code first.";
   if (!answer.trim()) return "Write an answer first.";
-  if (mode === "user-key" && !credential.trim()) return "Enter your personal Tutor API key first.";
+  if (!credential.trim()) return "Enter your personal Tutor API key first.";
   return undefined;
 }
 
@@ -180,7 +173,6 @@ export function useTutor(): TutorPanelState {
       .then((data) => {
         if (cancelled || !data.tutor) return;
         setConfig({
-          mode: data.tutor.mode ?? DEFAULT_CONFIG.mode,
           provider: data.tutor.provider ?? DEFAULT_CONFIG.provider,
         });
       })
@@ -200,11 +192,7 @@ export function useTutor(): TutorPanelState {
 
   const loadModels = useCallback(async () => {
     setError(null);
-    if (config.mode === "disabled") {
-      setError("The Tutor feature is disabled.");
-      return;
-    }
-    if (config.mode === "user-key" && !credential.trim()) {
+    if (!credential.trim()) {
       setError("Enter your personal Tutor API key first.");
       return;
     }
@@ -215,7 +203,7 @@ export function useTutor(): TutorPanelState {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config.mode === "user-key" ? { credential } : {}),
+        body: JSON.stringify({ credential }),
       });
       const body: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(getErrorMessage(body));
@@ -230,19 +218,15 @@ export function useTutor(): TutorPanelState {
     } finally {
       setModelsLoading(false);
     }
-  }, [config.mode, credential]);
+  }, [credential]);
 
   const requestQuestion = useCallback(async (code: string, requestDifficulty: TutorDifficulty) => {
     setError(null);
-    if (config.mode === "disabled") {
-      setError("The Tutor feature is disabled.");
-      return;
-    }
     if (!code.trim()) {
       setError("Open a sketch with source code first.");
       return;
     }
-    if (config.mode === "user-key" && !credential.trim()) {
+    if (!credential.trim()) {
       setError("Enter your personal Tutor API key first.");
       return;
     }
@@ -257,7 +241,7 @@ export function useTutor(): TutorPanelState {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code,
-          ...(config.mode === "user-key" ? { credential } : {}),
+          credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: requestDifficulty,
         }),
@@ -274,7 +258,7 @@ export function useTutor(): TutorPanelState {
     } finally {
       setIsLoading(false);
     }
-  }, [availableModels, config.mode, credential, selectedModel]);
+  }, [availableModels, credential, selectedModel]);
 
   const resetDialog = useCallback(() => {
     setHistory([]);
@@ -296,7 +280,6 @@ export function useTutor(): TutorPanelState {
   const submitAnswer = useCallback(async (code: string) => {
     setError(null);
     const validationError = getSubmitAnswerValidationError({
-      mode: config.mode,
       question,
       code,
       answer,
@@ -324,7 +307,7 @@ export function useTutor(): TutorPanelState {
           history: currentHistory,
           question: currentQuestion,
           answer: submittedAnswer,
-          ...(config.mode === "user-key" ? { credential } : {}),
+          credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: effectiveDifficulty,
         }),
@@ -352,7 +335,7 @@ export function useTutor(): TutorPanelState {
     } finally {
       setIsLoading(false);
     }
-  }, [answer, availableModels, config.mode, credential, effectiveDifficulty, history, question, selectedModel]);
+  }, [answer, availableModels, credential, effectiveDifficulty, history, question, selectedModel]);
 
   const updateConfiguredDifficulty = useCallback((value: number) => {
     const nextDifficulty = clampTutorDifficulty(value);

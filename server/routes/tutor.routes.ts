@@ -25,7 +25,7 @@ type TutorRouteDeps = {
 function responseError(
   res: Response,
   status: number,
-  code: "TUTOR_DISABLED" | "CREDENTIAL_REQUIRED" | "CREDENTIAL_INVALID" | "PROVIDER_UNAVAILABLE" | "PROVIDER_TIMEOUT" | "RATE_LIMITED" | "MODEL_UNAVAILABLE" | "INVALID_PROVIDER_RESPONSE" | "INVALID_REQUEST",
+  code: "CREDENTIAL_REQUIRED" | "CREDENTIAL_INVALID" | "PROVIDER_UNAVAILABLE" | "PROVIDER_TIMEOUT" | "RATE_LIMITED" | "MODEL_UNAVAILABLE" | "INVALID_PROVIDER_RESPONSE" | "INVALID_REQUEST",
   message: string,
   retryAfter?: number,
 ): void {
@@ -81,11 +81,11 @@ function hasSafeCredentialTransport(req: Request): boolean {
 }
 
 function requireRequestCredential(req: Request, res: Response, credential: string | undefined): boolean {
-  if (config.tutor.mode === "user-key" && !credential?.trim()) {
+  if (!credential?.trim()) {
     responseError(res, 400, "CREDENTIAL_REQUIRED", "Für den Pilotbetrieb wird ein persönlicher Tutor-Key benötigt.");
     return false;
   }
-  if (config.tutor.mode === "user-key" && !hasSafeCredentialTransport(req)) {
+  if (!hasSafeCredentialTransport(req)) {
     responseError(res, 400, "INVALID_REQUEST", "Persönliche Tutor-Keys werden außerhalb von Loopback nur über HTTPS übertragen.");
     return false;
   }
@@ -98,10 +98,6 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
   const rateLimiter = deps.rateLimiter ?? (deps.disableRateLimit ? undefined : getTutorRateLimiter());
 
   app.post("/api/tutor/question", async (req, res) => {
-    if (config.tutor.mode === "disabled") {
-      responseError(res, 404, "TUTOR_DISABLED", "Das Tutor-Feature ist deaktiviert.");
-      return;
-    }
     if (!enforceTutorRateLimit(res, { ...deps, rateLimiter })) return;
 
     const parsed = tutorQuestionRequestSchema.safeParse(req.body);
@@ -121,7 +117,6 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
       res.json({
         ...generated.result,
         provider: config.tutor.provider,
-        mode: config.tutor.mode,
         model: generated.model,
       });
     } catch (error) {
@@ -135,10 +130,6 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
   });
 
   app.post("/api/tutor/models", async (req, res) => {
-    if (config.tutor.mode === "disabled") {
-      responseError(res, 404, "TUTOR_DISABLED", "Das Tutor-Feature ist deaktiviert.");
-      return;
-    }
     if (!enforceTutorRateLimit(res, { ...deps, rateLimiter })) return;
 
     const parsed = tutorModelsRequestSchema.safeParse(req.body);
@@ -162,10 +153,6 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
   });
 
   app.post("/api/tutor/dialog", async (req, res) => {
-    if (config.tutor.mode === "disabled") {
-      responseError(res, 404, "TUTOR_DISABLED", "Das Tutor-Feature ist deaktiviert.");
-      return;
-    }
     if (!enforceTutorRateLimit(res, { ...deps, rateLimiter })) return;
 
     const parsed = tutorDialogRequestSchema.safeParse(req.body);
@@ -188,7 +175,6 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
       res.json({
         ...generated.result,
         provider: config.tutor.provider,
-        mode: config.tutor.mode,
         model: generated.model,
       });
     } catch (error) {

@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { INPUT_LIMITS } from "./input-limits";
 
-export const tutorModeSchema = z.enum(["disabled", "user-key", "managed"]);
-export type TutorMode = z.infer<typeof tutorModeSchema>;
-
 export const tutorModelSchema = z
   .string()
   .regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/, "Invalid tutor model identifier");
@@ -157,7 +154,6 @@ export const tutorDialogRequestSchema = z
 
 const tutorResponseFields = {
   provider: z.string().min(1).max(64),
-  mode: z.enum(["user-key", "managed"]),
   model: z.string().min(1).max(128),
 };
 

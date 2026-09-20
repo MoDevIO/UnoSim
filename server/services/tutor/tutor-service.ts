@@ -6,11 +6,9 @@ import {
   type TutorContentResult,
   type TutorDifficulty,
   type TutorAnswerRating,
-  type TutorMode,
   TUTOR_DEFAULT_DIFFICULTY,
 } from "@shared/tutor";
 import { INPUT_LIMITS } from "@shared/input-limits";
-import { config } from "../../config";
 import {
   TutorProviderError,
   type LLMProvider,
@@ -412,7 +410,6 @@ function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): Tutor
 export class TutorService {
   constructor(
     private readonly provider: LLMProvider,
-    private readonly mode: TutorMode = config.tutor.mode,
     private readonly planningExtension?: TutorPlanningExtension,
   ) {}
 
@@ -422,8 +419,6 @@ export class TutorService {
     requestedModel: string | undefined,
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
   ): Promise<{ result: TutorContentResult; model: string }> {
-    if (this.mode === "disabled") throw new TutorProviderError("provider-unavailable");
-
     const requestCredential = this.resolveCredential(credential);
     const context = buildTutorContext(code);
     const planningResult = this.planningExtension
@@ -455,7 +450,6 @@ export class TutorService {
     requestedModel: string | undefined,
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
   ): Promise<{ result: TutorContentResult; model: string }> {
-    if (this.mode === "disabled") throw new TutorProviderError("provider-unavailable");
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
     if (isClearlyNonLearningAnswer(answer)) {
@@ -491,15 +485,14 @@ export class TutorService {
   }
 
   async getAvailableModels(credential: string | undefined): Promise<readonly string[]> {
-    if (this.mode === "disabled") throw new TutorProviderError("provider-unavailable");
     const requestCredential = this.resolveCredential(credential);
     return this.provider.listModels(requestCredential);
   }
 
   private resolveCredential(credential: string | undefined): string {
-    const requestCredential = this.mode === "user-key" ? credential?.trim() : config.tutor.managedApiKey;
+    const requestCredential = credential?.trim();
     if (!requestCredential) {
-      throw new TutorProviderError(this.mode === "managed" ? "provider-unavailable" : "credential-invalid");
+      throw new TutorProviderError("credential-invalid");
     }
     return requestCredential;
   }

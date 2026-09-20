@@ -227,7 +227,7 @@ describe("repository tutor curriculum", () => {
         result: { question: "Welche Folge erwartest du?" },
       }),
     };
-    const service = new TutorService(provider, "user-key");
+    const service = new TutorService(provider);
     const result = await service.generateQuestion("void setup(){} void loop(){}", "volatile-key", undefined, 30);
     expect(result.result.question).toBe("Welche Folge erwartest du?");
     expect(result.result).not.toHaveProperty("questionId");
@@ -243,7 +243,7 @@ describe("repository tutor curriculum", () => {
         result: { question: "Providerfrage" },
       }),
     };
-    const service = new TutorService(provider, "user-key", new CurriculumTutorAdapter({
+    const service = new TutorService(provider, new CurriculumTutorAdapter({
       repository: new StaticDidacticContentRepository(snapshot(topic)),
     }));
     const result = await service.generateQuestion("int values[] = {1, 2};", "volatile-key", undefined, 30);
@@ -269,7 +269,7 @@ describe("repository tutor curriculum", () => {
         },
       }),
     };
-    const service = new TutorService(provider, "user-key", new CurriculumTutorAdapter({
+    const service = new TutorService(provider, new CurriculumTutorAdapter({
       repository: new StaticDidacticContentRepository(snapshot(topic)),
     }));
     const currentQuestion = "Wie kann derselbe gespeicherte Zahlenwert je nach Datentyp unterschiedlich interpretiert oder ausgegeben werden?";

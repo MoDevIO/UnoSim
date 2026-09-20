@@ -87,7 +87,7 @@ describe("central configuration validation", () => {
   it("exposes only non-secret tutor configuration to the browser", () => {
     const clientConfig = getClientConfig();
     expect(clientConfig).not.toHaveProperty("simulationMode");
-    expect(clientConfig.tutor).toMatchObject({ mode: "disabled", provider: "kiconnect" });
+    expect(clientConfig.tutor).toEqual({ provider: "kiconnect" });
     expect(clientConfig.tutor).not.toHaveProperty("baseUrl");
     expect(clientConfig.tutor).not.toHaveProperty("managedApiKey");
   });

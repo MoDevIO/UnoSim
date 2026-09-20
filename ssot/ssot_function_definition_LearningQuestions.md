@@ -363,19 +363,11 @@ API-Keys, Authorization-Daten und technische Sitzungsgeheimnisse sind kein Dialo
 
 ---
 
-## 5. Betriebsmodi
+## 5. Tutor-Vertrag
 
-Das Feature soll drei logisch getrennte Betriebsmodi unterstützen.
-
-### 5.1 `disabled`
-
-Das Lernfragen-Panel bzw. seine LLM-Funktion ist deaktiviert.
-
-Es werden keine externen LLM-Anfragen ausgeführt.
-
-### 5.2 `user-key`
-
-Pilot- und Lehrveranstaltungsmodus.
+Der KI-Tutor ist Bestandteil von UnoSim und verwendet den Provider KI:connect.
+Es gibt keinen Runtime-Schalter zum Deaktivieren und keinen Managed-Credential-Modus.
+Nutzer geben einen persönlichen API-Key ein.
 
 Der Nutzer gibt einen persönlichen API-Key flüchtig in UnoSim ein.
 
@@ -392,17 +384,7 @@ Eigenschaften:
 - Das Backend verwendet ihn ausschließlich request-scoped zum Aufruf des konfigurierten Providers.
 - Der Key darf weder serverseitig gespeichert noch geloggt werden.
 
-Dieser Modus ist insbesondere für Pilotgruppen geeignet, in denen Studierende bereits persönliche institutionelle API-Keys besitzen.
-
-### 5.3 `managed`
-
-Zukünftiger institutioneller Betriebsmodus.
-
-Die Hochschule bzw. der Betreiber stellt Provider und Credentials serverseitig bereit.
-
-Der Browser benötigt dann keinen persönlichen API-Key.
-
-Das Frontend-Verhalten des Lernfragen-Panels soll gegenüber `user-key` möglichst unverändert bleiben.
+Der persönliche Schlüssel bleibt auf Pilot- und Lehrveranstaltungsgeräte beschränkt und wird nur request-scoped verwendet.
 
 ---
 
@@ -433,9 +415,7 @@ TutorService
        │
        ▼
 LLMProvider
-       ├── KI:connect / OpenAI-kompatibler Provider
-       ├── Academic-Cloud-/Hochschulprovider
-       └── weitere kompatible Provider
+       └── KI:connect / OpenAI-kompatibler Provider
 ```
 
 Der Browser DARF den externen Provider nicht direkt ansprechen.
@@ -468,22 +448,14 @@ Provider-spezifische URLs, Modelle, Authentifizierungsdetails und Response-Forma
 Für einen ersten technischen Pilot sind beispielsweise folgende serverseitige Konfigurationswerte zulässig:
 
 ```text
-UNOSIM_TUTOR_MODE=user-key
-UNOSIM_LLM_PROVIDER=kiconnect
 UNOSIM_LLM_BASE_URL=<provider endpoint>
-```
-
-Für einen späteren Managed-Betrieb kann zusätzlich ein serverseitiges Secret verwendet werden:
-
-```text
-UNOSIM_LLM_API_KEY=<managed secret>
 ```
 
 Die konkreten Namen dürfen bei der Implementierung an die bestehende UnoSim-Konfigurationssystematik angepasst werden. Entscheidend ist die Trennung zwischen fachlichem Tutor-Vertrag und Provider-Konfiguration.
 
 ### 7.2 Keine frei wählbare Provider-URL durch Studierende
 
-Im `user-key`-Modus darf der Nutzer nur das Credential eingeben.
+Der Nutzer darf nur das persönliche Credential eingeben.
 
 Provider-Basis-URL und erlaubtes Modell werden serverseitig festgelegt. Dadurch werden beliebige Proxy-/SSRF-Ziele und nicht freigegebene Provider vermieden.
 
@@ -561,7 +533,6 @@ interface TutorResponse {
   answerRating?: 1 | 2 | 3 | 4 | 5;
   mermaid?: string;
   provider: string;
-  mode: "user-key" | "managed";
   model: string;
 }
 ```
@@ -717,7 +688,7 @@ Die vorhandene responsive UnoSim-Architektur soll weiterverwendet und nur um den
 Das Tutor-Panel benötigt mindestens:
 
 - Status des Tutor-Features,
-- bei `user-key`: flüchtige API-Key-Eingabe,
+- flüchtige persönliche API-Key-Eingabe,
 - einklappbaren Zugangsdaten-/Providerbereich,
 - eingeklappt nur eine kompakte Anzeige von Provider, Modell und Zugangsstatus,
 - Anzeige genau einer aktuellen Tutorfrage,
@@ -798,8 +769,6 @@ Das Zurücksetzen darf keine automatische neue LLM-Anfrage auslösen.
 
 ## 11. Request-Flow
 
-### 11.1 `user-key`
-
 ```text
 1. Nutzer öffnet Lernfragen-Panel.
 2. Nutzer trägt persönlichen API-Key ein.
@@ -814,11 +783,7 @@ Das Zurücksetzen darf keine automatische neue LLM-Anfrage auslösen.
 11. Frontend zeigt ausschließlich die freigegebene Lernfrage an.
 ```
 
-### 11.2 `managed`
-
-Der Ablauf ist identisch, nur wird kein persönliches Credential aus dem Browser übertragen. Der Server verwendet sein verwaltetes Provider-Credential.
-
-### 11.3 Folgefrage im sokratischen Dialog
+### 11.2 Folgefrage im sokratischen Dialog
 
 1. Das Frontend hält Frage, Antwortentwurf und begrenzte Dialoghistorie ausschließlich im Browser-RAM.
 2. Der Nutzer gibt eine Antwort ein und löst `Antwort senden` bewusst aus.
@@ -853,7 +818,7 @@ Sie dürfen niemals:
 
 ### 12.2 Transport
 
-Der `user-key`-Modus darf außerhalb von Loopback-Entwicklung nur über HTTPS verwendet werden.
+Ein persönlicher Key darf außerhalb von Loopback-Entwicklung nur über HTTPS verwendet werden.
 
 Ein persönlicher API-Key darf nicht über unverschlüsseltes LAN-/Internet-HTTP an einen UnoSim-Server übertragen werden.
 
@@ -950,8 +915,7 @@ Die Implementierung gilt erst als korrekt, wenn automatisierte Tests mindestens 
 
 ### 16.1 Frontend
 
-- `disabled`: keine LLM-Anfrage möglich,
-- `user-key`: Key kann flüchtig eingegeben werden,
+- Tutor ist immer verfügbar und der persönliche Key kann flüchtig eingegeben werden,
 - Key wird nicht in Browser-Storage gespeichert,
 - Reload-/Remount-Zustand enthält keinen Key,
 - Key kann explizit gelöscht werden,
@@ -985,8 +949,7 @@ Die Implementierung gilt erst als korrekt, wenn automatisierte Tests mindestens 
 - Modelllisten-Endpunkt liefert ausschließlich serverseitig ermittelte aktuelle Modelle,
 - `Automatisch` verwendet ein Modell aus der aktuellen Provider-Modellliste,
 - manuelle Modellwahl wird serverseitig gegen eine frische Modellliste geprüft,
-- fehlender Key in `user-key` wird abgewiesen,
-- `managed` benötigt keinen Browser-Key,
+- fehlender persönlicher Key wird abgewiesen,
 - persönliche Credentials werden nicht persistiert,
 - Provider wird ausschließlich über konfigurierte Zieladresse aufgerufen,
 - Tutor-Prompt ist serverseitig kontrolliert,
@@ -1051,7 +1014,7 @@ Der erste produktnahe Pilot umfasst:
 3. optional UnoSim-Parser-/I/O-Kontext,
 4. genau eine Lernfrage pro Nutzeraktion,
 5. Provider-Abstraktion,
-6. `user-key`-Modus,
+6. fester KI:connect-Provider,
 7. flüchtige persönliche API-Key-Eingabe,
 8. serverseitigen Provider-Aufruf,
 9. serverseitigen Tutor-Prompt,

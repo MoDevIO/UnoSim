@@ -4,17 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerTutorRoutes } from "../../../server/routes/tutor.routes";
 import { TutorProviderError } from "../../../server/services/tutor/llm-provider";
 
-vi.mock("../../../server/config", async () => {
-  const actual = await vi.importActual<typeof import("../../../server/config")>("../../../server/config");
-  return {
-    ...actual,
-    config: {
-      ...actual.config,
-      tutor: { ...actual.config.tutor, mode: "user-key" },
-    },
-  };
-});
-
 function listen(app: express.Express): Promise<{ url: string; server: http.Server }> {
   return new Promise((resolve) => {
     const server = app.listen(0, () => {
@@ -24,7 +13,7 @@ function listen(app: express.Express): Promise<{ url: string; server: http.Serve
   });
 }
 
-async function post(url: string, route: string, body: unknown): Promise<{ status: number; body: unknown }> {
+async function post(url: string, route: string, body: unknown, extraHeaders: Record<string, string> = {}): Promise<{ status: number; body: unknown }> {
   return new Promise((resolve, reject) => {
     const target = new URL(route, url);
     const payload = JSON.stringify(body);
@@ -33,7 +22,7 @@ async function post(url: string, route: string, body: unknown): Promise<{ status
       port: target.port,
       path: target.pathname,
       method: "POST",
-      headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) },
+      headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload), ...extraHeaders },
     }, (response) => {
       let data = "";
       response.on("data", (chunk) => { data += chunk; });
@@ -51,8 +40,9 @@ describe("Tutor HTTP route", () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()) ?? resolve());
   });
 
-  function start(service: object) {
+  function start(service: object, trustProxy = false) {
     const app = express();
+    if (trustProxy) app.set("trust proxy", true);
     app.use(express.json());
     app.use((_req, res, next) => {
       res.locals.unosimIdentity = { subject: "local.test", roles: ["user"] };
@@ -84,7 +74,6 @@ describe("Tutor HTTP route", () => {
     expect(response.body).toEqual({
       question: "Welche Zustandsänderung erwartest du?",
       provider: "kiconnect",
-      mode: "user-key",
       model: "pilot-model",
     });
     expect(JSON.stringify(response.body)).not.toContain("request-only-secret");
@@ -135,6 +124,47 @@ describe("Tutor HTTP route", () => {
     expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret");
   });
 
+  it("requires a personal credential for model discovery", async () => {
+    const service = { getAvailableModels: vi.fn() };
+    const listening = await start(service);
+    server = listening.server;
+    const response = await post(listening.url, "/api/tutor/models", {});
+
+    expect(response).toEqual({
+      status: 400,
+      body: { error: { code: "CREDENTIAL_REQUIRED", message: expect.any(String) } },
+    });
+    expect(service.getAvailableModels).not.toHaveBeenCalled();
+  });
+
+  it("rejects a personal credential over non-loopback HTTP", async () => {
+    const service = { getAvailableModels: vi.fn() };
+    const listening = await start(service, true);
+    server = listening.server;
+    const response = await post(listening.url, "/api/tutor/models", { credential: "request-only-secret" }, {
+      "x-forwarded-for": "203.0.113.10",
+    });
+
+    expect(response).toEqual({
+      status: 400,
+      body: { error: { code: "INVALID_REQUEST", message: expect.any(String) } },
+    });
+    expect(service.getAvailableModels).not.toHaveBeenCalled();
+  });
+
+  it("accepts a personal credential over HTTPS through a trusted proxy", async () => {
+    const service = { getAvailableModels: vi.fn().mockResolvedValue(["pilot-model"]) };
+    const listening = await start(service, true);
+    server = listening.server;
+    const response = await post(listening.url, "/api/tutor/models", { credential: "request-only-secret" }, {
+      "x-forwarded-for": "203.0.113.10",
+      "x-forwarded-proto": "https",
+    });
+
+    expect(response).toEqual({ status: 200, body: { models: ["pilot-model"] } });
+    expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret");
+  });
+
   it("accepts a dialog answer and returns feedback plus exactly one follow-up question", async () => {
     const service = {
       generateDialogResponse: vi.fn().mockResolvedValue({
@@ -161,7 +191,6 @@ describe("Tutor HTTP route", () => {
         feedback: "Gute Beobachtung.",
         question: "Was würdest du als Nächstes messen?",
         provider: "kiconnect",
-        mode: "user-key",
         model: "pilot-model",
       },
     });
