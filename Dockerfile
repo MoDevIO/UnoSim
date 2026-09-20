@@ -55,4 +55,4 @@ RUN npm ci --omit=dev --legacy-peer-deps --ignore-scripts \
 USER node
 
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+CMD ["node", "dist/index.js"]

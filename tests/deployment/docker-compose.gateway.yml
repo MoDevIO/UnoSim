@@ -1,0 +1,61 @@
+services:
+  unosim-backend:
+    image: ${DEPLOYMENT_SERVER_IMAGE:?DEPLOYMENT_SERVER_IMAGE is required}
+    environment:
+      PORT: "3000"
+      NODE_ENV: production
+      UNOSIM_SERVER_MODE: docker
+      UNOSIM_GATEWAY_SECRET: ${DEPLOYMENT_GATEWAY_SECRET:?DEPLOYMENT_GATEWAY_SECRET is required}
+      UNOSIM_TRUSTED_PROXY: ${DEPLOYMENT_TRUSTED_PROXY:?DEPLOYMENT_TRUSTED_PROXY is required}
+      UNOSIM_ALLOWED_WS_ORIGINS: ${DEPLOYMENT_GATEWAY_ORIGIN:?DEPLOYMENT_GATEWAY_ORIGIN is required}
+      UNOSIM_EXAMPLES_SOURCE: ""
+      UNOSIM_EXAMPLES_REF: ""
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_SANDBOX_IMAGE: ${DEPLOYMENT_SANDBOX_IMAGE:?DEPLOYMENT_SANDBOX_IMAGE is required}
+      UNOSIM_SHARED_TEMP_DIR: ${DEPLOYMENT_TEMP_DIR:?DEPLOYMENT_TEMP_DIR is required}
+      ARDUINO_CACHE_DIR: /app/server/arduino-cache
+      WORKER_COUNT: "${WORKER_COUNT:-8}"
+      COMPILE_MAX_CONCURRENT: "${COMPILE_MAX_CONCURRENT:-8}"
+      DOCKER_COMPILE_CONCURRENT: "${DOCKER_COMPILE_CONCURRENT:-8}"
+      SANDBOX_POOL_MIN_RUNNERS: "1"
+      SANDBOX_POOL_MAX_RUNNERS: "1"
+      SANDBOX_POOL_IDLE_TIMEOUT_MS: "300000"
+      SANDBOX_MEMORY_MB: "256"
+      SANDBOX_CPU_LIMIT: "0.5"
+    group_add:
+      - "${DOCKER_GID:-0}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Docker-in-Docker uses the host-visible path when it mounts a sketch
+      # directory into a dynamically created sandbox container.
+      - ${DEPLOYMENT_TEMP_DIR}:${DEPLOYMENT_TEMP_DIR}
+    networks:
+      deployment:
+        ipv4_address: 172.30.0.10
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:3000/api/readiness"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
+
+  deployment-gateway:
+    image: nginx:1.27-alpine
+    depends_on:
+      unosim-backend:
+        condition: service_healthy
+    ports:
+      - "${DEPLOYMENT_GATEWAY_PORT:?DEPLOYMENT_GATEWAY_PORT is required}:443"
+    volumes:
+      - ${DEPLOYMENT_NGINX_CONFIG:?DEPLOYMENT_NGINX_CONFIG is required}:/etc/nginx/conf.d/default.conf:ro
+      - ${DEPLOYMENT_TLS_DIR:?DEPLOYMENT_TLS_DIR is required}:/etc/nginx/tls:ro
+    networks:
+      deployment:
+        ipv4_address: 172.30.0.2
+
+networks:
+  deployment:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
