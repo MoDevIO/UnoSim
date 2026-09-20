@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80.5% </span>
+                <span class="strong">80.17% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>95/118</span>
+                <span class='fraction'>93/116</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">84.67% </span>
+                <span class="strong">83.6% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>116/137</span>
+                <span class='fraction'>102/122</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.49% </span>
+                <span class="strong">83.16% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>86/103</span>
+                <span class='fraction'>84/101</span>
             </div>
         
             
@@ -687,13 +687,7 @@
 <a name='L622'></a><a href='#L622'>622</a>
 <a name='L623'></a><a href='#L623'>623</a>
 <a name='L624'></a><a href='#L624'>624</a>
-<a name='L625'></a><a href='#L625'>625</a>
-<a name='L626'></a><a href='#L626'>626</a>
-<a name='L627'></a><a href='#L627'>627</a>
-<a name='L628'></a><a href='#L628'>628</a>
-<a name='L629'></a><a href='#L629'>629</a>
-<a name='L630'></a><a href='#L630'>630</a>
-<a name='L631'></a><a href='#L631'>631</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L625'></a><a href='#L625'>625</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -832,7 +826,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">50x</span>
-<span class="cline-any cline-yes">50x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1003,12 +996,11 @@
 <span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-yes">25x</span>
-<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">25x</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">3x</span>
@@ -1046,10 +1038,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1078,7 +1067,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1461,8 +1449,7 @@ function getWorkspaceColumnClassName(column: WorkspaceColumn): string {
 }
 &nbsp;
 function canTutorRequest(tutor: TutorPanelState): boolean {
-  const credentialConfigured = tutor.config.mode === "managed" || tutor.credential.length &gt; 0;
-  return tutor.config.mode !== "disabled" &amp;&amp; (tutor.config.mode === "managed" || credentialConfigured);
+  return tutor.credential.trim().length &gt; 0;
 }
 &nbsp;
 export function WorkspaceVisibilityControls({
@@ -1627,13 +1614,12 @@ function TutorPanelContent({
   readonly showKeyView: boolean;
   readonly setShowKeyView: (value: boolean) =&gt; void;
 }) {
-  const { config } = tutor;
-  const credentialConfigured = config.mode === "managed" || tutor.credential.length &gt; 0;
+  const credentialConfigured = tutor.credential.trim().length &gt; 0;
   const canRequest = canTutorRequest(tutor);
   const dialogScrollRef = useRef&lt;HTMLDivElement&gt;(null);
   const composerRef = useRef&lt;HTMLTextAreaElement&gt;(null);
   const autoLoadedForRef = useRef&lt;string | null&gt;(null);
-  const modelLoadKey = config.mode === "user-key" ? tutor.credential : config.mode;
+  const modelLoadKey = tutor.credential;
 &nbsp;
   useEffect(() =&gt; {
     if (!showKeyView) {
@@ -1669,25 +1655,22 @@ function TutorPanelContent({
     return (
       &lt;div className="flex flex-1 min-h-0 flex-col overflow-auto p-4 text-left" data-testid="tutor-api-key-view"&gt;
         &lt;div className="mx-auto w-full max-w-xl rounded-md border border-border/70 bg-muted/20 p-4"&gt;
-          {config.mode === "user-key" &amp;&amp; (
-            &lt;div&gt;
-              &lt;label htmlFor="tutor-api-key" className="text-ui-xs font-medium text-foreground"&gt;API key&lt;/label&gt;
-              &lt;div className="mt-1 flex gap-2"&gt;
-                &lt;input
-                  id="tutor-api-key"
-                  type="password"
-                  value={tutor.credential}
-                  onChange={(event) =&gt; tutor.setCredential(event.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                /&gt;
-              &lt;/div&gt;
+          &lt;div&gt;
+            &lt;label htmlFor="tutor-api-key" className="text-ui-xs font-medium text-foreground"&gt;API key&lt;/label&gt;
+            &lt;div className="mt-1 flex gap-2"&gt;
+              &lt;input
+                id="tutor-api-key"
+                type="password"
+                value={tutor.credential}
+                onChange={(event) =&gt; tutor.setCredential(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              /&gt;
             &lt;/div&gt;
-          )}
+          &lt;/div&gt;
 &nbsp;
-          {config.mode !== "disabled" &amp;&amp; (
-            &lt;div className={config.mode === "user-key" ? "mt-4" : <span class="branch-1 cbranch-no" title="branch not covered" >undefined}&gt;</span>
+          &lt;div className="mt-4"&gt;
               &lt;label htmlFor="tutor-model" className="text-ui-xs font-medium text-foreground"&gt;Model&lt;/label&gt;
               &lt;select
                 id="tutor-model"
@@ -1711,8 +1694,7 @@ function TutorPanelContent({
                 className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground"
                 title="Session start difficulty: 1 very easy, 100 very hard"
               /&gt;
-            &lt;/div&gt;
-          )}
+          &lt;/div&gt;
 &nbsp;
           &lt;Button
             type="button"
@@ -1960,7 +1942,7 @@ export function ExperimentalWorkspace({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-19T13:49:31.406Z
+                at 2026-09-20T19:33:18.639Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
