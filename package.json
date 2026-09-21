@@ -17,8 +17,8 @@
   },
   "scripts": {
     "sonar": "npm run test:coverage && sonar-scanner -Dsonar.projectKey=unosim -Dsonar.sources=client/src,server,shared -Dsonar.tests=tests -Dsonar.host.url=http://localhost:9000 -Dsonar.token=$SONAR_TOKEN -Dsonar.qualitygate.wait=true -Dsonar.scm.exclusions.disabled=true",
-    "dev": "NODE_ENV=development UNOSIM_SERVER_MODE=local UNOSIM_EXAMPLES_SOURCE=ttbombadil/unosim-examples UNOSIM_EXAMPLES_REF=main UNOSIM_EXAMPLES_ALLOWED_HOSTS=api.github.com,raw.githubusercontent.com tsx server/index.ts --host",
-    "dev:e2e": "NODE_ENV=test UNOSIM_SERVER_MODE=local UNOSIM_EXAMPLES_SOURCE= UNOSIM_EXAMPLES_REF= ENABLE_TEST_ENDPOINTS=true DISABLE_RATE_LIMIT=true tsx server/index.ts --host",
+    "dev": "UNOSIM_EXAMPLES_SOURCE=ttbombadil/unosim-examples UNOSIM_EXAMPLES_REF=main UNOSIM_EXAMPLES_ALLOWED_HOSTS=api.github.com,raw.githubusercontent.com node scripts/start-local-dev.mjs --node-env=development",
+    "dev:e2e": "UNOSIM_EXAMPLES_SOURCE= UNOSIM_EXAMPLES_REF= ENABLE_TEST_ENDPOINTS=true DISABLE_RATE_LIMIT=true node scripts/start-local-dev.mjs --node-env=test",
     "dev:full": "concurrently -n \"BACKEND,CLIENT\" -c \"bgBlue,bgMagenta\" \"npm run dev\" \"node scripts/wait-for-backend.mjs && npm run dev:client\"",
     "dev:client": "vite",
     "preview": "vite preview",
