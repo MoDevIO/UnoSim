@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">55.55% </span>
+                <span class="strong">92.59% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>15/27</span>
+                <span class='fraction'>25/27</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -170,7 +170,8 @@
 <a name='L105'></a><a href='#L105'>105</a>
 <a name='L106'></a><a href='#L106'>106</a>
 <a name='L107'></a><a href='#L107'>107</a>
-<a name='L108'></a><a href='#L108'>108</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -201,8 +202,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -253,7 +254,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -280,6 +282,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Button } from "@/components/ui/button";
 import { Terminal, Trash2, CheckCircle2 } from "lucide-react";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
+import { getStatusTextClass } from "@/lib/status-semantics";
 &nbsp;
 interface CompilationError {
   file: string;
@@ -317,9 +320,9 @@ export function CompilationOutput({
         &lt;div className="bg-muted px-[var(--header-padding-x)] border-b border-border flex items-center h-[var(--ui-header-height)] overflow-hidden"&gt;
           &lt;div className="flex items-center w-full min-w-0 overflow-hidden whitespace-nowrap gap-2"&gt;
             &lt;div className="flex items-center space-x-2 flex-shrink-0"&gt;
-              {isSuccess &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >showSuccessMessage ? (</span>
-<span class="branch-0 cbranch-no" title="branch not covered" >                &lt;CheckCircle2</span>
-                  className="text-green-500 opacity-95 h-5 w-5"
+              {isSuccess &amp;&amp; showSuccessMessage ? (
+                &lt;CheckCircle2
+                  className={`${getStatusTextClass("success")} opacity-95 h-5 w-5`}
                   strokeWidth={1.67}
                 /&gt;
               ) : (
@@ -330,8 +333,8 @@ export function CompilationOutput({
               )}
               &lt;span className="sr-only"&gt;Compilation Output&lt;/span&gt;
             &lt;/div&gt;
-            {isSuccess &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >showSuccessMessage &amp;&amp; (</span>
-<span class="branch-2 cbranch-no" title="branch not covered" >              &lt;span className="text-green-500 text-ui-sm font-medium flex-shrink-0"&gt;</span>
+            {isSuccess &amp;&amp; showSuccessMessage &amp;&amp; (
+              &lt;span className={`${getStatusTextClass("success")} text-ui-sm font-medium flex-shrink-0`}&gt;
                 Compilation successful ✓
               &lt;/span&gt;
             )}
@@ -353,18 +356,18 @@ export function CompilationOutput({
 &nbsp;
       &lt;UnifiedScrollArea className="flex-1" orientation="both" viewportClassName="h-full"&gt;
         {hasCompilationErrors &amp;&amp; (
-          &lt;div className="px-3 pt-3 text-red-400 text-ui-sm font-medium" data-testid="compilation-failed-title"&gt;
+          &lt;div className={`px-3 pt-3 ${getStatusTextClass("error")} text-ui-sm font-medium`} data-testid="compilation-failed-title"&gt;
             Compilation failed
           &lt;/div&gt;
         )}
-        {errors &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >errors.length &gt; 0 ? (</span>
-<span class="branch-0 cbranch-no" title="branch not covered" >          &lt;div data-testid="compilation-errors" className="p-3 font-mono whitespace-pre-wrap"&gt;</span>
-            {errors.map(<span class="fstat-no" title="function not covered" >(e</span>) =&gt; (
-<span class="cstat-no" title="statement not covered" >              &lt;div</span>
+        {errors &amp;&amp; errors.length &gt; 0 ? (
+          &lt;div data-testid="compilation-errors" className="p-3 font-mono whitespace-pre-wrap"&gt;
+            {errors.map((e) =&gt; (
+              &lt;div
                 key={`${e.file}:${e.line}:${e.column}:${e.type}:${e.message}`}
-                className={e.type === "error" ? "text-red-400" : "text-yellow-400"}
+                className={getStatusTextClass(e.type === "error" ? "error" : "warning")}
               &gt;
-                {e.file}{e.line ? `:${e.line}` : ""}{e.column ? `:${e.column}` : ""} {e.type}: {e.message}
+                {e.file}{e.line ? `:${e.line}` : <span class="branch-1 cbranch-no" title="branch not covered" >""}{e</span>.column ? `:${e.column}` : <span class="branch-1 cbranch-no" title="branch not covered" >""} </span>{e.type}: {e.message}
               &lt;/div&gt;
             ))}
           &lt;/div&gt;
@@ -391,7 +394,7 @@ export function CompilationOutput({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-20T20:13:32.853Z
+                at 2026-09-22T12:14:16.381Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
