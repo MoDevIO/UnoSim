@@ -86,6 +86,17 @@ describe("TestBudgetReporter", () => {
     expect(coverageScript).toContain("TEST_BUDGET_FAIL_MS=90000");
   });
 
+  it("configures unit tests with a 75-second warning and a 90-second hard-fail budget", () => {
+    const packageJson = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    const unitScript = packageJson.scripts["test:unit"];
+
+    expect(unitScript).toContain("TEST_BUDGET_SUITE=unit");
+    expect(unitScript).toContain("TEST_BUDGET_WARN_MS=75000");
+    expect(unitScript).toContain("TEST_BUDGET_FAIL_MS=90000");
+  });
+
   it("preserves the legacy pass behavior under budget", () => {
     process.env.TEST_BUDGET_MS = "60000";
 
