@@ -65,12 +65,16 @@ statusRouter.get("/api/status", (_req, res) => {
       },
       sandboxRunners: {
         total: poolStats.totalRunners,
+        min: poolStats.minRunners,
         available: poolStats.availableRunners,
         inUse: poolStats.inUseRunners,
         queued: poolStats.queuedRequests,
         max: poolStats.maxRunners,
       },
       admissionControl: admissionStats,
+      ...(config.nodeEnv === "test" && config.capacityTestRunId
+        ? { capacityTestRunId: config.capacityTestRunId }
+        : {}),
       rateLimits: {
         compile: {
           blockedIdentities: compileRateStats.blockedClients,

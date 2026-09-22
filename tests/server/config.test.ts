@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as configModule from "../../server/config";
-import { getClientConfig, parseEnvInt, parseListenHost, parseRuntimeProfile, validatePoolBounds } from "../../server/config";
+import { getClientConfig, parseCapacityTestRunId, parseEnvInt, parseListenHost, parseRuntimeProfile, validatePoolBounds } from "../../server/config";
 
 describe("central configuration validation", () => {
   it("provides one parser for the complete runtime profile", () => {
@@ -65,6 +65,19 @@ describe("central configuration validation", () => {
   it("rejects an inverted sandbox pool range", () => {
     expect(() => validatePoolBounds(5, 2, "local")).toThrow(/must not exceed/);
     expect(() => validatePoolBounds(2, 5, "local")).not.toThrow();
+  });
+
+  it("allows safe capacity run IDs only in the test runtime", () => {
+    expect(parseCapacityTestRunId(undefined, "production")).toBeUndefined();
+    expect(parseCapacityTestRunId("capacity_R20_burst_123", "test")).toBe(
+      "capacity_R20_burst_123",
+    );
+    expect(() => parseCapacityTestRunId("capacity_R20_123", "production")).toThrow(
+      /allowed only with NODE_ENV=test/i,
+    );
+    expect(() => parseCapacityTestRunId("capacity run 123", "test")).toThrow(
+      /URL-safe test run identifier/i,
+    );
   });
 
   it("requires at least one warm runner for Docker readiness", () => {

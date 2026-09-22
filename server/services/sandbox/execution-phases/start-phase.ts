@@ -34,6 +34,7 @@ export interface DockerStartContext {
 export interface DockerStartParams {
   sketchDir: string;
   containerName: string;
+  labels?: string[];
 }
 
 /**
@@ -103,6 +104,7 @@ export async function runDockerStart(
     imageName: SANDBOX_CONFIG.dockerImage,
     command: DockerCommandBuilder.buildCompileAndRunCommand(),
     containerName: params.containerName,
+    labels: params.labels,
   });
 
   // Process-Spawn

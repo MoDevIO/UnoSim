@@ -13,6 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { parseTrustConfig } from "./security/access-control";
 import { examplesRefSchema } from "@shared/examples";
+import { TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import { normalizeRepositoryInput } from "./services/examples/source-selection";
 
 // ── Mode Types ──────────────────────────────────────────────────────
@@ -98,6 +99,20 @@ export function parseRuntimeProfile(env: NodeJS.ProcessEnv): RuntimeProfile {
   };
 }
 
+export function parseCapacityTestRunId(
+  value: string | undefined,
+  nodeEnv: string,
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (nodeEnv !== "test") {
+    throw new Error("CAPACITY_TEST_RUN_ID is allowed only with NODE_ENV=test");
+  }
+  if (!TEST_RUN_ID_PATTERN.test(value)) {
+    throw new Error("CAPACITY_TEST_RUN_ID must be a URL-safe test run identifier");
+  }
+  return value;
+}
+
 // ── Env-var helpers ─────────────────────────────────────────────────
 
 export function parseEnvInt(key: string, value: string | undefined, fallback: number, options: { min?: number; max?: number } = {}): number {
@@ -165,9 +180,12 @@ function envList(key: string, fallback: string[]): string[] {
 // ── Derived pool values ─────────────────────────────────────────────
 
 const runtimeProfile = parseRuntimeProfile(process.env);
+const capacityTestRunId = parseCapacityTestRunId(
+  process.env.CAPACITY_TEST_RUN_ID,
+  runtimeProfile.nodeEnv,
+);
 const poolMinRunners = envInt("SANDBOX_POOL_MIN_RUNNERS", 5, { min: 0, max: 1000 });
 // In dev (no docker-compose) maxRunners defaults to minRunners for safety.
-// Production sets SANDBOX_POOL_MAX_RUNNERS=100 via docker-compose.yml.
 const poolMaxRunners = envInt("SANDBOX_POOL_MAX_RUNNERS", poolMinRunners, { min: 0, max: 1000 });
 export function validatePoolBounds(
   minRunners: number,
@@ -314,6 +332,9 @@ export const config = {
   /** Test-only gateway bypass for Docker integration tests. */
   dockerTestBypassGateway: runtimeProfile.dockerTestBypassGateway,
 
+  /** Test-only identifier for capacity-run API and Docker resource attribution. */
+  capacityTestRunId,
+
   /** True when running under a test framework */
   isTest: process.env.NODE_ENV === "test",
 
@@ -409,8 +430,7 @@ export const config = {
       /** Warm containers kept ready for instant allocation */
       minRunners: poolMinRunners,
       /** Hard upper bound on concurrent sandbox containers.
-       *  Defaults to minRunners when SANDBOX_POOL_MAX_RUNNERS is not set (dev).
-       *  docker-compose.yml sets this to 100 for production. */
+       *  Defaults to minRunners when SANDBOX_POOL_MAX_RUNNERS is not set. */
       maxRunners: poolMaxRunners,
       /** Idle containers are destroyed after this duration */
       idleTimeoutMs: envInt("SANDBOX_POOL_IDLE_TIMEOUT_MS", 120_000, { min: 1, max: 86_400_000 }),

@@ -54,6 +54,7 @@ storage/binaries/
 
 # Generated load-test measurements
 /load-test-results/
+/capacity-test-results/
 
 # Historical material lives in Git history, not the working tree.
 /archive/

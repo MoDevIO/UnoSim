@@ -461,6 +461,9 @@ export class ExecutionManager {
       const dockerStartParams: DockerStartParams = {
         sketchDir: files.sketchDir,
         containerName,
+        labels: config.capacityTestRunId
+          ? [`unosim.capacity-test-run-id=${config.capacityTestRunId}`]
+          : undefined,
       };
       await runDockerStart(dockerStartParams, state, dockerStartContext);
       this.logger.info("🚀 Docker: Compile + Run in single container");

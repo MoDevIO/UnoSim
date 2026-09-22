@@ -106,6 +106,10 @@ describe("GET /api/status", () => {
 
   it("returns pool stats from SandboxRunnerPool", async () => {
     const { body } = await get(baseUrl, "/api/status");
+    expect(body.sandboxRunners).toMatchObject({
+      min: mockPoolStats.minRunners,
+      max: mockPoolStats.maxRunners,
+    });
     expect(body.pool).toEqual({
       total: mockPoolStats.totalRunners,
       available: mockPoolStats.availableRunners,
