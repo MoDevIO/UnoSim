@@ -32,6 +32,9 @@ const removedRuntimeVariables = [
   "UNOSIM_TRUST_MODE",
   "FORCE_DOCKER",
   "UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL",
+  "SANDBOX_POOL_MIN_RUNNERS",
+  "SANDBOX_POOL_MAX_RUNNERS",
+  "DOCKER_COMPILE_CONCURRENT",
 ] as const;
 
 function rejectRemovedRuntimeVariables(env: NodeJS.ProcessEnv): void {
@@ -177,30 +180,37 @@ function envList(key: string, fallback: string[]): string[] {
     .filter(Boolean);
 }
 
-// ── Derived pool values ─────────────────────────────────────────────
+// ── Central capacity values ─────────────────────────────────────────
 
 const runtimeProfile = parseRuntimeProfile(process.env);
 const capacityTestRunId = parseCapacityTestRunId(
   process.env.CAPACITY_TEST_RUN_ID,
   runtimeProfile.nodeEnv,
 );
-const poolMinRunners = envInt("SANDBOX_POOL_MIN_RUNNERS", 5, { min: 0, max: 1000 });
-// In dev (no docker-compose) maxRunners defaults to minRunners for safety.
-const poolMaxRunners = envInt("SANDBOX_POOL_MAX_RUNNERS", poolMinRunners, { min: 0, max: 1000 });
-export function validatePoolBounds(
+
+/** Operator-facing capacity values. A runner is a logical execution object;
+ * only the sandbox-start semaphore controls Docker startup pressure. */
+const simulationMaxConcurrent = envInt("SIMULATION_MAX_CONCURRENT", 5, { min: 1, max: 1000 });
+const sandboxStartMaxConcurrent = envInt("SANDBOX_START_MAX_CONCURRENT", 8, { min: 1, max: 256 });
+const simulationAdmissionMax = envInt("SIMULATION_ADMISSION_MAX", 25, { min: 1, max: 500 });
+const simulationQueueTimeoutMs = envInt("SIMULATION_QUEUE_TIMEOUT_MS", 60_000, { min: 1_000, max: 900_000 });
+
+/** Logical warm-object floor. It never pre-creates Docker containers. */
+const logicalWarmRunnerFloor = Math.min(5, simulationMaxConcurrent);
+
+export function validateSimulationCapacity(
   minRunners: number,
   maxRunners: number,
   serverMode: ServerMode,
 ): void {
   if (minRunners > maxRunners) {
-    throw new Error(`Invalid sandbox pool configuration: SANDBOX_POOL_MIN_RUNNERS (${minRunners}) must not exceed SANDBOX_POOL_MAX_RUNNERS (${maxRunners})`);
+    throw new Error("Invalid simulation capacity: warm runner floor (" + minRunners + ") must not exceed simulation max (" + maxRunners + ")");
   }
-  if (serverMode === "docker" && minRunners < 1) {
-    throw new Error("Docker mode requires SANDBOX_POOL_MIN_RUNNERS to be at least 1");
+  if (serverMode === "docker" && maxRunners < 1) {
+    throw new Error("Docker mode requires SIMULATION_MAX_CONCURRENT to be at least 1");
   }
 }
-validatePoolBounds(poolMinRunners, poolMaxRunners, runtimeProfile.serverMode);
-
+validateSimulationCapacity(logicalWarmRunnerFloor, simulationMaxConcurrent, runtimeProfile.serverMode);
 const cwd = process.cwd();
 const cpuCount = os.cpus().length;
 const defaultWorkers = Math.min(8, Math.max(2, Math.floor(cpuCount * 0.5)));
@@ -412,30 +422,37 @@ export const config = {
       5_000,
       { min: 1, max: 86_400_000 },
     ),
-    /** Running plus queued simulation starts admitted by this process */
-    simulationAdmissionMax: envInt("SIMULATION_ADMISSION_MAX", 25, {
-      min: 1,
-      max: 500,
-    }),
+    /** Running plus queued simulation demands admitted by this process */
+    simulationAdmissionMax,
+    /** Maximum time an admitted demand may wait for a logical simulation slot */
+    simulationQueueTimeoutMs,
     /** Cleanup interval for inactive simulation rate-limit entries */
     simulationRateLimitCleanupIntervalMs: 5 * 60 * 1000,
     /** Inactive simulation rate-limit entries are removed after this duration */
     simulationRateLimitInactiveTtlMs: 10 * 60 * 1000,
   },
 
+  // ── Capacity ───────────────────────────────────────────────────
+
+  capacity: {
+    simulationMaxConcurrent,
+    sandboxStartMaxConcurrent,
+    admissionMax: simulationAdmissionMax,
+    queueTimeoutMs: simulationQueueTimeoutMs,
+  },
+
   // ── Sandbox Pool ────────────────────────────────────────────────
 
   sandbox: {
     pool: {
-      /** Warm containers kept ready for instant allocation */
-      minRunners: poolMinRunners,
-      /** Hard upper bound on concurrent sandbox containers.
-       *  Defaults to minRunners when SANDBOX_POOL_MAX_RUNNERS is not set. */
-      maxRunners: poolMaxRunners,
-      /** Idle containers are destroyed after this duration */
+      /** Logical runner objects kept ready; this does not create Docker containers. */
+      minRunners: logicalWarmRunnerFloor,
+      /** Maximum simultaneously active logical simulation sessions. */
+      maxRunners: simulationMaxConcurrent,
+      /** Idle logical runners are removed after this duration */
       idleTimeoutMs: envInt("SANDBOX_POOL_IDLE_TIMEOUT_MS", 120_000, { min: 1, max: 86_400_000 }),
-      /** Max time to wait for a runner before rejecting */
-      acquireTimeoutMs: 60_000,
+      /** Queue policy for admitted demands waiting for simulation capacity */
+      acquireTimeoutMs: simulationQueueTimeoutMs,
       /** Max time to wait while resetting a released runner */
       resetTimeoutMs: 10_000,
       /** Max queued acquire requests before rejecting immediately */
@@ -482,9 +499,8 @@ export const config = {
   compilation: {
     /** Number of parallel compilation worker threads */
     workerCount: envInt("WORKER_COUNT", defaultWorkers, { min: 1, max: 256 }),
-    /** Max simultaneous g++ processes inside Docker containers */
-    dockerCompileConcurrent: envInt("DOCKER_COMPILE_CONCURRENT", 8, { min: 1, max: 256 }),
-    /** Max simultaneous compile operations (gatekeeper) */
+
+    /** Max simultaneous source-code compile operations (gatekeeper) */
     maxConcurrent: envInt(
       "COMPILE_MAX_CONCURRENT",
       defaultCompileMaxConcurrent,
@@ -549,8 +565,10 @@ export const config = {
   // ── Scattered Timeouts (centralized) ────────────────────────────
 
   timeouts: {
-    /** Max time to wait for a compile slot from the gatekeeper */
+    /** Max time to wait for normal source compilation capacity */
     compileGatekeeperAcquireMs: 30_000,
+    /** Max time to wait for a Docker sandbox-start slot */
+    sandboxStartAcquireMs: 30_000,
     /** Unified gatekeeper distributed-lock TTL */
     gatekeeperLockTTLMs: 60_000,
     /** Interval for the gatekeeper to scan for expired locks */

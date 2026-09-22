@@ -534,13 +534,12 @@ describe("SandboxRunnerPool", () => {
 // ---------------------------------------------------------------------------
 describe("SandboxRunnerPool – env-var configuration", () => {
   afterEach(() => {
-    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SIMULATION_MAX_CONCURRENT;
     delete process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS;
   });
 
-  it("uses SANDBOX_POOL_MIN_RUNNERS env var for initial pool size", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "3";
+  it("uses SIMULATION_MAX_CONCURRENT env var for initial pool size", async () => {
+    process.env.SIMULATION_MAX_CONCURRENT = "3";
     vi.resetModules();
     const mod = await import("../../../server/services/sandbox-runner-pool");
     const pool = mod.getSandboxRunnerPool();
@@ -550,9 +549,8 @@ describe("SandboxRunnerPool – env-var configuration", () => {
     await pool.shutdown();
   });
 
-  it("uses SANDBOX_POOL_MAX_RUNNERS env var to cap on-demand creation", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "3";
+  it("uses SIMULATION_MAX_CONCURRENT env var to cap on-demand creation", async () => {
+    process.env.SIMULATION_MAX_CONCURRENT = "3";
     vi.resetModules();
     const mod = await import("../../../server/services/sandbox-runner-pool");
     const pool = mod.getSandboxRunnerPool();
@@ -589,33 +587,21 @@ describe("SandboxRunnerPool – env-var configuration", () => {
     await pool.shutdown();
   });
 
-  it("creates runners on-demand beyond minRunners when needed", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
-    vi.resetModules();
-    const mod = await import("../../../server/services/sandbox-runner-pool");
-    const pool = mod.getSandboxRunnerPool();
+  it("creates runners on-demand beyond the derived warm floor when needed", async () => {
+    const pool = new SandboxRunnerPool({ minRunners: 1, maxRunners: 10 });
     await pool.initialize();
-
     expect(pool.getStats().totalRunners).toBe(1);
-
-    // Acquiring a 2nd runner should create it on-demand
     const r1 = await pool.acquireRunner();
-    const r2 = await pool.acquireRunner(); // on-demand
+    const r2 = await pool.acquireRunner();
     expect(pool.getStats().totalRunners).toBe(2);
     expect(pool.getStats().inUseRunners).toBe(2);
-
     await pool.releaseRunner(r1);
     await pool.releaseRunner(r2);
     await pool.shutdown();
   });
 
-  it("getStats exposes maxRunners and minRunners", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "2";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "50";
-    vi.resetModules();
-    const mod = await import("../../../server/services/sandbox-runner-pool");
-    const pool = mod.getSandboxRunnerPool();
+  it("getStats exposes the logical simulation maximum and warm floor", async () => {
+    const pool = new SandboxRunnerPool({ minRunners: 2, maxRunners: 50 });
     await pool.initialize();
     const stats = pool.getStats();
     expect(stats.maxRunners).toBe(50);
@@ -629,102 +615,55 @@ describe("SandboxRunnerPool – env-var configuration", () => {
 // ---------------------------------------------------------------------------
 describe("SandboxRunnerPool – idle runner cleanup", () => {
   afterEach(() => {
-    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SIMULATION_MAX_CONCURRENT;
     delete process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS;
     vi.useRealTimers();
   });
 
-  it("destroys on-demand runners after idle timeout when above minRunners", async () => {
+  it("destroys on-demand runners after idle timeout when above the warm floor", async () => {
     vi.useFakeTimers();
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
-    process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "5000";
-    vi.resetModules();
-    const mod = await import("../../../server/services/sandbox-runner-pool");
-    const pool = mod.getSandboxRunnerPool();
+    const pool = new SandboxRunnerPool({ minRunners: 1, maxRunners: 5, idleTimeoutMs: 5000 });
     await pool.initialize();
-
-    // Create an on-demand runner by acquiring 2 (minRunners=1)
     const r1 = await pool.acquireRunner();
-    const r2 = await pool.acquireRunner(); // on-demand
+    const r2 = await pool.acquireRunner();
     expect(pool.getStats().totalRunners).toBe(2);
-
-    // Release both – r2 is above minRunners, should be scheduled for idle removal
     await pool.releaseRunner(r1);
     await pool.releaseRunner(r2);
-    expect(pool.getStats().totalRunners).toBe(2); // still 2 immediately after release
-
-    // Advance past idle timeout – r2 (the on-demand one above min) should be removed
     vi.advanceTimersByTime(6000);
-    expect(pool.getStats().totalRunners).toBe(1); // back to minRunners
-
+    expect(pool.getStats().totalRunners).toBe(1);
     await pool.shutdown();
   });
 
-  it("does NOT destroy warm runners (minRunners floor) even after idle timeout", async () => {
+  it("does NOT destroy warm runners (derived floor) even after idle timeout", async () => {
     vi.useFakeTimers();
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "2";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
-    process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "5000";
-    vi.resetModules();
-    const mod = await import("../../../server/services/sandbox-runner-pool");
-    const pool = mod.getSandboxRunnerPool();
+    const pool = new SandboxRunnerPool({ minRunners: 2, maxRunners: 5, idleTimeoutMs: 5000 });
     await pool.initialize();
-
-    // Acquire and release both warm runners
     const r1 = await pool.acquireRunner();
     const r2 = await pool.acquireRunner();
     await pool.releaseRunner(r1);
     await pool.releaseRunner(r2);
-
     vi.advanceTimersByTime(10000);
-    // Should remain at minRunners (2)
     expect(pool.getStats().totalRunners).toBe(2);
-
     await pool.shutdown();
   });
 
   it("cancels idle timer if runner is re-acquired before timeout", async () => {
     vi.useFakeTimers();
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "1";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
-    process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "5000";
-    vi.resetModules();
-    const mod = await import("../../../server/services/sandbox-runner-pool");
-    const pool = mod.getSandboxRunnerPool();
+    const pool = new SandboxRunnerPool({ minRunners: 1, maxRunners: 5, idleTimeoutMs: 5000 });
     await pool.initialize();
-
-    // Acquire warm runner (index 0) to force on-demand creation
-    const warm = await pool.acquireRunner(); // warm in-use
-    const onDemand = await pool.acquireRunner(); // on-demand created
-
-    // Release on-demand while warm is still in use → idle timer starts
+    const warm = await pool.acquireRunner();
+    const onDemand = await pool.acquireRunner();
     await pool.releaseRunner(onDemand);
     expect(pool.getStats().totalRunners).toBe(2);
-
-    // Advance halfway through timeout
     vi.advanceTimersByTime(2500);
-    expect(pool.getStats().totalRunners).toBe(2);
-
-    // Re-acquire – only onDemand is available → timer must be cancelled
     const r3 = await pool.acquireRunner();
-    expect(pool.getStats().inUseRunners).toBe(2); // warm + onDemand in-use
-
-    // Advance past original timer deadline – timer was cancelled, so no removal
+    expect(pool.getStats().inUseRunners).toBe(2);
     vi.advanceTimersByTime(5000);
-    expect(pool.getStats().totalRunners).toBe(2); // still 2
-
-    // Release both; on-demand is now free again – new idle timer starts
+    expect(pool.getStats().totalRunners).toBe(2);
     await pool.releaseRunner(warm);
     await pool.releaseRunner(r3);
-
-    // Advance full idle period from last release
     vi.advanceTimersByTime(6000);
-    // warm (index 0) is below minRunners floor, not removed
-    // onDemand (index 1) is above floor and idle → removed
     expect(pool.getStats().totalRunners).toBe(1);
-
     await pool.shutdown();
   });
 });
@@ -737,8 +676,7 @@ describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
 
   beforeEach(() => {
     for (const k of [
-      "SANDBOX_POOL_MIN_RUNNERS",
-      "SANDBOX_POOL_MAX_RUNNERS",
+      "SIMULATION_MAX_CONCURRENT",
       "SANDBOX_POOL_IDLE_TIMEOUT_MS",
     ]) {
       origEnv[k] = process.env[k];
@@ -754,8 +692,7 @@ describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
   });
 
   it("serves 20 simultaneous acquire() calls without any queuing", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "20";
+    process.env.SIMULATION_MAX_CONCURRENT = "20";
     vi.resetModules();
     const mod = await import("../../../server/services/sandbox-runner-pool");
     const pool = mod.getSandboxRunnerPool();
@@ -776,8 +713,7 @@ describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
   });
 
   it("queues the 21st request when pool is full (max=20)", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "20";
+    process.env.SIMULATION_MAX_CONCURRENT = "20";
     vi.resetModules();
     const mod = await import("../../../server/services/sandbox-runner-pool");
     const pool = mod.getSandboxRunnerPool();
@@ -811,8 +747,8 @@ describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
 
   it("old default (max=5) would have queued requests 6-20", async () => {
     // Reproduces the pre-fix bug: without MAX_RUNNERS the pool defaults to 5
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS; // intentionally omit
+    process.env.SIMULATION_MAX_CONCURRENT = "5";
+    delete process.env.SIMULATION_MAX_CONCURRENT; // intentionally omit
     vi.resetModules();
     const mod = await import("../../../server/services/sandbox-runner-pool");
     const pool = mod.getSandboxRunnerPool();

@@ -16,6 +16,7 @@ SERVER_PID=""
 SERVER_RUN_ID=""
 SERVER_LOG=""
 BASELINE_RECEIPT="${OUTPUT_DIR}/baseline-validation.json"
+EFFECTIVE_COMPILE_MAX_CONCURRENT=""
 
 usage() {
   cat <<'EOF'
@@ -150,18 +151,18 @@ run_one() {
   local scenario="$3"
   local hold_ms="$4"
   local simulation_timeout_sec="$5"
-  local profile_values min_runners max_runners admission_max
+  local profile_values simulation_max sandbox_start_max admission_max
   local port base_url readiness_code
 
-  profile_values="$(node --import tsx --input-type=module -e 'import {getCapacityProfile} from "./scripts/capacity-validation-config.ts"; const p=getCapacityProfile(process.argv[1]); console.log(`${p.minRunners}\t${p.maxRunners}\t${p.admissionMax}`);' "${profile}")"
-  IFS=$'\t' read -r min_runners max_runners admission_max <<< "${profile_values}"
+  profile_values="$(node --import tsx --input-type=module -e 'import {getCapacityProfile} from "./scripts/capacity-validation-config.ts"; const p=getCapacityProfile(process.argv[1]); console.log(`${p.simulationMaxConcurrent}\t${p.sandboxStartMaxConcurrent}\t${p.admissionMax}`);' "${profile}")"
+  IFS=$'\t' read -r simulation_max sandbox_start_max admission_max <<< "${profile_values}"
   port="$(choose_loopback_port)"
   base_url="http://127.0.0.1:${port}"
   SERVER_RUN_ID="capacity_${profile}_${scenario}_${burst}_$$_$(date +%s)"
   SERVER_LOG="${OUTPUT_DIR}/backend-${SERVER_RUN_ID}.log"
   mkdir -p "${OUTPUT_DIR}"
 
-  echo "Starting owned backend: profile=${profile}, min=${min_runners}, max=${max_runners}, admission=${admission_max}, port=${port}, run=${SERVER_RUN_ID}"
+  echo "Starting owned backend: profile=${profile}, simulation=${simulation_max}, sandbox-start=${sandbox_start_max}, admission=${admission_max}, port=${port}, run=${SERVER_RUN_ID}"
   env \
     NODE_ENV=test \
     UNOSIM_SERVER_MODE=docker \
@@ -169,9 +170,10 @@ run_one() {
     DISABLE_RATE_LIMIT=1 \
     PORT="${port}" \
     UNOSIM_LISTEN_HOST=127.0.0.1 \
-    SANDBOX_POOL_MIN_RUNNERS="${min_runners}" \
-    SANDBOX_POOL_MAX_RUNNERS="${max_runners}" \
+    SIMULATION_MAX_CONCURRENT="${simulation_max}" \
+    SANDBOX_START_MAX_CONCURRENT="${sandbox_start_max}" \
     SIMULATION_ADMISSION_MAX="${admission_max}" \
+    SIMULATION_QUEUE_TIMEOUT_MS=60000 \
     DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest \
     CAPACITY_TEST_RUN_ID="${SERVER_RUN_ID}" \
     LOG_LEVEL=warn \
@@ -198,6 +200,10 @@ run_one() {
     return 1
   fi
 
+  local status_payload
+  status_payload="$(curl -fsS "${base_url}/api/status")"
+  EFFECTIVE_COMPILE_MAX_CONCURRENT="$(node -e 'const r=JSON.parse(process.argv[1]); const value=r.capacity?.compile?.maxConcurrent; if (!Number.isInteger(value)) process.exit(1); console.log(value);' "${status_payload}")"
+
   CAPACITY_TEST_ENABLED=1 \
   CAPACITY_TEST_PROFILE="${profile}" \
   CAPACITY_TEST_SCENARIO="${scenario}" \
@@ -219,8 +225,8 @@ if [[ -z "${PROFILE_FILTER}" && -z "${BURST_FILTER}" ]]; then
   run_one BASELINE 40 burst 5000 60
   run_one BASELINE 6 queue-timeout 65000 300
 
-  node -e 'const fs=require("node:fs"); fs.writeFileSync(process.argv[1], JSON.stringify({completed:true, profile:"BASELINE", minRunners:5, maxRunners:5, admissionMax:25, bursts:[5,25,40], queueTimeoutCheck:true, head:process.argv[2], harnessSignature:process.argv[3], completedAt:new Date().toISOString()},null,2)+"\n");' \
-    "${BASELINE_RECEIPT}" "$(git rev-parse HEAD)" "$(harness_signature)"
+  node -e 'const fs=require("node:fs"); fs.writeFileSync(process.argv[1], JSON.stringify({completed:true, profile:"BASELINE", simulationMaxConcurrent:5, sandboxStartMaxConcurrent:5, admissionMax:25, queueTimeoutMs:60000, compileMaxConcurrent:Number(process.argv[4]), bursts:[5,25,40], queueTimeoutCheck:true, head:process.argv[2], harnessSignature:process.argv[3], completedAt:new Date().toISOString()},null,2)+"\n");' \
+    "${BASELINE_RECEIPT}" "$(git rev-parse HEAD)" "$(harness_signature)" "${EFFECTIVE_COMPILE_MAX_CONCURRENT}"
   echo "Historical baseline and 60-second queue timeout check passed. Receipt: ${BASELINE_RECEIPT}"
   exit 0
 fi

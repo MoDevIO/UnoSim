@@ -91,7 +91,7 @@ export class SandboxRunnerPool {
     this.acquireTimeoutMs = options.acquireTimeoutMs ?? config.sandbox.pool.acquireTimeoutMs;
     this.resetTimeoutMs = options.resetTimeoutMs ?? config.sandbox.pool.resetTimeoutMs;
     this.logger.info(
-      `[SandboxRunnerPool] Pool config: min=${this.minRunners}, max=${this.maxRunners}, idleTimeout=${this.idleTimeoutMs}ms`,
+      `[SandboxRunnerPool] Logical simulation capacity: activeMax=${this.maxRunners}, warmFloor=${this.minRunners}, idleTimeout=${this.idleTimeoutMs}ms`,
     );
   }
 
@@ -101,7 +101,7 @@ export class SandboxRunnerPool {
     }
 
     this.logger.info(
-      `[SandboxRunnerPool] Initializing ${this.minRunners} warm runner instances...`,
+      `[SandboxRunnerPool] Initializing ${this.minRunners} logical runner instances...`,
     );
     for (let i = 0; i < this.minRunners; i++) {
       const runner = new SandboxRunner();
@@ -119,7 +119,7 @@ export class SandboxRunnerPool {
 
     this.initialized = true;
     this.logger.info(
-      `[SandboxRunnerPool] Pool ready with ${this.minRunners} warm runners (max: ${this.maxRunners})`,
+      `[SandboxRunnerPool] Pool ready with ${this.minRunners} logical runners (simulation max: ${this.maxRunners})`,
     );
   }
 
@@ -304,7 +304,7 @@ export class SandboxRunnerPool {
   }
 
   /**
-   * Schedule idle cleanup for runners above the minRunners floor.
+   * Schedule idle cleanup for logical runners above the derived warm floor.
    * If the runner is re-acquired before the timer fires, the timer is cancelled.
    */
   private scheduleIdleCleanup(pooledRunner: PooledRunner): void {

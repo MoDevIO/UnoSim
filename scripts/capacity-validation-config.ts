@@ -1,39 +1,39 @@
 export const CAPACITY_PROFILES = {
   BASELINE: {
-    minRunners: 5,
-    maxRunners: 5,
+    simulationMaxConcurrent: 5,
+    sandboxStartMaxConcurrent: 5,
     admissionMax: 25,
-    description: "Historical validated test baseline (5 warm, 5 max, 25 admissions)",
+    description: "Historical validated test baseline (5 simulation / 5 startup / 25 admissions)",
   },
   R20: {
-    minRunners: 5,
-    maxRunners: 20,
+    simulationMaxConcurrent: 20,
+    sandboxStartMaxConcurrent: 20,
     admissionMax: 100,
-    description: "Test-only staging candidate (5 warm, 20 max, 100 admissions)",
+    description: "Test-only staging candidate (20 simulation / 20 startup / 100 admissions)",
   },
   R40: {
-    minRunners: 5,
-    maxRunners: 40,
+    simulationMaxConcurrent: 40,
+    sandboxStartMaxConcurrent: 40,
     admissionMax: 100,
-    description: "Test-only staging candidate (5 warm, 40 max, 100 admissions)",
+    description: "Test-only staging candidate (40 simulation / 40 startup / 100 admissions)",
   },
   R60: {
-    minRunners: 10,
-    maxRunners: 60,
+    simulationMaxConcurrent: 60,
+    sandboxStartMaxConcurrent: 60,
     admissionMax: 100,
-    description: "Test-only staging candidate (10 warm, 60 max, 100 admissions)",
+    description: "Test-only staging candidate (60 simulation / 60 startup / 100 admissions)",
   },
   R80: {
-    minRunners: 10,
-    maxRunners: 80,
+    simulationMaxConcurrent: 80,
+    sandboxStartMaxConcurrent: 80,
     admissionMax: 100,
-    description: "Test-only staging candidate (10 warm, 80 max, 100 admissions)",
+    description: "Test-only staging candidate (80 simulation / 80 startup / 100 admissions)",
   },
   R80_BURST: {
-    minRunners: 10,
-    maxRunners: 80,
+    simulationMaxConcurrent: 80,
+    sandboxStartMaxConcurrent: 80,
     admissionMax: 180,
-    description: "Test-only burst candidate (10 warm, 80 max, 180 admissions)",
+    description: "Test-only burst candidate (80 simulation / 80 startup / 180 admissions)",
   },
 } as const;
 
@@ -42,42 +42,29 @@ export type CapacityProfile = (typeof CAPACITY_PROFILES)[CapacityProfileKey];
 
 export interface CapacityRuntimeSnapshot {
   serverMode?: string;
-  sandboxRunners?: { min?: number; max?: number };
-  admissionControl?: { max?: number };
+  capacity?: {
+    simulation?: { maxConcurrent?: number; active?: number };
+    sandboxStart?: { maxConcurrent?: number; active?: number; waiting?: number };
+    admission?: { max?: number; current?: number };
+    queue?: { waiting?: number; timeoutMs?: number };
+    compile?: { maxConcurrent?: number; active?: number };
+  };
 }
 
 export function getCapacityProfile(profileKey: string): CapacityProfile {
-  if (!Object.hasOwn(CAPACITY_PROFILES, profileKey)) {
-    throw new Error(`Unknown capacity profile: ${profileKey}`);
-  }
+  if (!Object.hasOwn(CAPACITY_PROFILES, profileKey)) throw new Error(`Unknown capacity profile: ${profileKey}`);
   return CAPACITY_PROFILES[profileKey as CapacityProfileKey];
 }
 
-export function assertCapacityRuntimeMatches(
-  profile: CapacityProfile,
-  actual: CapacityRuntimeSnapshot,
-): void {
+export function assertCapacityRuntimeMatches(profile: CapacityProfile, actual: CapacityRuntimeSnapshot): void {
   const mismatches: string[] = [];
-  if (actual.serverMode !== "docker") {
-    mismatches.push(`serverMode expected docker, actual ${actual.serverMode}`);
-  }
-  if (actual.sandboxRunners?.min !== profile.minRunners) {
-    mismatches.push(
-      `minRunners expected ${profile.minRunners}, actual ${actual.sandboxRunners?.min}`,
-    );
-  }
-  if (actual.sandboxRunners?.max !== profile.maxRunners) {
-    mismatches.push(
-      `maxRunners expected ${profile.maxRunners}, actual ${actual.sandboxRunners?.max}`,
-    );
-  }
-  if (actual.admissionControl?.max !== profile.admissionMax) {
-    mismatches.push(
-      `admissionMax expected ${profile.admissionMax}, actual ${actual.admissionControl?.max}`,
-    );
-  }
-
-  if (mismatches.length > 0) {
-    throw new Error(`Capacity profile runtime mismatch: ${mismatches.join("; ")}`);
-  }
+  const simulation = actual.capacity?.simulation?.maxConcurrent;
+  const sandboxStart = actual.capacity?.sandboxStart?.maxConcurrent;
+  const admission = actual.capacity?.admission?.max;
+  if (actual.serverMode !== "docker") mismatches.push(`serverMode expected docker, actual ${actual.serverMode}`);
+  if (simulation !== profile.simulationMaxConcurrent) mismatches.push(`simulationMaxConcurrent expected ${profile.simulationMaxConcurrent}, actual ${simulation}`);
+  if (sandboxStart !== profile.sandboxStartMaxConcurrent) mismatches.push(`sandboxStartMaxConcurrent expected ${profile.sandboxStartMaxConcurrent}, actual ${sandboxStart}`);
+  if (admission !== profile.admissionMax) mismatches.push(`admissionMax expected ${profile.admissionMax}, actual ${admission}`);
+  if (sandboxStart !== undefined && sandboxStart < profile.simulationMaxConcurrent) mismatches.push(`sandboxStartMaxConcurrent must be >= simulationMaxConcurrent (${sandboxStart} < ${profile.simulationMaxConcurrent})`);
+  if (mismatches.length > 0) throw new Error(`Capacity profile runtime mismatch: ${mismatches.join("; ")}`);
 }

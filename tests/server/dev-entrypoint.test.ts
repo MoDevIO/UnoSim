@@ -168,8 +168,9 @@ describe("local development entrypoint", () => {
       expect(output()).toContain("Server Mode:          local");
       expect(output()).toContain("Trust Mode:           local");
       expect(output()).toContain("NODE_ENV:             development");
-      expect(output()).toContain("Compile Workers:      3");
-      expect(output()).toContain("Compile Slots:        4");
+      expect(output()).toContain("Compilation:");
+      expect(output()).toContain("Concurrent max:       4");
+      expect(output()).not.toContain("Compile Workers:");
       expect(output()).not.toContain("is no longer supported");
     } finally {
       await stopProcess(child);

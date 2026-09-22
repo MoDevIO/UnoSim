@@ -1,27 +1,27 @@
 /**
- * DockerCompileSemaphore
+ * SandboxStartSemaphore
  *
- * A lightweight FIFO counting semaphore used to limit the number of Docker
- * containers that may be in the compile phase simultaneously.
+ * A lightweight FIFO counting semaphore used to limit Docker sandbox startup
+ * operations. It is acquired before docker run and released at RUNTIME_START.
  *
  * This prevents CPU starvation that occurs when many g++ processes compete for
  * resources on the host machine.  The semaphore is acquired before spawning a
- * Docker container and released when the compile phase transitions to runtime
+ * Docker container and released when the startup phase transitions to runtime
  * (i.e. when [[RUNTIME_START]] is detected in stdout) or when the container
  * exits with an error.
  *
- * Environment variable: DOCKER_COMPILE_CONCURRENT (default 8)
+ * Environment variable: SANDBOX_START_MAX_CONCURRENT (default 8)
  */
 import { config } from "../../config";
 
-export class DockerCompileSemaphore {
+export class SandboxStartSemaphore {
   private readonly queue: Array<{ attempt: () => void; timer: NodeJS.Timeout }> = [];
   private _active = 0;
 
   constructor(private readonly max: number) {}
 
   /**
-   * Acquire one compile slot.
+   * Acquire one sandbox-start slot.
    *
    * @param onQueued  Optional callback invoked exactly once when this caller is
    *                  placed in the queue (i.e. no slot is immediately available).
@@ -36,7 +36,7 @@ export class DockerCompileSemaphore {
         const index = this.queue.findIndex((entry) => entry.attempt === attempt);
         if (index !== -1) this.queue.splice(index, 1);
         settled = true;
-        reject(new Error(`Docker compile slot timeout after ${timeoutMs}ms`));
+        reject(new Error(`Sandbox start slot timeout after ${timeoutMs}ms`));
       }, timeoutMs);
 
       attempt = () => {
@@ -80,20 +80,22 @@ export class DockerCompileSemaphore {
 
 // ─── Singleton factory ────────────────────────────────────────────────────────
 
-let _instance: DockerCompileSemaphore | null = null;
+let _instance: SandboxStartSemaphore | null = null;
 
 /**
- * Returns (or lazily creates) the global DockerCompileSemaphore singleton.
- *
- * The concurrency limit is read from the DOCKER_COMPILE_CONCURRENT env var at
- * first call.  Passing `maxOverride` replaces the env-var value and resets the
- * singleton – useful in tests.
+ * Returns (or lazily creates) the global sandbox-start semaphore.
+ * Passing `maxOverride` replaces the configured value and resets the singleton.
  */
-export function getDockerCompileSemaphore(maxOverride?: number): DockerCompileSemaphore {
+export function getSandboxStartSemaphore(maxOverride?: number): SandboxStartSemaphore {
   if (maxOverride !== undefined || _instance === null) {
     const max =
-      maxOverride ?? config.compilation.dockerCompileConcurrent;
-    _instance = new DockerCompileSemaphore(max);
+      maxOverride ?? config.capacity.sandboxStartMaxConcurrent;
+    _instance = new SandboxStartSemaphore(max);
   }
   return _instance;
 }
+
+/** @deprecated Internal compatibility alias; use SandboxStartSemaphore. */
+export const DockerCompileSemaphore = SandboxStartSemaphore;
+/** @deprecated Internal compatibility alias; use getSandboxStartSemaphore. */
+export const getDockerCompileSemaphore = getSandboxStartSemaphore;

@@ -15,7 +15,7 @@ import { LocalCompiler } from "../local-compiler";
 import { PinStateBatcher, type PinStateBatch } from "../pin-state-batcher";
 import { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RunSketchOptions } from "../run-sketch-types";
-import { getDockerCompileSemaphore } from "./docker-compile-semaphore";
+import { getSandboxStartSemaphore } from "./docker-compile-semaphore";
 import { DockerManager } from "./docker-manager";
 import { StreamHandler } from "./stream-handler";
 import { FilesystemHelper } from "./filesystem-helper";
@@ -396,15 +396,15 @@ export class ExecutionManager {
 
     const { onCompileError, onCompileSuccess, onExit } = opts;
 
-    // ── Docker compile gating ─────────────────────────────────────────────────
+    // ── Docker sandbox-start gating ───────────────────────────────────────────
     // Limit the number of simultaneous g++ compilations inside Docker containers
     // to prevent CPU starvation when many students start simulations at once.
-    // The slot is released once [[RUNTIME_START]] is detected (compile done) or
-    // on any error, so the semaphore only covers the compile phase.
+    // The slot is released once [[RUNTIME_START]] is detected or on any error;
+    // it limits startup pressure and does not limit steady-state simulations.
     const queueStartTime = Date.now();
-    const releaseSemaphore = await getDockerCompileSemaphore().acquire(() => {
+    const releaseSemaphore = await getSandboxStartSemaphore().acquire(() => {
       opts.onCompileQueued?.();
-    }, config.timeouts.compileGatekeeperAcquireMs);
+    }, config.timeouts.sandboxStartAcquireMs);
     const queueWaitTimeMs = Date.now() - queueStartTime;
     
     // Guard: abort if the simulation was stopped while we were waiting
@@ -413,7 +413,7 @@ export class ExecutionManager {
       return;
     }
 
-    // Release wrapper – idempotent, called from compile-phase callbacks or onClose
+    // Release wrapper – idempotent, called from startup callbacks or onClose
     let semaphoreReleased = false;
     const releaseOnce = () => {
       if (!semaphoreReleased) {
@@ -426,8 +426,8 @@ export class ExecutionManager {
     const compileStartTime = Date.now();
     let compileTimedOut = false;
     
-    // Wrap compile callbacks so the semaphore is released as soon as the
-    // compile phase ends (success or error), freeing the slot for the next waiter.
+    // Release the startup slot as soon as the sandbox reaches runtime or errors,
+    // freeing the slot for the next waiting start.
     const wrappedOnCompileSuccess = () => {
       compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, true, compileTimedOut);
       releaseOnce();

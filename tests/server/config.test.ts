@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as configModule from "../../server/config";
-import { getClientConfig, parseCapacityTestRunId, parseEnvInt, parseListenHost, parseRuntimeProfile, validatePoolBounds } from "../../server/config";
+import { getClientConfig, parseCapacityTestRunId, parseEnvInt, parseListenHost, parseRuntimeProfile, validateSimulationCapacity } from "../../server/config";
 
 describe("central configuration validation", () => {
   it("provides one parser for the complete runtime profile", () => {
@@ -45,10 +45,22 @@ describe("central configuration validation", () => {
     "UNOSIM_TRUST_MODE",
     "FORCE_DOCKER",
     "UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL",
+    "SANDBOX_POOL_MIN_RUNNERS",
+    "SANDBOX_POOL_MAX_RUNNERS",
+    "DOCKER_COMPILE_CONCURRENT",
   ])("rejects the removed topology selector %s", (key) => {
     expect(() => parseRuntimeProfile({ NODE_ENV: "test", [key]: "legacy" })).toThrow(
       new RegExp(`${key}.*no longer supported`),
     );
+  });
+
+  it("exposes one semantic capacity configuration with unchanged defaults", () => {
+    expect(configModule.config.capacity).toEqual({
+      simulationMaxConcurrent: 5,
+      sandboxStartMaxConcurrent: 8,
+      admissionMax: 25,
+      queueTimeoutMs: 60_000,
+    });
   });
 
   it("rejects malformed, fractional and out-of-range integers", () => {
@@ -63,8 +75,8 @@ describe("central configuration validation", () => {
   });
 
   it("rejects an inverted sandbox pool range", () => {
-    expect(() => validatePoolBounds(5, 2, "local")).toThrow(/must not exceed/);
-    expect(() => validatePoolBounds(2, 5, "local")).not.toThrow();
+    expect(() => validateSimulationCapacity(5, 2, "local")).toThrow(/must not exceed/);
+    expect(() => validateSimulationCapacity(2, 5, "local")).not.toThrow();
   });
 
   it("allows safe capacity run IDs only in the test runtime", () => {
@@ -81,8 +93,8 @@ describe("central configuration validation", () => {
   });
 
   it("requires at least one warm runner for Docker readiness", () => {
-    expect(() => validatePoolBounds(0, 1, "docker")).toThrow(/at least 1/i);
-    expect(() => validatePoolBounds(0, 1, "local")).not.toThrow();
+    expect(() => validateSimulationCapacity(0, 0, "docker")).toThrow(/SIMULATION_MAX_CONCURRENT.*at least 1/i);
+    expect(() => validateSimulationCapacity(0, 1, "local")).not.toThrow();
   });
 
   it("keeps local mode on loopback by default", () => {

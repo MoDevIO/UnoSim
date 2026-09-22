@@ -86,9 +86,10 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 |---|---|
 | `WORKER_COUNT` | Anzahl paralleler Compile-Worker |
 | `COMPILE_MAX_CONCURRENT` | globale Obergrenze gleichzeitig laufender Compile-Vorgänge |
-| `DOCKER_COMPILE_CONCURRENT` | Obergrenze paralleler Compile-Vorgänge in Docker-Sandboxen |
-| `SANDBOX_POOL_MIN_RUNNERS` | vorgehaltene Runner; im Docker-Profil mindestens `1` |
-| `SANDBOX_POOL_MAX_RUNNERS` | Runner-Obergrenze |
+| `SIMULATION_MAX_CONCURRENT` | maximale Zahl gleichzeitig aktiver Simulationen |
+| `SANDBOX_START_MAX_CONCURRENT` | maximale Zahl paralleler Docker-Sandbox-Starts; Standard `8` |
+| `SIMULATION_ADMISSION_MAX` | maximale Zahl zugelassener aktiver und wartender Anforderungen |
+| `SIMULATION_QUEUE_TIMEOUT_MS` | Wartezeit einer zugelassenen Anforderung auf eine Simulationskapazität |
 | `SANDBOX_MEMORY_MB` | Memory-Limit pro Sandbox |
 | `SANDBOX_CPU_LIMIT` | CPU-Limit pro Sandbox |
 

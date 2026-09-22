@@ -1,7 +1,7 @@
 /**
  * Scalability Stress Tests
  *
- * Tests the SandboxRunnerPool and DockerCompileSemaphore under concurrent load
+ * Tests the SandboxRunnerPool and SandboxStartSemaphore under concurrent load
  * at 10, 50, and 100 simultaneous simulation requests.
  *
  * Measures:
@@ -233,8 +233,7 @@ afterEach(() => {
 
 describe("Scalability stress: SandboxRunnerPool", () => {
   it("10 concurrent simulations — all complete, no stuck runners", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
+    process.env.SIMULATION_MAX_CONCURRENT = "10";
     vi.resetModules();
     const mod = await import("../../../server/services/sandbox-runner-pool");
     const pool = mod.getSandboxRunnerPool();
@@ -255,14 +254,12 @@ describe("Scalability stress: SandboxRunnerPool", () => {
       `[10 sims] avg acquire: ${report.avgAcquireMs.toFixed(0)}ms, p95: ${report.p95AcquireMs.toFixed(0)}ms, peak queue: ${report.peakQueueDepth}, throughput: ${report.throughputPerSec.toFixed(1)}/s`,
     );
 
-    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SIMULATION_MAX_CONCURRENT;
     await pool.shutdown();
   }, 30000);
 
   it("50 concurrent simulations — measure queue wait times", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
+    process.env.SIMULATION_MAX_CONCURRENT = "10";
     vi.resetModules();
     const mod = await import("../../../server/services/sandbox-runner-pool");
     const pool = mod.getSandboxRunnerPool();
@@ -285,14 +282,12 @@ describe("Scalability stress: SandboxRunnerPool", () => {
       `[50 sims] avg acquire: ${report.avgAcquireMs.toFixed(0)}ms, p95: ${report.p95AcquireMs.toFixed(0)}ms, max: ${report.maxAcquireMs.toFixed(0)}ms, peak queue: ${report.peakQueueDepth}, throughput: ${report.throughputPerSec.toFixed(1)}/s`,
     );
 
-    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SIMULATION_MAX_CONCURRENT;
     await pool.shutdown();
   }, 30000);
 
   it("100 concurrent simulations — server stays healthy under load", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
+    process.env.SIMULATION_MAX_CONCURRENT = "10";
     vi.resetModules();
     const mod = await import("../../../server/services/sandbox-runner-pool");
     const pool = mod.getSandboxRunnerPool();
@@ -322,8 +317,7 @@ describe("Scalability stress: SandboxRunnerPool", () => {
       `[100 sims] avg acquire: ${report.avgAcquireMs.toFixed(0)}ms, p95: ${report.p95AcquireMs.toFixed(0)}ms, max: ${report.maxAcquireMs.toFixed(0)}ms, peak queue: ${report.peakQueueDepth}, throughput: ${report.throughputPerSec.toFixed(1)}/s`,
     );
 
-    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SIMULATION_MAX_CONCURRENT;
     await pool.shutdown();
   }, 30000);
 
@@ -372,8 +366,7 @@ describe("Scalability stress: SandboxRunnerPool", () => {
   });
 
   it("4 simulations stop + immediate restart — no mid-reset runner reuse", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "5";
+    process.env.SIMULATION_MAX_CONCURRENT = "5";
     vi.resetModules();
     const mod = await import("../../../server/services/sandbox-runner-pool");
     const pool = mod.getSandboxRunnerPool();
@@ -446,20 +439,19 @@ describe("Scalability stress: SandboxRunnerPool", () => {
       `[4-sim restart] All 4 runners re-acquired successfully without mid-reset reuse`,
     );
 
-    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SIMULATION_MAX_CONCURRENT;
     await pool.shutdown();
   }, 30000);
 });
 
 // ── Compile semaphore stress tests ───────────────────────────────────────
 
-describe("Scalability stress: DockerCompileSemaphore", () => {
+describe("Scalability stress: SandboxStartSemaphore", () => {
   it("10 concurrent compiles — all acquire and release correctly", async () => {
     vi.resetModules();
-    const { DockerCompileSemaphore } =
+    const { SandboxStartSemaphore } =
       await import("../../../server/services/sandbox/docker-compile-semaphore");
-    const semaphore = new DockerCompileSemaphore(8);
+    const semaphore = new SandboxStartSemaphore(8);
 
     let peakActive = 0;
     const queuings: number[] = [];
@@ -489,9 +481,9 @@ describe("Scalability stress: DockerCompileSemaphore", () => {
 
   it("50 concurrent compiles — FIFO ordering maintained, no deadlock", async () => {
     vi.resetModules();
-    const { DockerCompileSemaphore } =
+    const { SandboxStartSemaphore } =
       await import("../../../server/services/sandbox/docker-compile-semaphore");
-    const semaphore = new DockerCompileSemaphore(8);
+    const semaphore = new SandboxStartSemaphore(8);
 
     let peakActive = 0;
     let peakQueued = 0;
@@ -523,9 +515,9 @@ describe("Scalability stress: DockerCompileSemaphore", () => {
 
   it("100 concurrent compiles — measures queue wait time under pressure", async () => {
     vi.resetModules();
-    const { DockerCompileSemaphore } =
+    const { SandboxStartSemaphore } =
       await import("../../../server/services/sandbox/docker-compile-semaphore");
-    const semaphore = new DockerCompileSemaphore(8);
+    const semaphore = new SandboxStartSemaphore(8);
 
     let peakActive = 0;
     let peakQueued = 0;
@@ -571,16 +563,15 @@ describe("Scalability stress: DockerCompileSemaphore", () => {
 
 describe("Scalability stress: combined pool + semaphore", () => {
   it("50 concurrent simulations through pool + semaphore pipeline", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
+    process.env.SIMULATION_MAX_CONCURRENT = "10";
     vi.resetModules();
     const poolMod =
       await import("../../../server/services/sandbox-runner-pool");
-    const { DockerCompileSemaphore } =
+    const { SandboxStartSemaphore } =
       await import("../../../server/services/sandbox/docker-compile-semaphore");
     const pool = poolMod.getSandboxRunnerPool();
     await pool.initialize();
-    const semaphore = new DockerCompileSemaphore(8);
+    const semaphore = new SandboxStartSemaphore(8);
 
     const results: Array<{
       index: number;
@@ -666,22 +657,20 @@ describe("Scalability stress: combined pool + semaphore", () => {
       `[Combined 50] peak in-use: ${peakInUse}, avg acquire: ${(acquireTimes.reduce((a, b) => a + b, 0) / acquireTimes.length).toFixed(0)}ms, p95 acquire: ${percentile(acquireTimes, 95).toFixed(0)}ms, avg total: ${(totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length).toFixed(0)}ms`,
     );
 
-    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SIMULATION_MAX_CONCURRENT;
     await pool.shutdown();
   }, 30000);
 
   it("100 concurrent simulations with server health monitoring", async () => {
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "10";
+    process.env.SIMULATION_MAX_CONCURRENT = "10";
     vi.resetModules();
     const poolMod =
       await import("../../../server/services/sandbox-runner-pool");
-    const { DockerCompileSemaphore } =
+    const { SandboxStartSemaphore } =
       await import("../../../server/services/sandbox/docker-compile-semaphore");
     const pool = poolMod.getSandboxRunnerPool();
     await pool.initialize();
-    const semaphore = new DockerCompileSemaphore(8);
+    const semaphore = new SandboxStartSemaphore(8);
 
     const results: Array<{ index: number; totalMs: number; error?: string }> =
       [];
@@ -756,8 +745,7 @@ describe("Scalability stress: combined pool + semaphore", () => {
       `[Combined 100] all ${succeeded} succeeded, peak pool: ${peakPoolInUse} in-use / ${peakPoolQueued} queued, peak sem: ${peakSemActive}, avg: ${(totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length).toFixed(0)}ms, p95: ${percentile(totalTimes, 95).toFixed(0)}ms, max: ${totalTimes.at(-1)}ms`,
     );
 
-    delete process.env.SANDBOX_POOL_MIN_RUNNERS;
-    delete process.env.SANDBOX_POOL_MAX_RUNNERS;
+    delete process.env.SIMULATION_MAX_CONCURRENT;
     await pool.shutdown();
   }, 60000);
 });

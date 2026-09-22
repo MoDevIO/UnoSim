@@ -21,7 +21,7 @@ export class SimulationAdmissionController {
   private capacityRejectedTotal = 0;
   private identityRejectedTotal = 0;
 
-  constructor(private readonly maxReservations = config.server.simulationAdmissionMax) {}
+  constructor(private readonly maxReservations = config.capacity.admissionMax) {}
 
   reserve(subject: string): AdmissionResult {
     if (this.reservationsBySubject.has(subject)) {

@@ -430,8 +430,7 @@ describe("Simulation state sequence", () => {
   beforeAll(async () => {
     process.env.NODE_ENV = "test";
     // Small pool so we can force queueing in a deterministic way
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "3";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "3";
+    process.env.SIMULATION_MAX_CONCURRENT = "3";
     process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "60000";
     process.env.DISABLE_RATE_LIMIT = "true";
 
