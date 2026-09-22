@@ -14,9 +14,9 @@ Common tokens (token name → hex value → suggested Tailwind mapping)
 | --color-ui-panel | #1c1c1c | `bg-ui-panel` |
 | --color-ui-border | #262626 | `border-ui-border` |
 | --color-status-success | #22c55e | `bg-status-success` / `border-status-success` |
-| --color-status-error | #ef4444 | `bg-status-error` |
+| --color-status-error | #ff6b6b (via `--color-danger-soft`) | `bg-status-error` / `text-status-error` |
 | --color-status-warning | #f97316 | `bg-status-warning` |
-| --color-accent-cyan | #06b6d4 | `text-accent-cyan` |
+| --color-accent-cyan | #06b6d4 | `text-accent-cyan` / `bg-accent-cyan` |
 | --color-accent-blue | #3b82f6 | `text-accent-blue` |
 
 How to use

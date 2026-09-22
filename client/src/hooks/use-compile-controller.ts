@@ -12,6 +12,7 @@ import type {
 import { buildCompileCommand } from "./compile-command-builder";
 import { isCompileResult } from "@/types/websocket";
 import type { SourceProject } from "@shared/source-project";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 
 const logger = new Logger("use-compile-controller");
 
@@ -36,6 +37,7 @@ interface UiFeedbackAdapter {
 export type CompilationErrors = CompilerError[] | string | undefined;
 
 export interface UseCompileControllerParams {
+  readonly capabilities?: ServerCapabilities;
   // State
   compilationStatus: CompilationStatus;
   setCompilationStatus: SetState<CompilationStatus>;
@@ -191,6 +193,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
   );
 
   const handleCompile = useCallback(() => {
+    if (params.capabilities && !params.capabilities.canCompile) return;
     clearOutputs();
     params.resetPinUI();
     clearRuntimeRegistry();
@@ -228,6 +231,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     params.sourceProject,
     clearRuntimeRegistry,
     params.uiFeedback,
+    params.capabilities,
   ]);
 
   const handleClearCompilationOutput = useCallback(() => {

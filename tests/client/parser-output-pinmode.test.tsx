@@ -407,13 +407,13 @@ describe("ParserOutput Component", () => {
     );
 
     await user.click(screen.getByTestId("io-registry-detail-toggle"));
-    const locationButton = screen.getByText("drivers/led.h:7");
+    const locationButton = screen.getByRole("button", { name: "Go to drivers/led.h:7" });
     expect(locationButton).not.toBeNull();
     await user.click(locationButton);
     expect(mockOnGoToLine).toHaveBeenCalledWith(location);
   });
 
-  it("shows project locations in compact registry cells and navigates them", async () => {
+  it("hides project locations by default and shows them in detail mode", async () => {
     const user = userEvent.setup();
     const pinModeLocation: SourceLocation = { file: "led_controller.h", line: 8 };
     const digitalWriteLocation: SourceLocation = { file: "led_controller.h", line: 13 };
@@ -438,13 +438,101 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    expect(screen.getByText("led_controller.h:8")).not.toBeNull();
-    expect(screen.getByText("led_controller.h:13")).not.toBeNull();
-    await user.click(screen.getByText("led_controller.h:13"));
+    expect(screen.getByText("OUTPUT")).not.toBeNull();
+    expect(screen.getByText("✓")).not.toBeNull();
+    expect(screen.queryByText("All")).toBeNull();
+    expect(screen.queryByText("Used")).toBeNull();
+    expect(screen.getByRole("button", { name: "Show all pins" })).toHaveClass("bg-transparent");
+    expect(screen.queryByRole("button", { name: "Go to led_controller.h:8" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Go to led_controller.h:13" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Show source locations" })).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Show source locations" }));
+    expect(screen.getByRole("button", { name: "Hide source locations" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Go to led_controller.h:8" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Go to led_controller.h:13" })).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Go to led_controller.h:13" }));
     expect(mockOnGoToLine).toHaveBeenCalledWith(digitalWriteLocation);
+
+    await user.click(screen.getByRole("button", { name: "Hide source locations" }));
+    expect(screen.queryByRole("button", { name: "Go to led_controller.h:8" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Go to led_controller.h:13" })).toBeNull();
+    expect(screen.getByText("OUTPUT")).not.toBeNull();
+    expect(screen.getByText("✓")).not.toBeNull();
   });
 
-  it("renders locations for every read/write operation column", () => {
+  it("compacts long source links while preserving their full navigation target", async () => {
+    const user = userEvent.setup();
+    const location: SourceLocation = {
+      file: "examples/IT04/10-unosim-showcase.ino",
+      line: 123,
+    };
+
+    render(
+      <ParserOutput
+        messages={[]}
+        ioRegistry={[{
+          pin: "5",
+          defined: true,
+          pinModeModes: ["OUTPUT"],
+          pinModeLocations: [location],
+          usedAt: [],
+        }]}
+        onClear={mockOnClear}
+        onGoToLine={mockOnGoToLine}
+        defaultTab="registry"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Show source locations" }));
+    const fullTarget = "examples/IT04/10-unosim-showcase.ino:123";
+    const compactTarget = "10-unosim-showcase.ino:123";
+    const link = screen.getByRole("button", { name: `Go to ${fullTarget}` });
+
+    expect(link.textContent).toBe(compactTarget);
+    expect(link).toHaveAttribute("title", fullTarget);
+    expect(link).toHaveClass("max-w-[10rem]", "overflow-hidden", "whitespace-nowrap");
+    expect(link.querySelector("span.truncate")?.textContent).toBe("10-unosim-showcase.ino");
+    expect(link.querySelector("span.shrink-0")?.textContent).toBe(":123");
+    expect(link.textContent).not.toContain("examples/IT04/");
+
+    await user.click(link);
+    expect(mockOnGoToLine).toHaveBeenCalledWith(location);
+  });
+
+  it("uses compact and detail-specific registry minimum widths", async () => {
+    const user = userEvent.setup();
+    render(
+      <ParserOutput
+        messages={[]}
+        ioRegistry={[{ pin: "5", defined: true, pinModeModes: ["OUTPUT"], usedAt: [] }]}
+        onClear={mockOnClear}
+        defaultTab="registry"
+      />,
+    );
+
+    const table = screen.getByRole("table");
+    expect(table).toHaveClass("w-full", "min-w-[36rem]", "table-fixed");
+    expect(table.parentElement).toHaveClass("w-full");
+    expect(table.parentElement).not.toHaveClass("overflow-x-auto");
+    expect(table.closest(".unified-scroll-area")).toHaveAttribute(
+      "data-scrollbar-visibility",
+      "always",
+    );
+    expect(table.querySelectorAll("col")[0]).toHaveClass("w-[3rem]");
+    expect(table.querySelectorAll("col")[1]).toHaveClass("w-[7rem]");
+    expect(table.querySelectorAll("col")[2]).toHaveClass("w-[5.5rem]");
+    expect(table.querySelectorAll("col")).toHaveLength(6);
+
+    await user.click(screen.getByRole("button", { name: "Show source locations" }));
+    expect(table).toHaveClass("min-w-[60rem]");
+    expect(table).not.toHaveClass("min-w-[36rem]");
+    expect(table.querySelectorAll("col")[0]).toHaveClass("w-[4rem]");
+    expect(table.querySelectorAll("col")[1]).toHaveClass("w-[10rem]");
+  });
+
+  it("renders locations for every read/write operation column in detail mode", async () => {
+    const user = userEvent.setup();
     const locations = {
       digitalReadLocations: [{ file: "inputs.h", line: 4 }],
       analogReadLocations: [{ file: "inputs.h", line: 5 }],
@@ -460,6 +548,7 @@ describe("ParserOutput Component", () => {
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: "Show source locations" }));
     expect(screen.getByText("inputs.h:4")).not.toBeNull();
     expect(screen.getByText("inputs.h:5")).not.toBeNull();
     expect(screen.getByText("outputs.h:9")).not.toBeNull();
@@ -487,9 +576,9 @@ describe("ParserOutput Component", () => {
       />,
     );
     await user.click(screen.getByTestId("io-registry-detail-toggle"));
-    expect(screen.getByText("main.ino:12")).not.toBeNull();
-    expect(screen.getByText("drivers/led.h:7")).not.toBeNull();
-    await user.click(screen.getByText("drivers/led.h:7"));
+    expect(screen.getByRole("button", { name: "Go to main.ino:12" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Go to drivers/led.h:7" })).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Go to drivers/led.h:7" }));
     expect(mockOnGoToLine).toHaveBeenCalledWith(locations[1]);
   });
 
@@ -578,7 +667,8 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    expect(screen.getByText("Programmed pins (1)")).not.toBeNull();
+    const registryHeader = screen.getByText("Programmed pins (1)").parentElement;
+    expect(registryHeader).toHaveClass("panel-content-header");
     expect(screen.getByText("13")).not.toBeNull();
     expect(screen.getByText("OUTPUT")).not.toBeNull();
   });

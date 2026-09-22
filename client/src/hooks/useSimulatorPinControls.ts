@@ -4,8 +4,10 @@ import type { ToastFn } from "@/hooks/use-toast";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { SimulationStatus } from "@/hooks/use-simulation-controls";
 import type { PinState } from "@/hooks/use-simulation-store";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 
 export function useSimulatorPinControls(params: {
+  capabilities?: ServerCapabilities;
   sendMessage: (message: IncomingArduinoMessage) => void;
   simulationStatus: SimulationStatus;
   toast: ToastFn;
@@ -23,6 +25,7 @@ export function useSimulatorPinControls(params: {
 
   const handlePinToggle = useCallback(
     (pin: number, newValue: number) => {
+      if (params.capabilities && !params.capabilities.canUseRealtimeControls) return;
       if (simulationStatus === "idle") {
         showSimulationNotActiveToast();
         return;
@@ -44,11 +47,12 @@ export function useSimulatorPinControls(params: {
         return newStates;
       });
     },
-    [simulationStatus, sendMessage, setPinStates, showSimulationNotActiveToast],
+    [simulationStatus, sendMessage, setPinStates, showSimulationNotActiveToast, params.capabilities],
   );
 
   const handleAnalogChange = useCallback(
     (pin: number, newValue: number) => {
+      if (params.capabilities && !params.capabilities.canUseRealtimeControls) return;
       if (simulationStatus === "idle") {
         showSimulationNotActiveToast();
         return;
@@ -72,7 +76,7 @@ export function useSimulatorPinControls(params: {
         return newStates;
       });
     },
-    [simulationStatus, sendMessage, setPinStates, showSimulationNotActiveToast],
+    [simulationStatus, sendMessage, setPinStates, showSimulationNotActiveToast, params.capabilities],
   );
 
   return {

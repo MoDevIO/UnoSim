@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExternalExamplesSettings } from "@/components/features/external-examples-settings";
+import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import {
   DEFAULT_EXPERIMENTAL_WORKSPACE_LAYOUT,
@@ -80,9 +81,11 @@ function SettingsRow({
 export default function SettingsDialog({
   open,
   onOpenChange,
+  capabilities = getServerCapabilities(true),
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+  readonly capabilities?: ServerCapabilities;
 }) {
   const [color, setColor] = React.useState<string>(() => {
     try {
@@ -200,7 +203,7 @@ export default function SettingsDialog({
             maxHeight: "calc(100vh - var(--dialog-offset-content))",
           }}
         >
-          <ExternalExamplesSettings open={open} />
+          <ExternalExamplesSettings open={open} capabilities={capabilities} />
           <SettingsSection
             title="Appearance"
             description="Personalize the visual scale and Arduino board colors."

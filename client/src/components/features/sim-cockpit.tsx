@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import clsx from "clsx";
+import { CircleCheck, CircleX } from "lucide-react";
+import { ToolbarStatusIcon } from "@/components/ui/toolbar-status-icon";
+import { StatusDot } from "@/components/ui/status-dot";
+import { getStatusTextClass, type ApplicationStatus } from "@/lib/status-semantics";
 import type { SimulationStatus, ClientState } from "@shared/types/arduino.types";
 import type { CompilationStatus } from "@/types/compilation.types";
 import type { ConnectionState } from "@/lib/websocket-manager";
@@ -31,34 +35,50 @@ function deriveClientState(
   return "IDLE";
 }
 
-function clientStateColor(state: ClientState): string {
+function clientStateTone(state: ClientState): ApplicationStatus {
   switch (state) {
-    case "RUNNING": return "text-emerald-400";
-    case "RUNNING_STARTING": return "text-orange-400";
-    case "PAUSED": return "text-amber-300";
+    case "RUNNING": return "success";
+    case "PAUSED": return "warning";
+    case "RUNNING_STARTING":
     case "COMPILING":
-    case "QUEUED_FOR_COMPILING": return "text-blue-300";
-    case "QUEUED_FOR_SIMULATION": return "text-violet-300";
-    case "ERROR": return "text-red-400";
-    default: return "text-white/50";
+    case "QUEUED_FOR_COMPILING":
+    case "QUEUED_FOR_SIMULATION": return "busy";
+    case "ERROR": return "error";
+    default: return "idle";
   }
 }
 
-function compileDotClass(status: CompilationStatus): string {
-  if (status === "compiling") return "bg-blue-400 animate-pulse";
-  if (status === "error") return "bg-red-500";
-  return "bg-white/30";
+function clientStateColor(state: ClientState): string {
+  return getStatusTextClass(clientStateTone(state));
 }
 
-/**
- * WS dot — based on wsConnectionState only (not simulation telemetry).
- * gray = never connected | amber(pulse) = connecting | green = connected | red = connection lost
- */
-function wsDotClass(wsState: ConnectionState, hasEverConnected: boolean): string {
-  if (wsState === "connected") return "bg-emerald-400";
-  if (wsState === "connecting" || wsState === "reconnecting") return "bg-amber-400 animate-pulse";
-  if (hasEverConnected) return "bg-red-500";
-  return "bg-white/30";
+function compilationStatusTone(status: CompilationStatus): ApplicationStatus {
+  if (status === "compiling") return "busy";
+  if (status === "error") return "error";
+  return "success";
+}
+
+function compilationStatusLabel(status: CompilationStatus): string {
+  switch (status) {
+    case "ready": return "HTTP ready";
+    case "compiling": return "HTTP compiling";
+    case "success": return "HTTP success";
+    case "error": return "HTTP error";
+  }
+}
+
+/** WS status is based on connection state only, not simulation telemetry. */
+function wsStatusTone(wsState: ConnectionState, hasEverConnected: boolean): ApplicationStatus {
+  if (wsState === "connected") return "success";
+  if (wsState === "connecting" || wsState === "reconnecting") return "busy";
+  return hasEverConnected ? "error" : "idle";
+}
+
+function wsStatusLabel(wsState: ConnectionState, hasEverConnected: boolean): string {
+  if (wsState === "connected") return "WebSocket connected";
+  if (wsState === "connecting") return "WebSocket connecting";
+  if (wsState === "reconnecting") return "WebSocket reconnecting";
+  return hasEverConnected ? "WebSocket disconnected" : "WebSocket not connected";
 }
 
 /** True when WS previously connected but is now disconnected/lost. */
@@ -222,7 +242,11 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
           value={(
             <span className="flex items-center gap-1">
               <span className="text-white/50">HTTP:</span>
-              <span className={clsx("inline-block w-2 h-2 rounded-full", compileDotClass(visualCompStatus))} />
+              <StatusDot
+                status={compilationStatusTone(visualCompStatus)}
+                label={compilationStatusLabel(visualCompStatus)}
+                pulse={visualCompStatus === "compiling"}
+              />
               {compileSlotVal && (
                 <>
                   <span className="text-white/30">|</span>
@@ -242,7 +266,11 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
           value={(
             <span className="flex items-center gap-1">
               <span className="text-white/50">WS:</span>
-              <span className={clsx("inline-block w-2 h-2 rounded-full", wsDotClass(wsConnectionState, wsHasEverConnected))} />
+              <StatusDot
+                status={wsStatusTone(wsConnectionState, wsHasEverConnected)}
+                label={wsStatusLabel(wsConnectionState, wsHasEverConnected)}
+                pulse={wsConnectionState === "connecting" || wsConnectionState === "reconnecting"}
+              />
               {!wsError && simSlotVal && (
                 <>
                   <span className="text-white/30">|</span>
@@ -256,22 +284,16 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
     );
   }
 
-  // ── Normal mode: minimal SERVER/OFFLINE pill ──────────────────────────
-  const httpDotClass = backendReachable ? "bg-emerald-500" : "bg-red-600";
-  const httpTextClass = backendReachable ? "text-emerald-400" : "text-red-400";
-
+  // ── Normal mode: icon-only server status ─────────────────────────────
   return (
-    <div className="hidden lg:flex items-center gap-2 bg-black/20 backdrop-blur-md border border-white/10 rounded-lg px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium shadow-2xl">
-      <div className="relative flex h-2.5 w-2.5">
-        {backendReachable && (
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-        )}
-        <span className={clsx("relative inline-flex rounded-full h-2.5 w-2.5", httpDotClass)} />
-      </div>
-      <span className={clsx("text-[9px] font-bold", httpTextClass)}>
-        {backendReachable ? "SERVER" : "OFFLINE"}
-      </span>
-    </div>
+    <ToolbarStatusIcon
+      className="hidden lg:flex"
+      icon={backendReachable
+        ? <CircleCheck aria-hidden="true" />
+        : <CircleX aria-hidden="true" />}
+      label={backendReachable ? "Server connected" : "Server offline"}
+      status={backendReachable ? "success" : "error"}
+    />
   );
 });
 

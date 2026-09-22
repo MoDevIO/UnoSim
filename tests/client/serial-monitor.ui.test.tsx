@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { SerialMonitor, applyBackspaceAcrossLines } from "@/components/features/serial-monitor";
+import { SerialMonitorView } from "@/components/simulator/SerialMonitorView";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import userEvent from "@testing-library/user-event";
 
 describe("SerialMonitor UI", () => {
   const baseProps = {
@@ -259,6 +261,76 @@ describe("SerialMonitor UI", () => {
     );
 
     expect(screen.getByTestId("serial-monitor")).not.toBeNull();
+  });
+
+  it("keeps the serial header clear action neutral while preserving its behavior", async () => {
+    const user = userEvent.setup();
+    const handleClearSerialOutput = vi.fn();
+
+    render(
+      <SerialMonitorView
+        renderedSerialOutput={[]}
+        serialOutput={[]}
+        isConnected
+        simulationStatus="idle"
+        handleSerialSend={vi.fn()}
+        handleClearSerialOutput={handleClearSerialOutput}
+        showSerialMonitor
+        showSerialPlotter={false}
+        serialViewMode="monitor"
+        cycleSerialViewMode={vi.fn()}
+        autoScrollEnabled
+        setAutoScrollEnabled={vi.fn()}
+        serialInputValue=""
+        setSerialInputValue={vi.fn()}
+        handleSerialInputKeyDown={vi.fn()}
+        handleSerialInputSend={vi.fn()}
+        debugMode={false}
+        telemetryData={{ last: null }}
+        baudRate={9600}
+      />,
+    );
+
+    const clearButton = screen.getByTestId("button-clear-serial");
+    expect(clearButton).toHaveAttribute("aria-label", "Clear serial output");
+    expect(clearButton).toHaveClass("bg-transparent");
+    expect(clearButton).not.toHaveClass("border-destructive", "border-border/70");
+    expect(clearButton.querySelector("svg")).toHaveClass("text-red-500");
+
+    await user.click(clearButton);
+    expect(handleClearSerialOutput).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the shared icon-only toolbar actions for serial controls", () => {
+    render(
+      <SerialMonitorView
+        renderedSerialOutput={[]}
+        serialOutput={[]}
+        isConnected
+        simulationStatus="idle"
+        handleSerialSend={vi.fn()}
+        handleClearSerialOutput={vi.fn()}
+        showSerialMonitor
+        showSerialPlotter={false}
+        serialViewMode="monitor"
+        cycleSerialViewMode={vi.fn()}
+        autoScrollEnabled
+        setAutoScrollEnabled={vi.fn()}
+        serialInputValue=""
+        setSerialInputValue={vi.fn()}
+        handleSerialInputKeyDown={vi.fn()}
+        handleSerialInputSend={vi.fn()}
+        debugMode={false}
+        telemetryData={{ last: null }}
+        baudRate={9600}
+      />,
+    );
+
+    for (const label of ["Monitor only", "Autoscroll on", "Clear serial output"]) {
+      const button = screen.getByRole("button", { name: label });
+      expect(button).toHaveClass("bg-transparent", "h-[var(--ui-button-height)]", "w-[var(--ui-button-height)]");
+      expect(button).not.toHaveClass("border-border/70");
+    }
   });
 });
 

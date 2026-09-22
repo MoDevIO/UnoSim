@@ -2,6 +2,7 @@ import { PinMonitor } from "@/components/features/pin-monitor";
 import { ArduinoBoard } from "@/components/features/arduino-board";
 import type { PinState } from "@/hooks/use-simulation-store";
 import type { SimulationStatus } from "@shared/types/arduino.types";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 
 type PinMonitorViewProps = {
   readonly pinMonitorVisible: boolean;
@@ -13,6 +14,7 @@ type PinMonitorViewProps = {
   readonly onPinToggle: (pin: number, newValue: number) => void;
   readonly analogPins: number[];
   readonly onAnalogChange: (pin: number, newValue: number) => void;
+  readonly capabilities?: ServerCapabilities;
   readonly isMobile?: boolean;
 };
 
@@ -26,6 +28,7 @@ export function PinMonitorView({
   onPinToggle,
   analogPins,
   onAnalogChange,
+  capabilities,
   isMobile = false,
 }: PinMonitorViewProps) {
   const isRunning = simulationStatus !== "idle";
@@ -49,6 +52,7 @@ export function PinMonitorView({
           onPinToggle={onPinToggle}
           analogPins={analogPins}
           onAnalogChange={onAnalogChange}
+          controlsDisabled={capabilities ? !capabilities.canUseRealtimeControls : false}
         />
       </div>
     </div>

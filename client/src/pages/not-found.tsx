@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
+import { getStatusTextClass } from "@/lib/status-semantics";
 
 export default function NotFound() {
   return (
@@ -7,7 +8,7 @@ export default function NotFound() {
       <Card className="w-full max-w-md mx-4">
         <CardContent className="pt-6">
           <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
+            <AlertCircle className={`h-8 w-8 ${getStatusTextClass("error")}`} />
             <h1 className="text-ui-2xl font-bold text-gray-900">
               404 Page Not Found
             </h1>

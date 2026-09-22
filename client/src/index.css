@@ -20,21 +20,6 @@ html, body {
   height: 0;
 }
 
-.tabs-active {
-  position: relative;
-}
-
-.tabs-active::before {
-  /* Absolute marker cannot change layout or be displaced by the scrollbar. */
-  background: #007acc;
-  content: "";
-  height: 2px;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-}
-
 /* Shared, browser-independent scrollbar used by all UnoSim content panels. */
 .unified-scroll-area {
   min-height: 0;
@@ -62,24 +47,79 @@ html, body {
   border-color: var(--border);
 }
 
-.unified-tab-bar--panel [role="tab"] {
-  color: #858585;
-  position: relative;
+.panel-content-header {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  flex-shrink: 0;
+  height: var(--ui-header-height);
+  min-height: var(--ui-header-height);
 }
 
-.unified-tab-bar--panel [role="tab"][data-state="active"] {
-  background: var(--background);
+.app-tab {
+  align-items: center;
+  background: var(--ui-tab-background);
+  border: 0;
+  border-radius: 0;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-weight: var(--ui-tab-font-weight);
+  gap: var(--ui-tab-gap);
+  height: var(--ui-header-height);
+  min-height: var(--ui-header-height);
+  min-width: 0;
+  padding: 0 var(--ui-tab-padding-x);
+  position: relative;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.app-tab:hover {
+  background: var(--ui-tab-hover-background);
+}
+
+.app-tab:focus-visible,
+.app-tab:focus-within {
+  box-shadow: none;
+  outline: none;
+  outline-offset: 0;
+}
+
+.app-tab[data-state="active"],
+.app-tab[data-active="true"] {
+  background: var(--ui-tab-active-background);
   color: var(--foreground);
 }
 
-.unified-tab-bar--panel [role="tab"][data-state="active"]::after {
-  background: #007acc;
+.app-tab[data-state="active"]::after,
+.app-tab[data-active="true"]::after {
+  background: var(--ui-tab-indicator-color);
   bottom: 0;
   content: "";
-  height: 2px;
+  height: var(--ui-tab-indicator-height);
   left: 0;
   position: absolute;
   right: 0;
+}
+
+/* Keep keyboard focus visible without drawing a box around the tab. */
+.app-tab:focus-visible,
+.app-tab__main:focus-visible {
+  background: var(--ui-tab-hover-background);
+}
+
+.app-tab__main {
+  align-items: center;
+  align-self: stretch;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 1;
+  gap: var(--ui-tab-gap);
+  min-width: 0;
+  outline: none;
+  padding: 0;
 }
 
 .unified-scroll-area__viewport::-webkit-scrollbar {
@@ -205,7 +245,9 @@ html, body {
     --color-brand-primary: #00979d; /* Arduino original teal */
     --color-status-success: #22c55e; /* success (emerald-500) */
     --color-status-success-dark: #16a34a; /* darker success for hovers */
+    --color-status-error: var(--color-danger-soft);
     --color-status-warning: #f97316; /* warning / amber */
+    --color-accent-cyan: #06b6d4; /* informational and busy status */
     --color-accent-amber: #fb923c;
     --plot-1: #3b82f6; /* blue */
     --plot-2: #ef4444; /* red */
@@ -486,5 +528,69 @@ button:not(.arduino-overlay):not(.parser-message-btn) > svg {
     top: auto;
     transform: translateX(-50%);
     width: calc(100% - 1rem);
+  }
+}
+
+@keyframes toolbar-icon-button-breathe {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.toolbar-icon-button-animated {
+  animation: toolbar-icon-button-breathe 2.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.toolbar-icon-button-animation-generating,
+.toolbar-icon-button-animation-waiting,
+.toolbar-icon-button-animation-evaluating,
+.toolbar-icon-button-animation-error {
+  transform-origin: center;
+}
+
+.toolbar-icon-button-animation-generating {
+  animation: toolbar-icon-button-breathe 0.8s ease-in-out infinite;
+}
+
+.toolbar-icon-button-animation-waiting {
+  animation: toolbar-icon-button-breathe 2.2s ease-in-out infinite;
+}
+
+.toolbar-icon-button-animation-evaluating {
+  animation: toolbar-icon-button-breathe 1.2s ease-in-out infinite;
+}
+
+@keyframes toolbar-icon-button-error {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.78;
+    transform: scale(1.05);
+  }
+}
+
+.toolbar-icon-button-animation-error {
+  animation: toolbar-icon-button-error 0.45s ease-in-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-icon-button-animated,
+  .toolbar-icon-button-animation-generating,
+  .toolbar-icon-button-animation-waiting,
+  .toolbar-icon-button-animation-evaluating,
+  .toolbar-icon-button-animation-error {
+    animation: none;
   }
 }

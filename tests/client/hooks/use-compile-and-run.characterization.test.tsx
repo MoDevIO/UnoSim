@@ -6,6 +6,7 @@ import { useCompileAndRun } from "../../../client/src/hooks/use-compile-and-run"
 import { apiRequest } from "../../../client/src/lib/queryClient";
 import type { IncomingArduinoMessage } from "../../../client/src/types/websocket";
 import { buildSourceProject } from "../../../client/src/lib/source-project";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 
 vi.mock("@/lib/queryClient", () => ({
   apiRequest: vi.fn(),
@@ -73,6 +74,22 @@ describe("useCompileAndRun characterization", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("does not issue compile or simulation requests offline", () => {
+    const params = { ...buildParams(), capabilities: getServerCapabilities(false) };
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
+
+    act(() => {
+      result.current.handleCompile();
+      result.current.handleCompileAndStart();
+      result.current.handleReset();
+    });
+
+    expect(apiRequest).not.toHaveBeenCalled();
+    expect(params.ensureBackendConnected).not.toHaveBeenCalled();
+    expect(params.sendMessage).not.toHaveBeenCalled();
   });
 
   it("compile-and-start success clears debug output, compiles headers, starts immediately with the compiled code and marks code unmodified", async () => {

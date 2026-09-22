@@ -12,6 +12,7 @@ import {
   refreshExternalExamplesCatalog,
   useExternalExamples,
 } from "@/lib/external-examples";
+import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 
 interface Example {
   id: string;
@@ -32,12 +33,12 @@ interface ExamplesMenuProps {
     files: Array<{ name: string; path?: string; content: string }>,
     title: string,
   ) => void;
-  readonly backendReachable?: boolean;
+  readonly capabilities?: ServerCapabilities;
 }
 
 export function ExamplesMenu({
   onLoadExample,
-  backendReachable = true,
+  capabilities = getServerCapabilities(true),
 }: ExamplesMenuProps) {
   const [examples, setExamples] = useState<Example[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,16 +49,29 @@ export function ExamplesMenu({
   const { toast } = useToast();
   const { override } = useExternalExamples();
   const loadGeneration = useRef(0);
+  const capabilitiesRef = useRef(capabilities);
+  const previousOpenRef = useRef(false);
+  const previousOverrideRef = useRef(override);
+  capabilitiesRef.current = capabilities;
 
   useEffect(() => {
-    if (!open) return;
+    const opened = open && !previousOpenRef.current;
+    const overrideChanged = previousOverrideRef.current !== override;
+    previousOpenRef.current = open;
+    previousOverrideRef.current = override;
+    if (!open || (!opened && !overrideChanged)) return;
+    if (!capabilitiesRef.current.canUseServerExamples) return;
     const generation = ++loadGeneration.current;
     let cancelled = false;
     const loadExamples = async () => {
       try {
         setIsLoading(true);
         const payload = await refreshExternalExamplesCatalog();
-        if (cancelled || generation !== loadGeneration.current) return;
+        if (
+          cancelled ||
+          generation !== loadGeneration.current ||
+          !capabilitiesRef.current.canUseServerExamples
+        ) return;
         const loadedExamples = payload.examples
           .map((example) => ({
             ...example,
@@ -93,17 +107,11 @@ export function ExamplesMenu({
       }
     };
 
-    if (backendReachable) {
-      loadExamples();
-    } else {
-      // Clear examples if backend is unreachable
-      setExamples([]);
-      setIsLoading(false);
-    }
+    loadExamples();
     return () => {
       cancelled = true;
     };
-  }, [backendReachable, open, override, toast]);
+  }, [open, override, toast]);
 
   // Global shortcut Meta+E to toggle examples menu
   useEffect(() => {
@@ -118,6 +126,7 @@ export function ExamplesMenu({
         try {
           e.stopImmediatePropagation();
         } catch {}
+        if (!capabilitiesRef.current.canUseServerExamples) return;
         setOpen((v) => !v);
       }
     };
@@ -246,6 +255,7 @@ export function ExamplesMenu({
   }, [open]);
 
   const handleLoadExample = async (example: Example) => {
+    if (!capabilitiesRef.current.canUseServerExamples) return;
     if (loadingExampleId) return;
     setLoadingExampleId(example.id);
     try {
@@ -261,6 +271,7 @@ export function ExamplesMenu({
       );
       if (!response.ok) throw new Error("Failed to fetch example");
       const detail = (await response.json()) as ExampleDetail;
+      if (!capabilitiesRef.current.canUseServerExamples) return;
       if (!Array.isArray(detail.files) || detail.files.length === 0) {
         throw new Error("Example contains no files");
       }
@@ -291,7 +302,8 @@ export function ExamplesMenu({
           variant="outline"
           size="icon"
           aria-label="Examples"
-          title="Examples (Cmd/Ctrl+E)"
+          title={capabilities.canUseServerExamples ? "Examples (Cmd/Ctrl+E)" : "Server connection required"}
+          disabled={!capabilities.canUseServerExamples}
         >
           <BookOpen className="h-4 w-4" />
         </Button>
@@ -305,6 +317,11 @@ export function ExamplesMenu({
         }}
         data-keyboard-nav={keyboardNavActive}
       >
+        {!capabilities.canUseServerExamples && (
+          <output className="px-2 py-1.5 ui-type-menu-item text-muted-foreground" aria-live="polite">
+            Server connection required
+          </output>
+        )}
         <div className="px-2 py-1.5">
           <div className="ui-type-menu-title font-semibold mb-1">
             Load Example
@@ -325,7 +342,11 @@ export function ExamplesMenu({
         )}
 
         {!isLoading && examples.length > 0 && (
-          <ExamplesTree examples={examples} onLoadExample={handleLoadExample} />
+          <ExamplesTree
+            examples={examples}
+            onLoadExample={handleLoadExample}
+            canUseServerExamples={capabilities.canUseServerExamples}
+          />
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -335,6 +356,7 @@ export function ExamplesMenu({
 interface ExamplesTreeProps {
   readonly examples: Example[];
   readonly onLoadExample: (example: Example) => void;
+  readonly canUseServerExamples: boolean;
 }
 
 type ExampleSource = Example["source"];
@@ -373,12 +395,14 @@ function getExampleDisplayName(example: Example): string {
 interface ExampleItemProps {
   readonly example: Example;
   readonly onLoadExample: (example: Example) => void;
+  readonly canUseServerExamples: boolean;
   readonly compact?: boolean;
 }
 
 function ExampleItem({
   example,
   onLoadExample,
+  canUseServerExamples,
   compact = false,
 }: ExampleItemProps) {
   return (
@@ -386,6 +410,7 @@ function ExampleItem({
       variant="ghost"
       size="sm"
       onClick={() => onLoadExample(example)}
+      disabled={!canUseServerExamples}
       data-role="example-item"
       tabIndex={0}
       className={
@@ -415,7 +440,7 @@ function ExampleItem({
   );
 }
 
-function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
+function ExamplesTree({ examples, onLoadExample, canUseServerExamples }: ExamplesTreeProps) {
   const [expandedSource, setExpandedSource] = useState<ExampleSource | null>(
     null,
   );
@@ -487,6 +512,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                             key={example.id}
                             example={example}
                             onLoadExample={onLoadExample}
+                            canUseServerExamples={canUseServerExamples}
                             compact
                           />
                         ))
@@ -531,6 +557,7 @@ function ExamplesTree({ examples, onLoadExample }: ExamplesTreeProps) {
                                         key={example.id}
                                         example={example}
                                         onLoadExample={onLoadExample}
+                                        canUseServerExamples={canUseServerExamples}
                                       />
                                     ))}
                                 </div>

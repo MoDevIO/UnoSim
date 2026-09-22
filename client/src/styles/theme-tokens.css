@@ -84,6 +84,15 @@
   --ui-toolbar-height: 2rem;                 /* 32px - compact toolbar height */
   --header-padding-x: var(--space-sm);       /* 8px - horizontal padding inside header */
   --header-padding-y: var(--space-xs);       /* 4px - vertical padding inside header */
+  --ui-tab-padding-x: var(--space-sm);        /* 8px - shared editor/panel tab inset */
+  --ui-tab-gap: var(--space-sm);              /* 8px - icon/label/badge/action spacing */
+  --ui-tab-font-weight: 500;
+  --ui-tab-background: transparent;
+  --ui-tab-active-background: var(--background);
+  --ui-tab-hover-background: hsl(0 0% 20%);
+  --ui-tab-focus-color: hsl(210 100% 66% / 0.8);
+  --ui-tab-indicator-color: var(--primary);
+  --ui-tab-indicator-height: 2px;
 
   /* Sidebar Layout (future-proof, ready for sidebar implementation) */
   --ui-sidebar-width: 16rem;                 /* 256px - standard sidebar width */

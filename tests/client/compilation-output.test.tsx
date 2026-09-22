@@ -61,4 +61,26 @@ Global variables use 9 bytes (0%) of dynamic memory.`;
 
     expect(screen.getByTestId("compilation-failed-title")).toHaveTextContent("Compilation failed");
   });
+
+  it("uses the shared success token for a successful compilation", () => {
+    render(<CompilationOutput isSuccess onClear={vi.fn()} />);
+
+    expect(screen.getByText("Compilation successful ✓")).toHaveClass("text-status-success");
+  });
+
+  it("uses shared error and warning tokens for compiler diagnostics", () => {
+    render(
+      <CompilationOutput
+        hasCompilationErrors
+        errors={[
+          { file: "main.ino", line: 2, column: 1, type: "error", message: "Syntax error" },
+          { file: "main.ino", line: 3, column: 1, type: "warning", message: "Unused value" },
+        ]}
+        onClear={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/error: Syntax error/)).toHaveClass("text-status-error");
+    expect(screen.getByText(/warning: Unused value/)).toHaveClass("text-status-warning");
+  });
 });

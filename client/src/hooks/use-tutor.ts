@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type TutorDialogTurn,
   calculateNextTutorDifficulty,
@@ -13,12 +13,14 @@ import {
   type TutorResponse,
 } from "@shared/tutor";
 import { INPUT_LIMITS } from "@shared/input-limits";
+import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 
 interface TutorConfig {
   readonly provider: string;
 }
 
 export interface TutorPanelState {
+  readonly capabilities: ServerCapabilities;
   readonly config: TutorConfig;
   readonly credential: string;
   readonly setCredential: (value: string) => void;
@@ -148,7 +150,9 @@ function persistConfiguredDifficulty(value: TutorDifficulty): void {
   }
 }
 
-export function useTutor(): TutorPanelState {
+export function useTutor(
+  capabilities: ServerCapabilities = getServerCapabilities(true),
+): TutorPanelState {
   const [config, setConfig] = useState<TutorConfig>(DEFAULT_CONFIG);
   const [credential, setCredential] = useState("");
   const [selectedModel, setSelectedModel] = useState("auto");
@@ -162,8 +166,10 @@ export function useTutor(): TutorPanelState {
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canLoadConfigOnMount = useRef(capabilities.canUseTutor);
 
   useEffect(() => {
+    if (!canLoadConfigOnMount.current) return;
     let cancelled = false;
     fetch("/api/config", { cache: "no-store", credentials: "include" })
       .then(async (response) => {
@@ -191,6 +197,7 @@ export function useTutor(): TutorPanelState {
   const clearCredential = useCallback(() => setTutorCredential(""), [setTutorCredential]);
 
   const loadModels = useCallback(async () => {
+    if (!capabilities.canUseTutor) return;
     setError(null);
     if (!credential.trim()) {
       setError("Enter your personal Tutor API key first.");
@@ -218,9 +225,10 @@ export function useTutor(): TutorPanelState {
     } finally {
       setModelsLoading(false);
     }
-  }, [credential]);
+  }, [capabilities, credential]);
 
   const requestQuestion = useCallback(async (code: string, requestDifficulty: TutorDifficulty) => {
+    if (!capabilities.canUseTutor) return;
     setError(null);
     if (!code.trim()) {
       setError("Open a sketch with source code first.");
@@ -258,7 +266,7 @@ export function useTutor(): TutorPanelState {
     } finally {
       setIsLoading(false);
     }
-  }, [availableModels, credential, selectedModel]);
+  }, [availableModels, capabilities, credential, selectedModel]);
 
   const resetDialog = useCallback(() => {
     setHistory([]);
@@ -269,15 +277,17 @@ export function useTutor(): TutorPanelState {
   }, [configuredDifficulty]);
 
   const generateQuestion = useCallback(async (code: string) => {
+    if (!capabilities.canUseTutor) return;
     if (question !== null || history.length > 0) {
       resetDialog();
       await requestQuestion(code, configuredDifficulty);
       return;
     }
     await requestQuestion(code, effectiveDifficulty);
-  }, [configuredDifficulty, effectiveDifficulty, history.length, question, requestQuestion, resetDialog]);
+  }, [capabilities, configuredDifficulty, effectiveDifficulty, history.length, question, requestQuestion, resetDialog]);
 
   const submitAnswer = useCallback(async (code: string) => {
+    if (!capabilities.canUseTutor) return;
     setError(null);
     const validationError = getSubmitAnswerValidationError({
       question,
@@ -335,7 +345,7 @@ export function useTutor(): TutorPanelState {
     } finally {
       setIsLoading(false);
     }
-  }, [answer, availableModels, credential, effectiveDifficulty, history, question, selectedModel]);
+  }, [answer, availableModels, capabilities, credential, effectiveDifficulty, history, question, selectedModel]);
 
   const updateConfiguredDifficulty = useCallback((value: number) => {
     const nextDifficulty = clampTutorDifficulty(value);
@@ -354,6 +364,7 @@ export function useTutor(): TutorPanelState {
   }, [history]);
 
   return useMemo(() => ({
+    capabilities,
     config,
     credential,
     setCredential: setTutorCredential,
@@ -379,6 +390,7 @@ export function useTutor(): TutorPanelState {
     error,
     generateQuestion,
   }), [
+    capabilities,
     config,
     credential,
     clearCredential,

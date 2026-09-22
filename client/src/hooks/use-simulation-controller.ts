@@ -7,10 +7,12 @@ import type { IncomingArduinoMessage } from "@/types/websocket";
 import { useSimulationControllerState } from "./use-simulation-controller-state";
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { UseUiFeedbackAdapterResult } from "./use-ui-feedback-adapter";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 
 const logger = new Logger("useSimulationController");
 
 export type SimulationControllerParams = {
+  readonly capabilities?: ServerCapabilities;
   code: string;
   hasCompilationErrors: boolean;
   isModified?: boolean;
@@ -81,15 +83,17 @@ export function useSimulationController(
   const compiledEntryFileRef = useRef<string | undefined>(undefined);
   const internalStartRef = useRef<(() => void) | null>(null);
   const startSimulationRef = params.startSimulationRef ?? internalStartRef;
+  const canSimulate = params.capabilities?.canSimulate ?? true;
 
   const stopSimulationImmediately = useCallback(() => {
+    if (!canSimulate) return;
     params.uiFeedback.logStopSimulation();
     const message = { type: "stop_simulation" } as const;
     if (!(params.sendMessageImmediate?.(message) ?? false)) params.sendMessage(message);
     setSimulationStatus("idle");
     params.serialEventQueueRef.current = [];
     params.resetPinUI({ keepDetected: true });
-  }, [params, setSimulationStatus]);
+  }, [canSimulate, params, setSimulationStatus]);
 
   const stopMutation = useMutation({
     mutationFn: async () => {
@@ -157,7 +161,9 @@ export function useSimulationController(
     },
   });
 
-  const startSimulation = useCallback(() => startMutation.mutate(), [startMutation]);
+  const startSimulation = useCallback(() => {
+    if (canSimulate) startMutation.mutate();
+  }, [canSimulate, startMutation]);
   const setCompiledCode = useCallback((code: string) => {
     compiledCodeRef.current = code;
   }, []);
@@ -168,21 +174,25 @@ export function useSimulationController(
     compiledEntryFileRef.current = entryFile;
   }, []);
   const handleStart = useCallback(() => {
+    if (!canSimulate) return;
     if (!params.ensureBackendConnected("Simulation starten")) return;
     startSimulation();
-  }, [params.ensureBackendConnected, startSimulation]);
+  }, [canSimulate, params.ensureBackendConnected, startSimulation]);
   const handleStop = useCallback(() => {
+    if (!canSimulate) return;
     if (!params.ensureBackendConnected("Simulation stoppen")) return;
     stopMutation.mutate();
-  }, [params.ensureBackendConnected, stopMutation]);
+  }, [canSimulate, params.ensureBackendConnected, stopMutation]);
   const handlePause = useCallback(() => {
+    if (!canSimulate) return;
     if (!params.ensureBackendConnected("Simulation pausieren")) return;
     pauseMutation.mutate();
-  }, [params.ensureBackendConnected, pauseMutation]);
+  }, [canSimulate, params.ensureBackendConnected, pauseMutation]);
   const handleResume = useCallback(() => {
+    if (!canSimulate) return;
     if (!params.ensureBackendConnected("Simulation fortsetzen")) return;
     resumeMutation.mutate();
-  }, [params.ensureBackendConnected, resumeMutation]);
+  }, [canSimulate, params.ensureBackendConnected, resumeMutation]);
 
   startSimulationRef.current = startSimulation;
 

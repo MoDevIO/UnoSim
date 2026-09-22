@@ -110,6 +110,45 @@ async function openFileMenu() {
 }
 
 describe("Load Files workflow", () => {
+  it("uses the shared visual root for the active sketch tab", () => {
+    renderWorkflow();
+
+    const sketchTab = screen.getByRole("button", { name: "sketch.ino" });
+    const tabShell = sketchTab.closest(".app-tab");
+    expect(sketchTab).toHaveClass("app-tab__main", "ui-type-tab");
+    expect(sketchTab).not.toHaveClass("app-tab");
+    expect(tabShell).toHaveAttribute("data-active", "true");
+    expect(tabShell).toHaveAttribute("data-app-tab", "true");
+    expect(tabShell).toHaveClass("app-tab", "ui-type-tab");
+    expect(tabShell).not.toHaveClass("unified-tab-shell", "border-r", "tabs-active");
+  });
+
+  it("keeps multiple editor tabs, keyboard switching, and close actions functional", () => {
+    const onTabClick = vi.fn();
+    render(
+      <SketchTabs
+        tabs={[
+          { id: "main", name: "sketch.ino", content: "" },
+          { id: "header", name: "header.h", content: "" },
+        ]}
+        activeTabId="main"
+        modifiedTabId={null}
+        onTabClick={onTabClick}
+        onTabClose={vi.fn()}
+        onTabRename={vi.fn()}
+        onTabAdd={vi.fn()}
+      />,
+    );
+
+    expect(document.querySelectorAll(".app-tab")).toHaveLength(2);
+    const headerTab = screen.getByRole("button", { name: "header.h" });
+    fireEvent.keyDown(headerTab, { key: "Enter" });
+    expect(onTabClick).toHaveBeenCalledWith("header");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close file" }));
+    expect(screen.getByRole("heading", { name: "Delete File?" })).toBeInTheDocument();
+  });
+
   it("routes File and ellipsis entry points to the same file input", async () => {
     const { inputClick } = renderWorkflow();
 

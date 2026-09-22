@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useSimulatorPinControls } from "../../../client/src/hooks/useSimulatorPinControls";
 import type { PinState } from "../../../client/src/hooks/use-simulation-store";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 
 const createParams = (overrides: Record<string, unknown> = {}) => ({
   sendMessage: vi.fn(),
@@ -12,6 +13,24 @@ const createParams = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("useSimulatorPinControls", () => {
+  it("does not send pin changes while the backend is offline", () => {
+    const params = {
+      sendMessage: vi.fn(),
+      simulationStatus: "running" as const,
+      toast: vi.fn(),
+      setPinStates: vi.fn(),
+      capabilities: getServerCapabilities(false),
+    };
+    const { result } = renderHook(() => useSimulatorPinControls(params));
+
+    act(() => result.current.handlePinToggle(13, 1));
+    act(() => result.current.handleAnalogChange(14, 128));
+
+    expect(params.sendMessage).not.toHaveBeenCalled();
+    expect(params.setPinStates).not.toHaveBeenCalled();
+    expect(params.toast).not.toHaveBeenCalled();
+  });
+
   describe("handlePinToggle", () => {
     it("sends set_pin_value message and updates local state", () => {
       const params = createParams();

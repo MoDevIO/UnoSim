@@ -2,6 +2,7 @@ import React from "react";
 import { AppHeader } from "@/components/features/app-header";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 import type { CompilationStatus } from "@/types/compilation.types";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 
 interface SimulationControlsProps {
   readonly isMobile: boolean;
@@ -11,6 +12,7 @@ interface SimulationControlsProps {
   readonly hasFirstOutput: boolean;
   readonly pendingExternalStart?: boolean;
   readonly simulateDisabled: boolean;
+  readonly capabilities?: ServerCapabilities;
   readonly isCompiling: boolean;
   readonly isStarting: boolean;
   readonly isStopping: boolean;

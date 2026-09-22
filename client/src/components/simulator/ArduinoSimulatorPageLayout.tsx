@@ -229,7 +229,8 @@ export function ArduinoSimulatorPageLayout(
   } = layout;
 
   const experimentalWorkspace = useExperimentalWorkspaceLayout();
-  const tutorPanel = useTutor();
+  const { capabilities } = connection;
+  const tutorPanel = useTutor(capabilities);
   const showExperimentalDesktopWorkspace = experimentalWorkspace.enabled && isDesktop;
   const { mobileCompileActive, mobileSerialActive, mobileBoardActive, mobileTutorActive } = getMobilePanelState(
     isMobile,
@@ -271,6 +272,7 @@ export function ArduinoSimulatorPageLayout(
       onPinToggle={handlePinToggle}
       analogPins={analogPinsUsed}
       onAnalogChange={handleAnalogChange}
+      capabilities={capabilities}
       isMobile={isMobile}
     />
   );
@@ -341,6 +343,7 @@ export function ArduinoSimulatorPageLayout(
         hasFirstOutput={hasFirstOutput}
         pendingExternalStart={pendingExternalStart}
         simulateDisabled={simulateDisabled}
+        capabilities={capabilities}
         isCompiling={compileMutation.isPending}
         isStarting={startMutation.isPending}
         isStopping={stopMutation.isPending}

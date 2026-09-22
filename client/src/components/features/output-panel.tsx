@@ -1,10 +1,10 @@
 import React from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { CompilationOutput } from "@/components/features/compilation-output";
 import { ParserOutput } from "@/components/features/parser-output";
-import { X, LayoutGrid, Table } from "lucide-react";
+import { X, LayoutGrid, Table, Copy, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import { pinModeToString } from "@shared/utils/arduino-utils";
@@ -12,6 +12,9 @@ import type { DebugMessage } from "@/hooks/use-debug-console";
 import type { OutputTab } from "@/types/compilation.types";
 import type { SourceNavigationTarget } from "@/types/source-navigation";
 import { TabBar } from "@/components/ui/tab-bar";
+import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
+import { getHighestSeverityStatus, getStatusTextClass } from "@/lib/status-semantics";
+import type { ApplicationStatus } from "@/lib/status-semantics";
 
 function hasRegistryConflict(record: IOPinRecord): boolean {
   const ops = record.usedAt || [];
@@ -100,51 +103,40 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
     onClearDebugMessages,
   } = props;
   const registryHasConflict = ioRegistry.some(hasRegistryConflict);
+  const messageStatus = getHighestSeverityStatus(parserMessages.map((message) => message.severity));
+  let compilationStatus: ApplicationStatus = "idle";
+  if (hasCompilationErrors) {
+    compilationStatus = "error";
+  } else if (isSuccessState && lastCompilationResult !== null) {
+    compilationStatus = "success";
+  }
+  const compilationStatusClass = getStatusTextClass(compilationStatus);
+  const messageStatusClass = getStatusTextClass(messageStatus);
 
   return (
     <Tabs value={activeOutputTab} onValueChange={(v) => onTabChange(v as OutputTab)} className="h-full flex flex-col">
-      <TabBar ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="unified-tab-bar--panel justify-start px-[var(--header-padding-x)] h-[var(--ui-header-height)] border-b">
+      <TabBar ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="unified-tab-bar--panel justify-start h-[var(--ui-header-height)] border-b">
         <TabsList className="h-full flex gap-0 bg-transparent items-center">
-          <TabsTrigger value="compiler" onDoubleClick={() => openOutputPanel("compiler")} className={clsx("h-full px-2 uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 flex items-center", {
-            "text-gray-400": lastCompilationResult === null,
-            "text-green-400": isSuccessState && lastCompilationResult !== null,
-            "text-red-400": hasCompilationErrors,
-          })}>
-            <span className={clsx({
-              "text-gray-400": lastCompilationResult === null,
-              "text-green-400": isSuccessState && lastCompilationResult !== null,
-              "text-red-400": hasCompilationErrors,
-            })}>
+          <TabsTrigger value="compiler" onDoubleClick={() => openOutputPanel("compiler")} className={clsx("uppercase tracking-wide", compilationStatusClass)}>
+            <span className={compilationStatusClass}>
               Compiler
             </span>
           </TabsTrigger>
 
-          <TabsTrigger value="messages" onDoubleClick={() => openOutputPanel("messages")} className={clsx("h-full px-2 uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 flex items-center", {
-            "text-orange-400": parserMessages.length > 0,
-            "text-gray-400": parserMessages.length === 0,
-          })}>
-            <span className={clsx({
-              "text-orange-400": parserMessages.length > 0,
-              "text-gray-400": parserMessages.length === 0,
-            })}>
+          <TabsTrigger value="messages" onDoubleClick={() => openOutputPanel("messages")} className={clsx("uppercase tracking-wide", messageStatusClass)}>
+            <span className={messageStatusClass}>
               Messages
             </span>
           </TabsTrigger>
 
-          <TabsTrigger value="registry" onDoubleClick={() => openOutputPanel("registry")} className={clsx("h-full px-2 uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 flex items-center", {
-            "text-blue-400": registryHasConflict,
-            "text-gray-400": !registryHasConflict,
-          })}>
-            <span className={clsx({
-              "text-blue-400": registryHasConflict,
-              "text-gray-400": !registryHasConflict,
-            })}>
+          <TabsTrigger value="registry" onDoubleClick={() => openOutputPanel("registry")} className={clsx("uppercase tracking-wide", getStatusTextClass(registryHasConflict ? "error" : "idle"))}>
+            <span className={getStatusTextClass(registryHasConflict ? "error" : "idle")}>
               I/O Registry
             </span>
           </TabsTrigger>
 
           {debugMode && (
-            <TabsTrigger value="debug" onDoubleClick={() => openOutputPanel("debug")} className="h-full px-2 uppercase tracking-wide data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:tabs-active rounded-none py-0 flex items-center text-cyan-400 gap-1.5">
+            <TabsTrigger value="debug" onDoubleClick={() => openOutputPanel("debug")} className="uppercase tracking-wide text-cyan-400">
               Debug
               {debugMessages.length > 0 && (
                 <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyan-600/30 text-cyan-300 text-[9px] font-mono leading-none overflow-hidden">
@@ -186,7 +178,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
       <TabsContent value="debug" className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden">
         {activeOutputTab === "debug" && (
           <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="bg-muted/50 border-b border-muted-foreground/30 px-3 h-[var(--ui-button-height)] flex items-center justify-between gap-2 flex-shrink-0">
+            <div className="panel-content-header bg-muted/50 border-b border-muted-foreground/30 px-3 justify-between gap-2">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <span className="text-ui-xs text-muted-foreground whitespace-nowrap">Filter:</span>
                 <select value={debugMessageFilter} onChange={(e) => setDebugMessageFilter(e.target.value.toLowerCase())} className="flex-1 px-2 py-1 text-ui-xs bg-background border border-muted-foreground/20 rounded text-foreground min-w-0 max-w-xs">
@@ -199,39 +191,27 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 </select>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
+                <ToolbarIconButton
+                  icon={debugViewMode === "table" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Table className="h-3.5 w-3.5" />}
+                  label={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
                   onClick={() => setDebugViewMode(debugViewMode === "table" ? "tiles" : "table")}
-                  title={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
-                  aria-label={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
-                >
-                  {debugViewMode === "table" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Table className="h-3.5 w-3.5" />}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
+                />
+                <ToolbarIconButton
+                  icon={<Copy className="h-3.5 w-3.5" />}
+                  label="Copy debug messages"
                   onClick={onCopyDebugMessages}
-                  aria-label="Copy debug messages"
-                >
-                  Copy
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructiveOutline"
-                  size="sm"
+                />
+                <ToolbarIconButton
+                  icon={<Trash2 className="h-3.5 w-3.5" />}
+                  label="Clear debug messages"
+                  destructive
                   onClick={onClearDebugMessages}
-                  aria-label="Clear debug messages"
-                >
-                  Clear
-                </Button>
+                />
               </div>
             </div>
 
             {debugViewMode === "table" && (
-              <ScrollArea className="flex-1" viewportRef={debugMessagesContainerRef} thumbClassName="bg-status-success">
+              <UnifiedScrollArea className="flex-1" orientation="vertical" viewportRef={debugMessagesContainerRef}>
                 <table className="w-full text-ui-xs border-collapse">
                   <thead>
                     <tr className="sticky top-0 z-40 bg-muted border-b border-muted-foreground/20">
@@ -259,11 +239,11 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                     )}
                   </tbody>
                 </table>
-              </ScrollArea>
+              </UnifiedScrollArea>
             )}
 
             {debugViewMode === "tiles" && (
-              <ScrollArea className="flex-1" viewportRef={debugMessagesContainerRef} thumbClassName="bg-status-success">
+              <UnifiedScrollArea className="flex-1" orientation="vertical" viewportRef={debugMessagesContainerRef}>
                 <div className="p-3">
                   <div className="space-y-3">
                     {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice(-50).map((msg) => (
@@ -283,7 +263,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                     )}
                   </div>
                 </div>
-              </ScrollArea>
+              </UnifiedScrollArea>
             )}
 
           </div>

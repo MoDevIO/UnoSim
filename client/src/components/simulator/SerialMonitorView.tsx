@@ -1,9 +1,10 @@
 import React, { lazy, useState, useEffect, useRef } from "react";
 import { Terminal, ChevronsDown, BarChart, Columns, Monitor, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { PanelHeader } from "@/components/ui/panel-header";
+import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { InputGroup } from "@/components/ui/input-group";
 import { clsx } from "clsx";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 import { SerialMonitor } from "@/components/features/serial-monitor";
 import {
   ResizablePanelGroup,
@@ -133,6 +134,7 @@ interface SerialMonitorViewProps {
   readonly renderedSerialOutput: OutputLine[];
   readonly serialOutput: OutputLine[];
   readonly isConnected: boolean;
+  readonly capabilities?: ServerCapabilities;
   readonly simulationStatus: RuntimeSimulationStatus;
   readonly handleSerialSend: (message: string) => void;
   readonly handleClearSerialOutput: () => void;
@@ -156,6 +158,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
     renderedSerialOutput,
     serialOutput,
     isConnected,
+    capabilities,
     simulationStatus,
     handleSerialSend,
     handleClearSerialOutput,
@@ -262,41 +265,30 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             ) : undefined}
             actions={
               <>
-              <Button
-                variant="outline"
-                size="icon"
+              <ToolbarIconButton
+                icon={getSerialViewIcon(serialViewMode)}
+                label={SERIAL_VIEW_LABELS[serialViewMode]}
                 onClick={cycleSerialViewMode}
                 data-testid="button-serial-view-toggle"
-                aria-label={SERIAL_VIEW_LABELS[serialViewMode]}
-                title={SERIAL_VIEW_LABELS[serialViewMode]}
-              >
-                {getSerialViewIcon(serialViewMode)}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
+              />
+              <ToolbarIconButton
+                icon={<ChevronsDown className="h-4 w-4" />}
+                label={autoScrollEnabled ? "Autoscroll on" : "Autoscroll off"}
                 className={clsx(
                   autoScrollEnabled ? "text-cyan-400" : "text-muted-foreground",
                 )}
                 onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
                 disabled={serialViewMode === "plotter"}
-                title={autoScrollEnabled ? "Autoscroll on" : "Autoscroll off"}
-                aria-label={autoScrollEnabled ? "Autoscroll on" : "Autoscroll off"}
                 aria-pressed={autoScrollEnabled}
                 data-testid="button-autoscroll"
-              >
-                <ChevronsDown className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="destructiveOutline"
-                size="icon"
+              />
+              <ToolbarIconButton
+                icon={<Trash2 className="h-4 w-4" />}
+                label="Clear serial output"
+                destructive
                 onClick={handleClearSerialOutput}
-                aria-label="Clear serial output"
-                title="Clear serial output"
                 data-testid="button-clear-serial"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              />
               </>
             }
           />
@@ -326,9 +318,19 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             onChange={(e) => setSerialInputValue(e.target.value)}
             onKeyDown={handleSerialInputKeyDown}
             onSubmit={handleSerialInputSend}
-            disabled={!serialInputValue.trim() || simulationStatus !== "running"}
+            title={capabilities && !capabilities.canUseRealtimeControls ? "Server connection required" : undefined}
+            disabled={
+              !serialInputValue.trim() ||
+              simulationStatus !== "running" ||
+              (capabilities !== undefined && !capabilities.canUseRealtimeControls)
+            }
           />
         </div>
+        {capabilities && !capabilities.canUseRealtimeControls && (
+          <output className="mt-1 text-ui-xs text-muted-foreground" aria-live="polite">
+            Server connection required
+          </output>
+        )}
       </div>
     </div>
   );

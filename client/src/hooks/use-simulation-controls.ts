@@ -5,6 +5,7 @@ import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 import { useSimulationController } from "./use-simulation-controller";
 import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 export type { SimulationStatus } from "@shared/types/arduino.types";
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
@@ -17,6 +18,7 @@ export type DebugMessageParams = {
 };
 
 export type UseSimulationControlsParams = {
+  readonly capabilities?: ServerCapabilities;
   ensureBackendConnected: (reason: string) => boolean;
   sendMessage: (message: IncomingArduinoMessage) => void;
   /** Optional immediate sender for time-critical commands (stop) */
@@ -74,6 +76,7 @@ export function useSimulationControls(
     code: "",
     hasCompilationErrors: false,
     isModified: params.isModified,
+    capabilities: params.capabilities,
     ensureBackendConnected: params.ensureBackendConnected,
     sendMessage: params.sendMessage,
     sendMessageImmediate: params.sendMessageImmediate,
@@ -86,6 +89,7 @@ export function useSimulationControls(
   });
 
   const handleReset = useCallback(() => {
+    if (params.capabilities && !params.capabilities.canSimulate) return;
     if (!params.ensureBackendConnected("Reset simulation")) return;
     params.clearOutputs();
     if (controller.simulationStatus === "running") controller.stopSimulationImmediately();

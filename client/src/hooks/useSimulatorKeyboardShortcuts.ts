@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 import type { ToastFn } from "@/hooks/use-toast";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 
 type UseSimulatorKeyboardShortcutsOptions = {
   isMac: boolean;
   simulationStatus: "idle" | "running" | "compiling" | "queued" | "paused";
   compilePending: boolean;
   startPending: boolean;
+  capabilities: ServerCapabilities;
   handleCompile: () => void;
   handleCompileAndStart: () => void;
   handleStop: () => void;
@@ -15,11 +17,24 @@ type UseSimulatorKeyboardShortcutsOptions = {
   toast: ToastFn;
 };
 
+function runShortcut(
+  event: KeyboardEvent,
+  matches: boolean,
+  shouldRun: boolean,
+  action: () => void,
+): boolean {
+  if (!matches) return false;
+  event.preventDefault();
+  if (shouldRun) action();
+  return true;
+}
+
 export function useSimulatorKeyboardShortcuts({
   isMac,
   simulationStatus,
   compilePending,
   startPending,
+  capabilities,
   handleCompile,
   handleCompileAndStart,
   handleStop,
@@ -70,47 +85,40 @@ export function useSimulatorKeyboardShortcuts({
       const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
 
       // F5: Compile only
-      if (e.key === "F5") {
-        e.preventDefault();
-        if (!compilePending) {
-          handleCompile();
-        }
-        return;
-      }
+      if (runShortcut(e, e.key === "F5", capabilities.canCompile && !compilePending, handleCompile)) return;
 
       // Escape: Stop simulation
-      if (e.key === "Escape" && simulationStatus === "running") {
-        e.preventDefault();
-        handleStop();
-        return;
-      }
+      if (runShortcut(
+        e,
+        e.key === "Escape" && simulationStatus === "running" && capabilities.canSimulate,
+        true,
+        handleStop,
+      )) return;
 
       // Meta/Ctrl + U: Compile and start
-      if (isModifierPressed && e.key.toLowerCase() === "u") {
-        e.preventDefault();
-        if (!compilePending && !startPending) {
-          handleCompileAndStart();
-        }
-        return;
-      }
+      if (runShortcut(
+        e,
+        isModifierPressed && e.key.toLowerCase() === "u",
+        capabilities.canCompile && capabilities.canSimulate && !compilePending && !startPending,
+        handleCompileAndStart,
+      )) return;
 
       // Meta/Ctrl + Shift + F: Format code
-      if (isModifierPressed && e.shiftKey && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        handleFormatCode();
-        return;
-      }
+      if (runShortcut(
+        e,
+        isModifierPressed && e.shiftKey && e.key.toLowerCase() === "f",
+        true,
+        handleFormatCode,
+      )) return;
 
       // Meta/Ctrl + Alt + Shift + N: New file (less likely to be caught by browser menu shortcuts)
-      if (
-        isModifierPressed &&
-        e.altKey &&
-        e.shiftKey &&
-        (e.key === "n" || e.key === "N" || e.code === "KeyN")
-      ) {
-        e.preventDefault();
-        handleNewFile();
-      }
+      runShortcut(
+        e,
+        isModifierPressed && e.altKey && e.shiftKey &&
+          (e.key === "n" || e.key === "N" || e.code === "KeyN"),
+        true,
+        handleNewFile,
+      );
     };
 
     globalThis.addEventListener("keydown", handleKeyDown, { capture: true });
@@ -118,6 +126,7 @@ export function useSimulatorKeyboardShortcuts({
   }, [
     compilePending,
     startPending,
+    capabilities,
     simulationStatus,
     isMac,
     handleCompile,

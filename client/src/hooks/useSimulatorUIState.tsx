@@ -10,6 +10,7 @@ import type { ToastFn } from "@/hooks/use-toast";
 import type { ParserMessage, IOPinRecord, OutputLine } from "@shared/schema";
 import type { OutputTab } from "@/types/compilation.types";
 import type { SourceNavigationTarget } from "@/types/source-navigation";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 const CodeEditor = lazy(() =>
   import("@/components/features/code-editor").then((m) => ({
     default: m.CodeEditor,
@@ -35,7 +36,7 @@ interface UseSimulatorUIStateParams {
     getValue: () => string;
     insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
   }>;
-  backendReachable: boolean;
+  capabilities: ServerCapabilities;
 
   parserMessages: ParserMessage[];
   activeOutputTab: OutputTab;
@@ -128,7 +129,7 @@ export function useSimulatorUIState({
   downloadAllFiles,
   formatCode,
   editorRef,
-  backendReachable,
+  capabilities,
   activeOutputTab,
   showCompilationOutput,
   parserPanelDismissed,
@@ -222,7 +223,7 @@ export function useSimulatorUIState({
           examplesMenu={
             <ExamplesMenu
               onLoadExample={handleLoadExample}
-              backendReachable={backendReachable}
+              capabilities={capabilities}
             />
           }
         />
@@ -243,7 +244,7 @@ export function useSimulatorUIState({
       handleFilesLoaded,
       formatCode,
       handleLoadExample,
-      backendReachable,
+      capabilities,
       code,
       setCode,
       editorRef,
@@ -350,6 +351,7 @@ export function useSimulatorUIState({
           renderedSerialOutput={renderedSerialOutput}
           serialOutput={serialOutput}
           isConnected={isConnected}
+          capabilities={capabilities}
           simulationStatus={simulationStatus === "running" || simulationStatus === "paused" ? simulationStatus : "idle"}
           handleSerialSend={handleSerialSend}
           handleClearSerialOutput={handleClearSerialOutput}
@@ -373,6 +375,7 @@ export function useSimulatorUIState({
       renderedSerialOutput,
       serialOutput,
       isConnected,
+      capabilities,
       simulationStatus,
       handleSerialSend,
       handleClearSerialOutput,

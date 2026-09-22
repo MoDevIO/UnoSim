@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 
+import { AppTab } from "@/components/ui/app-tab";
 import { cn } from "@/lib/utils";
 
 const Tabs = TabsPrimitive.Root;
@@ -21,19 +22,26 @@ const TabsList = React.forwardRef<
 ));
 TabsList.displayName = TabsPrimitive.List.displayName;
 
-const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "ui-type-tab inline-flex flex-shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3 py-0 font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:shadow-sm",
-      className,
-    )}
-    {...props}
-  />
-));
+type TabsTriggerProps = Omit<
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>,
+  "asChild"
+>;
+
+const TabsTrigger = React.forwardRef<HTMLDivElement, TabsTriggerProps>(
+  ({ className, children, ...props }, ref) => (
+    <TabsPrimitive.Trigger asChild {...props}>
+      <AppTab
+        ref={ref}
+        className={cn(
+          "justify-center whitespace-nowrap disabled:pointer-events-none disabled:opacity-50",
+          className,
+        )}
+      >
+        {children}
+      </AppTab>
+    </TabsPrimitive.Trigger>
+  ),
+);
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
 const TabsContent = React.forwardRef<

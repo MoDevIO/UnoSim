@@ -37,6 +37,7 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
             ref={ref}
             {...props}
             data-testid={inputTestId}
+            disabled={disabled}
             onKeyDown={handleKeyDown}
             className={cn(
               "flex-1 bg-transparent px-3 py-2 text-ui-md placeholder-muted-foreground text-foreground focus:outline-none",
@@ -74,4 +75,3 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
 InputGroup.displayName = "InputGroup";
 
 // default export removed; use named InputGroup export
-

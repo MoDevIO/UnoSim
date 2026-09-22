@@ -100,6 +100,7 @@ interface ArduinoBoardProps {
   readonly onPinToggle?: (pin: number, newValue: number) => void; // Callback when an INPUT pin is clicked
   readonly analogPins?: number[]; // array of internal pin numbers for analog pins (14..19)
   readonly onAnalogChange?: (pin: number, value: number) => void;
+  readonly controlsDisabled?: boolean;
 }
 
 /**
@@ -302,6 +303,7 @@ export function ArduinoBoard({
   onPinToggle,
   analogPins = [],
   onAnalogChange,
+  controlsDisabled = false,
 }: ArduinoBoardProps) {
   const [svgContent, setSvgContent] = useState<string>("");
   const boardColor = useBoardColor();
@@ -473,6 +475,7 @@ export function ArduinoBoard({
       // Check for pin click
       const pinClick = target.closest('[id^="pin-"][id$="-click"]');
       if (pinClick && onPinToggle) {
+        if (controlsDisabled) return;
         const pin = parsePinFromElement(pinClick);
         if (pin !== undefined) {
           dispatchPinClick(
@@ -486,11 +489,12 @@ export function ArduinoBoard({
       // Check for reset button click
       const resetClick = target.closest("#reset-click");
       if (resetClick && onReset) {
+        if (controlsDisabled) return;
         logger.debug("[ArduinoBoard] Reset button clicked");
         onReset();
       }
     },
-    [onPinToggle, onReset, pinStates, sliderPositions, onAnalogChange, analogPins],
+    [onPinToggle, onReset, pinStates, sliderPositions, onAnalogChange, analogPins, controlsDisabled],
   );
 
   // Compute scale to fit both width and height
@@ -623,14 +627,16 @@ export function ArduinoBoard({
                 type="button"
                 ref={overlayRef as React.Ref<HTMLButtonElement>}
                 className="arduino-overlay absolute inset-0 w-full h-full"
-                aria-label="Arduino board interactive overlay. Click pins to toggle their state."
+                aria-label={controlsDisabled ? "Arduino board; server connection required" : "Arduino board interactive overlay. Click pins to toggle their state."}
+                title={controlsDisabled ? "Server connection required" : undefined}
+                disabled={controlsDisabled}
                 onClick={handleOverlayClick}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     handleOverlayClick(e as unknown as React.MouseEvent);
                   }
                 }}
-                style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "block", width: "100%", height: "100%" }}
+                style={{ padding: 0, border: "none", background: "transparent", cursor: controlsDisabled ? "default" : "pointer", display: "block", width: "100%", height: "100%" }}
               >
                 <div dangerouslySetInnerHTML={{ __html: overlaySvg }} />
               </button>
@@ -640,12 +646,14 @@ export function ArduinoBoard({
                 overlayRef={overlayRef}
                 onClose={() => setAnalogDialog(null)}
                 onConfirm={(pin: number, value: number) => {
+                  if (controlsDisabled) return;
                   try {
                     if (onAnalogChange) onAnalogChange(pin, value);
                   } finally {
                     setAnalogDialog(null);
                   }
                 }}
+                controlsDisabled={controlsDisabled}
               />
             </div>
           </div>
@@ -671,6 +679,7 @@ interface AnalogDialogPortalProps {
   readonly overlayRef: React.RefObject<HTMLElement> | null;
   readonly onClose: () => void;
   readonly onConfirm: (pin: number, value: number) => void;
+  readonly controlsDisabled: boolean;
 }
 
 function getAnalogDialogCoordinates(
@@ -713,7 +722,7 @@ function getAnalogDialogCoordinates(
 }
 
 function AnalogDialogPortal(props: AnalogDialogPortalProps) {
-  const { dialog, overlayRef, onClose, onConfirm } = props;
+  const { dialog, overlayRef, onClose, onConfirm, controlsDisabled } = props;
   if (!dialog) return null;
 
   const coords = getAnalogDialogCoordinates(overlayRef, dialog);
@@ -737,7 +746,17 @@ function AnalogDialogPortal(props: AnalogDialogPortalProps) {
       <div style={{ fontSize: "var(--fs-label-lg)", marginBottom: "var(--dialog-offset-pointer)" }}>
         {coords.pinLabel}
       </div>
-      <DialogInner dialog={dialog} onClose={onClose} onConfirm={onConfirm} />
+      {controlsDisabled && (
+        <output className="mb-2 text-ui-xs text-muted-foreground" aria-live="polite">
+          Server connection required
+        </output>
+      )}
+      <DialogInner
+        dialog={dialog}
+        onClose={onClose}
+        onConfirm={onConfirm}
+        controlsDisabled={controlsDisabled}
+      />
     </div>,
     document.body,
   );
@@ -748,8 +767,9 @@ function DialogInner(props: {
   readonly dialog: { open: true; pin: number; value: number };
   readonly onClose: () => void;
   readonly onConfirm: (pin: number, value: number) => void;
+  readonly controlsDisabled: boolean;
 }) {
-  const { dialog, onClose, onConfirm } = props;
+  const { dialog, onClose, onConfirm, controlsDisabled } = props;
   const [val, setVal] = useState<number>(dialog.value);
   useEffect(() => setVal(dialog.value), [dialog.value]);
   return (
@@ -799,6 +819,8 @@ function DialogInner(props: {
         <Button
           onClick={() => onConfirm(dialog.pin, val)}
           variant="default"
+          disabled={controlsDisabled}
+          title={controlsDisabled ? "Server connection required" : undefined}
         >
           Confirm
         </Button>

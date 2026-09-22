@@ -12,8 +12,9 @@ Serial Output, Compiler, Messages and Registry, especially on macOS.
 
 ## Decision
 
-These five areas use `UnifiedScrollArea` from
-`client/src/components/ui/unified-scroll-area.tsx`.
+All primary scrollable content panels use `UnifiedScrollArea` from
+`client/src/components/ui/unified-scroll-area.tsx`, including Compiler,
+Messages, I/O Registry, Serial Output, Debug Output, Settings and sketch tabs.
 
 The component owns:
 

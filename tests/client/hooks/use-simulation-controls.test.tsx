@@ -3,6 +3,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useSimulationControls } from "../../../client/src/hooks/use-simulation-controls";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -42,6 +43,25 @@ describe("useSimulationControls", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("blocks all simulation actions offline even if the connection guard is stale", () => {
+    const params = { ...buildParams(), capabilities: getServerCapabilities(false) };
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+
+    act(() => {
+      result.current.handleStart();
+      result.current.handleStop();
+      result.current.handlePause();
+      result.current.handleResume();
+      result.current.handleReset();
+    });
+
+    expect(params.ensureBackendConnected).not.toHaveBeenCalled();
+    expect(params.sendMessage).not.toHaveBeenCalled();
+    expect(params.clearOutputs).not.toHaveBeenCalled();
+    expect(params.handleCompileAndStart).not.toHaveBeenCalled();
   });
 
   it("returns initial state and assigns startSimulationRef", () => {

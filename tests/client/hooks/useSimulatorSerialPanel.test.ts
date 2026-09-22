@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useSimulatorSerialPanel } from "@/hooks/useSimulatorSerialPanel";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 
 function createParams(overrides: Partial<Parameters<typeof useSimulatorSerialPanel>[0]> = {}) {
   return {
@@ -17,6 +18,18 @@ function createParams(overrides: Partial<Parameters<typeof useSimulatorSerialPan
 }
 
 describe("useSimulatorSerialPanel", () => {
+  it("does not send serial input while the backend is offline", () => {
+    const params = createParams({ capabilities: getServerCapabilities(false) });
+    const { result } = renderHook(() => useSimulatorSerialPanel(params));
+
+    act(() => result.current.handleSerialSend("hello"));
+
+    expect(params.sendMessage).not.toHaveBeenCalled();
+    expect(params.setTxActivity).not.toHaveBeenCalled();
+    expect(params.setSerialInputValue).not.toHaveBeenCalled();
+    expect(params.toast).not.toHaveBeenCalled();
+  });
+
   it("sends serial message when running", () => {
     const params = createParams();
     const { result } = renderHook(() => useSimulatorSerialPanel(params));

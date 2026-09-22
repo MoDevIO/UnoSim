@@ -3,8 +3,10 @@ import { useCallback, type Dispatch, type KeyboardEvent, type SetStateAction } f
 import type { ToastFn } from "@/hooks/use-toast";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { SimulationStatus } from "@/hooks/use-simulation-controls";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 
 export function useSimulatorSerialPanel(params: {
+  capabilities?: ServerCapabilities;
   sendMessage: (message: IncomingArduinoMessage) => void;
   simulationStatus: SimulationStatus;
   toast: ToastFn;
@@ -27,6 +29,7 @@ export function useSimulatorSerialPanel(params: {
 
   const handleSerialSend = useCallback(
     (message: string) => {
+      if (params.capabilities && !params.capabilities.canUseRealtimeControls) return;
       if (!ensureBackendConnected("Serial senden")) return;
 
       if (simulationStatus !== "running") {
@@ -50,7 +53,7 @@ export function useSimulatorSerialPanel(params: {
       sendMessage({ type: "serial_input", data: message });
       setSerialInputValue("");
     },
-    [ensureBackendConnected, simulationStatus, toast, setTxActivity, sendMessage, setSerialInputValue],
+    [ensureBackendConnected, simulationStatus, toast, setTxActivity, sendMessage, setSerialInputValue, params.capabilities],
   );
 
   const handleSerialInputKeyDown = useCallback(

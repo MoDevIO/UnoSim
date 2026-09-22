@@ -166,9 +166,9 @@ describe("Parser Messages Frontend Integration", () => {
       );
 
       // Should show errors and warnings (severity 3 = error, severity 2 = warning)
-      // Header should display both counters (text-red-400 for errors, text-yellow-400 for warnings)
-      const errorCount = document.querySelector(".text-red-400");
-      const warningCount = document.querySelector(".text-yellow-400");
+      // Header should display both counters using semantic error and warning tokens.
+      const errorCount = document.querySelector(".text-status-error");
+      const warningCount = document.querySelector(".text-status-warning");
       expect(errorCount).not.toBeNull();
       expect(warningCount).not.toBeNull();
     });

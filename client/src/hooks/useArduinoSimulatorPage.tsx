@@ -30,6 +30,7 @@ import { parseStaticIORegistryProject } from "@shared/io-registry-parser";
 import { buildSourceProject } from "@/lib/source-project";
 import { findTabForSourceLocation } from "@/lib/source-navigation";
 import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 
 import type {
   Sketch,
@@ -224,11 +225,6 @@ export function useArduinoSimulatorPage() {
     sendMessageImmediate,
   } = useWebSocket();
 
-  // Wrapper for sendMessage that sends raw to backend
-  const sendMessage = useCallback((message: IncomingArduinoMessage) => {
-    sendMessageRaw(message);
-  }, [sendMessageRaw]);
-
   // Backend health check and recovery
   const {
     backendReachable,
@@ -238,6 +234,20 @@ export function useArduinoSimulatorPage() {
     triggerErrorGlitch,
     serverStatus,
   } = useBackendHealth(queryClient);
+  const capabilities = useMemo(
+    () => getServerCapabilities(backendReachable),
+    [backendReachable],
+  );
+
+  // All outgoing WebSocket commands share this offline guard.
+  const sendMessage = useCallback((message: IncomingArduinoMessage) => {
+    if (!capabilities.canUseRealtimeControls) return;
+    sendMessageRaw(message);
+  }, [capabilities, sendMessageRaw]);
+  const sendMessageImmediateGuarded = useCallback((message: IncomingArduinoMessage) => {
+    if (!capabilities.canUseRealtimeControls) return false;
+    return sendMessageImmediate(message);
+  }, [capabilities, sendMessageImmediate]);
 
   // placeholder for compilation-start callback
   const startSimulationRef = useRef<(() => void) | null>(null);
@@ -301,11 +311,12 @@ export function useArduinoSimulatorPage() {
         params.protocol,
       ),
     ensureBackendConnected,
+    capabilities,
     isBackendUnreachableError,
     triggerErrorGlitch,
     toast,
     sendMessage,
-    sendMessageImmediate,
+    sendMessageImmediate: sendMessageImmediateGuarded,
     serialEventQueueRef,
     pendingPinConflicts,
     setPendingPinConflicts,
@@ -510,6 +521,7 @@ export function useArduinoSimulatorPage() {
     simulationStatus,
     compilePending: compileMutation.isPending,
     startPending: startMutation.isPending,
+    capabilities,
     handleCompile,
     handleCompileAndStart,
     handleStop,
@@ -609,6 +621,7 @@ export function useArduinoSimulatorPage() {
       setSerialInputValue,
       clearSerialOutput,
       ensureBackendConnected,
+      capabilities,
     });
 
   const handleSerialInputSend = () => {
@@ -638,6 +651,7 @@ export function useArduinoSimulatorPage() {
   // Pin control handlers are extracted into a dedicated hook for better separation of concerns.
   const { handlePinToggle, handleAnalogChange } = useSimulatorPinControls({
     sendMessage,
+    capabilities,
     simulationStatus,
     toast,
     setPinStates,
@@ -669,7 +683,7 @@ export function useArduinoSimulatorPage() {
     },
     formatCode,
     editorRef,
-    backendReachable,
+    capabilities,
     activeOutputTab,
     parserMessages,
     ioRegistry: effectiveIoRegistry,
@@ -748,6 +762,7 @@ export function useArduinoSimulatorPage() {
     resumeMutation.isPending;
 
   const simulateDisabled =
+    !capabilities.canSimulate ||
     ((simulationStatus === "idle" || simulationStatus === "paused") &&
       (!backendReachable || !isConnected)) ||
     simControlBusy;
@@ -835,6 +850,7 @@ export function useArduinoSimulatorPage() {
     },
     connection: {
       backendReachable,
+      capabilities,
       isConnected,
       wsConnectionState,
       wsHasEverConnected,

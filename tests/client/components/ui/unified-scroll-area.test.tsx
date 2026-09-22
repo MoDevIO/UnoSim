@@ -27,6 +27,8 @@ describe("UnifiedScrollArea", () => {
 
     expect(container.querySelector(".unified-scrollbar--horizontal")).not.toBeNull();
     expect(container.querySelector(".unified-scrollbar--vertical")).not.toBeNull();
+    expect(container.querySelector(".unified-scrollbar--horizontal .unified-scrollbar__thumb")).not.toHaveClass("bg-status-success");
+    expect(container.querySelector(".unified-scrollbar--vertical .unified-scrollbar__thumb")).not.toHaveClass("bg-status-success");
   });
 
   it("maps Shift+mouse wheel to horizontal scrolling", () => {

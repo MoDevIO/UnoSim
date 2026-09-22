@@ -8,6 +8,7 @@ import {
 import type { TutorPanelState } from "@/hooks/use-tutor";
 import { useTutor } from "@/hooks/use-tutor";
 import { useExperimentalWorkspaceLayout } from "@/hooks/use-experimental-workspace-layout";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 import {
   DEFAULT_WORKSPACE_COLUMN_VISIBILITY,
   getVisibleWorkspaceColumns,
@@ -88,15 +89,20 @@ describe("experimental workspace layout", () => {
       />,
     );
 
-    expect(screen.getByTestId("experimental-workspace-controls")).toHaveClass("gap-2", "p-0.5");
+    const controls = screen.getByTestId("experimental-workspace-controls");
+    expect(controls).toHaveClass("flex", "items-center", "gap-1");
+    expect(controls).not.toHaveClass("border", "bg-background/80", "shadow-sm");
     expect(screen.getByTestId("workspace-toggle-code")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("workspace-toggle-tutor")).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByTestId("workspace-toggle-code")).toHaveClass("ring-primary/60");
-    expect(screen.getByTestId("workspace-toggle-tutor")).toHaveClass("opacity-60");
+    expect(screen.getByTestId("workspace-toggle-code")).toHaveClass("text-status-success");
+    expect(screen.getByTestId("workspace-toggle-tutor")).toHaveClass("text-muted-foreground");
+    expect(screen.getByTestId("workspace-toggle-code")).not.toHaveClass("bg-primary/20", "ring-1", "shadow-inner");
+    expect(screen.getByTestId("workspace-toggle-tutor")).not.toHaveClass("bg-muted/30", "opacity-60");
     expect(screen.getByTestId("workspace-toggle-code")).toHaveClass("h-[var(--ui-button-height)]", "w-[var(--ui-button-height)]");
-    expect(screen.getByTestId("workspace-toggle-code")).toHaveAttribute("title", "Code ausblenden");
-    expect(screen.getByTestId("workspace-toggle-simulation")).toHaveAttribute("title", "Simulation ausblenden");
-    expect(screen.getByTestId("workspace-toggle-tutor")).toHaveAttribute("title", "Tutor einblenden");
+    expect(screen.getByTestId("workspace-toggle-code")).toHaveAttribute("aria-label", "Hide code workspace");
+    expect(screen.getByTestId("workspace-toggle-code")).toHaveAttribute("title", "Hide code workspace");
+    expect(screen.getByTestId("workspace-toggle-simulation")).toHaveAttribute("title", "Hide simulation workspace");
+    expect(screen.getByTestId("workspace-toggle-tutor")).toHaveAttribute("title", "Show tutor workspace");
     expect(screen.queryByText("Workspace")).not.toBeInTheDocument();
     expect(screen.queryByTestId("workspace-restore-default")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("workspace-toggle-tutor"));
@@ -170,6 +176,7 @@ describe("experimental workspace layout", () => {
     const resetDialog = vi.fn();
     const generateQuestion = vi.fn();
     const tutor: TutorPanelState = {
+      capabilities: getServerCapabilities(true),
       config: { provider: "kiconnect" },
       credential: "volatile-key",
       setCredential: vi.fn(),
@@ -204,33 +211,47 @@ describe("experimental workspace layout", () => {
     const { rerender } = render(<TutorWorkspacePlaceholder code="void setup(){}" tutor={tutor} />);
 
     expect(screen.getByLabelText("Your answer")).toBeInTheDocument();
+    expect(screen.getByLabelText("Your answer")).toHaveClass("block");
     expect(screen.getByLabelText("Your answer")).toHaveFocus();
-    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("aria-label", "API key");
-    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("title", "API key");
+    expect(screen.getByText("Tutor", { exact: true })).toHaveClass("text-status-success");
+    expect(screen.getByTestId("tutor-panel").querySelector("svg.lucide-message-circle-question")).toHaveClass(
+      "text-status-success",
+    );
+    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("aria-label", "API key configured");
+    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("title", "API key configured");
     expect(screen.getByTestId("tutor-api-key-action")).toHaveClass(
       "h-[var(--ui-button-height)]",
       "w-[var(--ui-button-height)]",
       "[&_svg]:size-4",
+      "text-status-success",
     );
+    expect(screen.getByTestId("tutor-api-key-action")).not.toHaveAttribute("aria-pressed");
     expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
       "aria-label",
-      "Tutor ready - generate a new question",
+      "Tutor is waiting for your answer",
     );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
       "title",
-      "Tutor ready - generate a new question",
+      "Tutor is waiting for your answer",
     );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
+      "text-foreground",
+    );
+    expect(screen.getByTestId("tutor-new-question-action")).not.toHaveClass(
       "border-primary/70",
       "bg-primary",
-      "text-primary-foreground",
       "ring-2",
+    );
+    expect(screen.getByTestId("tutor-new-question-action").querySelector("svg")).toHaveClass(
+      "toolbar-icon-button-animation-waiting",
     );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
       "h-[var(--ui-button-height)]",
       "w-[var(--ui-button-height)]",
       "rounded-md",
       "[&_svg]:size-4",
+      "[&_svg]:!h-5",
+      "[&_svg]:!w-5",
     );
     expect(screen.getByTestId("tutor-effective-difficulty")).toHaveTextContent("D42");
     expect(screen.queryByTestId("tutor-session-rating")).not.toBeInTheDocument();
@@ -256,22 +277,34 @@ describe("experimental workspace layout", () => {
 
     rerender(<TutorWorkspacePlaceholder
       code="void setup(){}"
-      tutor={{ ...tutor, credential: "", effectiveDifficulty: 42 }}
+      tutor={{ ...tutor, credential: "   ", question: null, answer: "", effectiveDifficulty: 42 }}
     />);
     expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
       "aria-label",
-      "Tutor not ready - configure the Tutor first",
+      "Tutor not ready",
     );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
       "title",
-      "Tutor not ready - configure the Tutor first",
+      "Tutor not ready",
     );
+    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("aria-label", "API key missing");
+    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("title", "API key missing");
+    expect(screen.getByTestId("tutor-api-key-action")).toHaveClass("text-muted-foreground");
     expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
+      "text-foreground",
+    );
+    expect(screen.getByTestId("tutor-new-question-action")).not.toHaveClass(
       "border-border/70",
       "bg-background/70",
-      "text-muted-foreground",
+      "bg-primary",
+      "ring-2",
     );
-    expect(screen.getByTestId("tutor-new-question-action")).not.toHaveClass("bg-primary");
+    expect(screen.getByTestId("tutor-new-question-action").querySelector("svg")).not.toHaveClass(
+      "toolbar-icon-button-animation-waiting",
+    );
+    expect(screen.getByTestId("tutor-new-question-action").querySelector("svg")).toHaveClass(
+      "lucide-circle-help",
+    );
 
     rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, question: { ...tutor.question!, question: "Eine neue Frage?" }, sessionRating: 3.67, ratedAnswerCount: 2 }} debugMode />);
     expect(screen.getByLabelText("Your answer")).toHaveFocus();
@@ -287,7 +320,11 @@ describe("experimental workspace layout", () => {
     expect(sendAnswerButton).toHaveClass(
       "h-[var(--ui-button-height)]",
       "w-[var(--ui-button-height)]",
+      "top-1/2",
+      "-translate-y-1/2",
+      "right-1",
     );
+    expect(sendAnswerButton).not.toHaveClass("bottom-1");
     expect(sendAnswerButton).not.toBeDisabled();
     rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, answer: "" }} />);
     expect(screen.getByRole("button", { name: "Send answer" })).toBeDisabled();

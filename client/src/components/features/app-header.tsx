@@ -18,6 +18,7 @@ import {
   MenubarRadioGroup,
   MenubarRadioItem,
 } from "@/components/ui/menubar";
+import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 
 interface AppHeaderProps {
   readonly isMobile?: boolean;
@@ -27,6 +28,7 @@ interface AppHeaderProps {
   readonly hasFirstOutput: boolean;
   readonly pendingExternalStart?: boolean;
   readonly simulateDisabled: boolean;
+  readonly capabilities?: ServerCapabilities;
   readonly isCompiling: boolean;
   readonly isStarting: boolean;
   readonly isStopping: boolean;
@@ -218,7 +220,8 @@ function PauseButton({ isPausing, simulateDisabled, isLoading, onPause, isMobile
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
       aria-label="Pause Simulation"
-      title="Pause"
+      title={simulateDisabled ? "Server connection required" : "Pause"}
+      disabled={simulateDisabled || isLoading}
     >
       {isPausing ? (
         <Loader2 className={clsx("animate-spin text-orange-900", isMobile ? "!h-7 !w-7" : "h-3 w-3")} />
@@ -280,6 +283,7 @@ function MobileSimulateContent({ isLoading, isRunning, text }: MobileSimulateCon
 }
 
 interface DesktopMenuBarProps {
+  readonly canCompile?: boolean;
   readonly isMac: boolean;
   readonly board: string;
   readonly baudRate: number;
@@ -306,6 +310,7 @@ interface DesktopMenuBarProps {
 }
 
 export function DesktopMenuBar({
+  canCompile = true,
   isMac,
   board,
   baudRate,
@@ -517,12 +522,20 @@ export function DesktopMenuBar({
         <MenubarContent
           onKeyDown={(event) => event.key === "Escape" && clearMenuSwitchPending()}
         >
-          <MenubarItem onSelect={() => onCompile()}>
+          <MenubarItem
+            disabled={!canCompile}
+            title={canCompile ? undefined : "Server connection required"}
+            onSelect={() => onCompile()}
+          >
             Compile
             <MenubarShortcut>F5</MenubarShortcut>
           </MenubarItem>
           <MenubarSeparator />
-          <MenubarItem onSelect={() => onCompileAndStart()}>
+          <MenubarItem
+            disabled={!canCompile}
+            title={canCompile ? undefined : "Server connection required"}
+            onSelect={() => onCompileAndStart()}
+          >
             Compile/Upload
             <MenubarShortcut>
               {isMac ? "⌘U" : "Ctrl+U"}
@@ -648,6 +661,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   dockerGccPhase,
   pendingExternalStart,
   simulateDisabled,
+  capabilities = getServerCapabilities(true),
   isCompiling,
   isStarting,
   isStopping,
@@ -711,6 +725,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   }, [isMobile]);
 
   const simulateAction = _getSimulateAction(simulationStatus, onStop, onResume, onSimulate);
+  const serverSimulationDisabled = simulateDisabled || !capabilities.canSimulate;
   const clientState = _deriveClientStateForButton(
     simulationStatus,
     compilationStatus,
@@ -724,7 +739,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     isLoading ||
     clientState === "QUEUED_FOR_COMPILING" || clientState === "COMPILING" ||
     clientState === "QUEUED_FOR_SIMULATION" || clientState === "RUNNING_STARTING";
-  const pauseProps = { isPausing, simulateDisabled, isLoading: isLoadingFull, onPause, isMobile };
+  const pauseProps = {
+    isPausing,
+    simulateDisabled: serverSimulationDisabled,
+    isLoading: isLoadingFull,
+    onPause,
+    isMobile,
+  };
 
   // Desktop Header
   if (!isMobile) {
@@ -751,6 +772,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {/* Menu Bar */}
           <DesktopMenuBar
             isMac={isMac}
+            canCompile={capabilities.canCompile}
             board={board}
             baudRate={baudRate}
             simulationTimeout={simulationTimeout}
@@ -790,11 +812,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <div className="relative flex items-stretch h-fit">
             <Button
               onClick={simulateAction}
-              disabled={simulateDisabled}
+              disabled={serverSimulationDisabled}
               variant="ghost"
-              className={_getDesktopSimulateButtonClass(clientState, simulateDisabled)}
+              className={_getDesktopSimulateButtonClass(clientState, serverSimulationDisabled)}
               data-testid="button-simulate-toggle"
               aria-label={simulateLabel}
+              title={capabilities.canSimulate ? undefined : "Server connection required"}
             >
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
                 <DesktopSimulateIcon isLoading={isLoadingFull} isRunning={isRunning} />
@@ -827,11 +850,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <div className="flex items-center gap-2 relative h-full">
         <Button
           onClick={simulateAction}
-          disabled={simulateDisabled}
+          disabled={serverSimulationDisabled}
           variant="ghost"
-          className={_getMobileSimulateButtonClass(clientState, simulateDisabled)}
+          className={_getMobileSimulateButtonClass(clientState, serverSimulationDisabled)}
           data-testid="button-simulate-toggle-mobile"
           aria-label={simulateLabel}
+          title={capabilities.canSimulate ? undefined : "Server connection required"}
         >
           <MobileSimulateContent isLoading={isLoadingFull} isRunning={isRunning} text={simulateText} />
         </Button>

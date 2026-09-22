@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Terminal, Trash2, CheckCircle2 } from "lucide-react";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
+import { getStatusTextClass } from "@/lib/status-semantics";
 
 interface CompilationError {
   file: string;
@@ -40,7 +41,7 @@ export function CompilationOutput({
             <div className="flex items-center space-x-2 flex-shrink-0">
               {isSuccess && showSuccessMessage ? (
                 <CheckCircle2
-                  className="text-green-500 opacity-95 h-5 w-5"
+                  className={`${getStatusTextClass("success")} opacity-95 h-5 w-5`}
                   strokeWidth={1.67}
                 />
               ) : (
@@ -52,7 +53,7 @@ export function CompilationOutput({
               <span className="sr-only">Compilation Output</span>
             </div>
             {isSuccess && showSuccessMessage && (
-              <span className="text-green-500 text-ui-sm font-medium flex-shrink-0">
+              <span className={`${getStatusTextClass("success")} text-ui-sm font-medium flex-shrink-0`}>
                 Compilation successful ✓
               </span>
             )}
@@ -74,7 +75,7 @@ export function CompilationOutput({
 
       <UnifiedScrollArea className="flex-1" orientation="both" viewportClassName="h-full">
         {hasCompilationErrors && (
-          <div className="px-3 pt-3 text-red-400 text-ui-sm font-medium" data-testid="compilation-failed-title">
+          <div className={`px-3 pt-3 ${getStatusTextClass("error")} text-ui-sm font-medium`} data-testid="compilation-failed-title">
             Compilation failed
           </div>
         )}
@@ -83,7 +84,7 @@ export function CompilationOutput({
             {errors.map((e) => (
               <div
                 key={`${e.file}:${e.line}:${e.column}:${e.type}:${e.message}`}
-                className={e.type === "error" ? "text-red-400" : "text-yellow-400"}
+                className={getStatusTextClass(e.type === "error" ? "error" : "warning")}
               >
                 {e.file}{e.line ? `:${e.line}` : ""}{e.column ? `:${e.column}` : ""} {e.type}: {e.message}
               </div>

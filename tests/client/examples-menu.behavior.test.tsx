@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ExamplesMenu } from "../../client/src/components/features/examples-menu";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 
 vi.mock("@/components/ui/dropdown-menu", async () => {
   const React = await import("react");
@@ -119,16 +120,34 @@ describe("ExamplesMenu behavior", () => {
   });
 
   it("shows an empty state when the backend is unreachable", async () => {
-    render(<ExamplesMenu onLoadExample={vi.fn()} backendReachable={false} />);
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Examples" }),
-      ).not.toBeDisabled(),
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    render(<ExamplesMenu onLoadExample={vi.fn()} capabilities={getServerCapabilities(false)} />);
+    expect(screen.getByRole("button", { name: "Examples" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Examples" })).toHaveAttribute(
+      "title",
+      "Server connection required",
     );
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
-    await waitFor(() =>
-      expect(screen.getByText("No examples available")).toBeInTheDocument(),
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByText("Load Example")).not.toBeInTheDocument();
+  });
+
+  it("restores the examples menu after reconnect without fetching until opened", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ schemaVersion: 1, source: { selection: "default", mode: "builtin", repository: null, ref: null, revision: null, status: "builtin", stale: false }, examples: [] }),
+    } as Response);
+    const onLoadExample = vi.fn();
+    const { rerender } = render(
+      <ExamplesMenu onLoadExample={onLoadExample} capabilities={getServerCapabilities(false)} />,
     );
+
+    rerender(<ExamplesMenu onLoadExample={onLoadExample} capabilities={getServerCapabilities(true)} />);
+    expect(screen.getByRole("button", { name: "Examples" })).toBeEnabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
 
   it("keeps built-in filenames aligned in compact non-wrapping rows", async () => {

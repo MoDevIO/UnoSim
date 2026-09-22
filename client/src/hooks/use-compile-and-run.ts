@@ -12,6 +12,7 @@ import { useCompileController } from "./use-compile-controller";
 import { useSimulationController } from "./use-simulation-controller";
 import { buildCompileCommand, type CompileCommand } from "./compile-command-builder";
 import type { SourceProject } from "@shared/source-project";
+import type { ServerCapabilities } from "@/lib/server-capabilities";
 
 const logger = new Logger("useCompileAndRun");
 
@@ -49,6 +50,7 @@ export type DebugMessageParams = {
 
 // parameters for compile portion (same as old UseCompilationParams)
 export type CompileAndRunParams = {
+  readonly capabilities?: ServerCapabilities;
   editorRef: RefObject<{ getValue: () => string } | null>;
   tabs: Array<{ id: string; name: string; path?: string; content: string }>;
   activeTabId: string | null;
@@ -209,6 +211,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     clearOutputs,
   } = useCompileController({
     ...controllerState,
+    capabilities: params.capabilities,
     // Callbacks
     setParserMessages: params.setParserMessages,
     setParserPanelDismissed: params.setParserPanelDismissed,
@@ -249,6 +252,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     hasCompilationErrors,
     isModified: params.isModified,
     ensureBackendConnected: params.ensureBackendConnected,
+    capabilities: params.capabilities,
     sendMessage: params.sendMessage,
     sendMessageImmediate: params.sendMessageImmediate,
     resetPinUI: params.resetPinUI,
@@ -274,6 +278,10 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   }, [simulation.setCompiledCode]);
 
   const handleCompileAndStart = useCallback(() => {
+    if (
+      params.capabilities &&
+      (!params.capabilities.canCompile || !params.capabilities.canSimulate)
+    ) return;
     if (!params.ensureBackendConnected("Simulation starten")) {
       simulation.setSimulationStatus("idle");
       return;
@@ -335,6 +343,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   }, [params, clearOutputs, compileMutation, simulation, uiFeedback]);
 
   const handleReset = useCallback(() => {
+    if (params.capabilities && !params.capabilities.canSimulate) return;
     if (!params.ensureBackendConnected("Reset simulation")) return;
     if (simulation.simulationStatus === "running") simulation.handleStop();
     clearOutputs();

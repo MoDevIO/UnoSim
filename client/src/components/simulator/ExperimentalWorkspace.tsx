@@ -10,9 +10,12 @@ import {
 } from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
 import { PanelHeader } from "@/components/ui/panel-header";
+import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { ArrowUp, CircleHelp, Code2, KeyRound, MessageCircleQuestion, Monitor } from "lucide-react";
 import type { TutorPanelState } from "@/hooks/use-tutor";
 import { renderMermaidSubset } from "@/lib/tutor-mermaid";
+import { getTutorQuestionVisualState } from "@/lib/tutor-visual-state";
+import { getStatusTextClass } from "@/lib/status-semantics";
 import {
   getWorkspaceDefaultSizes,
   getWorkspaceResizePairs,
@@ -136,7 +139,7 @@ function getWorkspaceColumnClassName(column: WorkspaceColumn): string {
 }
 
 function canTutorRequest(tutor: TutorPanelState): boolean {
-  return tutor.credential.trim().length > 0;
+  return tutor.capabilities.canUseTutor && tutor.credential.trim().length > 0;
 }
 
 export function WorkspaceVisibilityControls({
@@ -145,33 +148,25 @@ export function WorkspaceVisibilityControls({
 }: WorkspaceVisibilityControlsProps) {
   return (
     <div
-      className="flex items-center gap-2 rounded-md border border-border/70 bg-background/80 p-0.5 shadow-sm"
+      className="flex items-center gap-1"
       data-testid="experimental-workspace-controls"
       aria-label="Workspace-Ansichten"
     >
       {(["code", "simulation", "tutor"] as WorkspaceColumn[]).map((column) => {
         const label = getWorkspaceColumnLabel(column);
         const Icon = getWorkspaceColumnIcon(column);
-        const action = visibility[column] ? "ausblenden" : "einblenden";
+        const action = visibility[column] ? "Hide" : "Show";
+        const toggleLabel = `${action} ${label.toLowerCase()} workspace`;
         return (
-          <Button
+          <ToolbarIconButton
             key={column}
             type="button"
-            size="icon"
-            variant="ghost"
-            aria-pressed={visibility[column]}
-            aria-label={`${label}-Spalte ${action}`}
-            title={`${label} ${action}`}
+            icon={<Icon className="h-4 w-4" aria-hidden="true" />}
+            label={toggleLabel}
+            pressed={visibility[column]}
             onClick={() => onColumnToggle(column)}
             data-testid={`workspace-toggle-${column}`}
-            className={
-              visibility[column]
-                ? "bg-primary/20 text-primary ring-1 ring-primary/60 shadow-inner hover:bg-primary/25"
-                : "bg-muted/30 text-muted-foreground opacity-60 hover:bg-muted hover:text-foreground hover:opacity-100"
-            }
-          >
-            <Icon className="h-4 w-4" aria-hidden="true" />
-          </Button>
+          />
         );
       })}
     </div>
@@ -192,10 +187,16 @@ function TutorPlaceholder({
   readonly debugMode?: boolean;
 }) {
   const [showKeyView, setShowKeyView] = useState(false);
+  const credentialConfigured = (tutor?.credential.trim().length ?? 0) > 0;
   const tutorReady = tutor ? canTutorRequest(tutor) : false;
-  const tutorActionLabel = tutorReady
-    ? "Tutor ready - generate a new question"
-    : "Tutor not ready - configure the Tutor first";
+  const questionVisualState = getTutorQuestionVisualState({
+    tutorReady,
+    question: tutor?.question ?? null,
+    isLoading: tutor?.isLoading ?? false,
+    error: tutor?.error ?? null,
+  });
+  const tutorIdentityClassName = getStatusTextClass(tutorReady ? "success" : "idle");
+  const keyStatusLabel = credentialConfigured ? "API key configured" : "API key missing";
 
   return (
     <section
@@ -206,29 +207,26 @@ function TutorPlaceholder({
     >
       <div className="flex h-full flex-col">
         <PanelHeader
-          title="Tutor"
-          icon={<MessageCircleQuestion className="h-3.5 w-3.5" aria-hidden="true" />}
+          title={<span className={tutorIdentityClassName}>Tutor</span>}
+          icon={<MessageCircleQuestion className={`h-3.5 w-3.5 ${tutorIdentityClassName}`} aria-hidden="true" />}
           centerAction={tutor ? (
             <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
-              <Button
+              <ToolbarIconButton
                 type="button"
-                size="icon"
-                variant={tutorReady ? "default" : "outline"}
-                className={tutorReady
-                  ? "ring-2 ring-primary/30"
-                  : "text-muted-foreground"}
-                aria-label={tutorActionLabel}
-                title={tutorActionLabel}
+                icon={<CircleHelp aria-hidden="true" />}
+                label={questionVisualState.label}
+                status={questionVisualState.status}
+                animation={questionVisualState.animation}
+                iconSize="lg"
                 onClick={() => {
                   setShowKeyView(false);
                   tutor.resetDialog();
                   void tutor.generateQuestion(code);
                 }}
-                disabled={tutor.isLoading}
+                disabled={tutor.isLoading || !tutor.capabilities.canUseTutor}
+                title={tutor.capabilities.canUseTutor ? questionVisualState.label : "Server connection required"}
                 data-testid="tutor-new-question-action"
-              >
-                <CircleHelp aria-hidden="true" />
-              </Button>
+              />
               <span
                 className="text-ui-xs text-muted-foreground"
                 data-testid="tutor-effective-difficulty"
@@ -249,17 +247,16 @@ function TutorPlaceholder({
                   {tutor.lastUsedModel}
                 </span>
               )}
-              <Button
+              <ToolbarIconButton
                 type="button"
-                size="icon"
-                variant={showKeyView ? "secondary" : "outline"}
-                aria-label="API key"
-                title="API key"
+                icon={<KeyRound aria-hidden="true" />}
+                label={keyStatusLabel}
+                status={credentialConfigured ? "success" : "muted"}
                 onClick={() => setShowKeyView(true)}
+                disabled={!tutor.capabilities.canConfigureTutor}
+                title={tutor.capabilities.canConfigureTutor ? keyStatusLabel : "Server connection required"}
                 data-testid="tutor-api-key-action"
-              >
-                <KeyRound aria-hidden="true" />
-              </Button>
+              />
             </>
           ) : undefined}
         />
@@ -341,6 +338,11 @@ function TutorPanelContent({
   if (showKeyView) {
     return (
       <div className="flex flex-1 min-h-0 flex-col overflow-auto p-4 text-left" data-testid="tutor-api-key-view">
+        {!tutor.capabilities.canUseTutor && (
+          <output className="mb-3 text-ui-xs text-muted-foreground" aria-live="polite">
+            Server connection required
+          </output>
+        )}
         <div className="mx-auto w-full max-w-xl rounded-md border border-border/70 bg-muted/20 p-4">
           <div>
             <label htmlFor="tutor-api-key" className="text-ui-xs font-medium text-foreground">API key</label>
@@ -350,6 +352,8 @@ function TutorPanelContent({
                 type="password"
                 value={tutor.credential}
                 onChange={(event) => tutor.setCredential(event.target.value)}
+                disabled={!tutor.capabilities.canConfigureTutor}
+                title={tutor.capabilities.canConfigureTutor ? undefined : "Server connection required"}
                 autoComplete="off"
                 spellCheck={false}
                 className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -363,7 +367,8 @@ function TutorPanelContent({
                 id="tutor-model"
                 value={tutor.selectedModel}
                 onChange={(event) => tutor.setSelectedModel(event.target.value)}
-                disabled={tutor.modelsLoading}
+                disabled={tutor.modelsLoading || !tutor.capabilities.canUseTutor}
+                title={tutor.capabilities.canUseTutor ? undefined : "Server connection required"}
                 className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground"
               >
                 <option value="auto">Automatic</option>
@@ -398,6 +403,11 @@ function TutorPanelContent({
 
   return (
     <div className="flex flex-1 min-h-0 flex-col text-left">
+      {!tutor.capabilities.canUseTutor && (
+        <output className="px-4 pt-3 text-ui-xs text-muted-foreground" aria-live="polite">
+          Server connection required
+        </output>
+      )}
       <div ref={dialogScrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5" data-testid="tutor-dialog-scroll">
         <div className="flex w-full flex-col gap-4">
           {tutor.history.map((turn, index) => (
@@ -449,7 +459,7 @@ function TutorPanelContent({
 
       <div className="shrink-0 border-t border-border bg-background px-4 py-3">
         <div className="flex w-full flex-col gap-2">
-          {tutor.error && <p className="text-ui-sm text-destructive" role="alert">{tutor.error}</p>}
+          {tutor.error && <p className={`text-ui-sm ${getStatusTextClass("error")}`} role="alert">{tutor.error}</p>}
           <div className="relative">
             <textarea
               ref={composerRef}
@@ -464,9 +474,9 @@ function TutorPanelContent({
               }}
               rows={1}
               maxLength={2_000}
-              disabled={!tutor.question || tutor.isLoading}
+              disabled={!tutor.question || tutor.isLoading || !tutor.capabilities.canUseTutor}
               placeholder={tutor.question ? "Your answer …" : "Start a new learning question first …"}
-              className="min-h-10 max-h-40 min-w-0 w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-3 py-2 pr-12 text-ui-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+              className="block min-h-10 max-h-40 min-w-0 w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-3 py-2 pr-12 text-ui-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
               aria-label="Your answer"
             />
             <Button
@@ -475,9 +485,9 @@ function TutorPanelContent({
               variant="default"
               aria-label="Send answer"
               title="Send answer"
-              className="absolute bottom-1 right-1"
+              className="absolute right-1 top-1/2 -translate-y-1/2"
               onClick={() => void tutor.submitAnswer(code)}
-              disabled={tutor.isLoading || !tutor.answer.trim() || !canRequest || !tutor.question}
+              disabled={tutor.isLoading || !tutor.answer.trim() || !canRequest || !tutor.question || !tutor.capabilities.canUseTutor}
             >
               <ArrowUp className="h-4 w-4" aria-hidden="true" />
             </Button>

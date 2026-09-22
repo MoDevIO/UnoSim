@@ -5,12 +5,13 @@ import { OutputPanel } from "../../client/src/components/features/output-panel";
 vi.mock("@/components/ui/tabs", () => ({
   Tabs: ({ children, value }: any) => <div data-tabs-value={value}>{children}</div>,
   TabsList: ({ children }: any) => <div>{children}</div>,
-  TabsTrigger: ({ children, value, onDoubleClick }: any) => <button data-tab={value} onDoubleClick={onDoubleClick}>{children}</button>,
+  TabsTrigger: ({ children, value, onDoubleClick, className }: any) => <button data-tab={value} className={className} onDoubleClick={onDoubleClick}>{children}</button>,
   TabsContent: ({ children, value }: any) => <section data-content={value}>{children}</section>,
 }));
-vi.mock("@/components/ui/tab-bar", () => ({ TabBar: ({ children }: any) => <div>{children}</div> }));
 vi.mock("@/components/ui/button", () => ({ Button: ({ children, ...props }: any) => <button {...props}>{children}</button> }));
-vi.mock("@/components/ui/scroll-area", () => ({ ScrollArea: ({ children }: any) => <div>{children}</div> }));
+vi.mock("@/components/ui/unified-scroll-area", () => ({
+  UnifiedScrollArea: ({ children }: any) => <div data-testid="unified-output-scroll-area">{children}</div>,
+}));
 vi.mock("@/components/features/compilation-output", () => ({ CompilationOutput: ({ output, onClear }: any) => <div><span>{output}</span><button onClick={onClear}>clear compilation</button></div> }));
 vi.mock("@/components/features/parser-output", () => ({ ParserOutput: ({ messages, onClear, onGoToLine, onInsertSuggestion }: any) => <div><span>{messages.length} parser messages</span><button onClick={onClear}>clear parser</button><button onClick={() => onGoToLine(4)}>go line</button><button onClick={() => onInsertSuggestion("fix", 4)}>insert</button></div> }));
 
@@ -22,7 +23,7 @@ const baseProps = () => ({
   debugViewMode: "table" as const,
   debugMessageFilter: "",
   cliOutput: "compile output",
-  parserMessages: [{ line: 4, message: "warning", severity: "warning" } as any],
+  parserMessages: [{ id: "message-1", type: "warning", category: "hardware", line: 4, message: "warning", severity: 2 }],
   ioRegistry: [{ pinId: 13, usedAt: [{ operation: "digitalWrite:13" }] } as any],
   debugMessages: [{ id: "1", timestamp: new Date(), sender: "server", protocol: "ws", type: "state", content: "{}" } as any],
   lastCompilationResult: "ok",
@@ -45,6 +46,54 @@ const baseProps = () => ({
 });
 
 describe("OutputPanel behavior", () => {
+  it.each([
+    ["no messages", [], "text-muted-foreground"],
+    ["informational messages", [{ severity: 1 }], "text-accent-cyan"],
+    ["a warning is present", [{ severity: 1 }, { severity: 2 }], "text-status-warning"],
+    ["an error is present", [{ severity: 2 }, { severity: 3 }], "text-status-error"],
+  ])("colors the Messages tab by severity: %s", (_case, severities, expectedClass) => {
+    const parserMessages = severities.map((message, index) => ({
+      id: `message-${index}`,
+      type: "info" as const,
+      category: "hardware" as const,
+      message: "diagnostic",
+      severity: message.severity as 1 | 2 | 3,
+    }));
+
+    render(<OutputPanel {...baseProps()} parserMessages={parserMessages} />);
+
+    expect(screen.getByRole("button", { name: /Messages/i })).toHaveClass(expectedClass);
+  });
+
+  it("uses the shared error color for a registry conflict", () => {
+    render(<OutputPanel {...baseProps()} />);
+
+    expect(screen.getByRole("button", { name: /I\/O Registry/i })).toHaveClass("text-status-error");
+  });
+
+  it("uses the shared muted color when the registry has no conflict", () => {
+    render(<OutputPanel {...baseProps()} ioRegistry={[]} />);
+
+    expect(screen.getByRole("button", { name: /I\/O Registry/i })).toHaveClass("text-muted-foreground");
+  });
+
+  it("colors the Compiler tab with shared success and error semantics", () => {
+    const { rerender } = render(<OutputPanel {...baseProps()} />);
+    const compiler = screen.getByRole("button", { name: /Compiler/i });
+    expect(compiler).toHaveClass("text-status-success");
+
+    rerender(<OutputPanel {...baseProps()} hasCompilationErrors={true} />);
+    expect(screen.getByRole("button", { name: /Compiler/i })).toHaveClass("text-status-error");
+  });
+
+  it("keeps panel tabs on the shared typography and outer alignment contract", () => {
+    render(<OutputPanel {...baseProps()} />);
+
+    const header = screen.getByTestId("output-tabs-header");
+    expect(header).not.toHaveClass("px-[var(--header-padding-x)]");
+    expect(screen.getByRole("button", { name: /Compiler/i })).toHaveClass("uppercase", "tracking-wide");
+  });
+
   it("renders compiler/messages/registry tabs and routes user actions", () => {
     const props = baseProps();
     render(<OutputPanel {...props} />);
@@ -71,10 +120,18 @@ describe("OutputPanel behavior", () => {
     const props = baseProps();
     render(<OutputPanel {...props} activeOutputTab="debug" />);
 
+    expect(screen.getByTestId("unified-output-scroll-area")).toBeInTheDocument();
+    expect(screen.getByRole("combobox").closest(".panel-content-header")).not.toBeNull();
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "state" } });
     fireEvent.click(screen.getByTitle("Switch to tiles view"));
-    fireEvent.click(screen.getByRole("button", { name: "Copy debug messages" }));
-    fireEvent.click(screen.getByRole("button", { name: "Clear debug messages" }));
+    const copyButton = screen.getByRole("button", { name: "Copy debug messages" });
+    const clearButton = screen.getByRole("button", { name: "Clear debug messages" });
+    expect(screen.queryByText("Copy")).toBeNull();
+    expect(screen.queryByText("Clear")).toBeNull();
+    expect(copyButton).toHaveAttribute("variant", "ghost");
+    expect(clearButton).toHaveAttribute("variant", "ghost");
+    fireEvent.click(copyButton);
+    fireEvent.click(clearButton);
 
     expect(props.setDebugMessageFilter).toHaveBeenCalledWith("state");
     expect(props.setDebugViewMode).toHaveBeenCalledWith("tiles");

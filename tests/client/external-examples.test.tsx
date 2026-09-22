@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ExternalExamplesSettings } from "../../client/src/components/features/external-examples-settings";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 import {
   EXTERNAL_EXAMPLES_STORAGE_KEY,
   getExternalExamplesState,
@@ -136,6 +137,24 @@ describe("external examples client contract", () => {
     expect(
       JSON.parse(localStorage.getItem(EXTERNAL_EXAMPLES_STORAGE_KEY)!),
     ).toEqual(oldSelection);
+  });
+
+  it("disables server backed settings offline and does not fetch on reconnect", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const { rerender } = render(
+      <ExternalExamplesSettings open capabilities={getServerCapabilities(false)} />,
+    );
+
+    expect(screen.getByLabelText("Repository")).toBeDisabled();
+    expect(screen.getByLabelText("Ref")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Validate" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reset to default" })).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    rerender(<ExternalExamplesSettings open capabilities={getServerCapabilities(true)} />);
+    expect(screen.getByRole("button", { name: "Validate" })).toBeEnabled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("applies a validated override and reset returns to the server default", async () => {

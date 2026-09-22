@@ -27,7 +27,7 @@ describe("SimCockpit UI", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders SimCockpit with SERVER indicator in normal mode", () => {
+  it("renders the accessible server status icon in normal mode", () => {
     telemetryStore.pushTelemetry(baseMetrics);
 
     const batchStats: BatchStats = {
@@ -38,7 +38,8 @@ describe("SimCockpit UI", () => {
 
     render(<SimCockpit batchStats={batchStats} simulationStatus="running" backendReachable={true} isConnected={true} />);
 
-    // Normal mode: only shows SERVER indicator
-    expect(screen.getByText("SERVER")).toBeDefined();
+    // Normal mode shows the server status icon without a text label.
+    expect(screen.getByRole("status", { name: "Server connected" })).toBeInTheDocument();
+    expect(screen.queryByText("SERVER")).not.toBeInTheDocument();
   });
 });

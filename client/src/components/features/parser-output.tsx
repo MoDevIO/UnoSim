@@ -6,8 +6,10 @@ import {
   Plus,
   Eye,
   EyeOff,
+  ListFilter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import { clsx } from "clsx";
@@ -17,11 +19,13 @@ import type { SeverityLevel } from "@shared/reserved-names-validator";
 import type { SourceLocation } from "@shared/source-project";
 import {
   formatSourceNavigationTarget,
+  isSourceLocation,
   isNavigableSourceTarget,
   type SourceNavigationTarget,
 } from "@/types/source-navigation";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { TabBar } from "@/components/ui/tab-bar";
+import { getSeverityStatus, getStatusColor, getStatusTextClass } from "@/lib/status-semantics";
 
 // Module-level constants (not re-created on every render)
 const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
@@ -43,11 +47,11 @@ function getPinId(record: IOPinRecord): number | undefined {
 function getSeverityIcon(severity: SeverityLevel): JSX.Element {
   switch (severity) {
     case 1:
-      return <Info className="w-4 h-4 text-blue-400" />;
+      return <Info className={`w-4 h-4 ${getStatusTextClass(getSeverityStatus(severity))}`} />;
     case 2:
-      return <AlertTriangle className="w-4 h-4 text-yellow-400" />;
+      return <AlertTriangle className={`w-4 h-4 ${getStatusTextClass(getSeverityStatus(severity))}`} />;
     case 3:
-      return <AlertCircle className="w-4 h-4 text-red-400" />;
+      return <AlertCircle className={`w-4 h-4 ${getStatusTextClass(getSeverityStatus(severity))}`} />;
   }
 }
 
@@ -63,14 +67,7 @@ function getSeverityLabel(severity: SeverityLevel): string {
 }
 
 function getSeverityColor(severity: SeverityLevel): string {
-  switch (severity) {
-    case 1:
-      return "rgb(96 165 250)"; // blue-400
-    case 2:
-      return "rgb(250 204 21)"; // yellow-400
-    case 3:
-      return "rgb(248 113 113)"; // red-400
-  }
+  return getStatusColor(getSeverityStatus(severity));
 }
 
 /** Returns an RX/TX badge element for pin 0/1, or null. Fixes S1940 IIFE anti-pattern. */
@@ -123,6 +120,12 @@ function getLocationButton(
   onGoToLine?: (target: SourceNavigationTarget) => void,
 ): JSX.Element {
   const label = formatSourceNavigationTarget(target);
+  const sourceLocation = isSourceLocation(target)
+    ? {
+        fileName: target.file.split(/[\\/]/).pop() || target.file,
+        lineLabel: `:${target.line}`,
+      }
+    : null;
   const navigable = isNavigableSourceTarget(target);
   if (!navigable || !onGoToLine) {
     return (
@@ -134,11 +137,19 @@ function getLocationButton(
   return (
     <button
       type="button"
-      className="text-blue-400 underline decoration-dotted underline-offset-2 hover:text-foreground"
+      className="inline-flex max-w-[10rem] overflow-hidden whitespace-nowrap align-bottom text-blue-400 underline decoration-dotted underline-offset-2 hover:text-foreground"
       aria-label={`Go to ${label}`}
+      title={label}
       onClick={() => onGoToLine(target)}
     >
-      {label}
+      {sourceLocation ? (
+        <span className="inline-flex min-w-0 max-w-full items-baseline">
+          <span className="min-w-0 truncate">{sourceLocation.fileName}</span>
+          <span className="shrink-0">{sourceLocation.lineLabel}</span>
+        </span>
+      ) : (
+        label
+      )}
     </button>
   );
 }
@@ -199,9 +210,11 @@ function renderPinModeCell(
                 (_, li) => record.pinModeModes?.[li] === mode,
               )
             : undefined;
-          const modeLocations = (record.pinModeLocations ?? []).filter((_, index) =>
-            record.pinModeModes ? record.pinModeModes[index] === mode : true,
-          );
+          const modeLocations = showDetail
+            ? (record.pinModeLocations ?? []).filter((_, index) =>
+                record.pinModeModes ? record.pinModeModes[index] === mode : true,
+              )
+            : [];
           let sourceDetails: JSX.Element | null = null;
           if (modeLocations.length > 0) {
             sourceDetails = (
@@ -225,7 +238,7 @@ function renderPinModeCell(
               <div className="flex items-center justify-center gap-1">
                 <span className={modeColor}>{mode}</span>
                 {hasConflict && (
-                  <span className="text-red-400 font-bold" title={record.conflictMessage}>!</span>
+                  <span className={`${getStatusTextClass("error")} font-bold`} title={record.conflictMessage}>!</span>
                 )}
               </div>
               {sourceDetails}
@@ -253,11 +266,361 @@ function renderPinModeCell(
   ) {
     return (
       <div className="flex items-center justify-center" title="pinMode() missing">
-        <X className="w-4 h-4 text-red-500" />
+        <X className={`w-4 h-4 ${getStatusTextClass("error")}`} />
       </div>
     );
   }
   return <span className="text-gray-400">—</span>;
+}
+
+type ParserMessagesByCategory = Record<string, ParserMessage[]>;
+
+function groupMessagesByCategory(messages: ParserMessage[]): ParserMessagesByCategory {
+  return messages.reduce<ParserMessagesByCategory>((groups, message) => {
+    const categoryMessages = groups[message.category] ?? [];
+    categoryMessages.push(message);
+    groups[message.category] = categoryMessages;
+    return groups;
+  }, {});
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  serial: "Serial Configuration",
+  structure: "Code Structure",
+  hardware: "Hardware Compatibility",
+  pins: "Pin Conflicts",
+  performance: "Performance Issues",
+};
+
+function getCategoryLabel(category: string): string {
+  return CATEGORY_LABELS[category] ?? category;
+}
+
+function filterIoRegistry(
+  ioRegistry: IOPinRecord[],
+  showAllPins: boolean,
+): IOPinRecord[] {
+  if (!showAllPins) return ioRegistry.filter(isPinProgrammed);
+
+  const pinsById = new Map(ALL_PIN_RECORDS.map((record) => [record.pinId, record]));
+  for (const record of ioRegistry) {
+    const pinId = getPinId(record);
+    if (pinId !== undefined) pinsById.set(pinId, record);
+  }
+  return [...pinsById.values()];
+}
+
+interface ParserMessagesListProps {
+  readonly messagesByCategory: ParserMessagesByCategory;
+  readonly onGoToLine?: (target: SourceNavigationTarget) => void;
+  readonly onInsertSuggestion?: (suggestion: string, line?: number) => void;
+  readonly messagesContainerRef?: React.RefObject<HTMLDivElement>;
+}
+
+function ParserMessagesList({
+  messagesByCategory,
+  onGoToLine,
+  onInsertSuggestion,
+  messagesContainerRef,
+}: ParserMessagesListProps) {
+  return (
+    <UnifiedScrollArea
+      className="flex-1"
+      orientation="both"
+      viewportClassName="p-3 text-ui-xs space-y-2"
+      viewportRef={messagesContainerRef}
+      viewportTestId="parser-messages-container"
+    >
+      {Object.entries(messagesByCategory).map(([category, categoryMessages]) => (
+        <div key={category} className="space-y-1">
+          <div className="text-muted-foreground font-semibold uppercase tracking-wide text-ui-xs mb-1.5">
+            {getCategoryLabel(category)}
+          </div>
+          {categoryMessages.map((message) => {
+            const target = getMessageNavigationTarget(message);
+            return (
+              <div
+                key={message.id}
+                className="bg-muted/50 rounded border-l-2 transition-colors"
+                style={{ borderLeftColor: getSeverityColor(message.severity) }}
+              >
+                <button
+                  type="button"
+                  className="parser-message-btn w-full text-left p-2 cursor-pointer hover:bg-muted/70 block"
+                  tabIndex={isNavigableSourceTarget(target) ? 0 : -1}
+                  onClick={() => {
+                    if (isNavigableSourceTarget(target)) onGoToLine?.(target);
+                  }}
+                  onKeyDown={(event) => {
+                    const isActivationKey = event.key === "Enter" || event.key === " ";
+                    if (isActivationKey && isNavigableSourceTarget(target)) {
+                      event.preventDefault();
+                      onGoToLine?.(target);
+                    }
+                  }}
+                >
+                  <div className="flex items-start gap-2">
+                    {getSeverityIcon(message.severity)}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-foreground font-medium mb-1">
+                        {message.message}
+                      </div>
+                      <div className="text-muted-foreground text-ui-xs space-x-2">
+                        {message.line !== undefined && (
+                          <span>{message.file ? `${message.file}:${message.line}` : `Line ${message.line}`}</span>
+                        )}
+                        {message.column !== undefined && message.column > 0 && (
+                          <span>• Col {message.column}</span>
+                        )}
+                        <span>• {getSeverityLabel(message.severity)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+                {message.suggestion && (
+                  <div className="ml-8 mr-2 mb-2 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2">
+                    <div className="flex-1 min-w-0 text-muted-foreground text-ui-xs">
+                      <span className="font-semibold">Suggestion:</span>{" "}
+                      {message.suggestion}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => onInsertSuggestion?.(message.suggestion ?? "", message.line)}
+                      className="ml-3"
+                      title="Insert suggestion"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </UnifiedScrollArea>
+  );
+}
+
+type RegistryOperation = NonNullable<IOPinRecord["usedAt"]>[number];
+
+interface RegistryOperationCellProps {
+  readonly lines: Array<number | "runtime"> | undefined;
+  readonly locations: SourceLocation[] | undefined;
+  readonly legacyOperations: RegistryOperation[];
+  readonly detailView: boolean;
+  readonly onGoToLine?: (target: SourceNavigationTarget) => void;
+}
+
+function renderRegistryOperationCell({
+  lines,
+  locations,
+  legacyOperations,
+  detailView,
+  onGoToLine,
+}: RegistryOperationCellProps): JSX.Element {
+  const hasNew = (lines?.length ?? 0) > 0 || (locations?.length ?? 0) > 0;
+  const isUsed = hasNew || legacyOperations.length > 0;
+  if (!isUsed) return <span className="text-gray-400">—</span>;
+  if (!detailView) return <span className="text-green-500 font-bold">✓</span>;
+
+  const sourceLocations = locations && locations.length > 0 ? locations : undefined;
+  const visibleLines: Array<number | "runtime"> = hasNew
+    ? lines!
+    : legacyOperations.map((operation) =>
+        operation.line > 0 ? operation.line : "runtime",
+      );
+
+  return (
+    <div className="space-y-0.5 text-center">
+      {sourceLocations
+        ? sourceLocations.map((location, locationIndex) => (
+            <div
+              key={`${location.file}:${location.line}:${locationIndex}`}
+              className="text-ui-xs"
+            >
+              {getLocationButton(location, onGoToLine)}
+            </div>
+          ))
+        : visibleLines.map((line) => (
+            <div key={`line-${line}`} className="text-ui-xs">
+              {line === "runtime" ? (
+                <span className="text-yellow-400 italic">runtime</span>
+              ) : (
+                <span className="text-blue-400">L{line}</span>
+              )}
+            </div>
+          ))}
+    </div>
+  );
+}
+
+interface IoRegistryRowProps {
+  readonly record: IOPinRecord;
+  readonly index: number;
+  readonly detailView: boolean;
+  readonly onGoToLine?: (target: SourceNavigationTarget) => void;
+}
+
+function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowProps) {
+  const operations = record.usedAt || [];
+  const pinModes: string[] = record.pinModeModes ?? operations
+    .filter((operation) => operation.operation.includes("pinMode"))
+    .map((operation) => {
+      const match = /pinMode:(\d+)/.exec(operation.operation);
+      return getPinModeLabel(match ? Number.parseInt(match[1]) : -1);
+    });
+  const uniqueModes = [...new Set(pinModes)];
+  const hasOutputMode = uniqueModes.includes("OUTPUT");
+  const hasInputMode = uniqueModes.includes("INPUT") || uniqueModes.includes("INPUT_PULLUP");
+  const hasRuntimeRead = operations.some(
+    (operation) => operation.operation === "digitalRead" || operation.operation === "analogRead",
+  );
+  const hasRuntimeWrite = operations.some(
+    (operation) => operation.operation === "digitalWrite" || operation.operation === "analogWrite",
+  );
+  const hasConflict = record.conflict ?? (
+    uniqueModes.length > 1 ||
+    (hasOutputMode && hasRuntimeRead) ||
+    (hasInputMode && hasRuntimeWrite)
+  );
+  const digitalReadCell = renderRegistryOperationCell({
+    lines: record.digitalReadLines,
+    locations: record.digitalReadLocations,
+    legacyOperations: operations.filter((operation) => operation.operation.includes("digitalRead")),
+    detailView,
+    onGoToLine,
+  });
+  const digitalWriteCell = renderRegistryOperationCell({
+    lines: record.digitalWriteLines,
+    locations: record.digitalWriteLocations,
+    legacyOperations: operations.filter((operation) => operation.operation.includes("digitalWrite")),
+    detailView,
+    onGoToLine,
+  });
+  const analogReadCell = renderRegistryOperationCell({
+    lines: record.analogReadLines,
+    locations: record.analogReadLocations,
+    legacyOperations: operations.filter((operation) => operation.operation.includes("analogRead")),
+    detailView,
+    onGoToLine,
+  });
+  const analogWriteCell = renderRegistryOperationCell({
+    lines: record.analogWriteLines,
+    locations: record.analogWriteLocations,
+    legacyOperations: operations.filter((operation) => operation.operation.includes("analogWrite")),
+    detailView,
+    onGoToLine,
+  });
+
+  return (
+    <tr
+      className={`border-b border-muted-foreground/10 h-7 ${index % 2 === 0 ? "bg-background" : "bg-muted/20"}`}
+    >
+      <td className="px-2 py-1 text-right font-mono font-semibold text-cyan-400">
+        <div className="flex items-center justify-end gap-2">
+          {getRxTxBadge(String(record.pin))}
+          {getPwmTilde(String(record.pin))}
+          <span>{record.pin}</span>
+        </div>
+      </td>
+      <td className={clsx("px-2 py-1 text-center", hasConflict && "border-2 border-red-500")}>
+        {renderPinModeCell(
+          record,
+          pinModes,
+          uniqueModes,
+          hasConflict,
+          detailView,
+          operations,
+          onGoToLine,
+        )}
+      </td>
+      <td className="px-2 py-1 text-center">{digitalReadCell}</td>
+      <td className="px-2 py-1 text-center">{digitalWriteCell}</td>
+      <td className="px-2 py-1 text-center">{analogReadCell}</td>
+      <td className="px-2 py-1 text-center">{analogWriteCell}</td>
+    </tr>
+  );
+}
+
+interface IoRegistryBodyProps {
+  readonly filteredRegistry: IOPinRecord[];
+  readonly showAllPins: boolean;
+  readonly setShowAllPins: (show: boolean) => void;
+  readonly detailView: boolean;
+  readonly onGoToLine?: (target: SourceNavigationTarget) => void;
+}
+
+function IoRegistryBody({
+  filteredRegistry,
+  showAllPins,
+  setShowAllPins,
+  detailView,
+  onGoToLine,
+}: IoRegistryBodyProps) {
+  if (filteredRegistry.length === 0 && showAllPins) {
+    return <div className="text-muted-foreground p-4 text-center text-ui-xs">No pins available</div>;
+  }
+  if (filteredRegistry.length === 0) {
+    return (
+      <div className="text-muted-foreground p-4 text-center text-ui-xs">
+        <div className="space-y-2">
+          <p>No pins statically detected</p>
+          <p>Dynamically configured pins will appear during simulation.</p>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => setShowAllPins(true)}
+            className="h-auto p-0 text-ui-xs text-blue-400"
+          >
+            Show all pins →
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <table
+        className={clsx(
+          "w-full table-fixed text-ui-xs border-collapse",
+          detailView ? "min-w-[60rem]" : "min-w-[36rem]",
+        )}
+      >
+        <colgroup>
+          <col className={detailView ? "w-[4rem]" : "w-[3rem]"} />
+          <col className={detailView ? "w-[10rem]" : "w-[7rem]"} />
+          <col className={detailView ? "w-[10rem]" : "w-[5.5rem]"} />
+          <col className={detailView ? "w-[10rem]" : "w-[5.5rem]"} />
+          <col className={detailView ? "w-[10rem]" : "w-[5.5rem]"} />
+          <col className={detailView ? "w-[10rem]" : "w-[5.5rem]"} />
+        </colgroup>
+        <thead>
+          <tr className="sticky top-0 z-40 border-b border-muted-foreground/30 bg-muted">
+            <th className="px-2 py-1 text-right font-semibold text-foreground">Pin</th>
+            <th className="px-2 py-1 text-center font-semibold text-foreground">pinMode</th>
+            <th className="px-2 py-1 text-center font-semibold text-foreground">digitalRead</th>
+            <th className="px-2 py-1 text-center font-semibold text-foreground">digitalWrite</th>
+            <th className="px-2 py-1 text-center font-semibold text-foreground">analogRead</th>
+            <th className="px-2 py-1 text-center font-semibold text-foreground">analogWrite</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredRegistry.map((record, index) => (
+            <IoRegistryRow
+              key={record.pin}
+              record={record}
+              index={index}
+              detailView={detailView}
+              onGoToLine={onGoToLine}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 interface ParserOutputProps {
@@ -291,43 +654,16 @@ export function ParserOutput({
   // Do NOT auto-switch tabs - let user control which tab they want to see
   // Previously this auto-switched to registry when no messages, but that was confusing
 
-  // Group messages by category for better organization
-  const messagesByCategory = messages.reduce(
-    (acc, msg) => {
-      if (!acc[msg.category]) {
-        acc[msg.category] = [];
-      }
-      acc[msg.category].push(msg);
-      return acc;
-    },
-    {} as Record<string, ParserMessage[]>,
+  const messagesByCategory = React.useMemo(
+    () => groupMessagesByCategory(messages),
+    [messages],
   );
 
-  const getCategoryLabel = (category: string): string => {
-    const labels: Record<string, string> = {
-      serial: "Serial Configuration",
-      structure: "Code Structure",
-      hardware: "Hardware Compatibility",
-      pins: "Pin Conflicts",
-      performance: "Performance Issues",
-    };
-    return labels[category] || category;
-  };
-
   // Filter pins: show only programmed pins by default, all pins if showAllPins is true
-  const filteredRegistry = React.useMemo(() => {
-    if (showAllPins) {
-      const pinsById = new Map(
-        ALL_PIN_RECORDS.map((record) => [record.pinId, record]),
-      );
-      for (const record of ioRegistry) {
-        const pinId = getPinId(record);
-        if (pinId !== undefined) pinsById.set(pinId, record);
-      }
-      return [...pinsById.values()];
-    }
-    return ioRegistry.filter(isPinProgrammed);
-  }, [ioRegistry, showAllPins]);
+  const filteredRegistry = React.useMemo(
+    () => filterIoRegistry(ioRegistry, showAllPins),
+    [ioRegistry, showAllPins],
+  );
 
   // Count of programmed pins (pins with any operation)
   const totalProgrammedPins = React.useMemo(
@@ -364,13 +700,13 @@ export function ParserOutput({
               <TabsList>
                 <TabsTrigger
                   value="messages"
-                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background data-[state=inactive]:text-muted-foreground rounded"
+                  className="data-[state=inactive]:text-muted-foreground"
                 >
                   Messages {messages.length > 0 && `(${messages.length})`}
                 </TabsTrigger>
                 <TabsTrigger
                   value="registry"
-                  className="h-[var(--ui-header-height)] px-2 text-ui-xs data-[state=active]:bg-background data-[state=inactive]:text-muted-foreground rounded"
+                  className="data-[state=inactive]:text-muted-foreground"
                 >
                   I/O Registry{" "}
                   {(showAllPins ? ioRegistry.length : totalProgrammedPins) >
@@ -382,20 +718,20 @@ export function ParserOutput({
             <div className="flex items-center gap-3 ml-4 text-ui-sm">
               {totalErrors > 0 && (
                 <span className="flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                  <span className="text-red-400">{totalErrors}</span>
+                  <AlertCircle className={`w-3.5 h-3.5 ${getStatusTextClass("error")}`} />
+                  <span className={getStatusTextClass("error")}>{totalErrors}</span>
                 </span>
               )}
               {totalWarnings > 0 && (
                 <span className="flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-400" />
-                  <span className="text-yellow-400">{totalWarnings}</span>
+                  <AlertTriangle className={`w-3.5 h-3.5 ${getStatusTextClass("warning")}`} />
+                  <span className={getStatusTextClass("warning")}>{totalWarnings}</span>
                 </span>
               )}
               {totalInfos > 0 && (
                 <span className="flex items-center gap-1">
-                  <Info className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="text-blue-400">{totalInfos}</span>
+                  <Info className={`w-3.5 h-3.5 ${getStatusTextClass("info")}`} />
+                  <span className={getStatusTextClass("info")}>{totalInfos}</span>
                 </span>
               )}
             </div>
@@ -422,98 +758,12 @@ export function ParserOutput({
               No parser messages
             </div>
           ) : (
-            <UnifiedScrollArea
-              className="flex-1"
-              orientation="both"
-              viewportClassName="p-3 text-ui-xs space-y-2"
-              viewportRef={messagesContainerRef}
-              viewportTestId="parser-messages-container"
-            >
-              {Object.entries(messagesByCategory).map(
-                ([category, categoryMessages]) => (
-                  <div key={category} className="space-y-1">
-                    {/* Category Header */}
-                    <div className="text-muted-foreground font-semibold uppercase tracking-wide text-ui-xs mb-1.5">
-                      {getCategoryLabel(category)}
-                    </div>
-
-                    {/* Category Messages */}
-                    {categoryMessages.map((message) => {
-                      const target = getMessageNavigationTarget(message);
-                      return (
-                      <div
-                        key={message.id}
-                        className="bg-muted/50 rounded border-l-2 transition-colors"
-                        style={{
-                          borderLeftColor: getSeverityColor(message.severity),
-                        }}
-                      >
-                        <button
-                          type="button"
-                          className="parser-message-btn w-full text-left p-2 cursor-pointer hover:bg-muted/70 block"
-                          tabIndex={isNavigableSourceTarget(target) ? 0 : -1}
-                          onClick={() => {
-                            if (isNavigableSourceTarget(target)) onGoToLine?.(target);
-                          }}
-                          onKeyDown={(e) => {
-                            if ((e.key === "Enter" || e.key === " ") && isNavigableSourceTarget(target)) {
-                              e.preventDefault();
-                              onGoToLine?.(target);
-                            }
-                          }}
-                        >
-                          <div className="flex items-start gap-2">
-                            {getSeverityIcon(message.severity)}
-                            <div className="flex-1 min-w-0">
-                              <div className="text-foreground font-medium mb-1">
-                                {message.message}
-                              </div>
-                              <div className="text-muted-foreground text-ui-xs space-x-2">
-                                {message.line !== undefined && (
-                                  <span>{message.file ? `${message.file}:${message.line}` : `Line ${message.line}`}</span>
-                                )}
-                                {message.column !== undefined &&
-                                  message.column > 0 && (
-                                    <span>• Col {message.column}</span>
-                                  )}
-                                <span>
-                                  • {getSeverityLabel(message.severity)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                        {message.suggestion && (
-                          <div className="ml-8 mr-2 mb-2 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2">
-                            <div className="flex-1 min-w-0 text-muted-foreground text-ui-xs">
-                              <span className="font-semibold">
-                                Suggestion:
-                              </span>{" "}
-                              {message.suggestion}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => {
-                                onInsertSuggestion?.(
-                                  message.suggestion ?? "",
-                                  message.line,
-                                );
-                              }}
-                              className="ml-3"
-                              title="Insert suggestion"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                      );
-                    })}
-                  </div>
-                ),
-              )}
-            </UnifiedScrollArea>
+            <ParserMessagesList
+              messagesByCategory={messagesByCategory}
+              onGoToLine={onGoToLine}
+              onInsertSuggestion={onInsertSuggestion}
+              messagesContainerRef={messagesContainerRef}
+            />
           )}
         </TabsContent>
 
@@ -523,271 +773,41 @@ export function ParserOutput({
           className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
         >
           {/* Toggle Button for Pin Visibility */}
-          <div className="sticky top-0 bg-muted/50 border-b border-muted-foreground/30 px-3 h-[var(--ui-button-height)] flex items-center justify-between z-10">
+          <div className="panel-content-header sticky top-0 bg-muted/50 border-b border-muted-foreground/30 px-3 justify-between z-10">
             <span className="text-ui-xs text-muted-foreground">
               {showAllPins
                 ? `All pins (${filteredRegistry.length})`
                 : `Programmed pins (${totalProgrammedPins})`}
             </span>
             <div className="flex items-center gap-1">
-              {/* Show-all toggle (text button) */}
-              <Button
-                variant={showAllPins ? "secondary" : "outline"}
-                size="sm"
+              <ToolbarIconButton
+                icon={<ListFilter className="h-3.5 w-3.5" />}
+                label={showAllPins ? "Show programmed pins" : "Show all pins"}
                 onClick={() => setShowAllPins(!showAllPins)}
-                className="px-2 text-ui-xs"
-                title={showAllPins ? "Hide empty pins" : "Show all pins"}
-              >
-                {showAllPins ? "Used" : "All"}
-              </Button>
+                aria-pressed={showAllPins}
+              />
               {/* Eye button: compact (✓/—) vs extended (line numbers) – SSOT eye-mode */}
-              <Button
-                variant="outline"
-                size="icon"
+              <ToolbarIconButton
+                icon={detailView ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                label={detailView ? "Hide source locations" : "Show source locations"}
                 onClick={() => setDetailView(!detailView)}
-                title={detailView ? "Compact view (✓ / —)" : "Extended view (line numbers)"}
                 data-testid="io-registry-detail-toggle"
-              >
-                {detailView ? (
-                  <Eye className="h-3.5 w-3.5" />
-                ) : (
-                  <EyeOff className="h-3.5 w-3.5" />
-                )}
-              </Button>
+              />
             </div>
           </div>
 
-          <UnifiedScrollArea className="flex-1" orientation="both">
-            {filteredRegistry.length === 0 ? (
-              <div className="text-muted-foreground p-4 text-center text-ui-xs">
-                {showAllPins ? (
-                  "No pins available"
-                ) : (
-                  <div className="space-y-2">
-                    <p>No pins statically detected</p>
-                    <p>Dynamically configured pins will appear during simulation.</p>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={() => setShowAllPins(true)}
-                      className="h-auto p-0 text-ui-xs text-blue-400"
-                    >
-                      Show all pins →
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="min-w-max">
-                <table className="w-full text-ui-xs border-collapse">
-                  <thead>
-                    <tr className="sticky top-0 z-40 border-b border-muted-foreground/30 bg-muted">
-                      <th className="px-2 py-1 text-right font-semibold text-foreground">
-                        Pin
-                      </th>
-                      <th className="px-2 py-1 text-center font-semibold text-foreground">
-                        pinMode
-                      </th>
-                      <th className="px-2 py-1 text-center font-semibold text-foreground">
-                        digitalRead
-                      </th>
-                      <th className="px-2 py-1 text-center font-semibold text-foreground">
-                        digitalWrite
-                      </th>
-                      <th className="px-2 py-1 text-center font-semibold text-foreground">
-                        analogRead
-                      </th>
-                      <th className="px-2 py-1 text-center font-semibold text-foreground">
-                        analogWrite
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRegistry.map((record, idx) => {
-                      // ── Derive modes ─────────────────────────────────────
-                      // Prefer new static-parse fields (pinModeModes/Lines);
-                      // fall back to legacy usedAt for runtime-only pins.
-                      const ops = record.usedAt || [];
-
-                      const pmModes: string[] =
-                        record.pinModeModes ??
-                        ops
-                          .filter((u) => u.operation.includes("pinMode"))
-                          .map((u) => {
-                            const pinModeRe = /pinMode:(\d+)/;
-                            const m = pinModeRe.exec(u.operation);
-                            const n = m ? Number.parseInt(m[1]) : -1;
-                            return getPinModeLabel(n);
-                          });
-                      const uniqueModes = [...new Set(pmModes)];
-
-                      // Conflict: TC9 (write on input), TC9b (read on output), TC11 (multi-mode)
-                      const hasOutputMode = uniqueModes.includes("OUTPUT");
-                      const hasInputMode =
-                        uniqueModes.includes("INPUT") ||
-                        uniqueModes.includes("INPUT_PULLUP");
-                      const hasRuntimeRead = ops.some(
-                        (u) =>
-                          u.operation === "digitalRead" ||
-                          u.operation === "analogRead",
-                      );
-                      const hasRuntimeWrite = ops.some(
-                        (u) =>
-                          u.operation === "digitalWrite" ||
-                          u.operation === "analogWrite",
-                      );
-                      const hasConflict =
-                        record.conflict ??
-                        (uniqueModes.length > 1 ||
-                          (hasOutputMode && hasRuntimeRead) ||
-                          (hasInputMode && hasRuntimeWrite));
-
-                      // ── Helper: render an op cell ────────────────────────
-                      // newLines  = from static parse (has line numbers)
-                      // legacyOps = from runtime usedAt (line may be 0)
-                      const renderOpCell = (
-                        newLines: Array<number | "runtime"> | undefined,
-                        newLocations: SourceLocation[] | undefined,
-                        legacyOps: typeof ops,
-                      ) => {
-                        const hasNew = (newLines?.length ?? 0) > 0 || (newLocations?.length ?? 0) > 0;
-                        const hasLegacy = legacyOps.length > 0;
-                        const isUsed = hasNew || hasLegacy;
-
-                        if (!isUsed)
-                          return (
-                            <span className="text-gray-400">—</span>
-                          );
-
-                        // Compact mode keeps the checkmark and exposes static source
-                        // provenance when it is available.
-                        if (!detailView) {
-                          if (newLocations && newLocations.length > 0) {
-                            return (
-                              <div className="space-y-0.5 text-center">
-                                <span className="text-green-500 font-bold">✓</span>
-                                <div className="text-ui-xs space-y-0.5">
-                                  {newLocations.map((location, locationIndex) => (
-                                    <div key={`${location.file}:${location.line}:${locationIndex}`}>
-                                      {getLocationButton(location, onGoToLine)}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          }
-                          return <span className="text-green-500 font-bold">✓</span>;
-                        }
-
-                        // Extended mode: line numbers
-                        const locations = newLocations && newLocations.length > 0
-                          ? newLocations
-                          : undefined;
-                        const lines: Array<number | "runtime"> = hasNew
-                          ? newLines!
-                          : legacyOps.map((u) =>
-                              u.line > 0
-                                ? u.line
-                                : ("runtime" as const),
-                            );
-                        return (
-                          <div className="space-y-0.5 text-center">
-                            {locations
-                              ? locations.map((location, locationIndex) => (
-                                  <div key={`${location.file}:${location.line}:${locationIndex}`} className="text-ui-xs">
-                                    {getLocationButton(location, onGoToLine)}
-                                  </div>
-                                ))
-                              : lines.map((line) => (
-                                  <div key={`line-${line}`} className="text-ui-xs">
-                                    {line === "runtime" ? (
-                                      <span className="text-yellow-400 italic">runtime</span>
-                                    ) : (
-                                      <span className="text-blue-400">L{line}</span>
-                                    )}
-                                  </div>
-                                ))}
-                          </div>
-                        );
-                      };
-
-                      const drCell = renderOpCell(
-                        record.digitalReadLines,
-                        record.digitalReadLocations,
-                        ops.filter((u) => u.operation.includes("digitalRead")),
-                      );
-                      const dwCell = renderOpCell(
-                        record.digitalWriteLines,
-                        record.digitalWriteLocations,
-                        ops.filter((u) =>
-                          u.operation.includes("digitalWrite"),
-                        ),
-                      );
-                      const arCell = renderOpCell(
-                        record.analogReadLines,
-                        record.analogReadLocations,
-                        ops.filter((u) => u.operation.includes("analogRead")),
-                      );
-                      const awCell = renderOpCell(
-                        record.analogWriteLines,
-                        record.analogWriteLocations,
-                        ops.filter((u) =>
-                          u.operation.includes("analogWrite"),
-                        ),
-                      );
-
-                      return (
-                        <tr
-                          key={record.pin}
-                          className={`border-b border-muted-foreground/10 h-7 ${idx % 2 === 0 ? "bg-background" : "bg-muted/20"}`}
-                        >
-                          {/* Pin Column */}
-                          <td className="px-2 py-1 text-right font-mono font-semibold text-cyan-400">
-                            <div className="flex items-center justify-end gap-2">
-                              {/* RX/TX prefix for pin 0/1 */}
-                              {getRxTxBadge(String(record.pin))}
-                              {/* PWM tilde prefix if numeric pin and PWM-capable */}
-                              {getPwmTilde(String(record.pin))}
-                              <span>{record.pin}</span>
-                            </div>
-                          </td>
-
-                          {/* pinMode Column – always shows mode name; conflict indicator if needed */}
-                          <td
-                            className={clsx(
-                              "px-2 py-1 text-center",
-                              hasConflict && "border-2 border-red-500",
-                            )}
-                          >
-                            {renderPinModeCell(
-                              record,
-                              pmModes,
-                              uniqueModes,
-                              hasConflict,
-                              detailView,
-                              ops,
-                              onGoToLine,
-                            )}
-                          </td>
-
-                          {/* digitalRead Column */}
-                          <td className="px-2 py-1 text-center">{drCell}</td>
-
-                          {/* digitalWrite Column */}
-                          <td className="px-2 py-1 text-center">{dwCell}</td>
-
-                          {/* analogRead Column */}
-                          <td className="px-2 py-1 text-center">{arCell}</td>
-
-                          {/* analogWrite Column */}
-                          <td className="px-2 py-1 text-center">{awCell}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          <UnifiedScrollArea
+            className="flex-1"
+            orientation="both"
+            scrollbarVisibility="always"
+          >
+            <IoRegistryBody
+              filteredRegistry={filteredRegistry}
+              showAllPins={showAllPins}
+              setShowAllPins={setShowAllPins}
+              detailView={detailView}
+              onGoToLine={onGoToLine}
+            />
           </UnifiedScrollArea>
         </TabsContent>
       </Tabs>

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppHeader, DesktopMenuBar } from "../../client/src/components/features/app-header";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 
 vi.stubGlobal(
   "ResizeObserver",
@@ -225,5 +226,61 @@ describe("Desktop top-level menus", () => {
 
     fireEvent.click(screen.getByTestId("button-simulate-toggle"));
     expect(onSimulate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("offline server-dependent controls", () => {
+  it("disables compile and simulation actions while keeping local file navigation enabled", async () => {
+    const noop = vi.fn();
+    render(
+      <AppHeader
+        isMobile={false}
+        simulationStatus="idle"
+        compilationStatus="ready"
+        dockerGccPhase="idle"
+        hasFirstOutput={false}
+        simulateDisabled
+        capabilities={getServerCapabilities(false)}
+        isCompiling={false}
+        isStarting={false}
+        isStopping={false}
+        isPausing={false}
+        isResuming={false}
+        onSimulate={noop}
+        onStop={noop}
+        onPause={noop}
+        onResume={noop}
+        board="Arduino Uno"
+        baudRate={9600}
+        simulationTimeout={30}
+        onTimeoutChange={noop}
+        isMac={false}
+        onFileAdd={noop}
+        onFileRename={noop}
+        onFormatCode={noop}
+        onLoadFiles={noop}
+        onDownloadAllFiles={noop}
+        onSettings={noop}
+        onUndo={noop}
+        onRedo={noop}
+        onCut={noop}
+        onCopy={noop}
+        onPaste={noop}
+        onSelectAll={noop}
+        onGoToLine={noop}
+        onFind={noop}
+        onCompile={noop}
+        onCompileAndStart={noop}
+        onOutputPanelToggle={noop}
+        showCompilationOutput={false}
+      />,
+    );
+
+    expect(screen.getByTestId("button-simulate-toggle")).toBeDisabled();
+    await openMenu("Sketch");
+    expect(screen.getByRole("menuitem", { name: /^CompileF5$/ })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("menuitem", { name: /^Compile\/Upload/ })).toHaveAttribute("aria-disabled", "true");
+    await openMenu("File");
+    expect(screen.getByRole("menuitem", { name: /New File/ })).toBeEnabled();
   });
 });

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTutor } from "@/hooks/use-tutor";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 import {
   TUTOR_CONFIGURED_DIFFICULTY_STORAGE_KEY,
   TUTOR_DEFAULT_DIFFICULTY,
@@ -11,6 +12,59 @@ describe("useTutor", () => {
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+  });
+
+  it("blocks Tutor requests offline and restores them after reconnect without an automatic request", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input) === "/api/tutor/models") {
+        return new Response(JSON.stringify({ models: ["pilot-model"] }), { status: 200 });
+      }
+      if (String(input) === "/api/tutor/question") {
+        return new Response(JSON.stringify({
+          question: "What should happen?",
+          provider: "kiconnect",
+          model: "pilot-model",
+        }), { status: 200 });
+      }
+      if (String(input) === "/api/tutor/dialog") {
+        return new Response(JSON.stringify({
+          question: "What would you check next?",
+          provider: "kiconnect",
+          model: "pilot-model",
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }), { status: 200 });
+    });
+    const { result, rerender } = renderHook(
+      ({ capabilities }) => useTutor(capabilities),
+      { initialProps: { capabilities: getServerCapabilities(false) } },
+    );
+
+    act(() => result.current.setCredential("personal-key"));
+    act(() => result.current.setAnswer("an answer"));
+    await act(async () => {
+      await result.current.loadModels();
+      await result.current.generateQuestion("void setup() {} void loop() {}");
+      await result.current.submitAnswer("void setup() {} void loop() {}");
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    rerender({ capabilities: getServerCapabilities(true) });
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.loadModels();
+      await result.current.generateQuestion("void setup() {} void loop() {}");
+    });
+    act(() => result.current.setAnswer("next answer"));
+    await act(async () => {
+      await result.current.submitAnswer("void setup() {} void loop() {}");
+    });
+
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "/api/tutor/models",
+      "/api/tutor/question",
+      "/api/tutor/dialog",
+    ]);
   });
 
   it("loads a valid persisted configured difficulty before starting a tutor session", () => {

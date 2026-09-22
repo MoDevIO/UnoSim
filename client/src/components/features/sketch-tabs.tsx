@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { TabBar } from "@/components/ui/tab-bar";
+import { AppTab, AppTabMain } from "@/components/ui/app-tab";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +40,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { clsx } from "clsx";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 
 interface Tab {
@@ -316,29 +316,15 @@ export function SketchTabs({
         viewportProps={{ style: { scrollBehavior: "smooth", touchAction: "pan-x" } }}
       >
         {tabs.map((tab) => (
-          <div
+          <AppTab
             key={tab.id}
-            className={clsx(
-              "relative flex items-center flex-shrink-0 group mr-0 border-r border-border",
-              activeTabId === tab.id
-                ? "bg-background tabs-active"
-                : "bg-muted",
-            )}
+            active={activeTabId === tab.id}
             style={{
-              height: "var(--ui-button-height)",
-              display: "flex",
-              alignItems: "center",
               maxWidth: "200px",
             }}
           >
-            {activeTabId === tab.id && (
-              <span
-                aria-hidden="true"
-                className="absolute top-0 left-0 right-0 h-0.5 bg-primary z-10 pointer-events-none"
-              />
-            )}
             {renamingTabId === tab.id ? (
-              <div className="px-3 flex items-center" style={{ height: "var(--ui-button-height)" }}>
+              <div className="px-3 flex items-center" style={{ height: "var(--ui-header-height)" }}>
                 <Input
                   ref={inputRef}
                   value={newName}
@@ -360,20 +346,13 @@ export function SketchTabs({
               </div>
             ) : (
               <>
-                <button
-                  type="button"
-                  className={clsx(
-                    "ui-type-tab flex items-center gap-2 px-3 cursor-pointer transition-colors min-w-0",
+                <AppTabMain
+                  className={
                     activeTabId === tab.id
                       ? "text-foreground"
-                      : "hover:bg-accent text-muted-foreground",
-                  )}
+                      : "text-muted-foreground"
+                  }
                   style={{
-                    height: "var(--ui-button-height)",
-                    display: "flex",
-                    alignItems: "center",
-                    background: "transparent",
-                    border: "none",
                     flex: "1",
                     minWidth: "0",
                   }}
@@ -389,7 +368,8 @@ export function SketchTabs({
                     }
                   }}
                   onDoubleClick={() => handleRenameStart(tab.id, tab.name)}
-                  title={getDisplayFileName(tab.name)}
+                  aria-label={`${getDisplayFileName(tab.name)}${modifiedTabId === tab.id ? ", modified" : ""}`}
+                  title={`${getDisplayFileName(tab.name)}${modifiedTabId === tab.id ? ", modified" : ""}`}
                 >
                   {getDisplayFileName(tab.name).toLowerCase().endsWith(".ino") ? (
                     <Code2 className="h-3 w-3 flex-shrink-0 text-teal-600" strokeWidth={2} />
@@ -409,7 +389,7 @@ export function SketchTabs({
                     {getDisplayFileName(tab.name)}
                     {modifiedTabId === tab.id && <span className="ml-1 flex-shrink-0">•</span>}
                   </span>
-                </button>
+                </AppTabMain>
                 {tabs[0]?.id !== tab.id && (
                   <Button
                     variant="ghost"
@@ -427,7 +407,7 @@ export function SketchTabs({
                 )}
               </>
             )}
-          </div>
+          </AppTab>
         ))}
 
         {/* Context Menu Button */}

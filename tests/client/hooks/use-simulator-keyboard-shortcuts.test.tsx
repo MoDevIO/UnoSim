@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useSimulatorKeyboardShortcuts } from "../../../client/src/hooks/useSimulatorKeyboardShortcuts";
+import { getServerCapabilities } from "@/lib/server-capabilities";
 
 const createDefaultOptions = (overrides: Record<string, unknown> = {}) => ({
   isMac: false,
   simulationStatus: "idle" as const,
   compilePending: false,
   startPending: false,
+  capabilities: getServerCapabilities(true),
   handleCompile: vi.fn(),
   handleCompileAndStart: vi.fn(),
   handleStop: vi.fn(),
@@ -81,6 +83,39 @@ describe("useSimulatorKeyboardShortcuts", () => {
     renderHook(() => useSimulatorKeyboardShortcuts(options));
     fireKeyDown({ key: "u", ctrlKey: true });
     expect(options.handleCompileAndStart).not.toHaveBeenCalled();
+  });
+
+  it("does not trigger compile, compile-and-start, or stop shortcuts while offline", () => {
+    const options = createDefaultOptions({
+      capabilities: getServerCapabilities(false),
+      simulationStatus: "running",
+    });
+    renderHook(() => useSimulatorKeyboardShortcuts(options));
+
+    fireKeyDown({ key: "F5" });
+    fireKeyDown({ key: "u", ctrlKey: true });
+    fireKeyDown({ key: "Escape" });
+
+    expect(options.handleCompile).not.toHaveBeenCalled();
+    expect(options.handleCompileAndStart).not.toHaveBeenCalled();
+    expect(options.handleStop).not.toHaveBeenCalled();
+  });
+
+  it("restores shortcut actions on reconnect without triggering them automatically", () => {
+    const options = createDefaultOptions({ capabilities: getServerCapabilities(false) });
+    const { rerender } = renderHook(
+      ({ capabilities }) => useSimulatorKeyboardShortcuts({ ...options, capabilities }),
+      { initialProps: { capabilities: getServerCapabilities(false) } },
+    );
+
+    rerender({ capabilities: getServerCapabilities(true) });
+    expect(options.handleCompile).not.toHaveBeenCalled();
+    expect(options.handleCompileAndStart).not.toHaveBeenCalled();
+
+    fireKeyDown({ key: "F5" });
+    fireKeyDown({ key: "u", ctrlKey: true });
+    expect(options.handleCompile).toHaveBeenCalledTimes(1);
+    expect(options.handleCompileAndStart).toHaveBeenCalledTimes(1);
   });
 
   it("Cmd+U triggers the same compile-and-start dispatcher on macOS", () => {

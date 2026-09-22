@@ -9,11 +9,15 @@ import {
   useExternalExamples,
   validateExternalExamplesSelection,
 } from "@/lib/external-examples";
+import { getStatusTextClass } from "@/lib/status-semantics";
+import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 
 export function ExternalExamplesSettings({
   open = true,
+  capabilities = getServerCapabilities(true),
 }: {
   readonly open?: boolean;
+  readonly capabilities?: ServerCapabilities;
 }) {
   const { override, catalog } = useExternalExamples();
   const [repository, setRepository] = React.useState("");
@@ -30,9 +34,11 @@ export function ExternalExamplesSettings({
   );
   const operation = React.useRef(0);
   const controller = React.useRef<AbortController | undefined>();
+  const capabilitiesRef = React.useRef(capabilities);
+  capabilitiesRef.current = capabilities;
 
   React.useEffect(() => {
-    if (open && !catalog && !override)
+    if (open && !catalog && !override && capabilitiesRef.current.canUseServerExamples)
       void refreshExternalExamplesCatalog().catch(() => undefined);
   }, [catalog, open, override]);
 
@@ -53,6 +59,7 @@ export function ExternalExamplesSettings({
   const validateDraft = async (): Promise<ReturnType<
     typeof normalizeSelection
   > | null> => {
+    if (!capabilitiesRef.current.canUseServerExamples) return null;
     const currentOperation = ++operation.current;
     try {
       const selection = normalizeSelection(repository, ref);
@@ -92,12 +99,14 @@ export function ExternalExamplesSettings({
   };
 
   const apply = async () => {
+    if (!capabilitiesRef.current.canUseServerExamples) return;
     const selection = await validateDraft();
-    if (!selection) return;
+    if (!selection || !capabilitiesRef.current.canUseServerExamples) return;
     const currentOperation = ++operation.current;
     setBusy("apply");
     try {
       setExternalExamplesOverride(selection);
+      if (!capabilitiesRef.current.canUseServerExamples) return;
       await refreshExternalExamplesCatalog();
       if (currentOperation === operation.current)
         setMessage({
@@ -120,6 +129,7 @@ export function ExternalExamplesSettings({
   };
 
   const reset = async () => {
+    if (!capabilitiesRef.current.canUseServerExamples) return;
     ++operation.current;
     controller.current?.abort();
     setBusy("reset");
@@ -153,6 +163,11 @@ export function ExternalExamplesSettings({
         Select a public GitHub repository and ref for this browser only. No
         credentials are needed.
       </div>
+      {!capabilities.canUseServerExamples && (
+        <output className="mb-3 text-ui-xs text-muted-foreground" aria-live="polite">
+          Server connection required
+        </output>
+      )}
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:gap-x-4 sm:gap-y-2">
         <label className="text-ui-sm" htmlFor="external-examples-repository">
           Repository
@@ -165,7 +180,7 @@ export function ExternalExamplesSettings({
             setValidatedRevision(null);
           }}
           placeholder="owner/repository or GitHub URL"
-          disabled={busy !== null}
+          disabled={busy !== null || !capabilities.canUseServerExamples}
         />
         <label className="text-ui-sm" htmlFor="external-examples-ref">
           Ref
@@ -178,7 +193,7 @@ export function ExternalExamplesSettings({
             setValidatedRevision(null);
           }}
           placeholder="main"
-          disabled={busy !== null}
+          disabled={busy !== null || !capabilities.canUseServerExamples}
         />
       </div>
       <div className="mt-3 space-y-1 text-ui-xs text-muted-foreground">
@@ -199,7 +214,7 @@ export function ExternalExamplesSettings({
       {message && (
         <output
           aria-live="polite"
-          className={`mt-3 text-ui-sm ${message.kind === "error" ? "text-destructive" : "text-status-success"}`}
+          className={`mt-3 text-ui-sm ${getStatusTextClass(message.kind)}`}
         >
           {message.text}
         </output>
@@ -210,7 +225,7 @@ export function ExternalExamplesSettings({
           variant="outline"
           size="sm"
           onClick={() => void validateDraft()}
-          disabled={busy !== null}
+          disabled={busy !== null || !capabilities.canUseServerExamples}
         >
           Validate
         </Button>
@@ -218,7 +233,7 @@ export function ExternalExamplesSettings({
           type="button"
           size="sm"
           onClick={() => void apply()}
-          disabled={busy !== null || !repository || !ref}
+          disabled={busy !== null || !repository || !ref || !capabilities.canUseServerExamples}
         >
           Apply
         </Button>
@@ -227,7 +242,7 @@ export function ExternalExamplesSettings({
           variant="outline"
           size="sm"
           onClick={() => void reset()}
-          disabled={busy !== null || !override}
+          disabled={busy !== null || !override || !capabilities.canUseServerExamples}
         >
           Reset to default
         </Button>
