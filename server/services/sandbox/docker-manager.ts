@@ -12,7 +12,22 @@ import type { PinStateChange } from "@shared/types/arduino.types";
 import { config } from "../../config";
 
 const RUNTIME_START_MARKER = "[[RUNTIME_START]]";
-const RUNTIME_START_LINE = /(?:^|\r?\n)\[\[RUNTIME_START\]\]\r?\n/;
+
+function findRuntimeStartMarker(output: string): { start: number; end: number } | null {
+  let searchFrom = 0;
+  while (searchFrom < output.length) {
+    const start = output.indexOf(RUNTIME_START_MARKER, searchFrom);
+    if (start < 0) return null;
+
+    const isLineStart = start === 0 || output[start - 1] === "\n";
+    const followsRegistryMarker = output.slice(0, start).endsWith("[[IO_REGISTRY_START]]");
+    if (isLineStart || followsRegistryMarker) {
+      return { start, end: start + RUNTIME_START_MARKER.length };
+    }
+    searchFrom = start + 1;
+  }
+  return null;
+}
 
 interface DockerManagerCallbacks {
   onOutput: (line: string, isComplete?: boolean) => void;
@@ -43,15 +58,16 @@ interface DockerHandlerState {
   totalOutputBytes: { value: number };
   processStartTime: number | null;
   stderrFallbackBuffer: string;
+  runtimeOutputBuffer: { value: string };
   flushTimer: NodeJS.Timeout | null;
 }
 
 type HandleParsedLineDelegate = (parsed: ParsedStderrOutput, callbacks: DockerManagerCallbacks) => void;
 type OutputBudgetState = Pick<DockerHandlerState, "totalOutputBytes">;
-type StdoutHandlerState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "totalOutputBytes"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
+type StdoutHandlerState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "totalOutputBytes"> & Partial<Pick<DockerHandlerState, "processStartTime" | "runtimeOutputBuffer">>;
 type StderrHandlerState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "totalOutputBytes" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
-type DockerExitState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime">>;
-type DockerRuntimeState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "totalOutputBytes" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime" | "flushTimer">>;
+type DockerExitState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime" | "runtimeOutputBuffer">>;
+type DockerRuntimeState = Pick<DockerHandlerState, "isCompilePhase" | "compileErrorBuffer" | "compileSuccessSent" | "totalOutputBytes" | "stderrFallbackBuffer"> & Partial<Pick<DockerHandlerState, "processStartTime" | "flushTimer" | "runtimeOutputBuffer">>;
 
 export class DockerManager {
   private readonly logger = new Logger("DockerManager");
@@ -113,19 +129,11 @@ export class DockerManager {
         // compile output out of the runtime stream and wait for the explicit
         // sentinel before declaring compilation successful.
         state.compileErrorBuffer.value += str;
-        const markerMatch = RUNTIME_START_LINE.exec(state.compileErrorBuffer.value);
+        const markerMatch = findRuntimeStartMarker(state.compileErrorBuffer.value);
         if (!markerMatch) return;
 
-        let markerPrefixLength = 0;
-        if (markerMatch[0].startsWith("\r\n")) {
-          markerPrefixLength = 2;
-        } else if (markerMatch[0].startsWith("\n")) {
-          markerPrefixLength = 1;
-        }
-        const markerLineStart = markerMatch.index + markerPrefixLength;
-        const markerEnd = markerMatch.index + markerMatch[0].length;
-        const runtimeOutput = state.compileErrorBuffer.value.slice(markerEnd);
-        state.compileErrorBuffer.value = state.compileErrorBuffer.value.slice(0, markerLineStart);
+        const runtimeOutput = state.compileErrorBuffer.value.slice(markerMatch.end).replace(/^\r?\n/, "");
+        state.compileErrorBuffer.value = state.compileErrorBuffer.value.slice(0, markerMatch.start);
         isCompilePhase.value = false;
         onRuntimeStart?.();
         if (!compileSuccessSent.value && onCompileSuccess) {
@@ -142,11 +150,13 @@ export class DockerManager {
 
   private forwardRuntimeStdout(
     output: string,
-    state: Pick<StdoutHandlerState, "processStartTime">,
+    state: Pick<StdoutHandlerState, "processStartTime" | "runtimeOutputBuffer">,
     callbacks: DockerManagerCallbacks,
   ): void {
-    // Parse stdout lines (safety net for direct binary output)
-    const lines = output.split(/\r?\n/);
+    const runtimeOutputBuffer = state.runtimeOutputBuffer ?? { value: "" };
+    const lines = `${runtimeOutputBuffer.value}${output}`.split(/\r?\n/);
+    runtimeOutputBuffer.value = lines.pop() ?? "";
+    state.runtimeOutputBuffer = runtimeOutputBuffer;
     lines.forEach((line) => {
       // Filter the compile-phase sentinel added by buildCompileAndRunCommand.
       // Its sole purpose is to trigger the isCompilePhase reset above and
@@ -155,6 +165,15 @@ export class DockerManager {
       const parsed = this.stderrParser.parseStderrLine(line, state.processStartTime || 0);
       this.handleParsedLine(parsed, callbacks);
     });
+  }
+
+  private flushRuntimeStdout(
+    state: Pick<StdoutHandlerState, "processStartTime" | "runtimeOutputBuffer">,
+    callbacks: DockerManagerCallbacks,
+  ): void {
+    const runtimeOutputBuffer = state.runtimeOutputBuffer;
+    if (!runtimeOutputBuffer?.value) return;
+    this.forwardRuntimeStdout("\n", state, callbacks);
   }
 
   /**
@@ -172,7 +191,7 @@ export class DockerManager {
     this.processController.onStderr((data) => {
       if (!this.consumeOutputBudget(state, data, callbacks)) return;
       const chunk = data.toString();
-      if (isCompilePhase.value) {
+      if (isCompilePhase.value && useFallbackParser) {
         compileErrorBuffer.value += chunk;
       }
 
@@ -223,6 +242,10 @@ export class DockerManager {
         const parsed = this.stderrParser.parseStderrLine(buffered, state.processStartTime || 0);
         this.handleParsedLine(parsed, callbacks);
       }
+    }
+
+    if (!isCompilePhase.value) {
+      this.flushRuntimeStdout(state, callbacks);
     }
 
     // Flush message queue before exit

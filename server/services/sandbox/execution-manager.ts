@@ -87,6 +87,7 @@ type DockerState = {
   totalOutputBytes: { value: number };
   processStartTime: number | null;
   stderrFallbackBuffer: string;
+  runtimeOutputBuffer: { value: string };
   flushTimer: NodeJS.Timeout | null;
 };
 
@@ -475,6 +476,7 @@ export class ExecutionManager {
         totalOutputBytes: { value: state.totalOutputBytes },
         processStartTime: state.processStartTime,
         stderrFallbackBuffer: state.stderrFallbackBuffer,
+        runtimeOutputBuffer: { value: "" },
         flushTimer: state.flushTimer,
       };
 

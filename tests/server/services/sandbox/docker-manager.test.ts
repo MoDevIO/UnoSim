@@ -364,3 +364,108 @@ describe("DockerManager output budget", () => {
     expect(onRuntimeStart).not.toHaveBeenCalled();
   });
 });
+
+
+describe("DockerManager incremental runtime marker parsing", () => {
+  function createHarness() {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const parsedLines: string[] = [];
+    const manager = new DockerManager(
+      processController,
+      { parseStderrLine: vi.fn((line: string) => ({ type: "text", line })) } as any,
+      makeTimeoutManager(),
+      (parsed) => {
+        if (parsed.type === "text") parsedLines.push(parsed.line);
+      },
+    );
+    const onCompileSuccess = vi.fn();
+    const onRuntimeStart = vi.fn();
+    const state = {
+      isCompilePhase: { value: true },
+      compileErrorBuffer: { value: "" },
+      compileSuccessSent: { value: false },
+      totalOutputBytes: { value: 0 },
+      processStartTime: 1000,
+      runtimeOutputBuffer: { value: "" },
+    };
+    manager.setupStdoutHandler(
+      { ...mockCallbacks, onError: vi.fn() },
+      state,
+      onCompileSuccess,
+      onRuntimeStart,
+    );
+    return { stdout: (chunk: string) => stdoutHandlers[0]?.(Buffer.from(chunk)), parsedLines, onCompileSuccess, onRuntimeStart, state };
+  }
+
+  it("accepts a complete marker and preserves multiple runtime lines in one chunk", () => {
+    const harness = createHarness();
+
+    harness.stdout("[[RUNTIME_START]]\nfirst\nsecond\n");
+
+    expect(harness.state.isCompilePhase.value).toBe(false);
+    expect(harness.onCompileSuccess).toHaveBeenCalledOnce();
+    expect(harness.onRuntimeStart).toHaveBeenCalledOnce();
+    expect(harness.parsedLines).toEqual(["first", "second"]);
+  });
+
+  it("accepts IO_REGISTRY_START immediately followed by RUNTIME_START in one chunk", () => {
+    const harness = createHarness();
+
+    harness.stdout("[[IO_REGISTRY_START]][[RUNTIME_START]]\nready\n");
+
+    expect(harness.state.isCompilePhase.value).toBe(false);
+    expect(harness.onRuntimeStart).toHaveBeenCalledOnce();
+    expect(harness.parsedLines).toEqual(["ready"]);
+  });
+
+  it("accepts a runtime marker followed immediately by ordinary output", () => {
+    const harness = createHarness();
+
+    harness.stdout("[[RUNTIME_START]]serial");
+
+    expect(harness.state.isCompilePhase.value).toBe(false);
+    expect(harness.parsedLines).toEqual([]);
+    harness.stdout("\n");
+
+    expect(harness.parsedLines).toEqual(["serial"]);
+  });
+
+  it("filters rapid repeated runtime markers without losing adjacent output", () => {
+    const harness = createHarness();
+
+    harness.stdout("[[RUNTIME_START]]\n[[RUNTIME_START]]\nserial\n");
+
+    expect(harness.onRuntimeStart).toHaveBeenCalledOnce();
+    expect(harness.parsedLines).toEqual(["serial"]);
+  });
+
+  it("handles arbitrary marker and output chunk boundaries without duplication", () => {
+    const harness = createHarness();
+
+    for (const chunk of [
+      "compiler warning\n[[RUNTIME_",
+      "START]]\npart",
+      "ial\nsecond\n",
+    ]) {
+      harness.stdout(chunk);
+    }
+
+    expect(harness.state.isCompilePhase.value).toBe(false);
+    expect(harness.parsedLines).toEqual(["partial", "second"]);
+  });
+
+  it("preserves ordinary compiler output before a split marker", () => {
+    const harness = createHarness();
+
+    harness.stdout("warning line\n[[RUNTIME");
+    expect(harness.state.isCompilePhase.value).toBe(true);
+    harness.stdout("_START]]\nrun\n");
+
+    expect(harness.state.compileErrorBuffer.value).toBe("warning line\n");
+    expect(harness.parsedLines).toEqual(["run"]);
+  });
+});
