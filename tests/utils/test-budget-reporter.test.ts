@@ -76,6 +76,16 @@ describe("TestBudgetReporter", () => {
     return JSON.parse(readFileSync(metricsPath, "utf8")) as Metrics;
   }
 
+  it("configures coverage with a 75-second warning and a 90-second hard-fail budget", () => {
+    const packageJson = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    const coverageScript = packageJson.scripts["test:coverage"];
+
+    expect(coverageScript).toContain("TEST_BUDGET_WARN_MS=75000");
+    expect(coverageScript).toContain("TEST_BUDGET_FAIL_MS=90000");
+  });
+
   it("preserves the legacy pass behavior under budget", () => {
     process.env.TEST_BUDGET_MS = "60000";
 
@@ -96,38 +106,38 @@ describe("TestBudgetReporter", () => {
   });
 
   it("does not flag a run below the warning threshold", () => {
-    process.env.TEST_BUDGET_WARN_MS = "60000";
-    process.env.TEST_BUDGET_FAIL_MS = "70000";
+    process.env.TEST_BUDGET_WARN_MS = "75000";
+    process.env.TEST_BUDGET_FAIL_MS = "90000";
 
-    const metrics = runReporter(59_000);
+    const metrics = runReporter(74_000);
 
     expect(process.exitCode).toBeUndefined();
     expect(metrics.warningExceeded).toBe(false);
     expect(metrics.failureExceeded).toBe(false);
-    expect(metrics.budgetMs).toBe(70_000);
+    expect(metrics.budgetMs).toBe(90_000);
     expect(metrics.budgetExceeded).toBe(false);
   });
 
-  it("warns but passes for the historical 60,970 ms run", () => {
-    process.env.TEST_BUDGET_WARN_MS = "60000";
-    process.env.TEST_BUDGET_FAIL_MS = "70000";
+  it("warns but passes between the warning and failure thresholds", () => {
+    process.env.TEST_BUDGET_WARN_MS = "75000";
+    process.env.TEST_BUDGET_FAIL_MS = "90000";
 
-    const metrics = runReporter(60_970);
+    const metrics = runReporter(75_970);
 
     expect(process.exitCode).toBeUndefined();
     expect(metrics.warningExceeded).toBe(true);
     expect(metrics.failureExceeded).toBe(false);
     expect(metrics.budgetExceeded).toBe(false);
     expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining("Warnschwelle 60000 ms"),
+      expect.stringContaining("Warnschwelle 75000 ms"),
     );
   });
 
   it("hard-fails above the failure threshold", () => {
-    process.env.TEST_BUDGET_WARN_MS = "60000";
-    process.env.TEST_BUDGET_FAIL_MS = "70000";
+    process.env.TEST_BUDGET_WARN_MS = "75000";
+    process.env.TEST_BUDGET_FAIL_MS = "90000";
 
-    const metrics = runReporter(70_001);
+    const metrics = runReporter(90_001);
 
     expect(process.exitCode).toBe(1);
     expect(metrics.warningExceeded).toBe(true);
@@ -136,10 +146,10 @@ describe("TestBudgetReporter", () => {
   });
 
   it("allows the exact hard-fail boundary", () => {
-    process.env.TEST_BUDGET_WARN_MS = "60000";
-    process.env.TEST_BUDGET_FAIL_MS = "70000";
+    process.env.TEST_BUDGET_WARN_MS = "75000";
+    process.env.TEST_BUDGET_FAIL_MS = "90000";
 
-    const metrics = runReporter(70_000);
+    const metrics = runReporter(90_000);
 
     expect(process.exitCode).toBeUndefined();
     expect(metrics.warningExceeded).toBe(true);
@@ -147,10 +157,10 @@ describe("TestBudgetReporter", () => {
   });
 
   it("allows the exact warning boundary without warning", () => {
-    process.env.TEST_BUDGET_WARN_MS = "60000";
-    process.env.TEST_BUDGET_FAIL_MS = "70000";
+    process.env.TEST_BUDGET_WARN_MS = "75000";
+    process.env.TEST_BUDGET_FAIL_MS = "90000";
 
-    const metrics = runReporter(60_000);
+    const metrics = runReporter(75_000);
 
     expect(process.exitCode).toBeUndefined();
     expect(metrics.warningExceeded).toBe(false);
@@ -159,8 +169,8 @@ describe("TestBudgetReporter", () => {
   });
 
   it("rejects invalid threshold configuration", () => {
-    process.env.TEST_BUDGET_WARN_MS = "70000";
-    process.env.TEST_BUDGET_FAIL_MS = "60000";
+    process.env.TEST_BUDGET_WARN_MS = "90000";
+    process.env.TEST_BUDGET_FAIL_MS = "75000";
 
     const metrics = runReporter(50_000);
 
@@ -169,17 +179,17 @@ describe("TestBudgetReporter", () => {
   });
 
   it("retains existing metric fields and writes the new threshold fields", () => {
-    process.env.TEST_BUDGET_WARN_MS = "60000";
-    process.env.TEST_BUDGET_FAIL_MS = "70000";
+    process.env.TEST_BUDGET_WARN_MS = "75000";
+    process.env.TEST_BUDGET_FAIL_MS = "90000";
 
-    const metrics = runReporter(60_970);
+    const metrics = runReporter(75_970);
 
     expect(metrics).toMatchObject({
       schemaVersion: 1,
       suite: "unit-coverage-test",
-      warningBudgetMs: 60_000,
-      failureBudgetMs: 70_000,
-      durationMs: 60_970,
+      warningBudgetMs: 75_000,
+      failureBudgetMs: 90_000,
+      durationMs: 75_970,
       counts: { passed: 1 },
       slowestTests: [{ name: "example test", durationMs: 12 }],
     });

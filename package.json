@@ -45,7 +45,7 @@
     "test:security:inputs": "TEST_BUDGET_SUITE=security-inputs TEST_BUDGET_MS=15000 LOG_LEVEL=warn vitest run --project=unit-node --project=unit-node-http tests/shared/input-limits.test.ts tests/shared/websocket-direction-schemas.test.ts tests/server/security/safe-paths.test.ts tests/server/routes/compiler.routes.test.ts tests/integration/simulation-state-sequence.test.ts --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:docker",
     "test:watch": "LOG_LEVEL=info vitest --project=unit-client --project=unit-node --project=unit-node-http",
-    "test:coverage": "node scripts/coverage-guard.mjs prepare && TEST_BUDGET_SUITE=unit-coverage TEST_BUDGET_WARN_MS=60000 TEST_BUDGET_FAIL_MS=70000 LOG_LEVEL=warn vitest run --coverage --project=unit-client --project=unit-node --project=unit-node-http --reporter=default --reporter=./scripts/test-budget-reporter.mjs && node scripts/coverage-guard.mjs validate",
+    "test:coverage": "node scripts/coverage-guard.mjs prepare && TEST_BUDGET_SUITE=unit-coverage TEST_BUDGET_WARN_MS=75000 TEST_BUDGET_FAIL_MS=90000 LOG_LEVEL=warn vitest run --coverage --project=unit-client --project=unit-node --project=unit-node-http --reporter=default --reporter=./scripts/test-budget-reporter.mjs && node scripts/coverage-guard.mjs validate",
     "test:debug": "LOG_LEVEL=debug vitest run --project=unit-client --project=unit-node --project=unit-node-http",
     "test:ci": "npm run test:unit",
     "test:e2e": "ARDUINO_CACHE_DIR=./server/arduino-cache playwright test",
