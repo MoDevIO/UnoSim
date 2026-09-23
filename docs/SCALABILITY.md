@@ -1,11 +1,19 @@
-# Skalierbarkeit und gemessene Kapazität
+# Historische Skalierbarkeit und gemessene Kapazität
 
-Normative Kapazitätsaussage für die aktuelle Docker-Architektur. Die
-zugrunde liegende Historie bleibt über Git nachvollziehbar.
+Dieses Dokument bewahrt die Messung aus Phase 3.4 vor dem aktuellen
+Kapazitätsmodell. Es ist keine normative Aussage über die heutigen
+Produktionsgrenzen. Das aktuelle Modell, die aktuellen Defaults und die Dell-
+Referenzmessungen stehen in
+[CAPACITY_VALIDATION_PLAN.md](CAPACITY_VALIDATION_PLAN.md).
 
 ## Gemessene Grenzen
 
-Gemessen wurden ein stateful Backend, echte Docker-Sandboxen, 8 Compile-Worker, 8 Docker-Compile-Slots, 256 MB und 0,25 CPU pro Sandbox sowie ein SandboxRunnerPool mit 5 Runnern. Die Simulationsmessungen entstanden vor Einführung der Default-Admission-Cap beziehungsweise mit einer für den Messlauf geöffneten Admission; sie beschreiben den Queue-Durchsatz, nicht die Zahl der Starts, die der neue Default gleichzeitig annimmt.
+Gemessen wurden ein stateful Backend, echte Docker-Sandboxen, 8 Compile-Worker,
+8 Sandbox-Start-Slots, 256 MB und 0,25 CPU pro Sandbox sowie ein logischer
+SandboxRunnerPool mit 5 Runnern. Diese Messung entstand vor Einführung des
+heutigen Admission- und Startup-Modells. Sie beschreibt historische
+Queue-/Durchsatzdaten und ist nicht mit der aktuellen physischen
+Sandbox-Kapazität gleichzusetzen.
 
 | Workload | Ergebnis | Status |
 |---|---:|---|
@@ -16,14 +24,19 @@ Gemessen wurden ein stateful Backend, echte Docker-Sandboxen, 8 Compile-Worker, 
 | Simulation/WebSocket/Runner, 100 Clients | 100/100 | validiert |
 | Simulation/WebSocket/Runner, 200 Clients | 126/200; 74 Timeout/Fehler | nicht freigegeben |
 
-200 Simulationen sind ausdrücklich kein Kapazitätsversprechen. Der gemessene Engpass sind die 5 Runner und der 60-Sekunden-Runner-Acquire-Timeout. Compile-Skalierung und Simulationskapazität sind unterschiedliche Grenzen.
+200 Simulationen waren in diesem historischen Profil ausdrücklich kein
+Kapazitätsversprechen. Der gemessene Engpass waren die 5 logischen Runner und
+der 60-Sekunden-Runner-Acquire-Timeout. Compile-Skalierung,
+Sandbox-Startdruck, Simulationskapazität und Admission sind unterschiedliche
+Grenzen.
 
 ## Admission Control
 
-Die globale Admission-Grenze ist standardmäßig 25 laufende plus wartende
-Simulationsstarts pro Backend-Prozess. Sie ist eine Fail-fast-Grenze vor dem
-unveränderten Runner-Pool und dessen unveränderter 500er-Notfallqueue. Bei
-voller Admission-Grenze wird ein Start sofort als `SYSTEM_BUSY` abgewiesen.
+Die damalige globale Admission-Grenze war 25 laufende plus wartende
+Simulationsstarts pro Backend-Prozess. Sie war eine Fail-fast-Grenze vor dem
+damaligen Runner-Pool und dessen 500er-Notfallqueue. Bei voller Admission-
+Grenze wurde ein Start sofort als `SYSTEM_BUSY` abgewiesen. Für aktuelle
+Defaults und test-only Profile siehe die zentrale Kapazitätsdokumentation.
 
 Der Default basiert auf dem Queue- und Latenzverlauf der realen
 Docker-Messungen mit 5 Runnern:

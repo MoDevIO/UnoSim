@@ -1,118 +1,246 @@
-# Docker Capacity Validation Plan
+# Capacity validation plan and operating model
+
+This is the authoritative description of UnoSim's simulation capacity model,
+its timeout boundaries, and the validation evidence. Validation profiles are
+test inputs; they do not silently change production sizing.
 
 ## Operator model
 
-Capacity validation keeps the operator model small and separates steady-state
-simulation capacity from startup pressure:
+The request lifecycle is:
 
-```yaml
-SIMULATION_ADMISSION_MAX
-          |
-          v
-   admitted demand
-      +---+----------------+
-      |                    |
-      v                    v
-SIMULATION_MAX_       waiting demand
-CONCURRENT                  |
-      |           SIMULATION_QUEUE_TIMEOUT_MS
-      v
-SANDBOX_START_MAX_CONCURRENT
-      |
-      v
-Docker sandbox -> RUNNING
+    admission
+        |
+        v
+    simulation queue -------------------- SIMULATION_QUEUE_TIMEOUT_MS
+        |
+        v
+    simulation slot acquired
+        |
+        v
+    sandbox-start-slot wait ------------- SANDBOX_START_SLOT_TIMEOUT_MS
+        |
+        v
+    sandbox startup / compile ----------- internal startup watchdog
+        |
+        v
+    RUNTIME_START
+        |
+        v
+    simulation runtime ------------------ timeoutSec
+        |
+        v
+    completion / cleanup
 
-COMPILE_MAX_CONCURRENT  # normal source-code compilation is separate
-```
+    Docker control health checks -------- DOCKER_CONTROL_TIMEOUT_MS
 
-- `SIMULATION_MAX_CONCURRENT` is the maximum number of active simulation
-  sessions. It is the steady-state execution limit.
-- `SANDBOX_START_MAX_CONCURRENT` limits Docker sandbox startup operations. It is
-  acquired before `docker run` and released at `RUNTIME_START`; it is a ramp
-  throttle, not compile capacity or a Docker-container maximum.
-- `SANDBOX_START_SLOT_TIMEOUT_MS` limits how long an admitted simulation may wait
-  for a startup slot. It is separate from the simulation queue timeout, the
-  startup watchdog, and the simulation runtime timeout.
-- `SIMULATION_ADMISSION_MAX` counts admitted active and waiting demands.
-- `SIMULATION_QUEUE_TIMEOUT_MS` is the waiting policy for an admitted demand.
-- `COMPILE_MAX_CONCURRENT` belongs to the normal source-code compilation
-  subsystem and is independent of sandbox startup.
-- `SandboxRunner` objects are logical implementation details. Physical Docker
-  overlap must be measured from container lifecycle events.
+The settings have separate responsibilities:
 
-## Targets to validate
+- SIMULATION_MAX_CONCURRENT is the maximum number of simulations holding an
+  active simulation slot. It is steady-state execution capacity.
+- SIMULATION_ADMISSION_MAX is the maximum total admitted demand, including
+  active and waiting simulations.
+- SIMULATION_QUEUE_TIMEOUT_MS is the maximum time an admitted request may wait
+  for a simulation slot. It is a queue policy, not physical capacity.
+- SANDBOX_START_MAX_CONCURRENT limits Docker sandbox startup/compile operations
+  in flight. The slot is acquired before docker run and released at the first
+  valid RUNTIME_START or on an error. It is startup pressure, not steady-state
+  simulation capacity and not a Docker container maximum.
+- SANDBOX_START_SLOT_TIMEOUT_MS limits how long an already admitted request may
+  wait for a sandbox-start slot. It is separate from the simulation queue,
+  startup watchdog, and runtime timeout.
+- The internal sandbox startup watchdog protects compilation/startup until
+  RUNTIME_START. It is derived from the sandbox execution limit
+  (SANDBOX_CONFIG.maxExecutionTimeSec, 60 seconds by default) and is not an
+  operator-facing capacity setting.
+- timeoutSec is the simulation runtime limit. It starts once, at the first
+  valid RUNTIME_START marker, and does not include compile/startup time. The
+  current input default is 60 seconds and the accepted range is 1–300 seconds.
+- DOCKER_CONTROL_TIMEOUT_MS is a short wall-clock timeout for Docker
+  availability/control probes used by SandboxRunner.checkDockerAsync():
+  docker --version, docker info, and docker image inspect. It does not control
+  simulation admission, sandbox startup, or simulation runtime.
+- COMPILE_MAX_CONCURRENT limits the normal source-code compilation subsystem.
+  It is independent of Docker sandbox startup. WORKER_COUNT is the worker-thread
+  implementation setting behind that subsystem.
 
-These are validation targets, not production settings or recommendations.
+SandboxRunner objects are logical implementation details. Physical Docker
+overlap is measured from container lifecycle events and corroborated with
+polling; it must not be inferred from runner-object counts.
 
-**Normal classroom target**
+The runtime status endpoint exposes the semantic groups
+capacity.simulation, capacity.sandboxStart, capacity.admission, capacity.queue,
+and capacity.compile. Startup output uses the same grouped labels, and
+capacity receipts record the effective simulation, sandbox-start, admission,
+queue, and compile values plus the test run ID. Legacy runner and compile-slot
+fields remain diagnostic compatibility fields; they are not the operator
+capacity model.
 
-- About 100 active students.
-- Up to 80 concurrently running real Docker simulations.
+## Production defaults from the implementation
 
-**Burst target**
+The defaults below are used when the corresponding environment variable is
+absent:
 
-- Up to 80 running simulations.
-- Up to 100 additional waiting requests.
-- Up to 180 admitted demands in total.
+| Setting | Default | Meaning |
+| --- | ---: | --- |
+| SIMULATION_MAX_CONCURRENT | 5 | Active simulation slots |
+| SANDBOX_START_MAX_CONCURRENT | 8 | Concurrent sandbox starts |
+| SIMULATION_ADMISSION_MAX | 25 | Active plus waiting admissions |
+| SIMULATION_QUEUE_TIMEOUT_MS | 60000 | Wait for a simulation slot |
+| SANDBOX_START_SLOT_TIMEOUT_MS | 30000 | Wait for a startup slot |
+| DOCKER_CONTROL_TIMEOUT_MS | 2000 | Docker control/availability probes |
+| COMPILE_MAX_CONCURRENT | max(1, CPU count - 1) | Source compilation gate |
+| WORKER_COUNT | min(8, max(2, floor(CPU count / 2))) | Compile worker threads |
+| sandbox startup watchdog | 60000 ms | Internal protection before RUNTIME_START |
+| timeoutSec | 60 s | Runtime after RUNTIME_START |
 
-The historical validated harness baseline is `5/5/25`:
-`SIMULATION_MAX_CONCURRENT=5`, `SANDBOX_START_MAX_CONCURRENT=5`, and
-`SIMULATION_ADMISSION_MAX=25`. Candidate values belong only to the validation
-harness until measured. Production defaults are not changed by this work.
+docker-compose.yml and the deployment compose fixture carry the same explicit
+defaults for the operator-facing Docker settings. Obsolete topology names
+(SANDBOX_POOL_MIN_RUNNERS, SANDBOX_POOL_MAX_RUNNERS, and
+DOCKER_COMPILE_CONCURRENT) are rejected rather than silently accepted; they
+may appear only in migration or historical documentation.
 
-## Test-only staging profile ladder
+## Test-only physical profiles
 
-| Profile | Simulation max | Sandbox-start max | Admission max | Purpose |
-| --- | ---: | ---: | ---: | --- |
-| `BASELINE` | 5 | 5 | 25 | Historical harness baseline |
-| `R20` | 20 | 20 | 100 | First staging step |
-| `R40` | 40 | 40 | 100 | Second staging step |
-| `R60` | 60 | 60 | 100 | Third staging step |
-| `R80` | 80 | 80 | 100 | Normal-classroom target |
-| `R80_BURST` | 80 | 80 | 180 | Burst target |
+The harness staging ladder is centralized in
+scripts/capacity-validation-config.ts:
 
-`R20` through `R80` form the progressive `20 -> 40 -> 60 -> 80` ladder. These
-profiles deliberately require `sandboxStartMaxConcurrent >=
-simulationMaxConcurrent` so startup throttling does not confound physical
-capacity measurements. Queue timeout is supplied as a separate policy value,
-not baked into a physical profile.
+| Profile | Simulation max | Sandbox-start max | Admission max |
+| --- | ---: | ---: | ---: |
+| BASELINE | 5 | 5 | 25 |
+| R20 | 20 | 20 | 100 |
+| R40 | 40 | 40 | 100 |
+| R60 | 60 | 60 | 100 |
+| R80 | 80 | 80 | 100 |
+| R80_BURST | 80 | 80 | 180 |
 
-## Confirmed queue limitation
+R20 through R80 form the 20 -> 40 -> 60 -> 80 staging ladder. Physical
+profiles require sandbox-start concurrency at least as high as simulation
+concurrency so startup throttling does not confound physical overlap
+measurements. Queue timeout is supplied separately as a policy value.
 
-- Runner acquisition currently times out after approximately 60 seconds.
-- A queued request that reaches that timeout receives `SYSTEM_BUSY` and leaves
-  the queue.
-- A running simulation may hold its logical runner until it stops or reaches
-  its configured runtime timeout (60 seconds by default, up to 300 seconds).
-- Therefore, `80 running + 100 waiting` is not yet proven compatible with the
-  current queue policy. Do not infer that policy result from short bursts.
+R80_BURST represents 80 running plus up to 100 waiting/admitted requests. A
+queued request currently receives SYSTEM_BUSY after the runner acquisition
+policy expires at approximately 60 seconds, while a running simulation may
+hold a runner until it stops or reaches its runtime timeout. Therefore the
+80-running-plus-100-waiting policy scenario remains unproven under long
+simulation leases; the profile is not a production recommendation.
 
-This branch measures the existing policy; it does not change queue behavior.
+## Historical baseline and validated Dell reference
 
-## Harness and isolation
+The trusted harness baseline is 5/5/25 and remains a test baseline, not a
+production recommendation.
 
-`scripts/run-capacity-tests.sh` starts and owns a backend on a random loopback
-port. Before load, the harness checks `/api/readiness`, verifies the semantic
-`capacity.*` status values and the unique capacity run ID, and refuses a
-profile whose startup limit is below its simulation limit.
+The following measurements were made on a Dell OptiPlex 7080 with an Intel
+Core i9-10900T (10 cores / 20 threads), approximately 31 GiB RAM, NVMe/SSD,
+NixOS, systemd-nspawn, and native Docker overlay storage. They are reference
+measurements for this workload and host, not universal guarantees.
 
-Every simulation container receives a run-specific Docker label. Teardown
-stops the owned backend and removes only containers carrying that exact run ID.
-The test reconstructs physical overlap from `docker events` and records the
-independent polling sample as corroboration.
+### CPU-intensive physical scaling
 
-The default command runs only the historical baseline: bursts of 5, 25, and
-40 clients followed by the six-client queue-timeout check. Candidate profiles
-require that baseline receipt and the explicit `--dedicated-host` flag.
+| Active simulations | Host CPU p95 |
+| ---: | ---: |
+| 5 | 8.69% |
+| 10 | 13.68% |
+| 20 | 26.27% |
+| 40 | 52.97% |
+| 60 | 80.29% |
 
-## Measurements and artifacts
+The measured regression through N=60 was approximately
+CPU p95 = 0.934 + 1.313 × N with R² ≈ 0.999. N=80 then passed strict
+verification with 80/80 clients running, an event-derived Docker peak of 80,
+an independent polling peak of 80, no OOM/backend/Docker/parser failures, and
+complete cleanup.
 
-Receipts contain the effective simulation, sandbox-start, admission, queue
-policy, and compile values. Metrics include logical active simulations,
-startup active/waiting, admission and queue peaks, lifecycle-event Docker
-peak, sampled Docker peak, start latency, simulation leases, errors, dropped
-serial/pin messages, and leaks.
+### Validated classroom operating point
 
-Receipts, logs, JSON results, and host-specific measurements are written under
-`capacity-test-results/`, which is ignored by Git. Do not commit generated
-artifacts.
+The successful 200-student run used:
+
+    SIMULATION_MAX_CONCURRENT=70
+    SANDBOX_START_MAX_CONCURRENT=20
+    SIMULATION_ADMISSION_MAX=200
+    SANDBOX_START_SLOT_TIMEOUT_MS=90000   (test override only)
+    SIMULATION_QUEUE_TIMEOUT_MS=300000    (test override only)
+
+It admitted and completed 200/200 students with zero failures. Peak active
+simulations were 70, peak simulation queue 130, peak sandbox-start activity
+20, and physical Docker peak 70 by both lifecycle events and polling. There
+were no queue, startup-slot, runtime, parser, backend, Docker, or OOM errors.
+Queue wait was p50 74.411 s, p95 135.707 s, and max 136.963 s. Sandbox-start
+slot wait was p95 approximately 8.664 s and max approximately 12.856 s.
+
+The experiment used a 90-second startup-slot wait to measure the phase safely;
+the observed maximum was below 30 seconds, so the normal production default of
+SANDBOX_START_SLOT_TIMEOUT_MS=30000 is sufficient for this validated point.
+The 90-second value must not be copied into production.
+
+The earlier SANDBOX_START_MAX_CONCURRENT=8 classroom run completed 194/200;
+six admitted requests timed out waiting for a startup slot. This explains why
+startup-slot wait and simulation queue wait must be measured separately.
+
+## Secondary Mac comparison
+
+A short comparison used a MacBook Pro M2 Pro (10 CPU cores, 32 GiB RAM) with
+Docker Desktop allocated 10 CPUs and approximately 25.4 GB RAM on aarch64.
+The same CPU-intensive workload and 0.25 CPU / 256 MiB sandbox limits were
+used. Docker Desktop docker info calls reached approximately 2.61 seconds p95
+at 40 parallel calls, exceeding the 2-second production Docker-control probe
+default. The benchmark used the explicit development override
+DOCKER_CONTROL_TIMEOUT_MS=10000; production remained at 2000 ms.
+
+After that override, N=40, N=60, and N=80 each reached full physical overlap
+and all clients reached RUNNING. Comparable plateau CPU p95 values were:
+
+| Active simulations | Mac Docker Desktop CPU p95 |
+| ---: | ---: |
+| 20 | 78.34% |
+| 40 | 99.99% |
+| 60 | 99.99% |
+| 80 | 99.99% |
+
+The Mac/Docker Desktop stack saturated materially earlier for this workload
+than the Dell Linux/Docker stack. These percentages are not a CPU
+microbenchmark: Docker Desktop virtualization, different CPU topology, and
+background workloads affect them. The Mac data is secondary calibration and
+does not replace Dell evidence.
+
+## Preliminary target-server sizing
+
+The current evidence supports a cautious starting range rather than a final
+capacity guarantee:
+
+- 16 modern server/cloud vCPUs is a lower acceptance candidate.
+- 24 vCPUs is the preferred initial production candidate.
+- 32 vCPUs is a comfortable option when the cost difference is acceptable.
+- Use 64 GiB RAM, fast local NVMe/SSD, and at least 100 GiB free storage.
+- Preserve approximately 20–30% CPU headroom during normal operation.
+
+Dell hardware threads and Apple CPU cores are not directly equivalent to cloud
+or server vCPUs. Final sizing must be confirmed on the actual target host.
+Initial target-host settings should start conservatively near the validated
+classroom point (70 active, 20 startup, 200 admissions, and a 30-second
+startup-slot timeout). SIMULATION_QUEUE_TIMEOUT_MS remains a product and UX
+decision pending target-host acceptance; the Dell classroom test used 300000 ms
+conservatively.
+
+## Target-server acceptance procedure
+
+Do not repeat the full research campaign on a target host. Run this compact
+acceptance sequence:
+
+1. Install dependencies, build the application and sandbox, and verify the
+   expected Node/Docker versions.
+2. Run a small real-Docker smoke test, including networking, resource limits,
+   and cleanup.
+3. Run the intended CPU-stress active cap. Require every client to reach
+   RUNNING, event-derived and polling-derived physical Docker peaks to match,
+   CPU p95 ideally at or below 75–80%, no OOM/backend/Docker/parser errors, and
+   complete cleanup.
+4. Run the 200-student arrival test with active simulations capped at 70.
+   Require 200 admitted, 200 completed, zero failures/timeouts, active and
+   startup counts within their configured caps, and complete cleanup.
+5. Verify zero active simulations, zero queue/admission reservations, zero
+   startup waiters, zero labeled containers, and a healthy Docker daemon.
+
+Receipts must record the effective simulation, startup, admission, queue,
+compile, and timeout values. Generated receipts, logs, and host measurements
+remain under the ignored capacity-test-results/ directory.

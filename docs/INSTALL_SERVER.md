@@ -32,6 +32,11 @@ docker compose up --build
 Docker-Simulation automatisch ab. Der Server prüft Docker-Daemon, Sandbox-Image
 und Runner-Pool vor der Readiness-Freigabe.
 
+Die vollständige Kapazitäts- und Timeout-Semantik steht in
+[`CAPACITY_VALIDATION_PLAN.md`](CAPACITY_VALIDATION_PLAN.md). Die dortigen
+Validierungsprofile sind Testprofile und keine automatischen
+Produktionsvorgaben.
+
 ## Gateway-Vertrag
 
 Das Gateway muss:
@@ -89,6 +94,7 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | `SIMULATION_MAX_CONCURRENT` | maximale Zahl gleichzeitig aktiver Simulationen |
 | `SANDBOX_START_MAX_CONCURRENT` | maximale Zahl paralleler Docker-Sandbox-Starts; Standard `8` |
 | `SANDBOX_START_SLOT_TIMEOUT_MS` | maximale Wartezeit eines zugelassenen Starts auf einen Sandbox-Startplatz; Standard `30000` ms |
+| `DOCKER_CONTROL_TIMEOUT_MS` | Timeout für kurze Docker-Verfügbarkeits- und Steuerbefehle wie `docker info`; Standard `2000` ms |
 | `SIMULATION_ADMISSION_MAX` | maximale Zahl zugelassener aktiver und wartender Anforderungen |
 | `SIMULATION_QUEUE_TIMEOUT_MS` | Wartezeit einer zugelassenen Anforderung auf eine Simulationskapazität |
 | `SANDBOX_MEMORY_MB` | Memory-Limit pro Sandbox |
