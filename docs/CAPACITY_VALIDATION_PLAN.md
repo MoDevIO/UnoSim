@@ -249,3 +249,61 @@ acceptance sequence:
 Receipts must record the effective simulation, startup, admission, queue,
 compile, and timeout values. Generated receipts, logs, and host measurements
 remain under the ignored capacity-test-results/ directory.
+
+## Host-capacity calibration workflow
+
+Use the calibration command when a host, Docker runtime, sandbox resource
+limit, or CPU-intensive workload changes materially:
+
+    npm run capacity:calibrate -- --expected-users 200
+
+The command follows **Calibrate -> Review -> Apply**. It measures Docker
+control latency, directly measured active-simulation candidates, startup
+concurrency candidates, and (unless `--skip-classroom` is supplied) a
+controlled expected-users arrival phase. Classroom simulations have a fixed
+60-second active duration so results remain comparable between hosts. The
+optional compile-concurrency phase is not run in version 1; its result is
+reported as `not calibrated` and the existing derived value is preserved.
+
+Before load, the tool records the Git SHA and dirty state, Node and host
+architecture/CPU information, Docker health/version/architecture/visible
+resources/storage driver, sandbox image ID/digest, effective capacity values,
+and usable CPU and memory safety signals. Physical RAM, load, swap, iowait,
+thermal pressure, and per-process measurements are enrichment probes. Missing
+enrichment values are recorded as `null`; load is refused when no usable CPU
+or memory safety signal exists. Existing unrelated containers are never
+stopped.
+
+Recommendations are policy output, not automatic configuration. Active and
+startup values are emitted only when the corresponding candidate was directly
+measured, stable, and clean. The policy never extrapolates a value into the
+proposal. Queue timeout output shows measured p95/p99/max, a technical minimum,
+and the UX ceiling (`--max-user-wait`); if the technical minimum exceeds the
+ceiling, the result is marked infeasible and no insufficient timeout is
+recommended. Docker-control and startup-slot timeout recommendations likewise
+show their measured basis and omit out-of-range values rather than clamping
+them silently.
+
+The default policy is bounded by `--max-duration 30` minutes and uses sustained
+CPU, memory, and iowait safety observations. OOM, Docker/backend failure, host
+probe failure, and cleanup leaks stop immediately. A deadline or safety stop
+cleans the owned backend and exact run-ID containers, writes a partial report,
+and lowers confidence. Production configuration is never modified.
+
+Each run writes these review artifacts below the ignored output directory (by
+default `capacity-test-results/calibration-<timestamp>/`):
+
+- `capacity-calibration.json` — schema/policy versions, reproducibility
+  fingerprint, raw phase measurements, safety events, cleanup state, and
+  recommendations.
+- `capacity-calibration.md` — human-readable summary with measured basis,
+  technical/UX timeout values, warnings, and confidence.
+- `capacity.env` — an unapplied proposal containing only directly measured
+  recommendations. Review it and apply values through the normal deployment
+  process only after an operator decision.
+
+Re-run calibration after changing CPU/vCPU allocation, RAM, Docker platform or
+runtime, sandbox CPU/memory limits, or the major simulation workload. The
+calibration result is host-specific evidence and does not replace the
+independent assertions in `capacity-validation.test.ts` or the target-server
+acceptance procedure above.

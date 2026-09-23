@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import {
   parseCalibrationArgs,
   runCalibration,
@@ -6,6 +8,18 @@ import {
 } from "../../scripts/calibrate-capacity";
 
 describe("capacity calibration CLI", () => {
+  it("is documented as a review-only workflow with stable artifact names", () => {
+    const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8")) as { scripts?: Record<string, string> };
+    const documentation = fs.readFileSync(path.resolve(process.cwd(), "docs/CAPACITY_VALIDATION_PLAN.md"), "utf8");
+    expect(packageJson.scripts?.["capacity:calibrate"]).toBe("tsx scripts/calibrate-capacity.ts");
+    expect(documentation).toContain("npm run capacity:calibrate -- --expected-users 200");
+    expect(documentation).toContain("capacity-calibration.json");
+    expect(documentation).toContain("capacity-calibration.md");
+    expect(documentation).toContain("capacity.env");
+    expect(documentation).toContain("Calibrate -> Review -> Apply");
+    expect(documentation).toContain("60-second active duration");
+  });
+
   it("applies documented defaults and fixed classroom duration", async () => {
     await expect(parseCalibrationArgs([])).resolves.toMatchObject({
       expectedUsers: 200,
