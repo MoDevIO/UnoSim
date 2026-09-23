@@ -93,11 +93,16 @@ absent:
 | sandbox startup watchdog | 60000 ms | Internal protection before RUNTIME_START |
 | timeoutSec | 60 s | Runtime after RUNTIME_START |
 
-docker-compose.yml and the deployment compose fixture carry the same explicit
-defaults for the operator-facing Docker settings. Obsolete topology names
-(SANDBOX_POOL_MIN_RUNNERS, SANDBOX_POOL_MAX_RUNNERS, and
-DOCKER_COMPILE_CONCURRENT) are rejected rather than silently accepted; they
-may appear only in migration or historical documentation.
+The application defaults above come from server/config.ts. The Compose files
+may supply explicit deployment values: the current production compose file
+sets SIMULATION_MAX_CONCURRENT=200, while the deployment fixture uses 1 for
+isolated deployment tests. Those are deployment policies, not application
+defaults, and this documentation does not change them. A target host should
+use an explicitly reviewed operating point rather than inheriting a test or
+legacy override blindly. Obsolete topology names (SANDBOX_POOL_MIN_RUNNERS,
+SANDBOX_POOL_MAX_RUNNERS, and DOCKER_COMPILE_CONCURRENT) are rejected rather
+than silently accepted; they may appear only in migration or historical
+documentation.
 
 ## Test-only physical profiles
 

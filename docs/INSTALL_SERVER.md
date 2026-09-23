@@ -100,6 +100,12 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | `SANDBOX_MEMORY_MB` | Memory-Limit pro Sandbox |
 | `SANDBOX_CPU_LIMIT` | CPU-Limit pro Sandbox |
 
+Die Defaults der Anwendung stehen in `server/config.ts` (unter anderem
+`SIMULATION_MAX_CONCURRENT=5`). Die Produktions-Compose-Datei setzt aktuell
+`SIMULATION_MAX_CONCURRENT=200` ausdrücklich als Deployment-Override; das ist
+kein neuer Anwendungdefault. Dieser Wert muss vor einem produktiven Einsatz
+gegen die aktuelle Zielserver-Abnahme geprüft werden.
+
 Frühere Topologie- und Kompatibilitätsschalter werden beim Start abgelehnt:
 `UNOSIM_SIMULATION_MODE`, `UNOSIM_TRUST_MODE`, `FORCE_DOCKER` und
 `UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL`.
