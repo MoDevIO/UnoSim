@@ -33,6 +33,7 @@ import {
   type CleanupResult,
   type EffectiveCapacityConfiguration,
 } from "./capacity-scenario-runner";
+import { writeCalibrationArtifacts } from "./capacity-calibration-report";
 
 const DEFAULT_IMAGE = "unosim-sandbox:latest";
 const DOCKER_CONTROL_DEFAULT_MS = 2_000;
@@ -519,7 +520,7 @@ export async function runCalibration(
     safetyEvents.length,
   );
   if (config.verbose) console.log(`Calibration complete: confidence=${confidence}, partial=${partial}`);
-  return {
+  const result: CalibrationRunResult = {
     schemaVersion: 1,
     policyVersion: CALIBRATION_POLICY_VERSION,
     policy: config,
@@ -532,6 +533,8 @@ export async function runCalibration(
     stopReason,
     cleanup,
   };
+  await writeCalibrationArtifacts(result, config.outputDir);
+  return result;
 }
 
 async function main(): Promise<void> {
