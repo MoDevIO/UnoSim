@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -279,6 +279,11 @@ function stopProcess(child: ChildProcess): Promise<void> {
   });
 }
 
+function ownedContainerCount(runId: string): number {
+  return execFileSync("docker", ["ps", "-aq", "--filter", `label=unosim.capacity-test-run-id=${runId}`], { encoding: "utf8" })
+    .trim().split("\n").filter(Boolean).length;
+}
+
 async function defaultStartBackend(capacity: EffectiveCapacityConfiguration, runId: string): Promise<{ baseUrl: string; stop: () => Promise<void> }> {
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -302,16 +307,32 @@ async function defaultStartBackend(capacity: EffectiveCapacityConfiguration, run
       CAPACITY_TEST_RUN_ID: runId,
       LOG_LEVEL: process.env.LOG_LEVEL ?? "warn",
     },
-    stdio: "ignore",
+    stdio: ["ignore", "pipe", "pipe"],
   });
+  let startupOutput = "";
+  child.stdout?.on("data", (chunk: Buffer | string) => { startupOutput += chunk.toString(); });
+  child.stderr?.on("data", (chunk: Buffer | string) => { startupOutput += chunk.toString(); });
   const deadline = Date.now() + 180_000;
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error("Owned calibration backend exited during startup");
+    if (child.exitCode !== null) {
+      const details = startupOutput.trim();
+      throw new Error(`Owned calibration backend exited during startup${details ? `: ${details}` : ""}`);
+    }
     try {
       const response = await fetch(`${baseUrl}/api/readiness`);
       if (response.ok) {
         const body = await response.json() as { status?: string };
-        if (body.status === "ready") return { baseUrl, stop: () => stopProcess(child) };
+        if (body.status === "ready") {
+          return {
+            baseUrl,
+            stop: async () => {
+              await stopProcess(child);
+              const ownedIds = execFileSync("docker", ["ps", "-aq", "--filter", `label=unosim.capacity-test-run-id=${runId}`], { encoding: "utf8" })
+                .trim().split("\n").filter(Boolean);
+              for (const id of ownedIds) execFileSync("docker", ["rm", "-f", id], { stdio: "ignore" });
+            },
+          };
+        }
       }
     } catch {
       // Continue polling while the server boots.
@@ -319,7 +340,7 @@ async function defaultStartBackend(capacity: EffectiveCapacityConfiguration, run
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   await stopProcess(child);
-  throw new Error("Owned calibration backend did not become ready");
+  throw new Error(`Owned calibration backend did not become ready${startupOutput.trim() ? `: ${startupOutput.trim()}` : ""}`);
 }
 
 function effectiveCapacityForPhase(base: EffectiveCapacityConfiguration, active: number, startup: number): EffectiveCapacityConfiguration {
@@ -407,8 +428,9 @@ export async function runCalibration(
       if (now() >= deadline) throw new Error("calibration deadline reached");
       const runId = `capacity_calibration_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const backend = await startBackend(effectiveCapacityForPhase(baseCapacity, active, startup), runId);
+      let measurement: CapacityScenarioMeasurement;
       try {
-        const measurement = await runScenario({
+        measurement = await runScenario({
           baseUrl: backend.baseUrl,
           runId,
           scenario,
@@ -416,13 +438,15 @@ export async function runCalibration(
           holdDurationMs: phase === "classroom" ? FIXED_CLASSROOM_DURATION_SEC * 1_000 : 25_000,
           simulationTimeoutSec: 180,
           arrivalWindowMs: scenario === "classroom" ? 5_000 : undefined,
+          outputDir: config.outputDir,
         });
-        lastScenarioCleanup = measurement.cleanup;
-        safetyEvents.push(...safetyEventsForMeasurement(phase, measurement, config.maxCpuPercent, minimumMemory, now));
-        return measurement;
       } finally {
         await backend.stop();
       }
+      measurement.cleanup = { ...measurement.cleanup, remainingCapacityContainers: ownedContainerCount(runId), backendExited: true };
+      lastScenarioCleanup = measurement.cleanup;
+      safetyEvents.push(...safetyEventsForMeasurement(phase, measurement, config.maxCpuPercent, minimumMemory, now));
+      return measurement;
     };
 
     const activeMeasurements: ActiveMeasurement[] = [];

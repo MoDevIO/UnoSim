@@ -1,9 +1,13 @@
-import { execFileSync, spawn } from "node:child_process";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import WebSocket from "ws";
 import { createDockerLifecycleTracker } from "./capacity-docker-events";
+
+const execFileAsync = promisify(execFile);
 
 export type ScenarioKind = "burst" | "classroom";
 
@@ -354,7 +358,11 @@ function runClient(
             result.operationErrorCodes.push(message.code ?? "unknown");
             if (message.code !== "SYSTEM_BUSY") result.errors.push(message.code ?? "unknown operation error");
           }
-          if (message.type === "simulation_status" && message.status === "stopped") {
+          if (
+            message.type === "simulation_status" &&
+            message.status === "stopped" &&
+            (result.started || result.operationErrorCodes.length > 0 || result.startupBeganAtMs !== null)
+          ) {
             result.completedAtMs ??= at;
             if (result.runtimeStartedAtMs !== null) result.runtimeDurationMs = at - result.runtimeStartedAtMs;
             setTimeout(finish, 50);
@@ -363,7 +371,12 @@ function runClient(
           result.errors.push(error instanceof Error ? error.message : String(error));
         }
       });
-      ws.on("close", () => finish());
+      ws.on("close", () => {
+        if (result.completedAtMs === null && result.operationErrorCodes.length === 0 && result.errors.length === 0) {
+          result.errors.push("WebSocket closed before completion");
+        }
+        finish();
+      });
       ws.on("error", (error) => {
         result.errors.push(error.message);
         finish();
@@ -387,6 +400,53 @@ function runtimeConfiguration(status: StatusSnapshot): EffectiveCapacityConfigur
   };
 }
 
+function createDefaultHostSampler(): () => Promise<HostSample> {
+  let previousLinuxCounters: { total: number; idle: number; iowait: number } | null = null;
+  return async () => {
+    let cpuPercent: number | null = null;
+    let iowaitPercent: number | null = null;
+    if (process.platform === "darwin") {
+      try {
+        const { stdout } = await execFileAsync("ps", ["-A", "-o", "%cpu="], { encoding: "utf8" });
+        const sum = stdout.split("\n").map((value) => Number(value.trim())).filter(Number.isFinite).reduce((total, value) => total + value, 0);
+        cpuPercent = Math.min(100, sum / Math.max(1, os.cpus().length));
+      } catch {
+        cpuPercent = null;
+      }
+    } else {
+      try {
+        const stat = await fs.promises.readFile("/proc/stat", "utf8");
+        const fields = stat.split("\n").find((line) => line.startsWith("cpu "))?.trim().split(/\s+/).slice(1).map(Number) ?? [];
+        const [user = 0, nice = 0, system = 0, idle = 0, iowait = 0, irq = 0, softirq = 0, steal = 0] = fields;
+        const total = user + nice + system + idle + iowait + irq + softirq + steal;
+        const idleAll = idle + iowait;
+        if (previousLinuxCounters) {
+          const totalDelta = total - previousLinuxCounters.total;
+          const idleDelta = idleAll - previousLinuxCounters.idle;
+          const iowaitDelta = iowait - previousLinuxCounters.iowait;
+          if (totalDelta > 0) {
+            cpuPercent = Math.max(0, Math.min(100, (totalDelta - idleDelta) / totalDelta * 100));
+            iowaitPercent = Math.max(0, Math.min(100, iowaitDelta / totalDelta * 100));
+          }
+        }
+        previousLinuxCounters = { total, idle: idleAll, iowait };
+      } catch {
+        cpuPercent = null;
+      }
+    }
+    return {
+      atMs: Date.now(),
+      cpuPercent,
+      loadAverage: os.loadavg()[0] ?? null,
+      availableMemoryBytes: os.freemem(),
+      swapUsedBytes: null,
+      iowaitPercent,
+      runningDockerContainers: 0,
+      capacityDockerContainers: 0,
+    };
+  };
+}
+
 export async function runCapacityScenario(
   options: CapacityScenarioOptions,
   dependencies: ScenarioRunnerDependencies = {},
@@ -406,6 +466,7 @@ export async function runCapacityScenario(
   const getStatus = dependencies.getStatus ?? defaultStatus;
   const createSessionCookie = dependencies.createSessionCookie ?? defaultSessionCookie;
   const countContainers = dependencies.dockerContainerCount ?? defaultDockerContainerCount;
+  const sampleHost = dependencies.sampleHost ?? createDefaultHostSampler();
   const initialStatus = await getStatus(options.baseUrl);
   const statusHistory: StatusSnapshot[] = [initialStatus];
   const hostSamples: HostSample[] = [];
@@ -418,8 +479,8 @@ export async function runCapacityScenario(
       errors.push(error instanceof Error ? error.message : String(error));
     });
   }, 250);
-  const hostPoller = dependencies.sampleHost ? setInterval(() => {
-    void dependencies.sampleHost?.().then((sample) => {
+  const hostPoller = setInterval(() => {
+    void sampleHost().then((sample) => {
       let enriched = sample;
       try {
         enriched = { ...sample, capacityDockerContainers: countContainers(options.runId) };
@@ -431,7 +492,7 @@ export async function runCapacityScenario(
     }).catch((error: unknown) => {
       errors.push(error instanceof Error ? error.message : String(error));
     });
-  }, 1_000) : null;
+  }, 1_000);
   const dockerPoller = setInterval(() => {
     if (pollInFlight) return;
     pollInFlight = true;
