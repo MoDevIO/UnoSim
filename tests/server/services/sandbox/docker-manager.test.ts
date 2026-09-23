@@ -50,6 +50,18 @@ function makeTimeoutManager(): SimulationTimeoutManager {
   } as unknown as SimulationTimeoutManager;
 }
 
+function makeDockerRuntimeState() {
+  return {
+    isCompilePhase: { value: true },
+    compileErrorBuffer: { value: "" },
+    compileSuccessSent: { value: false },
+    totalOutputBytes: { value: 0 },
+    processStartTime: 1000,
+    stderrFallbackBuffer: "",
+    runtimeOutputBuffer: { value: "" },
+    flushTimer: null,
+  };
+}
 const noop = () => {};
 const mockCallbacks = {
   onOutput: vi.fn(),
@@ -467,5 +479,121 @@ describe("DockerManager incremental runtime marker parsing", () => {
 
     expect(harness.state.compileErrorBuffer.value).toBe("warning line\n");
     expect(harness.parsedLines).toEqual(["run"]);
+  });
+});
+
+
+describe("DockerManager runtime timeout boundary", () => {
+  it("keeps the startup watchdog during compile and starts execution timeout once at RUNTIME_START", () => {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const timeoutManager = makeTimeoutManager();
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      timeoutManager,
+      noop as any,
+    );
+    const callbacks = { ...mockCallbacks, onError: vi.fn() };
+    const runtimeStart = vi.fn();
+
+    manager.setupDockerHandlers(
+      callbacks,
+      makeDockerRuntimeState(),
+      {
+        flushBatchers: vi.fn(),
+        flushMessageQueue: vi.fn(),
+        getProcessKilled: () => false,
+        executionTimeout: 10,
+      },
+      { onRuntimeStart: runtimeStart },
+    );
+
+    expect(timeoutManager.schedule).toHaveBeenCalledWith(60_000, expect.any(Function));
+    stdoutHandlers[0]?.(Buffer.from("slow compile output\n[[RUNTIME_"));
+    expect(timeoutManager.schedule).toHaveBeenCalledTimes(1);
+
+    stdoutHandlers[0]?.(Buffer.from("START]]\n"));
+
+    expect(timeoutManager.schedule).toHaveBeenCalledTimes(2);
+    expect(timeoutManager.schedule).toHaveBeenLastCalledWith(10_000, expect.any(Function));
+    expect(runtimeStart).toHaveBeenCalledOnce();
+
+    stdoutHandlers[0]?.(Buffer.from("[[RUNTIME_START]]\n"));
+    expect(timeoutManager.schedule).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the startup watchdog callback before runtime and the simulation callback after runtime", () => {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const timeoutManager = makeTimeoutManager();
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      timeoutManager,
+      noop as any,
+    );
+    const callbacks = { ...mockCallbacks, onError: vi.fn() };
+
+    manager.setupDockerHandlers(
+      callbacks,
+      makeDockerRuntimeState(),
+      {
+        flushBatchers: vi.fn(),
+        flushMessageQueue: vi.fn(),
+        getProcessKilled: () => false,
+        executionTimeout: 10,
+      },
+      {},
+    );
+
+    const startupTimeout = timeoutManager.schedule.mock.calls[0]?.[1] as (() => void) | undefined;
+    startupTimeout?.();
+    expect(processController.kill).toHaveBeenCalledWith("SIGKILL");
+    expect(callbacks.onOutput).toHaveBeenCalledWith(expect.stringContaining("Sandbox startup timeout"), true);
+
+    vi.mocked(processController.kill).mockClear();
+    callbacks.onOutput.mockClear();
+    stdoutHandlers[0]?.(Buffer.from("[[RUNTIME_START]]\n"));
+    const runtimeTimeout = timeoutManager.schedule.mock.calls[1]?.[1] as (() => void) | undefined;
+    runtimeTimeout?.();
+    expect(processController.kill).toHaveBeenCalledWith("SIGKILL");
+    expect(callbacks.onOutput).toHaveBeenCalledWith("--- Simulation timeout (10s) ---", true);
+  });
+
+  it("clears startup or runtime timeout when Docker exits", () => {
+    const processController = makeProcessController();
+    const closeHandlers: Array<(code: number | null) => void> = [];
+    vi.mocked(processController.onClose).mockImplementation((handler) => {
+      closeHandlers.push(handler as (code: number | null) => void);
+    });
+    const timeoutManager = makeTimeoutManager();
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      timeoutManager,
+      noop as any,
+    );
+
+    manager.setupDockerHandlers(
+      { ...mockCallbacks, onError: vi.fn() },
+      makeDockerRuntimeState(),
+      {
+        flushBatchers: vi.fn(),
+        flushMessageQueue: vi.fn(),
+        getProcessKilled: () => false,
+        executionTimeout: 10,
+      },
+      {},
+    );
+
+    closeHandlers[0]?.(0);
+    expect(timeoutManager.clear).toHaveBeenCalledOnce();
   });
 });

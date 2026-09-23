@@ -93,7 +93,8 @@ export class DockerManager {
   }
 
   /**
-   * Setup and configure Docker process timeout
+   * Start the simulation runtime timeout after the RUNTIME_START marker.
+   * Compilation and sandbox startup are protected by the separate startup watchdog.
    */
   setupDockerTimeout(executionTimeout: number | undefined, callbacks: DockerManagerCallbacks): void {
     const timeoutSec = normalizeSimulationTimeout(executionTimeout);
@@ -101,10 +102,23 @@ export class DockerManager {
     const handleTimeout = () => {
       this.processController.kill("SIGKILL");
       callbacks.onOutput(`--- Simulation timeout (${timeoutSec}s) ---`, true);
-      this.logger.info(`Docker timeout after ${timeoutSec}s`);
+      this.logger.info(`Docker runtime timeout after ${timeoutSec}s`);
     };
 
     this.timeoutManager.schedule(timeoutSec * 1000, handleTimeout);
+  }
+
+  /**
+   * Protect the compile/startup phase until RUNTIME_START is observed.
+   * This is an internal guard and is intentionally independent of timeoutSec.
+   */
+  private setupDockerStartupTimeout(callbacks: DockerManagerCallbacks): void {
+    const startupTimeoutSec = this.SANDBOX_CONFIG.maxExecutionTimeSec;
+    this.timeoutManager.schedule(startupTimeoutSec * 1000, () => {
+      this.processController.kill("SIGKILL");
+      callbacks.onOutput(`--- Sandbox startup timeout (${startupTimeoutSec}s) ---`, true);
+      this.logger.warn(`Docker sandbox startup timeout after ${startupTimeoutSec}s`);
+    });
   }
 
   /**
@@ -279,18 +293,26 @@ export class DockerManager {
     config: DockerProcessConfig,
     handlers: DockerEventHandlers,
   ): void {
-    // Setup all handlers via dedicated functions
-    this.setupDockerTimeout(config.executionTimeout, callbacks);
+    // Keep startup protection active until the first valid runtime marker.
+    this.setupDockerStartupTimeout(callbacks);
+    let runtimeTimeoutStarted = false;
+    const handleRuntimeStart = () => {
+      if (runtimeTimeoutStarted) return;
+      runtimeTimeoutStarted = true;
+      this.setupDockerTimeout(config.executionTimeout, callbacks);
+      handlers.onRuntimeStart?.();
+    };
 
     this.processController.onError((err) => {
       this.logger.error(`Docker process error: ${err.message}`);
       callbacks.onError(`Docker process failed: ${err.message}`);
     });
 
-    this.setupStdoutHandler(callbacks, state, handlers.onCompileSuccess, handlers.onRuntimeStart);
+    this.setupStdoutHandler(callbacks, state, handlers.onCompileSuccess, handleRuntimeStart);
     this.setupStderrHandlers(callbacks, state);
 
     this.processController.onClose((code) => {
+      this.timeoutManager.clear();
       this.handleDockerExit(
         callbacks,
         state,
