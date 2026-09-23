@@ -9,8 +9,9 @@ recommendations without changing production configuration.
 
 ## Scope and constraints
 
-- The calibration tool runs only from the new `feature/capacity-calibration`
-  branch.
+- The calibration tool is branch-independent. It may run from any clean
+  checkout; the report records the exact Git SHA and dirty-state indicator used
+  for the measurement.
 - Production defaults and application behavior remain unchanged.
 - The existing Capacity semantics are authoritative:
   `SIMULATION_MAX_CONCURRENT`, `SANDBOX_START_MAX_CONCURRENT`,
@@ -74,6 +75,10 @@ must be positive; user wait must be positive. Invalid or unknown arguments exit
 with status 2 before any Docker workload starts. The effective policy is printed
 before the first measurement.
 
+Version 1 uses a fixed 60-second active classroom simulation duration for every
+client. It is recorded in the policy and every classroom run; it is not a CLI
+override, so classroom results remain comparable across hosts.
+
 ## Measurement phases
 
 ### Pre-flight
@@ -103,9 +108,13 @@ The pure policy recommends:
 max(productionDefault, ceil(p99 * 1.5 / 100ms) * 100ms)
 ```
 
-The recommendation is capped by the validated configuration range. The output
-always shows measured p99/max, the technical recommendation, and the effective
-production default. This phase never changes Docker configuration.
+The output always shows measured p99/max, the technical recommendation, the
+production default, and the configured range. If the computed value is below
+the production default, the recommendation is to keep the production default.
+If it exceeds the validated maximum, the result is marked `out-of-range`, the
+technical value is reported for review, and no Docker-control value is written
+to `capacity.env`; the tool never silently clamps it. This phase never changes
+Docker configuration.
 
 ### Phase B: active simulation capacity
 
@@ -125,7 +134,12 @@ cleanup immediately.
 
 Coarse candidates use 20–30 second plateaus. If the coarse results straddle the
 target CPU region, refinement tests only measured intermediate values between the
-last passing and first exceeding candidate. Refinement uses a bounded step of
+last passing and first exceeding candidate. If the first candidate already
+exceeds the target CPU, refinement proceeds downward after cleanup using the same
+bounded step, testing `candidate - step`, then lower values until a candidate
+meets the target or the lower bound is reached. If a candidate reaches the hard
+CPU ceiling, the high run stops immediately; a lower probe is allowed only after
+the host is healthy and cleanup is complete. Refinement uses
 `max(5, ceil(logicalCPUs / 2))`, never extrapolates, and stops when the target
 region is directly measured or the time budget is exhausted.
 
@@ -143,20 +157,23 @@ without exceeding the measured active cap or safety budget.
 
 For every candidate record startup-slot wait and slot-acquisition-to-runtime
 latencies, CPU/load/iowait/memory, failures/timeouts, time to the active plateau,
-and cleanup.
+and cleanup. Resource comparisons use the smallest safe directly measured
+startup candidate as the baseline. A candidate has a material regression when
+CPU p95 rises by more than 5 percentage points or 10% relative, iowait rises by
+more than 5 percentage points, available memory falls by more than 10%, or any
+failure/timeout occurs.
 
 The policy chooses the smallest safe candidate whose startup p95 is within 10%
-of the best observed safe startup p95, while also requiring all of the following against the selected candidate: CPU p95
-may not increase by more than 5 percentage points or 10% relative, iowait may not
-increase by more than 5 percentage points, available memory may not fall by more
-than 10%, and the candidate must have zero failures/timeouts. The output lists all
-candidates and explains why larger candidates were not selected. No startup candidate is recommended
+of the best observed safe startup p95, while also requiring no material
+regression against that baseline. The output lists all candidates and explains
+why larger candidates were not selected. No startup candidate is recommended
 unless it was directly measured.
 
 ### Phase D: expected-users classroom phase
 
 Unless skipped, run `expected-users` clients over a controlled 5–10 second
-arrival window using the selected measured active and startup values. Set
+arrival window using the selected measured active and startup values. Every
+client uses the fixed 60-second simulation duration defined above. Set
 admission max to the requested expected-user count. Record simulation queue wait
 separately from sandbox-start-slot wait, per-client phase timestamps, active and
 waiting peaks, lifecycle/polling peaks, completion/failure counts, fairness, and
@@ -167,12 +184,15 @@ The output reports technical queue timing separately from UX policy:
 ```text
 technical minimum = rounded max(queue p95 * 1.5, queue p99 * 1.25,
                                queue max * 1.10)
-UX recommendation = min(technical minimum, max-user-wait)
+UX policy ceiling = max-user-wait
 ```
 
-When the technical minimum exceeds the UX ceiling, the report marks the
-classroom policy as infeasible within the requested wait and does not hide that
-fact by lowering admission or active capacity.
+When the technical minimum exceeds the UX ceiling, the classroom policy is
+marked `infeasible`. The report includes the technical minimum and the UX
+ceiling, but emits no insufficient queue-timeout value in `capacity.env`; it
+does not hide the conflict by lowering admission or active capacity. When the
+technical minimum fits within the UX ceiling, that technical value becomes the
+review-only queue-timeout recommendation.
 
 ### Optional compilation phase
 
@@ -211,10 +231,37 @@ The root JSON object contains:
 - recommendations with value, confidence (`HIGH`, `MEDIUM`, `LOW`), measured
   basis, and warnings
 
+The `SANDBOX_START_SLOT_TIMEOUT_MS` recommendation is explicit: after a
+classroom or startup-tuning phase has directly measured slot waits, calculate
+`max(productionDefault, p99 * 2, maxObserved * 1.5)`, round up to the nearest
+second, and include the measured p99/max, technical value, production default,
+and selected value. If no slot wait was measured, emit `not calibrated` and do
+not add the variable to `capacity.env`. Values outside the configuration range
+are reported as `out-of-range` and are omitted from `capacity.env` rather than
+silently clamped.
+
 The Markdown report summarizes the same result for review. `capacity.env` is a
 commented, unapplied proposal containing only directly measured recommendations;
 `COMPILE_MAX_CONCURRENT` is included only when calibrated. All artifacts remain
 under the ignored `capacity-test-results/` tree.
+
+## Host probes
+
+Required before any non-dry-run load:
+
+- Git SHA/dirty state and Node version
+- process architecture and logical CPU count
+- Docker client/server health, version, architecture, visible CPU/RAM, storage
+  driver, and sandbox image ID/digest
+- effective sandbox CPU/memory limits and relevant Capacity defaults
+- at least one usable CPU signal and one usable memory-availability signal for
+  sustained safety checks
+
+Physical RAM, load average, swap, iowait, thermal pressure, memory-pressure
+detail, and per-process backend/Docker metrics are optional enrichment probes.
+Missing optional values are recorded as `null` and lower confidence. If no
+usable memory or CPU safety signal exists, `--dry-run` may still inspect and
+plan, but load phases abort before starting.
 
 ## Testing
 
