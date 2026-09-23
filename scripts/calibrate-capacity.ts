@@ -413,6 +413,8 @@ export async function runCalibration(
   let stopReason: string | null = null;
   let cleanup = emptyCleanup();
   let lastScenarioCleanup = emptyCleanup();
+  let startupSlotWaitP99Ms: number | null = null;
+  let startupSlotWaitMaxMs: number | null = null;
   const minimumMemory = Math.max(2 * 1024 ** 3, (host.optional.physicalMemoryBytes ?? 0) * 0.1);
 
   if (!config.dryRun) {
@@ -458,12 +460,13 @@ export async function runCalibration(
         const measurement = await measureCandidate("active", candidate, candidate);
         const summary = activeMeasurement(candidate, measurement);
         activeMeasurements.push(summary);
+        if (index === 0 && summary.cpuP95Percent !== null && summary.cpuP95Percent > config.targetCpuPercent) {
+          const downward = planDownwardRefinement(candidate, config, host.required.logicalCpus);
+          activePlan = [candidate, ...downward.filter((value) => value !== candidate)];
+        }
         if (summary.cpuP95Percent !== null && summary.cpuP95Percent >= config.maxCpuPercent) {
           safetyEvents.push({ atMs: now(), phase: "active", kind: "cpu", message: `Active candidate ${candidate} reached the hard CPU ceiling`, immediate: false });
-          break;
-        }
-        if (index === 0 && summary.cpuP95Percent !== null && summary.cpuP95Percent > config.targetCpuPercent) {
-          activePlan.push(...planDownwardRefinement(candidate, config, host.required.logicalCpus).filter((value) => !activePlan.includes(value)));
+          if (index !== 0) break;
         }
       } catch (error) {
         safetyEvents.push({ atMs: now(), phase: "active", kind: "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
@@ -477,11 +480,14 @@ export async function runCalibration(
     const selectedActive = activeRecommendation.value;
     const startupMeasurements: StartupMeasurement[] = [];
     if (!config.skipStartupTuning && selectedActive !== null && !partial) {
-      for (const candidate of startupCandidates) {
+      for (const candidate of startupCandidates.filter((value) => value <= selectedActive)) {
         if (now() >= deadline) { partial = true; stopReason = "calibration deadline reached during startup phase"; break; }
         try {
           const measurement = await measureCandidate("startup", selectedActive, candidate);
           startupMeasurements.push(startupMeasurement(candidate, measurement));
+          const waitValues = measurement.startupSlotWaitMs;
+          startupSlotWaitP99Ms = Math.max(startupSlotWaitP99Ms ?? 0, percentile(waitValues, 99) ?? 0);
+          startupSlotWaitMaxMs = Math.max(startupSlotWaitMaxMs ?? 0, maxValue(waitValues) ?? 0);
         } catch (error) {
           safetyEvents.push({ atMs: now(), phase: "startup", kind: "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
           partial = true;
@@ -520,7 +526,7 @@ export async function runCalibration(
     : notCalibrated<number>();
   const slotRecommendation = classroom
     ? recommendSandboxStartSlotTimeout(classroom.startupSlotWaitP99Ms, classroom.startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE)
-    : notCalibrated<number>();
+    : recommendSandboxStartSlotTimeout(startupSlotWaitP99Ms, startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE);
   const admissionRecommendation: Recommendation<number> = {
     value: config.expectedUsers,
     status: "recommended",
