@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">78.04% </span>
+                <span class="strong">79.06% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>32/41</span>
+                <span class='fraction'>34/43</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">86.11% </span>
+                <span class="strong">86.84% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>31/36</span>
+                <span class='fraction'>33/38</span>
             </div>
         
             
@@ -162,7 +162,11 @@
 <a name='L97'></a><a href='#L97'>97</a>
 <a name='L98'></a><a href='#L98'>98</a>
 <a name='L99'></a><a href='#L99'>99</a>
-<a name='L100'></a><a href='#L100'>100</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -234,11 +238,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">18x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -251,9 +255,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
@@ -261,30 +262,36 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
- * DockerCompileSemaphore
+ * SandboxStartSemaphore
  *
- * A lightweight FIFO counting semaphore used to limit the number of Docker
- * containers that may be in the compile phase simultaneously.
+ * A lightweight FIFO counting semaphore used to limit Docker sandbox startup
+ * operations. It is acquired before docker run and released at RUNTIME_START.
  *
  * This prevents CPU starvation that occurs when many g++ processes compete for
  * resources on the host machine.  The semaphore is acquired before spawning a
- * Docker container and released when the compile phase transitions to runtime
+ * Docker container and released when the startup phase transitions to runtime
  * (i.e. when [[RUNTIME_START]] is detected in stdout) or when the container
  * exits with an error.
  *
- * Environment variable: DOCKER_COMPILE_CONCURRENT (default 8)
+ * Environment variables: SANDBOX_START_MAX_CONCURRENT (default 8) and
+ * SANDBOX_START_SLOT_TIMEOUT_MS (default 30000 ms)
  */
 import { config } from "../../config";
 &nbsp;
-export class DockerCompileSemaphore {
+export class SandboxStartSemaphore {
   private readonly queue: Array&lt;{ attempt: () =&gt; void; timer: NodeJS.Timeout }&gt; = [];
   private _active = 0;
 &nbsp;
   constructor(private readonly max: number) {}
 &nbsp;
   /**
-   * Acquire one compile slot.
+   * Acquire one sandbox-start slot.
    *
    * @param onQueued  Optional callback invoked exactly once when this caller is
    *                  placed in the queue (i.e. no slot is immediately available).
@@ -299,7 +306,7 @@ export class DockerCompileSemaphore {
         const index = <span class="cstat-no" title="statement not covered" >this.queue.findIndex(<span class="fstat-no" title="function not covered" >(e</span>ntry) =&gt; <span class="cstat-no" title="statement not covered" >entry.attempt === attempt)</span>;</span>
 <span class="cstat-no" title="statement not covered" >        if (index !== -1) <span class="cstat-no" title="statement not covered" >this.queue.splice(index, 1);</span></span>
 <span class="cstat-no" title="statement not covered" >        settled = true;</span>
-<span class="cstat-no" title="statement not covered" >        reject(new Error(`Docker compile slot timeout after ${timeoutMs}ms`));</span>
+<span class="cstat-no" title="statement not covered" >        reject(new Error(`Sandbox start slot timeout after ${timeoutMs}ms`));</span>
       }, timeoutMs);
 &nbsp;
       attempt = () =&gt; {
@@ -343,23 +350,25 @@ export class DockerCompileSemaphore {
 &nbsp;
 // ─── Singleton factory ────────────────────────────────────────────────────────
 &nbsp;
-let _instance: DockerCompileSemaphore | null = null;
+let _instance: SandboxStartSemaphore | null = null;
 &nbsp;
 /**
- * Returns (or lazily creates) the global DockerCompileSemaphore singleton.
- *
- * The concurrency limit is read from the DOCKER_COMPILE_CONCURRENT env var at
- * first call.  Passing `maxOverride` replaces the env-var value and resets the
- * singleton – useful in tests.
+ * Returns (or lazily creates) the global sandbox-start semaphore.
+ * Passing `maxOverride` replaces the configured value and resets the singleton.
  */
-export function getDockerCompileSemaphore(maxOverride?: number): DockerCompileSemaphore {
+export function getSandboxStartSemaphore(maxOverride?: number): SandboxStartSemaphore {
   if (maxOverride !== undefined || _instance === null) {
     const max =
-      maxOverride ?? config.compilation.dockerCompileConcurrent;
-    _instance = new DockerCompileSemaphore(max);
+      maxOverride ?? config.capacity.sandboxStartMaxConcurrent;
+    _instance = new SandboxStartSemaphore(max);
   }
   return _instance;
 }
+&nbsp;
+/** @deprecated Internal compatibility alias; use SandboxStartSemaphore. */
+export const DockerCompileSemaphore = SandboxStartSemaphore;
+/** @deprecated Internal compatibility alias; use getSandboxStartSemaphore. */
+export const getDockerCompileSemaphore = getSandboxStartSemaphore;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -367,7 +376,7 @@ export function getDockerCompileSemaphore(maxOverride?: number): DockerCompileSe
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-22T12:30:36.117Z
+                at 2026-09-23T14:58:47.092Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

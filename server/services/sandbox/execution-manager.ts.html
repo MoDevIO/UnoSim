@@ -32,7 +32,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">50.37% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>67/133</span>
+                <span class='fraction'>68/135</span>
             </div>
         
             
@@ -784,7 +784,12 @@
 <a name='L719'></a><a href='#L719'>719</a>
 <a name='L720'></a><a href='#L720'>720</a>
 <a name='L721'></a><a href='#L721'>721</a>
-<a name='L722'></a><a href='#L722'>722</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L722'></a><a href='#L722'>722</a>
+<a name='L723'></a><a href='#L723'>723</a>
+<a name='L724'></a><a href='#L724'>724</a>
+<a name='L725'></a><a href='#L725'>725</a>
+<a name='L726'></a><a href='#L726'>726</a>
+<a name='L727'></a><a href='#L727'>727</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -921,8 +926,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">51x</span>
-<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">52x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -941,14 +947,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">51x</span>
-<span class="cline-any cline-yes">51x</span>
-<span class="cline-any cline-yes">51x</span>
-<span class="cline-any cline-yes">51x</span>
-<span class="cline-any cline-yes">51x</span>
-<span class="cline-any cline-yes">51x</span>
-<span class="cline-any cline-yes">51x</span>
-<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">52x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1248,10 +1254,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1522,7 +1532,7 @@ import { LocalCompiler } from "../local-compiler";
 import { PinStateBatcher, type PinStateBatch } from "../pin-state-batcher";
 import { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RunSketchOptions } from "../run-sketch-types";
-import { getDockerCompileSemaphore } from "./docker-compile-semaphore";
+import { getSandboxStartSemaphore } from "./docker-compile-semaphore";
 import { DockerManager } from "./docker-manager";
 import { StreamHandler } from "./stream-handler";
 import { FilesystemHelper } from "./filesystem-helper";
@@ -1594,6 +1604,7 @@ type DockerState = {
   totalOutputBytes: { value: number };
   processStartTime: number | null;
   stderrFallbackBuffer: string;
+  runtimeOutputBuffer: { value: string };
   flushTimer: NodeJS.Timeout | null;
 };
 &nbsp;
@@ -1902,15 +1913,15 @@ export class ExecutionManager {
 &nbsp;
     const { onCompileError, onCompileSuccess, onExit } = opts;
 &nbsp;
-    // ── Docker compile gating ─────────────────────────────────────────────────
+    // ── Docker sandbox-start gating ───────────────────────────────────────────
     // Limit the number of simultaneous g++ compilations inside Docker containers
     // to prevent CPU starvation when many students start simulations at once.
-    // The slot is released once [[RUNTIME_START]] is detected (compile done) or
-    // on any error, so the semaphore only covers the compile phase.
+    // The slot is released once [[RUNTIME_START]] is detected or on any error;
+    // it limits startup pressure and does not limit steady-state simulations.
     const queueStartTime = Date.now();
-    const releaseSemaphore = await getDockerCompileSemaphore().acquire(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+    const releaseSemaphore = await getSandboxStartSemaphore().acquire(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      opts.onCompileQueued?.();</span>
-    }, config.timeouts.compileGatekeeperAcquireMs);
+    }, config.capacity.sandboxStartSlotTimeoutMs);
     const queueWaitTimeMs = Date.now() - queueStartTime;
     
     // Guard: abort if the simulation was stopped while we were waiting
@@ -1919,7 +1930,7 @@ export class ExecutionManager {
 <span class="cstat-no" title="statement not covered" >      return;</span>
     }
 &nbsp;
-    // Release wrapper – idempotent, called from compile-phase callbacks or onClose
+    // Release wrapper – idempotent, called from startup callbacks or onClose
     let semaphoreReleased = false;
     const releaseOnce = () =&gt; {
       if (!semaphoreReleased) {
@@ -1932,8 +1943,8 @@ export class ExecutionManager {
     const compileStartTime = Date.now();
     let compileTimedOut = false;
     
-    // Wrap compile callbacks so the semaphore is released as soon as the
-    // compile phase ends (success or error), freeing the slot for the next waiter.
+    // Release the startup slot as soon as the sandbox reaches runtime or errors,
+    // freeing the slot for the next waiting start.
     const wrappedOnCompileSuccess = () =&gt; {
       compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, true, compileTimedOut);
       releaseOnce();
@@ -1968,6 +1979,9 @@ export class ExecutionManager {
       const dockerStartParams: DockerStartParams = {
         sketchDir: files.sketchDir,
         containerName,
+        labels: config.capacityTestRunId
+          ? <span class="branch-0 cbranch-no" title="branch not covered" >[`unosim.capacity-test-run-id=${config.capacityTestRunId}`]</span>
+          : undefined,
       };
       await runDockerStart(dockerStartParams, state, dockerStartContext);
       this.logger.info("🚀 Docker: Compile + Run in single container");
@@ -1979,6 +1993,7 @@ export class ExecutionManager {
         totalOutputBytes: { value: state.totalOutputBytes },
         processStartTime: state.processStartTime,
         stderrFallbackBuffer: state.stderrFallbackBuffer,
+        runtimeOutputBuffer: { value: "" },
         flushTimer: state.flushTimer,
       };
 &nbsp;
@@ -2233,7 +2248,7 @@ export class ExecutionManager {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-22T12:30:36.117Z
+                at 2026-09-23T14:58:47.092Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
