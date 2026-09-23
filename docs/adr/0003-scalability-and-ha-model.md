@@ -1,6 +1,7 @@
 # ADR 0003: Scalability and HA model
 
-- Status: Accepted
+- Status: Accepted for the historical Phase 3.4 envelope; current capacity
+  validation is documented in ../CAPACITY_VALIDATION_PLAN.md
 - Date: 2026-09-06
 - Owners: UnoSim maintainers and platform operators
 - Records: accepted scalability / HA decision based on the Phase 3.4 measurements
@@ -8,15 +9,19 @@
 ## Context
 
 Phase 3.4 measured UnoSim capacity with real Docker compile and simulation load.
+This ADR records that pre-refactor envelope. It must be read together with the
+current model and Dell reference measurements in
+../CAPACITY_VALIDATION_PLAN.md; the historical runner values below are not
+current operator settings.
 The measurement profile intentionally kept the existing production-like runner
 and resource configuration unchanged:
 
 - one stateful backend node
 - WebSocket simulation sessions held in process memory
-- fixed SandboxRunnerPool of 5 runners
+- fixed logical SandboxRunnerPool of 5 runners
 - runner acquire timeout of 60 seconds
 - Docker compile worker pool of 8 workers
-- Docker compile concurrency of 8
+- Docker sandbox-start concurrency of 8
 - sandbox memory limit of 256 MB
 - sandbox CPU limit of 0.25
 - real Docker simulation mode, no mocks or stubs

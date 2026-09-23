@@ -46,4 +46,20 @@ describe("DockerCommandBuilder", () => {
     expect(command).toContain("--user");
     expect(command[command.indexOf("--user") + 1]).toBe("1001:1001");
   });
+
+  it("adds optional labels for test-owned sandbox attribution", () => {
+    const command = DockerCommandBuilder.buildSecureRunCommand({
+      sketchDir: "/tmp/sketch",
+      memoryMB: 256,
+      cpuLimit: "0.25",
+      pidsLimit: 50,
+      imageName: "unosim-sandbox:latest",
+      command: ["sh", "-c", "true"],
+      labels: ["unosim.capacity-test-run-id=capacity_123"],
+    });
+
+    expect(command[command.indexOf("--label") + 1]).toBe(
+      "unosim.capacity-test-run-id=capacity_123",
+    );
+  });
 });

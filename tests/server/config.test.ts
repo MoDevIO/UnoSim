@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as configModule from "../../server/config";
-import { getClientConfig, parseEnvInt, parseListenHost, parseRuntimeProfile, validatePoolBounds } from "../../server/config";
+import { getClientConfig, parseCapacityTestRunId, parseEnvInt, parseListenHost, parseRuntimeProfile, validateSimulationCapacity } from "../../server/config";
 
 describe("central configuration validation", () => {
   it("provides one parser for the complete runtime profile", () => {
@@ -45,10 +45,23 @@ describe("central configuration validation", () => {
     "UNOSIM_TRUST_MODE",
     "FORCE_DOCKER",
     "UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL",
+    "SANDBOX_POOL_MIN_RUNNERS",
+    "SANDBOX_POOL_MAX_RUNNERS",
+    "DOCKER_COMPILE_CONCURRENT",
   ])("rejects the removed topology selector %s", (key) => {
     expect(() => parseRuntimeProfile({ NODE_ENV: "test", [key]: "legacy" })).toThrow(
       new RegExp(`${key}.*no longer supported`),
     );
+  });
+
+  it("exposes one semantic capacity configuration with unchanged defaults", () => {
+    expect(configModule.config.capacity).toEqual({
+      simulationMaxConcurrent: 5,
+      sandboxStartMaxConcurrent: 8,
+      admissionMax: 25,
+      queueTimeoutMs: 60_000,
+      sandboxStartSlotTimeoutMs: 30_000,
+    });
   });
 
   it("rejects malformed, fractional and out-of-range integers", () => {
@@ -62,14 +75,34 @@ describe("central configuration validation", () => {
     expect(parseEnvInt("PORT", "8080", 3000, { min: 1, max: 65535 })).toBe(8080);
   });
 
+  it("keeps Docker control checks at 2000ms by default and validates overrides", () => {
+    expect(parseEnvInt("DOCKER_CONTROL_TIMEOUT_MS", undefined, 2_000, { min: 100, max: 30_000 })).toBe(2_000);
+    expect(parseEnvInt("DOCKER_CONTROL_TIMEOUT_MS", "10000", 2_000, { min: 100, max: 30_000 })).toBe(10_000);
+    expect(() => parseEnvInt("DOCKER_CONTROL_TIMEOUT_MS", "99", 2_000, { min: 100, max: 30_000 })).toThrow(/between/);
+    expect((configModule.config.sandbox as { dockerControlTimeoutMs?: number }).dockerControlTimeoutMs).toBe(2_000);
+  });
+
   it("rejects an inverted sandbox pool range", () => {
-    expect(() => validatePoolBounds(5, 2, "local")).toThrow(/must not exceed/);
-    expect(() => validatePoolBounds(2, 5, "local")).not.toThrow();
+    expect(() => validateSimulationCapacity(5, 2, "local")).toThrow(/must not exceed/);
+    expect(() => validateSimulationCapacity(2, 5, "local")).not.toThrow();
+  });
+
+  it("allows safe capacity run IDs only in the test runtime", () => {
+    expect(parseCapacityTestRunId(undefined, "production")).toBeUndefined();
+    expect(parseCapacityTestRunId("capacity_R20_burst_123", "test")).toBe(
+      "capacity_R20_burst_123",
+    );
+    expect(() => parseCapacityTestRunId("capacity_R20_123", "production")).toThrow(
+      /allowed only with NODE_ENV=test/i,
+    );
+    expect(() => parseCapacityTestRunId("capacity run 123", "test")).toThrow(
+      /URL-safe test run identifier/i,
+    );
   });
 
   it("requires at least one warm runner for Docker readiness", () => {
-    expect(() => validatePoolBounds(0, 1, "docker")).toThrow(/at least 1/i);
-    expect(() => validatePoolBounds(0, 1, "local")).not.toThrow();
+    expect(() => validateSimulationCapacity(0, 0, "docker")).toThrow(/SIMULATION_MAX_CONCURRENT.*at least 1/i);
+    expect(() => validateSimulationCapacity(0, 1, "local")).not.toThrow();
   });
 
   it("keeps local mode on loopback by default", () => {

@@ -129,7 +129,15 @@ export class CompilationWorkerPool {
         // Each worker gets its own temp directory to avoid arduino-cli race conditions
         const workerTempRoot = join(os.tmpdir(), `unosim-worker-${i}`);
         const worker = new Worker(workerScript, {
-          workerData: { workerId: i + 1, tempRoot: workerTempRoot },
+          workerData: {
+            workerId: i + 1,
+            tempRoot: workerTempRoot,
+            compilation: {
+              buildCacheDir: config.compilation.buildCacheDir,
+              buildCacheMaxBytes: config.compilation.buildCacheMaxBytes,
+              fqbn: config.compilation.fqbn,
+            },
+          },
         });
         const workerId = i;
 

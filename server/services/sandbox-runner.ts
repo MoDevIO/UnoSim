@@ -209,7 +209,7 @@ export class SandboxRunner {
     // Use ProcessExecutor for all Docker checks
     // docker --version
     const versionResult = await this.processExecutor.execute("docker", ["--version"], {
-      timeout: 2000,
+      timeout: config.sandbox.dockerControlTimeoutMs,
       stdio: "pipe",
     });
 
@@ -228,7 +228,7 @@ export class SandboxRunner {
 
     // docker info
     const infoResult = await this.processExecutor.execute("docker", ["info"], {
-      timeout: 2000,
+      timeout: config.sandbox.dockerControlTimeoutMs,
       stdio: "pipe",
     });
 
@@ -243,7 +243,7 @@ export class SandboxRunner {
     // docker image inspect <image>
     const imageName = SANDBOX_CONFIG.dockerImage;
     const inspectResult = await this.processExecutor.execute("docker", ["image", "inspect", imageName], {
-      timeout: 2000,
+      timeout: config.sandbox.dockerControlTimeoutMs,
       stdio: "pipe",
     });
 

@@ -50,6 +50,18 @@ function makeTimeoutManager(): SimulationTimeoutManager {
   } as unknown as SimulationTimeoutManager;
 }
 
+function makeDockerRuntimeState() {
+  return {
+    isCompilePhase: { value: true },
+    compileErrorBuffer: { value: "" },
+    compileSuccessSent: { value: false },
+    totalOutputBytes: { value: 0 },
+    processStartTime: 1000,
+    stderrFallbackBuffer: "",
+    runtimeOutputBuffer: { value: "" },
+    flushTimer: null,
+  };
+}
 const noop = () => {};
 const mockCallbacks = {
   onOutput: vi.fn(),
@@ -362,5 +374,226 @@ describe("DockerManager output budget", () => {
 
     expect(onCompileSuccess).toHaveBeenCalledOnce();
     expect(onRuntimeStart).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("DockerManager incremental runtime marker parsing", () => {
+  function createHarness() {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const parsedLines: string[] = [];
+    const manager = new DockerManager(
+      processController,
+      { parseStderrLine: vi.fn((line: string) => ({ type: "text", line })) } as any,
+      makeTimeoutManager(),
+      (parsed) => {
+        if (parsed.type === "text") parsedLines.push(parsed.line);
+      },
+    );
+    const onCompileSuccess = vi.fn();
+    const onRuntimeStart = vi.fn();
+    const state = {
+      isCompilePhase: { value: true },
+      compileErrorBuffer: { value: "" },
+      compileSuccessSent: { value: false },
+      totalOutputBytes: { value: 0 },
+      processStartTime: 1000,
+      runtimeOutputBuffer: { value: "" },
+    };
+    manager.setupStdoutHandler(
+      { ...mockCallbacks, onError: vi.fn() },
+      state,
+      onCompileSuccess,
+      onRuntimeStart,
+    );
+    return { stdout: (chunk: string) => stdoutHandlers[0]?.(Buffer.from(chunk)), parsedLines, onCompileSuccess, onRuntimeStart, state };
+  }
+
+  it("accepts a complete marker and preserves multiple runtime lines in one chunk", () => {
+    const harness = createHarness();
+
+    harness.stdout("[[RUNTIME_START]]\nfirst\nsecond\n");
+
+    expect(harness.state.isCompilePhase.value).toBe(false);
+    expect(harness.onCompileSuccess).toHaveBeenCalledOnce();
+    expect(harness.onRuntimeStart).toHaveBeenCalledOnce();
+    expect(harness.parsedLines).toEqual(["first", "second"]);
+  });
+
+  it("accepts IO_REGISTRY_START immediately followed by RUNTIME_START in one chunk", () => {
+    const harness = createHarness();
+
+    harness.stdout("[[IO_REGISTRY_START]][[RUNTIME_START]]\nready\n");
+
+    expect(harness.state.isCompilePhase.value).toBe(false);
+    expect(harness.onRuntimeStart).toHaveBeenCalledOnce();
+    expect(harness.parsedLines).toEqual(["ready"]);
+  });
+
+  it("accepts a runtime marker followed immediately by ordinary output", () => {
+    const harness = createHarness();
+
+    harness.stdout("[[RUNTIME_START]]serial");
+
+    expect(harness.state.isCompilePhase.value).toBe(false);
+    expect(harness.parsedLines).toEqual([]);
+    harness.stdout("\n");
+
+    expect(harness.parsedLines).toEqual(["serial"]);
+  });
+
+  it("filters rapid repeated runtime markers without losing adjacent output", () => {
+    const harness = createHarness();
+
+    harness.stdout("[[RUNTIME_START]]\n[[RUNTIME_START]]\nserial\n");
+
+    expect(harness.onRuntimeStart).toHaveBeenCalledOnce();
+    expect(harness.parsedLines).toEqual(["serial"]);
+  });
+
+  it("handles arbitrary marker and output chunk boundaries without duplication", () => {
+    const harness = createHarness();
+
+    for (const chunk of [
+      "compiler warning\n[[RUNTIME_",
+      "START]]\npart",
+      "ial\nsecond\n",
+    ]) {
+      harness.stdout(chunk);
+    }
+
+    expect(harness.state.isCompilePhase.value).toBe(false);
+    expect(harness.parsedLines).toEqual(["partial", "second"]);
+  });
+
+  it("preserves ordinary compiler output before a split marker", () => {
+    const harness = createHarness();
+
+    harness.stdout("warning line\n[[RUNTIME");
+    expect(harness.state.isCompilePhase.value).toBe(true);
+    harness.stdout("_START]]\nrun\n");
+
+    expect(harness.state.compileErrorBuffer.value).toBe("warning line\n");
+    expect(harness.parsedLines).toEqual(["run"]);
+  });
+});
+
+
+describe("DockerManager runtime timeout boundary", () => {
+  it("keeps the startup watchdog during compile and starts execution timeout once at RUNTIME_START", () => {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const timeoutManager = makeTimeoutManager();
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      timeoutManager,
+      noop as any,
+    );
+    const callbacks = { ...mockCallbacks, onError: vi.fn() };
+    const runtimeStart = vi.fn();
+
+    manager.setupDockerHandlers(
+      callbacks,
+      makeDockerRuntimeState(),
+      {
+        flushBatchers: vi.fn(),
+        flushMessageQueue: vi.fn(),
+        getProcessKilled: () => false,
+        executionTimeout: 10,
+      },
+      { onRuntimeStart: runtimeStart },
+    );
+
+    expect(timeoutManager.schedule).toHaveBeenCalledWith(60_000, expect.any(Function));
+    stdoutHandlers[0]?.(Buffer.from("slow compile output\n[[RUNTIME_"));
+    expect(timeoutManager.schedule).toHaveBeenCalledTimes(1);
+
+    stdoutHandlers[0]?.(Buffer.from("START]]\n"));
+
+    expect(timeoutManager.schedule).toHaveBeenCalledTimes(2);
+    expect(timeoutManager.schedule).toHaveBeenLastCalledWith(10_000, expect.any(Function));
+    expect(runtimeStart).toHaveBeenCalledOnce();
+
+    stdoutHandlers[0]?.(Buffer.from("[[RUNTIME_START]]\n"));
+    expect(timeoutManager.schedule).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the startup watchdog callback before runtime and the simulation callback after runtime", () => {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const timeoutManager = makeTimeoutManager();
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      timeoutManager,
+      noop as any,
+    );
+    const callbacks = { ...mockCallbacks, onError: vi.fn() };
+
+    manager.setupDockerHandlers(
+      callbacks,
+      makeDockerRuntimeState(),
+      {
+        flushBatchers: vi.fn(),
+        flushMessageQueue: vi.fn(),
+        getProcessKilled: () => false,
+        executionTimeout: 10,
+      },
+      {},
+    );
+
+    const startupTimeout = timeoutManager.schedule.mock.calls[0]?.[1] as (() => void) | undefined;
+    startupTimeout?.();
+    expect(processController.kill).toHaveBeenCalledWith("SIGKILL");
+    expect(callbacks.onOutput).toHaveBeenCalledWith(expect.stringContaining("Sandbox startup timeout"), true);
+
+    vi.mocked(processController.kill).mockClear();
+    callbacks.onOutput.mockClear();
+    stdoutHandlers[0]?.(Buffer.from("[[RUNTIME_START]]\n"));
+    const runtimeTimeout = timeoutManager.schedule.mock.calls[1]?.[1] as (() => void) | undefined;
+    runtimeTimeout?.();
+    expect(processController.kill).toHaveBeenCalledWith("SIGKILL");
+    expect(callbacks.onOutput).toHaveBeenCalledWith("--- Simulation timeout (10s) ---", true);
+  });
+
+  it("clears startup or runtime timeout when Docker exits", () => {
+    const processController = makeProcessController();
+    const closeHandlers: Array<(code: number | null) => void> = [];
+    vi.mocked(processController.onClose).mockImplementation((handler) => {
+      closeHandlers.push(handler as (code: number | null) => void);
+    });
+    const timeoutManager = makeTimeoutManager();
+    const manager = new DockerManager(
+      processController,
+      makeStderrParser(),
+      timeoutManager,
+      noop as any,
+    );
+
+    manager.setupDockerHandlers(
+      { ...mockCallbacks, onError: vi.fn() },
+      makeDockerRuntimeState(),
+      {
+        flushBatchers: vi.fn(),
+        flushMessageQueue: vi.fn(),
+        getProcessKilled: () => false,
+        executionTimeout: 10,
+      },
+      {},
+    );
+
+    closeHandlers[0]?.(0);
+    expect(timeoutManager.clear).toHaveBeenCalledOnce();
   });
 });

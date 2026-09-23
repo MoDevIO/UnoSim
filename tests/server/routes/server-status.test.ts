@@ -1,7 +1,7 @@
 /**
  * Tests for GET /api/status endpoint (registerStatusRoutes)
  *
- * Covers: pool stats, compile semaphore stats, timestamp, DOCKER_COMPILE_CONCURRENT env var.
+ * Covers: pool stats, compile semaphore stats, timestamp, SANDBOX_START_MAX_CONCURRENT env var.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import express from "express";
@@ -41,7 +41,7 @@ const mockSemaphore = {
 };
 
 vi.mock("../../../server/services/sandbox/docker-compile-semaphore", () => ({
-  getDockerCompileSemaphore: () => mockSemaphore,
+  getSandboxStartSemaphore: () => mockSemaphore,
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -106,6 +106,10 @@ describe("GET /api/status", () => {
 
   it("returns pool stats from SandboxRunnerPool", async () => {
     const { body } = await get(baseUrl, "/api/status");
+    expect(body.sandboxRunners).toMatchObject({
+      min: mockPoolStats.minRunners,
+      max: mockPoolStats.maxRunners,
+    });
     expect(body.pool).toEqual({
       total: mockPoolStats.totalRunners,
       available: mockPoolStats.availableRunners,
@@ -115,7 +119,7 @@ describe("GET /api/status", () => {
     });
   });
 
-  it("returns compile semaphore stats from DockerCompileSemaphore", async () => {
+  it("returns compile semaphore stats from SandboxStartSemaphore", async () => {
     const { body } = await get(baseUrl, "/api/status");
     expect(body.compile).toMatchObject({
       active: mockSemaphore.activeCount,
@@ -147,10 +151,15 @@ describe("GET /api/status", () => {
     expect(body.rateLimits.compile).not.toHaveProperty("clients");
   });
 
-  it("includes DOCKER_COMPILE_CONCURRENT in compile.maxConcurrent (defaults to 8)", async () => {
-    delete process.env.DOCKER_COMPILE_CONCURRENT;
+  it("exposes semantic simulation and sandbox-start capacities", async () => {
     const { body } = await get(baseUrl, "/api/status");
-    expect(body.compile.maxConcurrent).toBe(8);
+    expect(body.capacity).toMatchObject({
+      simulation: { maxConcurrent: expect.any(Number), active: mockPoolStats.inUseRunners },
+      sandboxStart: { maxConcurrent: 8, active: mockSemaphore.activeCount, waiting: mockSemaphore.queueLength, slotTimeoutMs: 30_000 },
+      admission: { max: 25, current: expect.any(Number) },
+      queue: { waiting: mockPoolStats.queuedRequests, timeoutMs: 60_000 },
+      compile: { maxConcurrent: expect.any(Number), active: expect.any(Number) },
+    });
   });
 });
 

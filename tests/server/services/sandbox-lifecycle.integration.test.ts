@@ -273,7 +273,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
     process.once('unhandledRejection', uex);
 
     await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('timeout in race regression test')), 10000);
+      const timeout = setTimeout(() => reject(new Error('timeout in race regression test')), 18000);
 
       let seen = false;
       const runnerResolve = () => {
@@ -286,7 +286,8 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
 
       void runner.runSketch({
         code,
-        onOutput: (_line) => {
+        onOutput: (line) => {
+          if (line.startsWith("--- Simulation timeout") || line.startsWith("--- Sandbox startup timeout")) return;
           if (!seen) {
             seen = true;
             // Immediately stop when first data arrives — replicate race window
@@ -308,7 +309,7 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
           process.removeListener('unhandledRejection', uex);
           reject(new Error('no output observed to trigger race'));
         }
-      }, 15000); // allow more time on slow CI machines
+      }, 18000); // allow measured Dell sandbox startup before runtime output
     });
     expect(uncaught).toBeNull();
 }, 20000);

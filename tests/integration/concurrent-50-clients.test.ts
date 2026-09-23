@@ -358,8 +358,7 @@ describe("50 concurrent clients — compile + simulate + output", () => {
   beforeAll(async () => {
     // Configure pool for 50 concurrent runners
     process.env.NODE_ENV = "test";
-    process.env.SANDBOX_POOL_MIN_RUNNERS = "5";
-    process.env.SANDBOX_POOL_MAX_RUNNERS = "55";
+    process.env.SIMULATION_MAX_CONCURRENT = "55";
     process.env.SANDBOX_POOL_IDLE_TIMEOUT_MS = "60000";
     process.env.DISABLE_RATE_LIMIT = "true";
 

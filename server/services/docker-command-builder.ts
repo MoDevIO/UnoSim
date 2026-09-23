@@ -16,6 +16,7 @@ interface DockerRunOptions {
   imageName: string;
   command: string[];
   containerName?: string;
+  labels?: string[];
 }
 
 export class DockerCommandBuilder {
@@ -33,6 +34,7 @@ export class DockerCommandBuilder {
       "run",
       "--rm", // Remove container after exit
       ...(options.containerName ? ["--name", options.containerName] : []),
+      ...(options.labels ?? []).flatMap((label) => ["--label", label]),
       "-i", // Interactive mode for stdin
       "--network",
       "none", // No network access

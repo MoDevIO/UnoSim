@@ -6,11 +6,11 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { DockerCompileSemaphore } from "../../../../server/services/sandbox/docker-compile-semaphore";
+import { SandboxStartSemaphore } from "../../../../server/services/sandbox/docker-compile-semaphore";
 
-describe("DockerCompileSemaphore", () => {
+describe("SandboxStartSemaphore", () => {
   it("allows up to max concurrent acquisitions without queuing", async () => {
-    const sem = new DockerCompileSemaphore(3);
+    const sem = new SandboxStartSemaphore(3);
 
     const r1 = await sem.acquire();
     const r2 = await sem.acquire();
@@ -25,7 +25,7 @@ describe("DockerCompileSemaphore", () => {
   });
 
   it("queues acquisitions beyond max and calls onQueued", async () => {
-    const sem = new DockerCompileSemaphore(2);
+    const sem = new SandboxStartSemaphore(2);
     const onQueued = vi.fn();
 
     // Fill slots
@@ -58,7 +58,7 @@ describe("DockerCompileSemaphore", () => {
   });
 
   it("onQueued is called exactly once even across retries", async () => {
-    const sem = new DockerCompileSemaphore(1);
+    const sem = new SandboxStartSemaphore(1);
     const onQueued = vi.fn();
 
     const r1 = await sem.acquire();
@@ -82,7 +82,7 @@ describe("DockerCompileSemaphore", () => {
   });
 
   it("releases correctly and serves queued items in order (FIFO)", async () => {
-    const sem = new DockerCompileSemaphore(1);
+    const sem = new SandboxStartSemaphore(1);
     const order: number[] = [];
 
     const r1 = await sem.acquire();
@@ -112,7 +112,7 @@ describe("DockerCompileSemaphore", () => {
   });
 
   it("reports activeCount and queueLength correctly", async () => {
-    const sem = new DockerCompileSemaphore(2);
+    const sem = new SandboxStartSemaphore(2);
 
     expect(sem.activeCount).toBe(0);
     expect(sem.queueLength).toBe(0);
@@ -140,7 +140,7 @@ describe("DockerCompileSemaphore", () => {
   });
 
   it("handles release idempotency gracefully (no double-decrement)", () => {
-    const sem = new DockerCompileSemaphore(1);
+    const sem = new SandboxStartSemaphore(1);
     // Test that calling release twice doesn't decrement below zero
     sem.acquire().then((release) => {
       release();

@@ -46,6 +46,7 @@ type MockedChildProcess = {
 type SandboxRunnerTestGlobals = {
   spawnInstances: MockedChildProcess[];
   dockerMockConfig: DockerMockConfig;
+  dockerExecuteCalls: Array<{ command: string; args: string[]; options?: { timeout?: number } }>;
   setDockerMockConfig: (config: Partial<DockerMockConfig>) => void;
   clearDockerMockConfig: () => void;
 };
@@ -54,6 +55,7 @@ const testGlobals = globalThis as unknown as SandboxRunnerTestGlobals;
 
 // Mock-objects shared between tests
 const spawnInstances: MockedChildProcess[] = [];
+testGlobals.dockerExecuteCalls = [];
 // Ensure global helpers exist for the mocked ProcessExecutor
 testGlobals.spawnInstances = spawnInstances;
 testGlobals.dockerMockConfig = testGlobals.dockerMockConfig ?? {};
@@ -183,6 +185,7 @@ vi.mock("node:fs", () => {
 vi.mock("../../../server/services/process-executor", () => {
   const ProcessExecutorClass = class {
     async execute(command: string, _args: string[], _options?: any) {
+      testGlobals.dockerExecuteCalls.push({ command, args: [..._args], options: _options });
       // Check for test configuration
       const testConfig: DockerMockConfig = testGlobals.dockerMockConfig ?? {};
       
@@ -355,6 +358,7 @@ describe("SandboxRunner", () => {
     afterEach(() => {
       // Clear docker mock config after each test
       testGlobals.clearDockerMockConfig();
+      testGlobals.dockerExecuteCalls.length = 0;
     });
 
     it("exposes explicit runtime initialization for pool readiness", () => {
@@ -383,6 +387,21 @@ describe("SandboxRunner", () => {
 
       expect(status.dockerAvailable).toBe(true);
       expect(status.dockerImageBuilt).toBe(true);
+    });
+
+    it("uses the configured timeout for Docker control checks", async () => {
+      (config as { serverMode: "local" | "docker" }).serverMode = "docker";
+      (config.sandbox as { dockerControlTimeoutMs?: number }).dockerControlTimeoutMs = 7_777;
+      const runner = new SandboxRunner();
+
+      await getEnsureDockerChecked(runner)();
+
+      expect(testGlobals.dockerExecuteCalls.filter((call) => call.command === "docker").map((call) => call.options?.timeout)).toEqual([
+        7_777,
+        7_777,
+        7_777,
+      ]);
+      (config.sandbox as { dockerControlTimeoutMs?: number }).dockerControlTimeoutMs = 2_000;
     });
 
     it("does not probe Docker in the local profile", async () => {
