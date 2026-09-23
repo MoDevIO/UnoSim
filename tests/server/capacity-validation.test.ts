@@ -10,12 +10,13 @@ import WebSocket from "ws";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import {
   assertCapacityRuntimeMatches,
   getCapacityProfile,
   type CapacityProfileKey,
 } from "../../scripts/capacity-validation-config";
+import { createDockerLifecycleTracker } from "../../scripts/capacity-docker-events";
 
 type StatusSnapshot = {
   status?: string;
@@ -29,6 +30,7 @@ type StatusSnapshot = {
     totalDisconnections: number;
   };
   processMetrics?: { cpuPercent: number; memoryPercent: number };
+  capacity?: { simulation?: { maxConcurrent: number; active: number }; sandboxStart?: { maxConcurrent: number; active: number; waiting: number }; admission?: { max: number; current: number }; queue?: { waiting: number; timeoutMs: number }; compile?: { maxConcurrent: number; active: number } };
   sandboxRunners?: {
     total: number;
     available: number;
@@ -72,9 +74,11 @@ type CapacityTestMetrics = {
   profile: string;
   runtimeConfiguration: {
     serverMode: string | undefined;
-    minRunners: number | undefined;
-    maxRunners: number | undefined;
+    simulationMaxConcurrent: number | undefined;
+    sandboxStartMaxConcurrent: number | undefined;
     admissionMax: number | undefined;
+    queueTimeoutMs: number | undefined;
+    compileMaxConcurrent: number | undefined;
   };
   burstSize: number;
   simulationTimeoutSec: number;
@@ -99,6 +103,9 @@ type CapacityTestMetrics = {
   p95SimulationLeaseMs: number | null;
   peakRunnersInUse: number;
   peakDockerContainers: number;
+  peakDockerContainersSampled: number;
+  peakDockerContainersEvents: number;
+  observedDockerContainersPeak: number;
   peakRunnerQueue: number;
   peakAdmissions: number;
   peakCpuPercent: number;
@@ -331,6 +338,30 @@ function dockerContainerCount(includeStopped = false): number {
   return output.trim().split("\n").filter(Boolean).length;
 }
 
+type DockerEventTracker = { peak: number; stop: () => Promise<void> };
+
+function startDockerEventTracker(): DockerEventTracker {
+  const child = spawn("docker", ["events", "--format", "{{json .}}", "--filter", `label=unosim.capacity-test-run-id=${runId}`], { stdio: ["ignore", "pipe", "ignore"] });
+  if (!child.stdout) throw new Error("Docker events did not provide stdout");
+  const tracker = createDockerLifecycleTracker(runId);
+  let buffer = "";
+  child.stdout.on("data", (chunk: Buffer | string) => {
+    buffer += chunk.toString();
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) tracker.consume(line);
+  });
+  return {
+    get peak() { return tracker.peak; },
+    stop: () => new Promise<void>((resolve) => {
+      if (child.exitCode !== null) { resolve(); return; }
+      const timer = setTimeout(() => { child.kill("SIGTERM"); resolve(); }, 1_000);
+      child.once("close", () => { clearTimeout(timer); resolve(); });
+      child.kill("SIGTERM");
+    }),
+  };
+}
+
 function percentile(values: number[], percent: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((left, right) => left - right);
@@ -353,9 +384,9 @@ async function waitForOwnedBackendIdle(timeoutMs = 30_000): Promise<StatusSnapsh
   while (Date.now() < deadline) {
     lastStatus = await getStatus();
     if (
-      lastStatus.sandboxRunners?.inUse === 0 &&
-      lastStatus.sandboxRunners.queued === 0 &&
-      lastStatus.admissionControl?.active === 0 &&
+      lastStatus.capacity?.simulation?.active === 0 &&
+      lastStatus.capacity.queue?.waiting === 0 &&
+      lastStatus.capacity.admission?.current === 0 &&
       dockerContainerCount(true) === 0
     ) {
       return lastStatus;
@@ -385,7 +416,8 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
   expectOwnedRuntime(initialStatus);
 
   const statusHistory: StatusSnapshot[] = [initialStatus];
-  let peakDockerContainers = dockerContainerCount();
+  let peakDockerContainersSampled = dockerContainerCount();
+  const dockerEvents = startDockerEventTracker();
   let dockerPollActive = false;
   const statusPoller = setInterval(() => {
     void getStatus().then((status) => {
@@ -396,7 +428,7 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
     if (dockerPollActive) return;
     dockerPollActive = true;
     try {
-      peakDockerContainers = Math.max(peakDockerContainers, dockerContainerCount());
+      peakDockerContainersSampled = Math.max(peakDockerContainersSampled, dockerContainerCount());
     } catch {
       // The runner preflights Docker and separately fails on an unavailable daemon.
     } finally {
@@ -412,10 +444,13 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
   );
   clearInterval(statusPoller);
   clearInterval(dockerPoller);
+  await dockerEvents.stop();
 
   const finalStatus = await waitForOwnedBackendIdle();
   statusHistory.push(finalStatus);
-  peakDockerContainers = Math.max(peakDockerContainers, dockerContainerCount());
+  peakDockerContainersSampled = Math.max(peakDockerContainersSampled, dockerContainerCount());
+  const peakDockerContainersEvents = dockerEvents.peak;
+  const peakDockerContainers = Math.max(peakDockerContainersSampled, peakDockerContainersEvents);
   const testDurationMs = Date.now() - start;
   const expectedAdmitted = Math.min(burstSize, profile.admissionMax);
   const expectedCapacityRejections = Math.max(0, burstSize - profile.admissionMax);
@@ -433,9 +468,9 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
   const leaseDurations = clients.flatMap((client) => client.simulationLeaseMs === null ? [] : [client.simulationLeaseMs]);
   const successful = clients.filter((client) => client.started && client.stopped && !client.timedOut).length;
   const peak = {
-    runnersInUse: Math.max(...statusHistory.map((status) => status.sandboxRunners?.inUse ?? 0), 0),
-    runnerQueue: Math.max(...statusHistory.map((status) => status.sandboxRunners?.queued ?? 0), 0),
-    admissions: Math.max(...statusHistory.map((status) => status.admissionControl?.active ?? 0), 0),
+    runnersInUse: Math.max(...statusHistory.map((status) => status.capacity?.simulation?.active ?? status.sandboxRunners?.inUse ?? 0), 0),
+    runnerQueue: Math.max(...statusHistory.map((status) => status.capacity?.queue?.waiting ?? status.sandboxRunners?.queued ?? 0), 0),
+    admissions: Math.max(...statusHistory.map((status) => status.capacity?.admission?.current ?? status.admissionControl?.active ?? 0), 0),
     cpuPercent: Math.max(...statusHistory.map((status) => status.processMetrics?.cpuPercent ?? 0), 0),
     memoryPercent: Math.max(...statusHistory.map((status) => status.processMetrics?.memoryPercent ?? 0), 0),
   };
@@ -449,9 +484,11 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
     profile: profileKey,
     runtimeConfiguration: {
       serverMode: initialStatus.serverMode,
-      minRunners: initialStatus.sandboxRunners?.min,
-      maxRunners: initialStatus.sandboxRunners?.max,
-      admissionMax: initialStatus.admissionControl?.max,
+      simulationMaxConcurrent: initialStatus.capacity?.simulation?.maxConcurrent,
+      sandboxStartMaxConcurrent: initialStatus.capacity?.sandboxStart?.maxConcurrent,
+      admissionMax: initialStatus.capacity?.admission?.max,
+      queueTimeoutMs: initialStatus.capacity?.queue?.timeoutMs,
+      compileMaxConcurrent: initialStatus.capacity?.compile?.maxConcurrent,
     },
     burstSize,
     simulationTimeoutSec,
@@ -478,6 +515,9 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
     p95SimulationLeaseMs: percentile(leaseDurations, 95),
     peakRunnersInUse: peak.runnersInUse,
     peakDockerContainers,
+    peakDockerContainersSampled,
+    peakDockerContainersEvents,
+    observedDockerContainersPeak: peakDockerContainers,
     peakRunnerQueue: peak.runnerQueue,
     peakAdmissions: peak.admissions,
     peakCpuPercent: peak.cpuPercent,
@@ -500,19 +540,21 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
     `success=${successful}/${expectedAdmitted}, ` +
     `admissionRejected=${admissionCapacityRejections}, ` +
     `runnerTimeouts=${runnerAcquireTimeouts}, ` +
-    `peakRunners=${peak.runnersInUse}/${profile.maxRunners}, ` +
-    `peakDocker=${peakDockerContainers}, queue=${peak.runnerQueue}, ` +
+    `peakRunners=${peak.runnersInUse}/${profile.simulationMaxConcurrent}, ` +
+    `physicalDockerPeak=${metrics.observedDockerContainersPeak}, eventDockerPeak=${metrics.peakDockerContainersEvents}, sampledDockerPeak=${metrics.peakDockerContainersSampled}, queue=${peak.runnerQueue}, ` +
     `p50/p95/p99=${metrics.p50StartLatencyMs}/${metrics.p95StartLatencyMs}/${metrics.p99StartLatencyMs}ms, ` +
     `leaked=${metrics.leakedContainers}`,
   );
+  assertCapacityRuntimeMatches(profile, initialStatus);
+  expect(initialStatus.capacity?.sandboxStart?.maxConcurrent).toBeGreaterThanOrEqual(initialStatus.capacity?.simulation?.maxConcurrent ?? 0);
   expect(metrics.connected).toBe(burstSize);
   expect(metrics.clientTimeouts).toBe(0);
   expect(metrics.unexpectedErrors).toBe(0);
   expect(metrics.admissionCapacityRejections).toBe(expectedCapacityRejections);
-  expect(metrics.peakRunnersInUse).toBeLessThanOrEqual(profile.maxRunners);
-  expect(metrics.peakDockerContainers).toBeLessThanOrEqual(profile.maxRunners);
+  expect(metrics.peakRunnersInUse).toBeLessThanOrEqual(profile.simulationMaxConcurrent);
+  expect(metrics.peakDockerContainers).toBeLessThanOrEqual(profile.simulationMaxConcurrent);
   expect(metrics.peakAdmissions).toBeLessThanOrEqual(profile.admissionMax);
-  expect(metrics.peakRunnerQueue).toBeGreaterThanOrEqual(Math.max(0, expectedAdmitted - profile.maxRunners));
+  expect(metrics.peakRunnerQueue).toBeGreaterThanOrEqual(Math.max(0, expectedAdmitted - profile.simulationMaxConcurrent));
   expect(metrics.leakedContainers).toBe(0);
 
   if (scenario === "burst") {
@@ -521,15 +563,19 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
     expect(metrics.runnerAcquireTimeouts).toBe(0);
     expect(metrics.peakAdmissions).toBe(expectedAdmitted);
     expect(metrics.p99StartLatencyMs).toBeLessThan(60_000);
-    if (burstSize > profile.maxRunners) {
-      expect(metrics.peakDockerContainers).toBe(profile.maxRunners);
+    if (
+      burstSize >= profile.simulationMaxConcurrent &&
+      profile.sandboxStartMaxConcurrent >= profile.simulationMaxConcurrent
+    ) {
+      expect(metrics.peakDockerContainersEvents).toBe(profile.simulationMaxConcurrent);
+      expect(metrics.peakDockerContainers).toBe(profile.simulationMaxConcurrent);
     }
     expect(finalStatus.admissionControl?.identityRejectedTotal).toBe(
       initialStatus.admissionControl?.identityRejectedTotal,
     );
   } else {
-    expect(burstSize).toBe(profile.maxRunners + 1);
-    expect(metrics.successful).toBe(profile.maxRunners);
+    expect(burstSize).toBe(profile.simulationMaxConcurrent + 1);
+    expect(metrics.successful).toBe(profile.simulationMaxConcurrent);
     expect(metrics.runnerAcquireTimeouts).toBe(1);
     expect(metrics.admissionCapacityRejections).toBe(0);
     const timedOutClient = clients.find((client) => client.operationErrorCodes.includes("SYSTEM_BUSY"));
