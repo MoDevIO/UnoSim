@@ -58,6 +58,7 @@ services:
       - COMPILE_MAX_CONCURRENT=${COMPILE_MAX_CONCURRENT:-8}
       - SANDBOX_START_MAX_CONCURRENT=${SANDBOX_START_MAX_CONCURRENT:-8}
       - SANDBOX_START_SLOT_TIMEOUT_MS=${SANDBOX_START_SLOT_TIMEOUT_MS:-30000}
+      - DOCKER_CONTROL_TIMEOUT_MS=${DOCKER_CONTROL_TIMEOUT_MS:-2000}
     ports:
       # Secure default: a host-local gateway can reach UnoSim, LAN clients cannot
       # bypass it. Override only with a private gateway-facing bind address.

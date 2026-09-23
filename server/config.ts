@@ -495,6 +495,8 @@ export const config = {
     dockerImage: envStr("DOCKER_SANDBOX_IMAGE", "unosim-sandbox:latest"),
     /** Docker daemon socket */
     dockerHost: envStr("DOCKER_HOST", "unix:///var/run/docker.sock"),
+    /** Timeout for Docker CLI availability/control probes (not simulation runtime). */
+    dockerControlTimeoutMs: envInt("DOCKER_CONTROL_TIMEOUT_MS", 2_000, { min: 100, max: 30_000 }),
   },
 
   // ── Compilation ─────────────────────────────────────────────────

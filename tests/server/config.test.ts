@@ -75,6 +75,13 @@ describe("central configuration validation", () => {
     expect(parseEnvInt("PORT", "8080", 3000, { min: 1, max: 65535 })).toBe(8080);
   });
 
+  it("keeps Docker control checks at 2000ms by default and validates overrides", () => {
+    expect(parseEnvInt("DOCKER_CONTROL_TIMEOUT_MS", undefined, 2_000, { min: 100, max: 30_000 })).toBe(2_000);
+    expect(parseEnvInt("DOCKER_CONTROL_TIMEOUT_MS", "10000", 2_000, { min: 100, max: 30_000 })).toBe(10_000);
+    expect(() => parseEnvInt("DOCKER_CONTROL_TIMEOUT_MS", "99", 2_000, { min: 100, max: 30_000 })).toThrow(/between/);
+    expect((configModule.config.sandbox as { dockerControlTimeoutMs?: number }).dockerControlTimeoutMs).toBe(2_000);
+  });
+
   it("rejects an inverted sandbox pool range", () => {
     expect(() => validateSimulationCapacity(5, 2, "local")).toThrow(/must not exceed/);
     expect(() => validateSimulationCapacity(2, 5, "local")).not.toThrow();
