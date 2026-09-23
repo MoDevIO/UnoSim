@@ -20,7 +20,7 @@ const { WorkerMock } = vi.hoisted(() => {
 
 // Mock config module with mutable workerCount
 const { mockConfig } = vi.hoisted(() => ({
-  mockConfig: { compilation: { workerCount: 4 }, serverMode: "local" },
+  mockConfig: { compilation: { workerCount: 4, buildCacheDir: "/tmp/build-cache", buildCacheMaxBytes: 1234, fqbn: "arduino:avr:uno" }, serverMode: "local" },
 }));
 vi.mock("../../server/config", () => ({
   config: mockConfig,
@@ -65,6 +65,17 @@ describe("CompilationWorkerPool – env-var configuration", () => {
     mockConfig.compilation.workerCount = 20;
     const pool = new CompilationWorkerPool();
     expect((pool as any).numWorkers).toBeLessThanOrEqual(8);
+  });
+
+  it("passes central compilation settings to workers", () => {
+    mockConfig.compilation.workerCount = 1;
+    const _pool = new CompilationWorkerPool();
+
+    expect(WorkerMock.mock.calls[0]?.[1]?.workerData?.compilation).toEqual({
+      buildCacheDir: "/tmp/build-cache",
+      buildCacheMaxBytes: 1234,
+      fqbn: "arduino:avr:uno",
+    });
   });
 
   it("passes unique tempRoot per worker in workerData", () => {
