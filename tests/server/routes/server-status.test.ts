@@ -155,7 +155,7 @@ describe("GET /api/status", () => {
     const { body } = await get(baseUrl, "/api/status");
     expect(body.capacity).toMatchObject({
       simulation: { maxConcurrent: expect.any(Number), active: mockPoolStats.inUseRunners },
-      sandboxStart: { maxConcurrent: 8, active: mockSemaphore.activeCount, waiting: mockSemaphore.queueLength },
+      sandboxStart: { maxConcurrent: 8, active: mockSemaphore.activeCount, waiting: mockSemaphore.queueLength, slotTimeoutMs: 30_000 },
       admission: { max: 25, current: expect.any(Number) },
       queue: { waiting: mockPoolStats.queuedRequests, timeoutMs: 60_000 },
       compile: { maxConcurrent: expect.any(Number), active: expect.any(Number) },

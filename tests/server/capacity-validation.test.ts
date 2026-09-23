@@ -30,7 +30,7 @@ type StatusSnapshot = {
     totalDisconnections: number;
   };
   processMetrics?: { cpuPercent: number; memoryPercent: number };
-  capacity?: { simulation?: { maxConcurrent: number; active: number }; sandboxStart?: { maxConcurrent: number; active: number; waiting: number }; admission?: { max: number; current: number }; queue?: { waiting: number; timeoutMs: number }; compile?: { maxConcurrent: number; active: number } };
+  capacity?: { simulation?: { maxConcurrent: number; active: number }; sandboxStart?: { maxConcurrent: number; active: number; waiting: number; slotTimeoutMs: number }; admission?: { max: number; current: number }; queue?: { waiting: number; timeoutMs: number }; compile?: { maxConcurrent: number; active: number } };
   sandboxRunners?: {
     total: number;
     available: number;
@@ -76,6 +76,7 @@ type CapacityTestMetrics = {
     serverMode: string | undefined;
     simulationMaxConcurrent: number | undefined;
     sandboxStartMaxConcurrent: number | undefined;
+    sandboxStartSlotTimeoutMs: number | undefined;
     admissionMax: number | undefined;
     queueTimeoutMs: number | undefined;
     compileMaxConcurrent: number | undefined;
@@ -486,6 +487,7 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
       serverMode: initialStatus.serverMode,
       simulationMaxConcurrent: initialStatus.capacity?.simulation?.maxConcurrent,
       sandboxStartMaxConcurrent: initialStatus.capacity?.sandboxStart?.maxConcurrent,
+      sandboxStartSlotTimeoutMs: initialStatus.capacity?.sandboxStart?.slotTimeoutMs,
       admissionMax: initialStatus.capacity?.admission?.max,
       queueTimeoutMs: initialStatus.capacity?.queue?.timeoutMs,
       compileMaxConcurrent: initialStatus.capacity?.compile?.maxConcurrent,

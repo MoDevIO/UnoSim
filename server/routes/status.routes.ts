@@ -47,6 +47,7 @@ statusRouter.get("/api/status", (_req, res) => {
         maxConcurrent: config.capacity.sandboxStartMaxConcurrent,
         active: sandboxStart.activeCount,
         waiting: sandboxStart.queueLength,
+        slotTimeoutMs: config.capacity.sandboxStartSlotTimeoutMs,
       },
       admission: {
         max: config.capacity.admissionMax,

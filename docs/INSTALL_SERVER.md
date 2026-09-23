@@ -88,6 +88,7 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | `COMPILE_MAX_CONCURRENT` | globale Obergrenze gleichzeitig laufender Compile-Vorgänge |
 | `SIMULATION_MAX_CONCURRENT` | maximale Zahl gleichzeitig aktiver Simulationen |
 | `SANDBOX_START_MAX_CONCURRENT` | maximale Zahl paralleler Docker-Sandbox-Starts; Standard `8` |
+| `SANDBOX_START_SLOT_TIMEOUT_MS` | maximale Wartezeit eines zugelassenen Starts auf einen Sandbox-Startplatz; Standard `30000` ms |
 | `SIMULATION_ADMISSION_MAX` | maximale Zahl zugelassener aktiver und wartender Anforderungen |
 | `SIMULATION_QUEUE_TIMEOUT_MS` | Wartezeit einer zugelassenen Anforderung auf eine Simulationskapazität |
 | `SANDBOX_MEMORY_MB` | Memory-Limit pro Sandbox |

@@ -404,7 +404,7 @@ export class ExecutionManager {
     const queueStartTime = Date.now();
     const releaseSemaphore = await getSandboxStartSemaphore().acquire(() => {
       opts.onCompileQueued?.();
-    }, config.timeouts.sandboxStartAcquireMs);
+    }, config.capacity.sandboxStartSlotTimeoutMs);
     const queueWaitTimeMs = Date.now() - queueStartTime;
     
     // Guard: abort if the simulation was stopped while we were waiting

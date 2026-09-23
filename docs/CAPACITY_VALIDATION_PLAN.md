@@ -30,6 +30,9 @@ COMPILE_MAX_CONCURRENT  # normal source-code compilation is separate
 - `SANDBOX_START_MAX_CONCURRENT` limits Docker sandbox startup operations. It is
   acquired before `docker run` and released at `RUNTIME_START`; it is a ramp
   throttle, not compile capacity or a Docker-container maximum.
+- `SANDBOX_START_SLOT_TIMEOUT_MS` limits how long an admitted simulation may wait
+  for a startup slot. It is separate from the simulation queue timeout, the
+  startup watchdog, and the simulation runtime timeout.
 - `SIMULATION_ADMISSION_MAX` counts admitted active and waiting demands.
 - `SIMULATION_QUEUE_TIMEOUT_MS` is the waiting policy for an admitted demand.
 - `COMPILE_MAX_CONCURRENT` belongs to the normal source-code compilation

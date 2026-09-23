@@ -11,6 +11,7 @@ interface StartupConfiguration {
   admissionMax: number;
   queueTimeoutMs: number;
   sandboxStartMaxConcurrent: number;
+  sandboxStartSlotTimeoutMs: number;
   compileMaxConcurrent: number;
   rateLimitDisabled: boolean;
   listenHost: string;
@@ -56,6 +57,7 @@ export function getStartupConfigurationEntries(startup: StartupConfiguration): S
     { label: "Queue timeout", value: `${Math.round(startup.queueTimeoutMs / 1000)} s` },
     { label: "Sandbox startup", value: "" },
     { label: "Concurrent max", value: String(startup.sandboxStartMaxConcurrent) },
+    { label: "Slot timeout", value: `${Math.round(startup.sandboxStartSlotTimeoutMs / 1000)} s` },
     { label: "Compilation", value: "" },
     { label: "Concurrent max", value: String(startup.compileMaxConcurrent) },
   ];

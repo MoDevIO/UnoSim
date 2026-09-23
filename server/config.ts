@@ -194,6 +194,7 @@ const simulationMaxConcurrent = envInt("SIMULATION_MAX_CONCURRENT", 5, { min: 1,
 const sandboxStartMaxConcurrent = envInt("SANDBOX_START_MAX_CONCURRENT", 8, { min: 1, max: 256 });
 const simulationAdmissionMax = envInt("SIMULATION_ADMISSION_MAX", 25, { min: 1, max: 500 });
 const simulationQueueTimeoutMs = envInt("SIMULATION_QUEUE_TIMEOUT_MS", 60_000, { min: 1_000, max: 900_000 });
+const sandboxStartSlotTimeoutMs = envInt("SANDBOX_START_SLOT_TIMEOUT_MS", 30_000, { min: 1_000, max: 900_000 });
 
 /** Logical warm-object floor. It never pre-creates Docker containers. */
 const logicalWarmRunnerFloor = Math.min(5, simulationMaxConcurrent);
@@ -439,6 +440,8 @@ export const config = {
     sandboxStartMaxConcurrent,
     admissionMax: simulationAdmissionMax,
     queueTimeoutMs: simulationQueueTimeoutMs,
+    /** Maximum time an admitted simulation may wait for a sandbox-start slot */
+    sandboxStartSlotTimeoutMs,
   },
 
   // ── Sandbox Pool ────────────────────────────────────────────────
@@ -567,8 +570,6 @@ export const config = {
   timeouts: {
     /** Max time to wait for normal source compilation capacity */
     compileGatekeeperAcquireMs: 30_000,
-    /** Max time to wait for a Docker sandbox-start slot */
-    sandboxStartAcquireMs: 30_000,
     /** Unified gatekeeper distributed-lock TTL */
     gatekeeperLockTTLMs: 60_000,
     /** Interval for the gatekeeper to scan for expired locks */

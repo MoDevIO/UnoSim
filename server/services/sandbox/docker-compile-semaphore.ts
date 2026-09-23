@@ -10,7 +10,8 @@
  * (i.e. when [[RUNTIME_START]] is detected in stdout) or when the container
  * exits with an error.
  *
- * Environment variable: SANDBOX_START_MAX_CONCURRENT (default 8)
+ * Environment variables: SANDBOX_START_MAX_CONCURRENT (default 8) and
+ * SANDBOX_START_SLOT_TIMEOUT_MS (default 30000 ms)
  */
 import { config } from "../../config";
 

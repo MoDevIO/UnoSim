@@ -60,6 +60,7 @@ describe("central configuration validation", () => {
       sandboxStartMaxConcurrent: 8,
       admissionMax: 25,
       queueTimeoutMs: 60_000,
+      sandboxStartSlotTimeoutMs: 30_000,
     });
   });
 

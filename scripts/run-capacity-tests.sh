@@ -17,6 +17,7 @@ SERVER_RUN_ID=""
 SERVER_LOG=""
 BASELINE_RECEIPT="${OUTPUT_DIR}/baseline-validation.json"
 EFFECTIVE_COMPILE_MAX_CONCURRENT=""
+EFFECTIVE_SANDBOX_START_SLOT_TIMEOUT_MS=""
 
 usage() {
   cat <<'EOF'
@@ -174,6 +175,7 @@ run_one() {
     SANDBOX_START_MAX_CONCURRENT="${sandbox_start_max}" \
     SIMULATION_ADMISSION_MAX="${admission_max}" \
     SIMULATION_QUEUE_TIMEOUT_MS=60000 \
+    SANDBOX_START_SLOT_TIMEOUT_MS="${SANDBOX_START_SLOT_TIMEOUT_MS:-30000}" \
     DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest \
     CAPACITY_TEST_RUN_ID="${SERVER_RUN_ID}" \
     LOG_LEVEL=warn \
@@ -203,6 +205,7 @@ run_one() {
   local status_payload
   status_payload="$(curl -fsS "${base_url}/api/status")"
   EFFECTIVE_COMPILE_MAX_CONCURRENT="$(node -e 'const r=JSON.parse(process.argv[1]); const value=r.capacity?.compile?.maxConcurrent; if (!Number.isInteger(value)) process.exit(1); console.log(value);' "${status_payload}")"
+  EFFECTIVE_SANDBOX_START_SLOT_TIMEOUT_MS="$(node -e 'const r=JSON.parse(process.argv[1]); const value=r.capacity?.sandboxStart?.slotTimeoutMs; if (!Number.isInteger(value)) process.exit(1); console.log(value);' "${status_payload}")"
 
   CAPACITY_TEST_ENABLED=1 \
   CAPACITY_TEST_PROFILE="${profile}" \
@@ -225,8 +228,8 @@ if [[ -z "${PROFILE_FILTER}" && -z "${BURST_FILTER}" ]]; then
   run_one BASELINE 40 burst 5000 60
   run_one BASELINE 6 queue-timeout 65000 300
 
-  node -e 'const fs=require("node:fs"); fs.writeFileSync(process.argv[1], JSON.stringify({completed:true, profile:"BASELINE", simulationMaxConcurrent:5, sandboxStartMaxConcurrent:5, admissionMax:25, queueTimeoutMs:60000, compileMaxConcurrent:Number(process.argv[4]), bursts:[5,25,40], queueTimeoutCheck:true, head:process.argv[2], harnessSignature:process.argv[3], completedAt:new Date().toISOString()},null,2)+"\n");' \
-    "${BASELINE_RECEIPT}" "$(git rev-parse HEAD)" "$(harness_signature)" "${EFFECTIVE_COMPILE_MAX_CONCURRENT}"
+  node -e 'const fs=require("node:fs"); fs.writeFileSync(process.argv[1], JSON.stringify({completed:true, profile:"BASELINE", simulationMaxConcurrent:5, sandboxStartMaxConcurrent:5, sandboxStartSlotTimeoutMs:Number(process.argv[5]), admissionMax:25, queueTimeoutMs:60000, compileMaxConcurrent:Number(process.argv[4]), bursts:[5,25,40], queueTimeoutCheck:true, head:process.argv[2], harnessSignature:process.argv[3], completedAt:new Date().toISOString()},null,2)+"\n");' \
+    "${BASELINE_RECEIPT}" "$(git rev-parse HEAD)" "$(harness_signature)" "${EFFECTIVE_COMPILE_MAX_CONCURRENT}" "${EFFECTIVE_SANDBOX_START_SLOT_TIMEOUT_MS}"
   echo "Historical baseline and 60-second queue timeout check passed. Receipt: ${BASELINE_RECEIPT}"
   exit 0
 fi

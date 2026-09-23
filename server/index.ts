@@ -240,6 +240,7 @@ let cleanupTimer: NodeJS.Timeout | null = null;
       admissionMax: config.capacity.admissionMax,
       queueTimeoutMs: config.capacity.queueTimeoutMs,
       sandboxStartMaxConcurrent: config.capacity.sandboxStartMaxConcurrent,
+      sandboxStartSlotTimeoutMs: config.capacity.sandboxStartSlotTimeoutMs,
       compileMaxConcurrent: config.compilation.maxConcurrent,
       rateLimitDisabled: config.server.disableRateLimit,
       listenHost,
