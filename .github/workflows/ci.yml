@@ -133,7 +133,7 @@ jobs:
       - name: Run E2E Tests
         env:
           ARDUINO_CACHE_DIR: ${{ github.workspace }}/server/arduino-cache
-        run: npm run test:e2e -- --workers=2
+        run: npm run test:e2e
 
       - name: Upload Playwright report artifacts
         if: always()
