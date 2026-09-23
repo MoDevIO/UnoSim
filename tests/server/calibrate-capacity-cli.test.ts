@@ -1,0 +1,188 @@
+import { describe, expect, it, vi } from "vitest";
+import {
+  parseCalibrationArgs,
+  runCalibration,
+  type CalibrationDependencies,
+} from "../../scripts/calibrate-capacity";
+
+describe("capacity calibration CLI", () => {
+  it("applies documented defaults and fixed classroom duration", async () => {
+    await expect(parseCalibrationArgs([])).resolves.toMatchObject({
+      expectedUsers: 200,
+      targetCpuPercent: 75,
+      maxCpuPercent: 85,
+      maxUserWaitSec: 240,
+      maxDurationMin: 30,
+      classroomDurationSec: 60,
+      skipClassroom: false,
+      skipStartupTuning: false,
+      dryRun: false,
+      verbose: false,
+    });
+  });
+
+  it("parses supported flags and rejects unknown or invalid values", async () => {
+    await expect(parseCalibrationArgs([
+      "--expected-users", "120",
+      "--target-cpu", "70.5",
+      "--max-cpu", "84",
+      "--max-user-wait", "180",
+      "--max-duration", "12",
+      "--output-dir", "tmp/calibration",
+      "--skip-classroom",
+      "--skip-startup-tuning",
+      "--dry-run",
+      "--verbose",
+    ])).resolves.toMatchObject({
+      expectedUsers: 120,
+      targetCpuPercent: 70.5,
+      maxCpuPercent: 84,
+      maxUserWaitSec: 180,
+      maxDurationMin: 12,
+      outputDir: "tmp/calibration",
+      skipClassroom: true,
+      skipStartupTuning: true,
+      dryRun: true,
+      verbose: true,
+    });
+    await expect(parseCalibrationArgs(["--unknown"])).rejects.toThrow(/Unknown option/);
+    await expect(parseCalibrationArgs(["--expected-users", "0"])).rejects.toThrow(/expectedUsers/);
+    await expect(parseCalibrationArgs(["--target-cpu", "85", "--max-cpu", "85"])).rejects.toThrow(/less than/);
+    await expect(parseCalibrationArgs(["--expected-users"])).rejects.toThrow(/requires a value/);
+  });
+
+  it("runs probes and scenario phases in order without applying recommendations", async () => {
+    const order: string[] = [];
+    const runScenario = vi.fn(async (options) => {
+      order.push(`scenario:${options.clientCount}`);
+      return {
+        scenario: options.scenario,
+        holdDurationMs: options.holdDurationMs,
+        arrivalWindowMs: options.arrivalWindowMs ?? 0,
+        clients: [],
+        statusHistory: [{ capacity: {
+          simulation: { maxConcurrent: options.clientCount, active: 0 },
+          sandboxStart: { maxConcurrent: options.clientCount, active: 0, waiting: 0, slotTimeoutMs: 30_000 },
+          admission: { max: 200, current: 0 },
+          queue: { waiting: 0, timeoutMs: 60_000 },
+          compile: { maxConcurrent: 19, active: 0 },
+        } }],
+        runtimeConfiguration: {
+          simulationMaxConcurrent: options.clientCount,
+          sandboxStartMaxConcurrent: options.clientCount,
+          simulationAdmissionMax: 200,
+          simulationQueueTimeoutMs: 60_000,
+          sandboxStartSlotTimeoutMs: 30_000,
+          dockerControlTimeoutMs: 2_000,
+          compileMaxConcurrent: 19,
+        },
+        lifecycleDockerPeak: options.clientCount,
+        pollingDockerPeak: options.clientCount,
+        activePeak: options.clientCount,
+        queuePeak: 0,
+        admissionPeak: options.clientCount,
+        sandboxStartPeak: options.clientCount,
+        sandboxStartWaitingPeak: 0,
+        startupSlotWaitMs: [100],
+        startupDurationMs: [500],
+        queueWaitMs: [],
+        hostSamples: [{
+          atMs: 1,
+          cpuPercent: 50,
+          loadAverage: 2,
+          availableMemoryBytes: 8_000_000_000,
+          swapUsedBytes: 0,
+          iowaitPercent: 1,
+          runningDockerContainers: options.clientCount,
+          capacityDockerContainers: options.clientCount,
+        }],
+        errors: [],
+        cleanup: {
+          backendExited: false,
+          remainingCapacityContainers: 0,
+          activeSimulationCount: 0,
+          queueWaiting: 0,
+          admissionCurrent: 0,
+          sandboxStartActive: 0,
+          sandboxStartWaiting: 0,
+        },
+      };
+    });
+    let stopCount = 0;
+    const deps: CalibrationDependencies = {
+      collectHostProbe: vi.fn(async () => {
+        order.push("host");
+        return {
+          required: { gitSha: "abc", gitDirty: false, nodeVersion: "v24.20.0", architecture: "x64", logicalCpus: 4 },
+          optional: { physicalMemoryBytes: 16_000_000_000, loadAverage: [1], availableMemoryBytes: 8_000_000_000, swapUsedBytes: 0, iowaitPercent: 1, thermalPressure: null },
+          safetySignals: { cpuAvailable: true, memoryAvailable: true },
+        };
+      }),
+      collectDockerProbe: vi.fn(async () => {
+        order.push("docker");
+        return {
+          clientVersion: "29", serverVersion: "29", architecture: "x64", cpus: 4, memoryBytes: 16_000_000_000,
+          storageDriver: "overlay2", daemonHealthy: true, image: { reference: "unosim-sandbox:latest", id: "img", digest: null }, runningContainers: [],
+        };
+      }),
+      measureDockerControlLatency: vi.fn(async () => {
+        order.push("control");
+        return [{ command: "docker info", condition: "parallel", durationsMs: [100, 120], error: null }];
+      }),
+      runScenario,
+      startBackend: vi.fn(async () => ({ baseUrl: "http://127.0.0.1:1234", stop: async () => { stopCount++; } })),
+      now: () => 1_000,
+    };
+
+    const result = await runCalibration({
+      expectedUsers: 20,
+      targetCpuPercent: 75,
+      maxCpuPercent: 85,
+      maxUserWaitSec: 240,
+      maxDurationMin: 30,
+      classroomDurationSec: 60,
+      outputDir: "capacity-test-results/test-cli",
+      skipClassroom: true,
+      skipStartupTuning: true,
+      dryRun: false,
+      verbose: false,
+    }, deps);
+
+    expect(order.slice(0, 3)).toEqual(["host", "docker", "control"]);
+    expect(runScenario).toHaveBeenCalled();
+    expect(result.recommendations.simulationMaxConcurrent.value).toBe(20);
+    expect(result.recommendations.simulationAdmissionMax.value).toBe(20);
+    expect(stopCount).toBeGreaterThan(0);
+    expect(result.partial).toBe(false);
+  });
+
+  it("stops and cleans the owned backend when a scenario fails", async () => {
+    const stop = vi.fn(async () => undefined);
+    const result = await runCalibration({
+      expectedUsers: 20,
+      targetCpuPercent: 75,
+      maxCpuPercent: 85,
+      maxUserWaitSec: 240,
+      maxDurationMin: 30,
+      classroomDurationSec: 60,
+      outputDir: "capacity-test-results/test-cli-error",
+      skipClassroom: true,
+      skipStartupTuning: true,
+      dryRun: false,
+      verbose: false,
+    }, {
+      collectHostProbe: async () => ({
+        required: { gitSha: "abc", gitDirty: false, nodeVersion: "v24.20.0", architecture: "x64", logicalCpus: 4 },
+        optional: { physicalMemoryBytes: 16_000_000_000, loadAverage: [1], availableMemoryBytes: 8_000_000_000, swapUsedBytes: 0, iowaitPercent: 1, thermalPressure: null },
+        safetySignals: { cpuAvailable: true, memoryAvailable: true },
+      }),
+      collectDockerProbe: async () => ({ clientVersion: "29", serverVersion: "29", architecture: "x64", cpus: 4, memoryBytes: 16_000_000_000, storageDriver: "overlay2", daemonHealthy: true, image: { reference: "unosim-sandbox:latest", id: "img", digest: null }, runningContainers: [] }),
+      measureDockerControlLatency: async () => [],
+      startBackend: async () => ({ baseUrl: "http://127.0.0.1:1234", stop }),
+      runScenario: async () => { throw new Error("scenario failed"); },
+    });
+    expect(stop).toHaveBeenCalledOnce();
+    expect(result.partial).toBe(true);
+    expect(result.stopReason).toBe("scenario failed");
+  });
+});
