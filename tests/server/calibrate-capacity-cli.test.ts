@@ -199,4 +199,34 @@ describe("capacity calibration CLI", () => {
     expect(result.partial).toBe(true);
     expect(result.stopReason).toBe("scenario failed");
   });
+
+  it("writes a partial report when Docker preflight fails", async () => {
+    const outputDir = path.resolve(process.cwd(), "capacity-test-results/test-preflight-error");
+    const resultPromise = runCalibration({
+      expectedUsers: 20,
+      targetCpuPercent: 75,
+      maxCpuPercent: 85,
+      maxUserWaitSec: 240,
+      maxDurationMin: 30,
+      classroomDurationSec: 60,
+      outputDir,
+      skipClassroom: false,
+      skipStartupTuning: false,
+      dryRun: false,
+      verbose: false,
+    }, {
+      collectHostProbe: async () => ({
+        required: { gitSha: "abc", gitDirty: false, nodeVersion: "v24.20.0", architecture: "x64", logicalCpus: 4 },
+        optional: { physicalMemoryBytes: 16_000_000_000, loadAverage: [1], availableMemoryBytes: 8_000_000_000, swapUsedBytes: 0, iowaitPercent: 1, thermalPressure: null },
+        safetySignals: { cpuAvailable: true, memoryAvailable: true },
+      }),
+      collectDockerProbe: async () => { throw new Error("Docker unavailable"); },
+    });
+    await expect(resultPromise).rejects.toThrow("Docker unavailable");
+    expect(fs.existsSync(path.join(outputDir, "capacity-calibration.json"))).toBe(true);
+    const report = JSON.parse(fs.readFileSync(path.join(outputDir, "capacity-calibration.json"), "utf8")) as { partial: boolean; stopReason: string };
+    expect(report.partial).toBe(true);
+    expect(report.stopReason).toBe("Docker unavailable");
+    fs.rmSync(outputDir, { recursive: true, force: true });
+  });
 });

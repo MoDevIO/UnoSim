@@ -382,6 +382,53 @@ function emptyCleanup(): CleanupResult {
   };
 }
 
+function unavailableHostProbe(): HostProbe {
+  return {
+    required: { gitSha: "unknown", gitDirty: true, nodeVersion: process.version, architecture: process.arch, logicalCpus: 0 },
+    optional: { physicalMemoryBytes: null, loadAverage: null, availableMemoryBytes: null, swapUsedBytes: null, iowaitPercent: null, thermalPressure: null },
+    safetySignals: { cpuAvailable: false, memoryAvailable: false },
+  };
+}
+
+function unavailableDockerProbe(image: string): DockerProbe {
+  return {
+    clientVersion: "unknown",
+    serverVersion: "unknown",
+    architecture: "unknown",
+    cpus: 0,
+    memoryBytes: 0,
+    storageDriver: "unknown",
+    daemonHealthy: false,
+    image: { reference: image, id: "unknown", digest: null },
+    runningContainers: [],
+  };
+}
+
+function failedCalibrationResult(config: CalibrationCliConfig, host: HostProbe, docker: DockerProbe, message: string): CalibrationRunResult {
+  const notMeasured = notCalibrated<number>();
+  return {
+    schemaVersion: 1,
+    policyVersion: CALIBRATION_POLICY_VERSION,
+    policy: config,
+    fingerprint: { gitSha: host.required.gitSha, gitDirty: host.required.gitDirty, host, docker, effectiveCapacity: currentCapacityConfiguration() },
+    plan: { activeCandidates: host.required.logicalCpus > 0 ? planActiveCandidates(config, host.required.logicalCpus) : [], startupCandidates: [], classroomDurationSec: FIXED_CLASSROOM_DURATION_SEC },
+    phases: { dockerControl: [], active: [], startup: [], classroom: null },
+    recommendations: {
+      simulationMaxConcurrent: notMeasured,
+      sandboxStartMaxConcurrent: notMeasured,
+      simulationAdmissionMax: notMeasured,
+      simulationQueueTimeoutMs: notMeasured,
+      sandboxStartSlotTimeoutMs: notMeasured,
+      dockerControlTimeoutMs: notMeasured,
+      compileMaxConcurrent: notMeasured,
+    },
+    safetyEvents: [{ atMs: Date.now(), phase: "preflight", kind: docker.daemonHealthy ? "backend" : "docker", message, immediate: true }],
+    partial: true,
+    stopReason: message,
+    cleanup: emptyCleanup(),
+  };
+}
+
 export async function runCalibration(
   config: CalibrationCliConfig,
   dependencies: CalibrationDependencies = {},
@@ -396,9 +443,18 @@ export async function runCalibration(
   const startedAt = now();
   const deadline = startedAt + config.maxDurationMin * 60_000;
   const safetyEvents: SafetyEvent[] = [];
-  const host = await collectHost();
-  const docker = await collectDocker(image);
-  if (!docker.daemonHealthy) throw new Error("Docker daemon is not healthy");
+  console.log(`UnoSim Capacity Calibration\nPolicy: expected users=${config.expectedUsers}, target CPU=${config.targetCpuPercent}%, hard CPU=${config.maxCpuPercent}%, max wait=${config.maxUserWaitSec}s, duration=${config.maxDurationMin}min`);
+  let host = unavailableHostProbe();
+  let docker = unavailableDockerProbe(image);
+  try {
+    host = await collectHost();
+    docker = await collectDocker(image);
+    if (!docker.daemonHealthy) throw new Error("Docker daemon is not healthy");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await writeCalibrationArtifacts(failedCalibrationResult(config, host, docker, message), config.outputDir);
+    throw error;
+  }
   if (!host.safetySignals.cpuAvailable || !host.safetySignals.memoryAvailable) {
     if (!config.dryRun) throw new Error("Required CPU and memory safety probes are unavailable");
   }
@@ -406,7 +462,6 @@ export async function runCalibration(
   const activeCandidates = planActiveCandidates(config, host.required.logicalCpus);
   const startupCandidates = [...new Set([8, 12, 16, 20, 24, 32].filter((value) => value <= Math.max(activeCandidates.at(-1) ?? 1, 1)))];
   const plan = { activeCandidates, startupCandidates, classroomDurationSec: FIXED_CLASSROOM_DURATION_SEC as 60 };
-  console.log(`UnoSim Capacity Calibration\nPolicy: expected users=${config.expectedUsers}, target CPU=${config.targetCpuPercent}%, hard CPU=${config.maxCpuPercent}%, max wait=${config.maxUserWaitSec}s, duration=${config.maxDurationMin}min`);
 
   const phases: CalibrationRunResult["phases"] = { dockerControl: [], active: [], startup: [], classroom: null };
   let partial = false;
