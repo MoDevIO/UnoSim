@@ -17,6 +17,7 @@ import {
   type CapacityProfileKey,
 } from "../../scripts/capacity-validation-config";
 import { createDockerLifecycleTracker } from "../../scripts/capacity-docker-events";
+import { runCapacityScenario, type CapacityScenarioMeasurement } from "../../scripts/capacity-scenario-runner";
 
 type StatusSnapshot = {
   status?: string;
@@ -397,6 +398,114 @@ async function waitForOwnedBackendIdle(timeoutMs = 30_000): Promise<StatusSnapsh
   throw new Error(`Backend did not become idle after test: ${JSON.stringify(lastStatus)}`);
 }
 
+function metricsFromSharedBurst(
+  measurement: CapacityScenarioMeasurement,
+  initialStatus: StatusSnapshot,
+  elapsedMs: number,
+): CapacityTestMetrics {
+  const clients: ClientResult[] = measurement.clients.map((client) => ({
+    connected: client.connected,
+    started: client.started,
+    firstOutputMs: client.startLatencyMs,
+    startLatencyMs: client.startLatencyMs,
+    runnerQueueWaitMs: client.queueWaitMs,
+    runnerStartupToRunningMs: client.startupDurationMs,
+    simulationLeaseMs: client.runtimeDurationMs,
+    stopped: client.completedAtMs !== null,
+    timedOut: client.errors.some((error) => error.includes("watchdog")),
+    disconnects: client.disconnectedAtMs === null ? 0 : 1,
+    serialMessages: 0,
+    telemetryMessages: 0,
+    serialDroppedBytes: 0,
+    pinDroppedChanges: 0,
+    operationErrorCodes: client.operationErrorCodes,
+    operationErrorTimesMs: [],
+    errors: client.errors,
+  }));
+  const finalStatus = measurement.statusHistory.at(-1);
+  const systemBusyResponses = clients.reduce(
+    (total, client) => total + client.operationErrorCodes.filter((code) => code === "SYSTEM_BUSY").length,
+    0,
+  );
+  const admissionCapacityRejections =
+    (finalStatus?.admissionControl?.capacityRejectedTotal ?? 0) -
+    (initialStatus.admissionControl?.capacityRejectedTotal ?? 0);
+  const startLatencies = clients.flatMap((client) => client.startLatencyMs === null ? [] : [client.startLatencyMs]);
+  const queueWaits = clients.flatMap((client) => client.runnerQueueWaitMs === null ? [] : [client.runnerQueueWaitMs]);
+  const startupToRunning = clients.flatMap((client) => client.runnerStartupToRunningMs === null ? [] : [client.runnerStartupToRunningMs]);
+  const leaseDurations = clients.flatMap((client) => client.simulationLeaseMs === null ? [] : [client.simulationLeaseMs]);
+  const successful = clients.filter((client) => client.started && client.stopped && !client.timedOut).length;
+  const unexpectedErrors = clients.reduce(
+    (total, client) => total + client.errors.length + client.operationErrorCodes.filter((code) => code !== "SYSTEM_BUSY").length,
+    0,
+  );
+  const runtime = initialStatus.capacity;
+  return {
+    scenario: "burst",
+    profile: profileKey,
+    runtimeConfiguration: {
+      serverMode: initialStatus.serverMode,
+      simulationMaxConcurrent: runtime?.simulation?.maxConcurrent,
+      sandboxStartMaxConcurrent: runtime?.sandboxStart?.maxConcurrent,
+      sandboxStartSlotTimeoutMs: runtime?.sandboxStart?.slotTimeoutMs,
+      admissionMax: runtime?.admission?.max,
+      queueTimeoutMs: runtime?.queue?.timeoutMs,
+      compileMaxConcurrent: runtime?.compile?.maxConcurrent,
+    },
+    burstSize,
+    simulationTimeoutSec,
+    successful,
+    connected: clients.filter((client) => client.connected).length,
+    started: clients.filter((client) => client.started).length,
+    clientTimeouts: clients.filter((client) => client.timedOut).length,
+    systemBusyResponses,
+    admissionCapacityRejections,
+    runnerAcquireTimeouts: systemBusyResponses - admissionCapacityRejections,
+    unexpectedErrors,
+    disconnects: clients.reduce((total, client) => total + client.disconnects, 0),
+    p50StartLatencyMs: percentile(startLatencies, 50),
+    p95StartLatencyMs: percentile(startLatencies, 95),
+    p99StartLatencyMs: percentile(startLatencies, 99),
+    avgStartLatencyMs: startLatencies.length > 0 ? startLatencies.reduce((total, value) => total + value, 0) / startLatencies.length : 0,
+    p50RunnerQueueWaitMs: percentile(queueWaits, 50),
+    p95RunnerQueueWaitMs: percentile(queueWaits, 95),
+    p50RunnerStartupToRunningMs: percentile(startupToRunning, 50),
+    p95RunnerStartupToRunningMs: percentile(startupToRunning, 95),
+    p50SimulationLeaseMs: percentile(leaseDurations, 50),
+    p95SimulationLeaseMs: percentile(leaseDurations, 95),
+    peakRunnersInUse: measurement.activePeak,
+    peakDockerContainers: Math.max(measurement.lifecycleDockerPeak, measurement.pollingDockerPeak),
+    peakDockerContainersSampled: measurement.pollingDockerPeak,
+    peakDockerContainersEvents: measurement.lifecycleDockerPeak,
+    observedDockerContainersPeak: Math.max(measurement.lifecycleDockerPeak, measurement.pollingDockerPeak),
+    peakRunnerQueue: measurement.queuePeak,
+    peakAdmissions: measurement.admissionPeak,
+    peakCpuPercent: 0,
+    peakMemoryPercent: 0,
+    serialDroppedBytes: 0,
+    pinDroppedChanges: 0,
+    leakedContainers: measurement.cleanup.remainingCapacityContainers,
+    testDurationMs: elapsedMs,
+    clientsDetail: clients,
+    statusHistory: measurement.statusHistory,
+  };
+}
+
+async function executeSharedBurstScenario(): Promise<CapacityTestMetrics> {
+  const initialStatus = await getStatus();
+  expectOwnedRuntime(initialStatus);
+  const startedAt = Date.now();
+  const measurement = await runCapacityScenario({
+    baseUrl,
+    runId,
+    scenario: "burst",
+    clientCount: burstSize,
+    holdDurationMs: holdMs,
+    simulationTimeoutSec,
+  });
+  return metricsFromSharedBurst(measurement, initialStatus, Date.now() - startedAt);
+}
+
 async function executeScenario(): Promise<CapacityTestMetrics> {
   if (!enabled) throw new Error("CAPACITY_TEST_ENABLED=1 is required");
   if (!baseUrl || !runId) throw new Error("Owned backend URL and run ID are required");
@@ -407,6 +516,33 @@ async function executeScenario(): Promise<CapacityTestMetrics> {
   }
   if (scenario !== "burst" && scenario !== "queue-timeout") {
     throw new Error(`Unknown capacity test scenario: ${scenario}`);
+  }
+  if (scenario === "burst") {
+    const metrics = await executeSharedBurstScenario();
+    const expectedAdmitted = Math.min(burstSize, profile.admissionMax);
+    const expectedCapacityRejections = Math.max(0, burstSize - profile.admissionMax);
+    expect(metrics.connected).toBe(burstSize);
+    expect(metrics.clientTimeouts).toBe(0);
+    expect(metrics.unexpectedErrors).toBe(0);
+    expect(metrics.admissionCapacityRejections).toBe(expectedCapacityRejections);
+    expect(metrics.peakRunnersInUse).toBeLessThanOrEqual(profile.simulationMaxConcurrent);
+    expect(metrics.peakDockerContainers).toBeLessThanOrEqual(profile.simulationMaxConcurrent);
+    expect(metrics.peakAdmissions).toBeLessThanOrEqual(profile.admissionMax);
+    expect(metrics.peakRunnerQueue).toBeGreaterThanOrEqual(Math.max(0, expectedAdmitted - profile.simulationMaxConcurrent));
+    expect(metrics.leakedContainers).toBe(0);
+    expect(metrics.successful).toBe(expectedAdmitted);
+    expect(metrics.started).toBe(expectedAdmitted);
+    expect(metrics.runnerAcquireTimeouts).toBe(0);
+    expect(metrics.peakAdmissions).toBe(expectedAdmitted);
+    expect(metrics.p99StartLatencyMs).toBeLessThan(60_000);
+    if (
+      burstSize >= profile.simulationMaxConcurrent &&
+      profile.sandboxStartMaxConcurrent >= profile.simulationMaxConcurrent
+    ) {
+      expect(metrics.peakDockerContainersEvents).toBe(profile.simulationMaxConcurrent);
+      expect(metrics.peakDockerContainers).toBe(profile.simulationMaxConcurrent);
+    }
+    return metrics;
   }
 
   const ready = await getJson<{ status?: string }>(`${baseUrl}/api/readiness`);
