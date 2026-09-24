@@ -15,6 +15,10 @@ import {
   type ProviderQuestionResult,
 } from "./llm-provider";
 import type { TutorPlan, TutorPlanningContentContext, TutorPlanningExtension } from "./tutor-planning";
+import {
+  resolveEffectiveTutorStrategy,
+  type StrategyResolution,
+} from "./strategy/effective-tutor-strategy";
 
 const UNSAFE_MERMAID_PATTERNS = [
   /https?:\/\//i,
@@ -408,6 +412,14 @@ function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): Tutor
   };
 }
 
+function applyStrategyMetadata(result: TutorContentResult, strategy: StrategyResolution): TutorContentResult {
+  return {
+    ...result,
+    strategyId: strategy.strategy.id,
+    strategySource: strategy.source === "built-in" ? "built-in" : "repository",
+  };
+}
+
 export class TutorService {
   constructor(
     private readonly provider: LLMProvider,
@@ -423,6 +435,7 @@ export class TutorService {
   ): Promise<{ result: TutorContentResult; model: string }> {
     const requestCredential = this.resolveCredential(credential);
     const context = buildTutorContext(code);
+    const strategy = await this.resolveStrategy(courseContent);
     const planningResult = this.planningExtension
       ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent })
       : null;
@@ -435,7 +448,9 @@ export class TutorService {
       requestCredential,
     );
     const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
-    const plannedResult = planningResult ? applyPlanningResult(validatedResult, planningResult) : validatedResult;
+    const plannedResult = planningResult
+      ? applyPlanningResult(validatedResult, planningResult)
+      : applyStrategyMetadata(validatedResult, strategy);
     const { answerRating: _initialAnswerRating, ...initialResult } = plannedResult;
     return {
       model: providerResult.model,
@@ -455,10 +470,11 @@ export class TutorService {
   ): Promise<{ result: TutorContentResult; model: string }> {
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
+    const strategy = await this.resolveStrategy(courseContent);
     if (isClearlyNonLearningAnswer(answer)) {
       return {
         model: requestedModel ?? "fallback",
-        result: buildPhilosophicalFallback(parsedHistory, difficulty),
+        result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty), strategy),
       };
     }
     const context = buildTutorContext(code);
@@ -481,6 +497,7 @@ export class TutorService {
       const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent });
       if (nextPlan) distinctResult = applyPlanningResult(validatedResult, nextPlan);
     }
+    if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
     return {
       model: providerResult.model,
       result: distinctResult,
@@ -505,6 +522,17 @@ export class TutorService {
     if (model === "auto") return model;
     const availableModels = await this.provider.listModels(credential);
     return availableModels.includes(model) ? model : "auto";
+  }
+
+  private async resolveStrategy(courseContent?: TutorPlanningContentContext): Promise<StrategyResolution> {
+    if (this.planningExtension?.resolveStrategy) {
+      try {
+        return await this.planningExtension.resolveStrategy({ courseContent });
+      } catch {
+        // A strategy resolver is optional planning context; the built-in policy remains authoritative.
+      }
+    }
+    return resolveEffectiveTutorStrategy({});
   }
 
 }

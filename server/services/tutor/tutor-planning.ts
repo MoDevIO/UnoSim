@@ -1,5 +1,6 @@
 import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty } from "@shared/tutor";
 import type { TutorCapability } from "../course-content/course-content-loader";
+import type { StrategyResolution } from "./strategy/effective-tutor-strategy";
 
 export interface TutorPlanningContentContext {
   readonly revision: string;
@@ -27,6 +28,7 @@ export interface TutorPlan {
 }
 
 export interface TutorPlanningExtension {
+  resolveStrategy?(input: { readonly courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution>;
   planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<TutorPlan | null>;
   planFollowup(input: {
     readonly code: string;

@@ -3,7 +3,11 @@ import {
   type DidacticContentRepository,
 } from "./curriculum/content-repository";
 import type { TutorCapability } from "../course-content/course-content-loader";
-import { resolveEffectiveTutorStrategy } from "./strategy/effective-tutor-strategy";
+import type { ExampleTutorBinding } from "../course-content/course-content-schema";
+import {
+  resolveEffectiveTutorStrategy,
+  type StrategyResolution,
+} from "./strategy/effective-tutor-strategy";
 import {
   DefaultLearningPlanner,
   type LearningPlanner,
@@ -37,6 +41,15 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     this.factExtractor = deps.factExtractor ?? new DefaultSketchFactExtractor();
     this.topicMatcher = deps.topicMatcher ?? new DefaultTopicMatcher();
     this.planner = deps.planner ?? new DefaultLearningPlanner();
+  }
+
+  async resolveStrategy(input: { courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution> {
+    try {
+      const snapshot = input.courseContent ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
+      return this.resolveSnapshotStrategy(snapshot);
+    } catch {
+      return resolveEffectiveTutorStrategy({});
+    }
   }
 
   async planInitial(input: { code: string; history: readonly TutorDialogTurn[]; difficulty: TutorDifficulty; exampleId?: string; courseContent?: TutorPlanningContentContext }): Promise<TutorPlan | null> {
@@ -95,19 +108,30 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
           .find((match): match is NonNullable<typeof match> => match !== undefined);
         const match = boundMatch ?? matches[0];
         if (!match) return null;
-        const tutor = snapshot.tutor;
-        const repositoryDefault = tutor.manifest.defaultStrategy === undefined
-          ? undefined
-          : tutor.strategies.find(({ id }) => id === tutor.manifest.defaultStrategy);
-        const perExample = binding?.strategy === undefined
-          ? undefined
-          : tutor.strategies.find(({ id }) => id === binding.strategy);
         return {
           revision: snapshot.revision,
           facts,
           topic: match.topic,
-          strategy: resolveEffectiveTutorStrategy({ perExample, repositoryDefault }),
+          strategy: this.resolveSnapshotStrategy(snapshot, binding),
         };
+  }
+
+  private resolveSnapshotStrategy(
+    snapshot: TutorPlanningContentContext | null,
+    knownBinding?: ExampleTutorBinding,
+  ): StrategyResolution {
+    if (snapshot?.tutor?.status !== "valid") return resolveEffectiveTutorStrategy({});
+    const tutor = snapshot.tutor;
+    const binding = knownBinding ?? (snapshot.exampleId === undefined
+      ? undefined
+      : tutor.bindings.get(snapshot.exampleId));
+    const repositoryDefault = tutor.manifest.defaultStrategy === undefined
+      ? undefined
+      : tutor.strategies.find(({ id }) => id === tutor.manifest.defaultStrategy);
+    const perExample = binding?.strategy === undefined
+      ? undefined
+      : tutor.strategies.find(({ id }) => id === binding.strategy);
+    return resolveEffectiveTutorStrategy({ perExample, repositoryDefault });
   }
 }
 
