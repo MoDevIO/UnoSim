@@ -97,23 +97,23 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (snapshot.tutor?.status !== "valid" || snapshot.tutor.topics.length === 0) return null;
     const facts = this.factExtractor.extract(code);
     const matches = this.topicMatcher.match(snapshot.tutor.topics, facts);
-        const byId = new Map(matches.map((match) => [match.topic.id, match]));
-        const binding = exampleId === undefined ? undefined : snapshot.tutor.bindings.get(exampleId);
-        const boundIds = [
-          ...(binding?.primaryTopic ? [binding.primaryTopic] : []),
-          ...(binding?.topics ?? []),
-        ];
-        const boundMatch = boundIds
-          .map((id) => byId.get(id))
-          .find((match): match is NonNullable<typeof match> => match !== undefined);
-        const match = boundMatch ?? matches[0];
-        if (!match) return null;
-        return {
-          revision: snapshot.revision,
-          facts,
-          topic: match.topic,
-          strategy: this.resolveSnapshotStrategy(snapshot, binding),
-        };
+    const byId = new Map(matches.map((match) => [match.topic.id, match]));
+    const binding = exampleId === undefined ? undefined : snapshot.tutor.bindings.get(exampleId);
+    const boundIds = [
+      ...(binding?.primaryTopic ? [binding.primaryTopic] : []),
+      ...(binding?.topics ?? []),
+    ];
+    const boundMatch = boundIds
+      .map((id) => byId.get(id))
+      .find((match): match is NonNullable<typeof match> => match !== undefined);
+    const match = boundMatch ?? matches[0];
+    if (!match) return null;
+    return {
+      revision: snapshot.revision,
+      facts,
+      topic: match.topic,
+      strategy: this.resolveSnapshotStrategy(snapshot, binding),
+    };
   }
 
   private resolveSnapshotStrategy(
