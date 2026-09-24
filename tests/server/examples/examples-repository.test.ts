@@ -63,4 +63,24 @@ describe("examples repository request scoping", () => {
     await expect(repository.getExample(undefined, undefined, "builtin", { identity: "user", requestId: "request" }))
       .resolves.toMatchObject({ revision: null, source: "builtin" });
   });
+
+  it("reports Tutor capability status independently from Examples source status", async () => {
+    const resolve = vi.fn(async () => ({
+      revision: revisionA,
+      snapshot: {
+        ...external(revisionA),
+        tutor: { status: "invalid" as const, reason: "invalid-tutor-bundle" },
+      },
+      status: "cache" as const,
+      stale: false,
+    }));
+    const repository = new ExamplesRepository({
+      examplesConfig: baseConfig,
+      builtInProvider: { getExamples: async () => [] },
+      sourceProvider: { resolve, getRevision: vi.fn() },
+    });
+    const result = await repository.getCatalog({ kind: "default" }, { identity: "user", requestId: "request" });
+    expect(result.source).toMatchObject({ status: "cache", tutor: { status: "invalid", reason: "invalid-tutor-bundle" } });
+    expect(result.examples).toHaveLength(1);
+  });
 });

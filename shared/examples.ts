@@ -60,6 +60,7 @@ export type ExamplesSourceMetadata =
       revision: null;
       status: "builtin";
       stale: false;
+      tutor?: TutorCapabilityMetadata;
     }
   | {
       selection: "default" | "browser-override";
@@ -69,7 +70,13 @@ export type ExamplesSourceMetadata =
       revision: FullCommitSha;
       status: "remote" | "cache";
       stale: boolean;
+      tutor?: TutorCapabilityMetadata;
     };
+
+export type TutorCapabilityMetadata =
+  | { status: "absent" }
+  | { status: "valid" }
+  | { status: "invalid"; reason: "invalid-tutor-bundle" };
 
 export interface ExampleFile {
   name: string;

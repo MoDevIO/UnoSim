@@ -17,6 +17,7 @@ export interface ExternalExamplesSource {
   revision: string | null;
   status: "builtin" | "remote" | "cache";
   stale: boolean;
+  tutor?: { status: "absent" | "valid" | "invalid"; reason?: string };
 }
 
 export interface ExternalExampleCatalogItem {

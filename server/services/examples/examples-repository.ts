@@ -6,10 +6,12 @@ import type {
   ExamplesSourceMetadata,
   FullCommitSha,
   RepositorySlug,
+  TutorCapabilityMetadata,
 } from "@shared/examples";
 import { config, type ParsedExamplesConfig } from "../../config";
 import { BuiltInProvider } from "./built-in-provider";
 import { ExamplesCache } from "./examples-cache";
+import type { TutorCapability } from "../course-content/course-content-loader";
 import { ExamplesError } from "./examples-error";
 import { GitHubRevisionResolver } from "./github-revision-resolver";
 import { ExamplesLoadController } from "./examples-load-controller";
@@ -74,6 +76,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
       revision: result.revision,
       status: result.status,
       stale: false,
+      tutor: tutorMetadata(result.snapshot.tutor),
     };
   }
 
@@ -83,7 +86,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
     if (resolved.mode === "builtin") {
       return this.catalog({
         selection: "default", mode: "builtin", repository: null, ref: null,
-        revision: null, status: "builtin", stale: false,
+        revision: null, status: "builtin", stale: false, tutor: { status: "absent" },
       }, builtins);
     }
     const remote = await this.sourceProvider.resolve(resolved.repository, resolved.ref, context, false);
@@ -95,6 +98,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
       revision: remote.revision,
       status: remote.status,
       stale: remote.stale,
+      tutor: tutorMetadata(remote.snapshot.tutor),
     }, deduplicateExamples([...builtins, ...remote.snapshot.examples]));
   }
 
@@ -150,6 +154,13 @@ export class ExamplesRepository implements TutorCourseContentResolver {
       })),
     };
   }
+}
+
+function tutorMetadata(value: TutorCapability | undefined): TutorCapabilityMetadata {
+  if (!value || value.status === "absent") return { status: "absent" };
+  return value.status === "valid"
+    ? { status: "valid" }
+    : { status: "invalid", reason: "invalid-tutor-bundle" };
 }
 
 function toDetail(example: ExampleRecord, revision: FullCommitSha | null): ExampleDetailResponse {
