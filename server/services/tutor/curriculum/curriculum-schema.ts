@@ -16,7 +16,7 @@ const boundedText = (max: number) => z.string().trim().min(1).max(max)
   .refine((value) => !/https?:\/\//i.test(value), "URLs are not allowed in curriculum text");
 
 const idSchema = z.string().regex(SAFE_ID);
-const questionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
+export const questionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
 const strategySchema = z.enum(["concrete-model", "smaller-subproblem", "perspective-change", "prerequisite"]);
 const factKindSchema = z.enum(["type-used", "array-declared", "serial-call"]);
 
