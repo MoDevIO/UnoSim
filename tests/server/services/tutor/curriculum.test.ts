@@ -2,13 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
-  GitHubDidacticContentRepository,
-  assertPublicHost,
-  fetchBoundedText,
   parseManifest,
   parseTopic,
-  validateCommit,
-  validateSource,
 } from "../../../../server/services/tutor/curriculum/content-repository";
 import { curriculumManifestSchema, validateCurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
 import { DefaultLearningPlanner, isMastered } from "../../../../server/services/tutor/curriculum/learning-planner";
@@ -66,43 +61,6 @@ describe("repository tutor curriculum", () => {
     ]);
   });
 
-  it("loads only manifest-referenced files at a pinned commit and caches the snapshot", async () => {
-    const manifestSource = await readFile(path.resolve(process.cwd(), "curriculum/manifest.yaml"), "utf8");
-    const topicSource = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
-    const fetchText = vi.fn(async (url: URL) => url.pathname.endsWith("manifest.yaml") ? manifestSource : topicSource);
-    const repository = new GitHubDidacticContentRepository({
-      source: "https://curriculum.example/org/repo",
-      commit: "0123456789abcdef0123456789abcdef01234567",
-      allowedHosts: ["curriculum.example"],
-      fetchText,
-      refreshMs: 60_000,
-    });
-
-    const first = await repository.getSnapshot();
-    const second = await repository.getSnapshot();
-    expect(first?.revision).toBe("0123456789abcdef0123456789abcdef01234567");
-    expect(first?.topics).toHaveLength(1);
-    expect(second?.stale).toBe(false);
-    expect(fetchText).toHaveBeenCalledTimes(2);
-    expect(fetchText.mock.calls.map(([url]) => url.pathname)).toEqual([
-      "/org/repo/0123456789abcdef0123456789abcdef01234567/curriculum/manifest.yaml",
-      "/org/repo/0123456789abcdef0123456789abcdef01234567/curriculum/topics/memory-and-data-types.yaml",
-    ]);
-  });
-
-  it("rejects a topic whose manifest hash does not match", async () => {
-    const manifestSource = (await readFile(path.resolve(process.cwd(), "curriculum/manifest.yaml"), "utf8"))
-      .replace("4a804824a1bbc747361e46dd6f611fbd778945a5fabbc442bb7f4e5314ed3c33", "a".repeat(64));
-    const topicSource = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
-    const repository = new GitHubDidacticContentRepository({
-      source: "https://curriculum.example/org/repo",
-      commit: "0123456789abcdef0123456789abcdef01234567",
-      allowedHosts: ["curriculum.example"],
-      fetchText: async (url) => url.pathname.endsWith("manifest.yaml") ? manifestSource : topicSource,
-    });
-    await expect(repository.getSnapshot()).resolves.toBeNull();
-  });
-
   it("rejects cyclic concept dependencies", async () => {
     const { topic } = await loadPilot();
     const cyclic = {
@@ -112,29 +70,6 @@ describe("repository tutor curriculum", () => {
         : concept),
     };
     expect(() => validateCurriculumTopic(cyclic)).toThrow(/Cyclic concept dependency/);
-  });
-
-  it("enforces pinned HTTPS sources, allowlists, private-address protection and bounded fetches", async () => {
-    expect(() => validateCommit("main")).toThrow(/full SHA/);
-    expect(() => validateSource("http://curriculum.example/org/repo", ["curriculum.example"])).toThrow(/HTTPS/);
-    expect(() => validateSource("https://other.example/org/repo", ["curriculum.example"])).toThrow(/allowlisted/);
-    await expect(assertPublicHost("internal.example", async () => [{ address: "127.0.0.1" }])).rejects.toThrow(/private/);
-
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("redirect", {
-      status: 302,
-      headers: { location: "https://other.example" },
-    })));
-    await expect(fetchBoundedText(new URL("https://curriculum.example/file"), 100, 1_000, async () => [{ address: "93.184.216.34" }]))
-      .rejects.toThrow(/redirect/);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("0123456789", {
-      status: 200,
-      headers: { "content-length": "10" },
-    })));
-    await expect(fetchBoundedText(new URL("https://curriculum.example/file"), 5, 1_000, async () => [{ address: "93.184.216.34" }]))
-      .rejects.toThrow(/size limit/);
-    await expect(fetchBoundedText(new URL("https://curriculum.example/file"), 100, 5, async () => new Promise(() => undefined)))
-      .rejects.toThrow(/DNS lookup timed out/);
-    vi.unstubAllGlobals();
   });
 
   it("rejects unknown fields and YAML custom tags", async () => {

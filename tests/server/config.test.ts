@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as configModule from "../../server/config";
-import { getClientConfig, parseCapacityTestRunId, parseEnvInt, parseListenHost, parseRuntimeProfile, validateSimulationCapacity } from "../../server/config";
+import { getClientConfig, parseCapacityTestRunId, parseEnvInt, parseListenHost, parseRuntimeProfile, rejectObsoleteTutorCurriculumEnv, validateSimulationCapacity } from "../../server/config";
 
 describe("central configuration validation", () => {
   it("provides one parser for the complete runtime profile", () => {
@@ -123,5 +123,18 @@ describe("central configuration validation", () => {
     expect(clientConfig.tutor).toEqual({ provider: "kiconnect" });
     expect(clientConfig.tutor).not.toHaveProperty("baseUrl");
     expect(clientConfig.tutor).not.toHaveProperty("managedApiKey");
+  });
+
+  it.each([
+    "UNOSIM_TUTOR_CURRICULUM_SOURCE",
+    "UNOSIM_TUTOR_CURRICULUM_COMMIT",
+    "UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS",
+    "UNOSIM_TUTOR_CURRICULUM_REFRESH_MS",
+    "UNOSIM_TUTOR_CURRICULUM_TIMEOUT_MS",
+    "UNOSIM_TUTOR_CURRICULUM_MAX_MANIFEST_BYTES",
+    "UNOSIM_TUTOR_CURRICULUM_MAX_TOPIC_BYTES",
+    "UNOSIM_TUTOR_CURRICULUM_MAX_TOTAL_BYTES",
+  ])("tombstones obsolete Tutor repository configuration %s", (key) => {
+    expect(() => rejectObsoleteTutorCurriculumEnv({ [key]: "legacy" })).toThrow(new RegExp(`${key}.*Course Content`));
   });
 });
