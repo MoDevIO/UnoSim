@@ -130,7 +130,7 @@ hold a runner until it stops or reaches its runtime timeout. Therefore the
 80-running-plus-100-waiting policy scenario remains unproven under long
 simulation leases; the profile is not a production recommendation.
 
-## Historical baseline and validated Dell reference
+## Historical baseline and manually selected Dell reference
 
 The trusted harness baseline is 5/5/25 and remains a test baseline, not a
 production recommendation.
@@ -138,7 +138,11 @@ production recommendation.
 The following measurements were made on a Dell OptiPlex 7080 with an Intel
 Core i9-10900T (10 cores / 20 threads), approximately 31 GiB RAM, NVMe/SSD,
 NixOS, systemd-nspawn, and native Docker overlay storage. They are reference
-measurements for this workload and host, not universal guarantees.
+measurements for this workload and host, not universal guarantees. The
+70/20/200 classroom point below was selected manually during the earlier
+validation campaign. It is historical comparison evidence, not the current
+automatic calibration result, a universal production default, or a value to
+copy to another host without measuring that host.
 
 ### CPU-intensive physical scaling
 
@@ -156,7 +160,7 @@ verification with 80/80 clients running, an event-derived Docker peak of 80,
 an independent polling peak of 80, no OOM/backend/Docker/parser failures, and
 complete cleanup.
 
-### Validated classroom operating point
+### Historical manually selected classroom operating point
 
 The successful 200-student run used:
 
@@ -181,6 +185,52 @@ The 90-second value must not be copied into production.
 The earlier SANDBOX_START_MAX_CONCURRENT=8 classroom run completed 194/200;
 six admitted requests timed out waiting for a startup slot. This explains why
 startup-slot wait and simulation queue wait must be measured separately.
+
+### Final automatic calibration on the Dell reference host
+
+The merged calibration tool was then run independently with
+`--expected-users 200 --target-cpu 75 --max-cpu 85 --max-user-wait 240`.
+This result is the current automatic recommendation for this specific host and
+workload; it does not replace the historical 70/20/200 experiment.
+
+Directly measured active-cap candidates were:
+
+| Active simulations | CPU p95 |
+| ---: | ---: |
+| 20 | 28.91% |
+| 40 | 56.89% |
+| 50 | 74.02% |
+| 60 | 83.33% |
+| 80 | 84.68% |
+
+N=50 was directly measured and selected because it remained below the 75% CPU
+target. The classroom phase reported:
+
+- requested/admitted/started/successful: **200/200/200/200**
+- rejected/failed/incomplete: **0/0/0**
+- lifecycle Docker peak: **50**; polling Docker peak: **50**
+- simulation peak: **50**; simulation queue peak: **150**
+
+Simulation queue waits were p50 **89.150 s**, p95 **211.290 s**, p99
+**215.782 s**, and max **218.405 s**. Authoritative sandbox-start-slot
+samples were complete (**200/200**): p50 **31 ms**, p95 **17.022 s**, p99
+**21.259 s**, and max **24.657 s**. Startup duration was p50 **4.502 s**,
+p95 **21.674 s**, p99 **25.755 s**, and max **29.201 s**.
+
+The validated automatic recommendations were:
+
+    SIMULATION_MAX_CONCURRENT=50
+    SANDBOX_START_MAX_CONCURRENT=8
+    SIMULATION_ADMISSION_MAX=200
+    SANDBOX_START_SLOT_TIMEOUT_MS=43000
+    DOCKER_CONTROL_TIMEOUT_MS=2000
+
+`COMPILE_MAX_CONCURRENT` remained not calibrated. No
+`SIMULATION_QUEUE_TIMEOUT_MS` value was recommended: the technical minimum was
+approximately **317 s**, which exceeds the configured **240 s** UX ceiling.
+The queue result is therefore **infeasible**, not a failed calibration; it
+records that this UX ceiling and workload do not fit together on this host
+under the selected policy.
 
 ## Secondary Mac comparison
 
@@ -221,11 +271,10 @@ capacity guarantee:
 
 Dell hardware threads and Apple CPU cores are not directly equivalent to cloud
 or server vCPUs. Final sizing must be confirmed on the actual target host.
-Initial target-host settings should start conservatively near the validated
-classroom point (70 active, 20 startup, 200 admissions, and a 30-second
-startup-slot timeout). SIMULATION_QUEUE_TIMEOUT_MS remains a product and UX
-decision pending target-host acceptance; the Dell classroom test used 300000 ms
-conservatively.
+Do not prescribe the historical 70 active / 20 startup / 200 admission point
+for a new host. Start with the host-calibration workflow below, then use the
+reviewed values for acceptance. `SIMULATION_QUEUE_TIMEOUT_MS` remains a product
+and UX decision; an infeasible calibration result must be resolved explicitly.
 
 ## Target-server acceptance procedure
 
@@ -236,14 +285,18 @@ acceptance sequence:
    expected Node/Docker versions.
 2. Run a small real-Docker smoke test, including networking, resource limits,
    and cleanup.
-3. Run the intended CPU-stress active cap. Require every client to reach
-   RUNNING, event-derived and polling-derived physical Docker peaks to match,
-   CPU p95 ideally at or below 75–80%, no OOM/backend/Docker/parser errors, and
-   complete cleanup.
-4. Run the 200-student arrival test with active simulations capped at 70.
-   Require 200 admitted, 200 completed, zero failures/timeouts, active and
-   startup counts within their configured caps, and complete cleanup.
-5. Verify zero active simulations, zero queue/admission reservations, zero
+3. Run `npm run capacity:calibrate -- --expected-users <expected users>`.
+   Review the JSON, Markdown, and `capacity.env` output; resolve infeasible or
+   omitted policy values explicitly, then apply only the reviewed values.
+4. Run the intended CPU-stress active cap selected by calibration. Require
+   every client to reach RUNNING, event-derived and polling-derived physical
+   Docker peaks to match, CPU p95 ideally at or below 75–80%, no
+   OOM/backend/Docker/parser errors, and complete cleanup.
+5. Run the expected-users arrival test with the reviewed active, startup, and
+   admission values. Require all expected users to be admitted, started, and
+   successfully completed, zero failures/timeouts, counts within configured
+   caps, and complete cleanup.
+6. Verify zero active simulations, zero queue/admission reservations, zero
    startup waiters, zero labeled containers, and a healthy Docker daemon.
 
 Receipts must record the effective simulation, startup, admission, queue,
@@ -323,9 +376,17 @@ default `capacity-test-results/calibration-<timestamp>/`):
   recommendations.
 - `capacity-calibration.md` — human-readable summary with measured basis,
   technical/UX timeout values, warnings, and confidence.
-- `capacity.env` — an unapplied proposal containing only directly measured
-  recommendations. Review it and apply values through the normal deployment
-  process only after an operator decision.
+- `capacity.env` — an unapplied, review-only proposal containing only directly
+  measured recommendations. It is intentionally allowed to be incomplete:
+  omitted values can mean `not calibrated`, `infeasible`, `out of range`, or
+  insufficient measurement evidence. It is not necessarily a complete
+  deployment configuration and is never applied automatically.
+
+If `SIMULATION_QUEUE_TIMEOUT_MS` is omitted because the queue result is
+infeasible, do not blindly apply the remaining lines while leaving an old queue
+timeout in place. Review the resulting user-wait policy and choose the queue
+setting explicitly before deployment. The workflow is **Calibrate -> Review ->
+Apply**.
 
 Re-run calibration after changing CPU/vCPU allocation, RAM, Docker platform or
 runtime, sandbox CPU/memory limits, or the major simulation workload. The
