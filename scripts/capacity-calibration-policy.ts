@@ -34,6 +34,9 @@ export type StartupMeasurement = {
   timeouts: number;
 };
 
+export const CLASSROOM_QUEUE_SAFETY_MARGIN_MS = 30_000;
+export const CLASSROOM_MEASUREMENT_QUEUE_TIMEOUT_MAX_MS = 900_000;
+
 export type Recommendation<T> = {
   value: T | null;
   status: "recommended" | "not-calibrated" | "infeasible" | "out-of-range";
@@ -104,6 +107,49 @@ export function planDownwardRefinement(firstExceeded: number, _options: Calibrat
   const candidates: number[] = [];
   for (let value = firstExceeded - step; value >= lowerBound; value -= step) candidates.push(value);
   return candidates;
+}
+
+export function planBracketRefinement(
+  measurements: ActiveMeasurement[],
+  options: CalibrationOptions,
+  logicalCpus: number,
+): number[] {
+  positiveInteger(logicalCpus, "logicalCpus");
+  const step = Math.max(5, Math.ceil(logicalCpus / 2));
+  const ordered = [...measurements].sort((left, right) => left.requested - right.requested);
+  for (let index = 0; index < ordered.length - 1; index++) {
+    const lower = ordered[index];
+    const upper = ordered[index + 1];
+    if (!lower || !upper || !lower.stable || !upper.stable || lower.cpuP95Percent === null || upper.cpuP95Percent === null) continue;
+    if (lower.cpuP95Percent <= options.targetCpuPercent && upper.cpuP95Percent > options.targetCpuPercent) {
+      const candidates: number[] = [];
+      for (let value = lower.requested + step; value < upper.requested; value += step) {
+        if (!ordered.some((measurement) => measurement.requested === value)) candidates.push(value);
+      }
+      return candidates;
+    }
+  }
+  return [];
+}
+
+export function measurementQueueTimeoutMs(
+  productionDefaultMs: number,
+  maxUserWaitSec: number,
+  classroomDurationSec: number,
+  startupSafetyMarginMs = CLASSROOM_QUEUE_SAFETY_MARGIN_MS,
+): number {
+  positiveInteger(productionDefaultMs, "productionDefaultMs");
+  positiveNumber(maxUserWaitSec, "maxUserWaitSec");
+  positiveInteger(classroomDurationSec, "classroomDurationSec");
+  positiveInteger(startupSafetyMarginMs, "startupSafetyMarginMs");
+  const result = Math.max(
+    productionDefaultMs,
+    Math.ceil(maxUserWaitSec * 1_000) + classroomDurationSec * 1_000 + startupSafetyMarginMs,
+  );
+  if (result > CLASSROOM_MEASUREMENT_QUEUE_TIMEOUT_MAX_MS) {
+    throw new Error(`measurement queue timeout ${result}ms exceeds the configured maximum ${CLASSROOM_MEASUREMENT_QUEUE_TIMEOUT_MAX_MS}ms`);
+  }
+  return result;
 }
 
 function activeIsStable(measurement: ActiveMeasurement, options: CalibrationOptions): boolean {

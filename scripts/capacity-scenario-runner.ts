@@ -23,6 +23,7 @@ export type CapacityScenarioOptions = {
   expectedSimulationMaxConcurrent?: number;
   expectedSandboxStartMaxConcurrent?: number;
   requiredAdmissionMax?: number;
+  expectedSimulationQueueTimeoutMs?: number;
 };
 
 export type ClientResult = {
@@ -30,6 +31,8 @@ export type ClientResult = {
   connected: boolean;
   started: boolean;
   requestedAtMs: number;
+  connectedAtMs: number | null;
+  /** WebSocket-open is not application admission; retained only for compatibility. */
   admittedAtMs: number | null;
   queueEnteredAtMs: number | null;
   simulationSlotAcquiredAtMs: number | null;
@@ -38,6 +41,7 @@ export type ClientResult = {
   startupBeganAtMs: number | null;
   runtimeStartedAtMs: number | null;
   completedAtMs: number | null;
+  terminalAtMs: number | null;
   disconnectedAtMs: number | null;
   startLatencyMs: number | null;
   queueWaitMs: number | null;
@@ -46,7 +50,32 @@ export type ClientResult = {
   runtimeDurationMs: number | null;
   operationErrorCodes: string[];
   errors: string[];
+  outcome: ClientOutcome;
 };
+
+export type ClientOutcome = "success" | "rejected" | "failed" | "incomplete";
+
+export function classifyClientOutcome(
+  client: Pick<ClientResult, "started" | "runtimeStartedAtMs" | "completedAtMs" | "operationErrorCodes" | "errors">,
+): ClientOutcome {
+  if (client.operationErrorCodes.includes("SYSTEM_BUSY")) return "rejected";
+  if (client.operationErrorCodes.length > 0 || client.errors.length > 0) return "failed";
+  if (client.started && client.runtimeStartedAtMs !== null && client.completedAtMs !== null) return "success";
+  return "incomplete";
+}
+
+export function countClientOutcomes(
+  clients: Array<Pick<ClientResult, "started" | "runtimeStartedAtMs" | "completedAtMs" | "operationErrorCodes" | "errors">>,
+): { requested: number; started: number; successful: number; rejected: number; failed: number; incomplete: number } {
+  const counts = { requested: clients.length, started: 0, successful: 0, rejected: 0, failed: 0, incomplete: 0 };
+  for (const client of clients) {
+    if (client.started) counts.started++;
+    const outcome = classifyClientOutcome(client);
+    if (outcome === "success") counts.successful++;
+    else counts[outcome]++;
+  }
+  return counts;
+}
 
 export type StatusSnapshot = {
   status?: string;
@@ -79,6 +108,7 @@ export class CapacityScenarioConfigurationError extends Error {
       simulationMaxConcurrent?: number;
       sandboxStartMaxConcurrent?: number;
       admissionMax?: number;
+      simulationQueueTimeoutMs?: number;
     },
     readonly actual: EffectiveCapacityConfiguration,
   ) {
@@ -93,6 +123,10 @@ export class CapacityScenarioConfigurationError extends Error {
     }
     if (requirements.admissionMax !== undefined && actual.simulationAdmissionMax < requirements.admissionMax) {
       mismatches.push(`admission max ${actual.simulationAdmissionMax} (required at least ${requirements.admissionMax})`);
+    }
+    if (requirements.simulationQueueTimeoutMs !== undefined
+      && actual.simulationQueueTimeoutMs !== requirements.simulationQueueTimeoutMs) {
+      mismatches.push(`queue timeout ${actual.simulationQueueTimeoutMs}ms (expected ${requirements.simulationQueueTimeoutMs}ms)`);
     }
     super(`Runtime Capacity configuration cannot represent the requested scenario: ${mismatches.join(", ") || "unknown mismatch"}`);
     this.name = "CapacityScenarioConfigurationError";
@@ -286,6 +320,7 @@ function emptyClient(clientId: number, now: number): ClientResult {
     connected: false,
     started: false,
     requestedAtMs: now,
+    connectedAtMs: null,
     admittedAtMs: null,
     queueEnteredAtMs: null,
     simulationSlotAcquiredAtMs: null,
@@ -294,6 +329,7 @@ function emptyClient(clientId: number, now: number): ClientResult {
     startupBeganAtMs: null,
     runtimeStartedAtMs: null,
     completedAtMs: null,
+    terminalAtMs: null,
     disconnectedAtMs: null,
     startLatencyMs: null,
     queueWaitMs: null,
@@ -302,6 +338,7 @@ function emptyClient(clientId: number, now: number): ClientResult {
     runtimeDurationMs: null,
     operationErrorCodes: [],
     errors: [],
+    outcome: "incomplete",
   };
 }
 
@@ -331,7 +368,9 @@ function runClient(
       clearTimeout(timeoutTimer);
       if (holdTimer) clearTimeout(holdTimer);
       if (ws?.readyState === WebSocket.OPEN) ws.close();
+      result.terminalAtMs ??= now();
       result.disconnectedAtMs ??= now();
+      result.outcome = classifyClientOutcome(result);
       resolve(result);
     };
 
@@ -340,7 +379,7 @@ function runClient(
       ws = new WebSocket(`${baseUrl.replace(/^http/, "ws")}/ws`, { headers: { cookie } });
       ws.on("open", () => {
         result.connected = true;
-        result.admittedAtMs ??= now();
+        result.connectedAtMs ??= now();
         ws?.send(JSON.stringify({ type: "start_simulation", code: sketch(clientId), timeout: timeoutSec }));
       });
       ws.on("message", (raw) => {
@@ -377,9 +416,11 @@ function runClient(
             if (result.queueWaitMs === null && result.queueEnteredAtMs !== null && result.simulationSlotAcquiredAtMs !== null) {
               result.queueWaitMs = result.simulationSlotAcquiredAtMs - result.queueEnteredAtMs;
             }
+            result.queueWaitMs ??= 0;
             if (result.startupSlotWaitMs === null && result.startupSlotWaitBeganAtMs !== null && result.startupSlotAcquiredAtMs !== null) {
               result.startupSlotWaitMs = result.startupSlotAcquiredAtMs - result.startupSlotWaitBeganAtMs;
             }
+            result.startupSlotWaitMs ??= 0;
             if (result.startupBeganAtMs !== null) result.startupDurationMs = at - result.startupBeganAtMs;
             holdTimer = setTimeout(() => {
               if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop_simulation" }));
@@ -394,8 +435,11 @@ function runClient(
             message.status === "stopped" &&
             (result.started || result.operationErrorCodes.length > 0 || result.startupBeganAtMs !== null)
           ) {
-            result.completedAtMs ??= at;
-            if (result.runtimeStartedAtMs !== null) result.runtimeDurationMs = at - result.runtimeStartedAtMs;
+            result.terminalAtMs ??= at;
+            if (result.started && result.runtimeStartedAtMs !== null && result.operationErrorCodes.length === 0 && result.errors.length === 0) {
+              result.completedAtMs ??= at;
+              result.runtimeDurationMs = at - result.runtimeStartedAtMs;
+            }
             setTimeout(finish, 50);
           }
         } catch (error) {
@@ -403,6 +447,7 @@ function runClient(
         }
       });
       ws.on("close", () => {
+        result.terminalAtMs ??= now();
         if (result.completedAtMs === null && result.operationErrorCodes.length === 0 && result.errors.length === 0) {
           result.errors.push("WebSocket closed before completion");
         }
@@ -432,13 +477,14 @@ function runtimeConfiguration(status: StatusSnapshot): EffectiveCapacityConfigur
 }
 
 export function validateScenarioRuntimeConfiguration(
-  options: Pick<CapacityScenarioOptions, "expectedSimulationMaxConcurrent" | "expectedSandboxStartMaxConcurrent" | "requiredAdmissionMax">,
+  options: Pick<CapacityScenarioOptions, "expectedSimulationMaxConcurrent" | "expectedSandboxStartMaxConcurrent" | "requiredAdmissionMax" | "expectedSimulationQueueTimeoutMs">,
   actual: EffectiveCapacityConfiguration,
 ): void {
   const requirements = {
     simulationMaxConcurrent: options.expectedSimulationMaxConcurrent,
     sandboxStartMaxConcurrent: options.expectedSandboxStartMaxConcurrent,
     admissionMax: options.requiredAdmissionMax,
+    simulationQueueTimeoutMs: options.expectedSimulationQueueTimeoutMs,
   };
   const hasMismatch = (
     (requirements.simulationMaxConcurrent !== undefined
@@ -446,6 +492,8 @@ export function validateScenarioRuntimeConfiguration(
     || (requirements.sandboxStartMaxConcurrent !== undefined
       && actual.sandboxStartMaxConcurrent !== requirements.sandboxStartMaxConcurrent)
     || (requirements.admissionMax !== undefined && actual.simulationAdmissionMax < requirements.admissionMax)
+    || (requirements.simulationQueueTimeoutMs !== undefined
+      && actual.simulationQueueTimeoutMs !== requirements.simulationQueueTimeoutMs)
   );
   if (hasMismatch) throw new CapacityScenarioConfigurationError(requirements, actual);
 }

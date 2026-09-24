@@ -284,6 +284,19 @@ recommended. Docker-control and startup-slot timeout recommendations likewise
 show their measured basis and omit out-of-range values rather than clamping
 them silently.
 
+The classroom phase uses a separate measurement-only queue timeout. It is
+`max(production queue timeout, max-user-wait + fixed classroom duration +
+30 seconds)` and is recorded in the report; it is never copied into
+`capacity.env`. This prevents the production queue timeout from censoring the
+wait distribution. A classroom result is valid only when every requested client
+reaches `RUNNING` and completes successfully. `SYSTEM_BUSY` is a rejection,
+terminal protocol states are retained separately from successful completion,
+and WebSocket connection time is not reported as application admission. If any
+client is rejected, failed, or incomplete, admission and queue recommendations
+are diagnostic only. When coarse active candidates bracket the target CPU, the
+policy measures bounded intermediate candidates before selecting a directly
+measured value.
+
 The default policy is bounded by `--max-duration 30` minutes and uses sustained
 CPU, memory, and iowait safety observations. OOM, Docker/backend failure, host
 probe failure, and cleanup leaks stop immediately. A deadline or safety stop

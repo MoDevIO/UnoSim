@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   effectiveCapacityForPhase,
+  getClassroomOutcomeCounts,
   parseCalibrationArgs,
   runCalibration,
   type CalibrationDependencies,
@@ -10,6 +11,13 @@ import {
 import type { EffectiveCapacityConfiguration } from "../../scripts/capacity-scenario-runner";
 
 describe("capacity calibration CLI", () => {
+  it("counts a classroom with 40 successes and 160 SYSTEM_BUSY clients correctly", () => {
+    const clients = [
+      ...Array.from({ length: 40 }, () => ({ started: true, runtimeStartedAtMs: 1, completedAtMs: 2, operationErrorCodes: [], errors: [] })),
+      ...Array.from({ length: 160 }, () => ({ started: false, runtimeStartedAtMs: null, completedAtMs: null, operationErrorCodes: ["SYSTEM_BUSY"], errors: [] })),
+    ];
+    expect(getClassroomOutcomeCounts(clients as never)).toEqual({ requested: 200, started: 40, successful: 40, rejected: 160, failed: 0, incomplete: 0 });
+  });
   it("raises phase admission to cover active and startup loads while keeping classroom admission explicit", () => {
     const base: EffectiveCapacityConfiguration = {
       simulationMaxConcurrent: 5,
@@ -23,6 +31,7 @@ describe("capacity calibration CLI", () => {
     expect(effectiveCapacityForPhase(base, 40, 40)).toMatchObject({ simulationAdmissionMax: 40 });
     expect(effectiveCapacityForPhase(base, 60, 20)).toMatchObject({ simulationAdmissionMax: 60 });
     expect(effectiveCapacityForPhase(base, 70, 20, 200)).toMatchObject({ simulationAdmissionMax: 200 });
+    expect(effectiveCapacityForPhase(base, 40, 8, 200, 330_000)).toMatchObject({ simulationQueueTimeoutMs: 330_000 });
   });
 
   it("is documented as a review-only workflow with stable artifact names", () => {
@@ -162,6 +171,7 @@ describe("capacity calibration CLI", () => {
         return [{ command: "docker info", condition: "parallel", durationsMs: [100, 120], error: null }];
       }),
       runScenario,
+      ownedContainerCount: () => 0,
       startBackend: vi.fn(async (capacity) => {
         phaseCapacities.push(capacity);
         return { baseUrl: "http://127.0.0.1:1234", stop: async () => { stopCount++; } };
@@ -198,6 +208,69 @@ describe("capacity calibration CLI", () => {
     }));
     expect(stopCount).toBeGreaterThan(0);
     expect(result.partial).toBe(false);
+  });
+
+  it("measures a bounded intermediate candidate for a normal CPU bracket", async () => {
+    const measured: number[] = [];
+    const cpuByCandidate: Record<number, number> = { 20: 30, 40: 57, 60: 84, 80: 94, 50: 70 };
+    const result = await runCalibration({
+      expectedUsers: 100,
+      targetCpuPercent: 75,
+      maxCpuPercent: 85,
+      maxUserWaitSec: 240,
+      maxDurationMin: 30,
+      classroomDurationSec: 60,
+      outputDir: "capacity-test-results/test-bracket",
+      skipClassroom: true,
+      skipStartupTuning: true,
+      dryRun: false,
+      verbose: false,
+    }, {
+      collectHostProbe: async () => ({
+        required: { gitSha: "abc", gitDirty: false, nodeVersion: "v24.20.0", architecture: "x64", logicalCpus: 20 },
+        optional: { physicalMemoryBytes: 16_000_000_000, loadAverage: [1], availableMemoryBytes: 8_000_000_000, swapUsedBytes: 0, iowaitPercent: 1, thermalPressure: null },
+        safetySignals: { cpuAvailable: true, memoryAvailable: true },
+      }),
+      collectDockerProbe: async () => ({ clientVersion: "29", serverVersion: "29", architecture: "x64", cpus: 20, memoryBytes: 16_000_000_000, storageDriver: "overlay2", daemonHealthy: true, image: { reference: "unosim-sandbox:latest", id: "img", digest: null }, runningContainers: [] }),
+      measureDockerControlLatency: async () => [],
+      startBackend: async () => ({ baseUrl: "http://127.0.0.1:1234", stop: async () => undefined }),
+      ownedContainerCount: () => 0,
+      runScenario: async (options) => {
+        measured.push(options.clientCount);
+        const cpu = cpuByCandidate[options.clientCount] ?? 50;
+        return {
+          scenario: options.scenario,
+          holdDurationMs: options.holdDurationMs,
+          arrivalWindowMs: options.arrivalWindowMs ?? 0,
+          clients: [],
+          statusHistory: [],
+          runtimeConfiguration: {
+            simulationMaxConcurrent: options.clientCount,
+            sandboxStartMaxConcurrent: options.clientCount,
+            simulationAdmissionMax: Math.max(25, options.clientCount),
+            simulationQueueTimeoutMs: 60_000,
+            sandboxStartSlotTimeoutMs: 30_000,
+            dockerControlTimeoutMs: 2_000,
+            compileMaxConcurrent: 19,
+          },
+          lifecycleDockerPeak: options.clientCount,
+          pollingDockerPeak: options.clientCount,
+          activePeak: options.clientCount,
+          queuePeak: 0,
+          admissionPeak: Math.max(25, options.clientCount),
+          sandboxStartPeak: options.clientCount,
+          sandboxStartWaitingPeak: 0,
+          startupSlotWaitMs: [],
+          startupDurationMs: [],
+          queueWaitMs: [],
+          hostSamples: [{ atMs: 1, cpuPercent: cpu, loadAverage: 2, availableMemoryBytes: 8_000_000_000, swapUsedBytes: 0, iowaitPercent: 1, runningDockerContainers: options.clientCount, capacityDockerContainers: options.clientCount }],
+          errors: [],
+          cleanup: { backendExited: true, remainingCapacityContainers: 0, activeSimulationCount: 0, queueWaiting: 0, admissionCurrent: 0, sandboxStartActive: 0, sandboxStartWaiting: 0 },
+        };
+      },
+    });
+    expect(measured).toEqual([20, 40, 60, 80, 50]);
+    expect(result.recommendations.simulationMaxConcurrent.value).toBe(50);
   });
 
   it("stops and cleans the owned backend when a scenario fails", async () => {

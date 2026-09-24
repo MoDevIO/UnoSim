@@ -44,6 +44,7 @@ export function renderCalibrationMarkdown(result: CalibrationRunResult): string 
     `- Hard CPU ceiling: ${result.policy.maxCpuPercent}%`,
     `- Maximum user wait: ${result.policy.maxUserWaitSec}s`,
     `- Fixed classroom simulation duration: ${result.policy.classroomDurationSec}s`,
+    `- Classroom measurement queue timeout: ${result.fingerprint.measurementQueueTimeoutMs}ms (test-only)`,
     `- Active candidates: ${result.plan.activeCandidates.join(", ")}`,
     `- Startup candidates: ${result.plan.startupCandidates.join(", ")}`,
     "",
@@ -66,6 +67,9 @@ export function renderCalibrationMarkdown(result: CalibrationRunResult): string 
     `- Active measurements: ${result.phases.active.length}`,
     `- Startup measurements: ${result.phases.startup.length}`,
     `- Classroom measurement: ${result.phases.classroom ? "completed" : "not run"}`,
+    ...(result.phases.classroom ? [
+      `- Classroom outcomes: requested=${result.phases.classroom.requested}, admitted=${result.phases.classroom.admitted}, started=${result.phases.classroom.started}, successful=${result.phases.classroom.successful}, rejected=${result.phases.classroom.rejected}, failed=${result.phases.classroom.failed}, incomplete=${result.phases.classroom.incomplete}`,
+    ] : []),
     `- Safety events: ${result.safetyEvents.length}`,
     `- Remaining owned containers: ${result.cleanup.remainingCapacityContainers}`,
     "",
@@ -93,8 +97,13 @@ export function renderCapacityEnv(result: CalibrationRunResult): string {
   ];
   const classroom = result.phases.classroom;
   const admissionValidated = classroom !== null
-    && classroom.completed === result.policy.expectedUsers
+    && classroom.requested === result.policy.expectedUsers
+    && classroom.admitted >= result.policy.expectedUsers
+    && classroom.started === result.policy.expectedUsers
+    && classroom.successful === result.policy.expectedUsers
+    && classroom.rejected === 0
     && classroom.failed === 0
+    && classroom.incomplete === 0
     && classroom.errors.length === 0
     && classroom.runtimeConfiguration.simulationAdmissionMax >= result.policy.expectedUsers
     && classroom.cleanup.remainingCapacityContainers === 0

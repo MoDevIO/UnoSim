@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   planActiveCandidates,
+  planBracketRefinement,
   planDownwardRefinement,
   recommendDockerControlTimeout,
   recommendQueueTimeout,
   recommendSandboxStartSlotTimeout,
+  measurementQueueTimeoutMs,
   scoreCalibrationConfidence,
   selectActiveRecommendation,
   selectStartupRecommendation,
@@ -90,6 +92,13 @@ describe("active capacity planning", () => {
     expect(planDownwardRefinement(40, baseOptions, 10)).toEqual([35, 30, 25, 20, 15, 10, 5]);
   });
 
+  it("plans bounded intermediate candidates for a normal target bracket", () => {
+    expect(planBracketRefinement([
+      active(40, 57),
+      active(60, 84),
+    ], baseOptions, 20)).toEqual([50]);
+  });
+
   it("selects the highest directly measured stable candidate at or below target CPU", () => {
     const result = selectActiveRecommendation([
       active(20, 40),
@@ -152,6 +161,11 @@ describe("startup capacity planning", () => {
 });
 
 describe("timeout recommendations", () => {
+  it("uses an independent classroom measurement queue timeout above production", () => {
+    expect(measurementQueueTimeoutMs(60_000, 240, 60)).toBe(330_000);
+    expect(measurementQueueTimeoutMs(600_000, 240, 60)).toBe(600_000);
+    expect(() => measurementQueueTimeoutMs(60_000, 900, 60)).toThrow(/configured maximum/);
+  });
   it("keeps Docker control timeout at the default when measured latency is lower", () => {
     expect(recommendDockerControlTimeout(500, 2_000, { min: 100, max: 30_000 })).toMatchObject({
       value: 2_000,

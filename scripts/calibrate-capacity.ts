@@ -5,6 +5,8 @@ import path from "node:path";
 import {
   CALIBRATION_POLICY_VERSION,
   planActiveCandidates,
+  measurementQueueTimeoutMs,
+  planBracketRefinement,
   planDownwardRefinement,
   recommendDockerControlTimeout,
   recommendQueueTimeout,
@@ -27,6 +29,7 @@ import {
   type HostProbe,
 } from "./capacity-calibration-host";
 import {
+  countClientOutcomes,
   runCapacityScenario,
   CapacityScenarioConfigurationError,
   validateScenarioRuntimeConfiguration,
@@ -61,6 +64,12 @@ export type CalibrationCliConfig = CalibrationOptions & {
 };
 
 export type ClassroomMeasurement = CapacityScenarioMeasurement & {
+  requested: number;
+  admitted: number;
+  started: number;
+  successful: number;
+  rejected: number;
+  incomplete: number;
   queueP50Ms: number | null;
   queueP95Ms: number | null;
   queueP99Ms: number | null;
@@ -88,7 +97,7 @@ export type CalibrationRunResult = {
   schemaVersion: 1;
   policyVersion: string;
   policy: CalibrationOptions;
-  fingerprint: { gitSha: string; gitDirty: boolean; host: HostProbe; docker: DockerProbe; effectiveCapacity: EffectiveCapacityConfiguration };
+  fingerprint: { gitSha: string; gitDirty: boolean; host: HostProbe; docker: DockerProbe; effectiveCapacity: EffectiveCapacityConfiguration; measurementQueueTimeoutMs: number };
   plan: { activeCandidates: number[]; startupCandidates: number[]; classroomDurationSec: 60 };
   phases: { dockerControl: ControlLatencySample[]; active: ActiveMeasurement[]; startup: StartupMeasurement[]; classroom: ClassroomMeasurement | null };
   recommendations: CalibrationRecommendations;
@@ -105,6 +114,7 @@ export type CalibrationDependencies = {
   measureDockerControlLatency?: (image: string, parallelism: number, samples: number) => Promise<ControlLatencySample[]>;
   runScenario?: (options: CapacityScenarioOptions) => Promise<CapacityScenarioMeasurement>;
   startBackend?: (capacity: EffectiveCapacityConfiguration, runId: string) => Promise<{ baseUrl: string; stop: () => Promise<void> }>;
+  ownedContainerCount?: (runId: string, includeStopped?: boolean) => number;
 };
 
 function timestampOutputDir(): string {
@@ -224,6 +234,18 @@ function startupMeasurement(requested: number, measurement: CapacityScenarioMeas
   };
 }
 
+export function getClassroomOutcomeCounts(measurementClients: CapacityScenarioMeasurement["clients"]): {
+  requested: number;
+  started: number;
+  successful: number;
+  rejected: number;
+  failed: number;
+  incomplete: number;
+} {
+  const outcomes = countClientOutcomes(measurementClients);
+  return outcomes;
+}
+
 function classroomMeasurement(measurement: CapacityScenarioMeasurement): ClassroomMeasurement {
   const starts = measurement.clients
     .filter((client) => client.runtimeStartedAtMs !== null)
@@ -235,9 +257,15 @@ function classroomMeasurement(measurement: CapacityScenarioMeasurement): Classro
     }
   }
   const pairs = starts.length * Math.max(0, starts.length - 1) / 2;
-  const completed = measurement.clients.filter((client) => client.completedAtMs !== null && client.errors.length === 0).length;
+  const outcomes = getClassroomOutcomeCounts(measurement.clients);
   return {
     ...measurement,
+    requested: outcomes.requested,
+    admitted: measurement.admissionPeak,
+    started: outcomes.started,
+    successful: outcomes.successful,
+    rejected: outcomes.rejected,
+    incomplete: outcomes.incomplete,
     queueP50Ms: percentile(measurement.queueWaitMs, 50),
     queueP95Ms: percentile(measurement.queueWaitMs, 95),
     queueP99Ms: percentile(measurement.queueWaitMs, 99),
@@ -246,10 +274,10 @@ function classroomMeasurement(measurement: CapacityScenarioMeasurement): Classro
     startupSlotWaitP95Ms: percentile(measurement.startupSlotWaitMs, 95),
     startupSlotWaitP99Ms: percentile(measurement.startupSlotWaitMs, 99),
     startupSlotWaitMaxMs: maxValue(measurement.startupSlotWaitMs),
-    completed,
-    failed: measurement.clients.length - completed,
+    completed: outcomes.successful,
+    failed: outcomes.failed,
     fairness: {
-      starvation: completed < measurement.clients.length,
+      starvation: outcomes.successful < measurement.clients.length,
       reorderPercentage: pairs > 0 ? inversions / pairs * 100 : null,
       outliers: 0,
     },
@@ -350,12 +378,14 @@ export function effectiveCapacityForPhase(
   active: number,
   startup: number,
   admission = Math.max(base.simulationAdmissionMax, active),
+  simulationQueueTimeout = base.simulationQueueTimeoutMs,
 ): EffectiveCapacityConfiguration {
   return {
     ...base,
     simulationMaxConcurrent: active,
     sandboxStartMaxConcurrent: startup,
     simulationAdmissionMax: admission,
+    simulationQueueTimeoutMs: simulationQueueTimeout,
   };
 }
 
@@ -419,11 +449,19 @@ function unavailableDockerProbe(image: string): DockerProbe {
 
 function failedCalibrationResult(config: CalibrationCliConfig, host: HostProbe, docker: DockerProbe, message: string): CalibrationRunResult {
   const notMeasured = notCalibrated<number>();
+  const baseCapacity = currentCapacityConfiguration();
   return {
     schemaVersion: 1,
     policyVersion: CALIBRATION_POLICY_VERSION,
     policy: config,
-    fingerprint: { gitSha: host.required.gitSha, gitDirty: host.required.gitDirty, host, docker, effectiveCapacity: currentCapacityConfiguration() },
+    fingerprint: {
+      gitSha: host.required.gitSha,
+      gitDirty: host.required.gitDirty,
+      host,
+      docker,
+      effectiveCapacity: baseCapacity,
+      measurementQueueTimeoutMs: measurementQueueTimeoutMs(baseCapacity.simulationQueueTimeoutMs, config.maxUserWaitSec, FIXED_CLASSROOM_DURATION_SEC),
+    },
     plan: { activeCandidates: host.required.logicalCpus > 0 ? planActiveCandidates(config, host.required.logicalCpus) : [], startupCandidates: [], classroomDurationSec: FIXED_CLASSROOM_DURATION_SEC },
     phases: { dockerControl: [], active: [], startup: [], classroom: null },
     recommendations: {
@@ -452,6 +490,7 @@ export async function runCalibration(
   const measureControl = dependencies.measureDockerControlLatency ?? ((image: string, parallelism: number, samples: number) => measureDockerControlLatency(image, parallelism, samples));
   const runScenario = dependencies.runScenario ?? ((options: CapacityScenarioOptions) => runCapacityScenario(options));
   const startBackend = dependencies.startBackend ?? defaultStartBackend;
+  const countOwnedContainers = dependencies.ownedContainerCount ?? ownedContainerCount;
   const image = process.env.DOCKER_SANDBOX_IMAGE ?? DEFAULT_IMAGE;
   const startedAt = now();
   const deadline = startedAt + config.maxDurationMin * 60_000;
@@ -472,6 +511,11 @@ export async function runCalibration(
     if (!config.dryRun) throw new Error("Required CPU and memory safety probes are unavailable");
   }
   const baseCapacity = currentCapacityConfiguration();
+  const classroomQueueTimeoutMs = measurementQueueTimeoutMs(
+    baseCapacity.simulationQueueTimeoutMs,
+    config.maxUserWaitSec,
+    FIXED_CLASSROOM_DURATION_SEC,
+  );
   const activeCandidates = planActiveCandidates(config, host.required.logicalCpus);
   const startupCandidates = [...new Set([8, 12, 16, 20, 24, 32].filter((value) => value <= Math.max(activeCandidates.at(-1) ?? 1, 1)))];
   const plan = { activeCandidates, startupCandidates, classroomDurationSec: FIXED_CLASSROOM_DURATION_SEC as 60 };
@@ -501,7 +545,8 @@ export async function runCalibration(
       const admission = scenario === "classroom"
         ? config.expectedUsers
         : Math.max(baseCapacity.simulationAdmissionMax, clientCount);
-      const backendCapacity = effectiveCapacityForPhase(baseCapacity, active, startup, admission);
+      const phaseQueueTimeout = scenario === "classroom" ? classroomQueueTimeoutMs : baseCapacity.simulationQueueTimeoutMs;
+      const backendCapacity = effectiveCapacityForPhase(baseCapacity, active, startup, admission, phaseQueueTimeout);
       const backend = await startBackend(backendCapacity, runId);
       let measurement: CapacityScenarioMeasurement;
       try {
@@ -517,16 +562,18 @@ export async function runCalibration(
           expectedSimulationMaxConcurrent: active,
           expectedSandboxStartMaxConcurrent: startup,
           requiredAdmissionMax: admission,
+          expectedSimulationQueueTimeoutMs: scenario === "classroom" ? classroomQueueTimeoutMs : undefined,
         });
         validateScenarioRuntimeConfiguration({
           expectedSimulationMaxConcurrent: active,
           expectedSandboxStartMaxConcurrent: startup,
           requiredAdmissionMax: admission,
+          expectedSimulationQueueTimeoutMs: scenario === "classroom" ? classroomQueueTimeoutMs : undefined,
         }, measurement.runtimeConfiguration);
       } finally {
         await backend.stop();
       }
-      measurement.cleanup = { ...measurement.cleanup, remainingCapacityContainers: ownedContainerCount(runId), backendExited: true };
+      measurement.cleanup = { ...measurement.cleanup, remainingCapacityContainers: countOwnedContainers(runId, true), backendExited: true };
       lastScenarioCleanup = measurement.cleanup;
       safetyEvents.push(...safetyEventsForMeasurement(phase, measurement, config.maxCpuPercent, minimumMemory, now));
       return measurement;
@@ -554,6 +601,27 @@ export async function runCalibration(
         partial = true;
         stopReason = error instanceof Error ? error.message : String(error);
         break;
+      }
+    }
+    if (!partial) {
+      const bracketCandidates = planBracketRefinement(activeMeasurements, config, host.required.logicalCpus)
+        .filter((candidate) => !activeMeasurements.some((measurement) => measurement.requested === candidate));
+      for (const candidate of bracketCandidates) {
+        if (now() >= deadline) { partial = true; stopReason = "calibration deadline reached during active refinement"; break; }
+        try {
+          const measurement = await measureCandidate("active", candidate, candidate);
+          const summary = activeMeasurement(candidate, measurement);
+          activeMeasurements.push(summary);
+          if (summary.cpuP95Percent !== null && summary.cpuP95Percent >= config.maxCpuPercent) {
+            safetyEvents.push({ atMs: now(), phase: "active", kind: "cpu", message: `Active refinement candidate ${candidate} reached the hard CPU ceiling`, immediate: false });
+            break;
+          }
+        } catch (error) {
+          safetyEvents.push({ atMs: now(), phase: "active", kind: configurationErrorFor(error) ? "configuration" : "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
+          partial = true;
+          stopReason = error instanceof Error ? error.message : String(error);
+          break;
+        }
       }
     }
     phases.active = activeMeasurements;
@@ -602,16 +670,30 @@ export async function runCalibration(
   const controlDurations = phases.dockerControl.filter((sample) => sample.condition === "parallel").flatMap((sample) => sample.durationsMs);
   const controlRecommendation = recommendDockerControlTimeout(percentile(controlDurations, 99), DOCKER_CONTROL_DEFAULT_MS, DOCKER_CONTROL_RANGE);
   const classroom = phases.classroom;
-  const queueRecommendation = classroom
+  const classroomComplete = classroom !== null
+    && classroom.requested === config.expectedUsers
+    && classroom.admitted >= config.expectedUsers
+    && classroom.started === config.expectedUsers
+    && classroom.successful === config.expectedUsers
+    && classroom.rejected === 0
+    && classroom.failed === 0
+    && classroom.incomplete === 0
+    && classroom.errors.length === 0;
+  const queueMeasurementComplete = classroomComplete
+    && classroom !== null
+    && classroom.queueWaitMs.length === config.expectedUsers;
+  const queueRecommendation = classroom && queueMeasurementComplete
     ? recommendQueueTimeout(classroom.queueP95Ms, classroom.queueP99Ms, classroom.queueMaxMs, config.maxUserWaitSec)
-    : notCalibrated<number>();
+    : {
+      ...notCalibrated<number>(),
+      measuredBasis: classroom ? [`classroom queue measurement incomplete (${classroom.queueWaitMs.length}/${config.expectedUsers} client waits)`] : [],
+      warnings: classroom ? ["The classroom queue distribution was censored by rejection, timeout, or incomplete client phase data."] : ["Simulation queue waits were not measured."],
+    };
   const slotRecommendation = classroom
     ? recommendSandboxStartSlotTimeout(classroom.startupSlotWaitP99Ms, classroom.startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE)
     : recommendSandboxStartSlotTimeout(startupSlotWaitP99Ms, startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE);
-  const classroomAdmissionValidated = classroom !== null
-    && classroom.completed === config.expectedUsers
-    && classroom.failed === 0
-    && classroom.errors.length === 0
+  const classroomAdmissionValidated = classroomComplete
+    && classroom !== null
     && classroom.runtimeConfiguration.simulationAdmissionMax >= config.expectedUsers
     && classroom.cleanup.remainingCapacityContainers === 0
     && classroom.cleanup.activeSimulationCount === 0
@@ -654,7 +736,14 @@ export async function runCalibration(
     schemaVersion: 1,
     policyVersion: CALIBRATION_POLICY_VERSION,
     policy: config,
-    fingerprint: { gitSha: host.required.gitSha, gitDirty: host.required.gitDirty, host, docker, effectiveCapacity: baseCapacity },
+    fingerprint: {
+      gitSha: host.required.gitSha,
+      gitDirty: host.required.gitDirty,
+      host,
+      docker,
+      effectiveCapacity: baseCapacity,
+      measurementQueueTimeoutMs: classroomQueueTimeoutMs,
+    },
     plan,
     phases,
     recommendations,

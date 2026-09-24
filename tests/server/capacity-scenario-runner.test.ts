@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   CapacityScenarioConfigurationError,
+  classifyClientOutcome,
+  countClientOutcomes,
   summarizeCapacityScenario,
   validateScenarioRuntimeConfiguration,
   type ClientResult,
@@ -15,7 +17,8 @@ function client(overrides: Partial<ClientResult>): ClientResult {
     connected: true,
     started: true,
     requestedAtMs: 1_000,
-    admittedAtMs: 1_010,
+    connectedAtMs: 1_005,
+    admittedAtMs: null,
     queueEnteredAtMs: 1_020,
     simulationSlotAcquiredAtMs: 2_020,
     startupSlotWaitBeganAtMs: 2_030,
@@ -23,6 +26,7 @@ function client(overrides: Partial<ClientResult>): ClientResult {
     startupBeganAtMs: 2_240,
     runtimeStartedAtMs: 2_740,
     completedAtMs: 4_740,
+    terminalAtMs: 4_740,
     disconnectedAtMs: 4_750,
     startLatencyMs: 1_740,
     queueWaitMs: 1_000,
@@ -31,6 +35,7 @@ function client(overrides: Partial<ClientResult>): ClientResult {
     runtimeDurationMs: 2_000,
     operationErrorCodes: [],
     errors: [],
+    outcome: "success",
     ...overrides,
   };
 }
@@ -49,6 +54,43 @@ function status(overrides: Partial<StatusSnapshot>): StatusSnapshot {
 }
 
 describe("capacity scenario measurement aggregation", () => {
+  it("does not treat SYSTEM_BUSY followed by stopped as successful completion", () => {
+    const rejected = {
+      started: false,
+      runtimeStartedAtMs: null,
+      completedAtMs: null,
+      terminalAtMs: 2_000,
+      operationErrorCodes: ["SYSTEM_BUSY"],
+      errors: [],
+    };
+
+    expect(classifyClientOutcome(rejected)).toBe("rejected");
+    expect(rejected.completedAtMs).toBeNull();
+    expect(countClientOutcomes([rejected as never])).toMatchObject({ successful: 0, rejected: 1, failed: 0, incomplete: 0 });
+  });
+
+  it("requires RUNNING and rejects any operation error for successful completion", () => {
+    expect(classifyClientOutcome({
+      started: true,
+      runtimeStartedAtMs: 1_000,
+      completedAtMs: 2_000,
+      operationErrorCodes: [],
+      errors: [],
+    })).toBe("success");
+    expect(classifyClientOutcome({
+      started: true,
+      runtimeStartedAtMs: 1_000,
+      completedAtMs: 2_000,
+      operationErrorCodes: ["OTHER_ERROR"],
+      errors: [],
+    })).toBe("failed");
+  });
+
+  it("keeps WebSocket connection separate from application admission", () => {
+    const connected = client({ admittedAtMs: null });
+    expect(connected.admittedAtMs).toBeNull();
+  });
+
   it("rejects a runtime configuration that cannot represent the requested load", () => {
     const actual: EffectiveCapacityConfiguration = {
       simulationMaxConcurrent: 40,
@@ -64,11 +106,13 @@ describe("capacity scenario measurement aggregation", () => {
       expectedSimulationMaxConcurrent: 40,
       expectedSandboxStartMaxConcurrent: 40,
       requiredAdmissionMax: 40,
+      expectedSimulationQueueTimeoutMs: 330_000,
     }, actual)).toThrow(CapacityScenarioConfigurationError);
     expect(() => validateScenarioRuntimeConfiguration({
       expectedSimulationMaxConcurrent: 40,
       expectedSandboxStartMaxConcurrent: 40,
       requiredAdmissionMax: 40,
+      expectedSimulationQueueTimeoutMs: 60_000,
     }, { ...actual, simulationAdmissionMax: 40 })).not.toThrow();
   });
 

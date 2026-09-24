@@ -32,6 +32,7 @@ function fixture(): CalibrationRunResult {
         simulationMaxConcurrent: 5, sandboxStartMaxConcurrent: 8, simulationAdmissionMax: 25,
         simulationQueueTimeoutMs: 60_000, sandboxStartSlotTimeoutMs: 30_000, dockerControlTimeoutMs: 2_000, compileMaxConcurrent: 9,
       },
+      measurementQueueTimeoutMs: 330_000,
     },
     plan: { activeCandidates: [20, 40], startupCandidates: [8, 12], classroomDurationSec: 60 },
     phases: { dockerControl: [], active: [], startup: [], classroom: null },
@@ -64,6 +65,7 @@ describe("capacity calibration reports", () => {
     expect(markdown).toContain("abc123");
     expect(markdown).toContain("overlay2");
     expect(markdown).toContain("technical 300000ms");
+    expect(markdown).toContain("Classroom measurement queue timeout: 330000ms");
     expect(markdown).toContain("infeasible");
     expect(markdown).toContain("No production configuration was changed");
   });
@@ -122,8 +124,61 @@ describe("capacity calibration reports", () => {
       completed: 200,
       failed: 0,
       fairness: { starvation: false, reorderPercentage: 0, outliers: 0 },
+      requested: 200,
+      admitted: 200,
+      started: 200,
+      successful: 200,
+      rejected: 0,
+      incomplete: 0,
     };
     expect(renderCapacityEnv(result)).toContain("SIMULATION_ADMISSION_MAX=200");
+  });
+
+  it("omits admission and queue proposals for a rejected or truncated classroom", () => {
+    const result = fixture();
+    result.phases.classroom = {
+      scenario: "classroom",
+      holdDurationMs: 60_000,
+      arrivalWindowMs: 5_000,
+      clients: [],
+      statusHistory: [],
+      runtimeConfiguration: { ...result.fingerprint.effectiveCapacity, simulationAdmissionMax: 200 },
+      lifecycleDockerPeak: 40,
+      pollingDockerPeak: 40,
+      activePeak: 40,
+      queuePeak: 160,
+      admissionPeak: 200,
+      sandboxStartPeak: 8,
+      sandboxStartWaitingPeak: 32,
+      startupSlotWaitMs: [],
+      startupDurationMs: [],
+      queueWaitMs: [],
+      hostSamples: [],
+      errors: [],
+      cleanup: { ...fixture().cleanup },
+      queueP50Ms: 100_000,
+      queueP95Ms: 120_000,
+      queueP99Ms: 150_000,
+      queueMaxMs: 180_000,
+      startupSlotWaitP50Ms: null,
+      startupSlotWaitP95Ms: null,
+      startupSlotWaitP99Ms: null,
+      startupSlotWaitMaxMs: null,
+      requested: 200,
+      admitted: 200,
+      started: 40,
+      successful: 40,
+      rejected: 160,
+      failed: 0,
+      incomplete: 0,
+      completed: 40,
+      fairness: { starvation: true, reorderPercentage: null, outliers: 0 },
+    };
+    const env = renderCapacityEnv(result);
+    expect(env).toContain("SIMULATION_ADMISSION_MAX omitted");
+    expect(env).toContain("SIMULATION_QUEUE_TIMEOUT_MS omitted");
+    expect(env).not.toMatch(/^SIMULATION_ADMISSION_MAX=200$/m);
+    expect(env).not.toMatch(/^SIMULATION_QUEUE_TIMEOUT_MS=/m);
   });
 
   it("writes JSON, Markdown, and env artifacts from the same result", async () => {
