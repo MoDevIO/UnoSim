@@ -3,7 +3,7 @@ import type { Express } from "express";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import { getSandboxStartSemaphore } from "../services/sandbox/docker-compile-semaphore";
 import { config } from "../config";
-import { getProcessMetrics, compileMetricsTracker, webSocketMetricsTracker, evaluateObservabilityAlerts } from "../services/server-metrics";
+import { getProcessMetrics, compileMetricsTracker, sandboxStartWaitSamplesTracker, webSocketMetricsTracker, evaluateObservabilityAlerts } from "../services/server-metrics";
 import { getCompilerWithFallback } from "../services/compiler-with-fallback";
 import { REST_API_VERSION } from "../services/protocol-version";
 import { getCompileRateLimiter, getSimulationRateLimiter } from "../services/rate-limiter";
@@ -78,6 +78,13 @@ statusRouter.get("/api/status", (_req, res) => {
       avgCompileTimeMs: compilerStats.avgCompileTimeMs,
       maxWorkers: config.compilation.workerCount,
     },
+    ...(config.nodeEnv === "test" && config.capacityTestRunId
+      ? {
+        capacityTest: {
+          sandboxStartWaitSamplesMs: sandboxStartWaitSamplesTracker.getSamples(config.capacityTestRunId),
+        },
+      }
+      : {}),
     sandboxRunners: {
       total: poolStats.totalRunners,
       min: poolStats.minRunners,

@@ -29,7 +29,7 @@ import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
 import { runLocalStart, runDockerStart, type LocalStartContext, type DockerStartContext, type DockerStartParams, type TransitionToFn } from "./execution-phases/start-phase";
 import { performCompilation, type PrepareContext } from "./execution-phases/prepare-phase";
-import { compileMetricsTracker } from "../server-metrics";
+import { compileMetricsTracker, sandboxStartWaitSamplesTracker } from "../server-metrics";
 
 export enum SimulationState {
   STOPPED = "stopped",
@@ -430,11 +430,17 @@ export class ExecutionManager {
     // freeing the slot for the next waiting start.
     const wrappedOnCompileSuccess = () => {
       compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, true, compileTimedOut);
+      if (config.nodeEnv === "test" && config.capacityTestRunId) {
+        sandboxStartWaitSamplesTracker.record(config.capacityTestRunId, queueWaitTimeMs);
+      }
       releaseOnce();
       onCompileSuccess?.();
     };
     const wrappedOnCompileError = (err: string) => {
       compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, false, compileTimedOut);
+      if (config.nodeEnv === "test" && config.capacityTestRunId) {
+        sandboxStartWaitSamplesTracker.record(config.capacityTestRunId, queueWaitTimeMs);
+      }
       releaseOnce();
       onCompileError?.(err);
     };

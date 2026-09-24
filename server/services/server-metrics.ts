@@ -159,6 +159,38 @@ class CompileMetricsTracker {
 export const compileMetricsTracker = new CompileMetricsTracker();
 
 /**
+ * Raw sandbox-start semaphore waits for owned test runs.
+ *
+ * This is intentionally separate from compileMetricsTracker's aggregate
+ * compatibility metrics. Samples are keyed by CAPACITY_TEST_RUN_ID and are
+ * only recorded by the Docker execution path when NODE_ENV=test. The bounded
+ * ring keeps the test-only status response from growing without limit.
+ */
+class SandboxStartWaitSamplesTracker {
+  private static readonly MAX_SAMPLES_PER_RUN = 10_000;
+  private readonly samplesByRun = new Map<string, number[]>();
+
+  record(runId: string, waitTimeMs: number): void {
+    if (!runId || !Number.isFinite(waitTimeMs) || waitTimeMs < 0) return;
+    const samples = this.samplesByRun.get(runId) ?? [];
+    if (samples.length >= SandboxStartWaitSamplesTracker.MAX_SAMPLES_PER_RUN) samples.shift();
+    samples.push(waitTimeMs);
+    this.samplesByRun.set(runId, samples);
+  }
+
+  getSamples(runId: string): number[] {
+    return [...(this.samplesByRun.get(runId) ?? [])];
+  }
+
+  reset(runId?: string): void {
+    if (runId === undefined) this.samplesByRun.clear();
+    else this.samplesByRun.delete(runId);
+  }
+}
+
+export const sandboxStartWaitSamplesTracker = new SandboxStartWaitSamplesTracker();
+
+/**
  * Track WebSocket session metrics
  */
 export interface WebSocketMetrics {
