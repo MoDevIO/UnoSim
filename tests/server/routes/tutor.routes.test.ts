@@ -41,7 +41,7 @@ describe("Tutor HTTP route", () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()) ?? resolve());
   });
 
-  function start(service: object, trustProxy = false) {
+  function start(service: object, trustProxy = false, courseContent?: object) {
     const app = express();
     if (trustProxy) app.set("trust proxy", true);
     app.use(express.json());
@@ -53,6 +53,7 @@ describe("Tutor HTTP route", () => {
       service: service as never,
       disableRateLimit: true,
       logger: { warn: vi.fn(), error: vi.fn() },
+      courseContent: courseContent as never,
     });
     return listen(app);
   }
@@ -83,6 +84,7 @@ describe("Tutor HTTP route", () => {
       "request-only-secret",
       undefined,
       30,
+      undefined,
     );
   });
 
@@ -221,6 +223,7 @@ describe("Tutor HTTP route", () => {
       "request-only-secret",
       undefined,
       30,
+      undefined,
     );
   });
 
@@ -237,5 +240,69 @@ describe("Tutor HTTP route", () => {
 
     expect(response.status).toBe(400);
     expect(service.generateDialogResponse).not.toHaveBeenCalled();
+  });
+
+  it("derives a Course Content session and pins follow-up requests to its revision", async () => {
+    const contentA = {
+      repository: "owner/repo" as const,
+      ref: "main" as const,
+      revision: "a".repeat(40) as const,
+      exampleId: "arrays-example",
+      tutor: { status: "invalid" as const, reason: "invalid-tutor-bundle" },
+    };
+    const resolver = {
+      resolveTutorContent: vi.fn().mockResolvedValue(contentA),
+      getTutorContent: vi.fn(),
+    };
+    const service = {
+      generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Frage A" } }),
+      generateDialogResponse: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Frage B" } }),
+    };
+    const listening = await start(service, false, resolver);
+    server = listening.server;
+    const context = {
+      repository: "owner/repo",
+      ref: "main",
+      revision: "a".repeat(40),
+      exampleId: "arrays-example",
+    };
+    const first = await post(listening.url, "/api/tutor/question", {
+      code: "void setup(){}", credential: "request-only-secret", courseContent: context,
+    });
+    expect(first.status).toBe(200);
+    const session = (first.body as { courseContentSession: string }).courseContentSession;
+    expect(session).toMatch(/^[0-9a-f-]{36}$/);
+    expect(service.generateQuestion).toHaveBeenCalledWith(
+      "void setup(){}", "request-only-secret", undefined, 30, contentA,
+    );
+
+    const second = await post(listening.url, "/api/tutor/dialog", {
+      code: "void setup(){}",
+      history: [],
+      question: "Frage A",
+      answer: "Antwort",
+      credential: "request-only-secret",
+      courseContentSession: session,
+    });
+    expect(second.status).toBe(200);
+    expect(service.generateDialogResponse).toHaveBeenCalledWith(
+      "void setup(){}", [], "Frage A", "Antwort",
+      "request-only-secret", undefined, 30, contentA,
+    );
+    expect(resolver.resolveTutorContent).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a browser revision that does not match server resolution", async () => {
+    const resolver = { resolveTutorContent: vi.fn().mockRejectedValue(new Error("revision mismatch")), getTutorContent: vi.fn() };
+    const service = { generateQuestion: vi.fn() };
+    const listening = await start(service, false, resolver);
+    server = listening.server;
+    const response = await post(listening.url, "/api/tutor/question", {
+      code: "void setup(){}",
+      credential: "request-only-secret",
+      courseContent: { repository: "owner/repo", ref: "main", revision: "b".repeat(40) },
+    });
+    expect(response.status).toBe(400);
+    expect(service.generateQuestion).not.toHaveBeenCalled();
   });
 });

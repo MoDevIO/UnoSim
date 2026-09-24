@@ -6,11 +6,13 @@ import {
   TUTOR_CONFIGURED_DIFFICULTY_STORAGE_KEY,
   TUTOR_DEFAULT_DIFFICULTY,
 } from "@shared/tutor";
+import { setActiveExternalExampleContext } from "@/lib/external-examples";
 
 describe("useTutor", () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => {
     localStorage.clear();
+    setActiveExternalExampleContext(null);
     vi.restoreAllMocks();
   });
 
@@ -125,6 +127,39 @@ describe("useTutor", () => {
     });
     expect(result.current.question?.question).toBe("Welche Ausgabe erwartest du?");
     expect(localStorage.length).toBe(0);
+  });
+
+  it("resets a pinned dialog when the active Course Content revision changes", async () => {
+    setActiveExternalExampleContext({ repository: "owner/repo", ref: "main", revision: "a".repeat(40), exampleId: "arrays" });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (String(input) === "/api/config") return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }), { status: 200 });
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      if (String(input) === "/api/tutor/question") {
+        return new Response(JSON.stringify({
+          question: "Frage",
+          provider: "kiconnect",
+          model: "pilot-model",
+          courseContentSession: "11111111-1111-4111-8111-111111111111",
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ question: "Antwortfrage", provider: "kiconnect", model: "pilot-model" }), { status: 200 });
+    });
+    const { result } = renderHook(() => useTutor());
+    act(() => result.current.setCredential("volatile-key"));
+    await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
+    expect(JSON.parse(String(fetchMock.mock.calls.find(([input]) => String(input) === "/api/tutor/question")?.[1]?.body))).toMatchObject({
+      courseContent: { revision: "a".repeat(40), exampleId: "arrays" },
+    });
+
+    act(() => setActiveExternalExampleContext({ repository: "owner/repo", ref: "main", revision: "b".repeat(40), exampleId: "arrays" }));
+    await waitFor(() => expect(result.current.question).toBeNull());
+    expect(result.current.history).toEqual([]);
+    await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
+    const questionBodies = fetchMock.mock.calls
+      .filter(([input]) => String(input) === "/api/tutor/question")
+      .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>);
+    expect(questionBodies.at(-1)).toMatchObject({ courseContent: { revision: "b".repeat(40), exampleId: "arrays" } });
+    expect(questionBodies.at(-1)).not.toHaveProperty("courseContentSession");
   });
 
   it("does not call the backend without a personal key", async () => {

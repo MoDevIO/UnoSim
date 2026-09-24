@@ -17,6 +17,11 @@ import { RevisionProvider, SecureExamplesFetcher } from "./http-provider";
 import type { ExampleRecord } from "./examples-schema";
 import { SourceProvider, type RequestContext } from "./source-provider";
 import { resolveExamplesSelection } from "./source-selection";
+import type {
+  ResolvedTutorCourseContent,
+  TutorCourseContentRequest,
+  TutorCourseContentResolver,
+} from "../course-content/course-content-session";
 
 export interface ExamplesRepositoryOptions {
   examplesConfig?: ParsedExamplesConfig;
@@ -26,7 +31,7 @@ export interface ExamplesRepositoryOptions {
   loadController?: ExamplesLoadController;
 }
 
-export class ExamplesRepository {
+export class ExamplesRepository implements TutorCourseContentResolver {
   private readonly examplesConfig: ParsedExamplesConfig;
   private readonly builtInProvider: Pick<BuiltInProvider, "getExamples">;
   private readonly sourceProvider: Pick<SourceProvider, "resolve" | "getRevision">;
@@ -109,6 +114,30 @@ export class ExamplesRepository {
     const snapshot = await this.sourceProvider.getRevision(repository, revision, context);
     const example = snapshot.examples.find((candidate) => candidate.id === id);
     return example ? toDetail(example, revision) : null;
+  }
+
+  async resolveTutorContent(request: TutorCourseContentRequest, context: RequestContext): Promise<ResolvedTutorCourseContent> {
+    const resolved = await this.sourceProvider.resolve(request.repository, request.ref, context, true);
+    if (resolved.revision !== request.revision) {
+      throw new ExamplesError("INVALID_REVISION", "Course Content revision is not the active server revision");
+    }
+    this.assertExampleInSnapshot(resolved.snapshot.examples, request.exampleId);
+    return {
+      ...request,
+      tutor: resolved.snapshot.tutor ?? { status: "absent" },
+    };
+  }
+
+  async getTutorContent(request: ResolvedTutorCourseContent, context: RequestContext): Promise<ResolvedTutorCourseContent> {
+    const snapshot = await this.sourceProvider.getRevision(request.repository, request.revision, context);
+    this.assertExampleInSnapshot(snapshot.examples, request.exampleId);
+    return { ...request, tutor: snapshot.tutor ?? { status: "absent" } };
+  }
+
+  private assertExampleInSnapshot(examples: readonly ExampleRecord[], exampleId: string | undefined): void {
+    if (exampleId !== undefined && !examples.some(({ id }) => id === exampleId)) {
+      throw new ExamplesError("EXAMPLE_NOT_FOUND", "Course Content example is not in the selected revision");
+    }
   }
 
   private catalog(source: ExamplesSourceMetadata, examples: ExampleRecord[]): ExamplesCatalogResponse {

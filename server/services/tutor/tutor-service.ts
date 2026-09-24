@@ -14,7 +14,7 @@ import {
   type LLMProvider,
   type ProviderQuestionResult,
 } from "./llm-provider";
-import type { TutorPlan, TutorPlanningExtension } from "./tutor-planning";
+import type { TutorPlan, TutorPlanningContentContext, TutorPlanningExtension } from "./tutor-planning";
 
 const UNSAFE_MERMAID_PATTERNS = [
   /https?:\/\//i,
@@ -419,11 +419,12 @@ export class TutorService {
     credential: string | undefined,
     requestedModel: string | undefined,
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
+    courseContent?: TutorPlanningContentContext,
   ): Promise<{ result: TutorContentResult; model: string }> {
     const requestCredential = this.resolveCredential(credential);
     const context = buildTutorContext(code);
     const planningResult = this.planningExtension
-      ? await this.planningExtension.planInitial({ code, history: [], difficulty })
+      ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent })
       : null;
     const providerResult: ProviderQuestionResult = await this.provider.generateLearningQuestion(
       {
@@ -450,6 +451,7 @@ export class TutorService {
     credential: string | undefined,
     requestedModel: string | undefined,
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
+    courseContent?: TutorPlanningContentContext,
   ): Promise<{ result: TutorContentResult; model: string }> {
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
@@ -476,7 +478,7 @@ export class TutorService {
       ? ensureDistinctDialogQuestion(validatedResult, code, parsedHistory, question)
       : validatedResult;
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
-      const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty });
+      const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent });
       if (nextPlan) distinctResult = applyPlanningResult(validatedResult, nextPlan);
     }
     return {

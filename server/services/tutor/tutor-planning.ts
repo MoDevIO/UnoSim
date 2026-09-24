@@ -1,4 +1,11 @@
 import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty } from "@shared/tutor";
+import type { TutorCapability } from "../course-content/course-content-loader";
+
+export interface TutorPlanningContentContext {
+  readonly revision: string;
+  readonly tutor?: TutorCapability;
+  readonly exampleId?: string;
+}
 
 /** Normalized, implementation-independent plan data consumed by TutorService. */
 export interface TutorPlan {
@@ -20,7 +27,7 @@ export interface TutorPlan {
 }
 
 export interface TutorPlanningExtension {
-  planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty; readonly exampleId?: string }): Promise<TutorPlan | null>;
+  planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<TutorPlan | null>;
   planFollowup(input: {
     readonly code: string;
     readonly history: readonly TutorDialogTurn[];
@@ -28,5 +35,6 @@ export interface TutorPlanningExtension {
     readonly rating: TutorAnswerRating;
     readonly difficulty: TutorDifficulty;
     readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
   }): Promise<TutorPlan | null>;
 }

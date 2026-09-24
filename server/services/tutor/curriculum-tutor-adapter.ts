@@ -10,7 +10,7 @@ import {
 } from "./curriculum/learning-planner";
 import { DefaultSketchFactExtractor, type SketchFactExtractor } from "./curriculum/sketch-facts";
 import { DefaultTopicMatcher, type TopicMatcher } from "./curriculum/topic-matcher";
-import type { TutorPlan, TutorPlanningExtension } from "./tutor-planning";
+import type { TutorPlan, TutorPlanningContentContext, TutorPlanningExtension } from "./tutor-planning";
 
 export interface CurriculumTutorAdapterDependencies {
   readonly courseContent?: CourseContentSnapshotProvider;
@@ -21,7 +21,7 @@ export interface CurriculumTutorAdapterDependencies {
 }
 
 export interface CourseContentSnapshotProvider {
-  getSnapshot(): Promise<{ readonly revision: string; readonly tutor?: TutorCapability } | null>;
+  getSnapshot(): Promise<{ readonly revision: string; readonly tutor?: TutorCapability; readonly exampleId?: string } | null>;
 }
 
 export class CurriculumTutorAdapter implements TutorPlanningExtension {
@@ -39,8 +39,8 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     this.planner = deps.planner ?? new DefaultLearningPlanner();
   }
 
-  async planInitial(input: { code: string; history: readonly TutorDialogTurn[]; difficulty: TutorDifficulty; exampleId?: string }): Promise<TutorPlan | null> {
-    const context = await this.match(input.code, input.exampleId);
+  async planInitial(input: { code: string; history: readonly TutorDialogTurn[]; difficulty: TutorDifficulty; exampleId?: string; courseContent?: TutorPlanningContentContext }): Promise<TutorPlan | null> {
+    const context = await this.match(input.code, input.exampleId, input.courseContent);
     if (!context) return null;
     const plan = this.planner.start(context.topic, context.revision, context.facts, input.history, input.difficulty, context.strategy?.strategy);
     return plan ? normalizePlan(plan, context.strategy) : null;
@@ -53,20 +53,37 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     rating: Parameters<NonNullable<LearningPlanner["advance"]>>[5];
     difficulty: TutorDifficulty;
     exampleId?: string;
+    courseContent?: TutorPlanningContentContext;
   }): Promise<TutorPlan | null> {
-    const context = await this.match(input.code, input.exampleId);
+    const context = await this.match(input.code, input.exampleId, input.courseContent);
     if (!context) return null;
     const plan = this.planner.advance(context.topic, context.revision, context.facts, input.history, input.currentQuestion, input.rating, input.difficulty, context.strategy?.strategy);
     return plan ? normalizePlan(plan, context.strategy) : null;
   }
 
-  private async match(code: string, exampleId?: string) {
+  private async match(code: string, exampleId?: string, supplied?: TutorPlanningContentContext) {
     try {
-      if (this.courseContent) {
-        const snapshot = await this.courseContent.getSnapshot();
-        if (!snapshot || snapshot.tutor?.status !== "valid" || snapshot.tutor.topics.length === 0) return null;
+      const snapshot = supplied ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
+      if (snapshot) {
+        return this.matchCourseContent(code, exampleId ?? snapshot.exampleId, snapshot);
+      }
+      if (!this.courseContent) {
+        const legacy = this.repository ? await this.repository.getSnapshot() : null;
+        if (!legacy) return null;
         const facts = this.factExtractor.extract(code);
-        const matches = this.topicMatcher.match(snapshot.tutor.topics, facts);
+        const match = this.topicMatcher.match(legacy.topics, facts)[0];
+        return match ? { revision: legacy.revision, facts, topic: match.topic, strategy: resolveEffectiveTutorStrategy({}) } : null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private matchCourseContent(code: string, exampleId: string | undefined, snapshot: TutorPlanningContentContext) {
+    if (snapshot.tutor?.status !== "valid" || snapshot.tutor.topics.length === 0) return null;
+    const facts = this.factExtractor.extract(code);
+    const matches = this.topicMatcher.match(snapshot.tutor.topics, facts);
         const byId = new Map(matches.map((match) => [match.topic.id, match]));
         const binding = exampleId === undefined ? undefined : snapshot.tutor.bindings.get(exampleId);
         const boundIds = [
@@ -91,15 +108,6 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
           topic: match.topic,
           strategy: resolveEffectiveTutorStrategy({ perExample, repositoryDefault }),
         };
-      }
-      const snapshot = this.repository ? await this.repository.getSnapshot() : null;
-      if (!snapshot) return null;
-      const facts = this.factExtractor.extract(code);
-      const match = this.topicMatcher.match(snapshot.topics, facts)[0];
-      return match ? { revision: snapshot.revision, facts, topic: match.topic, strategy: resolveEffectiveTutorStrategy({}) } : null;
-    } catch {
-      return null;
-    }
   }
 }
 

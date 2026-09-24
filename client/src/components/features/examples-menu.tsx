@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ExternalExamplesError,
   refreshExternalExamplesCatalog,
+  setActiveExternalExampleContext,
   useExternalExamples,
 } from "@/lib/external-examples";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
@@ -21,6 +22,7 @@ interface Example {
   source: "builtin" | "external";
   files: Array<{ name: string; path: string }>;
   repository?: string;
+  ref?: string;
   revision?: string;
 }
 
@@ -79,6 +81,7 @@ export function ExamplesMenu({
             payload.source.mode === "repository-ref"
               ? {
                   repository: payload.source.repository!,
+                  ref: payload.source.ref!,
                   revision: payload.source.revision!,
                 }
               : {}),
@@ -276,6 +279,9 @@ export function ExamplesMenu({
         throw new Error("Example contains no files");
       }
       const displayName = getExampleDisplayName(example);
+      setActiveExternalExampleContext(example.source === "external" && example.repository && example.ref && example.revision
+        ? { repository: example.repository, ref: example.ref, revision: example.revision, exampleId: example.id }
+        : null);
       onLoadExample(detail.files, displayName);
       toast({
         title: "Example Loaded",
