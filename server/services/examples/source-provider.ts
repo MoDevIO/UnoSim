@@ -109,17 +109,14 @@ export class SourceProvider {
   async getRevision(
     repository: RepositorySlug,
     revision: FullCommitSha,
-    context: RequestContext,
+    _context: RequestContext,
   ): Promise<RevisionCacheEntry> {
     const key = toRevisionCacheKey(repository, revision);
     const existing = this.cache.getRevision(key);
-    if (existing) return existing;
-    return this.cache.withRevisionSingleflight(key, () => this.loads.runLoad(async () => {
-      const raced = this.cache.getRevision(key);
-      if (raced) return raced;
-      const loaded = await this.revisionLoader.load(repository, revision, context.signal);
-      return this.cache.setRevision(key, { repository, revision, ...loaded });
-    }, context.signal));
+    if (!existing) {
+      throw new ExamplesError("INVALID_REVISION", "External examples revision is not a server-authorized snapshot");
+    }
+    return existing;
   }
 
   private async loadRevision(
