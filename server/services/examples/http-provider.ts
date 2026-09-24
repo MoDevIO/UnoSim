@@ -2,19 +2,10 @@ import dns from "node:dns/promises";
 import { isIP } from "node:net";
 import type { FullCommitSha, RepositorySlug } from "@shared/examples";
 import { config } from "../../config";
-import { ExamplesError } from "./examples-error";
-import { ExamplesLoadController, mapWithConcurrency } from "./examples-load-controller";
-import {
-  examplesManifestSchema,
-  type ExampleRecord,
-  validateManifestReferences,
-} from "./examples-schema";
-import { toGithubRawRepositoryBase } from "./source-selection";
+import { ExamplesLoadController } from "./examples-load-controller";
+import { CourseContentLoader, type LoadedCourseContentSnapshot } from "../course-content/course-content-loader";
 
-export interface LoadedRevisionSnapshot {
-  examples: ExampleRecord[];
-  contentBytes: number;
-}
+export type LoadedRevisionSnapshot = LoadedCourseContentSnapshot;
 
 export interface TextFetcher {
   fetchText(url: URL, maxBytes: number, signal?: AbortSignal): Promise<string>;
@@ -30,64 +21,21 @@ export class SecureExamplesFetcher implements TextFetcher {
 }
 
 export class RevisionProvider {
+  private readonly loader: CourseContentLoader;
+
   constructor(
-    private readonly fetcher: TextFetcher,
-    private readonly maxFileFetchConcurrency = config.examples.maxFileFetchConcurrency,
-  ) {}
+    fetcher: TextFetcher,
+    maxFileFetchConcurrency = config.examples.maxFileFetchConcurrency,
+  ) {
+    this.loader = new CourseContentLoader(fetcher, maxFileFetchConcurrency);
+  }
 
   async load(
     repository: RepositorySlug,
     revision: FullCommitSha,
     signal?: AbortSignal,
   ): Promise<LoadedRevisionSnapshot> {
-    const base = new URL(`${revision}/`, toGithubRawRepositoryBase(repository));
-    const manifestText = await this.fetcher.fetchText(
-      new URL("manifest.json", base),
-      config.examples.maxManifestBytes,
-      signal,
-    );
-    let decoded: unknown;
-    try { decoded = JSON.parse(manifestText) as unknown; }
-    catch { throw new ExamplesError("INVALID_SNAPSHOT", "External examples manifest is invalid"); }
-    const parsed = examplesManifestSchema.safeParse(decoded);
-    if (!parsed.success) throw new ExamplesError("INVALID_SNAPSHOT", "External examples manifest is invalid");
-    const manifest = parsed.data;
-    try { validateManifestReferences(manifest); }
-    catch { throw new ExamplesError("INVALID_SNAPSHOT", "External examples snapshot is invalid"); }
-
-    const filesToLoad = manifest.examples.flatMap((example, exampleIndex) =>
-      example.files.map((file) => ({ exampleIndex, file })),
-    );
-    if (filesToLoad.length > config.examples.maxFiles) {
-      throw new ExamplesError("INVALID_SNAPSHOT", "External examples exceed the file count limit");
-    }
-    const loaded = await mapWithConcurrency(filesToLoad, this.maxFileFetchConcurrency, async ({ file }) => ({
-      ...file,
-      content: await this.fetcher.fetchText(
-        new URL(file.path.split("/").map(encodeURIComponent).join("/"), base),
-        config.examples.maxFileBytes,
-        signal,
-      ),
-    }));
-    const examples = manifest.examples.map((example, exampleIndex) => ({
-      ...example,
-      files: filesToLoad
-        .map((item, index) => ({ item, file: loaded[index] }))
-        .filter(({ item }) => item.exampleIndex === exampleIndex)
-        .map(({ file }) => file),
-      source: "external" as const,
-    }));
-    const contentBytes = examples.reduce(
-      (total, example) => total + example.files.reduce(
-        (sum, file) => sum + Buffer.byteLength(file.content, "utf8"),
-        0,
-      ),
-      0,
-    );
-    if (contentBytes > config.examples.maxTotalBytes) {
-      throw new ExamplesError("INVALID_SNAPSHOT", "External examples exceed the total size limit");
-    }
-    return { examples, contentBytes };
+    return this.loader.load(repository, revision, signal);
   }
 }
 

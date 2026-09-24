@@ -1,6 +1,7 @@
 import type { ExamplesRef, FullCommitSha, RepositorySlug } from "@shared/examples";
 import type { ExampleRecord } from "./examples-schema";
 import { ExamplesError } from "./examples-error";
+import type { TutorCapability } from "../course-content/course-content-loader";
 
 export type SourceCacheKey = `examples:source:v1:${RepositorySlug}:${ExamplesRef}`;
 export type RevisionCacheKey = `examples:revision:v1:${RepositorySlug}:${FullCommitSha}`;
@@ -28,6 +29,7 @@ export interface RevisionCacheEntry {
   repository: RepositorySlug;
   revision: FullCommitSha;
   examples: ExampleRecord[];
+  tutor?: TutorCapability;
   contentBytes: number;
   lastAccessedAt: number;
 }

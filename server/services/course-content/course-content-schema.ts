@@ -52,6 +52,15 @@ export const courseContentStrategyEntrySchema = z.object({
   sha256: z.string().regex(/^[a-f0-9]{64}$/i),
 }).strict();
 
+export const courseContentTutorManifestSchema = z.object({
+  schemaVersion: z.literal(1),
+  defaultStrategy: z.string().regex(SAFE_ID).optional(),
+  topics: z.array(courseContentTopicEntrySchema).max(64),
+  strategies: z.array(courseContentStrategyEntrySchema).max(64),
+}).strict();
+
+export type CourseContentTutorManifest = z.infer<typeof courseContentTutorManifestSchema>;
+
 type InvalidCapability = { readonly status: "invalid"; readonly reason: string };
 
 export type CourseContentValidation = {
