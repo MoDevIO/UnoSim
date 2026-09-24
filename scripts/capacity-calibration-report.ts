@@ -91,6 +91,18 @@ export function renderCapacityEnv(result: CalibrationRunResult): string {
     `# Policy version: ${result.policyVersion}`,
     "",
   ];
+  const classroom = result.phases.classroom;
+  const admissionValidated = classroom !== null
+    && classroom.completed === result.policy.expectedUsers
+    && classroom.failed === 0
+    && classroom.errors.length === 0
+    && classroom.runtimeConfiguration.simulationAdmissionMax >= result.policy.expectedUsers
+    && classroom.cleanup.remainingCapacityContainers === 0
+    && classroom.cleanup.activeSimulationCount === 0
+    && classroom.cleanup.queueWaiting === 0
+    && classroom.cleanup.admissionCurrent === 0
+    && classroom.cleanup.sandboxStartActive === 0
+    && classroom.cleanup.sandboxStartWaiting === 0;
   const values: Array<[string, keyof CalibrationRunResult["recommendations"]]> = [
     ["SIMULATION_MAX_CONCURRENT", "simulationMaxConcurrent"],
     ["SANDBOX_START_MAX_CONCURRENT", "sandboxStartMaxConcurrent"],
@@ -102,6 +114,10 @@ export function renderCapacityEnv(result: CalibrationRunResult): string {
   ];
   for (const [environmentName, recommendationName] of values) {
     const recommendation = result.recommendations[recommendationName];
+    if (recommendationName === "simulationAdmissionMax" && !admissionValidated) {
+      lines.push(`# ${environmentName} omitted: classroom admission validation not completed successfully`);
+      continue;
+    }
     if (recommendation.status === "recommended" && recommendation.value !== null) {
       lines.push(`${environmentName}=${recommendation.value}`);
     } else {

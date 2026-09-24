@@ -72,12 +72,58 @@ describe("capacity calibration reports", () => {
     const env = renderCapacityEnv(fixture());
     expect(env).toContain("SIMULATION_MAX_CONCURRENT=40");
     expect(env).toContain("SANDBOX_START_MAX_CONCURRENT=20");
-    expect(env).toContain("SIMULATION_ADMISSION_MAX=200");
+    expect(env).not.toContain("SIMULATION_ADMISSION_MAX=200");
+    expect(env).toContain("SIMULATION_ADMISSION_MAX omitted: classroom admission validation not completed successfully");
     expect(env).toContain("SANDBOX_START_SLOT_TIMEOUT_MS=30000");
     expect(env).not.toContain("SIMULATION_QUEUE_TIMEOUT_MS=");
     expect(env).not.toContain("DOCKER_CONTROL_TIMEOUT_MS=");
     expect(env).not.toContain("COMPILE_MAX_CONCURRENT=");
     expect(env).toContain("review");
+  });
+
+  it("emits admission only after a successful classroom envelope validation", () => {
+    const result = fixture();
+    result.phases.classroom = {
+      scenario: "classroom",
+      holdDurationMs: 60_000,
+      arrivalWindowMs: 5_000,
+      clients: [],
+      statusHistory: [],
+      runtimeConfiguration: { ...result.fingerprint.effectiveCapacity, simulationAdmissionMax: 200 },
+      lifecycleDockerPeak: 70,
+      pollingDockerPeak: 70,
+      activePeak: 70,
+      queuePeak: 130,
+      admissionPeak: 200,
+      sandboxStartPeak: 20,
+      sandboxStartWaitingPeak: 50,
+      startupSlotWaitMs: [],
+      startupDurationMs: [],
+      queueWaitMs: [],
+      hostSamples: [],
+      errors: [],
+      cleanup: {
+        backendExited: true,
+        remainingCapacityContainers: 0,
+        activeSimulationCount: 0,
+        queueWaiting: 0,
+        admissionCurrent: 0,
+        sandboxStartActive: 0,
+        sandboxStartWaiting: 0,
+      },
+      queueP50Ms: 1,
+      queueP95Ms: 2,
+      queueP99Ms: 3,
+      queueMaxMs: 4,
+      startupSlotWaitP50Ms: 1,
+      startupSlotWaitP95Ms: 2,
+      startupSlotWaitP99Ms: 3,
+      startupSlotWaitMaxMs: 4,
+      completed: 200,
+      failed: 0,
+      fairness: { starvation: false, reorderPercentage: 0, outliers: 0 },
+    };
+    expect(renderCapacityEnv(result)).toContain("SIMULATION_ADMISSION_MAX=200");
   });
 
   it("writes JSON, Markdown, and env artifacts from the same result", async () => {

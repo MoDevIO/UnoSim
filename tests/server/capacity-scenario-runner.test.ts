@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  CapacityScenarioConfigurationError,
   summarizeCapacityScenario,
+  validateScenarioRuntimeConfiguration,
   type ClientResult,
+  type EffectiveCapacityConfiguration,
   type HostSample,
   type StatusSnapshot,
 } from "../../scripts/capacity-scenario-runner";
@@ -46,6 +49,29 @@ function status(overrides: Partial<StatusSnapshot>): StatusSnapshot {
 }
 
 describe("capacity scenario measurement aggregation", () => {
+  it("rejects a runtime configuration that cannot represent the requested load", () => {
+    const actual: EffectiveCapacityConfiguration = {
+      simulationMaxConcurrent: 40,
+      sandboxStartMaxConcurrent: 40,
+      simulationAdmissionMax: 25,
+      simulationQueueTimeoutMs: 60_000,
+      sandboxStartSlotTimeoutMs: 30_000,
+      dockerControlTimeoutMs: 2_000,
+      compileMaxConcurrent: 19,
+    };
+
+    expect(() => validateScenarioRuntimeConfiguration({
+      expectedSimulationMaxConcurrent: 40,
+      expectedSandboxStartMaxConcurrent: 40,
+      requiredAdmissionMax: 40,
+    }, actual)).toThrow(CapacityScenarioConfigurationError);
+    expect(() => validateScenarioRuntimeConfiguration({
+      expectedSimulationMaxConcurrent: 40,
+      expectedSandboxStartMaxConcurrent: 40,
+      requiredAdmissionMax: 40,
+    }, { ...actual, simulationAdmissionMax: 40 })).not.toThrow();
+  });
+
   it("keeps lifecycle and polling peaks separate and aggregates phase waits", () => {
     const clients = [
       client({ clientId: 1 }),

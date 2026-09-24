@@ -20,6 +20,9 @@ export type CapacityScenarioOptions = {
   simulationTimeoutSec: number;
   arrivalWindowMs?: number;
   outputDir?: string;
+  expectedSimulationMaxConcurrent?: number;
+  expectedSandboxStartMaxConcurrent?: number;
+  requiredAdmissionMax?: number;
 };
 
 export type ClientResult = {
@@ -67,6 +70,34 @@ export type EffectiveCapacityConfiguration = {
   dockerControlTimeoutMs: number;
   compileMaxConcurrent: number;
 };
+
+export class CapacityScenarioConfigurationError extends Error {
+  readonly code = "CAPACITY_SCENARIO_CONFIGURATION" as const;
+
+  constructor(
+    readonly requirements: {
+      simulationMaxConcurrent?: number;
+      sandboxStartMaxConcurrent?: number;
+      admissionMax?: number;
+    },
+    readonly actual: EffectiveCapacityConfiguration,
+  ) {
+    const mismatches: string[] = [];
+    if (requirements.simulationMaxConcurrent !== undefined
+      && actual.simulationMaxConcurrent !== requirements.simulationMaxConcurrent) {
+      mismatches.push(`simulation max ${actual.simulationMaxConcurrent} (expected ${requirements.simulationMaxConcurrent})`);
+    }
+    if (requirements.sandboxStartMaxConcurrent !== undefined
+      && actual.sandboxStartMaxConcurrent !== requirements.sandboxStartMaxConcurrent) {
+      mismatches.push(`sandbox-start max ${actual.sandboxStartMaxConcurrent} (expected ${requirements.sandboxStartMaxConcurrent})`);
+    }
+    if (requirements.admissionMax !== undefined && actual.simulationAdmissionMax < requirements.admissionMax) {
+      mismatches.push(`admission max ${actual.simulationAdmissionMax} (required at least ${requirements.admissionMax})`);
+    }
+    super(`Runtime Capacity configuration cannot represent the requested scenario: ${mismatches.join(", ") || "unknown mismatch"}`);
+    this.name = "CapacityScenarioConfigurationError";
+  }
+}
 
 export type HostSample = {
   atMs: number;
@@ -400,6 +431,25 @@ function runtimeConfiguration(status: StatusSnapshot): EffectiveCapacityConfigur
   };
 }
 
+export function validateScenarioRuntimeConfiguration(
+  options: Pick<CapacityScenarioOptions, "expectedSimulationMaxConcurrent" | "expectedSandboxStartMaxConcurrent" | "requiredAdmissionMax">,
+  actual: EffectiveCapacityConfiguration,
+): void {
+  const requirements = {
+    simulationMaxConcurrent: options.expectedSimulationMaxConcurrent,
+    sandboxStartMaxConcurrent: options.expectedSandboxStartMaxConcurrent,
+    admissionMax: options.requiredAdmissionMax,
+  };
+  const hasMismatch = (
+    (requirements.simulationMaxConcurrent !== undefined
+      && actual.simulationMaxConcurrent !== requirements.simulationMaxConcurrent)
+    || (requirements.sandboxStartMaxConcurrent !== undefined
+      && actual.sandboxStartMaxConcurrent !== requirements.sandboxStartMaxConcurrent)
+    || (requirements.admissionMax !== undefined && actual.simulationAdmissionMax < requirements.admissionMax)
+  );
+  if (hasMismatch) throw new CapacityScenarioConfigurationError(requirements, actual);
+}
+
 function createDefaultHostSampler(): () => Promise<HostSample> {
   let previousLinuxCounters: { total: number; idle: number; iowait: number } | null = null;
   return async () => {
@@ -468,6 +518,8 @@ export async function runCapacityScenario(
   const countContainers = dependencies.dockerContainerCount ?? defaultDockerContainerCount;
   const sampleHost = dependencies.sampleHost ?? createDefaultHostSampler();
   const initialStatus = await getStatus(options.baseUrl);
+  const initialRuntimeConfiguration = runtimeConfiguration(initialStatus);
+  validateScenarioRuntimeConfiguration(options, initialRuntimeConfiguration);
   const statusHistory: StatusSnapshot[] = [initialStatus];
   const hostSamples: HostSample[] = [];
   const errors: string[] = [];

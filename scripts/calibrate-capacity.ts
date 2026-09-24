@@ -28,6 +28,8 @@ import {
 } from "./capacity-calibration-host";
 import {
   runCapacityScenario,
+  CapacityScenarioConfigurationError,
+  validateScenarioRuntimeConfiguration,
   type CapacityScenarioMeasurement,
   type CapacityScenarioOptions,
   type CleanupResult,
@@ -45,7 +47,7 @@ const FIXED_CLASSROOM_DURATION_SEC = 60 as const;
 export type SafetyEvent = {
   atMs: number;
   phase: "preflight" | "control" | "active" | "startup" | "classroom" | "cleanup";
-  kind: "cpu" | "memory" | "iowait" | "oom" | "docker" | "backend" | "deadline" | "cleanup";
+  kind: "cpu" | "memory" | "iowait" | "oom" | "docker" | "backend" | "configuration" | "deadline" | "cleanup";
   message: string;
   immediate: boolean;
 };
@@ -343,12 +345,23 @@ async function defaultStartBackend(capacity: EffectiveCapacityConfiguration, run
   throw new Error(`Owned calibration backend did not become ready${startupOutput.trim() ? `: ${startupOutput.trim()}` : ""}`);
 }
 
-function effectiveCapacityForPhase(base: EffectiveCapacityConfiguration, active: number, startup: number): EffectiveCapacityConfiguration {
+export function effectiveCapacityForPhase(
+  base: EffectiveCapacityConfiguration,
+  active: number,
+  startup: number,
+  admission = Math.max(base.simulationAdmissionMax, active),
+): EffectiveCapacityConfiguration {
   return {
     ...base,
     simulationMaxConcurrent: active,
     sandboxStartMaxConcurrent: startup,
+    simulationAdmissionMax: admission,
   };
+}
+
+function configurationErrorFor(error: unknown): boolean {
+  return error instanceof CapacityScenarioConfigurationError
+    || (error instanceof Error && (error as Error & { code?: string }).code === "CAPACITY_SCENARIO_CONFIGURATION");
 }
 
 function safetyEventsForMeasurement(
@@ -484,19 +497,32 @@ export async function runCalibration(
     ): Promise<CapacityScenarioMeasurement> => {
       if (now() >= deadline) throw new Error("calibration deadline reached");
       const runId = `capacity_calibration_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const backend = await startBackend(effectiveCapacityForPhase(baseCapacity, active, startup), runId);
+      const clientCount = scenario === "classroom" ? config.expectedUsers : active;
+      const admission = scenario === "classroom"
+        ? config.expectedUsers
+        : Math.max(baseCapacity.simulationAdmissionMax, clientCount);
+      const backendCapacity = effectiveCapacityForPhase(baseCapacity, active, startup, admission);
+      const backend = await startBackend(backendCapacity, runId);
       let measurement: CapacityScenarioMeasurement;
       try {
         measurement = await runScenario({
           baseUrl: backend.baseUrl,
           runId,
           scenario,
-          clientCount: scenario === "classroom" ? config.expectedUsers : active,
+          clientCount,
           holdDurationMs: phase === "classroom" ? FIXED_CLASSROOM_DURATION_SEC * 1_000 : 25_000,
           simulationTimeoutSec: 180,
           arrivalWindowMs: scenario === "classroom" ? 5_000 : undefined,
           outputDir: config.outputDir,
+          expectedSimulationMaxConcurrent: active,
+          expectedSandboxStartMaxConcurrent: startup,
+          requiredAdmissionMax: admission,
         });
+        validateScenarioRuntimeConfiguration({
+          expectedSimulationMaxConcurrent: active,
+          expectedSandboxStartMaxConcurrent: startup,
+          requiredAdmissionMax: admission,
+        }, measurement.runtimeConfiguration);
       } finally {
         await backend.stop();
       }
@@ -524,7 +550,7 @@ export async function runCalibration(
           if (index !== 0) break;
         }
       } catch (error) {
-        safetyEvents.push({ atMs: now(), phase: "active", kind: "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
+        safetyEvents.push({ atMs: now(), phase: "active", kind: configurationErrorFor(error) ? "configuration" : "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
         partial = true;
         stopReason = error instanceof Error ? error.message : String(error);
         break;
@@ -544,7 +570,7 @@ export async function runCalibration(
           startupSlotWaitP99Ms = Math.max(startupSlotWaitP99Ms ?? 0, percentile(waitValues, 99) ?? 0);
           startupSlotWaitMaxMs = Math.max(startupSlotWaitMaxMs ?? 0, maxValue(waitValues) ?? 0);
         } catch (error) {
-          safetyEvents.push({ atMs: now(), phase: "startup", kind: "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
+          safetyEvents.push({ atMs: now(), phase: "startup", kind: configurationErrorFor(error) ? "configuration" : "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
           partial = true;
           stopReason = error instanceof Error ? error.message : String(error);
           break;
@@ -561,7 +587,7 @@ export async function runCalibration(
         const measurement = await measureCandidate("classroom", selectedActive, selectedStartup, "classroom");
         phases.classroom = classroomMeasurement(measurement);
       } catch (error) {
-        safetyEvents.push({ atMs: now(), phase: "classroom", kind: "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
+        safetyEvents.push({ atMs: now(), phase: "classroom", kind: configurationErrorFor(error) ? "configuration" : "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
         partial = true;
         stopReason = error instanceof Error ? error.message : String(error);
       }
@@ -582,13 +608,32 @@ export async function runCalibration(
   const slotRecommendation = classroom
     ? recommendSandboxStartSlotTimeout(classroom.startupSlotWaitP99Ms, classroom.startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE)
     : recommendSandboxStartSlotTimeout(startupSlotWaitP99Ms, startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE);
-  const admissionRecommendation: Recommendation<number> = {
-    value: config.expectedUsers,
-    status: "recommended",
-    confidence: classroom && classroom.completed === config.expectedUsers ? "HIGH" : "MEDIUM",
-    measuredBasis: [`admission envelope requested at ${config.expectedUsers} users`],
-    warnings: [],
-  };
+  const classroomAdmissionValidated = classroom !== null
+    && classroom.completed === config.expectedUsers
+    && classroom.failed === 0
+    && classroom.errors.length === 0
+    && classroom.runtimeConfiguration.simulationAdmissionMax >= config.expectedUsers
+    && classroom.cleanup.remainingCapacityContainers === 0
+    && classroom.cleanup.activeSimulationCount === 0
+    && classroom.cleanup.queueWaiting === 0
+    && classroom.cleanup.admissionCurrent === 0
+    && classroom.cleanup.sandboxStartActive === 0
+    && classroom.cleanup.sandboxStartWaiting === 0;
+  const admissionRecommendation: Recommendation<number> = classroomAdmissionValidated
+    ? {
+      value: config.expectedUsers,
+      status: "recommended",
+      confidence: "HIGH",
+      measuredBasis: [`admission envelope of ${config.expectedUsers} users completed successfully`],
+      warnings: [],
+    }
+    : {
+      value: null,
+      status: "not-calibrated",
+      confidence: "LOW",
+      measuredBasis: [`requested admission envelope: ${config.expectedUsers} users`],
+      warnings: ["The expected-users classroom phase did not complete a successful admission validation."],
+    };
   const compileRecommendation = notCalibrated<number>();
   const recommendations: CalibrationRecommendations = {
     simulationMaxConcurrent: activeRecommendation,

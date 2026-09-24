@@ -2,12 +2,29 @@ import { describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  effectiveCapacityForPhase,
   parseCalibrationArgs,
   runCalibration,
   type CalibrationDependencies,
 } from "../../scripts/calibrate-capacity";
+import type { EffectiveCapacityConfiguration } from "../../scripts/capacity-scenario-runner";
 
 describe("capacity calibration CLI", () => {
+  it("raises phase admission to cover active and startup loads while keeping classroom admission explicit", () => {
+    const base: EffectiveCapacityConfiguration = {
+      simulationMaxConcurrent: 5,
+      sandboxStartMaxConcurrent: 8,
+      simulationAdmissionMax: 25,
+      simulationQueueTimeoutMs: 60_000,
+      sandboxStartSlotTimeoutMs: 30_000,
+      dockerControlTimeoutMs: 2_000,
+      compileMaxConcurrent: 19,
+    };
+    expect(effectiveCapacityForPhase(base, 40, 40)).toMatchObject({ simulationAdmissionMax: 40 });
+    expect(effectiveCapacityForPhase(base, 60, 20)).toMatchObject({ simulationAdmissionMax: 60 });
+    expect(effectiveCapacityForPhase(base, 70, 20, 200)).toMatchObject({ simulationAdmissionMax: 200 });
+  });
+
   it("is documented as a review-only workflow with stable artifact names", () => {
     const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8")) as { scripts?: Record<string, string> };
     const documentation = fs.readFileSync(path.resolve(process.cwd(), "docs/CAPACITY_VALIDATION_PLAN.md"), "utf8");
@@ -67,6 +84,7 @@ describe("capacity calibration CLI", () => {
 
   it("runs probes and scenario phases in order without applying recommendations", async () => {
     const order: string[] = [];
+    const phaseCapacities: Array<{ simulationMaxConcurrent: number; sandboxStartMaxConcurrent: number; simulationAdmissionMax: number }> = [];
     const runScenario = vi.fn(async (options) => {
       order.push(`scenario:${options.clientCount}`);
       return {
@@ -144,7 +162,10 @@ describe("capacity calibration CLI", () => {
         return [{ command: "docker info", condition: "parallel", durationsMs: [100, 120], error: null }];
       }),
       runScenario,
-      startBackend: vi.fn(async () => ({ baseUrl: "http://127.0.0.1:1234", stop: async () => { stopCount++; } })),
+      startBackend: vi.fn(async (capacity) => {
+        phaseCapacities.push(capacity);
+        return { baseUrl: "http://127.0.0.1:1234", stop: async () => { stopCount++; } };
+      }),
       now: () => 1_000,
     };
 
@@ -165,7 +186,16 @@ describe("capacity calibration CLI", () => {
     expect(order.slice(0, 3)).toEqual(["host", "docker", "control"]);
     expect(runScenario).toHaveBeenCalled();
     expect(result.recommendations.simulationMaxConcurrent.value).toBe(20);
-    expect(result.recommendations.simulationAdmissionMax.value).toBe(20);
+    expect(result.recommendations.simulationAdmissionMax.value).toBeNull();
+    expect(phaseCapacities).toEqual([
+      expect.objectContaining({ simulationMaxConcurrent: 20, sandboxStartMaxConcurrent: 20, simulationAdmissionMax: 25 }),
+    ]);
+    expect(runScenario.mock.calls[0]?.[0]).toEqual(expect.objectContaining({
+      clientCount: 20,
+      requiredAdmissionMax: 25,
+      expectedSimulationMaxConcurrent: 20,
+      expectedSandboxStartMaxConcurrent: 20,
+    }));
     expect(stopCount).toBeGreaterThan(0);
     expect(result.partial).toBe(false);
   });
