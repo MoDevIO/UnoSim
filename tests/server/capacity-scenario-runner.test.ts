@@ -5,6 +5,10 @@ import {
   countClientOutcomes,
   summarizeCapacityScenario,
   applyClientCapacityTiming,
+  deriveClientWatchdogMs,
+  recordClientWatchdogExpiry,
+  isScenarioQuiescent,
+  waitForScenarioQuiescence,
   validateScenarioRuntimeConfiguration,
   type ClientResult,
   type EffectiveCapacityConfiguration,
@@ -55,6 +59,103 @@ function status(overrides: Partial<StatusSnapshot>): StatusSnapshot {
 }
 
 describe("capacity scenario measurement aggregation", () => {
+  it("derives a classroom watchdog outside all legitimate phase budgets", () => {
+    const watchdog = deriveClientWatchdogMs(180, 330_000, 30_000, 60_000);
+
+    expect(watchdog).toBe(540_000);
+    expect(watchdog).toBeGreaterThan(275_000 + 20_000 + 60_000);
+  });
+
+  it("keeps runtime, queue, startup-slot, and driver watchdog budgets distinct", () => {
+    const watchdog = deriveClientWatchdogMs(180, 330_000, 30_000, 60_000);
+
+    expect(watchdog).not.toBe(180_000);
+    expect(watchdog).not.toBe(330_000);
+    expect(watchdog).not.toBe(30_000);
+    expect(watchdog).not.toBe(60_000);
+  });
+
+  it("records a driver watchdog expiry as a failed, non-success outcome", () => {
+    const stuck = client({
+      started: true,
+      runtimeStartedAtMs: 275_000,
+      completedAtMs: null,
+      errors: [],
+      operationErrorCodes: [],
+      outcome: "incomplete",
+    });
+
+    recordClientWatchdogExpiry(stuck, 540_000);
+
+    expect(stuck.errors).toEqual(["client watchdog expired after 540000ms"]);
+    expect(classifyClientOutcome(stuck)).toBe("failed");
+    expect(countClientOutcomes([stuck])).toMatchObject({ successful: 0, failed: 1, incomplete: 0 });
+  });
+
+  it("recognizes quiescent cleanup only when all counters and containers are zero", () => {
+    const clean = status({ capacity: {
+      simulation: { maxConcurrent: 40, active: 0 },
+      sandboxStart: { maxConcurrent: 20, active: 0, waiting: 0, slotTimeoutMs: 30_000 },
+      admission: { max: 100, current: 0 },
+      queue: { waiting: 0, timeoutMs: 330_000 },
+    } });
+    expect(isScenarioQuiescent(clean, 0)).toBe(true);
+    expect(isScenarioQuiescent(status({ capacity: { ...clean.capacity, simulation: { maxConcurrent: 40, active: 1 } } }), 0)).toBe(false);
+    expect(isScenarioQuiescent(clean, 1)).toBe(false);
+  });
+
+  it("waits for asynchronous cleanup release before returning quiescence", async () => {
+    let now = 0;
+    let polls = 0;
+    const result = await waitForScenarioQuiescence(
+      "http://test",
+      "run",
+      async () => {
+        polls++;
+        return polls < 3 ? status({ capacity: {
+          simulation: { maxConcurrent: 40, active: 1 },
+          sandboxStart: { maxConcurrent: 20, active: 0, waiting: 0, slotTimeoutMs: 30_000 },
+          admission: { max: 100, current: 1 },
+          queue: { waiting: 0, timeoutMs: 330_000 },
+        } }) : status({});
+      },
+      () => polls < 3 ? 1 : 0,
+      async (ms) => { now += ms; },
+      () => now,
+      15_000,
+      250,
+    );
+
+    expect(result.quiescent).toBe(true);
+    expect(result.waitedMs).toBe(500);
+    expect(result.remainingCapacityContainers).toBe(0);
+  });
+
+  it("reports remaining resources when cleanup deadline expires", async () => {
+    let now = 0;
+    const result = await waitForScenarioQuiescence(
+      "http://test",
+      "run",
+      async () => status({ capacity: {
+        simulation: { maxConcurrent: 40, active: 1 },
+        sandboxStart: { maxConcurrent: 20, active: 0, waiting: 0, slotTimeoutMs: 30_000 },
+        admission: { max: 100, current: 1 },
+        queue: { waiting: 0, timeoutMs: 330_000 },
+      } }),
+      () => 2,
+      async (ms) => { now += ms; },
+      () => now,
+      500,
+      250,
+    );
+
+    expect(result.quiescent).toBe(false);
+    expect(result.waitedMs).toBe(500);
+    expect(result.activeSimulationCount).toBe(1);
+    expect(result.admissionCurrent).toBe(1);
+    expect(result.remainingCapacityContainers).toBe(2);
+  });
+
   it("does not treat SYSTEM_BUSY followed by stopped as successful completion", () => {
     const rejected = {
       started: false,
@@ -155,6 +256,7 @@ describe("capacity scenario measurement aggregation", () => {
       scenario: "classroom",
       holdDurationMs: 60_000,
       arrivalWindowMs: 8_000,
+      clientWatchdogMs: 540_000,
       clients,
       statusHistory: [
         status({ capacityTest: { sandboxStartWaitSamplesMs: [0, 8_000] }, capacity: {
@@ -199,6 +301,7 @@ describe("capacity scenario measurement aggregation", () => {
     expect(result.scenario).toBe("classroom");
     expect(result.holdDurationMs).toBe(60_000);
     expect(result.arrivalWindowMs).toBe(8_000);
+    expect(result.clientWatchdogMs).toBe(540_000);
     expect(result.lifecycleDockerPeak).toBe(8);
     expect(result.pollingDockerPeak).toBe(6);
     expect(result.activePeak).toBe(7);

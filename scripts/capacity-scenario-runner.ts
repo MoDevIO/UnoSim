@@ -140,6 +140,83 @@ export class CapacityScenarioConfigurationError extends Error {
   }
 }
 
+const DRIVER_WATCHDOG_MARGIN_MS = 120_000;
+export const SCENARIO_CLEANUP_TIMEOUT_MS = 30_000;
+export const SCENARIO_CLEANUP_POLL_INTERVAL_MS = 250;
+
+/**
+ * Derive the client-only safety deadline from the effective server phase
+ * budgets. This is deliberately not a production timeout or recommendation.
+ */
+export function deriveClientWatchdogMs(
+  simulationTimeoutSec: number,
+  simulationQueueTimeoutMs: number,
+  sandboxStartSlotTimeoutMs: number,
+  holdDurationMs: number,
+): number {
+  return Math.max(
+    simulationTimeoutSec * 1_000 + DRIVER_WATCHDOG_MARGIN_MS,
+    simulationQueueTimeoutMs + sandboxStartSlotTimeoutMs + holdDurationMs + DRIVER_WATCHDOG_MARGIN_MS,
+  );
+}
+
+export function recordClientWatchdogExpiry(result: Pick<ClientResult, "errors">, timeoutMs: number): void {
+  result.errors.push(`client watchdog expired after ${timeoutMs}ms`);
+}
+
+export function isScenarioQuiescent(status: StatusSnapshot, remainingCapacityContainers: number): boolean {
+  return remainingCapacityContainers === 0
+    && status.capacity?.simulation?.active === 0
+    && status.capacity?.queue?.waiting === 0
+    && status.capacity?.admission?.current === 0
+    && status.capacity?.sandboxStart?.active === 0
+    && status.capacity?.sandboxStart?.waiting === 0;
+}
+
+export type ScenarioQuiescenceResult = {
+  quiescent: boolean;
+  waitedMs: number;
+  remainingCapacityContainers: number;
+  activeSimulationCount: number | null;
+  queueWaiting: number | null;
+  admissionCurrent: number | null;
+  sandboxStartActive: number | null;
+  sandboxStartWaiting: number | null;
+};
+
+export async function waitForScenarioQuiescence(
+  baseUrl: string,
+  runId: string,
+  getStatus: (baseUrl: string) => Promise<StatusSnapshot>,
+  countContainers: (runId: string, includeStopped?: boolean) => number,
+  sleep: (ms: number) => Promise<void>,
+  now: () => number,
+  timeoutMs = SCENARIO_CLEANUP_TIMEOUT_MS,
+  pollIntervalMs = SCENARIO_CLEANUP_POLL_INTERVAL_MS,
+): Promise<ScenarioQuiescenceResult> {
+  const startedAt = now();
+  let status = await getStatus(baseUrl);
+  let remaining = countContainers(runId, true);
+  while (!isScenarioQuiescent(status, remaining)) {
+    const waitedMs = now() - startedAt;
+    if (waitedMs >= timeoutMs) break;
+    await sleep(Math.min(pollIntervalMs, timeoutMs - waitedMs));
+    status = await getStatus(baseUrl);
+    remaining = countContainers(runId, true);
+  }
+  const waitedMs = Math.min(timeoutMs, Math.max(0, now() - startedAt));
+  return {
+    quiescent: isScenarioQuiescent(status, remaining),
+    waitedMs,
+    remainingCapacityContainers: remaining,
+    activeSimulationCount: status.capacity?.simulation?.active ?? null,
+    queueWaiting: status.capacity?.queue?.waiting ?? null,
+    admissionCurrent: status.capacity?.admission?.current ?? null,
+    sandboxStartActive: status.capacity?.sandboxStart?.active ?? null,
+    sandboxStartWaiting: status.capacity?.sandboxStart?.waiting ?? null,
+  };
+}
+
 export type HostSample = {
   atMs: number;
   cpuPercent: number | null;
@@ -159,6 +236,10 @@ export type CleanupResult = {
   admissionCurrent: number | null;
   sandboxStartActive: number | null;
   sandboxStartWaiting: number | null;
+  /** True only after all capacity counters and owned containers reached zero. */
+  quiescent?: boolean;
+  /** Wall-clock time spent waiting for asynchronous cleanup to quiesce. */
+  quiescenceWaitMs?: number;
 };
 
 export type ScenarioRunnerDependencies = {
@@ -174,6 +255,8 @@ export type CapacityScenarioMeasurement = {
   scenario: ScenarioKind;
   holdDurationMs: number;
   arrivalWindowMs: number;
+  /** Final driver-only safety deadline; never a production timeout. */
+  clientWatchdogMs?: number;
   clients: ClientResult[];
   statusHistory: StatusSnapshot[];
   runtimeConfiguration: EffectiveCapacityConfiguration;
@@ -197,7 +280,9 @@ export type CapacityScenarioMeasurement = {
 
 type ScenarioSummaryInput = Omit<CapacityScenarioMeasurement,
   "activePeak" | "queuePeak" | "admissionPeak" | "sandboxStartPeak" |
-  "sandboxStartWaitingPeak" | "startupSlotWaitMs" | "startupDurationMs" | "queueWaitMs">;
+  "sandboxStartWaitingPeak" | "startupSlotWaitMs" | "startupDurationMs" | "queueWaitMs" | "clientWatchdogMs"> & {
+  clientWatchdogMs?: number;
+};
 
 export function summarizeCapacityScenario(input: ScenarioSummaryInput): CapacityScenarioMeasurement {
   const activePeak = Math.max(
@@ -405,6 +490,7 @@ function runClient(
   clientId: number,
   holdDurationMs: number,
   timeoutSec: number,
+  clientWatchdogMs: number,
   now: () => number,
   createSessionCookie: (baseUrl: string) => Promise<string>,
 ): Promise<ClientResult> {
@@ -414,9 +500,9 @@ function runClient(
     let ws: WebSocket | null = null;
     let finished = false;
     let holdTimer: NodeJS.Timeout | null = null;
-    const timeoutMs = Math.max(holdDurationMs + 120_000, timeoutSec * 1_000 + 120_000);
+    const timeoutMs = clientWatchdogMs;
     const timeoutTimer = setTimeout(() => {
-      result.errors.push(`client watchdog expired after ${timeoutMs}ms`);
+      recordClientWatchdogExpiry(result, timeoutMs);
       finish();
     }, timeoutMs);
 
@@ -593,6 +679,12 @@ export async function runCapacityScenario(
   const initialStatus = await getStatus(options.baseUrl);
   const initialRuntimeConfiguration = runtimeConfiguration(initialStatus);
   validateScenarioRuntimeConfiguration(options, initialRuntimeConfiguration);
+  const clientWatchdogMs = deriveClientWatchdogMs(
+    options.simulationTimeoutSec,
+    initialRuntimeConfiguration.simulationQueueTimeoutMs,
+    initialRuntimeConfiguration.sandboxStartSlotTimeoutMs,
+    options.holdDurationMs,
+  );
   const statusHistory: StatusSnapshot[] = [initialStatus];
   const hostSamples: HostSample[] = [];
   const errors: string[] = [];
@@ -631,29 +723,57 @@ export async function runCapacityScenario(
     const intervalMs = options.clientCount > 1 ? arrivalWindowMs / (options.clientCount - 1) : 0;
     const clients = await Promise.all(Array.from({ length: options.clientCount }, (_, index) => (async () => {
       if (index > 0 && intervalMs > 0) await sleep(intervalMs);
-      return runClient(options.baseUrl, index + 1, options.holdDurationMs, options.simulationTimeoutSec, now, createSessionCookie);
+      return runClient(options.baseUrl, index + 1, options.holdDurationMs, options.simulationTimeoutSec, clientWatchdogMs, now, createSessionCookie);
     })()));
     await eventTracker.stop();
     clearInterval(statusPoller);
     clearInterval(dockerPoller);
     if (hostPoller) clearInterval(hostPoller);
-    const finalStatus = await getStatus(options.baseUrl);
+    let quiescence: ScenarioQuiescenceResult;
+    try {
+      quiescence = await waitForScenarioQuiescence(
+        options.baseUrl,
+        options.runId,
+        getStatus,
+        countContainers,
+        sleep,
+        now,
+      );
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+      const failedStatus = await getStatus(options.baseUrl).catch(() => initialStatus);
+      quiescence = {
+        quiescent: false,
+        waitedMs: 0,
+        remainingCapacityContainers: countContainers(options.runId, true),
+        activeSimulationCount: failedStatus.capacity?.simulation?.active ?? null,
+        queueWaiting: failedStatus.capacity?.queue?.waiting ?? null,
+        admissionCurrent: failedStatus.capacity?.admission?.current ?? null,
+        sandboxStartActive: failedStatus.capacity?.sandboxStart?.active ?? null,
+        sandboxStartWaiting: failedStatus.capacity?.sandboxStart?.waiting ?? null,
+      };
+    }
+    const finalStatus = await getStatus(options.baseUrl).catch(() => initialStatus);
     statusHistory.push(finalStatus);
     pollingPeak = Math.max(pollingPeak, countContainers(options.runId));
     const cleanup: CleanupResult = {
       backendExited: false,
-      remainingCapacityContainers: countContainers(options.runId, true),
-      activeSimulationCount: finalStatus.capacity?.simulation?.active ?? null,
-      queueWaiting: finalStatus.capacity?.queue?.waiting ?? null,
-      admissionCurrent: finalStatus.capacity?.admission?.current ?? null,
-      sandboxStartActive: finalStatus.capacity?.sandboxStart?.active ?? null,
-      sandboxStartWaiting: finalStatus.capacity?.sandboxStart?.waiting ?? null,
+      remainingCapacityContainers: quiescence.remainingCapacityContainers,
+      activeSimulationCount: quiescence.activeSimulationCount,
+      queueWaiting: quiescence.queueWaiting,
+      admissionCurrent: quiescence.admissionCurrent,
+      sandboxStartActive: quiescence.sandboxStartActive,
+      sandboxStartWaiting: quiescence.sandboxStartWaiting,
+      quiescent: quiescence.quiescent,
+      quiescenceWaitMs: quiescence.waitedMs,
     };
+    if (!cleanup.quiescent) errors.push("scenario cleanup did not reach quiescence before deadline");
     if (cleanup.remainingCapacityContainers > 0) errors.push("capacity containers remain after scenario");
     const measurement = summarizeCapacityScenario({
       scenario: options.scenario,
       holdDurationMs: options.holdDurationMs,
       arrivalWindowMs,
+      clientWatchdogMs,
       clients,
       statusHistory,
       runtimeConfiguration: runtimeConfiguration(initialStatus),

@@ -95,6 +95,8 @@ describe("capacity calibration reports", () => {
     expect(env).not.toContain("SIMULATION_ADMISSION_MAX=200");
     expect(env).toContain("SIMULATION_ADMISSION_MAX omitted: classroom admission validation not completed successfully");
     expect(env).toContain("SANDBOX_START_SLOT_TIMEOUT_MS=30000");
+    expect(env).not.toContain("clientWatchdogMs");
+    expect(env).not.toContain("CLIENT_WATCHDOG");
     expect(env).not.toContain("SIMULATION_QUEUE_TIMEOUT_MS=");
     expect(env).not.toContain("DOCKER_CONTROL_TIMEOUT_MS=");
     expect(env).not.toContain("COMPILE_MAX_CONCURRENT=");
