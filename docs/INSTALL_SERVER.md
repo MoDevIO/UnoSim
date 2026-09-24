@@ -106,6 +106,21 @@ Die Defaults der Anwendung stehen in `server/config.ts` (unter anderem
 kein neuer Anwendungdefault. Dieser Wert muss vor einem produktiven Einsatz
 gegen die aktuelle Zielserver-Abnahme geprüft werden.
 
+Für größere Installationen sollte vor einer manuellen Erhöhung der
+Kapazitätswerte die Host-Kalibrierung ausgeführt werden:
+
+```bash
+npm run capacity:calibrate -- --expected-users 200
+```
+
+Die Ergebnisse sind host-spezifisch und hängen unter anderem von Docker,
+Sandbox-CPU-/Memory-Limits und dem tatsächlichen Workload ab. `capacity.env`
+ist nur ein Review-Vorschlag; fehlende Werte müssen geprüft und ausdrücklich
+aufgelöst werden. Die Kalibrierung ändert keine Produktionskonfiguration
+automatisch. Die technische Referenz mit Messphasen, Timeout-Grenzen und
+Akzeptanzkriterien steht in
+[`CAPACITY_VALIDATION_PLAN.md`](CAPACITY_VALIDATION_PLAN.md).
+
 Frühere Topologie- und Kompatibilitätsschalter werden beim Start abgelehnt:
 `UNOSIM_SIMULATION_MODE`, `UNOSIM_TRUST_MODE`, `FORCE_DOCKER` und
 `UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL`.
