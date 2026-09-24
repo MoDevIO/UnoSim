@@ -1,5 +1,4 @@
-import { readFile, readdir } from "node:fs/promises";
-import { access } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 const root = process.cwd();
@@ -19,7 +18,7 @@ await collect(root);
 const failures = [];
 for (const file of markdownFiles) {
   const content = await readFile(file, "utf8");
-  for (const match of content.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
+  for (const match of content.matchAll(/\[[^\]\r\n]{0,1000}\]\(([^()\r\n]{0,2000})\)/g)) {
     const target = match[1].split("#", 1)[0].trim();
     if (!target || target.startsWith("http://") || target.startsWith("https://") || target.startsWith("mailto:")) continue;
     try {

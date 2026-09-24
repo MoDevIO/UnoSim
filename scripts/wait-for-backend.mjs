@@ -15,16 +15,14 @@ async function isReady() {
   }
 }
 
-while (true) {
+while (Date.now() - start < timeoutMs) {
   if (await isReady()) {
     console.log(`[wait-for-backend] Backend ready at ${target}`);
     process.exit(0);
   }
 
-  if (Date.now() - start >= timeoutMs) {
-    console.error(`[wait-for-backend] Timeout after ${timeoutMs}ms waiting for ${target}`);
-    process.exit(1);
-  }
-
   await sleep(intervalMs);
 }
+
+console.error(`[wait-for-backend] Timeout after ${timeoutMs}ms waiting for ${target}`);
+process.exit(1);

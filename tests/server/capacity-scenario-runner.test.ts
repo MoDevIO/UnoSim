@@ -107,10 +107,10 @@ describe("capacity scenario measurement aggregation", () => {
   it("waits for asynchronous cleanup release before returning quiescence", async () => {
     let now = 0;
     let polls = 0;
-    const result = await waitForScenarioQuiescence(
-      "http://test",
-      "run",
-      async () => {
+    const result = await waitForScenarioQuiescence({
+      baseUrl: "http://test",
+      runId: "run",
+      getStatus: async () => {
         polls++;
         return polls < 3 ? status({ capacity: {
           simulation: { maxConcurrent: 40, active: 1 },
@@ -119,12 +119,12 @@ describe("capacity scenario measurement aggregation", () => {
           queue: { waiting: 0, timeoutMs: 330_000 },
         } }) : status({});
       },
-      () => polls < 3 ? 1 : 0,
-      async (ms) => { now += ms; },
-      () => now,
-      15_000,
-      250,
-    );
+      countContainers: () => polls < 3 ? 1 : 0,
+      sleep: async (ms) => { now += ms; },
+      now: () => now,
+      timeoutMs: 15_000,
+      pollIntervalMs: 250,
+    });
 
     expect(result.quiescent).toBe(true);
     expect(result.waitedMs).toBe(500);
@@ -133,21 +133,21 @@ describe("capacity scenario measurement aggregation", () => {
 
   it("reports remaining resources when cleanup deadline expires", async () => {
     let now = 0;
-    const result = await waitForScenarioQuiescence(
-      "http://test",
-      "run",
-      async () => status({ capacity: {
+    const result = await waitForScenarioQuiescence({
+      baseUrl: "http://test",
+      runId: "run",
+      getStatus: async () => status({ capacity: {
         simulation: { maxConcurrent: 40, active: 1 },
         sandboxStart: { maxConcurrent: 20, active: 0, waiting: 0, slotTimeoutMs: 30_000 },
         admission: { max: 100, current: 1 },
         queue: { waiting: 0, timeoutMs: 330_000 },
       } }),
-      () => 2,
-      async (ms) => { now += ms; },
-      () => now,
-      500,
-      250,
-    );
+      countContainers: () => 2,
+      sleep: async (ms) => { now += ms; },
+      now: () => now,
+      timeoutMs: 500,
+      pollIntervalMs: 250,
+    });
 
     expect(result.quiescent).toBe(false);
     expect(result.waitedMs).toBe(500);

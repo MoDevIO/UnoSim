@@ -22,14 +22,10 @@ function parseEvent(line: string): { action: string; id: string; runId: unknown 
     if (event.Type !== undefined && event.Type !== "container") return null;
 
     const action = typeof event.Action === "string" ? event.Action.trim().toLowerCase() : "";
-    const id =
-      typeof event.Actor?.ID === "string"
-        ? event.Actor.ID
-        : typeof (event as { id?: unknown }).id === "string"
-          ? (event as { id: string }).id
-          : typeof (event as { ID?: unknown }).ID === "string"
-            ? (event as { ID: string }).ID
-            : "";
+    let id = "";
+    if (typeof event.Actor?.ID === "string") id = event.Actor.ID;
+    else if (typeof (event as { id?: unknown }).id === "string") id = (event as { id: string }).id;
+    else if (typeof (event as { ID?: unknown }).ID === "string") id = (event as { ID: string }).ID;
     if (!TRACKED_ACTIONS.has(action) || !id) return null;
 
     return {

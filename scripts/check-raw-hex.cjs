@@ -4,14 +4,14 @@
   See scripts/check-raw-hex.js for original notes. Implemented as .cjs because the repo uses ESM.
 */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 
-function run(cmd) {
+function run(args) {
   try {
-    return execSync(cmd, { encoding: 'utf8' }).trim();
-  } catch (err) {
+    return execFileSync('git', args, { encoding: 'utf8' }).trim();
+  } catch {
     return '';
   }
 }
@@ -19,13 +19,13 @@ function run(cmd) {
 const gitBaseEnv = process.env.GIT_BASE;
 let files = [];
 if (gitBaseEnv) {
-  files = run(`git diff --name-only ${gitBaseEnv}...HEAD`).split('\n').filter(Boolean);
+  files = run(['diff', '--name-only', `${gitBaseEnv}...HEAD`]).split('\n').filter(Boolean);
 } else {
-  const hasOriginMain = run('git rev-parse --verify origin/main');
+  const hasOriginMain = run(['rev-parse', '--verify', 'origin/main']);
   if (hasOriginMain) {
-    files = run('git diff --name-only origin/main...HEAD').split('\n').filter(Boolean);
+    files = run(['diff', '--name-only', 'origin/main...HEAD']).split('\n').filter(Boolean);
   } else {
-    files = run('git diff --name-only --staged').split('\n').filter(Boolean);
+    files = run(['diff', '--name-only', '--staged']).split('\n').filter(Boolean);
   }
 }
 
@@ -41,11 +41,11 @@ if (files.length === 0) {
 }
 
 const HEX_RE = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?=[^0-9a-fA-F]|$)/g;
-const IGNORED_PATHS = ['client/src/index.css'];
+const IGNORED_PATHS = new Set(['client/src/index.css']);
 
 let matches = [];
 for (const f of files) {
-  if (IGNORED_PATHS.includes(f)) continue;
+  if (IGNORED_PATHS.has(f)) continue;
   try {
     const content = fs.readFileSync(path.resolve(f), 'utf8');
     const lines = content.split('\n');
@@ -57,7 +57,7 @@ for (const f of files) {
       }
     }
   } catch (err) {
-    // ignore unreadable files
+    console.warn(`check-raw-hex: could not read ${f}: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
