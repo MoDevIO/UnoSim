@@ -126,7 +126,6 @@ function buildPlan(
       indicator: indicator?.description ?? "",
       question: question.text ?? question.template ?? "",
       misconceptions: concept.misconceptions,
-      ...(scaffold ? { strategyId: scaffold.id } : {}),
       ...(scaffold ? { scaffold: { id: scaffold.id, strategy: scaffold.strategy, hint: scaffold.hint } } : {}),
     },
   };

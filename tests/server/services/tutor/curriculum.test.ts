@@ -171,7 +171,7 @@ describe("repository tutor curriculum", () => {
 
     const direct = topic.questions.find(({ id }) => id === "int-width-direct")!;
     const remediation = planner.advance(topic, "0123456789abcdef0123456789abcdef01234567", facts, [], direct.text!, 1, 30);
-    expect(remediation?.brief.strategyId).toBe("compare-one-element");
+    expect(remediation?.brief.scaffold?.id).toBe("compare-one-element");
     expect(remediation?.brief.questionId).toBe("array-memory-calculation");
   });
 
@@ -214,7 +214,7 @@ describe("repository tutor curriculum", () => {
       turn("Wie viel Speicher belegt das Array insgesamt?", 1, { questionId: "array-memory-calculation" }),
     ];
     const plan = planner.advance(topic, "0123456789abcdef0123456789abcdef01234567", facts, history, "Wie viel Speicher belegt das Array insgesamt?", 1, 30);
-    expect(plan?.brief.strategyId).toBe("return-to-representation");
+    expect(plan?.brief.scaffold?.id).toBe("return-to-representation");
     expect(plan?.brief.conceptId).toBe("value-vs-storage");
     expect(plan?.brief.questionId).toBe("value-storage-observation");
   });
@@ -283,7 +283,7 @@ describe("repository tutor curriculum", () => {
       30,
     );
     expect(result.result.questionId).toBe("value-storage-observation");
-    expect(result.result.strategyId).toBe("value-as-representation");
+    expect(result.result.strategyId).toBe("built-in-default");
     expect(result.result.feedback).toContain("Betrachte einen einzelnen Wert");
     expect(result.result.question).not.toContain("Providerfrage");
   });

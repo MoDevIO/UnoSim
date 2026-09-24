@@ -39,11 +39,11 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     this.planner = deps.planner ?? new DefaultLearningPlanner();
   }
 
-  async planInitial(input: { code: string; history: readonly TutorDialogTurn[]; difficulty: TutorDifficulty }): Promise<TutorPlan | null> {
-    const context = await this.match(input.code);
+  async planInitial(input: { code: string; history: readonly TutorDialogTurn[]; difficulty: TutorDifficulty; exampleId?: string }): Promise<TutorPlan | null> {
+    const context = await this.match(input.code, input.exampleId);
     if (!context) return null;
     const plan = this.planner.start(context.topic, context.revision, context.facts, input.history, input.difficulty, context.strategy?.strategy);
-    return plan ? normalizePlan(plan) : null;
+    return plan ? normalizePlan(plan, context.strategy) : null;
   }
 
   async planFollowup(input: {
@@ -52,14 +52,15 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     currentQuestion: string;
     rating: Parameters<NonNullable<LearningPlanner["advance"]>>[5];
     difficulty: TutorDifficulty;
+    exampleId?: string;
   }): Promise<TutorPlan | null> {
-    const context = await this.match(input.code);
+    const context = await this.match(input.code, input.exampleId);
     if (!context) return null;
     const plan = this.planner.advance(context.topic, context.revision, context.facts, input.history, input.currentQuestion, input.rating, input.difficulty, context.strategy?.strategy);
-    return plan ? normalizePlan(plan) : null;
+    return plan ? normalizePlan(plan, context.strategy) : null;
   }
 
-  private async match(code: string) {
+  private async match(code: string, exampleId?: string) {
     try {
       if (this.courseContent) {
         const snapshot = await this.courseContent.getSnapshot();
@@ -71,29 +72,35 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
         const repositoryDefault = tutor.manifest.defaultStrategy === undefined
           ? undefined
           : tutor.strategies.find(({ id }) => id === tutor.manifest.defaultStrategy);
+        const binding = exampleId === undefined ? undefined : tutor.bindings.get(exampleId);
+        const perExample = binding?.strategy === undefined
+          ? undefined
+          : tutor.strategies.find(({ id }) => id === binding.strategy);
         return {
           revision: snapshot.revision,
           facts,
           topic: match.topic,
-          strategy: resolveEffectiveTutorStrategy({ repositoryDefault }),
+          strategy: resolveEffectiveTutorStrategy({ perExample, repositoryDefault }),
         };
       }
       const snapshot = this.repository ? await this.repository.getSnapshot() : null;
       if (!snapshot) return null;
       const facts = this.factExtractor.extract(code);
       const match = this.topicMatcher.match(snapshot.topics, facts)[0];
-      return match ? { revision: snapshot.revision, facts, topic: match.topic } : null;
+      return match ? { revision: snapshot.revision, facts, topic: match.topic, strategy: resolveEffectiveTutorStrategy({}) } : null;
     } catch {
       return null;
     }
   }
 }
 
-function normalizePlan(plan: Awaited<ReturnType<LearningPlanner["start"]>>): TutorPlan {
+function normalizePlan(plan: Awaited<ReturnType<LearningPlanner["start"]>>, strategy = resolveEffectiveTutorStrategy({})): TutorPlan {
   if (!plan) throw new Error("Cannot normalize an empty tutor plan");
   return {
     ...plan.brief,
     ...(plan.brief.scaffold ? { scaffold: { ...plan.brief.scaffold } } : {}),
     contentRevision: plan.contentRevision,
+    strategyId: strategy.strategy.id,
+    strategySource: strategy.source === "built-in" ? "built-in" : "repository",
   };
 }

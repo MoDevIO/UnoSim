@@ -404,6 +404,7 @@ function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): Tutor
     contentRevision: plan.contentRevision,
     ...(feedback ? { feedback } : {}),
     ...(plan.strategyId ? { strategyId: plan.strategyId } : {}),
+    ...(plan.strategySource ? { strategySource: plan.strategySource } : {}),
   };
 }
 

@@ -14,17 +14,19 @@ export interface TutorPlan {
   readonly question: string;
   readonly misconceptions: readonly { id: string; description: string }[];
   readonly strategyId?: string;
+  readonly strategySource?: "built-in" | "repository";
   readonly scaffold?: { readonly id: string; readonly strategy: string; readonly hint: string };
   readonly contentRevision: string;
 }
 
 export interface TutorPlanningExtension {
-  planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty }): Promise<TutorPlan | null>;
+  planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty; readonly exampleId?: string }): Promise<TutorPlan | null>;
   planFollowup(input: {
     readonly code: string;
     readonly history: readonly TutorDialogTurn[];
     readonly currentQuestion: string;
     readonly rating: TutorAnswerRating;
     readonly difficulty: TutorDifficulty;
+    readonly exampleId?: string;
   }): Promise<TutorPlan | null>;
 }
