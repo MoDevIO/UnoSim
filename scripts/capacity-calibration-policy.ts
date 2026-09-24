@@ -32,6 +32,9 @@ export type StartupMeasurement = {
   minAvailableMemoryBytes: number | null;
   failures: number;
   timeouts: number;
+  /** True only when backend semaphore samples cover every startup attempt. */
+  startupSlotWaitSamplesComplete?: boolean;
+  startupSlotWaitSampleCount?: number;
 };
 
 export const CLASSROOM_QUEUE_SAFETY_MARGIN_MS = 30_000;
@@ -217,6 +220,7 @@ export function selectStartupRecommendation(
   const safe = measurements
     .filter((measurement) => measurement.requested <= maxActive)
     .filter((measurement) => measurement.stable && measurement.failures === 0 && measurement.timeouts === 0)
+    .filter((measurement) => measurement.startupSlotWaitSamplesComplete === true)
     .filter((measurement) => measurement.startupDurationP95Ms !== null)
     .sort((left, right) => left.requested - right.requested);
   if (safe.length === 0) {

@@ -78,6 +78,8 @@ export type ClassroomMeasurement = CapacityScenarioMeasurement & {
   startupSlotWaitP95Ms: number | null;
   startupSlotWaitP99Ms: number | null;
   startupSlotWaitMaxMs: number | null;
+  authoritativeSandboxStartWaitSamplesExpected?: number;
+  authoritativeSandboxStartWaitSamplesComplete?: boolean;
   completed: number;
   failed: number;
   fairness: { starvation: boolean; reorderPercentage: number | null; outliers: number };
@@ -220,9 +222,10 @@ function startupMeasurement(requested: number, measurement: CapacityScenarioMeas
   const memory = measurement.hostSamples.flatMap((sample) => sample.availableMemoryBytes === null ? [] : [sample.availableMemoryBytes]);
   const failed = measurement.clients.filter((client) => !client.started || client.errors.length > 0).length;
   const timeouts = measurement.clients.filter((client) => client.operationErrorCodes.some((code) => code.includes("TIMEOUT"))).length;
+  const startupSamplesComplete = measurement.authoritativeSandboxStartWaitSamplesComplete === true;
   return {
     requested,
-    stable: measurement.errors.length === 0 && measurement.cleanup.remainingCapacityContainers === 0,
+    stable: measurement.errors.length === 0 && measurement.cleanup.remainingCapacityContainers === 0 && startupSamplesComplete,
     startupSlotWaitP95Ms: percentile(measurement.startupSlotWaitMs, 95),
     startupSlotWaitMaxMs: maxValue(measurement.startupSlotWaitMs),
     startupDurationP95Ms: percentile(measurement.startupDurationMs, 95),
@@ -231,6 +234,8 @@ function startupMeasurement(requested: number, measurement: CapacityScenarioMeas
     minAvailableMemoryBytes: minValue(memory),
     failures: failed,
     timeouts,
+    startupSlotWaitSamplesComplete: startupSamplesComplete,
+    startupSlotWaitSampleCount: measurement.authoritativeSandboxStartWaitSamplesMs?.length ?? measurement.startupSlotWaitMs.length,
   };
 }
 
@@ -258,6 +263,11 @@ function classroomMeasurement(measurement: CapacityScenarioMeasurement): Classro
   }
   const pairs = starts.length * Math.max(0, starts.length - 1) / 2;
   const outcomes = getClassroomOutcomeCounts(measurement.clients);
+  const authoritativeSamples = measurement.authoritativeSandboxStartWaitSamplesMs ?? [];
+  const expectedAuthoritativeSamples = measurement.clients.filter((client) => client.started || client.startupBeganAtMs !== null).length;
+  const authoritativeSamplesComplete = measurement.authoritativeSandboxStartWaitSamplesComplete === true
+    && authoritativeSamples.length === expectedAuthoritativeSamples
+    && expectedAuthoritativeSamples > 0;
   return {
     ...measurement,
     requested: outcomes.requested,
@@ -274,6 +284,8 @@ function classroomMeasurement(measurement: CapacityScenarioMeasurement): Classro
     startupSlotWaitP95Ms: percentile(measurement.startupSlotWaitMs, 95),
     startupSlotWaitP99Ms: percentile(measurement.startupSlotWaitMs, 99),
     startupSlotWaitMaxMs: maxValue(measurement.startupSlotWaitMs),
+    authoritativeSandboxStartWaitSamplesExpected: expectedAuthoritativeSamples,
+    authoritativeSandboxStartWaitSamplesComplete: authoritativeSamplesComplete,
     completed: outcomes.successful,
     failed: outcomes.failed,
     fairness: {
@@ -689,9 +701,24 @@ export async function runCalibration(
       measuredBasis: classroom ? [`classroom queue measurement incomplete (${classroom.queueWaitMs.length}/${config.expectedUsers} client waits)`] : [],
       warnings: classroom ? ["The classroom queue distribution was censored by rejection, timeout, or incomplete client phase data."] : ["Simulation queue waits were not measured."],
     };
+  const classroomStartupSamplesValid = classroom?.authoritativeSandboxStartWaitSamplesComplete === true;
+  const startupCandidatesHaveSamples = phases.startup.length > 0
+    && phases.startup.every((measurement) => measurement.startupSlotWaitSamplesComplete === true);
   const slotRecommendation = classroom
-    ? recommendSandboxStartSlotTimeout(classroom.startupSlotWaitP99Ms, classroom.startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE)
-    : recommendSandboxStartSlotTimeout(startupSlotWaitP99Ms, startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE);
+    ? classroomStartupSamplesValid
+      ? recommendSandboxStartSlotTimeout(classroom.startupSlotWaitP99Ms, classroom.startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE)
+      : {
+        ...notCalibrated<number>(),
+        measuredBasis: [`authoritative sandbox-start samples incomplete (${classroom.authoritativeSandboxStartWaitSamplesExpected ?? 0} expected)`],
+        warnings: ["Sandbox-start-slot waits were not obtained from the backend semaphore for every startup."],
+      }
+    : startupCandidatesHaveSamples
+      ? recommendSandboxStartSlotTimeout(startupSlotWaitP99Ms, startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE)
+      : {
+        ...notCalibrated<number>(),
+        measuredBasis: ["authoritative sandbox-start samples unavailable for startup candidates"],
+        warnings: ["Sandbox-start-slot calibration requires complete backend semaphore samples."],
+      };
   const classroomAdmissionValidated = classroomComplete
     && classroom !== null
     && classroom.runtimeConfiguration.simulationAdmissionMax >= config.expectedUsers

@@ -69,6 +69,7 @@ export function renderCalibrationMarkdown(result: CalibrationRunResult): string 
     `- Classroom measurement: ${result.phases.classroom ? "completed" : "not run"}`,
     ...(result.phases.classroom ? [
       `- Classroom outcomes: requested=${result.phases.classroom.requested}, admitted=${result.phases.classroom.admitted}, started=${result.phases.classroom.started}, successful=${result.phases.classroom.successful}, rejected=${result.phases.classroom.rejected}, failed=${result.phases.classroom.failed}, incomplete=${result.phases.classroom.incomplete}`,
+      `- Authoritative sandbox-start samples: ${result.phases.classroom.authoritativeSandboxStartWaitSamplesComplete ? "complete" : "incomplete"} (${result.phases.classroom.startupSlotWaitMs.length}/${result.phases.classroom.authoritativeSandboxStartWaitSamplesExpected ?? "?"})`,
     ] : []),
     `- Safety events: ${result.safetyEvents.length}`,
     `- Remaining owned containers: ${result.cleanup.remainingCapacityContainers}`,
@@ -96,6 +97,12 @@ export function renderCapacityEnv(result: CalibrationRunResult): string {
     "",
   ];
   const classroom = result.phases.classroom;
+  const startupSlotMeasurementValid = classroom
+    ? classroom.authoritativeSandboxStartWaitSamplesComplete === true
+      && classroom.authoritativeSandboxStartWaitSamplesExpected !== undefined
+      && classroom.startupSlotWaitMs.length === classroom.authoritativeSandboxStartWaitSamplesExpected
+    : result.phases.startup.length > 0
+      && result.phases.startup.every((measurement) => measurement.startupSlotWaitSamplesComplete === true);
   const admissionValidated = classroom !== null
     && classroom.requested === result.policy.expectedUsers
     && classroom.admitted >= result.policy.expectedUsers
@@ -125,6 +132,10 @@ export function renderCapacityEnv(result: CalibrationRunResult): string {
     const recommendation = result.recommendations[recommendationName];
     if (recommendationName === "simulationAdmissionMax" && !admissionValidated) {
       lines.push(`# ${environmentName} omitted: classroom admission validation not completed successfully`);
+      continue;
+    }
+    if (recommendationName === "sandboxStartSlotTimeoutMs" && !startupSlotMeasurementValid) {
+      lines.push(`# ${environmentName} omitted: authoritative sandbox-start semaphore samples incomplete`);
       continue;
     }
     if (recommendation.status === "recommended" && recommendation.value !== null) {

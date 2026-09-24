@@ -161,6 +161,26 @@ describe("GET /api/status", () => {
       compile: { maxConcurrent: expect.any(Number), active: expect.any(Number) },
     });
   });
+
+  it("exposes raw sandbox-start waits only for an owned test run", async () => {
+    vi.stubEnv("CAPACITY_TEST_RUN_ID", "status-test-run");
+    vi.resetModules();
+    const app = express();
+    const { registerStatusRoutes } = await import("../../../server/routes/status.routes");
+    const { sandboxStartWaitSamplesTracker } = await import("../../../server/services/server-metrics");
+    sandboxStartWaitSamplesTracker.record("status-test-run", 0);
+    sandboxStartWaitSamplesTracker.record("status-test-run", 8_000);
+    registerStatusRoutes(app);
+    const isolated = await listen(app);
+    try {
+      const { body } = await get(isolated.baseUrl, "/api/status");
+      expect(body.capacityTest).toEqual({ sandboxStartWaitSamplesMs: [0, 8_000] });
+    } finally {
+      await new Promise<void>((resolve, reject) => isolated.server.close((err) => err ? reject(err) : resolve()));
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
 });
 
 describe("GET /api/readiness", () => {

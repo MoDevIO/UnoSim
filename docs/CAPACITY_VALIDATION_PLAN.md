@@ -297,6 +297,18 @@ are diagnostic only. When coarse active candidates bracket the target CPU, the
 policy measures bounded intermediate candidates before selecting a directly
 measured value.
 
+Queue waits and sandbox-start waits are measured from different sources. The
+scenario runner's `queueWaitMs` is the client protocol interval from the
+simulation-capacity queue to simulation-slot acquisition. Sandbox-start waits
+are copied only from the test-only `capacityTest.sandboxStartWaitSamplesMs`
+status field, which is populated directly from the backend
+`SANDBOX_START_MAX_CONCURRENT` semaphore acquisition. A `queued` WebSocket
+status or a `compilation_status` message is not a sandbox-start timing event.
+Zero-wait semaphore acquisitions are retained. If the backend sample count does
+not cover every startup in the scenario, sandbox-start-slot calibration is
+marked invalid and `SANDBOX_START_SLOT_TIMEOUT_MS` is omitted from
+`capacity.env`.
+
 The default policy is bounded by `--max-duration 30` minutes and uses sustained
 CPU, memory, and iowait safety observations. OOM, Docker/backend failure, host
 probe failure, and cleanup leaks stop immediately. A deadline or safety stop

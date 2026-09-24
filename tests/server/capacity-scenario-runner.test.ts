@@ -4,6 +4,7 @@ import {
   classifyClientOutcome,
   countClientOutcomes,
   summarizeCapacityScenario,
+  applyClientCapacityTiming,
   validateScenarioRuntimeConfiguration,
   type ClientResult,
   type EffectiveCapacityConfiguration,
@@ -156,14 +157,14 @@ describe("capacity scenario measurement aggregation", () => {
       arrivalWindowMs: 8_000,
       clients,
       statusHistory: [
-        status({ capacity: {
+        status({ capacityTest: { sandboxStartWaitSamplesMs: [0, 8_000] }, capacity: {
           simulation: { maxConcurrent: 40, active: 3 },
           sandboxStart: { maxConcurrent: 20, active: 2, waiting: 4, slotTimeoutMs: 30_000 },
           admission: { max: 100, current: 8 },
           queue: { waiting: 5, timeoutMs: 60_000 },
           compile: { maxConcurrent: 19, active: 2 },
         } }),
-        status({ capacity: {
+        status({ capacityTest: { sandboxStartWaitSamplesMs: [0, 8_000] }, capacity: {
           simulation: { maxConcurrent: 40, active: 7 },
           sandboxStart: { maxConcurrent: 20, active: 6, waiting: 9, slotTimeoutMs: 30_000 },
           admission: { max: 100, current: 14 },
@@ -206,11 +207,77 @@ describe("capacity scenario measurement aggregation", () => {
     expect(result.sandboxStartPeak).toBe(6);
     expect(result.sandboxStartWaitingPeak).toBe(9);
     expect(result.queueWaitMs).toEqual([1_000, 3_000]);
-    expect(result.startupSlotWaitMs).toEqual([200, 700]);
+    expect(result.startupSlotWaitMs).toEqual([0, 8_000]);
     expect(result.startupDurationMs).toEqual([500, 800]);
     expect(result.hostSamples).toEqual(hostSamples);
     expect(result.errors).toEqual(["diagnostic warning"]);
     expect(result.cleanup.remainingCapacityContainers).toBe(0);
+  });
+
+  it("keeps simulation queue timing independent from authoritative sandbox-start samples", () => {
+    const first = client({
+      clientId: 1,
+      queueWaitMs: 120_000,
+      startupSlotWaitMs: null,
+      startupSlotWaitBeganAtMs: null,
+      startupSlotAcquiredAtMs: null,
+    });
+    const result = summarizeCapacityScenario({
+      scenario: "classroom",
+      holdDurationMs: 60_000,
+      arrivalWindowMs: 5_000,
+      clients: [first],
+      statusHistory: [status({ capacityTest: { sandboxStartWaitSamplesMs: [8_000] } })],
+      lifecycleDockerPeak: 1,
+      pollingDockerPeak: 1,
+      hostSamples: [],
+      errors: [],
+      cleanup: {
+        backendExited: true,
+        remainingCapacityContainers: 0,
+        activeSimulationCount: 0,
+        queueWaiting: 0,
+        admissionCurrent: 0,
+        sandboxStartActive: 0,
+        sandboxStartWaiting: 0,
+      },
+      runtimeConfiguration: {
+        simulationMaxConcurrent: 1,
+        sandboxStartMaxConcurrent: 1,
+        simulationAdmissionMax: 1,
+        simulationQueueTimeoutMs: 330_000,
+        sandboxStartSlotTimeoutMs: 30_000,
+        dockerControlTimeoutMs: 2_000,
+        compileMaxConcurrent: 19,
+      },
+    });
+
+    expect(result.queueWaitMs).toEqual([120_000]);
+    expect(result.startupSlotWaitMs).toEqual([8_000]);
+  });
+
+  it("does not assign sandbox-start timing to queued or compilation protocol messages", () => {
+    const result = client({
+      started: false,
+      runtimeStartedAtMs: null,
+      completedAtMs: null,
+      queueEnteredAtMs: null,
+      simulationSlotAcquiredAtMs: null,
+      queueWaitMs: null,
+      startupSlotWaitBeganAtMs: null,
+      startupSlotAcquiredAtMs: null,
+      startupSlotWaitMs: null,
+    });
+
+    applyClientCapacityTiming(result, { type: "simulation_status", status: "queued" }, 10_000);
+    applyClientCapacityTiming(result, { type: "compilation_status" }, 130_000);
+
+    expect(result.queueEnteredAtMs).toBe(10_000);
+    expect(result.simulationSlotAcquiredAtMs).toBe(130_000);
+    expect(result.queueWaitMs).toBe(120_000);
+    expect(result.startupSlotWaitBeganAtMs).toBeNull();
+    expect(result.startupSlotAcquiredAtMs).toBeNull();
+    expect(result.startupSlotWaitMs).toBeNull();
   });
 
   it("preserves client phase timestamps and records missing phases as absent", () => {

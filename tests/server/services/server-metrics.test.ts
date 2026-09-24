@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { 
   getProcessMetrics, 
   compileMetricsTracker, 
+  sandboxStartWaitSamplesTracker,
   webSocketMetricsTracker,
   evaluateObservabilityAlerts,
   OBSERVABILITY_THRESHOLDS,
@@ -14,11 +15,13 @@ import {
 describe("Server Metrics (Phase 3.9 Observability)", () => {
   beforeEach(() => {
     compileMetricsTracker.reset();
+    sandboxStartWaitSamplesTracker.reset();
     webSocketMetricsTracker.reset();
   });
 
   afterEach(() => {
     compileMetricsTracker.reset();
+    sandboxStartWaitSamplesTracker.reset();
     webSocketMetricsTracker.reset();
   });
 
@@ -118,6 +121,29 @@ describe("Server Metrics (Phase 3.9 Observability)", () => {
       expect(metrics.compileErrorCount).toBe(0);
       expect(metrics.avgCompileDurationMs).toBe(0);
       expect(metrics.avgQueueWaitTimeMs).toBe(0);
+    });
+  });
+
+  describe("sandboxStartWaitSamplesTracker", () => {
+    it("keeps authoritative zero and non-zero semaphore waits scoped to a run", () => {
+      sandboxStartWaitSamplesTracker.record("run-a", 0);
+      sandboxStartWaitSamplesTracker.record("run-a", 8_000);
+      sandboxStartWaitSamplesTracker.record("run-b", 120_000);
+
+      expect(sandboxStartWaitSamplesTracker.getSamples("run-a")).toEqual([0, 8_000]);
+      expect(sandboxStartWaitSamplesTracker.getSamples("run-b")).toEqual([120_000]);
+      expect(sandboxStartWaitSamplesTracker.getSamples("run-missing")).toEqual([]);
+    });
+
+    it("bounds retained samples while preserving the most recent values", () => {
+      for (let index = 0; index < 10_005; index++) {
+        sandboxStartWaitSamplesTracker.record("run-a", index);
+      }
+
+      const samples = sandboxStartWaitSamplesTracker.getSamples("run-a");
+      expect(samples).toHaveLength(10_000);
+      expect(samples[0]).toBe(5);
+      expect(samples.at(-1)).toBe(10_004);
     });
   });
 

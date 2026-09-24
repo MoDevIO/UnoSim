@@ -35,7 +35,25 @@ function fixture(): CalibrationRunResult {
       measurementQueueTimeoutMs: 330_000,
     },
     plan: { activeCandidates: [20, 40], startupCandidates: [8, 12], classroomDurationSec: 60 },
-    phases: { dockerControl: [], active: [], startup: [], classroom: null },
+    phases: {
+      dockerControl: [],
+      active: [],
+      startup: [{
+        requested: 20,
+        stable: true,
+        startupSlotWaitP95Ms: 8_000,
+        startupSlotWaitMaxMs: 8_000,
+        startupDurationP95Ms: 10_000,
+        cpuP95Percent: 40,
+        iowaitP95Percent: 1,
+        minAvailableMemoryBytes: 16_000,
+        failures: 0,
+        timeouts: 0,
+        startupSlotWaitSamplesComplete: true,
+        startupSlotWaitSampleCount: 20,
+      }],
+      classroom: null,
+    },
     recommendations: {
       simulationMaxConcurrent: { value: 40, status: "recommended", confidence: "HIGH", measuredBasis: ["40 measured"], warnings: [] },
       sandboxStartMaxConcurrent: { value: 20, status: "recommended", confidence: "HIGH", measuredBasis: ["20 measured"], warnings: [] },
@@ -99,7 +117,7 @@ describe("capacity calibration reports", () => {
       admissionPeak: 200,
       sandboxStartPeak: 20,
       sandboxStartWaitingPeak: 50,
-      startupSlotWaitMs: [],
+      startupSlotWaitMs: Array.from({ length: 200 }, () => 0),
       startupDurationMs: [],
       queueWaitMs: [],
       hostSamples: [],
@@ -130,8 +148,12 @@ describe("capacity calibration reports", () => {
       successful: 200,
       rejected: 0,
       incomplete: 0,
+      authoritativeSandboxStartWaitSamplesExpected: 200,
+      authoritativeSandboxStartWaitSamplesComplete: true,
     };
-    expect(renderCapacityEnv(result)).toContain("SIMULATION_ADMISSION_MAX=200");
+    const env = renderCapacityEnv(result);
+    expect(env).toContain("SIMULATION_ADMISSION_MAX=200");
+    expect(env).toContain("SANDBOX_START_SLOT_TIMEOUT_MS=30000");
   });
 
   it("omits admission and queue proposals for a rejected or truncated classroom", () => {
@@ -172,11 +194,14 @@ describe("capacity calibration reports", () => {
       failed: 0,
       incomplete: 0,
       completed: 40,
+      authoritativeSandboxStartWaitSamplesExpected: 200,
+      authoritativeSandboxStartWaitSamplesComplete: false,
       fairness: { starvation: true, reorderPercentage: null, outliers: 0 },
     };
     const env = renderCapacityEnv(result);
     expect(env).toContain("SIMULATION_ADMISSION_MAX omitted");
     expect(env).toContain("SIMULATION_QUEUE_TIMEOUT_MS omitted");
+    expect(env).toContain("SANDBOX_START_SLOT_TIMEOUT_MS omitted: authoritative sandbox-start semaphore samples incomplete");
     expect(env).not.toMatch(/^SIMULATION_ADMISSION_MAX=200$/m);
     expect(env).not.toMatch(/^SIMULATION_QUEUE_TIMEOUT_MS=/m);
   });

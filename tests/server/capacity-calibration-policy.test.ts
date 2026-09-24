@@ -52,6 +52,8 @@ function startup(requested: number, p95: number, overrides: Partial<StartupMeasu
     minAvailableMemoryBytes: 8 * 1024 ** 3,
     failures: 0,
     timeouts: 0,
+    startupSlotWaitSamplesComplete: true,
+    startupSlotWaitSampleCount: requested,
     ...overrides,
   };
 }

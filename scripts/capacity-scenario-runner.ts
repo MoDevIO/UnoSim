@@ -36,7 +36,9 @@ export type ClientResult = {
   admittedAtMs: number | null;
   queueEnteredAtMs: number | null;
   simulationSlotAcquiredAtMs: number | null;
+  /** Deprecated compatibility fields; authoritative waits come from status samples. */
   startupSlotWaitBeganAtMs: number | null;
+  /** Deprecated compatibility fields; authoritative waits come from status samples. */
   startupSlotAcquiredAtMs: number | null;
   startupBeganAtMs: number | null;
   runtimeStartedAtMs: number | null;
@@ -45,6 +47,7 @@ export type ClientResult = {
   disconnectedAtMs: number | null;
   startLatencyMs: number | null;
   queueWaitMs: number | null;
+  /** Never inferred from WebSocket messages; populated only by aggregation. */
   startupSlotWaitMs: number | null;
   startupDurationMs: number | null;
   runtimeDurationMs: number | null;
@@ -81,6 +84,10 @@ export type StatusSnapshot = {
   status?: string;
   serverMode?: string;
   capacityTestRunId?: string;
+  capacityTest?: {
+    /** Raw waits measured by the backend sandbox-start semaphore. */
+    sandboxStartWaitSamplesMs: number[];
+  };
   capacity?: {
     simulation?: { maxConcurrent: number; active: number };
     sandboxStart?: { maxConcurrent: number; active: number; waiting: number; slotTimeoutMs: number };
@@ -178,6 +185,9 @@ export type CapacityScenarioMeasurement = {
   sandboxStartPeak: number;
   sandboxStartWaitingPeak: number;
   startupSlotWaitMs: number[];
+  /** Copy of the test-only backend samples used for startupSlotWaitMs. */
+  authoritativeSandboxStartWaitSamplesMs?: number[];
+  authoritativeSandboxStartWaitSamplesComplete?: boolean;
   startupDurationMs: number[];
   queueWaitMs: number[];
   hostSamples: HostSample[];
@@ -211,6 +221,11 @@ export function summarizeCapacityScenario(input: ScenarioSummaryInput): Capacity
     0,
   );
 
+  const authoritativeSamples = input.statusHistory
+    .map((status) => status.capacityTest?.sandboxStartWaitSamplesMs ?? [])
+    .reduce((longest, samples) => samples.length >= longest.length ? samples : longest, [] as number[]);
+  const expectedStartupSamples = input.clients.filter((client) => client.started || client.startupBeganAtMs !== null).length;
+
   return {
     ...input,
     activePeak,
@@ -218,10 +233,53 @@ export function summarizeCapacityScenario(input: ScenarioSummaryInput): Capacity
     admissionPeak,
     sandboxStartPeak,
     sandboxStartWaitingPeak,
-    startupSlotWaitMs: input.clients.flatMap((client) => client.startupSlotWaitMs === null ? [] : [client.startupSlotWaitMs]),
+    startupSlotWaitMs: [...authoritativeSamples],
+    authoritativeSandboxStartWaitSamplesMs: [...authoritativeSamples],
+    authoritativeSandboxStartWaitSamplesComplete: authoritativeSamples.length === expectedStartupSamples,
     startupDurationMs: input.clients.flatMap((client) => client.startupDurationMs === null ? [] : [client.startupDurationMs]),
     queueWaitMs: input.clients.flatMap((client) => client.queueWaitMs === null ? [] : [client.queueWaitMs]),
   };
+}
+
+export type ClientCapacityTimingMessage = {
+  type?: string;
+  status?: string;
+  arduinoCliStatus?: string;
+};
+
+/**
+ * Record protocol timestamps that belong to the simulation queue/startup path.
+ * Sandbox-start semaphore waits are deliberately absent here: those values
+ * come only from the backend's test-only capacityTest samples.
+ */
+export function applyClientCapacityTiming(
+  result: ClientResult,
+  message: ClientCapacityTimingMessage,
+  at: number,
+): void {
+  if (message.type === "simulation_status" && message.status === "queued") {
+    result.queueEnteredAtMs ??= at;
+  }
+  if (message.type === "compilation_status") {
+    result.simulationSlotAcquiredAtMs ??= at;
+    result.startupBeganAtMs ??= at;
+    if (result.queueEnteredAtMs !== null) {
+      result.queueWaitMs ??= at - result.queueEnteredAtMs;
+    }
+    if (message.arduinoCliStatus === "error") {
+      result.errors.push("sandbox compilation failed");
+    }
+  }
+  if (message.type === "simulation_status" && message.status === "running" && !result.started) {
+    result.runtimeStartedAtMs = at;
+    result.started = true;
+    result.startLatencyMs = at - result.requestedAtMs;
+    if (result.queueWaitMs === null && result.queueEnteredAtMs !== null && result.simulationSlotAcquiredAtMs !== null) {
+      result.queueWaitMs = result.simulationSlotAcquiredAtMs - result.queueEnteredAtMs;
+    }
+    result.queueWaitMs ??= 0;
+    if (result.startupBeganAtMs !== null) result.startupDurationMs = at - result.startupBeganAtMs;
+  }
 }
 
 function getJson<T>(url: string): Promise<{ statusCode: number; body: T; headers: http.IncomingHttpHeaders }> {
@@ -384,44 +442,11 @@ function runClient(
       });
       ws.on("message", (raw) => {
         try {
-          const message = JSON.parse(raw.toString()) as {
-            type?: string;
-            status?: string;
-            code?: string;
-            arduinoCliStatus?: string;
-          };
+          const message = JSON.parse(raw.toString()) as ClientCapacityTimingMessage & { code?: string };
           const at = now();
-          if (message.type === "simulation_status" && message.status === "queued") {
-            result.queueEnteredAtMs ??= at;
-            result.startupSlotWaitBeganAtMs ??= at;
-          }
-          if (message.type === "compilation_status") {
-            result.simulationSlotAcquiredAtMs ??= at;
-            result.startupSlotAcquiredAtMs ??= at;
-            result.startupBeganAtMs ??= at;
-            if (result.queueEnteredAtMs !== null) {
-              result.queueWaitMs ??= at - result.queueEnteredAtMs;
-            }
-            if (result.startupSlotWaitBeganAtMs !== null) {
-              result.startupSlotWaitMs ??= at - result.startupSlotWaitBeganAtMs;
-            }
-            if (message.arduinoCliStatus === "error") {
-              result.errors.push("sandbox compilation failed");
-            }
-          }
-          if (message.type === "simulation_status" && message.status === "running" && !result.started) {
-            result.runtimeStartedAtMs = at;
-            result.started = true;
-            result.startLatencyMs = at - requestedAt;
-            if (result.queueWaitMs === null && result.queueEnteredAtMs !== null && result.simulationSlotAcquiredAtMs !== null) {
-              result.queueWaitMs = result.simulationSlotAcquiredAtMs - result.queueEnteredAtMs;
-            }
-            result.queueWaitMs ??= 0;
-            if (result.startupSlotWaitMs === null && result.startupSlotWaitBeganAtMs !== null && result.startupSlotAcquiredAtMs !== null) {
-              result.startupSlotWaitMs = result.startupSlotAcquiredAtMs - result.startupSlotWaitBeganAtMs;
-            }
-            result.startupSlotWaitMs ??= 0;
-            if (result.startupBeganAtMs !== null) result.startupDurationMs = at - result.startupBeganAtMs;
+          const wasStarted = result.started;
+          applyClientCapacityTiming(result, message, at);
+          if (!wasStarted && result.started) {
             holdTimer = setTimeout(() => {
               if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop_simulation" }));
             }, holdDurationMs);
