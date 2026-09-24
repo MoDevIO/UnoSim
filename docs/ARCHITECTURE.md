@@ -158,6 +158,11 @@ partial Tutor bundle. Last-known-good content is scoped to the same
 repository/ref and exact revision rules prevent cross-source fallback.
 
 The initial default remains ttbombadil/unosim-examples with ref main.
+Tutor question responses receive an opaque server-issued Course Content session
+handle when repository context is active. Follow-up dialogs use that handle and
+remain pinned to the server-derived revision; browser repository/ref/revision
+metadata is request context only and never content authority. Changing the
+browser selection clears the client dialog and starts a new context.
 The detailed source contract remains in
 [ssot_function_definition_ExternalExamples.md](../ssot/ssot_function_definition_ExternalExamples.md)
 and [adr/0005-browser-scoped-external-examples.md](adr/0005-browser-scoped-external-examples.md).

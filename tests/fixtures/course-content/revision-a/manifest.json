@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "examples": [
+    {
+      "id": "revision-a",
+      "title": "Revision A",
+      "category": "Fixtures",
+      "main": "main.ino",
+      "files": [{ "name": "main.ino", "path": "examples/main.ino" }]
+    }
+  ]
+}

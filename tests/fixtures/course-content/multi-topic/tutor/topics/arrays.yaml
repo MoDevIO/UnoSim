@@ -1,0 +1,45 @@
+schemaVersion: 1
+id: arrays
+title: Arrays
+locale: de-DE
+activation:
+  any:
+    - fact: type-used
+      values: [int]
+concepts:
+  - id: array-values
+    title: Arraywerte
+    objective: Werte in einem Array unterscheiden.
+    prerequisites: []
+    difficulty:
+      entry: [1, 50]
+      transfer: [20, 80]
+    misconceptions: []
+    indicators:
+      - id: distinguishes-values
+        description: Unterscheidet einzelne Arraywerte.
+    mastery:
+      minimumSuccessfulProbes: 1
+      successRatingAtLeast: 3
+      requiredIndicators: [distinguishes-values]
+      minimumDistinctQuestionKinds: 1
+      recentWeakAnswersAllowed: 0
+questions:
+  - id: array-value-recall
+    concept: array-values
+    indicator: distinguishes-values
+    kind: recall
+    difficulty: [1, 50]
+    requires:
+      - fact: type-used
+        values: [int]
+    text: Welchen Wert speichert das Array?
+scaffolds: []
+progression:
+  entryConcepts: [array-values]
+  preferredOrder: [array-values]
+  onRating:
+    1-2: remediate
+    3: clarify-same-indicator
+    4: probe-missing-indicator
+    5: evaluate-mastery-and-advance

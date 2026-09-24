@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "examples": [
+    {
+      "id": "fixture-invalid-tutor",
+      "title": "Invalid Tutor fixture",
+      "category": "Fixtures",
+      "main": "main.ino",
+      "files": [{ "name": "main.ino", "path": "examples/main.ino" }]
+    }
+  ],
+  "tutor": { "manifest": "tutor/manifest.yaml" }
+}

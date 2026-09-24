@@ -1,0 +1,9 @@
+schemaVersion: 1
+topics:
+  - id: arrays
+    path: tutor/topics/arrays.yaml
+    sha256: efce41692aa765a5c634b832736e84b866ad6d596e7dbfe65825233de83b6f08
+  - id: loops
+    path: tutor/topics/loops.yaml
+    sha256: 31065ce0ac1440ca8d810fa37b47a68acfdabd2564ae61ac225747751f3dfe0c
+strategies: []
