@@ -8,7 +8,7 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 ## Governance-Grenzen
 
 - Dieses Dokument ist der aktuelle Architekturüberblick. Es beschreibt Komponenten, Datenflüsse, State Ownership und Betriebsmodell bewusst zusammenfassend.
-- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md` und die dynamische Examples-Auswahl in `adr/0005-browser-scoped-external-examples.md`.
+- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md`, die historische Tutor-Pilotentscheidung in `adr/0004-repository-based-tutor-curriculum.md`, die dynamische Examples-Auswahl in `adr/0005-browser-scoped-external-examples.md` und der aktuelle Course-Content-/Tutor-Vertrag in `adr/0006-unified-course-content-and-tutor-strategy.md`.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
 - Git enthält die Historie früherer Planungs- und Risikoquellen; der aktuelle
@@ -95,73 +95,72 @@ Registry-Funktion `parseStaticIORegistry()` bleibt ein kompatibler Wrapper.
 Nicht eindeutig statisch auflösbare Fälle bleiben konservativ ungelöst und
 können weiterhin nur durch die Runtime-Erkennung sichtbar werden.
 
-### Repo-basierte Tutorsteuerung (Pilot)
+### Unified Course Content
 
-Der Tutor kann optional einen validierten Snapshot aus einem separaten
-Curriculum-Repository verwenden. Der serverseitige Datenfluss lautet:
+Course Content is one effective public GitHub repository/ref selection with two
+capability-scoped outputs: the Examples core capability and the optional Tutor
+capability. The server resolves the ref to one immutable repository + revision
+snapshot. Valid Examples remain usable when the optional Tutor descriptor,
+manifest, topic, strategy, hash, or binding is invalid.
 
-```text
-DidacticContentRepository
-  -> SketchFactExtractor
-  -> TopicMatcher
-  -> LearningPlanner
-  -> TutorService
-  -> bestehender LLMProvider
-```
+~~~text
+Course Content repository + ref
+        -> server ref resolution
+        -> immutable repository + revision snapshot
+             /                         \
+        Examples                  Tutor topics/strategy
+                                      -> fact matcher
+                                      -> deterministic planner
+                                      -> TutorService / LLMProvider
+~~~
 
-Der Pilot unterstützt ausschließlich `memory-and-data-types`. Die Quelle wird
-über einen vollständigen Commit-SHA konfiguriert; geladen werden nur Manifest
-und manifestierte Topic-Dateien. YAML wird strikt validiert, referenziert keine
-ausführbaren Regeln und wird zu einem normalisierten `DidacticBrief`
-kompiliert. Dieser Brief gelangt ausschließlich in den User-Kontext des
-Provider-Requests, niemals in den serverseitigen Systemprompt.
+The Tutor uses the same SketchFactExtractor, TopicMatcher, LearningPlanner,
+TutorService, and provider boundary established by the pilot. The normalized
+EffectiveTutorStrategy is always present. The built-in built-in-default policy
+is used without a repository, for Examples-only repositories, for topic
+mismatches, and after any invalid Tutor capability. A valid repository strategy
+may control the free Tutor without providing topics.
 
-Der Planner wählt Fragen und Übergänge deterministisch. Das LLM bewertet die
-Antwort und liefert kurzes Feedback. Die Concept Map und die Frage-IDs werden
-aus dem begrenzten Dialogverlauf der laufenden Browser-Session rekonstruiert;
-es gibt im Pilot keine dauerhafte Lernhistorie und kein Analytics-System.
-Wenn Quelle, Snapshot oder Topic-Match fehlen, bleibt der freie bestehende
-Tutorpfad aktiv. Die versionierten Dateien unter `curriculum/` im UnoSim-
-Arbeitsbaum sind nur Pilot-Fixtures/Authoring-Beispiele und werden nicht
-automatisch produktiv geladen. Eine detaillierte Entscheidung steht in
-[`adr/0004-repository-based-tutor-curriculum.md`](adr/0004-repository-based-tutor-curriculum.md).
+The current sketch remains factual authority. Example bindings only prioritize
+applicable topics and strategies; edited code can make them inapplicable.
+Repository data enters only structured didactic context. The application-owned
+system prompt, safety rules, provider isolation, privacy rules, response
+validation, and editor boundary are never repository-controlled.
 
-### Dynamische External Examples
+The old separate Tutor source is superseded. The in-tree curriculum files are
+fixtures and authoring examples only. The normative details are in
+[ssot_function_definition_CourseContent.md](../ssot/ssot_function_definition_CourseContent.md),
+[adr/0006-unified-course-content-and-tutor-strategy.md](adr/0006-unified-course-content-and-tutor-strategy.md),
+and [ssot_function_definition_LearningQuestions.md](../ssot/ssot_function_definition_LearningQuestions.md).
 
-Die Server-/Deployment-Konfiguration bleibt die Default-Quelle für External
-Examples. Ein Browser darf in den Settings ein öffentliches GitHub-
-Repository und einen Git-Ref als nicht-sensitive Präferenz
-auswählen. Ohne Override gilt der Server-Default; Reset entfernt ausschließlich
-die lokale Auswahl. Der Browser verändert keinen globalen Serverzustand und
-kontaktiert GitHub niemals direkt.
+### Dynamic Course Content selection
 
-```text
-Browser Settings/localStorage
-  -> GET /api/examples mit typisierter request-scoped Auswahl
-  -> serverseitige Repository-/Ref- und SSRF-Validierung
-  -> GitHub-Ref-Auflösung auf vollständigen Commit-SHA
-  -> source-keyed ExamplesRepository / HttpProvider
-  -> GitHub / raw.githubusercontent.com
-```
+Server/deployment configuration remains the default source. A browser may
+select one public GitHub repository and ref as a non-sensitive personal
+preference. That same override affects Examples and Tutor for that browser
+only. It does not change the operator default or another browser's state.
+Reset removes only the local override. The browser contacts UnoSim, never
+GitHub, and does not provide authoritative revision identity.
 
-Nach Ablauf des TTL löst der Server den beweglichen Ref lazy auf einen
-vollständigen Commit-SHA auf. Manifest und Dateien werden ausschließlich aus
-diesem Commit geladen; eine neue Revision wird erst nach vollständiger
-Validierung atomar aktiviert. Bei Fehlern bleibt ausschließlich der Last-Known-
-Good-Snapshot derselben Repository-/Ref-Auswahl verfügbar. Source-Zustand wird
-nach `repository + ref`, unveränderlicher Inhalt nach
-`repository + revision` gecached. Dadurch können zwei Browser gleichzeitig
-unterschiedliche Quellen verwenden, während identische Quellen einen
-validierten Snapshot teilen. Das frühere Channel-/`stable.json`-Modell ist
-verworfen.
+~~~text
+Browser Course Content preference
+  -> request-scoped repository/ref metadata
+  -> server validation and ref resolution
+  -> immutable repository + revision context
+  -> capability-scoped Examples/Tutor validation
+  -> shared repository + revision cache
+~~~
 
-Die dynamische Browserauswahl und Ref-Auflösung sind implementiert. Der
-initiale konfigurierte External-Examples-Default ist
-`ttbombadil/unosim-examples` mit Ref `main`.
-Verbindliche Zielentscheidungen stehen in
-[`adr/0005-browser-scoped-external-examples.md`](adr/0005-browser-scoped-external-examples.md),
-der vollständige Fachvertrag in
-[`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md).
+After the refresh TTL, a moving ref is resolved again. A new revision is
+activated only after complete core validation and capability-scoped Tutor
+validation. A Tutor-only failure leaves valid Examples active and activates no
+partial Tutor bundle. Last-known-good content is scoped to the same
+repository/ref and exact revision rules prevent cross-source fallback.
+
+The initial default remains ttbombadil/unosim-examples with ref main.
+The detailed source contract remains in
+[ssot_function_definition_ExternalExamples.md](../ssot/ssot_function_definition_ExternalExamples.md)
+and [adr/0005-browser-scoped-external-examples.md](adr/0005-browser-scoped-external-examples.md).
 
 ## 🔄 Datenflüsse im Detail
 
@@ -206,9 +205,10 @@ Die Simulation nutzt denselben Compilerpfad in der Prepare-Phase, startet den Ru
 | `ws-output-buffer.ts` | Serial-Output-Batching und sichere WebSocket-Ausgabe |
 | `sandbox-runner-pool.ts` | Runner-Lebenszyklus und Pool-Management |
 | `arduino-compiler.ts` | Compilation und Cache-Logik |
-| Browser Settings | optionale, nur lokal persistierte External-Examples-Auswahl |
-| Examples API | Ermittlung von Default oder request-scoped Browser-Override und Ausgabe nicht-sensitiver Source-Metadaten |
-| `ExamplesRepository` | Repository-/Ref-Source-Cache, immutable Revision-Snapshots, Validierung und atomare LKG-Aktivierung |
+| Browser Settings | optionale, nur lokal persistierte Course-Content-Auswahl für Examples und Tutor |
+| Course Content API | Ermittlung von Default oder request-scoped Browser-Override, immutable Revision und capability-scoped Status |
+| `ExamplesRepository` / Course snapshot | gemeinsamer Repository-/Ref-Source-Cache, immutable Revision-Snapshots, Examples-Kernvalidierung, optionaler Tutor-Bundle-Status und atomare LKG-Aktivierung |
+| Tutor planning path | `EffectiveTutorStrategy`, fact-grounded topic selection, deterministic planning und Built-in-Fallback |
 
 `ArduinoSimulatorPageState` wird für die Page-Übergabe in sieben fachliche
 ViewModels gegliedert:
@@ -254,10 +254,11 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 ### Zentrale Konfiguration
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth
 - **Environment-Variablen:** Validierte Parser mit Type-Safety
-- **External Examples (Zielarchitektur):** Config bleibt Source of Truth für
-  Default-Repository, Default-Ref und Refresh-TTL. Eine Browserpräferenz
-  ist nur ein request-scoped Override und keine zweite serverweite
-  Konfiguration.
+- **Course Content:** Config bleibt Source of Truth für Default-Repository,
+  Default-Ref und Refresh-TTL. Eine Browserpräferenz ist nur ein
+  request-scoped Override für beide optionalen Fähigkeiten und keine zweite
+  serverweite Konfiguration. Obsolete separate Tutor-Source-Variablen werden
+  als Startup-Tombstones abgelehnt.
 - **Status:** `server/config.ts` leitet Ausführung und Authentifizierung aus dem
   Runtime-Profil ab. Frühere unabhängige Mode- und Compatibility-Schalter
   werden abgelehnt. Aktuelle Anforderungen stehen in `INSTALL_SERVER.md` und
@@ -287,7 +288,10 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/h
 
 **Siehe auch:**
 - [`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md) – Verbindlicher Gateway-/Auth-Vertrag
+- [`adr/0004-repository-based-tutor-curriculum.md`](adr/0004-repository-based-tutor-curriculum.md) – historische, durch ADR 0006 supersedierte Tutor-Pilotentscheidung
 - [`adr/0005-browser-scoped-external-examples.md`](adr/0005-browser-scoped-external-examples.md) – Zielarchitektur für dynamische External Examples
+- [`adr/0006-unified-course-content-and-tutor-strategy.md`](adr/0006-unified-course-content-and-tutor-strategy.md) – aktueller einheitlicher Course-Content-/Tutor-Vertrag
+- [`../ssot/ssot_function_definition_CourseContent.md`](../ssot/ssot_function_definition_CourseContent.md) – Normativer Course-Content-Vertrag
 - [`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md) – Fachlicher Examples-Vertrag
 - [`SCALABILITY.md`](SCALABILITY.md) – gemessene Kapazitätsgrenzen
 - [`TESTING_STANDARDS.md`](TESTING_STANDARDS.md) – Teststrategie und -konventionen

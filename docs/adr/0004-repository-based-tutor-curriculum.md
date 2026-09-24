@@ -1,73 +1,69 @@
-# ADR 0004: Repository-basierte Tutorsteuerung (Pilot)
+# ADR 0004: Repository-based Tutor curriculum (historical pilot)
 
-- Status: Accepted (Pilot)
+- Status: Superseded by ADR 0006
 - Date: 2026-09-11
-- Scope: genau ein Topic, `memory-and-data-types`
+- Scope: historical single-topic pilot
 
-## Entscheidung
+## Context
 
-Didaktische Inhalte werden als versionierte YAML-Daten in einem separaten
-Curriculum-Repository gepflegt. UnoSim lädt serverseitig nur ein Manifest und
-die darin explizit referenzierten Topic-Dateien. In Produktion wird ein
-vollständiger Commit-SHA verwendet. Der Browser kommuniziert niemals mit
-GitHub.
+UnoSim first implemented a pilot that loaded one memory-and-data-types topic
+from a separately configured, pinned HTTPS source. The pilot established the
+useful boundaries that remain part of the current architecture:
 
-Der Inhalt wird vor der Verwendung mit einem strikten Schema, Größenlimits,
-Referenzprüfung und einer azyklischen Concept-Dependency-Prüfung validiert.
-Repository-Daten werden zu einem normalisierten `DidacticBrief` kompiliert.
-Nur dieser Brief darf als strukturierter User-Kontext an den bestehenden
-Tutor-Provider gelangen. Der serverseitige Systemprompt bleibt
-Anwendungscode; Curriculum-Text wird niemals an ihn angehängt.
+- strict data-only YAML;
+- explicit manifests and file hashes;
+- bounded downloads and reference validation;
+- typed sketch facts and deterministic topic matching;
+- deterministic planning before the LLM;
+- normalized didactic context rather than repository prompts;
+- free Tutor fallback when the curriculum is unavailable or inapplicable.
 
-Der Pilot besitzt keine dauerhafte Lernhistorie, kein Analytics-System und
-keinen signierten Lernzustand. Die Concept Map wird aus dem begrenzten,
-sessionbezogenen Dialogverlauf im Browser-RAM rekonstruiert. Wenn kein
-validiertes Topic zum Sketch passt oder der Curriculum-Snapshot nicht
-verfügbar ist, läuft der bisherige freie Tutor unverändert weiter.
+The separate Tutor source created a second repository/ref/revision authority.
+That split is no longer permitted.
 
-Die im UnoSim-Arbeitsbaum liegenden Dateien unter `curriculum/` sind
-Pilot-Fixtures bzw. ein Authoring-Beispiel. Sie werden von der Produktion
-nicht automatisch gelesen und sind keine zweite Quelle der Wahrheit. Der
-produktive Pfad ist ausschließlich die über
-`UNOSIM_TUTOR_CURRICULUM_SOURCE` konfigurierte HTTPS-Quelle mit dem
-zugehörigen vollständigen Commit-SHA.
+## Decision history
 
-## Komponenten
+This pilot decision is retained as historical evidence only. The normative
+successor is
+[0006-unified-course-content-and-tutor-strategy.md](0006-unified-course-content-and-tutor-strategy.md),
+which moves optional Tutor content into the same Course Content repository and
+immutable revision as Examples.
 
-```text
-DidacticContentRepository
-  -> SketchFactExtractor
+The current contract generalizes the pilot to multiple topics and strategies,
+introduces EffectiveTutorStrategy with one built-in fallback, and keeps
+Examples valid when the optional Tutor capability is absent or invalid.
+
+The in-tree curriculum/ files remain fixtures and authoring examples. They
+are not a second production source.
+
+## Pilot components retained as implementation guidance
+
+~~~text
+SketchFactExtractor
   -> TopicMatcher
   -> LearningPlanner
   -> TutorService
-  -> bestehender LLMProvider
-```
+  -> LLMProvider
+~~~
 
-Der Planner wählt Fragen, Scaffolds und Übergänge deterministisch. Das LLM
-bewertet die aktuelle Antwort und formuliert kurzes Feedback. Die Bewertung
-`1..2`, `3`, `4` und `5` wird vom Planner in Remediation, Clarification,
-Indicator-Prüfung bzw. Mastery-/Progressionsprüfung übersetzt.
+The planner remains deterministic. The LLM may evaluate and formulate within
+the application-owned Tutor contract, but it does not own curriculum policy.
 
-## Sicherheitsgrenzen
+## Pilot security boundaries retained
 
-- Nur HTTPS und explizit allowlistete Hosts.
-- Keine Redirects, keine IP-Literale, keine privaten Zieladressen.
-- Fester Commit-SHA, Manifest-Hashes und Last-known-good nur für denselben
-  Commit.
-- Keine freien Regex, URLs, Promptrollen oder ausführbaren Regeln im YAML.
-- Nur geschlossene Fact-Matcher, Fragearten und Scaffolding-Strategien.
-- Topic-Dateien, IDs, Textfelder und Graphen besitzen feste Größenlimits.
-- Ungültiger oder nicht geladener Curriculum-Inhalt aktiviert keinen Teil-
-  Snapshot, sondern den freien Tutor-Fallback.
+- HTTPS and operator allowlists;
+- no redirects, private/reserved destinations, or IP literals;
+- full immutable revisions and per-file hashes;
+- bounded files, bytes, IDs, text, and dependency graphs;
+- no URLs, prompt roles, arbitrary regexes, or executable rules in content;
+- no repository text in the server system prompt;
+- all-or-nothing activation of a Tutor bundle;
+- free Tutor fallback when no validated plan is available.
 
-## Nicht Teil des Piloten
+## Consequences
 
-- persönliche Speicherung über einen Reload oder Durchlauf hinaus,
-- serverseitige Kompetenzprofile,
-- Analytics-/Experience-Events,
-- automatische Curriculum-Änderungen durch Modellantworten,
-- GitHub-Schreibzugriff aus UnoSim.
+Existing pilot-specific configuration variables are obsolete and are explicit
+startup tombstones. Operators migrate content into the configured Course
+Content repository; they do not configure a second Tutor repository.
 
-Eine spätere dauerhafte Lernhistorie benötigt eine eigene SSOT-/ADR-
-Entscheidung. Der bestehende Vertrag für flüchtige Dialoghistorie bleibt
-damit unverändert.
+Future implementation details MUST follow the Course Content SSOT and ADR 0006.
