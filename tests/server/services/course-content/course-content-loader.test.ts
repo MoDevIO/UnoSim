@@ -131,4 +131,20 @@ describe("unified Course Content loader", () => {
     expect(loaded.examples).toHaveLength(1);
     expect(loaded.tutor).toMatchObject({ status: "invalid" });
   });
+
+  it("rejects a bundle whose example binding references an unknown Tutor item", async () => {
+    const { fetchText } = fetcherFor({
+      [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({
+        schemaVersion: 2,
+        examples: [{ ...example, tutor: { topics: ["unknown-topic"] } }],
+        tutor: { manifest: "tutor/manifest.yaml" },
+      }),
+      [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}",
+      [`/owner/repo/${revision}/tutor/manifest.yaml`]: "schemaVersion: 1\ntopics: []\nstrategies: []\n",
+    });
+
+    const loaded = await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision);
+    expect(loaded.examples).toHaveLength(1);
+    expect(loaded.tutor).toMatchObject({ status: "invalid" });
+  });
 });

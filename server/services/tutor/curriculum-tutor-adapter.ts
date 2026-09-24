@@ -66,13 +66,22 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
         const snapshot = await this.courseContent.getSnapshot();
         if (!snapshot || snapshot.tutor?.status !== "valid" || snapshot.tutor.topics.length === 0) return null;
         const facts = this.factExtractor.extract(code);
-        const match = this.topicMatcher.match(snapshot.tutor.topics, facts)[0];
+        const matches = this.topicMatcher.match(snapshot.tutor.topics, facts);
+        const byId = new Map(matches.map((match) => [match.topic.id, match]));
+        const binding = exampleId === undefined ? undefined : snapshot.tutor.bindings.get(exampleId);
+        const boundIds = [
+          ...(binding?.primaryTopic ? [binding.primaryTopic] : []),
+          ...(binding?.topics ?? []),
+        ];
+        const boundMatch = boundIds
+          .map((id) => byId.get(id))
+          .find((match): match is NonNullable<typeof match> => match !== undefined);
+        const match = boundMatch ?? matches[0];
         if (!match) return null;
         const tutor = snapshot.tutor;
         const repositoryDefault = tutor.manifest.defaultStrategy === undefined
           ? undefined
           : tutor.strategies.find(({ id }) => id === tutor.manifest.defaultStrategy);
-        const binding = exampleId === undefined ? undefined : tutor.bindings.get(exampleId);
         const perExample = binding?.strategy === undefined
           ? undefined
           : tutor.strategies.find(({ id }) => id === binding.strategy);

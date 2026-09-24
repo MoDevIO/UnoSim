@@ -131,6 +131,19 @@ export class CourseContentLoader {
       if (manifest.defaultStrategy !== undefined && !strategies.some(({ id }) => id === manifest.defaultStrategy)) {
         throw new Error("Tutor default strategy is not enumerated");
       }
+      const topicIds = new Set(topicEntries.map(({ id }) => id));
+      const strategyIds = new Set(strategies.map(({ id }) => id));
+      for (const binding of bindings.values()) {
+        for (const topicId of binding.topics ?? []) {
+          if (!topicIds.has(topicId)) throw new Error(`Tutor binding references unknown topic: ${topicId}`);
+        }
+        if (binding.primaryTopic !== undefined && !topicIds.has(binding.primaryTopic)) {
+          throw new Error(`Tutor binding references unknown primary topic: ${binding.primaryTopic}`);
+        }
+        if (binding.strategy !== undefined && !strategyIds.has(binding.strategy)) {
+          throw new Error(`Tutor binding references unknown strategy: ${binding.strategy}`);
+        }
+      }
       return { status: "valid", manifest, topics: topicEntries, strategies, bindings };
     } catch {
       return { status: "invalid", reason: "Tutor capability is invalid" };
