@@ -6,6 +6,7 @@ import type {
   CurriculumTopic,
 } from "./curriculum-schema";
 import { matchesFactRequirement, type SketchFacts } from "./sketch-facts";
+import type { EffectiveTutorStrategy } from "../strategy/effective-tutor-strategy";
 
 export interface DidacticBrief {
   readonly topicId: string;
@@ -35,6 +36,7 @@ export interface LearningPlanner {
     facts: SketchFacts,
     history: readonly TutorDialogTurn[],
     difficulty: TutorDifficulty,
+    strategy?: EffectiveTutorStrategy,
   ): LearningPlan | null;
   advance(
     topic: CurriculumTopic,
@@ -44,6 +46,7 @@ export interface LearningPlanner {
     currentQuestion: string,
     rating: TutorAnswerRating,
     difficulty: TutorDifficulty,
+    strategy?: EffectiveTutorStrategy,
   ): LearningPlan | null;
 }
 
@@ -62,12 +65,13 @@ export class DefaultLearningPlanner implements LearningPlanner {
     facts: SketchFacts,
     history: readonly TutorDialogTurn[],
     difficulty: TutorDifficulty,
+    strategy?: EffectiveTutorStrategy,
   ): LearningPlan | null {
     const observations = collectObservations(topic, history);
     const usedQuestionIds = collectUsedQuestionIds(topic, history);
     const concept = selectNextConcept(topic, facts, observations, usedQuestionIds);
     if (!concept) return null;
-    const question = selectQuestion(topic, concept, facts, usedQuestionIds, difficulty);
+    const question = selectQuestion(topic, concept, facts, usedQuestionIds, difficulty, undefined, strategy);
     return question ? buildPlan(topic, revision, concept, question) : null;
   }
 
@@ -79,6 +83,7 @@ export class DefaultLearningPlanner implements LearningPlanner {
     currentQuestion: string,
     rating: TutorAnswerRating,
     difficulty: TutorDifficulty,
+    strategy?: EffectiveTutorStrategy,
   ): LearningPlan | null {
     const observations = collectObservations(topic, history);
     const current = findQuestion(topic, currentQuestion, history);
@@ -94,7 +99,7 @@ export class DefaultLearningPlanner implements LearningPlanner {
     const concept = topic.concepts.find(({ id }) => id === current.question.concept);
     if (!concept) return null;
 
-    const next = selectAfterRating({ topic, facts, concept, currentQuestion: current.question, rating, observations: allObservations, usedQuestionIds, difficulty });
+    const next = selectAfterRating({ topic, facts, concept, currentQuestion: current.question, rating, observations: allObservations, usedQuestionIds, difficulty, strategy });
     return next ? buildPlan(topic, revision, next.concept, next.question, next.scaffold) : null;
   }
 }
@@ -181,6 +186,7 @@ type RatingSelectionContext = {
   observations: readonly Observation[];
   usedQuestionIds: ReadonlySet<string>;
   difficulty: TutorDifficulty;
+  strategy?: EffectiveTutorStrategy;
 };
 
 function selectAfterRating(context: RatingSelectionContext): { concept: CurriculumConcept; question: CurriculumQuestion; scaffold?: CurriculumScaffold } | null {
@@ -197,22 +203,22 @@ function selectRemediation(context: RatingSelectionContext): { concept: Curricul
     const target = topic.concepts.find(({ id }) => id === scaffoldQuestion.concept);
     if (target) return { concept: target, question: scaffoldQuestion, scaffold };
   }
-  return chooseQuestionInConcept(topic, facts, concept, currentQuestion, usedQuestionIds, difficulty);
+  return chooseQuestionInConcept(topic, facts, concept, currentQuestion, usedQuestionIds, difficulty, context.strategy);
 }
 
 function selectClarification(context: RatingSelectionContext): { concept: CurriculumConcept; question: CurriculumQuestion } | null {
   const { topic, facts, concept, currentQuestion, usedQuestionIds, difficulty } = context;
   const sameIndicator = topic.questions.find((question) => question.concept === concept.id && question.indicator === currentQuestion.indicator && questionApplies(question, facts) && !usedQuestionIds.has(question.id));
-  return sameIndicator ? { concept, question: sameIndicator } : chooseQuestionInConcept(topic, facts, concept, currentQuestion, usedQuestionIds, difficulty);
+  return sameIndicator ? { concept, question: sameIndicator } : chooseQuestionInConcept(topic, facts, concept, currentQuestion, usedQuestionIds, difficulty, context.strategy);
 }
 
 function selectAdvance(context: RatingSelectionContext): { concept: CurriculumConcept; question: CurriculumQuestion } | null {
   const { topic, facts, concept, observations, usedQuestionIds, difficulty } = context;
-  const masteryProbe = selectMasteryProbe(topic, facts, concept, observations, usedQuestionIds);
+  const masteryProbe = selectMasteryProbe(topic, facts, concept, observations, usedQuestionIds, context.strategy);
   if (masteryProbe) return masteryProbe;
   const nextConcept = selectNextConcept(topic, facts, observations, usedQuestionIds);
   if (!nextConcept) return null;
-  const question = selectQuestion(topic, nextConcept, facts, usedQuestionIds, difficulty);
+  const question = selectQuestion(topic, nextConcept, facts, usedQuestionIds, difficulty, undefined, context.strategy);
   return question ? { concept: nextConcept, question } : null;
 }
 
@@ -222,6 +228,7 @@ function selectMasteryProbe(
   concept: CurriculumConcept,
   observations: readonly Observation[],
   usedQuestionIds: ReadonlySet<string>,
+  _strategy?: EffectiveTutorStrategy,
 ): { concept: CurriculumConcept; question: CurriculumQuestion } | null {
   if (isMastered(concept, observations)) return null;
   const missing = concept.mastery.requiredIndicators.find((indicator) => !indicatorMastered(indicator, concept, observations));
@@ -238,8 +245,9 @@ function chooseQuestionInConcept(
   currentQuestion: CurriculumQuestion,
   usedQuestionIds: ReadonlySet<string>,
   difficulty: TutorDifficulty,
+  strategy?: EffectiveTutorStrategy,
 ): { concept: CurriculumConcept; question: CurriculumQuestion } | null {
-  const question = selectQuestion(topic, concept, facts, usedQuestionIds, difficulty, currentQuestion.id);
+  const question = selectQuestion(topic, concept, facts, usedQuestionIds, difficulty, currentQuestion.id, strategy);
   return question ? { concept, question } : null;
 }
 
@@ -250,10 +258,15 @@ function selectQuestion(
   usedQuestionIds: ReadonlySet<string>,
   difficulty: TutorDifficulty,
   excludedId?: string,
+  strategy?: EffectiveTutorStrategy,
 ): CurriculumQuestion | null {
   const candidates = topic.questions.filter((question) => question.concept === concept.id && questionApplies(question, facts) && !usedQuestionIds.has(question.id) && question.id !== excludedId);
   if (candidates.length === 0) return null;
-  return [...candidates].sort((left, right) => difficultyDistance(left, difficulty) - difficultyDistance(right, difficulty) || left.id.localeCompare(right.id))[0] ?? null;
+  return [...candidates].sort((left, right) => (
+    difficultyDistance(left, difficulty) - difficultyDistance(right, difficulty)
+    || (strategy ? strategy.questionKindWeights[right.kind] - strategy.questionKindWeights[left.kind] : 0)
+    || left.id.localeCompare(right.id)
+  ))[0] ?? null;
 }
 
 function difficultyDistance(question: CurriculumQuestion, difficulty: TutorDifficulty): number {
