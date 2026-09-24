@@ -1,4 +1,5 @@
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -120,7 +121,7 @@ export type CalibrationDependencies = {
 };
 
 function timestampOutputDir(): string {
-  return path.join("capacity-test-results", `calibration-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+  return path.join("capacity-test-results", `calibration-${new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")}`);
 }
 
 function parseNumber(value: string, name: string): number {
@@ -142,21 +143,23 @@ export async function parseCalibrationArgs(argv: string[]): Promise<CalibrationC
   let skipStartupTuning = false;
   let dryRun = false;
   let verbose = false;
-  for (let index = 0; index < argv.length; index++) {
+  let index = 0;
+  while (index < argv.length) {
     const argument = argv[index];
     switch (argument) {
-      case "--expected-users": values.expectedUsers = parseNumber(requireValue(argv, index++, argument), "expectedUsers"); break;
-      case "--target-cpu": values.targetCpuPercent = parseNumber(requireValue(argv, index++, argument), "targetCpuPercent"); break;
-      case "--max-cpu": values.maxCpuPercent = parseNumber(requireValue(argv, index++, argument), "maxCpuPercent"); break;
-      case "--max-user-wait": values.maxUserWaitSec = parseNumber(requireValue(argv, index++, argument), "maxUserWaitSec"); break;
-      case "--max-duration": values.maxDurationMin = parseNumber(requireValue(argv, index++, argument), "maxDurationMin"); break;
-      case "--output-dir": outputDir = requireValue(argv, index++, argument); break;
+      case "--expected-users": values.expectedUsers = parseNumber(requireValue(argv, index, argument), "expectedUsers"); index += 2; continue;
+      case "--target-cpu": values.targetCpuPercent = parseNumber(requireValue(argv, index, argument), "targetCpuPercent"); index += 2; continue;
+      case "--max-cpu": values.maxCpuPercent = parseNumber(requireValue(argv, index, argument), "maxCpuPercent"); index += 2; continue;
+      case "--max-user-wait": values.maxUserWaitSec = parseNumber(requireValue(argv, index, argument), "maxUserWaitSec"); index += 2; continue;
+      case "--max-duration": values.maxDurationMin = parseNumber(requireValue(argv, index, argument), "maxDurationMin"); index += 2; continue;
+      case "--output-dir": outputDir = requireValue(argv, index, argument); index += 2; continue;
       case "--skip-classroom": skipClassroom = true; break;
       case "--skip-startup-tuning": skipStartupTuning = true; break;
       case "--dry-run": dryRun = true; break;
       case "--verbose": verbose = true; break;
       default: throw new Error(`Unknown option: ${argument}`);
     }
+    index += 1;
   }
   return {
     ...validateCalibrationOptions(values),
@@ -358,7 +361,8 @@ async function defaultStartBackend(capacity: EffectiveCapacityConfiguration, run
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
       const details = startupOutput.trim();
-      throw new Error(`Owned calibration backend exited during startup${details ? `: ${details}` : ""}`);
+      const suffix = details ? `: ${details}` : "";
+      throw new Error(`Owned calibration backend exited during startup${suffix}`);
     }
     try {
       const response = await fetch(`${baseUrl}/api/readiness`);
@@ -382,7 +386,8 @@ async function defaultStartBackend(capacity: EffectiveCapacityConfiguration, run
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   await stopProcess(child);
-  throw new Error(`Owned calibration backend did not become ready${startupOutput.trim() ? `: ${startupOutput.trim()}` : ""}`);
+  const suffix = startupOutput.trim() ? `: ${startupOutput.trim()}` : "";
+  throw new Error(`Owned calibration backend did not become ready${suffix}`);
 }
 
 export function effectiveCapacityForPhase(
@@ -492,6 +497,252 @@ function failedCalibrationResult(config: CalibrationCliConfig, host: HostProbe, 
   };
 }
 
+type CalibrationPhaseContext = {
+  config: CalibrationCliConfig;
+  baseCapacity: EffectiveCapacityConfiguration;
+  classroomQueueTimeoutMs: number;
+  deadline: number;
+  now: () => number;
+  image: string;
+  host: HostProbe;
+  minimumMemory: number;
+  activeCandidates: number[];
+  startupCandidates: number[];
+  measureControl: NonNullable<CalibrationDependencies["measureDockerControlLatency"]>;
+  runScenario: (options: CapacityScenarioOptions) => Promise<CapacityScenarioMeasurement>;
+  startBackend: NonNullable<CalibrationDependencies["startBackend"]>;
+  countOwnedContainers: (runId: string, includeStopped?: boolean) => number;
+  safetyEvents: SafetyEvent[];
+  lastCleanup: CleanupResult;
+};
+
+type PhaseRunResult = {
+  phases: CalibrationRunResult["phases"];
+  partial: boolean;
+  stopReason: string | null;
+  cleanup: CleanupResult;
+  startupSlotWaitP99Ms: number | null;
+  startupSlotWaitMaxMs: number | null;
+};
+
+async function measureCalibrationCandidate(context: CalibrationPhaseContext, phase: SafetyEvent["phase"], active: number, startup: number, scenario: "burst" | "classroom" = "burst"): Promise<CapacityScenarioMeasurement> {
+  if (context.now() >= context.deadline) throw new Error("calibration deadline reached");
+  const runId = `capacity_calibration_${Date.now()}_${randomUUID()}`;
+  const classroom = scenario === "classroom";
+  const clientCount = classroom ? context.config.expectedUsers : active;
+  const admission = classroom ? context.config.expectedUsers : Math.max(context.baseCapacity.simulationAdmissionMax, clientCount);
+  const queueTimeout = classroom ? context.classroomQueueTimeoutMs : context.baseCapacity.simulationQueueTimeoutMs;
+  const backend = await context.startBackend(effectiveCapacityForPhase(context.baseCapacity, active, startup, admission, queueTimeout), runId);
+  let measurement: CapacityScenarioMeasurement;
+  try {
+    measurement = await context.runScenario({
+      baseUrl: backend.baseUrl,
+      runId,
+      scenario,
+      clientCount,
+      holdDurationMs: classroom ? FIXED_CLASSROOM_DURATION_SEC * 1_000 : 25_000,
+      simulationTimeoutSec: 180,
+      arrivalWindowMs: classroom ? 5_000 : undefined,
+      outputDir: context.config.outputDir,
+      expectedSimulationMaxConcurrent: active,
+      expectedSandboxStartMaxConcurrent: startup,
+      requiredAdmissionMax: admission,
+      expectedSimulationQueueTimeoutMs: classroom ? context.classroomQueueTimeoutMs : undefined,
+    });
+    validateScenarioRuntimeConfiguration({
+      expectedSimulationMaxConcurrent: active,
+      expectedSandboxStartMaxConcurrent: startup,
+      requiredAdmissionMax: admission,
+      expectedSimulationQueueTimeoutMs: classroom ? context.classroomQueueTimeoutMs : undefined,
+    }, measurement.runtimeConfiguration);
+  } finally {
+    await backend.stop();
+  }
+  measurement.cleanup = { ...measurement.cleanup, remainingCapacityContainers: context.countOwnedContainers(runId, true), backendExited: true };
+  context.lastCleanup = measurement.cleanup;
+  context.safetyEvents.push(...safetyEventsForMeasurement(phase, measurement, context.config.maxCpuPercent, context.minimumMemory, context.now));
+  return measurement;
+}
+
+function phaseError(context: CalibrationPhaseContext, phase: SafetyEvent["phase"], error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  context.safetyEvents.push({ atMs: context.now(), phase, kind: configurationErrorFor(error) ? "configuration" : "backend", message, immediate: true });
+  return message;
+}
+
+async function runActiveCandidateList(
+  context: CalibrationPhaseContext,
+  candidates: number[],
+  measurements: ActiveMeasurement[],
+  allowDownwardRefinement: boolean,
+): Promise<{ partial: boolean; stopReason: string | null; candidates: number[] }> {
+  let partial = false;
+  let stopReason: string | null = null;
+  for (let index = 0; index < candidates.length; index += 1) {
+    if (context.now() >= context.deadline) { partial = true; stopReason = "calibration deadline reached during active phase"; break; }
+    const candidate = candidates[index];
+    try {
+      const summary = activeMeasurement(candidate, await measureCalibrationCandidate(context, "active", candidate, candidate));
+      measurements.push(summary);
+      if (allowDownwardRefinement && index === 0 && summary.cpuP95Percent !== null && summary.cpuP95Percent > context.config.targetCpuPercent) {
+        candidates = [candidate, ...planDownwardRefinement(candidate, context.config, context.host.required.logicalCpus).filter((value) => value !== candidate)];
+      }
+      if (summary.cpuP95Percent !== null && summary.cpuP95Percent >= context.config.maxCpuPercent) {
+        context.safetyEvents.push({ atMs: context.now(), phase: "active", kind: "cpu", message: `Active candidate ${candidate} reached the hard CPU ceiling`, immediate: false });
+        if (index !== 0) break;
+      }
+    } catch (error) {
+      partial = true;
+      stopReason = phaseError(context, "active", error);
+      break;
+    }
+  }
+  return { partial, stopReason, candidates };
+}
+
+async function runActivePhase(context: CalibrationPhaseContext): Promise<{ measurements: ActiveMeasurement[]; partial: boolean; stopReason: string | null }> {
+  const measurements: ActiveMeasurement[] = [];
+  const coarse = await runActiveCandidateList(context, [...context.activeCandidates], measurements, true);
+  let partial = coarse.partial;
+  let stopReason = coarse.stopReason;
+  if (!partial) {
+    const refinements = planBracketRefinement(measurements, context.config, context.host.required.logicalCpus).filter((candidate) => !measurements.some((measurement) => measurement.requested === candidate));
+    const refinement = await runActiveCandidateList(context, refinements, measurements, false);
+    partial = refinement.partial;
+    stopReason = refinement.stopReason ?? stopReason;
+  }
+  return { measurements, partial, stopReason };
+}
+
+async function runStartupPhase(context: CalibrationPhaseContext, selectedActive: number | null, partial: boolean): Promise<{ measurements: StartupMeasurement[]; partial: boolean; stopReason: string | null; p99: number | null; max: number | null }> {
+  const measurements: StartupMeasurement[] = [];
+  let p99: number | null = null;
+  let max: number | null = null;
+  if (context.config.skipStartupTuning || selectedActive === null || partial) return { measurements, partial, stopReason: null, p99, max };
+  for (const candidate of context.startupCandidates.filter((value) => value <= selectedActive)) {
+    if (context.now() >= context.deadline) return { measurements, partial: true, stopReason: "calibration deadline reached during startup phase", p99, max };
+    try {
+      const measurement = await measureCalibrationCandidate(context, "startup", selectedActive, candidate);
+      measurements.push(startupMeasurement(candidate, measurement));
+      p99 = Math.max(p99 ?? 0, percentile(measurement.startupSlotWaitMs, 99) ?? 0);
+      max = Math.max(max ?? 0, maxValue(measurement.startupSlotWaitMs) ?? 0);
+    } catch (error) {
+      return { measurements, partial: true, stopReason: phaseError(context, "startup", error), p99, max };
+    }
+  }
+  return { measurements, partial, stopReason: null, p99, max };
+}
+
+async function runCalibrationPhases(context: CalibrationPhaseContext): Promise<PhaseRunResult> {
+  const phases: CalibrationRunResult["phases"] = { dockerControl: [], active: [], startup: [], classroom: null };
+  let partial = false;
+  let stopReason: string | null = null;
+  if (context.now() >= context.deadline) return { phases, partial: true, stopReason: "calibration deadline reached before measurements", cleanup: context.lastCleanup, startupSlotWaitP99Ms: null, startupSlotWaitMaxMs: null };
+  phases.dockerControl = await context.measureControl(context.image, Math.min(8, Math.max(2, context.host.required.logicalCpus)), 3);
+  const active = await runActivePhase(context);
+  phases.active = active.measurements;
+  partial = active.partial;
+  stopReason = active.stopReason;
+  const selectedActive = selectActiveRecommendation(phases.active, context.config).value;
+  const startup = await runStartupPhase(context, selectedActive, partial);
+  phases.startup = startup.measurements;
+  partial = startup.partial;
+  stopReason = startup.stopReason ?? stopReason;
+  const selectedStartup = context.config.skipStartupTuning ? null : selectStartupRecommendation(phases.startup, context.baseCapacity.sandboxStartMaxConcurrent, selectedActive ?? 1).value;
+  let finalCleanup = context.lastCleanup;
+  if (!context.config.skipClassroom && selectedActive !== null && selectedStartup !== null && !partial) {
+    try {
+      const classroom = await measureCalibrationCandidate(context, "classroom", selectedActive, selectedStartup, "classroom");
+      phases.classroom = classroomMeasurement(classroom);
+      finalCleanup = phases.classroom.cleanup;
+    } catch (error) {
+      partial = true;
+      stopReason = phaseError(context, "classroom", error);
+    }
+  }
+  return { phases, partial, stopReason, cleanup: finalCleanup, startupSlotWaitP99Ms: startup.p99, startupSlotWaitMaxMs: startup.max };
+}
+
+function buildCalibrationRecommendations(
+  config: CalibrationCliConfig,
+  phases: CalibrationRunResult["phases"],
+  baseCapacity: EffectiveCapacityConfiguration,
+  startupSlotWaitP99Ms: number | null,
+  startupSlotWaitMaxMs: number | null,
+): CalibrationRecommendations {
+  const activeRecommendation = selectActiveRecommendation(phases.active, config);
+  const startupRecommendation = config.skipStartupTuning
+    ? notCalibrated<number>()
+    : selectStartupRecommendation(phases.startup, baseCapacity.sandboxStartMaxConcurrent, activeRecommendation.value ?? 1);
+  const controlDurations = phases.dockerControl.filter((sample) => sample.condition === "parallel").flatMap((sample) => sample.durationsMs);
+  const controlRecommendation = recommendDockerControlTimeout(percentile(controlDurations, 99), DOCKER_CONTROL_DEFAULT_MS, DOCKER_CONTROL_RANGE);
+  const classroomRecommendations = buildClassroomRecommendations(config, phases, startupSlotWaitP99Ms, startupSlotWaitMaxMs);
+  return {
+    simulationMaxConcurrent: activeRecommendation,
+    sandboxStartMaxConcurrent: startupRecommendation,
+    simulationAdmissionMax: classroomRecommendations.admission,
+    simulationQueueTimeoutMs: classroomRecommendations.queue,
+    sandboxStartSlotTimeoutMs: classroomRecommendations.slot,
+    dockerControlTimeoutMs: controlRecommendation,
+    compileMaxConcurrent: notCalibrated<number>(),
+  };
+}
+
+function buildClassroomRecommendations(
+  config: CalibrationCliConfig,
+  phases: CalibrationRunResult["phases"],
+  startupSlotWaitP99Ms: number | null,
+  startupSlotWaitMaxMs: number | null,
+): { queue: Recommendation<number>; slot: Recommendation<number>; admission: Recommendation<number> } {
+  const classroom = phases.classroom;
+  const complete = isClassroomComplete(classroom, config.expectedUsers);
+  const queue = buildQueueRecommendation(classroom, complete, config);
+  const slot = buildSlotRecommendation(classroom, phases.startup, startupSlotWaitP99Ms, startupSlotWaitMaxMs);
+  const admission = buildAdmissionRecommendation(classroom, complete, config.expectedUsers);
+  return { queue, slot, admission };
+}
+
+function isClassroomComplete(classroom: ClassroomMeasurement | null, expectedUsers: number): boolean {
+  return classroom !== null && classroom.requested === expectedUsers && classroom.admitted >= expectedUsers
+    && classroom.started === expectedUsers && classroom.successful === expectedUsers
+    && classroom.rejected === 0 && classroom.failed === 0 && classroom.incomplete === 0 && classroom.errors.length === 0;
+}
+
+function buildQueueRecommendation(classroom: ClassroomMeasurement | null, complete: boolean, config: CalibrationCliConfig): Recommendation<number> {
+  if (complete && classroom && classroom.queueWaitMs.length === config.expectedUsers) {
+    return recommendQueueTimeout(classroom.queueP95Ms, classroom.queueP99Ms, classroom.queueMaxMs, config.maxUserWaitSec);
+  }
+  return {
+    ...notCalibrated<number>(),
+    measuredBasis: classroom ? [`classroom queue measurement incomplete (${classroom.queueWaitMs.length}/${config.expectedUsers} client waits)`] : [],
+    warnings: classroom ? ["The classroom queue distribution was censored by rejection, timeout, or incomplete client phase data."] : ["Simulation queue waits were not measured."],
+  };
+}
+
+function buildSlotRecommendation(classroom: ClassroomMeasurement | null, startup: StartupMeasurement[], p99: number | null, max: number | null): Recommendation<number> {
+  if (classroom?.authoritativeSandboxStartWaitSamplesComplete) {
+    return recommendSandboxStartSlotTimeout(classroom.startupSlotWaitP99Ms, classroom.startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE);
+  }
+  if (!classroom && startup.length > 0 && startup.every((measurement) => measurement.startupSlotWaitSamplesComplete === true)) {
+    return recommendSandboxStartSlotTimeout(p99, max, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE);
+  }
+  const expected = classroom?.authoritativeSandboxStartWaitSamplesExpected;
+  return {
+    ...notCalibrated<number>(),
+    measuredBasis: [classroom ? `authoritative sandbox-start samples incomplete (${expected ?? 0} expected)` : "authoritative sandbox-start samples unavailable for startup candidates"],
+    warnings: ["Sandbox-start-slot calibration requires complete backend semaphore samples."],
+  };
+}
+
+function buildAdmissionRecommendation(classroom: ClassroomMeasurement | null, complete: boolean, expectedUsers: number): Recommendation<number> {
+  const cleanup = classroom?.cleanup;
+  const valid = complete && classroom !== null && classroom.runtimeConfiguration.simulationAdmissionMax >= expectedUsers
+    && cleanup?.remainingCapacityContainers === 0 && cleanup.activeSimulationCount === 0 && cleanup.queueWaiting === 0
+    && cleanup.admissionCurrent === 0 && cleanup.sandboxStartActive === 0 && cleanup.sandboxStartWaiting === 0;
+  if (valid) return { value: expectedUsers, status: "recommended", confidence: "HIGH", measuredBasis: [`admission envelope of ${expectedUsers} users completed successfully`], warnings: [] };
+  return { value: null, status: "not-calibrated", confidence: "LOW", measuredBasis: [`requested admission envelope: ${expectedUsers} users`], warnings: ["The expected-users classroom phase did not complete a successful admission validation."] };
+}
+
 export async function runCalibration(
   config: CalibrationCliConfig,
   dependencies: CalibrationDependencies = {},
@@ -532,227 +783,29 @@ export async function runCalibration(
   const startupCandidates = [...new Set([8, 12, 16, 20, 24, 32].filter((value) => value <= Math.max(activeCandidates.at(-1) ?? 1, 1)))];
   const plan = { activeCandidates, startupCandidates, classroomDurationSec: FIXED_CLASSROOM_DURATION_SEC as 60 };
 
-  const phases: CalibrationRunResult["phases"] = { dockerControl: [], active: [], startup: [], classroom: null };
+  const minimumMemory = Math.max(2 * 1024 ** 3, (host.optional.physicalMemoryBytes ?? 0) * 0.1);
+  let phases: CalibrationRunResult["phases"] = { dockerControl: [], active: [], startup: [], classroom: null };
   let partial = false;
   let stopReason: string | null = null;
   let cleanup = emptyCleanup();
-  let lastScenarioCleanup = emptyCleanup();
   let startupSlotWaitP99Ms: number | null = null;
   let startupSlotWaitMaxMs: number | null = null;
-  const minimumMemory = Math.max(2 * 1024 ** 3, (host.optional.physicalMemoryBytes ?? 0) * 0.1);
-
   if (!config.dryRun) {
-    if (now() >= deadline) { partial = true; stopReason = "calibration deadline reached before measurements"; }
-    if (!partial) phases.dockerControl = await measureControl(image, Math.min(8, Math.max(2, host.required.logicalCpus)), 3);
-
-    const measureCandidate = async (
-      phase: SafetyEvent["phase"],
-      active: number,
-      startup: number,
-      scenario: "burst" | "classroom" = "burst",
-    ): Promise<CapacityScenarioMeasurement> => {
-      if (now() >= deadline) throw new Error("calibration deadline reached");
-      const runId = `capacity_calibration_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const clientCount = scenario === "classroom" ? config.expectedUsers : active;
-      const admission = scenario === "classroom"
-        ? config.expectedUsers
-        : Math.max(baseCapacity.simulationAdmissionMax, clientCount);
-      const phaseQueueTimeout = scenario === "classroom" ? classroomQueueTimeoutMs : baseCapacity.simulationQueueTimeoutMs;
-      const backendCapacity = effectiveCapacityForPhase(baseCapacity, active, startup, admission, phaseQueueTimeout);
-      const backend = await startBackend(backendCapacity, runId);
-      let measurement: CapacityScenarioMeasurement;
-      try {
-        measurement = await runScenario({
-          baseUrl: backend.baseUrl,
-          runId,
-          scenario,
-          clientCount,
-          holdDurationMs: phase === "classroom" ? FIXED_CLASSROOM_DURATION_SEC * 1_000 : 25_000,
-          simulationTimeoutSec: 180,
-          arrivalWindowMs: scenario === "classroom" ? 5_000 : undefined,
-          outputDir: config.outputDir,
-          expectedSimulationMaxConcurrent: active,
-          expectedSandboxStartMaxConcurrent: startup,
-          requiredAdmissionMax: admission,
-          expectedSimulationQueueTimeoutMs: scenario === "classroom" ? classroomQueueTimeoutMs : undefined,
-        });
-        validateScenarioRuntimeConfiguration({
-          expectedSimulationMaxConcurrent: active,
-          expectedSandboxStartMaxConcurrent: startup,
-          requiredAdmissionMax: admission,
-          expectedSimulationQueueTimeoutMs: scenario === "classroom" ? classroomQueueTimeoutMs : undefined,
-        }, measurement.runtimeConfiguration);
-      } finally {
-        await backend.stop();
-      }
-      measurement.cleanup = { ...measurement.cleanup, remainingCapacityContainers: countOwnedContainers(runId, true), backendExited: true };
-      lastScenarioCleanup = measurement.cleanup;
-      safetyEvents.push(...safetyEventsForMeasurement(phase, measurement, config.maxCpuPercent, minimumMemory, now));
-      return measurement;
-    };
-
-    const activeMeasurements: ActiveMeasurement[] = [];
-    let activePlan = [...activeCandidates];
-    for (let index = 0; index < activePlan.length; index++) {
-      if (now() >= deadline) { partial = true; stopReason = "calibration deadline reached during active phase"; break; }
-      const candidate = activePlan[index];
-      try {
-        const measurement = await measureCandidate("active", candidate, candidate);
-        const summary = activeMeasurement(candidate, measurement);
-        activeMeasurements.push(summary);
-        if (index === 0 && summary.cpuP95Percent !== null && summary.cpuP95Percent > config.targetCpuPercent) {
-          const downward = planDownwardRefinement(candidate, config, host.required.logicalCpus);
-          activePlan = [candidate, ...downward.filter((value) => value !== candidate)];
-        }
-        if (summary.cpuP95Percent !== null && summary.cpuP95Percent >= config.maxCpuPercent) {
-          safetyEvents.push({ atMs: now(), phase: "active", kind: "cpu", message: `Active candidate ${candidate} reached the hard CPU ceiling`, immediate: false });
-          if (index !== 0) break;
-        }
-      } catch (error) {
-        safetyEvents.push({ atMs: now(), phase: "active", kind: configurationErrorFor(error) ? "configuration" : "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
-        partial = true;
-        stopReason = error instanceof Error ? error.message : String(error);
-        break;
-      }
-    }
-    if (!partial) {
-      const bracketCandidates = planBracketRefinement(activeMeasurements, config, host.required.logicalCpus)
-        .filter((candidate) => !activeMeasurements.some((measurement) => measurement.requested === candidate));
-      for (const candidate of bracketCandidates) {
-        if (now() >= deadline) { partial = true; stopReason = "calibration deadline reached during active refinement"; break; }
-        try {
-          const measurement = await measureCandidate("active", candidate, candidate);
-          const summary = activeMeasurement(candidate, measurement);
-          activeMeasurements.push(summary);
-          if (summary.cpuP95Percent !== null && summary.cpuP95Percent >= config.maxCpuPercent) {
-            safetyEvents.push({ atMs: now(), phase: "active", kind: "cpu", message: `Active refinement candidate ${candidate} reached the hard CPU ceiling`, immediate: false });
-            break;
-          }
-        } catch (error) {
-          safetyEvents.push({ atMs: now(), phase: "active", kind: configurationErrorFor(error) ? "configuration" : "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
-          partial = true;
-          stopReason = error instanceof Error ? error.message : String(error);
-          break;
-        }
-      }
-    }
-    phases.active = activeMeasurements;
-    const activeRecommendation = selectActiveRecommendation(activeMeasurements, config);
-    const selectedActive = activeRecommendation.value;
-    const startupMeasurements: StartupMeasurement[] = [];
-    if (!config.skipStartupTuning && selectedActive !== null && !partial) {
-      for (const candidate of startupCandidates.filter((value) => value <= selectedActive)) {
-        if (now() >= deadline) { partial = true; stopReason = "calibration deadline reached during startup phase"; break; }
-        try {
-          const measurement = await measureCandidate("startup", selectedActive, candidate);
-          startupMeasurements.push(startupMeasurement(candidate, measurement));
-          const waitValues = measurement.startupSlotWaitMs;
-          startupSlotWaitP99Ms = Math.max(startupSlotWaitP99Ms ?? 0, percentile(waitValues, 99) ?? 0);
-          startupSlotWaitMaxMs = Math.max(startupSlotWaitMaxMs ?? 0, maxValue(waitValues) ?? 0);
-        } catch (error) {
-          safetyEvents.push({ atMs: now(), phase: "startup", kind: configurationErrorFor(error) ? "configuration" : "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
-          partial = true;
-          stopReason = error instanceof Error ? error.message : String(error);
-          break;
-        }
-      }
-    }
-    phases.startup = startupMeasurements;
-    const startupRecommendation = config.skipStartupTuning
-      ? notCalibrated<number>()
-      : selectStartupRecommendation(startupMeasurements, baseCapacity.sandboxStartMaxConcurrent, selectedActive ?? 1);
-    const selectedStartup = startupRecommendation.value;
-    if (!config.skipClassroom && selectedActive !== null && selectedStartup !== null && !partial) {
-      try {
-        const measurement = await measureCandidate("classroom", selectedActive, selectedStartup, "classroom");
-        phases.classroom = classroomMeasurement(measurement);
-      } catch (error) {
-        safetyEvents.push({ atMs: now(), phase: "classroom", kind: configurationErrorFor(error) ? "configuration" : "backend", message: error instanceof Error ? error.message : String(error), immediate: true });
-        partial = true;
-        stopReason = error instanceof Error ? error.message : String(error);
-      }
-    }
-    cleanup = lastScenarioCleanup;
+    const phaseResult = await runCalibrationPhases({
+      config, baseCapacity, classroomQueueTimeoutMs, deadline, now, image, host, minimumMemory,
+      activeCandidates, startupCandidates, measureControl, runScenario, startBackend, countOwnedContainers, safetyEvents,
+      lastCleanup: emptyCleanup(),
+    });
+    phases = phaseResult.phases;
+    partial = phaseResult.partial;
+    stopReason = phaseResult.stopReason;
+    cleanup = phaseResult.cleanup;
+    startupSlotWaitP99Ms = phaseResult.startupSlotWaitP99Ms;
+    startupSlotWaitMaxMs = phaseResult.startupSlotWaitMaxMs;
   }
-
-  const activeRecommendation = selectActiveRecommendation(phases.active, config);
-  const startupRecommendation = config.skipStartupTuning
-    ? notCalibrated<number>()
-    : selectStartupRecommendation(phases.startup, baseCapacity.sandboxStartMaxConcurrent, activeRecommendation.value ?? 1);
-  const controlDurations = phases.dockerControl.filter((sample) => sample.condition === "parallel").flatMap((sample) => sample.durationsMs);
-  const controlRecommendation = recommendDockerControlTimeout(percentile(controlDurations, 99), DOCKER_CONTROL_DEFAULT_MS, DOCKER_CONTROL_RANGE);
-  const classroom = phases.classroom;
-  const classroomComplete = classroom !== null
-    && classroom.requested === config.expectedUsers
-    && classroom.admitted >= config.expectedUsers
-    && classroom.started === config.expectedUsers
-    && classroom.successful === config.expectedUsers
-    && classroom.rejected === 0
-    && classroom.failed === 0
-    && classroom.incomplete === 0
-    && classroom.errors.length === 0;
-  const queueMeasurementComplete = classroomComplete
-    && classroom !== null
-    && classroom.queueWaitMs.length === config.expectedUsers;
-  const queueRecommendation = classroom && queueMeasurementComplete
-    ? recommendQueueTimeout(classroom.queueP95Ms, classroom.queueP99Ms, classroom.queueMaxMs, config.maxUserWaitSec)
-    : {
-      ...notCalibrated<number>(),
-      measuredBasis: classroom ? [`classroom queue measurement incomplete (${classroom.queueWaitMs.length}/${config.expectedUsers} client waits)`] : [],
-      warnings: classroom ? ["The classroom queue distribution was censored by rejection, timeout, or incomplete client phase data."] : ["Simulation queue waits were not measured."],
-    };
-  const classroomStartupSamplesValid = classroom?.authoritativeSandboxStartWaitSamplesComplete === true;
-  const startupCandidatesHaveSamples = phases.startup.length > 0
-    && phases.startup.every((measurement) => measurement.startupSlotWaitSamplesComplete === true);
-  const slotRecommendation = classroom
-    ? classroomStartupSamplesValid
-      ? recommendSandboxStartSlotTimeout(classroom.startupSlotWaitP99Ms, classroom.startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE)
-      : {
-        ...notCalibrated<number>(),
-        measuredBasis: [`authoritative sandbox-start samples incomplete (${classroom.authoritativeSandboxStartWaitSamplesExpected ?? 0} expected)`],
-        warnings: ["Sandbox-start-slot waits were not obtained from the backend semaphore for every startup."],
-      }
-    : startupCandidatesHaveSamples
-      ? recommendSandboxStartSlotTimeout(startupSlotWaitP99Ms, startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE)
-      : {
-        ...notCalibrated<number>(),
-        measuredBasis: ["authoritative sandbox-start samples unavailable for startup candidates"],
-        warnings: ["Sandbox-start-slot calibration requires complete backend semaphore samples."],
-      };
-  const classroomAdmissionValidated = classroomComplete
-    && classroom !== null
-    && classroom.runtimeConfiguration.simulationAdmissionMax >= config.expectedUsers
-    && classroom.cleanup.remainingCapacityContainers === 0
-    && classroom.cleanup.activeSimulationCount === 0
-    && classroom.cleanup.queueWaiting === 0
-    && classroom.cleanup.admissionCurrent === 0
-    && classroom.cleanup.sandboxStartActive === 0
-    && classroom.cleanup.sandboxStartWaiting === 0;
-  const admissionRecommendation: Recommendation<number> = classroomAdmissionValidated
-    ? {
-      value: config.expectedUsers,
-      status: "recommended",
-      confidence: "HIGH",
-      measuredBasis: [`admission envelope of ${config.expectedUsers} users completed successfully`],
-      warnings: [],
-    }
-    : {
-      value: null,
-      status: "not-calibrated",
-      confidence: "LOW",
-      measuredBasis: [`requested admission envelope: ${config.expectedUsers} users`],
-      warnings: ["The expected-users classroom phase did not complete a successful admission validation."],
-    };
-  const compileRecommendation = notCalibrated<number>();
-  const recommendations: CalibrationRecommendations = {
-    simulationMaxConcurrent: activeRecommendation,
-    sandboxStartMaxConcurrent: startupRecommendation,
-    simulationAdmissionMax: admissionRecommendation,
-    simulationQueueTimeoutMs: queueRecommendation,
-    sandboxStartSlotTimeoutMs: slotRecommendation,
-    dockerControlTimeoutMs: controlRecommendation,
-    compileMaxConcurrent: compileRecommendation,
-  };
+  const recommendations = buildCalibrationRecommendations(
+    config, phases, baseCapacity, startupSlotWaitP99Ms, startupSlotWaitMaxMs,
+  );
   const confidence = scoreCalibrationConfidence(
     phases.active.length + phases.startup.length + (phases.classroom ? 1 : 0),
     !partial,
@@ -783,7 +836,7 @@ export async function runCalibration(
   return result;
 }
 
-async function main(): Promise<void> {
+if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     const config = await parseCalibrationArgs(process.argv.slice(2));
     const result = await runCalibration(config);
@@ -793,5 +846,3 @@ async function main(): Promise<void> {
     process.exitCode = 2;
   }
 }
-
-if (import.meta.url === `file://${process.argv[1]}`) void main();

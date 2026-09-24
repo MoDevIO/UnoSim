@@ -187,6 +187,27 @@ async function timedControlCall(
   }
 }
 
+async function measureControlSeries(
+  command: { name: string; args: string[] },
+  count: number,
+  parallelism: number,
+  run: ControlDependencies["run"],
+  now: () => number,
+): Promise<{ durationsMs: number[]; error: string | null }> {
+  const durationsMs: number[] = [];
+  let error: string | null = null;
+  for (let sample = 0; sample < count; sample += 1) {
+    const measurements = await Promise.all(
+      Array.from({ length: parallelism }, () => timedControlCall(command, run, now)),
+    );
+    for (const measurement of measurements) {
+      if (measurement.durationMs !== null) durationsMs.push(measurement.durationMs);
+      error ??= measurement.error;
+    }
+  }
+  return { durationsMs, error };
+}
+
 export async function measureDockerControlLatency(
   image: string,
   parallelism: number,
@@ -203,25 +224,10 @@ export async function measureDockerControlLatency(
   const commands = controlCommands(image);
   const result: ControlLatencySample[] = [];
   for (const command of commands) {
-    const idleDurations: number[] = [];
-    let idleError: string | null = null;
-    for (let index = 0; index < samples; index++) {
-      const measurement = await timedControlCall(command, run, now);
-      if (measurement.durationMs !== null) idleDurations.push(measurement.durationMs);
-      idleError ??= measurement.error;
-    }
-    result.push({ command: command.name, condition: "idle", durationsMs: idleDurations, error: idleError });
-
-    const parallelDurations: number[] = [];
-    let parallelError: string | null = null;
-    for (let sample = 0; sample < samples; sample++) {
-      const measurements = await Promise.all(Array.from({ length: parallelism }, () => timedControlCall(command, run, now)));
-      for (const measurement of measurements) {
-        if (measurement.durationMs !== null) parallelDurations.push(measurement.durationMs);
-        parallelError ??= measurement.error;
-      }
-    }
-    result.push({ command: command.name, condition: "parallel", durationsMs: parallelDurations, error: parallelError });
+    const idle = await measureControlSeries(command, samples, 1, run, now);
+    result.push({ command: command.name, condition: "idle", ...idle });
+    const parallel = await measureControlSeries(command, samples, parallelism, run, now);
+    result.push({ command: command.name, condition: "parallel", ...parallel });
   }
   return result;
 }

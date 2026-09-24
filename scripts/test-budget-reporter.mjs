@@ -3,6 +3,30 @@ import { dirname, relative } from "node:path";
 
 const TOP_TEST_COUNT = 10;
 
+function readBudgetConfiguration(env) {
+  const twoThresholdMode = env.TEST_BUDGET_WARN_MS !== undefined || env.TEST_BUDGET_FAIL_MS !== undefined;
+  const legacyBudgetConfigured = env.TEST_BUDGET_MS !== undefined;
+  const legacyBudgetMs = Number(env.TEST_BUDGET_MS ?? 0);
+  const warningBudgetMs = env.TEST_BUDGET_WARN_MS === undefined ? null : Number(env.TEST_BUDGET_WARN_MS);
+  const failureBudgetMs = env.TEST_BUDGET_FAIL_MS === undefined ? null : Number(env.TEST_BUDGET_FAIL_MS);
+  let configurationError = null;
+  if (twoThresholdMode && (warningBudgetMs <= 0 || failureBudgetMs <= 0 || failureBudgetMs < warningBudgetMs)) {
+    configurationError = "TEST_BUDGET_WARN_MS und TEST_BUDGET_FAIL_MS müssen positiv sein; die Hard-Fail-Schwelle muss mindestens der Warnschwelle entsprechen.";
+  }
+  let effectiveFailureBudgetMs = null;
+  if (twoThresholdMode) effectiveFailureBudgetMs = failureBudgetMs;
+  else if (legacyBudgetConfigured && legacyBudgetMs > 0) effectiveFailureBudgetMs = legacyBudgetMs;
+  const budgetMs = effectiveFailureBudgetMs;
+  return { twoThresholdMode, warningBudgetMs: twoThresholdMode ? warningBudgetMs : null, effectiveFailureBudgetMs, budgetMs, configurationError };
+}
+
+function summarizeBudget(durationMs, configuration) {
+  const { twoThresholdMode, warningBudgetMs, effectiveFailureBudgetMs, configurationError } = configuration;
+  const warningExceeded = !configurationError && twoThresholdMode && durationMs > warningBudgetMs;
+  const failureExceeded = !configurationError && effectiveFailureBudgetMs > 0 && durationMs > effectiveFailureBudgetMs;
+  return { warningExceeded, failureExceeded };
+}
+
 export default class TestBudgetReporter {
   constructor() {
     this.startedAt = Date.now();
@@ -25,45 +49,12 @@ export default class TestBudgetReporter {
     const finishedAt = Date.now();
     const durationMs = finishedAt - this.startedAt;
     const suite = process.env.TEST_BUDGET_SUITE ?? "vitest";
-    const legacyBudgetConfigured = process.env.TEST_BUDGET_MS !== undefined;
-    const warningBudgetConfigured = process.env.TEST_BUDGET_WARN_MS !== undefined;
-    const failureBudgetConfigured = process.env.TEST_BUDGET_FAIL_MS !== undefined;
-    const twoThresholdMode = warningBudgetConfigured || failureBudgetConfigured;
-    const legacyBudgetMs = Number(process.env.TEST_BUDGET_MS ?? 0);
-    const warningBudgetMs = warningBudgetConfigured
-      ? Number(process.env.TEST_BUDGET_WARN_MS)
-      : null;
-    const failureBudgetMs = failureBudgetConfigured
-      ? Number(process.env.TEST_BUDGET_FAIL_MS)
-      : null;
+    const configuration = readBudgetConfiguration(process.env);
+    const { twoThresholdMode, warningBudgetMs, effectiveFailureBudgetMs, budgetMs, configurationError } = configuration;
     const artifactPath =
       process.env.TEST_METRICS_FILE ?? `test-results/${suite}-metrics.json`;
-    const configurationError = twoThresholdMode
-      ? warningBudgetMs > 0 &&
-        failureBudgetMs > 0 &&
-        failureBudgetMs >= warningBudgetMs
-        ? null
-        : "TEST_BUDGET_WARN_MS und TEST_BUDGET_FAIL_MS müssen positiv sein; die Hard-Fail-Schwelle muss mindestens der Warnschwelle entsprechen."
-      : null;
-    const effectiveWarningBudgetMs = twoThresholdMode ? warningBudgetMs : null;
-    const effectiveFailureBudgetMs = twoThresholdMode
-      ? failureBudgetMs
-      : legacyBudgetConfigured && legacyBudgetMs > 0
-        ? legacyBudgetMs
-        : null;
-    const warningExceeded =
-      !configurationError &&
-      twoThresholdMode &&
-      durationMs > effectiveWarningBudgetMs;
-    const failureExceeded =
-      !configurationError &&
-      effectiveFailureBudgetMs > 0 &&
-      durationMs > effectiveFailureBudgetMs;
-    const budgetMs = twoThresholdMode
-      ? effectiveFailureBudgetMs
-      : legacyBudgetConfigured && legacyBudgetMs > 0
-        ? legacyBudgetMs
-        : null;
+    const effectiveWarningBudgetMs = warningBudgetMs;
+    const { warningExceeded, failureExceeded } = summarizeBudget(durationMs, configuration);
     // In two-threshold mode the legacy field represents the hard-fail limit,
     // so existing consumers continue to interpret this as a blocking failure.
     const budgetExceeded = failureExceeded;
@@ -104,7 +95,7 @@ export default class TestBudgetReporter {
 
     if (twoThresholdMode && !configurationError) {
       console.log(
-        `\nTestbudget [${suite}]: ${durationMs} ms | Warnschwelle: ${warningBudgetMs} ms | Hard Fail: ${failureBudgetMs} ms`,
+        `\nTestbudget [${suite}]: ${durationMs} ms | Warnschwelle: ${warningBudgetMs} ms | Hard Fail: ${effectiveFailureBudgetMs} ms`,
       );
     } else {
       const budgetLabel = budgetMs ? `${budgetMs} ms` : "deaktiviert";
@@ -120,14 +111,14 @@ export default class TestBudgetReporter {
 
     if (warningExceeded && !failureExceeded) {
       console.warn(
-        `Testbudget-Warnschwelle überschritten: ${suite} benötigte ${durationMs} ms, Warnschwelle ${warningBudgetMs} ms, Hard-Fail-Schwelle ${failureBudgetMs} ms.`,
+        `Testbudget-Warnschwelle überschritten: ${suite} benötigte ${durationMs} ms, Warnschwelle ${warningBudgetMs} ms, Hard-Fail-Schwelle ${effectiveFailureBudgetMs} ms.`,
       );
     }
 
     if (failureExceeded) {
       if (twoThresholdMode) {
         console.error(
-          `Testbudget-Hard-Limit überschritten: ${suite} benötigte ${durationMs} ms, erlaubt sind maximal ${failureBudgetMs} ms.`,
+          `Testbudget-Hard-Limit überschritten: ${suite} benötigte ${durationMs} ms, erlaubt sind maximal ${effectiveFailureBudgetMs} ms.`,
         );
       } else {
         console.error(

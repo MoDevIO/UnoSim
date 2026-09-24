@@ -184,15 +184,27 @@ export type ScenarioQuiescenceResult = {
   sandboxStartWaiting: number | null;
 };
 
-export async function waitForScenarioQuiescence(
-  baseUrl: string,
-  runId: string,
-  getStatus: (baseUrl: string) => Promise<StatusSnapshot>,
-  countContainers: (runId: string, includeStopped?: boolean) => number,
-  sleep: (ms: number) => Promise<void>,
-  now: () => number,
+export type ScenarioQuiescenceOptions = {
+  baseUrl: string;
+  runId: string;
+  getStatus: (baseUrl: string) => Promise<StatusSnapshot>;
+  countContainers: (runId: string, includeStopped?: boolean) => number;
+  sleep: (ms: number) => Promise<void>;
+  now: () => number;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+};
+
+export async function waitForScenarioQuiescence({
+  baseUrl,
+  runId,
+  getStatus,
+  countContainers,
+  sleep,
+  now,
   timeoutMs = SCENARIO_CLEANUP_TIMEOUT_MS,
   pollIntervalMs = SCENARIO_CLEANUP_POLL_INTERVAL_MS,
+}: ScenarioQuiescenceOptions,
 ): Promise<ScenarioQuiescenceResult> {
   const startedAt = now();
   let status = await getStatus(baseUrl);
@@ -402,10 +414,11 @@ function sketch(clientId: number): string {
 }
 
 function defaultDockerContainerCount(runId: string, includeStopped = false): number {
+  const statusArgs = includeStopped ? [] : ["--filter", "status=running"];
   const output = execFileSync("docker", [
     "ps",
     ...(includeStopped ? ["-a"] : []),
-    ...(!includeStopped ? ["--filter", "status=running"] : []),
+    ...statusArgs,
     "--filter", `label=unosim.capacity-test-run-id=${runId}`,
     "--format", "{{.ID}}",
   ], { encoding: "utf8" });
@@ -485,6 +498,12 @@ function emptyClient(clientId: number, now: number): ClientResult {
   };
 }
 
+function scheduleSimulationStop(ws: WebSocket | null, holdDurationMs: number): NodeJS.Timeout {
+  return setTimeout(() => {
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop_simulation" }));
+  }, holdDurationMs);
+}
+
 function runClient(
   baseUrl: string,
   clientId: number,
@@ -518,7 +537,7 @@ function runClient(
       resolve(result);
     };
 
-    void createSessionCookie(baseUrl).then((cookie) => {
+    createSessionCookie(baseUrl).then((cookie) => {
       if (finished) return;
       ws = new WebSocket(`${baseUrl.replace(/^http/, "ws")}/ws`, { headers: { cookie } });
       ws.on("open", () => {
@@ -533,9 +552,7 @@ function runClient(
           const wasStarted = result.started;
           applyClientCapacityTiming(result, message, at);
           if (!wasStarted && result.started) {
-            holdTimer = setTimeout(() => {
-              if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop_simulation" }));
-            }, holdDurationMs);
+            holdTimer = scheduleSimulationStop(ws, holdDurationMs);
           }
           if (message.type === "operation_error") {
             result.operationErrorCodes.push(message.code ?? "unknown");
@@ -656,6 +673,51 @@ function createDefaultHostSampler(): () => Promise<HostSample> {
   };
 }
 
+async function runScenarioClients(
+  options: CapacityScenarioOptions,
+  sleep: (ms: number) => Promise<void>,
+  clientWatchdogMs: number,
+  now: () => number,
+  createSessionCookie: (baseUrl: string) => Promise<string>,
+): Promise<ClientResult[]> {
+  const arrivalWindowMs = options.scenario === "classroom" ? options.arrivalWindowMs ?? 0 : 0;
+  const intervalMs = options.clientCount > 1 ? arrivalWindowMs / (options.clientCount - 1) : 0;
+  return Promise.all(Array.from({ length: options.clientCount }, (_, index) => (async () => {
+    if (index > 0 && intervalMs > 0) await sleep(intervalMs);
+    return runClient(options.baseUrl, index + 1, options.holdDurationMs, options.simulationTimeoutSec, clientWatchdogMs, now, createSessionCookie);
+  })()));
+}
+
+async function resolveScenarioCleanup(
+  options: CapacityScenarioOptions,
+  initialStatus: StatusSnapshot,
+  getStatus: (baseUrl: string) => Promise<StatusSnapshot>,
+  countContainers: (runId: string, includeStopped?: boolean) => number,
+  sleep: (ms: number) => Promise<void>,
+  now: () => number,
+  errors: string[],
+): Promise<{ quiescence: ScenarioQuiescenceResult; finalStatus: StatusSnapshot }> {
+  let quiescence: ScenarioQuiescenceResult;
+  try {
+    quiescence = await waitForScenarioQuiescence({ baseUrl: options.baseUrl, runId: options.runId, getStatus, countContainers, sleep, now });
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+    const failedStatus = await getStatus(options.baseUrl).catch(() => initialStatus);
+    quiescence = {
+      quiescent: false,
+      waitedMs: 0,
+      remainingCapacityContainers: countContainers(options.runId, true),
+      activeSimulationCount: failedStatus.capacity?.simulation?.active ?? null,
+      queueWaiting: failedStatus.capacity?.queue?.waiting ?? null,
+      admissionCurrent: failedStatus.capacity?.admission?.current ?? null,
+      sandboxStartActive: failedStatus.capacity?.sandboxStart?.active ?? null,
+      sandboxStartWaiting: failedStatus.capacity?.sandboxStart?.waiting ?? null,
+    };
+  }
+  const finalStatus = await getStatus(options.baseUrl).catch(() => initialStatus);
+  return { quiescence, finalStatus };
+}
+
 export async function runCapacityScenario(
   options: CapacityScenarioOptions,
   dependencies: ScenarioRunnerDependencies = {},
@@ -692,12 +754,12 @@ export async function runCapacityScenario(
   let pollingPeak = countContainers(options.runId);
   let pollInFlight = false;
   const statusPoller = setInterval(() => {
-    void getStatus(options.baseUrl).then((status) => statusHistory.push(status)).catch((error: unknown) => {
+    getStatus(options.baseUrl).then((status) => statusHistory.push(status)).catch((error: unknown) => {
       errors.push(error instanceof Error ? error.message : String(error));
     });
   }, 250);
   const hostPoller = setInterval(() => {
-    void sampleHost().then((sample) => {
+    sampleHost().then((sample) => {
       let enriched = sample;
       try {
         enriched = { ...sample, capacityDockerContainers: countContainers(options.runId) };
@@ -720,40 +782,12 @@ export async function runCapacityScenario(
 
   try {
     const arrivalWindowMs = options.scenario === "classroom" ? options.arrivalWindowMs ?? 0 : 0;
-    const intervalMs = options.clientCount > 1 ? arrivalWindowMs / (options.clientCount - 1) : 0;
-    const clients = await Promise.all(Array.from({ length: options.clientCount }, (_, index) => (async () => {
-      if (index > 0 && intervalMs > 0) await sleep(intervalMs);
-      return runClient(options.baseUrl, index + 1, options.holdDurationMs, options.simulationTimeoutSec, clientWatchdogMs, now, createSessionCookie);
-    })()));
+    const clients = await runScenarioClients(options, sleep, clientWatchdogMs, now, createSessionCookie);
     await eventTracker.stop();
     clearInterval(statusPoller);
     clearInterval(dockerPoller);
     if (hostPoller) clearInterval(hostPoller);
-    let quiescence: ScenarioQuiescenceResult;
-    try {
-      quiescence = await waitForScenarioQuiescence(
-        options.baseUrl,
-        options.runId,
-        getStatus,
-        countContainers,
-        sleep,
-        now,
-      );
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
-      const failedStatus = await getStatus(options.baseUrl).catch(() => initialStatus);
-      quiescence = {
-        quiescent: false,
-        waitedMs: 0,
-        remainingCapacityContainers: countContainers(options.runId, true),
-        activeSimulationCount: failedStatus.capacity?.simulation?.active ?? null,
-        queueWaiting: failedStatus.capacity?.queue?.waiting ?? null,
-        admissionCurrent: failedStatus.capacity?.admission?.current ?? null,
-        sandboxStartActive: failedStatus.capacity?.sandboxStart?.active ?? null,
-        sandboxStartWaiting: failedStatus.capacity?.sandboxStart?.waiting ?? null,
-      };
-    }
-    const finalStatus = await getStatus(options.baseUrl).catch(() => initialStatus);
+    const { quiescence, finalStatus } = await resolveScenarioCleanup(options, initialStatus, getStatus, countContainers, sleep, now, errors);
     statusHistory.push(finalStatus);
     pollingPeak = Math.max(pollingPeak, countContainers(options.runId));
     const cleanup: CleanupResult = {

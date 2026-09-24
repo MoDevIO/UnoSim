@@ -19,6 +19,8 @@ void loop() {
 type CommandResult = { code: number; stdout: string; stderr: string };
 type HttpResult = { statusCode: number; headers: IncomingHttpHeaders; body: string };
 
+let trustedGatewayCertificate: Buffer | undefined;
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function runCommand(
@@ -97,7 +99,8 @@ async function httpRequest(
         port,
         path: requestPath,
         method: options.method ?? "GET",
-        rejectUnauthorized: false,
+        ca: trustedGatewayCertificate,
+        rejectUnauthorized: true,
         headers: options.headers,
       },
       (response) => {
@@ -133,7 +136,8 @@ async function waitFor(
     }
     await sleep(500);
   }
-  throw new Error(`Timed out waiting for ${description}${lastError ? `: ${String(lastError)}` : ""}`);
+  const suffix = lastError ? `: ${String(lastError)}` : "";
+  throw new Error(`Timed out waiting for ${description}${suffix}`);
 }
 
 function parseJson(body: string): Record<string, any> {
@@ -161,7 +165,8 @@ function openGatewayWebSocket(
 ): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(`wss://127.0.0.1:${port}/ws`, {
-      rejectUnauthorized: false,
+      ca: trustedGatewayCertificate,
+      rejectUnauthorized: true,
       headers: { Origin: origin, ...headers },
     });
     const onError = (error: Error) => reject(error);
@@ -203,7 +208,8 @@ function nextWebSocketMessage(
 async function expectRejectedOrigin(port: number): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const socket = new WebSocket(`wss://127.0.0.1:${port}/ws`, {
-      rejectUnauthorized: false,
+      ca: trustedGatewayCertificate,
+      rejectUnauthorized: true,
       headers: { Origin: "https://invalid.example" },
     });
     const timer = setTimeout(() => {
@@ -285,6 +291,7 @@ async function main(): Promise<void> {
     await checked("mkdir", ["-p", tlsDir, tempDir]);
     await checked("mv", [join(tempRoot, "test.key"), join(tlsDir, "test.key")]);
     await checked("mv", [join(tempRoot, "test.crt"), join(tlsDir, "test.crt")]);
+    trustedGatewayCertificate = await readFile(join(tlsDir, "test.crt"));
     const nginxTemplate = await readFile(nginxTemplateFile, "utf8");
     await writeFile(nginxConfig, nginxTemplate.replaceAll("__RUNTIME_GATEWAY_SECRET__", gatewaySecret), "utf8");
 
@@ -397,7 +404,7 @@ async function main(): Promise<void> {
       const leaked = [...afterContainers].filter((name) => !baselineContainers.has(name) && name.startsWith("unosim-sandbox-"));
       for (const name of leaked) await runCommand("docker", ["rm", "-f", name], { timeoutMs: 20_000 });
       if (leaked.length > 0) {
-        throw new Error(`deployment test left sandbox containers: ${leaked.join(", ")}`);
+        cleanupError ??= new Error(`deployment test left sandbox containers: ${leaked.join(", ")}`);
       }
     } catch (error) {
       cleanupError ??= error instanceof Error ? error : new Error(String(error));
@@ -405,15 +412,21 @@ async function main(): Promise<void> {
     await rm(tempRoot, { recursive: true, force: true });
   }
 
-  if (cleanupError) throw cleanupError;
+  if (cleanupError) {
+    throw cleanupError;
+  }
   if (/Force shutdown after 10s timeout/.test(backendLogs)) {
     throw new Error("backend required forced shutdown");
   }
   console.log("[deployment] production gateway smoke test passed");
 }
 
-main().catch((error) => {
-  console.error(`[deployment] FAILED: ${error instanceof Error ? error.message : String(error)}`);
-  if (error instanceof Error && error.stack) console.error(error.stack);
-  process.exitCode = 1;
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(`[deployment] FAILED: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof Error && error.stack) console.error(error.stack);
+    process.exitCode = 1;
+  }
+}
