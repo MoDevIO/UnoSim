@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70% </span>
+                <span class="strong">85.71% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>7/10</span>
+                <span class='fraction'>12/14</span>
             </div>
         
             
@@ -203,7 +203,14 @@
 <a name='L138'></a><a href='#L138'>138</a>
 <a name='L139'></a><a href='#L139'>139</a>
 <a name='L140'></a><a href='#L140'>140</a>
-<a name='L141'></a><a href='#L141'>141</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -214,31 +221,38 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -348,7 +362,7 @@ import type { Express } from "express";
 import { getSandboxRunnerPool } from "../services/sandbox-runner-pool";
 import { getSandboxStartSemaphore } from "../services/sandbox/docker-compile-semaphore";
 import { config } from "../config";
-import { getProcessMetrics, compileMetricsTracker, webSocketMetricsTracker, evaluateObservabilityAlerts } from "../services/server-metrics";
+import { getProcessMetrics, compileMetricsTracker, sandboxStartWaitSamplesTracker, webSocketMetricsTracker, evaluateObservabilityAlerts } from "../services/server-metrics";
 import { getCompilerWithFallback } from "../services/compiler-with-fallback";
 import { REST_API_VERSION } from "../services/protocol-version";
 import { getCompileRateLimiter, getSimulationRateLimiter } from "../services/rate-limiter";
@@ -423,6 +437,13 @@ statusRouter.get("/api/status", (_req, res) =&gt; {
       avgCompileTimeMs: compilerStats.avgCompileTimeMs,
       maxWorkers: config.compilation.workerCount,
     },
+    ...(config.nodeEnv === "test" &amp;&amp; config.capacityTestRunId
+      ? {
+        capacityTest: {
+          sandboxStartWaitSamplesMs: sandboxStartWaitSamplesTracker.getSamples(config.capacityTestRunId),
+        },
+      }
+      : {}),
     sandboxRunners: {
       total: poolStats.totalRunners,
       min: poolStats.minRunners,
@@ -432,7 +453,7 @@ statusRouter.get("/api/status", (_req, res) =&gt; {
       max: poolStats.maxRunners,
     },
     admissionControl: admissionStats,
-    ...(config.nodeEnv === "test" &amp;&amp; config.capacityTestRunId ? <span class="branch-0 cbranch-no" title="branch not covered" >{ capacityTestRunId: config.capacityTestRunId } : {</span>}),
+    ...(config.nodeEnv === "test" &amp;&amp; config.capacityTestRunId ? { capacityTestRunId: config.capacityTestRunId } : {}),
     rateLimits: {
       compile: { blockedIdentities: compileRateStats.blockedClients, rejectedTotal: compileRateStats.rejectedTotal },
       simulationStart: { blockedIdentities: simulationRateStats.blockedClients, rejectedTotal: simulationRateStats.rejectedTotal },
@@ -490,7 +511,7 @@ statusRouter.get("/api/status", (_req, res) =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-23T14:58:47.092Z
+                at 2026-09-24T10:10:11.717Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
