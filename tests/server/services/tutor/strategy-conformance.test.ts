@@ -85,12 +85,13 @@ async function loadTopic(): Promise<CurriculumTopic> {
 async function initialPrompt(
   strategy: EffectiveTutorStrategy,
   context: TutorPlanningContentContext | null = makeContext([strategy]),
+  code = "void setup(){} void loop(){}",
 ): Promise<{ prompt: string; result: Awaited<ReturnType<TutorService["generateQuestion"]>>["result"] }> {
   const { provider, prompts } = createProvider();
   const service = new TutorService(provider, new CurriculumTutorAdapter());
   const result = context
-    ? await service.generateQuestion("void setup(){} void loop(){}", "key", undefined, 30, context)
-    : await service.generateQuestion("void setup(){} void loop(){}", "key", undefined, 30);
+    ? await service.generateQuestion(code, "key", undefined, 30, context)
+    : await service.generateQuestion(code, "key", undefined, 30);
   return { prompt: prompts[0] ?? "", result: result.result };
 }
 
@@ -161,6 +162,24 @@ describe("Tutor strategy behavioral conformance", () => {
     expect(result.strategyId).toBe(exampleStrategy.id);
     expect(result.strategySource).toBe("repository");
     expect(prompt).toContain("strict");
+  });
+
+  it("keeps Example learning objectives on the planned path", async () => {
+    const topic = await loadTopic();
+    const strategy = makeStrategy({ id: "repository-default" });
+    const objectives = ["Den Unterschied zwischen Wert und Speicherung verstehen."];
+    const { prompt, result } = await initialPrompt(
+      strategy,
+      makeContext([strategy], {
+        topics: [topic],
+        exampleId: "example-1",
+        annotation: { schemaVersion: 1, learningObjectives: objectives },
+      }),
+      "int values[] = {1, 2};",
+    );
+
+    expect(result.topicId).toBe("memory-and-data-types");
+    expect(prompt).toContain(JSON.stringify(objectives));
   });
 
   const promptFieldVariants: readonly [string, Partial<EffectiveTutorStrategy>][] = [

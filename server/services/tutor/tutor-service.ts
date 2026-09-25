@@ -21,7 +21,7 @@ import {
   type EffectiveTutorStrategy,
   type StrategyResolution,
 } from "./strategy/effective-tutor-strategy";
-import { buildTutorStrategyGuidance } from "./strategy/tutor-strategy-guidance";
+import { buildTutorLearningObjectivesGuidance, buildTutorStrategyGuidance } from "./strategy/tutor-strategy-guidance";
 
 const UNSAFE_MERMAID_PATTERNS = [
   /https?:\/\//i,
@@ -48,6 +48,7 @@ type TutorDialogArguments = [
 type TutorPromptOptions = {
   readonly didacticBrief?: TutorPlan;
   readonly strategy?: EffectiveTutorStrategy;
+  readonly learningObjectives?: readonly string[];
 };
 
 function containsMarkup(source: string): boolean {
@@ -111,12 +112,15 @@ function buildUserPrompt(
   difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
   didacticBrief?: TutorPlan,
   strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY,
+  learningObjectives?: readonly string[],
 ): string {
+  const objectivesGuidance = buildTutorLearningObjectivesGuidance(learningObjectives);
   return [
     "Erzeuge eine einzige Lernfrage zum folgenden aktuellen Arduino-Sketch.",
     `Relative didaktische Schwierigkeit für diese Frage: ${difficulty}/100 (1 = sehr leicht, 100 = sehr schwer; kein Prüfungsniveau).`,
     TUTOR_DIFFICULTY_GUIDANCE,
     buildTutorStrategyGuidance(strategy),
+    ...(objectivesGuidance ? [objectivesGuidance] : []),
     "Wenn ein Sachverhalt nicht statisch belegt ist, formuliere höchstens eine offene Reflexionsfrage statt einer Tatsachenbehauptung.",
     "Sketch:",
     "```cpp",
@@ -141,6 +145,7 @@ function buildDialogPrompt(
   options: TutorPromptOptions = {},
 ): string {
   const strategy = options.strategy ?? BUILT_IN_TUTOR_STRATEGY;
+  const objectivesGuidance = buildTutorLearningObjectivesGuidance(options.learningObjectives);
   const weakStreak = getTrailingWeakAnswerCount(history);
   const remediationInstruction = getRemediationInstruction(weakStreak, strategy);
   const progressionInstruction = getProgressionInstruction(history, strategy);
@@ -150,6 +155,7 @@ function buildDialogPrompt(
     `Erzeuge die Folgefrage mit relativer didaktischer Schwierigkeit ${difficulty}/100 (1 = sehr leicht, 100 = sehr schwer; kein Prüfungsniveau).`,
     TUTOR_DIFFICULTY_GUIDANCE,
     buildTutorStrategyGuidance(strategy),
+    ...(objectivesGuidance ? [objectivesGuidance] : []),
     "Bewerte die Antwort mit answerRating 1 bis 5 gemäß Verständnisrubrik, höchstens kurz, und stelle danach genau eine neue, weiterführende Frage.",
     "Bei offensichtlich unsinnigen, absurden oder vollständig themenfremden Antworten setze responseStyle philosophical, lasse answerRating weg und stelle nach kurzem, respektvollem Reflexionshinweis genau eine Frage zurück zum aktuellen Sketch.",
     "Normale fachlich falsche Antworten bleiben responseStyle normal und erhalten answerRating.",
@@ -489,7 +495,14 @@ export class TutorService {
       {
         model: await this.resolveModel(requestedModel, requestCredential),
         systemPrompt: TUTOR_SYSTEM_PROMPT,
-        userPrompt: buildUserPrompt(code, context, difficulty, planningResult ?? undefined, strategy.strategy),
+        userPrompt: buildUserPrompt(
+          code,
+          context,
+          difficulty,
+          planningResult ?? undefined,
+          strategy.strategy,
+          courseContent?.exampleTutorAnnotation?.learningObjectives,
+        ),
       },
       requestCredential,
     );
@@ -520,7 +533,10 @@ export class TutorService {
       {
         model: await this.resolveModel(requestedModel, requestCredential),
         systemPrompt: TUTOR_SYSTEM_PROMPT,
-        userPrompt: buildDialogPrompt(code, context, parsedHistory, question, answer, difficulty, { strategy: strategy.strategy }),
+        userPrompt: buildDialogPrompt(code, context, parsedHistory, question, answer, difficulty, {
+          strategy: strategy.strategy,
+          learningObjectives: courseContent?.exampleTutorAnnotation?.learningObjectives,
+        }),
       },
       requestCredential,
     );
