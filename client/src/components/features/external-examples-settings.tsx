@@ -213,7 +213,7 @@ export function ExternalExamplesSettings({
         )}
         {source?.tutor && (
           <div>
-            Tutor content: {source.tutor.status === "valid" ? "available" : source.tutor.status === "invalid" ? "built-in fallback active" : "not configured"}
+            Tutor content: {getTutorContentLabel(source.tutor.status)}
           </div>
         )}
       </div>
@@ -255,4 +255,10 @@ export function ExternalExamplesSettings({
       </div>
     </section>
   );
+}
+
+function getTutorContentLabel(status: "valid" | "invalid" | "absent"): string {
+  if (status === "valid") return "available";
+  if (status === "invalid") return "built-in fallback active";
+  return "not configured";
 }

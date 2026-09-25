@@ -31,6 +31,17 @@ const UNSAFE_MERMAID_PATTERNS = [
 
 const TUTOR_DIFFICULTY_GUIDANCE = "Kalibriere die Frage kognitiv: 1–10 = elementare Wiedererkennung oder direkter Fakt, 11–30 = einfache Anwendung, 31–50 = Verständnis und Zusammenhang, 51–70 = Transfer oder Analyse, 71–90 = anspruchsvolle Herleitung mehrerer Konzepte, 91–100 = sehr anspruchsvolle Synthese. Die Frage muss zum aktuellen Wert passen; Difficulty ist kein Prüfungsniveau.";
 
+type TutorDialogArguments = [
+  code: string,
+  history: readonly TutorDialogTurn[],
+  question: string,
+  answer: string,
+  credential: string | undefined,
+  requestedModel: string | undefined,
+  difficulty?: TutorDifficulty,
+  courseContent?: TutorPlanningContentContext,
+];
+
 function containsMarkup(source: string): boolean {
   let start = source.indexOf("<");
   while (start >= 0) {
@@ -458,16 +469,8 @@ export class TutorService {
     };
   }
 
-  async generateDialogResponse(
-    code: string,
-    history: readonly TutorDialogTurn[],
-    question: string,
-    answer: string,
-    credential: string | undefined,
-    requestedModel: string | undefined,
-    difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
-    courseContent?: TutorPlanningContentContext,
-  ): Promise<{ result: TutorContentResult; model: string }> {
+  async generateDialogResponse(...args: TutorDialogArguments): Promise<{ result: TutorContentResult; model: string }> {
+    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent] = args;
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
     const strategy = await this.resolveStrategy(courseContent);

@@ -29,6 +29,11 @@ export interface LearningPlan {
   readonly contentRevision: string;
 }
 
+export interface LearningAdvanceOptions {
+  readonly difficulty: TutorDifficulty;
+  readonly strategy?: EffectiveTutorStrategy;
+}
+
 export interface LearningPlanner {
   start(
     topic: CurriculumTopic,
@@ -45,8 +50,7 @@ export interface LearningPlanner {
     history: readonly TutorDialogTurn[],
     currentQuestion: string,
     rating: TutorAnswerRating,
-    difficulty: TutorDifficulty,
-    strategy?: EffectiveTutorStrategy,
+    options: LearningAdvanceOptions,
   ): LearningPlan | null;
 }
 
@@ -82,9 +86,9 @@ export class DefaultLearningPlanner implements LearningPlanner {
     history: readonly TutorDialogTurn[],
     currentQuestion: string,
     rating: TutorAnswerRating,
-    difficulty: TutorDifficulty,
-    strategy?: EffectiveTutorStrategy,
+    options: LearningAdvanceOptions,
   ): LearningPlan | null {
+    const { difficulty, strategy } = options;
     const observations = collectObservations(topic, history);
     const current = findQuestion(topic, currentQuestion, history);
     if (!current) return null;

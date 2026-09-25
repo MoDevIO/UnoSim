@@ -42,8 +42,9 @@ export class TutorCourseContentSessionStore {
 
   get(identity: string, handle: string): ResolvedTutorCourseContent | null {
     const entry = this.sessions.get(handle);
-    if (!entry || entry.identity !== identity || entry.expiresAt <= this.now()) {
-      if (entry && entry.expiresAt <= this.now()) this.sessions.delete(handle);
+    if (entry?.identity !== identity) return null;
+    if (entry.expiresAt <= this.now()) {
+      this.sessions.delete(handle);
       return null;
     }
     return entry.content;

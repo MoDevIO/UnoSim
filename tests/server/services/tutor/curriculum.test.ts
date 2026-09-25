@@ -101,11 +101,11 @@ describe("repository tutor curriculum", () => {
     expect(start?.brief.conceptId).toBe("value-vs-storage");
     expect(start?.brief.questionId).toBe("value-storage-contrast");
 
-    const clarification = planner.advance(topic, "0123456789abcdef0123456789abcdef01234567", facts, [], start!.brief.question, 3, 30);
+    const clarification = planner.advance(topic, "0123456789abcdef0123456789abcdef01234567", facts, [], start!.brief.question, 3, { difficulty: 30 });
     expect(clarification?.brief.questionId).toBe("value-storage-observation");
 
     const direct = topic.questions.find(({ id }) => id === "int-width-direct")!;
-    const remediation = planner.advance(topic, "0123456789abcdef0123456789abcdef01234567", facts, [], direct.text!, 1, 30);
+    const remediation = planner.advance(topic, "0123456789abcdef0123456789abcdef01234567", facts, [], direct.text!, 1, { difficulty: 30 });
     expect(remediation?.brief.scaffold?.id).toBe("compare-one-element");
     expect(remediation?.brief.questionId).toBe("array-memory-calculation");
   });
@@ -125,7 +125,7 @@ describe("repository tutor curriculum", () => {
     const facts = new DefaultSketchFactExtractor().extract("int values[] = {1, 2};");
     const next = planner.advance(topic, "0123456789abcdef0123456789abcdef01234567", facts, [
       turn(q1.text!, 4, { questionId: q1.id }),
-    ], q2.text!, 4, 30);
+    ], q2.text!, 4, { difficulty: 30 });
     expect(next?.brief.conceptId).toBe("integer-width");
   });
 
@@ -148,7 +148,7 @@ describe("repository tutor curriculum", () => {
       turn("Wie viele Bytes belegt ein int auf dem Arduino Uno?", 1, { questionId: "int-width-direct" }),
       turn("Wie viel Speicher belegt das Array insgesamt?", 1, { questionId: "array-memory-calculation" }),
     ];
-    const plan = planner.advance(topic, "0123456789abcdef0123456789abcdef01234567", facts, history, "Wie viel Speicher belegt das Array insgesamt?", 1, 30);
+    const plan = planner.advance(topic, "0123456789abcdef0123456789abcdef01234567", facts, history, "Wie viel Speicher belegt das Array insgesamt?", 1, { difficulty: 30 });
     expect(plan?.brief.scaffold?.id).toBe("return-to-representation");
     expect(plan?.brief.conceptId).toBe("value-vs-storage");
     expect(plan?.brief.questionId).toBe("value-storage-observation");

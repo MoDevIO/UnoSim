@@ -80,42 +80,50 @@ export type CourseContentValidation = {
 export function parseCourseContentManifest(input: unknown): CourseContentValidation {
   const raw = asRecord(input);
   const rawExamples = Array.isArray(raw?.examples) ? raw.examples : undefined;
-  const hasTutorRoot = raw !== undefined && Object.prototype.hasOwnProperty.call(raw, "tutor");
-  const hasTutorBinding = rawExamples?.some((example) => Object.prototype.hasOwnProperty.call(asRecord(example) ?? {}, "tutor")) ?? false;
+  const examples = parseExamplesCapability(input, raw, rawExamples);
+  const hasTutorRoot = raw !== undefined && hasOwn(raw, "tutor");
+  const hasTutorBinding = rawExamples?.some((example) => hasOwn(asRecord(example) ?? {}, "tutor")) ?? false;
+  const tutor = parseTutorCapability(raw, rawExamples, hasTutorRoot || hasTutorBinding);
+  return { examples, tutor };
+}
 
+function parseExamplesCapability(
+  input: unknown,
+  raw: Record<string, unknown> | undefined,
+  rawExamples: unknown[] | undefined,
+): CourseContentValidation["examples"] {
   const coreInput = raw === undefined ? input : withoutTutorData(raw, rawExamples);
   const coreParsed = courseContentCoreSchema.safeParse(coreInput);
-  let examples: CourseContentValidation["examples"];
-  if (!coreParsed.success) {
-    examples = { status: "invalid", reason: "External Examples manifest is invalid" };
-  } else {
-    try {
-      validateManifestReferences(coreParsed.data);
-      examples = { status: "valid", manifest: coreParsed.data };
-    } catch {
-      examples = { status: "invalid", reason: "External Examples snapshot is invalid" };
-    }
+  if (!coreParsed.success) return { status: "invalid", reason: "External Examples manifest is invalid" };
+  try {
+    validateManifestReferences(coreParsed.data);
+    return { status: "valid", manifest: coreParsed.data };
+  } catch {
+    return { status: "invalid", reason: "External Examples snapshot is invalid" };
   }
+}
 
-  if (!hasTutorRoot && !hasTutorBinding) return { examples, tutor: { status: "absent" } };
-  if (raw === undefined || raw.schemaVersion !== 2) {
-    return { examples, tutor: { status: "invalid", reason: "Tutor capability requires schema version 2" } };
+function parseTutorCapability(
+  raw: Record<string, unknown> | undefined,
+  rawExamples: unknown[] | undefined,
+  hasTutorCapability: boolean,
+): CourseContentValidation["tutor"] {
+  if (!hasTutorCapability) return { status: "absent" };
+  if (raw?.schemaVersion !== 2) {
+    return { status: "invalid", reason: "Tutor capability requires schema version 2" };
   }
-
   const descriptor = tutorDescriptorSchema.safeParse(raw.tutor);
-  if (!descriptor.success) return { examples, tutor: { status: "invalid", reason: "Tutor descriptor is invalid" } };
-
+  if (!descriptor.success) return { status: "invalid", reason: "Tutor descriptor is invalid" };
   const bindings = new Map<string, ExampleTutorBinding>();
   for (const example of rawExamples ?? []) {
     const entry = asRecord(example);
-    if (!entry || !Object.prototype.hasOwnProperty.call(entry, "tutor")) continue;
+    if (!entry || !hasOwn(entry, "tutor")) continue;
     const binding = exampleTutorBindingSchema.safeParse(entry.tutor);
     const id = typeof entry.id === "string" ? entry.id : "unknown";
-    if (!binding.success) return { examples, tutor: { status: "invalid", reason: `Tutor binding is invalid: ${id}` } };
+    if (!binding.success) return { status: "invalid", reason: `Tutor binding is invalid: ${id}` };
     bindings.set(id, binding.data);
   }
-
-  return { examples, tutor: { status: "valid", descriptor: descriptor.data, bindings } };
+  return { status: "valid", descriptor: descriptor.data, bindings };
 }
 
 const courseContentCoreSchema = z.union([
@@ -132,6 +140,10 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
     : undefined;
+}
+
+function hasOwn(value: Record<string, unknown>, key: string): boolean {
+  return Reflect.getOwnPropertyDescriptor(value, key) !== undefined;
 }
 
 function withoutTutorData(raw: Record<string, unknown>, rawExamples: unknown[] | undefined): Record<string, unknown> {

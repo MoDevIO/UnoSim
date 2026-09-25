@@ -102,6 +102,15 @@ function getRequestedModel(selectedModel: string, availableModels: readonly stri
   return availableModels.includes(selectedModel) ? selectedModel : undefined;
 }
 
+function getCourseContentRequest(
+  courseContentSession: string | undefined,
+  courseContent: TutorCourseContentContext | undefined,
+): { courseContentSession?: string; courseContent?: TutorCourseContentContext } {
+  if (courseContentSession) return { courseContentSession };
+  if (courseContent) return { courseContent };
+  return {};
+}
+
 function buildDialogTurn(
   question: string,
   answer: string,
@@ -132,6 +141,33 @@ function buildDialogTurn(
 
 function collectAnswerRatings(history: readonly TutorDialogTurn[]): readonly TutorAnswerRating[] {
   return history.flatMap((turn) => turn.answerRating === undefined ? [] : [turn.answerRating]);
+}
+
+function buildDialogResponseUpdate(
+  currentHistory: readonly TutorDialogTurn[],
+  currentQuestion: string,
+  submittedAnswer: string,
+  response: TutorResponse,
+  currentSession: string | undefined,
+): {
+  readonly nextHistory: readonly TutorDialogTurn[];
+  readonly answerRatings?: readonly TutorAnswerRating[];
+  readonly nextSession?: string;
+  readonly lastUsedModel?: string;
+} {
+  const nextHistory = [
+    ...currentHistory,
+    buildDialogTurn(currentQuestion, submittedAnswer, response),
+  ].slice(-INPUT_LIMITS.tutor.maxHistoryEntries);
+  const answerRatings = response.responseStyle === "normal" && response.answerRating !== undefined
+    ? collectAnswerRatings(nextHistory)
+    : undefined;
+  return {
+    nextHistory,
+    ...(answerRatings === undefined ? {} : { answerRatings }),
+    nextSession: response.courseContentSession ?? currentSession,
+    ...(response.responseStyle === "normal" ? { lastUsedModel: response.model } : {}),
+  };
 }
 
 function readConfiguredDifficulty(): TutorDifficulty {
@@ -273,7 +309,7 @@ export function useTutor(
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: requestDifficulty,
-          ...(courseContentSession ? { courseContentSession } : courseContent ? { courseContent } : {}),
+          ...getCourseContentRequest(courseContentSession, courseContent),
         }),
       });
       const body: unknown = await response.json().catch(() => null);
@@ -344,25 +380,21 @@ export function useTutor(
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: effectiveDifficulty,
-          ...(courseContentSession ? { courseContentSession } : courseContent ? { courseContent } : {}),
+          ...getCourseContentRequest(courseContentSession, courseContent),
         }),
       });
       const body: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(getErrorMessage(body));
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
-      const nextHistory = [
-        ...currentHistory,
-        buildDialogTurn(currentQuestion, submittedAnswer, parsed.data),
-      ].slice(-INPUT_LIMITS.tutor.maxHistoryEntries);
-      setHistory(nextHistory);
-      if (parsed.data.responseStyle === "normal" && parsed.data.answerRating !== undefined) {
-        const ratings = collectAnswerRatings(nextHistory);
-        setEffectiveDifficulty((current) => calculateNextTutorDifficulty(current, ratings));
+      const update = buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession);
+      setHistory(update.nextHistory);
+      if (update.answerRatings !== undefined) {
+        setEffectiveDifficulty((current) => calculateNextTutorDifficulty(current, update.answerRatings!));
       }
       setQuestion(parsed.data);
-      setCourseContentSession(parsed.data.courseContentSession ?? courseContentSession);
-      if (parsed.data.responseStyle === "normal") setLastUsedModel(parsed.data.model);
+      setCourseContentSession(update.nextSession);
+      if (update.lastUsedModel !== undefined) setLastUsedModel(update.lastUsedModel);
       setAnswer("");
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed

@@ -70,7 +70,10 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }): Promise<TutorPlan | null> {
     const context = await this.match(input.code, input.exampleId, input.courseContent);
     if (!context) return null;
-    const plan = this.planner.advance(context.topic, context.revision, context.facts, input.history, input.currentQuestion, input.rating, input.difficulty, context.strategy?.strategy);
+    const plan = this.planner.advance(context.topic, context.revision, context.facts, input.history, input.currentQuestion, input.rating, {
+      difficulty: input.difficulty,
+      strategy: context.strategy?.strategy,
+    });
     return plan ? normalizePlan(plan, context.strategy) : null;
   }
 
