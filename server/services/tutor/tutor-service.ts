@@ -16,9 +16,12 @@ import {
 } from "./llm-provider";
 import type { TutorPlan, TutorPlanningContentContext, TutorPlanningExtension } from "./tutor-planning";
 import {
+  BUILT_IN_TUTOR_STRATEGY,
   resolveEffectiveTutorStrategy,
+  type EffectiveTutorStrategy,
   type StrategyResolution,
 } from "./strategy/effective-tutor-strategy";
+import { buildTutorStrategyGuidance } from "./strategy/tutor-strategy-guidance";
 
 const UNSAFE_MERMAID_PATTERNS = [
   /https?:\/\//i,
@@ -102,11 +105,13 @@ function buildUserPrompt(
   context: TutorContext,
   difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
   didacticBrief?: TutorPlan,
+  strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY,
 ): string {
   return [
     "Erzeuge eine einzige Lernfrage zum folgenden aktuellen Arduino-Sketch.",
     `Relative didaktische Schwierigkeit für diese Frage: ${difficulty}/100 (1 = sehr leicht, 100 = sehr schwer; kein Prüfungsniveau).`,
     TUTOR_DIFFICULTY_GUIDANCE,
+    buildTutorStrategyGuidance(strategy),
     "Wenn ein Sachverhalt nicht statisch belegt ist, formuliere höchstens eine offene Reflexionsfrage statt einer Tatsachenbehauptung.",
     "Sketch:",
     "```cpp",
@@ -129,15 +134,17 @@ function buildDialogPrompt(
   answer: string,
   difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
   didacticBrief?: TutorPlan,
+  strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY,
 ): string {
   const weakStreak = getTrailingWeakAnswerCount(history);
-  const remediationInstruction = getRemediationInstruction(weakStreak);
-  const progressionInstruction = getProgressionInstruction(history);
+  const remediationInstruction = getRemediationInstruction(weakStreak, strategy);
+  const progressionInstruction = getProgressionInstruction(history, strategy);
   const previousQuestions = [question, ...history.map((turn) => turn.question)].slice(-8);
   return [
     "Führe den sokratischen Lerndialog zum folgenden aktuellen Arduino-Sketch fort.",
     `Erzeuge die Folgefrage mit relativer didaktischer Schwierigkeit ${difficulty}/100 (1 = sehr leicht, 100 = sehr schwer; kein Prüfungsniveau).`,
     TUTOR_DIFFICULTY_GUIDANCE,
+    buildTutorStrategyGuidance(strategy),
     "Bewerte die Antwort mit answerRating 1 bis 5 gemäß Verständnisrubrik, höchstens kurz, und stelle danach genau eine neue, weiterführende Frage.",
     "Bei offensichtlich unsinnigen, absurden oder vollständig themenfremden Antworten setze responseStyle philosophical, lasse answerRating weg und stelle nach kurzem, respektvollem Reflexionshinweis genau eine Frage zurück zum aktuellen Sketch.",
     "Normale fachlich falsche Antworten bleiben responseStyle normal und erhalten answerRating.",
@@ -204,29 +211,42 @@ function getTrailingWeakAnswerCount(history: readonly TutorDialogTurn[]): number
   return count;
 }
 
-function getRemediationInstruction(weakStreak: number): string {
+function getRemediationInstruction(weakStreak: number, strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY): string {
+  const sequencing = strategy.remediation === "question-first" || !strategy.hintFirst
+    ? "Beginne ohne vorangestellten Inhaltshinweis mit einer kleineren diagnostischen Frage; ein kurzer Hinweis darf erst danach folgen."
+    : "Beginne bei nötiger Unterstützung mit einem begrenzten konkreten Hinweis oder Teilproblem und stelle danach die fokussierte Frage."
+  ;
   if (weakStreak >= 3) {
-    return "Mehrere schwache Antworten liegen hintereinander: gib stärkeres Scaffolding, frage ein kleinstes überprüfbares Teilproblem oder notwendiges Vorwissen ab und führe danach zurück zum ursprünglichen Lernziel.";
+    return `${sequencing} Mehrere schwache Antworten liegen hintereinander: frage ein kleinstes überprüfbares Teilproblem oder notwendiges Vorwissen ab und führe danach zurück zum ursprünglichen Lernziel.`;
   }
   if (weakStreak === 2) {
-    return "Zwei schwache Antworten zum aktuellen Lernpfad liegen hintereinander: wechsle die Perspektive und frage ein kleineres Teilproblem oder erforderliches Vorwissen ab; formuliere nicht nur um.";
+    return `${sequencing} Zwei schwache Antworten zum aktuellen Lernpfad liegen hintereinander: wechsle die Perspektive und frage ein kleineres Teilproblem oder erforderliches Vorwissen ab; formuliere nicht nur um.`;
   }
   if (weakStreak === 1) {
-    return "Die letzte Antwort war schwach: gib einen kurzen konkreten Hinweis und stelle eine präzisere, kleinere Folgefrage.";
+    return `${sequencing} Die letzte Antwort war schwach: stelle eine präzisere, kleinere Folgefrage.`;
   }
-  return "Bei einer schwachen Antwort gib einen kurzen konkreten Hinweis und stelle danach eine präzisere Folgefrage.";
+  return `${sequencing} Bei einer schwachen Antwort stelle danach eine präzisere Folgefrage.`;
 }
 
-function getProgressionInstruction(history: readonly TutorDialogTurn[]): string {
+function getProgressionInstruction(
+  history: readonly TutorDialogTurn[],
+  strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY,
+): string {
   const lastTurn = history.at(-1);
   if (lastTurn?.responseStyle === "normal" && lastTurn.answerRating === 5) {
-    return "Das zuletzt bewertete Teilkonzept gilt als verstanden: schließe es gedanklich ab und führe zu einem nächsten relevanten Konzept des Sketches weiter, statt weiter dasselbe Detail zu prüfen.";
+    return strategy.progression === "advance-immediately"
+      ? "Das zuletzt bewertete Teilkonzept gilt als verstanden: wechsle unmittelbar zu einem nächsten relevanten Konzept des Sketches, statt weiter dasselbe Detail zu prüfen."
+      : "Das zuletzt bewertete Teilkonzept gilt als verstanden: prüfe bei Bedarf noch eine kurze Konsolidierung, bevor du zu einem nächsten relevanten Konzept des Sketches weiterführst.";
   }
   if (lastTurn?.responseStyle === "normal" && lastTurn.answerRating === 4) {
-    return "Das Teilkonzept ist weitgehend verstanden: kläre höchstens die kleine Lücke und gehe dann zu einem nächsten relevanten Konzept weiter.";
+    return strategy.progression === "advance-immediately"
+      ? "Das Teilkonzept ist weitgehend verstanden: gehe direkt zu einem nächsten relevanten Konzept weiter."
+      : "Das Teilkonzept ist weitgehend verstanden: kläre höchstens die kleine Lücke oder konsolidiere kurz und gehe dann zu einem nächsten relevanten Konzept weiter.";
   }
   if (lastTurn?.responseStyle === "normal" && lastTurn.answerRating === 3) {
-    return "Die Kernidee ist vorhanden: präzisiere den fehlenden Zusammenhang mit genau einer fokussierten Frage.";
+    return strategy.clarification === "new-indicator"
+      ? "Die Kernidee ist vorhanden: prüfe zuerst einen benachbarten belegten Aspekt mit genau einer fokussierten Frage."
+      : "Die Kernidee ist vorhanden: präzisiere denselben unmittelbaren Aspekt mit genau einer fokussierten Frage.";
   }
   return "Führe den Lernpfad mit genau einem fokussierten Schritt weiter und beachte den bisherigen Dialog.";
 }
@@ -240,11 +260,17 @@ function buildRemediationQuestion(
   history: readonly TutorDialogTurn[],
   currentQuestion: string,
   answerRating: TutorAnswerRating,
+  strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY,
 ): string {
   const weakStreak = getTrailingWeakAnswerCount(history) + (answerRating <= 2 ? 1 : 0);
   const previousQuestions = [currentQuestion, ...history.map((turn) => turn.question)];
   let candidates: readonly string[];
-  if (hasAsciiValueExample(code) && weakStreak >= 1) {
+  if (strategy.remediation === "question-first" || !strategy.hintFirst) {
+    candidates = [
+      "Welche einzelne, direkt im aktuellen Sketch belegte Beobachtung beantwortet einen Teil der Tutorfrage?",
+      "Welche konkrete Codezeile oder welcher einzelne Wert ist der kleinste sinnvolle Startpunkt für deine Diagnose?",
+    ];
+  } else if (hasAsciiValueExample(code) && weakStreak >= 1) {
     candidates = [
       "Welche Zeichen ordnet die ASCII-Tabelle den Werten 65, 66 und 67 im aktuellen Sketch zu?",
       "Welchen einzelnen Zahlenwert aus dem Array möchtest du zuerst als Dezimalwert und anschließend als Zeichen interpretieren?",
@@ -272,10 +298,13 @@ function buildConceptTransitionQuestion(
   code: string,
   history: readonly TutorDialogTurn[],
   currentQuestion: string,
+  strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY,
 ): string {
   const previousQuestions = [currentQuestion, ...history.map((turn) => turn.question)];
   let candidates: readonly string[];
-  if (/\bSerial\b|Serial\./i.test(code)) {
+  if (strategy.clarification === "new-indicator") {
+    candidates = ["Welchen benachbarten, im aktuellen Sketch belegten Aspekt kannst du als Nächstes prüfen?"];
+  } else if (/\bSerial\b|Serial\./i.test(code)) {
     candidates = ["Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"];
   } else if (/\banalogRead\b/i.test(code)) {
     candidates = ["Wie hängt der analoge Eingangswert als Nächstes mit dem beobachtbaren Verhalten des Sketches zusammen?"];
@@ -292,6 +321,7 @@ function ensureDistinctDialogQuestion(
   code: string,
   history: readonly TutorDialogTurn[],
   currentQuestion: string,
+  strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY,
 ): TutorContentResult {
   const previousQuestions = [currentQuestion, ...history.map((turn) => turn.question)];
   if (result.answerRating === undefined) return result;
@@ -301,8 +331,8 @@ function ensureDistinctDialogQuestion(
   return {
     ...result,
     question: result.answerRating >= 4
-      ? buildConceptTransitionQuestion(code, history, currentQuestion)
-      : buildRemediationQuestion(code, history, currentQuestion, result.answerRating),
+      ? buildConceptTransitionQuestion(code, history, currentQuestion, strategy)
+      : buildRemediationQuestion(code, history, currentQuestion, result.answerRating, strategy),
   };
 }
 
@@ -454,7 +484,7 @@ export class TutorService {
       {
         model: await this.resolveModel(requestedModel, requestCredential),
         systemPrompt: TUTOR_SYSTEM_PROMPT,
-        userPrompt: buildUserPrompt(code, context, difficulty, planningResult ?? undefined),
+        userPrompt: buildUserPrompt(code, context, difficulty, planningResult ?? undefined, strategy.strategy),
       },
       requestCredential,
     );
@@ -485,7 +515,7 @@ export class TutorService {
       {
         model: await this.resolveModel(requestedModel, requestCredential),
         systemPrompt: TUTOR_SYSTEM_PROMPT,
-        userPrompt: buildDialogPrompt(code, context, parsedHistory, question, answer, difficulty),
+        userPrompt: buildDialogPrompt(code, context, parsedHistory, question, answer, difficulty, undefined, strategy.strategy),
       },
       requestCredential,
     );
@@ -494,7 +524,7 @@ export class TutorService {
       throw new TutorProviderError("invalid-response");
     }
     let distinctResult = validatedResult.responseStyle === "normal"
-      ? ensureDistinctDialogQuestion(validatedResult, code, parsedHistory, question)
+      ? ensureDistinctDialogQuestion(validatedResult, code, parsedHistory, question, strategy.strategy)
       : validatedResult;
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
       const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent });

@@ -95,7 +95,7 @@ async function initialPrompt(
 
 async function dialogPrompt(strategy: EffectiveTutorStrategy): Promise<string> {
   const { provider, prompts } = createProvider();
-  await new TutorService(provider).generateDialogResponse(
+  await new TutorService(provider, new CurriculumTutorAdapter()).generateDialogResponse(
     "void setup(){} void loop(){}",
     [],
     "Welche Beobachtung ist belegt?",
@@ -145,7 +145,7 @@ describe("Tutor strategy behavioral conformance", () => {
     expect(noRepositoryPrompt).toContain("EffectiveTutorStrategy");
     expect(result.strategyId).toBe("built-in-default");
     expect(result.strategySource).toBe("built-in");
-    expect(invalidPrompt).toContain('sketchSpecificity=prefer');
+    expect(invalidPrompt).toContain("Skizzenbezug: prefer");
   });
 
   it("lets a valid per-example strategy control the free path when no Topic matches", async () => {
