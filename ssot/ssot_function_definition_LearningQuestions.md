@@ -1,6 +1,6 @@
 # Funktionsbeschreibung: KI-gestütztes Lernfragen-Panel
 
-Status: draft  
+Status: current
 Zielrolle: feature-contract  
 Ziel-SSOT für das fachliche Verhalten des KI-gestützten Lernfragen-Panels in UnoSim.  
 Provider-spezifische Implementierungsdetails, API-Zugangsdaten und institutionelle Betriebsvereinbarungen sind nicht Teil dieses fachlichen Vertrags.
@@ -53,37 +53,64 @@ Das Lernfragen-Panel ist ausdrücklich **nicht** vorgesehen für:
 
 Eine spätere Erweiterung um längere Dialogverläufe, Challenges oder adaptive Lernpfade ist möglich, aber nicht Bestandteil des initialen MVP-Vertrags.
 
-### Pilot: repo-basierte didaktische Steuerung
+### Unified Course Content and Tutor strategy
 
-Der Pilot darf genau ein serverseitig geladenes, versioniertes Curriculum-
-Topic (`memory-and-data-types`) verwenden. Das Curriculum liegt als YAML in
-einem separaten Repository. Der Server lädt ausschließlich ein Manifest und
-explizit referenzierte Topic-Dateien von einem festen Commit-SHA. Der Browser
-greift niemals direkt auf GitHub oder eine andere Curriculum-Quelle zu.
+The separate Tutor curriculum source is superseded by the unified Course
+Content contract in
+ssot_function_definition_CourseContent.md and ADR 0006.
 
-Die Dateien unter `curriculum/` im UnoSim-Arbeitsbaum sind lediglich
-Pilot-Fixtures/Authoring-Beispiele und werden nicht automatisch als produktive
-Quelle geladen. Produktiv ist ausschließlich die serverseitig konfigurierte
-HTTPS-Quelle mit vollständigem Commit-SHA.
+Every Tutor request uses one normalized EffectiveTutorStrategy. The
+built-in strategy built-in-default is always available, including when no
+Course repository is configured, when a valid repository contains Examples
+only, when no topic matches, or when the optional Tutor capability is invalid.
 
-Manifest und Topic-Dateien werden mit einem strikten Schema validiert. Freie
-Reguläre Ausdrücke, URLs, Promptrollen und ausführbare Regeln sind im
-Curriculum nicht erlaubt. Concept-Dependencies müssen gültige IDs referenzieren
-und azyklisch sein. Nicht validierbare oder nicht ladbare Inhalte werden als
-nicht vorhanden behandelt.
+The normative built-in teaching policy is:
 
-Die serverseitige Pilotpipeline besteht aus `DidacticContentRepository`,
-`SketchFactExtractor`, `TopicMatcher` und `LearningPlanner` vor dem bestehenden
-`TutorService` und `LLMProvider`. Der Planner wählt Fragen und Übergänge
-deterministisch; das LLM bewertet Antworten und formuliert kurzes Feedback.
-Curriculum-Inhalte werden nie an den Systemprompt angehängt, sondern nur als
-validierter, normalisierter `DidacticBrief` im User-Kontext verwendet.
+- question weights: recall 10, concept 25, application 35, prediction 15,
+  transfer 15;
+- prefer sketch-specific applicable questions;
+- strict near-duplicate avoidance;
+- scaffold-first remediation after weak answers;
+- same-indicator clarification after partial answers;
+- mastery-then-advance after strong answers;
+- prefer content scaffolds, short feedback, and hint-first behavior.
 
-Der Pilot speichert keine persönliche Lernhistorie dauerhaft, erzeugt keine
-Experience-/Analytics-Events und verwendet keinen signierten Lernzustand. Die
-Concept Map wird ausschließlich aus dem begrenzten Dialogverlauf der laufenden
-Browser-Session rekonstruiert. Ohne passenden Curriculum-Match bleibt der
-freie Tutor vollständig aktiv.
+These weights are new built-in policy and are not claimed to reproduce an
+existing planner weighting. Adaptive difficulty retains the existing contract
+defined below, including rating deltas -6/-3/0/+2/+4, the existing recent
+rating window, range clamp, and step limits.
+
+A Course repository may provide multiple validated topics and bounded teaching
+strategies. Topics own concepts, prerequisites, objectives, misconceptions,
+indicators, mastery, questions, content scaffolds, and concept order.
+Strategies own question selection and response policy. The deterministic
+planner normalizes repository and built-in strategies through the same
+interface. Repository content is structured data only; it never supplies the
+application system prompt or prompt roles.
+
+Course selection is shared with External Examples. There is one repository/ref
+selection, and a valid browser override affects both Examples and Tutor for
+that browser only. It remains a personal preference and does not change the
+server default for other users. Repository/ref/revision/example values sent by
+the browser are untrusted metadata; the server validates or derives the
+immutable Course context before using Tutor content.
+
+For an active Course example, topic precedence is applicable primary topic,
+other applicable bound topics, then fact-matched topics. For an unbound sketch,
+fact matching considers all repository topics. The current sketch remains the
+factual authority; editing an example can make a binding inapplicable and
+must never force an unsupported question.
+
+Strategy precedence is per-example strategy, Tutor manifest default, then
+built-in-default. A valid strategy may be used without topics; the free
+Tutor then uses that strategy. An invalid Tutor descriptor, manifest, file,
+hash, schema, dependency, or binding invalidates the whole Tutor capability,
+not Examples and not a partial Tutor subset. The Tutor falls back completely
+to built-in-default plus the free Tutor path, with a safe diagnostic reason.
+
+The historical curriculum/ files remain fixtures and authoring examples.
+The old independently configured Tutor source variables are obsolete startup
+tombstones and must not be combined with the Course Content source.
 
 ---
 

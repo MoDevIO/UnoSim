@@ -160,7 +160,8 @@ export function ExternalExamplesSettings({
     >
       <div className="text-ui-sm font-semibold text-foreground">External Examples</div>
       <div className="mt-0.5 mb-3 text-ui-xs leading-snug text-muted-foreground">
-        Select a public GitHub repository and ref for this browser only. No
+        Select one public Course Content repository and ref for this browser
+        only. The selection controls both Examples and Tutor content; no
         credentials are needed.
       </div>
       {!capabilities.canUseServerExamples && (
@@ -210,6 +211,11 @@ export function ExternalExamplesSettings({
             The last known good snapshot is currently active (stale).
           </div>
         )}
+        {source?.tutor && (
+          <div>
+            Tutor content: {getTutorContentLabel(source.tutor.status)}
+          </div>
+        )}
       </div>
       {message && (
         <output
@@ -249,4 +255,10 @@ export function ExternalExamplesSettings({
       </div>
     </section>
   );
+}
+
+function getTutorContentLabel(status: "valid" | "invalid" | "absent"): string {
+  if (status === "valid") return "available";
+  if (status === "invalid") return "built-in fallback active";
+  return "not configured";
 }

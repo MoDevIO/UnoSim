@@ -16,7 +16,7 @@ const boundedText = (max: number) => z.string().trim().min(1).max(max)
   .refine((value) => !/https?:\/\//i.test(value), "URLs are not allowed in curriculum text");
 
 const idSchema = z.string().regex(SAFE_ID);
-const questionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
+export const questionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
 const strategySchema = z.enum(["concrete-model", "smaller-subproblem", "perspective-change", "prerequisite"]);
 const factKindSchema = z.enum(["type-used", "array-declared", "serial-call"]);
 
@@ -112,7 +112,7 @@ const progressionSchema = z.object({
 
 export const curriculumTopicSchema = z.object({
   schemaVersion: z.literal(1),
-  id: z.literal("memory-and-data-types"),
+  id: idSchema,
   title: boundedText(160),
   locale: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/),
   activation: activationSchema,
@@ -128,10 +128,10 @@ export const curriculumManifestSchema = z.object({
   release: boundedText(64),
   locale: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/),
   topics: z.array(z.object({
-    id: z.literal("memory-and-data-types"),
+    id: idSchema,
     path: z.string().regex(/^topics\/[a-z][a-z0-9-]{0,63}\.yaml$/),
     sha256: z.string().regex(SAFE_SHA256),
-  }).strict()).length(1),
+  }).strict()).max(64),
 }).strict();
 
 export type FactRequirement = z.infer<typeof factRequirementSchema>;

@@ -6,10 +6,12 @@ import type {
   ExamplesSourceMetadata,
   FullCommitSha,
   RepositorySlug,
+  TutorCapabilityMetadata,
 } from "@shared/examples";
 import { config, type ParsedExamplesConfig } from "../../config";
 import { BuiltInProvider } from "./built-in-provider";
 import { ExamplesCache } from "./examples-cache";
+import type { TutorCapability } from "../course-content/course-content-loader";
 import { ExamplesError } from "./examples-error";
 import { GitHubRevisionResolver } from "./github-revision-resolver";
 import { ExamplesLoadController } from "./examples-load-controller";
@@ -17,6 +19,11 @@ import { RevisionProvider, SecureExamplesFetcher } from "./http-provider";
 import type { ExampleRecord } from "./examples-schema";
 import { SourceProvider, type RequestContext } from "./source-provider";
 import { resolveExamplesSelection } from "./source-selection";
+import type {
+  ResolvedTutorCourseContent,
+  TutorCourseContentRequest,
+  TutorCourseContentResolver,
+} from "../course-content/course-content-session";
 
 export interface ExamplesRepositoryOptions {
   examplesConfig?: ParsedExamplesConfig;
@@ -26,7 +33,7 @@ export interface ExamplesRepositoryOptions {
   loadController?: ExamplesLoadController;
 }
 
-export class ExamplesRepository {
+export class ExamplesRepository implements TutorCourseContentResolver {
   private readonly examplesConfig: ParsedExamplesConfig;
   private readonly builtInProvider: Pick<BuiltInProvider, "getExamples">;
   private readonly sourceProvider: Pick<SourceProvider, "resolve" | "getRevision">;
@@ -69,6 +76,7 @@ export class ExamplesRepository {
       revision: result.revision,
       status: result.status,
       stale: false,
+      tutor: tutorMetadata(result.snapshot.tutor),
     };
   }
 
@@ -78,7 +86,7 @@ export class ExamplesRepository {
     if (resolved.mode === "builtin") {
       return this.catalog({
         selection: "default", mode: "builtin", repository: null, ref: null,
-        revision: null, status: "builtin", stale: false,
+        revision: null, status: "builtin", stale: false, tutor: { status: "absent" },
       }, builtins);
     }
     const remote = await this.sourceProvider.resolve(resolved.repository, resolved.ref, context, false);
@@ -90,6 +98,7 @@ export class ExamplesRepository {
       revision: remote.revision,
       status: remote.status,
       stale: remote.stale,
+      tutor: tutorMetadata(remote.snapshot.tutor),
     }, deduplicateExamples([...builtins, ...remote.snapshot.examples]));
   }
 
@@ -111,6 +120,30 @@ export class ExamplesRepository {
     return example ? toDetail(example, revision) : null;
   }
 
+  async resolveTutorContent(request: TutorCourseContentRequest, context: RequestContext): Promise<ResolvedTutorCourseContent> {
+    const resolved = await this.sourceProvider.resolve(request.repository, request.ref, context, true);
+    if (resolved.revision !== request.revision) {
+      throw new ExamplesError("INVALID_REVISION", "Course Content revision is not the active server revision");
+    }
+    this.assertExampleInSnapshot(resolved.snapshot.examples, request.exampleId);
+    return {
+      ...request,
+      tutor: resolved.snapshot.tutor ?? { status: "absent" },
+    };
+  }
+
+  async getTutorContent(request: ResolvedTutorCourseContent, context: RequestContext): Promise<ResolvedTutorCourseContent> {
+    const snapshot = await this.sourceProvider.getRevision(request.repository, request.revision, context);
+    this.assertExampleInSnapshot(snapshot.examples, request.exampleId);
+    return { ...request, tutor: snapshot.tutor ?? { status: "absent" } };
+  }
+
+  private assertExampleInSnapshot(examples: readonly ExampleRecord[], exampleId: string | undefined): void {
+    if (exampleId !== undefined && !examples.some(({ id }) => id === exampleId)) {
+      throw new ExamplesError("EXAMPLE_NOT_FOUND", "Course Content example is not in the selected revision");
+    }
+  }
+
   private catalog(source: ExamplesSourceMetadata, examples: ExampleRecord[]): ExamplesCatalogResponse {
     return {
       schemaVersion: 1,
@@ -121,6 +154,13 @@ export class ExamplesRepository {
       })),
     };
   }
+}
+
+function tutorMetadata(value: TutorCapability | undefined): TutorCapabilityMetadata {
+  if (!value || value.status === "absent") return { status: "absent" };
+  return value.status === "valid"
+    ? { status: "valid" }
+    : { status: "invalid", reason: "invalid-tutor-bundle" };
 }
 
 function toDetail(example: ExampleRecord, revision: FullCommitSha | null): ExampleDetailResponse {

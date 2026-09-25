@@ -27,6 +27,7 @@ export const examplesManifestSchema = z.object({
 export type ManifestFile = z.infer<typeof manifestFileSchema>;
 export type ManifestExample = z.infer<typeof manifestExampleSchema>;
 export type ExamplesManifest = z.infer<typeof examplesManifestSchema>;
+export type ExamplesManifestCore = Omit<ExamplesManifest, "schemaVersion"> & { schemaVersion: 1 | 2 };
 
 export type ExampleFile = ManifestFile & {
   content: string;
@@ -37,7 +38,7 @@ export type ExampleRecord = Omit<ManifestExample, "files"> & {
   source: "builtin" | "external";
 };
 
-export function validateManifestReferences(manifest: ExamplesManifest): void {
+export function validateManifestReferences(manifest: Pick<ExamplesManifest, "examples">): void {
   const ids = new Set<string>();
 
   for (const example of manifest.examples) {

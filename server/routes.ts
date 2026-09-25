@@ -163,13 +163,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- Examples API endpoint ---
-  registerExamplesRoutes(app, new ExamplesRepository(), {
+  const examplesRepository = new ExamplesRepository();
+  registerExamplesRoutes(app, examplesRepository, {
     trust: config.trust,
     disableRateLimit: config.server.disableRateLimit,
   });
   registerTutorRoutes(app, {
     logger,
     disableRateLimit: config.server.disableRateLimit,
+    courseContent: examplesRepository,
   });
   // --- Sketch CRUD routes (leicht gekürzt) ---
   app.get("/api/sketches", async (_req, res) => {

@@ -14,7 +14,11 @@ import {
   type LLMProvider,
   type ProviderQuestionResult,
 } from "./llm-provider";
-import type { TutorPlan, TutorPlanningExtension } from "./tutor-planning";
+import type { TutorPlan, TutorPlanningContentContext, TutorPlanningExtension } from "./tutor-planning";
+import {
+  resolveEffectiveTutorStrategy,
+  type StrategyResolution,
+} from "./strategy/effective-tutor-strategy";
 
 const UNSAFE_MERMAID_PATTERNS = [
   /https?:\/\//i,
@@ -26,6 +30,17 @@ const UNSAFE_MERMAID_PATTERNS = [
 ];
 
 const TUTOR_DIFFICULTY_GUIDANCE = "Kalibriere die Frage kognitiv: 1–10 = elementare Wiedererkennung oder direkter Fakt, 11–30 = einfache Anwendung, 31–50 = Verständnis und Zusammenhang, 51–70 = Transfer oder Analyse, 71–90 = anspruchsvolle Herleitung mehrerer Konzepte, 91–100 = sehr anspruchsvolle Synthese. Die Frage muss zum aktuellen Wert passen; Difficulty ist kein Prüfungsniveau.";
+
+type TutorDialogArguments = [
+  code: string,
+  history: readonly TutorDialogTurn[],
+  question: string,
+  answer: string,
+  credential: string | undefined,
+  requestedModel: string | undefined,
+  difficulty?: TutorDifficulty,
+  courseContent?: TutorPlanningContentContext,
+];
 
 function containsMarkup(source: string): boolean {
   let start = source.indexOf("<");
@@ -404,6 +419,15 @@ function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): Tutor
     contentRevision: plan.contentRevision,
     ...(feedback ? { feedback } : {}),
     ...(plan.strategyId ? { strategyId: plan.strategyId } : {}),
+    ...(plan.strategySource ? { strategySource: plan.strategySource } : {}),
+  };
+}
+
+function applyStrategyMetadata(result: TutorContentResult, strategy: StrategyResolution): TutorContentResult {
+  return {
+    ...result,
+    strategyId: strategy.strategy.id,
+    strategySource: strategy.source === "built-in" ? "built-in" : "repository",
   };
 }
 
@@ -418,11 +442,13 @@ export class TutorService {
     credential: string | undefined,
     requestedModel: string | undefined,
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
+    courseContent?: TutorPlanningContentContext,
   ): Promise<{ result: TutorContentResult; model: string }> {
     const requestCredential = this.resolveCredential(credential);
     const context = buildTutorContext(code);
+    const strategy = await this.resolveStrategy(courseContent);
     const planningResult = this.planningExtension
-      ? await this.planningExtension.planInitial({ code, history: [], difficulty })
+      ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent })
       : null;
     const providerResult: ProviderQuestionResult = await this.provider.generateLearningQuestion(
       {
@@ -433,7 +459,9 @@ export class TutorService {
       requestCredential,
     );
     const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
-    const plannedResult = planningResult ? applyPlanningResult(validatedResult, planningResult) : validatedResult;
+    const plannedResult = planningResult
+      ? applyPlanningResult(validatedResult, planningResult)
+      : applyStrategyMetadata(validatedResult, strategy);
     const { answerRating: _initialAnswerRating, ...initialResult } = plannedResult;
     return {
       model: providerResult.model,
@@ -441,21 +469,15 @@ export class TutorService {
     };
   }
 
-  async generateDialogResponse(
-    code: string,
-    history: readonly TutorDialogTurn[],
-    question: string,
-    answer: string,
-    credential: string | undefined,
-    requestedModel: string | undefined,
-    difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
-  ): Promise<{ result: TutorContentResult; model: string }> {
+  async generateDialogResponse(...args: TutorDialogArguments): Promise<{ result: TutorContentResult; model: string }> {
+    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent] = args;
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
+    const strategy = await this.resolveStrategy(courseContent);
     if (isClearlyNonLearningAnswer(answer)) {
       return {
         model: requestedModel ?? "fallback",
-        result: buildPhilosophicalFallback(parsedHistory, difficulty),
+        result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty), strategy),
       };
     }
     const context = buildTutorContext(code);
@@ -475,9 +497,10 @@ export class TutorService {
       ? ensureDistinctDialogQuestion(validatedResult, code, parsedHistory, question)
       : validatedResult;
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
-      const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty });
+      const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent });
       if (nextPlan) distinctResult = applyPlanningResult(validatedResult, nextPlan);
     }
+    if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
     return {
       model: providerResult.model,
       result: distinctResult,
@@ -502,6 +525,17 @@ export class TutorService {
     if (model === "auto") return model;
     const availableModels = await this.provider.listModels(credential);
     return availableModels.includes(model) ? model : "auto";
+  }
+
+  private async resolveStrategy(courseContent?: TutorPlanningContentContext): Promise<StrategyResolution> {
+    if (this.planningExtension?.resolveStrategy) {
+      try {
+        return await this.planningExtension.resolveStrategy({ courseContent });
+      } catch {
+        // A strategy resolver is optional planning context; the built-in policy remains authoritative.
+      }
+    }
+    return resolveEffectiveTutorStrategy({});
   }
 
 }

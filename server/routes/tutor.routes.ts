@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { randomUUID } from "node:crypto";
 import {
   tutorDialogRequestSchema,
   tutorModelsRequestSchema,
@@ -14,12 +15,22 @@ import {
 import { TutorService } from "../services/tutor/tutor-service";
 import { createTutorService } from "../services/tutor/tutor-service-factory";
 import type { RequestIdentity } from "../security/access-control";
+import {
+  TutorCourseContentSessionStore,
+  type ResolvedTutorCourseContent,
+  type TutorCourseContentResolver,
+} from "../services/course-content/course-content-session";
+import type { RequestContext } from "../services/examples/source-provider";
+import type { TutorPlanningContentContext } from "../services/tutor/tutor-planning";
+import type { TutorCourseContentContext } from "@shared/tutor";
 
 type TutorRouteDeps = {
   readonly service?: TutorService;
   readonly logger?: Pick<Logger, "warn" | "error">;
   readonly rateLimiter?: { checkLimit: (identity: string) => { allowed: true } | { allowed: false; retryAfter: number } };
   readonly disableRateLimit?: boolean;
+  readonly courseContent?: TutorCourseContentResolver;
+  readonly sessionStore?: TutorCourseContentSessionStore;
 };
 
 function responseError(
@@ -96,6 +107,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
   const logger = deps.logger ?? new Logger("TutorRoutes");
   const service = deps.service ?? createTutorService(new KiconnectProvider());
   const rateLimiter = deps.rateLimiter ?? (deps.disableRateLimit ? undefined : getTutorRateLimiter());
+  const sessionStore = deps.sessionStore ?? new TutorCourseContentSessionStore();
 
   app.post("/api/tutor/question", async (req, res) => {
     if (!enforceTutorRateLimit(res, { ...deps, rateLimiter })) return;
@@ -108,16 +120,20 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
     if (!requireRequestCredential(req, res, parsed.data.credential)) return;
 
     try {
+      const content = await resolveTutorContent(req, res, parsed.data.courseContent, parsed.data.courseContentSession, deps.courseContent, sessionStore);
+      if ((parsed.data.courseContent !== undefined || parsed.data.courseContentSession !== undefined) && !content) return;
       const generated = await service.generateQuestion(
         parsed.data.code,
         parsed.data.credential,
         parsed.data.model,
         parsed.data.difficulty,
+        content?.planning,
       );
       res.json({
         ...generated.result,
         provider: config.tutor.provider,
         model: generated.model,
+        ...(content?.session ? { courseContentSession: content.session } : {}),
       });
     } catch (error) {
       if (error instanceof TutorProviderError) {
@@ -163,6 +179,8 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
     if (!requireRequestCredential(req, res, parsed.data.credential)) return;
 
     try {
+      const content = await resolveTutorContent(req, res, parsed.data.courseContent, parsed.data.courseContentSession, deps.courseContent, sessionStore);
+      if ((parsed.data.courseContent !== undefined || parsed.data.courseContentSession !== undefined) && !content) return;
       const generated = await service.generateDialogResponse(
         parsed.data.code,
         parsed.data.history,
@@ -171,11 +189,13 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.credential,
         parsed.data.model,
         parsed.data.difficulty,
+        content?.planning,
       );
       res.json({
         ...generated.result,
         provider: config.tutor.provider,
         model: generated.model,
+        ...(content?.session ? { courseContentSession: content.session } : {}),
       });
     } catch (error) {
       if (error instanceof TutorProviderError) {
@@ -186,4 +206,41 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
       responseError(res, 500, "PROVIDER_UNAVAILABLE", "Die Tutor-Anfrage ist fehlgeschlagen.");
     }
   });
+}
+
+async function resolveTutorContent(
+  req: Request,
+  res: Response,
+  request: TutorCourseContentContext | undefined,
+  sessionHandle: string | undefined,
+  resolver: TutorCourseContentResolver | undefined,
+  sessions: TutorCourseContentSessionStore,
+): Promise<{ readonly planning: TutorPlanningContentContext; readonly session: string } | undefined> {
+  const identity = (res.locals.unosimIdentity as RequestIdentity | undefined)?.subject ?? "anonymous";
+  if (sessionHandle !== undefined) {
+    const pinned = sessions.get(identity, sessionHandle);
+    if (!pinned) {
+      responseError(res, 400, "INVALID_REQUEST", "Der Tutor-Kontext ist abgelaufen oder ungültig.");
+      return undefined;
+    }
+    return { planning: pinned, session: sessionHandle };
+  }
+  if (request === undefined) return undefined;
+  if (!resolver) {
+    responseError(res, 400, "INVALID_REQUEST", "Der Course-Content-Kontext ist nicht verfügbar.");
+    return undefined;
+  }
+  const context: RequestContext = {
+    identity,
+    requestId: req.header("x-request-id") ?? randomUUID(),
+  };
+  let resolved: ResolvedTutorCourseContent;
+  try {
+    resolved = await resolver.resolveTutorContent(request, context);
+  } catch {
+    responseError(res, 400, "INVALID_REQUEST", "Der Course-Content-Kontext ist ungültig oder nicht mehr aktiv.");
+    return undefined;
+  }
+  const handle = sessions.create(identity, resolved);
+  return { planning: resolved, session: handle };
 }

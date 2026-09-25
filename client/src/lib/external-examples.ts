@@ -17,6 +17,7 @@ export interface ExternalExamplesSource {
   revision: string | null;
   status: "builtin" | "remote" | "cache";
   stale: boolean;
+  tutor?: { status: "absent" | "valid" | "invalid"; reason?: string };
 }
 
 export interface ExternalExampleCatalogItem {
@@ -33,6 +34,13 @@ export interface ExternalExamplesCatalog {
   schemaVersion: 1;
   source: ExternalExamplesSource;
   examples: ExternalExampleCatalogItem[];
+}
+
+export interface ActiveCourseContentContext {
+  repository: string;
+  ref: string;
+  revision: string;
+  exampleId: string;
 }
 
 export interface ExternalExamplesValidationResponse {
@@ -68,12 +76,14 @@ export class ExternalExamplesError extends Error {
 interface ExternalExamplesState {
   override: ExternalExamplesSelection | null;
   catalog: ExternalExamplesCatalog | null;
+  activeCourseContent: ActiveCourseContentContext | null;
 }
 
 const listeners = new Set<() => void>();
 let state: ExternalExamplesState = {
   override: readStoredSelection(),
   catalog: null,
+  activeCourseContent: null,
 };
 let requestGeneration = 0;
 let activeController: AbortController | undefined;
@@ -223,13 +233,18 @@ export function setExternalExamplesOverride(
       globalThis.localStorage.removeItem(EXTERNAL_EXAMPLES_STORAGE_KEY);
     } catch {}
   }
-  state = { ...state, override: selection };
+  state = { ...state, override: selection, catalog: null, activeCourseContent: null };
   requestGeneration++;
   activeController?.abort();
   emit();
   try {
     globalThis.dispatchEvent(new CustomEvent(EXTERNAL_EXAMPLES_CHANGE_EVENT));
   } catch {}
+}
+
+export function setActiveExternalExampleContext(context: ActiveCourseContentContext | null): void {
+  state = { ...state, activeCourseContent: context };
+  emit();
 }
 
 function subscribe(listener: () => void): () => void {

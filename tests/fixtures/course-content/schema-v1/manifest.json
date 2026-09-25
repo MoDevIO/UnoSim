@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "examples": [
+    {
+      "id": "fixture-v1",
+      "title": "Schema v1 fixture",
+      "category": "Fixtures",
+      "main": "main.ino",
+      "files": [{ "name": "main.ino", "path": "examples/main.ino" }]
+    }
+  ]
+}

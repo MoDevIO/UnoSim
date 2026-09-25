@@ -45,6 +45,19 @@ describe("repository/ref source provider", () => {
     expect(loader).toHaveBeenCalledTimes(1);
   });
 
+  it("does not fetch an arbitrary client-provided revision", async () => {
+    const resolver = vi.fn(async () => revisionA);
+    const loader = vi.fn(async () => snapshot("a"));
+    const { provider } = harness(resolver, loader);
+
+    await expect(provider.getRevision("owner/repo", revisionA, context))
+      .rejects.toMatchObject({ code: "INVALID_REVISION" });
+    await provider.resolve("owner/repo", "main", context, false);
+    await expect(provider.getRevision("owner/repo", revisionA, context))
+      .resolves.toMatchObject({ repository: "owner/repo", revision: revisionA });
+    expect(loader).toHaveBeenCalledTimes(1);
+  });
+
   it("fully loads a new SHA before atomically activating it and keeps LKG on failure", async () => {
     const resolver = vi.fn().mockResolvedValueOnce(revisionA).mockResolvedValue(revisionB);
     const loader = vi.fn(async (_repository: string, revision: string) => {

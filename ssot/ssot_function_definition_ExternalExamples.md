@@ -273,3 +273,78 @@ Repository-Maintainer veröffentlichen durch Aktualisierung des konfigurierten
 Refs, initial `main`. Branch Protection, Reviewregeln und CI im Examples-
 Repository bilden die Veröffentlichungsgrenze; UnoSim bleibt für immutable
 Auflösung, vollständige Validierung, atomare Aktivierung und LKG zuständig.
+
+
+## 11. Unified Course Content scope
+
+This Examples contract is also the source-selection contract for optional Tutor
+content. There is exactly one effective repository/ref selection. A valid
+browser override therefore affects Examples and Tutor together for that
+browser; it remains a personal preference and never changes the operator
+default or another browser's selection.
+
+The user-facing Settings concept MAY be renamed from External Examples to
+Course Content. The underlying browser key and API names remain compatible
+unless a concrete migration is required. A Tutor-specific repository, ref
+picker, or browser preference is forbidden.
+
+## 12. Capability-scoped validation
+
+A repository snapshot has two capabilities:
+
+- Examples core;
+- optional Tutor content.
+
+The root manifest is validated in separate phases. Core schema and Examples
+references determine Examples validity. The optional Tutor descriptor,
+Tutor manifest, referenced topic/strategy files, hashes, and Example Tutor
+bindings determine Tutor capability validity.
+
+A Tutor-only validation failure MUST NOT invalidate otherwise valid Examples.
+The server SHALL activate valid Examples and mark Tutor capability invalid,
+then use the complete built-in Tutor fallback. It MUST NOT activate an
+arbitrary subset of Tutor files.
+
+Core failures still invalidate the Examples snapshot according to this
+contract. A Course source may therefore be Examples-valid/Tutor-invalid, but
+never silently cross-fallback to content from another repository or revision.
+
+Root schema v1 remains the existing Examples-only manifest and remains
+unchanged. Root schema v2 may reference an optional Tutor manifest. The
+unified format, Tutor schemas, binding rules, and fallback matrix are
+normatively defined in
+ssot_function_definition_CourseContent.md.
+
+## 13. Server authority for revision context
+
+Repository, ref, revision, and example metadata sent from the browser are
+untrusted request metadata. A browser-provided revision MUST NOT by itself
+select the content snapshot.
+
+The server MUST validate or derive the Course revision by resolving the
+effective repository/ref or by verifying an exact revision against a
+server-known validated Course snapshot. Detail requests and Tutor requests
+must use a canonical repository plus a server-authorized full SHA. The exact
+Stage B mechanism may be a server-issued context handle or equivalent
+server-side verification.
+
+This preserves the existing immutable cache keys:
+
+- source state and LKG: repository + ref;
+- immutable snapshot: repository + revision.
+
+## 14. Browser override and Tutor behavior
+
+The browser-scoped override remains request-scoped, non-sensitive, and
+personal. It controls both Examples and Tutor for that browser. Apply remains
+transactional and Reset returns to the server default.
+
+When an external Example is loaded from revision A, its Tutor context is
+revision A. A later ref update to B may affect a new Course context but never
+mutates the active Tutor dialog. A source/context change resets the dialog.
+Tutor content from A must never be substituted for a missing Tutor snapshot
+from B.
+
+The Tutor remains fully functional when no repository is configured, when a
+repository has only Examples, or when its Tutor capability is invalid. In
+each case the built-in strategy and free Tutor path remain available.

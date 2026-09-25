@@ -1,0 +1,45 @@
+schemaVersion: 1
+id: loops
+title: Schleifen
+locale: de-DE
+activation:
+  any:
+    - fact: type-used
+      values: [int]
+concepts:
+  - id: loop-repetition
+    title: Wiederholung
+    objective: Wiederholte Ausführung erklären.
+    prerequisites: []
+    difficulty:
+      entry: [1, 50]
+      transfer: [20, 80]
+    misconceptions: []
+    indicators:
+      - id: explains-repetition
+        description: Erklärt die Wiederholung.
+    mastery:
+      minimumSuccessfulProbes: 1
+      successRatingAtLeast: 3
+      requiredIndicators: [explains-repetition]
+      minimumDistinctQuestionKinds: 1
+      recentWeakAnswersAllowed: 0
+questions:
+  - id: loop-recall
+    concept: loop-repetition
+    indicator: explains-repetition
+    kind: concept
+    difficulty: [1, 50]
+    requires:
+      - fact: type-used
+        values: [int]
+    text: Warum wiederholt sich der Ablauf?
+scaffolds: []
+progression:
+  entryConcepts: [loop-repetition]
+  preferredOrder: [loop-repetition]
+  onRating:
+    1-2: remediate
+    3: clarify-same-indicator
+    4: probe-missing-indicator
+    5: evaluate-mastery-and-advance

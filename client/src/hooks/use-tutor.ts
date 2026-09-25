@@ -11,9 +11,11 @@ import {
   type TutorAnswerRating,
   type TutorDifficulty,
   type TutorResponse,
+  type TutorCourseContentContext,
 } from "@shared/tutor";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
+import { useExternalExamples } from "@/lib/external-examples";
 
 interface TutorConfig {
   readonly provider: string;
@@ -100,6 +102,15 @@ function getRequestedModel(selectedModel: string, availableModels: readonly stri
   return availableModels.includes(selectedModel) ? selectedModel : undefined;
 }
 
+function getCourseContentRequest(
+  courseContentSession: string | undefined,
+  courseContent: TutorCourseContentContext | undefined,
+): { courseContentSession?: string; courseContent?: TutorCourseContentContext } {
+  if (courseContentSession) return { courseContentSession };
+  if (courseContent) return { courseContent };
+  return {};
+}
+
 function buildDialogTurn(
   question: string,
   answer: string,
@@ -115,6 +126,7 @@ function buildDialogTurn(
     ...(response.indicatorId ? { indicatorId: response.indicatorId } : {}),
     ...(response.questionKind ? { questionKind: response.questionKind } : {}),
     ...(response.strategyId ? { strategyId: response.strategyId } : {}),
+    ...(response.strategySource ? { strategySource: response.strategySource } : {}),
     ...(response.contentRevision ? { contentRevision: response.contentRevision } : {}),
   };
   if (response.responseStyle === "philosophical") {
@@ -129,6 +141,33 @@ function buildDialogTurn(
 
 function collectAnswerRatings(history: readonly TutorDialogTurn[]): readonly TutorAnswerRating[] {
   return history.flatMap((turn) => turn.answerRating === undefined ? [] : [turn.answerRating]);
+}
+
+function buildDialogResponseUpdate(
+  currentHistory: readonly TutorDialogTurn[],
+  currentQuestion: string,
+  submittedAnswer: string,
+  response: TutorResponse,
+  currentSession: string | undefined,
+): {
+  readonly nextHistory: readonly TutorDialogTurn[];
+  readonly answerRatings?: readonly TutorAnswerRating[];
+  readonly nextSession?: string;
+  readonly lastUsedModel?: string;
+} {
+  const nextHistory = [
+    ...currentHistory,
+    buildDialogTurn(currentQuestion, submittedAnswer, response),
+  ].slice(-INPUT_LIMITS.tutor.maxHistoryEntries);
+  const answerRatings = response.responseStyle === "normal" && response.answerRating !== undefined
+    ? collectAnswerRatings(nextHistory)
+    : undefined;
+  return {
+    nextHistory,
+    ...(answerRatings === undefined ? {} : { answerRatings }),
+    nextSession: response.courseContentSession ?? currentSession,
+    ...(response.responseStyle === "normal" ? { lastUsedModel: response.model } : {}),
+  };
 }
 
 function readConfiguredDifficulty(): TutorDifficulty {
@@ -153,6 +192,15 @@ function persistConfiguredDifficulty(value: TutorDifficulty): void {
 export function useTutor(
   capabilities: ServerCapabilities = getServerCapabilities(true),
 ): TutorPanelState {
+  const externalExamples = useExternalExamples();
+  const courseContent = useMemo<TutorCourseContentContext | undefined>(() => {
+    if (externalExamples.activeCourseContent) return externalExamples.activeCourseContent;
+    const source = externalExamples.catalog?.source;
+    if (source?.mode !== "repository-ref" || !source.repository || !source.ref || !source.revision) return undefined;
+    return { repository: source.repository, ref: source.ref, revision: source.revision };
+  }, [externalExamples.activeCourseContent, externalExamples.catalog]);
+  const courseContentKey = JSON.stringify(courseContent ?? null);
+  const [courseContentSession, setCourseContentSession] = useState<string | undefined>();
   const [config, setConfig] = useState<TutorConfig>(DEFAULT_CONFIG);
   const [credential, setCredential] = useState("");
   const [selectedModel, setSelectedModel] = useState("auto");
@@ -167,6 +215,15 @@ export function useTutor(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canLoadConfigOnMount = useRef(capabilities.canUseTutor);
+
+  useEffect(() => {
+    setCourseContentSession(undefined);
+    setHistory([]);
+    setQuestion(null);
+    setAnswer("");
+    setError(null);
+    setEffectiveDifficulty(configuredDifficulty);
+  }, [courseContentKey]);
 
   useEffect(() => {
     if (!canLoadConfigOnMount.current) return;
@@ -252,6 +309,7 @@ export function useTutor(
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: requestDifficulty,
+          ...getCourseContentRequest(courseContentSession, courseContent),
         }),
       });
       const body: unknown = await response.json().catch(() => null);
@@ -259,6 +317,7 @@ export function useTutor(
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
       setQuestion(parsed.data);
+      setCourseContentSession(parsed.data.courseContentSession);
       setLastUsedModel(parsed.data.model);
       setAnswer("");
     } catch (requestError) {
@@ -266,7 +325,7 @@ export function useTutor(
     } finally {
       setIsLoading(false);
     }
-  }, [availableModels, capabilities, credential, selectedModel]);
+  }, [availableModels, capabilities, courseContent, courseContentSession, credential, selectedModel]);
 
   const resetDialog = useCallback(() => {
     setHistory([]);
@@ -274,6 +333,7 @@ export function useTutor(
     setAnswer("");
     setError(null);
     setEffectiveDifficulty(configuredDifficulty);
+    setCourseContentSession(undefined);
   }, [configuredDifficulty]);
 
   const generateQuestion = useCallback(async (code: string) => {
@@ -320,23 +380,21 @@ export function useTutor(
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: effectiveDifficulty,
+          ...getCourseContentRequest(courseContentSession, courseContent),
         }),
       });
       const body: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(getErrorMessage(body));
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
-      const nextHistory = [
-        ...currentHistory,
-        buildDialogTurn(currentQuestion, submittedAnswer, parsed.data),
-      ].slice(-INPUT_LIMITS.tutor.maxHistoryEntries);
-      setHistory(nextHistory);
-      if (parsed.data.responseStyle === "normal" && parsed.data.answerRating !== undefined) {
-        const ratings = collectAnswerRatings(nextHistory);
-        setEffectiveDifficulty((current) => calculateNextTutorDifficulty(current, ratings));
+      const update = buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession);
+      setHistory(update.nextHistory);
+      if (update.answerRatings !== undefined) {
+        setEffectiveDifficulty((current) => calculateNextTutorDifficulty(current, update.answerRatings!));
       }
       setQuestion(parsed.data);
-      if (parsed.data.responseStyle === "normal") setLastUsedModel(parsed.data.model);
+      setCourseContentSession(update.nextSession);
+      if (update.lastUsedModel !== undefined) setLastUsedModel(update.lastUsedModel);
       setAnswer("");
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed
@@ -345,7 +403,7 @@ export function useTutor(
     } finally {
       setIsLoading(false);
     }
-  }, [answer, availableModels, capabilities, credential, effectiveDifficulty, history, question, selectedModel]);
+  }, [answer, availableModels, capabilities, courseContent, courseContentSession, credential, effectiveDifficulty, history, question, selectedModel]);
 
   const updateConfiguredDifficulty = useCallback((value: number) => {
     const nextDifficulty = clampTutorDifficulty(value);

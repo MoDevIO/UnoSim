@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { INPUT_LIMITS } from "./input-limits";
+import { examplesRefSchema, fullCommitShaSchema, repositorySlugSchema } from "./examples";
 
 export const tutorModelSchema = z
   .string()
@@ -30,6 +31,15 @@ export const TUTOR_RATING_DIFFICULTY_DELTAS: Record<TutorAnswerRating, number> =
 export const tutorResponseStyleSchema = z.enum(["normal", "philosophical"]);
 
 const tutorQuestionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
+export const tutorStrategySourceSchema = z.enum(["built-in", "repository"]);
+export const tutorCourseContentContextSchema = z.object({
+  repository: repositorySlugSchema,
+  ref: examplesRefSchema,
+  revision: fullCommitShaSchema,
+  exampleId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/).optional(),
+}).strict();
+export const tutorCourseContentSessionSchema = z.string().uuid();
+export type TutorCourseContentContext = z.infer<typeof tutorCourseContentContextSchema>;
 const tutorLearningMetadataFields = {
   topicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
   conceptId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
@@ -37,6 +47,7 @@ const tutorLearningMetadataFields = {
   indicatorId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
   questionKind: tutorQuestionKindSchema.optional(),
   strategyId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
+  strategySource: tutorStrategySourceSchema.optional(),
   contentRevision: z.string().regex(/^[a-f0-9]{40}$/i).optional(),
 };
 
@@ -95,6 +106,8 @@ export const tutorQuestionRequestSchema = z
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
     model: tutorModelSchema.optional(),
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
+    courseContent: tutorCourseContentContextSchema.optional(),
+    courseContentSession: tutorCourseContentSessionSchema.optional(),
   })
   .strict();
 
@@ -149,12 +162,15 @@ export const tutorDialogRequestSchema = z
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
     model: tutorModelSchema.optional(),
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
+    courseContent: tutorCourseContentContextSchema.optional(),
+    courseContentSession: tutorCourseContentSessionSchema.optional(),
   })
   .strict();
 
 const tutorResponseFields = {
   provider: z.string().min(1).max(64),
   model: z.string().min(1).max(128),
+  courseContentSession: tutorCourseContentSessionSchema.optional(),
 };
 
 const tutorNormalResponseSchema = z.object({

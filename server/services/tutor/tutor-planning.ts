@@ -1,4 +1,12 @@
 import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty } from "@shared/tutor";
+import type { TutorCapability } from "../course-content/course-content-loader";
+import type { StrategyResolution } from "./strategy/effective-tutor-strategy";
+
+export interface TutorPlanningContentContext {
+  readonly revision: string;
+  readonly tutor?: TutorCapability;
+  readonly exampleId?: string;
+}
 
 /** Normalized, implementation-independent plan data consumed by TutorService. */
 export interface TutorPlan {
@@ -14,17 +22,21 @@ export interface TutorPlan {
   readonly question: string;
   readonly misconceptions: readonly { id: string; description: string }[];
   readonly strategyId?: string;
+  readonly strategySource?: "built-in" | "repository";
   readonly scaffold?: { readonly id: string; readonly strategy: string; readonly hint: string };
   readonly contentRevision: string;
 }
 
 export interface TutorPlanningExtension {
-  planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty }): Promise<TutorPlan | null>;
+  resolveStrategy?(input: { readonly courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution>;
+  planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<TutorPlan | null>;
   planFollowup(input: {
     readonly code: string;
     readonly history: readonly TutorDialogTurn[];
     readonly currentQuestion: string;
     readonly rating: TutorAnswerRating;
     readonly difficulty: TutorDifficulty;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
   }): Promise<TutorPlan | null>;
 }

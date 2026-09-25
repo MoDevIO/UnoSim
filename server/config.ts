@@ -37,10 +37,29 @@ const removedRuntimeVariables = [
   "DOCKER_COMPILE_CONCURRENT",
 ] as const;
 
+const obsoleteTutorCurriculumVariables = [
+  "UNOSIM_TUTOR_CURRICULUM_SOURCE",
+  "UNOSIM_TUTOR_CURRICULUM_COMMIT",
+  "UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS",
+  "UNOSIM_TUTOR_CURRICULUM_REFRESH_MS",
+  "UNOSIM_TUTOR_CURRICULUM_TIMEOUT_MS",
+  "UNOSIM_TUTOR_CURRICULUM_MAX_MANIFEST_BYTES",
+  "UNOSIM_TUTOR_CURRICULUM_MAX_TOPIC_BYTES",
+  "UNOSIM_TUTOR_CURRICULUM_MAX_TOTAL_BYTES",
+] as const;
+
 function rejectRemovedRuntimeVariables(env: NodeJS.ProcessEnv): void {
   for (const key of removedRuntimeVariables) {
     if (env[key] !== undefined) {
       throw new Error(`${key} is no longer supported`);
+    }
+  }
+}
+
+export function rejectObsoleteTutorCurriculumEnv(env: NodeJS.ProcessEnv): void {
+  for (const key of obsoleteTutorCurriculumVariables) {
+    if (env[key] !== undefined) {
+      throw new Error(`${key} is no longer supported; configure the unified Course Content source instead`);
     }
   }
 }
@@ -182,6 +201,7 @@ function envList(key: string, fallback: string[]): string[] {
 
 // ── Central capacity values ─────────────────────────────────────────
 
+rejectObsoleteTutorCurriculumEnv(process.env);
 const runtimeProfile = parseRuntimeProfile(process.env);
 const capacityTestRunId = parseCapacityTestRunId(
   process.env.CAPACITY_TEST_RUN_ID,
@@ -312,22 +332,6 @@ export function parseExamplesConfig(
 }
 
 const examplesConfig = parseExamplesConfig(process.env);
-
-const curriculumSource = envStr("UNOSIM_TUTOR_CURRICULUM_SOURCE", "").trim();
-const curriculumCommit = envStr("UNOSIM_TUTOR_CURRICULUM_COMMIT", "").trim();
-const curriculumAllowedHosts = envList("UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS", []).map((host) => host.toLowerCase());
-if (curriculumSource && !curriculumCommit) {
-  throw new Error("UNOSIM_TUTOR_CURRICULUM_COMMIT is required when tutor curriculum is configured");
-}
-if (!curriculumSource && curriculumCommit) {
-  throw new Error("UNOSIM_TUTOR_CURRICULUM_SOURCE is required when tutor curriculum commit is configured");
-}
-if (curriculumSource && !/^[a-f0-9]{40}$/i.test(curriculumCommit)) {
-  throw new Error("UNOSIM_TUTOR_CURRICULUM_COMMIT must be a full 40-character commit SHA");
-}
-if (curriculumSource && process.env.NODE_ENV === "production" && curriculumAllowedHosts.length === 0) {
-  throw new Error("UNOSIM_TUTOR_CURRICULUM_ALLOWED_HOSTS is required for tutor curriculum in production");
-}
 
 // ── Config ──────────────────────────────────────────────────────────
 
@@ -553,18 +557,6 @@ export const config = {
     rateLimitWindowMs: envInt("TUTOR_RATE_LIMIT_WINDOW_MS", 60_000, { min: 1_000, max: 86_400_000 }),
     rateLimitMaxRequests: envInt("TUTOR_RATE_LIMIT_MAX_REQUESTS", 20, { min: 1, max: 100 }),
     rateLimitBlockDurationMs: envInt("TUTOR_RATE_LIMIT_BLOCK_DURATION_MS", 30_000, { min: 1_000, max: 86_400_000 }),
-    curriculum: {
-      /** Server-side HTTPS base URL for the pinned curriculum repository. */
-      source: curriculumSource,
-      /** Full immutable commit SHA; floating refs are not accepted. */
-      commit: curriculumCommit,
-      refreshMs: envInt("UNOSIM_TUTOR_CURRICULUM_REFRESH_MS", 5 * 60 * 1000, { min: 1_000, max: 86_400_000 }),
-      timeoutMs: envInt("UNOSIM_TUTOR_CURRICULUM_TIMEOUT_MS", 5_000, { min: 100, max: 120_000 }),
-      maxManifestBytes: envInt("UNOSIM_TUTOR_CURRICULUM_MAX_MANIFEST_BYTES", 64 * 1024, { min: 1, max: 1024 * 1024 }),
-      maxTopicBytes: envInt("UNOSIM_TUTOR_CURRICULUM_MAX_TOPIC_BYTES", 256 * 1024, { min: 1, max: 4 * 1024 * 1024 }),
-      maxTotalBytes: envInt("UNOSIM_TUTOR_CURRICULUM_MAX_TOTAL_BYTES", 512 * 1024, { min: 1, max: 8 * 1024 * 1024 }),
-      allowedHosts: curriculumAllowedHosts,
-    },
   },
 
   // ── Scattered Timeouts (centralized) ────────────────────────────

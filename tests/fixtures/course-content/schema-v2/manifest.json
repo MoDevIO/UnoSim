@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "examples": [
+    {
+      "id": "fixture-v2",
+      "title": "Schema v2 fixture",
+      "category": "Fixtures",
+      "main": "main.ino",
+      "files": [{ "name": "main.ino", "path": "examples/main.ino" }],
+      "tutor": { "topics": ["arrays"], "primaryTopic": "arrays" }
+    }
+  ],
+  "tutor": { "manifest": "tutor/manifest.yaml" }
+}
