@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { TutorPlanningContentContext } from "../../../../server/services/tutor/tutor-planning";
+import type { ExampleTutorAnnotation } from "../../../../server/services/course-content/embedded-tutor-annotation";
 import { TutorService } from "../../../../server/services/tutor/tutor-service";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import {
@@ -32,7 +33,7 @@ function makeContext(
   options: {
     readonly topics?: readonly CurriculumTopic[];
     readonly exampleId?: string;
-    readonly binding?: { readonly strategy?: string; readonly primaryTopic?: string; readonly topics?: readonly string[] };
+    readonly annotation?: ExampleTutorAnnotation;
     readonly status?: "valid" | "invalid";
   } = {},
 ): TutorPlanningContentContext {
@@ -52,8 +53,8 @@ function makeContext(
         },
         topics: options.topics ?? [],
         strategies,
-        bindings: new Map(options.binding && options.exampleId ? [[options.exampleId, options.binding]] : []),
       },
+    ...(options.annotation ? { exampleTutorAnnotation: options.annotation } : {}),
   };
 }
 
@@ -148,12 +149,12 @@ describe("Tutor strategy behavioral conformance", () => {
     expect(invalidPrompt).toContain("Skizzenbezug: prefer");
   });
 
-  it("lets a valid per-example strategy control the free path when no Topic matches", async () => {
+  it("lets a valid embedded Example strategy control the free path when no Topic matches", async () => {
     const repositoryDefault = makeStrategy({ id: "repository-default", sketchSpecificity: "prefer" });
     const exampleStrategy = makeStrategy({ id: "example-policy", sketchSpecificity: "strict" });
     const context = makeContext([repositoryDefault, exampleStrategy], {
       exampleId: "example-1",
-      binding: { strategy: exampleStrategy.id },
+      annotation: { schemaVersion: 1, strategy: exampleStrategy.id },
     });
     const { prompt, result } = await initialPrompt(repositoryDefault, context);
 

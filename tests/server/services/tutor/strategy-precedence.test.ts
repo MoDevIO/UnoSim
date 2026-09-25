@@ -27,8 +27,8 @@ describe("Tutor strategy precedence", () => {
             manifest: { schemaVersion: 1 as const, defaultStrategy: "repository-default", topics: [], strategies: [] },
             topics: [await topic()],
             strategies: [strategy("repository-default"), strategy("example-policy")],
-            bindings: new Map([["arrays-example", { strategy: "example-policy" }]]),
           },
+          exampleTutorAnnotation: { schemaVersion: 1, strategy: "example-policy" },
         }),
       },
     });
@@ -53,7 +53,6 @@ describe("Tutor strategy precedence", () => {
             manifest: { schemaVersion: 1 as const, defaultStrategy: strategies[0]?.id, topics: [], strategies: [] },
             topics: [tutor],
             strategies,
-            bindings: new Map(),
           },
         }),
       },
@@ -78,7 +77,6 @@ describe("Tutor strategy precedence", () => {
         manifest: { schemaVersion: 1 as const, defaultStrategy: repositoryDefault.id, topics: [], strategies: [] },
         topics: [],
         strategies: [repositoryDefault],
-        bindings: new Map(),
       },
     };
 

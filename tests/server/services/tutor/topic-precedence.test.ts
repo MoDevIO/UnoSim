@@ -10,7 +10,10 @@ async function pilotTopic() {
   return parseTopic(await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8"));
 }
 
-function adapter(topics: Awaited<ReturnType<typeof pilotTopic>>[], bindings = new Map()) {
+function adapter(topics: Awaited<ReturnType<typeof pilotTopic>>[], annotation?: {
+  readonly topics?: readonly string[];
+  readonly primaryTopic?: string;
+}) {
   return new CurriculumTutorAdapter({
     courseContent: {
       getSnapshot: async () => ({
@@ -20,8 +23,8 @@ function adapter(topics: Awaited<ReturnType<typeof pilotTopic>>[], bindings = ne
           manifest: { schemaVersion: 1 as const, topics: [], strategies: [] },
           topics,
           strategies: [],
-          bindings,
         },
+        ...(annotation ? { exampleTutorAnnotation: { schemaVersion: 1 as const, ...annotation } } : {}),
       }),
     },
   });
@@ -31,20 +34,18 @@ describe("Tutor topic precedence", () => {
   it("chooses an applicable active-example primary topic first", async () => {
     const memory = await pilotTopic();
     const arrays = { ...memory, id: "arrays" };
-    const result = await adapter([memory, arrays], new Map([[
-      "example",
-      { topics: ["arrays", "memory-and-data-types"], primaryTopic: "memory-and-data-types" },
-    ]])).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30, exampleId: "example" });
+    const result = await adapter([memory, arrays], {
+      topics: ["arrays", "memory-and-data-types"],
+      primaryTopic: "memory-and-data-types",
+    }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30, exampleId: "example" });
     expect(result?.topicId).toBe("memory-and-data-types");
   });
 
   it("uses other bound topics before fact-matched repository topics", async () => {
     const memory = await pilotTopic();
     const arrays = { ...memory, id: "arrays" };
-    const result = await adapter([memory, arrays], new Map([[
-      "example",
-      { topics: ["memory-and-data-types", "arrays"] },
-    ]])).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30, exampleId: "example" });
+    const result = await adapter([memory, arrays], { topics: ["memory-and-data-types", "arrays"] })
+      .planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30, exampleId: "example" });
     expect(result?.topicId).toBe("memory-and-data-types");
   });
 

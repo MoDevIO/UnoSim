@@ -14,6 +14,13 @@ const example = {
 };
 
 const digest = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
+const annotation = `/* @unosim-tutor
+schemaVersion: 1
+topics:
+  - memory-and-data-types
+primaryTopic: memory-and-data-types
+strategy: repository-default
+@end-unosim-tutor */`;
 
 function fetcherFor(files: Record<string, string>) {
   const fetchText = vi.fn(async (url: URL) => {
@@ -48,6 +55,57 @@ describe("unified Course Content loader", () => {
 
     const loaded = await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision);
     expect(loaded.examples).toHaveLength(1);
+    expect(loaded.tutor).toMatchObject({ status: "invalid" });
+  });
+
+  it("isolates an invalid embedded annotation from the Examples capability", async () => {
+    const { fetchText } = fetcherFor({
+      [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({
+        schemaVersion: 2,
+        examples: [example],
+        tutor: { manifest: "tutor/manifest.yaml" },
+      }),
+      [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}\n/* @unosim-tutor\nschemaVersion: 1\nprompt: unsafe\n@end-unosim-tutor */\n",
+    });
+
+    const loaded = await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision);
+    expect(loaded.examples[0]?.files[0]?.content).toBe("void setup() {}\n");
+    expect(loaded.examples[0]).not.toHaveProperty("tutorAnnotation");
+    expect(loaded.exampleTutorAnnotations.size).toBe(0);
+    expect(loaded.tutor).toMatchObject({ status: "invalid" });
+  });
+
+  it("retains valid objectives with the built-in Tutor when no repository Tutor descriptor exists", async () => {
+    const { fetchText } = fetcherFor({
+      [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({ schemaVersion: 2, examples: [example] }),
+      [`/owner/repo/${revision}/examples/main.ino`]: `void setup() {}\n/* @unosim-tutor\nschemaVersion: 1\nlearningObjectives:\n  - Den Ablauf verstehen.\n@end-unosim-tutor */\n`,
+    });
+
+    const loaded = await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision);
+    expect(loaded.tutor.status).toBe("absent");
+    expect(loaded.exampleTutorAnnotations.get("arrays-example")?.learningObjectives).toEqual(["Den Ablauf verstehen."]);
+  });
+
+  it("invalidates Tutor capability when a secondary file contains a Tutor block", async () => {
+    const twoFilesExample = {
+      ...example,
+      files: [
+        ...example.files,
+        { name: "helper.h", path: "examples/helper.h" },
+      ],
+    };
+    const { fetchText } = fetcherFor({
+      [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({
+        schemaVersion: 2,
+        examples: [twoFilesExample],
+        tutor: { manifest: "tutor/manifest.yaml" },
+      }),
+      [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}\n",
+      [`/owner/repo/${revision}/examples/helper.h`]: `int value;\n${annotation}\n`,
+    });
+
+    const loaded = await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision);
+    expect(loaded.examples[0]?.files.find(({ name }) => name === "helper.h")?.content).toBe("int value;\n");
     expect(loaded.tutor).toMatchObject({ status: "invalid" });
   });
 
@@ -89,10 +147,10 @@ describe("unified Course Content loader", () => {
     const { fetchText } = fetcherFor({
       [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({
         schemaVersion: 2,
-        examples: [{ ...example, tutor: { topics: ["memory-and-data-types"], primaryTopic: "memory-and-data-types" } }],
+        examples: [example],
         tutor: { manifest: "tutor/manifest.yaml" },
       }),
-      [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}",
+      [`/owner/repo/${revision}/examples/main.ino`]: `void setup() {}\n${annotation}\n`,
       [`/owner/repo/${revision}/tutor/manifest.yaml`]: manifest,
       [`/owner/repo/${revision}/tutor/topics/memory-and-data-types.yaml`]: topic,
       [`/owner/repo/${revision}/tutor/strategies/repository-default.yaml`]: strategy,
@@ -103,7 +161,9 @@ describe("unified Course Content loader", () => {
     if (loaded.tutor.status !== "valid") return;
     expect(loaded.tutor.topics).toHaveLength(1);
     expect(loaded.tutor.strategies).toHaveLength(1);
-    expect(loaded.tutor.bindings.get("arrays-example")?.primaryTopic).toBe("memory-and-data-types");
+    expect(loaded.exampleTutorAnnotations.get("arrays-example")?.primaryTopic).toBe("memory-and-data-types");
+    expect(loaded.examples[0]?.files[0]?.content).toBe("void setup() {}\n");
+    expect(loaded.examples[0]?.tutorAnnotation?.strategy).toBe("repository-default");
     expect(fetchText.mock.calls.every(([url]) => (url as URL).pathname.includes(`/${revision}/`))).toBe(true);
   });
 
@@ -132,14 +192,14 @@ describe("unified Course Content loader", () => {
     expect(loaded.tutor).toMatchObject({ status: "invalid" });
   });
 
-  it("rejects a bundle whose example binding references an unknown Tutor item", async () => {
+  it("rejects a bundle whose embedded annotation references an unknown Tutor item", async () => {
     const { fetchText } = fetcherFor({
       [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({
         schemaVersion: 2,
-        examples: [{ ...example, tutor: { topics: ["unknown-topic"] } }],
+        examples: [example],
         tutor: { manifest: "tutor/manifest.yaml" },
       }),
-      [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}",
+      [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}\n/* @unosim-tutor\nschemaVersion: 1\ntopics: [unknown-topic]\n@end-unosim-tutor */\n",
       [`/owner/repo/${revision}/tutor/manifest.yaml`]: "schemaVersion: 1\ntopics: []\nstrategies: []\n",
     });
 

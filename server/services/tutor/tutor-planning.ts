@@ -1,11 +1,13 @@
 import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty } from "@shared/tutor";
 import type { TutorCapability } from "../course-content/course-content-loader";
+import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 import type { StrategyResolution } from "./strategy/effective-tutor-strategy";
 
 export interface TutorPlanningContentContext {
   readonly revision: string;
   readonly tutor?: TutorCapability;
   readonly exampleId?: string;
+  readonly exampleTutorAnnotation?: ExampleTutorAnnotation;
 }
 
 /** Normalized, implementation-independent plan data consumed by TutorService. */

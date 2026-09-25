@@ -3,7 +3,7 @@ import {
   type DidacticContentRepository,
 } from "./curriculum/content-repository";
 import type { TutorCapability } from "../course-content/course-content-loader";
-import type { ExampleTutorBinding } from "../course-content/course-content-schema";
+import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 import {
   resolveEffectiveTutorStrategy,
   type StrategyResolution,
@@ -25,7 +25,12 @@ export interface CurriculumTutorAdapterDependencies {
 }
 
 export interface CourseContentSnapshotProvider {
-  getSnapshot(): Promise<{ readonly revision: string; readonly tutor?: TutorCapability; readonly exampleId?: string } | null>;
+  getSnapshot(): Promise<{
+    readonly revision: string;
+    readonly tutor?: TutorCapability;
+    readonly exampleId?: string;
+    readonly exampleTutorAnnotation?: ExampleTutorAnnotation;
+  } | null>;
 }
 
 export class CurriculumTutorAdapter implements TutorPlanningExtension {
@@ -53,7 +58,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   async planInitial(input: { code: string; history: readonly TutorDialogTurn[]; difficulty: TutorDifficulty; exampleId?: string; courseContent?: TutorPlanningContentContext }): Promise<TutorPlan | null> {
-    const context = await this.match(input.code, input.exampleId, input.courseContent);
+    const context = await this.match(input.code, input.courseContent);
     if (!context) return null;
     const plan = this.planner.start(context.topic, context.revision, context.facts, input.history, input.difficulty, context.strategy?.strategy);
     return plan ? normalizePlan(plan, context.strategy) : null;
@@ -68,7 +73,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     exampleId?: string;
     courseContent?: TutorPlanningContentContext;
   }): Promise<TutorPlan | null> {
-    const context = await this.match(input.code, input.exampleId, input.courseContent);
+    const context = await this.match(input.code, input.courseContent);
     if (!context) return null;
     const plan = this.planner.advance(context.topic, context.revision, context.facts, input.history, input.currentQuestion, input.rating, {
       difficulty: input.difficulty,
@@ -77,11 +82,11 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     return plan ? normalizePlan(plan, context.strategy) : null;
   }
 
-  private async match(code: string, exampleId?: string, supplied?: TutorPlanningContentContext) {
+  private async match(code: string, supplied?: TutorPlanningContentContext) {
     try {
       const snapshot = supplied ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
       if (snapshot) {
-        return this.matchCourseContent(code, exampleId ?? snapshot.exampleId, snapshot);
+        return this.matchCourseContent(code, snapshot);
       }
       if (!this.courseContent) {
         const legacy = this.repository ? await this.repository.getSnapshot() : null;
@@ -96,15 +101,15 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     }
   }
 
-  private matchCourseContent(code: string, exampleId: string | undefined, snapshot: TutorPlanningContentContext) {
+  private matchCourseContent(code: string, snapshot: TutorPlanningContentContext) {
     if (snapshot.tutor?.status !== "valid" || snapshot.tutor.topics.length === 0) return null;
     const facts = this.factExtractor.extract(code);
     const matches = this.topicMatcher.match(snapshot.tutor.topics, facts);
     const byId = new Map(matches.map((match) => [match.topic.id, match]));
-    const binding = exampleId === undefined ? undefined : snapshot.tutor.bindings.get(exampleId);
+    const annotation = snapshot.exampleTutorAnnotation;
     const boundIds = [
-      ...(binding?.primaryTopic ? [binding.primaryTopic] : []),
-      ...(binding?.topics ?? []),
+      ...(annotation?.primaryTopic ? [annotation.primaryTopic] : []),
+      ...(annotation?.topics ?? []),
     ];
     const boundMatch = boundIds
       .map((id) => byId.get(id))
@@ -115,25 +120,23 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       revision: snapshot.revision,
       facts,
       topic: match.topic,
-      strategy: this.resolveSnapshotStrategy(snapshot, binding),
+      strategy: this.resolveSnapshotStrategy(snapshot, annotation),
     };
   }
 
   private resolveSnapshotStrategy(
     snapshot: TutorPlanningContentContext | null,
-    knownBinding?: ExampleTutorBinding,
+    knownAnnotation?: ExampleTutorAnnotation,
   ): StrategyResolution {
     if (snapshot?.tutor?.status !== "valid") return resolveEffectiveTutorStrategy({});
     const tutor = snapshot.tutor;
-    const binding = knownBinding ?? (snapshot.exampleId === undefined
-      ? undefined
-      : tutor.bindings.get(snapshot.exampleId));
+    const annotation = knownAnnotation ?? snapshot.exampleTutorAnnotation;
     const repositoryDefault = tutor.manifest.defaultStrategy === undefined
       ? undefined
       : tutor.strategies.find(({ id }) => id === tutor.manifest.defaultStrategy);
-    const perExample = binding?.strategy === undefined
+    const perExample = annotation?.strategy === undefined
       ? undefined
-      : tutor.strategies.find(({ id }) => id === binding.strategy);
+      : tutor.strategies.find(({ id }) => id === annotation.strategy);
     return resolveEffectiveTutorStrategy({ perExample, repositoryDefault });
   }
 }

@@ -7,37 +7,23 @@ import {
 } from "../examples/examples-schema";
 
 const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
+const v2ManifestExampleSchema = manifestExampleSchema.strict();
 
 export const tutorDescriptorSchema = z.object({
   manifest: z.literal("tutor/manifest.yaml"),
-}).strict();
-
-export const exampleTutorBindingSchema = z.object({
-  topics: z.array(z.string().regex(SAFE_ID)).min(1).max(32).optional(),
-  primaryTopic: z.string().regex(SAFE_ID).optional(),
-  strategy: z.string().regex(SAFE_ID).optional(),
-}).strict().superRefine((value, context) => {
-  if (value.primaryTopic !== undefined && value.topics !== undefined && !value.topics.includes(value.primaryTopic)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: "primaryTopic must be listed in topics" });
-  }
-});
-
-const v2ExampleSchema = manifestExampleSchema.extend({
-  tutor: exampleTutorBindingSchema.optional(),
 }).strict();
 
 const v2ManifestSchema = z.object({
   schemaVersion: z.literal(2),
   repository: z.string().max(256).optional(),
   ref: z.string().max(128).optional(),
-  examples: z.array(v2ExampleSchema).max(1000),
+  examples: z.array(v2ManifestExampleSchema).max(1000),
   tutor: tutorDescriptorSchema.optional(),
 }).strict();
 
 export const courseContentManifestSchema = z.union([examplesManifestSchema, v2ManifestSchema]);
 
 export type CourseContentManifest = z.infer<typeof courseContentManifestSchema>;
-export type ExampleTutorBinding = z.infer<typeof exampleTutorBindingSchema>;
 export type TutorDescriptor = z.infer<typeof tutorDescriptorSchema>;
 
 export const courseContentTopicEntrySchema = z.object({
@@ -72,7 +58,6 @@ export type CourseContentValidation = {
     | {
       readonly status: "valid";
       readonly descriptor: TutorDescriptor;
-      readonly bindings: ReadonlyMap<string, ExampleTutorBinding>;
     }
     | InvalidCapability;
 };
@@ -82,8 +67,7 @@ export function parseCourseContentManifest(input: unknown): CourseContentValidat
   const rawExamples = Array.isArray(raw?.examples) ? raw.examples : undefined;
   const examples = parseExamplesCapability(input, raw, rawExamples);
   const hasTutorRoot = raw !== undefined && hasOwn(raw, "tutor");
-  const hasTutorBinding = rawExamples?.some((example) => hasOwn(asRecord(example) ?? {}, "tutor")) ?? false;
-  const tutor = parseTutorCapability(raw, rawExamples, hasTutorRoot || hasTutorBinding);
+  const tutor = parseTutorCapability(raw, hasTutorRoot);
   return { examples, tutor };
 }
 
@@ -105,7 +89,6 @@ function parseExamplesCapability(
 
 function parseTutorCapability(
   raw: Record<string, unknown> | undefined,
-  rawExamples: unknown[] | undefined,
   hasTutorCapability: boolean,
 ): CourseContentValidation["tutor"] {
   if (!hasTutorCapability) return { status: "absent" };
@@ -114,16 +97,7 @@ function parseTutorCapability(
   }
   const descriptor = tutorDescriptorSchema.safeParse(raw.tutor);
   if (!descriptor.success) return { status: "invalid", reason: "Tutor descriptor is invalid" };
-  const bindings = new Map<string, ExampleTutorBinding>();
-  for (const example of rawExamples ?? []) {
-    const entry = asRecord(example);
-    if (!entry || !hasOwn(entry, "tutor")) continue;
-    const binding = exampleTutorBindingSchema.safeParse(entry.tutor);
-    const id = typeof entry.id === "string" ? entry.id : "unknown";
-    if (!binding.success) return { status: "invalid", reason: `Tutor binding is invalid: ${id}` };
-    bindings.set(id, binding.data);
-  }
-  return { status: "valid", descriptor: descriptor.data, bindings };
+  return { status: "valid", descriptor: descriptor.data };
 }
 
 const courseContentCoreSchema = z.union([
@@ -132,7 +106,7 @@ const courseContentCoreSchema = z.union([
     schemaVersion: z.literal(2),
     repository: z.string().max(256).optional(),
     ref: z.string().max(128).optional(),
-    examples: z.array(manifestExampleSchema).max(1000),
+    examples: z.array(v2ManifestExampleSchema).max(1000),
   }).strict(),
 ]);
 
@@ -146,17 +120,7 @@ function hasOwn(value: Record<string, unknown>, key: string): boolean {
   return Reflect.getOwnPropertyDescriptor(value, key) !== undefined;
 }
 
-function withoutTutorData(raw: Record<string, unknown>, rawExamples: unknown[] | undefined): Record<string, unknown> {
-  const { tutor: _tutor, examples: _examples, ...root } = raw;
-  return {
-    ...root,
-    ...(rawExamples === undefined ? {} : {
-      examples: rawExamples.map((example) => {
-        const record = asRecord(example);
-        if (!record) return example;
-        const { tutor: _binding, ...core } = record;
-        return core;
-      }),
-    }),
-  };
+function withoutTutorData(raw: Record<string, unknown>, _rawExamples: unknown[] | undefined): Record<string, unknown> {
+  const { tutor: _tutor, ...core } = raw;
+  return core;
 }
