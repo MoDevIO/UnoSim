@@ -210,7 +210,8 @@ a marker in the middle of executable source, or an unterminated block is
 invalid. An annotation is optional.
 
 The annotation payload is strict YAML core data with schema version 1 and no
-additional fields:
+additional fields. The complete UTF-8 annotation block is limited to 16 KiB
+before YAML parsing:
 
 ~~~yaml
 schemaVersion: 1

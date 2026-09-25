@@ -69,7 +69,8 @@ an ID, safe relative path, and SHA-256 digest. Empty topic or strategy lists
 are valid. Example-level Tutor metadata is an optional validated annotation
 containing embedded topics, a primary topic, a strategy, and bounded
 `learningObjectives`. It is not a raw prompt and cannot override sketch
-applicability. Manifest-level per-Example Tutor bindings are not the canonical
+applicability. The complete UTF-8 annotation block is limited to 16 KiB before
+YAML parsing. Manifest-level per-Example Tutor bindings are not the canonical
 authoring mechanism and are not part of the published schema-v2 contract.
 
 Tutor topics own learning content: concepts, prerequisites, objectives,

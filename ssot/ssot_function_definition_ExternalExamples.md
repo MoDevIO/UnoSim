@@ -305,7 +305,8 @@ whitespace. For a structurally recognized but invalid block, the server strips
 the block before exposing the source, marks the Tutor capability invalid, and
 keeps otherwise valid Examples usable. An unterminated block hides the
 recognized suffix through end-of-file; no teacher metadata is exposed or
-executed. The exact annotation schema and bounded learning-objective rules
+executed. The complete UTF-8 annotation block is limited to 16 KiB before
+YAML parsing. The exact annotation schema and bounded learning-objective rules
 are defined in the Course Content and LearningQuestions SSOTs.
 
 ## 12. Capability-scoped validation
