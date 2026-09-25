@@ -122,6 +122,42 @@ describe("embedded Tutor annotation parser", () => {
     expect(result.annotation.learningObjectives).toEqual(["Ä".repeat(500)]);
   });
 
+  it("rejects more than the maximum number of objectives", () => {
+    const objectives = Array.from({ length: 11 }, (_, index) => "  - Ziel " + (index + 1)).join("\n");
+    const result = extractEmbeddedTutorAnnotation(
+      [
+        "void setup() {}\n/* @unosim-tutor",
+        "schemaVersion: 1",
+        "learningObjectives:",
+        objectives,
+        "@end-unosim-tutor */\n",
+      ].join("\n"),
+      "main.ino",
+      { isMainFile: true },
+    );
+
+    expect(result.status).toBe("invalid");
+    expect(result.cleanedSource).toBe("void setup() {}\n");
+  });
+
+  it("rejects an objective longer than 500 Unicode characters", () => {
+    const objective = "Ä".repeat(501);
+    const result = extractEmbeddedTutorAnnotation(
+      [
+        "void setup() {}\n/* @unosim-tutor",
+        "schemaVersion: 1",
+        "learningObjectives:",
+        "  - " + objective,
+        "@end-unosim-tutor */\n",
+      ].join("\n"),
+      "main.ino",
+      { isMainFile: true },
+    );
+
+    expect(result.status).toBe("invalid");
+    expect(result.cleanedSource).toBe("void setup() {}\n");
+  });
+
   it("enforces a byte limit before parsing the annotation", () => {
     const objective = "x".repeat(EMBEDDED_TUTOR_ANNOTATION_MAX_BYTES);
     const result = extractEmbeddedTutorAnnotation(

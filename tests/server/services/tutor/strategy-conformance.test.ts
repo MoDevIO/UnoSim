@@ -182,6 +182,28 @@ describe("Tutor strategy behavioral conformance", () => {
     expect(prompt).toContain(JSON.stringify(objectives));
   });
 
+  it("keeps Example learning objectives when an embedded Topic does not match", async () => {
+    const strategy = makeStrategy({ id: "repository-default" });
+    const topic = await loadTopic();
+    const objectives = ["Den Ablauf des freien Sketches reflektieren."];
+    const { prompt, result } = await initialPrompt(
+      strategy,
+      makeContext([strategy], {
+        topics: [topic],
+        annotation: {
+          schemaVersion: 1,
+          topics: [topic.id],
+          learningObjectives: objectives,
+        },
+      }),
+      "void setup(){} void loop(){}",
+    );
+
+    expect(result.strategyId).toBe("repository-default");
+    expect(result.topicId).toBeUndefined();
+    expect(prompt).toContain(JSON.stringify(objectives));
+  });
+
   const promptFieldVariants: readonly [string, Partial<EffectiveTutorStrategy>][] = [
     ["questionKindWeights", { questionKindWeights: { recall: 5, concept: 5, application: 35, prediction: 15, transfer: 40 } }],
     ["sketchSpecificity", { sketchSpecificity: "strict" }],
