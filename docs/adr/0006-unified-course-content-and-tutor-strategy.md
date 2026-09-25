@@ -169,6 +169,11 @@ revision A. Course source, revision, or example-context changes reset the
 dialog. A missing revision B falls back to the built-in Tutor; it never uses
 Tutor content cached for A.
 
+The current opaque-session store is process-local in-memory state with a
+one-hour TTL and therefore assumes the current single-backend topology.
+Horizontal multi-instance deployment requires shared Tutor-session state or an
+explicitly designed equivalent such as sticky-session guarantees.
+
 ## Migration
 
 The old independently configured Tutor source is removed. The old Tutor source

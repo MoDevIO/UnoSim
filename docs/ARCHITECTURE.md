@@ -163,6 +163,10 @@ handle when repository context is active. Follow-up dialogs use that handle and
 remain pinned to the server-derived revision; browser repository/ref/revision
 metadata is request context only and never content authority. Changing the
 browser selection clears the client dialog and starts a new context.
+The current session store is process-local in-memory state with a one-hour TTL,
+so Tutor session pinning is supported by the current single-backend topology.
+Horizontal multi-instance deployment would require shared Tutor-session state
+or an explicitly designed equivalent such as sticky-session guarantees.
 The detailed source contract remains in
 [ssot_function_definition_ExternalExamples.md](../ssot/ssot_function_definition_ExternalExamples.md)
 and [adr/0005-browser-scoped-external-examples.md](adr/0005-browser-scoped-external-examples.md).
