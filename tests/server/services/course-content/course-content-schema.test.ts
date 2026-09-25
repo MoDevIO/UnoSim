@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   courseContentManifestSchema,
-  exampleTutorBindingSchema,
   parseCourseContentManifest,
   tutorDescriptorSchema,
 } from "../../../../server/services/course-content/course-content-schema";
+import { embeddedTutorAnnotationSchema } from "../../../../server/services/course-content/embedded-tutor-annotation";
 
 const file = { name: "main.ino", path: "examples/arrays/main.ino" };
 
@@ -34,20 +34,27 @@ describe("Course Content manifest schema", () => {
     expect(courseContentManifestSchema.safeParse(root()).success).toBe(true);
   });
 
-  it("accepts schema-v2 root and example Tutor metadata", () => {
+  it("accepts schema-v2 root without manifest-level example Tutor metadata", () => {
     const value = {
       ...root(2),
       tutor: { manifest: "tutor/manifest.yaml" },
-      examples: [{
-        ...example(),
-        tutor: { topics: ["arrays"], primaryTopic: "arrays", strategy: "socratic" },
-      }],
     };
 
     expect(courseContentManifestSchema.parse(value).tutor?.manifest).toBe("tutor/manifest.yaml");
     const result = parseCourseContentManifest(value);
     expect(result.examples.status).toBe("valid");
     expect(result.tutor.status).toBe("valid");
+  });
+
+  it("rejects the retired manifest-level example Tutor binding", () => {
+    const value = {
+      ...root(2),
+      tutor: { manifest: "tutor/manifest.yaml" },
+      examples: [{ ...example(), tutor: { topics: ["arrays"] } }],
+    };
+
+    expect(courseContentManifestSchema.safeParse(value).success).toBe(false);
+    expect(parseCourseContentManifest(value).examples.status).toBe("invalid");
   });
 
   it("keeps valid Examples when the optional Tutor descriptor is malformed", () => {
@@ -60,24 +67,9 @@ describe("Course Content manifest schema", () => {
     expect(result.tutor.status).toBe("invalid");
   });
 
-  it("keeps valid Examples when an example Tutor binding is malformed", () => {
-    const value = {
-      ...root(2),
-      tutor: { manifest: "tutor/manifest.yaml" },
-      examples: [{
-        ...example(),
-        tutor: { topics: ["not a safe topic"] },
-      }],
-    };
-
-    const result = parseCourseContentManifest(value);
-    expect(result.examples.status).toBe("valid");
-    expect(result.tutor.status).toBe("invalid");
-  });
-
   it("uses closed Tutor-only schemas", () => {
     expect(tutorDescriptorSchema.safeParse({ manifest: "tutor/manifest.yaml", prompt: "unsafe" }).success).toBe(false);
-    expect(exampleTutorBindingSchema.safeParse({ topics: ["arrays"], systemPrompt: "unsafe" }).success).toBe(false);
+    expect(embeddedTutorAnnotationSchema.safeParse({ topics: ["arrays"], systemPrompt: "unsafe" }).success).toBe(false);
   });
 
   it("reports a core failure separately from Tutor capability state", () => {

@@ -2,6 +2,7 @@ import type { ExamplesRef, FullCommitSha, RepositorySlug } from "@shared/example
 import type { ExampleRecord } from "./examples-schema";
 import { ExamplesError } from "./examples-error";
 import type { TutorCapability } from "../course-content/course-content-loader";
+import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 
 export type SourceCacheKey = `examples:source:v1:${RepositorySlug}:${ExamplesRef}`;
 export type RevisionCacheKey = `examples:revision:v1:${RepositorySlug}:${FullCommitSha}`;
@@ -30,6 +31,7 @@ export interface RevisionCacheEntry {
   revision: FullCommitSha;
   examples: ExampleRecord[];
   tutor?: TutorCapability;
+  exampleTutorAnnotations?: ReadonlyMap<string, ExampleTutorAnnotation>;
   contentBytes: number;
   lastAccessedAt: number;
 }

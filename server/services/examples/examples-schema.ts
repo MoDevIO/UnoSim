@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const SAFE_FILE_NAME = /^[A-Z0-9][A-Z0-9_.-]{0,127}\.(?:ino|h)$/i;
@@ -36,6 +37,7 @@ export type ExampleFile = ManifestFile & {
 export type ExampleRecord = Omit<ManifestExample, "files"> & {
   files: ExampleFile[];
   source: "builtin" | "external";
+  tutorAnnotation?: ExampleTutorAnnotation;
 };
 
 export function validateManifestReferences(manifest: Pick<ExamplesManifest, "examples">): void {

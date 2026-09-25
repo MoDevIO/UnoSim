@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { ExamplesRef, FullCommitSha, RepositorySlug } from "@shared/examples";
 import type { RequestContext } from "../examples/source-provider";
 import type { TutorCapability } from "./course-content-loader";
+import type { ExampleTutorAnnotation } from "./embedded-tutor-annotation";
 
 export interface TutorCourseContentRequest {
   readonly repository: RepositorySlug;
@@ -12,6 +13,7 @@ export interface TutorCourseContentRequest {
 
 export interface ResolvedTutorCourseContent extends TutorCourseContentRequest {
   readonly tutor: TutorCapability;
+  readonly exampleTutorAnnotation?: ExampleTutorAnnotation;
 }
 
 export interface TutorCourseContentResolver {

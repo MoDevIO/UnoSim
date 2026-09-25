@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { TutorPlanningContentContext } from "../../../../server/services/tutor/tutor-planning";
+import type { ExampleTutorAnnotation } from "../../../../server/services/course-content/embedded-tutor-annotation";
 import { TutorService } from "../../../../server/services/tutor/tutor-service";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import {
@@ -32,7 +33,7 @@ function makeContext(
   options: {
     readonly topics?: readonly CurriculumTopic[];
     readonly exampleId?: string;
-    readonly binding?: { readonly strategy?: string; readonly primaryTopic?: string; readonly topics?: readonly string[] };
+    readonly annotation?: ExampleTutorAnnotation;
     readonly status?: "valid" | "invalid";
   } = {},
 ): TutorPlanningContentContext {
@@ -52,8 +53,8 @@ function makeContext(
         },
         topics: options.topics ?? [],
         strategies,
-        bindings: new Map(options.binding && options.exampleId ? [[options.exampleId, options.binding]] : []),
       },
+    ...(options.annotation ? { exampleTutorAnnotation: options.annotation } : {}),
   };
 }
 
@@ -84,12 +85,13 @@ async function loadTopic(): Promise<CurriculumTopic> {
 async function initialPrompt(
   strategy: EffectiveTutorStrategy,
   context: TutorPlanningContentContext | null = makeContext([strategy]),
+  code = "void setup(){} void loop(){}",
 ): Promise<{ prompt: string; result: Awaited<ReturnType<TutorService["generateQuestion"]>>["result"] }> {
   const { provider, prompts } = createProvider();
   const service = new TutorService(provider, new CurriculumTutorAdapter());
   const result = context
-    ? await service.generateQuestion("void setup(){} void loop(){}", "key", undefined, 30, context)
-    : await service.generateQuestion("void setup(){} void loop(){}", "key", undefined, 30);
+    ? await service.generateQuestion(code, "key", undefined, 30, context)
+    : await service.generateQuestion(code, "key", undefined, 30);
   return { prompt: prompts[0] ?? "", result: result.result };
 }
 
@@ -148,18 +150,58 @@ describe("Tutor strategy behavioral conformance", () => {
     expect(invalidPrompt).toContain("Skizzenbezug: prefer");
   });
 
-  it("lets a valid per-example strategy control the free path when no Topic matches", async () => {
+  it("lets a valid embedded Example strategy control the free path when no Topic matches", async () => {
     const repositoryDefault = makeStrategy({ id: "repository-default", sketchSpecificity: "prefer" });
     const exampleStrategy = makeStrategy({ id: "example-policy", sketchSpecificity: "strict" });
     const context = makeContext([repositoryDefault, exampleStrategy], {
       exampleId: "example-1",
-      binding: { strategy: exampleStrategy.id },
+      annotation: { schemaVersion: 1, strategy: exampleStrategy.id },
     });
     const { prompt, result } = await initialPrompt(repositoryDefault, context);
 
     expect(result.strategyId).toBe(exampleStrategy.id);
     expect(result.strategySource).toBe("repository");
     expect(prompt).toContain("strict");
+  });
+
+  it("keeps Example learning objectives on the planned path", async () => {
+    const topic = await loadTopic();
+    const strategy = makeStrategy({ id: "repository-default" });
+    const objectives = ["Den Unterschied zwischen Wert und Speicherung verstehen."];
+    const { prompt, result } = await initialPrompt(
+      strategy,
+      makeContext([strategy], {
+        topics: [topic],
+        exampleId: "example-1",
+        annotation: { schemaVersion: 1, learningObjectives: objectives },
+      }),
+      "int values[] = {1, 2};",
+    );
+
+    expect(result.topicId).toBe("memory-and-data-types");
+    expect(prompt).toContain(JSON.stringify(objectives));
+  });
+
+  it("keeps Example learning objectives when an embedded Topic does not match", async () => {
+    const strategy = makeStrategy({ id: "repository-default" });
+    const topic = await loadTopic();
+    const objectives = ["Den Ablauf des freien Sketches reflektieren."];
+    const { prompt, result } = await initialPrompt(
+      strategy,
+      makeContext([strategy], {
+        topics: [topic],
+        annotation: {
+          schemaVersion: 1,
+          topics: [topic.id],
+          learningObjectives: objectives,
+        },
+      }),
+      "void setup(){} void loop(){}",
+    );
+
+    expect(result.strategyId).toBe("repository-default");
+    expect(result.topicId).toBeUndefined();
+    expect(prompt).toContain(JSON.stringify(objectives));
   });
 
   const promptFieldVariants: readonly [string, Partial<EffectiveTutorStrategy>][] = [

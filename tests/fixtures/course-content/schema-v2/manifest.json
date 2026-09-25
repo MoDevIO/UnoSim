@@ -6,8 +6,7 @@
       "title": "Schema v2 fixture",
       "category": "Fixtures",
       "main": "main.ino",
-      "files": [{ "name": "main.ino", "path": "examples/main.ino" }],
-      "tutor": { "topics": ["arrays"], "primaryTopic": "arrays" }
+      "files": [{ "name": "main.ino", "path": "examples/main.ino" }]
     }
   ],
   "tutor": { "manifest": "tutor/manifest.yaml" }

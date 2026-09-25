@@ -14,6 +14,7 @@ const baseConfig: ParsedExamplesConfig = {
 };
 const external = (revision: string) => ({
   repository: "owner/repo", revision, contentBytes: 1, lastAccessedAt: 1,
+  exampleTutorAnnotations: new Map(),
   examples: [{
     id: `external-${revision[0]}`, title: "External", category: "Test", main: "main.ino", source: "external" as const,
     files: [{ name: "main.ino", path: "main.ino", content: revision }],
@@ -50,6 +51,27 @@ describe("examples repository request scoping", () => {
     const detail = await repository.getExample("owner/repo", revisionA, "external-a", context);
     expect(detail).toMatchObject({ revision: revisionA, files: [{ content: revisionA }] });
     expect(getRevision).toHaveBeenCalledWith("owner/repo", revisionA, context);
+  });
+
+  it("never exposes embedded Tutor annotations through Example details or catalogs", async () => {
+    const tutorAnnotation = { schemaVersion: 1 as const, learningObjectives: ["Verstehen"] };
+    const snapshot = {
+      ...external(revisionA),
+      examples: [{ ...external(revisionA).examples[0], tutorAnnotation }],
+      exampleTutorAnnotations: new Map([["external-a", tutorAnnotation]]),
+    };
+    const repository = new ExamplesRepository({
+      examplesConfig: baseConfig,
+      builtInProvider: { getExamples: async () => [] },
+      sourceProvider: { resolve: vi.fn(async () => ({ revision: revisionA, snapshot, status: "cache" as const, stale: false })), getRevision: vi.fn(async () => snapshot) },
+    });
+
+    const catalog = await repository.getCatalog({ kind: "default" }, { identity: "user", requestId: "request" });
+    const detail = await repository.getExample("owner/repo", revisionA, "external-a", { identity: "user", requestId: "request" });
+
+    expect(catalog.examples[0]).not.toHaveProperty("tutorAnnotation");
+    expect(detail).not.toHaveProperty("tutorAnnotation");
+    expect(detail?.files[0]?.content).not.toContain("@unosim-tutor");
   });
 
   it("does not require source parameters for built-ins", async () => {

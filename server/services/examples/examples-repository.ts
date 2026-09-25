@@ -129,13 +129,22 @@ export class ExamplesRepository implements TutorCourseContentResolver {
     return {
       ...request,
       tutor: resolved.snapshot.tutor ?? { status: "absent" },
+      ...(request.exampleId !== undefined && resolved.snapshot.exampleTutorAnnotations?.has(request.exampleId)
+        ? { exampleTutorAnnotation: resolved.snapshot.exampleTutorAnnotations.get(request.exampleId) }
+        : {}),
     };
   }
 
   async getTutorContent(request: ResolvedTutorCourseContent, context: RequestContext): Promise<ResolvedTutorCourseContent> {
     const snapshot = await this.sourceProvider.getRevision(request.repository, request.revision, context);
     this.assertExampleInSnapshot(snapshot.examples, request.exampleId);
-    return { ...request, tutor: snapshot.tutor ?? { status: "absent" } };
+    return {
+      ...request,
+      tutor: snapshot.tutor ?? { status: "absent" },
+      ...(request.exampleId !== undefined && snapshot.exampleTutorAnnotations?.has(request.exampleId)
+        ? { exampleTutorAnnotation: snapshot.exampleTutorAnnotations.get(request.exampleId) }
+        : {}),
+    };
   }
 
   private assertExampleInSnapshot(examples: readonly ExampleRecord[], exampleId: string | undefined): void {
@@ -148,7 +157,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
     return {
       schemaVersion: 1,
       source,
-      examples: examples.map(({ files, ...example }) => ({
+      examples: examples.map(({ files, tutorAnnotation: _tutorAnnotation, ...example }) => ({
         ...example,
         files: files.map(({ content: _content, ...file }) => file),
       })),
@@ -168,7 +177,12 @@ function toDetail(example: ExampleRecord, revision: FullCommitSha | null): Examp
   const remaining = example.files.filter((file) => file !== main);
   return {
     schemaVersion: 1,
-    ...example,
+    id: example.id,
+    title: example.title,
+    category: example.category,
+    ...(example.description === undefined ? {} : { description: example.description }),
+    main: example.main,
+    source: example.source,
     revision,
     files: main ? [main, ...remaining] : example.files,
   };

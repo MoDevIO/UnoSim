@@ -15,7 +15,6 @@ async function validTutorCapability(): Promise<TutorCapability> {
     manifest: { schemaVersion: 1, topics: [], strategies: [] },
     topics: [topic],
     strategies: [],
-    bindings: new Map(),
   };
 }
 

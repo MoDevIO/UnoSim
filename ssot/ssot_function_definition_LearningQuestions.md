@@ -95,18 +95,21 @@ server default for other users. Repository/ref/revision/example values sent by
 the browser are untrusted metadata; the server validates or derives the
 immutable Course context before using Tutor content.
 
-For an active Course example, topic precedence is applicable primary topic,
-other applicable bound topics, then fact-matched topics. For an unbound sketch,
-fact matching considers all repository topics. The current sketch remains the
-factual authority; editing an example can make a binding inapplicable and
-must never force an unsupported question.
+For an active Course example, topic precedence is the applicable embedded
+primary topic, other applicable embedded topics, then fact-matched topics. For
+an arbitrary or otherwise unannotated sketch, fact matching considers all
+repository topics. Embedded topics are preferences, not factual authority;
+editing an example can make an embedded topic inapplicable and must never
+force an unsupported question.
 
-Strategy precedence is per-example strategy, Tutor manifest default, then
-built-in-default. A valid strategy may be used without topics; the free
-Tutor then uses that strategy. An invalid Tutor descriptor, manifest, file,
-hash, schema, dependency, or binding invalidates the whole Tutor capability,
-not Examples and not a partial Tutor subset. The Tutor falls back completely
-to built-in-default plus the free Tutor path, with a safe diagnostic reason.
+Strategy precedence is embedded Example strategy, Tutor manifest default, then
+built-in-default. An embedded strategy applies only in a valid active Example
+context that defines one. A valid strategy may be used without topics; the
+free Tutor then uses that strategy. An invalid Tutor descriptor, manifest,
+file, hash, schema, dependency, or embedded annotation invalidates the whole
+Tutor capability, not Examples and not a partial Tutor subset. The Tutor
+falls back completely to built-in-default plus the free Tutor path, with a
+safe diagnostic reason.
 
 The historical curriculum/ files remain fixtures and authoring examples.
 The old independently configured Tutor source variables are obsolete startup
@@ -116,10 +119,10 @@ tombstones and must not be combined with the Course Content source.
 
 Every normal Tutor request MUST enter the behavior-producing path with exactly
 one normalized `EffectiveTutorStrategy`. This is true for a planned request
-with an Example binding, a planned request without an Example binding, a
-repository strategy with no Topics, a Topic mismatch, an arbitrary/local
-sketch, an Examples-only repository, no repository, and invalid Tutor
-capability fallback.
+with an embedded Example annotation, a planned request without an embedded
+annotation, a repository strategy with no Topics, a Topic mismatch, an
+arbitrary/local sketch, an Examples-only repository, no repository, and
+invalid Tutor capability fallback.
 
 Topic planning and strategy selection are independent. Topic planning answers
 what should be learned; the strategy answers how the Tutor teaches. If no Topic
@@ -128,14 +131,14 @@ Repository strategy metadata is conformant only when that strategy has already
 influenced the planner, prompt guidance, or dialogue behavior; attaching only
 `strategyId`/`strategySource` after generation is a conformance failure.
 
-Strategy precedence is per-example strategy only for a valid active Example
-context that defines one, then the validated repository `defaultStrategy`,
-then `built-in-default`. Arbitrary/local sketches have no per-example strategy
-and therefore inherit the repository default when available. Topic precedence
-is applicable active-example primary topic, other applicable bound topics,
-fact-matched repository topics, then free Tutor with the same effective
-strategy. Only an invalid Tutor capability disables repository Topics and
-repository Strategies together.
+Strategy precedence is embedded Example strategy only for a valid active
+Example context that defines one, then the validated repository
+`defaultStrategy`, then `built-in-default`. Arbitrary/local sketches have no
+embedded Example strategy and therefore inherit the repository default when
+available. Topic precedence is applicable active-example embedded primary
+topic, other applicable embedded topics, fact-matched repository topics, then
+free Tutor with the same effective strategy. Only an invalid Tutor capability
+disables repository Topics and Strategies together.
 
 The strategy schema is a closed data contract. The application owns all actual
 instruction text sent to the provider and maps only normalized enums and
@@ -144,6 +147,36 @@ raw prompt, role, URL, regex, script, template code, or arbitrary instruction.
 The existing current-sketch factual-authority, one-question, provider,
 credential/privacy, response-schema, Mermaid, persistence, answerRating, and
 length rules remain non-configurable.
+
+### Example learning objectives
+
+An optional embedded Example annotation may contain at most 10
+`learningObjectives`. Each objective is trimmed, non-empty, and at most 500
+Unicode characters. NUL and other control characters are rejected; objectives
+are bounded plain data, not Markdown, HTML, executable content, templates, or
+instructions. The annotation schema has no prompt, role, systemPrompt,
+promptTemplate, or equivalent field.
+
+Learning objectives answer WHAT the learner should understand in relation to
+this Example. They do not answer HOW the Tutor teaches. A Topic remains
+reusable structured curriculum knowledge, learning objectives add
+Example-specific teacher emphasis, and EffectiveTutorStrategy controls the
+teaching behavior.
+
+When a Topic matches, the Tutor receives the applicable Topic plan together
+with the validated Example learning objectives and the effective strategy.
+When no Topic matches, the free Tutor still receives the objectives and the
+same effective strategy. No Topic may discard objectives, and a missing
+annotation contributes no objectives to an arbitrary sketch. Objectives remain
+subordinate to current-sketch factual authority, Tutor safety rules, the
+one-primary-question contract, response schemas, and the no-full-solution
+rule. An objective that is unsupported by current sketch facts may guide a
+bounded reflection target, but may not cause the Tutor to invent facts.
+
+The application owns the surrounding guidance text and passes objectives as
+validated structured data. Objectives remain associated with the immutable
+Course Content revision and pinned Tutor dialog context for the full dialog;
+follow-up requests do not re-read mutable client metadata.
 
 ### 2.2 Operational semantics of strategy fields
 

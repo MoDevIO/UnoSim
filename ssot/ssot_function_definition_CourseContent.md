@@ -58,8 +58,9 @@ one repository + revision. It contains the Examples capability and may contain
 a Tutor capability.
 
 **Tutor capability** is the optional, atomically validated set of the Tutor
-manifest, its referenced topics, its referenced strategies, and all binding
-references in the Course manifest.
+manifest, its referenced topics, its referenced strategies, and all validated
+embedded Tutor annotations extracted from Example main files. Manifest-level
+per-Example Tutor bindings are not a published authoring mechanism.
 
 **EffectiveTutorStrategy** is the normalized strategy used by every Tutor
 request. It is always present, including in built-in/free Tutor mode.
@@ -146,12 +147,7 @@ Schema v2 retains the Examples structure and adds an optional Tutor descriptor:
       "main": "main.ino",
       "files": [
         { "name": "main.ino", "path": "examples/arrays/main.ino" }
-      ],
-      "tutor": {
-        "topics": ["arrays"],
-        "primaryTopic": "arrays",
-        "strategy": "socratic"
-      }
+      ]
     }
   ],
   "tutor": {
@@ -160,18 +156,20 @@ Schema v2 retains the Examples structure and adds an optional Tutor descriptor:
 }
 ~~~
 
-tutor at the root is optional. Example-level tutor metadata is optional. The
-exact existing Examples fields remain authoritative for Examples.
+tutor at the root is optional. Example-specific Tutor metadata is not a root
+manifest field. When present, it is authored only in the terminal structured
+annotation of the Example's declared main `.ino` file. The exact existing
+Examples fields remain authoritative for Examples.
 
 The root is validated in capability-scoped phases, not as one monolithic
 object:
 
 1. parse and validate the root/core schema and Examples references;
 2. if core validation succeeds, inspect the optional Tutor descriptor and
-   example Tutor metadata independently;
+   terminal main-file annotations independently;
 3. activate the Examples capability if and only if core validation succeeds;
 4. activate the Tutor capability only if every Tutor descriptor, referenced
-   Tutor file, hash, schema, graph, and binding reference succeeds.
+   Tutor file, hash, schema, graph, and annotation reference succeeds.
 
 An invalid or missing optional Tutor descriptor SHALL NOT invalidate otherwise
 valid Examples. A Tutor-only failure produces examples = valid and Tutor
@@ -183,6 +181,70 @@ only.
 Only explicitly referenced files may be fetched. Directory crawling is
 forbidden. Paths must be bounded, relative, rooted below the expected tutor/
 or Examples path, and free of traversal, URL, host, and query syntax.
+
+### 6.3 Embedded Example Tutor annotation
+
+Example-specific Tutor metadata SHALL be stored at the end of the Example's
+declared main `.ino` file. It is optional and is not part of normal Example
+source. The canonical block is:
+
+~~~cpp
+/* @unosim-tutor
+schemaVersion: 1
+topics:
+  - functions
+primaryTopic: functions
+strategy: exploration-policy
+learningObjectives:
+  - Funktionen und ihren Zweck verstehen.
+  - Übergabeparameter verstehen.
+@end-unosim-tutor */
+~~~
+
+There SHALL be zero or one such block per Example. Only the declared main
+`.ino` may contain it; secondary files and `.h` files may not define one. The
+opening marker is exactly `/* @unosim-tutor` and the closing marker is exactly
+`@end-unosim-tutor */`. The block MUST occur after the final C++ token of the
+sketch, and only whitespace may follow its closing marker. A duplicate block,
+a marker in the middle of executable source, or an unterminated block is
+invalid. An annotation is optional.
+
+The annotation payload is strict YAML core data with schema version 1 and no
+additional fields. The complete UTF-8 annotation block is limited to 16 KiB
+before YAML parsing:
+
+~~~yaml
+schemaVersion: 1
+topics: [functions]
+primaryTopic: functions
+strategy: exploration-policy
+learningObjectives:
+  - Funktionen und ihren Zweck verstehen.
+~~~
+
+`topics` is an optional list of safe Tutor IDs. `primaryTopic` is optional but
+requires `topics` and MUST be one of its values. `strategy` is an optional safe
+Tutor Strategy ID. `learningObjectives` is an optional list of at most 10
+teacher-authored objectives; every objective is trimmed, non-empty, at most
+500 Unicode characters, and free of NUL/control characters. Objectives are
+plain bounded data: Markdown, HTML, executable/template semantics, and nested
+structures are not interpreted. YAML duplicate keys, custom tags, unknown
+fields, unsupported schema versions, invalid IDs, and invalid bounds make the
+annotation invalid.
+
+The server extracts and validates the block at the Course Content loading
+boundary. The annotation travels separately in the immutable server snapshot.
+The Example API, browser/editor, compiler, and simulator receive only the
+cleaned sketch source, with a normal trailing newline preserved. Removing the
+block does not alter the line numbers of the actual preceding C++ program.
+
+If a structurally recognized block has invalid YAML or schema data, the server
+MUST strip/hide the block, keep the cleaned Example usable, and mark the whole
+repository Tutor capability invalid. No partial repository Tutor bundle may
+activate. An unterminated or otherwise malformed marker has the same safe
+deterministic outcome: no teacher metadata is exposed or executed, and the
+Tutor capability falls back completely when validation cannot establish a
+valid annotation boundary.
 
 ## 7. Tutor manifest and Tutor bundle atomicity
 
@@ -214,8 +276,10 @@ Tutor capability validation is all-or-nothing:
 - an unknown field, unsupported schema version, duplicate ID, invalid path,
   invalid dependency, cyclic dependency, or broken question/scaffold/mastery
   reference invalidates the whole Tutor capability;
-- a binding to an unknown topic or strategy invalidates the whole Tutor
-  capability;
+- an annotation referring to an unknown topic or strategy invalidates the
+  whole Tutor capability;
+- an invalid embedded annotation invalidates the whole Tutor capability but
+  does not invalidate otherwise valid Examples;
 - no arbitrary subset of valid Tutor files may activate.
 
 The Examples capability remains active whenever its own core snapshot is valid.
@@ -325,8 +389,8 @@ existing planner weighting.
 Every normal Tutor request SHALL use exactly one EffectiveTutorStrategy before
 the behavior-producing path runs. This includes:
 
-1. a repository Topic with an Example binding;
-2. a repository Topic without an Example binding;
+1. a repository Topic with an embedded Example annotation;
+2. a repository Topic without an embedded Example annotation;
 3. a repository strategy with no Topics;
 4. a repository with Topics when no Topic matches the current sketch;
 5. an arbitrary, self-written, or local sketch;
@@ -342,8 +406,8 @@ capability disables repository Topics and repository Strategies together.
 
 The strategy precedence is:
 
-1. a per-example strategy, but only when a valid active Example context defines
-   that strategy;
+1. an embedded Example strategy, but only when a valid active Example context
+   defines that strategy;
 2. the validated Tutor manifest defaultStrategy; then
 3. built-in-default.
 
@@ -352,8 +416,8 @@ repository defaultStrategy when available, otherwise built-in-default.
 
 The Topic precedence remains:
 
-1. applicable active-example primaryTopic;
-2. other applicable bound Topics;
+1. applicable embedded primaryTopic;
+2. other applicable embedded Topics;
 3. fact-matched repository Topics; then
 4. no Topic, using the free Tutor path with the already selected
    EffectiveTutorStrategy.
@@ -419,26 +483,50 @@ failure.
 
 For an active Course example, strategy precedence is:
 
-1. valid per-example tutor.strategy when there is a valid active Example
-   context that defines it;
+1. valid embedded tutor.strategy when there is a valid active Example context
+   that defines it;
 2. valid Tutor manifest defaultStrategy;
 3. built-in-default.
 
 For an arbitrary or self-written sketch without a valid Course-example
-binding, the Tutor manifest defaultStrategy and then the built-in strategy
+annotation, the Tutor manifest defaultStrategy and then the built-in strategy
 apply. A repository defaultStrategy therefore affects arbitrary programs too.
 
 Topic selection is:
 
-1. applicable active-example primaryTopic;
-2. other applicable active-example bound topics;
+1. applicable embedded primaryTopic;
+2. other applicable embedded topics;
 3. applicable topics matched from extracted sketch facts;
 4. no repository topic, so use the free Tutor path without changing the
    already selected EffectiveTutorStrategy.
 
-Bindings are preferences, not factual authority. If editing makes a bound
-topic inapplicable, it is skipped. The matcher may select another applicable
-topic; it MUST NOT force an unsupported question.
+Embedded topics and primaryTopic are preferences, not factual authority. If
+editing makes an embedded topic inapplicable, it is skipped. The matcher may
+select another applicable topic; it MUST NOT force an unsupported question.
+
+### 10.1 Example learning objectives
+
+`learningObjectives` answer **what this learner should understand in relation
+to this Example**. They are teacher-authored didactic data and do not define
+how the Tutor behaves. The teaching method remains the selected
+EffectiveTutorStrategy. A Topic is reusable structured curriculum knowledge;
+learning objectives are Example-specific teacher emphasis; the UnoSim Tutor
+system/application rules remain non-configurable.
+
+When a valid Example annotation has learning objectives and a Topic matches,
+the planned Tutor context contains the Topic plan, applicable objectives,
+current sketch facts, and the EffectiveTutorStrategy. When objectives exist
+but no Topic matches, the free Tutor still receives the objectives together
+with the same selected EffectiveTutorStrategy. Reaching the free path MUST
+NOT discard objectives.
+
+Objectives remain subordinate to the current sketch as factual authority,
+Tutor safety rules, the no-complete-solution rule, the response schema, and
+the one-question contract. An objective that is unsupported by the current
+sketch may guide bounded reflection, but MUST NOT cause the Tutor to invent
+facts. UnoSim owns all instruction text used to present objectives to the
+provider; repository objective text is never a raw prompt or instruction
+channel.
 
 ## 11. Effective strategy and Tutor fallback matrix
 

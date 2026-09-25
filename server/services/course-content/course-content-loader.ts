@@ -8,8 +8,11 @@ import {
   courseContentTutorManifestSchema,
   parseCourseContentManifest,
   type CourseContentTutorManifest,
-  type ExampleTutorBinding,
 } from "./course-content-schema";
+import {
+  extractEmbeddedTutorAnnotation,
+  type ExampleTutorAnnotation,
+} from "./embedded-tutor-annotation";
 import {
   curriculumTopicSchema,
   validateCurriculumTopic,
@@ -30,12 +33,12 @@ export type TutorCapability =
     readonly manifest: CourseContentTutorManifest;
     readonly topics: readonly CurriculumTopic[];
     readonly strategies: readonly EffectiveTutorStrategy[];
-    readonly bindings: ReadonlyMap<string, ExampleTutorBinding>;
   };
 
 export interface LoadedCourseContentSnapshot {
   readonly examples: ExampleRecord[];
   readonly tutor: TutorCapability;
+  readonly exampleTutorAnnotations: ReadonlyMap<string, ExampleTutorAnnotation>;
   readonly contentBytes: number;
 }
 
@@ -74,14 +77,28 @@ export class CourseContentLoader {
       ...file,
       content: await this.fetcher.fetchText(relativeUrl(base, file.path), config.examples.maxFileBytes, signal),
     }));
-    const examples = manifest.examples.map((example, exampleIndex) => ({
-      ...example,
-      files: filesToLoad
+    const exampleTutorAnnotations = new Map<string, ExampleTutorAnnotation>();
+    let invalidEmbeddedAnnotation = false;
+    const examples = manifest.examples.map((example, exampleIndex) => {
+      const files = filesToLoad
         .map((item, index) => ({ item, file: loaded[index] }))
         .filter(({ item }) => item.exampleIndex === exampleIndex)
-        .map(({ file }) => file),
-      source: "external" as const,
-    }));
+        .map(({ file }) => {
+          const annotation = extractEmbeddedTutorAnnotation(file.content, file.name, { isMainFile: file.name === example.main });
+          if (annotation.status === "invalid") invalidEmbeddedAnnotation = true;
+          if (annotation.status === "valid" && file.name === example.main) {
+            exampleTutorAnnotations.set(example.id, annotation.annotation);
+          }
+          return annotation.status === "absent" ? file : { ...file, content: annotation.cleanedSource };
+        });
+      const tutorAnnotation = exampleTutorAnnotations.get(example.id);
+      return {
+        ...example,
+        files,
+        source: "external" as const,
+        ...(tutorAnnotation ? { tutorAnnotation } : {}),
+      };
+    });
     const exampleBytes = examples.reduce(
       (total, example) => total + example.files.reduce((sum, file) => sum + Buffer.byteLength(file.content, "utf8"), 0),
       0,
@@ -90,9 +107,15 @@ export class CourseContentLoader {
       throw new ExamplesError("INVALID_SNAPSHOT", "External examples exceed the total size limit");
     }
 
-    const tutor = validation.tutor.status === "valid"
-      ? await this.loadTutor(base, validation.tutor.descriptor.manifest, validation.tutor.bindings, signal)
-      : validation.tutor;
+    let tutor: TutorCapability;
+    if (invalidEmbeddedAnnotation) {
+      tutor = { status: "invalid", reason: "Tutor capability is invalid" };
+    } else if (validation.tutor.status === "valid") {
+      tutor = await this.loadTutor(base, validation.tutor.descriptor.manifest, exampleTutorAnnotations, signal);
+    } else {
+      tutor = validation.tutor;
+    }
+    const activeAnnotations = tutor.status === "invalid" ? new Map<string, ExampleTutorAnnotation>() : exampleTutorAnnotations;
     const tutorBytes = tutor.status === "valid"
       ? tutor.topics.reduce((sum, topic) => sum + JSON.stringify(topic).length, 0)
         + tutor.strategies.reduce((sum, strategy) => sum + JSON.stringify(strategy).length, 0)
@@ -100,13 +123,13 @@ export class CourseContentLoader {
     if (exampleBytes + tutorBytes > config.examples.maxTotalBytes) {
       throw new ExamplesError("INVALID_SNAPSHOT", "Course Content exceeds the total size limit");
     }
-    return { examples, tutor, contentBytes: exampleBytes + tutorBytes };
+    return { examples, tutor, exampleTutorAnnotations: activeAnnotations, contentBytes: exampleBytes + tutorBytes };
   }
 
   private async loadTutor(
     base: URL,
     descriptorPath: string,
-    bindings: ReadonlyMap<string, ExampleTutorBinding>,
+    annotations: ReadonlyMap<string, ExampleTutorAnnotation>,
     signal?: AbortSignal,
   ): Promise<TutorCapability> {
     try {
@@ -116,8 +139,8 @@ export class CourseContentLoader {
       const manifest = validateTutorManifest(manifestParsed.data);
       const topicEntries = await this.loadTopics(base, manifest, signal);
       const strategies = await this.loadStrategies(base, manifest, signal);
-      validateTutorReferences(manifest, topicEntries, strategies, bindings);
-      return { status: "valid", manifest, topics: topicEntries, strategies, bindings };
+      validateTutorReferences(manifest, topicEntries, strategies, annotations);
+      return { status: "valid", manifest, topics: topicEntries, strategies };
     } catch {
       return { status: "invalid", reason: "Tutor capability is invalid" };
     }
@@ -169,27 +192,27 @@ function validateTutorReferences(
   manifest: CourseContentTutorManifest,
   topics: readonly CurriculumTopic[],
   strategies: readonly EffectiveTutorStrategy[],
-  bindings: ReadonlyMap<string, ExampleTutorBinding>,
+  annotations: ReadonlyMap<string, ExampleTutorAnnotation>,
 ): void {
   if (manifest.defaultStrategy !== undefined && !strategies.some(({ id }) => id === manifest.defaultStrategy)) {
     throw new Error("Tutor default strategy is not enumerated");
   }
   const topicIds = new Set(topics.map(({ id }) => id));
   const strategyIds = new Set(strategies.map(({ id }) => id));
-  for (const binding of bindings.values()) {
-    validateBindingTopics(binding, topicIds);
-    if (binding.strategy !== undefined && !strategyIds.has(binding.strategy)) {
-      throw new Error(`Tutor binding references unknown strategy: ${binding.strategy}`);
+  for (const annotation of annotations.values()) {
+    validateAnnotationTopics(annotation, topicIds);
+    if (annotation.strategy !== undefined && !strategyIds.has(annotation.strategy)) {
+      throw new Error(`Tutor annotation references unknown strategy: ${annotation.strategy}`);
     }
   }
 }
 
-function validateBindingTopics(binding: ExampleTutorBinding, topicIds: ReadonlySet<string>): void {
-  for (const topicId of binding.topics ?? []) {
-    if (!topicIds.has(topicId)) throw new Error(`Tutor binding references unknown topic: ${topicId}`);
+function validateAnnotationTopics(annotation: ExampleTutorAnnotation, topicIds: ReadonlySet<string>): void {
+  for (const topicId of annotation.topics ?? []) {
+    if (!topicIds.has(topicId)) throw new Error(`Tutor annotation references unknown topic: ${topicId}`);
   }
-  if (binding.primaryTopic !== undefined && !topicIds.has(binding.primaryTopic)) {
-    throw new Error(`Tutor binding references unknown primary topic: ${binding.primaryTopic}`);
+  if (annotation.primaryTopic !== undefined && !topicIds.has(annotation.primaryTopic)) {
+    throw new Error(`Tutor annotation references unknown primary topic: ${annotation.primaryTopic}`);
   }
 }
 
