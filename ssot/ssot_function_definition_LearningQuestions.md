@@ -112,6 +112,107 @@ The historical curriculum/ files remain fixtures and authoring examples.
 The old independently configured Tutor source variables are obsolete startup
 tombstones and must not be combined with the Course Content source.
 
+### 2.1 Normative EffectiveTutorStrategy application
+
+Every normal Tutor request MUST enter the behavior-producing path with exactly
+one normalized `EffectiveTutorStrategy`. This is true for a planned request
+with an Example binding, a planned request without an Example binding, a
+repository strategy with no Topics, a Topic mismatch, an arbitrary/local
+sketch, an Examples-only repository, no repository, and invalid Tutor
+capability fallback.
+
+Topic planning and strategy selection are independent. Topic planning answers
+what should be learned; the strategy answers how the Tutor teaches. If no Topic
+plan exists, the selected strategy remains active on the free Tutor path.
+Repository strategy metadata is conformant only when that strategy has already
+influenced the planner, prompt guidance, or dialogue behavior; attaching only
+`strategyId`/`strategySource` after generation is a conformance failure.
+
+Strategy precedence is per-example strategy only for a valid active Example
+context that defines one, then the validated repository `defaultStrategy`,
+then `built-in-default`. Arbitrary/local sketches have no per-example strategy
+and therefore inherit the repository default when available. Topic precedence
+is applicable active-example primary topic, other applicable bound topics,
+fact-matched repository topics, then free Tutor with the same effective
+strategy. Only an invalid Tutor capability disables repository Topics and
+repository Strategies together.
+
+The strategy schema is a closed data contract. The application owns all actual
+instruction text sent to the provider and maps only normalized enums and
+numbers to trusted guidance. Repository content cannot provide a system prompt,
+raw prompt, role, URL, regex, script, template code, or arbitrary instruction.
+The existing current-sketch factual-authority, one-question, provider,
+credential/privacy, response-schema, Mermaid, persistence, answerRating, and
+length rules remain non-configurable.
+
+### 2.2 Operational semantics of strategy fields
+
+`questionKindWeights` are integer preferences in the range 0..100 that sum to
+100. In deterministic curriculum planning they rank otherwise applicable
+candidate questions after factual applicability and difficulty constraints. In
+free Tutor they become application-owned guidance for preferred question kinds.
+They are preferences rather than statistical guarantees. A zero-weight kind is
+least preferred and avoided when alternatives exist, but is not prohibited if
+it is the only pedagogically and factually possible choice.
+
+`sketchSpecificity: prefer` keeps each question related to the current sketch
+while allowing one conceptual or transfer step beyond literal code.
+`strict` requires direct anchoring in concrete constructs or facts present in
+the sketch. Neither mode may invent facts.
+
+`repetition: strict` avoids semantic near-duplicates and repairs or regenerates
+a repeated question where possible. `relaxed` permits a meaningful revisit
+from a different angle while literal or near-identical repetition remains
+undesirable. Core anti-loop safety applies in both modes.
+
+`remediation: scaffold-first` provides a bounded hint or scaffold before the
+next focused question after a weak answer. `question-first` prefers a smaller
+diagnostic/focused question without immediately providing the content hint;
+feedback may still briefly identify the gap. This distinction applies to
+planned and free Tutor paths.
+
+`clarification: same-indicator` probes the same indicator/concept or immediate
+code aspect again with a distinct question. `new-indicator` prefers a
+neighboring aspect of the same concept before returning to the prior one. Free
+Tutor has no formal indicator IDs and must not fabricate them; it applies the
+same semantics to the current conceptual/code evidence.
+
+`progression: mastery-then-advance` permits an appropriate mastery or
+consolidation probe after a strong answer before moving to another aspect.
+`advance-immediately` moves directly to a new relevant concept/aspect where
+possible after the existing answerRating semantics identify a sufficiently
+strong answer. The answerRating contract remains the integer range `1..5`.
+
+`scaffolding: prefer-content` prefers a valid Topic content scaffold. If no
+content scaffold or Topic plan exists, it falls back to generated,
+application-owned scaffolding. `prefer-generated` prefers generated scaffolding
+even when content scaffolds exist, except where a content-specific prerequisite
+is necessary for factual correctness.
+
+`feedbackVerbosity: short` requests concise bounded classification or hint
+feedback. `detailed` permits a somewhat fuller explanation of the learning gap
+or reasoning. Both remain bounded by the existing response/input limits and
+must not disclose a full solution. The setting applies in both planned and
+free Tutor behavior.
+
+`hintFirst` is didactic sequencing. When assistance/remediation is appropriate,
+`true` provides a bounded hint before the next question; `false` prefers the
+next diagnostic question without revealing a hint first. It does not change
+the one-primary-question rule or define arbitrary UI layout.
+
+In strategy schema version 1, `adaptiveDifficulty: current-contract` is the
+only allowed profile. It delegates to the existing adaptive-difficulty
+algorithm and limits described in section 3.7. Repositories cannot redefine
+Tutor difficulty deltas in schema version 1. Future alternatives require an
+explicit schema and SSOT extension.
+
+The built-in strategy values are the normative new UnoSim teaching policy:
+`built-in-default`, weights recall 10/concept 25/application 35/prediction
+15/transfer 15, `prefer`, `strict`, `scaffold-first`, `same-indicator`,
+`mastery-then-advance`, `prefer-content`, `short`, `true`, and
+`current-contract`. The weights do not claim to reproduce a pre-existing
+planner weighting.
+
 ---
 
 ## 3. Didaktischer Kernvertrag

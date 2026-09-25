@@ -289,10 +289,12 @@ The schema SHALL enforce:
 - no prompt, role, systemPrompt, assistantPrompt, rawPrompt, URL, executable
   expression, JavaScript, arbitrary regex, or external resource field.
 
-Strategy values influence deterministic planning only. They cannot make an
-inapplicable question eligible, override sketch facts, remove the
-one-question invariant, disable response validation, or replace
-application-owned safety rules.
+Strategy values influence the behavior-producing path for every Tutor request.
+They cannot make an inapplicable question eligible, override sketch facts,
+remove the one-question invariant, disable response validation, or replace
+application-owned safety rules. The same normalized strategy contract is used
+by deterministic curriculum planning and by the free-Tutor prompt/dialogue
+path; strategy metadata attached after generation is not strategy application.
 
 The built-in strategy is normative UnoSim policy, not a claim about the
 weights of the current planner. Its exact values are:
@@ -318,23 +320,121 @@ are inherited from the existing LearningQuestions contract; the question
 weights above are new normative built-in policy and are not described as an
 existing planner weighting.
 
+### 9.1 Normative strategy behavior
+
+Every normal Tutor request SHALL use exactly one EffectiveTutorStrategy before
+the behavior-producing path runs. This includes:
+
+1. a repository Topic with an Example binding;
+2. a repository Topic without an Example binding;
+3. a repository strategy with no Topics;
+4. a repository with Topics when no Topic matches the current sketch;
+5. an arbitrary, self-written, or local sketch;
+6. an Examples-only repository;
+7. no Course repository; and
+8. an invalid Tutor capability fallback.
+
+Topic planning and strategy selection are independent concerns. A Topic answers
+what should be learned. An EffectiveTutorStrategy answers how the Tutor
+teaches. Reaching the free-Tutor path because no Topic applies MUST NOT reset a
+repository-selected strategy to built-in-default. Only an invalid Tutor
+capability disables repository Topics and repository Strategies together.
+
+The strategy precedence is:
+
+1. a per-example strategy, but only when a valid active Example context defines
+   that strategy;
+2. the validated Tutor manifest defaultStrategy; then
+3. built-in-default.
+
+Arbitrary or local sketches have no per-example strategy and therefore use the
+repository defaultStrategy when available, otherwise built-in-default.
+
+The Topic precedence remains:
+
+1. applicable active-example primaryTopic;
+2. other applicable bound Topics;
+3. fact-matched repository Topics; then
+4. no Topic, using the free Tutor path with the already selected
+   EffectiveTutorStrategy.
+
+The operational meaning of the strategy fields is:
+
+- `questionKindWeights` are deterministic preferences among otherwise
+  applicable candidate questions after factual applicability and difficulty
+  constraints. In the free Tutor path they become application-owned guidance
+  about preferred question kinds. They are not statistical frequency
+  guarantees. A zero weight means least preferred and avoided when an
+  alternative exists; it is not an absolute prohibition when only that kind
+  is pedagogically and factually possible.
+- `sketchSpecificity: prefer` keeps every question related to the current
+  sketch while allowing one conceptual or transfer step beyond literal code;
+  `strict` anchors the question directly in concrete constructs or facts in
+  the sketch. Neither mode permits invented sketch facts.
+- `repetition: strict` avoids semantic near-duplicates and repairs or
+  regenerates a repeated question where possible; `relaxed` permits a
+  meaningful revisit from a different angle while still avoiding literal or
+  near-identical repetition. Core anti-loop safety applies to both.
+- `remediation: scaffold-first` provides a bounded hint or scaffold before
+  the next focused question after a weak answer; `question-first` prefers a
+  smaller diagnostic question without an immediate content hint, while still
+  allowing brief feedback that identifies the gap.
+- `clarification: same-indicator` stays on the same immediate conceptual or
+  code aspect with a distinct probe; `new-indicator` prefers a neighboring
+  aspect of the same learning context before returning to the previous one.
+  Free mode does not invent formal indicator IDs.
+- `progression: mastery-then-advance` may use a consolidation or mastery probe
+  after a strong answer before advancing; `advance-immediately` moves directly
+  to another relevant concept or aspect where possible after the existing
+  answerRating semantics identify a sufficiently strong answer.
+- `scaffolding: prefer-content` prefers a valid Topic content scaffold and
+  falls back to generated, application-owned scaffolding when none exists or
+  no Topic plan exists; `prefer-generated` prefers generated scaffolding even
+  when content scaffolds exist unless a content-specific prerequisite is
+  necessary for factual correctness.
+- `feedbackVerbosity: short` requests bounded concise classification or hint
+  feedback; `detailed` requests a somewhat fuller explanation of the gap or
+  reasoning. Both remain within existing response/input limits and never
+  authorize a full solution.
+- `hintFirst: true` places a bounded hint before the next question when
+  assistance/remediation is appropriate; `false` prefers the next diagnostic
+  question first. It is didactic sequencing, not a UI-layout setting and does
+  not alter the one-primary-question rule.
+- `adaptiveDifficulty: current-contract` uses the existing LearningQuestions
+  adaptive-difficulty algorithm and limits. Strategy schema version 1 cannot
+  redefine difficulty deltas. Future profiles require an explicit schema and
+  SSOT extension.
+
+The LLM is not required to produce a question-kind distribution matching the
+configured weights. All guidance text is owned by UnoSim and is generated from
+the normalized closed values; repository files never supply raw instructions.
+
+An observed response is conformant only when `strategySource` and
+`strategyId` identify the EffectiveTutorStrategy that actually influenced the
+applicable planner, prompt, or dialogue behavior. Adding those fields after a
+behavior has already been generated is metadata-only and is a conformance
+failure.
+
 ## 10. Strategy and topic precedence
 
 For an active Course example, strategy precedence is:
 
-1. valid per-example tutor.strategy;
+1. valid per-example tutor.strategy when there is a valid active Example
+   context that defines it;
 2. valid Tutor manifest defaultStrategy;
 3. built-in-default.
 
-For a sketch without a Course-example binding, only the Tutor manifest default
-and then the built-in strategy apply.
+For an arbitrary or self-written sketch without a valid Course-example
+binding, the Tutor manifest defaultStrategy and then the built-in strategy
+apply. A repository defaultStrategy therefore affects arbitrary programs too.
 
 Topic selection is:
 
 1. applicable active-example primaryTopic;
 2. other applicable active-example bound topics;
 3. applicable topics matched from extracted sketch facts;
-4. no repository topic, so use the free Tutor path.
+4. no repository topic, so use the free Tutor path without changing the
+   already selected EffectiveTutorStrategy.
 
 Bindings are preferences, not factual authority. If editing makes a bound
 topic inapplicable, it is skipped. The matcher may select another applicable
@@ -421,6 +521,13 @@ The following are application-owned and cannot be changed by repository data:
 - HTTPS, allowlist, SSRF, redirect, path, size, count, timeout, and cache
   limits;
 - immutable SHA loading and same-revision consistency.
+
+Strategy values are bounded teaching data, not instructions. They cannot
+override the system or safety prompt, the one-primary-question invariant, the
+current sketch as factual authority, no-full-solution/replacement-sketch
+rules, provider isolation, credential/privacy rules, Mermaid safety, response
+schemas, answerRating semantics, persistent-storage rules, maximum lengths, or
+validation behavior.
 
 No Tutor YAML may contain systemPrompt, prompt, role, rawPrompt,
 promptTemplate, JavaScript, executable expressions, arbitrary regexes, URLs,
