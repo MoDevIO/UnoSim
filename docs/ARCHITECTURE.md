@@ -123,7 +123,14 @@ may control the free Tutor without providing topics.
 
 The current sketch remains factual authority. Example bindings only prioritize
 applicable topics and strategies; edited code can make them inapplicable.
-Repository data enters only structured didactic context. The application-owned
+Topic planning and strategy selection are independent: a Topic describes what
+should be learned, while the EffectiveTutorStrategy describes how the Tutor
+teaches. Every normal Tutor request uses exactly one effective strategy,
+including arbitrary/local sketches, strategy-only repositories, Topic
+mismatches, Examples-only repositories, no repository, and invalid Tutor
+capability fallback. A no-Topic free Tutor keeps a valid repository
+defaultStrategy; it does not silently reset to built-in-default. Repository
+data enters only structured didactic context. The application-owned
 system prompt, safety rules, provider isolation, privacy rules, response
 validation, and editor boundary are never repository-controlled.
 

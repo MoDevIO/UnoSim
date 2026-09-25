@@ -101,6 +101,32 @@ weights already implemented by the pilot planner. Adaptive difficulty retains
 the existing LearningQuestions contract, including rating deltas
 -6/-3/0/+2/+4, the existing rating window, clamp, and step limits.
 
+### Strategy is behavior, not metadata
+
+Every normal Tutor request uses exactly one EffectiveTutorStrategy before the
+planner, prompt, or dialog behavior is produced. This includes planned and
+free Tutor requests, arbitrary/local sketches, strategy-only repositories,
+Topic mismatches, Examples-only repositories, no repository, and invalid Tutor
+capability fallback. Topic selection answers what should be learned; strategy
+selection answers how it should be taught. Reaching the free Tutor path does
+not reset a valid repository defaultStrategy to built-in-default.
+
+For a valid active Example, a defined per-example strategy wins; otherwise the
+validated Tutor manifest defaultStrategy wins; otherwise built-in-default wins.
+For an arbitrary/local sketch, the repository defaultStrategy is therefore
+still effective. A response that reports repository `strategySource` and
+`strategyId` without having consumed that strategy in the behavior-producing
+path is non-conformant.
+
+The strategy fields have operational semantics in the Course Content and
+LearningQuestions SSOTs. Question-kind weights are deterministic preferences,
+not frequency guarantees. Closed enum values control specificity, repetition,
+remediation, clarification, progression, scaffolding, feedback verbosity, and
+hint sequencing in both planned and free paths. Schema-version-1
+`current-contract` delegates adaptive difficulty to the existing contract and
+cannot redefine deltas. All guidance is application-owned text derived from
+normalized data; the repository cannot provide prompt instructions.
+
 ## Strategy safety boundary
 
 Repository strategies use a strict versioned schema with closed enums and
