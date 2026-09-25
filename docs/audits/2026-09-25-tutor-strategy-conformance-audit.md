@@ -1,7 +1,7 @@
 # Tutor Strategy Conformance Audit
 
-Date: 2026-09-25  
-Baseline: `6f3676d40fb5ce5f8eab625d035b77f2f99b9016`  
+Date: 2026-09-25
+Baseline: `6f3676d40fb5ce5f8eab625d035b77f2f99b9016`
 Stage-A SSOT commit: `cc516953`
 
 ## Scope and conclusion
