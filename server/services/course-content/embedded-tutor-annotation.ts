@@ -5,7 +5,7 @@ export const EMBEDDED_TUTOR_ANNOTATION_MAX_BYTES = 16 * 1024;
 const OPENING_MARKER = "/* @unosim-tutor";
 const CLOSING_MARKER = "@end-unosim-tutor */";
 const SAFE_TUTOR_ID = /^[a-z][a-z0-9-]{0,63}$/;
-const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/u;
+const CONTROL_CHARACTER = /\p{Cc}/u;
 
 const learningObjectiveSchema = z.preprocess(
   (value) => typeof value === "string" ? value.trim() : value,
@@ -44,74 +44,99 @@ export type EmbeddedTutorAnnotationResult =
   | { readonly status: "valid"; readonly cleanedSource: string; readonly annotation: ExampleTutorAnnotation }
   | { readonly status: "invalid"; readonly cleanedSource: string; readonly reason: string };
 
+type AnnotationBoundary = {
+  readonly opening: number;
+  readonly payloadStart: number;
+  readonly closing: number;
+  readonly closingEnd: number;
+};
+
+type AnnotationBoundaryResult =
+  | { readonly status: "absent" }
+  | { readonly status: "invalid"; readonly cleanedSource: string; readonly reason: string }
+  | { readonly status: "found"; readonly boundary: AnnotationBoundary };
+
 export function extractEmbeddedTutorAnnotation(
   source: string,
   fileName: string,
-  options: { readonly isMainFile: boolean } = { isMainFile: fileName.toLowerCase().endsWith(".ino") },
+  options?: { readonly isMainFile: boolean },
 ): EmbeddedTutorAnnotationResult {
-  const firstOpening = source.indexOf(OPENING_MARKER);
-  const firstClosing = source.indexOf(CLOSING_MARKER);
-  if (firstOpening < 0 && firstClosing < 0) return { status: "absent", cleanedSource: source };
+  const boundary = findAnnotationBoundary(source, fileName, options?.isMainFile ?? fileName.toLowerCase().endsWith(".ino"));
+  if (boundary.status === "absent") return { status: "absent", cleanedSource: source };
+  if (boundary.status === "invalid") return boundary;
 
-  if (firstOpening < 0) {
-    return invalidResult("Malformed Tutor annotation marker", "");
-  }
-
-  const openingOccurrences = countOccurrences(source, OPENING_MARKER);
-  if (openingOccurrences !== 1) {
-    return invalidResult("Tutor annotation is duplicated", cleanFrom(source, firstOpening));
-  }
-
-  if (!options.isMainFile || !fileName.toLowerCase().endsWith(".ino")) {
-    return invalidResult("Tutor annotation is not in the declared main .ino file", cleanFrom(source, firstOpening));
-  }
-
-  const openingLineStart = source.lastIndexOf("\n", firstOpening - 1) + 1;
-  if (source.slice(openingLineStart, firstOpening).trim() !== "") {
-    return invalidResult("Tutor annotation must start on its own line", cleanFrom(source, firstOpening));
-  }
-
-  const afterOpening = firstOpening + OPENING_MARKER.length;
-  const lineBreakLength = source.startsWith("\r\n", afterOpening) ? 2 : source[afterOpening] === "\n" ? 1 : 0;
-  if (lineBreakLength === 0) {
-    return invalidResult("Tutor annotation opening marker is malformed", cleanFrom(source, firstOpening));
-  }
-
-  const closing = source.indexOf(CLOSING_MARKER, afterOpening + lineBreakLength);
-  if (closing < 0) {
-    return invalidResult("Tutor annotation is unterminated", cleanFrom(source, firstOpening));
-  }
-
-  const closingLineStart = source.lastIndexOf("\n", closing - 1) + 1;
-  const closingEnd = closing + CLOSING_MARKER.length;
-  const trailing = source.slice(closingEnd);
-  if (source.slice(closingLineStart, closing).trim() !== "" || /\S/u.test(trailing)) {
-    return invalidResult("Tutor annotation is not terminal", cleanWithoutBlock(source, firstOpening, closingEnd));
-  }
-
-  if (Buffer.byteLength(source.slice(firstOpening, closingEnd), "utf8") > EMBEDDED_TUTOR_ANNOTATION_MAX_BYTES) {
-    return invalidResult("Tutor annotation exceeds the byte limit", cleanFrom(source, firstOpening));
+  if (Buffer.byteLength(source.slice(boundary.boundary.opening, boundary.boundary.closingEnd), "utf8") > EMBEDDED_TUTOR_ANNOTATION_MAX_BYTES) {
+    return invalidResult("Tutor annotation exceeds the byte limit", cleanFrom(source, boundary.boundary.opening));
   }
 
   let parsed: unknown;
   try {
-    const payload = source.slice(afterOpening + lineBreakLength, closing);
+    const payload = source.slice(boundary.boundary.payloadStart, boundary.boundary.closing);
     if (containsYamlTag(payload)) throw new Error("YAML tags are not allowed");
     parsed = parseYaml(payload, { schema: "core", uniqueKeys: true });
   } catch {
-    return invalidResult("Tutor annotation YAML is invalid", cleanFrom(source, firstOpening));
+    return invalidResult("Tutor annotation YAML is invalid", cleanFrom(source, boundary.boundary.opening));
   }
 
   const annotation = embeddedTutorAnnotationSchema.safeParse(parsed);
   if (!annotation.success) {
-    return invalidResult("Tutor annotation schema is invalid", cleanFrom(source, firstOpening));
+    return invalidResult("Tutor annotation schema is invalid", cleanFrom(source, boundary.boundary.opening));
   }
 
   return {
     status: "valid",
-    cleanedSource: cleanTerminalSource(source.slice(0, firstOpening)),
+    cleanedSource: cleanTerminalSource(source.slice(0, boundary.boundary.opening)),
     annotation: annotation.data,
   };
+}
+
+function findAnnotationBoundary(source: string, fileName: string, isMainFile: boolean): AnnotationBoundaryResult {
+  const firstOpening = source.indexOf(OPENING_MARKER);
+  const firstClosing = source.indexOf(CLOSING_MARKER);
+  if (firstOpening < 0 && firstClosing < 0) return { status: "absent" };
+  if (firstOpening < 0) return invalidBoundary("Malformed Tutor annotation marker", "");
+
+  if (countOccurrences(source, OPENING_MARKER) !== 1) {
+    return invalidBoundary("Tutor annotation is duplicated", cleanFrom(source, firstOpening));
+  }
+  if (!isMainFile || !fileName.toLowerCase().endsWith(".ino")) {
+    return invalidBoundary("Tutor annotation is not in the declared main .ino file", cleanFrom(source, firstOpening));
+  }
+
+  const openingLineStart = source.lastIndexOf("\n", firstOpening - 1) + 1;
+  if (source.slice(openingLineStart, firstOpening).trim() !== "") {
+    return invalidBoundary("Tutor annotation must start on its own line", cleanFrom(source, firstOpening));
+  }
+
+  const afterOpening = firstOpening + OPENING_MARKER.length;
+  const lineBreakLength = getLineBreakLength(source, afterOpening);
+  if (lineBreakLength === 0) {
+    return invalidBoundary("Tutor annotation opening marker is malformed", cleanFrom(source, firstOpening));
+  }
+
+  const payloadStart = afterOpening + lineBreakLength;
+  const closing = source.indexOf(CLOSING_MARKER, payloadStart);
+  if (closing < 0) return invalidBoundary("Tutor annotation is unterminated", cleanFrom(source, firstOpening));
+
+  const closingLineStart = source.lastIndexOf("\n", closing - 1) + 1;
+  const closingEnd = closing + CLOSING_MARKER.length;
+  const trailing = source.slice(closingEnd);
+  const closingIsOnOwnLine = source.slice(closingLineStart, closing).trim() === "";
+  if (!closingIsOnOwnLine || /\S/u.test(trailing)) {
+    return invalidBoundary("Tutor annotation is not terminal", cleanWithoutBlock(source, firstOpening, closingEnd));
+  }
+
+  return { status: "found", boundary: { opening: firstOpening, payloadStart, closing, closingEnd } };
+}
+
+function invalidBoundary(reason: string, cleanedSource: string): AnnotationBoundaryResult {
+  return { status: "invalid", reason, cleanedSource: cleanTerminalSource(cleanedSource) };
+}
+
+function getLineBreakLength(source: string, offset: number): number {
+  if (source.startsWith("\r\n", offset)) return 2;
+  if (source[offset] === "\n") return 1;
+  return 0;
 }
 
 function invalidResult(reason: string, cleanedSource: string): EmbeddedTutorAnnotationResult {

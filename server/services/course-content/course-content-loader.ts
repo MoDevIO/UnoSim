@@ -107,11 +107,14 @@ export class CourseContentLoader {
       throw new ExamplesError("INVALID_SNAPSHOT", "External examples exceed the total size limit");
     }
 
-    const tutor = invalidEmbeddedAnnotation
-      ? { status: "invalid" as const, reason: "Tutor capability is invalid" }
-      : validation.tutor.status === "valid"
-        ? await this.loadTutor(base, validation.tutor.descriptor.manifest, exampleTutorAnnotations, signal)
-        : validation.tutor;
+    let tutor: TutorCapability;
+    if (invalidEmbeddedAnnotation) {
+      tutor = { status: "invalid", reason: "Tutor capability is invalid" };
+    } else if (validation.tutor.status === "valid") {
+      tutor = await this.loadTutor(base, validation.tutor.descriptor.manifest, exampleTutorAnnotations, signal);
+    } else {
+      tutor = validation.tutor;
+    }
     const activeAnnotations = tutor.status === "invalid" ? new Map<string, ExampleTutorAnnotation>() : exampleTutorAnnotations;
     const tutorBytes = tutor.status === "valid"
       ? tutor.topics.reduce((sum, topic) => sum + JSON.stringify(topic).length, 0)
