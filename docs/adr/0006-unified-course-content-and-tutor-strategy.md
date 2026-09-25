@@ -49,7 +49,9 @@ The server loads and validates a complete immutable snapshot before activating
 the Examples capability. Tutor validation is a separate capability-scoped
 transaction within that revision. A Tutor-only failure leaves valid Examples
 active and disables the entire Tutor repository capability. No partial Tutor
-bundle can activate.
+bundle can activate. Example-specific Tutor metadata is authored in an
+optional terminal annotation in the declared main `.ino` file, extracted at
+the server boundary, and carried separately from cleaned Example source.
 
 Every Tutor request receives one normalized EffectiveTutorStrategy. The
 repository strategy and the built-in built-in-default strategy use the same
@@ -64,9 +66,11 @@ reference tutor/manifest.yaml.
 
 The Tutor manifest enumerates only explicit topic and strategy files, each with
 an ID, safe relative path, and SHA-256 digest. Empty topic or strategy lists
-are valid. Example-level Tutor metadata may bind topics, a primary topic, and
-a strategy. Binding metadata is optional and cannot override sketch
-applicability.
+are valid. Example-level Tutor metadata is an optional validated annotation
+containing embedded topics, a primary topic, a strategy, and bounded
+`learningObjectives`. It is not a raw prompt and cannot override sketch
+applicability. Manifest-level per-Example Tutor bindings are not the canonical
+authoring mechanism and are not part of the published schema-v2 contract.
 
 Tutor topics own learning content: concepts, prerequisites, objectives,
 misconceptions, indicators, mastery, questions, content-specific scaffolds,
@@ -111,7 +115,7 @@ capability fallback. Topic selection answers what should be learned; strategy
 selection answers how it should be taught. Reaching the free Tutor path does
 not reset a valid repository defaultStrategy to built-in-default.
 
-For a valid active Example, a defined per-example strategy wins; otherwise the
+For a valid active Example, a defined embedded Example strategy wins; otherwise the
 validated Tutor manifest defaultStrategy wins; otherwise built-in-default wins.
 For an arbitrary/local sketch, the repository defaultStrategy is therefore
 still effective. A response that reports repository `strategySource` and
@@ -145,19 +149,22 @@ didactic User-context paths.
 
 Strategy precedence is deterministic:
 
-1. per-example strategy;
+1. embedded Example strategy;
 2. Tutor manifest default strategy;
 3. built-in strategy.
 
 Topic precedence is deterministic:
 
-1. applicable example primary topic;
-2. other applicable example-bound topics;
+1. applicable embedded Example primary topic;
+2. other applicable embedded Example topics;
 3. fact-matched repository topics;
 4. free Tutor path when no topic applies.
 
-The current sketch remains factual authority. Bindings never force a question
-whose requirements do not match current sketch facts.
+The current sketch remains factual authority. Embedded topics never force a
+question whose requirements do not match current sketch facts. Validated
+Example learning objectives are additional didactic emphasis in both planned
+and free Tutor paths; they do not replace Topic objectives, change strategy
+semantics, or authorize invented sketch facts.
 
 The fallback matrix is:
 

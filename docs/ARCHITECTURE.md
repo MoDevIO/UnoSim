@@ -121,10 +121,13 @@ is used without a repository, for Examples-only repositories, for topic
 mismatches, and after any invalid Tutor capability. A valid repository strategy
 may control the free Tutor without providing topics.
 
-The current sketch remains factual authority. Example bindings only prioritize
-applicable topics and strategies; edited code can make them inapplicable.
-Topic planning and strategy selection are independent: a Topic describes what
-should be learned, while the EffectiveTutorStrategy describes how the Tutor
+The current sketch remains factual authority. Embedded Example annotations only
+prioritize applicable topics and strategies; edited code can make an embedded
+topic inapplicable. They may also provide bounded teacher learning objectives,
+which remain additional didactic emphasis and are passed separately from the
+cleaned sketch source. Topic planning and strategy selection are independent: a
+Topic describes what should be learned, learning objectives describe
+Example-specific emphasis, while EffectiveTutorStrategy describes how the Tutor
 teaches. Every normal Tutor request uses exactly one effective strategy,
 including arbitrary/local sketches, strategy-only repositories, Topic
 mismatches, Examples-only repositories, no repository, and invalid Tutor
@@ -133,6 +136,14 @@ defaultStrategy; it does not silently reset to built-in-default. Repository
 data enters only structured didactic context. The application-owned
 system prompt, safety rules, provider isolation, privacy rules, response
 validation, and editor boundary are never repository-controlled.
+
+The server extracts an optional terminal `@unosim-tutor` annotation from only
+the declared main `.ino` file before the Example leaves the Course Content
+boundary. The browser/editor, compiler, and simulator receive cleaned source
+without the annotation. A structurally recognized invalid or unterminated
+annotation is stripped or hidden deterministically, keeps valid Examples
+usable, and invalidates the complete repository Tutor capability; no partial
+Tutor bundle or teacher metadata may leak to the student.
 
 The old separate Tutor source is superseded. The in-tree curriculum files are
 fixtures and authoring examples only. The normative details are in

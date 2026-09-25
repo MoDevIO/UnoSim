@@ -288,6 +288,26 @@ Course Content. The underlying browser key and API names remain compatible
 unless a concrete migration is required. A Tutor-specific repository, ref
 picker, or browser preference is forbidden.
 
+### 11.1 Embedded Tutor annotation boundary
+
+Example-specific Tutor data is authored only in an optional terminal
+`/* @unosim-tutor ... @end-unosim-tutor */` block in the Example's declared
+main `.ino` file. The block is extracted and validated by the server while
+the immutable Course Content snapshot is loaded. It is not part of the
+student-facing Example source and is never passed through the browser editor,
+compiler, or simulator. The Tutor receives the validated annotation data as a
+separate snapshot field.
+
+There may be zero or one block per Example. Blocks in headers or secondary
+files, duplicate blocks, blocks in the middle of executable source, and
+unterminated blocks are invalid. A valid block must be followed only by
+whitespace. For a structurally recognized but invalid block, the server strips
+the block before exposing the source, marks the Tutor capability invalid, and
+keeps otherwise valid Examples usable. An unterminated block hides the
+recognized suffix through end-of-file; no teacher metadata is exposed or
+executed. The exact annotation schema and bounded learning-objective rules
+are defined in the Course Content and LearningQuestions SSOTs.
+
 ## 12. Capability-scoped validation
 
 A repository snapshot has two capabilities:
@@ -297,8 +317,8 @@ A repository snapshot has two capabilities:
 
 The root manifest is validated in separate phases. Core schema and Examples
 references determine Examples validity. The optional Tutor descriptor,
-Tutor manifest, referenced topic/strategy files, hashes, and Example Tutor
-bindings determine Tutor capability validity.
+Tutor manifest, referenced topic/strategy files, hashes, and embedded Example
+Tutor annotations determine Tutor capability validity.
 
 A Tutor-only validation failure MUST NOT invalidate otherwise valid Examples.
 The server SHALL activate valid Examples and mark Tutor capability invalid,
@@ -311,7 +331,7 @@ never silently cross-fallback to content from another repository or revision.
 
 Root schema v1 remains the existing Examples-only manifest and remains
 unchanged. Root schema v2 may reference an optional Tutor manifest. The
-unified format, Tutor schemas, binding rules, and fallback matrix are
+unified format, Tutor schemas, annotation rules, and fallback matrix are
 normatively defined in
 ssot_function_definition_CourseContent.md.
 
