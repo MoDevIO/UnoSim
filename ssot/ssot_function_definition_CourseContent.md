@@ -265,6 +265,11 @@ strategies:
 
 defaultStrategy is optional. topics and strategies may each be empty; this
 explicitly supports a strategy-only repository and a topics-only repository.
+The fixed optional `phaseStrategies.deepen` and `phaseStrategies.expand`
+entries belong to a future versioned Tutor manifest schema extension for
+mastery-driven progression; they may reference only strategies enumerated in
+the same validated bundle. The existing Tutor manifest schema remains valid
+when the field is absent.
 IDs are unique, lower-case safe IDs. File counts, individual file sizes, total
 Tutor bytes, and total referenced files are bounded by server configuration.
 
@@ -276,6 +281,9 @@ Tutor capability validation is all-or-nothing:
 - an unknown field, unsupported schema version, duplicate ID, invalid path,
   invalid dependency, cyclic dependency, or broken question/scaffold/mastery
   reference invalidates the whole Tutor capability;
+- an invalid phase-strategy reference, malformed bounded deepening criterion,
+  unknown extension target, or invalid extension data invalidates the whole
+  Tutor capability;
 - an annotation referring to an unknown topic or strategy invalidates the
   whole Tutor capability;
 - an invalid embedded annotation invalidates the whole Tutor capability but
@@ -298,7 +306,9 @@ Topics describe what should be learned. A generic topic owns:
 - question text/data, question kind, applicability requirements, and
   difficulty ranges;
 - content-specific scaffolds and their next-question references;
-- entry concepts and preferred concept order.
+- entry concepts and preferred concept order;
+- optional bounded deepening criteria and Topic extension targets as defined in
+  section 9.2.
 
 The supported question kinds remain exactly:
 recall, concept, application, prediction, and transfer.
@@ -316,6 +326,12 @@ the generic schema. The existing pilot fields are normalized as follows:
 
 Repository text is untrusted educational data. It is bounded, control-character
 checked, URL-free, and passed only as structured didactic context.
+
+The deepening criteria and extension fields are future versioned Topic schema
+extensions. A repository using them must declare the supported schema version;
+an implementation that does not support that version invalidates the Tutor
+capability rather than partially activating the Topic. The existing schema-v1
+Topics remain valid and use the normative application default for deepening.
 
 ## 9. Strategy model
 
@@ -472,6 +488,146 @@ The operational meaning of the strategy fields is:
 The LLM is not required to produce a question-kind distribution matching the
 configured weights. All guidance text is owned by UnoSim and is generated from
 the normalized closed values; repository files never supply raw instructions.
+
+### 9.2 Mastery-driven didactic progression
+
+Topic, EffectiveTutorStrategy, and didactic phase are separate concerns:
+
+- a Topic defines **WHAT** is learned;
+- the EffectiveTutorStrategy defines **HOW** the Tutor teaches;
+- the didactic phase defines **WHERE** the learner is in the bounded
+  progression.
+
+The only normative phases are `LEARN`, `DEEPEN`, and `EXPAND`. Repository
+content cannot define additional phase names. A phase is not a strategy ID and
+must not be represented only by changing strategy metadata.
+
+Formal phase progression exists only while one validated repository Topic is
+the active primary Topic. A free Tutor without an active Topic remains normal
+free Tutor behavior and does not claim formal Topic mastery. This restriction
+also applies to arbitrary sketches with no matching Topic.
+
+Topic mastery is application-controlled and deterministic. For the active
+Topic, a concept is eligible for Topic mastery when the current facts make at
+least one of its questions applicable. Topic mastery requires every eligible
+concept to satisfy its existing concept-level mastery criteria; a Topic with no
+eligible concept is not mastered. The application evaluates the existing
+fields as follows:
+
+- `minimumSuccessfulProbes` counts rated, valid probes for that concept whose
+  `answerRating` meets that concept's `successRatingAtLeast`;
+- `successRatingAtLeast` is the minimum `answerRating` that makes a probe
+  successful;
+- `requiredIndicators` requires at least one such successful probe for every
+  listed indicator;
+- `minimumDistinctQuestionKinds` requires the successful probes to contain the
+  configured number of distinct question kinds;
+- `recentWeakAnswersAllowed` uses the existing trailing weak-answer semantics:
+  a weak answer is an `answerRating` of `1` or `2`, and the relevant suffix
+  after the latest non-weak observation must not exceed the configured
+  allowance. It is not a free-form time window;
+- one rated Tutor turn is one observation tied to one validated question,
+  concept, indicator, and kind. It may count simultaneously as one successful
+  probe, one indicator observation, and one question kind, but it cannot satisfy
+  multiple indicator IDs by itself.
+
+After each valid rated Tutor turn, the application reevaluates the active
+Topic's mastery against all accumulated evidence. Mastery evidence and
+`effectiveDifficulty` are separate values: the existing adaptive-difficulty
+algorithm may influence question selection, but difficulty neither declares
+mastery nor replaces any mastery criterion.
+
+A strong answer is evidence only. The LLM cannot declare Topic mastery, and a
+`5` does not bypass any configured mastery criterion. After all criteria become
+true, the application latches that Topic as mastered for the current session
+and revision. Weak later answers do not erase that latch while the Topic and
+sketch context remain valid. A source/context change that makes the Topic
+inapplicable ends the active Topic state; if the Topic is selected again after a
+new sketch context, it starts in `LEARN` rather than inheriting prior mastery.
+
+The transition `LEARN -> DEEPEN` occurs immediately when deterministic Topic
+mastery changes from false to true. It does not require a special user control
+or another LLM judgment. DEEPEN remains centered on that Topic and prefers
+application, prediction, transfer, changed examples, consequences, and small
+conceptual variations. It must not activate an unrelated Topic.
+
+The Topic may optionally define bounded deepening criteria in a future Topic
+schema extension. The normative default for the first phase-enabled schema
+version is two successful post-mastery probes, each rated at least `4`, with
+at least one `transfer` probe and no trailing weak probe. Configured criteria
+may only use bounded numeric values, the fixed question kinds `application`,
+`prediction`, and `transfer`, and the same trailing-weak semantics. Deepening
+evidence starts at the LEARN-to-DEEPEN transition; pre-mastery answers do not
+count toward it. When the criteria are met, `DEEPEN -> EXPAND` occurs
+deterministically.
+
+`learningObjectives` remain applicable didactic emphasis in all three phases:
+they may guide question, deepening, and extension direction, but they never
+define mastery, activate a Topic, or select a strategy. EXPAND may present a
+bounded extension direction or transfer challenge. It may
+not edit the sketch, provide a normal full solution, force a Topic, or claim a
+new Topic is active. If the learner does not change the sketch, the Tutor may
+continue bounded transfer, offer another finite extension direction, or revisit
+a demonstrated gap, subject to the existing anti-loop rules. It must not repeat
+the same extension indefinitely or fabricate a new Topic.
+
+An optional Topic extension list is bounded structured data:
+
+~~~yaml
+extensions:
+  - topic: functions
+    objective: Repeated behavior can be moved into a function.
+~~~
+
+Each Topic may contain at most eight extensions. Each entry has only a safe
+target Topic ID and a trimmed bounded objective/reason (maximum 500 Unicode
+characters, no control characters, URLs, prompts, roles, templates, scripts,
+or expressions). The target must exist in the same validated Tutor bundle.
+An extension is educational guidance, never activation authority. The target
+becomes active only when the normal fact matcher proves it applicable to the
+current changed sketch.
+
+After a sketch edit, UnoSim re-extracts facts and reruns normal Topic
+precedence. If a new primary Topic is selected, that Topic starts independently
+in `LEARN`; previous Topic mastery is not transferred across Topics. Multiple
+applicable Topics remain candidates, but only one primary Topic and one primary
+question exist at a time.
+
+The minimal post-mastery strategy design is a fixed phase-strategy map in a
+future versioned Tutor manifest schema extension:
+
+~~~yaml
+phaseStrategies:
+  deepen: exploration-policy
+  expand: exploration-policy
+~~~
+
+Only the fixed keys `deepen` and `expand` are allowed. LEARN continues to use
+the existing strategy precedence. For DEEPEN and EXPAND, a valid embedded
+Example strategy remains highest priority, then the configured phase strategy,
+then the repository `defaultStrategy`, then `built-in-default`. A missing phase
+entry falls back to the already effective LEARN strategy. A phase strategy
+reference that is unknown or invalid invalidates the complete Tutor capability;
+no partial phase graph activates. Direct phase references do not chain to other
+phase references, so circular transition ambiguity is impossible. This design
+supports repository-controlled post-mastery strategy changes without a general
+scripting or workflow language.
+
+Didactic phase state is session-local and pinned to the same immutable Course
+revision as the Tutor content. Conceptually it includes the revision, active
+Topic, phase, mastered Topic IDs, per-Topic mastery evidence, and post-mastery
+evidence. It is not a persistent learner model, grade, or cross-session profile.
+Course selection, revision, or source-context changes reset it with the existing
+Tutor dialog. A new learning question or new dialog starts a fresh didactic
+session in the current validated Course context: dialog history, active Topic,
+phase, mastery evidence, deepening evidence, session rating, and effective
+difficulty reset; configured start difficulty, provider/model choice, and the
+transient credential behavior retain their existing contracts.
+
+The complete phase transition contract is defined in
+ssot_function_definition_LearningQuestions.md and ADR 0007. The repository
+cannot change the one-question, factual-authority, privacy, security, response,
+or automatic-editor boundaries.
 
 An observed response is conformant only when `strategySource` and
 `strategyId` identify the EffectiveTutorStrategy that actually influenced the
