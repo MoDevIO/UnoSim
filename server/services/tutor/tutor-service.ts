@@ -446,13 +446,38 @@ function validateLearningQuestion(result: TutorContentResult, difficulty?: Tutor
     ...resultWithoutMermaid,
     ...(sanitizedMermaid ? { mermaid: sanitizedMermaid } : {}),
   });
-  if (!parsed.success || containsCompleteSolution(parsed.data.question) || (parsed.data.feedback !== undefined && containsCompleteSolution(parsed.data.feedback))) {
+  if (
+    !parsed.success
+    || (parsed.data.question.match(/\?/g)?.length ?? 0) > 1
+    || containsCompleteSolution(parsed.data.question)
+    || (parsed.data.feedback !== undefined && containsCompleteSolution(parsed.data.feedback))
+  ) {
     throw new TutorProviderError("invalid-response");
   }
   if (parsed.data.responseStyle === "philosophical" && parsed.data.answerRating !== undefined) {
     throw new TutorProviderError("invalid-response");
   }
   return difficulty === undefined ? parsed.data : { ...parsed.data, difficulty };
+}
+
+function stripProviderPlanningMetadata(result: TutorContentResult): TutorContentResult {
+  const {
+    topicId: _topicId,
+    conceptId: _conceptId,
+    questionId: _questionId,
+    indicatorId: _indicatorId,
+    questionKind: _questionKind,
+    strategyId: _strategyId,
+    strategySource: _strategySource,
+    contentRevision: _contentRevision,
+    learningPhase: _learningPhase,
+    activeTopicId: _activeTopicId,
+    masteredTopicIds: _masteredTopicIds,
+    progressionBlockedReason: _progressionBlockedReason,
+    extensionTargetTopicId: _extensionTargetTopicId,
+    ...content
+  } = result;
+  return content;
 }
 
 function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): TutorContentResult {
@@ -584,7 +609,7 @@ export class TutorService {
       },
       requestCredential,
     );
-    const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
+    const validatedResult = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
     const plannedResult = planningResult
       ? applyPlanningOutcome(validatedResult, planningResult)
       : applyStrategyMetadata(validatedResult, strategy);
@@ -625,7 +650,7 @@ export class TutorService {
       },
       requestCredential,
     );
-    const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
+    const validatedResult = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
     if (validatedResult.responseStyle === "normal" && validatedResult.answerRating === undefined) {
       throw new TutorProviderError("invalid-response");
     }
