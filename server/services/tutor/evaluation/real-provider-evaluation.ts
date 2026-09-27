@@ -19,6 +19,9 @@ import type { TutorProgressionState } from "../curriculum/progression-state";
 
 export type TutorQualityExecutionStatus = "completed" | "invalid" | "technical-failure" | "not-run";
 
+export const MAX_TUTOR_QUALITY_SAMPLES = 20;
+export const MAX_TUTOR_QUALITY_CALLS = 500;
+
 export type TutorQualityTurn =
   | {
     readonly kind: "initial";
@@ -900,7 +903,9 @@ function invalidPreflightReason(options: TutorQualityEvaluationOptions): string 
   if (!options.git.sha) return "git-sha-missing";
   if (!options.git.trackedClean || !options.git.relevantUntrackedClean) return "dirty-relevant-worktree";
   if (!Number.isInteger(options.samples) || options.samples < 1) return "invalid-sample-count";
+  if (options.samples > MAX_TUTOR_QUALITY_SAMPLES) return "sample-count-exceeds-limit";
   if (!Number.isInteger(options.maxCalls) || options.maxCalls < 0) return "invalid-call-budget";
+  if (options.maxCalls > MAX_TUTOR_QUALITY_CALLS) return "call-budget-exceeds-limit";
   if (options.scenarios.length === 0) return "empty-corpus";
   const first = options.scenarios[0];
   if (options.scenarios.some((scenario) => scenario.corpusId !== first?.corpusId || scenario.corpusVersion !== first?.corpusVersion)) {

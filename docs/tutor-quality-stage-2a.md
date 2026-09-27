@@ -29,6 +29,9 @@ run-level `report.json` with `runStatus: "not-run"`,
 `reason: "missing-credential"`, zero provider calls, and no sample
 transcripts.
 
+Each invocation is bounded to at most 20 samples per scenario and 500 total
+provider calls. The CLI rejects larger values before any provider call.
+
 ## Artifacts
 
 `report.json` contains the run identity, corpus/course/prompt/provider/model

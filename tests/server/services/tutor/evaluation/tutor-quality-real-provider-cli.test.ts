@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  MAX_TUTOR_QUALITY_CALLS,
+  MAX_TUTOR_QUALITY_SAMPLES,
   loadTutorQualityEvaluationScenarios,
   isTutorQualityRelevantUntrackedPath,
   parseTutorQualityCliArgs,
@@ -33,6 +35,8 @@ describe("Tutor Quality real-provider CLI contract", () => {
   it("rejects malformed numeric limits and credential values", () => {
     expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--samples", "0"])).toThrow();
     expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--credential-env", "not-a-value"])).toThrow();
+    expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--samples", String(MAX_TUTOR_QUALITY_SAMPLES + 1)])).toThrow();
+    expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--max-calls", String(MAX_TUTOR_QUALITY_CALLS + 1)])).toThrow();
   });
 
   it("does not treat protected editor SSOT files or the output directory as relevant inputs", () => {

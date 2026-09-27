@@ -4,6 +4,8 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAnchorCourseContent } from "../../../../../server/services/tutor/evaluation/anchor-course-content";
 import {
+  MAX_TUTOR_QUALITY_CALLS,
+  MAX_TUTOR_QUALITY_SAMPLES,
   runTutorQualityEvaluation,
   type TutorQualityEvaluationScenario,
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
@@ -287,6 +289,18 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     }));
     expect(unavailable.report).toMatchObject({ runStatus: "invalid", reason: "model-unavailable" });
     expect(unavailable.report.providerCalls).toMatchObject({ total: 1, generationCalls: 0 });
+
+    const unboundedSamples = await runTutorQualityEvaluation(options(providerFor({ question: "Welche Beobachtung ist belegt?" }), {
+      samples: MAX_TUTOR_QUALITY_SAMPLES + 1,
+    }));
+    expect(unboundedSamples.report).toMatchObject({ runStatus: "invalid", reason: "sample-count-exceeds-limit" });
+    expect(unboundedSamples.report.providerCalls.total).toBe(0);
+
+    const unboundedCalls = await runTutorQualityEvaluation(options(providerFor({ question: "Welche Beobachtung ist belegt?" }), {
+      maxCalls: MAX_TUTOR_QUALITY_CALLS + 1,
+    }));
+    expect(unboundedCalls.report).toMatchObject({ runStatus: "invalid", reason: "call-budget-exceeds-limit" });
+    expect(unboundedCalls.report.providerCalls.total).toBe(0);
   });
 
   it("does not apply a learner answer to an arbitrary preceding real-model question", async () => {

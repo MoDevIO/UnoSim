@@ -11,6 +11,8 @@ import {
   type TutorQualityTurnSource,
 } from "../server/services/tutor/evaluation/anchor-corpus";
 import {
+  MAX_TUTOR_QUALITY_CALLS,
+  MAX_TUTOR_QUALITY_SAMPLES,
   runTutorQualityEvaluation,
   type TutorQualityEvaluationScenario,
   type TutorQualityGitState,
@@ -44,10 +46,11 @@ function readArgument(argv: readonly string[], index: number, flag: string): str
   return value;
 }
 
-function parsePositiveInteger(value: string, flag: string, allowZero = false): number {
+function parsePositiveInteger(value: string, flag: string, allowZero = false, maximum?: number): number {
   if (!/^\d+$/.test(value)) throw new Error(`${flag} must be an integer`);
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || (allowZero ? parsed < 0 : parsed < 1)) throw new Error(`${flag} is out of range`);
+  if (maximum !== undefined && parsed > maximum) throw new Error(`${flag} exceeds maximum ${maximum}`);
   return parsed;
 }
 
@@ -71,11 +74,11 @@ export function parseTutorQualityCliArgs(argv: readonly string[]): TutorQualityC
         index += 1;
         break;
       case "--samples":
-        samples = parsePositiveInteger(readArgument(argv, index, flag), flag);
+        samples = parsePositiveInteger(readArgument(argv, index, flag), flag, false, MAX_TUTOR_QUALITY_SAMPLES);
         index += 1;
         break;
       case "--max-calls":
-        maxCalls = parsePositiveInteger(readArgument(argv, index, flag), flag, true);
+        maxCalls = parsePositiveInteger(readArgument(argv, index, flag), flag, true, MAX_TUTOR_QUALITY_CALLS);
         index += 1;
         break;
       case "--output-dir":
