@@ -54,7 +54,7 @@ export function isTutorPlan(result: TutorPlanningResult | null): result is Tutor
 }
 
 export interface TutorPlanningExtension {
-  resolveStrategy?(input: { readonly courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution>;
+  resolveStrategy?(input: { readonly code?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution>;
   planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<TutorPlanningResult | null>;
   planFollowup(input: {
     readonly code: string;

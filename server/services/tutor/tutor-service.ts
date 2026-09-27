@@ -505,7 +505,7 @@ export class TutorService {
   ): Promise<{ result: TutorContentResult; model: string }> {
     const requestCredential = this.resolveCredential(credential);
     const context = buildTutorContext(code);
-    const strategy = await this.resolveStrategy(courseContent);
+    const strategy = await this.resolveStrategy(code, courseContent);
     const planningResult = this.planningExtension
       ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent })
       : null;
@@ -541,7 +541,7 @@ export class TutorService {
     const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent] = args;
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
-    const strategy = await this.resolveStrategy(courseContent);
+    const strategy = await this.resolveStrategy(code, courseContent);
     if (isClearlyNonLearningAnswer(answer)) {
       return {
         model: requestedModel ?? "fallback",
@@ -599,10 +599,10 @@ export class TutorService {
     return availableModels.includes(model) ? model : "auto";
   }
 
-  private async resolveStrategy(courseContent?: TutorPlanningContentContext): Promise<StrategyResolution> {
+  private async resolveStrategy(code?: string, courseContent?: TutorPlanningContentContext): Promise<StrategyResolution> {
     if (this.planningExtension?.resolveStrategy) {
       try {
-        return await this.planningExtension.resolveStrategy({ courseContent });
+        return await this.planningExtension.resolveStrategy({ code, courseContent });
       } catch {
         // A strategy resolver is optional planning context; the built-in policy remains authoritative.
       }

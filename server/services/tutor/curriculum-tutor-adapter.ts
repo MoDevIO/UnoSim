@@ -66,10 +66,11 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     this.planner = deps.planner ?? new DefaultLearningPlanner();
   }
 
-  async resolveStrategy(input: { courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution> {
+  async resolveStrategy(input: { code?: string; courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution> {
     try {
       const snapshot = input.courseContent ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
-      return this.resolveSnapshotStrategy(snapshot);
+      const phase = this.resolveActivePhase(snapshot, input.code);
+      return this.resolveSnapshotStrategy(snapshot, undefined, phase);
     } catch {
       return resolveEffectiveTutorStrategy({});
     }
@@ -245,6 +246,16 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       ? undefined
       : tutor.strategies.find(({ id }) => id === phaseStrategyId);
     return resolveEffectiveTutorStrategy({ perExample, repositoryDefault: phaseStrategy ?? repositoryDefault });
+  }
+
+  private resolveActivePhase(snapshot: TutorPlanningContentContext | null, code?: string): DidacticPhase {
+    const state = snapshot?.progressionState;
+    if (!snapshot || !code || !state || !state.activeTopicId || !state.phase || state.phase === "LEARN") return "LEARN";
+    if (state.revision !== snapshot.revision || snapshot.tutor?.status !== "valid") return "LEARN";
+    const facts = this.factExtractor.extract(code);
+    return this.topicMatcher.match(snapshot.tutor.topics, facts).some(({ topic }) => topic.id === state.activeTopicId)
+      ? state.phase
+      : "LEARN";
   }
 }
 

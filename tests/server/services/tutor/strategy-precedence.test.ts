@@ -130,4 +130,32 @@ describe("Tutor strategy precedence", () => {
     await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
       .resolves.toMatchObject({ strategyId: exploration.id, learningPhase: "DEEPEN" });
   });
+
+  it("returns to the repository default when the retained Topic is no longer applicable", async () => {
+    const tutor = await topic();
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = tutor.id;
+    state.phase = "DEEPEN";
+    state.retainedPhases[tutor.id] = "DEEPEN";
+    markTopicMastered(state, tutor.id);
+    const repositoryDefault = strategy("repository-default");
+    const exploration = strategy("exploration-policy");
+    const provider = {
+      listModels: async () => ["pilot-model"],
+      generateLearningQuestion: async () => ({ model: "pilot-model", result: { question: "Was passiert?" } }),
+    };
+    const context = {
+      revision,
+      progressionState: state,
+      tutor: {
+        status: "valid" as const,
+        manifest: { schemaVersion: 2 as const, defaultStrategy: repositoryDefault.id, phaseStrategies: { deepen: exploration.id }, topics: [], strategies: [repositoryDefault, exploration] },
+        topics: [tutor],
+        strategies: [repositoryDefault, exploration],
+      },
+    };
+    await expect(new TutorService(provider, new CurriculumTutorAdapter()).generateQuestion(
+      "void setup(){} void loop(){}", "key", undefined, 30, context,
+    )).resolves.toMatchObject({ result: { strategyId: repositoryDefault.id, strategySource: "repository" } });
+  });
 });
