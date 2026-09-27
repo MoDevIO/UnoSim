@@ -38,14 +38,30 @@ export const courseContentStrategyEntrySchema = z.object({
   sha256: z.string().regex(/^[a-f0-9]{64}$/i),
 }).strict();
 
-export const courseContentTutorManifestSchema = z.object({
+const tutorManifestV1Schema = z.object({
   schemaVersion: z.literal(1),
   defaultStrategy: z.string().regex(SAFE_ID).optional(),
   topics: z.array(courseContentTopicEntrySchema).max(64),
   strategies: z.array(courseContentStrategyEntrySchema).max(64),
 }).strict();
 
+const phaseStrategiesSchema = z.object({
+  deepen: z.string().regex(SAFE_ID).optional(),
+  expand: z.string().regex(SAFE_ID).optional(),
+}).strict();
+
+const tutorManifestV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  defaultStrategy: z.string().regex(SAFE_ID).optional(),
+  topics: z.array(courseContentTopicEntrySchema).max(64),
+  strategies: z.array(courseContentStrategyEntrySchema).max(64),
+  phaseStrategies: phaseStrategiesSchema.optional(),
+}).strict();
+
+export const courseContentTutorManifestSchema = z.union([tutorManifestV1Schema, tutorManifestV2Schema]);
+
 export type CourseContentTutorManifest = z.infer<typeof courseContentTutorManifestSchema>;
+export type TutorPhase = "LEARN" | "DEEPEN" | "EXPAND";
 
 type InvalidCapability = { readonly status: "invalid"; readonly reason: string };
 

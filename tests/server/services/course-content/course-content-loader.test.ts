@@ -207,4 +207,85 @@ describe("unified Course Content loader", () => {
     expect(loaded.examples).toHaveLength(1);
     expect(loaded.tutor).toMatchObject({ status: "invalid" });
   });
+
+  it("loads manifest and Topic v2 phase data atomically", async () => {
+    const topicV1 = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
+    const topic = topicV1.replace("schemaVersion: 1", "schemaVersion: 2\nextensions:\n  - topic: memory-and-data-types\n    objective: Ein verwandtes Beispiel vergleichen.\n");
+    const strategy = [
+      "schemaVersion: 1",
+      "id: repository-default",
+      "questionKindWeights:",
+      "  recall: 10",
+      "  concept: 25",
+      "  application: 35",
+      "  prediction: 15",
+      "  transfer: 15",
+      "sketchSpecificity: prefer",
+      "repetition: strict",
+      "remediation: scaffold-first",
+      "clarification: same-indicator",
+      "progression: mastery-then-advance",
+      "scaffolding: prefer-content",
+      "feedbackVerbosity: short",
+      "hintFirst: true",
+      "adaptiveDifficulty: current-contract",
+      "",
+    ].join("\n");
+    const manifest = [
+      "schemaVersion: 2",
+      "defaultStrategy: repository-default",
+      "phaseStrategies:",
+      "  deepen: repository-default",
+      "  expand: repository-default",
+      "topics:",
+      "  - id: memory-and-data-types",
+      "    path: tutor/topics/memory-and-data-types.yaml",
+      `    sha256: ${digest(topic)}`,
+      "strategies:",
+      "  - id: repository-default",
+      "    path: tutor/strategies/repository-default.yaml",
+      `    sha256: ${digest(strategy)}`,
+      "",
+    ].join("\n");
+    const { fetchText } = fetcherFor({
+      [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({ schemaVersion: 2, examples: [example], tutor: { manifest: "tutor/manifest.yaml" } }),
+      [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}\n",
+      [`/owner/repo/${revision}/tutor/manifest.yaml`]: manifest,
+      [`/owner/repo/${revision}/tutor/topics/memory-and-data-types.yaml`]: topic,
+      [`/owner/repo/${revision}/tutor/strategies/repository-default.yaml`]: strategy,
+    });
+
+    const loaded = await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision);
+    expect(loaded.tutor).toMatchObject({ status: "valid", manifest: { schemaVersion: 2 } });
+    if (loaded.tutor.status === "valid") {
+      expect(loaded.tutor.topics[0]?.schemaVersion).toBe(2);
+      expect(loaded.tutor.manifest.schemaVersion === 2 && loaded.tutor.manifest.phaseStrategies?.deepen).toBe("repository-default");
+    }
+  });
+
+  it("invalidates the complete Tutor bundle for an unknown phase strategy or extension target", async () => {
+    const topicV1 = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
+    const topic = topicV1.replace("schemaVersion: 1", "schemaVersion: 2\nextensions:\n  - topic: missing-topic\n    objective: Unbekanntes Ziel.\n");
+    const manifest = [
+      "schemaVersion: 2",
+      "phaseStrategies:",
+      "  deepen: missing-strategy",
+      "topics:",
+      "  - id: memory-and-data-types",
+      "    path: tutor/topics/memory-and-data-types.yaml",
+      `    sha256: ${digest(topic)}`,
+      "strategies: []",
+      "",
+    ].join("\n");
+    const { fetchText } = fetcherFor({
+      [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({ schemaVersion: 2, examples: [example], tutor: { manifest: "tutor/manifest.yaml" } }),
+      [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}\n",
+      [`/owner/repo/${revision}/tutor/manifest.yaml`]: manifest,
+      [`/owner/repo/${revision}/tutor/topics/memory-and-data-types.yaml`]: topic,
+    });
+
+    const loaded = await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision);
+    expect(loaded.examples).toHaveLength(1);
+    expect(loaded.tutor).toMatchObject({ status: "invalid" });
+  });
 });

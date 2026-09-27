@@ -14,7 +14,15 @@ import {
   type LLMProvider,
   type ProviderQuestionResult,
 } from "./llm-provider";
-import type { TutorPlan, TutorPlanningContentContext, TutorPlanningExtension } from "./tutor-planning";
+import {
+  isTutorPlan,
+  isTutorPlanningBlocked,
+  type TutorPlan,
+  type TutorPlanningBlocked,
+  type TutorPlanningContentContext,
+  type TutorPlanningExtension,
+  type TutorPlanningTransition,
+} from "./tutor-planning";
 import {
   BUILT_IN_TUTOR_STRATEGY,
   resolveEffectiveTutorStrategy,
@@ -22,6 +30,10 @@ import {
   type StrategyResolution,
 } from "./strategy/effective-tutor-strategy";
 import { buildTutorLearningObjectivesGuidance, buildTutorStrategyGuidance } from "./strategy/tutor-strategy-guidance";
+import {
+  cloneTutorProgressionState,
+  commitTutorProgressionState,
+} from "./curriculum/progression-state";
 
 const UNSAFE_MERMAID_PATTERNS = [
   /https?:\/\//i,
@@ -461,7 +473,43 @@ function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): Tutor
     ...(feedback ? { feedback } : {}),
     ...(plan.strategyId ? { strategyId: plan.strategyId } : {}),
     ...(plan.strategySource ? { strategySource: plan.strategySource } : {}),
+    ...(plan.learningPhase ? { learningPhase: plan.learningPhase } : {}),
+    ...(plan.activeTopicId ? { activeTopicId: plan.activeTopicId } : {}),
+    ...(plan.masteredTopicIds ? { masteredTopicIds: [...plan.masteredTopicIds] } : {}),
+    ...(plan.progressionBlockedReason ? { progressionBlockedReason: plan.progressionBlockedReason } : {}),
+    ...(plan.extensionTargetTopicId ? { extensionTargetTopicId: plan.extensionTargetTopicId } : {}),
   };
+}
+
+function applyBlockedResult(result: TutorContentResult, blocked: TutorPlanningBlocked): TutorContentResult {
+  return {
+    ...result,
+    strategyId: blocked.strategyId,
+    strategySource: blocked.strategySource,
+    learningPhase: blocked.learningPhase,
+    ...(blocked.activeTopicId ? { activeTopicId: blocked.activeTopicId } : {}),
+    masteredTopicIds: [...blocked.masteredTopicIds],
+    progressionBlockedReason: blocked.progressionBlockedReason,
+    contentRevision: blocked.contentRevision,
+  };
+}
+
+function applyTransitionResult(result: TutorContentResult, transition: TutorPlanningTransition): TutorContentResult {
+  return {
+    ...result,
+    strategyId: transition.strategyId,
+    strategySource: transition.strategySource,
+    learningPhase: transition.learningPhase,
+    ...(transition.activeTopicId ? { activeTopicId: transition.activeTopicId } : {}),
+    masteredTopicIds: [...transition.masteredTopicIds],
+    contentRevision: transition.contentRevision,
+  };
+}
+
+function applyPlanningOutcome(result: TutorContentResult, planningResult: Exclude<Awaited<ReturnType<TutorPlanningExtension["planInitial"]>>, null>): TutorContentResult {
+  if (isTutorPlan(planningResult)) return applyPlanningResult(result, planningResult);
+  if (isTutorPlanningBlocked(planningResult)) return applyBlockedResult(result, planningResult);
+  return applyTransitionResult(result, planningResult);
 }
 
 function applyStrategyMetadata(result: TutorContentResult, strategy: StrategyResolution): TutorContentResult {
@@ -469,6 +517,31 @@ function applyStrategyMetadata(result: TutorContentResult, strategy: StrategyRes
     ...result,
     strategyId: strategy.strategy.id,
     strategySource: strategy.source === "built-in" ? "built-in" : "repository",
+  };
+}
+
+type PlanningResult = Exclude<Awaited<ReturnType<TutorPlanningExtension["planInitial"]>>, null>;
+
+type TutorPlanningTransaction = {
+  readonly courseContent?: TutorPlanningContentContext;
+  commit(): void;
+};
+
+function beginTutorPlanningTransaction(courseContent?: TutorPlanningContentContext): TutorPlanningTransaction {
+  const persistedState = courseContent?.progressionState;
+  if (!persistedState) return { courseContent, commit: () => undefined };
+  const workingState = cloneTutorProgressionState(persistedState);
+  return {
+    courseContent: { ...courseContent, progressionState: workingState },
+    commit: () => commitTutorProgressionState(persistedState, workingState),
+  };
+}
+
+function strategyFromPlanningResult(planningResult: PlanningResult | null): StrategyResolution | undefined {
+  if (!planningResult?.effectiveStrategy) return undefined;
+  return {
+    strategy: planningResult.effectiveStrategy,
+    source: planningResult.strategySource === "built-in" ? "built-in" : "repository",
   };
 }
 
@@ -487,10 +560,11 @@ export class TutorService {
   ): Promise<{ result: TutorContentResult; model: string }> {
     const requestCredential = this.resolveCredential(credential);
     const context = buildTutorContext(code);
-    const strategy = await this.resolveStrategy(courseContent);
+    const transaction = beginTutorPlanningTransaction(courseContent);
     const planningResult = this.planningExtension
-      ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent })
+      ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent: transaction.courseContent })
       : null;
+    const strategy = strategyFromPlanningResult(planningResult) ?? await this.resolveStrategy(code, transaction.courseContent);
     const providerResult: ProviderQuestionResult = await this.provider.generateLearningQuestion(
       {
         model: await this.resolveModel(requestedModel, requestCredential),
@@ -499,17 +573,18 @@ export class TutorService {
           code,
           context,
           difficulty,
-          planningResult ?? undefined,
+          planningResult && isTutorPlan(planningResult) ? planningResult : undefined,
           strategy.strategy,
-          courseContent?.exampleTutorAnnotation?.learningObjectives,
+          transaction.courseContent?.exampleTutorAnnotation?.learningObjectives,
         ),
       },
       requestCredential,
     );
     const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
     const plannedResult = planningResult
-      ? applyPlanningResult(validatedResult, planningResult)
+      ? applyPlanningOutcome(validatedResult, planningResult)
       : applyStrategyMetadata(validatedResult, strategy);
+    transaction.commit();
     const { answerRating: _initialAnswerRating, ...initialResult } = plannedResult;
     return {
       model: providerResult.model,
@@ -521,21 +596,27 @@ export class TutorService {
     const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent] = args;
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
-    const strategy = await this.resolveStrategy(courseContent);
+    const transaction = beginTutorPlanningTransaction(courseContent);
     if (isClearlyNonLearningAnswer(answer)) {
+      const strategy = await this.resolveStrategy(code, transaction.courseContent);
       return {
         model: requestedModel ?? "fallback",
         result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty), strategy),
       };
     }
     const context = buildTutorContext(code);
+    const currentPlanningResult = this.planningExtension
+      ? await this.planningExtension.planInitial({ code, history: parsedHistory, difficulty, courseContent: transaction.courseContent })
+      : null;
+    const strategy = strategyFromPlanningResult(currentPlanningResult) ?? await this.resolveStrategy(code, transaction.courseContent);
     const providerResult = await this.provider.generateLearningQuestion(
       {
         model: await this.resolveModel(requestedModel, requestCredential),
         systemPrompt: TUTOR_SYSTEM_PROMPT,
         userPrompt: buildDialogPrompt(code, context, parsedHistory, question, answer, difficulty, {
+          didacticBrief: currentPlanningResult && isTutorPlan(currentPlanningResult) ? currentPlanningResult : undefined,
           strategy: strategy.strategy,
-          learningObjectives: courseContent?.exampleTutorAnnotation?.learningObjectives,
+          learningObjectives: transaction.courseContent?.exampleTutorAnnotation?.learningObjectives,
         }),
       },
       requestCredential,
@@ -548,10 +629,11 @@ export class TutorService {
       ? ensureDistinctDialogQuestion(validatedResult, code, parsedHistory, question, strategy.strategy)
       : validatedResult;
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
-      const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent });
-      if (nextPlan) distinctResult = applyPlanningResult(validatedResult, nextPlan);
+      const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent: transaction.courseContent });
+      if (nextPlan) distinctResult = applyPlanningOutcome(validatedResult, nextPlan);
     }
     if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
+    transaction.commit();
     return {
       model: providerResult.model,
       result: distinctResult,
@@ -578,10 +660,10 @@ export class TutorService {
     return availableModels.includes(model) ? model : "auto";
   }
 
-  private async resolveStrategy(courseContent?: TutorPlanningContentContext): Promise<StrategyResolution> {
+  private async resolveStrategy(code?: string, courseContent?: TutorPlanningContentContext): Promise<StrategyResolution> {
     if (this.planningExtension?.resolveStrategy) {
       try {
-        return await this.planningExtension.resolveStrategy({ courseContent });
+        return await this.planningExtension.resolveStrategy({ code, courseContent });
       } catch {
         // A strategy resolver is optional planning context; the built-in policy remains authoritative.
       }

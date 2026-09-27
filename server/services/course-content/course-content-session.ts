@@ -3,6 +3,7 @@ import type { ExamplesRef, FullCommitSha, RepositorySlug } from "@shared/example
 import type { RequestContext } from "../examples/source-provider";
 import type { TutorCapability } from "./course-content-loader";
 import type { ExampleTutorAnnotation } from "./embedded-tutor-annotation";
+import { createTutorProgressionState, type TutorProgressionState } from "../tutor/curriculum/progression-state";
 
 export interface TutorCourseContentRequest {
   readonly repository: RepositorySlug;
@@ -14,6 +15,7 @@ export interface TutorCourseContentRequest {
 export interface ResolvedTutorCourseContent extends TutorCourseContentRequest {
   readonly tutor: TutorCapability;
   readonly exampleTutorAnnotation?: ExampleTutorAnnotation;
+  readonly progressionState?: TutorProgressionState;
 }
 
 export interface TutorCourseContentResolver {
@@ -38,7 +40,10 @@ export class TutorCourseContentSessionStore {
   create(identity: string, content: ResolvedTutorCourseContent): string {
     this.prune();
     const handle = randomUUID();
-    this.sessions.set(handle, { identity, content, expiresAt: this.now() + this.ttlMs });
+    const pinnedContent = content.progressionState
+      ? content
+      : { ...content, progressionState: createTutorProgressionState(content.revision) };
+    this.sessions.set(handle, { identity, content: pinnedContent, expiresAt: this.now() + this.ttlMs });
     return handle;
   }
 

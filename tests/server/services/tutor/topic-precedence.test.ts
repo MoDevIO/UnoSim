@@ -3,6 +3,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
+import { createTutorProgressionState, markTopicMastered } from "../../../../server/services/tutor/curriculum/progression-state";
+import type { TutorDialogTurn } from "../../../../shared/tutor";
 
 const revision = "a".repeat(40);
 
@@ -57,5 +59,111 @@ describe("Tutor topic precedence", () => {
 
     const noMatch = await adapter([memory]).planInitial({ code: "void setup(){} void loop(){}", history: [], difficulty: 30 });
     expect(noMatch).toBeNull();
+  });
+
+  it("skips a mastered Topic and keeps the next applicable Topic in LEARN", async () => {
+    const primary = await pilotTopic();
+    const secondary = { ...primary, id: "arrays" };
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = primary.id;
+    markTopicMastered(state, primary.id);
+    const result = await new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: {
+            status: "valid" as const,
+            manifest: { schemaVersion: 1 as const, topics: [], strategies: [] },
+            topics: [primary, secondary],
+            strategies: [],
+          },
+          exampleTutorAnnotation: { schemaVersion: 1 as const, topics: [primary.id, secondary.id], primaryTopic: primary.id },
+        }),
+      },
+    }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+    expect(result).toMatchObject({ topicId: "arrays", learningPhase: "LEARN" });
+  });
+
+  it("reports content exhaustion instead of treating an unresolved Topic as mastered", async () => {
+    const memory = await pilotTopic();
+    const history: TutorDialogTurn[] = memory.questions.map((question) => ({
+      question: question.text ?? question.template ?? question.id,
+      questionId: question.id,
+      answer: "Antwort",
+      responseStyle: "normal",
+      answerRating: 3,
+    }));
+    const result = await adapter([memory]).planInitial({ code: "int values[] = {1, 2};", history, difficulty: 30 });
+    expect(result).toMatchObject({ kind: "blocked", progressionBlockedReason: "content-exhausted", learningPhase: "LEARN" });
+  });
+
+  it("uses an extension only as guidance after normal fact matching activates its target", async () => {
+    const source = await pilotTopic();
+    const primary = { ...source, schemaVersion: 2 as const, id: "memory", extensions: [{ topic: "arrays", objective: "Ein Array-Beispiel vergleichen." }] };
+    const target = { ...source, schemaVersion: 2 as const, id: "arrays" };
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = primary.id;
+    state.phase = "EXPAND";
+    state.retainedPhases[primary.id] = "EXPAND";
+    markTopicMastered(state, primary.id);
+    const result = await new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: {
+            status: "valid" as const,
+            manifest: { schemaVersion: 2 as const, topics: [], strategies: [] },
+            topics: [primary, target],
+            strategies: [],
+          },
+        }),
+      },
+    }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+    expect(result).toMatchObject({ topicId: "arrays", learningPhase: "LEARN", extensionTargetTopicId: "arrays" });
+  });
+
+  it("guides EXPAND with an extension objective without activating its target", async () => {
+    const source = await pilotTopic();
+    const primary = {
+      ...source,
+      schemaVersion: 2 as const,
+      id: "memory",
+      extensions: [{ topic: "arrays", objective: "Ein Array-Beispiel vergleichen." }],
+    };
+    const target = {
+      ...source,
+      schemaVersion: 2 as const,
+      id: "arrays",
+      activation: { any: [{ fact: "serial-call" as const, values: ["write"] }] },
+    };
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = primary.id;
+    state.phase = "EXPAND";
+    state.retainedPhases[primary.id] = "EXPAND";
+    markTopicMastered(state, primary.id);
+    const adapter = new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: {
+            status: "valid" as const,
+            manifest: { schemaVersion: 2 as const, topics: [], strategies: [] },
+            topics: [primary, target],
+            strategies: [],
+          },
+        }),
+      },
+    });
+
+    const expansion = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+    expect(expansion).toMatchObject({ topicId: primary.id, learningPhase: "EXPAND", activeTopicId: primary.id });
+    expect(expansion).toMatchObject({ expansionBrief: { sourceTopicId: primary.id, targetTopicId: target.id, objective: "Ein Array-Beispiel vergleichen." } });
+    expect(expansion).not.toMatchObject({ activeTopicId: target.id, extensionTargetTopicId: target.id });
+
+    const activated = await adapter.planInitial({ code: "int values[] = {1, 2}; void setup(){ Serial.write('A'); }", history: [], difficulty: 30 });
+    expect(activated).toMatchObject({ topicId: target.id, learningPhase: "LEARN", activeTopicId: target.id, extensionTargetTopicId: target.id });
   });
 });

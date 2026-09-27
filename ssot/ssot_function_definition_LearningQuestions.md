@@ -51,7 +51,10 @@ Das Lernfragen-Panel ist ausdrücklich **nicht** vorgesehen für:
 - dauerhafte Speicherung persönlicher LLM-Zugangsdaten,
 - direkte Kommunikation Browser → externer LLM-Provider.
 
-Eine spätere Erweiterung um längere Dialogverläufe, Challenges oder adaptive Lernpfade ist möglich, aber nicht Bestandteil des initialen MVP-Vertrags.
+Längere Dialogverläufe, Challenges und allgemeine adaptive Lernpfade bleiben
+außerhalb des initialen MVP-Vertrags. Der in Abschnitt 2.3 definierte,
+begrenzte und ausschließlich sitzungsgebundene Topic-Phasenzyklus ist davon
+ausgenommen und wird mit diesem SSOT-Update ausdrücklich normativ.
 
 ### Unified Course Content and Tutor strategy
 
@@ -245,6 +248,352 @@ The built-in strategy values are the normative new UnoSim teaching policy:
 `mastery-then-advance`, `prefer-content`, `short`, `true`, and
 `current-contract`. The weights do not claim to reproduce a pre-existing
 planner weighting.
+
+### 2.3 Mastery-driven didactic progression
+
+The Tutor distinguishes three independent concerns:
+
+| Concern | Answers |
+|---|---|
+| Topic | WHAT the learner should learn |
+| EffectiveTutorStrategy | HOW the Tutor teaches |
+| Didactic phase | WHERE the learner is in the bounded progression |
+
+The only phases are `LEARN`, `DEEPEN`, and `EXPAND`. They are application-owned
+state, not repository-defined names and not alternate strategy IDs. A normal
+Tutor request still uses exactly one EffectiveTutorStrategy in every phase.
+
+Formal mastery-driven phases require one active, applicable repository Topic.
+This includes arbitrary sketches when a Topic matches. A free Tutor without an
+active Topic remains ordinary sketch-grounded free Tutor behavior and does not
+claim formal Topic mastery, DEEPEN, or EXPAND.
+
+The phase-related content versions are explicit. Tutor manifest
+`schemaVersion: 1` has no `phaseStrategies`; manifest `schemaVersion: 2`
+retains all v1 fields and may add only the fixed `deepen` and `expand` phase
+strategy references. Curriculum Topic `schemaVersion: 1` has no `deepening`
+or `extensions`; Topic `schemaVersion: 2` retains all v1 semantics and may
+add those bounded fields. Future implementations support both versions, and
+strict v1 validation does not reinterpret v2-only fields.
+
+#### LEARN
+
+LEARN is the normal Topic-learning phase. It combines current sketch facts,
+the active Topic, concepts, indicators, mastery criteria, applicable Example
+learning objectives, and the EffectiveTutorStrategy. Its purpose is to gather
+deterministic evidence; an LLM may produce a validated `answerRating` and
+indicator metadata, but it cannot declare mastery.
+
+The existing concept-level mastery fields have these exact meanings:
+
+- `minimumSuccessfulProbes`: number of rated, valid observations for the
+  concept whose rating meets that concept's `successRatingAtLeast`;
+- `successRatingAtLeast`: minimum `answerRating` for a successful probe;
+- `requiredIndicators`: every listed indicator must have at least one
+  successful observation tied to that indicator;
+- `minimumDistinctQuestionKinds`: successful observations must contain at least
+  this many distinct question kinds;
+- `recentWeakAnswersAllowed`: the trailing suffix of relevant observations
+  after the latest non-weak observation may contain at most this many weak
+  answers. A weak answer is an `answerRating` of `1` or `2`. The current
+  contract uses this trailing weak streak, not an arbitrary sliding time
+  window.
+
+One normal rated turn creates one observation associated with one validated
+question, concept, indicator, and question kind. It may simultaneously count
+as one successful probe, one indicator observation, and one distinct kind, but
+one turn cannot satisfy multiple indicator IDs. A strong answer is therefore
+evidence, not a special mastery command; all configured criteria must hold.
+
+After each valid rated Tutor turn, the application reevaluates the active
+Topic's mastery against all accumulated evidence. Mastery evidence and
+`effectiveDifficulty` are separate values: the existing adaptive-difficulty
+algorithm may influence question selection, but difficulty neither declares
+mastery nor replaces any mastery criterion.
+
+Topic activation and Topic mastery use two explicit domains. The
+`TopicMatcher` activation result is only a candidate. A question is
+fact-applicable when it is schema-valid and every question `requires` entry
+matches the current sketch facts. A concept is in the current Topic mastery
+domain when at least one of its questions is fact-applicable. A Topic is a
+probeable acquisition candidate when it has a non-empty mastery domain and the
+normal planner can produce at least one fact-applicable question under the
+active strategy, difficulty, repetition, and anti-loop rules.
+
+A Topic activation match with a non-empty mastery domain, unmet mastery
+criteria, and no probeable question is an unmastered unresolved diagnostic
+result and must not silently be treated as mastered or used to enter DEEPEN. A
+Topic activation match with an empty mastery domain is not mastered and is not
+an acquisition candidate or progression blocker; it cannot justify a Topic
+question or a mastery claim. A mastery-domain concept whose applicable
+questions are exhausted or otherwise cannot currently produce a fresh probe
+remains an unmet blocker when its mastery criteria are false; it is not
+silently removed from the domain.
+Existing evidence may still satisfy it if its criteria are already true.
+
+In the transition rules below, “currently applicable Topic” means a normal
+TopicMatcher match that is also a probeable acquisition candidate. A bare
+activation match with no valid probe does not qualify as an unmastered
+acquisition Topic.
+
+The current Topic schema expresses factual applicability on Questions, not on
+Concepts or individual mastery indicators. It therefore cannot statically
+guarantee that every required indicator has a fact-applicable probe for every
+sketch. This contract does not invent concept-level requirements: when such a
+probe is unavailable, the concept remains unresolved and blocks Topic mastery.
+That is an explicit authoring/runtime limitation for the current schema.
+
+Topic mastery is true only when every concept in the non-empty current mastery
+domain satisfies its concept-level mastery criteria. A concept with no
+fact-applicable question is outside that evaluation and creates no false
+requirement. A Topic with no mastery-domain concept is not mastered. This
+aggregation is deterministic and application-controlled.
+
+Each relevant Topic is classified as exactly one of: mastered; unmastered and
+probeable; or unmastered and unresolved. An unresolved Topic has a non-empty
+current mastery domain with unmet Concept mastery requirements, but the normal
+planner cannot currently produce a valid fresh probe. It is not equivalent to
+mastery or to an inapplicable Topic.
+
+If no probeable unmastered Topic remains but an applicable unresolved
+unmastered Topic remains, progression is blocked. The conceptual phase remains
+LEARN, the application emits the safe diagnostic
+`progressionBlockedReason: content-exhausted`, and it never marks the Topic
+mastered or enters DEEPEN. The existing null-plan free-Tutor fallback may
+provide one bounded, user-initiated sketch-grounded remediation question under
+the normal safety contract, without Topic mastery claims or new Topic
+evidence. If no safe free response can be produced, the request fails as a
+controlled content-exhaustion condition without mutating mastery or phase
+state.
+
+Once true, mastery is latched for that Topic in the current Tutor session and
+Course revision. Topic applicability controls whether the Topic may currently
+be used; it does not erase session-local mastery evidence. When a learner edit
+makes a mastered Topic fact-inapplicable, UnoSim suspends it as the active
+Topic but retains its mastered state, evidence, and retained `DEEPEN` or
+`EXPAND` phase. No fact-dependent question or Topic claim may use it while
+inapplicable. If it becomes fact-applicable again in the same session, it
+remains mastered and resumes that retained phase rather than restarting LEARN.
+A new Tutor dialog/session or a Course source, ref, revision, or
+example-context reset clears the retained state under the existing reset
+contract.
+
+`learningObjectives` remain additional teacher-authored emphasis in LEARN,
+DEEPEN, and EXPAND. They may guide the question, deepening, or extension
+direction, but never define mastery, activate a Topic, or select a strategy.
+
+#### LEARN to DEEPEN
+
+When the active Topic reaches mastery, UnoSim recomputes currently applicable
+Topics and applies normal precedence: applicable embedded primary Topic, other
+applicable embedded Topics, then fact-matched repository Topics. Mastered
+Topics are skipped for acquisition selection during the current session. If an
+applicable unmastered and probeable Topic remains, the highest-precedence such
+Topic becomes active and remains in LEARN. Thus a mastered Topic A plus an
+applicable probeable unmastered Topic B selects Topic B in LEARN, never DEEPEN
+on A.
+
+If no probeable unmastered Topic remains but an unresolved unmastered Topic
+remains, the blocked LEARN outcome applies. DEEPEN is admitted only when every
+currently relevant acquisition Topic is mastered or no longer fact-applicable,
+and no unresolved unmastered Topic remains. A Topic activation match with an
+empty mastery domain is not a relevant acquisition Topic and is never treated
+as mastered. No special user control or additional LLM judgment is required;
+the internal phase is application-owned.
+
+#### DEEPEN
+
+DEEPEN remains centered on the mastered Topic. The planner and application
+guidance prefer applicable `application`, `prediction`, and `transfer`
+questions, changed examples, consequences, and small conceptual/code
+variations. Simple recall is avoided unless new evidence indicates a gap.
+DEEPEN does not activate an unrelated Topic.
+
+Deepening evidence begins when LEARN changes to DEEPEN. The normative default
+criterion for `DEEPEN -> EXPAND` is:
+
+- two successful post-mastery probes;
+- each has `answerRating >= 4`;
+- at least one probe is `transfer`;
+- no trailing weak probe.
+
+Topic `schemaVersion: 2` may configure bounded criteria using this structure:
+
+~~~yaml
+deepening:
+  minimumSuccessfulProbes: 2
+  successRatingAtLeast: 4
+  requiredQuestionKinds:
+    - transfer
+  recentWeakAnswersAllowed: 0
+~~~
+
+The bounds are probes `1..10`, success threshold `3..5`, one to three unique
+required kinds from `application`, `prediction`, and `transfer`, and trailing
+weak allowance `0..3`. An absent `deepening` configuration uses the default
+above. No expression language, arbitrary predicate, or repository prompt is
+allowed. Schema v1 Topics cannot contain this field.
+
+#### DEEPEN to EXPAND
+
+When the deterministic deepening criterion is satisfied, the phase becomes
+EXPAND. EXPAND may suggest a bounded extension, such as extracting repeated
+behavior into a function, processing multiple values, adding a timed action,
+or introducing a small data structure. The Tutor must not edit the sketch,
+provide a normal full finished solution, or claim a Topic is active before
+facts prove it. Every response still contains exactly one bounded primary
+question.
+
+If the learner does not change the sketch, the Tutor may continue bounded
+transfer questions, offer another finite extension direction, or revisit a
+demonstrated gap. It must not repeat the same extension indefinitely or invent
+a new Topic.
+
+#### Post-mastery strategy resolution
+
+The existing LEARN strategy precedence remains unchanged:
+
+1. valid embedded Example strategy;
+2. repository `defaultStrategy`;
+3. application-owned `built-in-default`.
+
+A Tutor manifest `schemaVersion: 2` may add only the fixed optional keys
+`phaseStrategies.deepen` and `phaseStrategies.expand`. Resolution for each
+post-mastery phase is:
+
+1. valid embedded Example strategy, if the active Example defines one;
+2. the configured strategy for that fixed phase, if present;
+3. repository `defaultStrategy`;
+4. `built-in-default`.
+
+If the phase entry is absent, the already effective LEARN strategy remains in
+force. Phase entries reference validated strategies directly and cannot chain
+or reference another phase. Unknown or invalid phase strategy references
+invalidate the complete Tutor capability under the existing capability-scoped
+fallback rule. Thus a repository can use `precision-policy` in LEARN and
+`exploration-policy` in DEEPEN/EXPAND without turning strategies into a
+workflow language. An embedded Example strategy remains the highest-priority
+Example-specific override in every phase.
+
+#### Topic extensions and EXPAND to new LEARN
+
+A Topic `schemaVersion: 2` may optionally declare at most eight bounded
+extensions:
+
+~~~yaml
+extensions:
+  - topic: functions
+    objective: Repeated behavior can be moved into a function.
+~~~
+
+Each entry contains only a safe target Topic ID and a trimmed objective/reason
+of at most 500 Unicode characters, without control characters, URLs, prompts,
+roles, templates, scripts, executable content, or expressions. The target must
+exist in the same validated Tutor bundle. Extension data is guidance only; a
+named target is never active merely because it is listed.
+
+After a learner edit, UnoSim re-extracts facts and reruns normal Topic
+selection. If a new unmastered Topic becomes applicable during DEEPEN or
+EXPAND, the highest-precedence currently applicable unmastered and probeable
+Topic becomes active and starts independently in LEARN. If a new unresolved
+unmastered Topic becomes applicable, progression leaves DEEPEN/EXPAND for the
+blocked LEARN state; it cannot be bypassed by the absence of a question. If
+the current Topic becomes inapplicable, the same selection is rerun: a
+probeable unmastered Topic starts in LEARN, an unresolved Topic blocks in LEARN,
+an applicable mastered Topic resumes its retained DEEPEN or EXPAND phase, and
+if no applicable Topic can be selected the Tutor falls back to free mode.
+Previous Topic IDs may remain as session history for loop avoidance and
+diagnostics, but their mastery is not carried across different Topic IDs or
+used as cross-topic competence.
+
+If several Topics are applicable, only one primary Topic drives the next
+question; the others remain candidates/context. The one-primary-question rule
+is unchanged.
+
+#### Session, reset, and persistence semantics
+
+Didactic state is pinned to the existing opaque Tutor session and immutable
+Course revision. Conceptually it contains:
+
+- the server-authorized revision;
+- active primary Topic ID;
+- current phase and any progression-blocked reason;
+- per-Topic mastery state and evidence;
+- retained per-Topic post-mastery/deepening phase evidence.
+
+The state is process-local and session-local like the current one-hour opaque
+Tutor-session store. It is not a persistent learner model, grade, or identity-
+based profile. A Course source, ref, revision, or example-context change resets
+the dialog and all didactic state; content from another revision is never
+substituted.
+
+`New learning question` and `New dialog` begin a fresh didactic session in the
+current validated Course context. They clear dialog history, session rating,
+active Topic, phase, mastery evidence, and deepening evidence, and reset
+`effectiveDifficulty` to the configured start value. They retain the existing
+configured start difficulty, provider/model selection, and transient credential
+behavior. A subsequent request reruns Topic selection and starts the selected
+Topic in LEARN. They do not create an autonomous request; the next Tutor call
+remains explicitly user initiated.
+
+An expired or unknown opaque session handle fails safely under the existing
+route contract. It cannot silently switch phase, Topic, revision, or strategy.
+Horizontal multi-instance deployment still requires shared session state or an
+explicitly designed equivalent such as sticky-session guarantees.
+
+#### Arbitrary sketches and free Tutor
+
+An arbitrary/self-written sketch uses repository Topic matching and repository
+default/built-in strategy resolution exactly as today. If a Topic matches,
+formal LEARN/DEEPEN/EXPAND progression is available. If no Topic matches,
+learning objectives are absent unless an active Example context supplies them,
+and free Tutor remains available with the selected EffectiveTutorStrategy but
+without formal Topic mastery claims.
+
+#### State-transition table
+
+| Current phase | Condition | Next phase | Active Topic | Strategy behavior |
+|---|---|---|---|---|
+| LEARN | Topic mastery criteria not all true | LEARN | unchanged Topic | LEARN precedence |
+| LEARN | Topic A mastered; applicable unmastered Topic B exists | LEARN | highest-precedence unmastered Topic | acquisition precedence; mastered Topics skipped |
+| LEARN | No probeable unmastered Topic, but unresolved unmastered Topic remains | LEARN (blocked) | highest-precedence unresolved Topic | `progressionBlockedReason: content-exhausted`; bounded free fallback only |
+| LEARN | All relevant acquisition Topics mastered or no longer fact-applicable; no unresolved blocker | DEEPEN | same mastered Topic | post-mastery resolution begins |
+| DEEPEN | insufficient successful transfer evidence | DEEPEN | same mastered Topic | prefer application/prediction/transfer |
+| DEEPEN | deepening criterion satisfied | EXPAND | same Topic | EXPAND phase strategy/fallback |
+| EXPAND | no sketch change or no new Topic | EXPAND, or bounded DEEPEN for a demonstrated gap | same Topic | anti-loop bounded extension/transfer behavior |
+| DEEPEN/EXPAND | new applicable unmastered Topic exists | LEARN | highest-precedence unmastered Topic | normal Topic precedence; new evidence |
+| DEEPEN/EXPAND | new applicable unresolved unmastered Topic exists | LEARN (blocked) | highest-precedence unresolved Topic | no DEEPEN/EXPAND; content-exhaustion handling |
+| EXPAND | changed sketch activates a new unmastered primary Topic | LEARN | highest-precedence unmastered Topic | new Topic starts/continues its own acquisition evidence |
+| Any phase | current Topic becomes inapplicable | rerun selection; unmastered probeable Topic starts LEARN, unresolved Topic blocks LEARN, mastered Topic resumes retained phase, or free Tutor | selected applicable Topic or none | no fact-dependent use while inactive |
+| Any phase | Tutor capability becomes invalid | free Tutor | none | built-in-default; no partial bundle |
+
+#### Diagnostics and security
+
+Safe diagnostics may expose `topicId`, `topicMastered`, `didacticPhase`,
+`strategyId`, `strategySource`, `postMasteryStrategyId`, bounded mastery
+evidence counts, and bounded extension candidate IDs. They must not expose raw
+repository payloads, hidden prompts, credentials, or private dialog history.
+
+The application owns all transition text and actual provider instructions.
+Repository phase settings, mastery criteria, extension objectives, and strategy
+IDs are normalized bounded data. They cannot control prompts, roles, URLs,
+regexes, scripts, templates, editor operations, response schemas, privacy,
+credentials, Mermaid safety, answerRating semantics, or automatic requests.
+
+#### Non-normative worked example
+
+An `int` value printed with `Serial.println` matches a
+`variables-and-serial` Topic. The session starts in LEARN with
+`precision-policy`. After all deterministic concept mastery criteria are met,
+the same Topic enters DEEPEN and uses `exploration-policy` when the repository
+phase map selects it. The Tutor asks a transfer question about changing the
+stored value or reusing the output idea. After sufficient successful
+post-mastery probes, EXPAND may suggest extracting repeated behavior into a
+function. The learner edits the sketch; only if the fact extractor and matcher
+prove a future `functions` Topic applicable does that Topic become active, and
+it starts in LEARN. UnoSim does not currently claim that its fact extractor
+detects function semantics; that final step is future behavior dependent on
+future extractor support.
 
 ---
 
@@ -922,7 +1271,9 @@ Sie umfasst höchstens das definierte Sliding Window und enthält keine Credenti
 - die aktuelle Modellwahl beibehalten.
 - den konfigurierten Difficulty-Startwert beibehalten,
 - die effektive Difficulty wieder auf den konfigurierten Startwert setzen,
-- die Sessionbewertung zurücksetzen.
+- die Sessionbewertung zurücksetzen,
+- den aktiven Topic, die didaktische Phase, die Mastery-Evidenz und die
+  Deepening-Evidenz zurücksetzen.
 
 Das Zurücksetzen darf keine automatische neue LLM-Anfrage auslösen.
 
@@ -1118,6 +1469,15 @@ Die Implementierung gilt erst als korrekt, wenn automatisierte Tests mindestens 
 - Dialog-Requests akzeptieren nur begrenzte Historien ohne Credentials,
 - erfolgreiche Dialog-Requests liefern optional Feedback und genau eine Folgefrage,
 - fehlgeschlagene Dialog-Requests verändern keinen gespeicherten Serverzustand,
+- Topic-Mastery wird ausschließlich aus validierten strukturierten Kriterien und
+  answerRating-Evidenz deterministisch berechnet,
+- LEARN → DEEPEN erfolgt ohne eine freie LLM-Mastery-Entscheidung,
+- DEEPEN → EXPAND benötigt die konfigurierte oder normative Deepening-Evidenz,
+- EXPAND aktiviert keinen Topic ohne erneute Fakt- und Topic-Matcher-Prüfung,
+- unbekannte Phase-Strategien oder Extension-Ziele invalidieren den Tutor-Bundle
+  atomar und lassen gültige Examples aktiv,
+- Course-Revision, Session-Pinning und didaktischer Zustand bleiben gemeinsam
+  konsistent,
 - Provider-Timeout wird behandelt,
 - 401/403/429/5xx des Providers werden kontrolliert abgebildet,
 - Secrets erscheinen nicht in Logs oder Responses.
@@ -1190,7 +1550,8 @@ Nicht Teil des MVP:
 
 - automatische Prüfungsbewertung oder Benotung freier Studierendenantworten,
 - unbegrenzter oder langfristig gespeicherter Chatverlauf,
-- automatische Kompetenzmodelle,
+- persistente oder automatische Kompetenzmodelle; der begrenzte, deterministische
+  Topic-Phasenzyklus in Abschnitt 2.3 ist ausdrücklich kein solches Modell,
 - Notengebung,
 - automatisches Ändern des Sketches,
 - langfristige Speicherung von Lernverläufen,

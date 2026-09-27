@@ -31,6 +31,7 @@ export const TUTOR_RATING_DIFFICULTY_DELTAS: Record<TutorAnswerRating, number> =
 export const tutorResponseStyleSchema = z.enum(["normal", "philosophical"]);
 
 const tutorQuestionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
+const tutorLearningPhaseSchema = z.enum(["LEARN", "DEEPEN", "EXPAND"]);
 export const tutorStrategySourceSchema = z.enum(["built-in", "repository"]);
 export const tutorCourseContentContextSchema = z.object({
   repository: repositorySlugSchema,
@@ -49,6 +50,11 @@ const tutorLearningMetadataFields = {
   strategyId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
   strategySource: tutorStrategySourceSchema.optional(),
   contentRevision: z.string().regex(/^[a-f0-9]{40}$/i).optional(),
+  learningPhase: tutorLearningPhaseSchema.optional(),
+  activeTopicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
+  masteredTopicIds: z.array(z.string().regex(/^[a-z][a-z0-9-]{0,63}$/)).max(64).optional(),
+  progressionBlockedReason: z.literal("content-exhausted").optional(),
+  extensionTargetTopicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
 };
 
 function withDefaultResponseStyle(value: unknown): unknown {

@@ -110,7 +110,23 @@ const progressionSchema = z.object({
   }).strict(),
 }).strict();
 
-export const curriculumTopicSchema = z.object({
+const deepeningSchema = z.object({
+  minimumSuccessfulProbes: z.number().int().min(1).max(10),
+  successRatingAtLeast: z.number().int().min(3).max(5),
+  requiredQuestionKinds: z.array(z.enum(["application", "prediction", "transfer"])).min(1).max(3),
+  recentWeakAnswersAllowed: z.number().int().min(0).max(3),
+}).strict().superRefine((value, context) => {
+  if (new Set(value.requiredQuestionKinds).size !== value.requiredQuestionKinds.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["requiredQuestionKinds"], message: "Deepening question kinds must be unique" });
+  }
+});
+
+const topicExtensionSchema = z.object({
+  topic: idSchema,
+  objective: boundedText(500),
+}).strict();
+
+const curriculumTopicV1Schema = z.object({
   schemaVersion: z.literal(1),
   id: idSchema,
   title: boundedText(160),
@@ -121,6 +137,22 @@ export const curriculumTopicSchema = z.object({
   scaffolds: z.array(scaffoldSchema).max(32),
   progression: progressionSchema,
 }).strict();
+
+const curriculumTopicV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  id: idSchema,
+  title: boundedText(160),
+  locale: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/),
+  activation: activationSchema,
+  concepts: z.array(conceptSchema).min(1).max(16),
+  questions: z.array(questionSchema).min(1).max(64),
+  scaffolds: z.array(scaffoldSchema).max(32),
+  progression: progressionSchema,
+  deepening: deepeningSchema.optional(),
+  extensions: z.array(topicExtensionSchema).max(8).optional(),
+}).strict();
+
+export const curriculumTopicSchema = z.union([curriculumTopicV1Schema, curriculumTopicV2Schema]);
 
 export const curriculumManifestSchema = z.object({
   schemaVersion: z.literal(1),
@@ -140,6 +172,8 @@ export type CurriculumManifest = z.infer<typeof curriculumManifestSchema>;
 export type CurriculumConcept = CurriculumTopic["concepts"][number];
 export type CurriculumQuestion = CurriculumTopic["questions"][number];
 export type CurriculumScaffold = CurriculumTopic["scaffolds"][number];
+export type TopicDeepening = z.infer<typeof deepeningSchema>;
+export type TopicExtension = z.infer<typeof topicExtensionSchema>;
 
 function assertUnique(values: readonly string[], label: string): void {
   if (new Set(values).size !== values.length) throw new Error(`Duplicate ${label}`);

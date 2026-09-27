@@ -9,6 +9,7 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 
 - Dieses Dokument ist der aktuelle Architekturüberblick. Es beschreibt Komponenten, Datenflüsse, State Ownership und Betriebsmodell bewusst zusammenfassend.
 - Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md`, die historische Tutor-Pilotentscheidung in `adr/0004-repository-based-tutor-curriculum.md`, die dynamische Examples-Auswahl in `adr/0005-browser-scoped-external-examples.md` und der aktuelle Course-Content-/Tutor-Vertrag in `adr/0006-unified-course-content-and-tutor-strategy.md`.
+- Die mastery-driven didaktische Phasenentscheidung ist in `adr/0007-mastery-driven-tutor-progression.md` normativ ergänzt.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
 - Git enthält die Historie früherer Planungs- und Risikoquellen; der aktuelle
@@ -137,6 +138,22 @@ data enters only structured didactic context. The application-owned
 system prompt, safety rules, provider isolation, privacy rules, response
 validation, and editor boundary are never repository-controlled.
 
+For an active applicable Topic, the Tutor additionally tracks the application-
+owned session-local didactic phase `LEARN`, `DEEPEN`, or `EXPAND`. Deterministic
+Topic mastery is derived from the existing concept mastery criteria; the LLM
+cannot declare mastery. After mastery, currently applicable unmastered Topics
+are selected by normal precedence and remain in LEARN; only when none remain
+does the mastered Topic enter DEEPEN. DEEPEN changes to EXPAND after bounded
+successful transfer evidence. A changed sketch reruns Topic matching, and a
+newly selected unmastered Topic starts in LEARN. An unresolved unmastered Topic
+blocks DEEPEN/EXPAND in a safe `LEARN` content-exhaustion state. A mastered
+Topic made inapplicable by a sketch edit is suspended, not erased; if it later
+matches again in the same session, its retained DEEPEN/EXPAND phase resumes.
+A free Tutor without an active Topic remains available with its
+EffectiveTutorStrategy but does not claim formal Topic mastery. This state is
+pinned to the same opaque Tutor session and immutable Course revision and is
+not a persistent learner profile.
+
 The server extracts an optional terminal `@unosim-tutor` annotation from only
 the declared main `.ino` file before the Example leaves the Course Content
 boundary. The browser/editor, compiler, and simulator receive cleaned source
@@ -149,6 +166,7 @@ The old separate Tutor source is superseded. The in-tree curriculum files are
 fixtures and authoring examples only. The normative details are in
 [ssot_function_definition_CourseContent.md](../ssot/ssot_function_definition_CourseContent.md),
 [adr/0006-unified-course-content-and-tutor-strategy.md](adr/0006-unified-course-content-and-tutor-strategy.md),
+[adr/0007-mastery-driven-tutor-progression.md](adr/0007-mastery-driven-tutor-progression.md),
 and [ssot_function_definition_LearningQuestions.md](../ssot/ssot_function_definition_LearningQuestions.md).
 
 ### Dynamic Course Content selection

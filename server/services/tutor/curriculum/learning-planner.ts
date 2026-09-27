@@ -32,6 +32,15 @@ export interface LearningPlan {
 export interface LearningAdvanceOptions {
   readonly difficulty: TutorDifficulty;
   readonly strategy?: EffectiveTutorStrategy;
+  readonly phase?: "LEARN" | "DEEPEN" | "EXPAND";
+  readonly preferredQuestionKinds?: readonly CurriculumQuestion["kind"][];
+  readonly existingQuestionKinds?: readonly CurriculumQuestion["kind"][];
+}
+
+export interface LearningStartOptions {
+  readonly phase?: "LEARN" | "DEEPEN" | "EXPAND";
+  readonly preferredQuestionKinds?: readonly CurriculumQuestion["kind"][];
+  readonly existingQuestionKinds?: readonly CurriculumQuestion["kind"][];
 }
 
 export interface LearningPlanner {
@@ -42,6 +51,7 @@ export interface LearningPlanner {
     history: readonly TutorDialogTurn[],
     difficulty: TutorDifficulty,
     strategy?: EffectiveTutorStrategy,
+    options?: LearningStartOptions,
   ): LearningPlan | null;
   advance(
     topic: CurriculumTopic,
@@ -54,13 +64,19 @@ export interface LearningPlanner {
   ): LearningPlan | null;
 }
 
-type Observation = {
+export type Observation = {
   questionId: string;
   conceptId: string;
   indicatorId: string;
   kind: CurriculumQuestion["kind"];
   rating: TutorAnswerRating;
 };
+
+export type TopicClassification =
+  | { readonly status: "mastered"; readonly masteryDomain: readonly string[] }
+  | { readonly status: "probeable"; readonly masteryDomain: readonly string[]; readonly nextConceptId: string }
+  | { readonly status: "unresolved"; readonly masteryDomain: readonly string[] }
+  | { readonly status: "inapplicable"; readonly masteryDomain: readonly string[] };
 
 export class DefaultLearningPlanner implements LearningPlanner {
   start(
@@ -70,9 +86,23 @@ export class DefaultLearningPlanner implements LearningPlanner {
     history: readonly TutorDialogTurn[],
     difficulty: TutorDifficulty,
     strategy?: EffectiveTutorStrategy,
+    options?: LearningStartOptions,
   ): LearningPlan | null {
     const observations = collectObservations(topic, history);
     const usedQuestionIds = collectUsedQuestionIds(topic, history);
+    if (options?.phase === "DEEPEN" || options?.phase === "EXPAND") {
+      const question = selectDeepeningQuestion({
+        topic,
+        facts,
+        usedQuestionIds,
+        difficulty,
+        strategy,
+        preferredKinds: options?.preferredQuestionKinds,
+        existingKinds: options?.existingQuestionKinds,
+      });
+      const concept = question ? topic.concepts.find(({ id }) => id === question.concept) : undefined;
+      return question && concept ? buildPlan(topic, revision, concept, question) : null;
+    }
     const concept = selectNextConcept(topic, facts, observations, usedQuestionIds, undefined, strategy);
     if (!concept) return null;
     const question = selectQuestion(topic, concept, facts, usedQuestionIds, difficulty, undefined, strategy);
@@ -102,6 +132,21 @@ export class DefaultLearningPlanner implements LearningPlanner {
     const usedQuestionIds = new Set([...collectUsedQuestionIds(topic, history), current.question.id]);
     const concept = topic.concepts.find(({ id }) => id === current.question.concept);
     if (!concept) return null;
+
+    if (options.phase === "DEEPEN" || options.phase === "EXPAND") {
+      const question = selectDeepeningQuestion({
+        topic,
+        facts,
+        usedQuestionIds,
+        difficulty,
+        strategy,
+        excludedId: current.question.id,
+        preferredKinds: options.preferredQuestionKinds,
+        existingKinds: options.existingQuestionKinds,
+      });
+      const target = question ? topic.concepts.find(({ id }) => id === question.concept) : undefined;
+      return question && target ? buildPlan(topic, revision, target, question) : null;
+    }
 
     const next = selectAfterRating({ topic, facts, concept, currentQuestion: current.question, rating, observations: allObservations, usedQuestionIds, difficulty, strategy });
     return next ? buildPlan(topic, revision, next.concept, next.question, next.scaffold) : null;
@@ -286,6 +331,40 @@ function selectQuestion(
   ))[0] ?? null;
 }
 
+function selectDeepeningQuestion({
+  topic,
+  facts,
+  usedQuestionIds,
+  difficulty,
+  strategy,
+  excludedId,
+  preferredKinds = [],
+  existingKinds = [],
+}: {
+  readonly topic: CurriculumTopic;
+  readonly facts: SketchFacts;
+  readonly usedQuestionIds: ReadonlySet<string>;
+  readonly difficulty: TutorDifficulty;
+  readonly strategy?: EffectiveTutorStrategy;
+  readonly excludedId?: string;
+  readonly preferredKinds?: readonly CurriculumQuestion["kind"][];
+  readonly existingKinds?: readonly CurriculumQuestion["kind"][];
+}): CurriculumQuestion | null {
+  const candidates = topic.questions.filter((question) =>
+    question.kind !== "recall"
+    && questionApplies(question, facts)
+    && question.id !== excludedId
+    && !usedQuestionIds.has(question.id),
+  );
+  return [...candidates].sort((left, right) => (
+    Number(preferredKinds.includes(right.kind) && !existingKinds.includes(right.kind))
+      - Number(preferredKinds.includes(left.kind) && !existingKinds.includes(left.kind))
+    || difficultyDistance(left, difficulty) - difficultyDistance(right, difficulty)
+    || (strategy ? strategy.questionKindWeights[right.kind] - strategy.questionKindWeights[left.kind] : 0)
+    || left.id.localeCompare(right.id)
+  ))[0] ?? null;
+}
+
 function difficultyDistance(question: CurriculumQuestion, difficulty: TutorDifficulty): number {
   const [min, max] = question.difficulty;
   if (difficulty < min) return min - difficulty;
@@ -307,6 +386,31 @@ function conceptHasQuestions(
   const applicable = topic.questions.filter((question) => question.concept === concept.id && questionApplies(question, facts));
   return applicable.some((question) => !usedQuestionIds.has(question.id))
     || (strategy?.repetition === "relaxed" && applicable.length > 0);
+}
+
+export function classifyTopic(
+  topic: CurriculumTopic,
+  facts: SketchFacts,
+  observations: readonly Observation[],
+  usedQuestionIds: ReadonlySet<string>,
+  difficulty: TutorDifficulty,
+  strategy?: EffectiveTutorStrategy,
+): TopicClassification {
+  const masteryDomain = topic.concepts
+    .filter((concept) => topic.questions.some((question) => question.concept === concept.id && questionApplies(question, facts)))
+    .map(({ id }) => id);
+  if (masteryDomain.length === 0) return { status: "inapplicable", masteryDomain };
+
+  const concepts = topic.concepts.filter(({ id }) => masteryDomain.includes(id));
+  if (concepts.every((concept) => isMastered(concept, observations))) {
+    return { status: "mastered", masteryDomain };
+  }
+
+  const nextConcept = selectNextConcept(topic, facts, observations, usedQuestionIds, undefined, strategy);
+  if (nextConcept && selectQuestion(topic, nextConcept, facts, usedQuestionIds, difficulty, undefined, strategy)) {
+    return { status: "probeable", masteryDomain, nextConceptId: nextConcept.id };
+  }
+  return { status: "unresolved", masteryDomain };
 }
 
 function chooseScaffold(
