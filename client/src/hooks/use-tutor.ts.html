@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.09% </span>
+                <span class="strong">83.33% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>177/213</span>
+                <span class='fraction'>180/216</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">69.42% </span>
+                <span class="strong">71.63% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>109/157</span>
+                <span class='fraction'>101/141</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.88% </span>
+                <span class="strong">89.47% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>32/36</span>
+                <span class='fraction'>34/38</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90.8% </span>
+                <span class="strong">90.9% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>158/174</span>
+                <span class='fraction'>160/176</span>
             </div>
         
             
@@ -538,7 +538,19 @@
 <a name='L473'></a><a href='#L473'>473</a>
 <a name='L474'></a><a href='#L474'>474</a>
 <a name='L475'></a><a href='#L475'>475</a>
-<a name='L476'></a><a href='#L476'>476</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L476'></a><a href='#L476'>476</a>
+<a name='L477'></a><a href='#L477'>477</a>
+<a name='L478'></a><a href='#L478'>478</a>
+<a name='L479'></a><a href='#L479'>479</a>
+<a name='L480'></a><a href='#L480'>480</a>
+<a name='L481'></a><a href='#L481'>481</a>
+<a name='L482'></a><a href='#L482'>482</a>
+<a name='L483'></a><a href='#L483'>483</a>
+<a name='L484'></a><a href='#L484'>484</a>
+<a name='L485'></a><a href='#L485'>485</a>
+<a name='L486'></a><a href='#L486'>486</a>
+<a name='L487'></a><a href='#L487'>487</a>
+<a name='L488'></a><a href='#L488'>488</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -661,14 +673,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -677,6 +681,26 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">98x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1134,15 +1158,7 @@ function buildDialogTurn(
   const baseTurn = {
     question,
     answer,
-    ...(response.feedback ? { feedback: response.feedback } : {}),
-    ...(response.topicId ? <span class="branch-0 cbranch-no" title="branch not covered" >{ topicId: response.topicId } : {</span>}),
-    ...(response.conceptId ? <span class="branch-0 cbranch-no" title="branch not covered" >{ conceptId: response.conceptId } : {</span>}),
-    ...(response.questionId ? <span class="branch-0 cbranch-no" title="branch not covered" >{ questionId: response.questionId } : {</span>}),
-    ...(response.indicatorId ? <span class="branch-0 cbranch-no" title="branch not covered" >{ indicatorId: response.indicatorId } : {</span>}),
-    ...(response.questionKind ? <span class="branch-0 cbranch-no" title="branch not covered" >{ questionKind: response.questionKind } : {</span>}),
-    ...(response.strategyId ? <span class="branch-0 cbranch-no" title="branch not covered" >{ strategyId: response.strategyId } : {</span>}),
-    ...(response.strategySource ? <span class="branch-0 cbranch-no" title="branch not covered" >{ strategySource: response.strategySource } : {</span>}),
-    ...(response.contentRevision ? <span class="branch-0 cbranch-no" title="branch not covered" >{ contentRevision: response.contentRevision } : {</span>}),
+    ...buildDialogTurnMetadata(response),
   };
   if (response.responseStyle === "philosophical") {
     return { ...baseTurn, responseStyle: "philosophical" };
@@ -1152,6 +1168,26 @@ function buildDialogTurn(
     responseStyle: "normal",
     ...(response.answerRating === undefined ? {} : { answerRating: response.answerRating }),
   };
+}
+&nbsp;
+function buildDialogTurnMetadata(response: TutorResponse): Partial&lt;Omit&lt;TutorDialogTurn, "question" | "answer" | "responseStyle" | "answerRating"&gt;&gt; {
+  const fields = [
+    ["feedback", response.feedback],
+    ["topicId", response.topicId],
+    ["conceptId", response.conceptId],
+    ["questionId", response.questionId],
+    ["indicatorId", response.indicatorId],
+    ["questionKind", response.questionKind],
+    ["strategyId", response.strategyId],
+    ["strategySource", response.strategySource],
+    ["contentRevision", response.contentRevision],
+    ["learningPhase", response.learningPhase],
+    ["activeTopicId", response.activeTopicId],
+    ["masteredTopicIds", response.masteredTopicIds],
+    ["progressionBlockedReason", response.progressionBlockedReason],
+    ["extensionTargetTopicId", response.extensionTargetTopicId],
+  ] as const;
+  return Object.fromEntries(fields.filter(([, value]) =&gt; value !== undefined &amp;&amp; value !== "")) as Partial&lt;Omit&lt;TutorDialogTurn, "question" | "answer" | "responseStyle" | "answerRating"&gt;&gt;;
 }
 &nbsp;
 function collectAnswerRatings(history: readonly TutorDialogTurn[]): readonly TutorAnswerRating[] {
@@ -1495,7 +1531,7 @@ export function useTutor(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-25T19:16:35.073Z
+                at 2026-09-27T11:43:03.086Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
