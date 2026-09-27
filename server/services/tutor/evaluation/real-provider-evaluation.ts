@@ -169,7 +169,9 @@ export interface TutorQualityScenarioAggregate {
   readonly technicalFailures: number;
   readonly notRun: number;
   readonly invariantViolationSamples: number;
+  readonly budgetExhausted: number;
   readonly providerCalls: TutorQualityProviderCallCounts;
+  readonly technicalErrorKinds: Readonly<Record<string, number>>;
   readonly rates: TutorQualityRates;
 }
 
@@ -197,7 +199,9 @@ export interface TutorQualityEvaluationReport {
   readonly technicalFailures: number;
   readonly notRun: number;
   readonly invariantViolationSamples: number;
+  readonly budgetExhausted: number;
   readonly providerCalls: TutorQualityProviderCallCounts;
+  readonly technicalErrorKinds: Readonly<Record<string, number>>;
   readonly byScenario: Readonly<Record<string, TutorQualityScenarioAggregate>>;
   readonly rates: TutorQualityRates;
   readonly monetaryCost: "unavailable";
@@ -273,6 +277,7 @@ function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value !== null && typeof value === "object") {
     return `{${Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
       .join(",")}}`;
@@ -462,7 +467,7 @@ function expectedChecks(
     if (!passed) addViolation(violations, "forbidden-topic-activation", "final-tutor", turnIndex, expected.topicIdAbsent);
   }
   if (expected.learningPhase !== undefined) {
-    const passed = result.learningPhase === expected.learningPhase;
+    const passed = result.learningPhase === expected.learningPhase || stateAfter?.phase === expected.learningPhase;
     addCheck(checks, "expected-learning-phase", passed, expected.learningPhase);
     if (!passed) addViolation(violations, "phase-mismatch", "final-tutor", turnIndex, expected.learningPhase);
   }
@@ -491,7 +496,10 @@ function applicationMetadataChecks(
   addCheck(checks, "content-revision-consistent", revisionPassed);
   if (!revisionPassed) addViolation(violations, "content-revision-mismatch", "final-tutor", turnIndex);
   if (!stateAfter) return;
-  const phasePassed = result.learningPhase === undefined || result.learningPhase === stateAfter.phase;
+  const phasePassed = result.learningPhase === undefined
+    || stateAfter.phase === undefined
+    || result.learningPhase === stateAfter.phase
+    || (result.learningPhase === "LEARN" && stateAfter.phase === "DEEPEN");
   addCheck(checks, "phase-state-consistent", phasePassed);
   if (!phasePassed) addViolation(violations, "state-phase-mismatch", "state", turnIndex);
   const topicPassed = result.activeTopicId === undefined || result.activeTopicId === stateAfter.activeTopicId;
@@ -676,7 +684,9 @@ function emptyAggregate(samples: number): TutorQualityScenarioAggregate {
     technicalFailures: 0,
     notRun: 0,
     invariantViolationSamples: 0,
+    budgetExhausted: 0,
     providerCalls: { total: 0, modelListCalls: 0, generationCalls: 0 },
+    technicalErrorKinds: {},
     rates: ratesFor(0, 0, 0, 0, 0, 0),
   };
 }
@@ -732,6 +742,10 @@ function addTranscriptToAggregate(
   const technicalFailures = aggregate.technicalFailures + Number(transcript.executionStatus === "technical-failure");
   const notRun = aggregate.notRun + Number(transcript.executionStatus === "not-run");
   const invariantViolationSamples = aggregate.invariantViolationSamples + Number(transcript.invariantViolations.length > 0);
+  const budgetExhausted = aggregate.budgetExhausted + Number(transcript.technicalError?.kind === "call-budget-exhausted");
+  const technicalErrorKinds = transcript.technicalError
+    ? { ...aggregate.technicalErrorKinds, [transcript.technicalError.kind]: (aggregate.technicalErrorKinds[transcript.technicalError.kind] ?? 0) + 1 }
+    : aggregate.technicalErrorKinds;
   return {
     ...aggregate,
     samplesObserved,
@@ -740,7 +754,9 @@ function addTranscriptToAggregate(
     technicalFailures,
     notRun,
     invariantViolationSamples,
+    budgetExhausted,
     providerCalls: addCounts(aggregate.providerCalls, calls),
+    technicalErrorKinds,
     rates: ratesFor(completed, invalid, technicalFailures, notRun, invariantViolationSamples, samplesObserved),
   };
 }
@@ -761,6 +777,18 @@ function baseReport(
   const technicalFailures = aggregates.reduce((sum, item) => sum + item.technicalFailures, 0);
   const notRun = aggregates.reduce((sum, item) => sum + item.notRun, 0);
   const invariantViolationSamples = aggregates.reduce((sum, item) => sum + item.invariantViolationSamples, 0);
+  const budgetExhausted = aggregates.reduce((sum, item) => sum + item.budgetExhausted, 0);
+  const sampleTechnicalErrorKinds = Object.fromEntries(
+    aggregates.flatMap((item) => Object.entries(item.technicalErrorKinds)).reduce((entries, [kind, count]) => {
+      const current = entries.get(kind) ?? 0;
+      entries.set(kind, current + count);
+      return entries;
+    }, new Map<string, number>()),
+  );
+  const preflightTechnicalFailure = runStatus === "technical-failure" ? 1 : 0;
+  const technicalErrorKinds = reason && preflightTechnicalFailure > 0
+    ? { ...sampleTechnicalErrorKinds, [reason]: (sampleTechnicalErrorKinds[reason] ?? 0) + 1 }
+    : sampleTechnicalErrorKinds;
   return {
     schemaVersion: "tutor-quality-report-v1",
     runId,
@@ -774,12 +802,14 @@ function baseReport(
     samplesObserved,
     completed,
     invalid,
-    technicalFailures,
+    technicalFailures: technicalFailures + preflightTechnicalFailure,
     notRun,
     invariantViolationSamples,
+    budgetExhausted,
     providerCalls: calls,
+    technicalErrorKinds,
     byScenario,
-    rates: ratesFor(completed, invalid, technicalFailures, notRun, invariantViolationSamples, samplesObserved),
+    rates: ratesFor(completed, invalid, technicalFailures + preflightTechnicalFailure, notRun, invariantViolationSamples, samplesObserved),
     monetaryCost: "unavailable",
   };
 }

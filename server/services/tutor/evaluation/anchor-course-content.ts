@@ -19,10 +19,7 @@ function variableTopic(schemaVersion: 1 | 2 = 1): CurriculumTopic {
     id: "variables-and-serial",
     title: "Variablen und Serial-Ausgabe",
     locale: "de-DE",
-    activation: { any: [
-      { fact: "type-used", values: ["int"] },
-      { fact: "serial-call", values: ["print"] },
-    ] },
+    activation: { any: [{ fact: "serial-call", values: ["print"] }] },
     concepts: [{
       id: "variable-values",
       title: "Variablenwerte",

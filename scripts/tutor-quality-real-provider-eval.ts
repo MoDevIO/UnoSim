@@ -118,7 +118,7 @@ function materializeTurn(turn: TutorQualityTurnSource): TutorQualityTurn {
   };
 }
 
-async function loadEvaluationScenarios(
+export async function loadTutorQualityEvaluationScenarios(
   cwd: string,
   corpusPath: string,
 ): Promise<readonly TutorQualityEvaluationScenario[]> {
@@ -184,7 +184,7 @@ export async function runTutorQualityCli(
   const options = parseTutorQualityCliArgs(argv);
   const cwd = dependencies.cwd ?? process.cwd();
   const environment = dependencies.environment ?? process.env;
-  const scenarios = await loadEvaluationScenarios(cwd, options.corpusPath);
+  const scenarios = await loadTutorQualityEvaluationScenarios(cwd, options.corpusPath);
   const git = dependencies.git ?? readTutorQualityGitState(cwd, options.outputDir);
   const provider = dependencies.provider ?? new KiconnectProvider();
   const timeoutMs = Number(environment.UNOSIM_LLM_TIMEOUT_MS ?? 30_000);
