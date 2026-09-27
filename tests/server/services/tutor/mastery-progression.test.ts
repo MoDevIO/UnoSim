@@ -148,7 +148,9 @@ describe("mastery progression domain classification", () => {
       rating: 4,
       difficulty: 30,
     });
-    expect(second).toMatchObject({ learningPhase: "DEEPEN", activeTopicId: "mastery-topic", masteredTopicIds: ["mastery-topic"] });
+    expect(second).toMatchObject({ learningPhase: "LEARN", activeTopicId: "mastery-topic", masteredTopicIds: ["mastery-topic"] });
+    await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
+      .resolves.toMatchObject({ learningPhase: "DEEPEN", activeTopicId: "mastery-topic", masteredTopicIds: ["mastery-topic"] });
   });
 
   it("latches the answered Topic before switching to the next applicable Topic", async () => {
@@ -249,14 +251,18 @@ describe("mastery progression domain classification", () => {
     const first = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
     expect(first).toMatchObject({ learningPhase: "LEARN" });
     if (!first || "kind" in first) return;
-    const deepen = await adapter.planFollowup({ code: "int values[] = {1, 2};", history: [], currentQuestion: first.question, rating: 4, difficulty: 30 });
+    const completedLearnTurn = await adapter.planFollowup({ code: "int values[] = {1, 2};", history: [], currentQuestion: first.question, rating: 4, difficulty: 30 });
+    expect(completedLearnTurn).toMatchObject({ learningPhase: "LEARN" });
+    const deepen = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
     expect(deepen).toMatchObject({ learningPhase: "DEEPEN" });
     if (!deepen || "kind" in deepen) return;
     const deepenAgain = await adapter.planFollowup({ code: "int values[] = {1, 2};", history: [], currentQuestion: deepen.question, rating: 4, difficulty: 30 });
     expect(deepenAgain).toMatchObject({ learningPhase: "DEEPEN" });
     if (!deepenAgain || "kind" in deepenAgain) return;
-    const expand = await adapter.planFollowup({ code: "int values[] = {1, 2};", history: [], currentQuestion: deepenAgain.question, rating: 4, difficulty: 30 });
-    expect(expand).toMatchObject({ learningPhase: "EXPAND", masteredTopicIds: ["phase-topic"] });
+    const completedDeepenTurn = await adapter.planFollowup({ code: "int values[] = {1, 2};", history: [], currentQuestion: deepenAgain.question, rating: 4, difficulty: 30 });
+    expect(completedDeepenTurn).toMatchObject({ learningPhase: "DEEPEN", masteredTopicIds: ["phase-topic"] });
+    await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
+      .resolves.toMatchObject({ learningPhase: "EXPAND", masteredTopicIds: ["phase-topic"] });
   });
 
   it("retains mastery across temporary fact-inapplicability and resumes the retained phase", async () => {
