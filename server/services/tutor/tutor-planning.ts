@@ -2,6 +2,7 @@ import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty } from "@share
 import type { TutorCapability } from "../course-content/course-content-loader";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 import type { StrategyResolution } from "./strategy/effective-tutor-strategy";
+import type { EffectiveTutorStrategy } from "./strategy/effective-tutor-strategy";
 import type { TutorProgressionState, DidacticPhase, ProgressionBlockedReason } from "./curriculum/progression-state";
 
 export interface TutorPlanningContentContext {
@@ -27,6 +28,8 @@ export interface TutorPlan {
   readonly misconceptions: readonly { id: string; description: string }[];
   readonly strategyId?: string;
   readonly strategySource?: "built-in" | "repository";
+  /** Internal normalized strategy used to build the provider prompt for this plan. */
+  readonly effectiveStrategy?: EffectiveTutorStrategy;
   readonly scaffold?: { readonly id: string; readonly strategy: string; readonly hint: string };
   readonly contentRevision: string;
   readonly learningPhase?: DidacticPhase;
@@ -53,6 +56,7 @@ export interface TutorPlanningBlocked {
   readonly masteredTopicIds: readonly string[];
   readonly strategyId: string;
   readonly strategySource: "built-in" | "repository";
+  readonly effectiveStrategy?: EffectiveTutorStrategy;
 }
 
 export interface TutorPlanningTransition {
@@ -63,6 +67,7 @@ export interface TutorPlanningTransition {
   readonly masteredTopicIds: readonly string[];
   readonly strategyId: string;
   readonly strategySource: "built-in" | "repository";
+  readonly effectiveStrategy?: EffectiveTutorStrategy;
 }
 
 export type TutorPlanningResult = TutorPlan | TutorPlanningBlocked | TutorPlanningTransition;

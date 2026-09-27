@@ -354,6 +354,7 @@ function normalizePlan(plan: Awaited<ReturnType<LearningPlanner["start"]>>, stra
     contentRevision: plan.contentRevision,
     strategyId: strategy.strategy.id,
     strategySource: strategy.source === "built-in" ? "built-in" : "repository",
+    effectiveStrategy: strategy.strategy,
     learningPhase: phase,
     ...(state?.activeTopicId ? { activeTopicId: state.activeTopicId } : {}),
     ...(state ? { masteredTopicIds: [...state.masteredTopicIds] } : {}),
@@ -454,11 +455,12 @@ function buildExpansionPlan(context: AdapterContext, phase: DidacticPhase, expan
     questionKind: "transfer",
     indicatorId: "expansion",
     indicator: expansionBrief.objective,
-    question: "Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, und woran würdest du ihre Wirkung erkennen?",
+    question: `Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „${expansionBrief.objective}“? Woran würdest du ihre Wirkung erkennen?`,
     misconceptions: [],
     contentRevision: context.revision,
     strategyId: context.strategy.strategy.id,
     strategySource: context.strategy.source === "built-in" ? "built-in" : "repository",
+    effectiveStrategy: context.strategy.strategy,
     learningPhase: phase,
     activeTopicId: context.state.activeTopicId,
     masteredTopicIds: [...context.state.masteredTopicIds],
@@ -480,6 +482,7 @@ function exhaustionResult(context: PlanningContext, phase: DidacticPhase): Tutor
     masteredTopicIds: [...context.state.masteredTopicIds],
     strategyId: context.strategy.strategy.id,
     strategySource: context.strategy.source === "built-in" ? "built-in" : "repository",
+    effectiveStrategy: context.strategy.strategy,
   };
 }
 
@@ -492,6 +495,7 @@ function transitionResult(context: PlanningContext): import("./tutor-planning").
     masteredTopicIds: [...context.state.masteredTopicIds],
     strategyId: context.strategy.strategy.id,
     strategySource: context.strategy.source === "built-in" ? "built-in" : "repository",
+    effectiveStrategy: context.strategy.strategy,
   };
 }
 
@@ -507,6 +511,7 @@ function blockedResult(context: PlanningContext, state: TutorProgressionState): 
     masteredTopicIds: [...state.masteredTopicIds],
     strategyId: context.strategy.strategy.id,
     strategySource: context.strategy.source === "built-in" ? "built-in" : "repository",
+    effectiveStrategy: context.strategy.strategy,
   };
 }
 

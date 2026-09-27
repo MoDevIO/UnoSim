@@ -30,6 +30,10 @@ import {
   type StrategyResolution,
 } from "./strategy/effective-tutor-strategy";
 import { buildTutorLearningObjectivesGuidance, buildTutorStrategyGuidance } from "./strategy/tutor-strategy-guidance";
+import {
+  cloneTutorProgressionState,
+  commitTutorProgressionState,
+} from "./curriculum/progression-state";
 
 const UNSAFE_MERMAID_PATTERNS = [
   /https?:\/\//i,
@@ -516,6 +520,31 @@ function applyStrategyMetadata(result: TutorContentResult, strategy: StrategyRes
   };
 }
 
+type PlanningResult = Exclude<Awaited<ReturnType<TutorPlanningExtension["planInitial"]>>, null>;
+
+type TutorPlanningTransaction = {
+  readonly courseContent?: TutorPlanningContentContext;
+  commit(): void;
+};
+
+function beginTutorPlanningTransaction(courseContent?: TutorPlanningContentContext): TutorPlanningTransaction {
+  const persistedState = courseContent?.progressionState;
+  if (!persistedState) return { courseContent, commit: () => undefined };
+  const workingState = cloneTutorProgressionState(persistedState);
+  return {
+    courseContent: { ...courseContent, progressionState: workingState },
+    commit: () => commitTutorProgressionState(persistedState, workingState),
+  };
+}
+
+function strategyFromPlanningResult(planningResult: PlanningResult | null): StrategyResolution | undefined {
+  if (!planningResult?.effectiveStrategy) return undefined;
+  return {
+    strategy: planningResult.effectiveStrategy,
+    source: planningResult.strategySource === "built-in" ? "built-in" : "repository",
+  };
+}
+
 export class TutorService {
   constructor(
     private readonly provider: LLMProvider,
@@ -531,10 +560,11 @@ export class TutorService {
   ): Promise<{ result: TutorContentResult; model: string }> {
     const requestCredential = this.resolveCredential(credential);
     const context = buildTutorContext(code);
-    const strategy = await this.resolveStrategy(code, courseContent);
+    const transaction = beginTutorPlanningTransaction(courseContent);
     const planningResult = this.planningExtension
-      ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent })
+      ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent: transaction.courseContent })
       : null;
+    const strategy = strategyFromPlanningResult(planningResult) ?? await this.resolveStrategy(code, transaction.courseContent);
     const providerResult: ProviderQuestionResult = await this.provider.generateLearningQuestion(
       {
         model: await this.resolveModel(requestedModel, requestCredential),
@@ -545,7 +575,7 @@ export class TutorService {
           difficulty,
           planningResult && isTutorPlan(planningResult) ? planningResult : undefined,
           strategy.strategy,
-          courseContent?.exampleTutorAnnotation?.learningObjectives,
+          transaction.courseContent?.exampleTutorAnnotation?.learningObjectives,
         ),
       },
       requestCredential,
@@ -554,6 +584,7 @@ export class TutorService {
     const plannedResult = planningResult
       ? applyPlanningOutcome(validatedResult, planningResult)
       : applyStrategyMetadata(validatedResult, strategy);
+    transaction.commit();
     const { answerRating: _initialAnswerRating, ...initialResult } = plannedResult;
     return {
       model: providerResult.model,
@@ -565,8 +596,9 @@ export class TutorService {
     const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent] = args;
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
-    const strategy = await this.resolveStrategy(code, courseContent);
+    const transaction = beginTutorPlanningTransaction(courseContent);
     if (isClearlyNonLearningAnswer(answer)) {
+      const strategy = await this.resolveStrategy(code, transaction.courseContent);
       return {
         model: requestedModel ?? "fallback",
         result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty), strategy),
@@ -574,8 +606,9 @@ export class TutorService {
     }
     const context = buildTutorContext(code);
     const currentPlanningResult = this.planningExtension
-      ? await this.planningExtension.planInitial({ code, history: parsedHistory, difficulty, courseContent })
+      ? await this.planningExtension.planInitial({ code, history: parsedHistory, difficulty, courseContent: transaction.courseContent })
       : null;
+    const strategy = strategyFromPlanningResult(currentPlanningResult) ?? await this.resolveStrategy(code, transaction.courseContent);
     const providerResult = await this.provider.generateLearningQuestion(
       {
         model: await this.resolveModel(requestedModel, requestCredential),
@@ -583,7 +616,7 @@ export class TutorService {
         userPrompt: buildDialogPrompt(code, context, parsedHistory, question, answer, difficulty, {
           didacticBrief: currentPlanningResult && isTutorPlan(currentPlanningResult) ? currentPlanningResult : undefined,
           strategy: strategy.strategy,
-          learningObjectives: courseContent?.exampleTutorAnnotation?.learningObjectives,
+          learningObjectives: transaction.courseContent?.exampleTutorAnnotation?.learningObjectives,
         }),
       },
       requestCredential,
@@ -596,10 +629,11 @@ export class TutorService {
       ? ensureDistinctDialogQuestion(validatedResult, code, parsedHistory, question, strategy.strategy)
       : validatedResult;
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
-      const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent });
+      const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent: transaction.courseContent });
       if (nextPlan) distinctResult = applyPlanningOutcome(validatedResult, nextPlan);
     }
     if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
+    transaction.commit();
     return {
       model: providerResult.model,
       result: distinctResult,

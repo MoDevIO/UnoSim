@@ -34,6 +34,39 @@ export function createTutorProgressionState(revision: string): TutorProgressionS
   };
 }
 
+export function cloneTutorProgressionState(state: TutorProgressionState): TutorProgressionState {
+  return {
+    ...state,
+    masteredTopicIds: [...state.masteredTopicIds],
+    masteryEvidence: cloneEvidence(state.masteryEvidence),
+    postMasteryEvidence: cloneEvidence(state.postMasteryEvidence),
+    retainedPhases: { ...state.retainedPhases },
+    usedExpansionTargetTopicIds: Object.fromEntries(
+      Object.entries(state.usedExpansionTargetTopicIds).map(([topicId, targetIds]) => [topicId, [...targetIds]]),
+    ),
+  };
+}
+
+export function commitTutorProgressionState(target: TutorProgressionState, source: TutorProgressionState): void {
+  target.revision = source.revision;
+  target.activeTopicId = source.activeTopicId;
+  target.phase = source.phase;
+  target.masteredTopicIds = [...source.masteredTopicIds];
+  target.masteryEvidence = cloneEvidence(source.masteryEvidence);
+  target.postMasteryEvidence = cloneEvidence(source.postMasteryEvidence);
+  target.retainedPhases = { ...source.retainedPhases };
+  target.usedExpansionTargetTopicIds = Object.fromEntries(
+    Object.entries(source.usedExpansionTargetTopicIds).map(([topicId, targetIds]) => [topicId, [...targetIds]]),
+  );
+  target.progressionBlockedReason = source.progressionBlockedReason;
+}
+
+function cloneEvidence(evidence: Record<string, Observation[]>): Record<string, Observation[]> {
+  return Object.fromEntries(
+    Object.entries(evidence).map(([topicId, observations]) => [topicId, observations.map((observation) => ({ ...observation }))]),
+  );
+}
+
 export function resetTutorProgressionState(state: TutorProgressionState, revision = state.revision): void {
   state.activeTopicId = undefined;
   state.phase = undefined;
