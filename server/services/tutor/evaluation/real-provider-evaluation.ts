@@ -651,14 +651,18 @@ async function runSample(
       : undefined;
     if (capture?.response) {
       const returnedModel = capture.response.model;
-      returnedModels.push(returnedModel);
-      if (returnedModel !== options.requestedModel) {
+      if (typeof returnedModel !== "string" || returnedModel.length === 0) {
+        executionStatus = "invalid";
+        invalidReason = "returned-model-missing";
+        addCheck(turnChecks, "returned-model-matches-request", false, "missing");
+      } else if (returnedModel !== options.requestedModel) {
         executionStatus = "invalid";
         invalidReason = "returned-model-mismatch";
         addCheck(turnChecks, "returned-model-matches-request", false, returnedModel);
       } else {
         addCheck(turnChecks, "returned-model-matches-request", true);
       }
+      if (typeof returnedModel === "string" && returnedModel.length > 0) returnedModels.push(returnedModel);
       deterministicRawChecks(capture.response.result, turn, turnIndex, turnChecks, violations);
     }
     if (finalResult) {
