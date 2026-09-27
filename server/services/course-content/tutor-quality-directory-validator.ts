@@ -2,9 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { FullCommitSha, RepositorySlug } from "@shared/examples";
-import { CourseContentLoader } from "./course-content-loader";
+import { CourseContentLoader, type LoadedCourseContentSnapshot } from "./course-content-loader";
 import { tutorQualityCasesSchema } from "./tutor-quality-schema";
-import type { LoadedCourseContentSnapshot } from "./course-content-loader";
 import { BUILT_IN_TUTOR_STRATEGY, type EffectiveTutorStrategy } from "../tutor/strategy/effective-tutor-strategy";
 import {
   validateTutorContentQuality,

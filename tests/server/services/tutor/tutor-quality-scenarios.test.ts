@@ -124,7 +124,12 @@ function courseContent(contentRevision = revision) {
 }
 
 describe("Tutor Quality deterministic scenarios", () => {
-  it.each(["transition", "blocked"] as const)("retains a repaired near-duplicate question for %s outcomes", async (kind) => {
+  it.each([
+    ["transition", "exact", "Welche Rolle spielt der Wert der Variable value im aktuellen Sketch?"],
+    ["transition", "near", "Welche Rolle hat die Variable value und ihr Wert in diesem Sketch?"],
+    ["blocked", "exact", "Welche Rolle spielt der Wert der Variable value im aktuellen Sketch?"],
+    ["blocked", "near", "Welche Rolle hat die Variable value und ihr Wert in diesem Sketch?"],
+  ] as const)("retains a repaired %s/%s duplicate question", async (kind, _similarity, candidate) => {
     const currentQuestion = "Welche Rolle spielt der Wert der Variable value im aktuellen Sketch?";
     const trace = await runTutorQualityScenario({
       id: `TQ-ADV-repeat-${kind}`,
@@ -134,7 +139,7 @@ describe("Tutor Quality deterministic scenarios", () => {
         kind: "result",
         result: {
           answerRating: 5,
-          question: "Welche Rolle hat die Variable value und ihr Wert in diesem Sketch?",
+          question: candidate,
         },
       },
       planning: planningWithFollowup(kind),
@@ -146,7 +151,7 @@ describe("Tutor Quality deterministic scenarios", () => {
       contentRevision: revision,
       activeTopicId: "variables-and-serial",
     });
-    expect(trace.result?.question).not.toContain("Rolle hat die Variable value");
+    expect(trace.result?.question).not.toBe(candidate);
   });
 
   it("lets an application-owned TutorPlan replace provider question and metadata", async () => {

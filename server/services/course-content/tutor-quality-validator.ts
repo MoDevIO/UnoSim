@@ -9,8 +9,7 @@ import {
 import { deepeningCriteria, hasMetDeepeningCriteria } from "../tutor/curriculum/progression-state";
 import { DefaultSketchFactExtractor, type SketchFacts } from "../tutor/curriculum/sketch-facts";
 import { DefaultTopicMatcher } from "../tutor/curriculum/topic-matcher";
-import { BUILT_IN_TUTOR_STRATEGY } from "../tutor/strategy/effective-tutor-strategy";
-import type { EffectiveTutorStrategy } from "../tutor/strategy/effective-tutor-strategy";
+import { BUILT_IN_TUTOR_STRATEGY, type EffectiveTutorStrategy } from "../tutor/strategy/effective-tutor-strategy";
 
 export interface ResolvedTutorQualityCase {
   readonly id: string;

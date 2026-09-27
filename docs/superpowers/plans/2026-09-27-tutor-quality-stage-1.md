@@ -51,9 +51,10 @@ Specification: `ssot/ssot_function_definition_TutorQuality.md`
 **Files:**
 - Create: `server/services/course-content/tutor-quality-schema.ts`
 - Create: `server/services/course-content/tutor-quality-validator.ts`
+- Create: `server/services/course-content/tutor-quality-directory-validator.ts`
 - Create: `tests/server/services/course-content/tutor-quality-validator.test.ts`
-- Create: `scripts/validate-tutor-course-content.ts`
-- Create: `tests/scripts/validate-tutor-course-content.test.ts`
+- Create: `scripts/validate-tutor-course-content.mjs`
+- Create: `tests/server/services/course-content/tutor-quality-directory-validator.test.ts`
 - Modify: `package.json`
 
 1. Write failing unit tests for activation cases, missing coverage, unreachable Concepts/Indicators, mastery probe/kind shortages, prerequisite reachability, DEEPEN exhaustion/kind shortages, and a valid bundle.
