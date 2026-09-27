@@ -5,8 +5,6 @@ scenarios:
     sketch: tests/fixtures/tutor-quality/TQ-REG-001-pwm.ino
     courseContent: variables
     turns:
-      - kind: initial
-        difficulty: 35
       - kind: dialog
         question: Welchen Wert verwendet der Sketch an der betrachteten Integer-Variablen?
         answer: brightness läuft in Fünferschritten zwischen 0 und 255 und bestimmt den PWM-Tastgrad.

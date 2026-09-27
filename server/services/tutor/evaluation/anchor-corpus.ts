@@ -4,6 +4,7 @@ export type TutorQualityCourseContentRef = "free" | string;
 
 export interface TutorQualityHistoryEntrySource {
   readonly question: string;
+  readonly answer?: string;
   readonly responseStyle?: "normal" | "philosophical";
   readonly answerRating?: 1 | 2 | 3 | 4 | 5;
   readonly questionId?: string;
@@ -94,6 +95,7 @@ function parseTurn(value: unknown, label: string): TutorQualityTurnSource {
       const historyLabel = `${label}.history[${index}]`;
       assertObject(entry, historyLabel);
       assertNonEmptyString(entry.question, `${historyLabel}.question`);
+      if (entry.answer !== undefined) assertNonEmptyString(entry.answer, `${historyLabel}.answer`);
       if (entry.responseStyle !== undefined && entry.responseStyle !== "normal" && entry.responseStyle !== "philosophical") {
         fail(`${historyLabel}.responseStyle is invalid`);
       }
@@ -153,6 +155,7 @@ export function parseTutorQualityCorpus(
     const label = `scenarios[${index}]`;
     assertObject(rawScenario, label);
     assertNonEmptyString(rawScenario.id, `${label}.id`);
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(rawScenario.id)) fail(`${label}.id is not stable-safe`);
     if (ids.has(rawScenario.id)) fail(`duplicate scenario id ${rawScenario.id}`);
     ids.add(rawScenario.id);
     assertNonEmptyString(rawScenario.sketch, `${label}.sketch`);
