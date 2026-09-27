@@ -128,14 +128,17 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       }
     }
     const nextPhase = state?.phase ?? refreshed.phase;
+    const planningHistory = activeChanged
+      ? input.history
+      : progressionHistory(refreshed.topic, input.history, state, input.currentQuestion);
     if (activeChanged || nextPhase !== context.phase) {
-      const plan = this.planner.start(refreshed.topic, refreshed.revision, refreshed.facts, input.history, input.difficulty, refreshed.strategy.strategy, progressionOptions(refreshed.topic, nextPhase, state));
+      const plan = this.planner.start(refreshed.topic, refreshed.revision, refreshed.facts, planningHistory, input.difficulty, refreshed.strategy.strategy, progressionOptions(refreshed.topic, nextPhase, state));
       return plan ? normalizePlan(plan, refreshed.strategy, state, nextPhase, refreshed.extensionTargetTopicId) : null;
     }
     if (nextPhase === "DEEPEN" && state && hasMetDeepeningCriteria(refreshed.topic, state.postMasteryEvidence[refreshed.topic.id] ?? [])) {
       state.phase = "EXPAND";
       state.retainedPhases[refreshed.topic.id] = "EXPAND";
-      const plan = this.planner.start(refreshed.topic, refreshed.revision, refreshed.facts, input.history, input.difficulty, refreshed.strategy.strategy, progressionOptions(refreshed.topic, "EXPAND", state));
+      const plan = this.planner.start(refreshed.topic, refreshed.revision, refreshed.facts, planningHistory, input.difficulty, refreshed.strategy.strategy, progressionOptions(refreshed.topic, "EXPAND", state));
       return plan ? normalizePlan(plan, refreshed.strategy, state, "EXPAND", refreshed.extensionTargetTopicId) : null;
     }
     const plan = this.planner.advance(refreshed.topic, refreshed.revision, refreshed.facts, input.history, input.currentQuestion, input.rating, {
@@ -301,6 +304,22 @@ function collectUsedQuestionIds(topic: CurriculumTopic, history: readonly TutorD
   const byText = new Map(topic.questions.flatMap((question) => question.text ? [[question.text, question.id] as const] : []));
   const historyIds = history.map((turn) => turn.questionId ?? byText.get(turn.question)).filter((id): id is string => id !== undefined);
   return new Set([...historyIds, ...(state.masteryEvidence[topic.id] ?? []).map(({ questionId }) => questionId)]);
+}
+
+function progressionHistory(
+  topic: CurriculumTopic,
+  history: readonly TutorDialogTurn[],
+  state: TutorProgressionState,
+  currentQuestion: string,
+): readonly TutorDialogTurn[] {
+  const byId = new Map(topic.questions.map((question) => [question.id, question.text ?? question.template ?? question.id]));
+  const postMasteryTurns = (state.postMasteryEvidence[topic.id] ?? []).map(({ questionId }) => ({
+    question: byId.get(questionId) ?? questionId,
+    questionId,
+    answer: "",
+    responseStyle: "normal" as const,
+  }));
+  return [...history, ...postMasteryTurns, { question: currentQuestion, answer: "", responseStyle: "normal" as const }];
 }
 
 function classifyWithState(

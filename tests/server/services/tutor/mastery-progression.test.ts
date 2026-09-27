@@ -8,6 +8,7 @@ import {
 } from "../../../../server/services/tutor/curriculum/learning-planner";
 import { DefaultSketchFactExtractor } from "../../../../server/services/tutor/curriculum/sketch-facts";
 import { createTutorProgressionState, hasMetDeepeningCriteria, markTopicMastered } from "../../../../server/services/tutor/curriculum/progression-state";
+import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 
 async function topic() {
   return parseTopic(await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8"));
@@ -68,5 +69,105 @@ describe("mastery progression domain classification", () => {
     expect(hasMetDeepeningCriteria(value, [observation])).toBe(false);
     expect(hasMetDeepeningCriteria(value, [observation, observation])).toBe(true);
     expect(state.masteredTopicIds).toEqual([value.id]);
+  });
+
+  it("moves a mastered active Topic into DEEPEN without declaring it mastered from null", async () => {
+    const source = await topic();
+    const concept = {
+      ...source.concepts[0]!,
+      mastery: {
+        ...source.concepts[0]!.mastery,
+        minimumSuccessfulProbes: 1,
+        minimumDistinctQuestionKinds: 1,
+        requiredIndicators: [source.questions[0]!.indicator],
+      },
+    };
+    const questions = source.questions.slice(0, 2).map((question, index) => ({
+      ...question,
+      id: `mastery-question-${index + 1}`,
+      concept: concept.id,
+      indicator: index === 0 ? source.questions[0]!.indicator : source.questions[1]!.indicator,
+    }));
+    const masteryTopic = {
+      ...source,
+      id: "mastery-topic",
+      concepts: [concept],
+      questions,
+      scaffolds: [],
+      progression: { ...source.progression, entryConcepts: [concept.id], preferredOrder: [concept.id] },
+    };
+    const state = createTutorProgressionState(revision);
+    const adapter = new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: {
+            status: "valid" as const,
+            manifest: { schemaVersion: 1 as const, topics: [], strategies: [] },
+            topics: [masteryTopic],
+            strategies: [],
+          },
+        }),
+      },
+    });
+    const first = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+    expect(first).toMatchObject({ learningPhase: "LEARN" });
+    if (!first || "kind" in first) return;
+    const second = await adapter.planFollowup({
+      code: "int values[] = {1, 2};",
+      history: [],
+      currentQuestion: first.question,
+      rating: 4,
+      difficulty: 30,
+    });
+    expect(second).toMatchObject({ learningPhase: "DEEPEN", activeTopicId: "mastery-topic", masteredTopicIds: ["mastery-topic"] });
+  });
+
+  it("moves from DEEPEN to EXPAND only after the configured post-mastery evidence", async () => {
+    const source = await topic();
+    const concept = {
+      ...source.concepts[0]!,
+      mastery: { ...source.concepts[0]!.mastery, minimumSuccessfulProbes: 1, minimumDistinctQuestionKinds: 1, requiredIndicators: [source.questions[0]!.indicator] },
+    };
+    const kinds = ["concept", "transfer", "transfer", "application"] as const;
+    const questions = source.questions.slice(0, 4).map((question, index) => ({
+      ...question,
+      id: `phase-question-${index + 1}`,
+      concept: concept.id,
+      kind: kinds[index]!,
+      indicator: source.questions[0]!.indicator,
+    }));
+    const phaseTopic = {
+      ...source,
+      schemaVersion: 2 as const,
+      id: "phase-topic",
+      concepts: [concept],
+      questions,
+      scaffolds: [],
+      progression: { ...source.progression, entryConcepts: [concept.id], preferredOrder: [concept.id] },
+      deepening: { minimumSuccessfulProbes: 2, successRatingAtLeast: 4, requiredQuestionKinds: ["transfer" as const], recentWeakAnswersAllowed: 0 },
+    };
+    const state = createTutorProgressionState(revision);
+    const adapter = new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: { status: "valid" as const, manifest: { schemaVersion: 1 as const, topics: [], strategies: [] }, topics: [phaseTopic], strategies: [] },
+        }),
+      },
+    });
+    const first = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+    expect(first).toMatchObject({ learningPhase: "LEARN" });
+    if (!first || "kind" in first) return;
+    const deepen = await adapter.planFollowup({ code: "int values[] = {1, 2};", history: [], currentQuestion: first.question, rating: 4, difficulty: 30 });
+    expect(deepen).toMatchObject({ learningPhase: "DEEPEN" });
+    if (!deepen || "kind" in deepen) return;
+    const deepenAgain = await adapter.planFollowup({ code: "int values[] = {1, 2};", history: [], currentQuestion: deepen.question, rating: 4, difficulty: 30 });
+    expect(deepenAgain).toMatchObject({ learningPhase: "DEEPEN" });
+    if (!deepenAgain || "kind" in deepenAgain) return;
+    const expand = await adapter.planFollowup({ code: "int values[] = {1, 2};", history: [], currentQuestion: deepenAgain.question, rating: 4, difficulty: 30 });
+    expect(expand).toMatchObject({ learningPhase: "EXPAND", masteredTopicIds: ["phase-topic"] });
   });
 });
