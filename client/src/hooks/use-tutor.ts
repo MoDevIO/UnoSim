@@ -128,6 +128,11 @@ function buildDialogTurn(
     ...(response.strategyId ? { strategyId: response.strategyId } : {}),
     ...(response.strategySource ? { strategySource: response.strategySource } : {}),
     ...(response.contentRevision ? { contentRevision: response.contentRevision } : {}),
+    ...(response.learningPhase ? { learningPhase: response.learningPhase } : {}),
+    ...(response.activeTopicId ? { activeTopicId: response.activeTopicId } : {}),
+    ...(response.masteredTopicIds ? { masteredTopicIds: response.masteredTopicIds } : {}),
+    ...(response.progressionBlockedReason ? { progressionBlockedReason: response.progressionBlockedReason } : {}),
+    ...(response.extensionTargetTopicId ? { extensionTargetTopicId: response.extensionTargetTopicId } : {}),
   };
   if (response.responseStyle === "philosophical") {
     return { ...baseTurn, responseStyle: "philosophical" };

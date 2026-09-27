@@ -287,7 +287,7 @@ describe("Tutor HTTP route", () => {
     expect(second.status).toBe(200);
     expect(service.generateDialogResponse).toHaveBeenCalledWith(
       "void setup(){}", [], "Frage A", "Antwort",
-      "request-only-secret", undefined, 30, contentA,
+      "request-only-secret", undefined, 30, expect.objectContaining(contentA),
     );
     expect(resolver.resolveTutorContent).toHaveBeenCalledOnce();
   });

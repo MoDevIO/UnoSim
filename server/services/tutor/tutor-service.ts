@@ -14,7 +14,7 @@ import {
   type LLMProvider,
   type ProviderQuestionResult,
 } from "./llm-provider";
-import type { TutorPlan, TutorPlanningContentContext, TutorPlanningExtension } from "./tutor-planning";
+import { isTutorPlan, type TutorPlan, type TutorPlanningBlocked, type TutorPlanningContentContext, type TutorPlanningExtension } from "./tutor-planning";
 import {
   BUILT_IN_TUTOR_STRATEGY,
   resolveEffectiveTutorStrategy,
@@ -461,6 +461,24 @@ function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): Tutor
     ...(feedback ? { feedback } : {}),
     ...(plan.strategyId ? { strategyId: plan.strategyId } : {}),
     ...(plan.strategySource ? { strategySource: plan.strategySource } : {}),
+    ...(plan.learningPhase ? { learningPhase: plan.learningPhase } : {}),
+    ...(plan.activeTopicId ? { activeTopicId: plan.activeTopicId } : {}),
+    ...(plan.masteredTopicIds ? { masteredTopicIds: [...plan.masteredTopicIds] } : {}),
+    ...(plan.progressionBlockedReason ? { progressionBlockedReason: plan.progressionBlockedReason } : {}),
+    ...(plan.extensionTargetTopicId ? { extensionTargetTopicId: plan.extensionTargetTopicId } : {}),
+  };
+}
+
+function applyBlockedResult(result: TutorContentResult, blocked: TutorPlanningBlocked): TutorContentResult {
+  return {
+    ...result,
+    strategyId: blocked.strategyId,
+    strategySource: blocked.strategySource,
+    learningPhase: blocked.learningPhase,
+    ...(blocked.activeTopicId ? { activeTopicId: blocked.activeTopicId } : {}),
+    masteredTopicIds: [...blocked.masteredTopicIds],
+    progressionBlockedReason: blocked.progressionBlockedReason,
+    contentRevision: blocked.contentRevision,
   };
 }
 
@@ -499,7 +517,7 @@ export class TutorService {
           code,
           context,
           difficulty,
-          planningResult ?? undefined,
+          planningResult && isTutorPlan(planningResult) ? planningResult : undefined,
           strategy.strategy,
           courseContent?.exampleTutorAnnotation?.learningObjectives,
         ),
@@ -507,9 +525,11 @@ export class TutorService {
       requestCredential,
     );
     const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
-    const plannedResult = planningResult
+    const plannedResult = planningResult && isTutorPlan(planningResult)
       ? applyPlanningResult(validatedResult, planningResult)
-      : applyStrategyMetadata(validatedResult, strategy);
+      : planningResult
+        ? applyBlockedResult(validatedResult, planningResult)
+        : applyStrategyMetadata(validatedResult, strategy);
     const { answerRating: _initialAnswerRating, ...initialResult } = plannedResult;
     return {
       model: providerResult.model,
@@ -549,7 +569,8 @@ export class TutorService {
       : validatedResult;
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
       const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent });
-      if (nextPlan) distinctResult = applyPlanningResult(validatedResult, nextPlan);
+      if (nextPlan && isTutorPlan(nextPlan)) distinctResult = applyPlanningResult(validatedResult, nextPlan);
+      else if (nextPlan) distinctResult = applyBlockedResult(validatedResult, nextPlan);
     }
     if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
     return {

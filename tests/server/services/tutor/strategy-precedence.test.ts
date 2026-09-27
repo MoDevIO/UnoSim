@@ -5,6 +5,7 @@ import { BUILT_IN_TUTOR_STRATEGY } from "../../../../server/services/tutor/strat
 import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import { TutorService } from "../../../../server/services/tutor/tutor-service";
+import { createTutorProgressionState, markTopicMastered } from "../../../../server/services/tutor/curriculum/progression-state";
 
 const revision = "a".repeat(40);
 
@@ -94,5 +95,39 @@ describe("Tutor strategy precedence", () => {
       undefined,
       30,
     )).resolves.toMatchObject({ result: { strategyId: "built-in-default", strategySource: "built-in" } });
+  });
+
+  it("uses a manifest v2 phase strategy after Topic mastery", async () => {
+    const tutor = await topic();
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = tutor.id;
+    state.phase = "DEEPEN";
+    state.retainedPhases[tutor.id] = "DEEPEN";
+    markTopicMastered(state, tutor.id);
+    const repositoryDefault = strategy("repository-default");
+    const exploration = strategy("exploration-policy");
+    const adapter = new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: {
+            status: "valid" as const,
+            manifest: {
+              schemaVersion: 2 as const,
+              defaultStrategy: repositoryDefault.id,
+              phaseStrategies: { deepen: exploration.id, expand: exploration.id },
+              topics: [],
+              strategies: [],
+            },
+            topics: [tutor],
+            strategies: [repositoryDefault, exploration],
+          },
+        }),
+      },
+    });
+
+    await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
+      .resolves.toMatchObject({ strategyId: exploration.id, learningPhase: "DEEPEN" });
   });
 });
