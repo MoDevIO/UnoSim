@@ -199,6 +199,19 @@ function validateTutorReferences(
   }
   const topicIds = new Set(topics.map(({ id }) => id));
   const strategyIds = new Set(strategies.map(({ id }) => id));
+  if (manifest.schemaVersion === 2) {
+    for (const phaseStrategy of Object.values(manifest.phaseStrategies ?? {})) {
+      if (phaseStrategy !== undefined && !strategyIds.has(phaseStrategy)) {
+        throw new Error(`Tutor phase strategy is not enumerated: ${phaseStrategy}`);
+      }
+    }
+  }
+  for (const topic of topics) {
+    const extensions = topic.schemaVersion === 2 ? topic.extensions ?? [] : [];
+    for (const extension of extensions) {
+      if (!topicIds.has(extension.topic)) throw new Error(`Tutor extension target is not enumerated: ${extension.topic}`);
+    }
+  }
   for (const annotation of annotations.values()) {
     validateAnnotationTopics(annotation, topicIds);
     if (annotation.strategy !== undefined && !strategyIds.has(annotation.strategy)) {
