@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { analyzeStaticIO } from "@shared/io-registry-parser";
 import {
   tutorContentResultSchema,
@@ -712,3 +713,37 @@ export {
   sanitizeMermaid,
   validateLearningQuestion,
 };
+
+export interface TutorPromptTemplateSources {
+  readonly system: string;
+  readonly initialUser: string;
+  readonly dialogUser: string;
+}
+
+export function digestTutorPromptTemplates(sources: TutorPromptTemplateSources): string {
+  return createHash("sha256").update(JSON.stringify(sources)).digest("hex");
+}
+
+const TUTOR_PROMPT_TEMPLATE_SOURCES: TutorPromptTemplateSources = {
+  system: TUTOR_SYSTEM_PROMPT,
+  initialUser: [
+    buildUserPrompt.toString(),
+    TUTOR_DIFFICULTY_GUIDANCE,
+    TUTOR_CONCRETE_REFERENCE_GUIDANCE,
+    buildTutorStrategyGuidance.toString(),
+    buildTutorLearningObjectivesGuidance.toString(),
+  ].join("\n"),
+  dialogUser: [
+    buildDialogPrompt.toString(),
+    TUTOR_DIFFICULTY_GUIDANCE,
+    TUTOR_CONCRETE_REFERENCE_GUIDANCE,
+    buildTutorStrategyGuidance.toString(),
+    buildTutorLearningObjectivesGuidance.toString(),
+  ].join("\n"),
+};
+
+export const TUTOR_PROMPT_REVISION = {
+  id: "tutor-prompts-v1",
+  sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
+  templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),
+} as const;
