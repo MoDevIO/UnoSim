@@ -106,6 +106,26 @@ describe("Tutor final review conformance", () => {
     expect(pinned.progressionState?.phase).toBe("EXPAND");
   });
 
+  it("does not persist dialog planning mutations when the provider times out", async () => {
+    const setup = await expansionContext("Eine Dialog-Expansion darf erst nach erfolgreicher Antwort festgeschrieben werden.");
+    const { pinned } = sessionContent(setup.content);
+    const provider = successfulProvider();
+    vi.mocked(provider.generateLearningQuestion).mockRejectedValueOnce(new TutorProviderError("provider-timeout"));
+    const before = structuredClone(pinned.progressionState);
+
+    await expect(new TutorService(provider, new CurriculumTutorAdapter()).generateDialogResponse(
+      "int value = 1;",
+      [],
+      "Welche Erweiterung ist sinnvoll?",
+      "Ich prüfe zunächst den aktuellen Wert.",
+      "key",
+      undefined,
+      30,
+      pinned,
+    )).rejects.toMatchObject({ kind: "provider-timeout" });
+    expect(pinned.progressionState).toEqual(before);
+  });
+
   it("does not persist progression changes for an invalid provider payload", async () => {
     const source = await sourceTopic();
     const state = createTutorProgressionState(revision);
