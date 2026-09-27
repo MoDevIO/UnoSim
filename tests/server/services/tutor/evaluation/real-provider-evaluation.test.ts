@@ -142,6 +142,24 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(reportText).not.toContain("super-secret-value");
   });
 
+  it("supports an injected artifact writer without touching the repository", async () => {
+    let writtenReport: string | undefined;
+    let writtenTranscriptCount = -1;
+    const result = await runTutorQualityEvaluation(options(providerFor({
+      responseStyle: "normal",
+      answerRating: 4,
+      question: "Welche Beobachtung ist belegt?",
+    }), {
+      artifactWriter: async (report, transcripts) => {
+        writtenReport = report.runId;
+        writtenTranscriptCount = transcripts.length;
+      },
+    }));
+
+    expect(writtenReport).toBe(result.report.runId);
+    expect(writtenTranscriptCount).toBe(1);
+  });
+
   it("redacts a credential echoed by a fake provider from every transcript field", async () => {
     const result = await runTutorQualityEvaluation(options(providerFor({
       responseStyle: "normal",

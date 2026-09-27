@@ -72,6 +72,10 @@ export interface TutorQualityEvaluationOptions {
   readonly git: TutorQualityGitState;
   readonly now?: () => Date;
   readonly runSuffix?: () => string;
+  readonly artifactWriter?: (
+    report: TutorQualityEvaluationReport,
+    transcripts: readonly TutorQualityTranscript[],
+  ) => Promise<void>;
 }
 
 export interface TutorQualityDeterministicCheck {
@@ -864,7 +868,7 @@ function baseReport(
   };
 }
 
-async function writeArtifacts(
+async function writeArtifactsToDirectory(
   outputDir: string | undefined,
   report: TutorQualityEvaluationReport,
   transcripts: readonly TutorQualityTranscript[],
@@ -877,6 +881,18 @@ async function writeArtifacts(
     const index = transcript.metadata.sampleIndex;
     return writeFile(`${outputDir}/transcript-${safeId}-${index}.json`, `${JSON.stringify(transcript, null, 2)}\n`, "utf8");
   }));
+}
+
+async function writeArtifacts(
+  options: TutorQualityEvaluationOptions,
+  report: TutorQualityEvaluationReport,
+  transcripts: readonly TutorQualityTranscript[],
+): Promise<void> {
+  if (options.artifactWriter) {
+    await options.artifactWriter(report, transcripts);
+    return;
+  }
+  await writeArtifactsToDirectory(options.outputDir, report, transcripts);
 }
 
 function invalidPreflightReason(options: TutorQualityEvaluationOptions): string | undefined {
@@ -906,17 +922,17 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
 
   if (invalidReason) {
     const report = baseReport(options, runId, evaluationIdentity, "invalid", invalidReason, { total: 0, modelListCalls: 0, generationCalls: 0 }, emptyByScenario);
-    await writeArtifacts(options.outputDir, report, []);
+    await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
   if (!options.credential) {
     const report = baseReport(options, runId, evaluationIdentity, "not-run", "missing-credential", { total: 0, modelListCalls: 0, generationCalls: 0 }, emptyByScenario);
-    await writeArtifacts(options.outputDir, report, []);
+    await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
   if (options.maxCalls === 0) {
     const report = baseReport(options, runId, evaluationIdentity, "not-run", "call-budget-zero", { total: 0, modelListCalls: 0, generationCalls: 0 }, emptyByScenario);
-    await writeArtifacts(options.outputDir, report, []);
+    await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
 
@@ -926,12 +942,12 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
     availableModels = await provider.listModels(options.credential);
   } catch (error) {
     const report = baseReport(options, runId, evaluationIdentity, "technical-failure", technicalError(error).kind, provider.counts, emptyByScenario);
-    await writeArtifacts(options.outputDir, report, []);
+    await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
   if (!availableModels.includes(options.requestedModel)) {
     const report = baseReport(options, runId, evaluationIdentity, "invalid", "model-unavailable", provider.counts, emptyByScenario);
-    await writeArtifacts(options.outputDir, report, []);
+    await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
 
@@ -951,7 +967,7 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
     }
   }
   const report = baseReport(options, runId, evaluationIdentity, "completed", undefined, provider.counts, byScenario, transcripts.length);
-  await writeArtifacts(options.outputDir, report, transcripts);
+  await writeArtifacts(options, report, transcripts);
   return { report, transcripts };
 }
 
