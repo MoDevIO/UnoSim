@@ -34,6 +34,7 @@ import {
   hasMetDeepeningCriteria,
   markExpansionTargetUsed,
   markTopicMastered,
+  resetTutorProgressionState,
   type DidacticPhase,
   type TutorProgressionState,
 } from "./curriculum/progression-state";
@@ -191,9 +192,8 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const exampleContextId = snapshot.exampleId ?? requestedExampleId;
     const annotation = exampleContextId === undefined ? undefined : snapshot.exampleTutorAnnotation;
     const orderedMatches = orderTopicMatches(matches, annotation);
-    const state = snapshot.progressionState?.revision === snapshot.revision
-      ? snapshot.progressionState
-      : createTutorProgressionState(snapshot.revision);
+    const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
+    if (state.revision !== snapshot.revision) resetTutorProgressionState(state, snapshot.revision);
     const learnStrategy = this.resolveSnapshotStrategy(snapshot, annotation, "LEARN");
     const classifications = classifyMatches(orderedMatches, facts, history, state, difficulty, learnStrategy.strategy);
     const selected = selectProgressionMatch(classifications, state);

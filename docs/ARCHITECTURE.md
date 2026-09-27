@@ -167,7 +167,9 @@ fixtures and authoring examples only. The normative details are in
 [ssot_function_definition_CourseContent.md](../ssot/ssot_function_definition_CourseContent.md),
 [adr/0006-unified-course-content-and-tutor-strategy.md](adr/0006-unified-course-content-and-tutor-strategy.md),
 [adr/0007-mastery-driven-tutor-progression.md](adr/0007-mastery-driven-tutor-progression.md),
-and [ssot_function_definition_LearningQuestions.md](../ssot/ssot_function_definition_LearningQuestions.md).
+[ssot_function_definition_LearningQuestions.md](../ssot/ssot_function_definition_LearningQuestions.md),
+and the deterministic quality gates in
+[ssot_function_definition_TutorQuality.md](../ssot/ssot_function_definition_TutorQuality.md).
 
 ### Dynamic Course Content selection
 

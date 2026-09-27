@@ -45,6 +45,7 @@ const UNSAFE_MERMAID_PATTERNS = [
 ];
 
 const TUTOR_DIFFICULTY_GUIDANCE = "Kalibriere die Frage kognitiv: 1–10 = elementare Wiedererkennung oder direkter Fakt, 11–30 = einfache Anwendung, 31–50 = Verständnis und Zusammenhang, 51–70 = Transfer oder Analyse, 71–90 = anspruchsvolle Herleitung mehrerer Konzepte, 91–100 = sehr anspruchsvolle Synthese. Die Frage muss zum aktuellen Wert passen; Difficulty ist kein Prüfungsniveau.";
+const TUTOR_CONCRETE_REFERENCE_GUIDANCE = "Wenn eine Frage auf ein konkretes Sketch-Element zielt und mehrere Bezeichner oder Stellen infrage kommen, nenne den konkreten Bezeichner und genügend lokale Code-Stelle (zum Beispiel Deklaration, Schleife oder Aufruf), damit die Frage ohne Raten verständlich ist. Vermeide bei möglicher Mehrdeutigkeit unklare Formulierungen wie ‚die Integer-Variable‘, ‚dieser Wert‘ oder ‚dort‘. Frage nur nach durch den aktuellen Sketch belegten Fakten.";
 
 type TutorDialogArguments = [
   code: string,
@@ -83,6 +84,7 @@ export const TUTOR_SYSTEM_PROMPT = [
   "Erfinde keine Hardware, Pins, Variablen, Werte oder Programmstrukturen.",
   "Gib keine vollständige Lösung, keinen vollständigen Ersatzcode und keine Codeänderung aus.",
   "Die Frage soll die eigene Analyse des Studierenden fördern und nicht die Denkarbeit ersetzen.",
+  TUTOR_CONCRETE_REFERENCE_GUIDANCE,
   "Wenn eine Nutzerantwort vorliegt, gib bei normalen inhaltlichen Antworten kurzes Feedback, responseStyle normal, eine answerRating von 1 bis 5 und danach genau eine Folgefrage.",
   "Für offensichtlich unsinnige, absurde oder vollständig themenfremde Antworten verwende ausschließlich den begrenzten philosophischen Fallback: responseStyle philosophical, keine answerRating, kurzer nicht-spöttischer Reflexionshinweis und genau eine Frage zurück zum aktuellen Sketch.",
   "Normale fachlich falsche Antworten bleiben responseStyle normal und werden bewertet.",
@@ -131,6 +133,7 @@ function buildUserPrompt(
     "Erzeuge eine einzige Lernfrage zum folgenden aktuellen Arduino-Sketch.",
     `Relative didaktische Schwierigkeit für diese Frage: ${difficulty}/100 (1 = sehr leicht, 100 = sehr schwer; kein Prüfungsniveau).`,
     TUTOR_DIFFICULTY_GUIDANCE,
+    TUTOR_CONCRETE_REFERENCE_GUIDANCE,
     buildTutorStrategyGuidance(strategy),
     ...(objectivesGuidance ? [objectivesGuidance] : []),
     "Wenn ein Sachverhalt nicht statisch belegt ist, formuliere höchstens eine offene Reflexionsfrage statt einer Tatsachenbehauptung.",
@@ -166,6 +169,7 @@ function buildDialogPrompt(
     "Führe den sokratischen Lerndialog zum folgenden aktuellen Arduino-Sketch fort.",
     `Erzeuge die Folgefrage mit relativer didaktischer Schwierigkeit ${difficulty}/100 (1 = sehr leicht, 100 = sehr schwer; kein Prüfungsniveau).`,
     TUTOR_DIFFICULTY_GUIDANCE,
+    TUTOR_CONCRETE_REFERENCE_GUIDANCE,
     buildTutorStrategyGuidance(strategy),
     ...(objectivesGuidance ? [objectivesGuidance] : []),
     "Bewerte die Antwort mit answerRating 1 bis 5 gemäß Verständnisrubrik, höchstens kurz, und stelle danach genau eine neue, weiterführende Frage.",
@@ -442,13 +446,38 @@ function validateLearningQuestion(result: TutorContentResult, difficulty?: Tutor
     ...resultWithoutMermaid,
     ...(sanitizedMermaid ? { mermaid: sanitizedMermaid } : {}),
   });
-  if (!parsed.success || containsCompleteSolution(parsed.data.question) || (parsed.data.feedback !== undefined && containsCompleteSolution(parsed.data.feedback))) {
+  if (
+    !parsed.success
+    || (parsed.data.question.match(/\?/g)?.length ?? 0) > 1
+    || containsCompleteSolution(parsed.data.question)
+    || (parsed.data.feedback !== undefined && containsCompleteSolution(parsed.data.feedback))
+  ) {
     throw new TutorProviderError("invalid-response");
   }
   if (parsed.data.responseStyle === "philosophical" && parsed.data.answerRating !== undefined) {
     throw new TutorProviderError("invalid-response");
   }
   return difficulty === undefined ? parsed.data : { ...parsed.data, difficulty };
+}
+
+function stripProviderPlanningMetadata(result: TutorContentResult): TutorContentResult {
+  const {
+    topicId: _topicId,
+    conceptId: _conceptId,
+    questionId: _questionId,
+    indicatorId: _indicatorId,
+    questionKind: _questionKind,
+    strategyId: _strategyId,
+    strategySource: _strategySource,
+    contentRevision: _contentRevision,
+    learningPhase: _learningPhase,
+    activeTopicId: _activeTopicId,
+    masteredTopicIds: _masteredTopicIds,
+    progressionBlockedReason: _progressionBlockedReason,
+    extensionTargetTopicId: _extensionTargetTopicId,
+    ...content
+  } = result;
+  return content;
 }
 
 function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): TutorContentResult {
@@ -580,7 +609,7 @@ export class TutorService {
       },
       requestCredential,
     );
-    const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
+    const validatedResult = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
     const plannedResult = planningResult
       ? applyPlanningOutcome(validatedResult, planningResult)
       : applyStrategyMetadata(validatedResult, strategy);
@@ -621,7 +650,7 @@ export class TutorService {
       },
       requestCredential,
     );
-    const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
+    const validatedResult = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
     if (validatedResult.responseStyle === "normal" && validatedResult.answerRating === undefined) {
       throw new TutorProviderError("invalid-response");
     }
@@ -630,7 +659,7 @@ export class TutorService {
       : validatedResult;
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
       const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent: transaction.courseContent });
-      if (nextPlan) distinctResult = applyPlanningOutcome(validatedResult, nextPlan);
+      if (nextPlan) distinctResult = applyPlanningOutcome(distinctResult, nextPlan);
     }
     if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
     transaction.commit();

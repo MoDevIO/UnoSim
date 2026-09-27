@@ -1,0 +1,45 @@
+schemaVersion: 1
+id: variables-and-serial
+title: Variablen, Literale und Serial-Ausgabe
+locale: de-DE
+activation:
+  any:
+    - fact: serial-call
+      values: [print]
+concepts:
+  - id: variable-values
+    title: Variablenwerte
+    objective: Den Zusammenhang zwischen einem deklarierten Integerwert und seiner Verwendung erklären.
+    prerequisites: []
+    difficulty:
+      entry: [1, 50]
+      transfer: [20, 80]
+    misconceptions: []
+    indicators:
+      - id: relates-value-to-use
+        description: Ordnet einen Integerwert seiner Verwendung im Sketch zu.
+    mastery:
+      minimumSuccessfulProbes: 1
+      successRatingAtLeast: 3
+      requiredIndicators: [relates-value-to-use]
+      minimumDistinctQuestionKinds: 1
+      recentWeakAnswersAllowed: 0
+questions:
+  - id: variable-value-recall
+    concept: variable-values
+    indicator: relates-value-to-use
+    kind: recall
+    difficulty: [1, 50]
+    requires:
+      - fact: type-used
+        values: [int]
+    text: Welche Rolle spielt der Integer-Datentyp im aktuellen Sketch?
+scaffolds: []
+progression:
+  entryConcepts: [variable-values]
+  preferredOrder: [variable-values]
+  onRating:
+    1-2: remediate
+    3: clarify-same-indicator
+    4: probe-missing-indicator
+    5: evaluate-mastery-and-advance
