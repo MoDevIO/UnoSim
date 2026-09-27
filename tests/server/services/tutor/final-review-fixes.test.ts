@@ -265,6 +265,8 @@ describe("Tutor final review conformance", () => {
 
     expect(firstResult.result.question).toContain("Wiederholte Verarbeitung in eine Funktion auslagern.");
     expect(secondResult.result.question).toContain("Eine serielle Ausgabe als klaren Diagnosewert verwenden.");
+    expect((firstResult.result.question.match(/\?/g) ?? [])).toHaveLength(1);
+    expect((secondResult.result.question.match(/\?/g) ?? [])).toHaveLength(1);
     expect(firstResult.result.question).not.toBe(secondResult.result.question);
     expect(firstResult.result).toMatchObject({ activeTopicId: first.sourceId, learningPhase: "EXPAND" });
     expect(firstResult.result.activeTopicId).not.toBe(first.targetId);

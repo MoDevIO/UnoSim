@@ -455,7 +455,7 @@ function buildExpansionPlan(context: AdapterContext, phase: DidacticPhase, expan
     questionKind: "transfer",
     indicatorId: "expansion",
     indicator: expansionBrief.objective,
-    question: `Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „${expansionBrief.objective}“? Woran würdest du ihre Wirkung erkennen?`,
+    question: `Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „${expansionBrief.objective}“, und woran würdest du ihre Wirkung erkennen?`,
     misconceptions: [],
     contentRevision: context.revision,
     strategyId: context.strategy.strategy.id,
