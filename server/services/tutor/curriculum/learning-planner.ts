@@ -91,7 +91,15 @@ export class DefaultLearningPlanner implements LearningPlanner {
     const observations = collectObservations(topic, history);
     const usedQuestionIds = collectUsedQuestionIds(topic, history);
     if (options?.phase === "DEEPEN" || options?.phase === "EXPAND") {
-      const question = selectDeepeningQuestion(topic, facts, usedQuestionIds, difficulty, strategy, undefined, options?.preferredQuestionKinds, options?.existingQuestionKinds);
+      const question = selectDeepeningQuestion({
+        topic,
+        facts,
+        usedQuestionIds,
+        difficulty,
+        strategy,
+        preferredKinds: options?.preferredQuestionKinds,
+        existingKinds: options?.existingQuestionKinds,
+      });
       const concept = question ? topic.concepts.find(({ id }) => id === question.concept) : undefined;
       return question && concept ? buildPlan(topic, revision, concept, question) : null;
     }
@@ -126,7 +134,16 @@ export class DefaultLearningPlanner implements LearningPlanner {
     if (!concept) return null;
 
     if (options.phase === "DEEPEN" || options.phase === "EXPAND") {
-      const question = selectDeepeningQuestion(topic, facts, usedQuestionIds, difficulty, strategy, current.question.id, options.preferredQuestionKinds, options.existingQuestionKinds);
+      const question = selectDeepeningQuestion({
+        topic,
+        facts,
+        usedQuestionIds,
+        difficulty,
+        strategy,
+        excludedId: current.question.id,
+        preferredKinds: options.preferredQuestionKinds,
+        existingKinds: options.existingQuestionKinds,
+      });
       const target = question ? topic.concepts.find(({ id }) => id === question.concept) : undefined;
       return question && target ? buildPlan(topic, revision, target, question) : null;
     }
@@ -314,16 +331,25 @@ function selectQuestion(
   ))[0] ?? null;
 }
 
-function selectDeepeningQuestion(
-  topic: CurriculumTopic,
-  facts: SketchFacts,
-  usedQuestionIds: ReadonlySet<string>,
-  difficulty: TutorDifficulty,
-  strategy?: EffectiveTutorStrategy,
-  excludedId?: string,
-  preferredKinds: readonly CurriculumQuestion["kind"][] = [],
-  existingKinds: readonly CurriculumQuestion["kind"][] = [],
-): CurriculumQuestion | null {
+function selectDeepeningQuestion({
+  topic,
+  facts,
+  usedQuestionIds,
+  difficulty,
+  strategy,
+  excludedId,
+  preferredKinds = [],
+  existingKinds = [],
+}: {
+  readonly topic: CurriculumTopic;
+  readonly facts: SketchFacts;
+  readonly usedQuestionIds: ReadonlySet<string>;
+  readonly difficulty: TutorDifficulty;
+  readonly strategy?: EffectiveTutorStrategy;
+  readonly excludedId?: string;
+  readonly preferredKinds?: readonly CurriculumQuestion["kind"][];
+  readonly existingKinds?: readonly CurriculumQuestion["kind"][];
+}): CurriculumQuestion | null {
   const candidates = topic.questions.filter((question) =>
     question.kind !== "recall"
     && questionApplies(question, facts)

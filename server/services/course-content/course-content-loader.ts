@@ -194,24 +194,43 @@ function validateTutorReferences(
   strategies: readonly EffectiveTutorStrategy[],
   annotations: ReadonlyMap<string, ExampleTutorAnnotation>,
 ): void {
-  if (manifest.defaultStrategy !== undefined && !strategies.some(({ id }) => id === manifest.defaultStrategy)) {
-    throw new Error("Tutor default strategy is not enumerated");
-  }
   const topicIds = new Set(topics.map(({ id }) => id));
   const strategyIds = new Set(strategies.map(({ id }) => id));
-  if (manifest.schemaVersion === 2) {
-    for (const phaseStrategy of Object.values(manifest.phaseStrategies ?? {})) {
-      if (phaseStrategy !== undefined && !strategyIds.has(phaseStrategy)) {
-        throw new Error(`Tutor phase strategy is not enumerated: ${phaseStrategy}`);
-      }
+  validateDefaultStrategy(manifest, strategyIds);
+  validatePhaseStrategies(manifest, strategyIds);
+  validateTopicExtensions(topics, topicIds);
+  validateAnnotationReferences(annotations, topicIds, strategyIds);
+}
+
+function validateDefaultStrategy(manifest: CourseContentTutorManifest, strategyIds: ReadonlySet<string>): void {
+  if (manifest.defaultStrategy !== undefined && !strategyIds.has(manifest.defaultStrategy)) {
+    throw new Error("Tutor default strategy is not enumerated");
+  }
+}
+
+function validatePhaseStrategies(manifest: CourseContentTutorManifest, strategyIds: ReadonlySet<string>): void {
+  if (manifest.schemaVersion !== 2) return;
+  for (const phaseStrategy of Object.values(manifest.phaseStrategies ?? {})) {
+    if (phaseStrategy !== undefined && !strategyIds.has(phaseStrategy)) {
+      throw new Error(`Tutor phase strategy is not enumerated: ${phaseStrategy}`);
     }
   }
+}
+
+function validateTopicExtensions(topics: readonly CurriculumTopic[], topicIds: ReadonlySet<string>): void {
   for (const topic of topics) {
     const extensions = topic.schemaVersion === 2 ? topic.extensions ?? [] : [];
     for (const extension of extensions) {
       if (!topicIds.has(extension.topic)) throw new Error(`Tutor extension target is not enumerated: ${extension.topic}`);
     }
   }
+}
+
+function validateAnnotationReferences(
+  annotations: ReadonlyMap<string, ExampleTutorAnnotation>,
+  topicIds: ReadonlySet<string>,
+  strategyIds: ReadonlySet<string>,
+): void {
   for (const annotation of annotations.values()) {
     validateAnnotationTopics(annotation, topicIds);
     if (annotation.strategy !== undefined && !strategyIds.has(annotation.strategy)) {

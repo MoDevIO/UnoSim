@@ -119,20 +119,7 @@ function buildDialogTurn(
   const baseTurn = {
     question,
     answer,
-    ...(response.feedback ? { feedback: response.feedback } : {}),
-    ...(response.topicId ? { topicId: response.topicId } : {}),
-    ...(response.conceptId ? { conceptId: response.conceptId } : {}),
-    ...(response.questionId ? { questionId: response.questionId } : {}),
-    ...(response.indicatorId ? { indicatorId: response.indicatorId } : {}),
-    ...(response.questionKind ? { questionKind: response.questionKind } : {}),
-    ...(response.strategyId ? { strategyId: response.strategyId } : {}),
-    ...(response.strategySource ? { strategySource: response.strategySource } : {}),
-    ...(response.contentRevision ? { contentRevision: response.contentRevision } : {}),
-    ...(response.learningPhase ? { learningPhase: response.learningPhase } : {}),
-    ...(response.activeTopicId ? { activeTopicId: response.activeTopicId } : {}),
-    ...(response.masteredTopicIds ? { masteredTopicIds: response.masteredTopicIds } : {}),
-    ...(response.progressionBlockedReason ? { progressionBlockedReason: response.progressionBlockedReason } : {}),
-    ...(response.extensionTargetTopicId ? { extensionTargetTopicId: response.extensionTargetTopicId } : {}),
+    ...buildDialogTurnMetadata(response),
   };
   if (response.responseStyle === "philosophical") {
     return { ...baseTurn, responseStyle: "philosophical" };
@@ -142,6 +129,26 @@ function buildDialogTurn(
     responseStyle: "normal",
     ...(response.answerRating === undefined ? {} : { answerRating: response.answerRating }),
   };
+}
+
+function buildDialogTurnMetadata(response: TutorResponse): Partial<Omit<TutorDialogTurn, "question" | "answer" | "responseStyle" | "answerRating">> {
+  const fields = [
+    ["feedback", response.feedback],
+    ["topicId", response.topicId],
+    ["conceptId", response.conceptId],
+    ["questionId", response.questionId],
+    ["indicatorId", response.indicatorId],
+    ["questionKind", response.questionKind],
+    ["strategyId", response.strategyId],
+    ["strategySource", response.strategySource],
+    ["contentRevision", response.contentRevision],
+    ["learningPhase", response.learningPhase],
+    ["activeTopicId", response.activeTopicId],
+    ["masteredTopicIds", response.masteredTopicIds],
+    ["progressionBlockedReason", response.progressionBlockedReason],
+    ["extensionTargetTopicId", response.extensionTargetTopicId],
+  ] as const;
+  return Object.fromEntries(fields.filter(([, value]) => value !== undefined && value !== "")) as Partial<Omit<TutorDialogTurn, "question" | "answer" | "responseStyle" | "answerRating">>;
 }
 
 function collectAnswerRatings(history: readonly TutorDialogTurn[]): readonly TutorAnswerRating[] {

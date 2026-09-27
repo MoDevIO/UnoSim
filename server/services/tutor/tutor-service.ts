@@ -525,11 +525,14 @@ export class TutorService {
       requestCredential,
     );
     const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
-    const plannedResult = planningResult && isTutorPlan(planningResult)
-      ? applyPlanningResult(validatedResult, planningResult)
-      : planningResult
-        ? applyBlockedResult(validatedResult, planningResult)
-        : applyStrategyMetadata(validatedResult, strategy);
+    let plannedResult: TutorContentResult;
+    if (planningResult && isTutorPlan(planningResult)) {
+      plannedResult = applyPlanningResult(validatedResult, planningResult);
+    } else if (planningResult) {
+      plannedResult = applyBlockedResult(validatedResult, planningResult);
+    } else {
+      plannedResult = applyStrategyMetadata(validatedResult, strategy);
+    }
     const { answerRating: _initialAnswerRating, ...initialResult } = plannedResult;
     return {
       model: providerResult.model,

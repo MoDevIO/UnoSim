@@ -18,9 +18,14 @@ import {
   type TopicClassification,
 } from "./curriculum/learning-planner";
 import { DefaultSketchFactExtractor, type SketchFactExtractor } from "./curriculum/sketch-facts";
-import { DefaultTopicMatcher, type TopicMatcher } from "./curriculum/topic-matcher";
-import type { TutorPlan, TutorPlanningContentContext, TutorPlanningExtension } from "./tutor-planning";
-import type { TutorPlanningBlocked, TutorPlanningResult } from "./tutor-planning";
+import { DefaultTopicMatcher, type TopicMatch, type TopicMatcher } from "./curriculum/topic-matcher";
+import type {
+  TutorPlan,
+  TutorPlanningBlocked,
+  TutorPlanningContentContext,
+  TutorPlanningExtension,
+  TutorPlanningResult,
+} from "./tutor-planning";
 import {
   appendEvidence,
   createTutorProgressionState,
@@ -31,7 +36,6 @@ import {
   type TutorProgressionState,
 } from "./curriculum/progression-state";
 import type { CurriculumQuestion, CurriculumTopic } from "./curriculum/curriculum-schema";
-import type { TopicMatch } from "./curriculum/topic-matcher";
 
 export interface CurriculumTutorAdapterDependencies {
   readonly courseContent?: CourseContentSnapshotProvider;
@@ -50,6 +54,16 @@ export interface CourseContentSnapshotProvider {
     readonly progressionState?: TutorProgressionState;
   } | null>;
 }
+
+type TutorFollowupInput = {
+  readonly code: string;
+  readonly history: readonly TutorDialogTurn[];
+  readonly currentQuestion: string;
+  readonly rating: Parameters<NonNullable<LearningPlanner["advance"]>>[5];
+  readonly difficulty: TutorDifficulty;
+  readonly exampleId?: string;
+  readonly courseContent?: TutorPlanningContentContext;
+};
 
 export class CurriculumTutorAdapter implements TutorPlanningExtension {
   private readonly courseContent?: CourseContentSnapshotProvider;
@@ -92,62 +106,47 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     return plan ? normalizePlan(plan, context.strategy, context.state, context.phase, context.extensionTargetTopicId) : null;
   }
 
-  async planFollowup(input: {
-    code: string;
-    history: readonly TutorDialogTurn[];
-    currentQuestion: string;
-    rating: Parameters<NonNullable<LearningPlanner["advance"]>>[5];
-    difficulty: TutorDifficulty;
-    exampleId?: string;
-    courseContent?: TutorPlanningContentContext;
-  }): Promise<TutorPlanningResult | null> {
+  async planFollowup(input: TutorFollowupInput): Promise<TutorPlanningResult | null> {
     const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!context) return null;
     if (context.blocked) return context.blocked;
-    const state = context.state;
-    const current = findQuestion(context.topic, input.currentQuestion, input.history);
-    if (current && state) {
-      const observation = toObservation(current, input.rating);
-      if (context.phase === "DEEPEN" || context.phase === "EXPAND") {
-        appendEvidence(state, "postMasteryEvidence", context.topic.id, observation);
-      } else {
-        appendEvidence(state, "masteryEvidence", context.topic.id, observation);
-      }
-    }
-
+    recordFollowupObservation(context, input);
     const refreshed = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!refreshed) return null;
     if (refreshed.blocked) return refreshed.blocked;
+    return this.continueFollowup(context, refreshed, input);
+  }
+
+  private continueFollowup(context: AdapterContext, refreshed: AdapterContext, input: TutorFollowupInput): TutorPlanningResult | null {
     const activeChanged = refreshed.topic.id !== context.topic.id;
-    if (state && !activeChanged && context.phase === "LEARN") {
-      const classification = classifyWithState(refreshed.topic, refreshed.facts, input.history, state, input.difficulty, refreshed.strategy.strategy);
-      if (classification.status === "mastered") markTopicMastered(state, refreshed.topic.id);
-      if (classification.status === "unresolved") return blockedResult(refreshed, state);
-      if (classification.status === "mastered") {
-        state.phase = "DEEPEN";
-        state.retainedPhases[refreshed.topic.id] = "DEEPEN";
-      }
-    }
-    const nextPhase = state?.phase ?? refreshed.phase;
+    const blocked = updateStateAfterFollowup(context, refreshed, input, activeChanged);
+    if (blocked) return blocked;
+    const nextPhase = context.state.phase ?? refreshed.phase;
     const planningHistory = activeChanged
       ? input.history
-      : progressionHistory(refreshed.topic, input.history, state, input.currentQuestion);
-    if (activeChanged || nextPhase !== context.phase) {
-      const plan = this.planner.start(refreshed.topic, refreshed.revision, refreshed.facts, planningHistory, input.difficulty, refreshed.strategy.strategy, progressionOptions(refreshed.topic, nextPhase, state));
-      return plan ? normalizePlan(plan, refreshed.strategy, state, nextPhase, refreshed.extensionTargetTopicId) : null;
+      : progressionHistory(refreshed.topic, input.history, context.state, input.currentQuestion);
+    if (activeChanged || nextPhase !== context.phase) return this.startPlan(refreshed, planningHistory, input.difficulty, nextPhase);
+    if (nextPhase === "DEEPEN" && hasMetDeepeningCriteria(refreshed.topic, context.state.postMasteryEvidence[refreshed.topic.id] ?? [])) {
+      context.state.phase = "EXPAND";
+      context.state.retainedPhases[refreshed.topic.id] = "EXPAND";
+      return this.startPlan(refreshed, planningHistory, input.difficulty, "EXPAND");
     }
-    if (nextPhase === "DEEPEN" && state && hasMetDeepeningCriteria(refreshed.topic, state.postMasteryEvidence[refreshed.topic.id] ?? [])) {
-      state.phase = "EXPAND";
-      state.retainedPhases[refreshed.topic.id] = "EXPAND";
-      const plan = this.planner.start(refreshed.topic, refreshed.revision, refreshed.facts, planningHistory, input.difficulty, refreshed.strategy.strategy, progressionOptions(refreshed.topic, "EXPAND", state));
-      return plan ? normalizePlan(plan, refreshed.strategy, state, "EXPAND", refreshed.extensionTargetTopicId) : null;
-    }
-    const plan = this.planner.advance(refreshed.topic, refreshed.revision, refreshed.facts, input.history, input.currentQuestion, input.rating, {
+    return this.advancePlan(refreshed, input);
+  }
+
+  private startPlan(context: AdapterContext, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, phase: DidacticPhase): TutorPlanningResult | null {
+    const plan = this.planner.start(context.topic, context.revision, context.facts, history, difficulty, context.strategy.strategy, progressionOptions(context.topic, phase, context.state));
+    return plan ? normalizePlan(plan, context.strategy, context.state, phase, context.extensionTargetTopicId) : null;
+  }
+
+  private advancePlan(context: AdapterContext, input: TutorFollowupInput): TutorPlanningResult | null {
+    const plan = this.planner.advance(context.topic, context.revision, context.facts, input.history, input.currentQuestion, input.rating, {
       difficulty: input.difficulty,
-      strategy: refreshed.strategy.strategy,
-      ...progressionOptions(refreshed.topic, nextPhase, state),
+      strategy: context.strategy.strategy,
+      ...progressionOptions(context.topic, context.state.phase ?? context.phase, context.state),
     });
-    return plan ? normalizePlan(plan, refreshed.strategy, state, nextPhase, refreshed.extensionTargetTopicId) : null;
+    const phase = context.state.phase ?? context.phase;
+    return plan ? normalizePlan(plan, context.strategy, context.state, phase, context.extensionTargetTopicId) : null;
   }
 
   private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string) {
@@ -181,40 +180,27 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (snapshot.tutor?.status !== "valid" || snapshot.tutor.topics.length === 0) return null;
     const facts = this.factExtractor.extract(code);
     const matches = this.topicMatcher.match(snapshot.tutor.topics, facts);
-    const annotation = (snapshot.exampleId ?? requestedExampleId) !== undefined ? snapshot.exampleTutorAnnotation : undefined;
+    const exampleContextId = snapshot.exampleId ?? requestedExampleId;
+    const annotation = exampleContextId === undefined ? undefined : snapshot.exampleTutorAnnotation;
     const orderedMatches = orderTopicMatches(matches, annotation);
     const state = snapshot.progressionState?.revision === snapshot.revision
       ? snapshot.progressionState
       : createTutorProgressionState(snapshot.revision);
-    const previousActiveTopicId = state.activeTopicId;
-    const previousPhase = state.phase;
     const learnStrategy = this.resolveSnapshotStrategy(snapshot, annotation, "LEARN");
-    const classifications = orderedMatches.map((match) => ({
-      match,
-      classification: classifyWithState(match.topic, facts, history, state, difficulty, learnStrategy.strategy),
-    }));
-    const firstProbeable = classifications.find(({ classification }) => classification.status === "probeable");
-    const firstUnresolved = classifications.find(({ classification }) => classification.status === "unresolved");
-    const active = state.activeTopicId ? classifications.find(({ match }) => match.topic.id === state.activeTopicId) : undefined;
-    const selected = firstProbeable ?? firstUnresolved ?? active ?? classifications.find(({ classification }) => classification.status === "mastered");
+    const classifications = classifyMatches(orderedMatches, facts, history, state, difficulty, learnStrategy.strategy);
+    const selected = selectProgressionMatch(classifications, state);
     const match = selected?.match;
     if (!match) return null;
     const classification = selected?.classification;
     const phase = phaseForTopic(state, match.topic.id, classification?.status);
+    const previousActiveTopicId = state.activeTopicId;
+    const previousPhase = state.phase ?? "LEARN";
     state.activeTopicId = match.topic.id;
     state.phase = phase;
     state.progressionBlockedReason = undefined;
     const strategy = this.resolveSnapshotStrategy(snapshot, annotation, phase);
-    const previousTopic = previousActiveTopicId
-      ? snapshot.tutor.topics.find(({ id }) => id === previousActiveTopicId)
-      : undefined;
-    const extensionTargetTopicId = previousActiveTopicId && previousPhase === "EXPAND" && previousActiveTopicId !== match.topic.id
-      && previousTopic?.schemaVersion === 2
-      && previousTopic.extensions?.some((extension) => extension.topic === match.topic.id)
-      ? match.topic.id
-      : undefined;
-    if (classification?.status === "unresolved") return { blocked: blockedResult({ revision: snapshot.revision, topic: match.topic, strategy, phase, state }, state), revision: snapshot.revision, facts, topic: match.topic, strategy, phase, state, extensionTargetTopicId };
-    return {
+    const extensionTargetTopicId = resolveExtensionTarget(snapshot.tutor.topics, previousActiveTopicId, previousPhase, match.topic.id);
+    const context = {
       revision: snapshot.revision,
       facts,
       topic: match.topic,
@@ -223,6 +209,9 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       state,
       ...(extensionTargetTopicId ? { extensionTargetTopicId } : {}),
     };
+    return classification?.status === "unresolved"
+      ? { ...context, blocked: blockedResult(context, state) }
+      : context;
   }
 
   private resolveSnapshotStrategy(
@@ -250,13 +239,87 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
 
   private resolveActivePhase(snapshot: TutorPlanningContentContext | null, code?: string): DidacticPhase {
     const state = snapshot?.progressionState;
-    if (!snapshot || !code || !state || !state.activeTopicId || !state.phase || state.phase === "LEARN") return "LEARN";
+    if (!snapshot || !code || !state?.activeTopicId || !state.phase || state.phase === "LEARN") return "LEARN";
     if (state.revision !== snapshot.revision || snapshot.tutor?.status !== "valid") return "LEARN";
     const facts = this.factExtractor.extract(code);
     return this.topicMatcher.match(snapshot.tutor.topics, facts).some(({ topic }) => topic.id === state.activeTopicId)
       ? state.phase
       : "LEARN";
   }
+}
+
+type ClassifiedTopicMatch = {
+  readonly match: TopicMatch;
+  readonly classification: TopicClassification;
+};
+
+function classifyMatches(
+  matches: readonly TopicMatch[],
+  facts: ReturnType<SketchFactExtractor["extract"]>,
+  history: readonly TutorDialogTurn[],
+  state: TutorProgressionState,
+  difficulty: TutorDifficulty,
+  strategy: EffectiveTutorStrategy,
+): readonly ClassifiedTopicMatch[] {
+  return matches.map((match) => ({
+    match,
+    classification: classifyWithState(match.topic, facts, history, state, difficulty, strategy),
+  }));
+}
+
+function selectProgressionMatch(
+  classifications: readonly ClassifiedTopicMatch[],
+  state: TutorProgressionState,
+): ClassifiedTopicMatch | undefined {
+  return classifications.find(({ classification }) => classification.status === "probeable")
+    ?? classifications.find(({ classification }) => classification.status === "unresolved")
+    ?? (state.activeTopicId ? classifications.find(({ match }) => match.topic.id === state.activeTopicId) : undefined)
+    ?? classifications.find(({ classification }) => classification.status === "mastered");
+}
+
+function resolveExtensionTarget(
+  topics: readonly CurriculumTopic[],
+  previousTopicId: string | undefined,
+  previousPhase: DidacticPhase,
+  nextTopicId: string,
+): string | undefined {
+  if (!previousTopicId || previousPhase !== "EXPAND" || previousTopicId === nextTopicId) return undefined;
+  const previousTopic = topics.find(({ id }) => id === previousTopicId);
+  return previousTopic?.schemaVersion === 2 && previousTopic.extensions?.some(({ topic }) => topic === nextTopicId)
+    ? nextTopicId
+    : undefined;
+}
+
+function recordFollowupObservation(context: AdapterContext, input: TutorFollowupInput): void {
+  const current = findQuestion(context.topic, input.currentQuestion, input.history);
+  if (!current) return;
+  const evidenceKey = context.phase === "DEEPEN" || context.phase === "EXPAND"
+    ? "postMasteryEvidence"
+    : "masteryEvidence";
+  appendEvidence(context.state, evidenceKey, context.topic.id, toObservation(current, input.rating));
+}
+
+function updateStateAfterFollowup(
+  context: AdapterContext,
+  refreshed: AdapterContext,
+  input: TutorFollowupInput,
+  activeChanged: boolean,
+): TutorPlanningBlocked | null {
+  if (activeChanged || context.phase !== "LEARN") return null;
+  const classification = classifyWithState(
+    refreshed.topic,
+    refreshed.facts,
+    input.history,
+    context.state,
+    input.difficulty,
+    refreshed.strategy.strategy,
+  );
+  if (classification.status === "unresolved") return blockedResult(refreshed, context.state);
+  if (classification.status !== "mastered") return null;
+  markTopicMastered(context.state, refreshed.topic.id);
+  context.state.phase = "DEEPEN";
+  context.state.retainedPhases[refreshed.topic.id] = "DEEPEN";
+  return null;
 }
 
 function normalizePlan(plan: Awaited<ReturnType<LearningPlanner["start"]>>, strategy = resolveEffectiveTutorStrategy({}), state?: TutorProgressionState, phase: DidacticPhase = "LEARN", extensionTargetTopicId?: string): TutorPlan {
