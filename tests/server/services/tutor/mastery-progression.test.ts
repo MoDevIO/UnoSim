@@ -170,4 +170,44 @@ describe("mastery progression domain classification", () => {
     const expand = await adapter.planFollowup({ code: "int values[] = {1, 2};", history: [], currentQuestion: deepenAgain.question, rating: 4, difficulty: 30 });
     expect(expand).toMatchObject({ learningPhase: "EXPAND", masteredTopicIds: ["phase-topic"] });
   });
+
+  it("retains mastery across temporary fact-inapplicability and resumes the retained phase", async () => {
+    const source = await topic();
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = source.id;
+    state.phase = "DEEPEN";
+    state.retainedPhases[source.id] = "DEEPEN";
+    markTopicMastered(state, source.id);
+    const adapter = new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: { status: "valid" as const, manifest: { schemaVersion: 1 as const, topics: [], strategies: [] }, topics: [source], strategies: [] },
+        }),
+      },
+    });
+    await expect(adapter.planInitial({ code: "void setup() {} void loop() {}", history: [], difficulty: 30 })).resolves.toBeNull();
+    await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
+      .resolves.toMatchObject({ learningPhase: "DEEPEN", activeTopicId: source.id });
+  });
+
+  it("does not reuse progression state for another Course revision", async () => {
+    const source = await topic();
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = source.id;
+    state.phase = "DEEPEN";
+    markTopicMastered(state, source.id);
+    const nextRevision = "b".repeat(40);
+    const result = await new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision: nextRevision,
+          progressionState: state,
+          tutor: { status: "valid" as const, manifest: { schemaVersion: 1 as const, topics: [], strategies: [] }, topics: [source], strategies: [] },
+        }),
+      },
+    }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+    expect(result).toMatchObject({ learningPhase: "LEARN", masteredTopicIds: [] });
+  });
 });

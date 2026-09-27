@@ -182,7 +182,9 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const matches = this.topicMatcher.match(snapshot.tutor.topics, facts);
     const annotation = snapshot.exampleTutorAnnotation;
     const orderedMatches = orderTopicMatches(matches, annotation);
-    const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
+    const state = snapshot.progressionState?.revision === snapshot.revision
+      ? snapshot.progressionState
+      : createTutorProgressionState(snapshot.revision);
     const previousActiveTopicId = state.activeTopicId;
     const previousPhase = state.phase;
     const learnStrategy = this.resolveSnapshotStrategy(snapshot, annotation, "LEARN");
