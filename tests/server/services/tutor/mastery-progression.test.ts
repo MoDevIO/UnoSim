@@ -16,6 +16,33 @@ async function topic() {
 
 const revision = "a".repeat(40);
 
+function singleProbeTopic(source: Awaited<ReturnType<typeof topic>>, id: string, activation = source.activation) {
+  const concept = {
+    ...source.concepts[0]!,
+    mastery: {
+      ...source.concepts[0]!.mastery,
+      minimumSuccessfulProbes: 1,
+      minimumDistinctQuestionKinds: 1,
+      requiredIndicators: [source.questions[0]!.indicator],
+    },
+  };
+  const questions = source.questions.slice(0, 2).map((question, index) => ({
+    ...question,
+    id: `${id}-question-${index + 1}`,
+    concept: concept.id,
+    indicator: source.questions[0]!.indicator,
+  }));
+  return {
+    ...source,
+    id,
+    activation,
+    concepts: [concept],
+    questions,
+    scaffolds: [],
+    progression: { ...source.progression, entryConcepts: [concept.id], preferredOrder: [concept.id] },
+  };
+}
+
 describe("mastery progression domain classification", () => {
   it("distinguishes a probeable Topic from an unresolved exhausted Topic", async () => {
     const value = await topic();
@@ -124,6 +151,67 @@ describe("mastery progression domain classification", () => {
     expect(second).toMatchObject({ learningPhase: "DEEPEN", activeTopicId: "mastery-topic", masteredTopicIds: ["mastery-topic"] });
   });
 
+  it("latches the answered Topic before switching to the next applicable Topic", async () => {
+    const source = await topic();
+    const primary = singleProbeTopic(source, "primary-topic");
+    const secondary = singleProbeTopic(source, "secondary-topic", {
+      any: [{ fact: "array-declared", elementTypes: ["int"] }],
+    });
+    const state = createTutorProgressionState(revision);
+    const adapter = new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: {
+            status: "valid" as const,
+            manifest: { schemaVersion: 1 as const, topics: [], strategies: [] },
+            topics: [primary, secondary],
+            strategies: [],
+          },
+          exampleId: "example",
+          exampleTutorAnnotation: {
+            schemaVersion: 1 as const,
+            topics: [primary.id, secondary.id],
+            primaryTopic: primary.id,
+          },
+        }),
+      },
+    });
+
+    const first = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30, exampleId: "example" });
+    expect(first).toMatchObject({ topicId: primary.id, learningPhase: "LEARN" });
+    if (!first || "kind" in first) return;
+
+    const switched = await adapter.planFollowup({
+      code: "int values[] = {1, 2};",
+      history: [],
+      currentQuestion: first.question,
+      rating: 4,
+      difficulty: 30,
+      exampleId: "example",
+    });
+    expect(switched).toMatchObject({
+      topicId: secondary.id,
+      learningPhase: "LEARN",
+      activeTopicId: secondary.id,
+      masteredTopicIds: [primary.id],
+    });
+
+    const resumed = await adapter.planInitial({
+      code: "int value = 1;",
+      history: [],
+      difficulty: 30,
+      exampleId: "example",
+    });
+    expect(resumed).toMatchObject({
+      topicId: primary.id,
+      learningPhase: "DEEPEN",
+      activeTopicId: primary.id,
+      masteredTopicIds: [primary.id],
+    });
+  });
+
   it("moves from DEEPEN to EXPAND only after the configured post-mastery evidence", async () => {
     const source = await topic();
     const concept = {
@@ -190,6 +278,61 @@ describe("mastery progression domain classification", () => {
     await expect(adapter.planInitial({ code: "void setup() {} void loop() {}", history: [], difficulty: 30 })).resolves.toBeNull();
     await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
       .resolves.toMatchObject({ learningPhase: "DEEPEN", activeTopicId: source.id });
+  });
+
+  it("returns a controlled DEEPEN exhaustion result instead of free Tutor fallback", async () => {
+    const source = await topic();
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = source.id;
+    state.phase = "DEEPEN";
+    state.retainedPhases[source.id] = "DEEPEN";
+    markTopicMastered(state, source.id);
+    const history: TutorDialogTurn[] = source.questions.map((question) => ({
+      question: question.text ?? question.id,
+      questionId: question.id,
+      answer: "Antwort",
+      responseStyle: "normal",
+      answerRating: 4,
+    }));
+    const result = await new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: { status: "valid" as const, manifest: { schemaVersion: 1 as const, topics: [], strategies: [] }, topics: [source], strategies: [] },
+        }),
+      },
+    }).planInitial({ code: "int values[] = {1, 2};", history, difficulty: 30 });
+    expect(result).toMatchObject({ kind: "blocked", learningPhase: "DEEPEN", activeTopicId: source.id, progressionBlockedReason: "content-exhausted" });
+    expect(state.phase).toBe("DEEPEN");
+  });
+
+  it("returns a controlled EXPAND exhaustion result when no extension is available", async () => {
+    const source = await topic();
+    const expandTopic = { ...source, schemaVersion: 2 as const, id: "expand-topic" };
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = expandTopic.id;
+    state.phase = "EXPAND";
+    state.retainedPhases[expandTopic.id] = "EXPAND";
+    markTopicMastered(state, expandTopic.id);
+    const history: TutorDialogTurn[] = expandTopic.questions.map((question) => ({
+      question: question.text ?? question.id,
+      questionId: question.id,
+      answer: "Antwort",
+      responseStyle: "normal",
+      answerRating: 4,
+    }));
+    const result = await new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: { status: "valid" as const, manifest: { schemaVersion: 2 as const, topics: [], strategies: [] }, topics: [expandTopic], strategies: [] },
+        }),
+      },
+    }).planInitial({ code: "int values[] = {1, 2};", history, difficulty: 30 });
+    expect(result).toMatchObject({ kind: "blocked", learningPhase: "EXPAND", activeTopicId: expandTopic.id, progressionBlockedReason: "content-exhausted" });
+    expect(state.phase).toBe("EXPAND");
   });
 
   it("does not reuse progression state for another Course revision", async () => {

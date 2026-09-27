@@ -123,4 +123,47 @@ describe("Tutor topic precedence", () => {
     }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
     expect(result).toMatchObject({ topicId: "arrays", learningPhase: "LEARN", extensionTargetTopicId: "arrays" });
   });
+
+  it("guides EXPAND with an extension objective without activating its target", async () => {
+    const source = await pilotTopic();
+    const primary = {
+      ...source,
+      schemaVersion: 2 as const,
+      id: "memory",
+      extensions: [{ topic: "arrays", objective: "Ein Array-Beispiel vergleichen." }],
+    };
+    const target = {
+      ...source,
+      schemaVersion: 2 as const,
+      id: "arrays",
+      activation: { any: [{ fact: "serial-call" as const, values: ["write"] }] },
+    };
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = primary.id;
+    state.phase = "EXPAND";
+    state.retainedPhases[primary.id] = "EXPAND";
+    markTopicMastered(state, primary.id);
+    const adapter = new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: {
+            status: "valid" as const,
+            manifest: { schemaVersion: 2 as const, topics: [], strategies: [] },
+            topics: [primary, target],
+            strategies: [],
+          },
+        }),
+      },
+    });
+
+    const expansion = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+    expect(expansion).toMatchObject({ topicId: primary.id, learningPhase: "EXPAND", activeTopicId: primary.id });
+    expect(expansion).toMatchObject({ expansionBrief: { sourceTopicId: primary.id, targetTopicId: target.id, objective: "Ein Array-Beispiel vergleichen." } });
+    expect(expansion).not.toMatchObject({ activeTopicId: target.id, extensionTargetTopicId: target.id });
+
+    const activated = await adapter.planInitial({ code: "int values[] = {1, 2}; void setup(){ Serial.write('A'); }", history: [], difficulty: 30 });
+    expect(activated).toMatchObject({ topicId: target.id, learningPhase: "LEARN", activeTopicId: target.id, extensionTargetTopicId: target.id });
+  });
 });
